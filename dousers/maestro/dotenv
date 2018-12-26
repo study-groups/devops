@@ -1,0 +1,4 @@
+# edit and copy this to .env
+remote=example.com
+remoteuser=unixname1
+localuser=unixname2
