@@ -1,2 +1,1 @@
-source .env
-docker build -t $image $1 
+docker build -t $image . 

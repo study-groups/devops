@@ -1,3 +1,4 @@
+DOAPPSDIR=/root/devops/doapps
 doapp-help() {
   echo "
   doapp is a collection of Bash scripts for Docker container CRUD.
@@ -6,19 +7,33 @@ doapp-help() {
 }
 
 doapp-build(){
-  source $DOAPPDIR/build.sh
+  source $DOAPPSDIR/$1/build.sh
 }
 
 doapp-config(){
-  source $DOAPPDIR/config.sh
+  source $DOAPPSDIR/$1/config.sh
 }
 
 doapp-run(){
-  source $DOAPPDIR/run.sh
+  cat $DOAPPSDIR/$1/.env
+  source $DOAPPSDIR/$1/.env
+  source $DOAPPSDIR/$1/run.sh
 }
 
 doapp-kill(){
   # $1 = app name
   docker container stop $1
   docker container rm $1
+}
+
+doapp-ls(){
+  docker container ls
+}
+
+doapp-info() {
+  echo "
+  App: $app
+  Image: $image
+"
+
 }
