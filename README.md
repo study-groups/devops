@@ -11,7 +11,7 @@ DevOps study group- largely about Docker.
 - Dont use Links. Instead use [overlay network driver](https://docs.docker.com/glossary/?term=overlay%20network%20driver)
 - [Docs on Volumes](https://docs.docker.com/storage/volumes/) the preferred mechanism for data persistence
 - [Doc on services](https://docs.docker.com/get-started/part3/#about-services) Services are really just “containers in production.”
-- Compose files: Run, and scale services with the Docker platform via [docker-compose.yml](https://docs.docker.com/get-started/part3/#your-first-docker-composeyml-file)
+- [Compose files](https://docs.docker.com/compose/compose-file/): Run, and scale services with the Docker platform via [docker-compose.yml](https://docs.docker.com/get-started/part3/#your-first-docker-composeyml-file)
 - Overlay networks: The [overlay network driver](https://docs.docker.com/network/overlay/) creates a distributed network among multiple Docker daemon hosts. Not needed until scale.
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
 - Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
