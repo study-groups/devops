@@ -18,6 +18,7 @@ DevOps study group- largely about Docker.
 - There are four major areas to consider when reviewing [Docker ecurity](https://docs.docker.com/engine/security/security/).
 
 # Traefik
+Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 - [traefik on Github](https://github.com/containous/traefik)
 - [Traefik basics](https://docs.traefik.io/basics/#concepts) describing backend, frontend, entry points, and servers.
 
