@@ -12,7 +12,7 @@ dotool-help(){
 
   https://www.digitalocean.com/community/tutorials/
   how-to-use-doctl-the-official-digitalocean-command-line-client
-"
+  "
 }
 
 dotool-info(){
@@ -106,4 +106,35 @@ dotool-possibilites(){
   echo "All available locations"
   echo "-----------------------"
   doctl compute region list
+}
+
+dotool-remote-daemonize () {
+    local remoteIp=$(nhctl-droplet-name-to-ip $1 );
+    echo "Here is the $remoteIp";
+    local remotePath="/root/";
+    scp "/home/cqc/src/vendor/daemonize/daemonize" root@$remoteIp:
+}
+dotool-remote-provision() {
+    local remoteIp=$(dotool-droplet-name-to-ip $1 );
+    local remotePath="/root";
+    local gitCqcServer="https://github.com/code-quality-consulting/cqc-server.git";
+    ssh -t root@$remoteIp git clone $gitCqcServer
+}
+
+dotool-remote-init() {
+    local remoteIp=$(dotool-name-to-ip $1 );
+    ssh root@$remoteIp bash /root/cqc-server/cqc-init.sh
+}
+
+dotool-remote-whoami() {
+    ssh root@$remote docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
+}
+
+dotool-certbot()
+{
+    certbot certonly --manual \
+        --preferred-challenges=dns \
+        --email mike.ricos@gmail.com \
+        --agree-tos -d *.$1 # pass domainname.com
+
 }
