@@ -34,13 +34,18 @@ dotool-list-long(){
 }
 
 
+#--image ubuntu-18-04-x64 \
+#38835928
 dotool-create(){
+  imgtype=${3:-ubuntu-18-04-x64}
+  echo "Using $imgtype"
   doctl compute droplet create $1 \
         --size 1gb  \
-        --image ubuntu-18-04-x64 \
+        --image $imgtype \
         --region sfo2 \
         --ssh-keys $2
 }
+
 
 dotool-delete(){
   doctl compute droplet delete $1
