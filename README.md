@@ -19,8 +19,9 @@ DevOps study group- largely about Docker.
 
 # Traefik
 Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
-- [traefik on Github](https://github.com/containous/traefik)
+- [Traefik on Github](https://github.com/containous/traefik)
 - [Traefik basics](https://docs.traefik.io/basics/#concepts) describing backend, frontend, entry points, and servers.
+- [Traefik example with Node.js server and Docker](https://github.com/Pungyeon/docker-traefik-example)
 
 # References
 - [Docker Engine Faq](https://docs.docker.com/engine/faq/): Docker frequently asked questions, 9 min read.
