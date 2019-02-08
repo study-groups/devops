@@ -17,6 +17,9 @@ DevOps study group- largely about Docker.
 - Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
 - There are four major areas to consider when reviewing [Docker ecurity](https://docs.docker.com/engine/security/security/).
 
+### Docker Security
+- [Docker Security Guide](https://docs.docker.com/engine/security/security/)
+
 # Traefik
 Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 - [Traefik on Github](https://github.com/containous/traefik)
