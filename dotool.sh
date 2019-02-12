@@ -1,8 +1,8 @@
 dotool-help(){
   echo "
-  dotool version 18.12
+  dotool version 19.02
 
-  dotool is as collection os Bash functions making 
+  dotool is as collection os Bash functions making
   Digital Ocean's command line doctl tool easier to use.
 
   Digital Ocean API key goes here:
@@ -38,11 +38,12 @@ dotool-list-long(){
 #38835928
 dotool-create(){
   imgtype=${3:-ubuntu-18-04-x64}
+  region=${4:-sfo2}
   echo "Using $imgtype"
   doctl compute droplet create $1 \
         --size 1gb  \
         --image $imgtype \
-        --region sfo2 \
+        --region $region \
         --ssh-keys $2
 }
 
@@ -72,7 +73,7 @@ dotool-cp(){
 }
 
 dotool-config(){
-  CONFIG=${2:-config.sh}    
+  CONFIG=${2:-config.sh}
   dotool-cp $CONFIG $1 $CONFIG # $2=config-file $1=droplet-name
   ssh root@$(dotool-name-to-ip $1) '\
       #source $CONFIG
