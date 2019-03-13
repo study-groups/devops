@@ -15,7 +15,8 @@ DevOps study group- largely about Docker.
 - Overlay networks: The [overlay network driver](https://docs.docker.com/network/overlay/) creates a distributed network among multiple Docker daemon hosts. Not needed until scale.
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
 - Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
-- There are four major areas to consider when reviewing [Docker ecurity](https://docs.docker.com/engine/security/security/).
+- There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
+- [Best practices for writing Dockerfiles](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 
 # Traefik
 Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
