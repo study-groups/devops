@@ -1,0 +1,7 @@
+# copy this file to .env and edit
+# it assumes a from-to orientation 
+# from=remote, to=local means remote is upstream
+# from=local, to=remote means remote is down stream
+remote=XXX.XXX.XXX.XXX  # ip4 address of upstream node
+remoteuser=username1    # linux user name on upsteam node 
+localuser=username2     # 
