@@ -1,23 +1,23 @@
-DOUSERS_DIR="/root/devops/dousers/"
-douser-help() {
+NODEUSERS_DIR="/root/devops/dousers/"
+nodeuser-help() {
   echo "
-  douser is a collection of Bash functions for syncing up 
+  nodeuser is a collection of Bash functions for syncing up 
   Unix accounts on different machines.
 "
 }
 
-douser-ls(){
-  ls -d $DOUSERSDIR */
+nodeuser-ls(){
+  ls -d $NODEUSERSDIR */
 }
 
-douser-add(){
-  mkdir $DOUSERSDIR/$1
+nodeuser-add(){
+  mkdir $NODEUSERSDIR/$1
   adduser --disabled-password \
 	  --shell /bin/bash \
           $1
 }
 
-douser-sync() {
+nodeuser-sync() {
   douser-info
   # trailing / on source means 'get the content of dir'
   # no trailing / means 'get directory name and its contents'
@@ -25,11 +25,11 @@ douser-sync() {
   chown -R $localuser:$localuser /home/$localuser 
 }
 
-douser-set() {
+nodeuser-set() {
   source  $DOUSERS_DIR/$1/.env
 }
 
-douser-info() {
+nodeuser-info() {
   echo "
   Local user: $localuser
   Remote user: $remoteuser
@@ -37,7 +37,7 @@ douser-info() {
 "
 }
 
-douser-keygen() {
+nodeuser-keygen() {
   # Create a key stored in ~$localuser/.ssh/id_rsa 
   sudo -u $localuser ssh-keygen 
 
