@@ -1,5 +1,5 @@
 USER=root
-NEWUSER=dataops
+NEWUSER=devops
 
 config-help(){
   echo "

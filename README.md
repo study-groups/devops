@@ -1,5 +1,11 @@
 # devops-study-group
-DevOps study group- largely about Docker.
+The DevOps Study Group meets to discuss provisioning, securing and
+maintaing cloud based resorces starting with Virtual Private Servers
+hosted at Digital Ocean.  The [devops.sh](./devops.sh) file is a
+collection of Bash functions which collects various tools neceassry to
+orchestrate secure operations.
+
+## Digital Ocean
 
 ## Docker 
 - Marketing from docker.com: [Why Docker?](https://www.docker.com/why-docker) 
