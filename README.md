@@ -1,9 +1,31 @@
 # devops-study-group
 The DevOps Study Group meets to discuss provisioning, securing and
-maintaing cloud based resorces starting with Virtual Private Servers
-hosted at Digital Ocean.  The [devops.sh](./devops.sh) file is a
+maintaing cloud based resources at Digital Ocean and Google.
+
+The [devops.sh](./devops.sh) file is a
 collection of Bash functions which collects various tools neceassry to
-orchestrate secure operations.
+orchestrate secure operations. "Orchestration at a distance" describes
+ the provisioning, configuring, running and securing of remote 
+ virtual environments.
+
+## Virtual Environments
+Two methods of virtualization:
+
+1. [hypervisor](https://en.wikipedia.org/wiki/Hypervisor)
+2. [container](https://en.wikipedia.org/wiki/OS-level_virtualization)
+
+
+## The goal
+The goal of this study group is to provide foundational knowledege on 
+best practices to securely share CPU resources of CPU scheduler time, 
+memory allocation and attached storage in both Google Cloud Platform
+and Digital Ocean .
+
+. | Hypervisor | Container
+--- | --- | ---
+**Google** | [KVMs at GooGgle](https://cloud.google.com/blog/products/gcp/7-ways-we-harden-our-kvm-hypervisor-at-google-cloud-security-in-plaintext) | [Containers at Google](https://cloud.google.com/containers/)
+**DigitalOcean** | [droplets](https://www.digitalocean.com/docs/) | [nodeholder](https://en.m.wikipedia.org/wiki/Cloud_computing)
+
 
 ## Digital Ocean
 
