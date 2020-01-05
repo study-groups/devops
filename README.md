@@ -62,7 +62,7 @@ Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP
 - [One click install vi digitalocean.com](https://www.digitalocean.com/docs/one-clicks/docker/)
 - [What is a container at docker.com](https://www.docker.com/resources/what-container)
 - [Get started](https://docs.docker.com/get-started/) at docker.com
-- Dockerfile: [Dockerfile at Docker](https://docs.docker.com/glossary/?term=Dockerfile)
+- Dockerfile: [Dockerfile at Docker](https://docs.docker.com/glossary/?term=Dockerfile) and [best practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 - [Layers definition](https://docs.docker.com/glossary/?term=layer)
 - Dont use Links. Instead use [overlay network driver](https://docs.docker.com/glossary/?term=overlay%20network%20driver)
 - [Docs on Volumes](https://docs.docker.com/storage/volumes/) the preferred mechanism for data persistence
@@ -71,7 +71,8 @@ Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP
 - Overlay networks: The [overlay network driver](https://docs.docker.com/network/overlay/) creates a distributed network among multiple Docker daemon hosts. Not needed until scale.
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
 - Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
-- There are four major areas to consider when reviewing [Docker ecurity](https://docs.docker.com/engine/security/security/).
+- There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
+- 
 
 
 ## References
