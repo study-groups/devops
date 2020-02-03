@@ -5,6 +5,8 @@ Script functions for configuring UNIX desktop.
 }
 
 config-desktop-setup-terminal() {
+  local outfile=~/.config/xfce4/terminal/terminalrc
+  touch "$outfile"
   echo """
 [Configuration]
 ColorForeground=#b7b7b7
@@ -42,5 +44,5 @@ MiscUseShiftArrowsToScroll=FALSE
 MiscSlimTabs=FALSE
 MiscNewTabAdjacent=FALSE
 TabActivityColor=#0f4999
-""" 
+""" > $outfile
 }
