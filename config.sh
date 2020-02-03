@@ -20,8 +20,8 @@ config-update-os(){
   apt-get -y purge python
   apt-get -y install python3.6
   apt-get -y install python3-pip
-  pip3  install scrapy
-  pip3 install SQLAlchemy
+  #pip3  install scrapy
+  #pip3 install SQLAlchemy
 }
 
 config-add-user(){
