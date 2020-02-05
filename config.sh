@@ -70,13 +70,17 @@ config-init(){
   config-start-apps
   config-security
 }
+
+##################################################
+## DESKTOP
+##################################################
 config-desktop-help() {
   echo """
 Script functions for configuring UNIX desktop.
 """
 }
 
-config-desktop-setup-terminal() {
+config-desktop-xfce4-terminal() {
   local outfile=~/.config/xfce4/terminal/terminalrc
   touch "$outfile"
   echo """
@@ -117,4 +121,19 @@ MiscSlimTabs=FALSE
 MiscNewTabAdjacent=FALSE
 TabActivityColor=#0f4999
 """ > $outfile
+
+
+}
+
+config-desktop-chrome() {
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+     -P /tmp
+
+sudo dpkg -i /tmp/google-chrome-stable_current_amd64.deb
+
+}
+
+
+config-desktop-all() {
+  confg-desktop-chrome
 }
