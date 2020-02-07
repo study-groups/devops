@@ -121,8 +121,6 @@ MiscSlimTabs=FALSE
 MiscNewTabAdjacent=FALSE
 TabActivityColor=#0f4999
 """ > $outfile
-
-
 }
 
 config-desktop-chrome() {
