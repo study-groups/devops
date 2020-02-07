@@ -135,11 +135,48 @@ dotool-remote-whoami() {
     ssh root@$remote docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
 }
 
-dotool-certbot()
+enctool-cert()
 {
     certbot certonly --manual \
-        --preferred-challenges=dns \
-        --email mike.ricos@gmail.com \
+        --preferred-challenges=dns-01 \
         --agree-tos -d *.$1 # pass domainname.com
 
+}
+
+rctool-help() {
+    echo "rctool is  collection of Bash scripts which makes interfacing
+to Reseller Club's Domain Name Management API easier. More API info:
+
+https://manage.resellerclub.com/kb/node/1106
+
+You are using RC_APIKEY = $RC_APIKEY
+"
+}
+
+rctool-init(){
+    # RCTOOL_PATH must be set prior to calling
+    RCTOOL_PATH=.
+    source $RCTOOL_PATH/resellerclub/env.sh
+}
+
+rctool-list-a() {
+    # https://manage.resellerclub.com/kb/node/1106
+    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=A&no-of-records=50&page-no=1"
+}
+
+rctool-list-txt() {
+    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=TXT&no-of-records=50&page-no=1"
+}
+
+rctool-add-txt() {
+    http "https://test.httpapi.com/api/dns/manage/add-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
+}
+
+rctool-update-txt() {
+    http "https://test.httpapi.com/api/dns/manage/update-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
+}
+
+
+rctool-delete-txt() {
+    http "https://test.httpapi.com/api/dns/manage/delete-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
 }
