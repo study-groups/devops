@@ -88,7 +88,7 @@ dotool-config(){
 dotool-status(){
   ssh root@$(dotool-name-to-ip $1) '\
   echo ""
-  echo "vm stat -s"
+  echo "vmstat -s"
   echo "----------"
   vmstat -s
   echo ""
@@ -101,6 +101,12 @@ dotool-upgrade(){
       apt -y update
       apt -y upgrade
 "
+}
+
+dotool-loop-image(){
+  udisksctl loop-setup -f  $1
+  #mkdir /mnt/$1
+  echo "replace X: mount /dev/loopXp1 /mnt/$1" 
 }
 dotool-possibilites(){
   echo ""
