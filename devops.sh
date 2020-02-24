@@ -26,7 +26,7 @@ dotool-keys(){
 
 dotool-list(){
   doctl compute droplet list \
-      --format "ID,Name,PublicIPv4,Volumes"
+      --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
 }
 dotool-list-long(){
   doctl compute droplet list \
