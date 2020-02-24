@@ -135,6 +135,10 @@ dotool-remote-whoami() {
     ssh root@$remote docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
 }
 
+dotool-timestamp-list(){
+   echo "--- $(date)"; dotool-list; echo "--- $(date +%s)"
+}
+
 enctool-cert()
 {
     certbot certonly --manual \
