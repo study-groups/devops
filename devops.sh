@@ -145,6 +145,10 @@ dotool-timestamp-list(){
    echo "--- $(date)"; dotool-list; echo "--- $(date +%s)"
 }
 
+dotool-log-top() {
+  (dotool-timestamp-list && cat $1) > temp && mv temp $1 
+}
+
 enctool-cert()
 {
     certbot certonly --manual \

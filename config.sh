@@ -13,6 +13,13 @@ config-help(){
 "
 }
 
+config-devtools(){
+ apt-get install build-essential autoconf linux-headers-$(uname -r)
+
+if test -x ./autogen.sh; then ./autogen.sh; else ./configure; fi && make && sudo make install || echo "Build Failed"
+
+}
+
 config-update-os(){
   apt-get update
   apt-get -y upgrade
@@ -69,69 +76,4 @@ config-init(){
   config-install-apps
   config-start-apps
   config-security
-}
-
-##################################################
-## DESKTOP
-##################################################
-config-desktop-help() {
-  echo """
-Script functions for configuring UNIX desktop.
-"""
-}
-
-config-desktop-xfce4-terminal() {
-  local outfile=~/.config/xfce4/terminal/terminalrc
-  touch "$outfile"
-  echo """
-[Configuration]
-ColorForeground=#b7b7b7
-ColorBackground=#131926
-ColorCursor=#0f4999
-ColorSelection=#163b59
-ColorSelectionUseDefault=FALSE
-ColorBold=#ffffff
-ColorBoldUseDefault=FALSE
-ColorPalette=#000000;#aa0000;#44aa44;#aa5500;#0039aa;#aa22aa;#1a92aa;#aaaaaa;#777777;#ff8787;#4ce64c;#ded82c;#295fcc;#cc58cc;#4ccce6;#ffffff
-FontName=DejaVu Sans Mono 17
-MiscAlwaysShowTabs=FALSE
-MiscBell=FALSE
-MiscBellUrgent=FALSE
-MiscBordersDefault=TRUE
-MiscCursorBlinks=FALSE
-MiscCursorShape=TERMINAL_CURSOR_SHAPE_BLOCK
-MiscDefaultGeometry=80x24
-MiscInheritGeometry=FALSE
-MiscMenubarDefault=FALSE
-MiscMouseAutohide=FALSE
-MiscMouseWheelZoom=TRUE
-MiscToolbarDefault=FALSE
-MiscConfirmClose=TRUE
-MiscCycleTabs=TRUE
-MiscTabCloseButtons=TRUE
-MiscTabCloseMiddleClick=TRUE
-MiscTabPosition=GTK_POS_TOP
-MiscHighlightUrls=TRUE
-MiscMiddleClickOpensUri=FALSE
-MiscCopyOnSelect=FALSE
-MiscShowRelaunchDialog=TRUE
-MiscRewrapOnResize=TRUE
-MiscUseShiftArrowsToScroll=FALSE
-MiscSlimTabs=FALSE
-MiscNewTabAdjacent=FALSE
-TabActivityColor=#0f4999
-""" > $outfile
-}
-
-config-desktop-chrome() {
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-     -P /tmp
-
-sudo dpkg -i /tmp/google-chrome-stable_current_amd64.deb
-
-}
-
-
-config-desktop-all() {
-  confg-desktop-chrome
 }
