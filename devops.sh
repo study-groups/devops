@@ -12,6 +12,8 @@ dotool-help(){
 
   https://www.digitalocean.com/community/tutorials/
   how-to-use-doctl-the-official-digitalocean-command-line-client
+
+  https://www.digitalocean.com/docs/platform/availability-matrix/
   "
 }
 
@@ -143,6 +145,10 @@ dotool-remote-whoami() {
 
 dotool-timestamp-list(){
    echo "--- $(date)"; dotool-list; echo "--- $(date +%s)"
+}
+
+dotool-log-top() {
+  (dotool-timestamp-list && cat $1) > temp && mv temp $1 
 }
 
 enctool-cert()
