@@ -21,7 +21,7 @@ sync-help(){
 sync-from() {
   local from=$1
   local to="$TO/$from"
-  local params="-rvz"
+  local params="-rva"
   mkdir -p "$to"
   #echo "dryrun: rsync $params $from $to/$from"
   rsync $params "$from/" "$to"
