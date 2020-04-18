@@ -1,3 +1,5 @@
+#!/bin/bash
+
 dotool-help(){
   echo "
   dotool version 18.12
@@ -41,42 +43,43 @@ dotool-list-long(){
 dotool-create(){
   imgtype=${3:-ubuntu-18-04-x64}
   echo "Using $imgtype"
-  doctl compute droplet create $1 \
+  doctl compute droplet create "$1" \
         --size 1gb  \
-        --image $imgtype \
+        --image "$imgtype" \
         --region sfo2 \
-        --ssh-keys $2
+        --ssh-keys "$2"
 }
 
 
 dotool-delete(){
-  doctl compute droplet delete $1
+  doctl compute droplet delete "$1"
 }
 
 dotool-id-to-ip(){
   local id=$1
-  doctl compute droplet get $id \
+  doctl compute droplet get "$id" \
       --no-header \
       --format "Public IPv4"
 }
 
 dotool-name-to-ip(){
-  local id=$(dotool-list | grep "$1 " | awk '{print $1}')
-  echo $(dotool-id-to-ip $id)
+  local id
+  id=$(dotool-list | grep "$1 " | awk '{print $1}');
+  dotool-id-to-ip "$id"
 }
 
 dotool-login(){
-  ssh root@$(dotool-name-to-ip $1)
+  ssh root@"$(dotool-name-to-ip "$1")"
 }
 
 dotool-cp(){
-  scp $1 root@$(dotool-name-to-ip $2):$3
+  scp "$1" root@"$(dotool-name-to-ip "$2")":"$3"
 }
 
 dotool-config(){
   CONFIG=${2:-config.sh}    
-  dotool-cp $CONFIG $1 $CONFIG # $2=config-file $1=droplet-name
-  ssh root@$(dotool-name-to-ip $1) '\
+  dotool-cp "$CONFIG" "$1" "$CONFIG" # $2=config-file $1=droplet-name
+  ssh root@"$(dotool-name-to-ip "$1")" '
       #source $CONFIG
       #config-init
       echo "Log in to remote host"
@@ -88,7 +91,7 @@ dotool-config(){
 }
 
 dotool-status(){
-  ssh root@$(dotool-name-to-ip $1) '\
+  ssh root@"$(dotool-name-to-ip "$1")" '
   echo ""
   echo "vmstat -s"
   echo "----------"
@@ -99,14 +102,14 @@ dotool-status(){
 }
 
 dotool-upgrade(){
-  ssh root@$(dotool-name-to-ip $1) "\
+  ssh root@"$(dotool-name-to-ip "$1")" "
       apt -y update
       apt -y upgrade
 "
 }
 
 dotool-loop-image(){
-  udisksctl loop-setup -f  $1
+  udisksctl loop-setup -f  "$1"
   #mkdir /mnt/$1
   echo "replace X: mount /dev/loopXp1 /mnt/$1" 
 }
@@ -122,25 +125,28 @@ dotool-possibilites(){
 }
 
 dotool-remote-daemonize () {
-    local remoteIp=$(nhctl-droplet-name-to-ip $1 );
+    local remoteIp
+	remoteIp=$(nhctl-droplet-name-to-ip "$1" );
     echo "Here is the $remoteIp";
     local remotePath="/root/";
-    scp "/home/cqc/src/vendor/daemonize/daemonize" root@$remoteIp:
+    scp "/home/cqc/src/vendor/daemonize/daemonize" root@"$remoteIp":
 }
 dotool-remote-provision() {
-    local remoteIp=$(dotool-droplet-name-to-ip $1 );
+    local remoteIp
+	remoteIp=$(dotool-droplet-name-to-ip "$1");
     local remotePath="/root";
     local gitCqcServer="https://github.com/code-quality-consulting/cqc-server.git";
-    ssh -t root@$remoteIp git clone $gitCqcServer
+    ssh -t root@"$remoteIp" git clone "$gitCqcServer"
 }
 
 dotool-remote-init() {
-    local remoteIp=$(dotool-name-to-ip $1 );
-    ssh root@$remoteIp bash /root/cqc-server/cqc-init.sh
+    local remoteIp
+	remoteIp=$(dotool-name-to-ip "$1" );
+    ssh root@"$remoteIp" bash /root/cqc-server/cqc-init.sh
 }
 
 dotool-remote-whoami() {
-    ssh root@$remote docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
+    ssh root@"$remote" docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
 }
 
 dotool-timestamp-list(){
@@ -148,14 +154,14 @@ dotool-timestamp-list(){
 }
 
 dotool-log-top() {
-  (dotool-timestamp-list && cat $1) > temp && mv temp $1 
+  (dotool-timestamp-list && cat "$1") > temp && mv temp "$1"
 }
 
 enctool-cert()
 {
     certbot certonly --manual \
         --preferred-challenges=dns-01 \
-        --agree-tos -d *.$1 # pass domainname.com
+        --agree-tos -d ./*."$1" # pass domainname.com
 
 }
 
