@@ -124,39 +124,6 @@ dotool-possibilites(){
   doctl compute region list
 }
 
-dotool-remote-daemonize () {
-    local remoteIp
-	remoteIp=$(nhctl-droplet-name-to-ip "$1" );
-    echo "Here is the $remoteIp";
-    local remotePath="/root/";
-    scp "/home/cqc/src/vendor/daemonize/daemonize" root@"$remoteIp":
-}
-dotool-remote-provision() {
-    local remoteIp
-	remoteIp=$(dotool-droplet-name-to-ip "$1");
-    local remotePath="/root";
-    local gitCqcServer="https://github.com/code-quality-consulting/cqc-server.git";
-    ssh -t root@"$remoteIp" git clone "$gitCqcServer"
-}
-
-dotool-remote-init() {
-    local remoteIp
-	remoteIp=$(dotool-name-to-ip "$1" );
-    ssh root@"$remoteIp" bash /root/cqc-server/cqc-init.sh
-}
-
-dotool-remote-whoami() {
-    ssh root@"$remote" docker-compose -f /root/cqc-server/docker-compose.yml up -d whoami
-}
-
-dotool-timestamp-list(){
-   echo "--- $(date)"; dotool-list; echo "--- $(date +%s)"
-}
-
-dotool-log-top() {
-  (dotool-timestamp-list && cat "$1") > temp && mv temp "$1"
-}
-
 enctool-cert()
 {
     certbot certonly --manual \
@@ -176,9 +143,9 @@ You are using RC_APIKEY = $RC_APIKEY
 }
 
 rctool-init(){
-    # RCTOOL_PATH must be set prior to calling
-    RCTOOL_PATH=.
-    source $RCTOOL_PATH/resellerclub/env.sh
+    RCTOOL_ENV="./resellerclub/env.sh" # must be set prior to calling
+    # shellcheck source=/dev/null    
+    [ -f "$RCTOOL_ENV" ] &&  source "$RCTOOL_ENV"
 }
 
 rctool-list-a() {
