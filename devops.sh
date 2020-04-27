@@ -124,6 +124,36 @@ dotool-possibilites(){
   doctl compute region list
 }
 
+##########################################################################
+# screen-
+#   methods for shell based communication. 
+##########################################################################
+screen-start(){
+  screen -S devops  # create devops channel
+}
+screen-connect(){
+  screen -x devops 
+}
+
+zgit(){
+  git config --global user.email "zoverhulser@gmail.com"
+  git config --global user.name "Zach Overhulser"
+  git $@
+}
+
+mgit(){
+  git config --global user.email "mike.ricos@gmail.com"
+  git config --global user.name "Mike Ricos"
+  git $@
+}
+
+
+
+
+##########################################################################
+# enctool-
+#  encryption tool for managing TLS certs, etc.
+##########################################################################
 enctool-cert()
 {
     certbot certonly --manual \
@@ -132,6 +162,10 @@ enctool-cert()
 
 }
 
+##########################################################################
+# rctool-
+#   reseller club api for mananging domain names from a distance. 
+##########################################################################
 rctool-help() {
     echo "rctool is  collection of Bash scripts which makes interfacing
 to Reseller Club's Domain Name Management API easier. More API info:
