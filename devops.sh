@@ -138,17 +138,12 @@ screen-connect(){
 zgit(){
   git config --global user.email "zoverhulser@gmail.com"
   git config --global user.name "Zach Overhulser"
-  git $@
 }
 
 mgit(){
   git config --global user.email "mike.ricos@gmail.com"
   git config --global user.name "Mike Ricos"
-  git $@
 }
-
-
-
 
 ##########################################################################
 # enctool-
