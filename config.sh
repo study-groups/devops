@@ -4,13 +4,8 @@ GIT_USER="Mike Ricos"
 GIT_EMAIL="mike.ricos@gmail.com"
 
 config-help(){
-  echo "
-  remote configuration file v 001
-  -------------------------------
-  Run this remotely via local machine via:
-   1) scp config.sh ssh root@host:config.sh
-   2) ssh root@host: \"source config.sh && config-init\"
-"
+  echo "\
+Config is a collection of shell functions for configuring unix machines."
 }
 
 config-devtools(){
@@ -112,3 +107,13 @@ config-init(){
   config-start-apps
   config-security
 }
+config-notes(){
+  echo "\
+  Remote Configuration File
+  --------------------------
+  Run config-init() remotely via local machine via:
+   1) scp config.sh ssh root@host:config.sh
+   2) ssh root@host: \"source config.sh && config-init\"
+"
+}
+
