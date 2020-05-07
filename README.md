@@ -51,6 +51,12 @@ vault | devops-keys-add-{digocean,google}
 consul | devops-{start,stop,update}
 nomad | devops-run
 
+## Git 
+- [git](https://git-scm.com/): Git is version control for software development, written by Linus Torvalds.
+- [Git From the Bits Up](https://www.youtube.com/watch?v=MYP56QJpDr4): Join GitHub trainer and evangelist Tim Berglund for a look at Git, from the bits up. This talk is not for the Git beginner, but a more advanced look at "weird internals stuff" and obscure commands that will reveal a sort of internal API that is there for you to use and help expose you to certain intrinsic software design insights that can be had from looking at Git at this level.
+
+- [Git Tutorial for Beginners: Command-Line Fundamentals](https://www.youtube.com/watch?v=HVsySz-h9r4&list=PL-osiE80TeTuRUfjRe54Eea17-YfnOOAx): Videos by Corey Schafer. We'll go over the basics of what git is and how to use it within the command-line. There are several GUI tools out there to help you get started with git, but it can be extremely beneficial to learn git from the command-line as early as possible.
+
 ## Traefik
 Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 - [Traefik on Github](https://github.com/containous/traefik)
@@ -72,8 +78,6 @@ Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
 - Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
 - There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
-- 
-
 
 ## References
 - [Docker Engine Faq](https://docs.docker.com/engine/faq/): Docker frequently asked questions, 9 min read.
