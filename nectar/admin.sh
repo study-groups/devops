@@ -1,30 +1,28 @@
-USER=root      # config starts with Root
-NEWUSER=devops # ends by handing over to this user
-GIT_USER="Mike Ricos" #  
-GIT_EMAIL="mike.ricos@gmail.com"
+USER=admin      # config starts with Root, created this admin previously
 
-config-help(){
+admin-help(){
   echo "\
-Config is a collection of shell functions for configuring unix machines."
+Admin is a collection of scripts to configure runtime operations. 
+  -------------------------------
+  Run this remotely via local machine via:
+   1) scp admin.sh ssh admin@host:admin.sh
+   2) ssh root@host: \"source admin.sh && admin-init\"
+
+  Requires:
+    - running as admin
+
+  Configures a Unix server and account for process 'containers'
+  addresseble by system defined TCP sockets. 
+"
 }
 
-config-devtools(){
+admin-devtools(){
  apt-get install build-essential autoconf linux-headers-$(uname -r)
 
-if test -x ./autogen.sh; then ./autogen.sh; else ./configure; fi && make && sudo make install || echo "Build Failed"
-
+if test -x ./autogen.sh; then ./autogen.sh; else ./configure; \
+fi && make && sudo make install || echo "Build Failed"
 }
 
-config-update-os(){
-  apt-get update
-  apt-get -y upgrade
-  apt-get -y purge python3.6
-  apt-get -y purge python
-  apt-get -y install python3.6
-  apt-get -y install python3-pip
-  #pip3  install scrapy
-  #pip3 install SQLAlchemy
-}
 
 config-mount-image-help(){
   echo "
@@ -87,11 +85,6 @@ config-install-apps(){
   cd ~
 }
 
-config-git() {
-  git config --global  user.name $GIT_USER 
-  git config --global user.email $GIT_EMAIL 
-}
-
 config-start-apps(){
   su $NEWUSER
   cd /home/$NEWUSER/apps/scrapy
@@ -107,13 +100,3 @@ config-init(){
   config-start-apps
   config-security
 }
-config-notes(){
-  echo "\
-  Remote Configuration File
-  --------------------------
-  Run config-init() remotely via local machine via:
-   1) scp config.sh ssh root@host:config.sh
-   2) ssh root@host: \"source config.sh && config-init\"
-"
-}
-
