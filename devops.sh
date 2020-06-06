@@ -21,18 +21,26 @@ dotool-help(){
 
 dotool-info(){
   echo "API key stored in .config/doctl/config.yaml"
-  doctl account get
+  ## Gets account information.
+  doctl account get \
+      --format "Email,DropletLimit,EmailVerified,UUID,Status" \
+      | awk ' { print $1 } '
+  ## would like to get each of these on a newline
+  ## so far haven't been successful with awk, et al.
 }
 
 dotool-keys(){
+  ## shows the users that have access to the hypervisor???
   doctl compute ssh-key list
 }
 
 dotool-list(){
+  ## shows the list of virtual servers we have up
   doctl compute droplet list \
       --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
 }
 dotool-list-long(){
+  ## shows the verbose list of virtual servers that we have up
   doctl compute droplet list \
       --format "ID,Name,Memory,Disk,Region,Features,Volumes"
 }
@@ -41,13 +49,13 @@ dotool-list-long(){
 #--image ubuntu-18-04-x64 \
 #38835928
 dotool-create(){
-  imgtype=${3:-ubuntu-18-04-x64}
+  imgtype=${3:-ubuntu-18-04-x64} ## default image is ubuntu v18.04
   echo "Using $imgtype"
-  doctl compute droplet create "$1" \
+  doctl compute droplet create "$1" \ ## name of droplet
         --size 1gb  \
         --image "$imgtype" \
         --region sfo2 \
-        --ssh-keys "$2"
+        --ssh-keys "$2" ## ssh key or fingerprint
 }
 
 
@@ -69,6 +77,7 @@ dotool-name-to-ip(){
 }
 
 dotool-login(){
+  ## log in to the droplet via name of droplet
   ssh root@"$(dotool-name-to-ip "$1")"
 }
 
