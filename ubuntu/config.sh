@@ -23,9 +23,16 @@ config-update-os(){
 }
 
 # Adding a sudo user is the main point of config.sh
+##config-add-user(){
+##  useradd -m -s /bin/bash $NEWUSER
+##  usermod -a -G sudo $NEWUSER
+##}
+
 config-add-user(){
-  useradd -m -s /bin/bash $NEWUSER
-  usermod -a -G sudo $NEWUSER
+    adduser --disabled-password \
+	    --ingroup sudo \
+	    --gecos "" \
+	    $NEWUSER
 }
 
 config-security(){

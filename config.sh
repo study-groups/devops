@@ -56,10 +56,19 @@ config-mount-image() {
 config-unmount(){
   unmount $1 # typically $1 = /mnt/imagename
 }
+
 config-add-user(){
-  useradd -m -s /bin/bash $NEWUSER
-  usermod -a -G sudo $NEWUSER
+    adduser \
+	    --disabled-password \
+	    --ingroup sudo \
+	    --gecos "" \
+	    $NEWUSER
 }
+
+##config-add-user(){
+##  useradd -m -s /bin/bash $NEWUSER
+##  usermod -a -G sudo $NEWUSER
+##}
 
 config-security(){
   echo "%sudo   ALL=(ALL:ALL)  NOPASSWD: ALL" >> /etc/sudoers
@@ -107,6 +116,7 @@ config-init(){
   config-start-apps
   config-security
 }
+
 config-notes(){
   echo "\
   Remote Configuration File
