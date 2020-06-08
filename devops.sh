@@ -49,9 +49,9 @@ dotool-list-long(){
 #--image ubuntu-18-04-x64 \
 #38835928
 dotool-create(){
-  imgtype=${3:-ubuntu-18-04-x64} ## default image is ubuntu v18.04
+  imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
   echo "Using $imgtype"
-  doctl compute droplet create "$1" \ ## name of droplet
+  doctl compute droplet create "$1" \
         --size 1gb  \
         --image "$imgtype" \
         --region sfo2 \
@@ -89,11 +89,10 @@ dotool-config(){
   CONFIG=${2:-config.sh}    
   dotool-cp "$CONFIG" "$1" "$CONFIG" # $2=config-file $1=droplet-name
   ssh root@"$(dotool-name-to-ip "$1")" '
-      #source $CONFIG
-      #config-init
+      source "'$CONFIG'" && config-init
       echo "Log in to remote host"
       echo "---------------------"
-      echo "local> dotool login <droplet>"
+      echo "local> dotool-login <droplet>"
       echo "remote> source config.sh"
       echo "remote> config-init"
 '
