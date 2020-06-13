@@ -118,7 +118,6 @@ Admin is a collection of scripts to configure runtime operations.
   # can, the narrative version feels easier to connect 
   # to other ideas that are essential for 'this' to all
   # hang together.
-
   
    Securely copy the admin.sh file to your new remote machine: 
     1) scp admin.sh ssh admin@host:admin.sh
@@ -133,6 +132,61 @@ Admin is a collection of scripts to configure runtime operations.
   addresseble by system defined TCP sockets. 
 "
 }
+
+### Zach's interpretation ###
+
+admin-install-set-up() {
+
+  # make room for repos and app deployment.
+  mkdir /home/admin/src/   # where apps are developed
+  mkdir /home/admin/apps/  # where apps are deployed to production
+  echo "development and production setup finished"
+
+}
+
+admin-install-app() {
+  # enters development directory
+  cd /home/admin/src/
+
+  local repo=$1;
+  local basename=$(basename $repo);
+  local app_name=${basename%.*};
+  echo "Here is the app's name: $app_name"
+  git clone $repo
+
+  # production app
+  local app_dir="/home/admin/apps/$app_name";
+  mkdir $app_dir
+
+  # path to use when serving application
+  production_path=$2; # e.g. bin or index.js
+  echo "production path is: $production_path"
+
+  cp -r /home/admin/src/$app_name/$production_path $app_dir
+
+  # set pwd to home for next function call
+  cd /home/admin
+
+}
+
+admin-start-app() {
+  local app_name=$1;
+  local production_path=$2;
+  
+  echo "path being used: /home/admin/apps/$app_name/$production_path"
+  
+  # start node application
+  node /home/admin/apps/$app_name/$production_path
+  echo "$app_name has been deployed to production."
+}
+
+zach-admin-init() {
+  admin-install-set-up
+  admin-install-app https://github.com/zoverlvx/node-hello-world.git bin
+  admin-start-app node-hello-world bin/www.js
+}
+
+####End of Zach's interpretation #####
 
 admin-install-sae(){
   # presume src directory exists
