@@ -90,11 +90,10 @@ dotool-config(){
   dotool-cp "$CONFIG" "$1" "$CONFIG" # $2=config-file $1=droplet-name
   ssh root@"$(dotool-name-to-ip "$1")" '
       source "'$CONFIG'" && config-init
+      echo "Deploy application with admin.sh"
+      echo "--or--"
       echo "Log in to remote host"
-      echo "---------------------"
       echo "local> dotool-login <droplet>"
-      echo "remote> source config.sh"
-      echo "remote> config-init"
 '
 }
 
