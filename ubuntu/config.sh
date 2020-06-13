@@ -20,6 +20,10 @@ config-help(){
 config-update-os(){
   apt-get update
   apt-get -y upgrade
+  apt install nodejs
+  echo "##############"
+  echo "node installed"
+  echo "##############"
 }
 
 # Adding a sudo user is the main point of config.sh
