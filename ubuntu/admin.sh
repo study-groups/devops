@@ -149,8 +149,8 @@ admin-install-app() {
   cd /home/admin/src/
 
   local repo=$1;
-  local basename=$(basename $repo);
-  local app_name=${basename%.*};
+  local basename=$(basename $repo); # myapp.git
+  local app_name=${basename%.*}; # myapp
   echo "Here is the app's name: $app_name"
   git clone $repo
 
