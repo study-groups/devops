@@ -81,16 +81,16 @@ dotool-login(){
   ssh root@"$(dotool-name-to-ip "$1")"
 }
 
-dotool-cp(){
-  scp "$1" root@"$(dotool-name-to-ip "$2")":"$3"
-}
+dotool-config(){   # should not part of dotool 
+  local ip_addr=$1;
+  local config=${2:-config.sh};
 
-dotool-config(){
-  CONFIG=${2:-config.sh}    
-  dotool-cp "$CONFIG" "$1" "$CONFIG" # $2=config-file $1=droplet-name
-  ssh root@"$(dotool-name-to-ip "$1")" '
-      source "'$CONFIG'" && config-init
-      echo "Deploy application with admin.sh"
+  # copy config.sh to remote machine
+  scp "$config" root@"$ip_addr":"$config"
+
+  ssh root@"$ip_addr" '
+      source "'$config'" && config-init
+      echo "Deploy \"from a distance\" application with admin.sh"
       echo "--or--"
       echo "Log in to remote host"
       echo "local> dotool-login <droplet>"
