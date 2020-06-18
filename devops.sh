@@ -2,13 +2,15 @@
 ##################################################################
 # devops.sh is a collection of dash-apps* which provide:
 #
-#  1. PROVISIONING
-#  2. CONFIGURATION
-#  3. PORTMAPPINGS
-#  4. DEPLOYMENT
-#  5. MONITORING
-#  6. LOGGING
-#  7. BACKUP
+#       Stage          Tool             Description
+#  1. PROVISIONING    dotool        creates node, copies to remote:config.sh
+#  2. CONFIGURATION   config,node   node-config calls remote:config-init
+#  3. PORTMAPPINGS    node          creates Nginx remote:config files (consul)
+#  4. DEPLOYMENT      admin         sets up remote:apps from repos (nomad)
+#  5. MANAGEMENT      node          start, stop and configure apps (nomad)
+#  5. MONITORING      node          monitors all known remote:nodes (consul)
+#  6. LOGGING         nodelog       maintains logfile rotation,etc (consul)
+#  7. BACKUP          nodesync      rsync wrapper with conventions (consul)
 #
 #  *A dash-app is a madeup term that referes to a collection of
 #   shell functions starting with "appname-".
@@ -99,25 +101,6 @@ dotool-login(){
   ssh root@"$(dotool-name-to-ip "$1")"
 }
 
-##################################################################
-# Unamed dash-app for configuration.
-##################################################################
-dotool-config(){   # should not part of dotool 
-  local ip_addr=$1;
-  local config=${2:-config.sh};
-
-  # copy config.sh to remote machine
-  scp "$config" root@"$ip_addr":"$config"
-
-  ssh root@"$ip_addr" '
-      source "'$config'" && config-init
-      echo "Deploy \"from a distance\" application with admin.sh"
-      echo "--or--"
-      echo "Log in to remote host"
-      echo "local> dotool-login <droplet>"
-'
-}
-
 dotool-status(){
   ssh root@"$(dotool-name-to-ip "$1")" '
   echo ""
@@ -150,6 +133,31 @@ dotool-possibilites(){
   echo "All available locations"
   echo "-----------------------"
   doctl compute region list
+}
+
+##################################################################
+# node- collection of shell functions for remote
+# DEPLOYMENT
+# CONFIGURATION
+# PORTMAPPINGS
+# MANAGEMENT
+# MONITORING
+# BACKUP
+##################################################################
+node-config(){
+  local ip_addr=$1;
+  local config=${2:-config.sh};
+
+  # copy config.sh to remote machine
+  scp "$config" root@"$ip_addr":"$config"
+
+  ssh root@"$ip_addr" '
+      source "'$config'" && config-init
+      echo "Deploy \"from a distance\" application with admin.sh"
+      echo "--or--"
+      echo "Log in to remote host"
+      echo "local> dotool-login <droplet>"
+'
 }
 
 ##########################################################################
