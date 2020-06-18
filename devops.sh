@@ -1,5 +1,24 @@
 #!/bin/bash
+##################################################################
+# devops.sh is a collection of dash-apps* which provide:
+#
+#  1. PROVISIONING
+#  2. CONFIGURATION
+#  3. PORTMAPPINGS
+#  4. DEPLOYMENT
+#  5. MONITORING
+#  6. LOGGING
+#  7. BACKUP
+#
+#  *A dash-app is a madeup term that referes to a collection of
+#   shell functions starting with "appname-".
+##################################################################
 
+##################################################################
+# dotool- is a collection of bash-like shell functions for 
+# PROVISIONING which provide a wrapper around Digital Ocean's
+# doctl commandline program.
+##################################################################
 dotool-help(){
   echo "
   dotool version 18.12
@@ -34,17 +53,16 @@ dotool-keys(){
   doctl compute ssh-key list
 }
 
-dotool-list(){
+dotool-ls(){
   ## shows the list of virtual servers we have up
   doctl compute droplet list \
       --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
 }
-dotool-list-long(){
+dotool-ls-long(){
   ## shows the verbose list of virtual servers that we have up
   doctl compute droplet list \
       --format "ID,Name,Memory,Disk,Region,Features,Volumes"
 }
-
 
 #--image ubuntu-18-04-x64 \
 #38835928
@@ -81,6 +99,9 @@ dotool-login(){
   ssh root@"$(dotool-name-to-ip "$1")"
 }
 
+##################################################################
+# Unamed dash-app for configuration.
+##################################################################
 dotool-config(){   # should not part of dotool 
   local ip_addr=$1;
   local config=${2:-config.sh};
