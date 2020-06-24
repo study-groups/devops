@@ -92,7 +92,7 @@ dotool-id-to-ip(){
 
 dotool-name-to-ip(){
   local id
-  id=$(dotool-list | grep "$1 " | awk '{print $1}');
+  id=$(dotool-ls | grep "$1 " | awk '{print $1}');
   dotool-id-to-ip "$id"
 }
 
@@ -148,8 +148,11 @@ node-config(){
   local ip_addr=$1;
   local config=${2:-config.sh};
 
-  # copy config.sh to remote machine
+  # copy config.sh to the remote machine
   scp "$config" root@"$ip_addr":"$config"
+  
+  # copy daemonize to the remote machine
+  scp /home/admin/src/daemonize/daemonize root@"$ip_addr":daemonize
 
   ssh root@"$ip_addr" '
       source "'$config'" && config-init
