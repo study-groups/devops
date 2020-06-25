@@ -1,3 +1,4 @@
+# can these be changed to functional params?
 USER=root      # config starts with Root
 NEWUSER=admin # ends by handing over to this user
 
@@ -17,10 +18,15 @@ config-help(){
 "
 }
 
+# updates os
 config-update-os(){
   apt-get update
   apt-get -y upgrade
-  apt install nodejs
+}
+
+# install additional dependencies
+config-install-deps() {
+  apt -y install nodejs
   echo "##############"
   echo "node installed"
   echo "##############"
@@ -54,6 +60,7 @@ config-copy-keys(){
 # Much tighter. Moves most stuff to admin phase.
 config-init(){
   config-update-os
+  config-install-deps
   config-add-user
   config-copy-keys
   config-security
