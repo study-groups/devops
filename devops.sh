@@ -150,9 +150,12 @@ node-config(){
 
   # copy config.sh to the remote machine
   scp "$config" root@"$ip_addr":"$config"
-  
+ 
+  local dpath_local="/home/admin/src/daemonize/daemonize";
+  local dpath_remote="/bin/daemonize";
+
   # copy daemonize to the remote machine
-  scp /home/admin/src/daemonize/daemonize root@"$ip_addr":daemonize
+  scp "$dpath_local" root@"$ip_addr":"$dpath_remote"
 
   ssh root@"$ip_addr" '
       source "'$config'" && config-init
