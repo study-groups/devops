@@ -55,7 +55,7 @@ dotool-keys(){
   doctl compute ssh-key list
 }
 
-dotool-ls(){
+dotool-list(){
   ## shows the list of virtual servers we have up
   doctl compute droplet list \
       --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
@@ -146,35 +146,84 @@ dotool-possibilites(){
 ##################################################################
 node-config(){
   local ip_addr=$1;
-  local config=${2:-config.sh};
+  local config_file=$2;
+  local admin_file=$3;
 
   # copy config.sh to the remote machine
-  scp "$config" root@"$ip_addr":"$config"
+  scp "$config_file" root@"$ip_addr":"$config_file"
  
+  # location where daemonize is on mother node
   local dpath_local="/home/admin/src/daemonize/daemonize";
+  
+  # location for daemonize on child node
   local dpath_remote="/bin/daemonize";
 
   # copy daemonize to the remote machine
   scp "$dpath_local" root@"$ip_addr":"$dpath_remote"
 
+  # source configuration and configure machine
   ssh root@"$ip_addr" '
-      source "'$config'" && config-init
+      source "'$config_file'" && config-init
       echo "Deploy \"from a distance\" application with admin.sh"
       echo "--or--"
       echo "Log in to remote host"
       echo "local> dotool-login <droplet>"
 '
+  # copy and source admin functionality
+  scp "$admin_file" admin@"$ip_addr":"$admin_file"
+  
+  # instruct user on next steps
+  echo "
+  Setup application with admin- from local machine to remote host
+  --or--
+  Log in to remote host with 'dotool-login <droplet>'
+  "
+}
+
+node-remote-admin-init() {
+  ip_addr=$1;
+  ssh admin@"$ip_addr" 'source admin.sh && zach-admin-init'
 }
 
 ##########################################################################
 # screen-
 #   methods for shell based communication. 
+#
 ##########################################################################
-screen-start(){
-  screen -S devops  # create devops channel
+
+# https://serverfault.com/questions/104668/create-screen-and-run-command-without-attaching
+
+screen-list(){
+  screen -list 
 }
-screen-connect(){
-  screen -x devops 
+screen-detach(){
+  echo "Type ctrl-a d" 
+}
+screen-start-devops(){
+  screen -dmS devops    # create detached devops channel
+}
+screen-start-dev(){
+  screen -dmS dev  
+}
+screen-start-production(){
+  screen -dmS production
+}
+
+screen-stop-all(){
+   screen -X devops 
+   screen -X production 
+   screen -X dev 
+}
+screen-connect-devops(){
+  screen -x devops
+}
+
+screen-connect-dev(){
+  screen -x dev
+}
+
+screen-connect-production(){
+  screen -x production
 }
 
 zgit(){
