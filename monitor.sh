@@ -5,7 +5,7 @@ Monitor is a set of shell functions for monitoring unix servers."
 }
 
 monitor-all(){
-  local user="mricos"
-  local host="ux305-2.local"
+  local user="admin"
+  local host="$doX"
   ssh $user@$host landscape-sysinfo
 }
