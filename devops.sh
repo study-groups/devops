@@ -149,12 +149,12 @@ nodeholder() {
   for arg in "$@"; do
     shift
     case "$arg" in
-	    #"--list") set -- "$@" "-L" ;;
 	    "--keys") set -- "$@" "-k" ;;
 	    "--test") set -- "$@" "-t" ;;
 	    "--list-nodes") set -- "$@" "-l" ;;
 	    "--create") set -- "$@" "-C" ;;
 	    "--node") set -- "$@" "-n" ;;
+	    "--login") set "$@" "-L" ;;
 	    "--help") set -- "$@" "-h" ;;
 	    "--config-with") set -- "$@" "-c" ;;
 	    "--set-admin-with") set -- "$@" "-a" ;;
@@ -164,16 +164,14 @@ nodeholder() {
   done
 
   OPTIND=1
-  while getopts "C:n:D:c:a:hlL:t:k" option; do
+  while getopts "hlkC:n:D:c:a:L" option; do
     case $option in
 	"t")
 	  shift 
-          echo "$@"	  
+          echo "testing mechanism. args: $@"	  
 	  ;;
   	"k") dotool-keys ;;
-	"L") echo "Value supplied $OPTARG" ;;
 	"l") dotool-list ;;
-	"h") echo "Help menu" ;;
 	"n") 
 	  local node_name="$OPTARG";
           local ip_addr=$(dotool-name-to-ip "$node_name");
@@ -193,10 +191,11 @@ nodeholder() {
 	  local creation_args=($@);
           local host="${creation_args[0]}";
 	  local key="${creation_args[1]}";
-	  local image="${creation_args[2]}";
-	  local image_default=${image:-ubuntu-18-04-x64};
-  	  dotool-create $host $key $image_default
+	  local image_arg="${creation_args[2]}";
+	  local image=${image_arg:-ubuntu-18-04-x64};
+  	  dotool-create $host $key $image
 	  ;;
+	"h") echo "Help menu" ;;
   	"?") echo "Incorrect option $arg" ;;
     esac
   done
