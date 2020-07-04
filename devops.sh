@@ -92,7 +92,7 @@ dotool-id-to-ip(){
 
 dotool-name-to-ip(){
   local id
-  id=$(dotool-ls | grep "$1 " | awk '{print $1}');
+  id=$(dotool-list | grep "$1 " | awk '{print $1}');
   dotool-id-to-ip "$id"
 }
 
@@ -144,8 +144,67 @@ dotool-possibilites(){
 # MONITORING
 # BACKUP
 ##################################################################
+
+nodeholder() {
+  for arg in "$@"; do
+    shift
+    case "$arg" in
+	    #"--list") set -- "$@" "-L" ;;
+	    "--keys") set -- "$@" "-k" ;;
+	    "--test") set -- "$@" "-t" ;;
+	    "--list-nodes") set -- "$@" "-l" ;;
+	    "--create") set -- "$@" "-C" ;;
+	    "--node") set -- "$@" "-n" ;;
+	    "--help") set -- "$@" "-h" ;;
+	    "--config-with") set -- "$@" "-c" ;;
+	    "--set-admin-with") set -- "$@" "-a" ;;
+	    "--delete") set -- "$@" "-D" ;;
+	    *) set -- "$@" "$arg" ;;
+    esac
+  done
+
+  OPTIND=1
+  while getopts "C:n:D:c:a:hlL:t:k" option; do
+    case $option in
+	"t")
+	  shift 
+          echo "$@"	  
+	  ;;
+  	"k") dotool-keys ;;
+	"L") echo "Value supplied $OPTARG" ;;
+	"l") dotool-list ;;
+	"h") echo "Help menu" ;;
+	"n") 
+	  local node_name="$OPTARG";
+          local ip_addr=$(dotool-name-to-ip "$node_name");
+	  echo "$node_name ($ip_addr)"
+	  ;;
+  	"c") 
+	  echo "Sending $OPTARG to $node_name ($ip_addr)"
+          ;;
+        "a") 
+	  echo "Sending $OPTARG to $node_name ($ip_addr)"
+	  ;;
+        "D") dotool-delete "$OPTARG" ;;
+	"C")
+	  shift
+	  set -f
+	  IFS=" "
+	  local creation_args=($@);
+          local host="${creation_args[0]}";
+	  local key="${creation_args[1]}";
+	  local image="${creation_args[2]}";
+	  local image_default=${image:-ubuntu-18-04-x64};
+  	  dotool-create $host $key $image_default
+	  ;;
+  	"?") echo "Incorrect option $arg" ;;
+    esac
+  done
+  shift $(expr $OPTIND - 1) # remove options from positional parameters
+}
+
 node-config(){
-  local ip_addr=$1;
+  local ip_addr=$(dotool-name-to-ip "$1");
   local config_file=$2;
   local admin_file=$3;
 
@@ -181,7 +240,7 @@ node-config(){
 }
 
 node-remote-admin-init() {
-  ip_addr=$1;
+  local ip_addr=$(dotool-name-to-ip $1);
   ssh admin@"$ip_addr" 'source admin.sh && zach-admin-init'
 }
 
