@@ -1,0 +1,4 @@
+#kill $(cat app.pid)
+source ~/admin.sh
+admin-app-kill
+>&2 echo "Killed $(cat app.name) with PID: $(cat app.pid)"

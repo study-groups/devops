@@ -18,10 +18,10 @@
 # then no tests failed. Otherwise something 
 # failed.
 test-appInit(){
-  local remote_logfile="x" 
+  local remote_logfile="/home/admin/src/node-hello-world/development/app.log" 
   remoteCmd="cat $remote_logfile"
 
-  local shouldEqual="status=pending"
+  local shouldEqual="Node hello world running on port 4000"
   local retVal=$(ssh $remoteUser@$remoteHost $remoteCmd );
 
   test-showTestInfo >&2
@@ -61,8 +61,9 @@ test-checkConfigLog(){
 
 # Polutes shell.
 test-setup(){
-  remoteUser=root
+  remoteUser=admin
   remoteHost=$(dotool-name-to-ip doX)
+  remote="$remoteUser@$remoteHost"
 }
 
 # Currently called by each test. Maybe runTest

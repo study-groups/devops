@@ -20,6 +20,14 @@ admin-help(){
 "
 }
 
+# belongs to mother
+nodeholder-copy-file() {
+  #local ip_addr=$(dotool-name-to-ip "$1");
+  local ip_addr=$1;
+  local admin_file="$2";
+  scp "$admin_file" admin@"$ip_addr":"$admin_file"
+}
+
 
 ### Zach's interpretation ###
 
@@ -32,14 +40,13 @@ admin-create-paths() {
 
 }
 
-admin-install-app() {
+admin-clone-app() {
   # enters development directory
   cd /home/admin/src/
 
   local repo_url=$1;
   local basename=$(basename $repo_url); # myapp.git
   local app_name=${basename%.*}; # myapp  (removes .git)
-  echo "Here is the app's name: $app_name"
   git clone $repo_url
 
   #local app_dir_path="/home/admin/src/$app_name/";
@@ -67,11 +74,11 @@ admin-daemonize-app() {
   # path to file
   local args=$3;
   
-  # src vs apps
   echo "cwd: $cwd\n cmd: $cmd\n args: $args"
   
   # daemonize application running as admin
   daemonize \
+	  -E PORT=4444 \
 	  -c $cwd \
 	  -p $cwd/app.pid \
 	  -e $cwd/app.err \
@@ -81,9 +88,9 @@ admin-daemonize-app() {
 
 zach-admin-init() {
   local app_name="node-hello-world"
-  local app_url="https://github.com/zoverlvx/$app_name.git"
+  local app_repo="https://github.com/zoverlvx/$app_name.git"
   admin-create-paths  # creates /home/admin/{src,apps}
-  admin-install-app $app_url 
+  admin-clone-app $app_repo
 
   # configure and daemonize PRODUCTION
   #local cmd="/usr/bin/node"
@@ -91,11 +98,13 @@ zach-admin-init() {
   #local app_path="$cwd/in/www.js"
 
   # configure and daemonize DEVELOPMENT
-  local cmd="/usr/bin/node"
-  local cwd="/home/admin/src/node-hello-world/dev"
-  local app_entry="bin/www.js"
-  local args="$cwd/$app_entry"
-  admin-daemonize-app $cwd $cmd $args    # imperative  
+  app-build
+  app-start
+  #local cmd="/usr/bin/node"
+  #local cwd="/home/admin/src/node-hello-world/nodeholder/development"
+  #local app_entry="www.js"
+  #local args="$cwd/$app_entry $PORT"
+  #admin-daemonize-app $cwd $cmd $args    # imperative  
   #admin-daemonize-app $cwd $cmd $app_entry   # declarative
 }
 
@@ -139,6 +148,38 @@ admin-start-apps(){
 
 # This local functions will be called. Comment out as needed.
 admin-init(){
-  admin-install-apps
-  admin-start-apps
+  zach-admin-init
+  #admin-install-apps
+  #admin-start-apps
+}
+
+userdir="/home/admin"
+pidfile="$userdir/src/node-hello-world/nodeholder/development/app.pid"
+stopfile="$userdir/src/node-hello-world/nodeholder/development/stop.sh"
+startfile="$userdir/src/node-hello-world/nodeholder/development/start.sh"
+statusfile="$userdir/src/node-hello-world/nodeholder/development/status.sh"
+admin-uninit(){
+  admin-app-kill
+  rm -rf $userdir/src
+}
+
+admin-app-kill(){
+  local pid=$(admin-get-pid)
+  local time=$(date)
+  >&2 echo "$time: Killing $pid" 
+  kill $pid
+  time=$(date)
+  >&2 echo "$time: Killed: $pid" 
+  echo "" > $pidfile
+}
+
+
+admin-get-pid(){
+  local pid=$(cat $pidfile);
+  echo $pid 
+}
+
+admin-app-status(){
+  echo using PID file:  $pidfile
+  echo Using status file:  $statusfile
 }
