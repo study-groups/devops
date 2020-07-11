@@ -155,9 +155,9 @@ admin-init(){
 
 userdir="/home/admin"
 pidfile="$userdir/src/node-hello-world/nodeholder/development/app.pid"
-stopfile="$userdir/src/node-hello-world/nodeholder/development/stop.sh"
-startfile="$userdir/src/node-hello-world/nodeholder/development/start.sh"
-statusfile="$userdir/src/node-hello-world/nodeholder/development/status.sh"
+stopfile="$userdir/src/node-hello-world/nodeholder/development/stop"
+startfile="$userdir/src/node-hello-world/nodeholder/development/start"
+statusfile="$userdir/src/node-hello-world/nodeholder/development/status"
 admin-uninit(){
   admin-app-kill
   rm -rf $userdir/src
@@ -182,4 +182,24 @@ admin-get-pid(){
 admin-app-status(){
   echo using PID file:  $pidfile
   echo Using status file:  $statusfile
+}
+# File starts below.
+####################################################################
+# This should be defined in an env file.
+APP_DIR="/home/admin/src/node-hello-world"
+SRC_DIR="$APP_DIR/src"
+NODE_DIR="$APP_DIR/nodeholder"
+
+app-status(){
+   $statusfile
+}
+app-stop(){
+   $stopfile
+}
+app-start(){
+   $startfile
+}
+# Inject PORT NUMBER HERE
+app-build(){
+  cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
 }

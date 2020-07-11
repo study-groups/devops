@@ -1,4 +1,3 @@
-source ~/admin.sh
 dir=$(dirname $BASH_SOURCE)
 app=/usr/bin/node
 entry=www.js
@@ -7,4 +6,5 @@ entry=www.js
 BASH_SOURCE:$dir
 "
 # NEED TO CHECK FOR CURRENT PROCESSES RUNNING
+source ~/admin.sh
 admin-daemonize-app $dir $app $entry
