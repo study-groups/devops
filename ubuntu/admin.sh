@@ -1,7 +1,6 @@
 # File starts below.
 ####################################################################
 # Source these functions as admin. 
-
 admin-help(){
   echo "\
    Admin is a collection of scripts to configure runtime operations.
@@ -146,9 +145,16 @@ stopfile="$userdir/src/node-hello-world/nodeholder/development/stop"
 startfile="$userdir/src/node-hello-world/nodeholder/development/start"
 statusfile="$userdir/src/node-hello-world/nodeholder/development/status"
 
-admin-uninit(){
-  app-stop
-  rm -rf $userdir/src
+admin-undo-init(){
+  if [[ $NODEHOLDER_ROLE == "child" ]]
+  then
+    #app-stop
+    echo "Going to: rm -rf $userdir/src"
+    return 0 
+  fi
+
+  echo "Aborting undo. NODEHOLDER_ROLE not child."
+
 }
 
 
