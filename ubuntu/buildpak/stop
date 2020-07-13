@@ -1,4 +1,13 @@
-#kill $(cat app.pid)
-source ~/admin.sh
-admin-app-kill
->&2 echo "Killed $(cat app.name) with PID: $(cat app.pid)"
+#!/bin/bash
+dir=$(dirname $BASH_SOURCE)
+cd $dir
+pid=$(cat ./app.pid)
+time=$(date)
+>&2 echo "BASH_SOURCE: $BASH_SOURCE"
+>&2 echo "dir: $dir"
+>&2 echo "$time: Killing $pid" 
+kill $pid
+time=$(date)
+>&2 echo "$time: Killed: $pid" 
+echo "" > ./app.pid 
+>&2 echo "Killed $(cat app.name) with PID: $(cat ./app.pid)"

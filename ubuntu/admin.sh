@@ -91,21 +91,8 @@ zach-admin-init() {
   local app_repo="https://github.com/zoverlvx/$app_name.git"
   admin-create-paths  # creates /home/admin/{src,apps}
   admin-clone-app $app_repo
-
-  # configure and daemonize PRODUCTION
-  #local cmd="/usr/bin/node"
-  #local cwd="/home/admin/src/node-hello-world/production/"
-  #local app_path="$cwd/in/www.js"
-
-  # configure and daemonize DEVELOPMENT
   app-build
   app-start
-  #local cmd="/usr/bin/node"
-  #local cwd="/home/admin/src/node-hello-world/nodeholder/development"
-  #local app_entry="www.js"
-  #local args="$cwd/$app_entry $PORT"
-  #admin-daemonize-app $cwd $cmd $args    # imperative  
-  #admin-daemonize-app $cwd $cmd $app_entry   # declarative
 }
 
 ####End of Zach's interpretation #####
@@ -158,19 +145,10 @@ pidfile="$userdir/src/node-hello-world/nodeholder/development/app.pid"
 stopfile="$userdir/src/node-hello-world/nodeholder/development/stop"
 startfile="$userdir/src/node-hello-world/nodeholder/development/start"
 statusfile="$userdir/src/node-hello-world/nodeholder/development/status"
-admin-uninit(){
-  admin-app-kill
-  rm -rf $userdir/src
-}
 
-admin-app-kill(){
-  local pid=$(admin-get-pid)
-  local time=$(date)
-  >&2 echo "$time: Killing $pid" 
-  kill $pid
-  time=$(date)
-  >&2 echo "$time: Killed: $pid" 
-  echo "" > $pidfile
+admin-uninit(){
+  app-stop
+  rm -rf $userdir/src
 }
 
 
@@ -202,4 +180,5 @@ app-start(){
 # Inject PORT NUMBER HERE
 app-build(){
   cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
+  cp  ./buildpak/* $NODE_DIR/development/
 }
