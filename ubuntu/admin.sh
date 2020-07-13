@@ -148,8 +148,10 @@ statusfile="$userdir/src/node-hello-world/nodeholder/development/status"
 admin-undo-init(){
   if [[ $NODEHOLDER_ROLE == "child" ]]
   then
-    #app-stop
-    echo "Going to: rm -rf $userdir/src"
+    app-stop
+    rm -rf $userdir/src
+    rm -rf $userdir/buildpak
+    rm $userdir/admin.sh
     return 0 
   fi
 
@@ -186,5 +188,6 @@ app-start(){
 # Inject PORT NUMBER HERE
 app-build(){
   cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
-  cp  ./buildpak/* $NODE_DIR/development/
+  cp  ~/buildpak/* $NODE_DIR/development/
+  echo "node-hello-world" > $NODE_DIR/development/app.name
 }
