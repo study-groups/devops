@@ -76,8 +76,23 @@ dotool-create(){
         --image "$imgtype" \
         --region sfo2 \
         --ssh-keys "$2" ## ssh key or fingerprint
-}
+  
+  new_ip=""
+  node_created=0
+  echo "Creating new node..."
+  while [[ "$node_created" -eq 0 ]]; do
+    new_ip=$(dotool-name-to-ip "$1")
 
+    if [ ! -z "$new_ip" ]; 
+      then echo "The new node's ip is: $new_ip"
+      node_created=1
+    fi
+
+  done
+
+  #dotool-list | awk 'NR>1 {print $2"="$3}' | env -i 
+  dotool-list | awk 'NR>1 {print $2"="$3}' > node.list
+}
 
 dotool-delete(){
   doctl compute droplet delete "$1"
