@@ -28,6 +28,8 @@ nodeholder-copy-file() {
 }
 
 
+### Zach's interpretation ###
+
 admin-create-paths() {
 
   # make room for repos and app deployment.
@@ -37,7 +39,7 @@ admin-create-paths() {
 
 }
 
-clone-app() {
+admin-clone-app() {
   # enters development directory
   cd /home/admin/src/
 
@@ -83,15 +85,17 @@ admin-daemonize-app() {
 	  "$cmd" "$args"
 }
 
-admin-init() {
-  #local app_name="node-hello-world"
-  #local app_repo="https://github.com/zoverlvx/$app_name.git"
+zach-admin-init() {
+  local app_name="node-hello-world"
+  local app_repo="https://github.com/zoverlvx/$app_name.git"
   admin-create-paths  # creates /home/admin/{src,apps}
-  #admin-clone-app $app_repo
+  admin-clone-app $app_repo
+  app-build
+  app-start
 }
 
-# This is a developer function
-# i.e. not for any particular use by user
+####End of Zach's interpretation #####
+
 admin-install-sae(){
   # presume src directory exists
   cd /home/admin/src/
@@ -108,6 +112,31 @@ admin-install-sae(){
 
   # set pwd to home for next function call
   cd /home/admin
+}
+
+
+admin-install-apps(){
+
+  # make room for repos and app deployment.
+  mkdir /home/admin/src/   # where apps are developed
+  mkdir /home/admin/apps/  # where apps are deployed to production 
+
+  admin-install-sae
+}
+
+admin-start-apps(){
+# Start node servers (ports are currently defined by user, later system)
+
+    # Future: loop over directories in  /home/admin/apps and call init.sh
+
+    node /home/admin/apps/sentiment-analysis-engine/bin/www.js
+}
+
+# This local functions will be called. Comment out as needed.
+admin-init(){
+  zach-admin-init
+  #admin-install-apps
+  #admin-start-apps
 }
 
 userdir="/home/admin"
@@ -150,15 +179,12 @@ NODE_DIR="$APP_DIR/nodeholder"
 app-status(){
    $statusfile
 }
-
 app-stop(){
    $stopfile
 }
-
 app-start(){
    $startfile
 }
-
 # Inject PORT NUMBER HERE
 app-build(){
   cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
