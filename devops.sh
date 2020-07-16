@@ -77,21 +77,22 @@ dotool-create(){
         --region sfo2 \
         --ssh-keys "$2" ## ssh key or fingerprint
   
-  new_ip=""
-  node_created=0
+  local new_ip=""
+  local counter=0
   echo "Creating new node..."
-  while [[ "$node_created" -eq 0 ]]; do
+  while [ "$new_ip" == "" ]; do
     new_ip=$(dotool-name-to-ip "$1")
-
-    if [ ! -z "$new_ip" ]; 
-      then echo "The new node's ip is: $new_ip"
-      node_created=1
-    fi
-
+    echo "$counter"
+    counter=$(expr "$counter" + 1)
   done
+  echo "New node $1 created at IP: $new_ip"
+  echo "Node IP as variable '$1' has been added to your environment."
+  # global ip for nodeholder to work on vs many ips in environment with aliases
+  #echo "Nodeholder is prompted for '$1' at IP $new_ip" 
 
   #dotool-list | awk 'NR>1 {print $2"="$3}' | env -i 
-  dotool-list | awk 'NR>1 {print $2"="$3}' > node.list
+  dotool-list | awk 'NR>1 {print "export "$2"="$3}' > node.list
+  source ./node.list
 }
 
 dotool-delete(){
