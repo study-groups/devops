@@ -290,8 +290,9 @@ REMOTE_NODE="";
   shift $(expr $OPTIND - 1) # remove options from positional parameters
 }
 
-node-config(){
-  local ip_addr=$(dotool-name-to-ip "$1");
+nodeholder-config(){
+  #local ip_addr=$(dotool-name-to-ip "$1");
+  local ip_addr=$1
   local config_file=$2;
   #local admin_file=$3;
 
@@ -326,6 +327,7 @@ node-config(){
   "
 }
 
+# DO NOT NEED, now done by alias doX-install-admin
 node-remote-admin-init() {
   local ip_addr=$(dotool-name-to-ip $1);
   ssh admin@"$ip_addr" 'source admin.sh && zach-admin-init'
