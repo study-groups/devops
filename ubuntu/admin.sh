@@ -19,6 +19,23 @@ admin-help(){
 "
 }
 
+admin-create-aliases() {
+  local array=($(cat ./node.list | awk -F"export " '{print $2}' | awk -F"=*" '{print $1}'))
+  
+  echo "" > ./my-aliases.sh
+
+  for node in "${array[@]}"; do
+    local ip="${!node}"
+    printf "alias $node-install-admin=\"scp ./admin.sh admin@$ip:~/admin.sh && ssh admin@$ip 'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh' && scp -r ./buildpak admin@$ip:~/\"\n" >> ./my-aliases.sh
+    printf "alias $node-admin-init=\"\"\n" >> ./my-aliases.sh
+    printf "alias $node-admin-build=\"\"\n" >> ./my-aliases.sh
+    printf "alias $node-app-start=\"\"\n" >> ./my-aliases.sh
+    printf "alias $node-app-status=\"\"\n" >> ./my-aliases.sh
+    printf "alias $node-app-stop=\"\"\n" >> ./my-aliases.sh
+  done
+  cat ./my-aliases.sh
+}
+
 # belongs to mother
 nodeholder-copy-file() {
   #local ip_addr=$(dotool-name-to-ip "$1");
