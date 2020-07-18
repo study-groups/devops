@@ -44,6 +44,12 @@ nodeholder-config(){
   "
 }
 
+# belongs to mother
+nodeholder-copy-file-to-node() {
+  local ip_addr=$1;
+  local admin_file="$2";
+  scp "$admin_file" admin@"$ip_addr":"$admin_file"
+}
 
 ### EXPERIMENTAL ###
 ### Everything below this line is experimental ###
