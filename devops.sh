@@ -200,11 +200,12 @@ dotool-generate-aliases() {
 
 	      # print aliases to file
               printf "alias $node_name-install-admin=\"scp ./admin.sh admin@$ip:~/admin.sh && ssh admin@$ip 'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh' && scp -r ./buildpak admin@$ip:~/\"\n" >> ./aliases.sh
-              printf "alias $node_name-admin-init=\"\"\n" >> ./aliases.sh
-              printf "alias $node_name-admin-build=\"\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-start=\"\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-status=\"\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-stop=\"\"\n" >> ./aliases.sh
+	      printf "alias $node_name-admin-undo-init=\"ssh admin@$ip 'source admin.sh && admin-undo-init'\"\n" >> ./aliases.sh
+              printf "alias $node_name-admin-init=\"ssh admin@$ip 'source admin.sh && admin-init'\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-build=\"\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-start=\"ssh admin@$ip 'source admin.sh && app-start'\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-status=\"ssh admin@$ip 'source admin.sh && app-status'\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-stop=\"ssh admin@$ip 'source admin.sh && app-stop'\"\n" >> ./aliases.sh
 	      
 	      # increment to next name and ip pair
 	      i=$(expr "$i" + 1)
