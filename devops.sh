@@ -113,7 +113,8 @@ dotool-delete(){
   done
   echo "Deleted $1: $ip"
   # deletes environment variable
-  unset "$1"
+  local env_name=$(echo "$1" | tr '-' '_')
+  unset "$env_name"
   dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
   source ./nodeholder.list
   echo "Environment variables have been updated."
