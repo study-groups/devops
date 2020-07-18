@@ -72,12 +72,13 @@ dotool-ls-long(){
 dotool-create(){
   imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
   echo "Using $imgtype"
+  ## $2 is an ssh key or fingerprint
   doctl compute droplet create "$1" \
         --size 1gb  \
         --image "$imgtype" \
         --region sfo2 \
-        --ssh-keys "$2" ## ssh key or fingerprint
-   
+        --ssh-keys "$2" > /dev/null 
+
   local new_ip=""
   local counter=0
   echo "Creating new node..."
