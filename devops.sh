@@ -60,6 +60,7 @@ dotool-list(){
   doctl compute droplet list \
       --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
 }
+
 dotool-ls-long(){
   ## shows the verbose list of virtual servers that we have up
   doctl compute droplet list \
@@ -76,10 +77,11 @@ dotool-create(){
         --image "$imgtype" \
         --region sfo2 \
         --ssh-keys "$2" ## ssh key or fingerprint
-  
+   
   local new_ip=""
   local counter=0
   echo "Creating new node..."
+  # count down till remote server is up
   while [ "$new_ip" == "" ]; do
     new_ip=$(dotool-name-to-ip "$1")
     echo "$counter"
@@ -87,16 +89,36 @@ dotool-create(){
   done
   echo "New node $1 created at IP: $new_ip"
   echo "Node IP as variable '$1' has been added to your environment."
-  # global ip for nodeholder to work on vs many ips in environment with aliases
-  #echo "Nodeholder is prompted for '$1' at IP $new_ip" 
 
-  #dotool-list | awk 'NR>1 {print $2"="$3}' | env -i 
-  dotool-list | awk 'NR>1 {print "export "$2"="$3}' > node.list
-  source ./node.list
+  # list all servers
+  # skip the title info (NR>1)
+  # define variables {print $2"="$3}
+  # replace any named servers that have "-" in the name with "_"
+  # write to nodeholder.list
+  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
+
+  # source variables into environment
+  source ./nodeholder.list
+
+  dotool-generate-aliases
+  echo "aliases.sh file has been created/updated."
 }
 
 dotool-delete(){
   doctl compute droplet delete "$1"
+  local ip=$(dotool-name-to-ip "$1")
+  while [ "$?" -eq 0 ]; do
+    echo "Deleting..."
+    dotool-name-to-ip "$1" > /dev/null 2>&1
+  done
+  echo "Deleted $1: $ip"
+  # deletes environment variable
+  unset "$1"
+  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
+  source ./nodeholder.list
+  echo "Environment variables have been updated."
+  dotool-generate-aliases
+  echo "aliases.sh has been updated to reflect this change."
 }
 
 dotool-id-to-ip(){
@@ -140,6 +162,7 @@ dotool-loop-image(){
   #mkdir /mnt/$1
   echo "replace X: mount /dev/loopXp1 /mnt/$1" 
 }
+
 dotool-possibilites(){
   echo ""
   echo "All private and public images available to clone"
@@ -151,186 +174,41 @@ dotool-possibilites(){
   doctl compute region list
 }
 
-##################################################################
-# node- collection of shell functions for remote
-# DEPLOYMENT
-# CONFIGURATION
-# PORTMAPPINGS
-# MANAGEMENT
-# MONITORING
-# BACKUP
-##################################################################
+dotool-generate-aliases() {
 
-nodeholder-test() {
+  # collect the names of the servers
+  local node_names=($(cat ./nodeholder.list | awk -F"=" '{print $1}'))
+  # collect the ips of the servers
+  local ips=($(cat ./nodeholder.list | awk -F"=" '{print $2}'))
 
-## cannot parse combined flags like -lk, must be separated -l -k
-## nodeholder-test -C doX key -l breaks
+  # if the amount of names is equal to the amount of ips
+  ## (i.e. nothing has goofed up)
+  if [ "${#node_names[@]}" -eq "${#ips[@]}" ];
 
-  while [ ! $# -eq 0 ]
-    do
-      case "$1" in
-	      --help|-h) echo "help menu" ;;
-	      --list|-l) dotool-list ;;
-	      --keys|-k) dotool-keys ;;
-	      --delete|-D) dotool-delete "$2" ;;
-	      --create|-C) dotool-create "$2" "$3" "$4" ;;
-      esac
-      shift
-    done
+    then
+	    # refresh aliases file
+	    echo "" > ./aliases.sh
+	    local i=0
+	    while [ "$i" -lt "${#node_names[@]}" ]; do
+	      
+	      # server name and ip
+	      local node_name="${node_names[$i]}"
+	      local ip="${ips[$i]}"
+	      
 
-  #local args=($@);
-  #local pointer=0;
-  #while [ ! $# -eq 0 ]
-  #  do
-  #    echo "${args[pointer]}"
-  #    pointer=$(expr $pointer + 1);
-  #    shift
-  #  done
-}
-
-nodeholder() {
-
-REMOTE_USER="root";
-REMOTE_NODE="";
-
-## POSITIVES
-## can parse combined flags like -lk
-
-## ISSUES
-## flags fire at the same time. -C -c can't be used at the same time
-## issue when a third arg isn't provided to -C and a second flag is used
-
-
-  for arg in "$@"; do
-    shift
-    case "$arg" in
-	    "--keys") set -- "$@" "-k" ;;
-	    "--test") set -- "$@" "-t" ;;
-	    "--list-nodes"|"--list") set -- "$@" "-l" ;;
-	    "--create") set -- "$@" "-C" ;;
-	    "--set-remote-node") set -- "$@" "-n" ;;
-	    "--login") set "$@" "-L" ;;
-	    "--help") set -- "$@" "-h" ;;
-	    "--config-with") set -- "$@" "-c" ;;
-	    "--set-admin-with") set -- "$@" "-a" ;;
-	    "--delete") set -- "$@" "-D" ;;
-	    *) set -- "$@" "$arg" ;;
-    esac
-  done
-
-  OPTIND=1
-  while getopts "hlkt:C:n:D:c:a:L:" option; do
-    case $option in
-	"t")
-	  shift 
-	  local test_args=($@);
-	  local cmd="${test_args[0]}";
-	  local should_be="${test_args[1]}";
-	  echo "cmd: $cmd, shouldbe: $should_be"
-	  ;;
-  	"k") dotool-keys ;;
-	"l") dotool-list ;;
-	"n") 
-	  local node_name="$OPTARG";
-          REMOTE_NODE=$(dotool-name-to-ip "$node_name");
-	  echo "nodeholder is set to communicate with $node_name($REMOTE_NODE)"
-	  ;;
-  	"c") 
-	  local config_file="$OPTARG";
-          scp "$config_file" root@"$REMOTE_NODE":"$config_file"
-	  echo "Sending $config_file to root@$REMOTE_NODE"
-	  
-	  # location where daemonize is on mother node
-          local dpath_local="/home/admin/src/daemonize/daemonize";
-	  
-	  # location for daemonize on child node
-	  local dpath_remote="/bin/daemonize";
-	  
-	  # copy daemonize to the remote machine
-	  scp "$dpath_local" root@"$REMOTE_NODE":"$dpath_remote"
-
-	  ssh root@"$REMOTE_NODE" '
-	      source "'$config_file'" && config-init
-	      echo "Deploy \"from a distance\" application with admin.sh"
-	      echo "--or--"
-	      echo "Log in to remote host"
-	      echo "local> dotool-login <droplet>"
-	  '
-          ;;
-        "a") 
-	  echo "Sending $OPTARG to $node_name ($ip_addr)"
-	  ;;
-        "D") dotool-delete "$OPTARG" ;;
-	"C")
-	  shift
-	  set -f
-	  IFS=" "
-	  local creation_args=($@);
-          local host="${creation_args[0]}";
-	  local key="${creation_args[1]}";
-	  local image_arg="${creation_args[2]}";
-	  local image=${image_arg:-ubuntu-18-04-x64};
-
-	  echo "host:$host, key:$key, image:$image"
-
-  	  dotool-create $host $key $image
-
-	  ## need to check that server is up before continuing forward
-	  ## host won't be found because the server won't be ready
-	  ## by the time this runs
-	  REMOTE_NODE=$(dotool-name-to-ip "$host");
-	  echo "$host has been created at ip: $REMOTE_NODE"
-          echo "nodeholder is set to communicate with $host($REMOTE_NODE)"
-	  ;;
-  	"L") echo "This is for login" ;;
-	"h") echo "Help menu" ;;
-  	"?") echo "Incorrect option $arg" ;;
-    esac
-  done
-  shift $(expr $OPTIND - 1) # remove options from positional parameters
-}
-
-nodeholder-config(){
-  #local ip_addr=$(dotool-name-to-ip "$1");
-  local ip_addr=$1
-  local config_file=$2;
-  #local admin_file=$3;
-
-  # copy config.sh to the remote machine
-  scp "$config_file" root@"$ip_addr":"$config_file"
- 
-  # location where daemonize is on mother node
-  local dpath_local="/home/admin/src/daemonize/daemonize";
-  
-  # location for daemonize on child node
-  local dpath_remote="/bin/daemonize";
-
-  # copy daemonize to the remote machine
-  scp "$dpath_local" root@"$ip_addr":"$dpath_remote"
-
-  # source configuration and configure machine
-  ssh root@"$ip_addr" '
-      source "'$config_file'" && config-init
-      echo "Deploy \"from a distance\" application with admin.sh"
-      echo "--or--"
-      echo "Log in to remote host"
-      echo "local> dotool-login <droplet>"
-'
-  # copy and source admin functionality
-  # scp "$admin_file" admin@"$ip_addr":"$admin_file"
-  
-  # instruct user on next steps
-  echo "
-  Setup application with admin- from local machine to remote host
-  --or--
-  Log in to remote host with 'dotool-login <droplet>'
-  "
-}
-
-# DO NOT NEED, now done by alias doX-install-admin
-node-remote-admin-init() {
-  local ip_addr=$(dotool-name-to-ip $1);
-  ssh admin@"$ip_addr" 'source admin.sh && zach-admin-init'
+	      # print aliases to file
+              printf "alias $node_name-install-admin=\"scp ./admin.sh admin@$ip:~/admin.sh && ssh admin@$ip 'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh' && scp -r ./buildpak admin@$ip:~/\"\n" >> ./aliases.sh
+              printf "alias $node_name-admin-init=\"\"\n" >> ./aliases.sh
+              printf "alias $node_name-admin-build=\"\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-start=\"\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-status=\"\"\n" >> ./aliases.sh
+              printf "alias $node_name-app-stop=\"\"\n" >> ./aliases.sh
+	      
+	      # increment to next name and ip pair
+	      i=$(expr "$i" + 1)
+	    done
+    else echo "ERROR: Length of server names is not equal to length of IPs"
+  fi
 }
 
 ##########################################################################
