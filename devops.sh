@@ -190,7 +190,6 @@ dotool-create-env-list() {
   # replace any named servers that have "-" in the name with "_"
   # write to nodeholder.list
   dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
-  echo "Nodes are now listed in ./nodeholder.list"
 } 
 
 ##########################################################################
