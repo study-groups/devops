@@ -82,44 +82,51 @@ dotool-create(){
   local new_ip=""
   local counter=0
   echo "Creating new node..."
-  # count down till remote server is up
+  
+  # while the server is being created
   while [ "$new_ip" == "" ]; do
+    # ping the server till you get a response
     new_ip=$(dotool-name-to-ip "$1")
     echo "$counter"
+    # count up till remote server is created
     counter=$(expr "$counter" + 1)
   done
   echo "New node $1 created at IP: $new_ip"
+  
+  # creates/renews nodeholder.list
+  dotool-create-env-list
+  # creates/refreshes env vars and renews aliases
+  nodeholder-generate-aliases
+  
   echo "Node IP as variable '$1' has been added to your environment."
-
-  # list all servers
-  # skip the title info (NR>1)
-  # define variables {print $2"="$3}
-  # replace any named servers that have "-" in the name with "_"
-  # write to nodeholder.list
-  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
-
-  # source variables into environment
-  source ./nodeholder.list
-
-  dotool-generate-aliases
   echo "aliases.sh file has been created/updated."
 }
 
 dotool-delete(){
   doctl compute droplet delete "$1"
+
+  # ping for server
   local ip=$(dotool-name-to-ip "$1")
+  
+  # while the server is still pingable
   while [ "$?" -eq 0 ]; do
     echo "Deleting..."
+    # ping for the server till it no longer exists
     dotool-name-to-ip "$1" > /dev/null 2>&1
   done
+  # server is deleted
   echo "Deleted $1: $ip"
+  
   # deletes environment variable
   local env_name=$(echo "$1" | tr '-' '_')
   unset "$env_name"
-  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
-  source ./nodeholder.list
+  
+  # renews nodeholder.list
+  dotool-create-env-list
+
+  # refreshes env vars and renews aliases
+  nodeholder-generate-aliases
   echo "Environment variables have been updated."
-  dotool-generate-aliases
   echo "aliases.sh has been updated to reflect this change."
 }
 
@@ -176,42 +183,48 @@ dotool-possibilites(){
   doctl compute region list
 }
 
-dotool-generate-aliases() {
+dotool-create-env-list() {
+  # list all servers
+  # skip the title info (NR>1)
+  # define variables {print $2"="$3}
+  # replace any named servers that have "-" in the name with "_"
+  # write to nodeholder.list
+  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
+  echo "Nodes are now listed in ./nodeholder.list"
+} 
 
+nodeholder-generate-aliases() {
+
+  # source variables into environment
+  source ./nodeholder.list
+
+  # create or refresh the aliases file
+  echo "" > ./aliases.sh
+  
   # collect the names of the servers
-  local node_names=($(cat ./nodeholder.list | awk -F"=" '{print $1}'))
-  # collect the ips of the servers
-  local ips=($(cat ./nodeholder.list | awk -F"=" '{print $2}'))
+  local node_names=($(awk -F"=" '{print $1}' < ./nodeholder.list))
 
-  # if the amount of names is equal to the amount of ips
-  ## (i.e. nothing has goofed up)
-  if [ "${#node_names[@]}" -eq "${#ips[@]}" ];
+  for name in "${node_names[@]}"; do
+	
+	# dereference the name of the env var to get the ip
+	local ip="${!name}"
 
-    then
-	    # refresh aliases file
-	    echo "" > ./aliases.sh
-	    local i=0
-	    while [ "$i" -lt "${#node_names[@]}" ]; do
-	      
-	      # server name and ip
-	      local node_name="${node_names[$i]}"
-	      local ip="${ips[$i]}"
-	      
+	# ready the template
+  	local template=$(cat ./aliases.template)
+	# inject the name of the server into the template
+	template=${template//NAME/"$name"}
+	# inject the server's ip into the template
+	template=${template//IP/"$ip"}
+	# place that template into the aliases file
+	echo "$template" >> ./aliases.sh
+  done
 
-	      # print aliases to file
-              printf "alias $node_name-install-admin=\"scp ./admin.sh admin@$ip:~/admin.sh && ssh admin@$ip 'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh' && scp -r ./buildpak admin@$ip:~/\"\n" >> ./aliases.sh
-	      printf "alias $node_name-admin-undo-init=\"ssh admin@$ip 'source admin.sh && admin-undo-init'\"\n" >> ./aliases.sh
-              printf "alias $node_name-admin-init=\"ssh admin@$ip 'source admin.sh && admin-init'\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-build=\"\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-start=\"ssh admin@$ip 'source admin.sh && app-start'\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-status=\"ssh admin@$ip 'source admin.sh && app-status'\"\n" >> ./aliases.sh
-              printf "alias $node_name-app-stop=\"ssh admin@$ip 'source admin.sh && app-stop'\"\n" >> ./aliases.sh
+  # source the aliases into the environment
+  source ./aliases.sh
+
+  # Consider adding  admin-refresh that only copies
+  # and edit remote .bashrc to admin-install (once after create) 
 	      
-	      # increment to next name and ip pair
-	      i=$(expr "$i" + 1)
-	    done
-    else echo "ERROR: Length of server names is not equal to length of IPs"
-  fi
 }
 
 ##########################################################################
