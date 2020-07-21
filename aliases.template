@@ -1,0 +1,11 @@
+alias NAME-install-admin="scp ./admin.sh admin@IP:~/admin.sh && ssh admin@IP 'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh' && scp -r ./buildpak admin@IP:~/"
+
+alias NAME-admin-undo-init="ssh admin@IP 'source admin.sh && admin-undo-init'"
+
+alias NAME-admin-init="ssh admin@IP 'source admin.sh && admin-init'"
+
+alias NAME-app-start="ssh admin@IP 'source admin.sh && app-start'"
+              
+alias NAME-app-status="ssh admin@IP 'source admin.sh && app-status'"
+
+alias NAME-app-stop="ssh admin@IP 'source admin.sh && app-stop'"
