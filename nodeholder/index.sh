@@ -51,6 +51,40 @@ nodeholder-copy-file-to-node() {
   scp "$admin_file" admin@"$ip_addr":"$admin_file"
 }
 
+nodeholder-generate-aliases() {
+
+  # source variables into environment
+  source ./nodeholder.list
+
+  # create or refresh the aliases file
+  echo "" > ./aliases.sh
+  
+  # collect the names of the servers
+  local node_names=($(awk -F"=" '{print $1}' < ./nodeholder.list))
+
+  for name in "${node_names[@]}"; do
+	
+	# dereference the name of the env var to get the ip
+	local ip="${!name}"
+
+	# ready the template
+  	local template=$(cat ./aliases.template)
+	# inject the name of the server into the template
+	template=${template//NAME/"$name"}
+	# inject the server's ip into the template
+	template=${template//IP/"$ip"}
+	# place that template into the aliases file
+	echo "$template" >> ./aliases.sh
+  done
+
+  # source the aliases into the environment
+  source ./aliases.sh
+
+  # Consider adding  admin-refresh that only copies
+  # and edit remote .bashrc to admin-install (once after create) 
+	      
+}
+
 ### EXPERIMENTAL ###
 ### Everything below this line is experimental ###
 
