@@ -44,13 +44,6 @@ nodeholder-config(){
   "
 }
 
-# belongs to mother
-nodeholder-copy-file-to-node() {
-  local ip_addr=$1;
-  local admin_file="$2";
-  scp "$admin_file" admin@"$ip_addr":"$admin_file"
-}
-
 nodeholder-generate-aliases() {
 
   # source variables into environment
@@ -79,10 +72,6 @@ nodeholder-generate-aliases() {
 
   # source the aliases into the environment
   source ./aliases.sh
-
-  # Consider adding  admin-refresh that only copies
-  # and edit remote .bashrc to admin-install (once after create) 
-	      
 }
 
 ### EXPERIMENTAL ###
