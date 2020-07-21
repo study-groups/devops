@@ -44,6 +44,28 @@ nodeholder-config(){
   "
 }
 
+nodeholder-install-admin() {
+  # assumes sourced env vars
+
+  # if statement to source admin.sh from .bashrc
+  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi"
+  # name of node
+  local node_name="$1"
+  # dereference node to receive ip
+  local ip="${!node_name}"
+
+  # file to send to node
+  local admin_file="$2"
+  # send admin file
+  scp "$admin_file" admin@"$ip":~/admin.sh
+  # specify the role of the node in the admin.sh file
+  # and set up .bashrc to source admin.sh on boot/use
+  ssh admin@"$ip" \
+    'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "$statement" >> ~/.bashrc'
+  # copy buildpak to node
+  scp -r ./buildpak admin@"$ip":~/
+}
+
 nodeholder-generate-aliases() {
 
   # source variables into environment
