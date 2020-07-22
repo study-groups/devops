@@ -12,11 +12,11 @@
 
 nodeholder-config(){
   
-  local ip_addr=$1
-  local config_file=$2;
+  local ip="$1";
+  local config_file="$2";
 
   # copy config.sh to the remote machine
-  scp "$config_file" root@"$ip_addr":"$config_file"
+  scp "$config_file" root@"$ip":"$config_file"
  
   # location where daemonize is on mother node
   local dpath_local="/home/admin/src/daemonize/daemonize";
@@ -25,10 +25,10 @@ nodeholder-config(){
   local dpath_remote="/bin/daemonize";
 
   # copy daemonize to the remote machine
-  scp "$dpath_local" root@"$ip_addr":"$dpath_remote"
+  scp "$dpath_local" root@"$ip":"$dpath_remote"
 
   # source configuration and configure machine
-  ssh root@"$ip_addr" '
+  ssh root@"$ip" '
       source "'$config_file'" && config-init
       echo "Deploy \"from a distance\" application with admin.sh"
       echo "--or--"
@@ -45,17 +45,16 @@ nodeholder-config(){
 }
 
 nodeholder-install-admin() {
-  # assumes sourced env vars
 
-  # if statement to source admin.sh from .bashrc
-  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi"
-  # name of node
-  local node_name="$1"
-  # dereference node to receive ip
-  local ip="${!node_name}"
+  # Adds admin.sh to .bashrc
+  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
+  
+  # ip of node to send file to
+  local ip="$1";
 
   # file to send to node
-  local admin_file="$2"
+  local admin_file="$2";
+  
   # send admin file
   scp "$admin_file" admin@"$ip":~/admin.sh
   # specify the role of the node in the admin.sh file
