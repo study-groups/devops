@@ -61,7 +61,7 @@ nodeholder-install-admin() {
   # specify the role of the node in the admin.sh file
   # and set up .bashrc to source admin.sh on boot/use
   ssh admin@"$ip" \
-    'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "$statement" >> ~/.bashrc'
+    'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
   # copy buildpak to node
   scp -r ./buildpak admin@"$ip":~/
 }
