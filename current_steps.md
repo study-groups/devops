@@ -1,3 +1,5 @@
+# How to create a node
+
 ## Find the key you'd like to use
 dotool-keys
 
@@ -14,6 +16,9 @@ nodeholder-config ip configFile
 
 ## Send admin file to your new node
 nodeholder-admin-install ip adminFile
+
+## Aliases would be the next steps from here
+
 
 
 # Other options

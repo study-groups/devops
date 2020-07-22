@@ -2,6 +2,8 @@ alias NAME-admin-refresh="scp $1 admin@IP:~/admin.sh"
 
 alias NAME-admin-undo-init="ssh admin@IP 'admin-undo-init'"
 
+alias NAME-admin-help="ssh admin@IP 'admin-help'"
+
 alias NAME-admin-init="ssh admin@IP 'admin-init'"
 
 alias NAME-admin-clone-app="ssh admin@IP 'admin-clone-app $1'"
