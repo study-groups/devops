@@ -1,11 +1,13 @@
 alias NAME-admin-refresh="scp $1 admin@IP:~/admin.sh"
 
-alias NAME-admin-undo-init="ssh admin@IP 'source admin.sh && admin-undo-init'"
+alias NAME-admin-undo-init="ssh admin@IP 'admin-undo-init'"
 
-alias NAME-admin-init="ssh admin@IP 'source admin.sh && admin-init'"
+alias NAME-admin-init="ssh admin@IP 'admin-init'"
 
-alias NAME-app-start="ssh admin@IP 'source admin.sh && app-start'"
+alias NAME-admin-clone-app="ssh admin@IP 'admin-clone-app $1'"
+
+alias NAME-app-start="ssh admin@IP 'app-start'"
               
-alias NAME-app-status="ssh admin@IP 'source admin.sh && app-status'"
+alias NAME-app-status="ssh admin@IP 'app-status'"
 
-alias NAME-app-stop="ssh admin@IP 'source admin.sh && app-stop'"
+alias NAME-app-stop="ssh admin@IP 'app-stop'"
