@@ -226,7 +226,3 @@ nodeholder() {
   done
   shift $(expr $OPTIND - 1) # remove options from positional parameters
 }
-
-
-
-
