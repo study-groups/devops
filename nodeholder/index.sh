@@ -95,6 +95,19 @@ nodeholder-generate-aliases() {
   source ./aliases.sh
 }
 
+nodeholder-refresh-admin() {
+  local admin_file="$1"
+  local ip="$2"
+
+  scp "$admin_file" admin@"$ip":~/admin.sh
+}
+
+nodeholder-clone-app() {
+  local ip="$1"
+  local repo_url="$2"
+  ssh admin"$ip" 'admin-clone-app "'$repo_url'"'
+}
+
 ### EXPERIMENTAL ###
 ### Everything below this line is experimental ###
 
