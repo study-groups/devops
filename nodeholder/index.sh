@@ -45,12 +45,11 @@ nodeholder-config(){
 }
 
 nodeholder-install-admin() {
-
-  # Adds admin.sh to .bashrc
-  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
-  
   # ip of node to send file to
   local ip="$1";
+  
+  # Adds admin.sh to .bashrc
+  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
 
   # file to send to node
   local admin_file="$2";
@@ -62,7 +61,7 @@ nodeholder-install-admin() {
   ssh admin@"$ip" \
     'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
   # copy buildpak to node
-  scp -r ./buildpak admin@"$ip":~/
+  scp -r ./api/buildpak admin@"$ip":~/
 }
 
 nodeholder-generate-aliases() {
@@ -96,16 +95,33 @@ nodeholder-generate-aliases() {
 }
 
 nodeholder-refresh-admin() {
-  local admin_file="$1"
-  local ip="$2"
-
+  local ip="$1"
+  local admin_file="$2"
   scp "$admin_file" admin@"$ip":~/admin.sh
 }
 
-nodeholder-clone-app() {
-  local ip="$1"
-  local repo_url="$2"
-  ssh admin@"$ip" 'admin-clone-app "'$repo_url'"'
+nodeholder-remove-node() {
+  local ip="$1";
+  local node_name="$2";
+
+  ssh admin@"$ip" 'source admin.sh && admin-remove-node "'$node_name'"'
+
+  ## This needs to be in /var or somewhere similar
+  ## rm -rf ./apps/$node_name
+}
+
+nodeholder-create-node() {
+  ## admin vs api
+  ## does admin create the nodes and api run the processes?
+  ## what's the distinction?
+
+  local ip="$1";
+  local node_name="$2";
+
+  ssh admin@"$ip" 'source admin.sh && admin-create-node "'$node_name'"'
+
+  ## This needs to be in /var or somewhere similar
+  ## mkdir -p apps/$node_name
 }
 
 ### EXPERIMENTAL ###
