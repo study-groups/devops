@@ -94,12 +94,7 @@ dotool-create(){
   echo "New node $1 created at IP: $new_ip"
   
   # creates/renews nodeholder.list
-  dotool-create-env-list
-  # creates/refreshes env vars and renews aliases
-  nodeholder-generate-aliases
-  
-  echo "Node IP as variable '$1' has been added to your environment."
-  echo "aliases.sh file has been created/updated."
+  dotool-create-server-list
 }
 
 dotool-delete(){
@@ -121,13 +116,8 @@ dotool-delete(){
   local env_name=$(echo "$1" | tr '-' '_')
   unset "$env_name"
   
-  # renews nodeholder.list
-  dotool-create-env-list
-
-  # refreshes env vars and renews aliases
-  nodeholder-generate-aliases
-  echo "Environment variables have been updated."
-  echo "aliases.sh has been updated to reflect this change."
+  # renews server list
+  dotool-create-server-list
 }
 
 dotool-id-to-ip(){
@@ -183,13 +173,16 @@ dotool-possibilites(){
   doctl compute region list
 }
 
-dotool-create-env-list() {
+dotool-create-server-list() {
   # list all servers
   # skip the title info (NR>1)
   # define variables {print $2"="$3}
   # replace any named servers that have "-" in the name with "_"
   # write to nodeholder.list
-  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > ./nodeholder.list
+  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > \
+	  ~/server.list
+  source ~/server.list
+  echo "Server names and ips have been refreshed in environment."
 } 
 
 ##########################################################################
