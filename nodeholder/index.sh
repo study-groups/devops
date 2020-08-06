@@ -71,13 +71,13 @@ echo $(dirname $BASH_SOURCE)
 nodeholder-generate-aliases() {
 
   # source variables into environment
-  source ~/nodeholder.list
+  source /home/admin/server.list
 
   # create or refresh the aliases file
   echo "" > /home/admin/nodeholder-aliases.sh
   
   # collect the names of the servers
-  local node_names=($(awk -F"=" '{print $1}' < /home/admin/nodeholder.list))
+  local node_names=($(awk -F"=" '{print $1}' < /home/admin/server.list))
 
   for name in "${node_names[@]}"; do
 	
@@ -85,18 +85,20 @@ nodeholder-generate-aliases() {
 	local ip="${!name}"
 
 	# ready the template
-  	local template=$(cat ./aliases.template)
+  	local template=$(cat \
+	        /home/admin/src/devops-study-group/nodeholder/aliases.template)
 	# inject the name of the server into the template
 	template=${template//NAME/"$name"}
 	# inject the server's ip into the template
 	template=${template//IP/"$ip"}
 	# place that template into the aliases file
-	echo "$template" >> ./aliases.sh
+	echo "$template" >> /home/admin/nodeholder-aliases.sh
   done
 
-  # source the aliases into the environment
-  source ./aliases.sh
+  source /home/admin/nodeholder-aliases.sh
+
 }
+
 
 nodeholder-refresh-admin() {
   local ip="$1"
