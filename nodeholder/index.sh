@@ -64,16 +64,20 @@ nodeholder-install-admin() {
   scp -r ./api/buildpak admin@"$ip":~/
 }
 
+nodeholder-test(){
+echo $(dirname $BASH_SOURCE)
+}
+
 nodeholder-generate-aliases() {
 
   # source variables into environment
-  source ./nodeholder.list
+  source ~/nodeholder.list
 
   # create or refresh the aliases file
-  echo "" > ./aliases.sh
+  echo "" > /home/admin/nodeholder-aliases.sh
   
   # collect the names of the servers
-  local node_names=($(awk -F"=" '{print $1}' < ./nodeholder.list))
+  local node_names=($(awk -F"=" '{print $1}' < /home/admin/nodeholder.list))
 
   for name in "${node_names[@]}"; do
 	

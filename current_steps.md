@@ -25,8 +25,6 @@ nodeholder-admin-install ip adminFile
 
 ## Aliases would be the next steps from here
 
-
-
 # Other options
 
 ## Delete the nodeholder

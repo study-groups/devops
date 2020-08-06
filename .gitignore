@@ -5,6 +5,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# personal tools for Bash
+devtools.sh
+
 # quick and dirty local version control
 .qik 
 

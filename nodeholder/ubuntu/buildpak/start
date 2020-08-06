@@ -1,0 +1,11 @@
+#!/bin/bash
+dir=$(dirname $BASH_SOURCE)
+app=/bin/bash
+entry=app.sh
+
+>&2 echo "Daemaonizing $(cat app.name)
+BASH_SOURCE:$dir
+"
+# NEED TO CHECK FOR CURRENT PROCESSES RUNNING
+source ~/admin.sh
+admin-daemonize-app $dir $app $entry
