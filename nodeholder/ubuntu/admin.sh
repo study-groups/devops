@@ -57,10 +57,55 @@ admin-remove-node() {
   sudo deluser --remove-home "$node_name" ## --backup --backup-to
 }
 
+# old way, abandoning..
+admin-get-next-port-fileMethod(){
+  # get top of file
+  local available_ports=($(cat ~/available_ports))
+  local new_port=${available_ports[0]}; 
+  # write all but the first (pop the port from list)
+  printf "%s\n" "${available_ports[@]:1}" > ~/available_ports
+  admin-add-enable-port $new_port $(date) "Should be associated with app."
+}
+
+# Directory creation time is self timestamped.
+admin-get-next-port-dirMethod(){
+  # get top of file
+  local dir=/home/admin/ports
+  local ports=($(ls ~/ports))
+  local port=1025 # default first port
+
+  # if no ports, length of ports array is 0
+  # if one or more ports, add one to largest
+  # [ true ] && true case 
+  [  ${#ports} -ne 0 ] && port=$[ ${ports[-1]} + 1 ] 
+  mkdir $dir/$port
+  echo "Made port entry $dir/$port"
+}
+
+
+admin-remove-port(){
+  local dir=/home/admin/ports
+  #cp -r  $dir/$1 /tmp/$1.$(date +%s) # cp backup 
+  rm -r $dir/$1
+}
+
 admin-create-app(){
   local nodename=$1
-  local appname=$2
-  cp -r /home/admin/buildpak /home/$nodename/$appname
+  local repo=$2
+  local port=$(admin-get-nextport)
+  local repo_dir=/home/$nodename 
+  # git clone $repo $repo_dir
+  sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
+  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$repo/nh
+  sudo -u $nodename bash -c "echo $port > /home/$nodename/$repo/nh/port"
+}
+
+admin-delete-app(){
+  local nodename=$1
+  local repo=$2
+  local port=$(cat /home/$nodename/$repo/nh/port)
+  admin-ports-add-available $port
+  sudo -u $nodename rm -r /home/$nodename/$repo
 }
 
 ## needs work
@@ -92,9 +137,9 @@ admin-daemonize-app() {
   daemonize \
 	  -E PORT=4444 \
 	  -c $cwd \
-	  -p $cwd/app/pid \
-	  -e $cwd/app/err \
-	  -o $cwd/app/log \
+	  -p $cwd/pid \
+	  -e $cwd/err \
+	  -o $cwd/log \
 	  "$cmd" "$args"
 }
 

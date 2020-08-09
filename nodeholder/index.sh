@@ -102,7 +102,7 @@ nodeholder-generate-aliases() {
 
 nodeholder-refresh-admin() {
   local ip="$1"
-  local admin_file="$2"
+  local admin_file=/home/admin/src/devops-study-group/nodeholder/ubuntu/admin.sh
   scp "$admin_file" admin@"$ip":~/admin.sh
 }
 

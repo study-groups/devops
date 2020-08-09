@@ -4,13 +4,13 @@
 #
 #       Stage          Tool             Description
 #  1. PROVISIONING    dotool        creates node, copies to remote:config.sh
-#  2. CONFIGURATION   config,node   node-config calls remote:config-init
-#  3. PORTMAPPINGS    node          creates Nginx remote:config files (consul)
+#  2. CONFIGURATION   nodeholder    nodeholder-config calls remote:config-init
+#  3. PORTMAPPINGS    nodeholder    creates Nginx remote:config files (consul)
 #  4. DEPLOYMENT      admin         sets up remote:apps from repos (nomad)
-#  5. MANAGEMENT      node          start, stop and configure apps (nomad)
-#  5. MONITORING      node          monitors all known remote:nodes (consul)
-#  6. LOGGING         nodelog       maintains logfile rotation,etc (consul)
-#  7. BACKUP          nodesync      rsync wrapper with conventions (consul)
+#  5. MANAGEMENT      nodeholder*   start, stop and configure apps (nomad)
+#  6. MONITORING      nodeholder    monitors all known remote:nodes (consul)
+#  7. LOGGING         nodelog       maintains logfile rotation,etc (consul)
+#  8. BACKUP          nodesync      rsync wrapper with conventions (consul)
 #
 #  *A dash-app is a madeup term that referes to a collection of
 #   shell functions starting with "appname-".
@@ -93,7 +93,7 @@ dotool-create(){
   done
   echo "New node $1 created at IP: $new_ip"
   
-  # creates/renews nodeholder.list
+  # creates/renews server.list
   dotool-create-server-list
 }
 
@@ -178,7 +178,7 @@ dotool-create-server-list() {
   # skip the title info (NR>1)
   # define variables {print $2"="$3}
   # replace any named servers that have "-" in the name with "_"
-  # write to nodeholder.list
+  # write to server.list
   dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > \
 	  ~/server.list
   source ~/server.list
