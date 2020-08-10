@@ -1,7 +1,7 @@
 #!/bin/bash
+# must call wthis with full path name /home/user/repo/nh/stop
 dir=$(dirname $BASH_SOURCE)
-cd $dir
-pid=$(cat ./app.pid)
+pid=$(cat $dir/pid)
 time=$(date)
 >&2 echo "BASH_SOURCE: $BASH_SOURCE"
 >&2 echo "dir: $dir"
@@ -9,5 +9,4 @@ time=$(date)
 kill $pid
 time=$(date)
 >&2 echo "$time: Killed: $pid" 
-echo "" > ./app.pid 
->&2 echo "Killed $(cat app.name) with PID: $(cat ./app.pid)"
+echo "" > $dir/pid 

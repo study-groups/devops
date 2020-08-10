@@ -1,12 +1,11 @@
-source ~/admin.sh
 dir=$(dirname $BASH_SOURCE)
->&2 echo "Status for  $(cat $dir/app.name)
+>&2 echo "Status for  $dir:
 PWD: $PWD
 BASH_SOURCE: $BASH_SOURCE
 dir: $dir
-with PID: $(cat $dir/app.pid)
-Tail of $dir/app.log:
-$(tail $dir/app.log)
-Tail of $dir/app.err:
-$(tail $dir/app.err)
+with PID: $(cat $dir/pid)
+Tail of $dir/log:
+$(tail $dir/log)
+Tail of $dir/err:
+$(tail $dir/err)
 "
