@@ -29,14 +29,6 @@ nodeholder-copy-file() {
 
 
 ### Zach's interpretation ###
-
-admin-create-paths() {
-  # make room for repos and app deployment.
-  mkdir /home/admin/src/   # where apps are developed
-  #mkdir /home/admin/apps/  # where apps are deployed to production
-  #echo "development and production setup finished"
-}
-
 admin-create-node() {
   local node_name="$1";
 
@@ -57,21 +49,11 @@ admin-remove-node() {
   sudo deluser --remove-home "$node_name" ## --backup --backup-to
 }
 
-# old way, abandoning..
-admin-get-next-port-fileMethod(){
-  # get top of file
-  local available_ports=($(cat ~/available_ports))
-  local new_port=${available_ports[0]}; 
-  # write all but the first (pop the port from list)
-  printf "%s\n" "${available_ports[@]:1}" > ~/available_ports
-  admin-add-enable-port $new_port $(date) "Should be associated with app."
-}
-
 # Directory creation time is self timestamped.
-admin-get-next-port-dirMethod(){
+admin-create-port(){
   # get top of file
   local dir=/home/admin/ports
-  local ports=($(ls ~/ports))
+  local ports=($(ls $dir))
   local port=1025 # default first port
 
   # if no ports, length of ports array is 0
@@ -79,33 +61,64 @@ admin-get-next-port-dirMethod(){
   # [ true ] && true case 
   [  ${#ports} -ne 0 ] && port=$[ ${ports[-1]} + 1 ] 
   mkdir $dir/$port
-  echo "Made port entry $dir/$port"
+  echo $port
+  #echo "Made port entry $dir/$port"
 }
 
 
-admin-remove-port(){
+admin-log(){
+  local funcname=${FUNCNAME[1]} # get function that called this
+  echo $(date +%s) $funcname $@ >> /home/admin/log
+}
+
+
+#https://stackoverflow.com/questions/3685970/\
+#check-if-a-bash-array-contains-a-value
+admin-delete-port(){
+  admin-log $@
+  [ -z $1 ] && admin-log "no port entered" && return -1
+  local port=$1
   local dir=/home/admin/ports
-  #cp -r  $dir/$1 /tmp/$1.$(date +%s) # cp backup 
-  rm -r $dir/$1
+  local ports=( $(ls $dir) )
+
+  if printf '%s\n' ${ports[@]} | grep -q -w "$1"; then  #quiet, word
+    echo "true"
+  else
+    echo "false"
+  fi
+
+  [[ " ${ports[@]} " =~ " ${port} " ]] \
+    && admin-log "rm -rf $dir/$port" && rm -rf $dir/$port \
+    || echo "false"
 }
 
+admin-create-key(){
+  admin-log $@
+  ssh-keygen -C $1 -f /home/admin/.ssh/$1
+  ls ~/.ssh/
+}
 admin-create-app(){
+  admin-log $@
   local nodename=$1
   local repo=$2
-  local port=$(admin-get-nextport)
+  local port=$(admin-create-port)
+  admin-log port=$port 
   local repo_dir=/home/$nodename 
   # git clone $repo $repo_dir
   sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
   sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$repo/nh
   sudo -u $nodename bash -c "echo $port > /home/$nodename/$repo/nh/port"
+  admin-log created /home/$nodename/$repo
 }
 
 admin-delete-app(){
+  admin-log $@
   local nodename=$1
   local repo=$2
   local port=$(cat /home/$nodename/$repo/nh/port)
-  admin-ports-add-available $port
   sudo -u $nodename rm -r /home/$nodename/$repo
+  echo "PORT: $port"
+  admin-delete-port $port
 }
 
 ## needs work
@@ -146,7 +159,8 @@ admin-daemonize-app() {
 zach-admin-init() {
   local app_name="node-hello-world"
   local app_repo="https://github.com/zoverlvx/$app_name.git"
-  admin-create-paths  # creates /home/admin/{src,apps}
+  #admin-create-paths  # creates /home/admin/{src,apps}
+  mkdir /home/admin/src/   # where apps are developed
   admin-clone-app $app_repo
   app-build
   app-start
