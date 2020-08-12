@@ -1,5 +1,5 @@
 #!/bin/bash
-# must call wthis with full path name /home/user/repo/nh/stop
+# must call this with full path name /home/user/repo/nh/stop
 dir=$(dirname $BASH_SOURCE)
 pid=$(cat $dir/pid)
 time=$(date)

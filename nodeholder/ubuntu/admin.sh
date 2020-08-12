@@ -19,16 +19,11 @@ admin-help(){
 "
 }
 
-# belongs to mother
-nodeholder-copy-file() {
-  #local ip_addr=$(dotool-name-to-ip "$1");
-  local ip_addr=$1;
-  local admin_file="$2";
-  scp "$admin_file" admin@"$ip_addr":"$admin_file"
+admin-log(){
+  local funcname=${FUNCNAME[1]} # get function that called this
+  echo $(date +%s) $funcname $@ >> /home/admin/log
 }
 
-
-### Zach's interpretation ###
 admin-create-node() {
   local node_name="$1";
 
@@ -65,13 +60,6 @@ admin-create-port(){
   #echo "Made port entry $dir/$port"
 }
 
-
-admin-log(){
-  local funcname=${FUNCNAME[1]} # get function that called this
-  echo $(date +%s) $funcname $@ >> /home/admin/log
-}
-
-
 #https://stackoverflow.com/questions/3685970/\
 #check-if-a-bash-array-contains-a-value
 admin-delete-port(){
@@ -81,7 +69,7 @@ admin-delete-port(){
   local dir=/home/admin/ports
   local ports=( $(ls $dir) )
 
-  if printf '%s\n' ${ports[@]} | grep -q -w "$1"; then  #quiet, word
+  if printf '%s\n' ${ports[@]} | grep -q -w "$port"; then  #quiet, word
     echo "true"
   else
     echo "false"
@@ -95,28 +83,31 @@ admin-delete-port(){
 admin-create-key(){
   admin-log $@
   ssh-keygen -C $1 -f /home/admin/.ssh/$1
+  # add ssh-keyagent to use the key
   ls ~/.ssh/
 }
+
 admin-create-app(){
   admin-log $@
   local nodename=$1
-  local repo=$2
+  local repo_url=$2
+  local app_name=$3
   local port=$(admin-create-port)
-  admin-log port=$port 
-  local repo_dir=/home/$nodename 
-  # git clone $repo $repo_dir
-  sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
-  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$repo/nh
-  sudo -u $nodename bash -c "echo $port > /home/$nodename/$repo/nh/port"
-  admin-log created /home/$nodename/$repo
+  admin-log port=$port
+  sudo -u $nodename mkdir /home/$nodename/$app_name 
+  sudo -u $nodename git clone $repo_url /home/$nodename/$app_name
+  # sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
+  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$app_name/nh
+  sudo -u $nodename bash -c "echo $port > /home/$nodename/$app_name/nh/port"
+  admin-log created /home/$nodename/$app_name
 }
 
 admin-delete-app(){
   admin-log $@
   local nodename=$1
-  local repo=$2
-  local port=$(cat /home/$nodename/$repo/nh/port)
-  sudo -u $nodename rm -r /home/$nodename/$repo
+  local app_name=$2
+  local port=$(cat /home/$nodename/$app_name/nh/port)
+  sudo -u $nodename rm -rf /home/$nodename/$app_name
   echo "PORT: $port"
   admin-delete-port $port
 }
