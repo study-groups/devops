@@ -87,6 +87,19 @@ admin-create-key(){
   ls ~/.ssh/
 }
 
+admin-create-dummy(){
+  admin-log $@
+  local nodename=$1
+  local repo=$2
+  local port=$(admin-create-port)
+  admin-log port=$port
+  local repo_dir=/home/$nodename
+  sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
+  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$repo/nh
+  sudo -u $nodename bash -c "echo $port > /home/$nodename/$repo/nh/port"
+  admin-log created /home/$nodename/$repo
+}
+
 admin-create-app(){
   admin-log $@
   local nodename=$1
