@@ -104,7 +104,9 @@ admin-create-app(){
   admin-log $@
   local nodename=$1
   local repo_url=$2
-  local app_name=$3
+  local basename=$(basename $repo_url); # myapp.git
+  basename=${basename%.*}; # myapp  (removes .git)
+  local app_name=${3:-$basename};
   local port=$(admin-create-port)
   admin-log port=$port
   sudo -u $nodename mkdir /home/$nodename/$app_name 
