@@ -111,8 +111,14 @@ admin-create-app(){
   admin-log port=$port
   sudo -u $nodename mkdir /home/$nodename/$app_name 
   sudo -u $nodename git clone $repo_url /home/$nodename/$app_name
-  # sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
-  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$app_name/nh
+
+  # if nh dir does not exist, copy dummy 
+  # user should modify nh/start and check nh dir in.
+  [ ! -d "/home/$nodename/$app_name/nh" ] \
+    && sudo -u $nodename \
+        cp -r /home/admin/buildpak \
+              /home/$nodename/$app_name/nh
+
   sudo -u $nodename bash -c "echo $port > /home/$nodename/$app_name/nh/port"
   admin-log created /home/$nodename/$app_name
 }

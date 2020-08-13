@@ -1,5 +1,6 @@
 #!/bin/bash
-cwd=/home/nhw/dummy/nh
+#cwd=/home/nhw/dummy/nh
+cwd=$(dirname $(realpath  $BASH_SOURCE))
 cmd=/bin/bash
 args=app.sh
 daemonize \
