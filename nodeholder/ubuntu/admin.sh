@@ -138,30 +138,6 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-admin-daemonize-app() {
-
-  # current working directory
-  local cwd=$1;
-
-  # command to run program
-  local cmd=$2;
-
-  # path to file
-  local args=$3;
-  
-  echo "cwd: $cwd\n cmd: $cmd\n args: $args"
-  
-  # daemonize application running as admin
-  daemonize \
-	  -E PORT=4444 \
-	  -c $cwd \
-	  -p $cwd/pid \
-	  -e $cwd/err \
-	  -o $cwd/log \
-	  "$cmd" "$args"
-}
-
-####End of Zach's interpretation #####
 
 admin-install-sae(){
   # presume src directory exists
