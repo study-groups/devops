@@ -138,7 +138,7 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-
+## deprecatable?
 admin-install-sae(){
   # presume src directory exists
   cd /home/admin/src/
@@ -157,15 +157,6 @@ admin-install-sae(){
   cd /home/admin
 }
 
-
-admin-install-apps(){
-
-  # make room for repos and app deployment.
-  mkdir /home/admin/src/   # where apps are developed
-  mkdir /home/admin/apps/  # where apps are deployed to production 
-
-  admin-install-sae
-}
 
 admin-start-apps(){
 # Start node servers (ports are currently defined by user, later system)
