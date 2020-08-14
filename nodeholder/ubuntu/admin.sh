@@ -133,18 +133,6 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-## needs work
-admin-clone-repo() {
-
-  local repo_url=$1;
-  local basename=$(basename $repo_url); # myapp.git
-  local app_name=${basename%.*}; # myapp  (removes .git)
-  
-  # must clone as user
-  git clone $repo_url .
-
-}
-
 admin-daemonize-app() {
 
   # current working directory
