@@ -138,41 +138,6 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-## deprecatable?
-admin-install-sae(){
-  # presume src directory exists
-  cd /home/admin/src/
-
-  local app_name=sentiment-analysis-engine
-  local repo_url="https://gitlab.com/zoverlvx/$app_name.git";
-  git clone $repo_url
-
-  # presumes repo contains a directory called app that can be
-  # served from this system.
-  local app_dir="/home/admin/apps/$app_name"    # production app
-  mkdir $app_dir
-  cp -r /home/admin/src/$app_name/bin $app_dir  # change to match repo
-
-  # set pwd to home for next function call
-  cd /home/admin
-}
-
-
-admin-start-apps(){
-# Start node servers (ports are currently defined by user, later system)
-
-    # Future: loop over directories in  /home/admin/apps and call init.sh
-
-    node /home/admin/apps/sentiment-analysis-engine/bin/www.js
-}
-
-# This local functions will be called. Comment out as needed.
-admin-init(){
-  zach-admin-init
-  #admin-install-apps
-  #admin-start-apps
-}
-
 userdir="/home/admin"
 pidfile="$userdir/src/node-hello-world/nodeholder/development/app.pid"
 stopfile="$userdir/src/node-hello-world/nodeholder/development/stop"
