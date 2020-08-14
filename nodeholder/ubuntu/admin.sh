@@ -156,16 +156,6 @@ admin-daemonize-app() {
 	  "$cmd" "$args"
 }
 
-zach-admin-init() {
-  local app_name="node-hello-world"
-  local app_repo="https://github.com/zoverlvx/$app_name.git"
-  #admin-create-paths  # creates /home/admin/{src,apps}
-  mkdir /home/admin/src/   # where apps are developed
-  admin-clone-app $app_repo
-  app-build
-  app-start
-}
-
 ####End of Zach's interpretation #####
 
 admin-install-sae(){
