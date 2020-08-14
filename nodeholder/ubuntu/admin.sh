@@ -87,6 +87,11 @@ admin-create-key(){
   ls ~/.ssh/
 }
 
+admin-add-key() {
+  local nodename=$1;
+  local key_val=$2;
+}
+
 admin-create-dummy(){
   admin-log $@
   local nodename=$1
