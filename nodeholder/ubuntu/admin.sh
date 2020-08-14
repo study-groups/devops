@@ -138,11 +138,11 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-userdir="/home/admin"
-pidfile="$userdir/src/node-hello-world/nodeholder/development/app.pid"
-stopfile="$userdir/src/node-hello-world/nodeholder/development/stop"
-startfile="$userdir/src/node-hello-world/nodeholder/development/start"
-statusfile="$userdir/src/node-hello-world/nodeholder/development/status"
+userdir="/home/nhw"
+pidfile="$userdir/node-hello-world/nh/app.pid"
+stopfile="$userdir/node-hello-world/nh/stop"
+startfile="$userdir/node-hello-world/nh/start"
+statusfile="$userdir/node-hello-world/nh/status"
 
 admin-undo-init(){
   if [[ $NODEHOLDER_ROLE == "child" ]]
