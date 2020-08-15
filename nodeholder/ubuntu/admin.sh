@@ -31,7 +31,8 @@ admin-create-node() {
   
   # copy admin key from root to user, so that admin may have access
   sudo mkdir /home/$node_name/.ssh
-  sudo cp /admin/.ssh/authorized_keys /home/$node_name/.ssh/authorized_keys
+  sudo cp /home/admin/.ssh/authorized_keys \
+	  /home/$node_name/.ssh/authorized_keys
 
   # create ownership and groups
   sudo chown -R $node_name:$node_name /home/$node_name/.ssh
@@ -85,11 +86,6 @@ admin-create-key(){
   ssh-keygen -C $1 -f /home/admin/.ssh/$1
   # add ssh-keyagent to use the key
   ls ~/.ssh/
-}
-
-admin-add-key() {
-  local nodename=$1;
-  local key_val=$2;
 }
 
 admin-create-dummy(){
@@ -156,9 +152,7 @@ admin-undo-init(){
   fi
 
   echo "Aborting undo. NODEHOLDER_ROLE not child."
-
 }
-
 
 admin-get-pid(){
   local pid=$(cat $pidfile);
@@ -169,7 +163,6 @@ admin-app-status(){
   echo using PID file:  $pidfile
   echo Using status file:  $statusfile
 }
-
 
 admin-monitor(){
   watch -n .5 '
