@@ -38,6 +38,8 @@ admin-create-node() {
   sudo chown -R $node_name:$node_name /home/$node_name/.ssh
   sudo chmod 0700 /home/$node_name/.ssh
   sudo chmod 0600 /home/$node_name/.ssh/authorized_keys
+  sudo -u $node_name ssh-keygen -N -q -f /home/$node_name/.ssh/id_rsa \
+	  -C "$node_name-$(date +%Y-%m-%d)"
 }
 
 admin-remove-node() {
@@ -84,8 +86,14 @@ admin-delete-port(){
 admin-create-key(){
   admin-log $@
   ssh-keygen -C $1 -f /home/admin/.ssh/$1
-  # add ssh-keyagent to use the key
-  ls ~/.ssh/
+}
+
+#  $1 - full path to priv key in same dir as key.pub
+#  This adds the priv/pub key pair to the admin's key ring
+#  Not sure we want or need this.
+admin-add-key() {
+  eval `ssh-agent`
+  ssh-add $1
 }
 
 admin-create-dummy(){
