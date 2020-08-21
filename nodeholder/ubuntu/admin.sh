@@ -116,6 +116,9 @@ admin-create-app(){
   local basename=$(basename $repo_url); # myapp.git
   basename=${basename%.*}; # myapp  (removes .git)
   local app_name=${3:-$basename};
+  [ -d "/home/$nodename/$app_name" ] && \
+	  echo "app dir exists, exiting" && return -1
+
   local port=$(admin-create-port)
   admin-log port=$port
   sudo -u $nodename mkdir /home/$nodename/$app_name 
