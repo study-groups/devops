@@ -86,7 +86,7 @@ nodeholder-generate-aliases() {
 
 	# ready the template
   	local template=$(cat \
-	        /home/admin/src/devops-study-group/nodeholder/aliases.template)
+	        /home/admin/src/devops-study-group/nodeholder/templates/aliases.template)
 	# inject the name of the server into the template
 	template=${template//NAME/"$name"}
 	# inject the server's ip into the template
@@ -102,12 +102,13 @@ nodeholder-generate-server-dirs() {
   local directories=($(cat ~/server.list | awk -F= '{print $1}'));
 
   for directory in "${directories[@]}"; do
-    if [ ! -d "$directory" ]; then
-      mkdir ~/servers/$directory
-      echo "Made new server directory $directory in ~/servers."
-    fi
-    done
+    [ ! -d "$directory" ] \
+    && mkdir ~/servers/$directory 2> /dev/null \
+    && echo "${!directory}" > ~/servers/$directory/ip \
+    && echo "Creating directory for server: $directory"
+  done
     echo "Server directory generation complete."
+    echo "Listing ~/servers"
     ls ~/servers
 }
 
@@ -117,7 +118,7 @@ nodeholder-generate-node-dirs-for-server() {
     echo "Please supply the name of the server."
     return 1
   fi
-
+  
   # list all the nodes associated with the server *except for admin
   local nodes=($(ssh admin@"${!server_name}" 'ls /home -I admin'));
 
@@ -130,7 +131,6 @@ nodeholder-generate-node-dirs-for-server() {
 
   echo "Listing directory ~/servers/$server_name"
   ls ~/servers/$server_name
-
 }
 
 nodeholder-generate-app-dirs-for-node() {
@@ -154,6 +154,25 @@ nodeholder-generate-app-dirs-for-node() {
 
   echo "Listing directory ~/servers/$server_name/$node_name"
   ls ~/servers/$server_name/$node_name
+}
+
+# needs work
+nodeholder-refresh-servers-dir() {
+  #######################################################
+  # These are commented out for security purposes
+  # rm -rf ~/servers/*          
+  # nodeholder-generate-server-dirs > /dev/null
+  #######################################################
+  local servers=$(ls ~/servers);
+
+  for server in "${servers[@]}"; do
+    nodeholder-generate-node-dirs-for-server "$server" > /dev/null
+  done
+  
+  printf "\nRefreshed server directories and node directories.\n"
+  printf "Listing full ~/servers directory:\n\n"
+  ls -R ~/servers
+
 }
 
 
