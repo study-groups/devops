@@ -99,13 +99,19 @@ nodeholder-generate-aliases() {
 }
 
 nodeholder-generate-server-dirs() {
-  local directories=($(cat ~/server.list | awk -F= '{print $1}'));
+  local servers=($(cat ~/server.list | awk -F= '{print $1}'));
 
-  for directory in "${directories[@]}"; do
-    [ ! -d "$directory" ] \
-    && mkdir ~/servers/$directory 2> /dev/null \
-    && echo "${!directory}" > ~/servers/$directory/ip \
-    && echo "Creating directory for server: $directory"
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
+
+  for server in "${servers[@]}"; do
+    [ ! -d ~/servers/$server ] \
+    && mkdir ~/servers/$server 2> /dev/null \
+    && echo "${!server}" > ~/servers/$server/ip \
+    && touch ~/servers/$server/server-functions.sh \
+    && echo "Creating directory for server: $server"
   done
     echo "Server directory generation complete."
     echo "Listing ~/servers"
@@ -114,6 +120,11 @@ nodeholder-generate-server-dirs() {
 
 nodeholder-generate-node-dirs-for-server() {
   local server_name="$1" # don't use ip
+
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
 
   # error handler if server_name is not provided
   [ -z "$server_name" ] && \
@@ -126,6 +137,7 @@ nodeholder-generate-node-dirs-for-server() {
   for node in "${nodes[@]}"; do
     [ ! -d "~/servers/$server_name/$node" ] \
     && mkdir ~/servers/$server_name/$node 2> /dev/null \
+    && touch ~/servers/$server_name/$node/functions.sh \
     && echo "Created ~/servers/$server_name/$node"
   done
 
@@ -137,10 +149,15 @@ nodeholder-generate-app-dirs-for-node() {
   local server_name="$1"; # don't use the ip
   local node_name="$2";
 
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
+
   # error handlers if server_name or node_name are not provided
   [ -z "$server_name" ] \
   && echo "Please provide the name of the server and the name of the node." \
-  && return 1
+  && return 1 \
   || [ -z "$node_name" ] && echo "Please provide the name of the node." \
 	  && return 1
 
@@ -152,6 +169,7 @@ nodeholder-generate-app-dirs-for-node() {
     [ ! -d "~/servers/$server_name/$node_name/$app" ] \
     && [ "$app" != "buildpak/" ] \
     && mkdir ~/servers/$server_name/$node_name/$app 2> /dev/null \
+    && touch ~/servers/$server_name/$node_name/$app/functions.sh \
     && echo "Created ~/servers/$server_name/$node_name/$app"
   done
 
