@@ -114,10 +114,10 @@ nodeholder-generate-server-dirs() {
 
 nodeholder-generate-node-dirs-for-server() {
   local server_name="$1" # don't use ip
-  if [ -z "$server_name" ]; then
-    echo "Please supply the name of the server."
-    return 1
-  fi
+
+  # error handler if server_name is not provided
+  [ -z "$server_name" ] && \
+	  echo "Please supply the name of the server." && return 1
   
   # list all the nodes associated with the server *except for admin
   local nodes=($(ssh admin@"${!server_name}" 'ls /home -I admin'));
@@ -136,10 +136,13 @@ nodeholder-generate-node-dirs-for-server() {
 nodeholder-generate-app-dirs-for-node() {
   local server_name="$1"; # don't use the ip
   local node_name="$2";
-  if [ -z "$server_name" ] || [ -z "$node_name" ]; then
-    echo "Please supply the name of the server and the name of the node."
-    return 1
-  fi
+
+  # error handlers if server_name or node_name are not provided
+  [ -z "$server_name" ] \
+  && echo "Please provide the name of the server and the name of the node." \
+  && return 1
+  || [ -z "$node_name" ] && echo "Please provide the name of the node." \
+	  && return 1
 
   # list all the applications associated with the node *except for buildpak
   local apps=($(ssh "$node_name"@"${!server_name}" 'ls -d */'));
