@@ -16,6 +16,11 @@ with original root/.ssh/authorized_key. For now config.sh file must
 be in the local directory where this is called.
 
 .TP
+\fBgenerate-aliases\fP
+Creates shell aliases to 'functions at a distance'. for example,
+alias child-admin-init='ssh admin@child_ip 'admin-init'
+
+.TP
 \fBinstall-admin\fP
 copies admin.sh to admin account and and runs it. The virtual private server is now a nodeholder child that may host \fBnodes\fP.
 
@@ -31,7 +36,7 @@ which enables configuration at a distance via \fBnodeholder-\fP
 commands.
 
 .TP
-\fBcreate-node\fP 
+\fBcreate-node\fP nodename
 Creates a node (Unix user) which hosts multiple apps.
 
 .SS ADMIN@$IP OPTIONS 
