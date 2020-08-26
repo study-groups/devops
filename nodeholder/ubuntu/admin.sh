@@ -38,7 +38,7 @@ admin-create-node() {
   sudo chown -R $node_name:$node_name /home/$node_name/.ssh
   sudo chmod 0700 /home/$node_name/.ssh
   sudo chmod 0600 /home/$node_name/.ssh/authorized_keys
-  sudo -u $node_name ssh-keygen -N -q -f /home/$node_name/.ssh/id_rsa \
+  sudo -u $node_name ssh-keygen -N "" -q -f /home/$node_name/.ssh/id_rsa \
 	  -C "$node_name-$(date +%Y-%m-%d)"
 }
 
