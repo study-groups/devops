@@ -1,0 +1,63 @@
+.\" Manpage for dotools
+.\" Contact mike@lenan.net to correct errors or typos.
+.TH man 8 "01 Sep 2020" "v001m1" "dotools man page"
+.SH NAME
+\fBdotool\fP is a set of shell functions for securely provisioning virtual private machines and networks at Digital Ocean. It relies on doctl.
+
+.SH SYNOPSIS
+\fBdotool-\fP[OPTIONS]
+.SH DESCRIPTION
+dotool uses doctl and assumes you have a Digital Ocean API key. It is run by sourcing dotool.sh into your shell. Type dotool-<tab> to see possible commands. Type 'type dotool-option' to see the code for that option.
+
+.SH OPTIONS
+.TP
+\fBinfo\fP 
+shows local configuration info 
+
+.TP
+\fBlist\fP
+list all droplets
+
+.TP
+\fBkeys\fP
+show publlic SSH keys uploaded at Digital Ocean
+
+.TP
+\fBcreate\fP
+create droplet, returns IP address of new instance
+
+.SH EXAMPLES
+
+.TP
+Pick public key ID of local computer running dotools:
+dotool-keys  
+
+.TP
+Creates machine at IP = $name:
+dotool-create keyId name type  
+
+.TP
+Shows newly created machineName:
+dotool-list  
+
+.TP
+Execute ps on remote machine:
+ssh root$machineName 'ps  -eo pid,cmd,%mem,%cpu --sort=-%mem | head'
+
+
+.TP
+Show various droplets to clone from:
+dotool-possibilites
+
+.SH THEORY OF OPERATION
+
+After dotool-create completes, it sets local envirornment 
+variables for each machine.  This is useful when 
+configuring, controlling, monitoring, and backing up children.
+
+.SH SEE ALSO
+nodeholder(8)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Mike Ricos (mike@lenan.net), Zach Overhulser (zoverlvx@gmail.com)
