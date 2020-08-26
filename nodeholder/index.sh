@@ -61,7 +61,7 @@ nodeholder-install-admin() {
   ssh admin@"$ip" \
     'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
   # copy buildpak to node
-  scp -r ./api/buildpak admin@"$ip":~/
+  scp -r ./buildpak admin@"$ip":~/
 }
 
 nodeholder-test(){
