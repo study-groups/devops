@@ -44,6 +44,8 @@ admin-create-node() {
 
 admin-remove-node() {
   local node_name="$1";
+
+  sudo pkill -9 -u "$node_name"
   sudo deluser --remove-home "$node_name" ## --backup --backup-to
 }
 
@@ -147,18 +149,6 @@ admin-undo-init(){
   echo "Aborting undo. NODEHOLDER_ROLE not child."
 }
 
-# update needed
-admin-get-pid(){
-  local pid=$(cat $pidfile);
-  echo $pid 
-}
-
-# update needed
-admin-app-status(){
-  echo using PID file:  $pidfile
-  echo Using status file:  $statusfile
-}
-
 admin-monitor(){
   watch -n .5 '
     echo "/etc/passwd:"
@@ -180,37 +170,4 @@ passwd -l username   # locks but does not disable so SSH works
 passwd --status username # shows status of password authentication for user
 deluser --remove-all-files username --backup --backup-to DIRNAME
 # deluer is procelin to userdel"
-}
-
-# This should be defined in an env file.
-APP_DIR="/home/admin/src/node-hello-world"
-SRC_DIR="$APP_DIR/src"
-NODE_DIR="$APP_DIR/nodeholder"
-
-app-status(){
-  local node_name="$1";
-  local app_name="$2";
-
-  ./home/$node_name/$app_name/nh/status
-}
-
-app-stop(){
-  local node_name="$1";
-  local app_name="$2";
-
-  ./home/$node_name/$app_name/nh/stop
-}
-
-app-start(){
-  local node_name="$1";
-  local app_name="$2";
-
-  ./home/$node_name/$app_name/nh/start
-}
-
-# Inject PORT NUMBER HERE
-app-build(){
-  cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
-  cp  ~/buildpak/* $NODE_DIR/development/
-  echo "node-hello-world" > $NODE_DIR/development/app.name
 }

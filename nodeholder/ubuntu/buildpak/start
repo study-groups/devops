@@ -1,5 +1,4 @@
 #!/bin/bash
-#cwd=/home/nhw/dummy/nh
 cwd=$(dirname $(realpath  $BASH_SOURCE))
 cmd=/bin/bash
 args=app.sh
@@ -10,3 +9,4 @@ daemonize \
         -e $cwd/err \
         -o $cwd/log \
         "$cmd" "$args"
+[ $? -eq 0 ] && echo "App started on PORT: $(cat $cwd/port)\n Process running as PID: $(cat $cwd/pid)" 
