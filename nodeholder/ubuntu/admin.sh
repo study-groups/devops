@@ -51,6 +51,7 @@ admin-remove-node() {
 admin-create-port(){
   # get top of file
   local dir=/home/admin/ports
+  [ ! -d "$dir" ] && mkdir /home/admin/ports
   local ports=($(ls $dir))
   local port=1025 # default first port
 
@@ -96,19 +97,6 @@ admin-add-key() {
   ssh-add $1
 }
 
-admin-create-dummy(){
-  admin-log $@
-  local nodename=$1
-  local repo=$2
-  local port=$(admin-create-port)
-  admin-log port=$port
-  local repo_dir=/home/$nodename
-  sudo -u $nodename mkdir /home/$nodename/$repo # placeholder for repo clone
-  sudo -u $nodename cp -r /home/admin/buildpak /home/$nodename/$repo/nh
-  sudo -u $nodename bash -c "echo $port > /home/$nodename/$repo/nh/port"
-  admin-log created /home/$nodename/$repo
-}
-
 admin-create-app(){
   admin-log $@
   local nodename=$1
@@ -145,12 +133,6 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-userdir="/home/nhw"
-pidfile="$userdir/node-hello-world/nh/app.pid"
-stopfile="$userdir/node-hello-world/nh/stop"
-startfile="$userdir/node-hello-world/nh/start"
-statusfile="$userdir/node-hello-world/nh/status"
-
 admin-undo-init(){
   if [[ $NODEHOLDER_ROLE == "child" ]]
   then
@@ -165,11 +147,13 @@ admin-undo-init(){
   echo "Aborting undo. NODEHOLDER_ROLE not child."
 }
 
+# update needed
 admin-get-pid(){
   local pid=$(cat $pidfile);
   echo $pid 
 }
 
+# update needed
 admin-app-status(){
   echo using PID file:  $pidfile
   echo Using status file:  $statusfile
@@ -198,22 +182,32 @@ deluser --remove-all-files username --backup --backup-to DIRNAME
 # deluer is procelin to userdel"
 }
 
-# File starts below.
-####################################################################
 # This should be defined in an env file.
 APP_DIR="/home/admin/src/node-hello-world"
 SRC_DIR="$APP_DIR/src"
 NODE_DIR="$APP_DIR/nodeholder"
 
 app-status(){
-   $statusfile
+  local node_name="$1";
+  local app_name="$2";
+
+  ./home/$node_name/$app_name/nh/status
 }
+
 app-stop(){
-   $stopfile
+  local node_name="$1";
+  local app_name="$2";
+
+  ./home/$node_name/$app_name/nh/stop
 }
+
 app-start(){
-   $startfile
+  local node_name="$1";
+  local app_name="$2";
+
+  ./home/$node_name/$app_name/nh/start
 }
+
 # Inject PORT NUMBER HERE
 app-build(){
   cp -r $SRC_DIR/www.js $NODE_DIR/development/www.js
