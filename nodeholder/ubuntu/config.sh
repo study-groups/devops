@@ -27,16 +27,8 @@ config-update-os(){
 # install additional dependencies
 config-install-deps() {
   apt -y install nodejs
-  echo "##############"
-  echo "node installed"
-  echo "##############"
+  apt -y install postgresql postgresql-contrib
 }
-
-# Adding a sudo user is the main point of config.sh
-##config-add-user(){
-##  useradd -m -s /bin/bash $NEWUSER
-##  usermod -a -G sudo $NEWUSER
-##}
 
 config-add-user(){
     adduser --disabled-password \
