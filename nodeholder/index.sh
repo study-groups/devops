@@ -15,7 +15,7 @@ nodeholder-test(){
 }
 
 # configures nodeholder server
-nodeholder-config(){
+nodeholder-configure(){
   
   local ip="$1";
   local config_file="$2";
