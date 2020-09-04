@@ -27,6 +27,11 @@ config-update-os(){
 # install additional dependencies
 config-install-deps() {
   apt -y install nodejs
+  
+}
+
+# TBD
+config-install-nectar-collector() {
   apt -y install postgresql postgresql-contrib
 }
 
