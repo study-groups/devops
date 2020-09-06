@@ -26,8 +26,9 @@ config-update-os(){
 
 # install additional dependencies
 config-install-deps() {
-  apt -y install nodejs
-  
+  apt -y install snapd
+  snap install node --classic --channel=14
+  node -v
 }
 
 # TBD
