@@ -14,6 +14,13 @@ nodeholder-test(){
   echo $(dirname $BASH_SOURCE)
 }
 
+nodeholder-get-key-from-node() {
+  local ip="$1";
+  local node="$2";
+
+  ssh "$node"@"$ip" 'cat .ssh/id_rsa.pub'
+}
+
 # configures nodeholder server
 nodeholder-configure(){
   
@@ -125,6 +132,34 @@ nodeholder-delete-app() {
 	  && return 1
 
   ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$node_name'" "'$app_name'"'
+}
+
+nodeholder-app-install-deps() {
+  local ip="$1";
+  local node_name="$2";
+  local app_name="$3";
+
+  [ -z "$ip" ] && echo "Please provide ip address." && return 1
+  [ -z "$node_name" ] && echo "Please provide the name of the node to use." \
+	  && return 1
+  [ -z "$app_name" ] && echo "Please provide the name of the app to install dependencies for." \
+	  && return 1
+
+  ssh "$node_name"@"$ip" './"'$app_name'"/nh/install'
+}
+
+nodeholder-app-build() {
+  local ip="$1";
+  local node_name="$2";
+  local app_name="$3";
+
+  [ -z "$ip" ] && echo "Please provide ip address" && return 1
+  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+	  && return 1
+  [ -z "$app_name" ] && echo "Please provide the name of the app to build" \
+	  && return 1
+
+  ssh "$node_name"@"$ip" './"'$app_name'"/nh/build'
 }
 
 nodeholder-app-start() {
