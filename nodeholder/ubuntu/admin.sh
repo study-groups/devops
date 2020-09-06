@@ -108,11 +108,18 @@ admin-create-app(){
   local app_name=${3:-$basename};
   [ -d "/home/$nodename/$app_name" ] && \
 	  echo "app dir exists, exiting" && return -1
-
+  
   local port=$(admin-create-port)
   admin-log port=$port
+
+  sudo -u $nodename ssh -T -o StrictHostKeyChecking=no git@gitlab.com
   sudo -u $nodename mkdir /home/$nodename/$app_name 
   sudo -u $nodename git clone $repo_url /home/$nodename/$app_name
+
+  # if it didn't clone correctly, remove the directory
+  [ $? -ne 0 ] && sudo -u $nodename rmdir /home/$nodename/$app_name \
+	  && echo "Application was unable to clone." \
+	  && return 0
 
   # if nh dir does not exist, copy dummy 
   # user should modify nh/start and check nh dir in.
@@ -164,7 +171,7 @@ admin-monitor(){
 
 # sysadmin
 sysadmin-help() {
-echo "
+  echo "
 Commands for system administration (to be orchestrated later)
 passwd -l username   # locks but does not disable so SSH works
 passwd --status username # shows status of password authentication for user
