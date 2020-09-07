@@ -4,6 +4,7 @@ PWD: $PWD
 BASH_SOURCE: $BASH_SOURCE
 dir: $dir
 with PID: $(cat $dir/pid)
+Running on PORT: $(cat $dir/port)
 Tail of $dir/log:
 $(tail $dir/log)
 Tail of $dir/err:
