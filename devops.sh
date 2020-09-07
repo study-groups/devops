@@ -215,6 +215,7 @@ rctool-init(){
     RCTOOL_ENV="./resellerclub/env.sh" # must be set prior to calling
     # shellcheck source=/dev/null    
     [ -f "$RCTOOL_ENV" ] &&  source "$RCTOOL_ENV"
+
 }
 
 rctool-list-a() {
@@ -222,19 +223,40 @@ rctool-list-a() {
     http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=A&no-of-records=50&page-no=1"
 }
 
-rctool-list-txt() {
+rctool-txt-list() {
     http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=TXT&no-of-records=50&page-no=1"
 }
 
-rctool-add-txt() {
-    http "https://test.httpapi.com/api/dns/manage/add-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
+rctool-list-cname() {
+    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=CNAME&no-of-records=50&page-no=1"
+}
+rctool-txt-add() {
+    http "https://test.httpapi.com/\
+api/dns/manage/add-txt-record.json?\
+auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
+host=$1&domain-name=$2&value=$3"
 }
 
-rctool-update-txt() {
-    http "https://test.httpapi.com/api/dns/manage/update-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
+rctool-txt-delete() {
+    http "https://test.httpapi.com/\
+api/dns/manage/delete-txt-record.json?\
+auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
+host=$1&domain-name=$2&value=$3"
+}
+
+# CNAME example, map webpage.nodeholder.com
+# host=website
+# domain-name=nodeholder.com
+# value=nodeholder.gitlab.io
+rctool-cname-add(){
+http "https://test.httpapi.com/api/dns/manage/\
+add-cname-record.json?\
+auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
+host=$1&domain-name=$2&value=$3"
 }
 
 
-rctool-delete-txt() {
-    http "https://test.httpapi.com/api/dns/manage/delete-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$RC_HOST&domain-name=$1&value=$2"
+rctool-txt-update() {
+    http "https://test.httpapi.com/api/dns/manage/update-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$1&domain-name=$2&value=$3"
 }
+
