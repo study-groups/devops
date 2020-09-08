@@ -101,11 +101,18 @@ admin-add-key() {
 
 admin-create-app(){
   admin-log $@
-  local nodename=$1
-  local repo_url=$2
+  local nodename="$1";
+  local repo_url="$2";
+  local branch=${3:-"master"};
   local basename=$(basename $repo_url); # myapp.git
   basename=${basename%.*}; # myapp  (removes .git)
-  local app_name=${3:-$basename};
+  local app_name=${4:-$basename};
+
+  [ -z "$nodename" ] \
+	  && echo "Please provide name of node to use" && return 1
+  [ -z "$repo_url" ] \
+	  && echo "Please provide the repo from which to clone" && return 1
+
   [ -d "/home/$nodename/$app_name" ] && \
 	  echo "app dir exists, exiting" && return -1
   
@@ -114,7 +121,10 @@ admin-create-app(){
 
   sudo -u $nodename ssh -T -o StrictHostKeyChecking=no git@gitlab.com
   sudo -u $nodename mkdir /home/$nodename/$app_name 
-  sudo -u $nodename git clone $repo_url /home/$nodename/$app_name
+  sudo -u $nodename git clone \
+	  --single-branch \
+	  --branch $branch \
+	  $repo_url /home/$nodename/$app_name
 
   # if it didn't clone correctly, remove the directory
   [ $? -ne 0 ] && sudo -u $nodename rmdir /home/$nodename/$app_name \
