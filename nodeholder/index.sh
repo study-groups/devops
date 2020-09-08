@@ -107,7 +107,8 @@ nodeholder-clone-app() {
   local ip="$1";
   local node_name="$2";
   local repo_url="$3";
-  local app_name="$4";
+  local branch=${4:-"master"}
+  local app_name="$5";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
   [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
@@ -116,7 +117,7 @@ nodeholder-clone-app() {
 	  && return 1
   
   ssh admin@"$ip" \
-	  'source admin.sh && admin-create-app "'$node_name'" "'$repo_url'" "'$app_name'"'
+	  'source admin.sh && admin-create-app "'$node_name'" "'$repo_url'" "'$branch'" "'$app_name'"'
 
 }
 
