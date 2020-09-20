@@ -163,6 +163,43 @@ nodeholder-app-build() {
   ssh "$node_name"@"$ip" './"'$app_name'"/nh/build'
 }
 
+nodeholder-app-show() {
+  local ip="$2";
+  local node_name="$3";
+  local app_name="$4";
+  local file="$1";
+
+  [ -z "$ip" ] && echo "Please provide ip address" && return 1
+  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+	  && return 1
+  [ -z "$app_name" ] && echo "Please provide the name of the app" \
+	  && return 1
+  [ -z "$file" ] \
+	  && echo "Please specify what to show. e.g. log, err, pid, port" \
+	  && return 1
+
+  ssh "$node_name"@"$ip" 'cat /home/"'"$node_name"'"/"'"$app_name"'"/nh/"'"$file"'"'
+}
+
+nodeholder-add-env-var() {
+
+  local ip="$1";
+  local node_name="$2";
+  local app_name="$3";
+  local env_var="$4";
+  local value="$5";
+
+  [ -z "$ip" ] && echo "Please provide ip address" && return 1
+  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+	  && return 1
+  [ -z "$app_name" ] && echo "Please provide the name of the app" \
+	  && return 1
+  [ -z "$env_var" ] \
+	  && echo "Please provide environment variable to add." \
+	  && return 1
+  ssh "$node_name"@"$ip" 'echo "export '$env_var'"="'$value'" >> ./"'$app_name'"/nh/env'
+}
+
 nodeholder-app-start() {
   local ip="$1";
   local node_name="$2";
