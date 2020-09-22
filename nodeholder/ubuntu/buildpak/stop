@@ -3,6 +3,9 @@
 dir=$(dirname $BASH_SOURCE)
 pid=$(cat $dir/pid)
 port=$(cat $dir/port)
+
+[ -z "$pid" ] && echo "Process is already stopped." && exit 1
+
 time=$(date)
 >&2 echo "BASH_SOURCE: $BASH_SOURCE"
 >&2 echo "dir: $dir"
