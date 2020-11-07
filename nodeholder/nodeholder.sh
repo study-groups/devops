@@ -149,11 +149,10 @@ nh-remote-app-build() {
   local app="$3";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" \
-	  && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app to build" \
-	  && return 1
-
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && echo "Please provide the name of the app to build" && 
+    return 1
+  # ssh "$role"@"$ip" 'source nh.sh && nh-app-build'
   ssh "$role"@"$ip" './"'$app'"/nh/build'
 }
 
