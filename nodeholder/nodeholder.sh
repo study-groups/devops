@@ -1,29 +1,36 @@
-### Functions specific to the configuration and use of a nodeholder
-
-##################################################################
-# nodeholder- collection of shell functions for remote
-# DEPLOYMENT
-# CONFIGURATION
-# PORTMAPPINGS
+# nodeholder  - 
+# collection of shell functions to specify the configuration and use of a node.
+#
+#    Stage        Function 
+# 
+# PROVISION       Done previously via dotool
+# CONFIGURATION   nodeholder-remote-config-init
+# CONFIGURATION   nodeholder-remote-config-init
+# ROLE CREATION
+# APP CREATION
+# PORT MAPPINGS
 # MANAGEMENT
 # MONITORING
 # BACKUP
 ##################################################################
 
-nodeholder-test(){
+nh-test(){
   echo $(dirname $BASH_SOURCE)
 }
 
-nodeholder-get-key-from-node() {
+# Used to get key so we can clone private repo.
+nh-remote-get-key-from-role() {
   local ip="$1";
-  local node="$2";
-
-  ssh "$node"@"$ip" 'cat .ssh/id_rsa.pub'
+  local role="$2";
+  # ssh "$role"@"$ip" 'source nh.sh && nh-get-key'
+  ssh "$role"@"$ip" 'cat .ssh/id_rsa.pub'
 }
 
-# configures nodeholder server
-nodeholder-configure(){
-  
+# Configure turns root@vps to admin@node
+# Any local apps must be coped now from local mother to child node
+# Copy config.sh to admin@$IP and call ssh root@$IP config-init
+# Child ode now ready for ssh admin@$IP:admin-commands
+nh-remote-config-init(){
   local ip="$1";
   local config_file="$2";
 
@@ -57,7 +64,8 @@ nodeholder-configure(){
 }
 
 # installs admin on nodeholder 
-nodeholder-install-admin() {
+# Should be: nodeholder-remote-install-admin() {
+nh-remote-install-admin() {
   # ip of node to send file to
   local ip="$1";
   
@@ -78,152 +86,156 @@ nodeholder-install-admin() {
 }
 
 # refreshes admin functions on nodeholder
-nodeholder-refresh-admin() {
+nh-remote-refresh-admin() {
   local ip="$1"
-  local admin_file=/home/admin/src/devops-study-group/nodeholder/ubuntu/admin.sh
+  local admin_file="$2"
+
   scp "$admin_file" admin@"$ip":~/admin.sh
 }
 
 # creates new user/node on nodeholder
-nodeholder-create-node() {
+nh-remote-create-role() {
 
   local ip="$1";
-  local node_name="$2";
+  local role="$2";
 
-  ssh admin@"$ip" 'source admin.sh && admin-create-node "'$node_name'"'
+  ssh admin@"$ip" 'source admin.sh && admin-create-role "'$role'"'
 }
 
-# removes user/node on nodeholder
-nodeholder-remove-node() {
+# removes user on nodeholder
+nh-remote-remove-role() {
   local ip="$1";
-  local node_name="$2";
+  local role="$2";
 
-  ssh admin@"$ip" 'source admin.sh && admin-remove-node "'$node_name'"'
+  ssh admin@"$ip" 'source admin.sh && admin-remove-node "'$role'"'
 }
 
-# clones application onto specific node
-nodeholder-clone-app() {
+# clones application into specific role
+nh-remote-clone-app() {
 
   local ip="$1";
-  local node_name="$2";
+  local role="$2";
   local repo_url="$3";
   local branch=${4:-"master"}
-  local app_name="$5";
+  local app="$5";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+  [ -z "$role" ] && echo "Please provide role" \
 	  && return 1
   [ -z "$repo_url" ] && echo "Please provide the repo from which to clone" \
 	  && return 1
   
   ssh admin@"$ip" \
-	  'source admin.sh && admin-create-app "'$node_name'" "'$repo_url'" "'$branch'" "'$app_name'"'
-
+	  'source admin.sh && admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'
 }
 
-nodeholder-delete-app() {
+nh-remote-delete-app() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+  [ -z "$role" ] && echo "Please provide role" \
 	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app to delete" \
+  [ -z "$app" ] && echo "Please provide the name of the app to delete" \
 	  && return 1
 
-  ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$node_name'" "'$app_name'"'
+  ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$role'" "'$app'"'
 }
 
-nodeholder-app-build() {
+nh-remote-app-build() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
+  [ -z "$role" ] && echo "Please provide role" \
 	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app to build" \
+  [ -z "$app" ] && echo "Please provide the name of the app to build" \
 	  && return 1
 
-  ssh "$node_name"@"$ip" './"'$app_name'"/nh/build'
+  ssh "$role"@"$ip" './"'$app'"/nh/build'
 }
 
-nodeholder-app-show() {
-  local ip="$2";
-  local node_name="$3";
-  local app_name="$4";
+#nh-remote-app-show > mother:nodeholder.sh
+#nh-app-show > child:role:nh.sh
+# child:role:nh-admin.sh
+
+nh-remote-app-show() {
   local file="$1";
+  local ip="$2";
+  local role="$3";
+  local app="$4";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
-	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app" \
-	  && return 1
-  [ -z "$file" ] \
-	  && echo "Please specify what to show. e.g. log, err, pid, port" \
-	  && return 1
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+  [ -z "$file" ] && 
+    echo "Please specify info to show: log, err, pid, port" && return 1
 
-  ssh "$node_name"@"$ip" 'cat /home/"'"$node_name"'"/"'"$app_name"'"/nh/"'"$file"'"'
+  # ssh "$role"@"$ip" 'source nh.sh && nh-app-show "'"$file"'"'
+  ssh "$role"@"$ip" 'cat /home/"'"$role"'"/"'"$app"'"/nh/"'"$file"'"'
 }
 
-nodeholder-add-env-var() {
 
+nh-remote-add-env-var() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
   local env_var="$4";
   local value="$5";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
-	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app" \
-	  && return 1
-  [ -z "$env_var" ] \
-	  && echo "Please provide environment variable to add." \
-	  && return 1
-  ssh "$node_name"@"$ip" 'echo "export '$env_var'"="'$value'" >> ./"'$app_name'"/nh/env'
+  [ -z "$role" ] && 
+    echo "Please provide role" && return 1
+  [ -z "$app" ] && 
+    echo "Please provide the name of the app" && return 1
+  [ -z "$env_var" ] && 
+    echo "Please provide environment variable to add." && return 1
+  # ssh \
+  # "$role"@"$ip" 'source nh.sh $$ nh-add-env-var "'"$env_var"'" "'"$value"'"'
+  ssh \
+  "$role"@"$ip" 'echo "export '$env_var'"="'$value'" >> ./"'$app_name'"/nh/env'
 }
 
-nodeholder-app-start() {
+nh-remote-app-start() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
-	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app to start" \
-	  && return 1
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && 
+    echo "Please provide the name of the app to start" && return 1
 
-  ssh "$node_name"@"$ip" './"'$app_name'"/nh/start'
+  # ssh "$role"@"$app" 'source nh.sh && nh-app-start "'"$app"'"'
+  ssh "$role"@"$ip" './"'$app'"/nh/start'
 }
 
-nodeholder-app-stop() {
+nh-remote-app-stop() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
   
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
-	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app to stop" \
-	  && return 1
-  
-  ssh "$node_name"@"$ip" './"'$app_name'"/nh/stop'
+  [ -z "$role" ] && echo "Please provide the name of the node to use" && 
+    return 1
+  [ -z "$app" ] && 
+    echo "Please provide the name of the app to stop" && return 1
+  # ssh "$role"@"$app" 'source nh.sh && nh-app-stop "'"$app"'"'
+  ssh "$role"@"$ip" './"'$app'"/nh/stop'
 }
 
-nodeholder-app-status() {
+nh-remote-app-status() {
   local ip="$1";
-  local node_name="$2";
-  local app_name="$3";
+  local role="$2";
+  local app="$3";
   
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$node_name" ] && echo "Please provide the name of the node to use" \
-	  && return 1
-  [ -z "$app_name" ] && echo "Please provide the name of the app to check status" \
-	  && return 1
-  
-  ssh "$node_name"@"$ip" './"'$app_name'"/nh/status'
+  [ -z "$role" ] && 
+    echo "Please provide role" && return 1
+  [ -z "$app" ] && 
+    echo "Please provide the name of the app to check status" && return 1
+  # ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
+  ssh "$role"@"$ip" './"'$app'"/nh/status'
 }
