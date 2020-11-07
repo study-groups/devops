@@ -48,7 +48,7 @@ nh-remote-config-init(){
 
   # source configuration and configure machine
   ssh root@"$ip" '
-      source "'$config_file'" && config-init
+      source "'$config_file'" && nh-config-init
       echo "Deploy \"from a distance\" application with admin.sh"
       echo "--or--"
       echo "Log in to remote host"
