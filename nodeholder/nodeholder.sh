@@ -22,8 +22,8 @@ nh-test(){
 nh-remote-get-key-from-role() {
   local ip="$1";
   local role="$2";
-  # ssh "$role"@"$ip" 'source nh.sh && nh-get-key'
-  ssh "$role"@"$ip" 'cat .ssh/id_rsa.pub'
+
+  ssh "$role"@"$ip" 'source nh.sh && nh-get-key'
 }
 
 # Configure turns root@vps to admin@node
@@ -135,10 +135,9 @@ nh-remote-delete-app() {
   local app="$3";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" \
-	  && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app to delete" \
-	  && return 1
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && echo "Please provide the name of the app to delete" && 
+    return 1
 
   ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$role'" "'$app'"'
 }
@@ -152,13 +151,9 @@ nh-remote-app-build() {
   [ -z "$role" ] && echo "Please provide role" && return 1
   [ -z "$app" ] && echo "Please provide the name of the app to build" && 
     return 1
-  # ssh "$role"@"$ip" 'source nh.sh && nh-app-build'
-  ssh "$role"@"$ip" './"'$app'"/nh/build'
+  
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-build'
 }
-
-#nh-remote-app-show > mother:nodeholder.sh
-#nh-app-show > child:role:nh.sh
-# child:role:nh-admin.sh
 
 nh-remote-app-show() {
   local file="$1";
@@ -172,8 +167,7 @@ nh-remote-app-show() {
   [ -z "$file" ] && 
     echo "Please specify info to show: log, err, pid, port" && return 1
 
-  # ssh "$role"@"$ip" 'source nh.sh && nh-app-show "'"$file"'"'
-  ssh "$role"@"$ip" 'cat /home/"'"$role"'"/"'"$app"'"/nh/"'"$file"'"'
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-show "'"$app"'" "'"$file"'"'
 }
 
 
@@ -191,10 +185,7 @@ nh-remote-add-env-var() {
     echo "Please provide the name of the app" && return 1
   [ -z "$env_var" ] && 
     echo "Please provide environment variable to add." && return 1
-  # ssh \
-  # "$role"@"$ip" 'source nh.sh $$ nh-add-env-var "'"$env_var"'" "'"$value"'"'
-  ssh \
-  "$role"@"$ip" 'echo "export '$env_var'"="'$value'" >> ./"'$app_name'"/nh/env'
+  ssh "$role"@"$ip" 'source nh.sh $$ nh-add-env-var "'"$env_var"'" "'"$value"'" "'"$app"'"'
 }
 
 nh-remote-app-start() {
@@ -207,8 +198,7 @@ nh-remote-app-start() {
   [ -z "$app" ] && 
     echo "Please provide the name of the app to start" && return 1
 
-  # ssh "$role"@"$app" 'source nh.sh && nh-app-start "'"$app"'"'
-  ssh "$role"@"$ip" './"'$app'"/nh/start'
+  ssh "$role"@"$app" 'source nh.sh && nh-app-start "'"$app"'"'
 }
 
 nh-remote-app-stop() {
@@ -221,8 +211,8 @@ nh-remote-app-stop() {
     return 1
   [ -z "$app" ] && 
     echo "Please provide the name of the app to stop" && return 1
-  # ssh "$role"@"$app" 'source nh.sh && nh-app-stop "'"$app"'"'
-  ssh "$role"@"$ip" './"'$app'"/nh/stop'
+  
+  ssh "$role"@"$app" 'source nh.sh && nh-app-stop "'"$app"'"'
 }
 
 nh-remote-app-status() {
@@ -235,6 +225,6 @@ nh-remote-app-status() {
     echo "Please provide role" && return 1
   [ -z "$app" ] && 
     echo "Please provide the name of the app to check status" && return 1
-  # ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
-  ssh "$role"@"$ip" './"'$app'"/nh/status'
+  
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
 }
