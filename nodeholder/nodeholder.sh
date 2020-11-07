@@ -100,6 +100,7 @@ nh-remote-create-role() {
   local role="$2";
 
   ssh admin@"$ip" 'source admin.sh && admin-create-role "'$role'"'
+  scp ./nh.sh "$role"@"$ip":~/nh.sh
 }
 
 # removes user on nodeholder
