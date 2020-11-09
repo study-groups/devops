@@ -14,10 +14,6 @@
 # BACKUP
 ##################################################################
 
-nh-test(){
-  echo $(dirname $BASH_SOURCE)
-}
-
 # Used to get key so we can clone private repo.
 nh-remote-get-key-from-role() {
   local ip="$1";
@@ -108,7 +104,7 @@ nh-remote-remove-role() {
   local ip="$1";
   local role="$2";
 
-  ssh admin@"$ip" 'source admin.sh && admin-remove-node "'$role'"'
+  ssh admin@"$ip" 'source admin.sh && admin-remove-role "'$role'"'
 }
 
 # clones application into specific role
@@ -117,7 +113,7 @@ nh-remote-clone-app() {
   local ip="$1";
   local role="$2";
   local repo_url="$3";
-  local branch=${4:-"master"}
+  local branch=${4:-"master"};
   local app="$5";
 
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
