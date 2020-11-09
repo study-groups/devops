@@ -1,32 +1,32 @@
 ### EXPERIMENTAL ###
 ### Everything below this line is experimental ###
 
-#nodeholder-test() {
+nodeholder() {
 
 ## cannot parse combined flags like -lk, must be separated -l -k
 ## nodeholder-test -C doX key -l breaks
 
-#  while [ ! $# -eq 0 ]
-#    do
-#      case "$1" in
-#	      --help|-h) echo "help menu" ;;
-#	      --list|-l) dotool-list ;;
-#	      --keys|-k) dotool-keys ;;
-#	      --delete|-D) dotool-delete "$2" ;;
-#	      --create|-C) dotool-create "$2" "$3" "$4" ;;
-#      esac
-#      shift
-#    done
+  while [ ! $# -eq 0 ]
+    do
+      case "$1" in
+	      --help|-h) echo "help menu" ;;
+	      --list|-l) dotool-list ;;
+	      --keys|-k) dotool-keys ;;
+	      --delete|-D) dotool-delete "$2" ;;
+	      --create|-C) dotool-create "$2" "$3" "$4" ;;
+      esac
+      shift
+    done
 
-  #local args=($@);
-  #local pointer=0;
-  #while [ ! $# -eq 0 ]
-  #  do
-  #    echo "${args[pointer]}"
-  #    pointer=$(expr $pointer + 1);
-  #    shift
-  #  done
-#}
+  local args=($@);
+  local pointer=0;
+  while [ ! $# -eq 0 ]
+    do
+      echo "${args[pointer]}"
+      pointer=$(expr $pointer + 1);
+      shift
+    done
+}
 
 nodeholder() {
 
@@ -128,4 +128,132 @@ nodeholder() {
     esac
   done
   shift $(expr $OPTIND - 1) # remove options from positional parameters
+}
+
+nodeholder-generate-aliases() {
+
+  # source variables into environment
+  source /home/admin/server.list
+
+  # create or refresh the aliases file
+  echo "" > /home/admin/nodeholder-aliases.sh
+  
+  # collect the names of the servers
+  local node_names=($(awk -F"=" '{print $1}' < /home/admin/server.list))
+
+  for name in "${node_names[@]}"; do
+	
+	# dereference the name of the env var to get the ip
+	local ip="${!name}"
+
+	# ready the template
+  	local template=$(cat \
+	        /home/admin/src/devops-study-group/nodeholder/templates/aliases.template)
+	# inject the name of the server into the template
+	template=${template//NAME/"$name"}
+	# inject the server's ip into the template
+	template=${template//IP/"$ip"}
+	# place that template into the aliases file
+	echo "$template" >> /home/admin/nodeholder-aliases.sh
+  done
+
+  source /home/admin/nodeholder-aliases.sh
+}
+
+nodeholder-generate-server-dirs() {
+  local servers=($(cat ~/server.list | awk -F= '{print $1}'));
+
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
+
+  for server in "${servers[@]}"; do
+    [ ! -d ~/servers/$server ] \
+    && mkdir ~/servers/$server 2> /dev/null \
+    && echo "${!server}" > ~/servers/$server/ip \
+    && touch ~/servers/$server/server-functions.sh \
+    && echo "Creating directory for server: $server"
+  done
+    echo "Server directory generation complete."
+    echo "Listing ~/servers"
+    ls ~/servers
+}
+
+nodeholder-generate-node-dirs-for-server() {
+  local server_name="$1" # don't use ip
+
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
+
+  # error handler if server_name is not provided
+  [ -z "$server_name" ] && \
+	  echo "Please supply the name of the server." && return 1
+  
+  # list all the nodes associated with the server *except for admin
+  local nodes=($(ssh admin@"${!server_name}" 'ls /home -I admin'));
+
+  # if node directory doesn't already exist in the $server_name directory
+  for node in "${nodes[@]}"; do
+    [ ! -d "~/servers/$server_name/$node" ] \
+    && mkdir ~/servers/$server_name/$node 2> /dev/null \
+    && touch ~/servers/$server_name/$node/functions.sh \
+    && echo "Created ~/servers/$server_name/$node"
+  done
+
+  echo "Listing directory ~/servers/$server_name"
+  ls ~/servers/$server_name
+}
+
+nodeholder-generate-app-dirs-for-node() {
+  local server_name="$1"; # don't use the ip
+  local node_name="$2";
+
+  ################################
+  #	Ready for a template	 #
+  #				 #
+  ################################
+
+  # error handlers if server_name or node_name are not provided
+  [ -z "$server_name" ] \
+  && echo "Please provide the name of the server and the name of the node." \
+  && return 1 \
+  || [ -z "$node_name" ] && echo "Please provide the name of the node." \
+	  && return 1
+
+  # list all the applications associated with the node *except for buildpak
+  local apps=($(ssh "$node_name"@"${!server_name}" 'ls -d */'));
+
+  # if app directory doesn't exist in $node_name directory
+  for app in "${apps[@]}"; do
+    [ ! -d "~/servers/$server_name/$node_name/$app" ] \
+    && [ "$app" != "buildpak/" ] \
+    && mkdir ~/servers/$server_name/$node_name/$app 2> /dev/null \
+    && touch ~/servers/$server_name/$node_name/$app/functions.sh \
+    && echo "Created ~/servers/$server_name/$node_name/$app"
+  done
+
+  echo "Listing directory ~/servers/$server_name/$node_name"
+  ls ~/servers/$server_name/$node_name
+}
+
+# needs work
+nodeholder-refresh-servers-dir() {
+  #######################################################
+  # These are commented out for security purposes
+  # rm -rf ~/servers/*          
+  # nodeholder-generate-server-dirs > /dev/null
+  #######################################################
+  local servers=$(ls ~/servers);
+
+  for server in "${servers[@]}"; do
+    nodeholder-generate-node-dirs-for-server "$server" > /dev/null
+  done
+  
+  printf "\nRefreshed server directories and node directories.\n"
+  printf "Listing full ~/servers directory:\n\n"
+  ls -R ~/servers
+
 }
