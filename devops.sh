@@ -2,15 +2,15 @@
 ##################################################################
 # devops.sh is a collection of dash-apps* which provide:
 #
-#       Stage          Tool             Description
-#  1. PROVISIONING    dotool        creates node, copies to remote:config.sh
-#  2. CONFIGURATION   nodeholder    nodeholder-config calls remote:config-init
-#  3. PORTMAPPINGS    nodeholder    creates Nginx remote:config files (consul)
-#  4. DEPLOYMENT      admin         sets up remote:apps from repos (nomad)
-#  5. MANAGEMENT      nodeholder*   start, stop and configure apps (nomad)
-#  6. MONITORING      nodeholder    monitors all known remote:nodes (consul)
-#  7. LOGGING         nodelog       maintains logfile rotation,etc (consul)
-#  8. BACKUP          nodesync      rsync wrapper with conventions (consul)
+#       Stage          Tool               Description
+#  1. PROVISIONING    dotool       creates node, copies to remote:nh-config.sh
+#  2. CONFIGURATION   nodeholder   nhconfig calls remote:nh-config-init
+#  3. PORTMAPPINGS    nodeholder   creates Nginx remote:config files (consul)
+#  4. DEPLOYMENT      admin        sets up remote:apps from repos (nomad)
+#  5. MANAGEMENT      nodeholder*  start, stop and configure apps (nomad)
+#  6. MONITORING      nodeholder   monitors all known remote:nodes (consul)
+#  7. LOGGING         nodelog      maintains logfile rotation,etc (consul)
+#  8. BACKUP          nodesync     rsync wrapper with conventions (consul)
 #
 #  *A dash-app is a madeup term that referes to a collection of
 #   shell functions starting with "appname-".
@@ -23,7 +23,7 @@
 ##################################################################
 dotool-help(){
   echo "
-  dotool version 18.12
+  dotool version 20.11
 
   dotool is as collection os Bash functions making 
   Digital Ocean's command line doctl tool easier to use.
@@ -70,6 +70,10 @@ dotool-ls-long(){
 #--image ubuntu-18-04-x64 \
 #38835928
 dotool-create(){
+  if [ $# -eq 0 ]; then
+    echo "name ssh-key-id image-type"
+    return 1
+  fi
   imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
   echo "Using $imgtype"
   ## $2 is an ssh key or fingerprint
