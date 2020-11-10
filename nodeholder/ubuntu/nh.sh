@@ -15,6 +15,21 @@ nh-app-show() {
   cat ./$app/nh/$file
 }
 
+nh-app-status() {
+  local app="$1";
+  cat ./$app/nh/status
+}
+
+nh-app-log() {
+  local app="$1";
+  cat ./$app/nh/log
+}
+
+nh-app-err() {
+  local app="$1";
+  cat ./$app/nh/err
+}
+
 nh-add-env-var() {
   local env_var="$1";
   local value="$2";

@@ -90,12 +90,12 @@ nh-remote-refresh-admin() {
 }
 
 # creates new user/node on nodeholder
-nh-remote-create-role() {
+nh-remote-admin-create-role() {
 
   local ip="$1";
   local role="$2";
 
-  ssh admin@"$ip" 'source admin.sh && admin-create-role "'$role'"'
+  ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
   [ $? == 0 ] && scp ./nh.sh "$role"@"$ip":~/nh.sh || echo "Error: role failed to be created."
 }
 
@@ -152,21 +152,35 @@ nh-remote-app-build() {
   ssh "$role"@"$ip" 'source nh.sh && nh-app-build'
 }
 
-nh-remote-app-show() {
-  local file="$1";
-  local ip="$2";
-  local role="$3";
-  local app="$4";
-
+nh-remote-app-status() {
+  local ip="$1";
+  local role="$2";
+  local app="$3";
   [ -z "$ip" ] && echo "Please provide ip address" && return 1
   [ -z "$role" ] && echo "Please provide role" && return 1
   [ -z "$app" ] && echo "Please provide the name of the app" && return 1
-  [ -z "$file" ] && 
-    echo "Please specify info to show: log, err, pid, port" && return 1
-
-  ssh "$role"@"$ip" 'source nh.sh && nh-app-show "'"$app"'" "'"$file"'"'
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
 }
 
+nh-remote-app-log() {
+  local ip="$1";
+  local role="$2";
+  local app="$3";
+  [ -z "$ip" ] && echo "Please provide ip address" && return 1
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-log "'"$app"'"'
+}
+
+nh-remote-app-err() {
+  local ip="$1";
+  local role="$2";
+  local app="$3";
+  [ -z "$ip" ] && echo "Please provide ip address" && return 1
+  [ -z "$role" ] && echo "Please provide role" && return 1
+  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-err "'"$app"'"'
+}
 
 nh-remote-add-env-var() {
   local ip="$1";
