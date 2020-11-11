@@ -1,7 +1,7 @@
 # Source these functions as admin. 
 
 # Explains use of admin
-admin-help(){
+nh-admin-help(){
   echo "\
    Admin is a collection of scripts to configure runtime operations.
 
@@ -20,13 +20,13 @@ admin-help(){
 }
 
 # logs commands used as admin
-admin-log(){
+nh-admin-log(){
   local funcname=${FUNCNAME[1]} # get function that called this
   echo $(date +%s) $funcname $@ >> /home/admin/log
 }
 
 # creates role(user) on local machine
-admin-create-role() {
+nh-admin-create-role() {
   local role="$1";
 
   sudo adduser --disabled-password --gecos "" $role
@@ -47,7 +47,7 @@ admin-create-role() {
 
 # removes role and 
 # kills all current processes working under that role
-admin-remove-role() {
+nh-admin-remove-role() {
   local role="$1";
 
   sudo pkill -9 -u "$role"
@@ -55,7 +55,7 @@ admin-remove-role() {
 }
 
 # Directory creation time is self timestamped.
-admin-create-port(){
+nh-admin-create-port(){
   # get top of file
   local dir=/home/admin/ports
   [ ! -d "$dir" ] && mkdir /home/admin/ports
@@ -75,7 +75,7 @@ admin-create-port(){
 #check-if-a-bash-array-contains-a-value
 
 # deletes port file
-admin-delete-port(){
+nh-admin-delete-port(){
   admin-log $@
   [ -z $1 ] && admin-log "no port entered" && return -1
   local port=$1
@@ -94,7 +94,7 @@ admin-delete-port(){
 }
 
 
-admin-create-key(){
+nh-admin-create-key(){
   admin-log $@
   ssh-keygen -C $1 -f /home/admin/.ssh/$1
 }
@@ -102,14 +102,14 @@ admin-create-key(){
 #  $1 - full path to priv key in same dir as key.pub
 #  This adds the priv/pub key pair to the admin's key ring
 #  Not sure we want or need this.
-admin-add-key() {
+nh-admin-add-key() {
   eval `ssh-agent`
   ssh-add $1
 }
 
 # clones app from repo onto local machine
 # provides permissions to specified role
-admin-create-app(){
+nh-admin-create-app(){
   admin-log $@
   local role="$1";
   local repo_url="$2";
@@ -159,7 +159,7 @@ admin-create-app(){
 }
 
 # deletes application on local machine
-admin-delete-app(){
+nh-admin-delete-app(){
   admin-log $@
   local role=$1
   local app=$2
@@ -169,7 +169,7 @@ admin-delete-app(){
   admin-delete-port $port
 }
 
-admin-monitor(){
+nh-admin-monitor(){
   watch -n .5 '
     echo "/etc/group:"
     tail -5 /etc/group
