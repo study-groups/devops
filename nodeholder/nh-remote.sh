@@ -108,7 +108,8 @@ nh-remote-remove-role() {
 }
 
 # clones application into specific role
-nh-remote-clone-app() {
+nh-remote-create-app() {
+
 
   local ip="$1";
   local role="$2";
