@@ -11,14 +11,15 @@ body{
 
 ## Assumptions
 - logged in as admin@mother (mother means it has nh-remote commands)
-- assume DigitalOcean API key is set up. See `dotool-info`
+- assume DigitalOcean API key is set up. See `dotool-info` or   
+https://www.digitalocean.com/docs/droplets/how-to/add-ssh-keys/to-account/
 - source nodeholder/nh-remote.sh
 - source dotool.sh (You can add these to the .bashrc of admin@mother)
 
 #### Find the key you'd like to use
 DigitalOcean is a Platform as a Service. You must upload at least
-one public SSH key prior to this step. To see a list of keys that 
-have been uploaded to your profile:
+one public SSH key prior to this step.  
+To see the list of keys that has been uploaded to your profile:
 
 - `dotool-keys`
 
