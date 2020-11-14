@@ -23,14 +23,14 @@ body{
 
 ## Assumptions
 - logged in as admin@mother (mother means it has nh-remote commands)
-- assume DigitalOcean API key is set up. See `dotool-info` or   
+- DigitalOcean API key is set up. See `dotool-info` or   
 https://www.digitalocean.com/docs/droplets/how-to/add-ssh-keys/to-account/
-- source dotool.sh (You can add these to the .bashrc of admin@mother)
-- source nh-remote.sh (You can add these to the .bashrc of admin@mother)
+- `source dotool.sh` (You can add this to the .bashrc of admin@mother)
+- `source nh-remote.sh` (You can add this to the .bashrc of admin@mother)
 
-#### To see available commands 
+#### See available commands 
 - `nh-remote-` followed by `<tab>`
-- Running the function without an arguement will display help.
+- Running the function without an argument will display help.
 
 <div class="terminal">
 bash> nh-remote-
@@ -44,12 +44,10 @@ nh-remote-app-status         nh-remote-remove-role
 nh-remote-app-stop           
 </div>
 
-
 #### Find the key you'd like to use
-DigitalOcean is a Platform as a Service. You must upload at least
+- DigitalOcean is a Platform as a Service. You must upload at least
 one public SSH key prior to this step.  
-To see the list of keys that has been uploaded to your profile use:
-`> dotool-keys`
+- To see the list of keys that has been uploaded to your profile use `dotool-keys`
 <div class="terminal">bash> dotool-keys
 ID          Name            FingerPrint
 22222222    abc@do99         aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa:aa 
@@ -59,26 +57,22 @@ ID          Name            FingerPrint
 #### Create the node
 `> dotool-create name <fingerprint|id> [image]` 
 - `image` defaults to `ubuntu 20.04`
-- `server.list` is created in the home directory of current user `~/server.list` and sourced into current shell.
+- `~/server.list` is created in the home directory of current user and sourced into current shell.
 - Automatically updates node reference(s) as shell variables.
 - A node reference is a key:value pair named after your node, i.e. node_name=ip
 - Keep in mind: If you use a hyphen (`node-name`) as a name for a node, it will be converted to an underscore (`node_name`) in the shell, because the shell doesn't interpret hyphens as part of variables. 
 
 #### Choose image configuration
-
-- go to ./ubuntu
-
+- Go to ./ubuntu
 
 #### Send config file to configure your new node
 `> nh-remote-install-config $ip config_file`
-- where `$ip` is the node reference dereferenced in the shell
-- Configuing requires installing packages, currently takes 1.5 minutes
-for unbuntu node. 
-
+- Where `$ip` is the node reference dereferenced in the shell
+- Configuring requires installing packages; currently takes 1.5 minutes
+for Ubuntu node. 
 
 #### Send admin file to install nhadmin role on your new node
 `> nh-remote-install-admin $ip admin_file`
-
 
 #### Create a role with which to manage your application
 `> nh-remote-admin-create-role $ip role`
@@ -88,43 +82,43 @@ for unbuntu node.
 
 #### Get public ssh key from role
 `> nh-remote-get-key-from-role $ip role`
-- retrieves public ssh key from a role (linux user) which can be manually added to a user account on a repo cloud service in order to clone private repositories
+- Retrieves public ssh key from a role (linux user) which can be manually added to a user account on a repo cloud service in order to clone private repositories.
 
 <div class="terminal">bash> nh-remote-get-key-from-role $ip webdev
-ssh key here
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCFsCNkXajxfM/it8BQds2p4yx+zY9JkO3IGcymPqqV<br/>HIHRTuliEK3Rc0Kl7M7PbzIQQkeIMSWnbhIqVtXwAKL8hJBeAaDd301NVLtum4gJAM2TesYxGun<br/>snDr7OLjlml71hu60rkZh2MYVQY6IJLwY4y+NS/DLnOqFWH1YPgSepv8phhKFrGs6RqGXL/OaNf<br/>63NaNFV96YacNepXG3Org+fJOGXaKLnIuIXR1jizNUszEvm75jkGaJe44NIHpqkOi/Jf5utfTpf<br/>kOsM+t6/IcFlFtFl5DzFAHtf3s/+h/YpM6GMX128r2X1fMvBiCPqKsfWR90ZV6pIGFGaj8eiN7H 
 </div>
 
 #### Clone app under specific role
 `> nh-remote-create-app $ip role repo_url [branch] [app]`
-- `branch` defaults to `master` if not provided
-- `app` defaults to name of application from repo service
+- `branch` defaults to `master` if not provided.
+- `app` defaults to name of application from repo service.
 
-#### Installs dependencies/Builds application
+#### Install dependencies/Builds application
 `> nh-remote-app-build $ip role app`
 
-#### If required, adds environment variables to the application's environment
+#### If required, add environment variables to the application's environment
 `> nh-remote-add-env-var $ip role app var_name value`
 
-#### Starts application
+#### Start application
 `> nh-remote-app-start $ip role app` 
 
-#### Stops application
+#### Stop application
 `> nh-remote-app-stop $ip role app`
 
-#### Checks application status
+#### Check application status
 `> nh-remote-app-status $ip role app`
 
-#### Checks application log
+#### Check application log
 `> nh-remote-app-log $ip role app`
 
-#### Checks application errors
+#### Check application errors
 `> nh-remote-app-err $ip role app`
 
 
 ## Other options
 
 #### Delete node
-`> dotool-delete (node_name|id)`
+`> dotool-delete <node_name|id>`
 
 
 # Todo
