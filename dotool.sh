@@ -70,11 +70,15 @@ dotool-ls-long(){
 #--image ubuntu-18-04-x64 \
 #38835928
 dotool-create(){
-  if [ $# -eq 0 ]; then
-    echo "name ssh-key-id image-type"
+  if [ $# -lt 2 ]; then
+    echo "Command requires at least name and fingerprint (or id)"
+    echo "dotool-create name <fingerprint|id> [image]"
     return 1
   fi
-  imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
+
+  #imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
+  #dotool-ossibilities lists this; 72067660    20.04 (LTS) x64 
+  imgtype=${3:-ubuntu-20-04-x64}; ## default image is ubuntu v20.04
   echo "Using $imgtype"
   ## $2 is an ssh key or fingerprint
   doctl compute droplet create "$1" \
@@ -102,24 +106,32 @@ dotool-create(){
 }
 
 dotool-delete(){
-  doctl compute droplet delete "$1"
 
-  # ping for server
-  local ip=$(dotool-name-to-ip "$1")
-  
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name or id of the droplet"
+    echo "dotool-delete <name|id>"
+    return 1
+  fi
+
+  # delete ip
+  doctl compute droplet delete "$1"
+    
+  local ip=$(dotool-name-to-ip "$1");
+
   # while the server is still pingable
   while [ "$?" -eq 0 ]; do
     echo "Deleting..."
+    clear
     # ping for the server till it no longer exists
     dotool-name-to-ip "$1" > /dev/null 2>&1
   done
+
   # server is deleted
-  echo "Deleted $1: $ip"
-  
-  # deletes environment variable
-  local env_name=$(echo "$1" | tr '-' '_')
-  unset "$env_name"
-  
+  echo "Deleted $1 IP:$ip"
+
+  # unsets deleted node variable by finding the ip and corresponding node name
+  unset "$(cat ~/server.list | grep "$ip" | awk -F"=" '{ print $1 }')" 
+ 
   # renews server list
   dotool-create-server-list
 }
@@ -131,6 +143,7 @@ dotool-id-to-ip(){
       --format "Public IPv4"
 }
 
+## this will accept the id and return the correct ip as well
 dotool-name-to-ip(){
   local id
   id=$(dotool-list | grep "$1 " | awk '{print $1}');
@@ -188,79 +201,3 @@ dotool-create-server-list() {
   source ~/server.list
   echo "Server names and ips have been refreshed in environment."
 } 
-
-##########################################################################
-# enctool-
-#  encryption tool for managing TLS certs, etc.
-##########################################################################
-enctool-cert()
-{
-    certbot certonly --manual \
-        --preferred-challenges=dns-01 \
-        --agree-tos -d ./*."$1" # pass domainname.com
-
-}
-
-##########################################################################
-# rctool-
-#   reseller club api for mananging domain names from a distance. 
-##########################################################################
-rctool-help() {
-    echo "rctool is  collection of Bash scripts which makes interfacing
-to Reseller Club's Domain Name Management API easier. More API info:
-
-https://manage.resellerclub.com/kb/node/1106
-
-You are using RC_APIKEY = $RC_APIKEY
-"
-}
-
-rctool-init(){
-    RCTOOL_ENV="./resellerclub/env.sh" # must be set prior to calling
-    # shellcheck source=/dev/null    
-    [ -f "$RCTOOL_ENV" ] &&  source "$RCTOOL_ENV"
-
-}
-
-rctool-list-a() {
-    # https://manage.resellerclub.com/kb/node/1106
-    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=A&no-of-records=50&page-no=1"
-}
-
-rctool-txt-list() {
-    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=TXT&no-of-records=50&page-no=1"
-}
-
-rctool-list-cname() {
-    http "https://test.httpapi.com/api/dns/manage/search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&domain-name=$1&type=CNAME&no-of-records=50&page-no=1"
-}
-rctool-txt-add() {
-    http "https://test.httpapi.com/\
-api/dns/manage/add-txt-record.json?\
-auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
-host=$1&domain-name=$2&value=$3"
-}
-
-rctool-txt-delete() {
-    http "https://test.httpapi.com/\
-api/dns/manage/delete-txt-record.json?\
-auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
-host=$1&domain-name=$2&value=$3"
-}
-
-# CNAME example, map webpage.nodeholder.com
-# host=website
-# domain-name=nodeholder.com
-# value=nodeholder.gitlab.io
-rctool-cname-add(){
-http "https://test.httpapi.com/api/dns/manage/\
-add-cname-record.json?\
-auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
-host=$1&domain-name=$2&value=$3"
-}
-
-
-rctool-txt-update() {
-    http "https://test.httpapi.com/api/dns/manage/update-txt-record.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&host=$1&domain-name=$2&value=$3"
-}
-
