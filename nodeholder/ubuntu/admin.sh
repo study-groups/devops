@@ -169,6 +169,10 @@ nh-admin-delete-app(){
   admin-delete-port $port
 }
 
+nh-admin-list-roles() {
+  ls /home
+}
+
 nh-admin-monitor(){
   watch -n .5 '
     echo "/etc/group:"
