@@ -241,3 +241,8 @@ nh-remote-app-status() {
   
   ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
 }
+
+nh-remote-list-roles() {
+  local ip="$1";
+  ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
+}
