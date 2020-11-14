@@ -137,7 +137,14 @@ dotool-delete(){
 }
 
 dotool-id-to-ip(){
-  local id=$1
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the id of the droplet"
+    echo "dotool-id-to-ip id"
+    return 1
+  fi
+
+  local id="$1";
   doctl compute droplet get "$id" \
       --no-header \
       --format "Public IPv4"
@@ -145,17 +152,38 @@ dotool-id-to-ip(){
 
 ## this will accept the id and return the correct ip as well
 dotool-name-to-ip(){
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name of the droplet"
+    echo "dotool-name-to-ip name"
+    return 1
+  fi
+
   local id
   id=$(dotool-list | grep "$1 " | awk '{print $1}');
   dotool-id-to-ip "$id"
 }
 
 dotool-login(){
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name of the droplet"
+    echo "dotool-login name"
+    return 1
+  fi
+
   ## log in to the droplet via name of droplet
   ssh root@"$(dotool-name-to-ip "$1")"
 }
 
 dotool-status(){
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name of the droplet"
+    echo "dotool-status name"
+    return 1
+  fi
+
   ssh root@"$(dotool-name-to-ip "$1")" '
   echo ""
   echo "vmstat -s"
@@ -167,6 +195,13 @@ dotool-status(){
 }
 
 dotool-upgrade(){
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name of the droplet"
+    echo "dotool-upgrade name"
+    return 1
+  fi
+
   ssh root@"$(dotool-name-to-ip "$1")" "
       apt -y update
       apt -y upgrade
@@ -174,6 +209,13 @@ dotool-upgrade(){
 }
 
 dotool-loop-image(){
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the name of the file"
+    echo "dotool-loop-image name"
+    return 1
+  fi
+
   udisksctl loop-setup -f  "$1"
   #mkdir /mnt/$1
   echo "replace X: mount /dev/loopXp1 /mnt/$1" 
