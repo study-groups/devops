@@ -4,8 +4,7 @@
 #    Stage        Function 
 # 
 # PROVISION       Done previously via dotool
-# CONFIGURATION   nodeholder-remote-config-init
-# CONFIGURATION   nodeholder-remote-config-init
+# CONFIGURATION   nh-remote-install-config $node_ip nh-config.sh
 # ROLE CREATION
 # APP CREATION
 # PORT MAPPINGS
@@ -26,7 +25,7 @@ nh-remote-get-key-from-role() {
 # Any local apps must be coped now from local mother to child node
 # Copy config.sh to admin@$IP and call ssh root@$IP config-init
 # Child ode now ready for ssh admin@$IP:admin-commands
-nh-remote-config-init(){
+nh-remote-install-config(){
   local ip="$1";
   local config_file="$2";
 
@@ -45,10 +44,12 @@ nh-remote-config-init(){
   # source configuration and configure machine
   ssh root@"$ip" '
       source "'$config_file'" && nh-config-init
-      echo "Deploy \"from a distance\" application with admin.sh"
-      echo "--or--"
-      echo "Log in to remote host"
-      echo "local> dotool-login <droplet>"
+      echo "##########################################################"
+      echo "#  Deploy \"from a distance\" application with admin.sh  #"
+      echo "#  --or--                                                #"
+      echo "#  Log in to remote host                                 #"
+      echo "#  local> dotool-login <droplet>                         #"
+      echo "##########################################################"
   '
   
   # instruct user on next steps
@@ -90,7 +91,7 @@ nh-remote-refresh-admin() {
 }
 
 # creates new user/node on nodeholder
-nh-remote-admin-create-role() {
+nh-remote-create-role() {
 
   local ip="$1";
   local role="$2";
