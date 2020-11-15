@@ -15,6 +15,13 @@
 
 # Used to get key so we can clone private repo.
 nh-remote-get-key-from-role() {
+
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and role"
+    echo "nh-remote-get-key-from-role ip role"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
 
@@ -26,6 +33,13 @@ nh-remote-get-key-from-role() {
 # Copy config.sh to admin@$IP and call ssh root@$IP config-init
 # Child ode now ready for ssh admin@$IP:admin-commands
 nh-remote-install-config(){
+
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and configuration file"
+    echo "nh-remote-install-config ip file"
+    return 1
+  fi
+
   local ip="$1";
   local config_file="$2";
 
@@ -63,6 +77,13 @@ nh-remote-install-config(){
 # installs admin on nodeholder 
 # Should be: nodeholder-remote-install-admin() {
 nh-remote-install-admin() {
+
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and admin file"
+    echo "nh-remote-install-admin ip file"
+    return 1
+  fi
+
   # ip of node to send file to
   local ip="$1";
   
@@ -84,6 +105,13 @@ nh-remote-install-admin() {
 
 # refreshes admin functions on nodeholder
 nh-remote-refresh-admin() {
+
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and admin file"
+    echo "nh-remote-refresh-admin ip file"
+    return 1
+  fi
+
   local ip="$1"
   local admin_file="$2"
 
@@ -92,25 +120,45 @@ nh-remote-refresh-admin() {
 
 # creates new user/node on nodeholder
 nh-remote-create-role() {
+  
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and role"
+    echo "nh-remote-create-role ip role"
+    return 1
+  fi
 
   local ip="$1";
   local role="$2";
 
   ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
-  [ $? == 0 ] && scp ./nh.sh "$role"@"$ip":~/nh.sh || echo "Error: role failed to be created."
+  [ $? == 0 ] && 
+    scp ./nh.sh "$role"@"$ip":~/nh.sh || 
+    echo "Error: role failed to be created."
 }
 
 # removes user on nodeholder
 nh-remote-remove-role() {
+
+  if [ $# -lt 2 ]; then
+    echo "Command requires the ip and role"
+    echo "nh-remote-remove-role ip role"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
 
-  ssh admin@"$ip" 'source admin.sh && admin-remove-role "'$role'"'
+  ssh admin@"$ip" 'source admin.sh && nh-admin-remove-role "'$role'"'
 }
 
 # clones application into specific role
 nh-remote-create-app() {
 
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and repo url"
+    echo "nh-remote-create-app ip role repo_url [branch] [app]"
+    return 1
+  fi
 
   local ip="$1";
   local role="$2";
@@ -118,131 +166,157 @@ nh-remote-create-app() {
   local branch=${4:-"master"};
   local app="$5";
 
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" \
-	  && return 1
-  [ -z "$repo_url" ] && echo "Please provide the repo from which to clone" \
-	  && return 1
+  
   
   ssh admin@"$ip" \
 	  'source admin.sh && admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'
 }
 
 nh-remote-delete-app() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-delete-app ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app to delete" && 
-    return 1
 
   ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$role'" "'$app'"'
 }
 
 nh-remote-app-build() {
+
+ if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-build ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
 
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app to build" && 
-    return 1
-  
-  ssh "$role"@"$ip" 'source nh.sh && nh-app-build'
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-build "'"$app"'"'
 }
 
 nh-remote-app-status() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-status ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+
   ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
 }
 
 nh-remote-app-log() {
+  
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-log ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+
   ssh "$role"@"$ip" 'source nh.sh && nh-app-log "'"$app"'"'
 }
 
 nh-remote-app-err() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-err ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && echo "Please provide the name of the app" && return 1
+
   ssh "$role"@"$ip" 'source nh.sh && nh-app-err "'"$app"'"'
 }
 
 nh-remote-add-env-var() {
+
+  if [ $# -lt 4 ]; then
+    echo "Command requires the ip, role, app name, and name of environment variable"
+    echo "nh-remote-add-env-var ip role app env_var [value]"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
   local env_var="$4";
   local value="$5";
 
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && 
-    echo "Please provide role" && return 1
-  [ -z "$app" ] && 
-    echo "Please provide the name of the app" && return 1
-  [ -z "$env_var" ] && 
-    echo "Please provide environment variable to add." && return 1
   ssh "$role"@"$ip" 'source nh.sh $$ nh-add-env-var "'"$env_var"'" "'"$value"'" "'"$app"'"'
 }
 
 nh-remote-app-start() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-start ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide role" && return 1
-  [ -z "$app" ] && 
-    echo "Please provide the name of the app to start" && return 1
 
   ssh "$role"@"$app" 'source nh.sh && nh-app-start "'"$app"'"'
 }
 
 nh-remote-app-stop() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-stop ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-  
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && echo "Please provide the name of the node to use" && 
-    return 1
-  [ -z "$app" ] && 
-    echo "Please provide the name of the app to stop" && return 1
   
   ssh "$role"@"$app" 'source nh.sh && nh-app-stop "'"$app"'"'
 }
 
 nh-remote-app-status() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-status ip role app"
+    return 1
+  fi
+
   local ip="$1";
   local role="$2";
   local app="$3";
-  
-  [ -z "$ip" ] && echo "Please provide ip address" && return 1
-  [ -z "$role" ] && 
-    echo "Please provide role" && return 1
-  [ -z "$app" ] && 
-    echo "Please provide the name of the app to check status" && return 1
   
   ssh "$role"@"$ip" 'source nh.sh && nh-app-status "'"$app"'"'
 }
 
 nh-remote-list-roles() {
+
+  if [ $# -lt 1 ]; then
+    echo "Command requires the ip"
+    echo "nh-remote-list-roles ip"
+    return 1
+  fi
+
   local ip="$1";
   ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
 }
