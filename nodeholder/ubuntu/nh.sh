@@ -35,7 +35,7 @@ nh-add-env-var() {
   local value="$2";
   local app="$3";
 
-  echo "export '$env_var'"="'$value'" >> ./$app/nh/env
+  echo "export $env_var=$value" >> ./$app/nh/env
 }
 
 nh-app-start() {
