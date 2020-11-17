@@ -8,13 +8,6 @@ nh-app-build() {
   ./$app/nh/build
 }
 
-nh-app-show() {
-  local app="$1";
-  local file="$2";
-
-  cat ./$app/nh/$file
-}
-
 nh-app-status() {
   local app="$1";
   cat ./$app/nh/status
