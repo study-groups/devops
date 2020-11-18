@@ -121,7 +121,6 @@ dotool-delete(){
   # while the server is still pingable
   while [ "$?" -eq 0 ]; do
     echo "Deleting..."
-    clear
     # ping for the server till it no longer exists
     dotool-name-to-ip "$1" > /dev/null 2>&1
   done
