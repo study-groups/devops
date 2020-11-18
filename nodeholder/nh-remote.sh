@@ -163,13 +163,11 @@ nh-remote-create-app() {
   local ip="$1";
   local role="$2";
   local repo_url="$3";
-  local branch=${4:-"master"};
-  local app="$5";
-
-  
+  local app="$4";
+  local branch=${5:-"master"};
   
   ssh admin@"$ip" \
-	  'source admin.sh && admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'
+	  'source admin.sh && nh-admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'
 }
 
 nh-remote-delete-app() {
@@ -184,7 +182,7 @@ nh-remote-delete-app() {
   local role="$2";
   local app="$3";
 
-  ssh admin@"$ip" 'source admin.sh && admin-delete-app "'$role'" "'$app'"'
+  ssh admin@"$ip" 'source admin.sh && nh-admin-delete-app "'$role'" "'$app'"'
 }
 
 nh-remote-app-build() {
