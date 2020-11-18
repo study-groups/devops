@@ -185,6 +185,21 @@ nh-remote-delete-app() {
   ssh admin@"$ip" 'source admin.sh && nh-admin-delete-app "'$role'" "'$app'"'
 }
 
+nh-remote-app-install-deps() {
+
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, role, and app name"
+    echo "nh-remote-app-install-deps ip role app"
+    return 1
+  fi
+
+  local ip="$1";
+  local role="$2";
+  local app="$3";
+
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-install-deps "'"$app"'"'
+}
+
 nh-remote-app-build() {
 
  if [ $# -lt 3 ]; then
