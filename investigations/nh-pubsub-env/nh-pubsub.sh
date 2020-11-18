@@ -46,12 +46,15 @@ subscribe "add-env-var" "nh-add-env-var"
 
 # publisher
 nh() {
+  # publishes first arg 
+  # and passes args starting from the second to the function invoked
   publish "$1" "${@:2}"
 }
 
 nh-remote() {
   local role="$1";
   local ip="$2";
+  # passes the rest of the args starting from the 3rd arg
   local rest="${@:3}"
   
   ssh "$role"@"$ip" "source nh.sh && nh $rest"
