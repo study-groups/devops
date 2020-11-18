@@ -89,9 +89,9 @@ ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCFsCNkXajxfM/it8BQds2p4yx+zY9JkO3IGcymPqqV
 </div>
 
 #### Clone app under specific role
-`> nh-remote-create-app $ip role repo_url [branch] [app]`
+`> nh-remote-create-app $ip role repo_url [app_name] [branch]`
+- `app_name` defaults to name of application from repo service.
 - `branch` defaults to `master` if not provided.
-- `app` defaults to name of application from repo service.
 
 #### Install dependencies/Builds application
 `> nh-remote-app-build $ip role app`

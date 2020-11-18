@@ -156,7 +156,7 @@ nh-remote-create-app() {
 
   if [ $# -lt 3 ]; then
     echo "Command requires the ip, role, and repo url"
-    echo "nh-remote-create-app ip role repo_url [branch] [app]"
+    echo "nh-remote-create-app ip role repo_url [app_name] [branch]"
     return 1
   fi
 
