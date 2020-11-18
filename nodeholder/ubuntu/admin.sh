@@ -76,7 +76,7 @@ nh-admin-create-port(){
 
 # deletes port file
 nh-admin-delete-port(){
-  admin-log $@
+  nh-admin-log $@
   [ -z $1 ] && admin-log "no port entered" && return -1
   local port=$1
   local dir=/home/admin/ports
@@ -110,7 +110,7 @@ nh-admin-add-key() {
 # clones app from repo onto local machine
 # provides permissions to specified role
 nh-admin-create-app(){
-  admin-log $@
+  nh-admin-log $@
   local role="$1";
   local repo_url="$2";
   local branch=${3:-"master"};
@@ -129,8 +129,8 @@ nh-admin-create-app(){
   [ -d "/home/$role/$app" ] && 
 	  echo "app dir exists, exiting" && return -1
   
-  local port=$(admin-create-port)
-  admin-log port=$port
+  local port=$(nh-admin-create-port)
+  nh-admin-log port=$port
 
   # signals to gitlab that it is authorized to clone from repo
   sudo -u $role ssh -T -o StrictHostKeyChecking=no git@gitlab.com
@@ -155,18 +155,18 @@ nh-admin-create-app(){
       /home/$role/$app/nh
 
   sudo -u $role bash -c "echo $port > /home/$role/$app/nh/port"
-  admin-log created /home/$role/$app
+  nh-admin-log created /home/$role/$app
 }
 
 # deletes application on local machine
 nh-admin-delete-app(){
-  admin-log $@
+  nh-admin-log $@
   local role=$1
   local app=$2
   local port=$(cat /home/$role/$app/nh/port)
   sudo -u $role rm -rf /home/$role/$app
   echo "PORT: $port"
-  admin-delete-port $port
+  nh-admin-delete-port $port
 }
 
 nh-admin-list-roles() {
