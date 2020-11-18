@@ -77,7 +77,7 @@ nh-admin-create-port(){
 # deletes port file
 nh-admin-delete-port(){
   nh-admin-log $@
-  [ -z $1 ] && admin-log "no port entered" && return -1
+  [ -z $1 ] && nh-admin-log "no port entered" && return -1
   local port=$1
   local dir=/home/admin/ports
   local ports=( $(ls $dir) )
@@ -89,13 +89,13 @@ nh-admin-delete-port(){
   fi
 
   [[ " ${ports[@]} " =~ " ${port} " ]] \
-    && admin-log "rm -rf $dir/$port" && rm -rf $dir/$port \
+    && nh-admin-log "rm -rf $dir/$port" && rm -rf $dir/$port \
     || echo "false"
 }
 
 
 nh-admin-create-key(){
-  admin-log $@
+  nh-admin-log $@
   ssh-keygen -C $1 -f /home/admin/.ssh/$1
 }
 
