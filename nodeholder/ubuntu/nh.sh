@@ -2,6 +2,20 @@ nh-get-key() {
   cat .ssh/id_rsa.pub
 }
 
+nh-app-install-deps() {
+
+  if [ $# -lt 1 ]; then
+    echo "Local command requires the app"
+    echo "nh-app-install-deps app"
+    return 1
+  fi
+  
+  local app="$1";
+
+  ./$app/nh/install
+
+}
+
 nh-app-build() {
 
   if [ $# -lt 1 ]; then
@@ -25,7 +39,7 @@ nh-app-status() {
 
   local app="$1";
 
-  cat ./$app/nh/status
+  ./$app/nh/status
 }
 
 nh-app-log() {
