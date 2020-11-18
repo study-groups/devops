@@ -22,6 +22,7 @@ nh-config-update-os(){
 
 # install required dependencies
 nh-config-install-deps() {
+  apt -y install nginx
   apt -y install snapd
   snap install node --classic --channel=14
   node -v
@@ -41,6 +42,8 @@ nh-config-add-admin(){
 
 nh-config-security(){
   echo "%sudo   ALL=(ALL:ALL)  NOPASSWD: ALL" >> /etc/sudoers
+  ufw allow 'Nginx Full'
+  systemctl status nginx
 }
 
 nh-config-copy-keys(){
