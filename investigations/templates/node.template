@@ -1,0 +1,43 @@
+NODE-create() {
+  local repo="$1";
+  local app_name="$2";
+
+  [ -z "$a" ] && echo "Please provide repo to clone from" && return 1
+
+  [ -z "$b" ] \
+	  && ssh admin@IP ". admin.sh && admin-create-app NODE $repo" \
+	  || ssh admin@IP ". admin.sh && admin-create-app NODE $repo $app_name"
+}
+
+NODE-get-port(){
+  local app_name="$1";
+  ssh NODE@IP "cat $app_name/nh/port"
+}
+
+NODE-start(){
+  local app_name="$1";
+  ssh NODE@IP "./$app_name/nh/start"
+}
+
+NODE-stop(){
+  local app_name="$1";
+  ssh NODE@IP "./$app_name/nh/stop"
+}
+
+NODE-install(){
+  local app_name="$1";
+  ssh NODE@IP "./$app_name/nh/install"
+}
+
+NODE-delete(){
+  local app_name="$1"
+  ssh admin@IP '. admin.sh && admin-delete-app NODE "'$app_name'"'
+}
+
+NODE-curl(){
+  local port=$(NODE-get-port)
+  echo "Trying with port $port"
+  curl "IP:$port/"
+  echo ""
+}
+
