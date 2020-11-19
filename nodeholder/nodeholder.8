@@ -16,15 +16,6 @@ with original root/.ssh/authorized_key. For now config.sh file must
 be in the local directory where this is called.
 
 .TP
-\fBgenerate-aliases\fP
-Creates shell aliases to 'functions at a distance'. for example,
-alias child-admin-init='ssh admin@child_ip 'admin-init'
-
-.TP
-\fBinstall-admin\fP
-copies admin.sh to admin account and and runs it. The virtual private server is now a nodeholder child that may host \fBnodes\fP.
-
-.TP
 \fBrefresh-admin\fP
 copies admin.sh to admin account, does not run it. Used for admin@nodeholder acommands. The virtual private server is now a nodeholder child that may host \fBnodes\fP.
 
@@ -36,7 +27,7 @@ which enables configuration at a distance via \fBnodeholder-\fP
 commands.
 
 .TP
-\fBcreate-node\fP nodename
+\fBcreate-node\fP $ip nodename
 Creates a node (Unix user) which hosts multiple apps.
 
 .SS ADMIN@$IP OPTIONS 
@@ -61,31 +52,34 @@ Generates a port number, marks it as used, adds to admin@$ip:ports/
 Frees a system port.
 
 .TP
-\fBadmin-delete-app\fP
+\fBadmin-delete-app\fP nodename appname
 Frees port and deletes repo.
 
 
 .SH THEORY OF OPERATION
-nodeholder-config usese
+nodeholder-configure usage
 scp to copy and execute the config.sh file on
 root@child. After this one-time process is complete, the
 root account is disbled and only the admin user can
 authenticate with SSHd on the child.
 
 
-nodeholder-install-admin $ip copies admin.sh 
+nodeholder-install-admin $ip file
+copies admin.sh 
 and adds code to source admin.sh in admin@$ip:admin.sh
 which enables configuration at a distance via \fBnodeholder-\fP*
 commands.
 
-nodeholder-create-node creates a node (implemented 
+nodeholder-create-node $ip nodename
+creates a node (implemented 
 as unix user with no password) 
 that can hold multiple apps with one port per app. Typically 
 multiple users would provide public SSH keys that are 
 added to node@$ip:./ssh/authorized_keys. This allows
 teams to share a node for multiple network apps.
 
-admin-create-app creates network-aware applications
+admin-create-app nodename repo_url reponame
+creates network-aware applications
 under nodes which are controlled remotely via 
 node@$ip:node/app/nh/{start,stop,status}
 

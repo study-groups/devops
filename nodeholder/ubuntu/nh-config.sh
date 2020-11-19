@@ -46,6 +46,15 @@ nh-config-security(){
   systemctl status nginx
 }
 
+nh-config-init-ssh(){
+# Requires first argument to be publc key.
+  mkdir ~/.ssh
+  chmod 0700 ~/.ssh
+  touch ~/.ssh/authorized_keys
+  echo $1 > ~/.ssh/authorized_keys
+  chmod 0600 ~/.ssh/authorized_keys
+}
+
 nh-config-copy-keys(){
   mkdir /home/admin/.ssh
   cp /root/.ssh/authorized_keys /home/admin/.ssh/authorized_keys
