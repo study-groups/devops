@@ -129,10 +129,11 @@ nh-remote-create-role() {
 
   local ip="$1";
   local role="$2";
+  local nh_path=/home/admin/src/devops-study-group/nodeholder/ubuntu/nh.sh
 
   ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
   [ $? == 0 ] && 
-    scp ./nh.sh "$role"@"$ip":~/nh.sh || 
+    scp $nh_path "$role"@"$ip":~/nh.sh || 
     echo "Error: role failed to be created."
 }
 
@@ -289,7 +290,7 @@ nh-remote-app-start() {
   local role="$2";
   local app="$3";
 
-  ssh "$role"@"$app" 'source nh.sh && nh-app-start "'"$app"'"'
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-start "'"$app"'"'
 }
 
 nh-remote-app-stop() {
@@ -304,7 +305,7 @@ nh-remote-app-stop() {
   local role="$2";
   local app="$3";
   
-  ssh "$role"@"$app" 'source nh.sh && nh-app-stop "'"$app"'"'
+  ssh "$role"@"$ip" 'source nh.sh && nh-app-stop "'"$app"'"'
 }
 
 nh-remote-app-status() {
