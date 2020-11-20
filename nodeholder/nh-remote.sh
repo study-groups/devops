@@ -32,7 +32,7 @@ nh-remote-get-key-from-role() {
 # Any local apps must be coped now from local mother to child node
 # Copy config.sh to admin@$IP and call ssh root@$IP config-init
 # Child ode now ready for ssh admin@$IP:admin-commands
-nh-remote-install-config(){
+nh-remote-install-root(){
 
   if [ $# -lt 2 ]; then
     echo "Command requires the ip and configuration file"
@@ -41,9 +41,9 @@ nh-remote-install-config(){
   fi
 
   local ip="$1";
-  local config_file="$2";
+  local config_file="${2:-'root.sh'}";
 
-  # copy config.sh to the remote machine
+  # copy root.sh to the remote machine
   scp "$config_file" root@"$ip":"$config_file"
  
   # location where daemonize is on mother node
@@ -60,9 +60,10 @@ nh-remote-install-config(){
       source "'$config_file'" && nh-config-init
       echo "##########################################################"
       echo "#  Deploy \"from a distance\" application with admin.sh  #"
-      echo "#  --or--                                                #"
-      echo "#  Log in to remote host                                 #"
-      echo "#  local> dotool-login <droplet>                         #"
+      echo "#                                                        #"
+      echo "#       --or--                                           #"
+      echo "#                                                        #"
+      echo "#  Log in to remote host local> ssh admin@$droplet       #"
       echo "##########################################################"
   '
   
