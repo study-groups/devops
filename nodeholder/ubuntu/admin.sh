@@ -127,7 +127,7 @@ nh-admin-create-app(){
     return 1
 
   [ -d "/home/$role/$app" ] && 
-	  echo "app dir exists, exiting" && return -1
+	  echo "app dir exists, exiting" && return 1
   
   local port=$(nh-admin-create-port)
   nh-admin-log port=$port
@@ -145,7 +145,7 @@ nh-admin-create-app(){
   # if it didn't clone correctly, remove the directory
   [ $? -ne 0 ] && sudo -u $role rmdir /home/$role/$app && 
     echo "Application was unable to clone." && 
-    return 0
+    return 1
 
   # if nh dir does not exist, copy dummy 
   # user should modify nh/start and check nh dir in.
@@ -153,6 +153,8 @@ nh-admin-create-app(){
     sudo -u $role \
     cp -r /home/admin/buildpak \
       /home/$role/$app/nh
+
+  # need generic .gitlab-ci.yml
 
   sudo -u $role bash -c "echo $port > /home/$role/$app/nh/port"
   nh-admin-log created /home/$role/$app
