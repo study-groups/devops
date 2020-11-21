@@ -6,16 +6,14 @@ body{
 .markdown-body h2{
   border:0px solid black;
 }
-
 .terminal{
   background-color:#111;
   font-family: courier;
   color:#ccc;
-  width:80%;
-  margin:auto;
+  width: 50%;
+  /*margin:auto;*/
   padding-left:1em;
   font-size:small;
-  width:80em;
   white-space:pre;
 }
 </style>
