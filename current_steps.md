@@ -70,17 +70,23 @@ ID          Name            FingerPrint
 - Where `$ip` is the node reference dereferenced in the shell
 - Configuring requires installing packages; currently takes 1.5 minutes
 for Ubuntu node. 
+<div class="terminal">bash> nh-remote-install-config $ip root.sh
+</div>
 
-#### Send admin file to install nhadmin role on your new node
+#### Choose admin tools
+- In ./ubuntu
+
+#### Send admin file to bestow nodeholder functionality to admin
 `> nh-remote-install-admin $ip admin_file`
+<div class="terminal">bash> nh-remote-install-admin $ip admin.sh
+</div>
 
 #### Create a role with which to manage your application
 `> nh-remote-admin-create-role $ip role`
-
 <div class="terminal">bash> nh-remote-create-role $ip webdev
 </div>
 
-#### Get public ssh key from role
+#### (Optional) Get public ssh key from role
 `> nh-remote-get-key-from-role $ip role`
 - Retrieves public ssh key from a role (linux user) which can be manually added to a user account on a repo cloud service in order to clone private repositories.
 
@@ -92,41 +98,55 @@ ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCFsCNkXajxfM/it8BQds2p4yx+zY9JkO3IGcymPqqV
 `> nh-remote-create-app $ip role repo_url [app_name] [branch]`
 - `app_name` defaults to name of application from repo service.
 - `branch` defaults to `master` if not provided.
+<div class="terminal">bash> nh-remote-create-app $ip webdev https://gitlab.com/user/app.git myApp development-branch
+</div>
 
-#### Install dependencies/Builds application
+#### Install dependencies
+`> nh-remote-app-install-deps $ip role app`
+<div class="terminal">bash> nh-remote-app-install-deps $ip webdev myApp
+</div>
+
+#### Build application
 `> nh-remote-app-build $ip role app`
+<div class="terminal">bash> nh-remote-app-build $ip webdev myApp
+</div>
 
 #### If required, add environment variables to the application's environment
 `> nh-remote-add-env-var $ip role app var_name value`
+<div class="terminal">bash> nh-remote-add-env-var $ip webdev myApp DEV_ENV development 
+</div>
 
 #### Start application
 `> nh-remote-app-start $ip role app` 
+<div class="terminal">bash> nh-remote-app-start $ip webdev myApp
+</div>
 
 #### Stop application
 `> nh-remote-app-stop $ip role app`
+<div class="terminal">bash> nh-remote-app-stop $ip webdev myApp
+</div>
 
 #### Check application status
 `> nh-remote-app-status $ip role app`
+<div class="terminal">bash> nh-remote-app-status $ip webdev myApp
+</div>
 
 #### Check application log
 `> nh-remote-app-log $ip role app`
+<div class="terminal">bash> nh-remote-app-log $ip webdev myApp
+</div>
 
 #### Check application errors
 `> nh-remote-app-err $ip role app`
-
+<div class="terminal">bash> nh-remote-app-err $ip webdev myApp
+</div>
 
 ## Other options
 
 #### Delete node
 `> dotool-delete <node_name|id>`
 
-
 # Todo
 - nodeholder-stop or similar needs to be written
   - would call doX-stopAllNodes on all apps/nodes
     - doX-stopAllApps calls
-
-# Dev Notes
-## Relationship of Nodeholder's apps and roles to Unix commands and processes
-- app is to role and command is to process
-- example: ls is a command that runs in a process
