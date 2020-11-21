@@ -3,4 +3,4 @@ cwd=/home/sae/sentiment-analysis-engine
 cd $cwd
 cmd=npm
 
-$cmd install
+$cmd install $cwd
