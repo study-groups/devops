@@ -26,6 +26,8 @@ nh-config-install-deps() {
   apt -y install snapd
   snap install node --classic --channel=14
   node -v
+  apt-get remove certbot
+  snap install --classic certbot
 }
 
 # TBD
