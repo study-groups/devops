@@ -30,8 +30,8 @@ nh-config-install-deps() {
   snap install --classic certbot
 }
 
-# TBD
-nh-config-install-nectar-collector() {
+nh-config-install-postgres() {
+  # set up user in here too
   apt -y install postgresql postgresql-contrib
 }
 

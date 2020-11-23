@@ -1,0 +1,11 @@
+# Left side is a virtual host with multiple ports
+# Right side translates into various forms of redirection.
+nodeholder.com:80   >>>   local:8080
+nodeholder.com:443 >>>  local:8080
+dev.nodeholder.com  >>> nodeholder.gitlab.io
+sae.nodeholder.com:80 >>> locak:443
+markserv.nodeholder.com >>> local:8100
+sae.nodeholder.com:443>>> do5:9100
+lta.nodeholder.com >>> do4:9200
+nc.nodeholder.com >>> do4:9300
+seq2.nodeholder.com >>> doZ:9400
