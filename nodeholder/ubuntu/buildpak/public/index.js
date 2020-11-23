@@ -2,6 +2,7 @@ const path = require("path");
 const http = require("http");
 
 const staticBasePath = "./public"
+const port = process.env.PORT;
 
 const staticServe = function(req, res) {
     const resolvedBase = path.resolve(staticBasePath);
@@ -17,4 +18,7 @@ const staticServe = function(req, res) {
 
 const httpServer = http.createServer(staticServe);
 
-httpServer.listen(process.env.PORT);
+httpServer.listen(
+    port,
+    () => console.log(`Server running on port:${port}`)
+);
