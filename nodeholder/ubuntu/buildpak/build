@@ -1,6 +1,6 @@
 #!/bin/bash
-cwd=/home/sae/sentiment-analysis-engine
-cd $cwd
+
+cwd=$(dirname $(pwd));
 cmd=npm
 
 $cmd build $cwd
