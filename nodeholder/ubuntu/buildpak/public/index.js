@@ -9,6 +9,7 @@ const staticServe = function(req, res) {
     const fileLoc = path.join(resolvedBase, safeSuffix);
 
     res.statusCode = 200;
+    res.setHeader("Content-Type", "text/html");
     res.write(fileLoc);
 
     return res.end();
