@@ -1,4 +1,4 @@
-source ./*.sh
+source <(cat ./nh-*)
 ip=$doZ
 remoteAdmin="ssh admin@$ip source admin.sh &&"
 remoteSae="ssh sae@$ip source nh.sh && "
