@@ -100,8 +100,8 @@ nh-remote-install-admin() {
   # and set up .bashrc to source admin.sh on boot/use
   ssh admin@"$ip" \
     'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
-  # copy buildpak to node
-  scp -r ./buildpak admin@"$ip":~/
+  # copy app (was buildpak) to node
+  scp -r ./app admin@"$ip":~/
   # copy .gitlab-ci.yml template to admin
   scp ./.gitlab-ci.yml admin@"$ip":~/
 }

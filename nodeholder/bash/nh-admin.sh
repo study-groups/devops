@@ -142,7 +142,7 @@ nh-admin-create-app(){
   # user should modify nh/start and check nh dir in.
   [ ! -d "/home/$role/$app/nh" ] && 
     sudo -u $role \
-    cp -r /home/admin/buildpak \
+    cp -r ./app \
       /home/$role/$app/nh
 
   # need generic .gitlab-ci.yml
