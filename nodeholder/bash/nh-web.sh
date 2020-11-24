@@ -7,7 +7,7 @@ nh-web-build-config(){
 
 nh-web-restart-server(){
   systemctl restart nginx
-
+}
 
 #  Mediate keyed-actions into us.
 mesh-set-upstream(){
@@ -25,7 +25,7 @@ mesh-get-upstream(){
   cat $MESH_UPSTREAM_CONFIG
 }
 mesh-save-state(){
-  
+  echo "add save-state"  
 }
 
 nh-web-install-certbot(){
@@ -45,3 +45,4 @@ nh-web-certbot-renew-test(){
 # systemctl list-timers
   sudo certbot renew --dry-run
 }
+

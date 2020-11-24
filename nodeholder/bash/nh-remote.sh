@@ -335,5 +335,7 @@ nh-remote-list-roles() {
   fi
 
   local ip="$1";
-  ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
+  remote="ssh admin@$ip source admin.sh &&"
+  #ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
+  $remote nh-admin-list-roles
 }

@@ -3,16 +3,7 @@
 # Explains use of admin
 nh-admin-help(){
   echo "\
-   Admin is a collection of scripts to configure runtime operations.
-
-   Securely copy the admin.sh file to your new remote machine: 
-    1) scp admin.sh ssh admin@host:admin.sh
-
-   Source admin.sh on remote using ssh and call admin-init function:
-   2) ssh admin@host: \"source admin.sh && admin-init\"
-
-  Requires:
-    - running as admin
+  Admin is a collection of scripts to configure runtime operations.
 
   Configures a Unix server and account for process 'containers'
   addresseble by system defined TCP sockets. 
@@ -187,7 +178,7 @@ nh-admin-monitor(){
 }
 
 # sysadmin
-sysadmin-help() {
+nh-admin-unix-help() {
   echo "
 Commands for system administration (to be orchestrated later)
 passwd -l username   # locks but does not disable so SSH works

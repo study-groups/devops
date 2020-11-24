@@ -1,10 +1,8 @@
-nh-config-help(){
+nh-root-help(){
   echo "
   remote configuration file v 001
   -------------------------------
-  Run this remotely via local machine via:
-   1) scp config.sh ssh root@host:config.sh
-   2) ssh root@host: \"source nodeholder-config.sh && nh-config-init\"
+  Run this remotely via ssh.
 
   Requires:
     - running as root
@@ -15,13 +13,13 @@ nh-config-help(){
 }
 
 # updates os
-nh-config-update-os(){
+nh-root-update-os(){
   apt-get update
   apt-get -y upgrade
 }
 
 # install required dependencies
-nh-config-install-deps() {
+nh-root-install-deps() {
   apt -y install nginx
   apt -y install snapd
   snap install node --classic --channel=14
@@ -30,25 +28,25 @@ nh-config-install-deps() {
   snap install --classic certbot
 }
 
-nh-config-install-postgres() {
+nh-root-install-postgres() {
   # set up user in here too
   apt -y install postgresql postgresql-contrib
 }
 
-nh-config-add-admin(){
+nh-root-add-admin(){
     adduser --disabled-password \
 	    --ingroup sudo \
 	    --gecos "" \
 	    admin
 }
 
-nh-config-security(){
+nh-root-security(){
   echo "%sudo   ALL=(ALL:ALL)  NOPASSWD: ALL" >> /etc/sudoers
   ufw allow 'Nginx Full'
   systemctl status nginx
 }
 
-nh-config-init-ssh(){
+nh-root-init-ssh(){
 # Requires first argument to be publc key.
   mkdir ~/.ssh
   chmod 0700 ~/.ssh
@@ -57,7 +55,7 @@ nh-config-init-ssh(){
   chmod 0600 ~/.ssh/authorized_keys
 }
 
-nh-config-copy-keys(){
+nh-root-copy-keys(){
   mkdir /home/admin/.ssh
   cp /root/.ssh/authorized_keys /home/admin/.ssh/authorized_keys
   chown -R admin:admin /home/admin/.ssh
@@ -66,10 +64,10 @@ nh-config-copy-keys(){
 }
 
 # Much tighter. Moves most stuff to admin phase.
-nh-config-init(){
-  nh-config-update-os
-  nh-config-install-deps
-  nh-config-add-admin
-  nh-config-copy-keys
-  nh-config-security
+nh-root-init(){
+  nh-root-update-os
+  nh-root-install-deps
+  nh-root-add-admin
+  nh-root-copy-keys
+  nh-root-security
 }
