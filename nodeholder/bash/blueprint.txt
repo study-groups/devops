@@ -1,0 +1,7 @@
+MOTHER:
+Admin - sudouser, local and remote capabilities
+user_role - local and remote capabilities in regards to applications
+
+CHILD (droid):
+admin - some sudo access, local capabilities
+user_role - local capabilities in regards to applications
