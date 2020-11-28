@@ -57,7 +57,7 @@ nh-remote-install-root(){
 
   # source configuration and configure machine
   ssh root@"$ip" '
-      source "'$config_file'" && nh-config-init
+      source "'$config_file'" && nh-root-init
       echo "##########################################################"
       echo "#  Deploy \"from a distance\" application with admin.sh  #"
       echo "#                                                        #"
