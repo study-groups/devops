@@ -100,10 +100,13 @@ nh-remote-install-admin() {
   # and set up .bashrc to source admin.sh on boot/use
   ssh admin@"$ip" \
     'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
+
+  buildpak=/home/admin/src/devops-study-group/nodeholder/app
+
   # copy app (was buildpak) to node
-  scp -r ./app admin@"$ip":~/
+  scp -r $buildpak admin@"$ip":~/
   # copy .gitlab-ci.yml template to admin
-  scp ./.gitlab-ci.yml admin@"$ip":~/
+  # scp ./.gitlab-ci.yml admin@"$ip":~/
 }
 
 # refreshes admin functions on nodeholder
