@@ -172,7 +172,7 @@ nh-remote-create-app() {
   local role="$2";
   local repo_url="$3";
   local app="$4";
-  local branch=${5:-"master"};
+  local branch=${5:-"main"};
   
   ssh admin@"$ip" \
 	  'source admin.sh && nh-admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'

@@ -104,7 +104,7 @@ nh-admin-create-app(){
   nh-admin-log $@
   local role="$1";
   local repo_url="$2";
-  local branch=${3:-"master"};
+  local branch=${3:-"main"};
   local basename=$(basename $repo_url); # myapp.git
   basename=${basename%.*}; # myapp  (removes .git)
   local app=${4:-$basename};
