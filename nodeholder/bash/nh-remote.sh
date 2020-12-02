@@ -136,7 +136,7 @@ nh-remote-create-role() {
 
   local ip="$1";
   local role="$2";
-  local nh_path=./bash/nh-app.sh # Rename to user.sh to reflect role and perm.
+  local nh_path=/home/admin/src/devops-study-group/nodeholder/bash/nh-app.sh
 
   ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
   [ $? == 0 ] && 
