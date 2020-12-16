@@ -1,0 +1,14 @@
+dir=$(dirname $BASH_SOURCE)
+>&2 echo "
+IP: $(hostname -I | awk '{ print $1 }')
+PORT: $(cat $dir/port)
+PID: $(cat $dir/pid)
+PWD: $PWD
+NHAPP: $dir
+
+Tail of $dir/log:
+$(tail $dir/log)
+
+Tail of $dir/err:
+$(tail $dir/err)
+"

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+
+cwd=$(dirname $(realpath $BASH_SOURCE));
+cmd=$(which node);
+args=$cwd/index.js
+process="$(cat $cwd/pid)";
+
+[ -n "$process" ] && echo "Process $process is already running." && exit 1
+
+source $cwd/env
+
+daemonize \
+	-E PORT=$(cat $cwd/port) \
+        -c $cwd \
+        -p $cwd/pid \
+        -e $cwd/err \
+        -o $cwd/log \
+        "$cmd" "$args"

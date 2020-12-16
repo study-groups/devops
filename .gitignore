@@ -5,6 +5,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+investigations/nh-pubsub-env/project*
+
+*.gz
+
+# vim swap files
+*.swp
+
+# personal tools for Bash
+devtools.sh
+
+# quick and dirty local version control
+.qik 
+
 # Runtime data
 pids
 *.pid

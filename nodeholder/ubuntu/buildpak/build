@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cwd=$(dirname $(pwd));
+cmd=npm
+
+$cmd build $cwd

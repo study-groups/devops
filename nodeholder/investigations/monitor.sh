@@ -1,4 +1,3 @@
-
 monitor-help(){
   echo "\
 Monitor is a set of shell functions for monitoring unix servers."

@@ -12,6 +12,9 @@ sync-help(){
   echo "\
 Sync is a collection shell functions for continual backup of unix servers."
 }
+sync-space(){
+ du -hsx * | sort -rh | head -4 2> /tmp/err
+}
 
 sync-from-to() {
   local from_dir=$1 # full path

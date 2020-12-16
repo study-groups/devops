@@ -1,0 +1,27 @@
+# Left side is a virtual host with multiple ports
+# Right side translates into various forms of redirection.
+#
+# Stanza format
+# line 1: HTTP:hostname=cryptokey
+# line 2: port1,prot2, ... portN 
+# line 3: action
+nodeholder.com
+80,443
+serveStatic:/var/nodeholder/web/production
+
+dev.nodeholder.com
+80,443
+forwardTo:nodeholder.gitlab.io 
+
+#sae.nodeholder.com:80 >>> locak:443
+key.sae.nodeholder.com
+80,443
+saeGetInterface(key)
+ 
+markserv.nodeholder.com:80
+markserv/fifoInterface
+
+sae.nodeholder.com:443>>> do5:9100
+lta.nodeholder.com >>> do4:9200
+nc.nodeholder.com >>> do4:9300
+seq2.nodeholder.com >>> doZ:9400
