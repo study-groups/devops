@@ -34,17 +34,18 @@ nh-remote-get-key-from-role() {
 # Child ode now ready for ssh admin@$IP:admin-commands
 nh-remote-install-root(){
 
-  if [ $# -lt 2 ]; then
+  if [ $# -lt 1 ]; then
     echo "Command requires the ip and configuration file"
-    echo "nh-remote-install-config ip file"
+    echo "nh-remote-install-config ip <config-file>"
     return 1
   fi
 
+  local config_dir="/home/admin/src/devops-study-group/nodeholder/bash"
+  local config_file="${2:-"nh-root-ubuntu.sh"}";
+  local config_path="$config_dir/$config_file"
   local ip="$1";
-  local config_file="${2:-'root.sh'}";
-
   # copy root.sh to the remote machine
-  scp "$config_file" root@"$ip":"$config_file"
+  scp "$config_path" root@"$ip":"$config_file"
  
   # location where daemonize is on mother node
   local dpath_local="/home/admin/src/daemonize/daemonize";
@@ -87,7 +88,8 @@ nh-remote-install-admin() {
 
   # ip of node to send file to
   local ip="$1";
-  
+ 
+  local admin_dir="/home/admin/src/devops-study-group/nodeholder/bash" 
   # Adds admin.sh to .bashrc
   local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
 

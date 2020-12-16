@@ -1,5 +1,6 @@
 nh-web-build-config(){
-  local src="/etc/nginx/sites-available"
+  local meshdef="./mesh.txt"
+  local destination="/etc/nginx/sites-available"
   #local dest="/etc/nginx/sites-enabled"
   #rm -f $dest/*
   cat $src/nodeholder $src/nodeholder-dev #> "$dest/all-sites"

@@ -98,6 +98,11 @@ nh-admin-add-key() {
   ssh-add $1
 }
 
+nh-admin-add-pub-key(){
+  local role=$1
+  sudo cat >> /home/$role/.ssh/authorized_keys
+}
+
 # clones app from repo onto local machine
 # provides permissions to specified role
 nh-admin-create-app(){
