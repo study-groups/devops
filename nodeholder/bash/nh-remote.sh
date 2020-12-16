@@ -34,17 +34,18 @@ nh-remote-get-key-from-role() {
 # Child ode now ready for ssh admin@$IP:admin-commands
 nh-remote-install-root(){
 
-  if [ $# -lt 2 ]; then
+  if [ $# -lt 1 ]; then
     echo "Command requires the ip and configuration file"
-    echo "nh-remote-install-config ip file"
+    echo "nh-remote-install-config ip <config-file>"
     return 1
   fi
 
+  local config_dir="/home/admin/src/devops-study-group/nodeholder/bash"
+  local config_file="${2:-"nh-root-ubuntu.sh"}";
+  local config_path="$config_dir/$config_file"
   local ip="$1";
-  local config_file="${2:-'root.sh'}";
-
   # copy root.sh to the remote machine
-  scp "$config_file" root@"$ip":"$config_file"
+  scp "$config_path" root@"$ip":"$config_file"
  
   # location where daemonize is on mother node
   local dpath_local="/home/admin/src/daemonize/daemonize";
@@ -57,7 +58,7 @@ nh-remote-install-root(){
 
   # source configuration and configure machine
   ssh root@"$ip" '
-      source "'$config_file'" && nh-config-init
+      source "'$config_file'" && nh-root-init
       echo "##########################################################"
       echo "#  Deploy \"from a distance\" application with admin.sh  #"
       echo "#                                                        #"
@@ -87,7 +88,8 @@ nh-remote-install-admin() {
 
   # ip of node to send file to
   local ip="$1";
-  
+ 
+  local admin_dir="/home/admin/src/devops-study-group/nodeholder/bash" 
   # Adds admin.sh to .bashrc
   local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
 
@@ -100,10 +102,13 @@ nh-remote-install-admin() {
   # and set up .bashrc to source admin.sh on boot/use
   ssh admin@"$ip" \
     'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
-  # copy buildpak to node
-  scp -r ./buildpak admin@"$ip":~/
+
+  buildpak=/home/admin/src/devops-study-group/nodeholder/app
+
+  # copy app (was buildpak) to node
+  scp -r $buildpak admin@"$ip":~/
   # copy .gitlab-ci.yml template to admin
-  scp ./.gitlab-ci.yml admin@"$ip":~/
+  # scp ./.gitlab-ci.yml admin@"$ip":~/
 }
 
 # refreshes admin functions on nodeholder
@@ -122,6 +127,7 @@ nh-remote-refresh-admin() {
 }
 
 # creates new user/node on nodeholder
+# We could create a user.sh file with specific capabilities.
 nh-remote-create-role() {
   
   if [ $# -lt 2 ]; then
@@ -132,7 +138,7 @@ nh-remote-create-role() {
 
   local ip="$1";
   local role="$2";
-  local nh_path=/home/admin/src/devops-study-group/nodeholder/ubuntu/nh.sh
+  local nh_path=/home/admin/src/devops-study-group/nodeholder/bash/nh-app.sh
 
   ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
   [ $? == 0 ] && 
@@ -168,7 +174,7 @@ nh-remote-create-app() {
   local role="$2";
   local repo_url="$3";
   local app="$4";
-  local branch=${5:-"master"};
+  local branch=${5:-"main"};
   
   ssh admin@"$ip" \
 	  'source admin.sh && nh-admin-create-app "'$role'" "'$repo_url'" "'$branch'" "'$app'"'
@@ -335,5 +341,7 @@ nh-remote-list-roles() {
   fi
 
   local ip="$1";
-  ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
+  remote="ssh admin@$ip source admin.sh &&"
+  #ssh admin@"$ip" 'source admin.sh && nh-admin-list-roles'
+  $remote nh-admin-list-roles
 }

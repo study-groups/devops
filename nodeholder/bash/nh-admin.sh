@@ -3,16 +3,7 @@
 # Explains use of admin
 nh-admin-help(){
   echo "\
-   Admin is a collection of scripts to configure runtime operations.
-
-   Securely copy the admin.sh file to your new remote machine: 
-    1) scp admin.sh ssh admin@host:admin.sh
-
-   Source admin.sh on remote using ssh and call admin-init function:
-   2) ssh admin@host: \"source admin.sh && admin-init\"
-
-  Requires:
-    - running as admin
+  Admin is a collection of scripts to configure runtime operations.
 
   Configures a Unix server and account for process 'containers'
   addresseble by system defined TCP sockets. 
@@ -107,13 +98,18 @@ nh-admin-add-key() {
   ssh-add $1
 }
 
+nh-admin-add-pub-key(){
+  local role=$1
+  sudo cat >> /home/$role/.ssh/authorized_keys
+}
+
 # clones app from repo onto local machine
 # provides permissions to specified role
 nh-admin-create-app(){
   nh-admin-log $@
   local role="$1";
   local repo_url="$2";
-  local branch=${3:-"master"};
+  local branch=${3:-"main"};
   local basename=$(basename $repo_url); # myapp.git
   basename=${basename%.*}; # myapp  (removes .git)
   local app=${4:-$basename};
@@ -151,7 +147,7 @@ nh-admin-create-app(){
   # user should modify nh/start and check nh dir in.
   [ ! -d "/home/$role/$app/nh" ] && 
     sudo -u $role \
-    cp -r /home/admin/buildpak \
+    cp -r ./app \
       /home/$role/$app/nh
 
   # need generic .gitlab-ci.yml
@@ -187,7 +183,7 @@ nh-admin-monitor(){
 }
 
 # sysadmin
-sysadmin-help() {
+nh-admin-unix-help() {
   echo "
 Commands for system administration (to be orchestrated later)
 passwd -l username   # locks but does not disable so SSH works
