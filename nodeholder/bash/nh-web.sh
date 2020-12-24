@@ -10,10 +10,30 @@ nh-web-restart-server(){
   systemctl restart nginx
 }
 
+nh-web-reload-server() {
+  systemctl reload nginx
+}
+
+nh-web-create-proxy() {
+    source nh.server
+    local template=$(cat nh-server.template);
+    template="${template//SUB/$NH_SUB}";
+    template="${template//DOMAIN/$NH_DOMAIN}";
+    template="${template//EXT/$NH_EXT}";
+    template="${template//ROOT/$NH_ROOT}";
+    template="${template//LOCATION/$NH_LOCATION}";
+    template="${template//IP/$NH_IP}";
+    template="${template//PROTOCOL/$NH_PROTOCOL}";
+    template="${template//PORT/$NH_APP_PORT}";
+    template="${template//PATH/$NH_PATH}";
+    echo "$template"
+}
+
 #  Mediate keyed-actions into us.
 mesh-set-upstream(){
+  local ip=$1;
   #MESH_UPSTREAM_CONFIG=$1 # devops@$do5:/etc/nginx/sites-enables/mesh.config
-  MESH_UPSTREAM_CONFIG="devops@$do5:/etc/nginx/sites-enables/mesh.config"
+  MESH_UPSTREAM_CONFIG="devops@$ip:/etc/nginx/sites-enabled/mesh.config"
 }
 
 # Forward or handle keyed-actions.
@@ -25,15 +45,18 @@ mesh-set-config(){
 mesh-get-upstream(){
   cat $MESH_UPSTREAM_CONFIG
 }
+
 mesh-save-state(){
   echo "add save-state"  
 }
 
 nh-web-install-certbot(){
-#https://certbot.eff.org/lets-encrypt/ubuntufocal-nginx.html
+  # just do this in config?
+  #https://certbot.eff.org/lets-encrypt/ubuntufocal-nginx.html
   sudo apt-get remove certbot
   sudo snap install --classic certbot
 }
+
 nh-web-certbot(){
   local domain=$1
   sudo certbot --nginx -d $domain

@@ -1,0 +1,9 @@
+NH_SUB=sae-zach
+NH_DOMAIN=nodeholder
+NH_EXT=com
+NH_ROOT=""
+NH_LOCATION=""
+NH_PROTOCOL=http
+NH_IP=165.227.16.243
+NH_APP_PORT=1025
+NH_PATH=""

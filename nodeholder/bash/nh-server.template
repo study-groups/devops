@@ -1,0 +1,8 @@
+server {
+    server_name SUB.DOMAIN.EXT;
+    root ROOT;
+    listen 80;
+    location LOCATION {
+        proxy_pass PROTOCOL://IP:PORT/PATH;
+    }
+}
