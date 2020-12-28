@@ -1,4 +1,4 @@
-source <(cat bash/nh-*)
+source <(cat bash/nh-*.sh)
 
 echo "All the  nh- commands."
 
