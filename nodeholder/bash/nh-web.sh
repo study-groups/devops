@@ -14,7 +14,42 @@ nh-web-reload-server() {
   systemctl reload nginx
 }
 
+# NH_SUB=sae-zach
+# NH_DOMAIN=nodeholder
+# NH_EXT=com
+# NH_ROOT=""
+# NH_LOCATION=""
+# NH_PROTOCOL=http
+# NH_IP=165.227.16.243
+# NH_APP_PORT=1025
+# NH_PATH=""
+
+# server {
+#    server_name SUB.DOMAIN.EXT;
+#    root ROOT;
+#    listen 80;
+#    location LOCATION {
+#        proxy_pass PROTOCOL://IP:PORT/PATH;
+#    }
+#}
+
 nh-web-create-proxy() {
+    source nh.server
+    local template=$(cat nh-server.template);
+    template="${template//SUB/$NH_SUB}";
+    template="${template//DOMAIN/$NH_DOMAIN}";
+    template="${template//EXT/$NH_EXT}";
+    template="${template//ROOT/$NH_ROOT}";
+    template="${template//LOCATION/$NH_LOCATION}";
+    template="${template//IP/$NH_IP}";
+    template="${template//PROTOCOL/$NH_PROTOCOL}";
+    template="${template//PORT/$NH_APP_PORT}";
+    template="${template//PATH/$NH_PATH}";
+    echo "$template"
+}
+
+
+nh-web-create-proxy-orig() {
     source nh.server
     local template=$(cat nh-server.template);
     template="${template//SUB/$NH_SUB}";
