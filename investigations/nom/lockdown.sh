@@ -1,8 +1,16 @@
 nom-lockdown-gen-all(){
   nom-lockdown-gen-text | nom-lockdown-line-to-nom
   nom-lockdown-gen-text | nom-lockdown-text-to-nom
+  nom-lockdown-gen-unit
+  nom-lockdown-gen-nom-action-unit  0000000000000000002
 }
 
+nom-lockdown-gen-unit(){
+   echo "0000000000000000002"
+   echo "type.unit"
+   echo "0000000000000000001"
+   echo ""
+}
 nom-lockdown-gen-text-nom(){
   local line=${1:-"This is line one and it is."}
   echo "$line" | nom-lockdown-line-to-nom
@@ -25,6 +33,7 @@ nom-lockdown-line-to-nom(){
     echo ""
   done < /dev/stdin
 }
+
 nom-lockdown-text-to-nom(){
   nom-lockdown-id
   echo type.array.text
@@ -39,9 +48,11 @@ nom-lockdown-id(){
   echo $(date +%s%N)
 }
 
-nom-lockdown-action-id(){
+# the unit. used to test the mechanism of dispatch
+# without defining custome types.
+nom-lockdown-action-unit(){
   nom-lockdown-id
-  echo "nom-lockdown-action-id"
+  echo "action.nom-lockdown-action-unit"
   echo $1
   echo ""
 }
@@ -57,16 +68,25 @@ nom-lockdown-dispatch-object(){
 # Read up to special character, update var
 # Use printf for reliable new lines
 nom-lockdown-dispatch(){
-  sed -e 's/^$/\xBF/' | while read -d $'\xBF' var
+  sed -e 's/^$/\xBF/' | while read -d $'\xBF' stanza 
   do
-    printf "Considering:\n%s\n-----\n" "$var"
-    local obj=$()
-    export var;
-    printf "Id: %s\n" "$(echo $var | nom-lockdown-nom-to-id )"
-    printf "Type: %s\n" "$(echo $var | nom-lockdown-nom-to-type )"
+    printf "Considering:\n%s\n-----\n" "$stanza"
+    export stanza;
+    printf "Id: %s\n" "$(echo $stanza | nom-lockdown-nom-to-id )"
+    local type="$(echo $stanza | nom-lockdown-nom-to-type )"
+    printf "Type: %s\n" "$type"
     printf "Data:\n" 
-    echo "$var" | nom-lockdown-nom-to-data
+    local data=$(echo "$stanza" | nom-lockdown-nom-to-data)
+    echo $data
+    # function that exectues action
+    # type=action.bash-function-name
+    # call bash-function-name if it exists
+    # log error otherwise
 
+    #        echo "action.nom-lockdown-action-unit"
+    [[ "$type" =~ ^action.nom-lockdown-action-unit ]] && \
+       nom-lockdown-action-unit $data
+    
     #printf "Type: %s\n" "$var"
     #nom-lockdown-type-to-action 
   done
@@ -91,4 +111,12 @@ nom-lockdown-nom-to-data(){
   do
     echo "$line"
   done < /dev/stdin
+}
+
+nom-lockdown-gen-nom-action-unit(){
+  local id=$(nom-lockdown-id)
+  echo $id
+  echo "action.nom-lockdown-action-unit"
+  echo $1 
+  echo ""
 }
