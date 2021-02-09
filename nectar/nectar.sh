@@ -1,5 +1,6 @@
 nectar_root=/home/admin/src/devops-study-group/nectar
 nectar_data=/home/admin/src/devops-study-group/nectar/data
+nectar_lockdown=/home/admin/src/devops-study-group/nectar/lockdown
 
 nectar-help(){
 cat << EOF
@@ -23,4 +24,12 @@ Configuration:
 nectar_root=/home/admin/src/devops-study-group/nectar/
 nectar_data=/home/admin/src/devops-study-group/nectar/data
 EOF
+}
+
+function nectar-get-object(){
+  cat $nectar_data/$1
+}
+
+function nectar-lockdown-all(){
+  cat $nectar_lockdown_data 
 }
