@@ -1,6 +1,6 @@
 #!/bin/env bash
 mode=live # anything but live will be a dryrun.
-SYNC="/home/mricos/src/study-groups/devops-study-group/sync.sh"
+SYNC="/home/admin/src/study-groups/devops-study-group/sync.sh"
 
 TO_MNT="/mnt/volume_sfo2_02"
 TO_USER="mricos"
@@ -46,7 +46,11 @@ sync-all() {
   local from="$FROM"
   sync-from-to $FROM $TO_USER $TO_HOST $TO_DIR
 }
-
+sync-find-since(){
+  local since=${1:-"1 hour ago"}
+  #find / -newermt $(date +%Y-%m-%d -d "1 min ago") -type f -print
+  find / -newermt $(date +%Y-%m-%d -d "$since") -type f -print
+}
 sync-notes(){
   echo "
 sync- relies on the master rsync:
