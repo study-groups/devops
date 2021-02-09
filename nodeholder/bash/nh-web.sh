@@ -1,3 +1,4 @@
+alias sae-proxy="nh-web-create-proxy sae.nodeholder.com 80 /api $doZ 1029 api/nlp"
 nh-web-build-config(){
   local meshdef="./mesh.txt"
   local destination="/etc/nginx/sites-available"
@@ -34,20 +35,28 @@ nh-web-reload-server() {
 #}
 
 nh-web-create-proxy() {
-    source nh.server
-    local template=$(cat nh-server.template);
-    template="${template//SUB/$NH_SUB}";
-    template="${template//DOMAIN/$NH_DOMAIN}";
-    template="${template//EXT/$NH_EXT}";
-    template="${template//ROOT/$NH_ROOT}";
-    template="${template//LOCATION/$NH_LOCATION}";
-    template="${template//IP/$NH_IP}";
-    template="${template//PROTOCOL/$NH_PROTOCOL}";
-    template="${template//PORT/$NH_APP_PORT}";
-    template="${template//PATH/$NH_PATH}";
-    echo "$template"
-}
+  local in_host=$1  # same as HTTP RFC's abs_path
+  local in_port=$2  # default is 80, typically 80 or 443
+  local in_path=$3  # same as abs_path defined in HTTP RFC
 
+  local out_host=$4 # can also be an IP
+  local out_port=$5
+  local out_path=$6 # abs_path
+
+  local protocol=${7:-http}
+
+  cat << EOF
+server {
+    # server_name EF3432ERE3;
+    server_name $in_host;
+    root /dev/null;
+    listen $in_port;
+    location $in_path {
+        proxy_pass $protocol://$out_host:$out_port/$out_path;
+    }
+}
+EOF
+}
 
 nh-web-create-proxy-orig() {
     source nh.server
@@ -98,10 +107,22 @@ nh-web-certbot(){
 }
 
 nh-web-certbot-renew-test(){
-# Renew is called via one of these:
-# /etc/crontab/
-# /etc/cron.*/*
-# systemctl list-timers
+  # Renew is called via one of these:
+  # /etc/crontab/
+  # /etc/cron.*/*
+  # systemctl list-timers
   sudo certbot renew --dry-run
 }
 
+# Places where cert config is stored
+# /etc/letsencrypt/archive
+# /etc/letsencrypt/live
+# /etc/letsencrypt/renewal
+nh-web-certbot-delete-from-list(){
+  sudo certbot delete
+}
+
+# delete 1 domain name
+nh-web-certbot-delete-by-name(){
+  sudo certbot delete --cert-name $1
+}
