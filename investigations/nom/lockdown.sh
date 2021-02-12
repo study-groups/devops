@@ -8,10 +8,31 @@ nom-lockdown-gen-all(){
 # generates nom unit
 nom-lockdown-gen-unit(){
    echo "0000000000000000002"
-   echo "data.unit"
+   echo "action.unit"
    echo "0000000000000000001"
    echo ""
 }
+
+# generates nom unit
+nom-lockdown-gen-lines(){
+   echo "LDX100"
+   echo "data.lines"
+   echo "First line."
+   echo "Second line."
+   echo "Third line."
+   echo ""
+}
+
+# generates nom unit
+nom-lockdown-gen-lines2(){
+   echo "LDX101"
+   echo "data.lines"
+   echo "Fourth item."
+   echo "Fifth item."
+   echo ""
+}
+
+
 
 # generates text object
 # use: nom-lockdown-gen-text-nom $1
