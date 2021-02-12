@@ -1,0 +1,40 @@
+Data File (unique id)
+data_id (if matches with file name, this is the "original" data)
+data.type
+data
+
+Action File (unique id)
+action_id
+action.type
+data_id
+
+Transformed Data file has unique id as name
+data_id (id to name of file)
+data.type
+data (transformed in this case)
+
+
+In essence, there are only data files and action files
+
+
+name of data file LDX01
+inside of file
+LDX01
+data.lines
+good
+bad
+kind of good
+
+name of action file LDX02
+LDX02
+action.lines-to-sentiments
+LDX01
+
+name of data file LDX03
+LDX01
+data.sentiments
+3.0
+0
+0.5
+
+

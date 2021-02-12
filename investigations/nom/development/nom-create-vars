@@ -1,0 +1,68 @@
+#!/bin/bash
+#source ../nom.sh
+source ../lockdown.sh
+
+#NOM_ID=();
+#NOM_TYPE=();
+#NOM_DATA=();
+
+
+IDS="NOM_IDS=( "
+TYPES="NOM_TYPES=( "
+DATA="NOM_DATA=( "
+
+sed -e 's/^$/\xBF/' | while read -d '¿' stanza; do
+  echo "$stanza"
+  id="$(echo "$stanza" | nom-lockdown-nom-to-id)";
+  echo "$id"
+  type="$(nom-lockdown-nom-to-type <<< "$stanza")";
+  type="$(awk -F. '{ print $NF }' <<< "$type")";
+  datum=$(nom-lockdown-nom-to-data <<< "$stanza");
+  IDS+="$id "
+  TYPES+="$type "
+  DATA+="$datum,"
+done < /dev/stdin
+
+
+IDS+=")"
+TYPES+=")"
+DATA+=")"
+echo "$IDS"
+echo "$TYPES"
+echo "$DATA"
+
+
+#sed -e 's/^$/\xBF/' | while read -d $'\xBF' stanza
+#  do
+#    # Pulls id, type, and data from object
+#    id="$(echo $stanza | nom-lockdown-nom-to-id )";
+#    
+#    type="$(echo $stanza | nom-lockdown-nom-to-type)";
+#
+#    # pulls type from object, type can be data or action.
+#    # e.g. data.type => type || action.func => func
+#    type="$(echo "$type" | awk -F. '{ print $NF }')";
+#   
+#    # quote to keep newlines in datum
+#    datum="$(echo "$stanza" | nom-lockdown-nom-to-data)";
+#
+#  
+#    # despite being global, these aren't being appended
+#    NOM_ID+=("$id")
+#    NOM_TYPE+=("$type")
+#    NOM_DATA+=("$datum")
+#
+#    echo ${NOM_ID[*]}
+#   
+#    # Instantiates object in Bash memory with two
+#    # environment variables, e.g.: 001=datum, 001_type=type. 
+#    #echo -e "${id}"=$datum >> vars.list
+#    #echo "${id}_type"="$type" >> vars.list
+#
+#done < /dev/stdin 
+
+# this isn't doing anything
+# export NOM_ID
+# export NOM_TYPE
+# export NOM_DATA
+

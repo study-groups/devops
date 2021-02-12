@@ -1,0 +1,11 @@
+#!/bin/bash
+var_id=LDX003
+
+# example using/reading data while in bash
+echo "Var id is $var_id"
+echo "Var datum: ${!var_id}"
+echo "Var type: ${var_id}_type"
+
+# second form of read is to read array data from disk
+# using bash's read function and array reading syntax
+# see man bash for more. 

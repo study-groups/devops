@@ -1,0 +1,28 @@
+alias wrapper for data.nom and data.index
+rename controller-augment to nom-augment
+
+Chunked Data Workflow 
+-------
+1) User has to provide data in Nodeholder Object Model file, $POID
+2) Index the $POID and create aliases in the same dir
+
+./rd2 $POID $POID.index
+#ln -s 1604091136178378045 data.nom
+#ln -s 1604091136178378045.index data.index
+
+X 3) Dispatch
+
+4) Loop over responses for analysis
+For each ResId (file name in response/ dir):
+
+   nom-get-all "sentiment" 
+
+5) Query original data with new insights
+   # Start with object id as reqId found in resId file
+   $ Find POID of reqId 
+   nom-get-poid 01234567899.00000030 # reqId in PIOD/resId
+   # uses global. nom-get-poid always returns file pointed to by data.nom
+   # nom-get-object $POID $ID
+
+6) Copy and Augment
+nom-zip()
