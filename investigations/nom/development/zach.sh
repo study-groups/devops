@@ -5,6 +5,52 @@ unset NOM_IDS
 unset NOM_TYPES
 unset NOM_DATA
 
+# string: most generic description of data, with spaces
+# line: Any characters besides newline and upside-down-q-mark
+# list: array of strings (new lines) or stanzas (udqm)
+# nom_object: [id, type, data0, data1, ... dataN]
+# nom.list:  list of nom objects in a file 
+# nom.list: [id, type, data0, data1, ... dataN]*
+# nom.index: list of lines: [id,type,first,end]*
+
+# nom.list: [id, type, data0, data1, ... dataN,,]* (, is a newline)
+
+nom-extract-param() {
+  local nom_ids=();
+  local nom_types=();
+  local nom_data=();
+
+  [ $# == 0 ] && 
+    echo "Usage: nom-extract-param ids|types|data <file>" && 
+    return 1
+
+  if [ $# == 1 ]; then
+    [ "$1" != "ids" ] && [ "$1" != "types" ] && [ "$1" != "data" ] &&
+      echo "Option must be ids, types, or data." && return 1
+
+    [ "$1" == "ids" ] && [ ! -z "$NOM_IDS" ] && echo "${NOM_IDS[@]}" ||
+      echo "Ids have not yet been extracted from a batch."
+
+  fi 
+
+  if [ $# == 2 ]; then
+
+    [ "$1" != "ids" ] && [ "$1" != "types" ] && [ "$1" != "data" ] &&
+      echo "Option must be ids, types, or data." && return 1
+
+    while read -d $'\xBF' id type data; do
+      nom_ids+=("$id");
+      nom_types+=("$type");
+      nom_data+=("$(echo "$data" | base64)");
+    done <<< $(sed -e 's/^$/\xBF/' $2)
+
+    [ "$1" == "ids" ] &&  echo "${nom_ids[*]}"
+    [ "$1" == "types" ] && echo "${nom_types[*]}"
+    [ "$1" == "data" ] && echo "${nom_data[*]}"
+  fi
+
+}
+
 zach-nom-get-ids() {
   local nom_ids=();
 
@@ -34,53 +80,34 @@ zach-nom-get-types() {
 
 zach-nom-get-data() {
   local nom_data=();
+
+  # separates at inverted question mark
+  while read -d $'\xBF' stanza; do
+    # separates data from nom object
+	local datum="$(echo "$stanza" | nom-lockdown-nom-to-data)";
+    # converts data to base64
+    nom_data+=("$(echo "$datum" | base64)")
+
+  done <<< $(sed -e 's/^$/\xBF/' -)
+  # outputs strings of base64 interpretation of data sets
+  echo "${nom_data[*]}"
+
+}
+
+
+mike-nom-get-data() {
+  local nom_data=();
   while read -d $'\xBF' stanza; do
 
 	local datum="$(echo "$stanza" | nom-lockdown-nom-to-data)";
-    nom_data+=("$(echo "$datum" | base64)")
-    #nom_data+=("$(echo "$datum")")
-    #nom_data+=($(echo "$datum"))
-
-    #echo "stanza:$stanza" >> debug
-    #echo "datum:$datum" >> debug
+    nom_data+=("$(echo "$datum")")
 
   done <<< $(sed -e 's/^$/\xBF/' -)
-  echo "${nom_data[*]}"
 
-  #echo "${#nom_data[@]}" > debug
-  #echo "${nom_data[0]}" >> debug
-  #echo "${nom_data[1]}" > debug
- 
-  #for i in ${!nom_data[@]}; do
-  #  echo -n "data: ${nom_data[$i]}"
-  #  echo -n  $'\xBF'
-  #done
-
-}
-
-
-zach-create-vars () 
-{ 
-  echo "Outside loop: $SHLVL"
-  #sed -e 's/^$/\xBF/' | while read -d $'\xBF' stanza; do
-  while read -d $'\xBF' stanza; do
-    local id="$(echo "$stanza" | nom-lockdown-nom-to-id)";
-    local type="$(echo "$stanza" | nom-lockdown-nom-to-type)";
-    type="$(echo "$type" | awk -F. '{ print $NF }')";
-    local datum="$(echo "$stanza" | nom-lockdown-nom-to-data)";
-    echo "Datum: $datum"
-    NOM_IDS+=("$id")
-    NOM_TYPES+=("$type")
-    NOM_DATA+=("$datum")
-    echo "NOM_DATA_0 ${NOM_DATA[0]}"
-    echo "Inside loop: $SHLVL"
-  done <<< $(sed -e 's/^$/\xBF/' -)
-  
-  echo "OUTSIDE LOOP NOM_DATA_0 ${NOM_DATA[0]}"
-}
-
-zach-cat-all-noms(){
-  cat $NOM_DIR/*
+  for i in ${!nom_data[@]}; do
+    echo -n "data: ${nom_data[$i]}"
+    echo -n  X #$'\xBF'
+  done
 }
 
 zach-nom-lockdown-dispatch() {
@@ -209,20 +236,35 @@ zach-load-cache(){
   NOM_DATA=($(zach-cat-all-noms | zach-nom-get-data));
 }
 
+nom-create-cache() {
+  local file="$1";
+  
+  [ $# == 0 ] && echo "Usage: nom-create-cache batch_file" && return 1
+
+  NOM_IDS=($(nom-extract-param ids "$file"));
+  NOM_TYPES=($(nom-extract-param types "$file"));
+  NOM_DATA=($(nom-extract-param data "$file")); 
+  
+}
+
+nom-clear-cache(){
+  unset NOM_IDS 
+  unset NOM_TYPES
+  unset NOM_DATA
+}
+
 # use uuencode to create base64 string so NOM_DATA[i]
 # points to a single uuencoded string.
 # unix-to-unix encoding creates a ba
 #
 # get-data would have to un-base64 
 
-zach-create-cache-from-file(){
+mike-create-cache-from-file(){
   NOM_IDS=($(cat $1 | zach-nom-get-ids));
   NOM_TYPES=($(cat $1 | zach-nom-get-types));
-  #local oldifs=$IFS
+  local oldifs=$IFS
   #IFS=$'\xBF';
-  NOM_DATA=($(cat $1 | zach-nom-get-data));
-  #IFS=$oldifs
-  #cat $1 | zach-nom-get-data;
+  IFS=X
+  NOM_DATA=("$(cat $1 | mike-nom-get-data)");
+  IFS=$oldifs
 }
-
-
