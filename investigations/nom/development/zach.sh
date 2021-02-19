@@ -25,11 +25,21 @@ nom-extract-param() {
     return 1
 
   if [ $# == 1 ]; then
+
     [ "$1" != "ids" ] && [ "$1" != "types" ] && [ "$1" != "data" ] &&
       echo "Option must be ids, types, or data." && return 1
 
-    [ "$1" == "ids" ] && [ ! -z "$NOM_IDS" ] && echo "${NOM_IDS[@]}" ||
-      echo "Ids have not yet been extracted from a batch."
+    [ "$1" == "ids" ] && [ ! -z "$NOM_IDS" ] && 
+    echo "${NOM_IDS[@]}" && return 0 || [ "$1" == "ids" ] &&
+    echo "Ids have not yet been extracted from a batch file." && return 1
+
+    [ "$1" == "types" ] && [ ! -z "$NOM_TYPES" ] && 
+    echo "${NOM_TYPES[@]}" && return 0 || [ "$1" == "types" ] &&
+    echo "Types have not yet been extracted from a batch file." && return 1
+
+    [ "$1" == "data" ] && [ ! -z "$NOM_DATA" ] &&
+    echo "${NOM_DATA[@]}" && return 0 || [ "$1" == "data" ] &&
+    echo "Data have not yet been extracted from a batch file." && return 1
 
   fi 
 
