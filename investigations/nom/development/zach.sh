@@ -15,6 +15,46 @@ unset NOM_DATA
 
 # nom.list: [id, type, data0, data1, ... dataN,,]* (, is a newline)
 
+nom-find-type-by-id() {
+  local id="$1";
+
+  [ -z "$NOM_IDS" ] && 
+  echo "Cache isn't set. Please, use nom-create-cache batch_file" &&
+  return 1
+
+  for (( i=0; i<="${#NOM_IDS[@]}"; i++ )); do
+    [ "${NOM_IDS[$i]}" == "$id" ] && echo "${NOM_TYPES[$i]}" && return 0;
+  done
+  echo "Couldn't find id: $id"
+
+}
+
+nom-find-data-by-id() {
+  local id="$1";
+
+  [ -z "$NOM_IDS" ] && 
+  echo "Cache isn't set. Please, use nom-create-cache batch_file" &&
+  return 1
+
+  for (( i=0; i<="${#NOM_IDS[@]}"; i++ )); do
+    
+    if [ "${NOM_IDS[$i]}" == "$id" ]; then
+      local nom_data=$(echo "${NOM_DATA[$i]}" | base64 -d);
+      
+      [ "${nom_data:0:4}" == "nom." ] && 
+      echo "Data is reference id ${nom_data:4} which references the following data:" &&
+      echo "$(nom-find-data-by-id "${nom_data:4}")" && 
+      return 0
+      
+      echo "${NOM_DATA[$i]}" | base64 -d
+      return 0;
+    fi  
+
+  
+  done
+  echo "Couldn't find id: $id"
+}
+
 nom-extract-param() {
   local nom_ids=();
   local nom_types=();
@@ -240,11 +280,11 @@ zach-nom-lockdown-dispatch-ver001(){
 }
 
 # sources into the parent shell
-zach-load-cache(){
-  NOM_IDS=($(zach-cat-all-noms | zach-nom-get-ids));
-  NOM_TYPES=($(zach-cat-all-noms | zach-nom-get-types));
-  NOM_DATA=($(zach-cat-all-noms | zach-nom-get-data));
-}
+#zach-load-cache(){
+#  NOM_IDS=($(zach-cat-all-noms | zach-nom-get-ids));
+#  NOM_TYPES=($(zach-cat-all-noms | zach-nom-get-types));
+#  NOM_DATA=($(zach-cat-all-noms | zach-nom-get-data));
+#}
 
 nom-create-cache() {
   local file="$1";
