@@ -29,6 +29,7 @@ nom-find-type-by-id() {
 
 }
 
+
 nom-find-data-by-id() {
   local id="$1";
 
@@ -54,6 +55,59 @@ nom-find-data-by-id() {
   done
   echo "Couldn't find id: $id"
 }
+
+
+nom-find-data-by-id-memoized() {
+  local id="$1";
+
+  # if shell cache is empty
+  [ -z "$NOM_IDS" ] && 
+  echo "Cache isn't set. Please, use nom-create-cache batch_file" &&
+  return 1
+
+  # look through the IDS array to see if the ID exists
+  for (( i=0; i<="${#NOM_IDS[@]}"; i++ )); do
+    # while looking through, create a reference to each ID 
+    # assign the base64 data to that reference
+    printf -v "${NOM_IDS[$i]}" "${NOM_DATA[$i]}"
+
+    # if the ID is found
+    if [ "${NOM_IDS[$i]}" == "$id" ]; then
+
+      # convert the base64 encoding back to the original data
+      local nom_data=$(echo "${NOM_DATA[$i]}" | base64 -d);
+
+      # if the data is a "reference pointer"      
+      if [ "${nom_data:0:4}" == "nom." ]; then
+        
+        # take the id portion of the reference
+        local cache="${nom_data:4}";
+
+        # check if that id already exists as a variable 
+        # from the printf -v process
+        [ ! -z "${!cache}" ] && 
+        # de-reference the variable and convert the base64 back to original
+        local referenced_data="$(echo "${!cache}" | base64 -d)" && 
+        # development flag: please delete later
+        echo "(cache used)" &&
+        # send data found
+        echo -e "ID: $id - Data is reference id ${nom_data:4} which references the following data: \n$referenced_data" &&
+        return 0
+
+        # if there is no variable to reference the data
+        # go through the array again in order to find the id and its data
+        local referenced_data="$(nom-find-data-by-id-memoized "${nom_data:4}")";
+        echo -e "ID: $id - Data is reference id ${nom_data:4} which references the following data: \n$referenced_data"
+         return 0
+      fi
+      # if it's just data then send it
+      echo -e "ID: $id - Data:\n$nom_data"
+      return 0;
+    fi  
+  done
+  echo "Couldn't find id: $id"
+}
+
 
 nom-extract-param() {
   local nom_ids=();
