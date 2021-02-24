@@ -26,6 +26,11 @@ You are using RC_APIKEY = $RC_APIKEY
 "
 }
 
+# https://securecert.myorderbox.com/
+
+rctool-active-dns(){
+http "https://test.httpapi.com/api/dns/activate.xml?auth-userid=$RC_USERID&api-key=$RC_APIKEY&order-id=$1"
+}
 # A RECORDS
 ###########
 rctool-a-list() {
@@ -33,6 +38,15 @@ rctool-a-list() {
     http "https://test.httpapi.com/api/dns/manage/\
 search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
 domain-name=$1&type=A&no-of-records=50&page-no=1"
+}
+
+rctool-a-add() {
+    # https://manage.resellerclub.com/kb/node/1106
+    http "https://test.httpapi.com/api/dns/manage/\
+add-ipv4-record.json?\
+auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
+domain-name=$1&host=$2&value=$3"
+
 }
 
 # TXT
