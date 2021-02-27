@@ -44,6 +44,7 @@ rctool-a-add() {
     # https://manage.resellerclub.com/kb/node/1106
     http "https://test.httpapi.com/api/dns/manage/\
 add-ipv4-record.json?\
+ttl=7200&\
 auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
 domain-name=$1&host=$2&value=$3"
 
@@ -85,6 +86,7 @@ host=$1&domain-name=$2&value=$3"
 rctool-cname-add(){
 http "https://test.httpapi.com/api/dns/manage/\
 add-cname-record.json?\
+ttl=7200&\
 auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
 host=$1&domain-name=$2&value=$3"
 }
