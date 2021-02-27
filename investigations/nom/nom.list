@@ -1,0 +1,45 @@
+LDX001
+data.line
+good
+
+LDX005
+data.line
+bad
+
+LDX002
+action.line-to-sentiment
+LDX001
+
+LDX003
+data.lines
+This is good.
+This is bad.
+This is ok.
+This is meh.
+This is kosher.
+This is decent.
+This is crap.
+This is alright.
+This could be better.
+This is better.
+This is...
+This is as good as it gets.
+This is perfect.
+This is mediocre.
+This is trash.
+This is brilliant.
+This is beautiful.
+This is crummy.
+This is amazing.
+This is grand.
+This is gorgeous.
+This is flawless.
+
+LDX004
+action.lines-to-sentiments
+LDX003
+
+LDX006
+action.line-to-sentiment
+LDX005
+

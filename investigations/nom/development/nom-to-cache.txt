@@ -1,0 +1,32 @@
+nom-to-cache(){
+NOM_ID=()
+NOM_TYPE=()
+NOM_DATA=()
+NOM_OBJECT_READ_GRAMMAR=""
+NOM_DATA_READ_GRAMMAR=""
+
+# IFS as grammar could be set here
+while read id type parsed_data; do
+    #printf "%s\n%s\n%s\n\n" $id $type $parsed_data # NOM_SCHEMA
+    NOM_ID+=($id)
+    NOM_TYPE+=($type)
+
+    # Presume data is a string of characters representing
+    # data of the type given. Data should be parsed 
+    # according to type. Therefore, a type definition
+    # for each data type should be accompanied by a 
+    # parsing grammer to be used here. 
+    # 
+    # Array structure must be extracted from data 
+    # so that it can be composed to form larger arrays
+    # that may be mapped over.
+
+    #while IFS="grammar-for-datatype" read data; do
+    while read element; do
+        formatted_data= nom-parsed-to-formatted data
+    done  <<<$parsed_data # check syntax
+
+    NOM_DATA+=($formatted_data)
+
+done <<<$nom_object
+}

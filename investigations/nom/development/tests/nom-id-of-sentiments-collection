@@ -1,0 +1,26 @@
+nom-id-of-sentiments-collection
+action.sentiments-to-averages
+NOMID-FIRST150SENTIMENTS  (returns NOMID-AvgOfFirst150Sentiments)
+NOMID-SECOND150SENTIMENTS (returns NOMID-AvgOfSecond150Sentiments)
+NOMID-THIRD150SENTIMENTS  (etc)
+NOMID-FOURTH150SENTIMENTS (etc)
+
+nom-id-of-return-from-sentiments-to-averages
+averages
+2.4
+1.3
+2.1
+1.4
+
+nom-id-of-averages-to-average
+average
+1.5
+
+nom-id-of-sentiments
+action.averages-to-average
+NOMID-AvgOfFirst150SENTIMENTS
+NOMID-AvgOfSecond150SENTIMENTS
+
+
+NOMID-AvgOfThird150SENTIMENTS
+NOMID-AvgOfFourth150SENTIMENTS
