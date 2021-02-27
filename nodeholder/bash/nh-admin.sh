@@ -17,6 +17,9 @@ nh-admin-log(){
 }
 
 # creates role(user) on local machine
+# Note: for default 20.04 need to manually add this to .bashrc
+# to get command line history to work:
+# set -o history
 nh-admin-create-role() {
   local role="$1";
 
