@@ -170,12 +170,14 @@ zach-ping-parse() {
     # 5: dev
     [ "$1" == "min" ] && 
     acc+="${a[2]} " &&
-    "$2" "$acc"
+    "$2" "${a[0]}" "$acc"
 
   done < /dev/stdin
 }
 
 zach-ping-sum() {
-  # $1: string of numbers
-  echo "0 $1" | xargs | tr ' ' '+' | bc
+  # $1: id
+  # $2: string of numbers
+  echo -e "$1.$(date +%s%N)\nping.sum"
+  echo "0 $2" | xargs | tr ' ' '+' | bc
 }
