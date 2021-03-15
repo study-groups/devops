@@ -178,6 +178,6 @@ zach-ping-parse() {
 zach-ping-sum() {
   # $1: id
   # $2: string of numbers
-  echo -e "$1.$(date +%s%N)\nping.sum"
+  echo -e "$1.$(date +%s%N)\ndata.ping.sum"
   echo "0 $2" | xargs | tr ' ' '+' | bc
 }
