@@ -122,6 +122,8 @@ ping-to-pingAvg() {
   # 2: max
   # 3: dev
   local data=($3);
+  echo "$1.$(nom-gen-id)"
+  echo "data.ping-avg"
   echo "${data[1]}"
 }
 
