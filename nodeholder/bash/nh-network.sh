@@ -17,42 +17,20 @@ nh-network-watch(){
   done
 }
 
-
+# Category Theory: Void is called the Inital Object, e.g. 0 or False
+# nom-gen() pluck items out of the Void.
 nom-gen(){
   while [ true ]; do
     [ -z "$1" ] && echo "Please, set throttle." && return 1
     [ -z "$2" ] && echo "Please, specify nom-create-function" && return 1
     # $1 throttle 
-    # $2 bash func
+    # $2 bash nom-create func
     # $@ rest of args which are passed to $2
     $2 "${@:3}"
     echo "" # new line for the nom stanza
     sleep $1 
   done
 }
-
-# Example Nom 
-nom-data-random(){
-  date +%s%N
-  echo "data.random"
-  echo "$RANDOM"
-}
-
-nom_data_random_sum=0;
-nom_data_random_count=0;
-# Inputs: $id $type "$data"
-nom-data-random-sum(){
-  local id=$1;
-  local type=$2;
-  local randInt=$3; # no need to parse single line.
-  (( nom_data_random_sum += $randInt))
-  (( nom_data_random_count++ ))
-  echo "$id"
-  echo "$type"
-  echo "$randInt" $nom_data_random_sum $nom_data_random_count 
-  echo ""
-}
-
 
 # Recieves nom stanzas on stdin (or file)
 # NOM object is of form where each nom object
@@ -83,6 +61,10 @@ nom-data-random-sum(){
 
 # An idea
 # System Defined
+
+# nom-create-${type}        0 to 1 (output one nom object w/o newline)
+# nom-gen                   0 to N (calls nom-create-${type} periodically) 
+
 #          type-to-type
 # nom-map these-to-those    N to N
 # nom-filter those-to-some  N to M (some == "some of those")
@@ -93,6 +75,26 @@ nom-data-random-sum(){
 # nom-map ping-to-pingAvg
 
 # nom-gen nom-create-ping nodeholder.com 2 | nom-map ping-to-pingAvg
+
+nom-map(){
+    while read id; do
+      read type
+      read data_line
+      data="$data_line"
+      while [ "$data_line" != "" ]; do # check for blank line.
+        read data_line;
+        data+=" $data_line";
+      done
+      data_line="";
+      $1 $id $type "$data"
+      echo ""
+    done < "${2:-/dev/stdin}"
+}
+
+# nom-reduce
+
+# nom-filter
+
 nom-gen-id() {
   date +%s%N
 }
@@ -109,7 +111,21 @@ nom-create-ping() {
   # awk grabs important line "min/avg/max/dev
   # tr changes "/" to new lines
   ping -q -c "$2" "$1" | awk 'END{ print $4}' | tr '/' '\n'
+}
 
+ping-to-pingMin() {
+  # $1: id
+  # $2: type
+  # $3: data
+  # Indices: 
+  # 0: min
+  # 1: avg
+  # 2: max
+  # 3: dev
+  local data=($3);
+  echo "$1->$(nom-gen-id)"
+  echo "data.ping.min"
+  echo "${data[0]}"
 }
 
 ping-to-pingAvg() {
@@ -122,10 +138,41 @@ ping-to-pingAvg() {
   # 2: max
   # 3: dev
   local data=($3);
-  echo "$1.$(nom-gen-id)"
-  echo "data.ping-avg"
+  echo "$1->$(nom-gen-id)"
+  echo "data.ping.avg"
   echo "${data[1]}"
 }
+
+ping-to-pingMax() {
+  # $1: id
+  # $2: type
+  # $3: data
+  # Indices: 
+  # 0: min
+  # 1: avg
+  # 2: max
+  # 3: dev
+  local data=($3);
+  echo "$1->$(nom-gen-id)"
+  echo "data.ping.max"
+  echo "${data[2]}"
+}
+
+ping-to-pingDev() {
+  # $1: id
+  # $2: type
+  # $3: data
+  # Indices: 
+  # 0: min
+  # 1: avg
+  # 2: max
+  # 3: dev
+  local data=($3);
+  echo "$1->$(nom-gen-id)"
+  echo "data.ping.dev"
+  echo "${data[3]}"
+}
+
 
 #234254
 #data.ping
@@ -138,19 +185,7 @@ ping-to-pingAvg() {
 #data.pingAvg
 #3.3
 
-nom-map(){
-    while read id; do
-      read type
-      read data_line
-      data="$data_line"
-      while [ "$data_line" != "" ]; do # check for blank line.
-        read data_line;
-        data+=" $data_line";
-      done
-      data_line="";
-      $1 $id $type "$data"
-    done < "${2:-/dev/stdin}"
-}
+
 
 # THis is an accumulator function that takes a ping nom stanza stream
 # $1 = type
@@ -230,6 +265,44 @@ nh-ping-summary(){
   echo "cacheLen $cacheLen"
 }
 
+# Example Nom 
+nom-create-data-random_int(){
+  date +%s%N
+  echo "data.random.int"
+  echo "$RANDOM"
+}
+
+
+nom_data_random_sum=0;
+nom_data_random_count=0;
+# Inputs: $id $type "$data"
+nom-data-random-sum(){
+  local id=$1;
+  local type=$2;
+  local randInt=$3; # no need to parse single line.
+  (( nom_data_random_sum += $randInt))
+  (( nom_data_random_count++ ))
+  echo "$id"
+  echo "$type"
+  echo "$randInt" $nom_data_random_sum $nom_data_random_count 
+  echo ""
+}
+nectar-get-children(){
+  parent=$1
+  echo $(ps -ef | grep $parent  | awk "\$3== $parent {print \$2}")
+  echo $(ps -ef | grep $parent  | awk '$3=='$parent ' {print $2}')
+#  echo $(ps -ef | grep $parent  | awk '$3=='"$parent"' {print $2}')
+}
+
+nectar-get-children2(){
+  parent=$1
+echo $(ps -ef | grep $1  | awk "{'$2' == $parent}" \
+(while read line; do words=($line); echo ${words[1]}; done))
+}
+
+########################################################
+########################################################
+
 zach-ping-create() {
   date +%s%N
   printf "data.ping\n"
@@ -246,7 +319,6 @@ zach-ping-create() {
 # 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
 # rtt min/avg/max/mdev = 0.577/1.197/1.817/0.620 ms
 
-# nom-gen 1 nom-data-random nom-map - nom-console
 zach-ping-gen() {
 
   # $1: domain or ip
