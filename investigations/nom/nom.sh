@@ -1,6 +1,7 @@
 #!/bin/bash
 # above is for shellcheck, this file should be sourced.
-NOM_PATH_CLI="$(pwd)"
+DEVOPS_PATH="/home/admin/src/devops-study-group"
+NOM_PATH_CLI="$DEVOPS_PATH/investigations/nom"
 
 #
 # Nodeholder Object Model Bash API
@@ -119,13 +120,18 @@ nom-map(){
   jq "[.[] | $1]"
 }
 
-# Relies on global data array $da.
-# Probably can delete.
 nom-getid-by-index(){
   local index=$1
   # beacuse one token per line, no quotes necessary
   local index_array=($NOMS_INDEX[@]) 
   echo "${index_array[ ((index*4 + 0)) ]}"
+}
+
+nom-gettype-by-index(){
+  local index=$1
+  # beacuse one token per line, no quotes necessary
+  local index_array=($NOMS_INDEX[@]) 
+  echo "${index_array[ ((index*4 + 1)) ]}"
 }
 
 nom-getids-from-index() {
@@ -195,5 +201,3 @@ nom-get-all-datatype-from-batch() {
     done < "response/$file"
   done
 }
-
-
