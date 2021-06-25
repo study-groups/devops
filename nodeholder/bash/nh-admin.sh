@@ -185,6 +185,12 @@ nh-admin-monitor(){
   '
 }
 
+# experimental
+nh-admin-install-postgres() {
+  # set up user in here too
+  apt -y install postgresql postgresql-contrib
+}
+
 # sysadmin
 nh-admin-unix-help() {
   echo "

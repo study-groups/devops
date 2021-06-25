@@ -28,11 +28,6 @@ nh-root-install-deps() {
   snap install --classic certbot
 }
 
-nh-root-install-postgres() {
-  # set up user in here too
-  apt -y install postgresql postgresql-contrib
-}
-
 nh-root-add-admin(){
     adduser --disabled-password \
 	    --ingroup sudo \
