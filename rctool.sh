@@ -12,7 +12,7 @@ enctool-cert()
 
 ##########################################################################
 # rctool-
-#   reseller club api for mananging domain names from a distance. 
+#   reseller club api for mananging domain names from a distance.
 ##########################################################################
 rctool-help() {
     echo "
@@ -38,6 +38,14 @@ rctool-a-list() {
     http "https://test.httpapi.com/api/dns/manage/\
 search-records.json?auth-userid=$RC_USERID&api-key=$RC_APIKEY&\
 domain-name=$1&type=A&no-of-records=50&page-no=1"
+}
+
+rctool-a-domain-host-ip(){
+  # @ means no host label in DNS, eg, 'the' domain name
+  local export domain="$1"
+  local export host="${2:-@}"
+  #rctool-a-list  $domain > /tmp/arecs
+  cat /tmp/arecs | jq '.[]' | jq 'select(.host=='"$host"').value' 2> /dev/null
 }
 
 rctool-a-add() {
