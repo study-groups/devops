@@ -220,6 +220,16 @@ dotool-loop-image(){
   echo "replace X: mount /dev/loopXp1 /mnt/$1" 
 }
 
+dotool-floating(){
+  doctl compute floating-ip list
+}
+
+dotool-floating-assign(){
+  local fip="$1"
+  local droplet="$2"
+  doctl -v compute floating-ip-action assign "$fip" "$droplet"
+}
+
 dotool-possibilites(){
   echo ""
   echo "All private and public images available to clone"
