@@ -6,7 +6,7 @@
 # gpg --output custom.sh --decrypt custom.sh.enc 
 
 # Encrpyt:
-# gpg --output custom.sh.enc 
+# gpg --output custom.sh.enc \
 #     --symmetric --cipher-algo AES256 custom.sh
 
 dir="/home/admin/src/devops-study-group"
@@ -42,7 +42,8 @@ sed-whitespace-inplace(){
   sed -i 's/[ \t]*$//' "$1"
 }
 
-ip=$do1
+
+remoteIp=$do1
 remoteAdmin="ssh admin@$ip source admin.sh &&"
 remoteSae="ssh sae@$ip source nh.sh && "
 remoteLta="ssh lta@$ip source nh.sh && "
