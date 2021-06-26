@@ -249,6 +249,11 @@ dotool-create-server-list() {
   # write to server.list
   dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > \
 	  ~/server.list
+
+  dotool-floating | awk '$2~"nyc" {print "floatingEast=" $1} \
+                         $2~"sfo"{print "floatingWest=" $1}' >> \
+	  ~/server.list
+
   source ~/server.list
   echo "Server names and ips have been refreshed in environment."
 } 
