@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 
 investigations/nh-pubsub-env/project*
+tetra.env
 
 *.gz
 
