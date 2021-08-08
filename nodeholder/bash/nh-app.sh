@@ -13,8 +13,12 @@ nh-app-build() {
 }
 
 nh-app-status() {
-  local app="$1";
-  ./$app/nh/status
+  if [ -z $1 ] ; then
+    ps -ef | grep [/]node
+  else 
+    local app="$1";
+    ./$app/nh/status
+  fi 
 }
 
 nh-app-log() {
