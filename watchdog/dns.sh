@@ -1,6 +1,9 @@
+#!/bin/bash
 PS1="admin@do4:watchdog> "
 #HOST_TO_WATCH="west.placeholdermedia.com"
-HOST_TO_WATCH="cryptochromatic.net"
+#HOST_TO_WATCH="cryptochromatic.net"
+#HOST_TO_WATCH="nodeholder.com"
+HOST_TO_WATCH="controlpanel.placeholderdomains.com"
 
 # Example of bash variable indexing. Parsing line 1 with (): 
 #   read line; words=($line); echo ${words[2]:2:12})
@@ -11,15 +14,43 @@ HOST_TO_WATCH="cryptochromatic.net"
 # --- west.placeholdermedia.com ping statistics ---
 # 1 packets transmitted, 1 received, 0% packet loss, time 0ms
 # rtt min/avg/max/mdev = 76.125/76.125/76.125/0.000 ms
-dns_ping(){
+
+nom-diff-loop(){
+  while true; do
+    while read line; do
+      nom+="$line"
+    done
+      nom-diff "$new" "$old"
+      old="$new"
+  done
+}
+
+nom-diff() {
+  nom_cur=("$1")
+  nom_prev=("$2")
+
+  printf "\n\nnom_cur:\n"
+
+  for i in "${!nom_cur[@]}"; do 
+    printf "%s\t%s\n" "$i" "${nom_cur[$i]}"
+  done 
+
+  printf "\nnom_prev:\n"
+
+  for i in "${!nom_cur[@]}"; do
+    printf "%s\t%s\n" "$i" "${nom_cur[$i]}"
+  done 
+}
+
+dns-ping(){
   ping -c 2 ${1:-"$HOST_TO_WATCH"}
 }
 
-dns_ping-to-ip(){
+dns-ping-to-ip(){
   awk 'NR==2' |( read line; words=($line); echo ${words[3]})
 }
 
-dns_ping-to-host(){
+dns-ping-to-host(){
   awk 'NR==1' |( read line; words=($line); echo ${words[1]})
 }
 
@@ -32,7 +63,7 @@ dns_ping-to-host(){
 # Address: 192.34.62.148
 
 
-dns_ping-to-nslookup(){
+dns-ping-to-nslookup(){
   local host=$(awk 'NR==1' |( read line; words=($line); echo ${words[1]}))
   local nslookup_response="$(nslookup $host)"
   local ip_from_dns=\
@@ -40,14 +71,13 @@ dns_ping-to-nslookup(){
    
 }
 
-dns_ping-to-delay(){
+dns-ping-to-delay(){
   #awk 'NR==6' |( read line; words=($line); echo ${words[3]:7:12})
   tail -1 |( read line; words=($line); echo "${words[3]:7:6}")
 
 }
 
-ip_init=$(echo "$dns_ping" | dns_ping-to-ip)
-main-loop(){
+dns-ping-main-loop(){
     local hostname="${1:-$HOST_TO_WATCH}"
     local delayInSeconds=5 
     date +%s%N 
@@ -59,11 +89,13 @@ main-loop(){
       date +%s%N 
       echo "data.watchdog.response"
       echo Host to watch: $hostname
-      dns_ping="$(dns_ping)"
-      echo "$dns_ping" | dns_ping-to-host 
-      echo "$dns_ping" | dns_ping-to-ip
-      echo "$dns_ping" | dns_ping-to-delay
-      echo "$dns_ping" | dns_ping-to-nslookup
+      dns_ping="$(dns-ping)"
+      echo "$dns_ping" | dns-ping-to-host
+      echo "$dns_ping" | dns-ping-to-ip
+      echo "$dns_ping" | dns-ping-to-delay
+      echo "dns-ping-to-nslookup:"
+      echo "$dns_ping" | dns-ping-to-nslookup
+      # $(dns-ping-to-host <<<"$dns_ping"); 
       echo ""
       sleep $delayInSeconds
     done
@@ -122,3 +154,5 @@ https://superuser.com/questions/270214/how-can-i-change-the-colors-of-my-xterm-u
 
 EOF
 }
+
+#dns-ping-main-loop
