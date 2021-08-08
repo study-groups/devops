@@ -26,6 +26,9 @@ nh-root-install-deps() {
   node -v
   apt-get remove certbot
   snap install --classic certbot
+  snap install doctl # added 7/28/21 -zo
+  apt -y install jq # added 8/3/21
+  apt -y install daemonize # added 8/3/21
 }
 
 nh-root-add-admin(){

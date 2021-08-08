@@ -1,7 +1,5 @@
 source <(cat bash/nh-*.sh)
-
-echo "All the  nh- commands."
-
+echo "All the  nh- commands have been sourced into current shell."
 return 1 # comment out to install.
 
 echo "Installing apps."
