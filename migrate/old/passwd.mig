@@ -1,0 +1,13 @@
+mricos:x:1001:1001:Mike Ricos,,,:/home/mricos:/bin/bash
+zoverlvx:x:1004:1004:Zach Overhulser,,,:/home/zoverlvx:/bin/bash
+goodtimes:x:1006:1006:Brian Bearden,,,:/home/goodtimes:/bin/bash
+cqc:x:1007:1007:,,,:/home/cqc:/bin/bash
+b3fn01:x:1008:1008::/home/b3fn01:/bin/bash
+jeddin:x:1011:1011:,,,:/home/jeddin:/bin/bash
+admin:x:1013:115::/home/admin:/bin/bash
+dmcke12:x:1015:1015::/home/dmcke12:/bin/bash
+hirschro:x:1009:1009:,,,:/home/hirschro:/bin/bash
+phadmin:x:1014:1013:,,,:/home/phadmin:/bin/bash
+razorswift:x:1017:1017:,,,:/home/razorswift:/bin/bash
+devops:x:1018:1018:,,,:/home/devops:/bin/bash
+ubuntu:x:1019:1019:Ubuntu:/home/ubuntu:/bin/bash

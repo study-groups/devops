@@ -1,0 +1,14 @@
+instadmin:x:1000:mricos,zoverlvx
+mricos:x:1001:
+zoverlvx:x:1004:
+goodtimes:x:1006:
+cqc:x:1007:zoverlvx
+b3fn01:x:1008:
+jeddin:x:1011:
+dmcke12:x:1015:
+hirschro:x:1009:
+phadmin:x:1013:
+wireshark:x:1016:admin
+razorswift:x:1017:
+devops:x:1018:admin
+ubuntu:x:1019:
