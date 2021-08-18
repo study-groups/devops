@@ -41,7 +41,7 @@ nh-remote-install-root(){
   fi
 
   local config_dir="/home/admin/src/devops-study-group/nodeholder/bash"
-  local config_file="${2:-"nh-root-ubuntu.sh"}";
+  local config_file="${2:-"nh-root.sh"}";
   local config_path="$config_dir/$config_file"
   local ip="$1";
   # copy root.sh to the remote machine
@@ -56,24 +56,32 @@ nh-remote-install-root(){
   # copy daemonize to the remote machine
   scp "$dpath_local" root@"$ip":"$dpath_remote"
 
+  # new instructions 8/16/21
+  echo "Logging into $ip as root."
+  echo "Configure nodeholder with the following commands:"
+  echo "source nh-root.sh && nh-root-init"
+  sleep 3
+  ssh root@"$ip"
+
+
   # source configuration and configure machine
-  ssh root@"$ip" '
-      source "'$config_file'" && nh-root-init
-      echo "##########################################################"
-      echo "#  Deploy \"from a distance\" application with admin.sh  #"
-      echo "#                                                        #"
-      echo "#       --or--                                           #"
-      echo "#                                                        #"
-      echo "#  Log in to remote host local> ssh admin@$droplet       #"
-      echo "##########################################################"
-  '
+  #ssh root@"$ip" '
+  #    source "'$config_file'" && yes 2 | nh-root-init
+  #    echo "##########################################################"
+  #    echo "#  Deploy \"from a distance\" application with admin.sh  #"
+  #    echo "#                                                        #"
+  #    echo "#       --or--                                           #"
+  #    echo "#                                                        #"
+  #    echo "#  Log in to remote host local> ssh admin@$droplet       #"
+  #    echo "##########################################################"
+  #'
   
   # instruct user on next steps
-  echo "
-  Setup application with admin- from local machine to remote host
-  --or--
-  Log in to remote host with 'dotool-login <droplet>'
-  "
+  #echo "
+  #Setup application with admin- from local machine to remote host
+  #--or--
+  #Log in to remote host with 'dotool-login <droplet>'
+  #"
 }
 
 # installs admin on nodeholder 
