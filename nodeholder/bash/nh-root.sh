@@ -38,6 +38,14 @@ nh-root-add-admin(){
 	    admin
 }
 
+# added 08/18/21
+nh-root-add-devops(){
+    adduser --disabled-password \
+	    --ingroup sudo \
+	    --gecos "" \
+	    devops
+}
+
 nh-root-security(){
   echo "%sudo   ALL=(ALL:ALL)  NOPASSWD: ALL" >> /etc/sudoers
   ufw allow 'Nginx Full'
@@ -66,6 +74,7 @@ nh-root-init(){
   nh-root-update-os
   nh-root-install-deps
   nh-root-add-admin
+  nh-root-add-devops
   nh-root-copy-keys
   nh-root-security
 }
