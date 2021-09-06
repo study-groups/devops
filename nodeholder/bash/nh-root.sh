@@ -32,18 +32,53 @@ nh-root-install-deps() {
 }
 
 nh-root-add-admin(){
+
     adduser --disabled-password \
 	    --ingroup sudo \
 	    --gecos "" \
 	    admin
+
+    echo 'admin ALL=(ALL:ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
 }
 
 # added 08/18/21
-nh-root-add-devops(){
+nh-root-add-devops(){ # creates devops user
+    # --disabled-password # disables password
+    # --ingroup sudo # adds to groups sudo
+    # --gecos "" # removes prompt for fingerprint
+    # devops # name of user
+    
+    addgroup devops 
+
     adduser --disabled-password \
-	    --ingroup sudo \
-	    --gecos "" \
-	    devops
+        --ingroup devops \
+	    --gecos ""  \
+	    devops 
+
+    # create directory named src and create a symbolic link to it
+    sudo -u devops mkdir /home/devops/src 
+    sudo -u devops ln -s /home/devops/src /home/devops/www
+
+    sudo -u devops mkdir /home/devops/.ssh 
+    sudo -u devops touch /home/devops/.ssh/authorized_keys
+    
+
+    # recursively set ownership of everything in .ssh 
+    # to devops user and devops group
+    chown -R devops:devops /home/devops/.ssh
+    
+    chmod 0700 /home/devops/.ssh
+    chmod 0600 /home/devops/.ssh/authorized_keys
+    
+    #echo 'devops ALL=(ALL:ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
+    
+    sudo -u devops ssh-keygen \
+    -N "" \
+    -q \
+    -f \
+    /home/devops/.ssh/id_rsa \
+    -C \
+    "devops-$(date +%Y-%m-%d)"
 }
 
 nh-root-security(){
