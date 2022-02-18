@@ -37,6 +37,7 @@ handle-error() {
   if [ "$1"  -gt 0 ]
   then
 	  echo "$2"
+      return 1
   fi
   return 0
 }
