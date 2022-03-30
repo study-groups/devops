@@ -17,8 +17,8 @@ EOF
 
 tetra-encrypt(){
   openssl aes-256-cbc -a -salt -in $1 -out $1.enc
-
 }
+
 tetra-decrypt(){
   openssl aes-256-cbc -d -a -in $1 -out $2 
 }
