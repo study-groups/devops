@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-04-18T23:43:18.491Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="B5IydajCd3PxXVLoB8mN" version="17.4.4" type="github" pages="2">
+<mxfile host="app.diagrams.net" modified="2022-04-21T21:16:26.973Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="rtt4iy_Uhp0vHrHjlYgL" version="17.4.6" type="github" pages="2">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -290,15 +290,15 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="vvfxuLBz_xln83gE5nIl-1" value="https://docs.digitalocean.com/products/networking/floating-ips/" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-1" value="https://docs.digitalocean.com/products/networking/floating-ips/" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="215" y="40" width="420" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-2">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-2" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="580" y="320" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-2">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-2" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="570" y="150" as="targetPoint" />
             <Array as="points">
@@ -308,93 +308,108 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-2" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-2" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" parent="1" vertex="1">
           <mxGeometry x="370" y="240" width="90" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-3">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-3" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="360" y="285" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-3" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-3" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" parent="1" vertex="1">
           <mxGeometry x="210" y="252" width="63" height="66" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-11">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-11" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-12">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-12" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-15">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=1;entryDx=0;entryDy=0;" parent="1" source="vvfxuLBz_xln83gE5nIl-7" target="vvfxuLBz_xln83gE5nIl-15" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-21" value="different servers" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="vvfxuLBz_xln83gE5nIl-18">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-21" value="different servers" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="vvfxuLBz_xln83gE5nIl-18" vertex="1" connectable="0">
           <mxGeometry x="-0.7518" y="-1" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-7" value="Network Load Balancer" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.network_load_balancer;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-7" value="Network Load Balancer" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.network_load_balancer;" parent="1" vertex="1">
           <mxGeometry x="580" y="120" width="80" height="110" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-8" target="vvfxuLBz_xln83gE5nIl-13">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="vvfxuLBz_xln83gE5nIl-8" target="vvfxuLBz_xln83gE5nIl-13" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-8" target="vvfxuLBz_xln83gE5nIl-14">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="vvfxuLBz_xln83gE5nIl-8" target="vvfxuLBz_xln83gE5nIl-14" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-8" value="Network Load Balancer" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.network_load_balancer;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-8" value="Network Load Balancer" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.network_load_balancer;" parent="1" vertex="1">
           <mxGeometry x="580" y="280" width="80" height="110" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-11" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-11" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="730" y="120" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-12" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-12" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="830" y="120" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-13" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-13" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="740" y="320" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-14" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-14" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="840" y="320" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-15" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-15" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="940" y="120" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-22" target="vvfxuLBz_xln83gE5nIl-26">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-22" target="vvfxuLBz_xln83gE5nIl-26" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-22" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-22" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" parent="1" vertex="1">
           <mxGeometry x="60" y="690" width="63" height="66" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-25" value="&lt;h1&gt;Use case 1&lt;/h1&gt;&lt;p&gt;Floating IP can be used to direct traffic to different load balancers which will direct traffic appropriately to different servers&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-25" value="&lt;h1&gt;Use case 1&lt;/h1&gt;&lt;p&gt;Floating IP can be used to direct traffic to different load balancers which will direct traffic appropriately to different servers&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="30" y="100" width="190" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-26" target="vvfxuLBz_xln83gE5nIl-27">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-26" target="vvfxuLBz_xln83gE5nIl-27" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-26" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-26" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" parent="1" vertex="1">
           <mxGeometry x="270" y="690" width="90" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-27" value="Server A" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-27" value="Server A" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="510" y="710" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-31" target="vvfxuLBz_xln83gE5nIl-33">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-31" target="vvfxuLBz_xln83gE5nIl-33" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-31" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-31" value="GET request for website" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.http_protocol;fillColor=#5294CF;gradientColor=none;" parent="1" vertex="1">
           <mxGeometry x="60" y="870" width="63" height="66" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="vvfxuLBz_xln83gE5nIl-33" target="vvfxuLBz_xln83gE5nIl-34">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="vvfxuLBz_xln83gE5nIl-33" target="vvfxuLBz_xln83gE5nIl-34" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-33" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-33" value="Floating IP" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=#ffffff;fontSize=12;spacingTop=3;image;image=img/lib/ibm/vpc/FloatingIP.svg;" parent="1" vertex="1">
           <mxGeometry x="270" y="870" width="90" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-34" value="Server B&lt;br&gt;" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-34" value="Server B&lt;br&gt;" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/web_server.svg;" parent="1" vertex="1">
           <mxGeometry x="510" y="890" width="40" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="vvfxuLBz_xln83gE5nIl-35" value="&lt;h1&gt;Use case 2&lt;/h1&gt;&lt;p&gt;Floating IP is a stand-in which will direct the request to the correct server in an environment where and when servers are quickly created and destroyed&amp;nbsp;&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+        <mxCell id="vvfxuLBz_xln83gE5nIl-35" value="&lt;h1&gt;Use case 2&lt;/h1&gt;&lt;p&gt;Floating IP is a stand-in which will direct the request to the correct server in an environment where and when servers are quickly created and destroyed&amp;nbsp;&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="60" y="530" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="nrE7k7l5CUzm2m3cYq9M-3" value="&lt;h1&gt;SSH tunneling&lt;/h1&gt;&lt;p&gt;https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-tunneling-on-a-vps&lt;/p&gt;&lt;p&gt;&lt;span&gt;https://www.mrjamiebowman.com/hacking/ssh-tunneling/&lt;/span&gt;&lt;br&gt;&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1110" width="420" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="nrE7k7l5CUzm2m3cYq9M-4" value="My terminal" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/laptop_client.svg;" vertex="1" parent="1">
+          <mxGeometry x="78.5" y="1280" width="153" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="nrE7k7l5CUzm2m3cYq9M-6" value="My terminal" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/laptop_client.svg;" vertex="1" parent="1">
+          <mxGeometry x="78.5" y="1560" width="153" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="nrE7k7l5CUzm2m3cYq9M-8" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" vertex="1" parent="1">
+          <mxGeometry x="425" y="1300" width="84" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="nrE7k7l5CUzm2m3cYq9M-9" value="SSH keys" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/other/SSH_Keys.svg;" vertex="1" parent="1">
+          <mxGeometry x="370" y="1410" width="68" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
