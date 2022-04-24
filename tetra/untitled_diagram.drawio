@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-04-24T23:46:43.361Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="9dmOHV4_oRpnDWERMF_8" version="17.4.6" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-04-24T23:48:12.120Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="vewFupelw5JvxR5med0m" version="17.4.6" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="734" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -406,7 +406,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="bJAtUzU9BwfuH3-QgAc5-2" value="&lt;span style=&quot;color: rgb(3 , 27 , 78) ; background-color: rgb(255 , 255 , 255)&quot;&gt;DigitalOcean floating IPs are publicly-accessible static IP addresses that you can assign to Droplets and instantly remap between other Droplets in the same datacenter. Implement a failover mechanism with floating IPs to build a high availability infrastructure.&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="-150" y="138" width="490" height="30" as="geometry" />
+          <mxGeometry x="-127.5" y="120" width="490" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
