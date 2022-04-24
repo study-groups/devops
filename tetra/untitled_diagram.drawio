@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-04-24T16:33:15.676Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="ITsk-X5pG6QvOUlzEII-" version="17.4.6" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-04-24T16:36:20.228Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="u0mG9XcUJPNSdADW2ePk" version="17.4.6" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -286,7 +286,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="AeK4mo_tdcoKuWDf1bww" name="Page-2">
-    <mxGraphModel dx="2258" dy="734" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="3197" dy="1223" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -479,62 +479,62 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-1" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" vertex="1" parent="1">
-          <mxGeometry x="420" y="3190" width="112" height="200" as="geometry" />
+          <mxGeometry x="396" y="3410" width="112" height="200" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-2" value="&lt;h1&gt;SAE theory&lt;/h1&gt;&lt;p&gt;&lt;font style=&quot;font-size: 18px&quot;&gt;The following images suggest a potential theory for the architecture of DO servers for the implementation of a SAE micro-service&lt;/font&gt;&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
-          <mxGeometry x="78.5" y="2920" width="501.5" height="230" as="geometry" />
+          <mxGeometry x="38.5" y="3160" width="501.5" height="230" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=18;" edge="1" parent="1" source="m9OfsuF5Oz_UeDHI17ik-3" target="m9OfsuF5Oz_UeDHI17ik-16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-3" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" vertex="1" parent="1">
-          <mxGeometry x="990" y="3000" width="112" height="200" as="geometry" />
+          <mxGeometry x="966" y="3220" width="112" height="200" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=18;" edge="1" parent="1" source="m9OfsuF5Oz_UeDHI17ik-4" target="m9OfsuF5Oz_UeDHI17ik-16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-4" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" vertex="1" parent="1">
-          <mxGeometry x="990" y="3200" width="112" height="200" as="geometry" />
+          <mxGeometry x="966" y="3420" width="112" height="200" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=18;" edge="1" parent="1" source="m9OfsuF5Oz_UeDHI17ik-5" target="m9OfsuF5Oz_UeDHI17ik-16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-5" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="3390" width="112" height="200" as="geometry" />
+          <mxGeometry x="976" y="3610" width="112" height="200" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-8" value="Data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=18;" edge="1" parent="1" source="m9OfsuF5Oz_UeDHI17ik-7" target="m9OfsuF5Oz_UeDHI17ik-1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-7" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Client&lt;/font&gt;" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/laptop_client.svg;" vertex="1" parent="1">
-          <mxGeometry x="30" y="3205" width="153" height="170" as="geometry" />
+          <mxGeometry x="6" y="3425" width="153" height="170" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-9" value="Clients are given ssh keys to access an ssh host from its public IP" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="39.25" y="3080" width="580" height="30" as="geometry" />
+          <mxGeometry x="15.25" y="3300" width="580" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-10" value="This public IP is technically open to all, but only those with authorized pem keys get in." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="-40" y="3110" width="901" height="30" as="geometry" />
+          <mxGeometry x="-60" y="3330" width="901" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-11" value="A process is running on a private IP which will run a script to send the data over TCP with ssh to private servers." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="300" y="3410" width="420" height="30" as="geometry" />
+          <mxGeometry x="276" y="3630" width="420" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-12" value="This process will generate an id for the outgoing data to be converted/manipulated" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="289.25" y="3475" width="450.75" height="30" as="geometry" />
+          <mxGeometry x="265.25" y="3695" width="450.75" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-16" value="" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/database_server.svg;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="1330" y="3190" width="155.8" height="190" as="geometry" />
+          <mxGeometry x="1306" y="3410" width="155.8" height="190" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-21" value="Private servers will only accept traffic from the ssh host and with the correct pem key&amp;nbsp;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="619.25" y="2850" width="790" height="30" as="geometry" />
+          <mxGeometry x="565" y="3190" width="790" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-22" value="These private servers will have a process running on their private IPs which will send the converted data and its ID to a database server" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="670" y="2890" width="1100" height="30" as="geometry" />
+          <mxGeometry x="608" y="3230" width="1100" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-23" value="ID/Data" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;" vertex="1" parent="1">
-          <mxGeometry x="1440" y="3275" width="80" height="30" as="geometry" />
+          <mxGeometry x="1416" y="3495" width="80" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=18;" edge="1" parent="1" source="m9OfsuF5Oz_UeDHI17ik-1">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="980" y="3290" as="targetPoint" />
+            <mxPoint x="956" y="3510" as="targetPoint" />
           </mxGeometry>
         </mxCell>
       </root>
