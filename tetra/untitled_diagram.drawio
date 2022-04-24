@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-04-24T23:48:33.616Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="paJyMkb9Om991vKF9ixV" version="17.4.6" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-04-24T23:49:23.099Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36" etag="1oBV6gElIiWvJLfLnWtg" version="17.4.6" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="734" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -286,7 +286,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="AeK4mo_tdcoKuWDf1bww" name="Page-2">
-    <mxGraphModel dx="1856" dy="524" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2332" dy="773" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -371,10 +371,10 @@
           <mxGeometry x="-132" y="2225" width="153" height="170" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-9" value="Clients are given ssh keys to access an ssh host from its public IP" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" parent="1" vertex="1">
-          <mxGeometry x="-122.75" y="2100" width="580" height="30" as="geometry" />
+          <mxGeometry x="-155" y="2150" width="580" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-10" value="This public IP is technically open to all, but only those with authorized pem keys get in." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" parent="1" vertex="1">
-          <mxGeometry x="-180" y="2210" width="901" height="30" as="geometry" />
+          <mxGeometry x="-240" y="2180" width="901" height="30" as="geometry" />
         </mxCell>
         <mxCell id="m9OfsuF5Oz_UeDHI17ik-11" value="A process is running on a private IP which will run a script to send the data over TCP with ssh to private servers." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" parent="1" vertex="1">
           <mxGeometry x="138" y="2430" width="420" height="30" as="geometry" />
