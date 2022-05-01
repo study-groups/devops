@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-04-30T23:53:11.184Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="qfAGiAPFRmmZZEsL6nli" version="17.5.0" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-05-01T00:07:40.644Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="xJouTf-QUMQAYNUNKQji" version="17.5.0" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -448,6 +448,9 @@
         </mxCell>
         <mxCell id="b3J-dSMPI3ApOvudO47X-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;Assumptions:&lt;br&gt;&lt;br&gt;JumpServer is open to public traffic on a specific port.&lt;br&gt;That traffic is then forwarded to the private IP of a private server (not publicly accessible).&lt;br&gt;The private server accepts or denies the user based on ssh pem key. The JumpServer has no knowledge of the pem key(s) and merely forwards the user to the private server.&lt;br&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="800" y="2880" width="610" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="b3J-dSMPI3ApOvudO47X-2" value="Home Router" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/router.svg;fontSize=16;labelPosition=center;verticalLabelPosition=top;verticalAlign=bottom;" vertex="1" parent="1">
+          <mxGeometry x="860" y="3090" width="157.89" height="120" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
