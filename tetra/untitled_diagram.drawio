@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-05-01T00:14:29.507Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="XtP6jh1SXw7Voh4gCRTQ" version="17.5.0" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-05-01T03:40:08.610Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="EYUmb70eRLzB6BipQR3N" version="17.5.0" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -286,7 +286,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="AeK4mo_tdcoKuWDf1bww" name="Page-2">
-    <mxGraphModel dx="2506" dy="934" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2258" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -408,13 +408,18 @@
         <mxCell id="bJAtUzU9BwfuH3-QgAc5-2" value="&lt;span style=&quot;color: rgb(3 , 27 , 78) ; background-color: rgb(255 , 255 , 255)&quot;&gt;DigitalOcean floating IPs are publicly-accessible static IP addresses that you can assign to Droplets and instantly remap between other Droplets in the same datacenter. Implement a failover mechanism with floating IPs to build a high availability infrastructure.&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;" parent="1" vertex="1">
           <mxGeometry x="-127.5" y="120" width="490" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=16;" edge="1" parent="1" source="UQANWD9XaJDzWatrHAQ7-1" target="b3J-dSMPI3ApOvudO47X-2">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="b3J-dSMPI3ApOvudO47X-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=16;" parent="1" source="UQANWD9XaJDzWatrHAQ7-1" target="b3J-dSMPI3ApOvudO47X-2" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="580" y="3160" />
+              <mxPoint x="580" y="3160" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="UQANWD9XaJDzWatrHAQ7-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;User&lt;/font&gt;" style="verticalLabelPosition=bottom;sketch=0;aspect=fixed;html=1;verticalAlign=top;strokeColor=none;align=center;outlineConnect=0;shape=mxgraph.citrix.laptop_2;" parent="1" vertex="1">
           <mxGeometry x="160.20000000000002" y="3075" width="254.8" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="UQANWD9XaJDzWatrHAQ7-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="UQANWD9XaJDzWatrHAQ7-2" edge="1" target="UQANWD9XaJDzWatrHAQ7-5">
+        <mxCell id="UQANWD9XaJDzWatrHAQ7-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="UQANWD9XaJDzWatrHAQ7-2" target="UQANWD9XaJDzWatrHAQ7-5" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="1500" y="3255" as="targetPoint" />
           </mxGeometry>
@@ -425,36 +430,36 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="UQANWD9XaJDzWatrHAQ7-2" value="&lt;font style=&quot;font-size: 16px&quot;&gt;Jump Server&lt;/font&gt;" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" parent="1" vertex="1">
-          <mxGeometry x="1216.1399999999999" y="3380" width="117.6" height="210" as="geometry" />
+          <mxGeometry x="1378.1499999999999" y="3450" width="117.6" height="210" as="geometry" />
         </mxCell>
         <mxCell id="UQANWD9XaJDzWatrHAQ7-5" value="&lt;font style=&quot;font-size: 16px&quot;&gt;Development Server&lt;/font&gt;" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/generic_server.svg;" parent="1" vertex="1">
-          <mxGeometry x="1900" y="3380" width="117.6" height="210" as="geometry" />
+          <mxGeometry x="1910" y="3450" width="117.6" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;Assumptions:&lt;br&gt;&lt;br&gt;JumpServer is open to public traffic on a specific port.&lt;br&gt;That traffic is then forwarded to the private IP of a private server (not publicly accessible).&lt;br&gt;The private server accepts or denies the user based on ssh pem key. The JumpServer has no knowledge of the pem key(s) and merely forwards the user to the private server.&lt;br&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="b3J-dSMPI3ApOvudO47X-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;Assumptions:&lt;br&gt;&lt;br&gt;JumpServer is open to public traffic on a specific port.&lt;br&gt;That traffic is then forwarded to the private IP of a private server (not publicly accessible).&lt;br&gt;The private server accepts or denies the user based on ssh pem key. The JumpServer has no knowledge of the pem key(s) and merely forwards the user to the private server.&lt;br&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="800" y="2880" width="610" height="130" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=16;" edge="1" parent="1" source="b3J-dSMPI3ApOvudO47X-2" target="b3J-dSMPI3ApOvudO47X-3">
+        <mxCell id="b3J-dSMPI3ApOvudO47X-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=16;" parent="1" source="b3J-dSMPI3ApOvudO47X-2" target="b3J-dSMPI3ApOvudO47X-3" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-7" value="ssh -i sae.pem sae@publicIP-ofJumpServer" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=16;" vertex="1" connectable="0" parent="b3J-dSMPI3ApOvudO47X-6">
+        <mxCell id="b3J-dSMPI3ApOvudO47X-7" value="ssh -i sae.pem sae@publicIP-ofJumpServer" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=16;" parent="b3J-dSMPI3ApOvudO47X-6" vertex="1" connectable="0">
           <mxGeometry x="0.2941" relative="1" as="geometry">
-            <mxPoint x="-105" as="offset" />
+            <mxPoint x="-1195" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-2" value="Home Router" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/router.svg;fontSize=16;labelPosition=center;verticalLabelPosition=top;verticalAlign=bottom;" vertex="1" parent="1">
-          <mxGeometry x="540.11" y="3110" width="157.89" height="120" as="geometry" />
+        <mxCell id="b3J-dSMPI3ApOvudO47X-2" value="Home Router" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/router.svg;fontSize=16;labelPosition=center;verticalLabelPosition=top;verticalAlign=bottom;" parent="1" vertex="1">
+          <mxGeometry x="880" y="3100" width="157.89" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=16;" edge="1" parent="1" source="b3J-dSMPI3ApOvudO47X-3" target="UQANWD9XaJDzWatrHAQ7-2">
+        <mxCell id="b3J-dSMPI3ApOvudO47X-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=16;" parent="1" source="b3J-dSMPI3ApOvudO47X-3" target="UQANWD9XaJDzWatrHAQ7-2" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-3" value="Digital Ocean Router" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/router.svg;fontSize=16;labelPosition=center;verticalLabelPosition=top;verticalAlign=bottom;" vertex="1" parent="1">
-          <mxGeometry x="1196.0000000000002" y="3100" width="157.89" height="120" as="geometry" />
+        <mxCell id="b3J-dSMPI3ApOvudO47X-3" value="Digital Ocean Router" style="aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image;image=img/lib/active_directory/router.svg;fontSize=16;labelPosition=center;verticalLabelPosition=top;verticalAlign=bottom;" parent="1" vertex="1">
+          <mxGeometry x="1358.0000000000002" y="3100" width="157.89" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-9" value="One port open for public traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
-          <mxGeometry x="1290" y="3370" width="230" height="20" as="geometry" />
+        <mxCell id="b3J-dSMPI3ApOvudO47X-9" value="One port open for public traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="1140" y="3520" width="230" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="b3J-dSMPI3ApOvudO47X-10" value="All ports open to welcome users who have the correct pem key pair" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
-          <mxGeometry x="1700" y="3340" width="490" height="20" as="geometry" />
+        <mxCell id="b3J-dSMPI3ApOvudO47X-10" value="All ports open to welcome users who have the correct pem key pair" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="1600" y="3410" width="490" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
