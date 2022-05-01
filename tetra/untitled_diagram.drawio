@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-05-01T03:44:07.222Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="ssXEH6O3J9h6ABc4kUoH" version="17.5.0" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-05-01T03:46:32.413Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="VT1gXLldK056aJ6HRO43" version="17.5.0" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -462,6 +462,9 @@
         </mxCell>
         <mxCell id="b3J-dSMPI3ApOvudO47X-9" value="One port open for public traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
           <mxGeometry x="1140" y="3520" width="230" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="_n3LeqID-bf_4c0pYieP-2" value="sshd listens on port 22 for TCP traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1828.8" y="3410" width="280" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
