@@ -29,3 +29,10 @@ tetra-htpasswd-set(){
    # using a shared devops password.
    echo htpasswd -c ~$USER/htpasswd ${1:-$USER}
 }
+
+tetra-dev-notes(){
+cat <<EOF
+Good 3 part series on DNS debugging:
+https://www.youtube.com/watch?v=Z8YoudlLx0k
+EOF
+}
