@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-05-01T04:40:04.844Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="ZM73GVJ7DCeB6Eu80GQQ" version="17.5.0" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-05-05T14:52:09.554Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="lgBS5kfyaQVUvmwUJ1CW" version="17.5.0" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -286,7 +286,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="AeK4mo_tdcoKuWDf1bww" name="Page-2">
-    <mxGraphModel dx="2258" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2861" dy="1134" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -416,7 +416,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="_n3LeqID-bf_4c0pYieP-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;ssh traffic encrypted with sae.pem&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="b3J-dSMPI3ApOvudO47X-5">
+        <mxCell id="_n3LeqID-bf_4c0pYieP-1" value="&lt;font style=&quot;font-size: 16px&quot;&gt;ssh traffic encrypted with sae.pem&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="b3J-dSMPI3ApOvudO47X-5" vertex="1" connectable="0">
           <mxGeometry x="-0.6043" y="-4" relative="1" as="geometry">
             <mxPoint x="133" y="-4" as="offset" />
           </mxGeometry>
@@ -458,11 +458,30 @@
         <mxCell id="b3J-dSMPI3ApOvudO47X-9" value="One port open for public inbound traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
           <mxGeometry x="1088.15" y="3480" width="290" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="_n3LeqID-bf_4c0pYieP-2" value="sshd listens on port 22 for TCP traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+        <mxCell id="_n3LeqID-bf_4c0pYieP-2" value="sshd listens on port 22 for TCP traffic" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
           <mxGeometry x="1828.8" y="3410" width="280" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="_n3LeqID-bf_4c0pYieP-3" value="Arbitrary port used to send outbound traffic to private server on private IP" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+        <mxCell id="_n3LeqID-bf_4c0pYieP-3" value="Arbitrary port used to send outbound traffic to private server on private IP" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" parent="1" vertex="1">
           <mxGeometry x="1525" y="3510" width="530" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=18;shape=link;" edge="1" parent="1" source="aVjhZT2Mxh3weZkbUspv-3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="145" y="5191.428571428571" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-3" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Client&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
+          <mxGeometry y="4250" width="290" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-7" style="edgeStyle=orthogonalEdgeStyle;shape=link;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=18;" edge="1" parent="1" source="aVjhZT2Mxh3weZkbUspv-4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="894.0000000000005" y="5179.999999999999" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-4" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Server&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
+          <mxGeometry x="749" y="4240" width="290" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-5" value="&lt;b&gt;TCP Handshake on local network&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;" vertex="1" parent="1">
+          <mxGeometry x="-10" y="4060" width="300" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
