@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-05-05T14:52:21.788Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="xDNJ9NnxJ-bc1RcSGyTs" version="17.5.0" type="github" pages="4">
+<mxfile host="app.diagrams.net" modified="2022-05-05T14:53:38.003Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36" etag="-C3D72MDiiYvHYm8m6Xf" version="17.5.0" type="github" pages="4">
   <diagram name="Page-1" id="bfe91b75-5d2c-26a0-9c1d-138518896778">
     <mxGraphModel dx="1408" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -286,7 +286,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="AeK4mo_tdcoKuWDf1bww" name="Page-2">
-    <mxGraphModel dx="2861" dy="1134" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1487" dy="1133" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -469,7 +469,7 @@
             <mxPoint x="145" y="5191.428571428571" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="aVjhZT2Mxh3weZkbUspv-3" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Client&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-3" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Client&lt;br&gt;&lt;br&gt;192.168.0.147:56208&lt;br&gt;&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
           <mxGeometry y="4250" width="290" height="140" as="geometry" />
         </mxCell>
         <mxCell id="aVjhZT2Mxh3weZkbUspv-7" style="edgeStyle=orthogonalEdgeStyle;shape=link;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=18;" edge="1" parent="1" source="aVjhZT2Mxh3weZkbUspv-4">
@@ -477,7 +477,7 @@
             <mxPoint x="894.0000000000005" y="5179.999999999999" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="aVjhZT2Mxh3weZkbUspv-4" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Server&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
+        <mxCell id="aVjhZT2Mxh3weZkbUspv-4" value="&lt;font style=&quot;font-size: 18px&quot;&gt;Server&lt;br&gt;&lt;br&gt;192.168.192.10:13&lt;br&gt;&lt;/font&gt;" style="html=1;" vertex="1" parent="1">
           <mxGeometry x="747.89" y="4240" width="290" height="140" as="geometry" />
         </mxCell>
         <mxCell id="aVjhZT2Mxh3weZkbUspv-5" value="&lt;b&gt;TCP Handshake on local network&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;" vertex="1" parent="1">
