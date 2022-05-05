@@ -1,0 +1,16 @@
+TODO: edit custom.sh
+TODO: review nh-root, take out snap
+TODO: nail down user hierarchy: root, admin, devops, 
+TODO: Gatekeeper / Jump Server
+TODO: Mother nodes: users with data on separate partition 
+TODO: Children nodes: no users, just roles
+TODO: Backup via Sync
+TODO: Automated key audit script
+TODO: Look into graph autogeneration via Mermaid
+
+DONE Merged custom.sh and nh-root
+DONE added origin-ssh in devops-study-group/.git/config
+DONE added root@do4_n2's key in GitHub (personal account)
+DONE Wrote out IP review
+DONE Wrote out Volume storage review
+
