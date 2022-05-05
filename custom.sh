@@ -1,3 +1,10 @@
+# TODO: finish description
+# TODO: add nicer tmux-join syntax helper functions
+
+# Describe this as file as your 'global configuration'
+#  - API KEYS, PEMs KEYs, ad-hoc port assignments
+# Gets encrypted with user's primary key.
+# 
 # 
 # Encrypt this file before committing to project directory
 # Given custon.sh.enc example's passphrase is devops4real
@@ -20,7 +27,6 @@ source $dir/nodeholder/bash/nh-remote.sh
 export RC_APIKEY=XXXXXXXXXXXXXXXXXXXXXXXXXXX
 export RC_USERID=YYYYYYY
 
-PS1="admin@do4> "
 nginxAccess="/var/log/nginx/access.log"
 nginxError="/var/log/nginx/error.log"
 syslog="/var/log/syslog"
