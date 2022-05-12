@@ -3,7 +3,7 @@ The DevOps Study Group meets to discuss provisioning, securing and
 maintaing cloud based resources at Digital Ocean and Google. 
 The [12 Factors App](https://12factor.net/) by the Heroku team is a 
 guiding philosophy.
-The [devops.sh](./devops.sh) file is a
+The [dotool.sh](./dotool.sh) file is a
 collection of Bash functions which collects various tools neceassry to
 orchestrate secure operations. "Orchestration at a distance" describes
 the provisioning, configuring, running and securing of remote

@@ -17,8 +17,8 @@ EOF
 
 tetra-encrypt(){
   openssl aes-256-cbc -a -salt -in $1 -out $1.enc
-
 }
+
 tetra-decrypt(){
   openssl aes-256-cbc -d -a -in $1 -out $2 
 }
@@ -28,4 +28,11 @@ tetra-htpasswd-set(){
    # typically development web is protected 
    # using a shared devops password.
    echo htpasswd -c ~$USER/htpasswd ${1:-$USER}
+}
+
+tetra-dev-notes(){
+cat <<EOF
+Good 3 part series on DNS debugging:
+https://www.youtube.com/watch?v=Z8YoudlLx0k
+EOF
 }

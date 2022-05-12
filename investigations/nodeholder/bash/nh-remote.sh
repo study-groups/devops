@@ -14,20 +14,21 @@
 ##################################################################
 
 # Used to get key so we can clone private repo.
-nh-remote-get-key-from-role() {
+nh-get-key-from-role() {
 
   if [ $# -lt 2 ]; then
-    echo "Command requires the ip and role"
-    echo "nh-remote-get-key-from-role ip role"
+    echo "Command requires the role and ip"
+    echo "nh-get-key-from-role role ip"
     return 1
   fi
 
-  local ip="$1";
-  local role="$2";
+  local role="$1";
+  local ip="$2";
 
   ssh "$role"@"$ip" 'source nh.sh && nh-get-key'
 }
 
+<<<<<<< HEAD:nodeholder/bash/nh-remote.sh
 # Configure turns root@vps to admin@node
 # Any local apps must be coped now from local mother to child node
 # Copy config.sh to admin@$IP and call ssh root@$IP config-init
@@ -35,10 +36,13 @@ nh-remote-get-key-from-role() {
 nh-remote-install-root(){ 
 # kind of a misnomer at the moment
 # should probably be more like nh-remote-insert-dependencies
+=======
+nh-remote-configure-node(){
+>>>>>>> 242e3209f268a2f86808af61dae659e73d93a4ba:investigations/nodeholder/bash/nh-remote.sh
 
-  if [ $# -lt 1 ]; then
-    echo "Command requires the ip and configuration file"
-    echo "nh-remote-install-config ip <config-file>"
+  if [ $# -lt 3 ]; then
+    echo "Command requires the ip, config file, and name of the admin role"
+    echo "nh-remote-configure-node ip file admin_name"
     return 1
   fi
 
@@ -46,8 +50,11 @@ nh-remote-install-root(){
   local config_file="${2:-"nh-root.sh"}";
   local config_path="$config_dir/$config_file"
   local ip="$1";
-  # copy root.sh to the remote machine
-  scp "$config_path" root@"$ip":"$config_file"
+  local config_file="$2";
+  local admin="$3";
+
+  # copy configuration file to the remote machine
+  scp "$config_file" root@"$ip":"$config_file"
  
   # location where daemonize is on mother node
   local dpath_local="/home/admin/src/daemonize/daemonize";
@@ -58,6 +65,7 @@ nh-remote-install-root(){
   # copy daemonize to the remote machine
   scp "$dpath_local" root@"$ip":"$dpath_remote"
 
+<<<<<<< HEAD:nodeholder/bash/nh-remote.sh
   # new instructions 8/16/21
   echo "Logging into $ip as root."
   echo "Configure nodeholder with the following commands:"
@@ -76,6 +84,20 @@ nh-remote-install-root(){
   #    echo "#  Log in to remote host local> ssh admin@$droplet       #"
   #    echo "##########################################################"
   #'
+=======
+  # source configuration to configure machine as Mother or Child 
+  # provide admin name to script to create first admin on node
+  ssh root@"$ip" '
+      source "'$config_file'" && nh-root-config-init "'$admin'" 
+      echo "##########################################################"
+      echo "#  Deploy \"from a distance\" application with admin.sh  #"
+      echo "#                                                        #"
+      echo "#       --or--                                           #"
+      echo "#                                                        #"
+      echo "#  Log in to remote host local> ssh admin@$droplet       #"
+      echo "##########################################################"
+  '
+>>>>>>> 242e3209f268a2f86808af61dae659e73d93a4ba:investigations/nodeholder/bash/nh-remote.sh
   
   # instruct user on next steps
   #echo "
@@ -85,54 +107,20 @@ nh-remote-install-root(){
   #"
 }
 
-# installs admin on nodeholder 
-# Should be: nodeholder-remote-install-admin() {
-nh-remote-install-admin() {
-
-  if [ $# -lt 2 ]; then
-    echo "Command requires the ip and admin file"
-    echo "nh-remote-install-admin ip file"
-    return 1
-  fi
-
-  # ip of node to send file to
-  local ip="$1";
- 
-  local admin_dir="/home/admin/src/devops-study-group/nodeholder/bash" 
-  # Adds admin.sh to .bashrc
-  local statement="\nif [ -f ~/admin.sh ]; then\n  . ~/admin.sh\nfi";
-
-  # file to send to node
-  local admin_file="$2";
-  
-  # send admin file
-  scp "$admin_file" admin@"$ip":~/admin.sh
-  # specify the role of the node in the admin.sh file
-  # and set up .bashrc to source admin.sh on boot/use
-  ssh admin@"$ip" \
-    'echo "NODEHOLDER_ROLE=child" >> ~/admin.sh && echo -e "'$statement'" >> ~/.bashrc'
-
-  buildpak=/home/admin/src/devops-study-group/nodeholder/app
-
-  # copy app (was buildpak) to node
-  scp -r $buildpak admin@"$ip":~/
-  # copy .gitlab-ci.yml template to admin
-  # scp ./.gitlab-ci.yml admin@"$ip":~/
-}
-
-# refreshes admin functions on nodeholder
+# refreshes admin functions on node
 nh-remote-refresh-admin() {
 
-  if [ $# -lt 2 ]; then
-    echo "Command requires the ip and admin file"
-    echo "nh-remote-refresh-admin ip file"
+  if [ $# -lt 3 ]; then
+    echo "Command requires the admin, ip, and new admin file"
+    echo "nh-remote-refresh-admin admin ip file"
     return 1
   fi
+  
+  local admin="$1";
+  local ip="$2"
+  local admin_file="$3"
 
-  local ip="$1"
-  local admin_file="$2"
-
-  scp "$admin_file" admin@"$ip":~/admin.sh
+  scp "$admin_file" "$admin"@"$ip":~/admin.sh
 }
 
 # creates new user/node on nodeholder
@@ -140,14 +128,14 @@ nh-remote-refresh-admin() {
 nh-remote-create-role() {
   
   if [ $# -lt 2 ]; then
-    echo "Command requires the ip and role"
-    echo "nh-remote-create-role ip role"
+    echo "Command requires the role and ip"
+    echo "nh-remote-create-role role ip"
     return 1
   fi
 
-  local ip="$1";
-  local role="$2";
-  local nh_path=/home/admin/src/devops-study-group/nodeholder/bash/nh-app.sh
+  local role="$1";
+  local ip="$2";
+  local nh_path=./bash/nh-app.sh # Rename to user.sh to reflect role and perm.
 
   ssh admin@"$ip" 'source admin.sh && nh-admin-create-role "'$role'"'
   [ $? == 0 ] && 
