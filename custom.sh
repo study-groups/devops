@@ -42,7 +42,6 @@ sed-whitespace-inplace(){
   sed -i 's/[ \t]*$//' "$1"
 }
 
-
 remoteIp=$do1
 remoteAdmin="ssh admin@$ip source admin.sh &&"
 remoteSae="ssh sae@$ip source nh.sh && "

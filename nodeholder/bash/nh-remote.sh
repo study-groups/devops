@@ -32,7 +32,9 @@ nh-remote-get-key-from-role() {
 # Any local apps must be coped now from local mother to child node
 # Copy config.sh to admin@$IP and call ssh root@$IP config-init
 # Child ode now ready for ssh admin@$IP:admin-commands
-nh-remote-install-root(){
+nh-remote-install-root(){ 
+# kind of a misnomer at the moment
+# should probably be more like nh-remote-insert-dependencies
 
   if [ $# -lt 1 ]; then
     echo "Command requires the ip and configuration file"
@@ -62,7 +64,6 @@ nh-remote-install-root(){
   echo "source nh-root.sh && nh-root-init"
   sleep 3
   ssh root@"$ip"
-
 
   # source configuration and configure machine
   #ssh root@"$ip" '

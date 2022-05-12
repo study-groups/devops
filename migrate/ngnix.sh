@@ -1,6 +1,8 @@
 # apt-get purge nginx nginx-common
 
+# migrate-services
 dest="root@159.65.106.21"
+#dest="root@$IP"
 sync="rsync -azv"
 
 dir=/etc/nginx/sites-available/
