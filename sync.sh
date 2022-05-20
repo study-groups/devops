@@ -1,12 +1,11 @@
 #!/bin/env bash
-mode=live # anything but live will be a dryrun.
+mode=notlive # anything but live will be a dryrun.
 SYNC="/home/admin/src/study-groups/devops-study-group/sync.sh"
-
 TO_MNT="/mnt/volume_sfo2_02"
 TO_USER="mricos"
 TO_HOST="ux305-2.local"
 TO_DIR="/home/mricos/backups"
-FROM=/home/mricos/files/
+FROM_DIR=/home/mricos/files/
 
 sync-help(){
   echo "\
@@ -16,24 +15,17 @@ sync-space(){
  du -hsx * | sort -rh | head -4 2> /tmp/err
 }
 
-sync-from-to() {
-  local from_dir=$1 # full path
-  local to_user="$2"
-  local to_host="$3"
-  local to_dir="$4"
-  local from_hostname=$HOSTNAME
-  local to_path="$to_dir/$from_hostname/$from_dir"
-  local mkdircmd="ssh $to_user@$to_host mkdir -p $to_path"
-  local to_total="$to_user"@"$to_host":"$to_path"
+sync-from(){
+  local exclude="--exclude={'.git','*.zip','*.gz'}"
   local params="-avzP" # archive,verbose,compress,Partial
-  cmd=$(echo rsync $params "$from_dir" "$to_total")
-  echo "$mkdircmd; $cmd" # copy and paste to execute
-  #[ $mode = "not-live" ] && exec $cmd    # not live
+  local host=$1
+  local from=${2-"/mnt/volume_sfo2_02"}
+  local local=${3-"."}
+  cmd=$(echo rsync $params $exclude  "root@$host:$from" "$local")
+  echo "Copy and paste to execute (for safety):" 
+  echo $cmd
 }
 
-sync-from() {
-  sync-from-to $1 $TO_USER $TO_HOST $TO_PATH
-}
 
 sync-to() {
   local to_user=$1
@@ -42,10 +34,6 @@ sync-to() {
   sync-from-to $FROM $to_user $to_host $to_path
 }
 
-sync-all() {
-  local from="$FROM"
-  sync-from-to $FROM $TO_USER $TO_HOST $TO_DIR
-}
 sync-find-since(){
   local since=${1:-"1 hour ago"}
   #find / -newermt $(date +%Y-%m-%d -d "1 min ago") -type f -print
@@ -64,4 +52,4 @@ See man sync for that.
 
 ip addr show dev eth0
 "
-}
+h}
