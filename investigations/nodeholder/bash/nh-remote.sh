@@ -28,7 +28,17 @@ nh-get-key-from-role() {
   ssh "$role"@"$ip" 'source nh.sh && nh-get-key'
 }
 
+<<<<<<< HEAD:nodeholder/bash/nh-remote.sh
+# Configure turns root@vps to admin@node
+# Any local apps must be coped now from local mother to child node
+# Copy config.sh to admin@$IP and call ssh root@$IP config-init
+# Child ode now ready for ssh admin@$IP:admin-commands
+nh-remote-install-root(){ 
+# kind of a misnomer at the moment
+# should probably be more like nh-remote-insert-dependencies
+=======
 nh-remote-configure-node(){
+>>>>>>> 242e3209f268a2f86808af61dae659e73d93a4ba:investigations/nodeholder/bash/nh-remote.sh
 
   if [ $# -lt 3 ]; then
     echo "Command requires the ip, config file, and name of the admin role"
@@ -55,6 +65,26 @@ nh-remote-configure-node(){
   # copy daemonize to the remote machine
   scp "$dpath_local" root@"$ip":"$dpath_remote"
 
+<<<<<<< HEAD:nodeholder/bash/nh-remote.sh
+  # new instructions 8/16/21
+  echo "Logging into $ip as root."
+  echo "Configure nodeholder with the following commands:"
+  echo "source nh-root.sh && nh-root-init"
+  sleep 3
+  ssh root@"$ip"
+
+  # source configuration and configure machine
+  #ssh root@"$ip" '
+  #    source "'$config_file'" && yes 2 | nh-root-init
+  #    echo "##########################################################"
+  #    echo "#  Deploy \"from a distance\" application with admin.sh  #"
+  #    echo "#                                                        #"
+  #    echo "#       --or--                                           #"
+  #    echo "#                                                        #"
+  #    echo "#  Log in to remote host local> ssh admin@$droplet       #"
+  #    echo "##########################################################"
+  #'
+=======
   # source configuration to configure machine as Mother or Child 
   # provide admin name to script to create first admin on node
   ssh root@"$ip" '
@@ -67,6 +97,7 @@ nh-remote-configure-node(){
       echo "#  Log in to remote host local> ssh admin@$droplet       #"
       echo "##########################################################"
   '
+>>>>>>> 242e3209f268a2f86808af61dae659e73d93a4ba:investigations/nodeholder/bash/nh-remote.sh
   
   # instruct user on next steps
   #echo "

@@ -70,7 +70,8 @@ nh-root-add-devops(){ # creates devops user
     chmod 0700 /home/devops/.ssh
     chmod 0600 /home/devops/.ssh/authorized_keys
     
-    #echo 'devops ALL=(ALL:ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
+    echo -e '#Cmnd alias specification\nCmnd_Alias DEVOPCMDS=/bin/systemctl,/bin/journalctl,/snap/bin/certbot,/snap/bin/npm\ndevops ALL= NOPASSWD: DEVOPCMDS' | 
+    sudo EDITOR='tee -a' visudo
     
     sudo -u devops ssh-keygen \
     -N "" \

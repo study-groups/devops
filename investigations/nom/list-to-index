@@ -36,8 +36,6 @@ do
         #echo ""
     fi	
 
-#    (( count++ ))
-
     if [[ "$state" == "DATA" && "$line" != "" ]];
     then
         state="DATA"

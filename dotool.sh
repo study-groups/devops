@@ -249,7 +249,8 @@ dotool-create-server-list() {
   # write to server.list
   dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > \
 	  ~/server.list
-
+ 
+  # a bug is showing up from this
   dotool-floating | awk '$2~"nyc" {print "floatingEast=" $1} \
                          $2~"sfo"{print "floatingWest=" $1}' >> \
 	  ~/server.list

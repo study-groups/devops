@@ -42,7 +42,7 @@ dotool-list
 
 .TP
 Execute ps on remote machine:
-ssh root$machineName 'ps  -eo pid,cmd,%mem,%cpu --sort=-%mem | head'
+ssh root@$machineName 'ps  -eo pid,cmd,%mem,%cpu --sort=-%mem | head'
 
 
 .TP

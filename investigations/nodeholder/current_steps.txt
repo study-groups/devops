@@ -1,7 +1,16 @@
+PROVISIONING Phase 1 (dotool)
+-----
+
 dotool-keys
-- to choose the public ssh key of the user you want to insert into the newly created node in order to login to it
+
+  - to choose the public ssh key of the user you want
+    to insert into the newly created node in order to log in to it
 
 dotool-create name key [image]
+
+
+PROVISIONING Phase 2 (nh-remote)
+-----
 
 nh-remote-install-root $ip_name nh-root-ubuntu.sh
 
@@ -9,12 +18,19 @@ nh-remote-install-admin $ip_name nh-admin.sh
 
 nh-remote-create-role $ip_name role
 
-nh-remote-get-key-from-role $ip role
-- use when a repo is private and you must add the public ssh key in order to clone your application from an external repo
+Repo-App commands
+------
 
-Add key to user account on repo service if repo is private and requires ssh authentication
+nh-remote-get-key-from-role $ip role
+
+  - use when a repo is private and you must add the public ssh key
+    in order to clone your application from an external repo
+
 
 nh-remote-create-app $ip_name role url [app_dir_name] [branch]
+
+  - Add key to user account on repo service if repo is private
+    and requires ssh authentication.
 
 nh-remote-app-install-deps $ip_name role app
 

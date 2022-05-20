@@ -1,0 +1,29 @@
+# The Sparkline data service consists of:
+# 1) app-sever (yarn start)    User connects to this or dev
+# 2) dev-app-sever (yarn dev)
+# 3) node-server (node-server)
+ 
+#https://www.golinuxcloud.com/create-systemd-service-example/
+
+[Unit]
+Description=Sparkline Data Service
+
+[Service]
+ExecStart=/home/devops/src/sparkline/nectar/service.sh
+
+# no, on-success, on-failure, on-abnormal, on-watchdog, on-abort, or always
+Restart=no
+
+#EnvironmentFile=/home/devops/src/sparkline/webtool/envfile
+
+#Type=forking
+PIDFile=/home/devops/src/sparkline/nectar/service.pid
+#EnvironmentFile=-/etc/sysconfig/network
+#ExecStartPre=-/usr/libexec/postfix/aliasesdb
+#ExecStartPre=-/usr/libexec/postfix/chroot-update
+#ExecStart=/usr/sbin/postfix start
+#ExecReload=/usr/sbin/postfix reload
+#ExecStop=/usr/sbin/postfix stop
+
+[Install]
+WantedBy=multi-user.target

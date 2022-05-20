@@ -7,3 +7,10 @@
 # /home => include home/username1 => /home/home/user1
 # /home/ => just user1 => /home/user1
 rsync -avzP /home/ root@159.65.106.21:/home
+
+# copy-root-to
+# rsync -avzP /home/ root@$IP:/home
+
+# copy-roles-to
+# for loop /home
+# rsync -avzP /home/ $role@$IP:/home
