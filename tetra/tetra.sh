@@ -2,6 +2,8 @@
 remoteEast="ssh admin@$do1"
 remoteWest="ssh admin@$do2"
 
+source $TETRA/*.sh
+
 tetra-make-env(){
   scp admin@$do4:~/server.list ./tetra.env # dotool to tetra
   echo "TETRA_API_KEY=XXX-YYYY-ZZZ" >> ./tetra.env
@@ -36,3 +38,4 @@ Good 3 part series on DNS debugging:
 https://www.youtube.com/watch?v=Z8YoudlLx0k
 EOF
 }
+

@@ -1,17 +1,18 @@
 KEY="~/.ssh/do_spring_rsa"
+alias tetra="~/src/devops-study-group/tetra/tetra"
 
 # must run as root
-nh-bootstrap(){
+tetra-bootstrap(){
 #ssh-keygen
 #dnf install git # fedora
 #apt install git # ubuntu
 #eval "$(ssh-agent)"
 #ssh-add ~/.ssh/$KEY
-#mkdir src
+  [ -d "~/src" ] && mkdir src
 #cd src
 #git clone git@github.com:study-groups/devops-study-group.git
 #cd devops-study-group
-envsubst < ./custom.env > ~/custom.sh
+#envsubst < ./custom.env > ~/custom.sh
 }
 
 nh-root-help(){
