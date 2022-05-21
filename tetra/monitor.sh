@@ -1,10 +1,11 @@
-monitor-help(){
-  echo "\
-Monitor is a set of shell functions for monitoring unix servers."
+tetra-monitor-help(){
+  cat <<EOF
+Shell functions for monitoring unix servers.
+EOF
 }
 
-monitor-all(){
-  local user="admin"
-  local host="$doX"
+tetra-sysinfo(){
+  local user="root"
+  local host="$do4_n2"
   ssh $user@$host landscape-sysinfo
 }
