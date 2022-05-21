@@ -1,8 +1,10 @@
+# This file is being migrated to an excutable shell program
+
 [ -f tetra.env ] && source tetra.env
 remoteEast="ssh admin@$do1"
 remoteWest="ssh admin@$do2"
 
-source $TETRA/*.sh
+#source $TETRA/*.sh
 
 tetra-make-env(){
   scp admin@$do4:~/server.list ./tetra.env # dotool to tetra
@@ -15,21 +17,6 @@ tetra-make-nginx-proxy(){
 EOF
 
 
-}
-
-tetra-encrypt(){
-  openssl aes-256-cbc -a -salt -in $1 -out $1.enc
-}
-
-tetra-decrypt(){
-  openssl aes-256-cbc -d -a -in $1 -out $2 
-}
-
-tetra-htpasswd-set(){
-   # used by nginx for basic security
-   # typically development web is protected 
-   # using a shared devops password.
-   echo htpasswd -c ~$USER/htpasswd ${1:-$USER}
 }
 
 tetra-dev-notes(){
