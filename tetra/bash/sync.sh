@@ -52,4 +52,4 @@ See man sync for that.
 
 ip addr show dev eth0
 "
-h}
+}

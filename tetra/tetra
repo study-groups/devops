@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# This file should stay in the repo.
-# Bootstrap phase should set an alias named tetra, e.g.:
-#   alias tetra="~/src/devops-study-group/tetra/tetra"
-APPDIR=$(dirname "$0")  # where this file resides
-source $APPDIR/*.sh     # all the .sh files are tetra files
