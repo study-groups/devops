@@ -1,0 +1,26 @@
+#!/bin/bash
+# The output of this file is meant to be evaluted by a Bash
+# shell and giving it tetra- commands. E.g. 
+#
+#  > eval $(tetra-init)
+#
+APPDIR=$(dirname "$0")  # where this file resides
+BASHDIR=$(dirname ${BASH_SOURCE[0]})
+
+# Echo meta data out to stderr.
+>&2 echo "Tetra 0.1" 
+>&2 echo "APPDIR=$APPDIR"
+>&2 echo "BASHDIR=$BASHDIR"
+
+files=$(ls $BASHDIR/bash/*.sh)
+echo "#source the output of this file"
+for file in ${files[@]}
+do
+  cat $file
+done
+
+# makes subseuqent shells have the functions available
+# bash -i # for example, start a new interactive shell
+#eval "$(declare -F | sed -e 's/-f /-fx /')"
+#bash -i 
+
