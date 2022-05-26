@@ -5,6 +5,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Don't publish summaries tetra generates
+summary*.html
+
 investigations/nh-pubsub-env/project*
 tetra.env
 tetra.env.enc
