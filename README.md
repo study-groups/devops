@@ -1,31 +1,38 @@
 # devops-study-group
-The DevOps Study Group meets to discuss provisioning, securing and
-maintaing cloud based resources at Digital Ocean and Google. 
+Notes on provisioning, securing and
+maintaing cloud based resources at Digital Ocean, Google and AWS.
+
 The [12 Factors App](https://12factor.net/) by the Heroku team is a 
 guiding philosophy.
+
 The [dotool.sh](./dotool.sh) file is a
 collection of Bash functions which collects various tools neceassry to
-orchestrate secure operations. "Orchestration at a distance" describes
-the provisioning, configuring, running and securing of remote
-virtual environments. 
+provision compute and networking resources.
+
+The [tetra.sh](./tetra/tetra.sh) file is a
+collection of Bash functions which 
+securely orchestrates linux processes over private networks.
 
 ## Virtual Environments
 Two methods of virtualization:
 
-1. [hypervisor](https://en.wikipedia.org/wiki/Hypervisor)
-2. [container](https://en.wikipedia.org/wiki/OS-level_virtualization)
+1. [hypervisor](https://en.wikipedia.org/wiki/Hypervisor) for virtual private servers.
+2. [container](https://en.wikipedia.org/wiki/OS-level_virtualization) for containers based off of [LXD / LXC](https://linuxcontainers.org/lxd/introduction/), e.g. [Docker](https://www.devonblog.com/continuous-delivery/lxc-vs-lxd-vs-docker-evolution-of-the-container-ecosystem/).
 
 . | Hypervisor | Container
 --- | --- | ---
 **Google** | [KVM](https://cloud.google.com/blog/products/gcp/7-ways-we-harden-our-kvm-hypervisor-at-google-cloud-security-in-plaintext) | [Containers](https://cloud.google.com/containers/)
-**DigitalOcean** | [Droplets](https://www.digitalocean.com/docs/) | [cloud computing](https://en.m.wikipedia.org/wiki/Cloud_computing)
+**DigitalOcean** | [Droplets](https://www.digitalocean.com/docs/) | [Kubernetes](https://www.digitalocean.com/products/kubernetes)
+**AWS** | [EC2](https://aws.amazon.com/ec2/instance-types/) | [Fargate](https://docs.aws.amazon.com/AmazonECS/latest/userguide/what-is-fargate.html)
+
+
 
 ## Google Cloud Platform v. Digital Ocean
 
 GCP | Digtal Ocean | AWS
 --- | --- | ---
 [Devops Philosophy](https://cloud.google.com/devops/) | [CI/CD](https://www.digitalocean.com/community/tags/ci-cd) | [AWS-CICD](https://aws.amazon.com/blogs/devops/complete-ci-cd-with-aws-codecommit-aws-codebuild-aws-codedeploy-and-aws-codepipeline/)
-compute | droplet | [EC2](https://aws.amazon.com/ec2/instance-types/)
+compute | [droplet](https://www.digitalocean.com/products/droplets) | [EC2](https://aws.amazon.com/ec2/instance-types/)
 bucket | [spaces](https://www.digitalocean.com/products/spaces/) | [S3/EBS](https://aws.amazon.com/ebs/)
 images |  [images](https://www.digitalocean.com/docs/images/) | [AMI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html)
 volumes | [block storage](https://www.digitalocean.com/products/block-storage/) | [EFS](https://aws.amazon.com/efs/)
@@ -52,8 +59,8 @@ consul | tetra-{start,stop,update}
 nomad | tetra-run
 
 ## Ngnix
-Nginx handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
-- [Nginx docs](https://docs.nginx.com/)
+[Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
+- 
 
 ## Docker
 - Marketing from docker.com: [Why Docker?](https://www.docker.com/why-docker) 
