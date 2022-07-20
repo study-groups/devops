@@ -27,7 +27,7 @@ Two methods of virtualization:
 
 
 
-## Google Cloud Platform v. Digital Ocean
+## Google Cloud Platform v. Digital Ocean v. AWS
 
 GCP | Digtal Ocean | AWS
 --- | --- | ---
