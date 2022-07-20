@@ -6,12 +6,11 @@ The [12 Factors App](https://12factor.net/) by the Heroku team is a
 guiding philosophy.
 
 The [dotool.sh](./dotool.sh) file is a
-collection of Bash functions which collects various tools neceassry to
-provision compute and networking resources.
+collection of Bash functions which
+provision compute and networking resources in Digital Ocean ecosystem.
 
-The [tetra](./tetra/) directory is a
-collection of Bash functions which 
-securely orchestrates linux processes over private networks.
+The [tetra](./tetra/) directory contains Bash functions for securely configuring linux servers and managing microservices on them. 
+
 
 ## Virtual Environments
 Two methods of virtualization:
@@ -75,6 +74,8 @@ nomad | tetra-run
 - There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
 
 ## References
+- [remote procedure calls](https://en.wikipedia.org/wiki/Remote_procedure_call)
+(as opposed to REST or GraphQL requests).
 - [Docker Engine Faq](https://docs.docker.com/engine/faq/): Docker frequently asked questions, 9 min read.
 - [Docker Crib Sheet](https://github.com/wsargent/docker-cheat-sheet)
  - [ICANN - Internet Corporation for Assigned Names and Numbers](https://www.icann.org/resources/pages/beginners-guides-2012-03-06-en) This is where domain names come from.
