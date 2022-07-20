@@ -61,20 +61,18 @@ nomad | tetra-run
 ## Ngnix
 - [Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 
-## Docker
-- Marketing from docker.com: [Why Docker?](https://www.docker.com/why-docker) 
-- [One click install vi digitalocean.com](https://www.digitalocean.com/docs/one-clicks/docker/)
-- [What is a container at docker.com](https://www.docker.com/resources/what-container)
-- [Get started](https://docs.docker.com/get-started/) at docker.com
+## Containers
+- [Why Docker?](https://www.docker.com/why-docker) and [What is a container at docker.com](https://www.docker.com/resources/what-container)
+- [One click digitalocean.com](https://docs.digitalocean.com/products/marketplace/catalog/docker/#getting-started-after-deploying-docker): notice IP table considerations since [Docker manipulates iptable rules](https://docs.docker.com/network/iptables/) to provide network isolation
 - Dockerfile: [Dockerfile at Docker](https://docs.docker.com/glossary/?term=Dockerfile) and [best practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 - [Layers definition](https://docs.docker.com/glossary/?term=layer)
 - Dont use Links. Instead use [overlay network driver](https://docs.docker.com/glossary/?term=overlay%20network%20driver)
 - [Docs on Volumes](https://docs.docker.com/storage/volumes/) the preferred mechanism for data persistence
 - [Doc on services](https://docs.docker.com/get-started/part3/#about-services) Services are really just “containers in production.”
 - [Compose files](https://docs.docker.com/compose/compose-file/): Run, and scale services with the Docker platform via [docker-compose.yml](https://docs.docker.com/get-started/part3/#your-first-docker-composeyml-file)
-- Overlay networks: The [overlay network driver](https://docs.docker.com/network/overlay/) creates a distributed network among multiple Docker daemon hosts. Not needed until scale.
+- [Overlay](https://docs.docker.com/network/overlay/)network [driver (bridge, host, overlay, 3rd-party)] (https://docs.docker.com/network/#network-drivers) creates a distributed network among multiple Docker daemon hosts. 
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
-- Network drivers: bridge, host, overlay, 3rd-party [network drivers](https://docs.docker.com/network/#network-drivers)
+- Network drivers: bridge, host, overlay, 3rd-party 
 - There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
 
 ## References
