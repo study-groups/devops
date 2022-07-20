@@ -61,7 +61,7 @@ nomad | tetra-run
 ## Ngnix
 - [Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 
-## Containers
+## Docker
 - [Why Docker?](https://www.docker.com/why-docker) and [What is a container at docker.com](https://www.docker.com/resources/what-container)
 - [One click digitalocean.com](https://docs.digitalocean.com/products/marketplace/catalog/docker/#getting-started-after-deploying-docker): notice IP table considerations since [Docker manipulates iptable rules](https://docs.docker.com/network/iptables/) to provide network isolation
 - Dockerfile: [Dockerfile at Docker](https://docs.docker.com/glossary/?term=Dockerfile) and [best practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
@@ -70,9 +70,8 @@ nomad | tetra-run
 - [Docs on Volumes](https://docs.docker.com/storage/volumes/) the preferred mechanism for data persistence
 - [Doc on services](https://docs.docker.com/get-started/part3/#about-services) Services are really just “containers in production.”
 - [Compose files](https://docs.docker.com/compose/compose-file/): Run, and scale services with the Docker platform via [docker-compose.yml](https://docs.docker.com/get-started/part3/#your-first-docker-composeyml-file)
-- [Overlay](https://docs.docker.com/network/overlay/)network [driver (bridge, host, overlay, 3rd-party)] (https://docs.docker.com/network/#network-drivers) creates a distributed network among multiple Docker daemon hosts. 
+- [Overlay](https://docs.docker.com/network/overlay/) network [driver (bridge, host, overlay, 3rd-party)] (https://docs.docker.com/network/#network-drivers) creates a distributed network among multiple Docker daemon hosts. 
 - Networking: [Docker container networking](https://docs.docker.com/v17.09/engine/userguide/networking/#default-networks)
-- Network drivers: bridge, host, overlay, 3rd-party 
 - There are four major areas to consider when reviewing [Docker security](https://docs.docker.com/engine/security/security/).
 
 ## References
