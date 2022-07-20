@@ -9,7 +9,7 @@ The [dotool.sh](./dotool.sh) file is a
 collection of Bash functions which collects various tools neceassry to
 provision compute and networking resources.
 
-The [tetra.sh](./tetra/tetra.sh) file is a
+The [tetra](./tetra/) directory is a
 collection of Bash functions which 
 securely orchestrates linux processes over private networks.
 
