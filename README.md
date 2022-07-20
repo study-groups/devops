@@ -22,16 +22,16 @@ Two methods of virtualization:
 
 ## Google Cloud Platform v. Digital Ocean
 
-GCP | Digtal Ocean
---- | ---
-[Devops Philosophy](https://cloud.google.com/devops/) | [CI/CD](https://www.digitalocean.com/community/tags/ci-cd) 
-compute | droplet
-bucket | [spaces](https://www.digitalocean.com/products/spaces/)
-images |  [images](https://www.digitalocean.com/docs/images/)
-volumes | [block storage](https://www.digitalocean.com/products/block-storage/)
-[snapshots](https://cloud.google.com/compute/docs/disks/create-snapshots) | [snapshots](https://www.digitalocean.com/docs/images/snapshots/)
-[network](https://cloud.google.com/blog/products/networking/google-cloud-networking-in-depth-how-andromeda-2-2-enables-high-throughput-vms) | [virtual-network](https://www.digitalocean.com/products/networking/)
-availability | [availability](https://www.digitalocean.com/docs/platform/availability-matrix/)
+GCP | Digtal Ocean | AWS
+--- | --- | ---
+[Devops Philosophy](https://cloud.google.com/devops/) | [CI/CD](https://www.digitalocean.com/community/tags/ci-cd) | [AWS-CICD](https://aws.amazon.com/blogs/devops/complete-ci-cd-with-aws-codecommit-aws-codebuild-aws-codedeploy-and-aws-codepipeline/)
+compute | droplet | [EC2](https://aws.amazon.com/ec2/instance-types/)
+bucket | [spaces](https://www.digitalocean.com/products/spaces/) | [S3/EBS](https://aws.amazon.com/ebs/)
+images |  [images](https://www.digitalocean.com/docs/images/) | [AMI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html)
+volumes | [block storage](https://www.digitalocean.com/products/block-storage/) | [EFS](https://aws.amazon.com/efs/)
+[snapshots](https://cloud.google.com/compute/docs/disks/create-snapshots) | [snapshots](https://www.digitalocean.com/docs/images/snapshots/) | [EBS Snapshot](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html)
+[network](https://cloud.google.com/blog/products/networking/google-cloud-networking-in-depth-how-andromeda-2-2-enables-high-throughput-vms) | [virtual-network](https://www.digitalocean.com/products/networking/) | [VPC](https://docs.aws.amazon.com/vpc/latest/userguide/how-it-works.html)
+availability | [availability](https://www.digitalocean.com/docs/platform/availability-matrix/) | [Regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
 
 ## HashiCorp
 
@@ -44,24 +44,16 @@ shows basic usage with Puppet in 2012. Now HashiCorp's products do the automatio
 4. [Nomad](https://www.hashicorp.com/products/nomad/): Deploy and Manage Any Containerized, Legacy, or Batch Application.
 Nomad is an easy-to-use, flexible, and performant workload orchestrator that enables organizations to deploy applications on any infrastructure at scale.
 
-Hashicorp | devops.sh
+Hashicorp | tetra.sh
 --- | ---
-terraform | devops-create-vm-{digocean,google}
-vault | devops-keys-add-{digocean,google}
-consul | devops-{start,stop,update}
-nomad | devops-run
+terraform | tetra-create-vm-{digocean,google}
+vault | tetra-keys-add-{digocean,google}
+consul | tetra-{start,stop,update}
+nomad | tetra-run
 
-## Git 
-- [git](https://git-scm.com/): Git is version control for software development, written by Linus Torvalds.
-- [Git From the Bits Up](https://www.youtube.com/watch?v=MYP56QJpDr4): Join GitHub trainer and evangelist Tim Berglund for a look at Git, from the bits up. This talk is not for the Git beginner, but a more advanced look at "weird internals stuff" and obscure commands that will reveal a sort of internal API that is there for you to use and help expose you to certain intrinsic software design insights that can be had from looking at Git at this level.
-
-- [Git Tutorial for Beginners: Command-Line Fundamentals](https://www.youtube.com/watch?v=HVsySz-h9r4&list=PL-osiE80TeTuRUfjRe54Eea17-YfnOOAx): Videos by Corey Schafer. We'll go over the basics of what git is and how to use it within the command-line. There are several GUI tools out there to help you get started with git, but it can be extremely beneficial to learn git from the command-line as early as possible.
-
-## Traefik
-Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
-- [Traefik on Github](https://github.com/containous/traefik)
-- [Traefik basics](https://docs.traefik.io/basics/#concepts) describing backend, frontend, entry points, and servers.
-- [Traefik example with Node.js server and Docker](https://github.com/Pungyeon/docker-traefik-example)
+## Ngnix
+Nginx handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
+- [Nginx docs](https://docs.nginx.com/)
 
 ## Docker
 - Marketing from docker.com: [Why Docker?](https://www.docker.com/why-docker) 
@@ -83,3 +75,7 @@ Traefik handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP
 - [Docker Engine Faq](https://docs.docker.com/engine/faq/): Docker frequently asked questions, 9 min read.
 - [Docker Crib Sheet](https://github.com/wsargent/docker-cheat-sheet)
  - [ICANN - Internet Corporation for Assigned Names and Numbers](https://www.icann.org/resources/pages/beginners-guides-2012-03-06-en) This is where domain names come from.
+- [git](https://git-scm.com/): Git is version control for software development, written by Linus Torvalds.
+- [Git From the Bits Up](https://www.youtube.com/watch?v=MYP56QJpDr4): Join GitHub trainer and evangelist Tim Berglund for more advanced look at "weird internals stuff" and obscure commands.
+
+- [Git Tutorial for Beginners: Command-Line Fundamentals](https://www.youtube.com/watch?v=HVsySz-h9r4&list=PL-osiE80TeTuRUfjRe54Eea17-YfnOOAx): Videos by Corey Schafer.
