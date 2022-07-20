@@ -59,8 +59,7 @@ consul | tetra-{start,stop,update}
 nomad | tetra-run
 
 ## Ngnix
-[Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
-- 
+- [Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 
 ## Docker
 - Marketing from docker.com: [Why Docker?](https://www.docker.com/why-docker) 
