@@ -2,14 +2,14 @@
 Notes on provisioning, securing and
 maintaing cloud based resources at Digital Ocean, Google and AWS.
 
+- [dotool.sh](./dotool.sh): Bash functions for createing resources in the Digital Ocean ecosystem.
+
+- [nodeholder.sh](./investigations/nodeholder/): Bash functions for creating users and installing applications.
+
+- [tetra.sh.enc](./tetra/): personalized Bash functions for securely managing microservices. 
+
 The [12 Factors App](https://12factor.net/) by the Heroku team is a 
 guiding philosophy.
-
-The [dotool.sh](./dotool.sh) file is a
-collection of Bash functions which
-provision compute and networking resources in Digital Ocean ecosystem.
-
-The [tetra](./tetra/) directory contains Bash functions for securely configuring linux servers and managing microservices on them. 
 
 
 ## Virtual Environments
@@ -57,7 +57,10 @@ vault | tetra-keys-add-{digocean,google}
 consul | tetra-{start,stop,update}
 nomad | tetra-run
 
-## Ngnix
+## Service Mesh
+
+- [certbot for TLS](https://certbot.eff.org/): Instructions for [certbot on 20.04](https://certbot.eff.org/instructions?ws=nginx&os=ubuntufocal).
+- [acme.sh](https://github.com/acmesh-official/acme.sh): pure Bash alternative to certbot.
 - [Nginx docs](https://docs.nginx.com/) handles reverse-proxy and SSL certificates. A reverse-proxy maps an HTTP/S url with a domainanme, to a new domainame and port number.
 
 ## Docker
