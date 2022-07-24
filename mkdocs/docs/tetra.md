@@ -1,1 +1,0 @@
-../../tetra/tetra.md

@@ -10,7 +10,8 @@ tmux-list(){
 
 # creates session without starting a script
 tmux-join(){
-  tmux attach -t $1     
+  #tmux attach -t $1     
+  tmux attach-session -d -t $1 # -d resizes to screen
   # $? is result of attempt to attach
   [ $? == 1 ] && tmux new -s $1 
 }

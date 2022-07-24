@@ -1,14 +1,17 @@
 site_name: NODEHOLDER
+repo_url: "https://github.com/study-groups/devops-study-group/"
+edit_uri:  "edit/main/mkdocs/docs"
 
 theme:
+#  name: material
     name: mkdocs
 
 markdown_extensions:
     - extra
     - tables
+    - fenced_code
     - mdx_math:
         enable_dollar_delimiter: True
-    - fenced_code
 
 extra_javascript: 
     - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
