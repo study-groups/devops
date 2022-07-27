@@ -1,6 +1,9 @@
 # mkdocs generated
 site
 
+# personal access token in the clear
+pat.txt
+
 # Logs
 logs
 *.log
