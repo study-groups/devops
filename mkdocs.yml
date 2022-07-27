@@ -1,10 +1,39 @@
-site_name: NODEHOLDER
+site_name: Nodeholder Docs
+
 repo_url: "https://github.com/study-groups/devops-study-group/"
-edit_uri:  "edit/main/mkdocs/docs"
+edit_uri:  "edit/main/docs"
+
+site_description: >
+    "Nodeholder: Securely orchestrated data transforms."
+repo_url: https://github.com/study-group/devops-study-group
+
+extra:
+  generator: false
+
+nav:
+    - Infra: './infra'
+    - Tetra: './tetra'
+    - Nectar: './nectar'
+    - Gaia: './gaia'
 
 theme:
-#  name: material
-    name: mkdocs
+  name:  material
+  palette:
+
+  - scheme: default
+    primary: black  
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+        
+  - scheme: slate 
+    toggle:
+      icon: material/brightness-4
+      name: Switch to light mode
+
+
+copyright: Copyright &copy; 2022 | <a href="https://nodeholder.com">Nodeholder </a> 
+
 
 markdown_extensions:
     - extra
@@ -15,3 +44,4 @@ markdown_extensions:
 
 extra_javascript: 
     - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+      

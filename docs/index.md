@@ -1,14 +1,14 @@
-#  dotool.sh
-Does math work $x=\frac{1}{2}$
+# Nodeholder
 
-## Tetra
-* [tetra info](./tetra.md) - CLI tools for distributed systems 
+Nodeholder is a system for provisioning, configuring, running and maintaining
+microservices on Linux virtual private servers. Geared toward 
+algorithms involving relational graph networks of hetrogenous nodes,
+Nodeholder provides a platform tailored to tasks such as:
 
-* [Create PEM Key](https://nodeholder.com) - Create a PEM key to login to project via jump server.
+-    DataScience as a Service platfrom
 
-* [PEM Key Policy](keypolicy.md) - Describes policy for naming, e.g. project-YYYY-MM-DD of issuance. Typically keys are revoked after 90 days.
+[dotool](./dotool.md) 
+-  Bash functions for provisioning resources 
+in Digital Ocean, Reseller Club and Linode.
 
-* [MkDocs](./mkdocs.md) - Documentation based on MkDocs.
-
-## Project layout
-
+- [tetra info](./tetra.md) - CLI tools for configuring Linux machines
