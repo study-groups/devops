@@ -14,7 +14,7 @@ BASHDIR=$(dirname ${BASH_SOURCE[0]})
 
 files=$(ls $BASHDIR/bash/*.sh)
 echo "#source the output of this file"
-for file in ${files[@]}
+for file in "${files[@]}"
 do
   cat $file
 done
