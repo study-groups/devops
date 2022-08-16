@@ -21,3 +21,13 @@ tetra-encrypt-report(){
 tetra-decrypt-report(){
    cat $1 | tetra-decrypt-stdio |tar xv
 }
+
+tetra-sites-list()
+{
+  cat /etc/nginx/sites-enabled/* \
+	 | grep " server_name "  \
+	 | grep -v "*." \
+	 | sort \
+	 | uniq 
+
+}
