@@ -37,6 +37,11 @@ EOF
 }
 
 
+tetra-keys-add(){
+  tetra-keys-ssh-agent # kills and restarts
+  ssh-add $1
+}
+
 # test key
 tetra-keys-login-federated(){
   ssh -i $pemfile $user@$remote -p 22
