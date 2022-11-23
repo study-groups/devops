@@ -25,6 +25,18 @@ tetra-keys-make-pem(){
   chmod 600 $pemfile
 }
 
+tetra-keys-ssh-agent(){
+cat <<EOF
+
+Starting ssh-agent, learn more:
+https://www.ssh.com/academy/ssh/agent
+
+EOF
+ killall ssh-agent
+ eval "$(ssh-agent -s)"
+}
+
+
 # test key
 tetra-keys-login-federated(){
   ssh -i $pemfile $user@$remote -p 22
