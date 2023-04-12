@@ -1,4 +1,4 @@
-tetra_bufsize=${tetra_bufsize:-10}              # set/use system default
+tetra_bufsize=${tetra_bufsize:-1000}            # set/use system default
 tetra_logfile=${tetra_logfile:-/tmp/tetra.log}  # set/use system default
 
 tetra-log(){
