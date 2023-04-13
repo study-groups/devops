@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s # Set the scrape interval to 15 seconds.
+
+scrape_configs:
+  # Example configuration for scraping the Docker daemon.
+  - job_name: 'docker'
+    # Override the global scrape interval with a shorter interval.
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9323']
+
+  # Example configuration for scraping a Node.js application using the Prometheus client library.
+  - job_name: 'playwright'
+    # Override the global scrape interval with a shorter interval.
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['playwright:3000']
