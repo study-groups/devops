@@ -1,5 +1,6 @@
 # mkdocs generated
 site
+.tmp
 
 # personal access token in the clear
 pat.txt
