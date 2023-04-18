@@ -10,8 +10,6 @@ volumes:
 
 services:
   grafana:
-    build:
-      context: ./grafana/
     image: grafana/grafana-oss
     environment:
        - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel,grafana-polystat-panel
@@ -28,8 +26,6 @@ services:
 
   prometheus:
     image: prom/prometheus
-    build:
-      context: ./prometheus/
     ports:
       - "9090:9090"
     volumes:
@@ -40,20 +36,26 @@ services:
 
   adapter:
     container_name: adapter
+    hostname: mysql_adapter
     build:
       context: ./adapter/
     volumes:
       - ./adapter/app:/app
     working_dir: /app
     ports:
-      - ${LOCAL_PORT}:${LOCAL_PORT}
+      - 1234:1234
+      - 3306:3306
+      - 3307:3306
+      - 3308:3306
     environment:
       - SSH_KEY=${SSH_KEY}
-      - LOCAL_PORT=${LOCAL_PORT}
-      - REMOTE_PORT=${REMOTE_PORT}
       - SSH_USER=${SSH_USER}
+      - SSH_HOST=${SSH_HOST}
+      - LOCAL_PORT=${LOCAL_PORT}
       - REMOTE_HOST=${REMOTE_HOST}
-    entrypoint: /app/entrypoint.sh
+      - REMOTE_PORT=${REMOTE_PORT}
     networks:
       - web-network
 
+    # This would override ENTRYPOINT defined in Dockerfile 
+    # entrypoint: /app/entrypoint.sh
