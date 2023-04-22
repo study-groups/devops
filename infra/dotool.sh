@@ -78,7 +78,7 @@ dotool-create(){
 
   #imgtype=${3:-ubuntu-18-04-x64}; ## default image is ubuntu v18.04
   #dotool-ossibilities lists this; 72067660    20.04 (LTS) x64 
-  imgtype=${3:-ubuntu-20-04-x64}; ## default image is ubuntu v20.04
+  imgtype=${3:-ubuntu-22-04-x64}; ## default image is ubuntu v20.04
   echo "Using $imgtype"
   ## $2 is an ssh key or fingerprint
   doctl compute droplet create "$1" \
@@ -144,6 +144,7 @@ dotool-id-to-ip(){
   fi
 
   local id="$1";
+  echo "dotool-id-to-ip thinks the id is $1"
   doctl compute droplet get "$id" \
       --no-header \
       --format "Public IPv4"
@@ -163,18 +164,6 @@ dotool-name-to-ip(){
   dotool-id-to-ip "$id"
 }
 
-dotool-login(){
-
-  if [ $# -lt 1 ]; then
-    echo "Command requires the name of the droplet"
-    echo "dotool-login name"
-    return 1
-  fi
-
-  ## log in to the droplet via name of droplet
-  ssh root@"$(dotool-name-to-ip "$1")"
-}
-
 dotool-status(){
 
   if [ $# -lt 1 ]; then
@@ -188,6 +177,8 @@ dotool-status(){
   echo "vmstat -s"
   echo "----------"
   vmstat -s
+  vmstat -s
+  echo ""
   echo ""
   df
 '
@@ -247,14 +238,25 @@ dotool-create-server-list() {
   # define variables {print $2"="$3}
   # replace any named servers that have "-" in the name with "_"
   # write to server.list
-  dotool-list | awk 'NR>1 {print $2"="$3}' | tr '-' '_' > \
-	  ~/server.list
- 
-  # a bug is showing up from this
+  dotool-list | awk 'NR>1 {print $2"="$3}' \
+              | tr '-' '_' \
+              > \
+	  /tmp/server.list
+
   dotool-floating | awk '$2~"nyc" {print "floatingEast=" $1} \
                          $2~"sfo"{print "floatingWest=" $1}' >> \
-	  ~/server.list
+	  /tmp/server.list
 
-  source ~/server.list
-  echo "Server names and ips have been refreshed in environment."
+
+  source /tmp/server.list
+  if [ -z $TETRA_DIR ];
+    then
+       cat /tmp/server.list
+       rm /tmp/server.list
+    else
+      echo "Writing $TETRA_DIR/server.list"
+      cat /tmp/server.list > $TETRA_DIR/server.list
+      rm /tmp/server.list
+    fi
 } 
+

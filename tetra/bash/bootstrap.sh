@@ -19,6 +19,8 @@ if [ -z "$TETRA_DIR" ]; then
     fi
 fi
 
+source $TETRA_DIR/tetra.env
+
 echo using $TETRA_DIR | tetra-log
 
 for d in $TETRA_DIR/*/; do
@@ -27,6 +29,8 @@ for d in $TETRA_DIR/*/; do
         source "$d/tetra.sh"
     fi
 done
+
+[ -f $TETRA_DIR/tetra.sh ] && source $TETRA_DIR/tetra.sh
 
 cat <<EOF
 

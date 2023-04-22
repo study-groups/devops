@@ -28,10 +28,14 @@ sync-from(){
 
 
 sync-to() {
+  local params="-avzP" # archive,verbose,compress,Partial
+  local exclude="--exclude={'.git','*.zip','*.gz'}"
+  local from=$FROM
   local to_user=$1
   local to_host=$2
   local to_path=$3
-  sync-from-to $FROM $to_user $to_host $to_path
+  cmd=$(echo rsync $params $exclude  $from "$to_user@$to_host:$to_path" )
+  echo $cmd
 }
 
 sync-find-since(){
