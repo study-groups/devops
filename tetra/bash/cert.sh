@@ -36,7 +36,7 @@ tetra-cert-push(){
 }
 
 tetra-cert-nginx-restart(){
-  ssh root@$$TETRA_REMOTE systemctl restart nginx
+  ssh root@$TETRA_REMOTE systemctl restart nginx
 }
 
 

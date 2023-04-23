@@ -1,8 +1,4 @@
-thisfile="${BASH_SOURCE[0]}"    
-tetra_src="$(cd "$(dirname $thisfile)" && pwd)"     #
-for f in $(ls $tetra_src/*.sh | grep -v $thisfile);
-  do source $f;
-done;
+thisfile="${BASH_SOURCE[0]}"
 
 # tetra relies on user supplied PEM keys and env configuration files
 # TETRA_DIR is a global path containing organizational directories
@@ -21,6 +17,12 @@ fi
 
 source $TETRA_DIR/tetra.env
 
+tetra_src="$(cd "$(dirname $thisfile)" && pwd)"
+for f in $(ls $tetra_src/*.sh | grep -v $thisfile);
+  do source $f;
+done;
+
+
 echo using $TETRA_DIR | tetra-log
 
 for d in $TETRA_DIR/*/; do
@@ -30,6 +32,7 @@ for d in $TETRA_DIR/*/; do
     fi
 done
 
+source $TETRA_DIR/tetra.env
 [ -f $TETRA_DIR/tetra.sh ] && source $TETRA_DIR/tetra.sh
 
 cat <<EOF
