@@ -11,6 +11,17 @@ tetra-cert-manual-wildcard ()
     echo "https://go-acme.github.io/lego/usage/cli/"
 }
 
+
+tetra-cert-selfsigned(){
+  openssl req -x509 \
+  -newkey rsa:4096 \
+  -keyout _$1.key \
+  -out diamondnexus.crt \
+  -days 365  \
+  -nodes -subj "/CN=*.$1"
+
+}
+
 tetra-cert-nginx(){
 
 cat <<EOF
