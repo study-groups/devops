@@ -1,5 +1,7 @@
 *.pem
 
+local.env
+
 adapter/app/entrypoint.sh.short
 adapter/app/entrypoint.sh.works
 adapter/app/old/
