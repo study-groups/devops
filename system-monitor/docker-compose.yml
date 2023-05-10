@@ -2,7 +2,8 @@ version: '3'
 
 networks:
   web-network:
-    driver: bridge
+    name: web-network
+    external: true
 
 volumes:
   grafana-storage:
@@ -15,7 +16,7 @@ services:
        - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel,grafana-polystat-panel
       # - GF_LOG_LEVEL=debug
     ports:
-      - "4000:3000"
+      - "5000:3000"
     networks:
       - web-network
     volumes:
@@ -37,13 +38,13 @@ services:
   adapter:
     container_name: adapter
     hostname: mysql_adapter
+    restart: always
     build:
       context: ./adapter/
     volumes:
       - ./adapter/app:/app
     working_dir: /app
     ports:
-      - 1234:1234
       - 3306:3306
       - 3307:3306
       - 3308:3306
