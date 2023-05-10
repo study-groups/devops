@@ -1,6 +1,5 @@
-export MYSQL_SERVER=mysql_adapter
-export HOST_NAME=kingdel
-export MAG_NAME=kingel
+#sudo docker network connect developer-environment_web-network adapter
+
 
 sm-help(){
   echo "sm- bash functions for system-monitor Docker project." 
@@ -36,9 +35,12 @@ sm-bash(){
 }
 
 sm-get-ip(){
-  network_name=`sudo docker network ls --format "{{.Name}}" | grep web-network`
-  ip=`sudo docker inspect -f '{{ $network := index .NetworkSettings.Networks "'$network_name'" }}{{ $network.IPAddress}}' $1`
-  echo $ip 
+  local container=${1:-"adapter"}
+  network_name=system-monitor_web-network
+  ip=$(sudo docker inspect -f  \
+        "{{with index .NetworkSettings.Networks \"$network_name\"}} \
+        {{.IPAddress}}{{end}}" $container)
+  echo $ip
 }
 
 sm-burn-it-down(){
@@ -96,6 +98,12 @@ sm-mysql-info ()
 EOF
 
 }
+
+sm-network-connect(){
+  echo "connecting developer-environment_web-network to adapter"
+  sudo docker network connect developer-environment_web-network adapter
+}
+
 
 
 # Must be in system-monitor dir containing docker-compose.yml
