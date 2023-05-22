@@ -5,6 +5,9 @@ thisfile=bootstrap.sh
 # to keep track of keys and env setups specific to an organization
 # and the sub systsems within.
 
+tetra_log(){
+   cat > /dev/null
+}
 
 # if TETRA_DIR is set, skip
 # if not set it to $1 or default to ~/tetra
@@ -16,7 +19,7 @@ if [ -z "$TETRA_DIR" ]; then
     fi
 fi
 
-source $TETRA_DIR/tetra.env
+[ -z "$TETRA_DIR/tetra.env" ] && source $TETRA_DIR/tetra.env
 
 
 tetra_src="$(cd "$(dirname $thisfile)" && pwd)"
