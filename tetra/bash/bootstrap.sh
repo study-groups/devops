@@ -32,13 +32,13 @@ done;
 echo using $TETRA_DIR | tetra-log
 
 for d in $TETRA_DIR/*/; do
-    echo $d | tetra-log
     if [ -e "$d/tetra.sh" ]; then
+        echo "sourcing $d" | tetra-log
         source "$d/tetra.sh"
     fi
 done
 
-source $TETRA_DIR/tetra.env
+[ -z "$TETRA_DIR/tetra.env" ] && source $TETRA_DIR/tetra.env
 [ -f $TETRA_DIR/tetra.sh ] && source $TETRA_DIR/tetra.sh
 
 cat <<EOF
