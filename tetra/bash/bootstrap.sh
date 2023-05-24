@@ -22,6 +22,7 @@ fi
 [ -z "$TETRA_DIR/tetra.env" ] && source $TETRA_DIR/tetra.env
 
 
+# THIS IS BROKEN
 tetra_src="$(cd "$(dirname $thisfile)" && pwd)"
 echo tetra_source: $tetra_src
 for f in $(ls $tetra_src/*.sh | grep -v $thisfile);
