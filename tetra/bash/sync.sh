@@ -7,15 +7,15 @@ TO_HOST="ux305-2.local"
 TO_DIR="/home/mricos/backups"
 FROM_DIR=/home/mricos/files/
 
-sync-help(){
+tetra-sync-help(){
   echo "\
 Sync is a collection shell functions for continual backup of unix servers."
 }
-sync-space(){
+tetra-sync-space(){
  du -hsx * | sort -rh | head -4 2> /tmp/err
 }
 
-sync-from(){
+tetra-sync-from(){
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local params="-avzP" # archive,verbose,compress,Partial
   local host=$1
@@ -27,7 +27,7 @@ sync-from(){
 }
 
 
-sync-to() {
+tetra-sync-to() {
   local params="-avzP" # archive,verbose,compress,Partial
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local from=$FROM
@@ -38,12 +38,13 @@ sync-to() {
   echo $cmd
 }
 
-sync-find-since(){
+tetra-sync-find-since(){
   local since=${1:-"1 hour ago"}
   #find / -newermt $(date +%Y-%m-%d -d "1 min ago") -type f -print
   find / -newermt $(date +%Y-%m-%d -d "$since") -type f -print
 }
-sync-notes(){
+
+tetra-sync-notes(){
   echo "
 sync- relies on the master rsync:
 
