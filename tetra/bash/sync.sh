@@ -21,7 +21,8 @@ tetra-sync-from(){
   local host=$1
   local from=${2-"/mnt/volume_sfo2_02"}
   local local=${3-"."}
-  cmd=$(echo rsync $params $exclude  "root@$host:$from" "$local")
+  local user=${4-"$USER"}
+  cmd=$(echo rsync $params $exclude  "$user@$host:$from" "$local")
   echo "Copy and paste to execute (for safety):" 
   echo $cmd
 }
