@@ -6,7 +6,8 @@ thisfile=bootstrap.sh
 # and the sub systsems within.
 
 tetra-log(){
-   cat > /dev/null
+   #cat > /dev/null
+   cat 
 }
 
 # if TETRA_DIR is set, skip
@@ -27,12 +28,17 @@ done;
 
 echo using $TETRA_DIR | tetra-log
 
-for d in $TETRA_DIR/*/; do
-    if [ -e "$d/tetra.sh" ]; then
-        echo "sourcing $d" | tetra-log
-        source "$d/tetra.sh"
-    fi
+#for d in $TETRA_DIR/*/; do
+#    if [ -e "$d/tetra.sh" ]; then
+#        echo "sourcing $d" | tetra-log
+#        source "$d/tetra.sh"
+#    fi
+#done
+echo USING $TETRA_DIR
+for file in $(find $TETRA_DIR -type f -name "tetra.sh"); do
+    source "$file"
 done
+
 
 [ -z "$TETRA_DIR/tetra.env" ] && source $TETRA_DIR/tetra.env
 [ -f $TETRA_DIR/tetra.sh ] && source $TETRA_DIR/tetra.sh
