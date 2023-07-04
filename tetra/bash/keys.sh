@@ -38,7 +38,7 @@ EOF
 
 
 tetra-keys-add(){
-  tetra-keys-ssh-agent # kills and restarts
+  #tetra-keys-ssh-agent # kills and restarts
   ssh-add $1
 }
 
