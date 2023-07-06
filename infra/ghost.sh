@@ -9,17 +9,17 @@ ghost-mount(){
 ghost-dev(){
   NODE_ENV=development \
   NODE_OPTIONS="--tls-keylog=tls.log \
-    --inspect-brk=localhost:$GHOST_DEBUG_PORT" \
+    --inspect=127.0.0.1:$GHOST_DEBUG_PORT" \
   ghost run
 }
 
 ghost-tunnel(){
-  ssh -L $GHOST_DEV_PORT:localhost:$GHOST_DEV_PORT root@$ghost
+  ssh -nNT -L $GHOST_DEV_PORT:127.0.0.1:$GHOST_DEV_PORT root@$ghost
 }
 
 
 ghost-tunnel-debug(){
-  ssh -L $GHOST_DEBUG_PORT:localhost:$GHOST_DEBUG_PORT root@$ghost
+  ssh -nNT -L $GHOST_DEBUG_PORT:127.0.0.1:$GHOST_DEBUG_PORT root@$ghost
 }
 
 ghost-clone-db(){
