@@ -1,9 +1,4 @@
 #miscellaneous functions to be placed in proper file later
-echo TETRA_DIR:$TETRA_DIR
-
-# modern ubuntu uses snap,
-# lets hope the trouble is worth it..
-
 tetra-df(){
   df -h | grep -v snap # filter out snap mounts
 }
