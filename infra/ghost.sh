@@ -1,9 +1,35 @@
 GHOST_DEV_PORT=2400
 GHOST_DEBUG_PORT=7005
-ghost=$ghost_sfo2_01    # semi-semantic (infra_detail)  to semantic (ghost)
+if [ -z "$GHOST_HOST" ]; then
+  echo "GHOST_HOST not set."
+else
+  echo "Using GHOST_HOST=$GHOST_HOST"
+fi
+
+#ghost=$ghost_sfo2_01    # semi-semantic (infra_detail)  to semantic (ghost)
+ghost=$GHOST_HOST        # semi-semantic (infra_detail)  to semantic (ghost)
+
+
+ghost-login(){
+  ssh root@$ghost
+}
+
+ghost-mount-prepare-mac(){
+  #ln -s $HOME/mnt/ghost /var/www/ghost
+  sudo ln -s /private/var/www/ghost /var/www/ghost
+  #mkdir /var/www/ghost
+}
+
 
 ghost-mount(){
-  sshfs root@$ghost:/ $HOME/mnt/ghost
+  #sshfs root@$ghost:/ $HOME/mnt/ghost
+  #sshfs root@$ghost:/var/www/ghost $HOME/mnt/ghost
+  sudo sshfs root@$ghost:/var/www/ghost /var/www/ghost \
+   -oauto_cache,reconnect,defer_permissions,negative_vncache,allow_other,volname=GhostWest
+}
+
+ghost-unmount(){
+  sudo umount /var/www/ghost
 }
 
 ghost-dev(){
