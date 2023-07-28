@@ -1,14 +1,16 @@
-GHOST_DEV_PORT=2400
-GHOST_DEBUG_PORT=7005
-if [ -z "$GHOST_HOST" ]; then
-  echo "GHOST_HOST not set."
-else
-  echo "Using GHOST_HOST=$GHOST_HOST"
+if [[ -z "$GHOST_HOST" || \
+     -z "$GHOST_DEBUG_PORT" || \
+     -z "$GHOST_DEV_PORT"  ]]; then
+  echo ""
+  echo "  NOT ALL ENV SET"
+  echo ""
 fi
 
-#ghost=$ghost_sfo2_01    # semi-semantic (infra_detail)  to semantic (ghost)
-ghost=$GHOST_HOST        # semi-semantic (infra_detail)  to semantic (ghost)
+echo "Using GHOST_HOST=$GHOST_HOST"
+echo "Using GHOST_DEV_PORT=$GHOST_DEV_PORT"
+echo "Using GHOST_DEBUG_PORT=$GHOST_DEBUG_PORT"
 
+ghost=$GHOST_HOST        # semi-semantic (infra_detail)  to semantic (ghost)
 
 ghost-login(){
   ssh root@$ghost
@@ -25,7 +27,9 @@ ghost-mount(){
   #sshfs root@$ghost:/ $HOME/mnt/ghost
   #sshfs root@$ghost:/var/www/ghost $HOME/mnt/ghost
   sudo sshfs root@$ghost:/var/www/ghost /var/www/ghost \
-   -oauto_cache,reconnect,defer_permissions,negative_vncache,allow_other,volname=GhostWest
+   -oauto_cache,reconnect,defer_permissions, \
+   negative_vncache,allow_other,\
+   volname=GhostWest
 }
 
 ghost-unmount(){
@@ -40,18 +44,26 @@ ghost-dev(){
 }
 
 ghost-tunnel(){
-  ssh -nNT -L $GHOST_DEV_PORT:127.0.0.1:$GHOST_DEV_PORT root@$ghost
+  ssh -nNT -L \
+    $GHOST_DEV_PORT:127.0.0.1:$GHOST_DEV_PORT \
+    root@$ghost
 }
 
-
 ghost-tunnel-debug(){
-  ssh -nNT -L $GHOST_DEBUG_PORT:127.0.0.1:$GHOST_DEBUG_PORT root@$ghost
+  ssh -nNT -L \
+    $GHOST_DEBUG_PORT:127.0.0.1:$GHOST_DEBUG_PORT \
+    root@$ghost
 }
 
 ghost-clone-db(){
   mysqldump -u root ghost_prod > ghost_dev.sql
   mysql -u root ghost_dev < ghost_dev.sql
 
+}
+
+ghost-dev-nuke-brute(){
+  echo " Truncate the brute table to reset magic link email lockout."
+  mysql -e "TRUNCATE TABLE ghost_dev.brute;"
 }
 
 ghost-copy-content(){
