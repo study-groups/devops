@@ -1,10 +1,10 @@
 # tetra relies on user supplied PEM keys and env configuration files
+
 # TETRA_DIR is a global path containing organizational directories
 # to keep track of keys and env setups specific to an organization
 # and the sub systsems within.
 
-# if TETRA_DIR is set, skip
-# if not set it to $1 or default to ~/tetra
+# if TETRA_DIR is set via $1, skip. Default to ~/tetra
 if [ -z "$TETRA_DIR" ]; then
     if [ -n "$1" ]; then
         TETRA_DIR="$1"
@@ -13,7 +13,6 @@ if [ -z "$TETRA_DIR" ]; then
     fi
 fi
 
-source $TETRA_DIR/tetra.env
 for f in $(ls $TETRA_SRC/*.sh | grep -v bootstrap.sh);
   do source $f;
 done;
@@ -25,8 +24,6 @@ for d in $TETRA_DIR/*/; do
         source "$d/tetra.sh"
     fi
 done
-
-#[ -f $TETRA_DIR/tetra.sh ] && source $TETRA_DIR/tetra.sh
 
 cat <<EOF
 
