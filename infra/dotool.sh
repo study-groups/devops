@@ -57,8 +57,10 @@ dotool-keys(){
 
 dotool-list(){
   ## shows the list of virtual servers we have up
+  #doctl compute droplet list \
+  #    --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
   doctl compute droplet list \
-      --format "ID,Name,PublicIPv4,Region,Volumes" | cut -c -80
+      --format "ID,Name,PublicIPv4,Region,Volumes"
 }
 
 dotool-ls-long(){
