@@ -37,10 +37,11 @@ ghost-unmount(){
 }
 
 ghost-dev(){
+  cd /var/www/ghost
   NODE_ENV=development \
   NODE_OPTIONS="--tls-keylog=tls.log \
     --inspect=127.0.0.1:$GHOST_DEBUG_PORT" \
-  ghost run
+  node current/index.js
 }
 
 ghost-tunnel(){
