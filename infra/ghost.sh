@@ -10,6 +10,7 @@ echo "Using GHOST_HOST=$GHOST_HOST"
 echo "Using GHOST_DEV_PORT=$GHOST_DEV_PORT"
 echo "Using GHOST_DEBUG_PORT=$GHOST_DEBUG_PORT"
 
+# semantic=semi_semantic
 ghost=$GHOST_HOST        # semi-semantic (infra_detail)  to semantic (ghost)
 
 ghost-login(){
@@ -21,7 +22,6 @@ ghost-mount-prepare-mac(){
   sudo ln -s /private/var/www/ghost /var/www/ghost
   #mkdir /var/www/ghost
 }
-
 
 ghost-mount(){
   #sshfs root@$ghost:/ $HOME/mnt/ghost
@@ -44,16 +44,26 @@ ghost-dev(){
   node current/index.js
 }
 
+
+# -n: Redirects stdin from /dev/null, prevents reading from stdin
+# -N: No remote command execution, useful for port forwarding only
+# -T: Disable pseudo-terminal allocation
+# -L: Port forwarding configuration
+# $GHOST_DEV_PORT: Local port number (ensure this variable is set)
+# 127.0.0.1: Loopback IP, connections made to local machine
+# The second $GHOST_DEV_PORT: Port on remote machine
+# root: User on the remote machine
+# $ghost: Variable containing address of the remote server
 ghost-tunnel(){
   ssh -nNT -L \
     $GHOST_DEV_PORT:127.0.0.1:$GHOST_DEV_PORT \
-    root@$ghost
+    root@$ghost &
 }
 
 ghost-tunnel-debug(){
   ssh -nNT -L \
     $GHOST_DEBUG_PORT:127.0.0.1:$GHOST_DEBUG_PORT \
-    root@$ghost
+    root@$ghost &
 }
 
 ghost-clone-db(){
@@ -73,21 +83,12 @@ ghost-copy-content(){
 }
 
 ghost-local-init(){
-  ghost-tunnel & 
-  ghost-tunnel-debug &
+  ghost-tunnel       # runs in background, kill with PID
+  ghost-tunnel-debug # runs in background, kill with PID
   cat <<EOF
-
-Node server running debugger via env vars used by $> ghost run
-
-Application on $GHOST_DEV_PORT which is also set in
-
-config.developmennt.json
-
+Application on $GHOST_DEV_PORT
 Debugger on $GHOST_DEBUG_PORT
-
-Use chrome://inspect and select localhost:$GHOST_DEBUG_PORT
-to start debugging.
-
+chrome://inspect and select localhost:$GHOST_DEBUG_PORT
 EOF
 
 }
