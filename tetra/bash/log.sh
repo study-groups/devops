@@ -5,7 +5,7 @@ tetra_logfile=${tetra_logfile:-/tmp/tetra.log}  # set/use system default
 # date -u +"%FT%T.%3NZ"
 # 2023-04-12T03:58:38.352Z
 
-tetra-log(){
+tetra_log(){
   local bufsize=$tetra_bufsize                    # easier to read below
   local logfile=$tetra_logfile                    # easier to read/resuse
   touch $logfile                                  # Create if it doesn't exist
@@ -16,6 +16,6 @@ tetra-log(){
       mv $logfile.tmp $logfile
   done
 }
-tetra-logs(){
+tetra_logs(){
   cat $tetra_logfile                              # use system default
 }

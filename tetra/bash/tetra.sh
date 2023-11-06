@@ -1,24 +1,24 @@
 #miscellaneous functions to be placed in proper file later
-tetra-df(){
+tetra_df(){
   df -h | grep -v snap # filter out snap mounts
 }
 
-tetra-df-snap(){
+tetra_df_snap(){
   df -h
 }
 
 # must be in reports dir
-tetra-encrypt-report(){
+tetra_encrypt_report(){
    tar ca audit.txt summary.html | \
-   tetra-encrypt-stdio  > \
+   tetra_encrypt_stdio  > \
    report_$(date +%s).tar.enc
 }
 
-tetra-decrypt-report(){
-   cat $1 | tetra-decrypt-stdio |tar xv
+tetra_decrypt_report(){
+   cat $1 | tetra_decrypt_stdio |tar xv
 }
 
-tetra-list-sites()
+tetra_list_sites()
 {
   cat /etc/nginx/sites-enabled/* \
 	 | grep " server_name "  \
@@ -27,12 +27,12 @@ tetra-list-sites()
 	 | uniq 
 }
 
-tetra-install-crossplane(){
+tetra_install_crossplane(){
 # must have python enabled via tetra-python-activate
 pip install crossplane
 }
 
-tetra-parse-nginx(){
+tetra_parse_nginx(){
 crossplane parse /etc/nginx/sites-enabled/*nodeholder*
 }
 

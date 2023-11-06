@@ -1,6 +1,6 @@
 # This code is in the main branch except for this line.
 # https://tldp.org/LDP/abs/html/parameter-substitution.html
-tetra-summarize-filesystems(){
+tetra_summarize_filesystems(){
 local ips=""
 ips=${1:-"$do1 $do2 $do3 $do3_fedora $do4 $do4_n2 $do5"}
 cat <<EOF
@@ -30,7 +30,7 @@ Created on $(hostname) at $(date).
 EOF
 }
 
-_tetra-do-summarize-json(){
+_tetra_do_summarize_json(){
 
     echo "["
 
@@ -65,8 +65,8 @@ _tetra-do-summarize-json(){
     echo "]"
 }
 
-tetra-do-summarize-json(){
-  _tetra-do-summarize-json | \
+tetra_do_summarize_json(){
+  _tetra_do_summarize_json | \
    jq 'walk(if type == "object" then 
        del(.sizes, .features, .regions) else . end)'
 }

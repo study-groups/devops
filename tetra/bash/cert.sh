@@ -1,28 +1,28 @@
 TETRA_CERTS_REMOTE="/etc/ssl/certs/tetra"
 
-tetra-cert-help(){
+tetra_cert_help(){
   echo "TETRA_CERTS:$TETRA_CERTS"
   echo "TETRA_CERTS_REMOTE:$TETRA_CERTS_REMOTE"
   ls $TETRA_CERTS
 }
 
-tetra-cert-manual-wildcard ()
+tetra_cert_manual_wildcard ()
 {
     echo "https://go-acme.github.io/lego/usage/cli/"
 }
 
 
-tetra-cert-selfsigned(){
+tetra_cert_selfsigned(){
   openssl req -x509 \
   -newkey rsa:4096 \
   -keyout _$1.key \
-  -out diamondnexus.crt \
+  -out org.crt \
   -days 365  \
   -nodes -subj "/CN=*.$1"
 
 }
 
-tetra-cert-nginx(){
+tetra_cert_nginx(){
 
 cat <<EOF
 server {

@@ -8,7 +8,7 @@ sshkey=$keydir/$user
 pemfile=$keydir/$user.pem
 now="$(date +%Y-%m-%d)"
 
-tetra-keys-make-ssh(){
+tetra_keys_make_ssh(){
 cat<<EOF
 Creating ssh keys and PEM for $user at $remote, file at
 sshkey: $sshkey
@@ -19,13 +19,13 @@ EOF
 
 # copy key to federation and add to authorized_keys
 
-tetra-keys-make-pem(){
+tetra_keys_make_pem(){
   # convert private key to PEM format
   openssl rsa -in $sshkey -outform PEM -out $pemfile
   chmod 600 $pemfile
 }
 
-tetra-keys-ssh-agent(){
+tetra_keys_ssh_agent(){
 cat <<EOF
 
 Starting ssh-agent, learn more:

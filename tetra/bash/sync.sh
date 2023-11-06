@@ -7,15 +7,15 @@ TO_HOST="ux305-2.local"
 TO_DIR="/home/mricos/backups"
 FROM_DIR=/home/mricos/files/
 
-tetra-sync-help(){
+tetra_sync_help(){
   echo "\
 Sync is a collection shell functions for continual backup of unix servers."
 }
-tetra-sync-space(){
+tetra_sync_space(){
  du -hsx * | sort -rh | head -4 2> /tmp/err
 }
 
-tetra-sync-from(){
+tetra_sync_from(){
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local params="-avzP" # archive,verbose,compress,Partial
   local host=$1
@@ -27,7 +27,7 @@ tetra-sync-from(){
   echo $cmd
 }
 
-tetra-sync-to() {
+tetra_sync_to() {
   local params="-avzP" # archive,verbose,compress,Partial
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local from=$1
