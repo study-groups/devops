@@ -19,7 +19,6 @@ done;
 
 
 for d in $TETRA_DIR/*/; do
-    echo $d | tetra-log
     if [ -e "$d/tetra.sh" ]; then
         source "$d/tetra.sh"
     fi
