@@ -1,8 +1,8 @@
 #miscellaneous functions to be placed in proper file later
 
 tetra-status(){
-   TETRA_SRC=$HOME/src/devops-study-group; 
-   (cd $TETRA_SRC; git pull)
+   TETRA_REPO=$HOME/src/devops-study-group; 
+   (cd $TETRA_REPO; git pull)
    source $TETRA_SRC/bash/bootstrap.sh
    clear
    tetra-df

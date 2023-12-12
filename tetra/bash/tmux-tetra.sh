@@ -13,6 +13,7 @@ tetra-tmux-tetra(){
   export do1
   export do4_n2
 
+
   # After SSHing into the first machine
   tmux send-keys -t 0 'ssh root@$do1' C-m
   tmux send-keys -t 0 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
@@ -25,17 +26,15 @@ tetra-tmux-tetra(){
   tmux send-keys -t 1 'source $TETRA_SRC/bootstrap.sh' C-m
   tmux send-keys -t 1 'tetra-status' C-m
 
+  tmux send-keys -t 2 'tmux set -g status-style bg=red' C-m
   tmux send-keys -t 2 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
   tmux send-keys -t 2 'source $TETRA_SRC/bootstrap.sh' C-m
   tmux send-keys -t 2 'tetra-status' C-m
   tmux select-pane -t 2 
 
   tmux set -g mouse on
-  # Set the background color of the status bar
-  tmux set -g status-style bg=colour235
-
-  # Set the foreground (text) color of the status bar
-  tmux set -g status-style fg=white
-
+  tmux set -g status-style bg='#880088'
+  tmux set -g pane-active-border-style fg=blue
+  tmux set -g pane-border-style fg=grey
   tmux attach-session -t tetra
 }
