@@ -31,6 +31,11 @@ tetra-tmux-tetra(){
   tmux select-pane -t 2 
 
   tmux set -g mouse on
+  # Set the background color of the status bar
+  tmux set -g status-style bg=colour235
+
+  # Set the foreground (text) color of the status bar
+  tmux set -g status-style fg=white
 
   tmux attach-session -t tetra
 }
