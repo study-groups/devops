@@ -1,12 +1,19 @@
 #miscellaneous functions to be placed in proper file later
 
 tetra-status(){
+   TETRA_SRC=$HOME/src/devops-study-group; 
+   (cd $TETRA_SRC; git pull)
+   source $TETRA_SRC/bash/bootstrap.sh
    clear
    tetra-df
 }
 
 tetra-df(){
-  df -h | grep -v -e snap -e tmp -e udev -e boot # filter out snap mounts
+  df -h | grep -v -e snap \
+                  -e tmp  \
+                  -e udev \
+                  -e cgmfs \
+                  -e boot 
 }
 
 tetra-df-snap(){
