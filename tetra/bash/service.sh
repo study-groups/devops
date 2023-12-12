@@ -39,6 +39,8 @@ tetra_service_remove() {
 
 # Create Service for PHP
 tetra_service_create_php() {
+    echo "Nginx: creating PHP listening on $TETRA_PORT"
+    echo "Php-FPM: listening to fpm socket written to by Nginx"
     cat << EOF > /etc/nginx/sites-available/tetra
 server {
     listen $TETRA_PORT;
