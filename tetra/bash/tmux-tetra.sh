@@ -1,7 +1,9 @@
 tetra-tmux-tetra(){
   tmux kill-session -t tetra 
   tmux new-session -d -s tetra
-
+ 
+  tmux setw -g mode-keys vi
+ 
   # Split the window into two panes horizontally
   tmux split-window -v
 
@@ -33,7 +35,7 @@ tetra-tmux-tetra(){
   tmux select-pane -t 2 
 
   tmux set -g mouse on
-  tmux set -g status-style bg='#880088'
+  tmux set -g status-style bg=color106, fg=gray
   tmux set -g pane-active-border-style fg=blue
   tmux set -g pane-border-style fg=gray
   tmux attach-session -t tetra
