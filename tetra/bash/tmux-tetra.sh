@@ -35,6 +35,6 @@ tetra-tmux-tetra(){
   tmux set -g mouse on
   tmux set -g status-style bg='#880088'
   tmux set -g pane-active-border-style fg=blue
-  tmux set -g pane-border-style fg=grey
+  tmux set -g pane-border-style fg=gray
   tmux attach-session -t tetra
 }
