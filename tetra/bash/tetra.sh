@@ -3,7 +3,7 @@
 tetra-status(){
    TETRA_REPO=$HOME/src/devops-study-group; 
    (cd $TETRA_REPO; git pull)
-   source $TETRA_SRC/bash/bootstrap.sh
+   source $TETRA_SRC/bootstrap.sh
    clear
    tetra-df
 }
