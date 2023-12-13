@@ -1,25 +1,3 @@
-#miscellaneous functions to be placed in proper file later
-
-tetra-status(){
-   TETRA_REPO=$HOME/src/devops-study-group; 
-   (cd $TETRA_REPO; git pull)
-   source $TETRA_SRC/bootstrap.sh
-   clear
-   tetra-df
-}
-
-tetra-df(){
-  df -h | grep -v -e snap \
-                  -e tmp  \
-                  -e udev \
-                  -e cgmfs \
-                  -e boot 
-}
-
-tetra-df-snap(){
-  df -h
-}
-
 # must be in reports dir
 tetra-encrypt-report(){
    tar ca audit.txt summary.html | \
