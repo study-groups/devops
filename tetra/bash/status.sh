@@ -13,8 +13,7 @@ tetra-status(){
     }'
     tetra-df
     uptime | awk -F 'load average:' '{print "load (1, 5, 15m)" $2}'
-
-
+    tetra-prompt
 }
 
 tetra-df(){
