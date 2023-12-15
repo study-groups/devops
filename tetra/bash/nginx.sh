@@ -104,7 +104,7 @@ tetra_nginx_server() {
 # environment.
 
 
-_nginx_location_replace() {
+tetra_nginx_location_replace_old() {
     local config_file=$1
     local temp_file=$(mktemp)
     local location_block_started=false
@@ -141,6 +141,66 @@ _nginx_location_replace() {
     echo "Location block in '$config_file' updated."
 }
 
+
 # Example usage (assuming new location block is in 'new_location.txt'):
 # cat new_location.txt | tetra_nginx_location_replace /etc/nginx/nginx.conf
+
+tetra_nginx_location_replace() {
+    local config_file=$1
+    local temp_file=$(mktemp)
+    local backup_file="${config_file}.backup"
+    local location_block_started=false
+
+    # Read new location block from stdin into a variable
+    local new_location_block=$(</dev/stdin)
+
+    # Check if the configuration file exists
+    if [[ ! -f "$config_file" ]]; then
+        echo "Error: Configuration file does not exist."
+        return 1
+    fi
+
+    # Create a backup of the original configuration file
+    cp "$config_file" "$backup_file"
+
+    # Process the file
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^location\ /the/location\ \{ ]]; then
+            location_block_started=true
+            echo "$new_location_block" >> "$temp_file"
+            continue
+        fi
+
+        if [[ "$location_block_started" = true && "$line" == "}" ]]; then
+            location_block_started=false
+            continue
+        fi
+
+        if [[ "$location_block_started" = false ]]; then
+            echo "$line" >> "$temp_file"
+        fi
+    done < "$config_file"
+
+    # Replace the original file with the temporary file
+    mv "$temp_file" "$config_file"
+    echo "Location block in '$config_file' updated. Backup created at '$backup_file'."
+}
+
+# Undo function
+tetra_nginx_undo_replace() {
+    local config_file=$1
+    local backup_file="${config_file}.backup"
+
+    if [[ -f "$backup_file" ]]; then
+        mv "$backup_file" "$config_file"
+        echo "Reverted to backup configuration for '$config_file'."
+    else
+        echo "Error: Backup file does not exist."
+    fi
+}
+
+# Example usage:
+# cat new_location.txt | tetra_nginx_location_replace /etc/nginx/nginx.conf
+# To undo:
+# tetra_nginx_undo_replace /etc/nginx/nginx.conf
 
