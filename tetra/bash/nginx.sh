@@ -16,16 +16,22 @@ tetra_nginx_proxy() {
     local proxy_host=$1
     local proxy_port=$2
     local location=${3:-"/"}
+    local protocol="http"
+
+    # Check if the port is 443, set protocol to https
+    if [ "$proxy_port" -eq 443 ]; then
+        protocol="https"
+    fi
 
     cat <<EOF
     location $location {
        proxy_http_version 1.1;
        proxy_set_header X-Real-IP \$remote_addr;
-       proxy_set_header X-Forwarded-Proto https;
+       proxy_set_header X-Forwarded-Proto $protocol;
        proxy_ssl_server_name on;
        proxy_set_header Host \$host;
        proxy_redirect off;
-       proxy_pass http://$proxy_host:$proxy_port/;
+       proxy_pass $protocol://$proxy_host:$proxy_port/;
     }
 EOF
 }
@@ -96,3 +102,45 @@ tetra_nginx_server() {
 # Note: Ensure to back up your existing Nginx configuration files
 # before applying new configurations. Test in a controlled 
 # environment.
+
+
+_nginx_location_replace() {
+    local config_file=$1
+    local temp_file=$(mktemp)
+    local location_block_started=false
+
+    # Read new location block from stdin into a variable
+    local new_location_block=$(</dev/stdin)
+
+    # Check if the configuration file exists
+    if [[ ! -f "$config_file" ]]; then
+        echo "Error: Configuration file does not exist."
+        return 1
+    fi
+
+    # Process the file
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^location\ /the/location\ \{ ]]; then
+            location_block_started=true
+            echo "$new_location_block" >> "$temp_file"
+            continue
+        fi
+
+        if [[ "$location_block_started" = true && "$line" == "}" ]]; then
+            location_block_started=false
+            continue
+        fi
+
+        if [[ "$location_block_started" = false ]]; then
+            echo "$line" >> "$temp_file"
+        fi
+    done < "$config_file"
+
+    # Replace the original file with the temporary file
+    mv "$temp_file" "$config_file"
+    echo "Location block in '$config_file' updated."
+}
+
+# Example usage (assuming new location block is in 'new_location.txt'):
+# cat new_location.txt | tetra_nginx_location_replace /etc/nginx/nginx.conf
+
