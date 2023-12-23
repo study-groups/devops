@@ -15,7 +15,6 @@ tetra-tmux-tetra(){
   export do1
   export do4_n2
 
-
   # After SSHing into the first machine
   tmux send-keys -t 0 'ssh root@$do1' C-m
   tmux send-keys -t 0 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
@@ -35,7 +34,8 @@ tetra-tmux-tetra(){
   tmux select-pane -t 2 
 
   tmux set -g mouse on
-  tmux set -g status-style bg=color106, fg=gray
+  tmux set -g status-style fg='#008800'
+  tmux set -g status-style bg='#880088'
   tmux set -g pane-active-border-style fg=blue
   tmux set -g pane-border-style fg=gray
   tmux attach-session -t tetra

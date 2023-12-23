@@ -7,3 +7,9 @@ echo  "$TETRA_ENV" >  $TETRA_DIR/tetra.env
 echo  "$TETRA_SH" >  $TETRA_DIR/tetra.sh
 mkdir $TETRA_DIR/org/$TETRA_ORG
 echo "$TETRA_ORG_INFO" > "$TETRA_DIR/org/$TETRA_ORG/tetra.sh"
+
+if [[ $OSTYPE == 'darwin'* ]]; then
+  # colima allows docker commands without Docker Desktop for mac 
+  colima delete
+  colima start --arch x86_64
+fi
