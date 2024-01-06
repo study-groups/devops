@@ -1,4 +1,18 @@
 # must be in reports dir
+
+tetra-reload(){
+  local dir="$TETRA_DIR"
+  local src="$TETRA_SRC"
+  [ -z "$TETRA_DIR" ] && echo "TETRA_DIR not set, exiting" && return 1
+  [ -z "$TETRA_SRC" ] && echo "TETRA_SRC not set, exiting" && return 1
+  tetra-env-clear
+  TETRA_DIR="${dir}" 
+  TETRA_SRC="${src}" 
+  echo "sourcing $TETRA_DIR/tetra.sh"
+  source $TETRA_DIR/tetra.sh
+  tetra-env -a 
+}
+
 tetra-encrypt-report(){
    tar ca audit.txt summary.html | \
    tetra_encrypt_stdio  > \

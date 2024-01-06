@@ -1,6 +1,6 @@
 # Default variables
 TETRA_PORT=4404
-TETRA_SERVICE_SRC=$HOME/src/devops-study-group/tetra/php
+[ -z "$TETRA_SERVICE" ] && TETRA_SERVICE="$TETRA_DIR/services"
 
 # Create Service for Python Flask app
 tetra_service_create() {
