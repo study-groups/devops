@@ -24,10 +24,6 @@ for d in $TETRA_DIR/*/; do
     fi
 done
 
-cat <<EOF
-
-  TETRA_SRC: $TETRA_SRC
-  TETRA_DIR: $TETRA_DIR
-  Tetra Bootstraping complete, tetra-logs to see more.
-
-EOF
+echo "  TETRA_SRC: $TETRA_SRC"
+echo "  TETRA_DIR: $TETRA_DIR"
+echo "  Tetra Bootstraping complete, tetra-logs to see more."
