@@ -77,7 +77,7 @@ systemSummary() {
     esac
 }
 
-_initUnix(){
+_initLinux(){
 
       if [ ! -f /etc/systemd/system/watchdog.service ]; then
         generateSystemctlService
