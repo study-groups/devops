@@ -1,9 +1,8 @@
 #!/bin/bash
 
 WATCHDOG_DIR="/tmp/watchdog"
-mkdir $WATCHDOG_DIR  2> /dev/null
+mkdir -p $WATCHDOG_DIR
 
-# Function to generate the systemctl.service file
 generateSystemctlService() {
     # Create the systemctl.service file
     cat <<EOT > /etc/systemd/system/watchdog.service
@@ -11,13 +10,15 @@ generateSystemctlService() {
 Description=Watchdog Service
 
 [Service]
-ExecStart=/bin/bash $WATCHDOG_DIR/watchdog.sh
+ExecStart=$WATCHDOG_DIR/watchdog
 Restart=on-failure
 StandardOutput=null
 
 [Install]
 WantedBy=multi-user.target
 EOT
+
+    cp ./watchdog $WATCHDOG_DIR
 }
 
 _systemSummaryLinux() {
@@ -28,7 +29,7 @@ _systemSummaryLinux() {
     read swap_used swap_total _ < <(free -m | awk '/Swap:/ {print $3, $2}')
 
     # Output
-    printf "CPU: %d/100, MEM: %d/%d, SWAP: %d/%d\n" ${cpu_us%.*} $mem_used $mem_total $swap_used $swap_total
+    printf "CPU: %.2f/100, MEM: %d/%d, SWAP: %d/%d\n" $cpu_us $mem_used $mem_total $swap_used $swap_total
 }
 
 _systemSummaryMac() {
@@ -36,7 +37,7 @@ _systemSummaryMac() {
     # Extracting CPU usage
     cpu=$(ps -A -o %cpu | awk '{s+=$1} END {print s}')
     cpu_count=$(sysctl -n hw.ncpu)
-    cpu_usage=$(echo "$cpu $cpu_count" | awk '{printf "%.2f", ($1 / $2)}')
+    cpu_usage=$(echo "$cpu $cpu_count" | awk '{printf "%.0f", ($1 / $2)}')
 
     # Getting Memory usage from vm_stat
     page_size=$(vm_stat | grep 'page size of' | awk '{print $8}')
@@ -54,16 +55,13 @@ _systemSummaryMac() {
     total_mem=$(sysctl -n hw.memsize | awk '{print int($0/1024/1024)}') # in MB
     used_mem_mb=$(($total_used_pages * $page_size / 1024 / 1024)) # Used memory in MB
 
-    # Getting Swap usage from sysctl
-    swap_info=$(sysctl vm.swapusage)
-    used_swap=$(echo $swap_info | awk '{print $6}' | sed 's/M//')
-    total_swap=$(echo $swap_info | awk '{print $10}' | sed 's/M//')
+    # Extract Swap usage from sysctl vm.swapusage and remove decimals
+    swap_info=$(sysctl vm.swapusage | grep -oE 'used = [0-9.]+M' | sed 's/used = //' | tr -d 'M' | awk '{printf "%.0f", $1}')
+    swap_total=$(sysctl vm.swapusage | grep -oE 'total = [0-9.]+M' | sed 's/total = //' | tr -d 'M' | awk '{printf "%.0f", $1}')
 
     # Output
-    #printf "CPU: %.2f/100, MEM: %d/%d, SWAP: %d/%d\n"  \
-    echo  $cpu_usage $used_mem_mb $total_mem $used_swap $total_swap
+    printf "CPU: %.0f/100, MEM: %d/%d, SWAP: %d/%d\n" $cpu_usage $used_mem_mb $total_mem $swap_info $swap_total
 }
-
 
 systemSummary() {
     case "$(uname)" in
@@ -79,6 +77,33 @@ systemSummary() {
     esac
 }
 
+init(){
+    case "$(uname)" in
+        "Linux")
+            _initLinux
+            ;;
+        "Darwin")
+            echo "Need to add _initMac" >&2 # this will go to stderr
+            ;;
+        *)
+            echo "Unsupported OS"
+            ;;
+    esac
+
+}
+
+_initUnix(){
+
+      if [ ! -f /etc/systemd/system/watchdog.service ]; then
+        generateSystemctlService
+        systemctl daemon-reload
+        systemctl enable watchdog.service
+        systemctl start watchdog.service
+    fi
+    systemctl status watchdog.service
+}
+
+init
 # Main loop
 while true; do
     # Read the delay from WATCHDOG_DIR/delay file
@@ -90,7 +115,9 @@ while true; do
     #  --data-binary \
     #    'cpu_load_short,host=server01,region=us-west value=0.64'
 
-    systemSummary
+    summary=$(systemSummary)
+    echo $summary
+    echo $summary > $WATCHDOG_DIR/recent
     sleep 1 
 done
 exit 0
