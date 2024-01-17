@@ -77,6 +77,18 @@ systemSummary() {
     esac
 }
 
+_initUnix(){
+
+      if [ ! -f /etc/systemd/system/watchdog.service ]; then
+        generateSystemctlService
+        systemctl daemon-reload
+        systemctl enable watchdog.service
+        systemctl start watchdog.service
+    fi
+    systemctl status watchdog.service
+}
+
+
 init(){
     case "$(uname)" in
         "Linux")
@@ -90,17 +102,6 @@ init(){
             ;;
     esac
 
-}
-
-_initUnix(){
-
-      if [ ! -f /etc/systemd/system/watchdog.service ]; then
-        generateSystemctlService
-        systemctl daemon-reload
-        systemctl enable watchdog.service
-        systemctl start watchdog.service
-    fi
-    systemctl status watchdog.service
 }
 
 init
