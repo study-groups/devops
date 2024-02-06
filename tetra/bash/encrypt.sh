@@ -1,20 +1,20 @@
-tetra_encrypt(){
+tetra-encrypt(){
   openssl aes-256-cbc -a -salt -in $1 -out $1.enc
 }
 
-tetra_decrypt(){
+tetra-decrypt(){
   openssl aes-256-cbc -d -a -in $1 -out $2 
 }
 
-tetra_encrypt_stdio(){
+tetra-encrypt-stdio(){
   openssl aes-256-cbc -a -salt 
 }
 
-tetra_decrypt_stdio(){
+tetra-decrypt-stdio(){
   openssl aes-256-cbc -a -d
 }
 
-tetra_htpasswd_set(){
+tetra-htpasswd-set(){
    # used by nginx for basic security
    # typically development web is protected 
    # using a shared devops password.
