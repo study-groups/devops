@@ -15,12 +15,6 @@ echo "$TETRA_SERVERS" > $TETRA_DIR/servers.list
 #echo "$TETRA_PROJECT_SH" > "$TETRA_DIR/projects/$TETRA_PROJECT/tetra.sh"
 #echo "$TETRA_OPENSSL" > $TETRA_DIR/vault/tetra_openssl.sh
 
-
-if [[ $OSTYPE == 'darwin'* ]]; then
-  # colima allows docker commands without Docker Desktop for mac 
-  colima delete
-  colima start --arch x86_64
-fi
 }
 
 tetra_create_tetra
