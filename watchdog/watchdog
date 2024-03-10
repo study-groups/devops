@@ -1,7 +1,7 @@
 #!/bin/bash
 
+WATCHDOG_SERVICE="/etc/systemd/system/watchdog.service"
 WATCHDOG_DIR="/tmp/watchdog"
-mkdir -p $WATCHDOG_DIR
 
 generateSystemctlService() {
     # Create the systemctl.service file
@@ -12,13 +12,12 @@ Description=Watchdog Service
 [Service]
 ExecStart=$WATCHDOG_DIR/watchdog
 Restart=on-failure
-StandardOutput=null
+StandardOutput=journal
 
 [Install]
 WantedBy=multi-user.target
 EOT
-
-    cp ./watchdog $WATCHDOG_DIR
+    echo cp ./watchdog to $WATCHDOG_DIR
 }
 
 _systemSummaryLinux() {
@@ -78,9 +77,15 @@ systemSummary() {
 }
 
 _initLinux(){
+    [[ $(read -p "Sure? (y/n):" c; echo $c) != 'y' ]] && exit
 
-      if [ ! -f /etc/systemd/system/watchdog.service ]; then
-        generateSystemctlService
+    generateSystemctlService
+
+
+}
+
+start-service(){
+    if [ ! -f $WATCHDOG_SERVICE ]; then
         systemctl daemon-reload
         systemctl enable watchdog.service
         systemctl start watchdog.service
@@ -88,8 +93,18 @@ _initLinux(){
     systemctl status watchdog.service
 }
 
+stop-service(){
+    systemctl stop watchdog.service
+}
 
-init(){
+remove-service(){
+   rm -r $WATCHDOG_DIR
+   rm $WATCHDOG_SERVICE 
+}
+
+install-service(){
+    mkdir -p $WATCHDOG_DIR
+    cp ./watchdog $WATCHDOG_DIR/watchdog
     case "$(uname)" in
         "Linux")
             _initLinux
@@ -103,8 +118,32 @@ init(){
     esac
 
 }
+case "$1" in
+   install-service)
+        # code to be executed for option1
+        echo "Initializing /etc/"
+	install-service
+	exit 0
+        ;;
+   remove-serice)
+	stop-service
+	remove-service
+        exit 0	
+        ;;
+   start-service)
+        start-service	
+        exit 0	
+        ;;
+   stop-service)
+	stop-service
+        exit 0	
+        ;;
+    *)
+        # code to be executed for any other option
+        echo "Invalid option"
+        ;;
+esac
 
-init
 # Main loop
 while true; do
     # Read the delay from WATCHDOG_DIR/delay file
@@ -119,6 +158,7 @@ while true; do
     summary=$(systemSummary)
     echo $summary
     echo $summary > $WATCHDOG_DIR/recent
-    sleep 1 
+    sleep $((1*5))
 done
 exit 0
+
