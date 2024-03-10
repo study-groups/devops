@@ -1,19 +1,26 @@
 #!/bin/bash
 ##################################################################
-# devops.sh is a collection of dash-apps* which provide:
+# devops.sh is a collection of Bash functions which provide
 #
 #       Stage          Tool               Description
-#  1. PROVISIONING    dotool       creates node, copies to remote:nh-config.sh
-#  2. CONFIGURATION   nodeholder   nhconfig calls remote:nh-config-init
-#  3. PORTMAPPINGS    nodeholder   creates Nginx remote:config files (consul)
-#  4. DEPLOYMENT      admin        sets up remote:apps from repos (nomad)
-#  5. MANAGEMENT      nodeholder*  start, stop and configure apps (nomad)
-#  6. MONITORING      nodeholder   monitors all known remote:nodes (consul)
-#  7. LOGGING         nodelog      maintains logfile rotation,etc (consul)
-#  8. BACKUP          nodesync     rsync wrapper with conventions (consul)
+#  1. PROVISIONING    dotool       - creates vpn, droplets with tetra key
 #
-#  *A dash-app is a madeup term that referes to a collection of
-#   shell functions starting with "appname-".
+#  2. CONFIGURATION   tetra_ssl    - calls remote:nh-config-init
+#
+#  3. PORTMAPPINGS    tetra_       - creates Nginx config files (consul)
+#                     {ufw,nginx,ssl,service}
+#
+#  4. DEPLOYMENT      tetra_       -sets up remote:apps from repos (nomad)
+#                     {nginx,redis,postgres}
+#
+#  5. MANAGEMENT      tetra_service  start, stop and configure apps (nomad)
+#
+#  6. MONITORING      watchdog        monitors all known remote:nodes (consul)
+#
+#  7. LOGGING         nectar       maintains logfile rotation,etc (consul)
+#
+#  8. BACKUP          tetra_sync     rsync wrapper with conventions (consul)
+#
 ##################################################################
 
 ##################################################################

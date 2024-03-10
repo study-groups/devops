@@ -17,13 +17,20 @@ for f in $(ls $TETRA_SRC/*.sh | grep -v bootstrap.sh);
   do source $f;
 done;
 
-
 for d in $TETRA_DIR/*/; do
     if [ -e "$d/tetra.sh" ]; then
         source "$d/tetra.sh"
     fi
 done
 
-echo "  TETRA_SRC: $TETRA_SRC"
-echo "  TETRA_DIR: $TETRA_DIR"
-echo "  Tetra Bootstraping complete, tetra-logs to see more."
+if [[ $OSTYPE == 'darwin'* ]]; then
+  # colima allows docker commands without Docker Desktop for mac 
+  colima delete
+  colima start --arch x86_64
+fi
+
+echo "  TETRA_SRC: $TETRA_SRC" > /dev/stderr
+echo "  TETRA_DIR: $TETRA_DIR" > /dev/stderr
+echo "  Tetra Bootstraping complete with $OSTYPE." > /dev/stderr
+
+
