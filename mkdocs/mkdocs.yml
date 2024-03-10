@@ -11,10 +11,27 @@ extra:
   generator: false
 
 nav:
-    - Infra: './infra'
-    - Tetra: './tetra'
-    - Nectar: './nectar'
-    - Gaia: './gaia'
+  - Home: index.md
+  - Nodeholder Distributed Sytstem: nds.md
+  - Apps:
+    - Gaia: gaia.md
+    - Semantic Analaysis Engine: sae.md
+ 
+  - Tools:
+    - DO Tool: dotool.md
+    - RC Tool: rctool.md
+  - Guides:
+    - How To: howto.md
+    - Key Policies: keypolicy.md
+    - MkDocs Guide: mkdocs.md
+
+
+#nav:
+#    - Nodeholder: './nds.md'
+#    - Infra: './infra.md'
+#    - Tetra: './tetra.md'
+#    - Nectar: './nectar.md'
+#    - Gaia: './gaia.md'
 
 theme:
   name:  material

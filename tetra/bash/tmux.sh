@@ -13,7 +13,8 @@ tetra-tmux-join(){
   #tmux attach -t $1     
   tmux attach-session -d -t $1 # -d resizes to screen
   # $? is result of attempt to attach
-  [ $? == 1 ] && tmux new -s $1 
+  #[ $? == 1 ] && tmux new -s $1 
+  [ $? == 1 ] && tetra-tmux-new 
 }
 
 tetra-tmux-kill(){
