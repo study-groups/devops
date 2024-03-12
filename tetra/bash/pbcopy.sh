@@ -1,7 +1,6 @@
 # Create an alias for the 'date' command based on the operating system
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'
-    echo "USING DARWIN SETTINGS IN TETRA"
     alias date='gdate'
 else
     # Linux and other Unix-like systems

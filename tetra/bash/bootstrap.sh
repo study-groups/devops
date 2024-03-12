@@ -23,7 +23,7 @@ for d in $TETRA_DIR/*/; do
     fi
 done
 
-if [[ $OSTYPE == 'darwin'* ]]; then
+if command -v colima &>/dev/null && [[ $OSTYPE == 'darwin'* ]]; then
   # colima allows docker commands without Docker Desktop for mac 
   colima delete
   colima start --arch x86_64
