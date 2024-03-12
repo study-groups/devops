@@ -25,8 +25,9 @@ done
 
 if command -v colima &>/dev/null && [[ $OSTYPE == 'darwin'* ]]; then
   # colima allows docker commands without Docker Desktop for mac 
-  colima delete
-  colima start --arch x86_64
+  # change false to true to activate
+  false && colima delete
+  false && colima start --arch x86_64
 fi
 
 echo "  TETRA_SRC: $TETRA_SRC" > /dev/stderr
