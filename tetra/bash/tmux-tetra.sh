@@ -2,7 +2,7 @@ tetra-tmux-tetra ()
 { 
     # Check if "tetra" session is already running
     if tmux has-session -t tetra 2>/dev/null; then
-        read -p "The 'tetra' session is already running. Do you want to restart it? (y/n): " answer
+        read -p "Tetra already running. Restart? (y/n): " answer
         if [[ $answer == [Yy]* ]]; then
             tmux kill-session -t tetra
         else
@@ -23,31 +23,41 @@ tetra-tmux-tetra ()
     tmux split-window -h
 
     # Define hosts for panes 1 and 2, defaulting to do1 and do4_n2
-    host1=${1:-$do1}
-    host2=${2:-$do4_n2}
+    ssh1=${1:-"root@$do1"}
+    ssh2=${2:-"root@$do4_n2"}
 
     # Define arrays for commands in panes 1 and 2
     pane1_commands=(
-        "ssh root@$host1"
-        "TETRA_SRC=\$HOME/src/devops-study-group/tetra/bash"
-        "source \$TETRA_SRC/bootstrap.sh"
+        "source \$HOME/\$USER.sh"
         "tetra-status"
+        "echo use: ssh $ssh1"
     )
 
     pane2_commands=(
-        "ssh root@$host2"
         "source \$HOME/\$USER.sh"
         "tetra-status"
+        "echo use: ssh $ssh2"
     )
 
-    # Loop through commands for pane 1 and send them
+    pane3_commands=(
+        "source $HOME/$USER.sh"
+        "tetra-status"
+        "echo Tetra Local"
+    )
+
+    # Loop through commands for pane 1 and send them thru to tmux
     for cmd in "${pane1_commands[@]}"; do
         tmux send-keys -t 0 "$cmd" C-m
     done
 
-    # Loop through commands for pane 2 and send them
+    # Loop through commands for pane 2
     for cmd in "${pane2_commands[@]}"; do
         tmux send-keys -t 1 "$cmd" C-m
+    done
+
+    # Loop through commands for pane 3 
+    for cmd in "${pane3_commands[@]}"; do
+        tmux send-keys -t 2 "$cmd" C-m
     done
 
     # Customize status style
@@ -57,5 +67,8 @@ tetra-tmux-tetra ()
     tmux set pane-active-border-style fg=blue
     tmux set pane-border-style fg=gray
 
+    tmux select-pane -t 2
     tmux attach-session -t tetra
+
 }
+
