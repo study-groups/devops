@@ -8,16 +8,13 @@ tetra-tmux-list(){
   tmux list-sessions # aka tmux ls
 }
 
-# creates session without starting a script
-tetra-tmux-join(){
-  #tmux attach -t $1     
-  tmux attach-session -d -t $1 # -d resizes to screen
-  # $? is result of attempt to attach
-  #[ $? == 1 ] && tmux new -s $1 
-  [ $? == 1 ] && tetra-tmux-new 
+tetra-tmux-join () 
+{   
+    tmux has-session -t tetra 2>/dev/null &&  \
+    tmux attach-session -t tetra || \
+    tmux new-session -s tetra
 }
-
-tetra-tmux-kill(){
+tetra-tmux-kill-session(){
   tmux kill-session -t $1
 }
 

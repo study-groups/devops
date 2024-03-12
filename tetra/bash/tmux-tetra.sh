@@ -1,42 +1,61 @@
-tetra-tmux-tetra(){
-  tmux kill-session -t tetra 
-  tmux new-session -d -s tetra
- 
-  tmux setw -g mode-keys vi
- 
-  # Split the window into two panes horizontally
-  tmux split-window -v
+tetra-tmux-tetra () 
+{ 
+    # Check if "tetra" session is already running
+    if tmux has-session -t tetra 2>/dev/null; then
+        read -p "The 'tetra' session is already running. Do you want to restart it? (y/n): " answer
+        if [[ $answer == [Yy]* ]]; then
+            tmux kill-session -t tetra
+        else
+            echo "Exiting without restarting the 'tetra' session."
+            return
+        fi
+    fi
 
-  # Select the first pane and split it vertically
-  tmux select-pane -t 0 
-  tmux split-window -h
+    tmux new-session -d -s tetra
 
-  # Export necessary variables
-  export do1
-  export do4_n2
+    tmux setw mode-keys vi
 
-  # After SSHing into the first machine
-  tmux send-keys -t 0 'ssh root@$do1' C-m
-  tmux send-keys -t 0 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
-  tmux send-keys -t 0 'source $TETRA_SRC/bootstrap.sh' C-m
-  tmux send-keys -t 0 'tetra-status' C-m
+    # Split the window into two panes horizontally
+    tmux split-window -v
 
-  # After SSHing into the second machine
-  tmux send-keys -t 1 'ssh root@$do4_n2' C-m
-  tmux send-keys -t 1 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
-  tmux send-keys -t 1 'source $TETRA_SRC/bootstrap.sh' C-m
-  tmux send-keys -t 1 'tetra-status' C-m
+    # Select the first pane and split it vertically
+    tmux select-pane -t 0 
+    tmux split-window -h
 
-  tmux send-keys -t 2 'tmux set -g status-style bg=red' C-m
-  tmux send-keys -t 2 'TETRA_SRC=$HOME/src/devops-study-group/tetra/bash' C-m
-  tmux send-keys -t 2 'source $TETRA_SRC/bootstrap.sh' C-m
-  tmux send-keys -t 2 'tetra-status' C-m
-  tmux select-pane -t 2 
+    # Define hosts for panes 1 and 2, defaulting to do1 and do4_n2
+    host1=${1:-$do1}
+    host2=${2:-$do4_n2}
 
-  tmux set -g mouse on
-  tmux set -g status-style fg='#008800'
-  tmux set -g status-style bg='#880088'
-  tmux set -g pane-active-border-style fg=blue
-  tmux set -g pane-border-style fg=gray
-  tmux attach-session -t tetra
+    # Define arrays for commands in panes 1 and 2
+    pane1_commands=(
+        "ssh root@$host1"
+        "TETRA_SRC=\$HOME/src/devops-study-group/tetra/bash"
+        "source \$TETRA_SRC/bootstrap.sh"
+        "tetra-status"
+    )
+
+    pane2_commands=(
+        "ssh root@$host2"
+        "source \$HOME/\$USER.sh"
+        "tetra-status"
+    )
+
+    # Loop through commands for pane 1 and send them
+    for cmd in "${pane1_commands[@]}"; do
+        tmux send-keys -t 0 "$cmd" C-m
+    done
+
+    # Loop through commands for pane 2 and send them
+    for cmd in "${pane2_commands[@]}"; do
+        tmux send-keys -t 1 "$cmd" C-m
+    done
+
+    # Customize status style
+    tmux set mouse on
+    tmux set status-style fg='#008800'
+    tmux set status-style bg='#880088'
+    tmux set pane-active-border-style fg=blue
+    tmux set pane-border-style fg=gray
+
+    tmux attach-session -t tetra
 }
