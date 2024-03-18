@@ -8,12 +8,27 @@ TO_DIR="/home/mricos/backups"
 FROM_DIR=/home/mricos/files/
 
 tetra_sync_help(){
-  echo "\
-Sync is a collection shell functions for continual backup of unix servers."
+  echo "
+    Sync is a collection shell functions for continual backup of unix servers.
+    Output is string that can be verified before wrapping in \$() to execute.
+"
 }
 tetra_sync_space(){
  du -hsx * | sort -rh | head -4 2> /tmp/err
 }
+
+tetra_sync_tetra_to(){
+  local exclude="--exclude={'.git','*.zip','*.gz'}"
+  local params="-avzP" # archive,verbose,compress,Partial
+  echo rsync $params $exclude  "$HOME/tetra/" "$USER@$1:~/tetra"
+}
+
+tetra_sync_tetra_from(){
+  local exclude="--exclude={'.git','*.zip','*.gz'}"
+  local params="-avzP" # archive,verbose,compress,Partial
+  echo rsync $params $exclude  "$USER@$1:~/tetra/" "$HOME/tetra"
+}
+export tetra_sync_tetra_from
 
 tetra_sync_from(){
   local exclude="--exclude={'.git','*.zip','*.gz'}"

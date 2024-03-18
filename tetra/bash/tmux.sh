@@ -11,8 +11,8 @@ tetra-tmux-list(){
 tetra-tmux-join () 
 {   
     tmux has-session -t tetra 2>/dev/null &&  \
-    tmux attach-session -t tetra || \
-    tmux new-session -s tetra
+    tmux attach-session -t $1 || \
+    tmux new-session -s $1
 }
 tetra-tmux-kill-session(){
   tmux kill-session -t $1

@@ -2,6 +2,8 @@ alias ttks='tetra-tmux-kill-server'
 alias ttt='tetra-tmux-tetra'
 alias tttk='tetra-tmux-kill-session tetra'
 alias tnlr='tetra_nginx_location_replace'
+alias ttr='source $TETRA_DIR/tetra.sh'
+#alias ttr='source $TETRA_SRC/bootstrap.sh'
 
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'
