@@ -253,19 +253,9 @@ dotool-create-server-list() {
 	  /tmp/server.list
 
   dotool-floating | awk '$2~"nyc" {print "floatingEast=" $1} \
-                         $2~"sfo"{print "floatingWest=" $1}' >> \
-	  /tmp/server.list
+                         $2~"sfo"{print "floatingWest=" $1}' >>  /tmp/server.list
 
-
-  source /tmp/server.list
-  if [ -z $TETRA_DIR ];
-    then
-       cat /tmp/server.list
-       rm /tmp/server.list
-    else
-      echo "Writing $TETRA_DIR/server.list"
-      cat /tmp/server.list > $TETRA_DIR/server.list
-      rm /tmp/server.list
-    fi
+  cat /tmp/server.list
+  rm /tmp/server.list
 } 
 
