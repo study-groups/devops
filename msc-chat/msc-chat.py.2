@@ -1,0 +1,104 @@
+import streamlit as st
+import streamlit.components.v1 as components
+import json
+import os
+import subprocess
+from scapy.all import *
+from collections import defaultdict
+import random
+import string
+
+def generate_iff_from_pcap(file):
+    packets = rdpcap(file)
+
+    conversations = defaultdict(list)
+
+    for packet in packets:
+        if IP in packet:
+            conversations[(packet[IP].src, packet[IP].dst)].append(packet)
+
+    iff = []
+
+    for (src, dst), packets in conversations.items():
+        for packet in packets:
+            iff.append({
+                'source': src,
+                'destination': dst,
+                'label': packet.summary()
+            })
+
+    return iff
+
+def generate_random_iff():
+    num_nodes = random.randint(5, 10)
+    nodes = [''.join(random.choices(string.ascii_uppercase, k=5)) for _ in range(num_nodes)]
+    iff = []
+    for i in range(num_nodes - 1):
+        iff.append({
+            'source': nodes[i],
+            'destination': nodes[i+1],
+            'label': ''
+        })
+    return iff
+
+def iff_to_mmd(iff, start_frame, end_frame):
+    mmd = 'graph LR\n'
+    for connection in iff[start_frame-1:end_frame]:
+        mmd += f"        {connection['source']} --> {connection['destination']}\n"
+    return mmd
+
+def save_iff_to_file(iff):
+    with open('current.iff.json', 'w') as f:
+        json.dump(iff, f)
+
+def load_iff_from_file():
+    with open('current.iff.json', 'r') as f:
+        return json.load(f)
+
+st.title('PCAP to Mermaid Converter')
+
+if st.button('Generate Random IFF'):
+    random_iff = generate_random_iff()
+    save_iff_to_file(random_iff)
+    st.text(iff_to_mmd(random_iff, 1, len(random_iff)))
+
+start_frame = st.number_input('Enter start frame', min_value=1, value=1)
+end_frame = st.number_input('Enter end frame', min_value=1, value=10)
+
+name_mapping = st.text_input('Enter name mapping (in the format "oldname=newname")')
+
+uploaded_pcap_file = st.file_uploader("Choose a PCAP file", type="pcap")
+
+if uploaded_pcap_file is not None:
+    st.success('PCAP file uploaded successfully!')
+
+    iff = generate_iff_from_pcap(uploaded_pcap_file)
+    save_iff_to_file(iff)
+
+    mermaid_output = iff_to_mmd(iff, start_frame, end_frame)
+
+    if name_mapping:
+        oldname, newname = name_mapping.split('=')
+        mermaid_output = mermaid_output.replace(oldname, newname)
+
+    st.text(mermaid_output)
+
+uploaded_iff_file = st.file_uploader("Upload an IFF JSON file", type="json")
+
+if uploaded_iff_file is not None:
+    st.success('IFF file uploaded successfully!')
+    iff = load_iff_from_file()
+    mmd = iff_to_mmd(iff, start_frame, end_frame)
+    st.text(mmd)
+
+if st.button('Save IFF'):
+    iff = load_iff_from_file()
+    with open('saved.iff.json', 'w') as f:
+        json.dump(iff, f)
+    st.success('IFF data saved successfully!')
+
+if st.button('SVG'):
+    subprocess.run(['bash', '-c', './mmd-to-svg.sh'])
+    st.success('SVG file generated successfully!')
+    st.image("output.svg")
+

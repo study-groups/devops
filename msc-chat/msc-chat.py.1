@@ -1,0 +1,58 @@
+import streamlit as st
+import json
+from scapy.all import *
+from collections import defaultdict
+
+def generate_mermaid_from_pcap(file, firstN, lastN):
+    packets = rdpcap(file)
+
+    conversations = defaultdict(list)
+
+    for packet in packets[firstN-1:lastN]:
+        if IP in packet:
+            conversations[(packet[IP].src, packet[IP].dst)].append(packet)
+
+    mermaid_output = '<div class="mermaid">\n    graph TD;\n'
+
+    for (src, dst), packets in conversations.items():
+        for packet in packets:
+            mermaid_output += f'        {src}[{src}] --> {dst}[{packet.summary()}]\n'
+
+    mermaid_output += '</div>'
+    return mermaid_output
+
+st.title('PCAP to Mermaid Converter')
+
+uploaded_file = st.file_uploader("Choose a PCAP file", type="pcap")
+
+if uploaded_file is not None:
+    st.success('File uploaded successfully!')
+
+    frame_range = st.text_input('Enter frame range to display (in the format "firstN-lastN")')
+
+    if frame_range:
+        firstN, lastN = map(int, frame_range.split('-'))
+
+        mermaid_output = generate_mermaid_from_pcap(uploaded_file, firstN, lastN)
+
+        st.markdown(mermaid_output, unsafe_allow_html=True)
+
+        name_mapping = st.text_input('Enter name mapping (in the format "oldname=newname")')
+
+        if name_mapping:
+            oldname, newname = name_mapping.split('=')
+
+            mermaid_output = mermaid_output.replace(oldname, newname)
+
+            st.markdown(mermaid_output, unsafe_allow_html=True)
+
+            metadata = {
+                'file': uploaded_file.name,
+                'frame_range': frame_range,
+                'name_mapping': name_mapping
+            }
+
+            with open(uploaded_file.name + '.json', 'w') as f:
+                json.dump(metadata, f)
+
+            st.success('Metadata saved successfully!')
