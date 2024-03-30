@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <link rel="stylesheet" href="<https://unpkg.com/picocss@0.3.0/dist/pico.min.css>">
+  <style>
+  /* Define your media breakpoints here */
+  @media (min-width: 600px) {
+    /* Styles for screens larger than 600px */
+  }
+
+  @media (min-width: 900px) {
+    /* Styles for screens larger than 900px */
+  }
+
+  /* Header styles */
+  header {
+    /* Your styles here */
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Placeholder for font change */
+  .custom-font {
+    font-family: 'Your Font Here';
+  }
+
+  /* Menu styles */
+  .menu {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .menu-item {
+    margin: 0.5em;
+  }
+
+  /* Responsive menu for small screens */
+  @media (max-width: 600px) {
+    .menu {
+      flex-direction: column;
+    }
+  }
+
+  /* Footer styles */
+  footer {
+    /* Your styles here */
+  }
+</style>
+  <script src="picoui.js"></script> <!-- Include the JS script -->
+</head>
+<body>
+  <header>
+  <a href="/home">Home</a>
+  <ul class="menu">
+    <li class="menu-item"><a href="/link">Link</a></li>
+    <li class="menu-item"><a href="/timeDb">TimeDb</a></li>
+    <li class="menu-item"><a href="/imagetool">ImageTool</a></li>
+    <li class="menu-item"><a href="/developer">Developer</a></li>
+  </ul>
+  <a href="/account-settings">Account Settings</a>
+</header>
+  <main>
+  <!-- Main Content -->
+</main>
+  <footer>
+  <!-- Footer Content -->
+</footer>
+</body>
+</html>
