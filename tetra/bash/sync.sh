@@ -42,7 +42,7 @@ tetra_sync_from(){
   echo $cmd
 }
 
-tetra_sync_to() {
+tetra_sync_to_old() {
   local params="-avzP" # archive,verbose,compress,Partial
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local from=$1
@@ -52,6 +52,26 @@ tetra_sync_to() {
   cmd=$(echo rsync $params $exclude  $from $to_user@$to_host:$to_path )
   echo "$cmd"
 }
+
+tetra_sync_to() { 
+    local params="-avzP"
+    local excludes=("--exclude='.git'" "--exclude='*.zip'" "--exclude='*.gz'")
+    local from="$1"
+    local to_user="$2"
+    local to_host="$3"
+    local to_path="$4"
+    local cmd="rsync $params"
+    
+    for exclude in "${excludes[@]}"; do
+        cmd+=" $exclude"
+    done
+    
+    cmd+=" '$from' ${to_user}@${to_host}:'$to_path'"
+    
+    echo "$cmd"
+    #eval "$cmd"
+}
+
 
 tetra-sync-find-since(){
   local since=${1:-"1 hour ago"}

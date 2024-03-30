@@ -1,111 +1,95 @@
-
-tetra-ssh-list-known-hosts() {
-    # This function formats and lists entries from the known_hosts file.
-    # Note: If hostnames are hashed, only key types and key data will be displayed.
-
-    local known_hosts_file="$HOME/.ssh/known_hosts"
-
-    if [ -f "$known_hosts_file" ]; then
-        echo "Entries in known_hosts:"
-        while IFS= read -r line; do
-            local key_type=$(echo "$line" | awk '{print $2}')
-            local key_data=$(echo "$line" | awk '{print $3}')
-            echo "Key Type: $key_type"
-            echo "Key Data: $key_data"
-            echo "--------------------------------"
-        done < "$known_hosts_file"
-    else
-        echo "No known_hosts file found."
+# Function to start ssh-agent if not already running
+function tetra_ssh_start_agent() {
+    if ! pgrep -x ssh-agent >/dev/null; then
+        exec $(ssh-agent)
     fi
 }
 
-# Usage: Call tetra-ssh-list-known-hosts to display the known hosts.
+# Function to explain the role and functionality of ssh-agent
+function tetra_ssh_explain_agent_functionality() {
+    cat <<EOF
+SSH-agent securely stores private keys, enabling single sign-on and key 
+forwarding. It runs as a regular user, managing keys on their behalf. When 
+started, ssh-agent creates a socket file in the user's home directory, acting 
+as a secure communication channel. Additionally, it simplifies key management 
+by automating authentication processes, particularly useful in automated 
+scripts or when dealing with numerous servers.
 
-
-tetra-ssh-list-known-hosts-raw() {
-    # Lists the entries in the known_hosts file.
-    local known_hosts_file="$HOME/.ssh/known_hosts"
-
-    if [ -f "$known_hosts_file" ]; then
-        echo "Listing entries in known_hosts:"
-        cat "$known_hosts_file"
-    else
-        echo "No known_hosts file found."
-    fi
+Moreover, ssh-agent provides a convenient way to manage multiple SSH keys for 
+various purposes. Users can add their keys to the agent, streamlining the 
+authentication process and eliminating the need to repeatedly enter passphrases.
+EOF
 }
 
-# Usage: Call tetra-ssh-list-known-hosts to display the known hosts.
-
-
-
-tetra-ssh-add-known-host() {
-    # Adds a new host to the known_hosts file after retrieving its public key.
-    # Note: Ensure you trust the host before adding its key.
-
-    echo "Enter the hostname (e.g., airbook.local):"
-    read host
-
-    # Retrieve the public key using ssh-keyscan
-    ssh-keyscan -H $host >> "$HOME/.ssh/known_hosts"
-    if [ $? -eq 0 ]; then
-        echo "Host $host added to known_hosts."
-    else
-        echo "Error adding host $host to known_hosts."
-    fi
+# Function to explain why ssh-agent is started using exec $(ssh-agent)
+function tetra_ssh_explain_agent_startup() {
+    cat <<EOF
+The 'exec \$(ssh-agent)' syntax starts ssh-agent and replaces the current shell 
+process. This ensures that ssh-agent is started in the context of the current 
+shell session, preserving environment variables like SSH_AUTH_SOCK and 
+SSH_AGENT_PID. Additionally, it ensures ssh-agent runs as a child process, 
+simplifying management and termination when the shell exits. This tight 
+integration enhances system security and stability.
+EOF
 }
 
--ssh-ssh-info() {
-    # Check if ~/.ssh directory exists
-    if [ ! -d "$HOME/.ssh" ]; then
-        echo "SSH directory not found."
+# Function to provide information about SSH keys and ssh-agent
+function tetra_ssh_info() {
+    tetra_ssh_start_agent
+
+    if pgrep -x ssh-agent >/dev/null; then
+        echo "SSH Agent is running."
+        echo "Keys added:"
+        ssh-add -l
+        echo "To add a new key, use 'tetra_ssh_add <key_file>'."
+    else
+        echo "SSH Agent is not running."
+        echo "To start the SSH Agent, use 'tetra_ssh_start'."
+    fi
+
+    echo
+    echo "SSH Agent Functionality:"
+    tetra_ssh_explain_agent_functionality
+    echo
+    echo "SSH Agent Startup:"
+    tetra_ssh_explain_agent_startup
+}
+
+# Function to add a new SSH key
+function tetra_ssh_add() {
+    if [[ $# -ne 1 ]]; then
+        echo "Usage: tetra_ssh_add <key_file>"
         return 1
     fi
-
-    # Display basic information about the SSH directory
-    echo "SSH Directory: $HOME/.ssh"
-    echo "Contents:"
-    ls -l "$HOME/.ssh"
-
-    # Display the public keys if they exist
-    if ls "$HOME/.ssh/*.pub" 1> /dev/null 2>&1; then
-        echo "Public Keys:"
-        ls "$HOME/.ssh/*.pub"
-    else
-        echo "No public keys found in $HOME/.ssh"
+    
+    local key_file="$1"
+    
+    if [[ ! -f "$key_file" ]]; then
+        echo "Error: Key file '$key_file' not found."
+        return 1
     fi
+    
+    tetra_ssh_start_agent
+    
+    ssh-add "$key_file"
+    echo "Key '$key_file' added to ssh-agent."
+}
 
-    # Display the ssh config file if it exists
-    if [ -f "$HOME/.ssh/config" ]; then
-        echo "SSH Config File:"
-        cat "$HOME/.ssh/config"
+# Function to list added SSH keys
+function tetra_ssh_list() {
+    tetra_ssh_start_agent
+    ssh-add -l
+}
+
+# Function to display status of SSH server
+function tetra_ssh_status() {
+    tetra_ssh_start_agent
+    if pgrep -x ssh-agent >/dev/null; then
+        echo "SSH Agent is running."
+        echo "Keys added:"
+        ssh-add -l
     else
-        echo "No SSH config file found."
+        echo "SSH Agent is not running."
+        echo "To start the SSH Agent, use 'tetra_ssh_start'."
     fi
 }
-
-tetra-ssh-add-known-host-orig() {
-
-    # Adds a new host to the known_hosts file after verification.
-
-    local host=$1
-    local fingerprint=$2
-
-    # Verify the provided fingerprint with a trusted source here
-    # For demonstration purposes, let's assume it's verified
-
-    # Add the host to the known_hosts file
-    ssh-keyscan -H $host >> "$HOME/.ssh/known_hosts"
-    echo "Host $host added to known_hosts."
-}
-
-
-
-tetra-ssh-init(){
-  eval "$(ssh-agent)"
-   ssh-add $TETRA_SSH_KEY 
-}
-
-tetra-ssh-add(){
-   ssh-add $1
-}
-
