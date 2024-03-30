@@ -1,13 +1,22 @@
 tetra_create_tetra(){
-echo "You are about to blow away $TETRA_DIR, ctrl-c to quit"; read
+echo
+echo "  You are about to blow away TETRA_DIR=$TETRA_DIR"
+echo "  ctrl-c to quit"; read
+echo
+
 rm -r $TETRA_DIR 2>/dev/null
 mkdir $TETRA_DIR
+
 echo  "$TETRA_SH" >  $TETRA_DIR/tetra.sh
 echo  "$TETRA_ENV" >  $TETRA_DIR/tetra.env
 echo "$TETRA_SERVERS" > $TETRA_DIR/servers.list
+mkdir $TETRA_DIR/ssh
+mkdir $TETRA_DIR/api
+mkdir $TETRA_DIR/tls
+mkdir $TETRA_DIR/enc
+
 #echo "$TETRA_PORTS" > $TETRA_DIR/ports.list
 #echo  "$TETRA_PEM" > $TETRA_DIR/tetra.pem
-
 #mkdir $TETRA_DIR/projects/
 #mkdir $TETRA_DIR/keys/
 #mkdir $TETRA_DIR/role/

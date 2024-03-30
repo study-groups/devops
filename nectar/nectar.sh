@@ -22,7 +22,7 @@ for ((i = 0; i < ${#hosts[@]}; i++)); do
     echo "Collecting data from $tag at $host"
     # Use SSH to execute the remote command and retrieve the data
     new_data=$(ssh -o StrictHostKeyChecking=no root@$host \
-        "cat /tmp/watchdog.recent")
+        "cat /tmp/watchdog/recent")
 
     # Check if the data is different from the previous one
     if [ -f "$timestamp_file" ]; then
@@ -31,12 +31,12 @@ for ((i = 0; i < ${#hosts[@]}; i++)); do
             # Data has changed, update the timestamp and save the new data
             echo "$new_data" > "$timestamp_file"
             echo "$new_data" | sed "s/^/$tag,/" >> \
-                "nectardb/watchdog_$tag.log"
+                "./db/watchdog_$tag.log"
         fi
     else
         # First time collecting data, create the timestamp file and save the data
         echo "$new_data" > "$timestamp_file"
         echo "$new_data" | sed "s/^/$tag,/" >> \
-            "nectardb/watchdog_$tag.log"
+            "./db/watchdog_$tag.log"
     fi
 done
