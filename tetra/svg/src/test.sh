@@ -1,0 +1,1 @@
+pbcopy | ../main 80
