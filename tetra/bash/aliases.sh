@@ -1,5 +1,6 @@
 alias ttks='tetra-tmux-kill-server'
 alias ttt='tetra-tmux-tetra'
+alias ttkt='tetra-tmux-kill-session tetra'
 alias tttk='tetra-tmux-kill-session tetra'
 alias tnlr='tetra_nginx_location_replace'
 alias ttr='source $TETRA_DIR/tetra.sh'
