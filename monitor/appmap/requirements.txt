@@ -1,0 +1,2 @@
+appmap==1.0.0
+prometheus-client==0.14.1
