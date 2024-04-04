@@ -1,0 +1,3 @@
+stdin
+stdout
+stderr
