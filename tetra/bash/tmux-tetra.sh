@@ -1,23 +1,18 @@
 tetra-tmux-tetra () 
 { 
-    # Check if "tetra" session is already running
-    if tmux has-session -t tetra 2>/dev/null; then
-        read -p "Tetra already running. Restart? (y/n): " answer
-        if [[ $answer == [Yy]* ]]; then
-            tmux kill-session -t tetra
-        else
-            echo "Exiting without restarting the 'tetra' session."
-            return
-        fi
+    if tmux has-session -t tetra 2> /dev/null; then
+        echo "Attaching to the existing 'tetra' session."
+        tmux attach-session -t tetra
+        return # Exit the function after attaching to avoid creating a new session
     fi
 
     tmux new-session -d -s tetra
-    tmux setw mode-keys vi
-    tmux split-window -v               # Step 4: Split the top pane vertically
-    tmux select-pane -t 0              # Step 3: Select the top pane
-    tmux split-window -h               # Step 2: Split the initial pane horizontally
-    tmux swap-pane -s 0 -t 2  # Swap Pane 0 (bottom) with Pane 2 (top right)
-    tmux swap-pane -s 2 -t 1  # Swap Pane 2 (now at bottom) with Pane 1 (top left)
+    tmux setw -t tetra mode-keys vi
+    tmux split-window -v -t tetra
+    tmux select-pane -t tetra:.0
+    tmux split-window -h -t tetra
+    tmux swap-pane -s tetra:.0 -t tetra:.2
+    tmux swap-pane -s tetra:.2 -t tetra:.1
 
     # Define hosts for panes 1 and 2, defaulting to do1 and do4_n2
     ssh1=${1:-"root@$do1"}
@@ -103,7 +98,6 @@ ttt: tetra-tmux-tetra is a collection of functions
      session started by tetra-tmux-tetra.
 
 tttc: clears all panes
-tttk: kills the server
 ttt1: execute command in pane1
 ttt2: execute command in pane2
 ttt{1,2}: tetra-init
