@@ -14,11 +14,15 @@ tetra-tmux-join ()
     tmux attach-session -t $1 || \
     tmux new-session -s $1
 }
+
 tetra-tmux-kill-session(){
   tmux kill-session -t $1
 }
 
 tetra-tmux-kill-server(){
+  echo "Will kill everything tmux."
+  tmux list-sessions
+  read -p "Sure? ctrl-c to exit."
   tmux kill-server
 }
 
