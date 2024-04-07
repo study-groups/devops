@@ -1,5 +1,5 @@
 
-tetra_ssh_list_known_hosts() {
+tetra_ssh_known_hosts_list() {
     # This function formats and lists entries from theknown_hosts
     # file.  Note: If hostnames are hashed, only key types and
     # key data will be displayed.
@@ -23,7 +23,7 @@ tetra_ssh_list_known_hosts() {
 # Usage: Call tetra-ssh-list-known-hosts to display the known hosts.
 
 
-tetra_ssh_list_known_hosts_raw() {
+tetra_ssh_known_hosts_list_raw() {
     # Lists the entries in the known_hosts file.
     local known_hosts_file="$HOME/.ssh/known_hosts"
 
@@ -39,7 +39,7 @@ tetra_ssh_list_known_hosts_raw() {
 
 
 
-tetra_ssh_add_known_host() {
+tetra_ssh_known_host_add() {
     # Adds a new host to the known_hosts file after
     # retrieving its public key.
     # Note: Ensure you trust the host before adding its key.
@@ -99,4 +99,25 @@ tetra_ssh_add_known_host_orig() {
     ssh-keyscan -H $host >> "$HOME/.ssh/known_hosts"
     echo "Host $host added to known_hosts."
 }
+
+tetra_ssh_known_hosts_clean() {
+    # This function removes duplicate entries from the known_hosts file
+    # based on unique key data.
+
+    local known_hosts_file="$HOME/.ssh/known_hosts"
+    local temp_file="$HOME/.ssh/temp_known_hosts"
+
+    if [ -f "$known_hosts_file" ]; then
+        # Sort and remove duplicates based on the key data (third column)
+        awk '!seen[$3]++' "$known_hosts_file" > "$temp_file"
+
+        # Move the cleaned list back to known_hosts
+        mv "$temp_file" "$known_hosts_file"
+        echo "Duplicates removed from known_hosts."
+    else
+        echo "No known_hosts file found."
+    fi
+}
+
+# Usage: Call tetra-ssh-clean-known-hosts to clean up the known_hosts file.
 
