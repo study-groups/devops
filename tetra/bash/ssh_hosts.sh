@@ -1,7 +1,8 @@
 
-tetra-ssh-list-known-hosts() {
-    # This function formats and lists entries from the known_hosts file.
-    # Note: If hostnames are hashed, only key types and key data will be displayed.
+tetra_ssh_list_known_hosts() {
+    # This function formats and lists entries from theknown_hosts
+    # file.  Note: If hostnames are hashed, only key types and
+    # key data will be displayed.
 
     local known_hosts_file="$HOME/.ssh/known_hosts"
 
@@ -22,7 +23,7 @@ tetra-ssh-list-known-hosts() {
 # Usage: Call tetra-ssh-list-known-hosts to display the known hosts.
 
 
-tetra-ssh-list-known-hosts-raw() {
+tetra_ssh_list_known_hosts_raw() {
     # Lists the entries in the known_hosts file.
     local known_hosts_file="$HOME/.ssh/known_hosts"
 
@@ -38,8 +39,9 @@ tetra-ssh-list-known-hosts-raw() {
 
 
 
-tetra-ssh-add-known-host() {
-    # Adds a new host to the known_hosts file after retrieving its public key.
+tetra_ssh_add_known_host() {
+    # Adds a new host to the known_hosts file after
+    # retrieving its public key.
     # Note: Ensure you trust the host before adding its key.
 
     echo "Enter the hostname (e.g., airbook.local):"
@@ -54,7 +56,7 @@ tetra-ssh-add-known-host() {
     fi
 }
 
--ssh-ssh-info() {
+tetra_ssh_home_info() {
     # Check if ~/.ssh directory exists
     if [ ! -d "$HOME/.ssh" ]; then
         echo "SSH directory not found."
@@ -83,7 +85,7 @@ tetra-ssh-add-known-host() {
     fi
 }
 
-tetra-ssh-add-known-host-orig() {
+tetra_ssh_add_known_host_orig() {
 
     # Adds a new host to the known_hosts file after verification.
 
@@ -96,16 +98,5 @@ tetra-ssh-add-known-host-orig() {
     # Add the host to the known_hosts file
     ssh-keyscan -H $host >> "$HOME/.ssh/known_hosts"
     echo "Host $host added to known_hosts."
-}
-
-
-
-tetra-ssh-init(){
-  eval "$(ssh-agent)"
-   ssh-add $TETRA_SSH_KEY 
-}
-
-tetra-ssh-add(){
-   ssh-add $1
 }
 
