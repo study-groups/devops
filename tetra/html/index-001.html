@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetra Network Management</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    background-color: #e5e5e5; /* Slightly darker background */
+}
+
+.container {
+    width: 100%;
+    height: auto; /* Adjusted height */
+    overflow-y: auto; /* Allow vertical scrolling */
+    display: flex;
+    flex-direction: column;
+}
+
+.section {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 3% 8%; /* Adjusted padding */
+    background-color: #d0d0d0; /* Slightly darker background */
+    box-sizing: border-box; /* Ensure padding doesn't affect width */
+}
+
+.section:nth-child(even) {
+    background-color: #c0c0c0; /* Slightly darker background */
+}
+
+.section h2 {
+    font-size: 1.8rem; /* Smaller title font size */
+    margin-bottom: 1rem;
+    color: #333; /* Black color for titles */
+}
+
+.section p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    color: #333; /* Close to black */
+    text-align: left;
+}
+
+.code {
+    font-family: 'Roboto Mono', monospace;
+    background-color: rgba(0, 0, 0, 0.2); /* Dark black with minimal opacity */
+    color: #8b4513; /* Burnt orange color for code */
+    padding: 0rem 0.5rem; /* Adjusted padding */
+    border-radius: 3px;
+    border: 1px solid black;
+    font-weight: bold; /* Bold code font */
+}
+
+.header, .footer {
+    position: sticky;
+    top: 0;
+    background-color: #333;
+    color: #fff;
+    padding: 0.5rem 0; /* Adjusted padding */
+    text-align: center;
+}
+
+.footer {
+    position: sticky;
+    bottom: 0;
+}
+
+</style>
+</head>
+<body>
+<div class="header">
+    <h1 style="font-size: 1.5rem;">Tetra Network Management</h1> <!-- Smaller header text size -->
+</div>
+<div class="container">
+    <div class="section">
+        <h2>Tetra Creation</h2>
+        <p><span class="code">tetra_create_tetra</span> function initializes the Tetra directory and sets up the environment.</p>
+    </div>
+    <div class="section">
+        <h2>Tetra Functionality Overview</h2>
+        <p>Tetra is a versatile system handling SSH keys via a key ring and managing nginx config files across multiple servers to establish Tetra routes, facilitating network paths.</p>
+    </div>
+    <div class="section">
+        <h2>Network Security and Configuration</h2>
+        <p>For enhanced security, public servers should exclusively accept SSL connections, ensuring clear and monitored input. Tetra empowers developers with private VPNs while enabling a publicly accessible Tetra-router to direct packets to services based on configurations stored in <span class="code">$tetra_dir/{services, ports, hosts, ssh, api}.txt</span>.</p>
+    </div>
+    <div class="section">
+        <h2>Tetra Process Manager</h2>
+        <p>Tetra Process Manager (<span class="code">tetra_pm</span>) is built around tmux sessions, providing robust process management capabilities.</p>
+    </div>
+    <div class="section">
+        <h2>Example</h2>
+        <p><span class="code">tetra</span> | <span class="code">nodeholder</span></p>
+    </div>
+</div>
+<div class="footer">
+    <p><span class="code">tetra</span> | <span class="code">nodeholder</span></p>
+</div>
+</body>
+</html>
+<!--
+
+wrote a scrolling website with gemometric SVG patterns as art elements, section one is tetra_create_tetra which creates an tetra directory at $TETRA_DIR using bash code at $TETRA_SRC/bootstrap.sh
+
+Second section describes in marketing speak that tetra handles SSH keys via a key ring, manages nginx config files that span multiple servers that provide a "tetra route" which is a path through the network.
+
+Third section explains that public servers should provide clear, monitored input using SSL only. Tetra allows developers to work in private VPNs and a publicly facing tetra-router routes packets to services on ports defined in TETRA_DIR/{services,ports,hosts,ssh,api}.txt
+
+Forth section describes tetra_pm, the process manager built around tmux sessions.
+
+End with an example:
+
+tetra_create_tetra # Typically ~/tetra/
+tetra_ssh_list # list ssh.txt keys, these are in the keyring
+tetra_hosts_list # hosts.txt created from dotool/doctl
+ssh devops@$do4 # log into public host
+ssh root@$do4p # log into the private host only from do4p
+
+https://chat.openai.com/c/574dc84c-e46c-4c4d-a5bd-423726829a9c
+
+P1
+write a single page HTML file of the scroll to reveal section type to market the idea above
+
+P2
+Not bad, add a sticky header and footer, dont use the word Section in the title or Section One, just the subject. I like the ideal but make the text breath on left and right, use a little color
+
+P3
+keep the original title on the left, description on the right, taht was good. Try burnt oranges
+
+P4
+Prevent vertical scrolling give padding around the description, use close to black. Dont use pure white background
+
+P5
+sorry i meant dont scroll horizontally, make sure text will fit and wrap in the space, it currently goes over the edge we want space on the right side
+
+P6
+there is a horizontal scroll bar and the text still goes of the the side.
+
+P7
+Okay, fine. Add two technical fonts that complement each other, use one for all of the commands and make them stand out as code in the text
+
+P8
+Give the examples their own section, keep the footer clean, say tetra | nodeholder using code format, any names written_with_undercase should be lowercased and in code font. Make the code font orange and make both backgrounds slightly darker
+
+P9
+Retitle to Tetra Network Managment
+
+Tetra_create_tetra should be tetra_create_tetra and it should be in code  and the orange should be used on  code, the titles should stay black
+
+the code background is too yellow and a little big, tighten , perhaps bold the code font, remove Example:. Make both header and footer stick and make header text smaller
+
+P10
+User
+Good on the code color and bold, make the background dark but low opacity and still keep text strong
+
+P11
+'m unable to scroll the entire screen but need it make it longer to see, fix
+
+P12
+great, no take out the yellow tint of the code background. Instead, make it dark black but using very little opacity to make it pop/recede without imparting color
+
+P13
+make example.html but no formatting. I'm going to fetch it and replace the current Example with it. This is our chance to build a system together, we will iterate so in addition to providing a solution provide me with any state information you want me to pass back to you along with instructions of what to do next
+
+-->
