@@ -1,0 +1,28 @@
+To create a PEM file for SSH login, you can follow these steps:
+
+1. Generate a new SSH key pair using the ssh-keygen command. For example, you can use the following command to generate a new RSA key pair:
+```
+ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa
+```
+
+2. Once the key pair is generated, you will have a private key file (id_rsa) and a public key file (id_rsa.pub) in the ~/.ssh directory.
+
+3. To convert the private key file into the PEM format, you can use the following command:
+```
+openssl rsa -in ~/.ssh/id_rsa -outform pem > ~/.ssh/id_rsa.pem
+```
+
+4. Next, you can convert the public key file into the PEM format using the following command:
+```
+ssh-keygen -f ~/.ssh/id_rsa.pub -e -m PKCS8 > ~/.ssh/id_rsa.pub.pem
+```
+
+5. Now you have both the private key and public key files in PEM format. You can use the private key file for SSH login and add the public key to the authorized_keys file on the server.
+
+6. Make sure to set the correct permissions on the PEM files by running the following commands:
+```
+chmod 600 ~/.ssh/id_rsa.pem
+chmod 644 ~/.ssh/id_rsa.pub.pem
+```
+
+Now you can use the PEM files for SSH login by specifying the private key file in your SSH client configuration.
