@@ -97,3 +97,26 @@ function tetra_ssh_status() {
         echo "To start the SSH Agent, use 'tetra_ssh_start'."
     fi
 }
+# Function to convert SSH id_rsa key to PEM file
+function tetra_ssh_convert_to_pem() {
+    if [[ $# -ne 1 ]]; then
+        echo "Usage: tetra_ssh_convert_to_pem <id_rsa_file>"
+        return 1
+    fi
+    
+    local id_rsa_file="$1"
+    local pem_file="${id_rsa_file%.pub}.pem"
+    
+    if [[ ! -f "$id_rsa_file" ]]; then
+        echo "Error: id_rsa file '$id_rsa_file' not found."
+        return 1
+    fi
+    
+    if [[ -f "$pem_file" ]]; then
+        echo "Error: PEM file '$pem_file' already exists."
+        return 1
+    fi
+    
+    ssh-keygen -f "$id_rsa_file" -e -m pem > "$pem_file"
+    echo "PEM file '$pem_file' created from id_rsa file."
+}

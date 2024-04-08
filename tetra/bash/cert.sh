@@ -1,8 +1,14 @@
+# WIP USE WITH CARE
+TETRA_CERTS="$TETRA_DIR/certs"
 TETRA_CERTS_REMOTE="/etc/ssl/certs/tetra"
+TETRA_REMOTE="setIP"
 
 tetra_cert_help(){
-  echo "TETRA_CERTS:$TETRA_CERTS"
-  echo "TETRA_CERTS_REMOTE:$TETRA_CERTS_REMOTE"
+  echo
+  echo "  TETRA_REMOTE: $TETRA_REMOTE"
+  echo "  TETRA_CERTS:$TETRA_CERTS"
+  echo "  TETRA_CERTS_REMOTE:$TETRA_CERTS_REMOTE"
+  echo
   ls $TETRA_CERTS
 }
 
@@ -39,14 +45,14 @@ server {
 EOF
 }
 
-tetra-cert-push(){
+tetra_cert_push(){
   hostname=$1
   serverIp=$2
   serverDir=${3:-"/etc/ssl/certs/tetra"}
   echo rsync -r  $TETRA_CERTS/$hostname.{crt,key} root@$serverIp:$serverDir
 }
 
-tetra-cert-nginx-restart(){
+tetra_cert_nginx_restart(){
   ssh root@$TETRA_REMOTE systemctl restart nginx
 }
 
