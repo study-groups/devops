@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # appmap.sh
-# This script contains functions for setting up and integrating AppMap with Python applications.
+# This script contains functions for setting up and integrating
+# AppMap with Python applications.
 
 # Function to display general information about AppMap
 appmap_info() {
