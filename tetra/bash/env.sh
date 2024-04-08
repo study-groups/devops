@@ -1,4 +1,4 @@
-tetra-env() {
+tetra_env() {
     local all=false
     local var
     local is_exported
@@ -24,7 +24,7 @@ tetra-env() {
     done
 }
 
-tetra-env-clear() {
+tetra_env_clear() {
     for var in $(compgen -v); do
         if [[ $var == _TETRA* ]] || [[ $var == TETRA* ]]; then
             unset "$var"
@@ -32,3 +32,8 @@ tetra-env-clear() {
     done
 }
 
+tetra_env_update(){
+   echo "todo: Copy orgname/env/hosts.env,ports.env to tetra/env/"
+   echo "todo: Go through TETRA_DIR/TETRA_{ORG,USER}/api "
+   echo "todo: and copy contents of api/NAME to NAME=VALUE > env/NAME.env"
+}

@@ -14,6 +14,7 @@ Creating ssh keys and PEM for $user at $remote, file at
 sshkey: $sshkey
 pemfile: $pemfile
 EOF
+
   ssh-keygen -t rsa -b 2048 -m pem -f $sshkey -C "$user@$org-$now"
 }
 
@@ -37,22 +38,12 @@ EOF
 }
 
 
-tetra-keys-add(){
-  #tetra-keys-ssh-agent # kills and restarts
-  ssh-add $1
-}
-
-# test key
-tetra-keys-login-federated(){
-  ssh -i $pemfile $user@$remote -p 22
-}
-
 # add a passphrase
-tetra-keys-passphrase-check(){
+tetra_keys_passphrase_check(){
   ssh-keygen -p -f $pemfile
 }
 
 # does it have a passphrase
-tetra-keys-passphrase-add(){
+tetra_keys_passphrase_add(){
   ssh-keygen -y -f $pemfile
 }

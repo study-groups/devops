@@ -7,6 +7,7 @@ echo
 rm -r $TETRA_DIR 2>/dev/null
 mkdir $TETRA_DIR
 
+
 echo  "$TETRA_SH" >  $TETRA_DIR/tetra.sh
 echo  "$TETRA_ENV" >  $TETRA_DIR/tetra.env
 echo "$TETRA_SERVERS" > $TETRA_DIR/servers.list
@@ -27,3 +28,5 @@ mkdir $TETRA_DIR/enc
 }
 
 tetra_create_tetra
+#t2=$(doctl compute domain list-records $TETRA_T2 --format "IP_address")
+#t2p=$(doctl compute droplet get $TETRA_T2 --format PrivateIPv4)
