@@ -1,13 +1,14 @@
-tetra-setup-dependencies(){
-if [ "$(uname)" = "Darwin" ]; then
+tetra_setup_dependencies(){
+
+  if [ "$(uname)" = "Darwin" ]; then
     # macOS
     brew install jq
-else
+  else
     # Linux and other Unix-like systems
     echo Standard Linux needs xclip, jq
     apt install xclip
     apt install jq
-fi
+  fi
 
-echo tetra-setup-dependencies using $(uname) for OS.
+  echo tetra_setup_dependencies using $(uname) for OS.
 }
