@@ -33,7 +33,31 @@ tetra_env_clear() {
 }
 
 tetra_env_update(){
-   echo "todo: Copy orgname/env/hosts.env,ports.env to tetra/env/"
-   echo "todo: Go through TETRA_DIR/TETRA_{ORG,USER}/api "
-   echo "todo: and copy contents of api/NAME to NAME=VALUE > env/NAME.env"
+   echo "Using TETRA_DIR: $TETRA_DIR"
+   echo "Using TETRA_ORG: $TETRA_ORG"
+   echo "Using TETRA_USER: $TETRA_USER"
+   (
+       cd $TETRA_DIR/env
+       rm ./hosts.env ./ports.env
+       ln -s $TETRA_DIR/orgs/$TETRA_ORG/hosts.env
+       ln -s $TETRA_DIR/orgs/$TETRA_ORG/ports.env
+   ) 
+   _tetra_env_load
+   _tetra_env_update_apis
+}
+
+_tetra_env_load(){
+    for f in $(ls $TETRA_DIR/env/*.env);
+        do source $f;
+    done;
+}
+
+_tetra_env_update_apis(){
+    echo
+    echo "Updating env with ${TETRA_USER}'s API values"
+    for f in $TETRA_DIR/users/$TETRA_USER/apis/*; do
+        filename=$(basename "$f")
+        value=$(cat "$f")
+        echo "${filename}=${value}" > "$TETRA_DIR/env/${filename}.env"
+    done;
 }
