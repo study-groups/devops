@@ -14,9 +14,22 @@ tetra_opensll_decrypt_stdio(){
   openssl aes-256-cbc -a -d
 }
 
-tetra_htpasswd_set(){
-   # used by nginx for basic security
-   # typically development web is protected 
-   # using a shared devops password.
-   echo htpasswd -c ~$USER/htpasswd ${1:-$USER}
+tetra_openssl_make_pem(){
+  local sshkey=$1
+  local pemfile=$2
+  # convert private key to PEM format
+  openssl rsa -in $sshkey -outform PEM -out $pemfile
+  chmod 600 $pemfile
+}
+
+
+# add a passphrase
+tetra_keys_passphrase_check(){
+  local pemfile=$1
+  ssh-keygen -p -f $pemfile
+}
+
+# does it have a passphrase
+tetra_keys_passphrase_add(){
+  echo "Should work:  openssl rsa -in $1 -out $1"
 }

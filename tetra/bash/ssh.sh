@@ -1,5 +1,11 @@
 # Function to start ssh-agent if not already running
 function tetra_ssh_start_agent() {
+  cat <<EOF
+
+  Starting ssh-agent, learn more:
+  https://www.ssh.com/academy/ssh/agent
+
+EOF
     if ! pgrep -x ssh-agent >/dev/null; then
         exec $(ssh-agent)
     fi
