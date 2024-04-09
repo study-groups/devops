@@ -1,7 +1,6 @@
 # WIP USE WITH CARE
 TETRA_CERTS="$TETRA_DIR/certs"
 TETRA_CERTS_REMOTE="/etc/ssl/certs/tetra"
-TETRA_REMOTE="setIP"
 
 tetra_cert_help(){
   echo
