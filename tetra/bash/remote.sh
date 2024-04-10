@@ -55,30 +55,40 @@ EOF
 ssh "root@${hostname}" "cat >> /home/${username}/.ssh/authorized_keys"
 }
 
-# new_username="exampleuser"
-# do5="hostname.example.com"
-# tetra_user_update_ssh "${username}" "${do5}"
-
-tetra_remote_user_create_tetra() {
-    local username=${1:-$TETRA_USER}
-    local remote=${2:-$TETRA_REMOTE}
-    echo "Using $username"
-    ssh $username@$remote << 'HEREDOC'
-        echo $USER
-        echo $PWD
-        mkdir -p $HOME/src
-        cd $HOME/src
-        git clone https://github.com/study-groups/devops-study-group
-        source $HOME/src/devops-study-group/tetra/bash/init/create.sh
-HEREDOC
-}
-
 tetra_remote_user_update_tetra() {
     local username=${1:-$TETRA_USER}
     local remote=${2:-$TETRA_REMOTE}
-    echo "  Assumes local TETRA_DIR/users/${username} exists"
-    echo "  Copies local keys to ${username}@${remote}:~/tetra/users/${username}" 
-    ##replace
-    ##ssh root@"${remote}" \
-    ##    "cd userdel -r ${username} && echo 'User ${username} deleted.'"
+    echo "Using $username"
+    ssh -t $username@$remote << 'HEREDOC'
+        if [ -d "$HOME/src/devops-study-group" ]; then
+            echo "Repository already exists. Do you want to update it? [y/N]"
+            read -r response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                echo "Updating repository..."
+                cd "$HOME/src/devops-study-group" && git pull
+            else
+                echo "Skipping update."
+            fi
+        else
+            echo "Repository does not exist. Do you want to clone it? [y/N]"
+            read -r response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                echo "Cloning repository..."
+                mkdir -p "$HOME/src"
+                cd "$HOME/src"
+                git clone https://github.com/study-groups/devops-study-group
+            else
+                echo "Skipping clone."
+            fi
+        fi
+
+        export TETRA_DIR=$HOME/tetra
+        export TETRA_SRC=$HOME/src/devops-study-group
+        if [ -z "$TETRA_DIR" ] || [ ! -d "$TETRA_DIR" ]; then
+            echo "TETRA_DIR=$TETRA_DIR is not set or does not exist. Setting up..."
+            source "$HOME/src/devops-study-group/tetra/bash/init/create.sh"
+        else
+            echo "\$TETRA_DIR already exists. Skipping setup."
+        fi
+HEREDOC
 }
