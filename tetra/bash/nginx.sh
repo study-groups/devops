@@ -204,3 +204,22 @@ tetra_nginx_undo_replace() {
 # To undo:
 # tetra_nginx_undo_replace /etc/nginx/nginx.conf
 
+
+tetra_nginx_list_sites()
+{
+  cat /etc/nginx/sites-enabled/* \
+	 | grep " server_name "  \
+	 | grep -v "*." \
+	 | sort \
+	 | uniq 
+}
+
+tetra_nginx_install_crossplane(){
+  # must have python enabled via tetra_python_activate
+  pip install crossplane
+}
+
+tetra_nginx_crossplane_parse_nginx(){
+  crossplane parse /etc/nginx/sites-enabled/*nodeholder*
+}
+

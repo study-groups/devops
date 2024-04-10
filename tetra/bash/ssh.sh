@@ -68,12 +68,14 @@ function tetra_ssh_info() {
 
 # Function to add a new SSH key
 function tetra_ssh_add() {
+    local key_file=""
     if [[ $# -ne 1 ]]; then
-        echo "Usage: tetra_ssh_add <key_file>"
-        return 1
-    fi
+        key_file=$TETRA_DIR/users/$TETRA_USER/keys/id_rsa 
+    else
+        local key_file="$1"
+	fi
     
-    local key_file="$1"
+    echo "Using current: tetra_ssh_add <key_file>"
     
     if [[ ! -f "$key_file" ]]; then
         echo "Error: Key file '$key_file' not found."

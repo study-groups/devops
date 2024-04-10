@@ -1,46 +1,22 @@
-# must be in reports dir
-
-tetra-reload(){
+tetra_reload_CHECK(){
   local dir="$TETRA_DIR"
   local src="$TETRA_SRC"
   [ -z "$TETRA_DIR" ] && echo "TETRA_DIR not set, exiting" && return 1
   [ -z "$TETRA_SRC" ] && echo "TETRA_SRC not set, exiting" && return 1
-  tetra-env-clear
+  tetra_env_clear
   TETRA_DIR="${dir}" 
   TETRA_SRC="${src}" 
   echo "sourcing $TETRA_DIR/tetra.sh"
   source $TETRA_DIR/tetra.sh
-  tetra-env -a 
+  tetra_env -a 
 }
+# tetra relies on user supplied PEM keys and env configuration files
 
-tetra-encrypt-report(){
-   tar ca audit.txt summary.html | \
-   tetra_encrypt_stdio  > \
-   report_$(date +%s).tar.enc
+tetra_status(){
+echo "  TETRA_SRC: $TETRA_SRC" > /dev/stderr
+echo "  TETRA_DIR: $TETRA_DIR" > /dev/stderr
+echo "  TETRA_USER: $TETRA_USER" > /dev/stderr
+echo "  TETRA_ORG: $TETRA_ORG" > /dev/stderr
+echo "  TETRA_REMOTE: $TETRA_REMOTE" > /dev/stderr
+echo "  Tetra Bootstraping complete with $OSTYPE." > /dev/stderr
 }
-
-tetra-decrypt-report(){
-   cat $1 | tetra-decrypt-stdio |tar xv
-}
-
-####                          ###
-####  Move below to nginx.sh  ###
-####                          ###
-tetra-list-sites()
-{
-  cat /etc/nginx/sites-enabled/* \
-	 | grep " server_name "  \
-	 | grep -v "*." \
-	 | sort \
-	 | uniq 
-}
-
-tetra-install-crossplane(){
-  # must have python enabled via tetra-python-activate
-  pip install crossplane
-}
-
-tetra_parse_nginx(){
-  crossplane parse /etc/nginx/sites-enabled/*nodeholder*
-}
-

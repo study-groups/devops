@@ -24,12 +24,12 @@ tetra_openssl_make_pem(){
 
 
 # add a passphrase
-tetra_keys_passphrase_check(){
+tetra_openssl_passphrase_check(){
   local pemfile=$1
   ssh-keygen -p -f $pemfile
 }
 
 # does it have a passphrase
-tetra_keys_passphrase_add(){
+tetra_openssl_passphrase_add(){
   echo "Should work:  openssl rsa -in $1 -out $1"
 }

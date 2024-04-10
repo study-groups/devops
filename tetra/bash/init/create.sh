@@ -7,3 +7,4 @@ tetra_create_tetra(){
 	rm -r $TETRA_DIR 2>/dev/null
 	cp -r $TETRA_SRC/init/tetra-dir $TETRA_DIR
 }
+tetra_create_tetra

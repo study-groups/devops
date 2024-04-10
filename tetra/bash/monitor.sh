@@ -6,16 +6,13 @@ tetra_monitor_help(){
 EOF
 }
 
-user="root"
-host="$do4_n2"
-
 tetra_remote_sysinfo(){
-  ssh $user@$host landscape-sysinfo
+  ssh $TETRA_USER@$TETRA_REMOTE landscape-sysinfo
 }
 
 tetra_remote_volinfo(){
-  user=${1:-$user}
-  host=${2:-$host}
-  ssh $user@$host lsblk -f # show size
-  ssh $user@$host lsblk -m # show permission
+  user=${1:-$TETRA_USER}
+  host=${2:-$TETRA_REMOTE}
+  ssh $TETRA_USER@$TETRA_REMOTE lsblk -f # show size
+  ssh $TETRA_USER@$TETRA_REMOTE lsblk -m # show permission
 }
