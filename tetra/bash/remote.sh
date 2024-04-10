@@ -63,8 +63,14 @@ tetra_remote_user_create_tetra_dir() {
     local remote=${1:-$TETRA_REMOTE}
     ssh -t $username@$remote bash -s << 'HEREDOC'
         echo "Setting up Tetra environment..."
-        rm -r "$HOME/tetra" 2>/dev/null
         mkdir -p "$HOME/tetra"
+        export TETRA_DIR="$HOME/tetra"
+        export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
+        rm -r "$TETRA_DIR" 2>/dev/null
+        source $TETRA_SRC/bootstrap.sh
+        source $TETRA_SRC/init/create.sh
+        tetra_create_tetra
+        echo "source $TETRA_DIR/tetra.sh" >> $HOME/.bashrc
         echo "Tetra directory setup completed."
 HEREDOC
 }
@@ -89,10 +95,7 @@ tetra_remote_user_create_tetra() {
     tetra_remote_user_create_tetra_dir
     tetra_remote_user_create_tetra_src
     ssh -t $username@$remote bash -s << 'HEREDOC'
-        export TETRA_DIR="$HOME/tetra"
-        export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
-        source $TETRA_SRC/init/create.sh
-        create_tetra_create
+
         echo "Tetra environment setup completed."
 HEREDOC
 }
@@ -103,6 +106,9 @@ tetra_remote_user_delete_tetra_dir() {
     ssh -t $username@$remote bash -s << 'HEREDOC'
         echo "Deleting Tetra environment..."
         rm -r "$HOME/tetra" 2>/dev/null
+        export TETRA_DIR="$HOME/tetra"
+        export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
+        sed -i '/source \$TETRA_DIR\/tetra.sh/d' $HOME/.bashrc
         echo "Tetra environment deleted."
 HEREDOC
 }
