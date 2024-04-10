@@ -58,7 +58,7 @@ EOF
 ssh "root@${hostname}" "cat >> /home/${username}/.ssh/authorized_keys"
 }
 
-tetra_remote_user_tetra_create() {
+tetra_remote_user_create_tetra() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
     ssh -t $username@$remote bash -s << 'HEREDOC'
@@ -78,7 +78,43 @@ tetra_remote_user_tetra_create() {
 HEREDOC
 }
 
-tetra_remote_user_tetra_update_src() {
+tetra_remote_user_delete_tetra_dir() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    echo "Using $username in silent mode"
+    ssh -t $username@$remote bash -s << 'HEREDOC'
+        if [ -d "$TETRA_DIR" ]; then
+            echo "Deleting Tetra directory..."
+            rm -r "$TETRA_DIR" 2>/dev/null
+            echo "Tetra directory deleted."
+        else
+            echo "Tetra directory does not exist. Skipping deletion."
+        fi
+HEREDOC
+}
+
+tetra_remote_user_delete_tetra() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    echo "Using $username in silent mode"
+    ssh -t $username@$remote bash -s << 'HEREDOC'
+        echo "Deleting Tetra environment..."
+        rm -r "$HOME/tetra" 2>/dev/null
+        echo "Tetra environment deleted."
+HEREDOC
+}
+
+tetra_remote_user_delete_tetra() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    echo "Using $username in silent mode"
+    ssh -t $username@$remote bash -s << 'HEREDOC'
+
+HEREDOC
+}
+
+
+tetra_remote_user_update_tetra_src() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
     echo "Using $username in silent mode"
