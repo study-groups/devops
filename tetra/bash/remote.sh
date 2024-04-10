@@ -73,7 +73,7 @@ tetra_remote_user_tetra_create() {
         export TETRA_DIR="$HOME/tetra"
         export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
         source $TETRA_SRC/init/create.sh
-        echo "source $TETRA_DIR/tetra/tetra.sh"
+        create_tetra_create
         echo "Tetra environment setup completed."
 HEREDOC
 }

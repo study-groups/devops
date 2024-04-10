@@ -13,6 +13,3 @@ tetra_create_tetra(){
     cp -r "$TETRA_SRC/init/tetra-dir" "$TETRA_DIR"
     echo "Operations completed."
 }
-
-# Call the function
-tetra_create_tetra
