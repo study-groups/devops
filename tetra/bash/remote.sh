@@ -86,8 +86,8 @@ HEREDOC
 tetra_remote_user_create_tetra() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
-    tetra_remote_user_create_tetra_dir $username $remote
-    tetra_remote_user_create_tetra_src $username $remote
+    tetra_remote_user_create_tetra_dir
+    tetra_remote_user_create_tetra_src
     ssh -t $username@$remote bash -s << 'HEREDOC'
         export TETRA_DIR="$HOME/tetra"
         export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
@@ -96,7 +96,7 @@ tetra_remote_user_create_tetra() {
         echo "Tetra environment setup completed."
 HEREDOC
 }
-tetra_remote_user_delete_tetra() {
+tetra_remote_user_delete_tetra_dir() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
     echo "Using $username in silent mode"
