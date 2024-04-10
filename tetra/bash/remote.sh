@@ -58,18 +58,37 @@ EOF
 ssh "root@${hostname}" "cat >> /home/${username}/.ssh/authorized_keys"
 }
 
-tetra_remote_user_create_tetra() {
+tetra_remote_user_create_tetra_dir() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
     ssh -t $username@$remote bash -s << 'HEREDOC'
         echo "Setting up Tetra environment..."
         rm -r "$HOME/tetra" 2>/dev/null
         mkdir -p "$HOME/tetra"
+        echo "Tetra directory setup completed."
+HEREDOC
+}
+
+tetra_remote_user_create_tetra_src() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    ssh -t $username@$remote bash -s << 'HEREDOC'
+        echo "Setting up Tetra source directory..."
         mkdir -p "$HOME/src"
         cd "$HOME/src"
         if [ ! -d "$HOME/src/devops-study-group" ]; then
             git clone https://github.com/study-groups/devops-study-group
         fi
+        echo "Tetra source directory setup completed."
+HEREDOC
+}
+
+tetra_remote_user_create_tetra() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    tetra_remote_user_create_tetra_dir $username $remote
+    tetra_remote_user_create_tetra_src $username $remote
+    ssh -t $username@$remote bash -s << 'HEREDOC'
         export TETRA_DIR="$HOME/tetra"
         export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
         source $TETRA_SRC/init/create.sh
@@ -77,22 +96,6 @@ tetra_remote_user_create_tetra() {
         echo "Tetra environment setup completed."
 HEREDOC
 }
-
-tetra_remote_user_delete_tetra_dir() {
-    local username=${2:-$TETRA_USER}
-    local remote=${1:-$TETRA_REMOTE}
-    echo "Using $username in silent mode"
-    ssh -t $username@$remote bash -s << 'HEREDOC'
-        if [ -d "$TETRA_DIR" ]; then
-            echo "Deleting Tetra directory..."
-            rm -r "$TETRA_DIR" 2>/dev/null
-            echo "Tetra directory deleted."
-        else
-            echo "Tetra directory does not exist. Skipping deletion."
-        fi
-HEREDOC
-}
-
 tetra_remote_user_delete_tetra() {
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
@@ -103,16 +106,6 @@ tetra_remote_user_delete_tetra() {
         echo "Tetra environment deleted."
 HEREDOC
 }
-
-tetra_remote_user_delete_tetra() {
-    local username=${2:-$TETRA_USER}
-    local remote=${1:-$TETRA_REMOTE}
-    echo "Using $username in silent mode"
-    ssh -t $username@$remote bash -s << 'HEREDOC'
-
-HEREDOC
-}
-
 
 tetra_remote_user_update_tetra_src() {
     local username=${2:-$TETRA_USER}
