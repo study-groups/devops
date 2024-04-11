@@ -67,7 +67,6 @@ tetra_remote_user_create_tetra_dir() {
         export TETRA_DIR="$HOME/tetra"
         export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
         rm -r "$TETRA_DIR" 2>/dev/null
-        source $TETRA_SRC/bootstrap.sh
         source $TETRA_SRC/init/create.sh
         tetra_create_tetra
         echo "source $TETRA_DIR/tetra.sh" >> $HOME/.bashrc
@@ -127,4 +126,10 @@ tetra_remote_user_update_tetra_src() {
             echo "Repository does not exist. Skipping update."
         fi
 HEREDOC
+}
+
+tetra_remote_user_update_tetra_dir() {
+    local username=${2:-$TETRA_USER}
+    local remote=${1:-$TETRA_REMOTE}
+    rsync -avz "$TETRA_DIR/" "$username@$remote:~/tetra"
 }

@@ -41,6 +41,7 @@ tetra_env_update(){
        rm ./hosts.env ./ports.env
        ln -s $TETRA_DIR/orgs/$TETRA_ORG/hosts.env
        ln -s $TETRA_DIR/orgs/$TETRA_ORG/ports.env
+       ln -s $TETRA_DIR/users/$TETRA_USER/$TETRA_USER.env
    ) 
    _tetra_env_load
    _tetra_env_update_apis
