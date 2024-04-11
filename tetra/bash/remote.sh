@@ -108,8 +108,11 @@ tetra_remote_user_delete_tetra_dir() {
         rm -r "$HOME/tetra" 2>/dev/null
         export TETRA_DIR="$HOME/tetra"
         export TETRA_SRC="$HOME/src/devops-study-group/tetra/bash"
-        sed -i '/source $TETRA_DIR/tetra.sh/d' $HOME/.bashrc
-        echo "Tetra environment deleted."
+        echo "Attempting to remove sourcing line from .bashrc for TETRA_DIR=${TETRA_DIR}"
+        grep -q "source ${TETRA_DIR}/tetra.sh" $HOME/.bashrc && \
+        sed -i "\|source ${TETRA_DIR}/tetra.sh|d" $HOME/.bashrc && \
+        echo "Successfully removed sourcing line from .bashrc." || \
+        echo "Sourcing line not found or removal unsuccessful."
 HEREDOC
 }
 
