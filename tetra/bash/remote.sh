@@ -95,7 +95,6 @@ tetra_remote_user_create_tetra() {
     tetra_remote_user_create_tetra_dir
     tetra_remote_user_create_tetra_src
     ssh -t $username@$remote bash -s << 'HEREDOC'
-
         echo "Tetra environment setup completed."
 HEREDOC
 }
