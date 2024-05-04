@@ -8,12 +8,15 @@ alias ttr='source $TETRA_DIR/tetra.sh'
 
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'
-    alias date='gdate'
+    #alias date='gdate'
+    date() {
+       command gdate "${@}"  # command stops function l
+    }
     alias free='top -l 1 | grep PhysMem'
 else
     # Linux and other Unix-like systems
     echo Standard Linux
-    alias date=date
+    unalias date
     alias pbcopy='xclip -selection clipboard'
     alias pbpaste='xclip -selection clipboard -o'
 fi

@@ -12,7 +12,9 @@ if [ -z "$TETRA_DIR" ]; then
         TETRA_DIR="$HOME/tetra"
     fi
 fi
-
+echo "TETRA_SRC is set to: $TETRA_SRC"
+echo "BASH_VERSION: $BASH_VERSION"
+echo "PATH: $PATH"
 for f in $(ls $TETRA_SRC/*.sh | grep -v bootstrap.sh);
   do source $f;
 done;
@@ -24,7 +26,7 @@ for d in $TETRA_DIR/*/; do
 done
 
 if command -v colima &>/dev/null && [[ $OSTYPE == 'darwin'* ]]; then
-  # colima allows docker commands without Docker Desktop for mac 
+  # colima allows docker commands without Docker Desktop for mac
   # change false to true to activate
   false && colima delete
   false && colima start --arch x86_64
