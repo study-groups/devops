@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 echo "Bash version: $BASH_VERSION"
 echo "Using bash: $(which bash)"
@@ -28,7 +28,7 @@ create_index_html() {
     echo "</pre></body></html>" >> index.html
 }
 
-trap 'bash' INT
+#trap 'bash' INT
 while true; do
-    create_index_html | nc -l -p 8000 -q 1
+    create_index_html | nc -l  8000
 done
