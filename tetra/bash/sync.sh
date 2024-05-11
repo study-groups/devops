@@ -20,7 +20,7 @@ tetra_sync_space(){
 tetra_sync_tetra_to(){
   local exclude="--exclude={'.git','*.zip','*.gz'}"
   local params="-avzP" # archive,verbose,compress,Partial
-  echo rsync $params $exclude  "$HOME/tetra/" "$USER@$1:~/tetra"
+  echo rsync $params $exclude  "$HOME/tetra/" "$TETRA_USER@$1:~/tetra"
 }
 
 tetra_sync_tetra_from(){
