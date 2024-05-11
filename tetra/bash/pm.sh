@@ -45,7 +45,7 @@ _color_by_type() {
 }
 
 _tetra_pm_format_tetra_log() {
-    local pico_object=$1
+    local pico_object=${@}
     local timestamp=$(echo "$pico_object" | cut -d ' ' -f 1)
     local src=$(echo "$pico_object" | cut -d ' ' -f 2)
     local dest=$(echo "$pico_object" | cut -d ' ' -f 3)
@@ -105,6 +105,15 @@ TETRA_DIR='$TETRA_DIR' \
 PATH='$os_path'"
 }
 
+
+
+get_session_name() {
+    local dirpath="$1"
+    local basename=$(basename "$(realpath "$dirpath")")
+    echo "tetra_pm_$basename"
+}
+
+
 tetra_pm_start() {
     local dirname=$1
     local dirpath="$(realpath $dirname)"
@@ -129,7 +138,7 @@ tetra_pm_start() {
     export TETRA_DIR=$TETRA_DIR; \
     export PATH=$PATH; \
     /opt/homebrew/bin/bash -c 'source $TETRA_SRC/bootstrap.sh; \
-    _tetra_pm_process_output > debug_log.txt 2>&1'"
+    _tetra_pm_process_output > debug_log.txt 2>&1' | tee -a $dirpath/session.log | tee -a $TETRA_LOG"
 }
 
 

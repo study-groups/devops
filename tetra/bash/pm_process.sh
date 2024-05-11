@@ -19,6 +19,8 @@ tetra_pm_show_full_command() {
     echo "${full_command}"
 }
 
+
+
 function tetra_pm_kill_all() {
     # Kill all tetra_pm related processes
     pkill -f 'tetra_pm_power'
@@ -70,11 +72,48 @@ tetra_pm_kill_sessions() {
     echo "All tetra_pm sessions have been stopped."
 }
 
-tetra_pm_restart(){
+tetra_pm_restart_DELETE() {
     local process_name="tetra_pm_$1"
-    local process_dir="$1"
-    tetra_pm_stop "$process_name"
-    tetra_pm_start "$process_dir"
+
+    # Get session information
+    local session_info=$(tmux list-sessions -F "#{session_name}" | grep "^$process_name$")
+
+    if [[ -n $session_info ]]; then
+        # Stop the process
+        tetra_pm_stop "$1"
+
+        # Start the process by passing the directory with entrypoint.sh
+        local process_dir="$1"
+        if [[ -d "$process_dir" && -f "$process_dir/entrypoint.sh" ]]; then
+            tetra_pm_start "$process_dir" ${@:2}
+        else
+            echo "Error: Directory '$process_dir' or entrypoint.sh not found."
+        fi
+    else
+        echo "Error: Process '$process_name' not found."
+    fi
+}
+
+
+tetra_pm_restart() {
+    local session_name="tetra_pm_$1"  # Ensure only one prefix is added
+
+    # Check if the session exists
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        # Retrieve the full directory path from tmux environment
+        local full_dirpath=$(tmux show-environment -t "$session_name" START_PATH | cut -d '=' -f2- | tr -d '\n')
+
+        if [[ -n "$full_dirpath" && -d "$full_dirpath" && -f "$full_dirpath/entrypoint.sh" ]]; then
+            # Stop the process
+            tetra_pm_stop "$1"
+            # Restart the process
+            tetra_pm_start "$full_dirpath" ${@:2}
+        else
+            echo "Error: Directory '$full_dirpath' or entrypoint.sh not found."
+        fi
+    else
+        echo "Error: Process '$session_name' not found."
+    fi
 }
 
 tetra_pm_restart_all() {
@@ -135,14 +174,14 @@ tetra_pm_stop_all() {
 
 # List all processes with their PIDs
 tetra_pm_list() {
-    tmux list-sessions -F "#{session_name} #{?session_attached,,(Detached)}" | grep 'tetra_pm_' | while read session; do
-        local session_name=$(echo $session | awk '{print $1}')
-        local status=$(echo $session | awk '{print $2}')
+    # List all tmux sessions, filter those starting with 'tetra_pm_', and format the output
+    tmux list-sessions -F "#{session_name} #{?session_attached,,(Detached)}" | grep '^tetra_pm_' | while IFS=' ' read -r session_name status; do
+        # Extract the base name for the session to display it more clearly
+        local base_name=${session_name#tetra_pm_}
         local pid=$(tmux list-panes -t "$session_name" -F "#{pane_pid}" | head -n 1)
-        echo "$session_name (PID: $pid) $status"
+        echo "tetra_pm_$base_name (PID: $pid) $status"
     done
 }
-
 
 # Attach to a specific process session
 tetra_pm_attach() {
