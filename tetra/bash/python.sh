@@ -9,6 +9,10 @@ tetra_python_create_dsenv(){
   echo "tetra_python_active_dsenv to active"
 }
 
+tetra_python_run(){
+  source $TETRA_DIR/dsenv/bin/activate
+  python ${@} 
+}
 
 tetra_python_install_prereq(){
   sudo apt-get install python3-dev # needed for compiling

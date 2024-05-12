@@ -6,11 +6,20 @@ tetra_monitor_help(){
 EOF
 }
 
-tetra_remote_sysinfo(){
+tetra_monitor_sysinfo(){
+  landscape-sysinfo
+}
+
+tetra_monitor_volinfo(){
+  lsblk -f # show size
+  lsblk -m # show permission
+}
+
+tetra_monitor_remote_sysinfo(){
   ssh $TETRA_USER@$TETRA_REMOTE landscape-sysinfo
 }
 
-tetra_remote_volinfo(){
+tetra_monitor_remote_volinfo(){
   user=${1:-$TETRA_USER}
   host=${2:-$TETRA_REMOTE}
   ssh $TETRA_USER@$TETRA_REMOTE lsblk -f # show size

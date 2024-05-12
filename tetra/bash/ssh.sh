@@ -7,7 +7,7 @@ function tetra_ssh_start_agent() {
 
 EOF
     if ! pgrep -x ssh-agent >/dev/null; then
-        exec $(ssh-agent)
+        eval $(ssh-agent)
     fi
 }
 

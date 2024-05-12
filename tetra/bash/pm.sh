@@ -2,14 +2,9 @@
 TETRA_LOG="$TETRA_SRC/tetra.log"
 MAX_LOG_LINES=10000
 
-_tetra_pm_ensure_main_session_DELETE() {
-    if ! tmux has-session -t "tetra_pm_main" 2>/dev/null; then
-        tmux new-session -d -s "tetra_pm_main" -c "$TETRA_SRC" exec -a "tetra_pm_main" $BASH_PATH
-        tmux send-keys -t "tetra_pm_main" \
-            "tail -f $TETRA_LOG 2>> $TETRA_SRC/process.log | _tetra_pm_process_log" C-m
-    else
-        exit 0
-    fi
+
+tetra_pm_watchdog() {
+  tetra_tmux_run watchdog ./watchdog
 }
 
 _tetra_pm_set_color() {
