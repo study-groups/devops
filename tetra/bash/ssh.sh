@@ -1,11 +1,62 @@
-# Function to start ssh-agent if not already running
-function tetra_ssh_start_agent() {
-  cat <<EOF
 
-  Starting ssh-agent, learn more:
-  https://www.ssh.com/academy/ssh/agent
+_reset_ssh_agent() {
+    eval $(ssh-agent -s)
+    echo "Agent started with PID $SSH_AGENT_PID"
+    echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+    export SSH_AUTH_SOCK
+}
 
-EOF
+
+tetra_ssh_add() {
+    local key_file="";
+    if [[ $# -ne 1 ]]; then
+        key_file=$TETRA_DIR/users/$TETRA_USER/keys/id_rsa;
+    else
+        key_file="$1";
+    fi;
+    echo "Using current: tetra_ssh_add <key_file>";
+
+    if [[ ! -f "$key_file" ]]; then
+        echo "Error: Key file '$key_file' not found.";
+        return 1;
+    fi;
+
+    tetra_ssh_start_agent;
+
+    if [ -z "$SSH_AUTH_SOCK" ]; then
+        echo "Error: SSH_AUTH_SOCK not set. Check agent startup.";
+        return 2;
+    fi
+
+    ssh-add "$key_file" && echo "Key '$key_file' added to ssh-agent." || echo "Failed to add key to ssh-agent."
+}
+
+# Ensure to modify `tetra_ssh_start_agent`
+# to export `SSH_AUTH_SOCK` explicitly
+tetra_ssh_start_agent() {
+   if ! pgrep -x ssh-agent > /dev/null; then
+        eval $(ssh-agent -s);
+        export SSH_AUTH_SOCK;
+        echo "New SSH agent started with PID $SSH_AGENT_PID"
+        echo "and Socket $SSH_AUTH_SOCK"
+    else
+        export SSH_AUTH_SOCK=$(find /tmp -type s -name "agent.*" 2>/dev/null \
+	       |  head -n 1)
+        echo "Using existing SSH agent with Socket $SSH_AUTH_SOCK"
+    fi
+}
+
+
+
+
+# Explanation of improvements:
+# 1. The script first checks for an existing ssh-agent and retrieves its PID.
+# 2. It uses the first ssh-agent process found (if any) and sets up the SSH_AUTH_SOCK environment variable.
+# 3. If no existing agent is found,
+
+
+
+tetra_ssh_start_agent_DELETE() {
     if ! pgrep -x ssh-agent >/dev/null; then
         eval $(ssh-agent)
     fi

@@ -3,6 +3,7 @@
 WATCHDOG_SERVICE="/etc/systemd/system/watchdog.service"
 WATCHDOG_DIR="/tmp/watchdog"
 
+
 generateSystemctlService() {
     # Create the systemctl.service file
     cat <<EOT > /etc/systemd/system/watchdog.service
@@ -118,6 +119,7 @@ install-service(){
     esac
 
 }
+
 case "$1" in
    install-service)
         # code to be executed for option1
@@ -140,7 +142,7 @@ case "$1" in
         ;;
     *)
         # code to be executed for any other option
-        echo "Invalid option"
+        #echo "Invalid option"
         ;;
 esac
 
