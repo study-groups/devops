@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A/B Testing Interface</title>
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org/dist/htmx.min.js"></script>
+  <style>
+    .results {
+      display: flex;
+      flex-direction: column;
+      margin-top: 20px;
+    }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    .result-row div {
+      flex: 1;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>A/B Testing Interface</h1>
+
+  <div id="firebaseContainer">
+    <button onclick="testService('Firebase', '/processFirebase')">Test Firebase</button>
+  </div>
+
+  <div id="nodebaseContainer">
+    <button onclick="testService('Nodebase', '/processNodebase')">Test Nodebase</button>
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-row">
+      <div>Status</div>
+      <div>A</div>
+      <div>B</div>
+    </div>
+  </div>
+
+  <script>
+    function testService(serviceName, url) {
+      const startTime = performance.now();
+      const resultRow = document.createElement('div');
+      resultRow.className = 'result-row';
+      resultRow.innerHTML = `
+        <div>Pending...</div>
+        <div><button onclick="selectResult(this, 'A')">Select A</button></div>
+        <div><button onclick="selectResult(this, 'B')">Select B</button></div>
+      `;
+      document.getElementById('results').appendChild(resultRow);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const endTime = performance.now();
+          const duration = (endTime - startTime).toFixed(2);
+          resultRow.children[0].innerText = `${duration} µs`;
+        })
+        .catch(error => {
+          resultRow.children[0].innerText = 'Error';
+          console.error('Error:', error);
+        });
+    }
+
+    function selectResult(button, column) {
+      const resultRow = button.parentElement.parentElement;
+      const otherColumn = column === 'A' ? 'B' : 'A';
+      resultRow.querySelector(`div:nth-child(${column === 'A' ? 2 : 3}) button`).disabled = true;
+      resultRow.querySelector(`div:nth-child(${otherColumn === 'A' ? 2 : 3}) button`).disabled = false;
+    }
+  </script>
+</body>
+</html>
