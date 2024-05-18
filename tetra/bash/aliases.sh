@@ -6,6 +6,9 @@ alias tnlr='tetra_nginx_location_replace'
 alias ttr='source $TETRA_DIR/tetra.sh'
 #alias ttr='source $TETRA_SRC/bootstrap.sh'
 
+alias tna='tetra_nvm_activate'
+alias tpy='tetra_python_activate'
+
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'
     #alias date='gdate'

@@ -12,9 +12,7 @@ if [ -z "$TETRA_DIR" ]; then
         TETRA_DIR="$HOME/tetra"
     fi
 fi
-echo "TETRA_SRC is set to: $TETRA_SRC"
-echo "BASH_VERSION: $BASH_VERSION"
-echo "PATH: $PATH"
+
 for f in $(ls $TETRA_SRC/*.sh | grep -v bootstrap.sh);
   do source $f;
 done;

@@ -1,12 +1,3 @@
-#!/bin/env bash
-mode=notlive # anything but live will be a dryrun.
-SYNC="/home/admin/src/study-groups/devops-study-group/sync.sh"
-TO_MNT="/mnt/volume_sfo2_02"
-TO_USER="mricos"
-TO_HOST="ux305-2.local"
-TO_DIR="/home/mricos/backups"
-FROM_DIR=/home/mricos/files/
-
 tetra_sync_help(){
   echo "
     Sync is a collection shell functions for continual backup of unix servers.
@@ -18,17 +9,18 @@ tetra_sync_space(){
 }
 
 tetra_sync_tetra_to(){
-  local exclude="--exclude={'.git','*.zip','*.gz'}"
+  local exclude="--exclude={'.git','*.zip','*.gz','nvm','dsenv'}"
   local params="-avzP" # archive,verbose,compress,Partial
-  echo rsync $params $exclude  "$HOME/tetra/" "$TETRA_USER@$1:~/tetra"
+  echo rsync $params $exclude  "$TETRA_DIR" \
+  "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
 }
 
 tetra_sync_tetra_from(){
-  local exclude="--exclude={'.git','*.zip','*.gz'}"
+  local exclude="--exclude={'.git','*.zip','*.gz','nvm','dsenv'}"
   local params="-avzP" # archive,verbose,compress,Partial
-  echo rsync $params $exclude  "$USER@$1:~/tetra/" "$HOME/tetra"
+  echo rsync $params $exclude \
+    "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR" "$TETRA_DIR"
 }
-export tetra_sync_tetra_from
 
 tetra_sync_from(){
   local exclude="--exclude={'.git','*.zip','*.gz'}"
@@ -42,17 +34,6 @@ tetra_sync_from(){
   echo $cmd
 }
 
-tetra_sync_to_old() {
-  local params="-avzP" # archive,verbose,compress,Partial
-  local exclude="--exclude={'.git','*.zip','*.gz'}"
-  local from=$1
-  local to_user=$2
-  local to_host=$3
-  local to_path=$4
-  cmd=$(echo rsync $params $exclude  $from $to_user@$to_host:$to_path )
-  echo "$cmd"
-}
-
 tetra_sync_to() { 
     local params="-avzP"
     local excludes=("--exclude='.git'" "--exclude='*.zip'" "--exclude='*.gz'")
@@ -61,7 +42,6 @@ tetra_sync_to() {
     local to_host="$3"
     local to_path="$4"
     local cmd="rsync $params"
-    
     for exclude in "${excludes[@]}"; do
         cmd+=" $exclude"
     done
@@ -72,24 +52,20 @@ tetra_sync_to() {
     #eval "$cmd"
 }
 
-
-tetra-sync-find-since(){
+tetra_sync_find_since(){
   local since=${1:-"1 hour ago"}
   #find / -newermt $(date +%Y-%m-%d -d "1 min ago") -type f -print
   find / -newermt $(date +%Y-%m-%d -d "$since") -type f -print
 }
 
-tetra-sync-notes(){
+tetra_sync_notes(){
   echo "
-sync- relies on the master rsync:
 
-  https://linux.die.net/man/1/rsync
+  sync- relies on rsync:
+    https://linux.die.net/man/1/rsync
 
-It works like rcp which works like cp.
+  It currently does not implement in-memory synchronization.
+  See man sync for that.
 
-It currently does not implement in-memory synchronization.
-See man sync for that.
-
-ip addr show dev eth0
 "
 }

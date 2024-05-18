@@ -1,20 +1,21 @@
+TETRA_PYENV=$TETRA_DIR/ds-env
 tetra_python_activate(){
-  source $TETRA_DIR/dsenv/bin/activate
+  source $TETRA_PYENV/bin/activate
 }
 
 tetra_python_activate_dsenv(){
-  source $TETRA_DIR/dsenv/bin/activate
+  source $TETRA_PYENV/dsenv/bin/activate
   echo "Data Science environment activated" 2>&1
 }
 
 tetra_python_create_dsenv(){
-  python3 -m venv $TETRA_DIR/dsenv # creates a Python3 virtualenv
-  echo "Data Science environment created at $TETRA_DIR/dsenv" 2>&1
+  python3 -m venv $TETRA_PYENV # creates a Python3 virtualenv
+  echo "Data Science environment created at $TETRA_PYENV" 2>&1
   echo "tetra_python_active_dsenv to active"
 }
 
 tetra_python_run(){
-  source $TETRA_DIR/dsenv/bin/activate
+  tetra_python_activate
   python ${@} 
 }
 

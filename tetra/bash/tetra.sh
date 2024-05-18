@@ -10,13 +10,3 @@ tetra_reload_CHECK(){
   source $TETRA_DIR/tetra.sh
   tetra_env -a 
 }
-# tetra relies on user supplied PEM keys and env configuration files
-
-tetra_status(){
-echo "  TETRA_SRC: $TETRA_SRC" > /dev/stderr
-echo "  TETRA_DIR: $TETRA_DIR" > /dev/stderr
-echo "  TETRA_USER: $TETRA_USER" > /dev/stderr
-echo "  TETRA_ORG: $TETRA_ORG" > /dev/stderr
-echo "  TETRA_REMOTE: $TETRA_REMOTE" > /dev/stderr
-echo "  Tetra Bootstraping complete with $OSTYPE." > /dev/stderr
-}
