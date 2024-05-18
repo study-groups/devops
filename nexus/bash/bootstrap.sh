@@ -1,7 +1,7 @@
-NEXUS_SRC=${NEXUS_SRC:-$(pwd)}
+NEXUS_BASH=${NEXUS_BASH:-$(pwd)}
 ignore=("bootstrap.sh" "tests.sh")  # Add files to ignore to this array
 
-for f in $(ls $NEXUS_SRC/bash/*.sh); do
+for f in $(ls $NEXUS_BASH/*.sh); do
     if [[ ! " ${ignore[@]} " =~ " $(basename $f) " ]]; then
         source $f
     fi

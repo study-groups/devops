@@ -1,0 +1,9 @@
+nexus_status(){
+  cat <<EOF
+
+  NEXUS_SRC=$NEXUS_SRC
+  NEXUS_BASH=$NEXUS_BASH
+  NEXUS_DIR=$NEXUS_DIR
+
+EOF
+}

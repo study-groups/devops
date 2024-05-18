@@ -25,12 +25,12 @@ nexus_parse_pico_object(){
     msg=$(echo "$pico_object" | sed -E 's/^[0-9]+ [A-Z]+(\.[a-z]+)?( to:\[[^]]+\])?( from:[^ ]+)? //')
 
     # Print parsed components in canonical form
-    echo "Timestamp=$id"
-    echo "Type=$type"
-    echo "Subtype=$subtype"
-    echo "To=$to"
-    echo "From=$from"
-    echo "Message=$msg"
+    echo "id:wq=$id"
+    echo "type=$type"
+    echo "subtype=$subtype"
+    echo "to=$to"
+    echo "from=$from"
+    echo "msg=$msg"
 }
 
 write_canonical_form(){

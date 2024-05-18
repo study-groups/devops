@@ -25,5 +25,9 @@ nexus_help(){
   1716015559550762 MSG This is text, could be uuencoded data.
   1716015559550762 ${cyan}to${normal}:[id1, id2] ${magenta}from${normal}:id4  MSG This is text.
 
+  More commands:
+   - nexus_status
+   - nexus_run_tests
+
 EOF
 }
