@@ -19,6 +19,7 @@ tetra_tmux_join ()
 
 tetra_tmux_run() {
     if ! tmux has-session -t "$1" 2>/dev/null; then
+        export TETRA_SRC
         tmux new-session -d -s "$1"
         # Source the bootstrap script and redirect output to /dev/null
         tmux send-keys -t "${1}" "source \$TETRA_SRC/bootstrap.sh &> /dev/null" C-m

@@ -1,4 +1,4 @@
-tetra_pm_start_description_of_session_creation() {
+tetra_help_pm_start_session_creation() {
     cat << EOF
 Session Creation in tmux:
 -------------------------
@@ -12,7 +12,7 @@ for isolated execution environments within tmux.
 EOF
 }
 
-tetra_pm_start_description_of_io_redirection() {
+tetra_help_pm_start_io_redirection() {
     cat << EOF
 I/O Redirection in tmux Sessions:
 ---------------------------------
@@ -25,7 +25,7 @@ and can be reviewed or monitored as needed.
 EOF
 }
 
-tetra_pm_start_description_of_configuration_changes() {
+tetra_help_pm_start_configuration_changes() {
     cat << EOF
 Configuration Changes in tmux:
 ------------------------------
@@ -38,7 +38,7 @@ the system and other sessions.
 EOF
 }
 
-tetra_pm_start_description_of_stdout_capture() {
+tetra_help_pm_start_stdout_capture() {
     cat << EOF
 Capturing stdout in tmux:
 -------------------------
@@ -51,8 +51,8 @@ access to command output while maintaining session
 isolation.
 EOF
 }
-# New function to display detailed summary and conclusion about the full command
-tetra_pm_show_full_command_details() {
+
+tetra_help_pm_show_full_command() {
     cat << EOF
 
 Summary:
@@ -73,7 +73,7 @@ from the parent shell's state or configuration.
 EOF
 }
 # Display help information
-tetra_pm_help() {
+tetra_help_pm() {
     cat << EOF
 Tetra PM - tmux based process manager
 -------------------------------------
@@ -87,7 +87,7 @@ EOF
 }
 
 
-tetra_pm_start_help(){
+tetra_help_pm_start(){
     cat << EOF
 Starting a process in Tetra PM:
 
@@ -106,7 +106,7 @@ tetra_pm_start <process_name>
 EOF
 }
 
-tetra_pm_start_details() {
+tetra_help_pm_start_details() {
     cat << EOF
 
     Internally the following concepts can be identified with tetra_pm_start:
@@ -139,7 +139,7 @@ tetra_pm_start_details() {
 EOF
 }
 
-tetra_pm_start_concepts() {
+tetra_help_pm_start_concepts() {
     cat << EOF
 +------------------------------------------------+
 | Key Concepts of tetra_pm_start                 |

@@ -1,36 +1,16 @@
-# Function to display the full command used in tetra_pm_start, broken down by elements
-tetra_pm_show_full_command() {
-    local process_dir="$1"  # Directory where the process will run
-
-    # Construct the base command
-    local base_command=$(construct_command)
-
-    # Define the command to change directory and execute the entrypoint
-    local command="cd ${process_dir} && ./entrypoint.sh"
-
-    # Combine them into the full command
-    local full_command="${base_command} '${command}'"
-
-    # Display the full command, broken down
-    echo "Full Command Breakdown:"
-    echo "Base Command: ${base_command}"
-    echo "Command: ${command}"
-    echo "Combined Full Command:"
-    echo "${full_command}"
-}
-
-
-
 function tetra_pm_kill_all() {
     # Kill all tetra_pm related processes
+    # TODO: list=($(ps -ef | grep tetra_pm))  # array of tetra_pm processes
+    # For now, kill the common ones used during development
     pkill -f 'tetra_pm_power'
     pkill -f 'tetra_pm_ping'
     pkill -f 'tetra_pm_pong'
 
     # Kill all tmux sessions
-    tmux kill-server
+    echo Kill everything with > /dev/stderr
+    echo tmux kill-server
 
-    echo "All tetra_pm processes and tmux sessions have been terminated."
+    echo "All tetra_pm processes been terminated."
 }
 
 tetra_pm_processes() {
@@ -70,28 +50,6 @@ tetra_pm_kill_sessions() {
     #kill $tmux_main_pid
 
     echo "All tetra_pm sessions have been stopped."
-}
-
-tetra_pm_restart_DELETE() {
-    local process_name="tetra_pm_$1"
-
-    # Get session information
-    local session_info=$(tmux list-sessions -F "#{session_name}" | grep "^$process_name$")
-
-    if [[ -n $session_info ]]; then
-        # Stop the process
-        tetra_pm_stop "$1"
-
-        # Start the process by passing the directory with entrypoint.sh
-        local process_dir="$1"
-        if [[ -d "$process_dir" && -f "$process_dir/entrypoint.sh" ]]; then
-            tetra_pm_start "$process_dir" ${@:2}
-        else
-            echo "Error: Directory '$process_dir' or entrypoint.sh not found."
-        fi
-    else
-        echo "Error: Process '$process_name' not found."
-    fi
 }
 
 
@@ -197,4 +155,3 @@ tetra_pm_attach() {
             echo "Session $target_session does not exist."
     fi
 }
-
