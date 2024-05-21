@@ -9,14 +9,14 @@ tetra_sync_space(){
 }
 
 tetra_sync_tetra_to(){
-  local exclude="--exclude={'.git','*.zip','*.gz','nvm','dsenv'}"
+  local exclude="--exclude={'.git','*.zip','*.gz','nvm','ds-env'}"
   local params="-avzP" # archive,verbose,compress,Partial
   echo rsync $params $exclude  "$TETRA_DIR" \
   "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
 }
 
 tetra_sync_tetra_from(){
-  local exclude="--exclude={'.git','*.zip','*.gz','nvm','dsenv'}"
+  local exclude="--exclude={'.git','*.zip','*.gz','nvm','ds-env'}"
   local params="-avzP" # archive,verbose,compress,Partial
   echo rsync $params $exclude \
     "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR" "$TETRA_DIR"

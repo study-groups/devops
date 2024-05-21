@@ -1,7 +1,7 @@
 tetra_status(){
 echo "  TETRA_SRC: $TETRA_SRC" 
 echo "  TETRA_DIR: $TETRA_DIR" 
-echo "  tetra_remote: ${TETRA_REMOTE_USER}@${TETRA_REMOTE}:${TETRA_REMOTE_USER}" 
+echo "  tetra_remote: ${TETRA_REMOTE_USER}@${TETRA_REMOTE}:${TETRA_REMOTE_DIR}" 
 }
 
 tetra_status_long(){
