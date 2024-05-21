@@ -12,4 +12,17 @@ tetra_create_tetra(){
     rm -r "$TETRA_DIR" 2>/dev/null
     cp -r "$TETRA_SRC/init/tetra-dir" "$TETRA_DIR"
     echo "Operations completed."
+    source $TETRA_DIR/tetra.sh
 }
+
+
+tetra_create_infra(){
+  TETRA_INFRA=$TETRA_DIR/infra
+  mkdir -p $TETRA_INFRA
+  tetra_doctl_get_droplets # writes to $TETRA_INFRA/droplets.json
+  tetra_infra_hosts > $TETRA_INFRA/hosts.sh
+  tetra_infra_floating >> $TETRA_INFRA/hosts.sh
+  tetra_infra_ports > $TETRA_INFRA/ports.sh
+  tetra_infra_services > $TETRA_INFRA/services.sh
+}
+

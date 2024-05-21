@@ -1,3 +1,4 @@
+export NVM_DIR="$TETRA_ENV/nvm"
 tetra_nvm_help(){
   cat <<EOF
 
@@ -36,7 +37,6 @@ tetra_nvm_activate(){
 tetra_nvm_install(){
   ver=${1:-"v0.39.1"}
   echo "Using nvm: $ver"
-  export NVM_DIR="$TETRA_DIR/nvm"
   mkdir -p $NVM_DIR
   echo "Installing nvm in $NVM_IDR"
   echo "Find latest here  https://github.com/nvm-sh/nvm/releases"
