@@ -4,7 +4,7 @@ tetra_python_activate(){
 }
 
 tetra_python_activate_dsenv(){
-  source $TETRA_PYENV/dsenv/bin/activate
+  source $TETRA_PYENV/bin/activate
   echo "Data Science environment activated" 2>&1
 }
 
