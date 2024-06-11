@@ -1,4 +1,5 @@
-TETRA_PYENV=$TETRA_ENV/ds-env
+#TETRA_PYENV=$TETRA_ENV/ds-env
+TETRA_PYENV=$TETRA_DIR/ds-dev
 tetra_python_activate(){
   source $TETRA_PYENV/bin/activate
 }

@@ -11,7 +11,7 @@ tetra_remote_connector="$TETRA_REMOTE_USER@$TETRA_REMOTE"
 alias tetra_remote_ls="ssh $TETRA_REMOTE_USER@$TETRA_REMOTE ls $TETRA_REMOTE_DIR"
 
 alias tna='tetra_nvm_activate'
-alias tpy='tetra_python_activate'
+alias tpa='tetra_python_activate'
 
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'

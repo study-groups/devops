@@ -15,11 +15,20 @@ tetra_sync_tetra_to(){
   "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
 }
 
-tetra_sync_tetra_from(){
+tetra_sync_tetra_from () { 
+    local exclude="--exclude='.git' --exclude='*.zip' --exclude='*.gz' \
+                   --exclude='/nvm' --exclude='/ds-env'";
+    local params="-avzP";
+    echo rsync $params $exclude \
+    "$TETRA_REMOTE_USER@$TETRA_REMOTE:${TETRA_REMOTE_DIR}/" "$TETRA_DIR"
+}
+
+
+tetra_sync_tetra_from_BROKEN(){
   local exclude="--exclude={'.git','*.zip','*.gz','nvm','ds-env'}"
   local params="-avzP" # archive,verbose,compress,Partial
   echo rsync $params $exclude \
-    "$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR" "$TETRA_DIR"
+    "$TETRA_REMOTE_USER@$TETRA_REMOTE:${TETRA_REMOTE_DIR}/" "$TETRA_DIR"
 }
 
 tetra_sync_from(){
