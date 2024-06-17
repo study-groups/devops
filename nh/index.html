@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Diagram</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.2.2/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+    <h1>Mermaid Diagram Example</h1>
+    
+    <h2>New York 1</h2>
+    <div class="mermaid">
+        graph TD;
+        subgraph Region_nyc1["New York 1"]
+            do1["do1"]
+            do3-fedora-nyc1["do3-fedora-nyc1"]
+            volume-nyc1-02["Volume: volume-nyc1-02"]
+            do1 --> volume-nyc1-02
+            do3-fedora-nyc1 --> volume-nyc1-02
+            do1 --> ip1["192.34.62.148"]
+            do3-fedora-nyc1 --> ip2["10.136.0.2"]
+            do3-fedora-nyc1 --> ip3["159.89.85.73"]
+            do3-fedora-nyc1 --> ip4["174.138.110.75"]
+            do3-fedora-nyc1 --> ip5["2604:a880:400:d0::1e2e:9001"]
+        end
+    </div>
+
+    <h2>San Francisco 2</h2>
+    <div class="mermaid">
+        graph TD;
+        subgraph Region_sfo2["San Francisco 2"]
+            do4["do4"]
+            do5["do5"]
+            do4-n2["do4-n2"]
+            ghost-sfo2-01["ghost-sfo2-01"]
+            volume-sfo2-01["Volume: volume-sfo2-01"]
+            volume-sfo2-01-backup["Volume: volume-sfo2-01-backup"]
+            volume-sfo2-02["Volume: volume-sfo2-02"]
+            volume-sfo2-03["Volume: volume-sfo2-03"]
+            do4 --> volume-sfo2-03
+            do4 --> volume-sfo2-01
+            do4-n2 --> volume-sfo2-01
+            do4-n2 --> volume-sfo2-01-backup
+            ghost-sfo2-01 --> volume-sfo2-02
+            do5 --> ip6["10.138.0.5"]
+            do5 --> ip7["138.68.2.192"]
+            do4 --> ip8["10.138.0.3"]
+            do4 --> ip9["159.65.106.21"]
+            do4-n2 --> ip10["10.138.0.6"]
+            do4-n2 --> ip11["165.227.6.221"]
+            do4-n2 --> ip12["68.183.248.67"]
+            ghost-sfo2-01 --> ip13["10.138.0.8"]
+            ghost-sfo2-01 --> ip14["159.65.74.83"]
+            ghost-sfo2-01 --> ip15["2604:a880:2:d0::a41:7001"]
+        end
+    </div>
+
+    <h2>London 1</h2>
+    <div class="mermaid">
+        graph TD;
+        subgraph Region_lon1["London 1"]
+            do6["do6"]
+            do6 --> ip16["10.106.0.2"]
+            do6 --> ip17["138.68.143.119"]
+        end
+    </div>
+    
+</body>
+</html>
