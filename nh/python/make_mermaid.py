@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import json
 
@@ -16,8 +18,14 @@ mermaid_code = 'graph TD\n'
 def create_mermaid_node(id, label):
     return f'{id}["{label}"]'
 
+# Access the dictionary from the list
+if isinstance(data, list):
+    data_dict = data[0]
+else:
+    data_dict = data
+
 # Add Droplets
-for droplet in data.get('Droplets', []):
+for droplet in data_dict.get('Droplets', []):
     droplet_id = f'droplet_{droplet["id"]}'
     mermaid_code += create_mermaid_node(droplet_id, droplet["name"]) + '\n'
     
@@ -28,7 +36,7 @@ for droplet in data.get('Droplets', []):
         mermaid_code += f'{droplet_id} --> {ip_id}\n'
 
 # Add Volumes
-for volume in data.get('Volumes', []):
+for volume in data_dict.get('Volumes', []):
     volume_id = f'volume_{volume["id"]}'
     mermaid_code += create_mermaid_node(volume_id, volume["name"]) + '\n'
     
@@ -37,9 +45,10 @@ for volume in data.get('Volumes', []):
         mermaid_code += f'{volume_id} --> {droplet_node_id}\n'
 
 # Add Private Images
-for image in data.get('PrivateImages', []):
+for image in data_dict.get('PrivateImages', []):
     image_id = f'image_{image["id"]}'
     mermaid_code += create_mermaid_node(image_id, image["name"]) + '\n'
 
 # Output the Mermaid code
 print(mermaid_code)
+
