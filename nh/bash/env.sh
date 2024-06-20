@@ -6,7 +6,8 @@ nh_make_short_vars_orig() {
     local env_var_value
 
     # Define an ignore list
-    local ignore_list=("evn" "evv" "nvn" "env_var_value" "new_var_name" "counter" "new_var_name" "env_var_name" "env_var_value" "ignore_list")
+    local ignore_list=("evn" "evv" "nvn" "env_var_value" "new_var_name" \
+    "counter" "new_var_name" "env_var_name" "env_var_value" "ignore_list")
     
     # Get all variables and filter out functions
     while IFS='=' read -r env_var_name env_var_value; do

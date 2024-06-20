@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']  # Point to cAdvisor
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']  # Point to Node Exporter
