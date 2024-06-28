@@ -1,0 +1,186 @@
+Good Data Science is Mostly Dispatch - We Help Companies Design, Build, Deploy and Monitor Machine Learning Systems
+https://truetheta.io/concepts/opinions-and-speculations/good-data-science-is-mostly-dispatch/
+
+EEG | Papers With Code
+https://paperswithcode.com/task/eeg-1
+
+EEGNet: A Compact Convolutional Network for EEG-based Brain-Computer Interfaces | Papers With Code
+https://paperswithcode.com/paper/eegnet-a-compact-convolutional-network-for
+
+Advancing NLP with Cognitive Language Processing Signals | Papers With Code
+https://paperswithcode.com/paper/advancing-nlp-with-cognitive-language
+
+Transformer-based Spatial-Temporal Feature Learning for EEG Decoding | Papers With Code
+https://paperswithcode.com/paper/transformer-based-spatial-temporal-feature
+
+EEGEyeNet: a Simultaneous Electroencephalography and Eye-tracking Dataset and Benchmark for Eye Movement Prediction | Papers With Code
+https://paperswithcode.com/paper/eegeyenet-a-simultaneous
+
+An Open-source Toolbox for Analysing and Processing PhysioNet Databases in MATLAB and Octave | Papers With Code
+https://paperswithcode.com/paper/an-open-source-toolbox-for-analysing-and
+
+Deep learning with convolutional neural networks for decoding and visualization of EEG pathology | Papers With Code
+https://paperswithcode.com/paper/deep-learning-with-convolutional-neural-1
+
+Converting Your Thoughts to Texts: Enabling Brain Typing via Deep Feature Learning of EEG Signals | Papers With Code
+https://paperswithcode.com/paper/converting-your-thoughts-to-texts-enabling
+
+ChronoNet: A Deep Recurrent Neural Network for Abnormal EEG Identification | Papers With Code
+https://paperswithcode.com/paper/chrononet-a-deep-recurrent-neural-network-for
+
+EEG-GAN: Generative adversarial networks for electroencephalograhic (EEG) brain signals | Papers With Code
+https://paperswithcode.com/paper/eeg-gan-generative-adversarial-networks-for
+
+EEG-Based Emotion Recognition Using Regularized Graph Neural Networks | Papers With Code
+https://paperswithcode.com/paper/eeg-based-emotion-recognition-using
+
+Multi-task Generative Adversarial Learning on Geometrical Shape Reconstruction from EEG Brain Signals | Papers With Code
+https://paperswithcode.com/paper/multi-task-generative-adversarial-learning-on
+
+Uncovering the structure of clinical EEG signals with self-supervised learning | Papers With Code
+https://paperswithcode.com/paper/uncovering-the-structure-of-clinical-eeg
+
+Using Deep Networks for Scientific Discovery in Physiological Signals | Papers With Code
+https://paperswithcode.com/paper/using-deep-networks-for-scientific-discovery
+
+EEG-GCNN: Augmenting Electroencephalogram-based Neurological Disease Diagnosis using a Domain-guided Graph Convolutional Neural Network | Papers With Code
+https://paperswithcode.com/paper/eeg-gcnn-augmenting-electroencephalogram
+
+Conditional canonical correlation estimation based on covariates with random forests | Papers With Code
+https://paperswithcode.com/paper/conditional-canonical-correlation-estimation
+
+Spatiotemporal patterns of adaptation-induced slow oscillations in a whole-brain model of slow-wave sleep | Papers With Code
+https://paperswithcode.com/paper/a-deep-sleep-model-of-the-human-brain-how
+
+TSception: Capturing Temporal Dynamics and Spatial Asymmetry from EEG for Emotion Recognition | Papers With Code
+https://paperswithcode.com/paper/tsception-capturing-temporal-dynamics-and
+
+BEATS: An Open-Source, High-Precision, Multi-Channel EEG Acquisition Tool System | Papers With Code
+https://paperswithcode.com/paper/beats-an-open-source-high-precision-multi
+
+Physics-inform attention temporal convolutional network for EEG-based motor imagery classification | Papers With Code
+https://paperswithcode.com/paper/physics-inform-attention-temporal
+
+Decoding Natural Images from EEG for Object Recognition | Papers With Code
+https://paperswithcode.com/paper/decoding-natural-images-from-eeg-for-object
+
+Decode Neural signal as Speech | Papers With Code
+https://paperswithcode.com/paper/decode-neural-signal-as-speech
+
+Deep Feature Learning for EEG Recordings | Papers With Code
+https://paperswithcode.com/paper/deep-feature-learning-for-eeg-recordings
+
+From Euclidean to Riemannian Means: Information Geometry for SSVEP Classification | Papers With Code
+https://paperswithcode.com/paper/from-euclidean-to-riemannian-means
+
+Inherent fuzzy entropy for the improvement of EEG complexity evaluation | Papers With Code
+https://paperswithcode.com/paper/inherent-fuzzy-entropy-for-the-improvement-of
+
+A deep learning architecture to detect events in EEG signals during sleep | Papers With Code
+https://paperswithcode.com/paper/a-deep-learning-architecture-to-detect-events
+
+DOSED: a deep learning approach to detect multiple sleep micro-events in EEG signal | Papers With Code
+https://paperswithcode.com/paper/dosed-a-deep-learning-approach-to-detect
+
+Manifold Embedded Knowledge Transfer for Brain-Computer Interfaces | Papers With Code
+https://paperswithcode.com/paper/manifold-embedded-knowledge-transfer-for
+
+Spatiotemporal Emotion Recognition using Deep CNN Based on EEG during Music Listening | Papers With Code
+https://paperswithcode.com/paper/spatiotemporal-emotion-recognition-using-deep
+
+Modeling EEG data distribution with a Wasserstein Generative Adversarial Network to predict RSVP Events | Papers With Code
+https://paperswithcode.com/paper/modeling-eeg-data-distribution-with-a
+
+A state-space model for inferring effective connectivity of latent neural dynamics from simultaneous EEG/fMRI | Papers With Code
+https://paperswithcode.com/paper/a-state-space-model-for-inferring-effective
+
+Federated Transfer Learning for EEG Signal Classification | Papers With Code
+https://paperswithcode.com/paper/federated-transfer-learning-for-eeg-signal
+
+EEG-TCNet: An Accurate Temporal Convolutional Network for Embedded Motor-Imagery Brain-Machine Interfaces | Papers With Code
+https://paperswithcode.com/paper/eeg-tcnet-an-accurate-temporal-convolutional
+
+Graph Convolutional Neural Networks for analysis of EEG signals, BCI application | Papers With Code
+https://paperswithcode.com/paper/graph-convolutional-neural-networks-for-1
+
+Attention-based Graph ResNet for Motor Intent Detection from Raw EEG signals | Papers With Code
+https://paperswithcode.com/paper/attention-based-graph-resnet-for-motor-intent
+
+Spatio-Temporal EEG Representation Learning on Riemannian Manifold and Euclidean Space | Papers With Code
+https://paperswithcode.com/paper/rfnet-riemannian-fusion-network-for-eeg-based
+
+Deep Neural Dynamic Bayesian Networks applied to EEG sleep spindles modeling | Papers With Code
+https://paperswithcode.com/paper/robust-autoregressive-hidden-semi-markov
+
+EEGsig: an open-source machine learning-based toolbox for EEG signal processing | Papers With Code
+https://paperswithcode.com/paper/eegsig-machine-learning-based-toolbox-for-end
+
+Real-time noise cancellation with Deep Learning | Papers With Code
+https://paperswithcode.com/paper/a-real-time-noise-cancelling-eeg-electrode
+
+A Deep Neural Network for SSVEP-based Brain-Computer Interfaces | Papers With Code
+https://paperswithcode.com/paper/a-deep-neural-network-for-ssvep-based-brain
+
+Joint Learning of Full-structure Noise in Hierarchical Bayesian Regression Models | Papers With Code
+https://paperswithcode.com/paper/joint-learning-of-full-structure-noise-in
+
+Motor-Imagery-Based Brain Computer Interface using Signal Derivation and Aggregation Functions | Papers With Code
+https://paperswithcode.com/paper/motor-imagery-based-brain-computer-interface
+
+BENDR: using transformers and a contrastive self-supervised learning task to learn from massive amounts of EEG data | Papers With Code
+https://paperswithcode.com/paper/bendr-using-transformers-and-a-contrastive
+
+FOIT: Fast Online Instance Transfer for Improved EEG Emotion Recognition | Papers With Code
+https://paperswithcode.com/paper/foit-fast-online-instance-transfer-for
+
+RIGOLETTO -- RIemannian GeOmetry LEarning: applicaTion To cOnnectivity. A contribution to the Clinical BCI Challenge -- WCCI2020 | Papers With Code
+https://paperswithcode.com/paper/clinical-bci-challenge-wcci2020-rigoletto
+
+Classification of multivariate weakly-labelled time-series with attention | Papers With Code
+https://paperswithcode.com/paper/classification-of-multivariate-weakly
+
+Real-Time Emotion Classification Using EEG Data Stream in E-Learning Contexts | Papers With Code
+https://paperswithcode.com/paper/real-time-emotion-classification-using-eeg
+
+Toward asynchronous EEG-based BCI: Detecting imagined words segments in continuous EEG signals | Papers With Code
+https://paperswithcode.com/paper/toward-asynchronous-eeg-based-bci-detecting
+
+Self-Supervised Graph Neural Networks for Improved Electroencephalographic Seizure Analysis | Papers With Code
+https://paperswithcode.com/paper/automated-seizure-detection-and-seizure-type
+
+An Attention-Based Deep Learning Approach for Sleep Stage Classification With Single-Channel EEG | Papers With Code
+https://paperswithcode.com/paper/an-attention-based-deep-learning-approach-for
+
+LGGNet: Learning from Local-Global-Graph Representations for Brain-Computer Interface | Papers With Code
+https://paperswithcode.com/paper/lggnet-learning-from-local-global-graph
+
+LGGNet: Learning from Local-Global-Graph Representations for Brain-Computer Interface | Papers With Code
+https://paperswithcode.com/paper/lggnet-learning-from-local-global-graph
+
+Deep Convolutional Neural Network Applied to Electroencephalography: Raw Data vs Spectral Features | Papers With Code
+https://paperswithcode.com/paper/deep-convolutional-neural-network-applied-to-1
+
+A Compact and Interpretable Convolutional Neural Network for Cross-Subject Driver Drowsiness Detection from Single-Channel EEG | Papers With Code
+https://paperswithcode.com/paper/a-compact-and-interpretable-convolutional
+
+EEG-based Cross-Subject Driver Drowsiness Recognition with an Interpretable Convolutional Neural Network | Papers With Code
+https://paperswithcode.com/paper/eeg-based-cross-subject-driver-drowsiness
+
+Complex common spatial patterns on time-frequency decomposed EEG for brain-computer interface | Papers With Code
+https://paperswithcode.com/paper/complex-common-spatial-patterns-on-time
+
+Interpretable SincNet-based Deep Learning for Emotion Recognition from EEG brain activity | Papers With Code
+https://paperswithcode.com/paper/interpretable-sincnet-based-deep-learning-for
+
+The Portiloop: a deep learning-based open science tool for closed-loop brain stimulation | Papers With Code
+https://paperswithcode.com/paper/the-portiloop-a-deep-learning-based-open
+
+OpenSync: An opensource platform for synchronizing multiple measures in neuroscience experiments | Papers With Code
+https://paperswithcode.com/paper/opensync-an-opensource-platform-for
+
+On the interpretation of linear Riemannian tangent space model parameters in M/EEG | Papers With Code
+https://paperswithcode.com/paper/on-the-interpretation-of-linear-riemannian
+
+Information Theory and Entropy - We Help Companies Design, Build, Deploy and Monitor Machine Learning Systems
+https://truetheta.io/concepts/machine-learning-and-other-topics/entropy-information-theory/
+
