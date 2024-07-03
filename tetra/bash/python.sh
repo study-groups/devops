@@ -1,5 +1,6 @@
-#TETRA_PYENV=$TETRA_ENV/ds-env
-TETRA_PYENV=$TETRA_DIR/ds-dev
+# Set TETRA_PYENV only if it is not already set
+TETRA_PYENV=${TETRA_PYENV:-$TETRA_DIR/pyenv}
+
 tetra_python_activate(){
   source $TETRA_PYENV/bin/activate
 }
@@ -17,7 +18,7 @@ tetra_python_create_dsenv(){
 
 tetra_python_run(){
   tetra_python_activate
-  python ${@} 
+  python ${@}
 }
 
 tetra_python_install_prereq(){
