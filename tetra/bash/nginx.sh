@@ -223,3 +223,43 @@ tetra_nginx_crossplane_parse_nginx(){
   crossplane parse /etc/nginx/sites-enabled/*nodeholder*
 }
 
+
+# Function to generate NGINX proxy configuration
+tetra_nginx_proxy_long() {
+    local proxy_host="$1"
+    local proxy_port="$2"
+    local location="${3:-"/"}"
+    local protocol="http"
+    
+    if [ "$proxy_port" -eq 443 ]; then
+        protocol="https"
+    fi
+    
+    cat <<EOF
+location $location {
+    proxy_http_version 1.1;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $protocol;
+    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Server \$host;
+    proxy_set_header X-Forwarded-URI \$request_uri;
+    proxy_set_header X-Original-URI \$request_uri;
+    proxy_set_header X-Forwarded-Scheme \$scheme;
+    proxy_set_header X-Forwarded-Port \$server_port;
+    proxy_set_header X-Request-ID \$request_id;
+    proxy_set_header Connection "";
+    proxy_pass $protocol://$proxy_host:$proxy_port;
+    proxy_redirect off;
+    proxy_buffering off;
+}
+EOF
+}
+
+# Usage example to print the configuration to the terminal
+# tetra_nginx_proxy "example.com" 80
+
+# Usage example to save the configuration to a file
+# tetra_nginx_proxy "example.com" 80 > /etc/nginx/sites-available/example_proxy.conf
+
