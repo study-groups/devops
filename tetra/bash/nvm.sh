@@ -34,7 +34,21 @@ tetra_nvm_activate(){
   PS1="n:$js_ps1_orig"           # use original so multiple calls only one n
 }
 
-tetra_nvm_install(){
+tetra_nvm_install() {
+    local ver=${1:-"v0.39.1"}
+    echo "Using nvm version: $ver"
+    export NVM_DIR="$TETRA_NVM"
+    mkdir -p "$NVM_DIR"
+    echo "Installing nvm in $NVM_DIR"
+    curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$ver/install.sh" | bash
+    . "$NVM_DIR/nvm.sh"
+    . "$NVM_DIR/bash_completion"
+    nvm install 'lts/*'
+    nvm --version
+}
+
+
+tetra_nvm_install_old(){
   ver=${1:-"v0.39.1"}
   echo "Using nvm: $ver"
   mkdir -p $TETRA_NVM
