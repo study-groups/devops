@@ -9,3 +9,6 @@ tetra_git_ml(){
   git config --global user.name "Mike Lenan"
 }
 
+tetra_git_graph(){
+  git log --oneline --graph --decorate --all
+}
