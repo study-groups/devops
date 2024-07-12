@@ -1,5 +1,5 @@
 # Set TETRA_PYENV only if it is not already set
-TETRA_PYENV=${TETRA_PYENV:-$TETRA_DIR/pyenv}
+TETRA_PYENV=${TETRA_PYENV:-$TETRA_DIR/bin/pyenv}
 
 tetra_python_activate(){
   source $TETRA_PYENV/bin/activate

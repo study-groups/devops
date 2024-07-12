@@ -1,4 +1,4 @@
-TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/nvm}"
+TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/bin/nvm}"
 tetra_nvm_help(){
   cat <<EOF
 
@@ -8,18 +8,6 @@ tetra_nvm_help(){
 EOF
 }
 
-
-tetra_nvm_install_help(){
-  cat << EOF
-
-  curl returns script with default
-  export TETRA_NVM="$HOME/.nvm"
-  That is overiddent to be
-  $TETRA_DIR/nvm
-
-EOF
-
-}
 
 tetra_nvm_activate(){
   if [ -z "$js_ps1_orig" ]; then  # grab original first time and use it
