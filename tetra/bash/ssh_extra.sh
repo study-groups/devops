@@ -1,7 +1,7 @@
 tetra_ssh_add() {
     local key_file="";
     if [[ $# -ne 1 ]]; then
-        key_file=$TETRA_DIR/users/$TETRA_REMOTE_USER/keys/id_rsa;
+        key_file=$TETRA_DIR/data/$TETRA_REMOTE_USER/keys/id_rsa;
     else
         key_file="$1";
     fi;
