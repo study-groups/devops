@@ -5,29 +5,28 @@ tetra_ssh_add() {
     else
         key_file="$1";
     fi;
-    echo "Using current: tetra_ssh_add <key_file>";
 
+    echo "Using current: $key_file";
     if [[ ! -f "$key_file" ]]; then
         echo "Error: Key file '$key_file' not found.";
         return 1;
     fi;
 
-    tetra_ssh_start;
+    #tetra_ssh_start;
 
     if [ -z "$SSH_AUTH_SOCK" ]; then
         echo "Error: SSH_AUTH_SOCK not set. Check agent startup.";
         return 2;
     fi
 
-    ssh-add "$key_file" && echo "Key '$key_file' added to ssh-agent." || echo "Failed to add key to ssh-agent."
+    ssh-add "$key_file" && echo "Key '$key_file' added to ssh-agent." \
+                        || echo "Failed to add key to ssh-agent."
 }
 
 
 
 # Function to provide information about SSH keys and ssh-agent
 tetra_ssh_info() {
-    tetra_ssh_start
-
     if pgrep -x ssh-agent >/dev/null; then
         echo "SSH Agent is running."
         echo "Keys added:"
@@ -37,11 +36,10 @@ tetra_ssh_info() {
         echo "SSH Agent is not running."
         echo "To start the SSH Agent, use 'tetra_ssh_start'."
     fi
-
     echo
 }
 
-function tetra_ssh_status() {
+function _tetra_ssh_status_old() {
     if pgrep -x ssh-agent >/dev/null; then
         echo "SSH Agent is running."
         echo "Keys added:"
@@ -51,6 +49,29 @@ function tetra_ssh_status() {
         echo "To start the SSH Agent, use 'tetra_ssh_start'."
     fi
 }
+
+tetra_ssh_status () 
+{ 
+    if pgrep -x ssh-agent > /dev/null; then
+        echo "SSH Agent is running.";
+        echo "Keys added:";
+        
+        # Ensure SSH_AUTH_SOCK is set correctly
+        if [ -z "$SSH_AUTH_SOCK" ]; then
+            export SSH_AUTH_SOCK=$(find /tmp -type s -name agent.* 2>/dev/null | head -n 1)
+            if [ -z "$SSH_AUTH_SOCK" ]; then
+                echo "Unable to find SSH agent socket.";
+                return 1;
+            fi
+        fi
+        
+        ssh-add -l;
+    else
+        echo "SSH Agent is not running.";
+        echo "To start the SSH Agent, use 'tetra_ssh_start'.";
+    fi
+}
+
 # Function to convert SSH id_rsa key to PEM file
 function tetra_ssh_convert_to_pem() {
     if [[ $# -ne 1 ]]; then
