@@ -1,7 +1,7 @@
 # Function to create a Linux user
 tetra_linux_user_create() {
     local username="$1"
-    useradd -m "$username"
+    useradd -m -k $2 -s /bin/bash "$username"
 }
 
 # Function to delete a Linux user
@@ -12,6 +12,8 @@ tetra_linux_user_delete() {
 
 # Function to create a .pem file for an existing user and add to authorized_keys
 tetra_linux_user_add_pem() {
+    echo "DONT USE, HIT CTRL-C NOW!"
+    read
     local username="$1"
     local key_comment="${2:-$(hostname)_$(date +%Y%m%d_%H%M%S)}"
 
