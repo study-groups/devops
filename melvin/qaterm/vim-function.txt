@@ -1,0 +1,19 @@
+function! SendToQQ()
+  " Save the current buffer
+  write
+
+  " Get the selected text
+  let l:selection = join(getline("'<", "'>"), "\n")
+
+  " Run the command and capture the output
+  let l:cmd = 'echo "' . shellescape(l:selection) . '" | qq'
+  let l:output = system(l:cmd)
+
+  " Open a new split and display the response
+  split | setlocal buftype=nofile
+  call setline(1, split(l:output, "\n"))
+endfunction
+
+" Map the function to a key sequence
+xnoremap <leader>qq :<C-U>call SendToQQ()<CR>
+
