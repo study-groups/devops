@@ -3,7 +3,7 @@ nh_doctl_auth_list(){
   doctl auth list
 }
 nh_get_all() {
-    output_file="$NH_JSON/digocean_all.json"
+    output_file="$NH_JSON/digocean.json"
     true && {
         echo "["
         
