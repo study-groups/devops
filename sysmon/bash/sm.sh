@@ -6,7 +6,7 @@ export SM_RUN_MODE=systemd  # or docker
 export SM_USER=${SM_USER:-$(whoami)}
 
 # Help Functions
-sm-help() {
+sm_help() {
     echo "sm- bash functions for system-monitor Docker project."
     echo "Available commands:"
     echo "  sm_grafana_help       - Help for Grafana"

@@ -7,7 +7,7 @@ scrape_configs:
     # Override the global scrape interval with a shorter interval.
     scrape_interval: 5s
     static_configs:
-      - targets: ['172.17.0.1:9100']
+      - targets: ['172.17.0.1:9109']
 
   # Example configuration for scraping a Node.js application using the Prometheus client library.
   - job_name: 'playwright'

@@ -2,7 +2,8 @@
 
 WATCHDOG_SERVICE="/etc/systemd/system/watchdog.service"
 WATCHDOG_DIR="/tmp/watchdog"
-
+DEFAULT_SLEEP_DURATION=15
+mkdir -p $WATCHDOG_DIR
 
 generateSystemctlService() {
     # Create the systemctl.service file
@@ -81,8 +82,6 @@ _initLinux(){
     [[ $(read -p "Sure? (y/n):" c; echo $c) != 'y' ]] && exit
 
     generateSystemctlService
-
-
 }
 
 start-service(){
@@ -117,50 +116,41 @@ install-service(){
             echo "Unsupported OS"
             ;;
     esac
-
 }
 
 case "$1" in
    install-service)
-        # code to be executed for option1
         echo "Initializing /etc/"
-	install-service
-	exit 0
+        install-service
+        exit 0
         ;;
-   remove-serice)
-	stop-service
-	remove-service
-        exit 0	
+   remove-service)
+        stop-service
+        remove-service
+        exit 0    
         ;;
    start-service)
-        start-service	
-        exit 0	
+        start-service    
+        exit 0    
         ;;
    stop-service)
-	stop-service
-        exit 0	
+        stop-service
+        exit 0    
+        ;;
+   loop)
+        sleep_duration=${2:-$DEFAULT_SLEEP_DURATION}
+        while true; do
+            summary=$(systemSummary)
+            echo $summary
+            echo $summary > $WATCHDOG_DIR/recent
+            sleep $sleep_duration
+        done
         ;;
     *)
-        # code to be executed for any other option
-        #echo "Invalid option"
+        summary=$(systemSummary)
+        echo $summary
+        echo $summary > $WATCHDOG_DIR/recent
         ;;
 esac
 
-# Main loop
-while true; do
-    # Read the delay from WATCHDOG_DIR/delay file
-    #delay=$(cat $WATCHDOG_DIR/delay)
-
-    # generate system stats and send to influxdb
-    # curl -i -XPOST \
-    #  'http://localhost:8086/write?db=system_stats' \
-    #  --data-binary \
-    #    'cpu_load_short,host=server01,region=us-west value=0.64'
-
-    summary=$(systemSummary)
-    echo $summary
-    echo $summary > $WATCHDOG_DIR/recent
-    sleep $((1*5))
-done
 exit 0
-

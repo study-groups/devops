@@ -10,32 +10,6 @@ services:
     networks:
       - monitoring
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    networks:
-      - monitoring
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    ports:
-      - "9200:8080"  # Expose cAdvisor metrics endpoint
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    restart: always
-    privileged: true
-    depends_on:
-      - node-exporter
-      - prometheus
-    networks:
-      - monitoring
-
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -51,8 +25,27 @@ services:
     networks:
       - monitoring
 
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-storage:/var/lib/influxdb2
+    networks:
+      - monitoring
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=gridranger
+      - DOCKER_INFLUXDB_INIT_ORG=pixeljamarcade
+      - DOCKER_INFLUXDB_INIT_BUCKET=influxdb_qa
+      - DOCKER_INFLUXDB_INIT_RETENTION=30d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=gridranger
+
 volumes:
   grafana-storage:
+  influxdb-storage:
 
 networks:
   monitoring:
