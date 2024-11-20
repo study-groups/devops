@@ -1,4 +1,4 @@
-source $TETRA_SRC/pico_js.sh
+source $TETRA_SRC/bash/pico_js.sh
 tetra_pico_make_app() {
   local title=$1
   # Create the HTML file
