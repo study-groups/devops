@@ -4,7 +4,6 @@ alias ttkt='tetra-tmux-kill-session tetra'
 alias tttk='tetra-tmux-kill-session tetra'
 alias tnlr='tetra_nginx_location_replace'
 alias ttr='source $TETRA_DIR/tetra.sh'
-#alias ttr='source $TETRA_SRC/bootstrap.sh'
 
 tetra_remote_endpoint="$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
 tetra_remote_connector="$TETRA_REMOTE_USER@$TETRA_REMOTE"

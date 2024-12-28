@@ -112,11 +112,11 @@ tetra_python_install_exact() {
 
 
 tetra_python_activate() {
-    if [ -z "$TETRA_DIR" ]; then
-        echo "Error: TETRA_DIR is not set. Please define it as the base directory for your project."
+    if [ -z "$PYENV_ROOT" ]; then
+        echo "Error: PYENV_ROOT is not set."
+        echo " Define it as the base directory for pyenv."
         return 1
     fi
-
     # Set PYENV_ROOT and update PATH
     export PYENV_ROOT="$TETRA_DIR/pyenv"
     export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"

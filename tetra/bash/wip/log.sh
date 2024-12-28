@@ -36,7 +36,10 @@ tetra_log_via_gpt4() {
         local size=$(stat -c %s "${log_file}")
         if (( size + ${#message} > max_size )); then
             # Find the highest existing log rotation number
-            local num=$(find "$log_dir" -name 'tetra.log.*' | sed 's/^.*\.//' | sort -n | tail -1)
+            local num=$(find "$log_dir" -name 'tetra.log.*' \
+                              | sed 's/^.*\.//' \
+                              | sort -n \
+                              | tail -1)
             num=$((num+1)) # Increment for new log file
             mv "${log_file}" "${log_file}.${num}"
         fi

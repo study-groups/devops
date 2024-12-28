@@ -1,22 +1,30 @@
-# tetra relies on user supplied PEM keys and env configuration files
-
-# TETRA_DIR is a global path containing organizational directories
-# to keep track of keys and env setups specific to an organization
-# and the sub systsems within.
-
-# if TETRA_DIR is set via $1, skip. Default to ~/tetra
+# Set TETRA_DIR if not already set
 if [ -z "$TETRA_DIR" ]; then
-    if [ -n "$1" ]; then
-        TETRA_DIR="$1"
-    else
-        TETRA_DIR="$HOME/tetra"
-    fi
+    TETRA_DIR="${1:-$HOME/tetra}"
 fi
 
-for f in $(ls $TETRA_SRC/bash/*.sh | grep -v bootstrap.sh | grep -v init.sh);
-  do source $f;
-done;
+# Set TETRA_SRC if not already set
+[ -z "$TETRA_SRC" ] && TETRA_SRC="$HOME/src/devops/tetra"
 
+# Define the list of directories to search for scripts
+DIRS=(
+    "$TETRA_SRC/bash"
+    "$TETRA_SRC/bash/utils"
+    "$TETRA_SRC/bash/nvm"
+    "$TETRA_SRC/bash/python"
+    "$TETRA_SRC/bash/sync"
+)
 
-PS1='\[\e[0;38;5;228m\]\u\[\e[0m\]@\[\e[0m\]\h\[\e[0m\]:\[\e[0;38;5;45m\][\[\e[0;38;5;45m\]\W\[\e[0;38;5;45m\]]\[\e[0;37m\](\[\e[0;37m\]$(git branch 2>/dev/null | grep '"'"'^*'"'"' | colrm 1 2)\[\e[0;37m\])\[\e[0m\]: \[\e[0m\]'
+# Source .sh files from each directory, excluding bootstrap.sh
+for dir in "${DIRS[@]}"; do
+  [ -d "$dir" ] || { echo "Directory $dir does not exist"; continue; }
+  for f in "$dir"/*.sh; do
+    [ -f "$f" ] || { echo "No .sh files in $dir"; continue; }
+    [[ "$f" == *bootstrap.sh ]] && { continue; }
+    source "$f"
+  done
+done
+
+tetra_prompt
 tetra_status
+
