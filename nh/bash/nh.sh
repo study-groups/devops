@@ -5,7 +5,7 @@ nh_help(){
 
   nh_
     functions for gathering information about infrastructure
-    at Digtial Ocean. Edit and source ./init-nh.sh to get started.
+    at Digtial Ocean. Edit and source ./init.sh to get started.
 
 EOF
 }

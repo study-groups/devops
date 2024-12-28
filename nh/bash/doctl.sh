@@ -2,8 +2,9 @@ nh_doctl_auth_list(){
   echo "DIGITALOCEAN_CONTEXT=$DIGITALOCEAN_CONTEXT"
   doctl auth list
 }
-nh_get_all() {
-    output_file="$NH_JSON/digocean.json"
+
+nh_doctl_get_all() {
+    output_file="$NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json"
     true && {
         echo "["
         
@@ -38,12 +39,12 @@ nh_get_all() {
         echo "]"
     } > "$output_file"
     echo "Wrote to $output_file"
-    wc $output_file
+    wc $output_file >&2
 }
 
 
-nh_clean_all() {
-    local file="${1:-$NH_JSON/digocean_all.json}"
+nh_doctl_clean() {
+    local file="${1:-$NH_JSON/$DIGITALOCEAN_CONTEXT/digocean.json}"
     cat "$file" | jq '
     walk(
         if type == "object" then
@@ -56,10 +57,11 @@ nh_clean_all() {
         else
             .
         end
-    )' > "$NH_JSON/digocean.json"
-    wc $NH_JSON/digocean.json
+    )' > "$NH_JSON/digocean-clean.json"
+    wc $NH_JSON/$DIGITALOCEAN_CONTEXT/digocean-clean.json
+    read -p "replace ?"
 }
 
-nh_cat(){
-  cat $NH_JSON/digocean.json | jq .
+nh_doctl_cat(){
+  cat $NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json | jq .
 }
