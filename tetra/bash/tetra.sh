@@ -1,3 +1,0 @@
-tetra(){
-  echo "Using tetra."
-}

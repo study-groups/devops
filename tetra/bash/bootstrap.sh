@@ -27,4 +27,3 @@ done
 
 tetra_prompt
 tetra_status
-
