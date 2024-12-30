@@ -3,7 +3,7 @@ ENABLE_GIT=true        # Enables Git branch display
 SHOW_PYTHON=true       # Shows 'p' if Python is available
 SHOW_NODE=true         # Shows 'n' if Node.js is available
 SHOW_LOGTIME=true      # Shows logtime if LT_PROMPT_ENABLE is set
-MULTILINE=true         # Set to true for a multi-line prompt
+MULTILINE=false        # Set to true for a multi-line prompt
 
 # Prompt codes for customization
 tetra_prompt_show_codes() {
@@ -99,12 +99,15 @@ tetra_prompt() {
     
     # Multiline prompt construction
     if [[ "${MULTILINE}" == "true" ]]; then
-        PS1="${COLOR_RESET}${status}${COLOR_CYAN}${dirLong}${COLOR_RESET}${git_branch}\n"
-        PS1+="$logtime${COLOR_YELLOW}${username}${COLOR_RESET}@${hostname}: "
+        PS1="${COLOR_RESET}${logtime}$status${COLOR_CYAN}${dirLong}${COLOR_RESET}${git_branch}\n"
+        PS1+="${COLOR_YELLOW}${username}${COLOR_RESET}@${hostname}: "
     else
-        PS1="${COLOR_RESET}${logtime}${status}${COLOR_YELLOW}${username}@${COLOR_RESET}${hostname}:"
+        PS1="${COLOR_RESET}$status${logtime}${COLOR_YELLOW}${username}@${COLOR_RESET}${hostname}"
         PS1+="${COLOR_CYAN}${dirShort}${COLOR_RESET}${git_branch}: "
     fi
+    if [[ "${MULTILINE}" == "tiny" ]]; then
+        PS1="${COLOR_YELLOW}${username}${COLOR_RESET}@${hostname}: "
+    fi 
 }
 
 # Activate the custom prompt dynamically
@@ -149,4 +152,5 @@ tetra_prompt_colors() {
 tetra_prompt_colors
 
 # Activate the custom prompt
-PROMPT_COMMAND="tetra_prompt"
+# Call in bootstrap.sh
+#PROMPT_COMMAND="tetra_prompt"

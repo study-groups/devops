@@ -10,6 +10,7 @@ fi
 DIRS=(
     "$TETRA_SRC/bash"
     "$TETRA_SRC/bash/utils"
+    "$TETRA_SRC/bash/prompt"
     "$TETRA_SRC/bash/nvm"
     "$TETRA_SRC/bash/python"
     "$TETRA_SRC/bash/sync"
@@ -25,5 +26,5 @@ for dir in "${DIRS[@]}"; do
   done
 done
 
-tetra_prompt
+PROMPT_COMMAND="tetra_prompt"  # Bash uses this automatic
 tetra_status
