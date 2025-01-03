@@ -1,10 +1,15 @@
-nh_doctl_auth_list(){
-  echo "DIGITALOCEAN_CONTEXT=$DIGITALOCEAN_CONTEXT"
+nh_doctl_status(){
+  echo "NH_DIR=$NH_DIR"
+  echo "Context available at Digital Ocean:"
   doctl auth list
+  echo "DIGITALOCEAN_CONTEXT=$DIGITALOCEAN_CONTEXT"
+  echo "doctl -h for more"
 }
 
 nh_doctl_get_all() {
-    output_file="$NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json"
+    output_file="$NH_DIR/$DIGITALOCEAN_CONTEXT/digocean-all.json"
+    echo "Writing to $output_file..." 
+
     true && {
         echo "["
         
@@ -44,7 +49,7 @@ nh_doctl_get_all() {
 
 
 nh_doctl_clean() {
-    local file="${1:-$NH_JSON/$DIGITALOCEAN_CONTEXT/digocean.json}"
+    local file="$NH_DIR/$DIGITALOCEAN_CONTEXT/digocean-all.json"
     cat "$file" | jq '
     walk(
         if type == "object" then
@@ -57,8 +62,8 @@ nh_doctl_clean() {
         else
             .
         end
-    )' > "$NH_JSON/digocean-clean.json"
-    wc $NH_JSON/$DIGITALOCEAN_CONTEXT/digocean-clean.json
+    )' > "$NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json"
+    wc $NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json
     read -p "replace ?"
 }
 
