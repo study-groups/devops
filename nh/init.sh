@@ -6,6 +6,9 @@
   { echo "NH_INIT_DONE already set"; return 0; }
 
 doctl auth switch --context $DIGITALOCEAN_CONTEXT >&2
-Using Digital Ocean context: $DIGITALOCEAN_CONTEXT >&2
+echo "Using Digital Ocean context: $DIGITALOCEAN_CONTEXT" >&2
 source "$NH_SRC/bash/bootstrap.sh"
-NH_INIT_DONE=1
+export NH_SRC
+export NH_DIR
+export NH_CONTEXT
+#NH_INIT_DONE=1

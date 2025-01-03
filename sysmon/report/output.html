@@ -1,0 +1,28 @@
+
+  <html>
+    <head>
+      <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+      </script>
+    </head>
+    <body><p>flowchart TB
+subgraph 159.65.106.21[&quot;159.65.106.21&quot;]
+159.65.106.21_fstab[&quot;fstab&quot;]
+159.65.106.21_nginx[&quot;NGINX Status&quot;]
+159.65.106.21_nfs[&quot;NFS Mounts&quot;]
+159.65.106.21_network[&quot;Private/Public IPs&quot;]
+159.65.106.21_varphadmin[&quot;/var/phadmin&quot;]
+159.65.106.21_homephadmin[&quot;/home/phadmin&quot;]
+end
+subgraph 68.183.248.67[&quot;68.183.248.67&quot;]
+68.183.248.67_fstab[&quot;fstab&quot;]
+68.183.248.67_nginx[&quot;NGINX Status&quot;]
+68.183.248.67_nfs[&quot;NFS Mounts&quot;]
+68.183.248.67_network[&quot;Private/Public IPs&quot;]
+68.183.248.67_varphadmin[&quot;/var/phadmin&quot;]
+68.183.248.67_homephadmin[&quot;/home/phadmin&quot;]
+end
+159.65.106.21 --- 68.183.248.67</p>
+</body>
+  </html>
