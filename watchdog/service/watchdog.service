@@ -1,0 +1,11 @@
+[Unit]
+Description=Watchdog Service
+
+[Service]
+ExecStart=$WATCHDOG_EXE
+Restart=on-failure
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+

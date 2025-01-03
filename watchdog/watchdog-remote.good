@@ -1,0 +1,263 @@
+#!/bin/bash
+
+# Usage function
+show_usage() {
+    cat << EOF
+Usage: $0 <url>
+
+Environment variables required:
+    NH_DIR         Base directory for configuration
+    NH_CONTEXT     Context name (or DIGITALOCEAN_CONTEXT if set)
+
+Example:
+    NH_DIR=/etc/nethelper NH_CONTEXT=default $0 https://example.com
+
+Description:
+    Traces a URL through DigitalOcean infrastructure, analyzing DNS, floating IPs,
+    and server configurations. Results are written to three files:
+    - <domain>_devops_structure.sh
+    - <domain>_status.log
+    - <domain>_network_path.txt
+EOF
+    exit 1
+}
+
+# Check prerequisites including environment variables
+check_prereqs() {
+    log_status "Checking prerequisites..."
+    
+    # Check environment variables
+    if [ -z "$NH_DIR" ]; then
+        log_status "Error: NH_DIR environment variable not set"
+        show_usage
+    fi
+
+    # Use DIGITALOCEAN_CONTEXT if set, otherwise use NH_CONTEXT
+    if [ -n "$DIGITALOCEAN_CONTEXT" ]; then
+        NH_CONTEXT="$DIGITALOCEAN_CONTEXT"
+        log_status "Using DIGITALOCEAN_CONTEXT: $NH_CONTEXT"
+    elif [ -z "$NH_CONTEXT" ]; then
+        log_status "Error: Neither NH_CONTEXT nor DIGITALOCEAN_CONTEXT environment variable is set"
+        show_usage
+    fi
+
+    # Check if digocean.json exists
+    DIGOCEAN_JSON="$NH_DIR/$NH_CONTEXT/digocean.json"
+    if [ ! -f "$DIGOCEAN_JSON" ]; then
+        log_status "Error: $DIGOCEAN_JSON not found"
+        exit 1
+    fi
+
+    # Check required tools
+    local missing_tools=()
+    for tool in dig doctl ssh jq; do
+        if ! command -v $tool &>/dev/null; then
+            missing_tools+=("$tool")
+        fi
+    done
+
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        log_status "Error: The following tools are missing: ${missing_tools[*]}"
+        exit 1
+    fi
+    
+    log_status "All prerequisites satisfied"
+}
+
+# Main execution
+if [ -z "$1" ]; then
+    show_usage
+fi
+
+URL=$1
+DOMAIN=$(echo "$URL" | awk -F[/:] '{print $4}')
+if [ -z "$DOMAIN" ]; then
+    DOMAIN="$URL"
+fi
+DEVOPS_FILE="${DOMAIN}_devops_structure.sh"
+STATUS_LOG="${DOMAIN}_status.log"
+NETWORK_PATH="${DOMAIN}_network_path.txt"
+
+# Initialize logs
+> "$STATUS_LOG"
+> "$NETWORK_PATH"
+
+log_status() {
+    local message="$1"
+    echo "$message" | tee -a "$STATUS_LOG" >&2
+}
+
+# Step 1: Enhanced DNS Resolution
+resolve_dns() {
+    log_status "Resolving DNS for domain: $DOMAIN..."
+    local dns_records=($(dig +short "$DOMAIN"))
+    if [ ${#dns_records[@]} -eq 0 ]; then
+        log_status "Error: No DNS records found for $DOMAIN."
+        exit 1
+    fi
+    log_status "DNS records resolved: ${dns_records[*]}"
+    echo "RESOLVED_IPS=(${dns_records[*]})" >> "$DEVOPS_FILE"
+    echo "${dns_records[*]}"
+}
+
+# Step 2: Enhanced IP Classification
+check_ip_type_and_gather() {
+    local ip=$1
+    log_status "Analyzing IP type for: $ip"
+    
+    # Check if IP is a floating IP
+    local floating_ip_data=$(jq -r '.[] | select(.FloatingIPs != null) | .FloatingIPs[] | select(.ip == "'$ip'")' "$DIGOCEAN_JSON")
+    
+    if [ -n "$floating_ip_data" ]; then
+        log_status "$ip is a floating IP"
+        echo "IS_FLOATING_IP_$ip=true" >> "$DEVOPS_FILE"
+        
+        # Get droplet ID and details for this floating IP
+        local droplet_id=$(echo "$floating_ip_data" | jq -r '.droplet.id')
+        local droplet_data=$(jq -r '.[] | select(.Droplets != null) | .Droplets[] | select(.id == '$droplet_id')' "$DIGOCEAN_JSON")
+        
+        # Get public endpoint
+        local public_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "public") | .ip_address' | head -1)
+        echo "PUBLIC_ENDPOINT_$ip=$public_ip" >> "$DEVOPS_FILE"
+        
+        # Get private network info if available
+        local private_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address' | head -1)
+        if [ -n "$private_ip" ]; then
+            echo "PRIVATE_IP_$ip=$private_ip" >> "$DEVOPS_FILE"
+        fi
+        
+    else
+        log_status "$ip is a direct public IP"
+        echo "IS_FLOATING_IP_$ip=false" >> "$DEVOPS_FILE"
+        echo "PUBLIC_ENDPOINT_$ip=$ip" >> "$DEVOPS_FILE"
+        
+        # Check if this IP belongs to a droplet
+        local droplet_data=$(jq -r '.[] | select(.Droplets != null) | .Droplets[] | select(.networks.v4[].ip_address == "'$ip'")' "$DIGOCEAN_JSON")
+        if [ -n "$droplet_data" ]; then
+            local private_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address' | head -1)
+            if [ -n "$private_ip" ]; then
+                echo "PRIVATE_IP_$ip=$private_ip" >> "$DEVOPS_FILE"
+            fi
+        fi
+    fi
+}
+
+# Step 3: Enhanced Server Information Gathering
+gather_server_info() {
+    local ip=$1
+    local public_endpoint=$(grep "PUBLIC_ENDPOINT_$ip" "$DEVOPS_FILE" | cut -d= -f2)
+    
+    log_status "Attempting to gather server information for IP: $public_endpoint"
+    
+    if ssh -o ConnectTimeout=5 root@$public_endpoint "true"; then
+        log_status "SSH connection established with $public_endpoint. Gathering system information."
+        
+        ssh root@$public_endpoint bash << 'ENDSSH' >> "$DEVOPS_FILE"
+# Get hostname first
+echo "HOSTNAME=$(hostname -f)"
+
+echo "NGINX_CONFIG_FILES=("
+if [ -d "/etc/nginx/sites-enabled" ]; then
+    ls -1 /etc/nginx/sites-enabled/
+fi
+echo ")"
+
+echo "NGINX_CONFIGS={"
+if [ -d "/etc/nginx/sites-enabled" ]; then
+    for conf in /etc/nginx/sites-enabled/*; do
+        if [ -f "$conf" ]; then
+            echo "FILE: $conf"
+            cat "$conf"
+            echo "END_FILE"
+        fi
+    done
+fi
+echo "}"
+
+echo "SERVICE_PORTS={"
+netstat -tlpn | grep LISTEN | while read -r line; do
+    port="$(echo "$line" | awk '{print $4}' | rev | cut -d: -f1 | rev)"
+    service="$(echo "$line" | awk '{print $7}' | cut -d/ -f2)"
+    echo "PORT_${port}=${service}"
+done
+echo "}"
+
+echo "RUNNING_SERVICES={"
+# Get systemd services
+systemctl list-units --type=service --state=running
+
+# Get PM2 processes if PM2 exists
+if command -v pm2 &>/dev/null; then
+    echo "PM2_PROCESSES:"
+    pm2 list
+fi
+echo "}"
+
+echo "FILE_SYSTEM_INFO_${public_endpoint}={"
+echo "NFS_MOUNTS_${public_endpoint}:"
+df -hT | grep -v snap | grep 'nfs' | sed 1d | sort -rnk 6
+echo "VOLUME_MOUNTS_${public_endpoint}:"
+df -hT | grep -v snap | grep 'Volume' | sed 1d | sort -rnk 6
+echo "DISK_MOUNTS_${public_endpoint}:"
+df -hT | grep -v snap | grep -v 'nfs' | grep -v 'Volume' | sed 1d | sort -rnk 6
+echo "}"
+ENDSSH
+    else
+        log_status "SSH connection failed for $public_endpoint. Skipping server information gathering."
+    fi
+}
+
+# Step 4: Generate Network Path Documentation
+generate_network_path() {
+    {
+        echo "URL Trace Report for $URL"
+        echo "========================="
+        echo "Generated: $(date)"
+        echo
+        echo "1. DNS Resolution:"
+        echo "   Domain: $DOMAIN"
+        echo "   Resolved IPs: $(grep RESOLVED_IPS "$DEVOPS_FILE" | cut -d= -f2-)"
+        echo
+        echo "2. IP Classification:"
+        while read -r ip; do
+            echo "   IP: $ip"
+            echo "   - Floating IP: $(grep "IS_FLOATING_IP_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            echo "   - Public Endpoint: $(grep "PUBLIC_ENDPOINT_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            if grep -q "PRIVATE_IP_$ip" "$DEVOPS_FILE"; then
+                echo "   - Private IP: $(grep "PRIVATE_IP_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            fi
+            # Add hostname if available
+            local public_endpoint=$(grep "PUBLIC_ENDPOINT_$ip" "$DEVOPS_FILE" | cut -d= -f2)
+            if grep -q "HOSTNAME" "$DEVOPS_FILE"; then
+                echo "   - Hostname: $(grep "HOSTNAME" "$DEVOPS_FILE" | cut -d= -f2)"
+            fi
+        done < <(grep RESOLVED_IPS "$DEVOPS_FILE" | cut -d= -f2- | tr -d '()' | tr ' ' '\n')
+        echo
+        echo "3. Server Configurations:"
+        echo "   See detailed configurations in $DEVOPS_FILE"
+    } > "$NETWORK_PATH"
+}
+
+# Main execution
+log_status "Starting enhanced watchdog script for URL: $URL"
+check_prereqs
+
+dns_info=$(resolve_dns)
+{
+    echo "DOMAIN_NAME=$DOMAIN"
+    echo "URL=$URL"
+    echo "DNS_RECORDS=($dns_info)"
+
+    for ip in $dns_info; do
+        check_ip_type_and_gather "$ip"
+        gather_server_info "$ip"
+    done
+} > "$DEVOPS_FILE"
+
+generate_network_path
+
+log_status "Enhanced watchdog script completed for URL: $URL"
+log_status "Results written to:"
+log_status "- DevOps structure: $DEVOPS_FILE"
+log_status "- Status log: $STATUS_LOG"
+log_status "- Network path: $NETWORK_PATH"

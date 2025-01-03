@@ -1,0 +1,495 @@
+#!/bin/bash
+
+# Usage: ./enhanced_watchdog.sh <url> [nginx_path]
+# If [nginx_path] is not provided, defaults to "/"
+
+show_usage() {
+    cat << EOF
+Usage: $0 <url> [nginx_path]
+
+Environment variables required:
+    NH_DIR         Base directory for configuration
+    NH_CONTEXT     Context name (or DIGITALOCEAN_CONTEXT if set)
+
+Example:
+    NH_DIR=/etc/nethelper NH_CONTEXT=default $0 https://example.com /abracalab/
+
+Description:
+    Traces a URL through DigitalOcean infrastructure, analyzing DNS, floating IPs,
+    and server configurations. Focuses on extracting the requested NGINX location
+    block (or "/" by default). Results are written to three files:
+    - <domain>_devops_structure.sh
+    - <domain>_status.log
+    - <domain>_network_path.txt
+EOF
+    exit 1
+}
+
+log_status() {
+    local message="$1"
+    echo "$message" | tee -a "$STATUS_LOG" >&2
+}
+
+check_prereqs() {
+    log_status "Checking prerequisites..."
+    if [ -z "$NH_DIR" ]; then
+        log_status "Error: NH_DIR environment variable not set"
+        show_usage
+    fi
+    if [ -n "$DIGITALOCEAN_CONTEXT" ]; then
+        NH_CONTEXT="$DIGITALOCEAN_CONTEXT"
+        log_status "Using DIGITALOCEAN_CONTEXT: $NH_CONTEXT"
+    elif [ -z "$NH_CONTEXT" ]; then
+        log_status "Error: Neither NH_CONTEXT nor DIGITALOCEAN_CONTEXT is set"
+        show_usage
+    fi
+    DIGOCEAN_JSON="$NH_DIR/$NH_CONTEXT/digocean.json"
+    echo "DIGOCEAN_JSON: $DIGOCEAN_JSON"
+    if [ ! -f "$DIGOCEAN_JSON" ]; then
+        log_status "Error: $DIGOCEAN_JSON not found"
+        exit 1
+    fi
+    local missing_tools=()
+    for tool in dig doctl ssh jq; do
+        if ! command -v "$tool" &>/dev/null; then
+            missing_tools+=("$tool")
+        fi
+    done
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        log_status "Error: Missing tools: ${missing_tools[*]}"
+        exit 1
+    fi
+    log_status "All prerequisites satisfied"
+}
+
+extract_location_block() {
+    # Reads from $DEVOPS_FILE (contains captured NGINX configs for the droplet).
+    # Extracts the server block for $DOMAIN, then the location block for $NGINX_PATH or "/" if not found.
+    local domain="$1"
+    local path="$2"
+    local path_escaped
+    # Escape slashes in the user-provided path so the pattern will work if path="/"
+    path_escaped="$(echo "$path" | sed 's/\//\\\//g')"
+
+    local in_server=0
+    local block=""
+    local final_block=""
+
+    # Parse only the captured NGINX_CONFIGS= portion
+    grep -A 10000 "NGINX_CONFIGS={" "$DEVOPS_FILE" | grep -B 10000 "}" |
+    while IFS= read -r line; do
+
+        # Detect the start of a server block for the specified domain
+        if [[ $line =~ server_name.*$domain ]]; then
+            in_server=1
+        fi
+
+        if [[ $in_server -eq 1 ]]; then
+            block+="$line"$'\n'
+            # Detect the end of the server block
+            if [[ $line =~ ^\} ]]; then
+                in_server=0
+
+                # First try to find a location block that matches the user path
+                local found_path
+                found_path=$(echo "$block" | sed -n -e "/location[[:space:]]\+$path_escaped[[:space:]]*{/,/}/p")
+
+                if [ -n "$found_path" ]; then
+                    final_block="$found_path"
+                else
+                    # Otherwise, fall back to location /
+                    found_path=$(echo "$block" | sed -n -e "/location[[:space:]]\+\/[[:space:]]*{/,/}/p")
+                    if [ -n "$found_path" ]; then
+                        final_block="$found_path"
+                    fi
+                fi
+
+                # Reset block for the next server (if any)
+                block=""
+            fi
+        fi
+    done
+
+    echo "$final_block"
+}
+
+# Main script starts here
+if [ -z "$1" ]; then
+    show_usage
+fi
+
+URL="$1"
+NGINX_PATH="${2:-/}"  # default to "/"
+DOMAIN=$(echo "$URL" | awk -F[/:] '{print $4}')
+if [ -z "$DOMAIN" ]; then
+    DOMAIN="$URL"
+fi
+
+DEVOPS_FILE="${DOMAIN}_devops_structure.sh"
+STATUS_LOG="${DOMAIN}_status.log"
+NETWORK_PATH="${DOMAIN}_network_path.txt"
+
+# Clear old logs
+> "$STATUS_LOG"
+> "$NETWORK_PATH"
+
+log_status "Starting enhanced watchdog script for URL: $URL"
+check_prereqs
+
+resolve_dns() {
+    log_status "Resolving DNS for domain: $DOMAIN..."
+    local dns_records=($(dig +short "$DOMAIN"))
+    if [ ${#dns_records[@]} -eq 0 ]; then
+        log_status "Error: No DNS records found for $DOMAIN"
+        exit 1
+    fi
+    log_status "DNS resolved: ${dns_records[*]}"
+    echo "RESOLVED_IPS=(${dns_records[*]})" >> "$DEVOPS_FILE"
+    echo "${dns_records[*]}"
+}
+
+check_ip_type_and_gather() {
+    local ip="$1"
+    log_status "Analyzing IP: $ip"
+    local floating_ip_data
+    floating_ip_data=$(jq -r '.[] | select(.FloatingIPs != null) | .FloatingIPs[] | select(.ip == "'$ip'")' "$DIGOCEAN_JSON")
+    if [ -n "$floating_ip_data" ]; then
+        log_status "$ip is a floating IP"
+        echo "IS_FLOATING_IP_$ip=true" >> "$DEVOPS_FILE"
+        local droplet_id
+        droplet_id=$(echo "$floating_ip_data" | jq -r '.droplet.id')
+        local droplet_data
+        droplet_data=$(jq -r '.[] | select(.Droplets != null) | .Droplets[] | select(.id == '$droplet_id')' "$DIGOCEAN_JSON")
+        local public_ip
+        public_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "public") | .ip_address' | head -1)
+        echo "PUBLIC_ENDPOINT_$ip=$public_ip" >> "$DEVOPS_FILE"
+        local private_ip
+        private_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address' | head -1)
+        if [ -n "$private_ip" ]; then
+            echo "PRIVATE_IP_$ip=$private_ip" >> "$DEVOPS_FILE"
+        fi
+    else
+        log_status "$ip is a direct public IP"
+        echo "IS_FLOATING_IP_$ip=false" >> "$DEVOPS_FILE"
+        echo "PUBLIC_ENDPOINT_$ip=$ip" >> "$DEVOPS_FILE"
+        local droplet_data
+        droplet_data=$(jq -r '.[] | select(.Droplets != null) | .Droplets[] | select(.networks.v4[].ip_address == "'$ip'")' "$DIGOCEAN_JSON")
+        if [ -n "$droplet_data" ]; then
+            local private_ip
+            private_ip=$(echo "$droplet_data" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address' | head -1)
+            if [ -n "$private_ip" ]; then
+                echo "PRIVATE_IP_$ip=$private_ip" >> "$DEVOPS_FILE"
+            fi
+        fi
+    fi
+}
+
+gather_server_info() {
+    local ip="$1"
+    log_status "Gathering server info for IP: $ip"
+    if ssh -o ConnectTimeout=10 root@"$ip" "true" 2>/dev/null; then
+        log_status "SSH established with $ip"
+        ssh -o ConnectTimeout=10 root@"$ip" bash << 'ENDSSH' >> "$DEVOPS_FILE"
+echo "HOSTNAME=$(hostname -f)"
+echo "NGINX_CONFIG_FILES=("
+if [ -d "/etc/nginx/sites-enabled" ]; then
+    ls -1 /etc/nginx/sites-enabled/
+fi
+echo ")"
+echo "NGINX_CONFIGS={"
+if [ -d "/etc/nginx/sites-enabled" ]; then
+    for conf in /etc/nginx/sites-enabled/*; do
+        if [ -f "$conf" ]; then
+            echo "FILE: $conf"
+            cat "$conf"
+            echo "END_FILE"
+        fi
+    done
+fi
+echo "}"
+echo "SERVICE_PORTS={"
+netstat -tlpn 2>/dev/null | grep LISTEN | while read -r line; do
+    port="$(echo "$line" | awk '{print $4}' | rev | cut -d: -f1 | rev)"
+    service="$(echo "$line" | awk '{print $7}' | cut -d/ -f2)"
+    echo "PORT_${port}=${service}"
+done
+echo "}"
+echo "RUNNING_SERVICES={"
+systemctl list-units --type=service --state=running
+if command -v pm2 &>/dev/null; then
+    echo "PM2_PROCESSES:"
+    pm2 list
+fi
+echo "}"
+ENDSSH
+    else
+        log_status "SSH failed for $ip"
+    fi
+}
+
+generate_network_path() {
+    {
+        echo "URL Trace Report for $URL"
+        echo "Generated: $(date)"
+        echo
+        echo "1. DNS Resolution:"
+        echo "   Domain: $DOMAIN"
+        echo -n "   Resolved IPs: "
+        grep RESOLVED_IPS "$DEVOPS_FILE" | cut -d= -f2-
+        echo
+        echo "2. IP Classification:"
+        local ips
+        ips=$(grep RESOLVED_IPS "$DEVOPS_FILE" | cut -d= -f2- | tr -d '()')
+        for ip in $ips; do
+            echo "   IP: $ip"
+            echo "     - Floating IP: $(grep "IS_FLOATING_IP_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            echo "     - Public Endpoint: $(grep "PUBLIC_ENDPOINT_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            if grep -q "PRIVATE_IP_$ip" "$DEVOPS_FILE"; then
+                echo "     - Private IP: $(grep "PRIVATE_IP_$ip" "$DEVOPS_FILE" | cut -d= -f2)"
+            fi
+            if grep -q "HOSTNAME" "$DEVOPS_FILE"; then
+                echo "     - Hostname: $(grep "HOSTNAME" "$DEVOPS_FILE" | cut -d= -f2)"
+            fi
+            echo
+        done
+        echo "3. Server Configurations:"
+        echo "   See $DEVOPS_FILE for details"
+    } > "$NETWORK_PATH"
+}
+
+summarize_nginx_configs() {
+    log_status "Summarizing NGINX configurations..."
+    local config_files
+    config_files=($(grep "NGINX_CONFIG_FILES=(" "$DEVOPS_FILE" | sed 's/NGINX_CONFIG_FILES=(//' | sed 's/)//' | tr ' ' '\n'))
+    echo "NGINX Summary:" >> "$NETWORK_PATH"
+    for f in "${config_files[@]}"; do
+        echo "  - $f" >> "$NETWORK_PATH"
+    done
+}
+
+create_report_directory() {
+    local report_dir="$DOMAIN-report"
+    
+    # Remove old report directory if it exists
+    rm -rf "$report_dir"
+    
+    # Create fresh report directory
+    mkdir -p "$report_dir"
+    log_status "Created fresh report directory: $report_dir"
+}
+
+trace_url_path() {
+    local domain="$1"
+    local proxy_config
+    proxy_config=$(grep -A 50 "server_name.*$domain" "$DEVOPS_FILE")
+    local proxy_location
+    proxy_location=$(echo "$proxy_config" | grep -A 10 "location.*{" | grep "proxy_pass")
+    if [ -n "$proxy_location" ]; then
+        service_endpoint=$(echo "$proxy_location" | grep -oP 'proxy_pass https?://\K[^:/]+')
+        service_port=$(echo "$proxy_location" | grep -oP 'proxy_pass https?://[^:]+:\K[0-9]+' || echo "80")
+        if [[ $service_endpoint =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            service_hostname=$(doctl compute droplet list --format Name,PublicIPv4 --no-header | grep "$service_endpoint" | awk '{print $1}')
+        fi
+        if ssh -o ConnectTimeout=5 root@"$service_endpoint" "true" 2>/dev/null; then
+            service_type=$(ssh root@"$service_endpoint" "if command -v pm2 &>/dev/null; then echo 'pm2'; elif systemctl is-active nginx >/dev/null; then echo 'nginx'; elif systemctl is-active apache2 >/dev/null; then echo 'apache2'; fi")
+        fi
+    fi
+}
+
+log_status "Starting..."
+if [ -z "$URL" ]; then
+    show_usage
+fi
+check_prereqs
+
+# Create report directory first
+create_report_directory
+report_dir="${DOMAIN}-report"
+
+# Gather all information
+dns_info=($(resolve_dns))
+for ip in "${dns_info[@]}"; do
+    check_ip_type_and_gather "$ip"
+    gather_server_info "$ip"
+done
+
+# Generate the nginx configuration file
+{
+    echo "#!/bin/bash"
+    echo "# NGINX Configuration Files for $DOMAIN"
+    echo
+    grep -A 1000 "NGINX_CONFIG_FILES=" "$DEVOPS_FILE" | grep -B 1000 "NGINX_CONFIGS={"
+    echo
+    echo "# Full NGINX Configurations"
+    grep -A 1000 "NGINX_CONFIGS={" "$DEVOPS_FILE" | grep -B 1000 "SERVICE_PORTS={"
+} > "$report_dir/nginx.sh"
+chmod +x "$report_dir/nginx.sh"
+
+# Generate the services file
+{
+    echo "#!/bin/bash"
+    echo "# Services running for $DOMAIN"
+    echo
+    grep -A 1000 "SERVICE_PORTS={" "$DEVOPS_FILE" | grep -B 1000 "RUNNING_SERVICES={"
+    echo
+    echo "# Running Services"
+    grep -A 1000 "RUNNING_SERVICES={" "$DEVOPS_FILE" | grep -B 1000 "}"
+} > "$report_dir/services.sh"
+chmod +x "$report_dir/services.sh"
+
+# Generate path analysis
+trace_url_path "$DOMAIN"
+create_nginx_path_analysis
+create_fs_info
+
+# Generate network path and summary
+generate_network_path
+summarize_nginx_configs
+
+# Create a summary file
+{
+    echo "Summary Report for $DOMAIN"
+    echo "=========================="
+    echo
+    echo "Generated: $(date)"
+    echo
+    echo "1. DNS Information"
+    echo "----------------"
+    echo "Resolved IPs: ${dns_info[*]}"
+    echo
+    echo "2. NGINX Configuration"
+    echo "-------------------"
+    echo "See nginx.sh and nginx-path.sh for details"
+    echo
+    echo "3. Services"
+    echo "---------"
+    echo "See services.sh for running services"
+    echo
+    echo "4. Filesystem"
+    echo "-----------"
+    echo "See fs.sh for filesystem details"
+} > "$report_dir/summary.txt"
+
+log_status "Done. Results in: $report_dir"
+
+_location_type() {
+    local config="$1"
+    
+    # Check if it's a proxy configuration
+    if echo "$config" | grep -q "proxy_pass"; then
+        # Extract proxy destination
+        local proxy_url=$(echo "$config" | grep "proxy_pass" | awk '{print $2}' | tr -d ';')
+        local proxy_host=$(echo "$proxy_url" | sed -E 's|https?://||' | cut -d: -f1)
+        local proxy_port=$(echo "$proxy_url" | grep -o ':[0-9]*' | tr -d ':' || echo "80")
+        
+        echo "TYPE=proxy"
+        echo "PROXY_TARGET_IP=$proxy_host"
+        echo "PROXY_TARGET_PORT=$proxy_port"
+        
+        # Try to find hostname for the IP (both public and private ranges)
+        local hostname=$(ssh -o ConnectTimeout=5 root@"$proxy_host" hostname 2>/dev/null || echo "unknown")
+        if [ "$hostname" != "unknown" ]; then
+            echo "PROXY_TARGET_HOSTNAME=$hostname"
+        fi
+        
+    else
+        # It's a filesystem route
+        local root_dir=$(echo "$config" | grep "root" | awk '{print $2}' | tr -d ';')
+        echo "TYPE=filesystem"
+        echo "DOCUMENT_ROOT=$root_dir"
+        
+        # Get filesystem info if it's a local path
+        if [ -n "$root_dir" ]; then
+            local fs_info=$(df -h "$root_dir" 2>/dev/null | tail -n 1)
+            if [ -n "$fs_info" ]; then
+                echo "FILESYSTEM_DEVICE=$(echo "$fs_info" | awk '{print $1}')"
+                echo "FILESYSTEM_MOUNT=$(echo "$fs_info" | awk '{print $6}')"
+                echo "FILESYSTEM_USAGE=$(echo "$fs_info" | awk '{print $5}')"
+            fi
+        fi
+    fi
+}
+
+create_nginx_path_analysis() {
+    local report_dir="$DOMAIN-report"
+    
+    {
+        echo "#!/bin/bash"
+        echo "# NGINX path analysis for $DOMAIN"
+        echo
+        
+        # Debug: Show what we're working with
+        echo "# Debug: Finding config for $DOMAIN"
+        
+        ssh -o ConnectTimeout=10 root@"$proxy_public_ip" "
+            echo '# Available configs:'
+            ls -l /etc/nginx/sites-enabled/
+            echo
+            
+            echo '# Searching for config with $DOMAIN'
+            CONFIG=\$(grep -l \"server_name.*${DOMAIN}\" /etc/nginx/sites-enabled/*)
+            echo \"Found config: \$CONFIG\"
+            echo
+            
+            if [ -n \"\$CONFIG\" ]; then
+                echo '# Location block:'
+                sed -n '/location[[:space:]]\+\/[[:space:]]*{/ {
+                    :start
+                    p
+                    n
+                    /}/ !b start
+                    p
+                }' \"\$CONFIG\"
+            else
+                echo \"No config found for $DOMAIN\"
+            fi
+        "
+    } > "$report_dir/nginx-path.sh"
+    chmod +x "$report_dir/nginx-path.sh"
+}
+
+create_fs_info() {
+    local report_dir="$DOMAIN-report"
+    
+    {
+        echo "#!/bin/bash"
+        echo "# Filesystem Information for $DOMAIN"
+        echo
+        
+        # First find the config file containing our domain
+        ssh -o ConnectTimeout=10 root@"$proxy_public_ip" "
+            CONFIG_FILE=\$(grep -l \"server_name.*${DOMAIN}\" /etc/nginx/sites-enabled/*)
+            
+            if [ -n \"\$CONFIG_FILE\" ]; then
+                # Get the location block
+                LOCATION=\$(sed -n '/location[[:space:]]\+\/[[:space:]]*{/ {
+                    :start
+                    p
+                    n
+                    /}/ !b start
+                    p
+                }' \"\$CONFIG_FILE\")
+                
+                # Check if it's a filesystem route
+                if echo \"\$LOCATION\" | grep -q 'root\|alias'; then
+                    ROOT_DIR=\$(echo \"\$LOCATION\" | grep 'root\|alias' | awk '{print \$2}' | tr -d ';')
+                    echo \"DOCUMENT_ROOT=\$ROOT_DIR\"
+                    echo
+                    echo \"# Filesystem Details\"
+                    df -h \"\$ROOT_DIR\" | grep -v 'Filesystem'
+                    echo
+                    echo \"# Mount Information\"
+                    mount | grep \"\$(df \"\$ROOT_DIR\" | tail -n1 | awk '{print \$1}')\"
+                elif echo \"\$LOCATION\" | grep -q 'proxy_pass'; then
+                    echo \"# Proxy Configuration - No Local Filesystem\"
+                    PROXY_TARGET=\$(echo \"\$LOCATION\" | grep 'proxy_pass' | awk '{print \$2}' | tr -d ';')
+                    echo \"PROXY_TARGET=\$PROXY_TARGET\"
+                fi
+            else
+                echo \"No configuration found for $DOMAIN\"
+            fi
+        "
+        
+    } > "$report_dir/fs.sh"
+    chmod +x "$report_dir/fs.sh"
+}

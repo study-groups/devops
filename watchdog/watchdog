@@ -1,0 +1,83 @@
+# watchdog.sh - CLI and loop functionality
+
+WATCHDOG_DIR="/tmp/watchdog"
+DEFAULT_SLEEP_DURATION=15
+
+mkdir -p $WATCHDOG_DIR
+
+# Alternative Linux system summary using `top`
+system_summary_linux_alt() {
+    read cpu_us _ < <(top -bn1 | awk '/%Cpu\(s\):/ {print $2+$4}')
+    read mem_used mem_total < <(free -m | awk '/Mem:/ {print $3, $2}')
+    read swap_used swap_total < <(free -m | awk '/Swap:/ {print $3, $2}')
+
+    echo "CPU: $cpu_us/100, MEM: $mem_used/$mem_total, SWAP: $swap_used/$swap_total"
+}
+
+# Collects system summary for Linux
+system_summary_linux() {
+    export LC_ALL=C
+
+    read -r cpu_label user nice system idle iowait irq softirq steal guest guest_nice \
+        < <(grep '^cpu ' /proc/stat)
+    first_active=$((user + nice + system + irq + softirq + steal + guest + guest_nice))
+    first_total=$((first_active + idle + iowait))
+
+    sleep 1
+
+    read -r cpu_label2 user2 nice2 system2 idle2 iowait2 irq2 softirq2 steal2 guest2 guest_nice2 \
+        < <(grep '^cpu ' /proc/stat)
+    second_active=$((user2 + nice2 + system2 + irq2 + softirq2 + steal2 + guest2 + guest_nice2))
+    second_total=$((second_active + idle2 + iowait2))
+
+    active_diff=$((second_active - first_active))
+    total_diff=$((second_total - first_total))
+
+    if [ "$total_diff" -gt 0 ]; then
+        cpu_us=$((100 * active_diff / total_diff)).$((1000 * active_diff / total_diff % 10))
+    else
+        cpu_us="0.00"
+    fi
+
+    mem_used=$(free -m | awk '/^Mem:/ {print $3}')
+    mem_total=$(free -m | awk '/^Mem:/ {print $2}')
+    swap_used=$(free -m | awk '/^Swap:/ {print $3}')
+    swap_total=$(free -m | awk '/^Swap:/ {print $2}')
+
+    echo "CPU: $cpu_us/100, MEM: $mem_used/$mem_total, SWAP: $swap_used/$swap_total"
+}
+
+# Handles system summary based on OS
+system_summary() {
+    case "$(uname)" in
+        "Linux")
+            system_summary_linux
+            ;;
+        "Darwin")
+            echo "System summary for Mac not implemented" >&2
+            ;;
+        *)
+            echo "Unsupported OS" >&2
+            ;;
+    esac
+}
+
+# Main script logic for CLI usage
+case "$1" in
+    loop)
+        sleep_duration=${2:-$DEFAULT_SLEEP_DURATION}
+        while true; do
+            summary=$(system_summary)
+            echo "$summary"
+            echo "$summary" > $WATCHDOG_DIR/recent
+            sleep $sleep_duration
+        done
+        ;;
+    *)
+        summary=$(system_summary)
+        echo "$summary"
+        echo "$summary" > $WATCHDOG_DIR/recent
+        ;;
+esac
+
+exit 0
