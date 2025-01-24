@@ -1,3 +1,3 @@
-DEVOPS_SRC=$HOME/src/devops
-DEVOPS_DIR=$DEVOPS_SRC
-source $DEVOPS_SRC/scripts/bootstrap.sh
+TETRA_SRC=$HOME/src/devops/tetra
+TETRA_DIR=$HOME/tetra
+source $TETRA_SRC/init.sh

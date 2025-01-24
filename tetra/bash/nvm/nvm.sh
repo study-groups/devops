@@ -1,4 +1,4 @@
-TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/bin/nvm}"
+TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/nvm}"
 tetra_nvm_help(){
   cat <<EOF
 
