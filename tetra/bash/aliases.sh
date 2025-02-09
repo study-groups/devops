@@ -15,8 +15,8 @@ tetra_remote_connector="$TETRA_REMOTE_USER@$TETRA_REMOTE"
 alias tetra_remote_ls="ssh $TETRA_REMOTE_USER@$TETRA_REMOTE ls $TETRA_REMOTE_DIR"
 alias ttl="ssh $TETRA_REMOTE_USER@$TETRA_REMOTE ls $TETRA_REMOTE_DIR"
 
-ttr=$tetra_remote_endpoint
-ttc=$tetra_remote_connector
+tte=$tetra_remote_endpoint
+ttr=$tetra_remote_connector
 
 
 
