@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Markdown Editor</title>
+  <!-- External Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.4/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: false });
+  </script>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    nav { background: #f2f2f2; padding: 0.5em; display: flex; align-items: center; }
+    nav > * { margin-right: 1em; }
+    #content { flex: 1; display: flex; }
+    #editor, #preview { flex: 1; padding: 1em; box-sizing: border-box; overflow: auto; }
+    textarea { width: 100%; height: 100%; resize: none; }
+    #log { background: #eee; padding: 0.5em; font-size: 0.8em; max-height: 150px; overflow-y: auto; }
+    #pwd-display { margin-left: auto; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <nav>
+    <select id="file-select"></select>
+    <button id="load-btn">Load</button>
+    <button id="save-btn">Save</button>
+    <button id="code-view">Code</button>
+    <button id="preview-view">Preview</button>
+    <button id="split-view">Split</button>
+    <span id="pwd-display"></span>
+  </nav>
+  <!-- Editor and Preview Container -->
+  <div id="content">
+    <div id="editor" style="display: none;">
+      <textarea id="md-editor"></textarea>
+    </div>
+    <div id="preview" style="display: none;"></div>
+  </div>
+  <!-- Log Area -->
+  <div id="log"></div>
+  <script>
+    // Log function appends messages to the log area.
+    function logMessage(message) {
+      const logDiv = document.getElementById('log');
+      const timeStamp = new Date().toISOString();
+      logDiv.innerHTML += `[${timeStamp}] ${message}<br>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    
+    // Simple PubSub system.
+    const PubSub = {
+      events: {},
+      subscribe(event, callback) {
+        if (!this.events[event]) this.events[event] = [];
+        this.events[event].push(callback);
+      },
+      publish(event, data) {
+        if (!this.events[event]) return;
+        this.events[event].forEach(callback => callback(data));
+      }
+    };
+
+    // LocalStorage state management.
+    function saveState(state) {
+      localStorage.setItem('editorState', JSON.stringify(state));
+    }
+    function loadState() {
+      return JSON.parse(localStorage.getItem('editorState') || '{}');
+    }
+
+    // View mode control.
+    function setView(mode) {
+      const editor = document.getElementById('editor');
+      const preview = document.getElementById('preview');
+      if (mode === 'code') {
+        editor.style.display = 'block';
+        preview.style.display = 'none';
+      } else if (mode === 'preview') {
+        editor.style.display = 'none';
+        preview.style.display = 'block';
+      } else if (mode === 'split') {
+        editor.style.display = 'block';
+        preview.style.display = 'block';
+      }
+      const state = loadState();
+      state.view = mode;
+      saveState(state);
+      PubSub.publish('viewChange', mode);
+      logMessage(`View set to ${mode}`);
+    }
+
+    document.getElementById('code-view').addEventListener('click', () => setView('code'));
+    document.getElementById('preview-view').addEventListener('click', () => setView('preview'));
+    document.getElementById('split-view').addEventListener('click', () => setView('split'));
+
+    // Global variable for current working directory.
+    let pwd = '';
+
+    // Retrieve PWD from server API (/pwd).
+    async function loadPWD() {
+      try {
+        const response = await fetch('/pwd');
+        const data = await response.json();
+        pwd = data.pwd;
+        document.getElementById('pwd-display').textContent = `PWD: ${pwd}`;
+        logMessage(`Current PWD: ${pwd}`);
+      } catch (error) {
+        logMessage(`Error loading PWD: ${error}`);
+      }
+    }
+
+    // Populate file dropdown from server API (/files).
+    async function loadFileList() {
+      try {
+        const response = await fetch('/files');
+        const files = await response.json();
+        const select = document.getElementById('file-select');
+        select.innerHTML = '';
+        if (files.length === 0) {
+          logMessage(`No markdown files found in ${pwd}`);
+        }
+        files.forEach(file => {
+          const option = document.createElement('option');
+          option.value = file;
+          option.textContent = file;
+          select.appendChild(option);
+        });
+        logMessage(`Loaded file list with ${files.length} file(s)`);
+      } catch (error) {
+        logMessage(`Error loading file list: ${error}`);
+      }
+    }
+
+    // Load markdown file content.
+    async function loadFile(filename) {
+      try {
+        const response = await fetch(`/${filename}`);
+        const text = await response.text();
+        document.getElementById('md-editor').value = text;
+        updatePreview(text);
+        const state = loadState();
+        state.filename = filename;
+        state.content = text;
+        saveState(state);
+        logMessage(`Loaded file: ${filename}`);
+      } catch (error) {
+        logMessage(`Error loading file ${filename}: ${error}`);
+      }
+    }
+
+    document.getElementById('load-btn').addEventListener('click', () => {
+      const filename = document.getElementById('file-select').value;
+      if (filename) loadFile(filename);
+    });
+
+    // Save markdown file content via server API (/save/<filename>).
+    async function saveFile() {
+      const state = loadState();
+      const filename = state.filename;
+      const content = document.getElementById('md-editor').value;
+      try {
+        const response = await fetch(`/save/${filename}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!response.ok) throw new Error('Save failed');
+        state.content = content;
+        saveState(state);
+        PubSub.publish('fileSaved', { filename, content });
+        logMessage(`Saved file: ${filename}`);
+      } catch (error) {
+        logMessage(`Error saving file ${filename}: ${error}`);
+      }
+    }
+
+    document.getElementById('save-btn').addEventListener('click', saveFile);
+
+    // Update markdown preview using Marked, Mermaid, and MathJax.
+function updatePreview(mdText) {
+  // Use marked.parse instead of calling marked as a function.
+  const html = marked.parse(mdText);
+  document.getElementById('preview').innerHTML = html;
+  mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+  MathJax.typesetPromise();
+  logMessage('Preview updated');
+}
+
+    // Sync state with server via /sync API.
+    async function syncStateWithServer() {
+      const state = loadState();
+      try {
+        await fetch('/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state)
+        });
+        logMessage('State synchronized with server');
+      } catch (error) {
+        logMessage(`Error syncing state: ${error}`);
+      }
+    }
+
+    PubSub.subscribe('viewChange', syncStateWithServer);
+    PubSub.subscribe('fileSaved', syncStateWithServer);
+
+    // Update preview and persist state on editor input.
+    document.getElementById('md-editor').addEventListener('input', (e) => {
+      updatePreview(e.target.value);
+      const state = loadState();
+      state.content = e.target.value;
+      saveState(state);
+    });
+
+    // Initialization.
+    (function init() {
+      loadPWD();
+      loadFileList();
+      const state = loadState();
+      if (state.view) {
+        setView(state.view);
+      } else {
+        setView('split');
+      }
+      if (state.filename) {
+        document.getElementById('file-select').value = state.filename;
+        loadFile(state.filename);
+      }
+      logMessage('Initialization complete');
+    })();
+  </script>
+</body>
+</html>
