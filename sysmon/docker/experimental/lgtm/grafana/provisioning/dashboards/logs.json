@@ -1,0 +1,27 @@
+{
+  "title": "System Logs",
+  "panels": [
+    {
+      "title": "Nginx Access Logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "{job=\"nginx\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "System Logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "{job=\"syslog\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
