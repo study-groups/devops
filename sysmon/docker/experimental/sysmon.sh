@@ -1,7 +1,3 @@
-sysmon_md_server(){
-   node server.js # uses PORT, defualt to 4000
-}
-
 sysmon_docker_list(){
 docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}"
 

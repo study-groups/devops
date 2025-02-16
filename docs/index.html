@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Markdown Editor</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module">
+        import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+        import mermaid from "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.4/mermaid.esm.min.mjs";
+
+        mermaid.initialize({ startOnLoad: false });
+
+        function logMessage(message) {
+            const logDiv = document.getElementById('log');
+            const timeStamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timeStamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function saveState(state) {
+            localStorage.setItem('editorState', JSON.stringify(state));
+        }
+
+        function loadState() {
+            return JSON.parse(localStorage.getItem('editorState') || '{}');
+        }
+
+        function setView(mode) {
+            document.body.className = `${mode}-view`;
+            const state = loadState();
+            state.view = mode;
+            saveState(state);
+            logMessage(`View changed to ${mode}`);
+        }
+
+        function loadMathJax() {
+            if (window.MathJax) {
+                window.MathJax.typeset();
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            document.getElementById('code-view').addEventListener('click', () => setView('code'));
+            document.getElementById('preview-view').addEventListener('click', () => setView('preview'));
+            document.getElementById('split-view').addEventListener('click', () => setView('split'));
+
+            async function loadPWD() {
+                try {
+                    const response = await fetch('/pwd');
+                    const data = await response.json();
+                    document.getElementById('pwd-display').textContent = `PWD: ${data.pwd}`;
+                    logMessage(`Working directory: ${data.pwd}`);
+                } catch (error) {
+                    logMessage(`Error loading PWD: ${error}`);
+                }
+            }
+
+            async function loadFileList() {
+                try {
+                    const response = await fetch('/files');
+                    const files = await response.json();
+                    const select = document.getElementById('file-select');
+                    select.innerHTML = '';
+                    files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        select.appendChild(option);
+                    });
+                    logMessage(`Loaded ${files.length} files`);
+                } catch (error) {
+                    logMessage(`Error loading file list: ${error}`);
+                }
+            }
+
+            async function loadFile(filename) {
+                if (!filename) return;
+                try {
+                    const response = await fetch(`/${filename}`);
+                    const text = await response.text();
+                    document.getElementById('md-editor').value = text;
+                    updatePreview(text);
+                    const state = loadState();
+                    state.filename = filename;
+                    saveState(state);
+                    logMessage(`Loaded file: ${filename}`);
+                } catch (error) {
+                    logMessage(`Error loading file: ${error}`);
+                }
+            }
+
+            async function saveFile() {
+                const state = loadState();
+                const filename = state.filename;
+                if (!filename) {
+                    logMessage('No file selected to save');
+                    return;
+                }
+                const content = document.getElementById('md-editor').value;
+                try {
+                    const response = await fetch(`/save/${filename}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content })
+                    });
+                    if (!response.ok) throw new Error('Save failed');
+                    logMessage(`Saved file: ${filename}`);
+                } catch (error) {
+                    logMessage(`Error saving file: ${error}`);
+                }
+            }
+
+            function updatePreview(mdText) {
+                document.getElementById('preview').innerHTML = marked.parse(mdText);
+                mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+                loadMathJax();
+            }
+
+            document.getElementById('load-btn').addEventListener('click', () => {
+                const filename = document.getElementById('file-select').value;
+                loadFile(filename);
+            });
+
+            document.getElementById('save-btn').addEventListener('click', saveFile);
+
+            document.getElementById('md-editor').addEventListener('input', (e) => {
+                updatePreview(e.target.value);
+            });
+
+            await loadPWD();
+            await loadFileList();
+            const state = loadState();
+            setView(state.view || 'split');
+            if (state.filename) {
+                document.getElementById('file-select').value = state.filename;
+                await loadFile(state.filename);
+            }
+            logMessage('Editor initialized');
+        });
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+    <nav>
+        <select id="file-select"></select>
+        <button id="load-btn">Load</button>
+        <button id="save-btn">Save</button>
+        <button id="code-view">Code</button>
+        <button id="preview-view">Preview</button>
+        <button id="split-view">Split</button>
+        <span id="pwd-display"></span>
+    </nav>
+    <div id="content">
+        <div id="editor"><textarea id="md-editor"></textarea></div>
+        <div id="preview"></div>
+    </div>
+    <div id="log"></div>
+</body>
+</html>

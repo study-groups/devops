@@ -1,3 +1,6 @@
+nh-data
+qik/
+qa/
 # mkdocs generated
 site
 .tmp
@@ -86,3 +89,5 @@ typings/
 
 # next.js build output
 .next
+
+

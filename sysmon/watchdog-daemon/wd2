@@ -1,0 +1,161 @@
+WATCHDOG_SERVICE="/etc/systemd/system/watchdog.service"
+WATCHDOG_DIR="/tmp/watchdog"
+
+generateSystemctlService() {
+    # Create the systemctl.service file
+    cat <<EOT > /etc/systemd/system/watchdog.service
+[Unit]
+Description=Watchdog Service
+
+[Service]
+ExecStart=$WATCHDOG_DIR/watchdog
+Restart=on-failure
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOT
+    echo "Copying ./watchdog to $WATCHDOG_DIR"
+}
+
+_systemSummaryLinux() {
+    # Linux system summary
+    # Extracting CPU, MEM, SWAP, and DISK usage
+    read cpu_us cpu_sy _ < <(top -bn1 | awk '/%Cpu\(s\):/ {print $2+$4, $2+$4+$6}')
+    read mem_used mem_total _ < <(free -m | awk '/Mem:/ {print $3, $2}')
+    read swap_used swap_total _ < <(free -m | awk '/Swap:/ {print $3, $2}')
+    disk_usage=$(df -h / | awk 'NR==2 {print $3, $5}')
+
+    # Output
+    printf "CPU: %.2f/100, MEM: %d/%d MB, SWAP: %d/%d MB, DISK: %s\n" $cpu_us $mem_used $mem_total $swap_used $swap_total "$disk_usage"
+}
+
+_systemSummaryMac() {
+    # MacOS system summary
+    # Extracting CPU usage
+    cpu=$(ps -A -o %cpu | awk '{s+=$1} END {print s}')
+    cpu_count=$(sysctl -n hw.ncpu)
+    cpu_usage=$(echo "$cpu $cpu_count" | awk '{printf "%.0f", ($1 / $2)}')
+
+    # Getting Memory usage from vm_stat
+    page_size=$(vm_stat | grep 'page size of' | awk '{print $8}')
+    vm_stats=$(vm_stat)
+    free_pages=$(echo "$vm_stats" | awk '/Pages free/ {print $3}' | tr -d '.')
+    active_pages=$(echo "$vm_stats" | awk '/Pages active/ {print $3}' | tr -d '.')
+    inactive_pages=$(echo "$vm_stats" | awk '/Pages inactive/ {print $3}' | tr -d '.')
+    speculative_pages=$(echo "$vm_stats" | awk '/Pages speculative/ {print $3}' | tr -d '.')
+    wired_down_pages=$(echo "$vm_stats" | awk '/Pages wired down/ {print $4}' | tr -d '.')
+    compressed_pages=$(echo "$vm_stats" | awk '/Pages occupied by compressor/ {print $5}' | tr -d '.')
+    
+    # Total used pages are active + inactive + speculative + wired down
+    total_used_pages=$(($active_pages + $inactive_pages + $speculative_pages + $wired_down_pages + $compressed_pages))
+    
+    total_mem=$(sysctl -n hw.memsize | awk '{print int($0/1024/1024)}') # in MB
+    used_mem_mb=$(($total_used_pages * $page_size / 1024 / 1024)) # Used memory in MB
+
+    # Extract Swap usage from sysctl vm.swapusage and remove decimals
+    swap_info=$(sysctl vm.swapusage | grep -oE 'used = [0-9.]+M' | sed 's/used = //' | tr -d 'M' | awk '{printf "%.0f", $1}')
+    swap_total=$(sysctl vm.swapusage | grep -oE 'total = [0-9.]+M' | sed 's/total = //' | tr -d 'M' | awk '{printf "%.0f", $1}')
+
+    # Getting disk usage
+    disk_usage=$(df -h / | awk 'NR==2 {print $3, $5}')
+
+    # Output
+    printf "CPU: %.0f/100, MEM: %d/%d MB, SWAP: %d/%d MB, DISK: %s\n" $cpu_usage $used_mem_mb $total_mem $swap_info $swap_total "$disk_usage"
+}
+
+systemSummary() {
+    case "$(uname)" in
+        "Linux")
+            _systemSummaryLinux
+            ;;
+        "Darwin")
+            _systemSummaryMac
+            ;;
+        *)
+            echo "Unsupported OS"
+            ;;
+    esac
+}
+
+_initLinux(){
+    [[ $(read -p "Sure? (y/n):" c; echo $c) != 'y' ]] && exit
+
+    generateSystemctlService
+}
+
+start-service(){
+    if [ ! -f $WATCHDOG_SERVICE ]; then
+        systemctl daemon-reload
+        systemctl enable watchdog.service
+        systemctl start watchdog.service
+    fi
+    systemctl status watchdog.service
+}
+
+stop-service(){
+    systemctl stop watchdog.service
+}
+
+remove-service(){
+   rm -r $WATCHDOG_DIR
+   rm $WATCHDOG_SERVICE 
+}
+
+install-service(){
+    mkdir -p $WATCHDOG_DIR
+    cp ./watchdog $WATCHDOG_DIR/watchdog
+    case "$(uname)" in
+        "Linux")
+            _initLinux
+            ;;
+        "Darwin")
+            echo "Need to add _initMac" >&2 # this will go to stderr
+            ;;
+        *)
+            echo "Unsupported OS"
+            ;;
+    esac
+}
+
+case "$1" in
+   install-service)
+        echo "Initializing /etc/"
+	    install-service
+	    exit 0
+        ;;
+   remove-service)
+        stop-service
+        remove-service
+        exit 0	
+        ;;
+   start-service)
+        start-service	
+        exit 0	
+        ;;
+   stop-service)
+        stop-service
+        exit 0	
+        ;;
+    *)
+        echo "Invalid option"
+        ;;
+esac
+
+# Main loop
+while true; do
+    # Read the delay from WATCHDOG_DIR/delay file
+    # delay=$(cat $WATCHDOG_DIR/delay)
+
+    # generate system stats and send to influxdb
+    # curl -i -XPOST \
+    #  'http://localhost:8086/write?db=system_stats' \
+    #  --data-binary \
+    #    'cpu_load_short,host=server01,region=us-west value=0.64'
+
+    summary=$(systemSummary)
+    echo $summary
+    echo $summary > $WATCHDOG_DIR/recent
+    sleep 5
+done
+exit 0
