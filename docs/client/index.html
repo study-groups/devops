@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor</title>
+    <link rel="stylesheet" href="/client/styles.css">
+    <script type="module" src="/client/editor.js"></script>
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <select id="file-select"></select>
+        <button id="load-btn">Load</button>
+        <button id="save-btn">Save</button>
+        <button id="code-view">Code</button>
+        <button id="preview-view">Preview</button>
+        <button id="split-view">Split</button>
+        <!-- Manually placed scroll lock button -->
+        <button id="scroll-lock-btn">Lock Scroll</button>
+
+        <span id="pwd-display">Loading...</span>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="content">
+        <div id="editor">
+            <textarea id="md-editor" placeholder="Write Markdown here..."></textarea>
+        </div>
+        <div id="preview"></div>
+    </div>
+
+    <!-- Log Messages -->
+    <div id="log"></div>
+
+</body>
+</html>
