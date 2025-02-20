@@ -1,5 +1,6 @@
 import { logMessage } from "./utils.js";
 import { schedulePreviewUpdate } from "./markdown.js";
+import { globalFetch } from "./globalFetch.js";
 
 export async function uploadImage(file) {
     logMessage('Uploading image...');
@@ -7,7 +8,7 @@ export async function uploadImage(file) {
     formData.append('image', file);
 
     try {
-        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        const response = await globalFetch('/api/upload', { method: 'POST', body: formData });
 
         if (!response.ok) throw new Error(`Upload failed: ${await response.text()}`);
 

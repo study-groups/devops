@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "basic-auth": "^2.0.1",
     "express": "^4.21.2",
     "gray-matter": "^4.0.3",
     "grey-matter": "^0.0.0",

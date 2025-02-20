@@ -2,7 +2,7 @@
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import mermaid from "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.4/mermaid.esm.min.mjs";
 
-import { loadFiles, loadFile, saveFile } from "./fileManager.js";
+import { initializeFileManager, loadFiles, loadFile, saveFile } from "./fileManager.js";
 import { uploadImage } from "./imageManager.js";
 import { setView } from "./viewManager.js";
 
@@ -11,6 +11,8 @@ import { syncScroll, toggleScrollLock } from "./scrollSync.js";
 
 // For logging, if needed
 import { logMessage } from "./utils.js";
+
+import { updateTopBar } from './components/topBar.js';
 
 // Debounce variables
 let updateScheduled = false;
@@ -24,6 +26,7 @@ function updatePreview(mdText) {
     const preview = document.getElementById("preview");
     preview.innerHTML = marked.parse(mdText, { gfm: true, breaks: true });
     mermaid.init(undefined, document.querySelectorAll(".language-mermaid"));
+    logMessage('[EDITOR] Preview updated');
 }
 
 /**
@@ -60,21 +63,23 @@ function insertMarkdownImage(imageUrl) {
     editor.value = `${textBefore}\n![](${imageUrl})\n${textAfter}`;
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeFileManager();
     mermaid.initialize({ startOnLoad: false });
-
+    
     const editor = document.getElementById("md-editor");
     if (editor) {
-        // Debounced preview on input
         editor.addEventListener("input", schedulePreviewUpdate);
+        editor.addEventListener("scroll", syncScroll);
     }
 
-    document.getElementById("load-btn").addEventListener("click", () => {
-        const filename = document.getElementById("file-select").value;
-        loadFile(filename);
-    });
+    // Add scroll lock button handler
+    const scrollLockBtn = document.getElementById("scroll-lock-btn");
+    if (scrollLockBtn) {
+        scrollLockBtn.addEventListener("click", toggleScrollLock);
+    }
 
-    document.getElementById("save-btn").addEventListener("click", saveFile);
     document.getElementById("code-view").addEventListener("click", () => setView("code"));
     document.getElementById("preview-view").addEventListener("click", () => setView("preview"));
     document.getElementById("split-view").addEventListener("click", () => setView("split"));
@@ -115,6 +120,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    await loadFiles();
     setView("split");
+    logMessage('[EDITOR] View mode changed to: split');
 });

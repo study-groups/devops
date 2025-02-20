@@ -5,23 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Editor</title>
     <link rel="stylesheet" href="/client/styles.css">
-    <script type="module" src="/client/editor.js"></script>
 </head>
 <body>
 
     <!-- Navigation Bar -->
     <nav>
-        <select id="file-select"></select>
-        <button id="load-btn">Load</button>
-        <button id="save-btn">Save</button>
-        <button id="code-view">Code</button>
-        <button id="preview-view">Preview</button>
-        <button id="split-view">Split</button>
-        <!-- Manually placed scroll lock button -->
-        <button id="scroll-lock-btn">Lock Scroll</button>
+        <!-- Left side: File operations -->
+        <div class="nav-group file-ops">
+            <span id="md-dir-display" class="md-dir-display"></span>
+            <div class="file-selectors">
+                <select id="dir-select">
+                    <option value="">Select Directory</option>
+                </select>
+                <select id="file-select">
+                    <option value="">Select File</option>
+                </select>
+            </div>
+            <span id="current-path" class="current-path"></span>
+            <button id="load-btn">Load</button>
+            <button id="save-btn">Save</button>
+        </div>
 
-        <span id="pwd-display">Loading...</span>
+        <!-- Middle: View controls -->
+        <div class="nav-group view-controls">
+            <button id="code-view">Code</button>
+            <button id="preview-view">Preview</button>
+            <button id="split-view">Split</button>
+            <button id="scroll-lock-btn">Lock Scroll</button>
+        </div>
+
+        <!-- Right side: Auth & Info -->
+        <div class="nav-group auth-info">
+            <button id="info-btn">ℹ️ Info</button>
+            <span id="doc-path"></span>
+            <span id="pwd-display">Not logged in</span>
+            <form id="login-form" class="login-form" onsubmit="return false;">
+                <input type="text" id="username" placeholder="Username">
+                <input type="password" id="password" placeholder="Password">
+                <button type="button" id="login-btn" onclick="window.handleLogin()">Login</button>
+            </form>
+            <button id="logout-btn" style="display: none;">Logout</button>
+        </div>
     </nav>
+
+    <!-- Move top-bar to be first element in body -->
+    <div id="top-bar" class="top-bar">
+        <!-- Will be populated by JavaScript -->
+    </div>
 
     <!-- Main Content -->
     <div id="content">
@@ -34,5 +64,8 @@
     <!-- Log Messages -->
     <div id="log"></div>
 
+    <!-- Move scripts to end of body -->
+    <script type="module" src="/client/auth.js"></script>
+    <script type="module" src="/client/editor.js"></script>
 </body>
 </html>

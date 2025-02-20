@@ -1,74 +1,274 @@
 const express = require('express');
 const fs = require('fs');
-const path = require('path'); // ✅ Missing Import
-const { markdownDirectory, imagesDirectory } = require('../config');
-const { readMarkdownFiles, getFileStats } = require('../utils/fileUtils');
+const path = require('path');
+const { getUserMarkdownDirectory, imagesDirectory } = require('../config');
+const { readMarkdownFiles, getFileStats, getFileRankings, updateFileRanking } = require('../utils/fileUtils');
 const { parseMarkdown } = require('../utils/markdownUtils');
 const { getAllImages } = require('../utils/imageUtils');
+const { getDirectoryConfig, rankFiles } = require('../utils/directoryConfig');
 
 const router = express.Router();
 
-router.get('/index-summary', (req, res) => {
+// Ensure user directory exists
+function ensureUserDirectory(username) {
+    const userDir = getUserMarkdownDirectory(username);
+    if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+    }
+    return userDir;
+}
+
+// Add this logging to help debug
+router.use((req, res, next) => {
+    console.log(`[MARKDOWN] ${req.method} ${req.url}`);
+    next();
+});
+
+// Get all directories - note no /files prefix needed
+router.get('/dirs', (req, res) => {
+    const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
+    
     try {
-        const files = readMarkdownFiles(markdownDirectory);
-        let allReferencedImages = new Set();
-        let fileMetadata = [];
+        // Start with the community directory option
+        const dirs = [{ 
+            id: '.',
+            name: '📚 Community Files',
+            description: 'Shared markdown files'
+        }];
+        
+        // Add user directories
+        const userDirs = fs.readdirSync(baseDir)
+            .filter(item => fs.statSync(path.join(baseDir, item)).isDirectory())
+            .map(dir => ({
+                id: dir,
+                name: `📁 ${dir}`,
+                description: dir === req.auth.name ? 'Your Files' : `${dir}'s Files`
+            }));
 
-        files.forEach(file => {
-            const filePath = path.join(markdownDirectory, file);
-            const { metadata, images } = parseMarkdown(filePath);
-            const stats = getFileStats(filePath);
-
-            images.forEach(img => allReferencedImages.add(img));
-
-            fileMetadata.push({
-                name: file,
-                modified: stats?.mtimeMs || 0,
-                priority: metadata.priority || 0,
-                tags: metadata.tags || []
-            });
+        // Sort user's directory first, then others alphabetically
+        userDirs.sort((a, b) => {
+            if (a.id === req.auth.name) return -1;
+            if (b.id === req.auth.name) return 1;
+            return a.id.localeCompare(b.id);
         });
 
-        fileMetadata.sort((a, b) => b.priority - a.priority || b.modified - a.modified);
-
-        const allImages = getAllImages(imagesDirectory);
-        const orphanedImages = allImages.filter(img => !allReferencedImages.has(img));
-
-        res.json({ files: fileMetadata, referencedImages: [...allReferencedImages], orphanedImages });
+        console.log(`[FILES] Found ${userDirs.length} user directories in ${baseDir}`);
+        res.json([...dirs, ...userDirs]);
     } catch (error) {
-        console.error('Error in index-summary:', error);
-        res.status(500).json({ error: 'Failed to process index.md' });
+        console.error(`[FILES ERROR] Failed to read directories: ${error.message}`);
+        res.status(500).json({ error: 'Failed to read directories' });
     }
 });
 
-// ✅ Fix: Add missing `fs` and debug logging
-router.get('/files', (req, res) => {
-    console.log(`Fetching list of Markdown files from: ${markdownDirectory}`);
+// Get files in directory
+router.get('/list', async (req, res) => {
+    try {
+        const baseDir = process.env.MD_DIR;
+        const selectedDir = req.query.dir || req.auth.name;
+        const targetDir = selectedDir === '.' ? baseDir : path.join(baseDir, selectedDir);
 
-    fs.readdir(markdownDirectory, (err, files) => {
-        if (err) {
-            console.error(`Error reading directory: ${err.message}`);
-            return res.status(500).json({ error: 'Unable to read directory' });
+        // Get directory configuration
+        const config = await getDirectoryConfig(targetDir);
+        
+        // Get files matching include pattern and filter excluded
+        let files = fs.readdirSync(targetDir)
+            .filter(file => file.endsWith('.md'));
+
+        // If the 'all' parameter is not set, filter excluded files
+        if (!req.query.all) {
+            files = files
+                .filter(file => !config.exclude.includes(file))
+                .filter(file => file !== 'index.md');
+        }
+        
+        // Rank files according to config
+        const rankedFiles = rankFiles(files, config);
+        
+        // Map to response format
+        const fileList = rankedFiles.map((file, idx) => ({
+            id: file.name,
+            name: file.name,
+            rank: file.rank,
+            index: config.showIndex ? String.fromCharCode(97 + idx) : '',
+            showRank: config.showRank
+        }));
+        
+        res.json(fileList);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update the resolvePath function
+function resolvePath(directory, filename) {
+    if (!process.env.MD_DIR) {
+        throw new Error('MD_DIR not configured');
+    }
+    
+    // Sanitize inputs
+    const safeFilename = path.basename(filename);
+    
+    let filePath;
+    if (directory === '.') {
+        // Community files are directly in MD_DIR
+        filePath = path.join(process.env.MD_DIR, safeFilename);
+        console.log(`[FILES] Community file path: ${filePath}`);
+    } else {
+        // User files are in their subdirectory
+        const safeDir = path.basename(directory);
+        filePath = path.join(process.env.MD_DIR, safeDir, safeFilename);
+        console.log(`[FILES] User file path: ${filePath}`);
+    }
+    
+    // Verify the path is within MD_DIR
+    const resolvedPath = path.resolve(filePath);
+    const basePath = path.resolve(process.env.MD_DIR);
+    if (!resolvedPath.startsWith(basePath)) {
+        throw new Error('Invalid path');
+    }
+    
+    // Debug logging
+    console.log(`[FILES] Base directory: ${basePath}`);
+    console.log(`[FILES] Resolved path: ${resolvedPath}`);
+    console.log(`[FILES] File exists: ${fs.existsSync(resolvedPath)}`);
+    
+    return resolvedPath;
+}
+
+// Get file contents
+router.get('/get', (req, res) => {
+    const baseDir = process.env.MD_DIR;
+    const directory = req.query.dir || req.auth.name;
+    const filename = req.query.name;
+    const filePath = directory === '.' ? 
+        path.join(baseDir, filename) : 
+        path.join(baseDir, directory, filename);
+
+    try {
+        if (fs.existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            res.status(404).json({ error: 'File not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update the save route
+router.post('/save/:filename', (req, res) => {
+    try {
+        const username = req.auth.name;
+        const filename = req.params.filename;
+        const { content, directory = username } = req.body;
+
+        if (!filename || !content) {
+            return res.status(400).json({ error: 'Missing filename or content' });
         }
 
-        const mdFiles = files.filter(file => file.endsWith('.md'));
-        console.log(`Found ${mdFiles.length} markdown files`);
-        res.json(mdFiles);
-    });
+        // Check permissions
+        if (directory === '.') {
+            if (username !== 'admin') {
+                return res.status(403).json({ error: 'Only admins can save to community directory' });
+            }
+        } else if (directory !== username && username !== 'admin') {
+            return res.status(403).json({ error: 'Can only save to your own directory' });
+        }
+
+        const filePath = resolvePath(directory, filename);
+        console.log(`[FILES] Saving to: ${filePath}`);
+
+        // Ensure directory exists
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, content);
+        console.log(`[SAVE] File saved: ${filePath} for user ${username}`);
+        res.json({ message: 'File saved successfully' });
+    } catch (error) {
+        console.error(`[SAVE ERROR] ${error.message}`);
+        res.status(400).json({ error: error.message });
+    }
 });
 
-router.get('/file', (req, res) => {
-    const filename = req.query.name;
-    if (!filename) return res.status(400).json({ error: 'Filename is required' });
+// Add endpoint to update rankings
+router.post('/rank', async (req, res) => {
+    try {
+        const { directory, filename, rank } = req.body;
+        if (!filename || rank === undefined) {
+            return res.status(400).json({ error: 'Missing filename or rank' });
+        }
 
-    const safeFilename = path.basename(filename);
-    const filePath = path.join(markdownDirectory, safeFilename);
+        const targetDir = directory === '.' ? 
+            process.env.MD_DIR : 
+            path.join(process.env.MD_DIR, directory);
 
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'File not found' });
+        await updateFileRanking(targetDir, filename, rank);
+        res.json({ message: 'Ranking updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
+});
 
-    res.sendFile(filePath);
+// Add new endpoint for updating ranks
+router.post('/ranks', async (req, res) => {
+    try {
+        const { directory, ranks } = req.body;
+        const username = req.auth.name;
+        
+        // Ensure user has permission
+        if (directory !== '.' && directory !== username && username !== 'admin') {
+            return res.status(403).json({ error: 'Cannot modify ranks in this directory' });
+        }
+        
+        const targetDir = directory === '.' ? 
+            process.env.MD_DIR : 
+            path.join(process.env.MD_DIR, directory);
+            
+        // Save ranks to user-specific meta file
+        const metaFile = path.join(targetDir, `.ranks-${username}.json`);
+        await fs.writeFile(metaFile, JSON.stringify(ranks, null, 2));
+        
+        res.json({ message: 'Ranks updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add this to the existing markdown routes
+router.get('/files', async (req, res) => {
+    try {
+        const baseDir = process.env.MD_DIR;
+        const selectedDir = req.query.dir || req.auth.name;
+        const targetDir = selectedDir === '.' ? baseDir : path.join(baseDir, selectedDir);
+
+        // Get directory configuration
+        const config = await getDirectoryConfig(targetDir);
+        
+        // Get files matching include pattern and filter excluded
+        const files = fs.readdirSync(targetDir)
+            .filter(file => file.endsWith('.md'))
+            .filter(file => !config.exclude.includes(file))
+            .filter(file => file !== 'index.md');
+        
+        // Rank files according to config
+        const rankedFiles = rankFiles(files, config);
+        
+        // Map to response format
+        const fileList = rankedFiles.map((file, idx) => ({
+            id: file.name,
+            name: file.name,
+            rank: file.rank,
+            index: config.showIndex ? String.fromCharCode(97 + idx) : '',
+            showRank: config.showRank
+        }));
+        
+        res.json(fileList);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;

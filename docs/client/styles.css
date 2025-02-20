@@ -12,29 +12,69 @@ nav {
     background: #f8f9fa;
     padding: 0.75rem;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
     border-bottom: 1px solid #dee2e6;
 }
 
-nav select, nav button {
+.nav-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.auth-info {
+    margin-left: auto;
+}
+
+#doc-path {
+    color: #666;
+    font-size: 0.9em;
+    margin-right: 1rem;
+}
+
+#pwd-display {
+    font-family: monospace;
+    color: #0d6efd;
+    margin-right: 1rem;
+}
+
+.login-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.login-form input {
+    width: 120px;
     height: 2rem;
     padding: 0 0.75rem;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    background: white;
+}
+
+#info-btn {
+    font-size: 1.2em;
+    padding: 2px 8px;
+    background: none;
+    border: none;
     cursor: pointer;
 }
 
-nav button:hover {
-    background: #f1f3f5;
+#info-btn:hover {
+    opacity: 0.8;
 }
 
-#pwd-display {
-    margin-left: auto;
-    font-size: 0.875rem;
-    color: #6c757d;
-    font-family: monospace;
+/* Show/hide elements based on auth state */
+body[data-auth-state="logged-in"] .login-form {
+    display: none;
+}
+
+body[data-auth-state="logged-in"] #logout-btn {
+    display: inline-block;
+}
+
+body[data-auth-state="logged-out"] #logout-btn {
+    display: none;
 }
 
 /* Main content */
@@ -61,14 +101,37 @@ nav button:hover {
 
 /* Log area */
 #log {
-    background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
-    padding: 0.5rem;
-    font-size: 0.75rem;
-    font-family: monospace;
-    max-height: 120px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Consolas', monospace;
+    padding: 8px;
+    max-height: 200px;
     overflow-y: auto;
-    color: #6c757d;
+}
+
+#log div {
+    padding: 2px 0;
+    border-bottom: 1px solid #333;
+}
+
+.log-error {
+    color: #f14c4c;
+}
+
+.log-warning {
+    color: #ddb100;
+}
+
+.log-config {
+    color: #3794ff;
+    font-weight: bold;
+    white-space: pre;
+    font-family: 'Consolas', monospace;
+}
+
+#log div.log-separator {
+    border-bottom: 2px solid #3794ff;
+    margin: 4px 0;
 }
 
 /* View modes */
@@ -190,4 +253,194 @@ body {
             font-family: monospace;
             max-height: 200px;
             overflow-y: auto;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+}
+
+.user-container, .admin-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#doc-path {
+    color: #666;
+    font-size: 0.9em;
+}
+
+#info-btn {
+    font-size: 1.2em;
+    padding: 2px 8px;
+}
+
+.file-selectors {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Style both directory and file selectors consistently */
+.file-selectors select {
+    min-width: 150px;
+    height: 2rem;
+    padding: 0 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background: white;
+    font-size: 0.9em;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%236c757d' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 16px;
+    cursor: pointer;
+    display: block; /* Ensure select is visible */
+}
+
+.file-selectors select:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.file-selectors select:hover {
+    border-color: #86b7fe;
+}
+
+.current-path {
+    color: #666;
+    font-size: 0.9em;
+    font-family: monospace;
+    margin: 0 1rem;
+}
+
+.md-dir-display {
+    color: #666;
+    font-family: monospace;
+    font-size: 0.9em;
+    padding: 0.25rem 0.5rem;
+    background: #f1f3f5;
+    border-radius: 4px;
+    margin-right: 1rem;
+}
+
+.current-path {
+    color: #666;
+    font-size: 0.9em;
+    font-family: monospace;
+}
+
+/* Remove the old #file-select styles since we're using custom-select now */
+#file-select {
+    display: none; /* Hide the original select element */
+}
+
+/* Custom select styles */
+.custom-select {
+    position: relative;
+    min-width: 250px;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.select-header {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    background: #fff;
+    border-radius: 4px;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.select-header:after {
+    content: '▼';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8em;
+    color: #6c757d;
+}
+
+.custom-select.open .select-header:after {
+    content: '▲';
+}
+
+.select-options {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    margin-top: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 0.25rem;
+}
+
+/* Only show options when parent has open class */
+.custom-select.open .select-options {
+    display: block;
+}
+
+.file-option {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    margin: 0.25rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+}
+
+.file-option:hover {
+    background: #e9ecef;
+    transform: translateX(2px);
+}
+
+.file-option.selected {
+    background: #e7f1ff;
+    border-color: #0d6efd;
+}
+
+.file-index {
+    color: #6c757d;
+    font-size: 0.8em;
+    margin-right: 0.5rem;
+    min-width: 1em;
+    text-align: center;
+}
+
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-rank {
+    color: #6c757d;
+    font-size: 0.8em;
+    margin-left: 0.5rem;
+    min-width: 2em;
+    text-align: right;
 }

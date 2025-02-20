@@ -20,7 +20,7 @@ export function updatePreview(mdText) {
         // Render Mermaid diagrams
         mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
 
-        logMessage('Preview updated');
+        //logMessage('Preview updated');
     } catch (error) {
         logMessage(`Preview error: ${error.message}`);
         console.error('Preview error:', error);
@@ -37,5 +37,5 @@ export function schedulePreviewUpdate() {
             updatePreview(document.getElementById('md-editor').value);
             updateScheduled = false;
         });
-    }, 300); // Debounce interval
+    }, 1000); // Debounce interval
 }
