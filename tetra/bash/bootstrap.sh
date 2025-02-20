@@ -3,14 +3,10 @@ if [ -z "$TETRA_DIR" ]; then
     TETRA_DIR="${1:-$HOME/tetra}"
 fi
 
-<<<<<<< HEAD
-# Set TETRA_SRC if not already set
 [ -z "$TETRA_SRC" ] && TETRA_SRC="$HOME/src/devops/tetra"
-=======
 for f in $(ls $TETRA_SRC/*.sh | grep -v bootstrap.sh | grep -v init.sh);
   do source $f;
 done;
->>>>>>> 87e5bbd (Pico wip)
 
 # Define the list of directories to search for scripts
 DIRS=(
