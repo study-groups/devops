@@ -80,8 +80,17 @@ router.get('/dirs', async (req, res) => {
 router.get('/list', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
-        const selectedDir = req.query.dir || req.auth?.name || '.';
-        const targetDir = selectedDir === '.' ? baseDir : path.join(baseDir, selectedDir);
+        const username = req.auth?.name;
+        const selectedDir = req.query.dir || username || '.';
+        
+        // For mike, use selected directory directly, for others force their user directory
+        const targetDir = selectedDir === '.' ? 
+            baseDir : 
+            (username === 'mike' ? 
+                path.join(baseDir, selectedDir) : 
+                path.join(baseDir, username));
+
+        console.log(`[LIST] User ${username} accessing directory: ${targetDir}`);
 
         // Ensure target directory exists
         if (!fs.existsSync(targetDir)) {
@@ -108,7 +117,7 @@ router.get('/list', async (req, res) => {
 });
 
 // Update the resolvePath function
-function resolvePath(directory, filename) {
+function resolvePath(directory, filename, username) {
     if (!process.env.MD_DIR) {
         throw new Error('MD_DIR not configured');
     }
@@ -121,8 +130,12 @@ function resolvePath(directory, filename) {
         // Community files are directly in MD_DIR
         filePath = path.join(process.env.MD_DIR, safeFilename);
         console.log(`[FILES] Community file path: ${filePath}`);
+    } else if (username === 'mike') {
+        // For mike, use the directory directly under MD_DIR
+        filePath = path.join(process.env.MD_DIR, directory, safeFilename);
+        console.log(`[FILES] Mike's file path in ${directory}: ${filePath}`);
     } else {
-        // User files are in their subdirectory
+        // Other users are restricted to their subdirectory
         const safeDir = path.basename(directory);
         filePath = path.join(process.env.MD_DIR, safeDir, safeFilename);
         console.log(`[FILES] User file path: ${filePath}`);
@@ -146,11 +159,19 @@ function resolvePath(directory, filename) {
 // Get file contents
 router.get('/get', (req, res) => {
     const baseDir = process.env.MD_DIR;
-    const directory = req.query.dir || req.auth.name;
+    const username = req.auth.name;
+    const directory = req.query.dir || username;
     const filename = req.query.name;
-    const filePath = directory === '.' ? 
-        path.join(baseDir, filename) : 
-        path.join(baseDir, directory, filename);
+
+    // For mike, use selected directory directly, for others force their user directory
+    const targetDir = directory === '.' ? 
+        baseDir : 
+        (username === 'mike' ? 
+            path.join(baseDir, directory) : 
+            path.join(baseDir, username));
+
+    const filePath = path.join(targetDir, filename);
+    console.log(`[GET] User ${username} accessing file: ${filePath}`);
 
     try {
         if (fs.existsSync(filePath)) {
@@ -168,28 +189,52 @@ router.post('/save/:filename', (req, res) => {
     try {
         const username = req.auth.name;
         const filename = req.params.filename;
-        const { content, directory = username } = req.body;
+        const { content, pwd, userDir } = req.body;
+
+        console.log(`[SAVE] Save request:
+    User: ${username}
+    PWD: ${pwd}
+    Filename: ${filename}`);
 
         if (!filename || !content) {
+            console.log(`[SAVE] Missing filename or content`);
             return res.status(400).json({ error: 'Missing filename or content' });
         }
 
-        // Check permissions - only allow saving to user's own directory
-        if (directory !== username) {
-            return res.status(403).json({ error: 'Can only save to your own directory' });
+        // Determine target directory based on user and PWD
+        let targetDir;
+        if (username === 'mike') {
+            // Mike can save to any directory
+            targetDir = pwd === '.' ? 
+                process.env.MD_DIR : 
+                path.join(process.env.MD_DIR, pwd);
+            console.log(`[SAVE] Mike saving to directory: ${targetDir}`);
+        } else {
+            // Other users can only save to their directory
+            targetDir = path.join(process.env.MD_DIR, userDir);
+            console.log(`[SAVE] Regular user saving to their directory: ${targetDir}`);
         }
 
-        const filePath = resolvePath(directory, filename);
-        console.log(`[FILES] Saving to: ${filePath}`);
+        const filePath = path.join(targetDir, filename);
+        
+        // Security check - ensure path is within MD_DIR
+        const resolvedPath = path.resolve(filePath);
+        const basePath = path.resolve(process.env.MD_DIR);
+        if (!resolvedPath.startsWith(basePath)) {
+            console.log(`[SAVE] Security violation - attempted path: ${resolvedPath}`);
+            return res.status(403).json({ error: 'Invalid path' });
+        }
+
+        console.log(`[SAVE] Final path: ${filePath}`);
 
         // Ensure directory exists
-        const targetDir = path.dirname(filePath);
         if (!fs.existsSync(targetDir)) {
             fs.mkdirSync(targetDir, { recursive: true });
+            console.log(`[SAVE] Created directory: ${targetDir}`);
         }
 
         fs.writeFileSync(filePath, content);
-        console.log(`[SAVE] File saved: ${filePath} for user ${username}`);
+        console.log(`[SAVE] File saved successfully: ${filePath}`);
         res.json({ message: 'File saved successfully' });
     } catch (error) {
         console.error(`[SAVE ERROR] ${error.message}`);

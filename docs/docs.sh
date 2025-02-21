@@ -1,12 +1,9 @@
 #!/bin/bash
 path=$(dirname $(readlink -f ${0}))
 NODE_ENVIRONMENT=development # or production
-PORT=4000
-
 # Set and export PJ_DIR
 export PJ_DIR=$HOME/pj
 echo "[ENV] PJ_DIR=$PJ_DIR"
-
 echo "[ENV] path=$path"
 echo "[ENV] PWD=$(pwd)"
 export MD_DIR=$HOME/pj/md;

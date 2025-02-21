@@ -162,14 +162,6 @@ export async function loadFiles() {
         let files = await response.json();
         logMessage(`[FILES] Loaded ${files.length} files`);
 
-        // If no files are found, try loading all files without filtering
-        if (files.length === 0) {
-            logMessage('[FILES] No files found, loading all files');
-            const allFilesResponse = await globalFetch(`/api/files/list?dir=${currentDir}&all=true`);
-            if (!allFilesResponse.ok) throw new Error('Failed to fetch all files');
-            files = await allFilesResponse.json();
-        }
-
         fileList.setItems(files.map(file => ({
             name: file.name,
             rank: file.rank,
@@ -224,6 +216,8 @@ export async function saveFile() {
             return;
         }
 
+        logMessage(`[SAVE] Saving ${fileName} in directory ${currentDir}`);
+
         const response = await globalFetch('/api/files/save/' + fileName, {
             method: 'POST',
             headers: {
@@ -231,13 +225,15 @@ export async function saveFile() {
             },
             body: JSON.stringify({
                 content: fileContent,
-                dir: currentDir
+                pwd: currentDir,          // Current working directory
+                userDir: authState.username  // User's home directory
             })
         });
         
         if (!response.ok) throw new Error('Failed to save file');
         
-        logMessage(`[FILES] Saved file: ${fileName}`);
+        logMessage(`[FILES] Saved file: ${fileName} in ${currentDir}`);
+        // Only reload files if save was successful
         await loadFiles();
     } catch (error) {
         logMessage('[FILES ERROR] Failed to save file');
