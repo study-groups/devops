@@ -25,11 +25,17 @@ router.use((req, res, next) => {
 });
 
 // Get all directories - note no /files prefix needed
-router.get('/dirs', (req, res) => {
+router.get('/dirs', async (req, res) => {
     const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
     
     try {
-        // Start with the community directory option
+        // Ensure base directory exists
+        if (!fs.existsSync(baseDir)) {
+            fs.mkdirSync(baseDir, { recursive: true });
+            console.log(`[FILES] Created base directory: ${baseDir}`);
+        }
+
+        // Get all directories
         const dirs = [{ 
             id: '.',
             name: '📚 Community Files',
@@ -38,17 +44,24 @@ router.get('/dirs', (req, res) => {
         
         // Add user directories
         const userDirs = fs.readdirSync(baseDir)
-            .filter(item => fs.statSync(path.join(baseDir, item)).isDirectory())
+            .filter(item => {
+                try {
+                    return fs.statSync(path.join(baseDir, item)).isDirectory();
+                } catch (error) {
+                    console.error(`[FILES] Error reading directory ${item}: ${error.message}`);
+                    return false;
+                }
+            })
             .map(dir => ({
                 id: dir,
                 name: `📁 ${dir}`,
-                description: dir === req.auth.name ? 'Your Files' : `${dir}'s Files`
+                description: dir === req.auth?.name ? 'Your Files' : `${dir}'s Files`
             }));
 
-        // Sort user's directory first, then others alphabetically
+        // Sort directories
         userDirs.sort((a, b) => {
-            if (a.id === req.auth.name) return -1;
-            if (b.id === req.auth.name) return 1;
+            if (a.id === req.auth?.name) return -1;
+            if (b.id === req.auth?.name) return 1;
             return a.id.localeCompare(b.id);
         });
 
@@ -56,46 +69,41 @@ router.get('/dirs', (req, res) => {
         res.json([...dirs, ...userDirs]);
     } catch (error) {
         console.error(`[FILES ERROR] Failed to read directories: ${error.message}`);
-        res.status(500).json({ error: 'Failed to read directories' });
+        res.status(500).json({ 
+            error: 'Failed to read directories',
+            details: error.message 
+        });
     }
 });
 
 // Get files in directory
 router.get('/list', async (req, res) => {
     try {
-        const baseDir = process.env.MD_DIR;
-        const selectedDir = req.query.dir || req.auth.name;
+        const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
+        const selectedDir = req.query.dir || req.auth?.name || '.';
         const targetDir = selectedDir === '.' ? baseDir : path.join(baseDir, selectedDir);
 
-        // Get directory configuration
-        const config = await getDirectoryConfig(targetDir);
-        
-        // Get files matching include pattern and filter excluded
-        let files = fs.readdirSync(targetDir)
-            .filter(file => file.endsWith('.md'));
-
-        // If the 'all' parameter is not set, filter excluded files
-        if (!req.query.all) {
-            files = files
-                .filter(file => !config.exclude.includes(file))
-                .filter(file => file !== 'index.md');
+        // Ensure target directory exists
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log(`[FILES] Created directory: ${targetDir}`);
         }
-        
-        // Rank files according to config
-        const rankedFiles = rankFiles(files, config);
-        
-        // Map to response format
-        const fileList = rankedFiles.map((file, idx) => ({
-            id: file.name,
-            name: file.name,
-            rank: file.rank,
-            index: config.showIndex ? String.fromCharCode(97 + idx) : '',
-            showRank: config.showRank
-        }));
-        
-        res.json(fileList);
+
+        // Get files
+        const files = fs.readdirSync(targetDir)
+            .filter(file => file.endsWith('.md'))
+            .map(file => ({
+                name: file,
+                path: path.join(targetDir, file)
+            }));
+            
+        res.json(files);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(`[FILES ERROR] Failed to list files: ${error.message}`);
+        res.status(500).json({ 
+            error: 'Failed to list files',
+            details: error.message 
+        });
     }
 });
 
@@ -166,12 +174,8 @@ router.post('/save/:filename', (req, res) => {
             return res.status(400).json({ error: 'Missing filename or content' });
         }
 
-        // Check permissions
-        if (directory === '.') {
-            if (username !== 'admin') {
-                return res.status(403).json({ error: 'Only admins can save to community directory' });
-            }
-        } else if (directory !== username && username !== 'admin') {
+        // Check permissions - only allow saving to user's own directory
+        if (directory !== username) {
             return res.status(403).json({ error: 'Can only save to your own directory' });
         }
 

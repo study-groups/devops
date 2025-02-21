@@ -1,5 +1,5 @@
 const basicAuth = require('basic-auth');
-const { validateUser } = require('../utils/userUtils');
+const { validateUser, hashPassword } = require('../utils/userUtils');
 
 const authMiddleware = (req, res, next) => {
     const credentials = basicAuth(req);

@@ -21,7 +21,7 @@ function hashPassword(password, salt) {
     return hash;
 }
 
-// Format: username,salt,hashedPassword
+// Modify the loadUsers function to include roles
 function loadUsers() {
     console.log(`[USERS] Attempting to load users from: ${path.resolve(USERS_FILE)}`);
     
@@ -42,7 +42,10 @@ function loadUsers() {
             if (line.trim()) {
                 const [username] = line.split(',');
                 console.log(`[USERS] Found user in file: ${username}`);
-                users.set(username, { salt: line.split(',')[1], hash: line.split(',')[2] });
+                users.set(username, { 
+                    salt: line.split(',')[1], 
+                    hash: line.split(',')[2] 
+                });
             }
         });
         
