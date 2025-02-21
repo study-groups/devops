@@ -1,76 +1,98 @@
 #!/bin/bash
 
-# Function to create symlinks for .md files in sibling directories
+# Function to display usage and help
+usage() {
+    echo "Usage: $0 [-d] [-i]"
+    echo "  -d: Dry run. Display the actions that would be taken without performing them."
+    echo "  -i: Interactive mode. Run the script with a menu for user interaction."
+    echo "Without any options, the script starts in interactive mode by default."
+}
+
+# Function to create symbolic links for .md files in sibling directories
 symlinks_create() {
-    # Get the current working directory
-    current_dir=$(pwd)
-    
-    echo "Dry run mode will show what links would be created. Proceed? (y/n)"
-    read -r confirm_dry_run
-
-    if [[ "$confirm_dry_run" == "y" || "$confirm_dry_run" == "Y" ]]; then
-        echo "=== Dry Run: Symlinks that would be created ==="
-    else
-        echo "=== Creating Symlinks ==="
-    fi
-
-    # Find all sibling directories and process them
+    local current_dir=$(pwd)
+    echo -e "\n=== Creating Symbolic links ==="
     for dir in ../*/; do
         if [ -d "$dir" ]; then
-            # Create symlinks for all .md files in the sibling directory
             for md_file in "$dir"*.md; do
                 if [ -e "$md_file" ]; then
-                    # Extract the basename of the .md file
-                    md_basename=$(basename "$md_file")
-                    # Output what would happen
-                    echo "Link: $current_dir/$md_basename --> $md_file"
-
-                    if [[ "${confirm_dry_run^^}" != "Y" ]]; then
-                        # Create the symlink in the current directory
-                        ln -sf "$md_file" "$current_dir/$md_basename"
+                    local md_base_name=$(basename "$md_file")
+                    echo "Link: $current_dir/$md_base_name --> $md_file"
+                    if [[ "$dry_run" != "yes" ]]; then
+                        # Create the symbolic link in the current directory
+                        ln -sf "$md_file" "$current_dir/$md_base_name"
+                        echo "$current_dir/$md_base_name --> $md_file" >> links.txt
                     fi
                 fi
             done
         fi
     done
 
-    if [[ "${confirm_dry_run^^}" != "Y" ]]; then
-        echo "Symlinks created for .md files in sibling directories."
+    if [[ "$dry_run" != "yes" ]]; then
+        echo "Symbolic links created for .md files in sibling directories."
     else
-        echo "No symlinks were created during the dry run."
+        echo "No symbolic links were created during the dry run."
     fi
 }
 
-# Function to remove the symlinks created in the current directory
+# Function to remove the symbolic links created in the current directory
 symlinks_remove() {
-    # Get the current working directory
-    current_dir=$(pwd)
-
-    echo "Dry run mode will show what links would be removed. Proceed? (y/n)"
-    read -r confirm_dry_run
-
-    if [[ "$confirm_dry_run" == "y" || "$confirm_dry_run" == "Y" ]]; then
-        echo "=== Dry Run: Symlinks that would be removed ==="
-    else
-        echo "=== Removing Symlinks ==="
-    fi
-
-    # Find and remove the symlinks for .md files
-    for md_file in *.md; do
-        if [ -h "$md_file" ]; then
-            # Output what would happen
-            echo "Remove link: $md_file"
-
-            if [[ "${confirm_dry_run^^}" != "Y" ]]; then
-                rm "$md_file"
+    local current_dir=$(pwd)
+    echo -e "\n=== Removing Symbolic links ==="
+    while IFS= read -r line; do
+        local link_name=$(echo "$line" | awk '{print $1}')
+        if [ -h "$link_name" ]; then
+            echo "Remove link: $link_name"
+            if [[ "$dry_run" != "yes" ]]; then
+                rm "$link_name"
             fi
         fi
-    done
+    done < links.txt
 
-    if [[ "${confirm_dry_run^^}" != "Y" ]]; then
-        echo "Symlinks removed from the current directory."
+    if [[ "$dry_run" != "yes" ]]; then
+        echo "Symbolic links removed from the current directory."
     else
-        echo "No symlinks were removed during the dry run."
+        echo "No symbolic links were removed during the dry run."
     fi
 }
 
+# Main script execution
+dry_run="no"
+interactive_mode="no"
+
+# Parse command line options
+while getopts ":di" opt; do
+    case $opt in
+        d) dry_run="yes" ;;
+        i) interactive_mode="yes" ;;
+        ?) usage; exit 1 ;;
+    esac
+done
+
+# If no options, enter interactive mode by default
+if [[ $OPTIND -eq 1 ]]; then
+    interactive_mode="yes"
+fi
+
+if [[ $interactive_mode == "yes" ]]; then
+    while true; do
+        echo -e "\nInteractive Mode\nSelect an option:"
+        echo "1) Create symbolic links"
+        echo "2) Remove symbolic links"
+        echo "q) Quit"
+        read -r choice
+        case $choice in
+            1) symlinks_create ;;
+            2) symlinks_remove ;;
+            q) echo "Exiting..."; exit 0 ;;
+            *) echo "Invalid option. Please try again." ;;
+        esac
+    done
+else
+    echo "Running in non-interactive mode."
+    if [[ $dry_run == "yes" ]]; then
+        echo "Dry-run mode is active. No changes will be made."
+    fi
+    symlinks_create
+    symlinks_remove
+fi
