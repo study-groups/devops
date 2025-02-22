@@ -146,10 +146,27 @@ function initializeEventSource() {
     };
 }
 
+// Handle URL parameters
+function handleUrlParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fileParam = urlParams.get('file');
+    
+    if (fileParam) {
+        currentFile = fileParam;
+        // Remove the parameter from URL without reloading
+        window.history.replaceState({}, '', window.location.pathname);
+        return true;
+    }
+    return false;
+}
+
 // Export initialization function
 export async function initializeFileManager() {
     try {
         loadPersistedState();
+        
+        // Check URL parameters first
+        const hasUrlFile = handleUrlParameters();
         
         const config = await fetch('/api/auth/config').then(r => r.json());
         mdDir = config.MD_DIR;
@@ -180,8 +197,8 @@ export async function initializeFileManager() {
             await loadDirs();
             await loadFiles();
             
-            // Restore last opened file if any
-            if (currentFile) {
+            // Load file from URL parameter or restore last opened file
+            if (hasUrlFile || currentFile) {
                 const fileSelect = document.getElementById('file-select');
                 if (fileSelect) {
                     fileSelect.value = currentFile;
