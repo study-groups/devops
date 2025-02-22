@@ -17,7 +17,7 @@ const storage = multer.diskStorage({
 
 // Serve static files
 app.use('/client', express.static(path.join(__dirname, '../client')));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/images', express.static(path.join(process.env.MD_DIR || '.', 'images')));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico')));
 app.use(express.static('client'));
 
@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
 // Import routes and middleware
 const { authMiddleware } = require('./middleware/auth');
 const markdownRoutes = require('./routes/markdown');
-const imageRoutes = require('./routes/images');
+const { router: imageRoutes } = require('./routes/images');
 const authRoutes = require('./routes/auth');
 const filesRouter = require('./routes/files');
 
@@ -37,8 +37,8 @@ const filesRouter = require('./routes/files');
 app.use('/api/auth', express.json(), authRoutes);
 app.use('/api/files', express.json(), authMiddleware, markdownRoutes);
 
-// Image routes don't need JSON parsing
-app.use('/api/images', authMiddleware, imageRoutes);
+// Image routes with JSON parsing for delete and reference operations
+app.use('/api/images', express.json(), authMiddleware, imageRoutes);
 
 // Handle 404s
 app.use('/api/*', (req, res) => {
@@ -54,7 +54,7 @@ console.log(`[SERVER] Listening on port ${port}`);
 app.listen(port, () => {
     console.log('='.repeat(50));
     console.log(`[SERVER] Server running at http://localhost:${port}`);
-    console.log(`[SERVER] Using PJ_DIR: ${process.env.PJ_DIR || 'default'}`);
+    console.log(`[SERVER] Using MD_DIR: ${process.env.MD_DIR || 'default'}`);
     console.log('='.repeat(50));
 });
 

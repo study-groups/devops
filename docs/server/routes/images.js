@@ -6,24 +6,7 @@ const { uploadsDirectory } = require('../config');
 
 const router = express.Router();
 
-// Function to check if large images are enabled in user's index.md
-async function isLargeImagesEnabled(username) {
-    if (!username) {
-        throw new Error('Username is required');
-    }
-
-    try {
-        const userIndexPath = path.join(process.env.MD_DIR || path.join(__dirname, '../../md'), username, 'index.md');
-        const content = await fs.readFile(userIndexPath, 'utf8');
-        
-        // Simple check for large-images: true in the Options section
-        return content.includes('large-images: true');
-    } catch (error) {
-        console.error('Error reading index.md config:', error);
-        return false;
-    }
-}
-
+// Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: uploadsDirectory,
     filename: (req, file, cb) => {
@@ -33,83 +16,185 @@ const storage = multer.diskStorage({
     }
 });
 
-// Configure multer with size limits based on 'large' flag and user config
-const getMulterConfig = async (req) => {
-    if (!req.user?.username) {
-        throw new Error('Authentication required');
-    }
+const upload = multer({ storage });
 
-    const largeImagesEnabled = await isLargeImagesEnabled(req.user.username);
-    const isLarge = req.query.large === 'true' && largeImagesEnabled;
-
-    return {
-        storage,
-        limits: {
-            fileSize: isLarge ? 50 * 1024 * 1024 : 5 * 1024 * 1024 // 50MB for large, 5MB default
-        },
-        fileFilter: (req, file, cb) => {
-            if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                return cb(new Error('Only image files are allowed!'), false);
-            }
-            cb(null, true);
+// Helper to find image references in markdown content
+function findImageReferences(content, targetImage) {
+    const regex = /!\[.*?\]\((.*?)\)/g;
+    let count = 0;
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+        if (match[1].trim() === targetImage) {
+            count++;
         }
-    };
-};
-
-router.post('/upload', async (req, res) => {
-    if (!req.user?.username) {
-        return res.status(401).json({ error: 'Authentication required' });
     }
+    return count;
+}
 
+// Generate the image index markdown
+async function generateImageIndex() {
+    const mdDir = process.env.MD_DIR || '.';
+    const indexPath = path.join(mdDir, 'images', 'index.md');
+    
     try {
-        const config = await getMulterConfig(req);
-        const upload = multer(config).single('image');
-
-        upload(req, res, async function(err) {
-            if (err instanceof multer.MulterError) {
-                console.error('Multer error:', err);
-                return res.status(400).json({ error: 'File upload error: ' + err.message });
-            } else if (err) {
-                console.error('Upload error:', err);
-                return res.status(400).json({ error: err.message });
-            }
-            
-            if (!req.file) {
-                return res.status(400).json({ error: 'No file uploaded' });
-            }
-
-            try {
-                const userIndexPath = path.join(process.env.MD_DIR || path.join(__dirname, '../../md'), req.user.username, 'index.md');
-                
-                // Ensure user directory exists
-                await fs.mkdir(path.dirname(userIndexPath), { recursive: true });
-                
-                // Check if index.md exists, if not create it
-                try {
-                    await fs.access(userIndexPath);
-                } catch {
-                    await fs.writeFile(userIndexPath, '# Image Gallery\n\n');
-                }
-                
-                // Append the image to index.md
-                const imageUrl = `/uploads/${req.file.filename}`;
-                const imageMarkdown = `\n![](${imageUrl})\n`;
-                await fs.appendFile(userIndexPath, imageMarkdown);
-
-                res.json({ url: imageUrl, filename: req.file.filename });
-            } catch (error) {
-                console.error('Error managing index.md:', error);
-                // Still return success for the upload even if index.md management fails
-                res.json({ url: `/uploads/${req.file.filename}`, filename: req.file.filename });
-            }
-        });
-    } catch (error) {
-        console.error('Error configuring upload:', error);
-        if (error.message === 'Authentication required') {
-            return res.status(401).json({ error: 'Authentication required' });
+        // Get all images in uploads directory
+        const files = await fs.readdir(uploadsDirectory);
+        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+        
+        // Get all markdown files recursively
+        async function getMarkdownFiles(dir) {
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            const files = await Promise.all(entries.map(entry => {
+                const res = path.resolve(dir, entry.name);
+                return entry.isDirectory() ? getMarkdownFiles(res) : res;
+            }));
+            return files.flat().filter(f => f.endsWith('.md') && !f.includes('/images/'));
         }
-        res.status(500).json({ error: 'Server configuration error' });
+        
+        const mdFiles = await getMarkdownFiles(mdDir);
+        
+        // Count references for each image
+        const imageStats = {};
+        for (const image of images) {
+            imageStats[image] = { count: 0, refs: [] };
+            const imageUrl = `/uploads/${image}`;
+            
+            for (const mdFile of mdFiles) {
+                try {
+                    const content = await fs.readFile(mdFile, 'utf8');
+                    const refCount = findImageReferences(content, imageUrl);
+                    if (refCount > 0) {
+                        const relativePath = path.relative(mdDir, mdFile);
+                        imageStats[image].count += refCount;
+                        imageStats[image].refs.push(`${relativePath} (${refCount})`);
+                    }
+                } catch (err) {
+                    console.error(`Error reading file ${mdFile}:`, err);
+                }
+            }
+        }
+        
+        // Generate markdown content
+        let content = '# Image Index\n\n';
+        content += '[Delete Unused Images](/api/images/delete-unused)\n\n';
+        content += '| Image | References | Files | Actions |\n';
+        content += '|-------|------------|--------|----------|\n';
+        
+        for (const [image, stats] of Object.entries(imageStats)) {
+            const files = stats.refs.length > 0 
+                ? stats.refs.map(ref => {
+                    const [filePath, count] = ref.split(' (');
+                    return `[${filePath}](/editor/open?file=${encodeURIComponent(filePath)}) (${count}`;
+                }).join('<br>')
+                : 'No references';
+            content += `| ![](/uploads/${image}) | ${stats.count} | ${files} | [Delete](/api/images/delete/${image}) |\n`;
+        }
+        
+        // Ensure images directory exists and write index
+        await fs.mkdir(path.join(mdDir, 'images'), { recursive: true });
+        await fs.writeFile(indexPath, content);
+        
+        return true;
+    } catch (error) {
+        console.error('Error generating image index:', error);
+        return false;
+    }
+}
+
+// Routes
+router.post('/upload', upload.single('image'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    try {
+        await generateImageIndex();
+        res.json({ url: `/uploads/${req.file.filename}` });
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ error: 'Upload failed' });
     }
 });
 
-module.exports = router;
+// Delete specific image
+router.get('/delete/:image', async (req, res) => {
+    try {
+        const imagePath = path.join(uploadsDirectory, req.params.image);
+        await fs.unlink(imagePath);
+        await generateImageIndex();
+        res.redirect('/images/index.md');
+    } catch (error) {
+        console.error('Delete error:', error);
+        res.status(500).send('Failed to delete image');
+    }
+});
+
+// Delete all unused images
+router.get('/delete-unused', async (req, res) => {
+    try {
+        const mdDir = process.env.MD_DIR || '.';
+        const files = await fs.readdir(uploadsDirectory);
+        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+        
+        // Get all markdown files
+        async function getMarkdownFiles(dir) {
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            const files = await Promise.all(entries.map(entry => {
+                const res = path.resolve(dir, entry.name);
+                return entry.isDirectory() ? getMarkdownFiles(res) : res;
+            }));
+            return files.flat().filter(f => f.endsWith('.md') && !f.includes('/images/'));
+        }
+        
+        const mdFiles = await getMarkdownFiles(mdDir);
+        
+        for (const image of images) {
+            let totalRefs = 0;
+            const imageUrl = `/uploads/${image}`;
+            
+            for (const mdFile of mdFiles) {
+                try {
+                    const content = await fs.readFile(mdFile, 'utf8');
+                    totalRefs += findImageReferences(content, imageUrl);
+                } catch (err) {
+                    console.error(`Error reading file ${mdFile}:`, err);
+                }
+            }
+            
+            if (totalRefs === 0) {
+                try {
+                    await fs.unlink(path.join(uploadsDirectory, image));
+                } catch (err) {
+                    console.error(`Error deleting file ${image}:`, err);
+                }
+            }
+        }
+        
+        await generateImageIndex();
+        res.redirect('/images/index.md');
+    } catch (error) {
+        console.error('Delete unused error:', error);
+        res.status(500).send('Failed to delete unused images');
+    }
+});
+
+// Generate index manually
+router.post('/generate-index', async (req, res) => {
+    try {
+        const success = await generateImageIndex();
+        if (success) {
+            res.json({ message: 'Index generated successfully' });
+        } else {
+            res.status(500).json({ error: 'Failed to generate index' });
+        }
+    } catch (error) {
+        console.error('Index generation error:', error);
+        res.status(500).json({ error: 'Failed to generate index' });
+    }
+});
+
+module.exports = {
+    router,
+    generateImageIndex // Export the function for use in markdown routes
+};

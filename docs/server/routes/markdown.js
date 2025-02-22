@@ -1,5 +1,5 @@
 const express = require('express');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const { getUserMarkdownDirectory, imagesDirectory } = require('../config');
 const { readMarkdownFiles, getFileStats, getFileRankings, updateFileRanking } = require('../utils/fileUtils');
@@ -9,56 +9,85 @@ const { getDirectoryConfig, rankFiles } = require('../utils/directoryConfig');
 
 const router = express.Router();
 
-// Ensure user directory exists
-function ensureUserDirectory(username) {
-    const userDir = getUserMarkdownDirectory(username);
-    if (!fs.existsSync(userDir)) {
-        fs.mkdirSync(userDir, { recursive: true });
-    }
-    return userDir;
+// Store connected clients
+const clients = new Set();
+
+// SSE endpoint for file updates
+router.get('/events', (req, res) => {
+    // Set headers for SSE
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+    });
+
+    // Send initial heartbeat
+    res.write('event: connected\ndata: connected\n\n');
+
+    // Add client to set
+    clients.add(res);
+
+    // Handle client disconnect
+    req.on('close', () => {
+        clients.delete(res);
+    });
+});
+
+// Function to notify all clients
+function notifyClients(event, data) {
+    clients.forEach(client => {
+        client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    });
 }
 
-// Add this logging to help debug
+// Unified directory handling
+async function ensureDirectory(dir) {
+    try {
+        await fs.access(dir);
+    } catch {
+        await fs.mkdir(dir, { recursive: true });
+        console.log(`[FILES] Created directory: ${dir}`);
+    }
+}
+
+// Unified path resolution
+function getTargetDirectory(baseDir, selectedDir, username) {
+    if (selectedDir === '.') return baseDir;
+    return username === 'mike' ? 
+        path.join(baseDir, selectedDir) : 
+        path.join(baseDir, username);
+}
+
+// Add logging middleware
 router.use((req, res, next) => {
     console.log(`[MARKDOWN] ${req.method} ${req.url}`);
     next();
 });
 
-// Get all directories - note no /files prefix needed
+// Get all directories
 router.get('/dirs', async (req, res) => {
-    const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
-    
     try {
-        // Ensure base directory exists
-        if (!fs.existsSync(baseDir)) {
-            fs.mkdirSync(baseDir, { recursive: true });
-            console.log(`[FILES] Created base directory: ${baseDir}`);
-        }
+        const baseDir = process.env.MD_DIR || '.';
+        await ensureDirectory(baseDir);
 
-        // Get all directories
         const dirs = [{ 
             id: '.',
             name: '📚 Community Files',
             description: 'Shared markdown files'
         }];
-        
-        // Add user directories
-        const userDirs = fs.readdirSync(baseDir)
-            .filter(item => {
-                try {
-                    return fs.statSync(path.join(baseDir, item)).isDirectory();
-                } catch (error) {
-                    console.error(`[FILES] Error reading directory ${item}: ${error.message}`);
-                    return false;
-                }
-            })
-            .map(dir => ({
-                id: dir,
-                name: `📁 ${dir}`,
-                description: dir === req.auth?.name ? 'Your Files' : `${dir}'s Files`
-            }));
 
-        // Sort directories
+        const items = await fs.readdir(baseDir, { withFileTypes: true });
+        const userDirs = await Promise.all(
+            items
+                .filter(item => item.isDirectory())
+                .map(async item => ({
+                    id: item.name,
+                    name: `📁 ${item.name}`,
+                    description: item.name === req.auth?.name ? 'Your Files' : `${item.name}'s Files`
+                }))
+        );
+
+        // Sort directories with user's directory first
         userDirs.sort((a, b) => {
             if (a.id === req.auth?.name) return -1;
             if (b.id === req.auth?.name) return 1;
@@ -68,177 +97,121 @@ router.get('/dirs', async (req, res) => {
         console.log(`[FILES] Found ${userDirs.length} user directories in ${baseDir}`);
         res.json([...dirs, ...userDirs]);
     } catch (error) {
-        console.error(`[FILES ERROR] Failed to read directories: ${error.message}`);
-        res.status(500).json({ 
-            error: 'Failed to read directories',
-            details: error.message 
-        });
+        console.error(`[FILES ERROR] ${error.message}`);
+        res.status(500).json({ error: 'Failed to list directories' });
     }
 });
+
+// Modify the list endpoint to use the same file listing logic
+async function getFileList(baseDir, selectedDir, username) {
+    const targetDir = getTargetDirectory(baseDir, selectedDir, username);
+    console.log(`[LIST] User ${username} accessing directory: ${targetDir}`);
+
+    // Special handling for images directory
+    if (await isImagesDirectory(targetDir)) {
+        return [{
+            name: 'index.md',
+            path: path.join(targetDir, 'index.md')
+        }];
+    }
+
+    await ensureDirectory(targetDir);
+
+    const items = await fs.readdir(targetDir, { withFileTypes: true });
+    return items
+        .filter(item => item.isFile() && item.name.endsWith('.md'))
+        .map(item => ({
+            name: item.name,
+            path: path.join(targetDir, item.name)
+        }));
+}
 
 // Get files in directory
 router.get('/list', async (req, res) => {
     try {
-        const baseDir = process.env.MD_DIR || path.join(__dirname, '../../md');
+        const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
         const selectedDir = req.query.dir || username || '.';
         
-        // For mike, use selected directory directly, for others force their user directory
-        const targetDir = selectedDir === '.' ? 
-            baseDir : 
-            (username === 'mike' ? 
-                path.join(baseDir, selectedDir) : 
-                path.join(baseDir, username));
-
-        console.log(`[LIST] User ${username} accessing directory: ${targetDir}`);
-
-        // Ensure target directory exists
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-            console.log(`[FILES] Created directory: ${targetDir}`);
-        }
-
-        // Get files
-        const files = fs.readdirSync(targetDir)
-            .filter(file => file.endsWith('.md'))
-            .map(file => ({
-                name: file,
-                path: path.join(targetDir, file)
-            }));
-            
+        const files = await getFileList(baseDir, selectedDir, username);
+        console.log(`[FILES] Found ${files.length} files in ${selectedDir}`);
         res.json(files);
     } catch (error) {
-        console.error(`[FILES ERROR] Failed to list files: ${error.message}`);
-        res.status(500).json({ 
-            error: 'Failed to list files',
-            details: error.message 
-        });
+        console.error(`[FILES ERROR] ${error.message}`);
+        res.status(500).json({ error: 'Failed to list files' });
     }
 });
-
-// Update the resolvePath function
-function resolvePath(directory, filename, username) {
-    if (!process.env.MD_DIR) {
-        throw new Error('MD_DIR not configured');
-    }
-    
-    // Sanitize inputs
-    const safeFilename = path.basename(filename);
-    
-    let filePath;
-    if (directory === '.') {
-        // Community files are directly in MD_DIR
-        filePath = path.join(process.env.MD_DIR, safeFilename);
-        console.log(`[FILES] Community file path: ${filePath}`);
-    } else if (username === 'mike') {
-        // For mike, use the directory directly under MD_DIR
-        filePath = path.join(process.env.MD_DIR, directory, safeFilename);
-        console.log(`[FILES] Mike's file path in ${directory}: ${filePath}`);
-    } else {
-        // Other users are restricted to their subdirectory
-        const safeDir = path.basename(directory);
-        filePath = path.join(process.env.MD_DIR, safeDir, safeFilename);
-        console.log(`[FILES] User file path: ${filePath}`);
-    }
-    
-    // Verify the path is within MD_DIR
-    const resolvedPath = path.resolve(filePath);
-    const basePath = path.resolve(process.env.MD_DIR);
-    if (!resolvedPath.startsWith(basePath)) {
-        throw new Error('Invalid path');
-    }
-    
-    // Debug logging
-    console.log(`[FILES] Base directory: ${basePath}`);
-    console.log(`[FILES] Resolved path: ${resolvedPath}`);
-    console.log(`[FILES] File exists: ${fs.existsSync(resolvedPath)}`);
-    
-    return resolvedPath;
-}
 
 // Get file contents
-router.get('/get', (req, res) => {
-    const baseDir = process.env.MD_DIR;
-    const username = req.auth.name;
-    const directory = req.query.dir || username;
-    const filename = req.query.name;
-
-    // For mike, use selected directory directly, for others force their user directory
-    const targetDir = directory === '.' ? 
-        baseDir : 
-        (username === 'mike' ? 
-            path.join(baseDir, directory) : 
-            path.join(baseDir, username));
-
-    const filePath = path.join(targetDir, filename);
-    console.log(`[GET] User ${username} accessing file: ${filePath}`);
-
+router.get('/get', async (req, res) => {
     try {
-        if (fs.existsSync(filePath)) {
-            res.sendFile(filePath);
-        } else {
-            res.status(404).json({ error: 'File not found' });
+        const { name, dir } = req.query;
+        if (!name) {
+            return res.status(400).json({ error: 'Filename is required' });
         }
+
+        const baseDir = process.env.MD_DIR || '.';
+        const username = req.auth?.name;
+        const selectedDir = dir || username || '.';
+        const targetDir = getTargetDirectory(baseDir, selectedDir, username);
+
+        console.log(`[GET] User ${username} accessing file: ${path.join(targetDir, name)}`);
+
+        // Special handling for images directory
+        if (await isImagesDirectory(targetDir)) {
+            if (name !== 'index.md') {
+                return res.status(403).json({ error: 'Only index.md is accessible in images directory' });
+            }
+            const { generateImageIndex } = require('./images');
+            await generateImageIndex();
+        }
+
+        // Read and send raw file content
+        const content = await fs.readFile(path.join(targetDir, name), 'utf8');
+        res.set('Content-Type', 'text/plain');
+        res.send(content);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(`[GET ERROR] ${error.message}`);
+        res.status(500).json({ error: 'Failed to read file' });
     }
 });
 
-// Update the save route
-router.post('/save/:filename', (req, res) => {
+// Modify save endpoint to notify clients
+router.post('/save/:filename', async (req, res) => {
     try {
-        const username = req.auth.name;
+        const username = req.auth?.name;
         const filename = req.params.filename;
         const { content, pwd, userDir } = req.body;
 
-        console.log(`[SAVE] Save request:
-    User: ${username}
-    PWD: ${pwd}
-    Filename: ${filename}`);
-
         if (!filename || !content) {
-            console.log(`[SAVE] Missing filename or content`);
             return res.status(400).json({ error: 'Missing filename or content' });
         }
 
-        // Determine target directory based on user and PWD
-        let targetDir;
-        if (username === 'mike') {
-            // Mike can save to any directory
-            targetDir = pwd === '.' ? 
-                process.env.MD_DIR : 
-                path.join(process.env.MD_DIR, pwd);
-            console.log(`[SAVE] Mike saving to directory: ${targetDir}`);
-        } else {
-            // Other users can only save to their directory
-            targetDir = path.join(process.env.MD_DIR, userDir);
-            console.log(`[SAVE] Regular user saving to their directory: ${targetDir}`);
-        }
+        const baseDir = process.env.MD_DIR || '.';
+        const targetDir = getTargetDirectory(baseDir, pwd || '.', username);
+        console.log(`[SAVE] User ${username} saving to: ${targetDir}`);
 
-        const filePath = path.join(targetDir, filename);
-        
-        // Security check - ensure path is within MD_DIR
-        const resolvedPath = path.resolve(filePath);
-        const basePath = path.resolve(process.env.MD_DIR);
+        // Security check
+        const resolvedPath = path.resolve(path.join(targetDir, filename));
+        const basePath = path.resolve(baseDir);
         if (!resolvedPath.startsWith(basePath)) {
             console.log(`[SAVE] Security violation - attempted path: ${resolvedPath}`);
             return res.status(403).json({ error: 'Invalid path' });
         }
 
-        console.log(`[SAVE] Final path: ${filePath}`);
+        await ensureDirectory(targetDir);
+        await fs.writeFile(path.join(targetDir, filename), content);
+        
+        console.log(`[SAVE] File saved successfully: ${resolvedPath}`);
 
-        // Ensure directory exists
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-            console.log(`[SAVE] Created directory: ${targetDir}`);
-        }
+        // Notify clients about the update
+        const files = await getFileList(baseDir, pwd, username);
+        notifyClients('files-updated', files);
 
-        fs.writeFileSync(filePath, content);
-        console.log(`[SAVE] File saved successfully: ${filePath}`);
         res.json({ message: 'File saved successfully' });
     } catch (error) {
         console.error(`[SAVE ERROR] ${error.message}`);
-        res.status(400).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to save file' });
     }
 });
 
@@ -297,25 +270,44 @@ router.get('/files', async (req, res) => {
         const config = await getDirectoryConfig(targetDir);
         
         // Get files matching include pattern and filter excluded
-        const files = fs.readdirSync(targetDir)
-            .filter(file => file.endsWith('.md'))
-            .filter(file => !config.exclude.includes(file))
-            .filter(file => file !== 'index.md');
-        
-        // Rank files according to config
-        const rankedFiles = rankFiles(files, config);
+        const files = await fs.readdir(targetDir)
+            .then(files => files.filter(file => file.endsWith('.md')))
+            .then(files => files.filter(file => !config.exclude.includes(file)))
+            .then(files => files.filter(file => file !== 'index.md'))
+            .then(files => rankFiles(files, config));
         
         // Map to response format
-        const fileList = rankedFiles.map((file, idx) => ({
+        const fileList = await files.then(files => files.map((file, idx) => ({
             id: file.name,
             name: file.name,
             rank: file.rank,
             index: config.showIndex ? String.fromCharCode(97 + idx) : '',
             showRank: config.showRank
-        }));
+        })));
         
         res.json(fileList);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Helper function to check if directory is images directory
+async function isImagesDirectory(dir) {
+    return dir === 'images' || dir.endsWith('/images');
+}
+
+// Add editor route to handle file opening
+router.get('/editor/open', async (req, res) => {
+    try {
+        const { file } = req.query;
+        if (!file) {
+            return res.status(400).json({ error: 'File parameter is required' });
+        }
+
+        // Redirect to the main editor page with file info in URL
+        res.redirect(`/?file=${encodeURIComponent(file)}`);
+    } catch (error) {
+        console.error(`[EDITOR ERROR] ${error.message}`);
         res.status(500).json({ error: error.message });
     }
 });

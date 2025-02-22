@@ -4,10 +4,36 @@ import { updatePreview } from "./markdown.js";
 import { globalFetch } from "./globalFetch.js";
 import { authState } from "./auth.js"; 
 import { ListContainer } from './components/ListContainer.js';
+
 // Keep only these exports
 export let currentDir = '';
 let mdDir = '';
 let fileList = null;
+let currentFile = '';
+let eventSource = null;
+
+// Load persisted state
+function loadPersistedState() {
+    try {
+        const state = JSON.parse(localStorage.getItem('editorState') || '{}');
+        if (state.currentDir) currentDir = state.currentDir;
+        if (state.currentFile) currentFile = state.currentFile;
+    } catch (error) {
+        logMessage('[STATE ERROR] Failed to load persisted state');
+    }
+}
+
+// Save state to localStorage
+function persistState() {
+    try {
+        localStorage.setItem('editorState', JSON.stringify({
+            currentDir,
+            currentFile
+        }));
+    } catch (error) {
+        logMessage('[STATE ERROR] Failed to persist state');
+    }
+}
 
 // Create fileManager object first
 const fileManager = {
@@ -29,6 +55,7 @@ const fileManager = {
             pathDisplay.textContent = `Current: ${displayPath}`;
         }
         
+        persistState();
         await loadFiles();
     }
 };
@@ -50,6 +77,7 @@ function initializeButtons() {
                 const displayPath = currentDir === '.' ? 'Community Files' : currentDir;
                 pathDisplay.textContent = `Current: ${displayPath}`;
             }
+            persistState();
             await loadFiles();
         });
     }
@@ -78,9 +106,51 @@ function initializeButtons() {
     }
 }
 
+function initializeEventSource() {
+    if (eventSource) {
+        eventSource.close();
+    }
+
+    eventSource = new EventSource('/api/files/events');
+    
+    eventSource.addEventListener('connected', () => {
+        logMessage('[SSE] Connected to server events');
+    });
+
+    eventSource.addEventListener('files-updated', async (e) => {
+        try {
+            const files = JSON.parse(e.data);
+            logMessage(`[SSE] Received file list update: ${files.length} files`);
+            fileList.setItems(files.map(file => ({
+                name: file.name,
+                rank: file.rank,
+                index: file.index
+            })));
+            
+            // Restore current file selection if it still exists
+            if (currentFile) {
+                const fileSelect = document.getElementById('file-select');
+                if (fileSelect) {
+                    fileSelect.value = currentFile;
+                }
+            }
+        } catch (error) {
+            logMessage('[SSE ERROR] Failed to process file update');
+            console.error(error);
+        }
+    });
+
+    eventSource.onerror = () => {
+        logMessage('[SSE ERROR] Connection error, attempting to reconnect...');
+        setTimeout(initializeEventSource, 5000);
+    };
+}
+
 // Export initialization function
 export async function initializeFileManager() {
     try {
+        loadPersistedState();
+        
         const config = await fetch('/api/auth/config').then(r => r.json());
         mdDir = config.MD_DIR;
         
@@ -90,10 +160,15 @@ export async function initializeFileManager() {
         }
 
         if (authState.isLoggedIn) {
+            // Initialize SSE connection
+            initializeEventSource();
+            
             // Initialize fileList before loading files
             fileList = new ListContainer({
                 onSelect: (file) => {
                     logMessage(`[FILES] Selected file: ${file.name}`);
+                    currentFile = file.name;
+                    persistState();
                     loadFile(file.name);
                 }
             });
@@ -104,6 +179,15 @@ export async function initializeFileManager() {
             // Load directories and files
             await loadDirs();
             await loadFiles();
+            
+            // Restore last opened file if any
+            if (currentFile) {
+                const fileSelect = document.getElementById('file-select');
+                if (fileSelect) {
+                    fileSelect.value = currentFile;
+                    await loadFile(currentFile);
+                }
+            }
         }
     } catch (error) {
         logMessage('[FILES ERROR] Failed to initialize file manager');
@@ -238,5 +322,13 @@ export async function saveFile() {
     } catch (error) {
         logMessage('[FILES ERROR] Failed to save file');
         console.error(error);
+    }
+}
+
+// Clean up event source on logout
+export function cleanup() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
     }
 }
