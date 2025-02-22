@@ -15,22 +15,51 @@ export async function globalFetch(url, options = {}) {
     if (authState.isLoggedIn) {
         options.headers = {
             ...options.headers,
-            'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`
         };
+
+        // Only set Content-Type if not multipart form data
+        if (!options.body || !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+        }
     }
 
     try {
         logMessage(`[FETCH] Requesting: ${url}`);
-        const response = await fetch(url, options);
         
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-            logMessage(`[FETCH ERROR] ${response.status}: ${error.error || 'Unknown error'}`);
-            throw new Error(error.error || `HTTP Error: ${response.status}`);
-        }
+        // Add timeout to the fetch request
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-        return response;
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                let errorMessage = 'Unknown error';
+                try {
+                    const error = await response.json();
+                    errorMessage = error.error || `HTTP Error: ${response.status}`;
+                } catch {
+                    errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
+                }
+                logMessage(`[FETCH ERROR] ${response.status}: ${errorMessage}`);
+                throw new Error(errorMessage);
+            }
+
+            return response;
+        } catch (error) {
+            clearTimeout(timeout);
+            if (error.name === 'AbortError') {
+                logMessage('[FETCH ERROR] Request timed out');
+                throw new Error('Request timed out. Please try again.');
+            }
+            throw error;
+        }
     } catch (error) {
         logMessage(`[FETCH ERROR] Failed: ${error.message}`);
         throw error;

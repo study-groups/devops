@@ -1,9 +1,19 @@
 const express = require('express');
 const path = require('path');
-const { port } = require('./config');
+const multer = require('multer');
+const { port, uploadsDirectory } = require('./config');
 
 const app = express();
-app.use(express.json());
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: uploadsDirectory,
+    filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        cb(null, `${timestamp}-${Math.random().toString(36).substring(7)}${ext}`);
+    }
+});
 
 // Serve static files
 app.use('/client', express.static(path.join(__dirname, '../client')));
@@ -23,11 +33,11 @@ const imageRoutes = require('./routes/images');
 const authRoutes = require('./routes/auth');
 const filesRouter = require('./routes/files');
 
-// Public auth routes first
-app.use('/api/auth', authRoutes);
+// Configure routes that need JSON parsing
+app.use('/api/auth', express.json(), authRoutes);
+app.use('/api/files', express.json(), authMiddleware, markdownRoutes);
 
-// Protected routes - mount at exact paths
-app.use('/api/files', authMiddleware, markdownRoutes);
+// Image routes don't need JSON parsing
 app.use('/api/images', authMiddleware, imageRoutes);
 
 // Handle 404s

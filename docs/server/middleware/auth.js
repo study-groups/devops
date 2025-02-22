@@ -13,7 +13,9 @@ const authMiddleware = (req, res, next) => {
         return res.status(401).json({ error: 'Invalid credentials' });
     }
     
+    // Set both auth and user objects
     req.auth = credentials;
+    req.user = { username: credentials.name };
     next();
 };
 
