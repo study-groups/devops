@@ -6,6 +6,15 @@ const { uploadsDirectory } = require('../config');
 
 const router = express.Router();
 
+// Supported image types
+const SUPPORTED_MIME_TYPES = [
+    'image/jpeg', 
+    'image/png', 
+    'image/gif', 
+    'image/webp',
+    'image/svg+xml'  // Add SVG support
+];
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: uploadsDirectory,
@@ -16,7 +25,22 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage });
+// File filter to validate image types
+const fileFilter = (req, file, cb) => {
+    if (SUPPORTED_MIME_TYPES.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error(`Unsupported file type: ${file.mimetype}. Supported types: ${SUPPORTED_MIME_TYPES.join(', ')}`), false);
+    }
+};
+
+const upload = multer({ 
+    storage,
+    fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+});
 
 // Helper to find image references in markdown content
 function findImageReferences(content, targetImage) {
@@ -40,7 +64,7 @@ async function generateImageIndex() {
     try {
         // Get all images in uploads directory
         const files = await fs.readdir(uploadsDirectory);
-        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
         
         // Get all markdown files recursively
         async function getMarkdownFiles(dir) {
@@ -90,23 +114,41 @@ async function generateImageIndex() {
         
         for (const [image, stats] of Object.entries(imageStats)) {
             const imageUrl = `/uploads/${image}`;
+            
+            // Log the image and stats for debugging
+            console.log('Processing image:', image);
+            console.log('Image stats:', stats);
+
+            // Convert references to string
             const files = stats.refs.length > 0 
                 ? stats.refs.map(ref => {
                     const dirParam = ref.dirPath ? `&dir=${encodeURIComponent(ref.dirPath)}` : '';
-                    return `[${ref.displayPath}](/?file=${encodeURIComponent(ref.displayPath)}${dirParam}) (${ref.count})`;
+                    const refString = `[${String(ref.displayPath)}](/?file=${encodeURIComponent(String(ref.displayPath))}${dirParam}) (${String(ref.count)})`;
+                    console.log('Reference:', refString);
+                    return refString;
                 }).join('<br>')
                 : 'No references';
             
-            // Create a thumbnail cell with both image and filename
-            const thumbnailCell = `<img src="${imageUrl}" alt="${image}" style="max-width:100px; max-height:100px;"><br>${image}`;
+            // Create thumbnail cell
+            let thumbnailCell;
+            if (image.toLowerCase().endsWith('.svg')) {
+                thumbnailCell = `<div class="svg-container" data-src="${String(imageUrl)}" style="max-width:100px; max-height:100px;"></div><br>${String(image)}`;
+            } else {
+                thumbnailCell = `<img src="${String(imageUrl)}" alt="${String(image)}" style="max-width:100px; max-height:100px;"><br>${String(image)}`;
+            }
             
-            // Add file size and dimensions if available
-            const imageInfo = `**Name**: ${image}<br>**Used**: ${stats.count} times`;
+            // Create image info
+            const imageInfo = `**Name**: ${String(image)}<br>**Used**: ${String(stats.count)} times`;
             
-            // Create a delete button instead of a link
-            const deleteButton = `<button onclick="window.handleImageDelete('${encodeURIComponent(image)}')" class="delete-btn">Delete</button>`;
+            // Create delete button
+            const deleteButton = `<button onclick="window.handleImageDelete('${encodeURIComponent(String(image))}')" class="delete-btn">Delete</button>`;
             
-            content += `| ${thumbnailCell} | ${imageInfo} | ${files} | ${deleteButton} |\n`;
+            // Log the final row for debugging
+            const row = `| ${thumbnailCell} | ${imageInfo} | ${files} | ${deleteButton} |\n`;
+            console.log('Table row:', row);
+            
+            // Add row to table
+            content += row;
         }
         
         // Ensure images directory exists and write index
@@ -153,7 +195,7 @@ router.get('/delete-unused', async (req, res) => {
     try {
         const mdDir = process.env.MD_DIR || '.';
         const files = await fs.readdir(uploadsDirectory);
-        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
         
         // Get all markdown files
         async function getMarkdownFiles(dir) {

@@ -15,11 +15,20 @@ const storage = multer.diskStorage({
     }
 });
 
+// Configure MIME types
+express.static.mime.define({
+    'image/svg+xml': ['svg'],
+    'text/plain': ['md'],
+    'text/markdown': ['md']
+});
+
 // Serve static files
 app.use('/client', express.static(path.join(__dirname, '../client')));
 app.use('/images', express.static(path.join(process.env.MD_DIR || '.', 'images')));
 app.use('/uploads', express.static(uploadsDirectory));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico')));
+// Serve SVG files from the root directory
+app.use(express.static(path.join(__dirname, '..')));
 app.use(express.static('client'));
 
 // Serve index.html
@@ -33,6 +42,7 @@ const markdownRoutes = require('./routes/markdown');
 const { router: imageRoutes } = require('./routes/images');
 const authRoutes = require('./routes/auth');
 const filesRouter = require('./routes/files');
+const saveRoutes = require('./routes/save');
 
 // Configure routes that need JSON parsing
 app.use('/api/auth', express.json(), authRoutes);
@@ -40,6 +50,9 @@ app.use('/api/files', express.json(), authMiddleware, markdownRoutes);
 
 // Image routes with JSON parsing for delete and reference operations
 app.use('/api/images', express.json(), authMiddleware, imageRoutes);
+
+// Add this line with your other route registrations
+app.use('/api/save', express.text({ type: 'text/plain' }), express.json(), saveRoutes);
 
 // Handle 404s
 app.use('/api/*', (req, res) => {
