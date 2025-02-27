@@ -5,16 +5,19 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
 }
 
-/* Navigation bar */
+/* Navigation bar - reverted to previous look */
 nav {
     background: #f8f9fa;
-    padding: 0.75rem;
+    padding: 0.5rem 1rem;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     border-bottom: 1px solid #dee2e6;
+    height: auto;
+    min-height: 50px;
 }
 
 .nav-group {
@@ -23,7 +26,21 @@ nav {
     gap: 0.5rem;
 }
 
+.file-ops {
+    flex: 1;
+}
+
+.view-controls {
+    display: flex;
+    gap: 8px;
+    margin: 0 16px;
+    justify-content: center;
+}
+
 .auth-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-left: auto;
 }
 
@@ -52,19 +69,27 @@ nav {
     border-radius: 4px;
 }
 
-#info-btn {
-    font-size: 1.2em;
-    padding: 2px 8px;
-    background: none;
-    border: none;
+/* Button styling */
+button {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.9rem;
     cursor: pointer;
 }
 
-#info-btn:hover {
-    opacity: 0.8;
+button:hover {
+    background: #e0e0e0;
 }
 
-/* Show/hide elements based on auth state */
+button.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+/* Auth state visibility */
 body[data-auth-state="logged-in"] .login-form {
     display: none;
 }
@@ -77,43 +102,236 @@ body[data-auth-state="logged-out"] #logout-btn {
     display: none;
 }
 
-/* Main content */
-#content {
-    flex: 1;
+/* Main container layout */
+#main-container {
     display: flex;
+    flex-direction: column;
+    height: 100vh;
     overflow: hidden;
 }
 
-#editor, #preview {
+/* Content area */
+#content {
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    transition: all 0.3s ease-in-out;
+}
+
+/* View mode styles */
+.code-view #md-preview {
+    display: none !important;
+}
+
+.preview-view #md-editor {
+    display: none !important;
+}
+
+/* Split view specific styles */
+.split-view {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+}
+
+.split-view #md-editor,
+.split-view #md-preview {
+    flex: 1 0 0 !important;
+    width: 50% !important;
+    max-width: 50% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    overflow: auto !important;
+    transition: width 0.3s ease-in-out, flex 0.3s ease-in-out, max-width 0.3s ease-in-out;
+}
+
+/* Ensure the editor container doesn't have conflicting styles */
+.split-view #md-editor {
+    border-right: 1px solid #ddd;
+    display: block !important;
+    resize: none !important; /* Disable resizing in split view */
+}
+
+.split-view #md-preview {
+    display: block !important;
+}
+
+/* Make sure the textarea fills the editor container */
+.split-view #md-editor textarea {
+    width: 100% !important;
+    height: 100% !important;
+    resize: none !important;
+}
+
+/* Editor and preview shared styles */
+#md-editor, #md-preview {
+    border: none;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: auto;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Editor container */
+#md-editor {
+    display: flex;
+    border-right: 1px solid #ddd;
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Editor textarea */
+#md-editor textarea {
+    width: 100%;
+    height: 100%;
     padding: 1rem;
+    border: none;
+    resize: none;
+    font-family: monospace;
+    background-color: #f8f9fa;
+    color: #333;
     overflow: auto;
 }
 
-#editor textarea {
-    width: 100%;
-    height: 100%;
-    resize: none;
-    border: 1px solid #dee2e6;
+/* Preview container */
+#md-preview {
     padding: 1rem;
-    font-family: monospace;
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: white;
 }
 
-/* Log area */
-#log {
+/* Log container - fixed to bottom */
+#log-container {
+    display: flex;
+    flex-direction: column;
+    height: 120px; /* Default height */
+    min-height: 80px;
+    margin-left: 1rem; /* Left margin */
+    margin-right: 4rem; /* Right margin - larger */
+    padding-left: 1rem; /* Left padding */
+    padding-right: 1rem; /* Right padding */
+    
+    border-radius: .25rem; /* Remove border radius */
+    overflow: hidden;
     background: #1e1e1e;
-    color: #d4d4d4;
-    font-family: 'Consolas', monospace;
-    padding: 8px;
-    max-height: 200px;
-    overflow-y: auto;
+    border-top: 1px solid #333; /* Only top border */
+    position: sticky; /* Change to sticky */
+    bottom: 1rem; /* Stick to bottom */
+    left: 0;
+    right: 0;
+    width: calc(100% - 5rem); /* Adjust width to account for margins (1rem left + 4rem right) */
+    z-index: 100; /* Ensure it stays above content */
+    transition: height 0.3s ease, opacity 0.3s ease;
 }
 
+/* Log resize handle */
+#log-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(55, 148, 255, 0.1);
+    cursor: ns-resize;
+    z-index: 101; /* Higher than log container */
+    user-select: none; /* Prevent text selection while dragging */
+}
+
+#log-resize-handle:hover {
+    background: rgba(55, 148, 255, 0.3);
+}
+
+#log-resize-handle.resizing {
+    background: rgba(55, 148, 255, 0.5);
+}
+
+/* Log toolbar */
+#log-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #1e1e1e;
+    padding: 4px 8px;
+    border-bottom: 1px solid #333;
+    min-height: 28px;
+}
+
+/* Log content area */
+#log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px;
+    padding-left: 1rem; /* Increase left padding */
+    padding-right: 1rem; /* Increase right padding */
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #d4d4d4;
+}
+
+/* Log toolbar buttons */
+#log-toolbar button {
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+#log-toolbar button:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Log status text */
+#log-status {
+    color: #666;
+    font-size: 11px;
+    margin-left: auto;
+}
+
+/* Log scrollbar styling */
+#log::-webkit-scrollbar {
+    width: 8px;
+}
+
+#log::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 4px;
+}
+
+#log::-webkit-scrollbar-track {
+    background-color: #2a2a2a;
+}
+
+/* Log entry styling */
 #log div {
     padding: 2px 0;
     border-bottom: 1px solid #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    cursor: pointer;
 }
 
+#log div.expanded {
+    white-space: pre-wrap;
+    overflow: visible;
+    cursor: default;
+}
+
+/* Truncation indicator */
+#log div:not(.expanded).truncated::after {
+    content: "...";
+    color: #666;
+    font-style: italic;
+    margin-left: 4px;
+}
+
+/* Log message types */
 .log-error {
     color: #f14c4c;
 }
@@ -131,15 +349,23 @@ body[data-auth-state="logged-out"] #logout-btn {
 
 #log div.log-separator {
     border-bottom: 2px solid #3794ff;
-    margin: 4px 0;
+    margin: 0;
 }
 
-/* View modes */
-.code-view #preview,
-.preview-view #editor {
-    display: none;
+/* View controls */
+.view-controls {
+    display: flex;
+    gap: 8px;
+    margin: 0 16px;
 }
 
+/* Scroll lock */
+.scroll-lock #md-editor textarea,
+.scroll-lock #md-preview {
+    scroll-behavior: smooth;
+}
+
+/* Drag and drop zone */
 #drop-zone {
     border: 2px dashed #dee2e6;
     border-radius: 4px;
@@ -155,292 +381,94 @@ body[data-auth-state="logged-out"] #logout-btn {
     background: #e7f1ff;
 }
 
-#thumbnails {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0 1rem;
-    overflow-x: auto;
-    max-width: 300px;
-}
-
-.thumbnail {
-    position: relative;
-    width: 40px;
-    height: 40px;
-    border-radius: 4px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid #dee2e6;
-}
-
-.thumbnail:hover {
-    border-color: #0d6efd;
-}
-
-.thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.thumbnail .filename {
+/* Resize handle */
+.resize-handle {
     display: none;
+    width: 10px;
+    height: 10px;
+    background-color: #ddd;
     position: absolute;
     bottom: 0;
-    left: 0;
     right: 0;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    font-size: 0.7rem;
-    padding: 2px 4px;
+    cursor: nwse-resize;
 }
 
-.thumbnail:hover .filename {
+.code-view .resize-handle {
     display: block;
 }
 
-body {
-   font-family: system-ui, -apple-system, sans-serif;
-   margin: 0;
-   padding: 20px;
-   background: #f5f5f5;
+/* View mode visibility */
+.code-view #log,
+.split-view #log {
+    display: block !important;
 }
 
-
-        
-#editor {
-            display: flex;
-            gap: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-}
-        
-#input, #preview {
-            flex: 1;
-            padding: 20px;
-            border-radius: 8px;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-        
-#input {
-           min-height: 400px;
-            font-family: monospace;
-            border: 1px solid #ddd;
-}
-        
-#preview img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 1em auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 4px;
-}
-        
-#preview img.error {
-           border-color: red;
-            opacity: 0.5;
-}
-        
-#log {
-            margin-top: 20px;
-            padding: 10px;
-            background: #333;
-            color: #fff;
-            border-radius: 4px;
-            font-family: monospace;
-            max-height: 200px;
-            overflow-y: auto;
+.preview-view #log {
+    display: none !important;
 }
 
-.top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #ddd;
-}
-
-.user-container, .admin-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-#doc-path {
-    color: #666;
-    font-size: 0.9em;
-}
-
-#info-btn {
-    font-size: 1.2em;
-    padding: 2px 8px;
-}
-
+/* File selectors layout */
 .file-selectors {
     display: flex;
-    gap: 0.5rem;
+    gap: 4px;
     align-items: center;
 }
 
-/* Style both directory and file selectors consistently */
 .file-selectors select {
-    min-width: 150px;
-    height: 2rem;
-    padding: 0 0.5rem;
+    min-width: 120px;
+    height: 28px;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    background: white;
-    font-size: 0.9em;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%236c757d' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 16px;
-    cursor: pointer;
-    display: block; /* Ensure select is visible */
+    padding: 0 8px;
 }
 
-.file-selectors select:focus {
-    border-color: #86b7fe;
-    outline: 0;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
-
-.file-selectors select:hover {
-    border-color: #86b7fe;
-}
-
-.current-path {
+/* Version info styling */
+.version-info {
     color: #666;
-    font-size: 0.9em;
-    font-family: monospace;
-    margin: 0 1rem;
+    font-size: 11px;
+    margin-left: 0px;
+    opacity: 0.7;
+    font-style: italic;
 }
 
-.md-dir-display {
-    color: #666;
-    font-family: monospace;
-    font-size: 0.9em;
-    padding: 0.25rem 0.5rem;
-    background: #f1f3f5;
-    border-radius: 4px;
-    margin-right: 1rem;
-}
-
-.current-path {
-    color: #666;
-    font-size: 0.9em;
-    font-family: monospace;
-}
-
-/* Remove the old #file-select styles since we're using custom-select now */
-#file-select {
-    display: none; /* Hide the original select element */
-}
-
-/* Custom select styles */
-.custom-select {
-    position: relative;
-    min-width: 250px;
-    background: white;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-}
-
-.select-header {
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    background: #fff;
-    border-radius: 4px;
-    position: relative;
-    white-space: nowrap;
+/* Add classes for animation states */
+.log-hiding {
+    opacity: 0;
+    height: 0 !important;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.select-header:after {
-    content: '▼';
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.8em;
-    color: #6c757d;
+.log-showing {
+    opacity: 1;
 }
 
-.custom-select.open .select-header:after {
-    content: '▲';
+/* Main container with log visibility states */
+#main-container.log-visible #content {
+    max-height: calc(100vh - var(--log-height, 120px) - 50px);
 }
 
-.select-options {
-    display: none; /* Hidden by default */
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    max-height: 300px;
-    overflow-y: auto;
-    background: white;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    margin-top: 4px;
-    z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    padding: 0.25rem;
+#main-container.log-hidden #content {
+    max-height: calc(100vh - 50px);
 }
 
-/* Only show options when parent has open class */
-.custom-select.open .select-options {
-    display: block;
+/* Add styles for the save indicator */
+@keyframes save-pulse {
+    0% { background-color: #f0f0f0; }
+    50% { background-color: #4CAF50; }
+    100% { background-color: #f0f0f0; }
 }
 
-.file-option {
-    display: flex;
-    align-items: center;
-    padding: 0.5rem;
-    margin: 0.25rem;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.9em;
+.saving {
+    animation: save-pulse 1s ease-in-out;
 }
 
-.file-option:hover {
-    background: #e9ecef;
-    transform: translateX(2px);
+/* Add styles for the load indicator */
+@keyframes load-pulse {
+    0% { background-color: #f0f0f0; }
+    50% { background-color: #4169E1; }
+    100% { background-color: #f0f0f0; }
 }
 
-.file-option.selected {
-    background: #e7f1ff;
-    border-color: #0d6efd;
-}
-
-.file-index {
-    color: #6c757d;
-    font-size: 0.8em;
-    margin-right: 0.5rem;
-    min-width: 1em;
-    text-align: center;
-}
-
-.file-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.file-rank {
-    color: #6c757d;
-    font-size: 0.8em;
-    margin-left: 0.5rem;
-    min-width: 2em;
-    text-align: right;
+.loading {
+    animation: load-pulse 1s ease-in-out;
 }

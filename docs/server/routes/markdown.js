@@ -132,7 +132,16 @@ router.get('/list', async (req, res) => {
         const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
         const selectedDir = req.query.dir || username || '.';
-        
+        const targetDir = getTargetDirectory(baseDir, selectedDir, username);
+
+        // Special handling for images directory
+        if (await isImagesDirectory(targetDir)) {
+            const { generateImageIndex } = require('./images');
+            await generateImageIndex();
+            res.json([{ name: 'index.md', path: path.join(targetDir, 'index.md') }]);
+            return;
+        }
+
         const files = await getFileList(baseDir, selectedDir, username);
         console.log(`[FILES] Found ${files.length} files in ${selectedDir}`);
         res.json(files);
@@ -263,37 +272,76 @@ router.post('/ranks', async (req, res) => {
 router.get('/files', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR;
-        const selectedDir = req.query.dir || req.auth.name;
+        const username = req.auth?.name;
+        const selectedDir = req.query.dir || username;
         const targetDir = selectedDir === '.' ? baseDir : path.join(baseDir, selectedDir);
+
+        // Special handling for images directory
+        if (await isImagesDirectory(targetDir)) {
+            const { generateImageIndex } = require('./images');
+            await generateImageIndex(); // Always regenerate index
+            res.json([{
+                name: 'index.md',
+                path: path.join(targetDir, 'index.md'),
+                rank: 0,
+                index: 1
+            }]);
+            return;
+        }
 
         // Get directory configuration
         const config = await getDirectoryConfig(targetDir);
         
-        // Get files matching include pattern and filter excluded
-        const files = await fs.readdir(targetDir)
-            .then(files => files.filter(file => file.endsWith('.md')))
-            .then(files => files.filter(file => !config.exclude.includes(file)))
-            .then(files => files.filter(file => file !== 'index.md'))
-            .then(files => rankFiles(files, config));
+        // Get all files in directory
+        const allFiles = await fs.readdir(targetDir);
+        
+        // Filter and process files
+        let files = allFiles
+            .filter(file => file.endsWith('.md'))
+            .filter(file => !config.exclude.includes(file))
+            .filter(file => file !== 'index.md')
+            .map(name => ({ name }));
+            
+        // Apply rankings
+        files = await rankFiles(files, config);
         
         // Map to response format
-        const fileList = await files.then(files => files.map((file, idx) => ({
+        const fileList = files.map((file, idx) => ({
             id: file.name,
             name: file.name,
-            rank: file.rank,
+            rank: file.rank || 0,
             index: config.showIndex ? String.fromCharCode(97 + idx) : '',
             showRank: config.showRank
-        })));
+        }));
         
         res.json(fileList);
     } catch (error) {
+        console.error('[FILES ERROR]', error);
         res.status(500).json({ error: error.message });
     }
 });
 
+// Add directory config endpoint
+router.get('/config', async (req, res) => {
+    try {
+        const baseDir = process.env.MD_DIR || '.';
+        const username = req.auth?.name;
+        const selectedDir = req.query.dir || username || '.';
+        const targetDir = getTargetDirectory(baseDir, selectedDir, username);
+
+        // Get directory configuration
+        const config = await getDirectoryConfig(targetDir);
+        res.json(config);
+    } catch (error) {
+        console.error(`[CONFIG ERROR] ${error.message}`);
+        res.status(500).json({ error: 'Failed to load directory config' });
+    }
+});
+
 // Helper function to check if directory is images directory
-async function isImagesDirectory(dir) {
-    return dir === 'images' || dir.endsWith('/images');
+function isImagesDirectory(dir) {
+    const normalizedDir = path.normalize(dir).replace(/\\/g, '/');
+    return normalizedDir === 'images' || normalizedDir.endsWith('/images');
 }
 
 // Add editor route to handle file opening

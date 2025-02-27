@@ -2,7 +2,7 @@
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import mermaid from "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.4/mermaid.esm.min.mjs";
 
-import { initializeFileManager, loadFiles, loadFile, saveFile } from "./fileManager.js";
+import { initializeFileManager, loadFiles, loadFile, saveFile, connectLoadButton, connectFileSelect, connectSaveButton } from "./fileManager.js";
 import { uploadImage } from "./imageManager.js";
 import { setView } from "./viewManager.js";
 
@@ -10,44 +10,34 @@ import { setView } from "./viewManager.js";
 import { syncScroll, toggleScrollLock } from "./scrollSync.js";
 
 // For logging, if needed
-import { logMessage } from "./utils.js";
+import { logMessage } from "./log.js";
 
-import { updateTopBar } from './components/topBar.js';
+
+// Import SVG processing functionality
+import { initSvgRefreshButton, registerRefreshFunction, executeRefresh } from "./markdown-svg.js";
 
 // Debounce variables
 let updateScheduled = false;
 let updateTimeout = null;
 const DEBOUNCE_INTERVAL = 500; // Adjust as needed
 
-/**
- * Renders Markdown/mermaid into the #preview element.
- */
-function updatePreview(mdText) {
-    const preview = document.getElementById("preview");
-    preview.innerHTML = marked.parse(mdText, { gfm: true, breaks: true });
-    mermaid.init(undefined, document.querySelectorAll(".language-mermaid"));
-    logMessage('[EDITOR] Preview updated');
-}
+// Use the updatePreview from markdown.js instead
+import { updatePreview, schedulePreviewUpdate } from "./markdown.js";
 
-/**
- * Debounces the preview update to avoid excessive re-renders.
- */
-function schedulePreviewUpdate() {
-    if (updateScheduled) return;
-    updateScheduled = true;
+// Add this import at the top
+import { getFileSystemContext, loadFileSystemState } from './fileSystemState.js';
 
-    clearTimeout(updateTimeout);
-    updateTimeout = setTimeout(() => {
-        // Request animation frame to reduce layout thrashing
-        requestAnimationFrame(() => {
-            const editor = document.getElementById("md-editor");
-            if (editor) {
-                updatePreview(editor.value);
-            }
-            updateScheduled = false;
-        });
-    }, DEBOUNCE_INTERVAL);
-}
+// Add this import at the top
+import { initKeyboardShortcuts } from './keyboardShortcuts.js';
+
+// Add this import at the top
+import { initPreviewRefreshButton } from './previewRefresh.js';
+
+// Add this import at the top
+import { initRefreshButton } from './refresh.js';
+
+// Add this import at the top
+import { initializeTopNav } from './uiManager.js';
 
 /**
  * Inserts Markdown image syntax at the current editor cursor location.
@@ -61,28 +51,103 @@ function insertMarkdownImage(imageUrl) {
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
     editor.value = `${textBefore}\n![](${imageUrl})\n${textAfter}`;
+    
+    // Schedule a preview update after inserting an image
+    schedulePreviewUpdate();
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    await initializeFileManager();
-    mermaid.initialize({ startOnLoad: false });
-    
-    const editor = document.getElementById("md-editor");
-    if (editor) {
-        editor.addEventListener("input", schedulePreviewUpdate);
-        editor.addEventListener("scroll", syncScroll);
-    }
+    try {
+        logMessage('[EDITOR] DOMContentLoaded event fired');
 
-    // Add scroll lock button handler
-    const scrollLockBtn = document.getElementById("scroll-lock-btn");
-    if (scrollLockBtn) {
-        scrollLockBtn.addEventListener("click", toggleScrollLock);
-    }
+        // Initialize mermaid
+        mermaid.initialize({ startOnLoad: false });
+        
+        // Connect file operation buttons
+        connectLoadButton();
+        connectFileSelect();
+        connectSaveButton();
+        
+        // Initialize the unified refresh button
+        initRefreshButton();
+        
+        // Initialize preview refresh button
+        initPreviewRefreshButton();
+        
+        // Set up editor event listeners
+        const editorTextarea = document.querySelector('#md-editor textarea');
+        if (editorTextarea) {
+            editorTextarea.addEventListener("input", schedulePreviewUpdate);
+            editorTextarea.addEventListener("scroll", syncScroll);
+            
+            // Add keyboard shortcut for saving (Ctrl+S)
+            editorTextarea.addEventListener('keydown', async (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    logMessage('[SAVE] Save triggered by keyboard shortcut (Ctrl+S)');
+                    await saveFile();
+                }
+            });
+        } else {
+            logMessage('[EDITOR ERROR] Editor textarea not found');
+        }
+        
+        // Set up view controls with localStorage saving
+        document.getElementById("code-view")?.addEventListener("click", () => {
+            setView("code");
+            localStorage.setItem('viewMode', 'code');
+        });
+        document.getElementById("preview-view")?.addEventListener("click", () => {
+            setView("preview");
+            localStorage.setItem('viewMode', 'preview');
+        });
+        document.getElementById("split-view")?.addEventListener("click", () => {
+            setView("split");
+            localStorage.setItem('viewMode', 'split');
+        });
+        
+        // Set up scroll lock
+        const scrollLockBtn = document.getElementById("scroll-lock-btn");
+        if (scrollLockBtn) {
+            scrollLockBtn.addEventListener("click", toggleScrollLock);
+        }
+        
+        // Initialize SVG refresh button
+        initSvgRefreshButton();
+        
+        // Check URL parameters for initial state
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlDir = urlParams.get('dir');
+        const urlFile = urlParams.get('file');
+        
+        // If URL has parameters, use them
+        if (urlDir) {
+            // Directory will be set when files are loaded
+            logMessage(`[EDITOR] URL parameter dir=${urlDir}`);
+        }
+        
+        if (urlFile) {
+            logMessage(`[EDITOR] URL parameter file=${urlFile}`);
+        }
+        
+        // Set default view (or restore from localStorage)
+        const savedView = localStorage.getItem('viewMode') || 'split';
+        setView(savedView);
+        logMessage(`[EDITOR] View mode changed to: ${savedView}`);
 
-    document.getElementById("code-view").addEventListener("click", () => setView("code"));
-    document.getElementById("preview-view").addEventListener("click", () => setView("preview"));
-    document.getElementById("split-view").addEventListener("click", () => setView("split"));
+        // Initialize resizable editor
+        initializeResizableEditor();
+
+        // Initialize keyboard shortcuts
+        initKeyboardShortcuts();
+
+        // Initialize top navigation
+        initializeTopNav();
+    } catch (error) {
+        logMessage(`[EDITOR ERROR] Initialization failed: ${error.message}`);
+        console.error('[EDITOR ERROR]', error);
+    }
 
     // Paste Image from Clipboard
     document.addEventListener("paste", async (event) => {
@@ -120,6 +185,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    setView("split");
-    logMessage('[EDITOR] View mode changed to: split');
+    // Add a keyboard shortcut for refreshing (Ctrl+Alt+R)
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'r') {
+            e.preventDefault();
+            logMessage('[REFRESH] Refresh triggered by keyboard shortcut (Ctrl+Alt+R)');
+            executeRefresh();
+        }
+    });
 });
+
+// Extract resizable editor initialization to a separate function
+function initializeResizableEditor() {
+    const resizeHandle = document.querySelector('.resize-handle');
+    const editorContainer = document.getElementById('md-editor');
+
+    if (resizeHandle && editorContainer) {
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = editorContainer.offsetWidth;
+            startHeight = editorContainer.offsetHeight;
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            });
+            
+            e.preventDefault();
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            
+            const newWidth = startWidth + (e.clientX - startX);
+            const newHeight = startHeight + (e.clientY - startY);
+            
+            editorContainer.style.width = `${newWidth}px`;
+            editorContainer.style.height = `${newHeight}px`;
+        }
+    }
+}

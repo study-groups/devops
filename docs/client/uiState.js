@@ -1,5 +1,5 @@
 import { authState } from './auth.js';
-import { logMessage } from './utils.js';
+import { logMessage } from './log.js';
 import { updateAuthDisplay } from './uiManager.js';
 
 export const UI_STATES = {

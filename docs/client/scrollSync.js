@@ -1,9 +1,10 @@
-import { logMessage } from "./utils.js";
+import { logMessage } from "./log.js";
 import { updatePreview } from "./markdown.js";
 
 let scrollLockEnabled = false;
 let updateScheduled = false;
 let updateTimeout = null;
+let syncInProgress = false;
 
 /**
  * Synchronizes the preview scroll position to match the editor scroll position.
@@ -11,13 +12,35 @@ let updateTimeout = null;
 export function syncScroll() {
     if (!scrollLockEnabled) return;
 
-    const editor = document.getElementById("md-editor");
-    const preview = document.getElementById("preview");
+    // Use requestAnimationFrame for smoother scrolling
+    if (!syncInProgress) {
+        syncInProgress = true;
+        requestAnimationFrame(() => {
+            const editor = document.querySelector('#md-editor textarea');
+            const preview = document.getElementById('md-preview');
+            
+            if (!editor || !preview) {
+                syncInProgress = false;
+                return;
+            }
 
-    const scrollRatio =
-        editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-    preview.scrollTop =
-        scrollRatio * (preview.scrollHeight - preview.clientHeight);
+            const editorScrollHeight = editor.scrollHeight - editor.clientHeight;
+            if (editorScrollHeight <= 0) {
+                syncInProgress = false;
+                return; // Avoid division by zero
+            }
+            
+            const scrollRatio = editor.scrollTop / editorScrollHeight;
+            const previewScrollHeight = preview.scrollHeight - preview.clientHeight;
+            
+            // Only update if there's a significant change
+            if (Math.abs(preview.scrollTop - (scrollRatio * previewScrollHeight)) > 2) {
+                preview.scrollTop = scrollRatio * previewScrollHeight;
+            }
+            
+            syncInProgress = false;
+        });
+    }
 }
 
 /**
@@ -25,11 +48,24 @@ export function syncScroll() {
  */
 export function toggleScrollLock() {
     scrollLockEnabled = !scrollLockEnabled;
+    
+    // Add or remove the scroll-lock class to the content container
+    const content = document.getElementById('content');
+    if (content) {
+        if (scrollLockEnabled) {
+            content.classList.add('scroll-lock');
+        } else {
+            content.classList.remove('scroll-lock');
+        }
+    }
+    
     const button = document.getElementById("scroll-lock-btn");
     if (button) {
-        button.textContent = scrollLockEnabled ? "Unlock Scroll" : "Lock Scroll";
+        button.textContent = scrollLockEnabled ? "Unlock" : "Lock";
+        button.classList.toggle('active', scrollLockEnabled);
     }
-    logMessage(`Scroll Lock: ${scrollLockEnabled ? "Enabled" : "Disabled"}`);
+    
+    logMessage(`[SCROLL] Scroll Lock: ${scrollLockEnabled ? "Enabled" : "Disabled"}`);
 }
 
 /**

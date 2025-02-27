@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Editor</title>
     <link rel="stylesheet" href="/client/styles.css">
+
 </head>
 <body>
 
@@ -12,32 +13,31 @@
     <nav>
         <!-- Left side: File operations -->
         <div class="nav-group file-ops">
-            <span id="md-dir-display" class="md-dir-display"></span>
             <div class="file-selectors">
                 <select id="dir-select">
-                    <option value="">Select Directory</option>
+                    <option value="">Directory</option>
                 </select>
                 <select id="file-select">
-                    <option value="">Select File</option>
+                    <option value="">File</option>
                 </select>
             </div>
-            <span id="current-path" class="current-path"></span>
             <button id="load-btn">Load</button>
             <button id="save-btn">Save</button>
         </div>
 
-        <!-- Middle: View controls -->
+        <!-- Middle: View controls with consistent styling -->
         <div class="nav-group view-controls">
-            <button id="code-view">Code</button>
-            <button id="preview-view">Preview</button>
-            <button id="split-view">Split</button>
-            <button id="scroll-lock-btn">Lock Scroll</button>
+            <button id="code-view" title="Code View">Code</button>
+            <button id="preview-view" title="Preview">Preview</button>
+            <button id="split-view" class="active" title="Split View">Split</button>
+            <button id="scroll-lock-btn" title="Lock Scroll">Lock</button>
+            <button id="refresh-btn" title="Refresh Preview & SVG">↻</button>
         </div>
 
-        <!-- Right side: Auth & Info -->
+        <!-- Right side: Auth controls -->
         <div class="nav-group auth-info">
-            <button id="info-btn">ℹ️ Info</button>
-            <span id="doc-path"></span>
+            <button id="log-btn" title="Show/Hide Log">Log</button>
+            <button id="svg-refresh-btn" title="Refresh SVG">Refresh</button>
             <span id="pwd-display">Not logged in</span>
             <form id="login-form" class="login-form" onsubmit="return false;">
                 <input type="text" id="username" placeholder="Username">
@@ -54,18 +54,37 @@
     </div>
 
     <!-- Main Content -->
-    <div id="content">
-        <div id="editor">
-            <textarea id="md-editor" placeholder="Write Markdown here..."></textarea>
+    <div id="main-container">
+        <div id="content">
+            <div id="md-editor" class="resizable">
+                <textarea placeholder="Write Markdown here..."></textarea>
+                <div class="resize-handle"></div>
+            </div>
+            <div id="md-preview"></div>
         </div>
-        <div id="preview"></div>
+        <div  id="log-container">
+            <div id="log-toolbar">
+                <button id="copy-log-btn" onclick="window.copyLog()">Copy</button>
+                <button id="info-btn" title="System Information">ℹ️</button>
+                <button id="clear-log-btn" onclick="window.clearLog()">Clear</button>
+                <button id="debug-btn" title="Run diagnostics" onclick="window.debugUI()">🔍 Debug</button>
+                <button id="api-test-btn" title="Test API Endpoints" onclick="window.testApiEndpoints()">🔌 API</button>
+                <button id="file-debug-btn" title="Debug File Operations" onclick="window.debugFileOperations()">📁 Files</button>
+                <button id="api-debug-btn" title="Debug API Responses" onclick="window.debugApiResponses()">🔍 Resp</button>
+                <button id="file-load-test-btn" title="Test File Loading" onclick="window.testFileLoading()">📄 Test</button>
+                <button id="fs-state-debug-btn" title="Debug File System State" onclick="window.debugFileSystemState()">🗃️ State</button>
+                <button id="auth-test-btn" title="Test Authentication" onclick="window.testAuthStatus()">🔑 Auth</button>
+                <span id="log-status">0 entries</span>
+                <button id="minimize-log-btn" title="Minimize Log">×</button>
+            </div>
+            <div id="log"></div>
+            <div id="log-resize-handle" title="Resize Log"></div>
+        </div>
     </div>
-
-    <!-- Log Messages -->
-    <div id="log"></div>
 
     <!-- Move scripts to end of body -->
     <script type="module" src="/client/auth.js"></script>
     <script type="module" src="/client/editor.js"></script>
+    <script type="module" src="/client/debug-init.js"></script>
 </body>
 </html>

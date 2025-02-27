@@ -65,9 +65,16 @@ async function generateImageIndex() {
                     const content = await fs.readFile(mdFile, 'utf8');
                     const refCount = findImageReferences(content, imageUrl);
                     if (refCount > 0) {
-                        const relativePath = path.relative(mdDir, mdFile);
+                        const fullRelativePath = path.relative(mdDir, mdFile);
+                        const displayPath = fullRelativePath.split('/').pop();
+                        const dirPath = path.dirname(fullRelativePath);
                         imageStats[image].count += refCount;
-                        imageStats[image].refs.push(`${relativePath} (${refCount})`);
+                        imageStats[image].refs.push({
+                            displayPath,
+                            fullPath: fullRelativePath,
+                            dirPath: dirPath === '.' ? '' : dirPath,
+                            count: refCount
+                        });
                     }
                 } catch (err) {
                     console.error(`Error reading file ${mdFile}:`, err);
@@ -75,20 +82,31 @@ async function generateImageIndex() {
             }
         }
         
-        // Generate markdown content
+        // Generate markdown content with thumbnails
         let content = '# Image Index\n\n';
         content += '[Delete Unused Images](/api/images/delete-unused)\n\n';
-        content += '| Image | References | Files | Actions |\n';
-        content += '|-------|------------|--------|----------|\n';
+        content += '| Thumbnail | Image Info | References | Actions |\n';
+        content += '|-----------|------------|------------|----------|\n';
         
         for (const [image, stats] of Object.entries(imageStats)) {
+            const imageUrl = `/uploads/${image}`;
             const files = stats.refs.length > 0 
                 ? stats.refs.map(ref => {
-                    const [filePath, count] = ref.split(' (');
-                    return `[${filePath}](/editor/open?file=${encodeURIComponent(filePath)}) (${count}`;
+                    const dirParam = ref.dirPath ? `&dir=${encodeURIComponent(ref.dirPath)}` : '';
+                    return `[${ref.displayPath}](/?file=${encodeURIComponent(ref.displayPath)}${dirParam}) (${ref.count})`;
                 }).join('<br>')
                 : 'No references';
-            content += `| ![](/uploads/${image}) | ${stats.count} | ${files} | [Delete](/api/images/delete/${image}) |\n`;
+            
+            // Create a thumbnail cell with both image and filename
+            const thumbnailCell = `<img src="${imageUrl}" alt="${image}" style="max-width:100px; max-height:100px;"><br>${image}`;
+            
+            // Add file size and dimensions if available
+            const imageInfo = `**Name**: ${image}<br>**Used**: ${stats.count} times`;
+            
+            // Create a delete button instead of a link
+            const deleteButton = `<button onclick="window.handleImageDelete('${encodeURIComponent(image)}')" class="delete-btn">Delete</button>`;
+            
+            content += `| ${thumbnailCell} | ${imageInfo} | ${files} | ${deleteButton} |\n`;
         }
         
         // Ensure images directory exists and write index

@@ -1,8 +1,9 @@
-import { logMessage } from './utils.js';
-import { loadFiles } from './fileManager.js';
+import { logMessage } from './log.js';
 import { updateAuthDisplay } from './uiManager.js';
 import { initializeFileManager } from './fileManager.js';
 import { showSystemInfo } from './uiManager.js';
+import { appName, appVer } from './config.js';
+import { clearFileSystemState } from './fileSystemState.js';
 
 export const authState = {
     isLoggedIn: false,
@@ -50,100 +51,150 @@ async function hashPassword(password, salt) {
     return result;
 }
 
-export async function attemptLogin(username, password) {
-    logMessage(`[AUTH] Starting login process for user: ${username}`);
-    logMessage('[AUTH] Requesting server authentication...');
-
+// Handle login form submission
+export async function handleLogin(username, password) {
     try {
-        logMessage('[AUTH] Requesting salt from server...');
+        logMessage(`[AUTH] Attempting login for user: ${username}`);
+        
+        // First get the salt for this user
         const saltResponse = await fetch(`/api/auth/salt?username=${encodeURIComponent(username)}`);
         if (!saltResponse.ok) {
-            logMessage('[AUTH] Failed to get salt from server');
-            throw new Error('Failed to get salt');
+            throw new Error('Failed to get salt from server');
         }
         
         const { salt } = await saltResponse.json();
         logMessage('[AUTH] Received salt from server');
         
-        logMessage('[AUTH] Hashing password with salt...');
+        // Hash the password with the salt
         const hashedPassword = await hashPassword(password, salt);
-
-        logMessage('[AUTH] Sending login request...');
-        const loginResponse = await fetch('/api/auth/login', {
+        
+        // Send the login request with the hashed password
+        const response = await fetch('/api/auth/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ username, hashedPassword })
         });
-
-        if (!loginResponse.ok) {
-            logMessage(`[AUTH ERROR] Login failed: Invalid credentials`);
-            throw new Error('Login failed');
-        }
-
-        logMessage('[AUTH] Login successful, updating auth state...');
-        authState.isLoggedIn = true;
-        authState.username = username;
-        authState.hashedPassword = hashedPassword;
-        authState.loginTime = Date.now();
-        authState.expiresAt = authState.loginTime + EXPIRATION_TIME;
-
-        localStorage.setItem('authState', JSON.stringify(authState));
-
-        logMessage(`[AUTH] Login complete for: ${username}`);
-        logMessage(`[AUTH] Session expires: ${new Date(authState.expiresAt).toLocaleString()}`);
         
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Login failed');
+        }
+        
+        // Update auth state
+        Object.assign(authState, {
+            isLoggedIn: true,
+            username: username,
+            hashedPassword: hashedPassword,
+            loginTime: Date.now(),
+            expiresAt: Date.now() + 3600000 // 1 hour
+        });
+        
+        // Save auth state to localStorage
+        saveAuthState();
+        
+        // Update UI
         updateAuthDisplay();
-        loadFiles();
+        
+        // Initialize file manager to load files
+        await initializeFileManager();
+        
+        // Dispatch login event for AppState to handle
+        document.dispatchEvent(new CustomEvent('auth:login', {
+            detail: {
+                username: username,
+                isLoggedIn: true,
+                expiresAt: authState.expiresAt
+            }
+        }));
+        
+        logMessage(`[AUTH] Login successful for user: ${username}`);
+        return true;
     } catch (error) {
         logMessage(`[AUTH ERROR] Login failed: ${error.message}`);
-        console.error('[AUTH ERROR] Details:', error);
-        throw error;
+        return false;
     }
 }
 
-// Update restoreLogin to be more robust
-export async function restoreLogin() {
-    const storedAuth = localStorage.getItem('authState');
-    if (!storedAuth) {
-        updateAuthDisplay();
-        return;
-    }
-
+// Add this function to clear the editor interface on logout
+function clearEditorInterface() {
     try {
-        const parsedAuth = JSON.parse(storedAuth);
-        const remainingTime = parsedAuth.expiresAt - Date.now();
-
-        if (remainingTime > 0) {
-            // Set auth state first
-            Object.assign(authState, {
-                isLoggedIn: true,
-                username: parsedAuth.username,
-                hashedPassword: parsedAuth.hashedPassword,  // Important for auth
-                loginTime: parsedAuth.loginTime,
-                expiresAt: parsedAuth.expiresAt
-            });
-
-            logMessage(`[AUTH] Restored login for ${authState.username}`);
-            logMessage(`[AUTH] Session expires in ${Math.round(remainingTime / 1000 / 60)} minutes`);
-
-            // Update UI first
-            updateAuthDisplay();
-            
-            // Then initialize file manager
-            await initializeFileManager().catch(error => {
-                logMessage('[FILES ERROR] Failed to initialize file manager');
-                console.error(error);
-            });
-        } else {
-            logMessage(`[AUTH] Session expired. User must log in again.`);
-            localStorage.removeItem('authState');
-            updateAuthDisplay();
+        // Clear the editor textarea
+        const editorTextarea = document.querySelector('#md-editor textarea');
+        if (editorTextarea) {
+            editorTextarea.value = '';
+            logMessage('[AUTH] Cleared editor content');
         }
+        
+        // Clear the preview
+        const preview = document.getElementById('md-preview');
+        if (preview) {
+            preview.innerHTML = '';
+            logMessage('[AUTH] Cleared preview content');
+        }
+        
+        // Clear file and directory selects
+        const fileSelect = document.getElementById('file-select');
+        if (fileSelect) {
+            // Keep only the first option
+            while (fileSelect.options.length > 1) {
+                fileSelect.remove(1);
+            }
+            fileSelect.selectedIndex = 0;
+            logMessage('[AUTH] Cleared file select');
+        }
+        
+        const dirSelect = document.getElementById('dir-select');
+        if (dirSelect) {
+            // Keep only the first option
+            while (dirSelect.options.length > 1) {
+                dirSelect.remove(1);
+            }
+            dirSelect.selectedIndex = 0;
+            logMessage('[AUTH] Cleared directory select');
+        }
+        
+        // Update the UI to reflect logged out state
+        document.body.setAttribute('data-auth-state', 'logged-out');
+        
+        logMessage('[AUTH] Editor interface cleared');
     } catch (error) {
-        logMessage('[AUTH ERROR] Failed to restore login state');
-        console.error(error);
-        localStorage.removeItem('authState');
+        logMessage(`[AUTH ERROR] Failed to clear editor interface: ${error.message}`);
+        console.error('[AUTH ERROR]', error);
+    }
+}
+
+// Update the logout function to clear the interface
+export async function logout() {
+    try {
+        logMessage('[AUTH] Logging out...');
+        
+        // Clear auth state
+        authState.isLoggedIn = false;
+        authState.username = '';
+        authState.password = '';
+        authState.loginTime = null;
+        authState.expiresAt = null;
+        
+        // Update UI
         updateAuthDisplay();
+        
+        // Clear file system state
+        clearFileSystemState();
+        
+        // Clear the editor interface
+        clearEditorInterface();
+        
+        // Save auth state to localStorage
+        saveAuthState();
+        
+        logMessage('[AUTH] Logged out successfully');
+        return true;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] Logout failed: ${error.message}`);
+        console.error('[AUTH ERROR]', error);
+        return false;
     }
 }
 
@@ -152,7 +203,7 @@ window.handleLogin = () => {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     logMessage(`[AUTH] Login button clicked for user: ${username}`);
-    attemptLogin(username, password);
+    handleLogin(username, password);
 };
 
 // Update attachLoginHandlers to use the same function
@@ -212,10 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // First get environment info
         await displayEnvironmentInfo();
         
-        // Then restore auth state and initialize UI
-        await restoreLogin();
-        
-        // Finally attach handlers
+        // Then attach handlers
         attachLoginHandlers();
     } catch (error) {
         logMessage('[AUTH ERROR] Initialization failed');
@@ -223,30 +271,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// ✅ Logout function
-export function logout() {
-    authState.isLoggedIn = false;
-    authState.username = '';
-    authState.password = '';
-    authState.loginTime = null;
-    authState.expiresAt = null;
-
-    localStorage.removeItem('authState');
-    logMessage("[AUTH] Logged out successfully.");
-    
-    updateAuthDisplay();
-}
-
 // Add this function to auth.js
 async function displayEnvironmentInfo() {
     try {
-        logMessage('[CONFIG] Fetching environment configuration...');
+        logMessage(`[CONFIG] Fetching ${appName} v${appVer} configuration...`);
         const response = await fetch('/api/auth/config');
         const config = await response.json();
 
         // Log configuration with consistent formatting
         logMessage('\n' + '='.repeat(50));
-        logMessage('[CONFIG] ENVIRONMENT CONFIGURATION');
+        logMessage(`[CONFIG] ${appName.toUpperCase()} CONFIGURATION (v${appVer})`);
         logMessage('='.repeat(50));
         
         // Environment
@@ -278,3 +312,146 @@ async function displayEnvironmentInfo() {
         console.error('[CONFIG] Error:', error);
     }
 }
+
+// Make sure this is called when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Use import to get the restoreLoginState function
+    import('./authManager.js').then(({ restoreLoginState }) => {
+        restoreLoginState();
+    }).catch(error => {
+        console.error('[AUTH] Error importing authManager:', error);
+    });
+});
+
+// Add or update this function in auth.js
+export function saveAuthState() {
+    try {
+        if (authState.isLoggedIn) {
+            // Save the current auth state to localStorage
+            localStorage.setItem('authState', JSON.stringify({
+                isLoggedIn: true,
+                username: authState.username,
+                hashedPassword: authState.hashedPassword,
+                loginTime: authState.loginTime,
+                expiresAt: authState.expiresAt
+            }));
+            logMessage(`[AUTH] Saved auth state for ${authState.username}`);
+        } else {
+            // Clear auth state from localStorage when logged out
+            localStorage.removeItem('authState');
+            logMessage('[AUTH] Cleared auth state from localStorage');
+        }
+    } catch (error) {
+        console.error('[AUTH] Error saving auth state:', error);
+    }
+}
+
+// Add this function to handle logout confirmation
+function confirmLogout() {
+    return window.confirm('Are you sure you want to log out? Any unsaved changes will be lost.');
+}
+
+// Update the logout button event listener
+export function setupLogoutButton() {
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            if (confirmLogout()) {
+                await logout();
+            }
+        });
+    }
+}
+
+// Call this function during initialization
+document.addEventListener('DOMContentLoaded', () => {
+    setupLogoutButton();
+});
+
+// Update the refreshAuth function to handle 404 errors gracefully
+export async function refreshAuth() {
+    try {
+        if (!authState.isLoggedIn || !authState.username || !authState.hashedPassword) {
+            logMessage('[AUTH] Cannot refresh: Not logged in');
+            return false;
+        }
+        
+        // Check if token is still valid (with some margin)
+        const now = Date.now();
+        if (authState.expiresAt && authState.expiresAt > now + 60000) {
+            // Token still valid for more than a minute, no need to refresh
+            return true;
+        }
+        
+        logMessage('[AUTH] Refreshing authentication token...');
+        
+        try {
+            const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`
+                },
+                body: JSON.stringify({
+                    username: authState.username
+                })
+            });
+            
+            if (response.status === 404) {
+                // If the refresh endpoint doesn't exist, assume the token is still valid
+                logMessage('[AUTH] Refresh endpoint not found, assuming token is still valid');
+                
+                // Extend token expiration by 30 minutes
+                const newExpiry = now + 30 * 60 * 1000;
+                updateAuthState({
+                    ...authState,
+                    expiresAt: newExpiry
+                });
+                
+                return true;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.token) {
+                updateAuthState({
+                    ...authState,
+                    token: data.token,
+                    expiresAt: now + (data.expiresIn || 3600) * 1000
+                });
+                
+                logMessage('[AUTH] Authentication refreshed successfully');
+                return true;
+            } else {
+                throw new Error('No token in refresh response');
+            }
+        } catch (error) {
+            // For network errors or missing endpoints, assume token is still valid
+            if (error.message.includes('Failed to fetch') || 
+                error.message.includes('404') || 
+                error.message.includes('not found')) {
+                
+                logMessage('[AUTH WARN] Auth refresh failed, but continuing: ' + error.message);
+                
+                // Extend token expiration by 30 minutes
+                const newExpiry = now + 30 * 60 * 1000;
+                updateAuthState({
+                    ...authState,
+                    expiresAt: newExpiry
+                });
+                
+                return true;
+            }
+            
+            throw error;
+        }
+    } catch (error) {
+        logMessage(`[AUTH ERROR] ${error}`);
+        return false;
+    }
+}
+

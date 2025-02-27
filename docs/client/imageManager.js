@@ -1,10 +1,19 @@
-import { logMessage } from "./utils.js";
+import { logMessage } from "./log.js";
 import { schedulePreviewUpdate } from "./markdown.js";
 import { globalFetch } from "./globalFetch.js";
 
 // Undo stack for image operations
 const imageOperationsStack = [];
 const MAX_UNDO_STACK = 50;
+
+// Supported image types
+const SUPPORTED_IMAGE_TYPES = [
+    'image/jpeg', 
+    'image/png', 
+    'image/gif', 
+    'image/webp',
+    'image/svg+xml'  // Add SVG support
+];
 
 class ImageOperation {
     constructor(type, imageUrl, mdContent, cursorPos, previousState) {
@@ -52,6 +61,13 @@ export async function undoLastImageOperation() {
 
 export async function uploadImage(file) {
     logMessage('Uploading image...');
+    
+    // Validate file type
+    if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        logMessage(`Unsupported file type: ${file.type}. Supported types: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
+        return;
+    }
+    
     const formData = new FormData();
     formData.append('image', file);
 

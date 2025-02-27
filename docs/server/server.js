@@ -18,6 +18,7 @@ const storage = multer.diskStorage({
 // Serve static files
 app.use('/client', express.static(path.join(__dirname, '../client')));
 app.use('/images', express.static(path.join(process.env.MD_DIR || '.', 'images')));
+app.use('/uploads', express.static(uploadsDirectory));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico')));
 app.use(express.static('client'));
 
