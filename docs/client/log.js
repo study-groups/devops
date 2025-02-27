@@ -258,6 +258,9 @@ export function initLogToolbar() {
     // Connect log buttons
     ensureLogButtonsConnected();
     
+    // Add app name and version to log bar
+    addAppInfoToLogBar();
+    
     // Log a message to confirm initialization
     logMessage('[LOG] Log toolbar initialized');
     
@@ -535,4 +538,42 @@ export function toggleLogWithoutAutoShow(source = 'button') {
         toggleSource = '';
     }, 500);
     return result;
+}
+
+// Add app name and version to log bar
+function addAppInfoToLogBar() {
+    const logToolbar = document.querySelector('.log-toolbar');
+    if (!logToolbar) {
+        console.log('Log toolbar not found!'); // Add debug output
+        return;
+    }
+    
+    console.log('Found log toolbar:', logToolbar); // Debug output
+    
+    // Create app info element
+    const appInfo = document.createElement('div');
+    appInfo.id = 'log-app-info';
+    appInfo.className = 'log-app-info';
+    
+    // Style the app info element - make it more visible for debugging
+    appInfo.style.marginLeft = '10px';
+    appInfo.style.fontSize = '12px';
+    appInfo.style.opacity = '1'; // Increased from 0.7 for visibility
+    appInfo.style.fontWeight = 'bold'; // Changed to bold for visibility
+    appInfo.style.display = 'flex';
+    appInfo.style.alignItems = 'center';
+    appInfo.style.color = '#ff5500'; // Add a distinctive color for debugging
+    
+    // Get app name and version from window or environment variables
+    const appName = window.APP_NAME || 'App';
+    const appVersion = window.APP_VERSION || '1.0.0';
+    
+    // Set the content
+    appInfo.textContent = `${appName} v${appVersion}`;
+    console.log('Adding app info:', appInfo.textContent); // Debug output
+    
+    // Directly append to the toolbar for now
+    logToolbar.appendChild(appInfo);
+    
+    console.log('App info added to toolbar'); // Debug output
 } 

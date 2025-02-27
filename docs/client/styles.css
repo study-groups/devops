@@ -423,11 +423,12 @@ body[data-auth-state="logged-out"] #logout-btn {
 }
 
 /* Version info styling */
-.version-info {
-    color: #666;
+.app-info {
+    color: #aaa;  /* Lighter color for better visibility on dark background */
     font-size: 11px;
-    margin-left: 0px;
-    opacity: 0.7;
+    margin-left: 10px;
+    margin-right: 10px;
+    opacity: 0.9;  /* Increased opacity for better visibility */
     font-style: italic;
 }
 

@@ -1,6 +1,6 @@
 // Application configuration
 export const appName = 'devpages';
-export const appVer = '002dev1';
+export const appVer = '002m1';
 
 // Export other configuration as needed
 export const config = {
