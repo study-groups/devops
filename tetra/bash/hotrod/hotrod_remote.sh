@@ -1,56 +1,12 @@
 #!/bin/bash
 
-# Function to start the Hotrod server remotely
-hotrod_start_remote() {
-    local server="${1:-$TETRA_REMOTE}"
-    local user="${2:-root}"
-
-    if [[ -z "$server" ]]; then
-        echo "Server is not specified and TETRA_REMOTE is not set."
-        return 1
-    fi
-
-    ssh "${user}@${server}" bash << 'EOF'
-PORT=9999
-PIDFILE="/tmp/hotrod.pid"
-
-# Singleton enforcement
-if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-    echo "🔥 Hotrod already running (PID: $(cat "$PIDFILE"))"
+# Function to show SSH tunneling instructions
+hotrod_ssh_help() {
+    echo "To connect to a remote Hotrod server, create an SSH tunnel:"
+    echo ""
+    echo "   ssh -N -L 9999:localhost:9999 user@remote-server"
+    echo ""
+    echo "Then you can send messages as if Hotrod is running locally."
+    echo ""
     exit 0
-fi
-
-echo $$ > "$PIDFILE"
-trap "rm -f $PIDFILE; exit" INT TERM EXIT
-
-echo "🚗💨 Hotrod Remote Server listening on port $PORT"
-while true; do nc -lk $PORT; done
-EOF
-}
-
-# Function to send data to a remote FIFO
-hotrod_remote() {
-    local server="${1:-$TETRA_REMOTE}"
-    local user="${2:-root}"
-
-    if [[ -z "$server" ]]; then
-        echo "Server is not specified and TETRA_REMOTE is not set."
-        return 1
-    fi
-
-    ssh "${user}@${server}" bash << 'EOF'
-hotrod() {
-    local fifo_path="/tmp/myfifo"
-    
-    # Ensure the FIFO exists; create it if it doesn't
-    if [[ ! -p "$fifo_path" ]]; then
-        mkfifo "$fifo_path"
-        echo "FIFO created at $fifo_path"
-    fi
-
-    # Read from stdin and write to the FIFO
-    cat > "$fifo_path"
-}
-hotrod
-EOF
 }

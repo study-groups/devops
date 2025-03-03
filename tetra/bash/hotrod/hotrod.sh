@@ -9,8 +9,6 @@ source "$HOTROD_DIR/hotrod_remote.sh"
 
 # Default configuration
 PORT=9999
-REMOTE_SERVER="${HOTROD_REMOTE:-$TETRA_REMOTE}"
-REMOTE_USER="${HOTROD_USER:-root}"
 MODE="local"
 START_SERVER=false
 
@@ -18,23 +16,24 @@ START_SERVER=false
 usage() {
     echo "Usage: hotrod.sh [options] [message]"
     echo "Options:"
-    echo " -r, --remote       Use remote Hotrod server (default: $REMOTE_SERVER)"
-    echo " -u, --user USER    Specify remote user (default: $REMOTE_USER)"
-    echo " -s, --start        Start the Hotrod server"
-    echo " -h, --help         Show this help message"
+    echo " -s, --start      Start the Hotrod server"
+    echo " -h, --help       Show this help message"
     echo ""
-    echo "If a message is provided, it will be sent to Hotrod."
+    echo "If a message is provided, it will be sent to Hotrod running on localhost."
+    echo ""
+    echo "To use remotely, set up an SSH tunnel:"
+    echo "   ssh -N -L 9999:localhost:9999 user@remote-server"
+    echo ""
+    echo "Then run:"
+    echo "   ./hotrod.sh \"Message to send\""
+    echo ""
     exit 0
 }
 
-# Function to send data to Hotrod
+# Function to send data to Hotrod on localhost
 send_data() {
     local data="$1"
-    if [[ "$MODE" == "remote" ]]; then
-        echo "$data" | ssh "$REMOTE_USER@$REMOTE_SERVER" "nc -q 1 localhost $PORT"
-    else
-        echo "$data" | nc -q 1 localhost $PORT
-    fi
+    echo "$data" | nc -q 1 localhost $PORT
 }
 
 # Ensure help is shown when no arguments are provided
@@ -45,19 +44,6 @@ fi
 # Parse options
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -r|--remote)
-            MODE="remote"
-            shift
-            ;;
-        -u|--user)
-            if [[ -n "$2" ]]; then
-                REMOTE_USER="$2"
-                shift 2
-            else
-                echo "Error: --user requires an argument."
-                exit 1
-            fi
-            ;;
         -s|--start)
             START_SERVER=true
             shift
@@ -86,3 +72,4 @@ fi
 
 # Send the message
 send_data "$MESSAGE"
+

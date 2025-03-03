@@ -6,12 +6,6 @@ PIDFILE="/tmp/hotrod.pid"
 
 # Function to start the Hotrod server
 hotrod_start_server() {
-    # Ensure TETRA is started
-    if [[ -z "$TETRA_DIR" ]]; then
-        echo "TETRA is not started. Aborting."
-        exit 1
-    fi
-
     # Singleton enforcement
     if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
         echo "🔥 Hotrod is already running (PID: $(cat "$PIDFILE"))"
@@ -25,7 +19,7 @@ hotrod_start_server() {
     echo $$ > "$PIDFILE"
     trap "rm -f $FIFO $PIDFILE; exit" INT TERM EXIT
 
-    echo "🚗💨 Hotrod Server listening on port $PORT"
+    echo "🚗💨 Hotrod Server listening on localhost:$PORT"
     
     while true; do
         nc -lk $PORT < "$FIFO" | tee "$FIFO"
