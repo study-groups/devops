@@ -102,7 +102,7 @@ start_clipboard_listener() {
 
     nc -lk localhost "$PORT" | while read -r line; do
         if [[ "$line" == "hotrod_ping" ]]; then
-            echo "Mothership Online - $(hostname) (Port: $PORT)"
+            echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
         else
             echo "$line" | tee -a "$HOTROD_DIR/hotrod.log" | xclip -selection clipboard
         fi
@@ -140,6 +140,13 @@ if is_remote; then
     if [[ -t 0 ]]; then
         echo "🔗 Contacting Mothership on Tunnel Port $TUNNEL_PORT..."
         echo "hotrod_ping" | nc -q 1 localhost "$TUNNEL_PORT"
+        sleep 1
+        response=$(nc -w 2 localhost "$TUNNEL_PORT")
+        if [[ -n "$response" ]]; then
+            echo "$response"
+        else
+            echo "⚠️ No response from Mothership."
+        fi
         exit 0
     else
         cat | nc -q 1 localhost "$TUNNEL_PORT"
