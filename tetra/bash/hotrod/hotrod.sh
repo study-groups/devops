@@ -1,120 +1,130 @@
 #!/bin/bash
-HOTROD_SRC="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-source "$HOTROD_SRC/hotrod_remote.sh"
-source "$HOTROD_SRC/hotrod_server.sh"
 
-# Use sensible defaults from environment variables
+# Hotrod Default Configuration
 HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
 REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
 REMOTE_USER="${TETRA_REMOTE_USER:-root}"
-REMOTE_DIR="${TETRA_REMOTE_DIR:-/opt/hotrod}"
 PORT=9999
-MODE="remote"
-START_SERVER=false
-SSH_TUNNEL_PID=""
-MESSAGE=""
 
-# Function to display usage
+# Function: Show usage help
 usage() {
-    echo "Usage: hotrod.sh [options] [message]"
-    echo "Options:"
-    echo " -s, --start         Start the Hotrod server"
-    echo " -l, --local         Run Hotrod locally (skip SSH tunnel)"
-    echo " -h, --help          Show this help message"
     echo ""
-    echo "Message can be passed either as an argument:"
-    echo "   ./hotrod.sh \"Message to send\""
+    echo "🔥 Hotrod: Seamless Remote-to-Local Clipboard Streaming"
     echo ""
-    echo "Or via stdin:"
-    echo "   echo \"Message to send\" | ./hotrod.sh"
+    echo "Usage: hotrod.sh [command]"
     echo ""
-    echo "Clipboard Mode: If running on a remote machine, output will be sent to the local clipboard."
+    echo "Commands:"
+    echo "  --run             Start SSH tunnel & clipboard listener (single command)"
+    echo "  --status          Show current Hotrod setup and status"
+    echo "  --stop            Stop all Hotrod processes (SSH tunnel & clipboard)"
+    echo "  --help            Show this help message"
     echo ""
-    echo "By default, this script automatically establishes an SSH tunnel to the remote server:"
-    echo "   ssh -N -L $PORT:localhost:$PORT $REMOTE_USER@$REMOTE_SERVER"
+    echo "Remote Usage:"
+    echo "  Run on remote machine to send output to your local clipboard:"
+    echo "    more * | hotrod"
     echo ""
-    echo "Remote Hotrod directory: $REMOTE_DIR"
-    echo "Local Hotrod directory: $HOTROD_DIR"
+    echo "Example Setup (Local):"
+    echo "  hotrod.sh --run"
+    echo ""
+    echo "To manually start components:"
+    echo "  hotrod.sh --status   # Show running components"
+    echo "  hotrod.sh --stop     # Stop all hotrod-related jobs"
     echo ""
     exit 0
 }
 
-# Function to start the SSH tunnel
+# Function: Check if SSH tunnel is running
+is_tunnel_active() {
+    pgrep -f "ssh -N -L $PORT:localhost:$PORT" >/dev/null
+}
+
+# Function: Start SSH tunnel (local → remote)
 start_ssh_tunnel() {
-    echo "🔗 Establishing SSH tunnel to $REMOTE_SERVER..."
-    ssh -N -L $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
-    SSH_TUNNEL_PID=$!
-    sleep 1  # Give some time for the tunnel to establish
-}
-
-# Function to stop the SSH tunnel
-stop_ssh_tunnel() {
-    if [[ -n "$SSH_TUNNEL_PID" ]]; then
-        echo "🛑 Closing SSH tunnel..."
-        kill "$SSH_TUNNEL_PID" 2>/dev/null
-    fi
-}
-
-# Function to send data via Hotrod (including clipboard support)
-send_data() {
-    if [[ -n "$MESSAGE" ]]; then
-        echo "$MESSAGE" | nc -q 1 localhost $PORT
+    if is_tunnel_active; then
+        echo "✅ SSH Tunnel is already running on port $PORT"
     else
-        cat | nc -q 1 localhost $PORT
+        echo "🔗 Establishing SSH tunnel to $REMOTE_SERVER on port $PORT..."
+        ssh -N -L $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+        echo "✅ SSH Tunnel established."
     fi
 }
 
-# Function to listen for incoming Hotrod data and copy to clipboard
-hotrod_clipboard_listener() {
-    echo "📋 Hotrod Clipboard Listener Active on Port $PORT..."
-    nc -lk $PORT | xclip -selection clipboard
+# Function: Check if clipboard listener is running
+is_clipboard_active() {
+    pgrep -f "nc -lk $PORT" >/dev/null
 }
 
-# Ensure help is shown when no arguments are provided and stdin is not a pipe
-if [[ $# -eq 0 && -t 0 ]]; then
+# Function: Start clipboard listener (local)
+start_clipboard_listener() {
+    if is_clipboard_active; then
+        echo "✅ Clipboard listener already running on port $PORT"
+    else
+        echo "📋 Hotrod Clipboard Listener Active on Port $PORT..."
+        nc -lk $PORT | xclip -selection clipboard &
+        echo "✅ Clipboard listener started."
+    fi
+}
+
+# Function: Start both SSH tunnel and clipboard listener
+hotrod_run() {
+    echo "🚀 Starting Hotrod (SSH Tunnel + Clipboard Listener)..."
+    start_ssh_tunnel
+    start_clipboard_listener
+}
+
+# Function: Show Hotrod status
+hotrod_status() {
+    echo "🔥 Hotrod Status"
+    echo "-----------------"
+    if is_tunnel_active; then
+        echo "✅ SSH Tunnel Active: $REMOTE_SERVER → localhost:$PORT"
+    else
+        echo "❌ SSH Tunnel Not Running"
+    fi
+    if is_clipboard_active; then
+        echo "✅ Clipboard Listener Active on $PORT"
+    else
+        echo "❌ Clipboard Listener Not Running"
+    fi
+    echo "-----------------"
+    echo "Run 'hotrod.sh --run' to start all processes"
+    echo "Run 'hotrod.sh --stop' to kill all Hotrod-related jobs"
+}
+
+# Function: Stop all Hotrod processes
+hotrod_stop() {
+    echo "🛑 Stopping all Hotrod processes..."
+    pkill -f "ssh -N -L $PORT:localhost:$PORT"
+    pkill -f "nc -lk $PORT"
+    echo "✅ All Hotrod processes stopped."
+}
+
+# Ensure help is shown when no arguments are provided
+if [[ $# -eq 0 ]]; then
     usage
 fi
 
-# Parse options
+# Parse command-line options
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -s|--start)
-            START_SERVER=true
-            shift
-            ;;
-        -l|--local)
-            MODE="local"
-            shift
-            ;;
-        -h|--help)
-            usage
-            ;;
-        --clipboard-listener)
-            hotrod_clipboard_listener
+        --run)
+            hotrod_run
             exit 0
             ;;
+        --status)
+            hotrod_status
+            exit 0
+            ;;
+        --stop)
+            hotrod_stop
+            exit 0
+            ;;
+        --help)
+            usage
+            ;;
         *)
-            MESSAGE="$1"
-            shift
+            echo "❌ Unknown command: $1"
+            usage
             ;;
     esac
 done
-
-# Start the server if requested
-if [[ "$START_SERVER" == "true" ]]; then
-    if [[ "$MODE" == "remote" ]]; then
-        echo "❌ Cannot start server in remote mode. Use --local to run locally."
-        exit 1
-    fi
-    hotrod_start_server
-    exit 0
-fi
-
-# Start SSH tunnel if in remote mode
-if [[ "$MODE" == "remote" ]]; then
-    start_ssh_tunnel
-    trap stop_ssh_tunnel EXIT  # Ensure cleanup on exit
-fi
-
-# Send the message (or read from stdin if no message provided)
-send_data
