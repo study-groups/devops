@@ -6,6 +6,7 @@ REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
 REMOTE_USER="${TETRA_REMOTE_USER:-root}"
 PORT=9999  # Clipboard Listener
 LISTENER_PID_FILE="$HOTROD_DIR/listener.pid"
+LOG_FILE="$HOTROD_DIR/log.txt"
 
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
 
@@ -58,7 +59,14 @@ start_clipboard_listener() {
 
     hotrod_kill  # Ensure the port is clean
 
-    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$HOTROD_DIR/log.txt" &
+    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$LOG_FILE" | {
+        # Copy to clipboard if supported
+        if command -v xclip &>/dev/null; then
+            xclip -selection clipboard
+        elif command -v pbcopy &>/dev/null; then
+            pbcopy
+        fi
+    } &
 
     echo $! > "$LISTENER_PID_FILE"
     echo "✅ Clipboard listener started on localhost:$PORT"
@@ -73,6 +81,7 @@ hotrod_run() {
 
 hotrod_status() {
     echo "🔥 Hotrod Status"
+    echo "Mode            : $(is_remote && echo Remote Client || echo Home Base)"
     echo "Clipboard Port  : $PORT"
 
     echo -n "Listener        : "
@@ -84,6 +93,22 @@ hotrod_status() {
     else
         echo "❌ Not Active"
     fi
+
+    echo -n "Port Listening  : "
+    if ss -tln | grep -q ":$PORT "; then
+        echo "✅ Port is open"
+    else
+        echo "❌ Port NOT open!"
+    fi
+
+    # Show active SSH connections
+    echo -n "Active Clients  : "
+    active_clients=$(ss -tan | grep -c ":$PORT ")
+    echo "$active_clients"
+
+    # Show last few clipboard entries, filtering out non-data lines
+    echo "Last Clipboard Entries:"
+    tail -n 3 "$LOG_FILE" | sed 's/^/   Clipboard: /' | grep -vE '^\s*$'
 }
 
 # **Remote Mode Handling**
@@ -91,6 +116,9 @@ if is_remote; then
     echo "🚗💨 Hotrod Remote Mode"
     echo "Clipboard Port: $PORT"
     echo "Sending data to Mothership..."
+
+    # Report back to home base
+    echo "🔗 Remote Status Report" | socat - TCP:localhost:$PORT
 
     if [[ -p /dev/stdin ]]; then
         cat | socat - TCP:localhost:$PORT
@@ -115,3 +143,4 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
