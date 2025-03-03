@@ -4,11 +4,20 @@
 HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
 REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
 REMOTE_USER="${TETRA_REMOTE_USER:-root}"
-PORT="${1:-9999}"  # Allow override via first argument
+DEFAULT_PORT=9999  # Default port if not overridden
+PORT=$DEFAULT_PORT
 TUNNEL_PORT=$((PORT + 1))  # SSH forwards this to $PORT
-LISTENER_PORT=$((PORT - 1)) # Dedicated clipboard listener
+LISTENER_PORT=$((PORT - 1)) # Dedicated clipboard listener port
 
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
+
+# Parse command-line arguments correctly
+if [[ $# -gt 0 ]]; then
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        PORT="$1"
+        shift  # Remove port argument and shift to the next
+    fi
+fi
 
 usage() {
     echo ""
@@ -49,25 +58,25 @@ hotrod_kill() {
 hotrod_check_ports() {
     echo "Checking ports..."
     for p in $PORT $TUNNEL_PORT $LISTENER_PORT; do
-        if lsof -i :$p >/dev/null; then
-            echo "⚠️ Port $p is in use."
-        else
-            echo "✅ Port $p is free."
+        if [[ "$p" =~ ^[0-9]+$ ]]; then
+            if lsof -i :"$p" >/dev/null; then
+                echo "⚠️ Port $p is in use."
+            else
+                echo "✅ Port $p is free."
+            fi
         fi
     done
 }
 
 start_ssh_tunnel() {
     is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
-    echo "🔗 Starting SSH Tunnel"
+    echo "🔗 Starting SSH Tunnel on port $TUNNEL_PORT..."
 
-    # Ensure SSH tunnel is not already running
     if nc -z localhost $TUNNEL_PORT 2>/dev/null; then
         echo "✅ SSH Tunnel already active on port $TUNNEL_PORT."
         return
     fi
 
-    # Create an SSH tunnel that forwards $TUNNEL_PORT to localhost:$PORT
     ssh -N -L $TUNNEL_PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
 
     sleep 1
@@ -83,13 +92,12 @@ start_clipboard_listener() {
     is_remote && { echo "Cannot start listener from remote."; exit 1; }
     echo "📋 Starting Clipboard Listener on port $PORT..."
 
-    # Ensure the listener port is free before starting
     while lsof -ti tcp:$PORT >/dev/null; do
         echo "⚠️ Waiting for port $PORT to be released..."
         sleep 1
     done
 
-    nc -lk localhost $PORT | xclip -selection clipboard &
+    nc -lk localhost "$PORT" | xclip -selection clipboard &
     sleep 1
 
     if pgrep -f "nc -lk localhost $PORT" >/dev/null; then
@@ -109,13 +117,9 @@ hotrod_run() {
 
     hotrod_check_ports
 
-    # 1️⃣ Kill existing processes BEFORE starting anything new
-    hotrod_kill  
+    hotrod_kill  # Ensure clean startup
 
-    # 2️⃣ Start clipboard listener FIRST so SSH has something to forward to
     start_clipboard_listener
-
-    # 3️⃣ Start SSH tunnel after ensuring something is listening on 9999
     start_ssh_tunnel
 }
 
@@ -130,14 +134,12 @@ hotrod_status() {
 }
 
 # **Remote Mode Handling**
-# - If run remotely with piped input (`echo "test" | hotrod`), send the input to port.
-# - If no piped input is given, show just the port info.
 if is_remote; then
     if [[ -t 0 ]]; then
         echo "🔗 Remote Hotrod Active on Port $PORT"
         exit 0
     else
-        cat | nc -q 1 localhost $PORT
+        cat | nc -q 1 localhost "$PORT"
         exit 0
     fi
 fi
@@ -153,13 +155,8 @@ while [[ $# -gt 0 ]]; do
         --kill) hotrod_kill; exit 0 ;;
         --help) usage ;;
         *) 
-            if [[ "$1" =~ ^[0-9]+$ ]]; then
-                PORT="$1"
-                shift
-            else
-                echo "Unknown command: $1"
-                usage
-            fi
+            echo "Unknown command: $1"
+            usage
             ;;
     esac
 done
