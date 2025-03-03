@@ -16,19 +16,12 @@ usage() {
     echo "Commands:"
     echo "  --run             Start SSH tunnel & clipboard listener (single command)"
     echo "  --status          Show current Hotrod setup and status"
+    echo "  --check           Perform a system check for SSH & dependencies"
     echo "  --stop            Stop all Hotrod processes (SSH tunnel & clipboard)"
     echo "  --help            Show this help message"
     echo ""
-    echo "Remote Usage:"
-    echo "  Run on remote machine to send output to your local clipboard:"
-    echo "    more * | hotrod"
-    echo ""
-    echo "Example Setup (Local):"
-    echo "  hotrod.sh --run"
-    echo ""
-    echo "To manually start components:"
-    echo "  hotrod.sh --status   # Show running components"
-    echo "  hotrod.sh --stop     # Stop all hotrod-related jobs"
+    echo "To send remote output to your local clipboard:"
+    echo "  more * | hotrod"
     echo ""
     exit 0
 }
@@ -43,6 +36,15 @@ start_ssh_tunnel() {
     if is_tunnel_active; then
         echo "✅ SSH Tunnel is already running on port $PORT"
     else
+        echo "🔍 Checking SSH host key for $REMOTE_SERVER..."
+        
+        # Check if the host is already in known_hosts
+        if ! ssh-keygen -F "$REMOTE_SERVER" >/dev/null; then
+            echo "⚠️ Host key for $REMOTE_SERVER not found. Adding to known_hosts..."
+            ssh-keyscan -H "$REMOTE_SERVER" >> ~/.ssh/known_hosts 2>/dev/null
+            echo "✅ Host key added."
+        fi
+
         echo "🔗 Establishing SSH tunnel to $REMOTE_SERVER on port $PORT..."
         ssh -N -L $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
         echo "✅ SSH Tunnel established."
@@ -70,6 +72,48 @@ hotrod_run() {
     echo "🚀 Starting Hotrod (SSH Tunnel + Clipboard Listener)..."
     start_ssh_tunnel
     start_clipboard_listener
+}
+
+# Function: Perform a systems check
+hotrod_check() {
+    echo "🛠️ Running Hotrod System Check..."
+    
+    echo -n "🔍 Checking SSH connection to $REMOTE_SERVER... "
+    if ssh -o BatchMode=yes -o ConnectTimeout=3 "$REMOTE_USER@$REMOTE_SERVER" "exit" 2>/dev/null; then
+        echo "✅ Success"
+    else
+        echo "❌ Failed! Run 'ssh $REMOTE_USER@$REMOTE_SERVER' manually to troubleshoot."
+    fi
+
+    echo -n "🔍 Checking SSH host key for $REMOTE_SERVER... "
+    if ssh-keygen -F "$REMOTE_SERVER" >/dev/null; then
+        echo "✅ Found in known_hosts"
+    else
+        echo "⚠️ Not found! Use 'hotrod.sh --run' to auto-add."
+    fi
+
+    echo -n "🔍 Checking SSH tunnel... "
+    if is_tunnel_active; then
+        echo "✅ Active"
+    else
+        echo "❌ Not running"
+    fi
+
+    echo -n "🔍 Checking clipboard listener... "
+    if is_clipboard_active; then
+        echo "✅ Running"
+    else
+        echo "❌ Not running"
+    fi
+
+    echo -n "🔍 Checking dependencies... "
+    if command -v ssh && command -v nc && command -v xclip >/dev/null; then
+        echo "✅ All dependencies installed"
+    else
+        echo "❌ Missing required tools (ssh, nc, xclip). Install them and retry."
+    fi
+
+    echo "✅ System check complete!"
 }
 
 # Function: Show Hotrod status
@@ -113,6 +157,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --status)
             hotrod_status
+            exit 0
+            ;;
+        --check)
+            hotrod_check
             exit 0
             ;;
         --stop)
