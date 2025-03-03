@@ -1,15 +1,14 @@
 #!/bin/bash
+HOTROD_SRC="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "$HOTROD_SRC/hotrod_remote.sh"
+source "$HOTROD_SRC/hotrod_server.sh"
 
-# Resolve the directory where the script resides
-HOTROD_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-
-# Load additional Hotrod scripts
-source "$HOTROD_DIR/hotrod_server.sh"
-
-# Default configuration
+# Use sensible defaults from environment variables
+HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
+REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
+REMOTE_USER="${TETRA_REMOTE_USER:-root}"
+REMOTE_DIR="${TETRA_REMOTE_DIR:-/opt/hotrod}"
 PORT=9999
-REMOTE_SERVER="${HOTROD_REMOTE:-$TETRA_REMOTE}"
-REMOTE_USER="${HOTROD_USER:-root}"
 MODE="remote"
 START_SERVER=false
 SSH_TUNNEL_PID=""
@@ -29,8 +28,13 @@ usage() {
     echo "Or via stdin:"
     echo "   echo \"Message to send\" | ./hotrod.sh"
     echo ""
+    echo "Clipboard Mode: If running on a remote machine, output will be sent to the local clipboard."
+    echo ""
     echo "By default, this script automatically establishes an SSH tunnel to the remote server:"
-    echo "   ssh -N -L 9999:localhost:9999 $REMOTE_USER@$REMOTE_SERVER"
+    echo "   ssh -N -L $PORT:localhost:$PORT $REMOTE_USER@$REMOTE_SERVER"
+    echo ""
+    echo "Remote Hotrod directory: $REMOTE_DIR"
+    echo "Local Hotrod directory: $HOTROD_DIR"
     echo ""
     exit 0
 }
@@ -38,7 +42,7 @@ usage() {
 # Function to start the SSH tunnel
 start_ssh_tunnel() {
     echo "🔗 Establishing SSH tunnel to $REMOTE_SERVER..."
-    ssh -N -L 9999:localhost:9999 "$REMOTE_USER@$REMOTE_SERVER" &
+    ssh -N -L $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
     SSH_TUNNEL_PID=$!
     sleep 1  # Give some time for the tunnel to establish
 }
@@ -51,13 +55,19 @@ stop_ssh_tunnel() {
     fi
 }
 
-# Function to send data via Hotrod
+# Function to send data via Hotrod (including clipboard support)
 send_data() {
     if [[ -n "$MESSAGE" ]]; then
         echo "$MESSAGE" | nc -q 1 localhost $PORT
     else
         cat | nc -q 1 localhost $PORT
     fi
+}
+
+# Function to listen for incoming Hotrod data and copy to clipboard
+hotrod_clipboard_listener() {
+    echo "📋 Hotrod Clipboard Listener Active on Port $PORT..."
+    nc -lk $PORT | xclip -selection clipboard
 }
 
 # Ensure help is shown when no arguments are provided and stdin is not a pipe
@@ -78,6 +88,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             usage
+            ;;
+        --clipboard-listener)
+            hotrod_clipboard_listener
+            exit 0
             ;;
         *)
             MESSAGE="$1"
@@ -104,4 +118,3 @@ fi
 
 # Send the message (or read from stdin if no message provided)
 send_data
-

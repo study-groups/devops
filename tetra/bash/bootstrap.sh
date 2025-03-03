@@ -28,5 +28,9 @@ for dir in "${DIRS[@]}"; do
   done
 done
 
+for var in $(compgen -v | grep '^TETRA_'); do
+   export "$var=${!var}"
+done
 PROMPT_COMMAND="tetra_prompt"  # Bash uses this automatic
+ttr=$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR
 tetra_status
