@@ -1,3 +1,5 @@
+
+alias hotrod='$TETRA_SRC/bash/hotrod/hotrod.sh'
 alias ttks='tetra-tmux-kill-server'
 alias ttt='tetra-tmux-tetra'
 alias ttkt='tetra-tmux-kill-session tetra'
