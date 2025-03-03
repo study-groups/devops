@@ -70,3 +70,29 @@ nh_doctl_clean() {
 nh_doctl_cat(){
   cat $NH_DIR/$DIGITALOCEAN_CONTEXT/digocean.json | jq .
 }
+
+_truncate_columns() 
+{ 
+    local max_width=80;
+    local delim="    ";
+    local col_widths=(10 15 16 15 8 6 5 8 10 10 8 15);
+    local col_count=${#col_widths[@]};
+    while IFS= read -r line; do
+        local truncated_line="";
+        local i=0;
+        for field in $line;
+        do
+            if [[ $i -ge $col_count ]]; then
+                break;
+            fi;
+            truncated_field=$(echo "$field" | cut -c1-"${col_widths[$i]}");
+            truncated_line+="$truncated_field$delim";
+            ((i++));
+        done;
+        echo "${truncated_line:0:$max_width}";
+    done
+}
+
+nh_doctl_droplets(){
+  doctl compute droplet list | _truncate_columns 
+}
