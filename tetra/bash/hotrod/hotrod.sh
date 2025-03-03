@@ -73,9 +73,12 @@ start_clipboard_listener() {
     # Ensure FIFO exists
     [[ -p "$FIFO_FILE" ]] || mkfifo "$FIFO_FILE"
 
-    # Start the TCP listener and forward input to clipboard
+    # Start TCP listener -> FIFO
     socat -u TCP-LISTEN:$PORT,reuseaddr,fork OPEN:$FIFO_FILE &
     echo $! > "$LISTENER_PID_FILE"
+
+    # Read from FIFO and print to stdout for debugging
+    ( while true; do cat "$FIFO_FILE"; done ) &
 
     echo "✅ Clipboard listener started. FIFO available at $FIFO_FILE"
 }
@@ -94,10 +97,20 @@ hotrod_run() {
 
 hotrod_status() {
     echo "🔥 Hotrod Status"
-    echo "Mode: $(is_remote && echo Remote Client || echo Home Base)"
-    echo "Clipboard Port: $PORT"
-    echo -n "Listener: "
+    echo "Mode            : $(is_remote && echo Remote Client || echo Home Base)"
+    echo "Clipboard Port  : $PORT"
+    echo -n "Listener        : "
     [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
+
+    # Check if FIFO exists
+    [[ -p "$FIFO_FILE" ]] && echo "FIFO            : Exists ($FIFO_FILE)" || echo "FIFO            : ❌ Missing"
+
+    # Check active connections
+    active_clients=$(ss -tn sport = :$PORT | tail -n +2 | wc -l)
+    echo "Active Clients  : $active_clients"
+
+    # Display last received data
+    [[ -s "$FIFO_FILE" ]] && echo "Last Received   : $(tail -n 1 "$FIFO_FILE")" || echo "Last Received   : (No recent data)"
 }
 
 # **Remote Mode Handling**
