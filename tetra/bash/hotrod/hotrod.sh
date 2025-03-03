@@ -4,7 +4,7 @@
 TETRA_HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
 TETRA_REMOTE="${TETRA_REMOTE:-localhost}"
 TETRA_REMOTE_USER="${TETRA_REMOTE_USER:-root}"
-TETRA_PORT="${TETRA_PORT:-9999}"  # Clipboard Listener Port
+TETRA_PORT="${TETRA_PORT:-9999}"
 
 # 🌐 Non-TETRA Vars (Used Inside Script)
 HOTROD_DIR="$TETRA_HOTROD_DIR"
@@ -13,6 +13,7 @@ REMOTE_USER="$TETRA_REMOTE_USER"
 PORT="$TETRA_PORT"
 FIFO_FILE="$HOTROD_DIR/hotrod.fifo"
 LISTENER_PID_FILE="$HOTROD_DIR/listener.pid"
+LOG_FILE="$HOTROD_DIR/log.txt"
 
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
 
@@ -41,7 +42,7 @@ usage() {
 hotrod_kill() {
     echo "🔍 Stopping Hotrod processes..."
 
-    # Find and kill any processes using port 9999
+    # Find processes using port 9999
     local pids=$(lsof -ti tcp:$PORT)
 
     if [[ -n "$pids" ]]; then
@@ -50,31 +51,24 @@ hotrod_kill() {
         sleep 1
     fi
 
-    # Force-kill any socat instances just in case
-    pkill -9 socat 2>/dev/null
+    # Stop socat only if it's running
+    if ps aux | grep "[s]ocat" &>/dev/null; then
+        echo "⚠️ Stopping socat..."
+        pkill -9 socat
+    fi
 
-    # Force-kill any lingering SSH tunnels
-    pkill -9 -f "ssh -N -R $PORT:localhost:$PORT" 2>/dev/null
+    # Restart SSH tunnel if needed
+    if ! ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+        echo "⚠️ SSH tunnel not found. Restarting..."
+        ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+        sleep 1
+    fi
 
-    # Release port if still in use
+    # Ensure port is free
     if ss -tln | grep -q ":$PORT "; then
         echo "⚠️ Port $PORT is still in use, forcing unbind..."
         fuser -k "$PORT"/tcp
         sleep 1
-    fi
-
-    # Check for lingering TIME_WAIT sockets
-    if ss -tan | grep -E ":$PORT .*TIME_WAIT"; then
-        echo "⚠️ Port $PORT stuck in TIME_WAIT state, forcing socket reuse..."
-        sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null
-        sysctl -w net.ipv4.tcp_fin_timeout=5 >/dev/null
-        sleep 1
-    fi
-
-    # Final check
-    if ss -tln | grep -q ":$PORT "; then
-        echo "❌ Port $PORT is still occupied! Manual intervention required."
-        exit 1
     fi
 
     echo "✅ Hotrod stopped."
@@ -97,33 +91,30 @@ start_clipboard_listener() {
 
     [[ -p "$FIFO_FILE" ]] || mkfifo "$FIFO_FILE"
 
-    # Start the TCP listener on localhost only, discard terminal settings restoration
-    socat -u TCP-LISTEN:$PORT,reuseaddr,fork SYSTEM:"cat" > /dev/null 2>&1 &
+    # Ensure only actual clipboard content is logged
+    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$LOG_FILE" | grep -vE '^\s*$|^  📋 ' | {
+        if command -v xclip &>/dev/null; then
+            xclip -selection clipboard
+        elif command -v pbcopy &>/dev/null; then
+            pbcopy
+        fi
+    } &
 
-    echo "✅ Clipboard listener started on localhost:$PORT"
+    echo $! > "$LISTENER_PID_FILE"
+    echo "✅ Clipboard listener started on localhost:$PORT (logging to $LOG_FILE)"
 }
-
 
 start_ssh_tunnel() {
     is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
-    echo "🔗 Setting up SSH Tunnel: Remote (localhost:$PORT) → HomeBase (localhost:$PORT)..."
+    echo "🔗 Ensuring SSH Tunnel is active (Remote:localhost:$PORT → HomeBase:localhost:$PORT)..."
 
-    # Check if SSH tunnel is already active
-    if ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tln | grep -q ':$PORT '" &>/dev/null; then
-        echo "✅ SSH Tunnel already active."
-        return
-    fi
-
-    # Start SSH reverse tunnel
-    ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
-
-    sleep 1
-    if ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tln | grep -q ':$PORT '" &>/dev/null; then
-        echo "✅ SSH Tunnel established on $REMOTE_SERVER."
-    else
-        echo "❌ SSH Tunnel setup failed."
-        exit 1
-    fi
+    while true; do
+        if ! ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+            echo "⚠️ SSH tunnel dropped! Restarting..."
+            ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+        fi
+        sleep 10
+    done &
 }
 
 hotrod_run() {
@@ -143,34 +134,57 @@ hotrod_status() {
     echo "🔥 Hotrod Status"
     echo "Mode            : $(is_remote && echo Remote Client || echo Home Base)"
     echo "Clipboard Port  : $PORT"
+
     echo -n "Listener        : "
     [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
 
-    # Check active connections
-    active_clients=$(ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tn sport = :$PORT | tail -n +2 | wc -l")
-    echo "Active Clients  : $active_clients"
+    echo -n "SSH Tunnel      : "
+    if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+        echo "Active"
+    else
+        echo "❌ Not Active"
+    fi
 
-    [[ -p "$FIFO_FILE" ]] && echo "FIFO            : Exists ($FIFO_FILE)" || echo "FIFO            : ❌ Missing"
+    echo -n "Port Listening  : "
+    if ss -tln | grep -q ":$PORT "; then
+        echo "✅ Port is open"
+    else
+        echo "❌ Port NOT open!"
+    fi
+
+    # Show active SSH connections
+    echo -n "Active Clients  : "
+    active_clients=$(ss -tan | grep -c ":$PORT ")
+    echo "$active_clients"
+
+    # Show last few clipboard entries
+    echo "Last Clipboard Entries:"
+    tail -n 3 "$LOG_FILE" | sed 's/^/  📋 /'
 }
 
 # **Remote Mode Handling**
 if is_remote; then
-    if [[ -t 0 && $# -eq 0 ]]; then
-        echo "🚗💨 Hotrod Remote Mode"
-        echo "Clipboard Port: $PORT"
-        echo "Pipe data to send to Mothership."
-        exit 0
+    echo "🚗💨 Hotrod Remote Mode"
+    echo "Clipboard Port: $PORT"
+    echo "Fetching technical status..."
+
+    echo -n "🔍 Checking if Hotrod is running locally... "
+    if ss -tan | grep -q ":$PORT "; then
+        echo "✅ Listener is active."
+    else
+        echo "❌ No listener detected on localhost:$PORT."
     fi
 
-    echo "🔗 Sending data to Mothership via SSH tunnel (localhost:$PORT)..."
+    echo "🔎 Active TCP Connections on Port $PORT:"
+    ss -tan | grep ":$PORT " || echo "No active connections."
 
-    if ! ss -tln | grep -q ":$PORT "; then
-        echo "❌ Error: SSH tunnel is not active. Ensure Hotrod is running on home base."
-        exit 1
+    echo -n "🔗 Checking SSH Tunnel to Mothership... "
+    if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+        echo "✅ Tunnel is active."
+    else
+        echo "❌ Tunnel is down!"
     fi
 
-    # Send data through SSH tunnel
-    socat - TCP:localhost:$PORT && echo "✅ Clipboard data sent successfully."
     exit 0
 fi
 
