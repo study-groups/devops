@@ -40,22 +40,43 @@ usage() {
 
 hotrod_kill() {
     echo "🔍 Stopping Hotrod processes..."
+
+    # Find and kill any processes using port 9999
     local pids=$(lsof -ti tcp:$PORT)
-    
+
     if [[ -n "$pids" ]]; then
         echo "🔪 Killing processes on port $PORT: $pids"
         kill -9 $pids
         sleep 1
     fi
 
-    # Ensure port is free
+    # Force-kill any socat instances just in case
+    pkill -9 socat 2>/dev/null
+
+    # Force-kill any lingering SSH tunnels
+    pkill -9 -f "ssh -N -R $PORT:localhost:$PORT" 2>/dev/null
+
+    # Release port if still in use
     if ss -tln | grep -q ":$PORT "; then
         echo "⚠️ Port $PORT is still in use, forcing unbind..."
         fuser -k "$PORT"/tcp
         sleep 1
     fi
 
-    rm -f "$LISTENER_PID_FILE" "$FIFO_FILE"
+    # Check for lingering TIME_WAIT sockets
+    if ss -tan | grep -E ":$PORT .*TIME_WAIT"; then
+        echo "⚠️ Port $PORT stuck in TIME_WAIT state, forcing socket reuse..."
+        sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null
+        sysctl -w net.ipv4.tcp_fin_timeout=5 >/dev/null
+        sleep 1
+    fi
+
+    # Final check
+    if ss -tln | grep -q ":$PORT "; then
+        echo "❌ Port $PORT is still occupied! Manual intervention required."
+        exit 1
+    fi
+
     echo "✅ Hotrod stopped."
 }
 
