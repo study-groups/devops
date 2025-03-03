@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# Hotrod Configuration
-HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
-REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
-REMOTE_USER="${TETRA_REMOTE_USER:-root}"
-PORT=9999  # Clipboard Listener
-FIFO_FILE="$HOTROD_DIR/hotrod.fifo"  # Named pipe for remote input
+# 🔧 Configuration: Set defaults using TETRA_ environment variables
+TETRA_HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"
+TETRA_REMOTE="${TETRA_REMOTE:-localhost}"
+TETRA_REMOTE_USER="${TETRA_REMOTE_USER:-root}"
+TETRA_PORT="${TETRA_PORT:-9999}"  # Clipboard Listener Port
+
+# 🌐 Non-TETRA Vars (Used Inside Script)
+HOTROD_DIR="$TETRA_HOTROD_DIR"
+REMOTE_SERVER="$TETRA_REMOTE"
+REMOTE_USER="$TETRA_REMOTE_USER"
+PORT="$TETRA_PORT"
+FIFO_FILE="$HOTROD_DIR/hotrod.fifo"
 LISTENER_PID_FILE="$HOTROD_DIR/listener.pid"
 
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
@@ -22,11 +28,11 @@ usage() {
         echo "    echo 'Hello' | hotrod"
     else
         echo "Home Base (Server):"
-        echo "  --run             Start clipboard listener"
+        echo "  --run             Start SSH tunnel & clipboard listener"
         echo "  --status          Show Hotrod status"
-        echo "  --check           Perform a system check for SSH & dependencies"
-        echo "  --stop            Stop all Hotrod processes"
-        echo "  --kill            Kill all processes using port $PORT"
+        echo "  --check           Check SSH & dependencies"
+        echo "  --stop            Stop Hotrod"
+        echo "  --kill            Force-stop all processes using port $PORT"
     fi
     echo ""
     exit 0
@@ -34,19 +40,17 @@ usage() {
 
 hotrod_kill() {
     echo "🔍 Stopping Hotrod processes..."
-
-    local pids
-    pids=$(lsof -ti tcp:$PORT)
-
+    local pids=$(lsof -ti tcp:$PORT)
+    
     if [[ -n "$pids" ]]; then
         echo "🔪 Killing processes on port $PORT: $pids"
         kill -9 $pids
         sleep 1
     fi
 
-    # Release lingering ports
+    # Ensure port is free
     if ss -tln | grep -q ":$PORT "; then
-        echo "⚠️ Port $PORT still in use, forcing unbind..."
+        echo "⚠️ Port $PORT is still in use, forcing unbind..."
         fuser -k "$PORT"/tcp
         sleep 1
     fi
@@ -66,21 +70,38 @@ hotrod_check_ports() {
 
 start_clipboard_listener() {
     is_remote && { echo "Cannot start listener from remote."; exit 1; }
-    echo "📋 Starting Clipboard Listener on port $PORT..."
+    echo "📋 Starting Clipboard Listener on localhost:$PORT..."
 
     hotrod_kill  # Ensure the port is clean
 
-    # Ensure FIFO exists
     [[ -p "$FIFO_FILE" ]] || mkfifo "$FIFO_FILE"
 
-    # Start TCP listener -> FIFO
-    socat -u TCP-LISTEN:$PORT,reuseaddr,fork OPEN:$FIFO_FILE &
-    echo $! > "$LISTENER_PID_FILE"
+    # Start TCP listener on localhost only
+    socat -u TCP-LISTEN:$PORT,reuseaddr,fork STDOUT &
 
-    # Read from FIFO and print to stdout for debugging
-    ( while true; do cat "$FIFO_FILE"; done ) &
+    echo "✅ Clipboard listener started on localhost:$PORT"
+}
 
-    echo "✅ Clipboard listener started. FIFO available at $FIFO_FILE"
+start_ssh_tunnel() {
+    is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
+    echo "🔗 Setting up SSH Tunnel: Remote (localhost:$PORT) → HomeBase (localhost:$PORT)..."
+
+    # Check if SSH tunnel is already active
+    if ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tln | grep -q ':$PORT '" &>/dev/null; then
+        echo "✅ SSH Tunnel already active."
+        return
+    fi
+
+    # Start SSH reverse tunnel
+    ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+
+    sleep 1
+    if ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tln | grep -q ':$PORT '" &>/dev/null; then
+        echo "✅ SSH Tunnel established on $REMOTE_SERVER."
+    else
+        echo "❌ SSH Tunnel setup failed."
+        exit 1
+    fi
 }
 
 hotrod_run() {
@@ -88,11 +109,12 @@ hotrod_run() {
     echo "   User   : $(whoami)"
     echo "   Host   : $(hostname)"
     echo "   Remote : $REMOTE_USER@$REMOTE_SERVER"
-    echo "   Clipboard Port   : $PORT"
+    echo "   Port   : $PORT"
 
     hotrod_check_ports
     hotrod_kill
     start_clipboard_listener
+    start_ssh_tunnel
 }
 
 hotrod_status() {
@@ -102,39 +124,32 @@ hotrod_status() {
     echo -n "Listener        : "
     [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
 
-    # Check if FIFO exists
-    [[ -p "$FIFO_FILE" ]] && echo "FIFO            : Exists ($FIFO_FILE)" || echo "FIFO            : ❌ Missing"
-
     # Check active connections
-    active_clients=$(ss -tn sport = :$PORT | tail -n +2 | wc -l)
+    active_clients=$(ssh -q "$REMOTE_USER@$REMOTE_SERVER" "ss -tn sport = :$PORT | tail -n +2 | wc -l")
     echo "Active Clients  : $active_clients"
 
-    # Display last received data
-    [[ -s "$FIFO_FILE" ]] && echo "Last Received   : $(tail -n 1 "$FIFO_FILE")" || echo "Last Received   : (No recent data)"
+    [[ -p "$FIFO_FILE" ]] && echo "FIFO            : Exists ($FIFO_FILE)" || echo "FIFO            : ❌ Missing"
 }
 
 # **Remote Mode Handling**
 if is_remote; then
-    echo "🔗 Sending data to Mothership via FIFO..."
+    if [[ -t 0 && $# -eq 0 ]]; then
+        echo "🚗💨 Hotrod Remote Mode"
+        echo "Clipboard Port: $PORT"
+        echo "Pipe data to send to Mothership."
+        exit 0
+    fi
+
+    echo "🔗 Sending data to Mothership via SSH tunnel (localhost:$PORT)..."
 
     if ! ss -tln | grep -q ":$PORT "; then
-        echo "❌ Error: Connection to Mothership failed. Check SSH."
+        echo "❌ Error: SSH tunnel is not active. Ensure Hotrod is running on home base."
         exit 1
     fi
 
-    if [[ -t 0 ]]; then
-        echo "hotrod_ping" | socat - TCP:localhost:"$PORT"
-        response=$(socat - TCP:localhost:"$PORT")
-        if [[ -n "$response" ]]; then
-            echo "✅ Mothership Response: $response"
-        else
-            echo "⚠️ No response from Mothership."
-        fi
-        exit 0
-    else
-        cat | socat - TCP:localhost:"$PORT" && echo "✅ Clipboard data sent successfully."
-        exit 0
-    fi
+    # Send data through SSH tunnel
+    socat - TCP:localhost:$PORT && echo "✅ Clipboard data sent successfully."
+    exit 0
 fi
 
 [[ $# -eq 0 ]] && usage
