@@ -32,25 +32,60 @@ usage() {
 
 hotrod_kill() {
     echo "🔍 Stopping Hotrod processes..."
+
+    # Kill socat listener
     pkill -9 socat 2>/dev/null
+
+    # Kill stored listener PID
     [[ -f "$LISTENER_PID_FILE" ]] && kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null
     rm -f "$LISTENER_PID_FILE"
+
+    # Kill SSH tunnel
+    ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}' | xargs kill -9 2>/dev/null
+
+    # Ensure port is fully freed
+    fuser -k $PORT/tcp 2>/dev/null
+
     echo "✅ Hotrod stopped."
 }
 
 start_ssh_tunnel() {
     is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
-    echo "🔗 Starting SSH Tunnel: Remote (localhost:$PORT) → HomeBase (localhost:$PORT)..."
+    echo "🔗 Ensuring SSH Tunnel: Remote (localhost:$PORT) → HomeBase (localhost:$PORT)..."
 
-    ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+    # Find existing tunnels and terminate them
+    existing_tunnels=$(ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}')
+    if [[ -n "$existing_tunnels" ]]; then
+        echo "🔍 Found existing tunnels. Stopping..."
+        echo "$existing_tunnels" | xargs kill -9 2>/dev/null
+        sleep 1
+    fi
 
-    sleep 1
+    # Start fresh SSH tunnel
+    nohup ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+
+    sleep 2
     if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
         echo "✅ SSH Tunnel established."
     else
-        echo "❌ SSH Tunnel failed."
+        echo "❌ SSH Tunnel failed to start. Port $PORT might be blocked or already in use."
         exit 1
     fi
+}
+
+handle_clipboard() {
+    while IFS= read -r line; do
+        echo "$line"  # Keep stdout open for debugging/pipelining
+
+        # Ensure clipboard can be set inside GUI session
+        DISPLAY=:0; export DISPLAY
+
+        if command -v xclip &>/dev/null; then
+            echo "$line" | xclip -selection clipboard
+        else
+            echo "❌ xclip not found! Clipboard update failed." >> "$LOG_FILE"
+        fi
+    done
 }
 
 start_clipboard_listener() {
@@ -59,14 +94,7 @@ start_clipboard_listener() {
 
     hotrod_kill  # Ensure the port is clean
 
-    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$LOG_FILE" | {
-        # Copy to clipboard if supported
-        if command -v xclip &>/dev/null; then
-            xclip -selection clipboard
-        elif command -v pbcopy &>/dev/null; then
-            pbcopy
-        fi
-    } &
+    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$LOG_FILE" | handle_clipboard &
 
     echo $! > "$LISTENER_PID_FILE"
     echo "✅ Clipboard listener started on localhost:$PORT"
@@ -101,14 +129,19 @@ hotrod_status() {
         echo "❌ Port NOT open!"
     fi
 
-    # Show active SSH connections
-    echo -n "Active Clients  : "
-    active_clients=$(ss -tan | grep -c ":$PORT ")
-    echo "$active_clients"
+    # Count only **long-lived SSH sessions**, ignore clipboard sends
+    active_clients=$(ss -tan | grep ":$PORT " | grep ESTABLISHED | grep -v "127.0.0.1" | awk '{print $5}' | cut -d: -f1 | sort | uniq -c)
+    if [[ -z "$active_clients" ]]; then
+        echo "Active Clients  : 0"
+    else
+        echo "Active Clients  : $(echo "$active_clients" | wc -l)"
+        echo "Connected Hosts :"
+        echo "$active_clients"
+    fi
 
-    # Show last few clipboard entries, filtering out non-data lines
+    # Show last few clipboard entries
     echo "Last Clipboard Entries:"
-    tail -n 3 "$LOG_FILE" | sed 's/^/   Clipboard: /' | grep -vE '^\s*$'
+    tail -n 3 "$LOG_FILE" | sed 's/^/  📋 Clipboard: /' | grep -vE '^\s*$'
 }
 
 # **Remote Mode Handling**
@@ -143,4 +176,3 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
