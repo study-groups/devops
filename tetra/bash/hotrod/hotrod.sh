@@ -99,6 +99,7 @@ start_ssh_tunnel() {
     fi
 }
 
+
 start_clipboard_listener() {
     is_remote && { echo "Cannot start listener from remote."; exit 1; }
     echo "📋 Starting Clipboard Listener on port $PORT..."
@@ -129,9 +130,13 @@ start_clipboard_listener() {
     echo "✅ Port $PORT is free. Starting clipboard listener..."
     
     # Use socat instead of nc
-    socat -u TCP-LISTEN:$PORT,fork EXEC:"xclip -selection clipboard" &
+    socat -u TCP-LISTEN:$PORT,fork EXEC:"tee -a $HOTROD_DIR/hotrod.log | xclip -selection clipboard" &
     echo $! > "$LISTENER_PID_FILE"
+
+    # Separate process for responding to `hotrod_ping`
+    socat -u TCP-LISTEN:$PORT,reuseaddr,fork SYSTEM:"echo 'Mothership Online - $(hostname) (Port: $PORT)' | socat - TCP:localhost:$TUNNEL_PORT" &
 }
+
   
 hotrod_run() {
     echo "🚗💨 Starting Hotrod..."
@@ -158,22 +163,29 @@ hotrod_status() {
     echo -n "Listener: "
     [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
 }
-
-# **Remote Mode Handling**
 if is_remote; then
+    echo "🔗 Contacting Mothership on Tunnel Port $TUNNEL_PORT..."
+
+    # Ensure the tunnel is actually open before sending
+    if ! nc -z localhost "$TUNNEL_PORT" 2>/dev/null; then
+        echo "❌ Error: SSH tunnel to Mothership is not active. Check SSH connection."
+        exit 1
+    fi
+
     if [[ -t 0 ]]; then
-        echo "🔗 Contacting Mothership on Tunnel Port $TUNNEL_PORT..."
+        # Send ping and wait for response
         echo "hotrod_ping" | nc -q 1 localhost "$TUNNEL_PORT"
-        sleep 1
         response=$(nc -w 2 localhost "$TUNNEL_PORT")
+        
         if [[ -n "$response" ]]; then
-            echo "$response"
+            echo "✅ Mothership Response: $response"
         else
-            echo "⚠️ No response from Mothership."
+            echo "⚠️ No response from Mothership. Listener may not be running."
         fi
         exit 0
     else
-        cat | nc -q 1 localhost "$TUNNEL_PORT"
+        # Send clipboard data
+        cat | nc -q 1 localhost "$TUNNEL_PORT" && echo "✅ Clipboard data sent successfully."
         exit 0
     fi
 fi
@@ -194,3 +206,4 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
