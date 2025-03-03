@@ -6,6 +6,7 @@ REMOTE_SERVER="${TETRA_REMOTE:-localhost}"
 REMOTE_USER="${TETRA_REMOTE_USER:-root}"
 PORT=9999  # Clipboard Listener
 TUNNEL_PORT=10000  # SSH Tunnel forwarding to 9999
+LISTENER_PID_FILE="$HOTROD_DIR/listener.pid"
 
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
 
@@ -34,6 +35,7 @@ usage() {
 hotrod_kill() {
     echo "Checking for existing processes on ports $PORT, $TUNNEL_PORT..."
 
+    # Find PIDs of all relevant processes
     local pids
     pids=$(lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT)
 
@@ -47,6 +49,7 @@ hotrod_kill() {
             pids=$(lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT)
             if [[ -z "$pids" ]]; then
                 echo "✅ All processes stopped."
+                rm -f "$LISTENER_PID_FILE"
                 return
             fi
             echo "⚠️ Processes still running (attempt $attempt), retrying..."
@@ -102,7 +105,14 @@ start_clipboard_listener() {
 
     hotrod_kill  # Ensure the port is clean
 
-    # Wait until port 9999 is fully freed before continuing
+    # Ensure no previous listener process exists
+    if [[ -f "$LISTENER_PID_FILE" ]]; then
+        echo "⚠️ Found existing listener process, stopping it..."
+        kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null
+        rm -f "$LISTENER_PID_FILE"
+    fi
+
+    # Wait until port is fully free
     for attempt in {1..5}; do
         if ! lsof -ti tcp:$PORT >/dev/null; then
             break
@@ -117,15 +127,12 @@ start_clipboard_listener() {
     fi
 
     echo "✅ Port $PORT is free. Starting clipboard listener..."
-    nc -lk localhost "$PORT" | while read -r line; do
-        if [[ "$line" == "hotrod_ping" ]]; then
-            echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
-        else
-            echo "$line" | tee -a "$HOTROD_DIR/hotrod.log" | xclip -selection clipboard
-        fi
-    done &
+    
+    # Use socat instead of nc
+    socat -u TCP-LISTEN:$PORT,fork EXEC:"xclip -selection clipboard" &
+    echo $! > "$LISTENER_PID_FILE"
 }
-
+  
 hotrod_run() {
     echo "🚗💨 Starting Hotrod..."
     echo "   User   : $(whoami)"
@@ -149,7 +156,7 @@ hotrod_status() {
     echo -n "Tunnel: "
     nc -z localhost $TUNNEL_PORT &>/dev/null && echo "Active" || echo "Not Running"
     echo -n "Listener: "
-    pgrep -f "nc -lk localhost $PORT" &>/dev/null && echo "Running" || echo "Not Running"
+    [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
 }
 
 # **Remote Mode Handling**
