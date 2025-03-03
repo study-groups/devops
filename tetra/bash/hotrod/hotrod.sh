@@ -106,15 +106,24 @@ start_clipboard_listener() {
 
 start_ssh_tunnel() {
     is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
-    echo "🔗 Ensuring SSH Tunnel is active (Remote:localhost:$PORT → HomeBase:localhost:$PORT)..."
+    echo "🔗 Starting SSH Tunnel: Remote (localhost:$PORT) → HomeBase (localhost:$PORT)..."
 
-    while true; do
-        if ! ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
-            echo "⚠️ SSH tunnel dropped! Restarting..."
-            ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
-        fi
-        sleep 10
-    done &
+    # Check if SSH tunnel is already active
+    if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+        echo "✅ SSH Tunnel already active."
+        return
+    fi
+
+    # Start SSH reverse tunnel
+    ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+
+    sleep 1
+    if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" &>/dev/null; then
+        echo "✅ SSH Tunnel established."
+    else
+        echo "❌ SSH Tunnel failed to start."
+        exit 1
+    fi
 }
 
 hotrod_run() {
