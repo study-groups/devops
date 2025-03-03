@@ -14,7 +14,6 @@ is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
 # Parse command-line arguments correctly
 if [[ $# -gt 0 ]]; then
     if [[ "$1" =~ ^[0-9]+$ ]]; then
-        PORT="$1"
         shift  # Remove port argument and shift to the next
     fi
 fi
@@ -98,14 +97,17 @@ start_clipboard_listener() {
     done
 
     echo "✅ Clipboard Listener running on port $PORT."
-    
-    # Listen and handle special commands
-    nc -lk localhost "$PORT" | while read -r line; do
-        if [[ "$line" == "hotrod_ping" ]]; then
-            echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
-        else
-            echo "$line" | tee -a "$HOTROD_DIR/hotrod.log" | xclip -selection clipboard
-        fi
+
+    # Listen and respond to special commands
+    while true; do
+        echo "Listening for remote messages..."
+        nc -lk localhost "$PORT" | while read -r line; do
+            if [[ "$line" == "hotrod_ping" ]]; then
+                echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
+            else
+                echo "$line" | tee -a "$HOTROD_DIR/hotrod.log" | xclip -selection clipboard
+            fi
+        done
     done &
 }
 
@@ -144,7 +146,6 @@ if is_remote; then
         exit 0
     fi
 fi
-
 
 [[ $# -eq 0 ]] && usage
 
