@@ -97,15 +97,16 @@ start_clipboard_listener() {
         sleep 1
     done
 
-    nc -lk localhost "$PORT" | xclip -selection clipboard &
-    sleep 1
-
-    if pgrep -f "nc -lk localhost $PORT" >/dev/null; then
-        echo "✅ Clipboard Listener running on port $PORT."
-    else
-        echo "❌ Failed to start Clipboard Listener."
-        exit 1
-    fi
+    echo "✅ Clipboard Listener running on port $PORT."
+    
+    # Listen and handle special commands
+    nc -lk localhost "$PORT" | while read -r line; do
+        if [[ "$line" == "hotrod_ping" ]]; then
+            echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
+        else
+            echo "$line" | tee -a "$HOTROD_DIR/hotrod.log" | xclip -selection clipboard
+        fi
+    done &
 }
 
 hotrod_run() {
@@ -133,16 +134,17 @@ hotrod_status() {
     pgrep -f "nc -lk localhost $PORT" &>/dev/null && echo "Running" || echo "Not Running"
 }
 
-# **Remote Mode Handling**
 if is_remote; then
     if [[ -t 0 ]]; then
-        echo "🔗 Remote Hotrod Active on Port $PORT"
+        echo "🔗 Contacting Mothership on Port $PORT..."
+        echo "hotrod_ping" | nc -q 1 localhost "$PORT"
         exit 0
     else
         cat | nc -q 1 localhost "$PORT"
         exit 0
     fi
 fi
+
 
 [[ $# -eq 0 ]] && usage
 
