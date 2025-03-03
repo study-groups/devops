@@ -17,15 +17,15 @@ usage() {
     echo ""
     if is_remote; then
         echo "Remote Mode (Client):"
-        echo "  Pipe data into Hotrod (via SSH Tunnel on port $TUNNEL_PORT):"
+        echo "  Pipe data into Hotrod via SSH Tunnel (Port $TUNNEL_PORT):"
         echo "    echo 'Hello' | hotrod"
     else
         echo "Home Base (Server):"
         echo "  --run             Start SSH tunnel & clipboard listener"
         echo "  --status          Show Hotrod status"
         echo "  --check           Perform a system check for SSH & dependencies"
-        echo "  --stop            Stop all Hotrod processes (SSH tunnel & clipboard)"
-        echo "  --kill            Kill processes on ports $PORT, $TUNNEL_PORT"
+        echo "  --stop            Stop all Hotrod processes"
+        echo "  --kill            Kill all processes using ports $PORT and $TUNNEL_PORT"
     fi
     echo ""
     exit 0
@@ -33,7 +33,7 @@ usage() {
 
 hotrod_kill() {
     echo "Checking for existing processes on ports $PORT, $TUNNEL_PORT..."
-    
+
     local pids
     pids=$(lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT)
 
@@ -42,15 +42,24 @@ hotrod_kill() {
         kill -9 $pids
         sleep 1
 
-        # Ensure all processes are gone
-        while lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT >/dev/null; do
-            echo "⚠️ Some processes are still running, forcing cleanup..."
+        # Ensure processes are gone before proceeding
+        for attempt in {1..5}; do
             pids=$(lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT)
-            [[ -n "$pids" ]] && kill -9 $pids
+            if [[ -z "$pids" ]]; then
+                echo "✅ All processes stopped."
+                return
+            fi
+            echo "⚠️ Processes still running (attempt $attempt), retrying..."
+            kill -9 $pids
             sleep 1
         done
 
-        echo "✅ All processes stopped."
+        # Final check
+        pids=$(lsof -ti tcp:$PORT -ti tcp:$TUNNEL_PORT)
+        if [[ -n "$pids" ]]; then
+            echo "❌ Failed to fully stop processes. Manual intervention may be required."
+            exit 1
+        fi
     else
         echo "No existing processes found."
     fi
@@ -93,13 +102,21 @@ start_clipboard_listener() {
 
     hotrod_kill  # Ensure the port is clean
 
-    while lsof -ti tcp:$PORT >/dev/null; do
-        echo "⚠️ Waiting for port $PORT to be fully released..."
+    # Wait until port 9999 is fully freed before continuing
+    for attempt in {1..5}; do
+        if ! lsof -ti tcp:$PORT >/dev/null; then
+            break
+        fi
+        echo "⚠️ Waiting for port $PORT to be fully released... (attempt $attempt)"
         sleep 1
     done
 
-    echo "✅ Port $PORT is free. Starting clipboard listener..."
+    if lsof -ti tcp:$PORT >/dev/null; then
+        echo "❌ Port $PORT is still in use! Aborting listener start."
+        exit 1
+    fi
 
+    echo "✅ Port $PORT is free. Starting clipboard listener..."
     nc -lk localhost "$PORT" | while read -r line; do
         if [[ "$line" == "hotrod_ping" ]]; then
             echo "Mothership Online - $(hostname) (Port: $PORT)" | nc -q 1 localhost "$TUNNEL_PORT"
