@@ -76,11 +76,12 @@ start_clipboard_listener() {
 
     [[ -p "$FIFO_FILE" ]] || mkfifo "$FIFO_FILE"
 
-    # Start TCP listener on localhost only
-    socat -u TCP-LISTEN:$PORT,reuseaddr,fork STDOUT &
+    # Start the TCP listener on localhost only, discard terminal settings restoration
+    socat -u TCP-LISTEN:$PORT,reuseaddr,fork SYSTEM:"cat" > /dev/null 2>&1 &
 
     echo "✅ Clipboard listener started on localhost:$PORT"
 }
+
 
 start_ssh_tunnel() {
     is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
