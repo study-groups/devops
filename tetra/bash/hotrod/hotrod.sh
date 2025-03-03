@@ -9,7 +9,7 @@ PORT=9999
 # Function: Show usage help
 usage() {
     echo ""
-    echo "🔥 Hotrod: Seamless Remote-to-Local Clipboard Streaming"
+    echo "🚗💨 Hotrod: Remote-to-Local Clipboard Streaming"
     echo ""
     echo "Usage: hotrod.sh [command]"
     echo ""
@@ -24,6 +24,13 @@ usage() {
     echo "  more * | hotrod"
     echo ""
     exit 0
+}
+
+# Function: Kill existing processes
+cleanup_processes() {
+    echo "🛑 Stopping any existing Hotrod processes..."
+    pkill -f "ssh -N -L $PORT:localhost:$PORT" 2>/dev/null && echo "✅ SSH Tunnel stopped."
+    pkill -f "nc -lk $PORT" 2>/dev/null && echo "✅ Clipboard listener stopped."
 }
 
 # Function: Check if SSH tunnel is running
@@ -69,7 +76,8 @@ start_clipboard_listener() {
 
 # Function: Start both SSH tunnel and clipboard listener
 hotrod_run() {
-    echo "🚀 Starting Hotrod (SSH Tunnel + Clipboard Listener)..."
+    echo "🚗💨 Starting Hotrod (SSH Tunnel + Clipboard Listener)..."
+    cleanup_processes
     start_ssh_tunnel
     start_clipboard_listener
 }
@@ -130,6 +138,16 @@ hotrod_status() {
     else
         echo "❌ Clipboard Listener Not Running"
     fi
+
+    # Test remote → local connection
+    echo -n "🔍 Testing remote → local pipe... "
+    echo "hotrod_test" | nc -w 1 localhost $PORT
+    if [[ $? -eq 0 ]]; then
+        echo "✅ Connection working!"
+    else
+        echo "❌ No response from tunnel! Run 'hotrod.sh --run' again."
+    fi
+
     echo "-----------------"
     echo "Run 'hotrod.sh --run' to start all processes"
     echo "Run 'hotrod.sh --stop' to kill all Hotrod-related jobs"
@@ -138,8 +156,7 @@ hotrod_status() {
 # Function: Stop all Hotrod processes
 hotrod_stop() {
     echo "🛑 Stopping all Hotrod processes..."
-    pkill -f "ssh -N -L $PORT:localhost:$PORT"
-    pkill -f "nc -lk $PORT"
+    cleanup_processes
     echo "✅ All Hotrod processes stopped."
 }
 
