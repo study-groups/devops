@@ -4,6 +4,7 @@ import { updateAuthDisplay } from './uiManager.js';
 import { initializeFileManager } from './fileManager.js';
 import { clearFileSystemState } from './fileSystemState.js';
 import { initializeTopNav } from './uiManager.js';
+import { initAuth } from './auth.js';
 
 // This function will be called on page load to restore login state
 export async function restoreLoginState() {
@@ -19,23 +20,30 @@ export async function restoreLoginState() {
             if (document.readyState === 'complete' || document.readyState === 'interactive') {
                 updateAuthDisplay();
             }
+            logMessage('[AUTH] Login state restored: logged out');
             return false;
         }
         
-        // Log the stored auth data for debugging (be careful with sensitive data)
-        const parsedAuth = JSON.parse(storedAuth);
-        logMessage(`[AUTH] Parsed auth data: username=${parsedAuth.username}, isLoggedIn=${parsedAuth.isLoggedIn}`);
+        // Parse the stored auth data
+        let parsedAuth;
+        try {
+            parsedAuth = JSON.parse(storedAuth);
+            logMessage(`[AUTH] Parsed auth data: username=${parsedAuth.username}, isLoggedIn=${parsedAuth.isLoggedIn}`);
+        } catch (e) {
+            logMessage('[AUTH ERROR] Failed to parse stored auth data');
+            localStorage.removeItem('authState');
+            updateAuthDisplay();
+            return false;
+        }
         
+        // Check if the session has expired
         const remainingTime = parsedAuth.expiresAt - Date.now();
         logMessage(`[AUTH] Session remaining time: ${Math.round(remainingTime/60000)} minutes`);
         
         if (remainingTime <= 0) {
             logMessage('[AUTH] Stored session has expired');
             localStorage.removeItem('authState');
-            // Only update display if DOM is ready
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                updateAuthDisplay();
-            }
+            updateAuthDisplay();
             return false;
         }
         
@@ -57,7 +65,12 @@ export async function restoreLoginState() {
         }
         
         // Initialize file manager and dispatch login event *after* successful restore
-        await initializeFileManager();
+        try {
+            await initializeFileManager();
+            logMessage('[AUTH] File manager initialized after login restore');
+        } catch (e) {
+            logMessage(`[AUTH ERROR] Failed to initialize file manager: ${e.message}`);
+        }
         
         document.dispatchEvent(new CustomEvent('auth:login', {
             detail: {
@@ -67,6 +80,7 @@ export async function restoreLoginState() {
             }
         }));
         
+        logMessage('[AUTH] Login state restored: logged in');
         return true;
     } catch (error) {
         logMessage(`[AUTH ERROR] Failed to restore login state: ${error.message}`);
@@ -79,15 +93,31 @@ export async function restoreLoginState() {
     }
 }
 
-// Call this function on page load (SIMPLIFIED - No dynamic imports)
+// Call this function on page load
 document.addEventListener('DOMContentLoaded', () => {
+    logMessage('[AUTH] Restoring login state on DOMContentLoaded');
+    
     // First restore login state, then initialize UI
     restoreLoginState().then((isLoggedIn) => {
         logMessage(`[AUTH] Login state restored, initializing top nav. isLoggedIn=${isLoggedIn}`);
-        // Direct function call - no dynamic imports
+        
+        // Initialize auth system
+        initAuth();
+        
+        // Initialize top navigation
         initializeTopNav();
     });
 });
+
+// Debug function to verify module is loaded
+export function authManagerLoaded() {
+    console.log("authManager.js loaded successfully");
+    logMessage('[AUTH] authManager.js loaded successfully');
+}
+
+// Expose for debugging
+window.authManagerLoaded = authManagerLoaded;
+window.restoreLoginState = restoreLoginState;
 
 // Add this to the logout function
 export function logout() {
@@ -113,9 +143,4 @@ export function logout() {
     document.dispatchEvent(new CustomEvent('auth:logout'));
     
     logMessage('[AUTH] User logged out');
-}
-
-// Debug function to verify module is loaded
-export function authManagerLoaded() {
-    console.log("authManager.js loaded successfully");
 } 
