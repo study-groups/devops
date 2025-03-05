@@ -89,8 +89,42 @@ export function updatePreview(content) {
             // Initialize mermaid diagrams if present
             if (content.includes('```mermaid') || content.includes('graph ') || content.includes('sequenceDiagram')) {
                 try {
-                    mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
-                    logMessage('[PREVIEW] Mermaid diagrams initialized');
+                    // First ensure the elements are properly created
+                    const preview = document.getElementById('md-preview');
+                    if (!preview) {
+                        logMessage('[PREVIEW ERROR] Preview element not found for mermaid initialization');
+                        return;
+                    }
+                    
+                    // Find all mermaid code blocks
+                    const mermaidBlocks = preview.querySelectorAll('pre code.language-mermaid');
+                    
+                    if (mermaidBlocks.length > 0) {
+                        logMessage(`[PREVIEW] Found ${mermaidBlocks.length} mermaid blocks to process`);
+                        
+                        // Process each block to ensure proper DOM structure
+                        mermaidBlocks.forEach((block, index) => {
+                            const containerId = `mermaid-diagram-${index}`;
+                            const container = document.createElement('div');
+                            container.className = 'mermaid';
+                            container.id = containerId;
+                            container.textContent = block.textContent;
+                            
+                            // Replace the code block with the container
+                            const preElement = block.closest('pre');
+                            if (preElement && preElement.parentNode) {
+                                preElement.parentNode.replaceChild(container, preElement);
+                            }
+                        });
+                        
+                        // Now initialize mermaid with a slight delay
+                        setTimeout(() => {
+                            mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                            logMessage('[PREVIEW] Mermaid diagrams initialized');
+                        }, 50);
+                    } else {
+                        logMessage('[PREVIEW] No mermaid code blocks found');
+                    }
                 } catch (mermaidError) {
                     logMessage(`[PREVIEW ERROR] Mermaid initialization failed: ${mermaidError.message}`);
                 }
