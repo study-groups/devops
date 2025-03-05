@@ -11,24 +11,32 @@ router.get('/dirs', async (req, res) => {
         const baseDir = process.env.MD_DIR || '.';
         await ensureDirectory(baseDir);
 
-        const dirs = [{ 
-            id: '.',
-            name: '📚 Community Files',
-            description: 'Shared markdown files'
-        }];
-
         const items = await fs.readdir(baseDir, { withFileTypes: true });
-        const userDirs = await Promise.all(
+        
+        // Process all directories from the file system
+        const allDirs = await Promise.all(
             items
                 .filter(item => item.isDirectory())
-                .map(async item => ({
-                    id: item.name,
-                    name: `👤 ${item.name}`,
-                    description: `Personal files for ${item.name}`
-                }))
+                .map(async item => {
+                    // Special handling for Community_Files (with underscore)
+                    if (item.name === 'Community_Files') {
+                        return {
+                            id: 'Community_Files',
+                            name: '📚 Community Files',
+                            description: 'Shared markdown files'
+                        };
+                    } else {
+                        return {
+                            id: item.name,
+                            name: `👤 ${item.name}`,
+                            description: `Personal files for ${item.name}`
+                        };
+                    }
+                })
         );
 
-        res.json([...dirs, ...userDirs]);
+        console.log(`[FILES] Found ${allDirs.length} directories in ${baseDir}`);
+        res.json(allDirs);
     } catch (error) {
         console.error('[FILES ERROR]', error);
         res.status(500).json({ error: error.message });
@@ -40,7 +48,8 @@ router.get('/list', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
-        const selectedDir = req.query.dir || username || '.';
+        // Default to user's directory, not '.'
+        const selectedDir = req.query.dir || username;
         const targetDir = getTargetDirectory(baseDir, selectedDir, username);
 
         // Special handling for images directory
@@ -134,7 +143,8 @@ router.get('/config', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
-        const selectedDir = req.query.dir || username || '.';
+        // Default to user's directory, not '.'
+        const selectedDir = req.query.dir || username;
         const targetDir = getTargetDirectory(baseDir, selectedDir, username);
 
         // Get directory configuration
@@ -146,9 +156,121 @@ router.get('/config', async (req, res) => {
     }
 });
 
+// Manage symlink in Community_Files
+router.post('/community-link', async (req, res) => {
+    try {
+        console.log('[COMMUNITY] Request received:', req.body);
+        console.log('[COMMUNITY] Request headers:', req.headers);
+        console.log('[COMMUNITY] Authentication:', req.auth);
+        console.log('[COMMUNITY] User session:', req.session);
+        
+        const { filename, directory, action } = req.body;
+        
+        if (!filename || !directory) {
+            console.error('[COMMUNITY ERROR] Missing filename or directory in request');
+            return res.status(400).json({ error: 'Filename and directory required' });
+        }
+
+        // Check authentication
+        if (!req.auth || !req.auth.name) {
+            console.error('[COMMUNITY ERROR] User not authenticated');
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const baseDir = process.env.MD_DIR || '.';
+        const username = req.auth?.name;
+        console.log(`[COMMUNITY] User: ${username}, Action: ${action}, File: ${filename}, Dir: ${directory}`);
+        
+        const sourceDir = getTargetDirectory(baseDir, directory, username);
+        const sourcePath = path.join(sourceDir, filename);
+        
+        // Community_Files directory path
+        const communityDir = path.join(baseDir, 'Community_Files');
+        const targetPath = path.join(communityDir, filename);
+        
+        console.log(`[COMMUNITY] Source path: ${sourcePath}`);
+        console.log(`[COMMUNITY] Target path: ${targetPath}`);
+
+        // Ensure the Community_Files directory exists
+        try {
+            await ensureDirectory(communityDir);
+        } catch (error) {
+            console.error(`[COMMUNITY ERROR] Failed to create Community_Files directory: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to create Community_Files directory' });
+        }
+
+        // Check if file exists in source location
+        try {
+            await fs.access(sourcePath);
+        } catch (error) {
+            console.error(`[COMMUNITY ERROR] Source file not found: ${sourcePath}`);
+            return res.status(404).json({ error: 'Source file not found' });
+        }
+
+        if (action === 'create') {
+            // Create the symlink
+            try {
+                await fs.symlink(sourcePath, targetPath);
+                console.log(`[COMMUNITY] Created symlink: ${targetPath} -> ${sourcePath}`);
+                return res.json({ success: true, linked: true });
+            } catch (error) {
+                // If file already exists, handle gracefully
+                if (error.code === 'EEXIST') {
+                    console.log(`[COMMUNITY] Link already exists: ${targetPath}`);
+                    return res.json({ success: true, linked: true, message: 'Link already exists' });
+                }
+                throw error;
+            }
+        } else if (action === 'remove') {
+            // Remove the symlink
+            try {
+                const stats = await fs.lstat(targetPath);
+                if (stats.isSymbolicLink()) {
+                    await fs.unlink(targetPath);
+                    console.log(`[COMMUNITY] Removed symlink: ${targetPath}`);
+                }
+                return res.json({ success: true, linked: false });
+            } catch (error) {
+                // If file doesn't exist, handle gracefully
+                if (error.code === 'ENOENT') {
+                    console.log(`[COMMUNITY] Link does not exist: ${targetPath}`);
+                    return res.json({ success: true, linked: false, message: 'Link does not exist' });
+                }
+                throw error;
+            }
+        } else if (action === 'check') {
+            // Check if symlink exists
+            try {
+                const stats = await fs.lstat(targetPath);
+                const isLinked = stats.isSymbolicLink();
+                console.log(`[COMMUNITY] Checked link status: ${targetPath}, linked: ${isLinked}`);
+                return res.json({ success: true, linked: isLinked });
+            } catch (error) {
+                // If file doesn't exist, it's not linked
+                if (error.code === 'ENOENT') {
+                    console.log(`[COMMUNITY] Link does not exist: ${targetPath}`);
+                    return res.json({ success: true, linked: false });
+                }
+                throw error;
+            }
+        } else {
+            console.error(`[COMMUNITY ERROR] Invalid action: ${action}`);
+            return res.status(400).json({ error: 'Invalid action specified' });
+        }
+    } catch (error) {
+        console.error('[COMMUNITY LINK ERROR]', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Helper functions
 function getTargetDirectory(baseDir, selectedDir, username) {
-    if (selectedDir === '.') return baseDir;
+    // No special handling for '.' anymore
+    // Just use the actual directory name
+    if (selectedDir === 'Community_Files') {
+        return path.join(baseDir, 'Community_Files');
+    }
+    
     return username === 'mike' ? 
         path.join(baseDir, selectedDir) : 
         path.join(baseDir, username);
@@ -168,4 +290,5 @@ function isImagesDirectory(dir) {
     return normalizedDir === 'images' || normalizedDir.endsWith('/images');
 }
 
+// Make sure we export the router properly
 module.exports = router; 

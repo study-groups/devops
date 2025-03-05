@@ -3,6 +3,7 @@ import { logMessage } from './log.js';
 import { updateAuthDisplay } from './uiManager.js';
 import { initializeFileManager } from './fileManager.js';
 import { clearFileSystemState } from './fileSystemState.js';
+import { initializeTopNav } from './uiManager.js';
 
 // This function will be called on page load to restore login state
 export async function restoreLoginState() {
@@ -78,14 +79,13 @@ export async function restoreLoginState() {
     }
 }
 
-// Call this function on page load
+// Call this function on page load (SIMPLIFIED - No dynamic imports)
 document.addEventListener('DOMContentLoaded', () => {
-    // First restore login state
-    restoreLoginState().then(() => {
-        // Then initialize UI *after* auth is restored
-        import('./uiManager.js').then(({ initializeTopNav }) => {
-            initializeTopNav();
-        });
+    // First restore login state, then initialize UI
+    restoreLoginState().then((isLoggedIn) => {
+        logMessage(`[AUTH] Login state restored, initializing top nav. isLoggedIn=${isLoggedIn}`);
+        // Direct function call - no dynamic imports
+        initializeTopNav();
     });
 });
 
@@ -113,4 +113,9 @@ export function logout() {
     document.dispatchEvent(new CustomEvent('auth:logout'));
     
     logMessage('[AUTH] User logged out');
+}
+
+// Debug function to verify module is loaded
+export function authManagerLoaded() {
+    console.log("authManager.js loaded successfully");
 } 

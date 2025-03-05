@@ -24,7 +24,11 @@ router.post('/', authMiddleware, async (req, res) => {
         
         // Determine target directory
         const baseDir = process.env.MD_DIR || '.';
-        const targetDir = path.join(baseDir, dir || username || '');
+        let targetDir;
+        
+        // No special handling for '.' anymore
+        // Just use the actual directory name
+        targetDir = path.join(baseDir, dir || username || '');
         
         // Ensure directory exists
         await fs.mkdir(targetDir, { recursive: true });

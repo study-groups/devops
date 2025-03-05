@@ -52,7 +52,12 @@ async function ensureDirectory(dir) {
 
 // Unified path resolution
 function getTargetDirectory(baseDir, selectedDir, username) {
-    if (selectedDir === '.') return baseDir;
+    // No special handling for '.' anymore
+    // Just use the actual directory name
+    if (selectedDir === 'Community_Files') {
+        return path.join(baseDir, 'Community_Files');
+    }
+    
     return username === 'mike' ? 
         path.join(baseDir, selectedDir) : 
         path.join(baseDir, username);
@@ -70,32 +75,39 @@ router.get('/dirs', async (req, res) => {
         const baseDir = process.env.MD_DIR || '.';
         await ensureDirectory(baseDir);
 
-        const dirs = [{ 
-            id: '.',
-            name: '📚 Community Files',
-            description: 'Shared markdown files'
-        }];
-
         const items = await fs.readdir(baseDir, { withFileTypes: true });
-        const userDirs = await Promise.all(
+        
+        // Process all directories from the file system
+        const allDirs = await Promise.all(
             items
                 .filter(item => item.isDirectory())
-                .map(async item => ({
-                    id: item.name,
-                    name: `📁 ${item.name}`,
-                    description: item.name === req.auth?.name ? 'Your Files' : `${item.name}'s Files`
-                }))
+                .map(async item => {
+                    // Special handling for Community_Files (with underscore)
+                    if (item.name === 'Community_Files') {
+                        return {
+                            id: 'Community_Files',
+                            name: '📚 Community Files',
+                            description: 'Shared markdown files'
+                        };
+                    } else {
+                        return {
+                            id: item.name,
+                            name: `📁 ${item.name}`,
+                            description: item.name === req.auth?.name ? 'Your Files' : `${item.name}'s Files`
+                        };
+                    }
+                })
         );
 
         // Sort directories with user's directory first
-        userDirs.sort((a, b) => {
+        allDirs.sort((a, b) => {
             if (a.id === req.auth?.name) return -1;
             if (b.id === req.auth?.name) return 1;
             return a.id.localeCompare(b.id);
         });
 
-        console.log(`[FILES] Found ${userDirs.length} user directories in ${baseDir}`);
-        res.json([...dirs, ...userDirs]);
+        console.log(`[FILES] Found ${allDirs.length} directories in ${baseDir}`);
+        res.json(allDirs);
     } catch (error) {
         console.error(`[FILES ERROR] ${error.message}`);
         res.status(500).json({ error: 'Failed to list directories' });
@@ -118,12 +130,19 @@ async function getFileList(baseDir, selectedDir, username) {
     await ensureDirectory(targetDir);
 
     const items = await fs.readdir(targetDir, { withFileTypes: true });
+    
+    // Include both regular files and symlinks that end with .md
     return items
-        .filter(item => item.isFile() && item.name.endsWith('.md'))
-        .map(item => ({
-            name: item.name,
-            path: path.join(targetDir, item.name)
-        }));
+        .filter(item => (item.isFile() || item.isSymbolicLink()) && item.name.endsWith('.md'))
+        .map(item => {
+            const isLink = item.isSymbolicLink();
+            console.log(`[LIST] Found ${isLink ? 'symlink' : 'file'}: ${item.name}`);
+            return {
+                name: item.name,
+                path: path.join(targetDir, item.name),
+                isSymlink: isLink
+            };
+        });
 }
 
 // Get files in directory
@@ -131,7 +150,8 @@ router.get('/list', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
-        const selectedDir = req.query.dir || username || '.';
+        // Default to user's directory, not '.'
+        const selectedDir = req.query.dir || username;
         const targetDir = getTargetDirectory(baseDir, selectedDir, username);
 
         // Special handling for images directory
@@ -326,7 +346,8 @@ router.get('/config', async (req, res) => {
     try {
         const baseDir = process.env.MD_DIR || '.';
         const username = req.auth?.name;
-        const selectedDir = req.query.dir || username || '.';
+        // Default to user's directory, not '.'
+        const selectedDir = req.query.dir || username;
         const targetDir = getTargetDirectory(baseDir, selectedDir, username);
 
         // Get directory configuration

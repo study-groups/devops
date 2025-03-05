@@ -61,8 +61,10 @@ export function toggleScrollLock() {
     
     const button = document.getElementById("scroll-lock-btn");
     if (button) {
-        button.textContent = scrollLockEnabled ? "Unlock" : "Lock";
+        // Keep the ⇄ icon consistent with the refresh button style
+        button.textContent = "⇄";
         button.classList.toggle('active', scrollLockEnabled);
+        button.title = scrollLockEnabled ? "Unlock Scroll" : "Lock Scroll";
     }
     
     logMessage(`[SCROLL] Scroll Lock: ${scrollLockEnabled ? "Enabled" : "Disabled"}`);
@@ -94,6 +96,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Manually placed scroll-lock button in HTML
     const scrollLockBtn = document.getElementById("scroll-lock-btn");
     if (scrollLockBtn) {
+        // Initialize the button with the icon
+        scrollLockBtn.textContent = "⇄";
         scrollLockBtn.addEventListener("click", toggleScrollLock);
     }
 });

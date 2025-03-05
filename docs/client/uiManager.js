@@ -1,11 +1,13 @@
 import { authState } from './auth.js';
-import { uiState } from './uiState.js';
+import { UI_STATES, uiState, fetchSystemInfo } from './uiState.js';
 import { logMessage } from './log.js';
 import { globalFetch } from './globalFetch.js';
 import { toggleLog } from './log.js';
+import { updateTopBar } from './components/topBar.js';
 
 // Initialize the UI system - main entry point
 export function initializeUI() {
+    updateTopBar();
     // Wait for DOM to be fully loaded
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', onDOMReady);
@@ -94,8 +96,12 @@ export function updateAuthDisplay() {
         const remainingTime = Math.round((authState.expiresAt - Date.now()) / 1000 / 60);
         displayElement.textContent = `${authState.username} (${remainingTime}m)`;
         
-        if (docPath && uiState?.systemInfo) {
-            docPath.textContent = `📁 ${uiState.systemInfo.MD_DIR}/${authState.username}`;
+        if (docPath) {
+            if (uiState?.systemInfo?.MD_DIR) {
+                docPath.textContent = `📁 ${uiState.systemInfo.MD_DIR}/${authState.username}`;
+            } else {
+                docPath.textContent = `📁 ${authState.username}`;
+            }
         }
         
         loginForm.style.display = 'none';
@@ -144,7 +150,7 @@ function updateFilesystemStatus() {
 
 // Helper for updating path display
 function updatePathDisplay(docPath, selectedDir) {
-    if (uiState?.systemInfo) {
+    if (uiState?.systemInfo?.MD_DIR) {
         if (selectedDir === authState.username) {
             docPath.textContent = `📁 ${uiState.systemInfo.MD_DIR}/${authState.username}`;
         } else if (selectedDir) {
@@ -153,7 +159,12 @@ function updatePathDisplay(docPath, selectedDir) {
             docPath.textContent = `📁 ${uiState.systemInfo.MD_DIR}`;
         }
     } else {
-        docPath.textContent = `📁 user/${selectedDir || authState.username || ''}`;
+        // Fall back to a simpler path if systemInfo is not available
+        if (selectedDir) {
+            docPath.textContent = `📁 ${selectedDir}`;
+        } else {
+            docPath.textContent = `📁 ${authState.username || ''}`;
+        }
     }
 }
 
@@ -170,6 +181,11 @@ export async function loadDirectories() {
         
         // Clear existing options
         dirSelect.innerHTML = '<option value="">Select Directory</option>';
+        
+        // Get the saved directory from state
+        const { getCurrentDirectory } = await import('./fileSystemState.js');
+        const savedDirectory = getCurrentDirectory();
+        logMessage(`[UI] Saved directory from state: ${savedDirectory || 'none'}`);
         
         // Try to fetch directories from the server
         try {
@@ -189,8 +205,11 @@ export async function loadDirectories() {
                     dirSelect.appendChild(option);
                 });
                 
-                // Set default directory
-                if (authState.username) {
+                // Set directory based on saved state or default to user directory
+                if (savedDirectory && Array.from(dirSelect.options).some(opt => opt.value === savedDirectory)) {
+                    dirSelect.value = savedDirectory;
+                    logMessage(`[UI] Restored directory selector to saved directory: ${savedDirectory}`);
+                } else if (authState.username) {
                     dirSelect.value = authState.username;
                     logMessage(`[UI] Set directory selector to user directory: ${authState.username}`);
                 }
@@ -337,6 +356,7 @@ export async function diagnoseDirSelector() {
 // Display detailed system information
 export async function showSystemInfo() {
     try {
+        // Fetch system info
         const response = await globalFetch('/api/auth/system');
         if (!response.ok) throw new Error('Failed to fetch system info');
         
@@ -367,10 +387,36 @@ export async function showSystemInfo() {
             const marker = user.isCurrentUser ? '👤' : '👻';
             logMessage(`${marker} ${user.username.padEnd(15)} (last seen: ${lastSeen})`);
         });
-
-        logMessage('\n======================\n');
+        
+        // Try to fetch stream info
+        try {
+            // Import the fetchStreamInfo function from fileManager/api.js
+            const { fetchStreamInfo } = await import('./fileManager/api.js');
+            const streamInfo = await fetchStreamInfo();
+            
+            // Display stream info
+            logMessage('\n=== STREAM INFORMATION ===');
+            if (typeof streamInfo === 'object') {
+                Object.entries(streamInfo).forEach(([key, value]) => {
+                    if (typeof value === 'object') {
+                        logMessage(`\n${key}:`);
+                        Object.entries(value).forEach(([subKey, subValue]) => {
+                            logMessage(`  ${subKey.padEnd(15)} = ${subValue}`);
+                        });
+                    } else {
+                        logMessage(`${key.padEnd(15)} = ${value}`);
+                    }
+                });
+            } else {
+                logMessage(JSON.stringify(streamInfo, null, 2));
+            }
+        } catch (error) {
+            logMessage(`\n[NOTE] Stream info not available: ${error.message}`);
+        }
+        
+        logMessage('\n=== END OF SYSTEM INFORMATION ===');
     } catch (error) {
-        logMessage('[SYSTEM ERROR] Failed to fetch system information');
+        logMessage(`[ERROR] Failed to fetch system info: ${error.message}`);
         console.error('[SYSTEM ERROR]', error);
     }
 }
@@ -378,7 +424,7 @@ export async function showSystemInfo() {
 // Add a flag to track initialization
 let topNavInitialized = false;
 
-// Update the initializeTopNav function to check the flag
+// Update the initializeTopNav function
 export function initializeTopNav() {
     // Return early if already initialized
     if (topNavInitialized) {
@@ -388,18 +434,35 @@ export function initializeTopNav() {
     // Connect the existing log button in the top navigation
     const logBtn = document.getElementById('log-btn');
     if (logBtn) {
-        // This will only be added once
-        logBtn.addEventListener('click', () => {
-            toggleLog();
-            logMessage('[UI] Log toggled via top navigation');
-        });
+        // Remove any existing event listeners (just in case)
+        logBtn.removeEventListener('click', handleLogButtonClick);
+        
+        // Add the event listener with a named function for easier debugging
+        logBtn.addEventListener('click', handleLogButtonClick);
+        console.log('[UI] Log button event listener attached');
     }
+    
+    // Setup scroll lock toggle
+    setupScrollLockToggle();
     
     // Other top nav initialization can go here
     
     // Mark as initialized
     topNavInitialized = true;
     logMessage('[UI] Top navigation initialized (first time only)');
+}
+
+// Separate function for handling log button clicks
+function handleLogButtonClick(event) {
+    // Prevent event propagation to avoid triggering other handlers
+    event.stopPropagation();
+    event.preventDefault();
+    
+    console.log('[UI] Log button clicked, calling toggleLog');
+    
+    // Explicitly toggle the log
+    toggleLog('button');
+    logMessage('[UI] Log toggled via top navigation');
 }
 
 // Call this function on page load
@@ -410,7 +473,10 @@ function setupScrollLockToggle() {
     const scrollLockBtn = document.getElementById('scroll-lock-btn');
     if (!scrollLockBtn) return;
     
-    scrollLockBtn.addEventListener('click', () => {
+    scrollLockBtn.addEventListener('click', (event) => {
+        // Prevent event propagation to avoid triggering other handlers
+        event.stopPropagation();
+        
         const isLocked = document.body.classList.toggle('scroll-locked');
         
         // Update button state
@@ -421,7 +487,5 @@ function setupScrollLockToggle() {
         if (window.handleScrollLockChange) {
             window.handleScrollLockChange();
         }
-        
-        // Don't call toggleLog here!
     });
 } 

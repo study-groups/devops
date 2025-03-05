@@ -12,7 +12,6 @@ import { syncScroll, toggleScrollLock } from "./scrollSync.js";
 // For logging, if needed
 import { logMessage } from "./log.js";
 
-
 // Import SVG processing functionality
 import { initSvgRefreshButton, registerRefreshFunction, executeRefresh } from "./markdown-svg.js";
 
@@ -55,6 +54,24 @@ function insertMarkdownImage(imageUrl) {
     // Schedule a preview update after inserting an image
     schedulePreviewUpdate();
 }
+
+// Handle dynamic imports for consistency
+export function loadModule(name) {
+    // Convert any potential alias to relative path
+    if (name.startsWith('$lib/')) {
+        name = name.replace('$lib/', './');
+    } else if (name.startsWith('$components/')) {
+        name = name.replace('$components/', './components/');
+    } else if (name.startsWith('$utils/')) {
+        name = name.replace('$utils/', './utils/');
+    }
+    
+    console.log(`[MODULE] Importing: ${name}`);
+    return import(name);
+}
+
+// Make it available globally for easy access from all modules
+window.loadModule = loadModule;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {

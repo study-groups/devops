@@ -11,4 +11,6 @@ echo "[ENV] MD_DIR=$MD_DIR"
 echo "[ENV] NVM_DIR=$NVM_DIR"
 source $NVM_DIR/nvm.sh   # initializes runtime to same as CLI
 echo "[SERVER] Starting: node $path/server/server.js"
-export PORT=4000; node $HOME/src/devops/docs/server/server.js
+PORT=4000
+export PORT
+node $HOME/src/devops/docs/server/server.js

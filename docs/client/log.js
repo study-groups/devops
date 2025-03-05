@@ -1,5 +1,5 @@
 // Move this near the top of the file
-let forceVisibleOnLog = true;
+let forceVisibleOnLog = false;
 let lastToggleTime = 0;
 const TOGGLE_DEBOUNCE = 200; // ms
 const recentMessages = new Set();
@@ -13,6 +13,39 @@ let interactingWithSplit = false;
 
 // Add a flag to track view changes
 export let recentViewChange = false;
+
+// Add initialization tracking
+let initialized = false;
+
+// FORCE LOG TO ALWAYS BE HIDDEN BY DEFAULT NO MATTER WHAT
+export function forceLogHidden(saveToStorage = true) {
+    console.log('[LOG] Forcing log to be hidden');
+    logState.visible = false;
+    
+    // Only update localStorage if requested
+    if (saveToStorage) {
+        localStorage.setItem('logVisible', 'false');
+    }
+    
+    // Set the data attribute on the HTML element for CSS to use
+    document.documentElement.setAttribute('data-log-visible', 'false');
+    
+    // Directly manipulate the DOM to hide the log
+    const logContainer = document.getElementById('log-container');
+    if (logContainer) {
+        logContainer.style.display = 'none';
+        logContainer.style.visibility = 'hidden';
+        logContainer.classList.remove('visible');
+        logContainer.classList.add('hidden');
+        logContainer.setAttribute('data-log-visible', 'false');
+    } else {
+        console.log('[LOG] Log container not found in DOM');
+    }
+    
+    // Update buttons and UI state
+    logState.updateUI();
+    return false;
+}
 
 // Log message functionality
 export function logMessage(message) {
@@ -63,9 +96,12 @@ export function logMessage(message) {
         logStatus.textContent = `${count} ${count === 1 ? 'entry' : 'entries'}`;
     }
     
-    // Only force log to be visible for normal logs, not for state change logs
-    if (!message.includes('[LOG] Log shown') && !message.includes('[LOG] Log hidden') && 
-        forceVisibleOnLog && !logState._suppressLogging) {
+    // Remove or modify the auto-show behavior
+    // Only force log to be visible if explicitly requested
+    if (forceVisibleOnLog && !message.includes('[LOG] Log shown') && 
+        !message.includes('[LOG] Log hidden') && 
+        !logState._suppressLogging && 
+        message.includes('[FORCE_LOG]')) { // Only show for critical messages
         logState._suppressLogging = true;
         logState.setVisible(true);
         logState._suppressLogging = false;
@@ -74,19 +110,20 @@ export function logMessage(message) {
 
 // Log state module with a single source of truth
 export const logState = {
-    visible: true,
-    height: 120,
-    _suppressLogging: false, // Flag to prevent infinite loops
+    visible: false, // Default to hidden
+    height: 120,    // Default value
+    _suppressLogging: false,
     
     toggle() {
         this.visible = !this.visible;
+        this.saveState();
         this.updateUI();
+        console.log('[LOG DEBUG] Log toggled, new state:', this.visible); // Add debug log
         
-        // Only log if not suppressing
         if (!this._suppressLogging) {
-            this._suppressLogging = true; // Set flag before logging
+            this._suppressLogging = true;
             logMessage(`[LOG] Log ${this.visible ? 'shown' : 'hidden'}`);
-            this._suppressLogging = false; // Reset flag after logging
+            this._suppressLogging = false;
         }
         
         return this.visible;
@@ -95,13 +132,14 @@ export const logState = {
     setVisible(visible) {
         if (this.visible !== visible) {
             this.visible = visible;
+            this.saveState();
             this.updateUI();
+            console.log('[LOG DEBUG] Log visibility set to:', visible); // Add debug log
             
-            // Only log if not suppressing
             if (!this._suppressLogging) {
-                this._suppressLogging = true; // Set flag before logging
+                this._suppressLogging = true;
                 logMessage(`[LOG] Log ${this.visible ? 'shown' : 'hidden'}`);
-                this._suppressLogging = false; // Reset flag after logging
+                this._suppressLogging = false;
             }
         }
         return this.visible;
@@ -109,18 +147,25 @@ export const logState = {
     
     setHeight(height) {
         this.height = Math.max(80, height);
+        this.saveState();
         this.updateUI();
     },
     
     updateUI() {
-        // If this update was triggered by a scroll event, ignore it
-        if (toggleSource === 'scroll') return;
-        
         const logContainer = document.getElementById('log-container');
-        if (!logContainer) return;
+        if (!logContainer) {
+            console.log('[LOG] Log container not found during updateUI');
+            return;
+        }
+        
+        // Update the data attribute on both the log container and the HTML element
+        logContainer.setAttribute('data-log-visible', this.visible ? 'true' : 'false');
+        document.documentElement.setAttribute('data-log-visible', this.visible ? 'true' : 'false');
+        
+        // Always update the CSS variable for height, regardless of visibility
+        document.documentElement.style.setProperty('--log-height', `${this.height}px`);
         
         if (this.visible) {
-            // Show log with important flags to override any other styles
             logContainer.style.display = 'flex';
             logContainer.style.opacity = '1';
             logContainer.style.height = `${this.height}px`;
@@ -128,57 +173,51 @@ export const logState = {
             logContainer.classList.remove('log-hiding');
             logContainer.classList.add('log-showing');
             
-            // Update main container
             const mainContainer = document.getElementById('main-container');
             if (mainContainer) {
                 mainContainer.classList.add('log-visible');
                 mainContainer.classList.remove('log-hidden');
             }
+            
+            // Update log button state
+            const logButton = document.getElementById('log-btn');
+            if (logButton) {
+                logButton.classList.add('active');
+            }
         } else {
-            // Force hide with multiple properties and !important
+            // Immediately hide from flow
+            logContainer.style.display = 'none';
             logContainer.style.opacity = '0';
             logContainer.style.visibility = 'hidden';
             logContainer.classList.remove('log-showing');
             logContainer.classList.add('log-hiding');
-            
-            // Immediately make it visually hidden while maintaining space
             logContainer.style.height = '0px';
             logContainer.style.minHeight = '0px';
             logContainer.style.overflow = 'hidden';
             
-            // Update main container right away
             const mainContainer = document.getElementById('main-container');
             if (mainContainer) {
                 mainContainer.classList.remove('log-visible');
                 mainContainer.classList.add('log-hidden');
             }
             
-            // Actually hide after animation with display:none
-            setTimeout(() => {
-                if (!this.visible) {
-                    logContainer.style.display = 'none';
-                    
-                    // Double-check main container state
-                    if (mainContainer) {
-                        mainContainer.classList.remove('log-visible');
-                        mainContainer.classList.add('log-hidden');
-                    }
-                }
-            }, 300);
+            // Update log button state
+            const logButton = document.getElementById('log-btn');
+            if (logButton) {
+                logButton.classList.remove('active');
+            }
         }
         
-        // Update button states
+        // Always update buttons for consistency
         this.updateButtons();
     },
     
     updateButtons() {
-        // Update top nav button
         const logBtn = document.getElementById('log-btn');
         if (logBtn) {
             logBtn.classList.toggle('active', this.visible);
         }
         
-        // Update log nav button
         const minimizeBtn = document.getElementById('minimize-log-btn');
         if (minimizeBtn) {
             minimizeBtn.textContent = '×';
@@ -186,6 +225,12 @@ export const logState = {
             minimizeBtn.style.opacity = '0.7';
             minimizeBtn.style.cursor = 'pointer';
         }
+    },
+    
+    saveState() {
+        localStorage.setItem('logVisible', String(this.visible));
+        localStorage.setItem('logHeight', String(this.height));
+        console.log(`[LOG DEBUG] State saved to localStorage: visible=${this.visible}, height=${this.height}`);
     }
 };
 
@@ -204,48 +249,47 @@ document.addEventListener('view:changed', (e) => {
 
 // Update toggleLog to check for recent view changes
 export function toggleLog(source = 'button') {
-    // Check if this is happening during a view change
-    if (recentViewChange && source !== 'explicit') {
-        console.log('Toggle prevented due to recent view change');
-        return logState.visible;
-    }
-    
-    // Get the active element when toggle is called
+    // Simple check for active input elements
     const activeElement = document.activeElement;
-    
-    // Check if the active element is an editor tab button
-    if (activeElement && 
-        (activeElement.closest('.editor-tabs') || 
-         activeElement.closest('.editor-mode-tabs'))) {
-        console.log('Toggle prevented due to editor tab interaction');
+    if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' || 
+        activeElement.isContentEditable
+    )) {
+        // Don't toggle if we're in an input
         return logState.visible;
     }
     
-    // If we're interacting with a split, don't toggle
-    if (interactingWithSplit) {
-        console.log('Toggle prevented due to split interaction');
+    // Don't toggle during split interactions
+    if (interactingWithSplit || recentViewChange) {
         return logState.visible;
     }
     
-    // Check if this is coming from a resize or split related event
-    if (source === 'resize' || source === 'split') {
-        return logState.visible; // Don't change visibility
-    }
-    
-    // Debounce rapid toggles to prevent double-firing
+    // Debounce rapid toggles
     const now = Date.now();
     if (now - lastToggleTime < TOGGLE_DEBOUNCE) {
         return logState.visible;
     }
     
     lastToggleTime = now;
+    console.log('[LOG] Toggling log visibility');
+    
+    // Call the simpler toggle function
+    toggleSource = source;
     return toggleLogWithoutAutoShow(source);
 }
 
 // Initialize log toolbar with resize functionality
 export function initLogToolbar() {
+    // Only run once
+    if (window._logToolbarInitialized) {
+        console.log('[LOG] Log toolbar already initialized');
+        return true;
+    }
+    
     const logContainer = document.getElementById('log-container');
     if (!logContainer) {
+        console.log('[LOG] Log container not found during toolbar initialization');
         return false;
     }
 
@@ -255,14 +299,27 @@ export function initLogToolbar() {
     // Set up resize handle
     setupLogResize();
     
-    // Connect log buttons
-    ensureLogButtonsConnected();
-    
     // Add app name and version to log bar
     addAppInfoToLogBar();
     
-    // Log a message to confirm initialization
-    logMessage('[LOG] Log toolbar initialized');
+    // Connect info button to showSystemInfo function
+    const infoBtn = document.getElementById('info-btn');
+    if (infoBtn) {
+        infoBtn.addEventListener('click', async () => {
+            try {
+                // Import the showSystemInfo function from uiManager.js
+                const { showSystemInfo } = await import('./uiManager.js');
+                await showSystemInfo();
+            } catch (error) {
+                logMessage(`[ERROR] Failed to show system info: ${error.message}`);
+            }
+        });
+        console.log('[LOG] Info button connected to showSystemInfo function');
+    }
+    
+    // Mark as initialized
+    window._logToolbarInitialized = true;
+    console.log('[LOG] Log toolbar initialized');
     
     return true;
 }
@@ -301,14 +358,35 @@ function setupLogResize() {
     function handleMouseMove(e) {
         const newHeight = startHeight - (e.clientY - startY);
         if (newHeight >= 80) { // Minimum height
+            // Update both the inline style and the CSS variable
             logContainer.style.height = `${newHeight}px`;
             document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
+            
+            // Update the content area to reflect the new log height
+            const mainContainer = document.getElementById('main-container');
+            if (mainContainer && mainContainer.classList.contains('log-visible')) {
+                const content = document.getElementById('content');
+                if (content) {
+                    content.style.maxHeight = `calc(100vh - ${newHeight}px - 50px)`;
+                }
+            }
         }
     }
     
     function handleMouseUp(e) {
+        // Get the current height of the log container
+        const currentHeight = logContainer.offsetHeight;
+        
         // Store the user's preferred height in the state
-        logState.setHeight(logContainer.offsetHeight);
+        logState.setHeight(currentHeight);
+        
+        // Also update the CSS variable directly
+        document.documentElement.style.setProperty('--log-height', `${currentHeight}px`);
+        
+        // Save to localStorage directly to ensure it's saved
+        localStorage.setItem('logHeight', String(currentHeight));
+        
+        console.log(`[LOG] Resize complete. New height: ${currentHeight}px`);
         
         // Clean up
         resizeHandle.classList.remove('resizing');
@@ -353,63 +431,223 @@ export function copyLog() {
 
 // Connect log buttons
 export function ensureLogButtonsConnected() {
-    const copyLogBtn = document.getElementById('copy-log-btn');
-    const clearLogBtn = document.getElementById('clear-log-btn');
-    const infoBtn = document.getElementById('info-btn');
+    // Only run once
+    if (window._logButtonsConnected) return;
+    
+    // Connect the log button in the nav bar
+    const logBtn = document.getElementById('log-btn');
+    if (logBtn) {
+        // Remove any existing event listeners
+        logBtn.replaceWith(logBtn.cloneNode(true));
+        
+        // Get the fresh reference
+        const freshLogBtn = document.getElementById('log-btn');
+        
+        // Add our click handler
+        freshLogBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[LOG] Log button clicked');
+            toggleLog('button');
+        });
+    }
+    
+    // Connect the minimize button in the log toolbar
     const minimizeBtn = document.getElementById('minimize-log-btn');
-    
-    if (copyLogBtn) {
-        copyLogBtn.onclick = copyLog;
-    }
-    
-    if (clearLogBtn) {
-        clearLogBtn.onclick = clearLog;
-    }
-    
-    if (infoBtn) {
-        infoBtn.onclick = () => {
-            if (window.showSystemInfo) {
-                window.showSystemInfo();
-            } else {
-                logMessage('[LOG] System info function not available');
-            }
-        };
-    }
-    
-    // Connect the minimize button to toggle state
     if (minimizeBtn) {
-        minimizeBtn.textContent = '×';
-        minimizeBtn.title = 'Hide Log';
-        minimizeBtn.style.fontSize = '18px';
-        minimizeBtn.style.fontWeight = 'normal';
-        minimizeBtn.style.border = 'none';
-        minimizeBtn.style.background = 'transparent';
-        minimizeBtn.style.cursor = 'pointer';
+        // Remove any existing event listeners
+        minimizeBtn.replaceWith(minimizeBtn.cloneNode(true));
         
-        minimizeBtn.addEventListener('mouseover', () => {
-            minimizeBtn.style.opacity = '1';
+        // Get the fresh reference
+        const freshMinimizeBtn = document.getElementById('minimize-log-btn');
+        
+        // Add our click handler
+        freshMinimizeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[LOG] Minimize button clicked');
+            toggleLog('button');
         });
-        
-        minimizeBtn.addEventListener('mouseout', () => {
-            minimizeBtn.style.opacity = '0.7';
-        });
-        
-        minimizeBtn.onclick = toggleLog;
     }
+    
+    window._logButtonsConnected = true;
+    console.log('[LOG] Log buttons connected');
 }
 
-// Update the initialization to connect the top nav button
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize immediately with no delay
+// Initialize log visibility from localStorage
+export function initLogVisibility() {
+    if (initialized) {
+        console.log('[LOG] Already initialized, skipping');
+        return;
+    }
+
+    console.log('[LOG] Starting log initialization');
+    
+    // Get ALL localStorage values related to log state for debugging
+    const storedVisibility = localStorage.getItem('logVisible');
+    const storedHeight = localStorage.getItem('logHeight');
+    
+    // Debug all current localStorage values
+    console.log('[LOG] LOCALSTORAGE VALUES:');
+    console.log('[LOG] - logVisible:', storedVisibility);
+    console.log('[LOG] - logHeight:', storedHeight);
+    console.log('[LOG] - All localStorage:', Object.entries(localStorage).filter(([key]) => key.includes('log')));
+    
+    // Set the data attribute on the HTML element for CSS to use
+    document.documentElement.setAttribute('data-log-visible', storedVisibility === 'true' ? 'true' : 'false');
+    
+    // Also set it on the log container if it exists
+    const logContainer = document.getElementById('log-container');
+    if (logContainer) {
+        logContainer.setAttribute('data-log-visible', storedVisibility === 'true' ? 'true' : 'false');
+    }
+    
+    // CRITICAL: Set visibility DIRECTLY from localStorage, with no additional logic
+    if (storedVisibility === 'true') {
+        logState.visible = true;
+        console.log('[LOG] *** RESPECTING USER PREFERENCE: Setting log VISIBLE from localStorage ***');
+        // DO NOT save anything to localStorage here as it might override user's value
+    } else {
+        logState.visible = false;
+        console.log('[LOG] Setting log HIDDEN (default or from localStorage)');
+        
+        // Only set localStorage if null (don't overwrite false value)
+        if (storedVisibility === null) {
+            localStorage.setItem('logVisible', 'false');
+            console.log('[LOG] No stored value, saving default (false) to localStorage');
+        }
+    }
+
+    // Handle height
+    if (storedHeight !== null) {
+        logState.height = parseInt(storedHeight, 10) || 120;
+        console.log('[LOG] Using stored height:', logState.height);
+        
+        // Set the CSS variable for height
+        document.documentElement.style.setProperty('--log-height', `${logState.height}px`);
+    } else {
+        localStorage.setItem('logHeight', String(logState.height));
+        console.log('[LOG] No stored height, saving default:', logState.height);
+        
+        // Set the CSS variable for height with the default value
+        document.documentElement.style.setProperty('--log-height', `${logState.height}px`);
+    }
+
+    // IMPORTANT - Disable auto-saving state to localStorage during initialization
+    const originalSaveState = logState.saveState;
+    logState.saveState = function() {
+        console.log('[LOG] State save PREVENTED during initialization');
+    };
+    
+    // Connect buttons once during initialization
+    ensureLogButtonsConnected();
+    
+    // Initialize the log toolbar
     initLogToolbar();
     
-    // Force log to be visible initially
-    logState.setVisible(true);
+    // Update UI based on the stored state
+    logState.updateUI();
     
-    // Also update UI when viewManager changes views
-    document.addEventListener('view:changed', () => {
+    // Mark as initialized
+    initialized = true;
+    console.log('[LOG] Log initialization complete');
+    
+    // Restore save state functionality after a short delay
+    setTimeout(() => {
+        logState.saveState = originalSaveState;
+        console.log('[LOG] Normal state saving restored');
+    }, 500);
+    
+    // Final debug - confirm log state in console
+    console.log('[LOG] FINAL STATE AFTER INIT:');
+    console.log('[LOG] - logState.visible =', logState.visible);
+    console.log('[LOG] - logState.height =', logState.height);
+    console.log('[LOG] - localStorage.logVisible =', localStorage.getItem('logVisible'));
+}
+
+// Consolidate all DOMContentLoaded listeners into one
+let domReadyHandled = false;
+document.addEventListener('DOMContentLoaded', () => {
+    if (domReadyHandled) return;
+    domReadyHandled = true;
+    
+    console.log('[LOG] DOM Content Loaded - starting initialization');
+    
+    // Complete initialization in one place - respects localStorage
+    initLogVisibility();
+    
+    // Add view change listener
+    document.addEventListener('view:changed', (e) => {
+        console.log('View change detected:', e.detail);
+        recentViewChange = true;
+        
+        // Update UI when view changes - don't change visibility
         logState.updateUI();
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+            recentViewChange = false;
+        }, 500);
     });
+});
+
+// Add a window load event to ensure log state is correctly reflected in UI
+window.addEventListener('load', () => {
+    console.log('[LOG] Window loaded - checking localStorage state');
+    
+    // Wait for any other onload handlers to complete
+    setTimeout(() => {
+        const storedVisibility = localStorage.getItem('logVisible');
+        console.log('[LOG] Window loaded check - localStorage.logVisible =', storedVisibility);
+        
+        // CRITICAL: Ensure UI reflects localStorage without triggering saveState()
+        if (storedVisibility === 'true' && !logState.visible) {
+            console.log('[LOG] *** FIXING UI: Making log visible based on localStorage ***');
+            
+            // Temporarily disable saveState
+            const originalSaveState = logState.saveState;
+            logState.saveState = function() {
+                console.log('[LOG] State save PREVENTED during visibility fix');
+            };
+            
+            // Update both logState and UI - this will fix button state too
+            logState.visible = true;
+            logState.updateUI();
+            
+            // Restore original saveState
+            setTimeout(() => {
+                logState.saveState = originalSaveState;
+                console.log('[LOG] Normal state saving restored after visibility fix');
+            }, 100);
+            
+        } else if (storedVisibility === 'false' && logState.visible) {
+            console.log('[LOG] *** FIXING UI: Making log hidden based on localStorage ***');
+            
+            // Temporarily disable saveState
+            const originalSaveState = logState.saveState;
+            logState.saveState = function() {
+                console.log('[LOG] State save PREVENTED during visibility fix');
+            };
+            
+            // Update both logState and UI - this will fix button state too
+            logState.visible = false;
+            logState.updateUI();
+            
+            // Restore original saveState
+            setTimeout(() => {
+                logState.saveState = originalSaveState;
+                console.log('[LOG] Normal state saving restored after visibility fix');
+            }, 100);
+        } else {
+            console.log('[LOG] UI already matches localStorage value:', storedVisibility);
+        }
+        
+        // Final verification
+        console.log('[LOG] After window.load fixes:');
+        console.log('[LOG] - logState.visible =', logState.visible);
+        console.log('[LOG] - localStorage.logVisible =', localStorage.getItem('logVisible'));
+        console.log('[LOG] - Log button state =', document.getElementById('log-btn')?.classList.contains('active'));
+    }, 200);
 });
 
 // Immediately expose these functions to the global scope
@@ -529,51 +767,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add back the toggleLogWithoutAutoShow function
 export function toggleLogWithoutAutoShow(source = 'button') {
+    console.log(`[LOG] Toggle log called with source: ${source}`);
     toggleSource = source;
     forceVisibleOnLog = false;
-    const result = logState.toggle();
-    // Re-enable after a delay, after all related logs are processed
+    
+    // Simple toggle - if visible, hide; if hidden, show
+    const oldState = logState.visible;
+    const newState = !oldState;
+    const oldStoredValue = localStorage.getItem('logVisible');
+    
+    console.log(`[LOG] Toggle: ${oldState ? 'visible→hidden' : 'hidden→visible'}`);
+    console.log(`[LOG] Previous localStorage value: ${oldStoredValue}`);
+    
+    // Set the state directly
+    logState.visible = newState;
+    
+    // Save to localStorage and log the change
+    localStorage.setItem('logVisible', String(newState));
+    console.log(`[LOG] Saved new state to localStorage: logVisible=${newState}`);
+    
+    // Update the UI
+    logState.updateUI();
+    
+    // Re-enable auto-show after a delay
     setTimeout(() => {
         forceVisibleOnLog = true;
         toggleSource = '';
     }, 500);
-    return result;
+    
+    return logState.visible;
 }
 
 // Add app name and version to log bar
 function addAppInfoToLogBar() {
-    const logToolbar = document.querySelector('.log-toolbar');
+    const logToolbar = document.getElementById('log-toolbar');
     if (!logToolbar) {
-        console.log('Log toolbar not found!'); // Add debug output
+        console.log('[LOG DEBUG] Log toolbar not found - ID: log-toolbar');
         return;
     }
     
-    console.log('Found log toolbar:', logToolbar); // Debug output
+    console.log('[LOG DEBUG] Found log toolbar');
     
-    // Create app info element
-    const appInfo = document.createElement('div');
-    appInfo.id = 'log-app-info';
-    appInfo.className = 'log-app-info';
+    // Create app info element if it doesn't exist already
+    let appInfo = document.getElementById('app-info');
+    if (!appInfo) {
+        console.log('[LOG DEBUG] App info element not found, creating it');
+        appInfo = document.createElement('div');
+        appInfo.id = 'app-info';
+        appInfo.className = 'app-info';
+        logToolbar.appendChild(appInfo);
+    }
     
-    // Style the app info element - make it more visible for debugging
-    appInfo.style.marginLeft = '10px';
-    appInfo.style.fontSize = '12px';
-    appInfo.style.opacity = '1'; // Increased from 0.7 for visibility
-    appInfo.style.fontWeight = 'bold'; // Changed to bold for visibility
-    appInfo.style.display = 'flex';
-    appInfo.style.alignItems = 'center';
-    appInfo.style.color = '#ff5500'; // Add a distinctive color for debugging
+    // Add app name and version
+    if (window.APP_CONFIG) {
+        appInfo.textContent = `${window.APP_CONFIG.name} ${window.APP_CONFIG.version}`;
+    } else {
+        appInfo.textContent = 'devPages 003m1';
+    }
     
-    // Get app name and version from window or environment variables
-    const appName = window.APP_NAME || 'App';
-    const appVersion = window.APP_VERSION || '1.0.0';
-    
-    // Set the content
-    appInfo.textContent = `${appName} v${appVersion}`;
-    console.log('Adding app info:', appInfo.textContent); // Debug output
-    
-    // Directly append to the toolbar for now
-    logToolbar.appendChild(appInfo);
-    
-    console.log('App info added to toolbar'); // Debug output
+    console.log('[LOG DEBUG] App info added to toolbar');
 } 

@@ -3,9 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown Editor</title>
+    <title> DevPages</title>
     <link rel="stylesheet" href="/client/styles.css">
-
+    
+    <!-- Early log visibility check to prevent flash -->
+    <script>
+      (function() {
+        // Check localStorage for log visibility setting
+        var logVisible = localStorage.getItem('logVisible') === 'true';
+        
+        // Get stored height or use default
+        var logHeight = parseInt(localStorage.getItem('logHeight'), 10) || 120;
+        
+        // Set a data attribute on the document element for CSS to use
+        document.documentElement.setAttribute('data-log-visible', logVisible ? 'true' : 'false');
+        
+        // Set the CSS variable for log height
+        document.documentElement.style.setProperty('--log-height', logHeight + 'px');
+        
+        // Log for debugging
+        console.log('[EARLY] Log visibility from localStorage:', logVisible);
+        console.log('[EARLY] Log height from localStorage:', logHeight);
+      })();
+    </script>
+    
+    <!-- Load all essential scripts directly -->
+    <script type="module">
+      // Simple global path resolver for any cases where we still need dynamic imports
+      window.importFromRoot = function(path) {
+        // Remove leading ./ if present
+        path = path.replace(/^\.\//, '');
+        // Ensure path starts with /client/
+        if (!path.startsWith('/')) {
+          path = '/client/' + path;
+        } else if (!path.startsWith('/client/')) {
+          path = '/client' + path;
+        }
+        console.log('[IMPORT] Loading from', path);
+        return import(path);
+      };
+    </script>
 </head>
 <body>
 
@@ -23,26 +60,27 @@
             </div>
             <button id="load-btn">Load</button>
             <button id="save-btn">Save</button>
+            <button id="community-link-btn" title="Add to Community Files">link</button>
+
         </div>
 
         <!-- Middle: View controls with consistent styling -->
         <div class="nav-group view-controls">
             <button id="code-view" title="Code View">Code</button>
-            <button id="preview-view" title="Preview">Preview</button>
             <button id="split-view" class="active" title="Split View">Split</button>
-            <button id="scroll-lock-btn" title="Lock Scroll">Lock</button>
+            <button id="preview-view" title="Preview">Preview</button>
+            <button id="scroll-lock-btn" title="Lock Scroll">⇄</button>
+            <button id="log-btn" title="Show/Hide Log">Log</button>
             <button id="refresh-btn" title="Refresh Preview & SVG">↻</button>
         </div>
 
         <!-- Right side: Auth controls -->
         <div class="nav-group auth-info">
-            <button id="log-btn" title="Show/Hide Log">Log</button>
-            <button id="svg-refresh-btn" title="Refresh SVG">Refresh</button>
             <span id="pwd-display">Not logged in</span>
-            <form id="login-form" class="login-form" onsubmit="return false;">
-                <input type="text" id="username" placeholder="Username">
-                <input type="password" id="password" placeholder="Password">
-                <button type="button" id="login-btn" onclick="window.handleLogin()">Login</button>
+            <form id="login-form" class="login-form">
+                <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username">
+                <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password">
+                <button type="submit" id="login-btn">Login</button>
             </form>
             <button id="logout-btn" style="display: none;">Logout</button>
         </div>
@@ -54,7 +92,7 @@
     </div>
 
     <!-- Main Content -->
-    <div id="main-container">
+    <div id="main-container" class="log-hidden">
         <div id="content">
             <div id="md-editor" class="resizable">
                 <textarea placeholder="Write Markdown here..."></textarea>
@@ -62,7 +100,7 @@
             </div>
             <div id="md-preview"></div>
         </div>
-        <div  id="log-container">
+        <div id="log-container" style="display: none; visibility: hidden; height: 0; overflow: hidden;" class="log-hiding" data-log-visible="false">
             <div id="log-toolbar">
                 <button id="copy-log-btn" onclick="window.copyLog()">Copy</button>
                 <button id="info-btn" title="System Information">ℹ️</button>
@@ -83,9 +121,19 @@
         </div>
     </div>
 
-    <!-- Move scripts to end of body -->
+    <!-- SIMPLIFIED APPROACH: Load all key modules in a specific order -->
+    <script type="module" src="/client/log.js"></script>
+    <script type="module" src="/client/config.js"></script>
+    <script type="module" src="/client/uiState.js"></script>
+    <script type="module" src="/client/fileSystemState.js"></script>
+    <script type="module" src="/client/globalFetch.js"></script>
+    <script type="module" src="/client/components/topBar.js"></script>
+    <script type="module" src="/client/uiManager.js"></script>
+    <script type="module" src="/client/authManager.js"></script> 
     <script type="module" src="/client/auth.js"></script>
+    <script type="module" src="/client/fileManager.js"></script>
     <script type="module" src="/client/editor.js"></script>
-    <script type="module" src="/client/debug-init.js"></script>
+    <script type="module" src="/client/appInit.js"></script>
+    <script type="module" src="/client/fileManager/operations.js"></script>
 </body>
 </html>

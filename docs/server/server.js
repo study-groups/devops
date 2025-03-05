@@ -22,14 +22,16 @@ express.static.mime.define({
     'text/markdown': ['md']
 });
 
+const staticOptions = { followSymlinks: true };
+
 // Serve static files
-app.use('/client', express.static(path.join(__dirname, '../client')));
-app.use('/images', express.static(path.join(process.env.MD_DIR || '.', 'images')));
-app.use('/uploads', express.static(uploadsDirectory));
-app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico')));
+app.use('/client', express.static(path.join(__dirname, '../client'), staticOptions));
+app.use('/images', express.static(path.join(process.env.MD_DIR || '.', 'images'), staticOptions));
+app.use('/uploads', express.static(uploadsDirectory, staticOptions));
+app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico'), staticOptions));
 // Serve SVG files from the root directory
-app.use(express.static(path.join(__dirname, '..')));
-app.use(express.static('client'));
+app.use(express.static(path.join(__dirname, '..'), staticOptions));
+app.use(express.static('client', staticOptions));
 
 // Serve index.html
 app.get('/', (req, res) => {
@@ -41,12 +43,13 @@ const { authMiddleware } = require('./middleware/auth');
 const markdownRoutes = require('./routes/markdown');
 const { router: imageRoutes } = require('./routes/images');
 const authRoutes = require('./routes/auth');
-const filesRouter = require('./routes/files');
+const communityRoutes = require('./routes/community');
 const saveRoutes = require('./routes/save');
 
 // Configure routes that need JSON parsing
 app.use('/api/auth', express.json(), authRoutes);
 app.use('/api/files', express.json(), authMiddleware, markdownRoutes);
+app.use('/api/community', express.json(), authMiddleware, communityRoutes);
 
 // Image routes with JSON parsing for delete and reference operations
 app.use('/api/images', express.json(), authMiddleware, imageRoutes);

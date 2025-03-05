@@ -201,11 +201,27 @@ body[data-auth-state="logged-out"] #logout-btn {
     background-color: white;
 }
 
+/* Add early visibility control based on HTML data attribute */
+html[data-log-visible="false"] #log-container {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+}
+
+html[data-log-visible="true"] #log-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: var(--log-height, 120px) !important;
+}
+
 /* Log container - fixed to bottom */
 #log-container {
     display: flex;
     flex-direction: column;
-    height: 120px; /* Default height */
+    height: var(--log-height, 120px); /* Use CSS variable with fallback */
     min-height: 80px;
     margin-left: 1rem; /* Left margin */
     margin-right: 4rem; /* Right margin - larger */
@@ -446,10 +462,12 @@ body[data-auth-state="logged-out"] #logout-btn {
 /* Main container with log visibility states */
 #main-container.log-visible #content {
     max-height: calc(100vh - var(--log-height, 120px) - 50px);
+    transition: max-height 0.3s ease;
 }
 
 #main-container.log-hidden #content {
     max-height: calc(100vh - 50px);
+    transition: max-height 0.3s ease;
 }
 
 /* Add styles for the save indicator */
@@ -472,4 +490,26 @@ body[data-auth-state="logged-out"] #logout-btn {
 
 .loading {
     animation: load-pulse 1s ease-in-out;
+}
+
+/* Community link button styling */
+#community-link-btn {
+    /* Use the same styling as other buttons in the nav-group */
+    font-size: 14px;
+}
+
+#community-link-btn.active {
+    background-color: #2c6e49;
+    border-color: #3a9e6a;
+    color: white;
+}
+
+#community-link-btn.active:hover {
+    background-color: #38875d;
+}
+
+#community-link-btn.disabled,
+#community-link-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

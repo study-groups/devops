@@ -3,10 +3,27 @@ import { globalFetch } from '../globalFetch.js';
 import { logMessage } from '../log.js';
 import { authState } from '../auth.js';
 
+/**
+ * Normalize directory names for API requests
+ * This ensures special cases are handled properly
+ */
+function normalizeDirectoryForApi(directory) {
+    // No longer converting between variations - use as is
+    return directory;
+}
+
 export async function fetchFileContent(filename, directory) {
-    const response = await globalFetch(
-        `/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}`
-    );
+    // Normalize directory name for API request
+    const normalizedDir = normalizeDirectoryForApi(directory);
+    
+    // Add parameter to ensure we get symlink content for Community Files
+    const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
+    
+    const url = `/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`;
+    
+    logMessage(`[API] Fetching file content from: ${url}`);
+    
+    const response = await globalFetch(url);
     
     if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -106,45 +123,21 @@ export async function saveFileContent(filename, directory, content) {
     throw new Error('All save endpoints failed');
 }
 
-export async function fetchDirectoryListing(directory = '') {
-    try {
-        // Try different API endpoints
-        const endpoints = [
-            `/api/files/list?dir=${encodeURIComponent(directory)}`,
-            `/api/files?dir=${encodeURIComponent(directory)}`
-        ];
-        
-        let response;
-        let success = false;
-        
-        // Try each endpoint until one works
-        for (const endpoint of endpoints) {
-            try {
-                response = await fetch(endpoint, {
-                    headers: {
-                        'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`
-                    }
-                });
-                
-                if (response.ok) {
-                    success = true;
-                    break;
-                }
-            } catch (error) {
-                logMessage(`[FILES] Endpoint ${endpoint} failed: ${error.message}`);
-            }
-        }
-        
-        if (!success || !response) {
-            throw new Error('All file listing endpoints failed');
-        }
-        
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        logMessage(`[FILES API ERROR] Failed to fetch directory listing: ${error.message}`);
-        throw error;
+export async function fetchDirectoryListing(directory) {
+    const normalizedDir = normalizeDirectoryForApi(directory);
+    
+    // Add parameter to ensure we get symlinks for Community Files
+    const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
+    
+    const response = await globalFetch(
+        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`
+    );
+    
+    if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
     }
+    
+    return response;
 }
 
 export async function fetchDirectoryConfig(directory) {
@@ -155,4 +148,35 @@ export async function fetchDirectoryConfig(directory) {
     }
     
     return response.json();
+}
+
+// Export a helper for community link management
+export async function manageCommunityLink(filename, directory, action = 'add') {
+    try {
+        const url = `/api/community/link?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
+        
+        logMessage(`[API] Managing community link: ${action} for ${filename} from ${directory}`);
+
+        // Add detailed logging for the fetch call
+        console.log('[API] manageCommunityLink URL:', url);
+        const fetchOptions = {
+            method: 'POST'
+        };
+        console.log('[API] manageCommunityLink fetchOptions:', fetchOptions);
+        
+        const response = await globalFetch(url, fetchOptions);
+        
+        console.log('[API] manageCommunityLink response:', response);
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        logMessage(`[API ERROR] Failed to manage community link: ${error.message}`);
+        console.error('[API] manageCommunityLink error:', error); // Log the error to the console
+        throw error;
+    }
 } 
