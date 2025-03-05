@@ -1,8 +1,8 @@
 import { authState } from './auth.js';
-import { UI_STATES, uiState, fetchSystemInfo } from './uiState.js';
 import { logMessage } from './log.js';
 import { globalFetch } from './globalFetch.js';
 import { toggleLog } from './log.js';
+import { UI_STATES, uiState, fetchSystemInfo } from './uiState.js';
 import { updateTopBar } from './components/topBar.js';
 
 // Initialize the UI system - main entry point
@@ -353,7 +353,7 @@ export async function diagnoseDirSelector() {
     console.log("============== DIAGNOSTIC COMPLETE ==============");
 }
 
-// Display detailed system information
+// Display detailed system information - original version
 export async function showSystemInfo() {
     try {
         // Fetch system info
@@ -488,4 +488,7 @@ function setupScrollLockToggle() {
             window.handleScrollLockChange();
         }
     });
-} 
+}
+
+// Make sure the function is exported and available globally
+window.showSystemInfo = showSystemInfo; 

@@ -47,65 +47,25 @@ export function forceLogHidden(saveToStorage = true) {
     return false;
 }
 
-// Log message functionality
+// Original logMessage function without any modifications
 export function logMessage(message) {
-    // Debounce certain messages like UI toggle messages
-    if (message.includes('[UI] Log toggled')) {
-        const key = `${message}-${Date.now() - (Date.now() % MESSAGE_DEBOUNCE)}`;
-        if (recentMessages.has(key)) {
-            return; // Skip duplicate UI toggle messages
-        }
-        
-        // Add to recent messages and set timeout to remove
-        recentMessages.add(key);
-        setTimeout(() => {
-            recentMessages.delete(key);
-        }, MESSAGE_DEBOUNCE);
+    const logContainer = document.getElementById('log');
+    if (!logContainer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement('div');
+    logEntry.className = 'log-entry';
+    logEntry.textContent = `${timestamp} ${message}`;
+    logContainer.appendChild(logEntry);
+    
+    // Auto-scroll to bottom if not manually scrolled up
+    const logWrapper = document.getElementById('log-container');
+    if (logWrapper && logWrapper.scrollTop + logWrapper.clientHeight >= logWrapper.scrollHeight - 50) {
+        logContainer.scrollTop = logContainer.scrollHeight;
     }
     
-    const logDiv = document.getElementById('log');
-    if (!logDiv) return;
-    
-    const timeStamp = new Date().toLocaleTimeString();
-    const formattedMessage = `${timeStamp} ${message}`;
-    
-    // Add color coding based on message type
-    let className = 'log-normal';
-    if (message.includes('ERROR')) className = 'log-error';
-    if (message.includes('WARN')) className = 'log-warning';
-    if (message.includes('CONFIG')) className = 'log-config';
-    
-    const newEntry = document.createElement('div');
-    newEntry.className = className;
-    newEntry.textContent = formattedMessage;
-    logDiv.appendChild(newEntry);
-    
-    // Check if the line is truncated
-    setTimeout(() => {
-        if (newEntry.scrollWidth > newEntry.clientWidth) {
-            newEntry.classList.add('truncated');
-        }
-    }, 0);
-    
-    logDiv.scrollTop = logDiv.scrollHeight;
-    
-    // Update log status count if available
-    const logStatus = document.getElementById('log-status');
-    if (logStatus) {
-        const count = logDiv.children.length;
-        logStatus.textContent = `${count} ${count === 1 ? 'entry' : 'entries'}`;
-    }
-    
-    // Remove or modify the auto-show behavior
-    // Only force log to be visible if explicitly requested
-    if (forceVisibleOnLog && !message.includes('[LOG] Log shown') && 
-        !message.includes('[LOG] Log hidden') && 
-        !logState._suppressLogging && 
-        message.includes('[FORCE_LOG]')) { // Only show for critical messages
-        logState._suppressLogging = true;
-        logState.setVisible(true);
-        logState._suppressLogging = false;
-    }
+    // Also log to console for debugging
+    console.log(`${timestamp} ${message}`);
 }
 
 // Log state module with a single source of truth
@@ -822,7 +782,7 @@ function addAppInfoToLogBar() {
     if (window.APP_CONFIG) {
         appInfo.textContent = `${window.APP_CONFIG.name} ${window.APP_CONFIG.version}`;
     } else {
-        appInfo.textContent = 'devPages 003m2';
+        appInfo.textContent = 'devPages 003m3';
     }
     
     console.log('[LOG DEBUG] App info added to toolbar');

@@ -1,5 +1,5 @@
 import { logMessage } from './log.js';
-import { updateAuthDisplay } from './uiManager.js';
+import { updateAuthDisplay, showSystemInfo } from './uiManager.js';
 import { appName, appVer } from './config.js';
 import { clearFileSystemState } from './fileSystemState.js';
 // Import directly - no dynamic imports
@@ -292,20 +292,7 @@ function attachLoginHandlers() {
     const infoBtn = document.getElementById('info-btn');
     if (infoBtn) {
         logMessage('[AUTH] Found info button, attaching click handler');
-        
-        // Remove any existing event listeners first
-        const newInfoBtn = infoBtn.cloneNode(true);
-        infoBtn.parentNode.replaceChild(newInfoBtn, infoBtn);
-        
-        // Add our click handler
-        newInfoBtn.addEventListener('click', async () => {
-            try {
-                await showSystemInfo();
-            } catch (error) {
-                logMessage('[SYSTEM ERROR] Failed to show system info');
-                console.error(error);
-            }
-        });
+        infoBtn.onclick = showSystemInfo;
     }
     
     logMessage('[AUTH] Login handlers attached successfully');

@@ -161,9 +161,11 @@ export async function initializeFileManager(forceRefresh = false) {
         // If user is logged in, load directories
         if (authState?.isLoggedIn) {
             logMessage('[FILES] Loading directories for logged in user');
-            await loadDirectories();
             
-            // Set directory selector to the initial directory
+            // IMPORTANT: Don't call loadDirectories() here since it's already called in uiManager.js
+            // await loadDirectories();
+            
+            // Instead, just make sure the current directory is selected
             const dirSelect = document.getElementById('dir-select');
             if (dirSelect && initialDir) {
                 // Make sure the option exists in the dropdown
