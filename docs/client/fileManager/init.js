@@ -373,12 +373,19 @@ document.addEventListener('auth:login', async (event) => {
 
 document.addEventListener('auth:logout', () => {
     logMessage('[FILES] Auth logout detected, clearing file manager state');
-    // Clear UI elements
-    const dirSelect = document.getElementById('dir-select');
-    if (dirSelect) {
-        dirSelect.innerHTML = '<option value="">Select Directory</option>';
-    }
     
+    // Import and use the centralized function to clear the directory selector
+    import('./core.js').then(({ updateDirectorySelector }) => {
+        updateDirectorySelector([]);
+    }).catch(err => {
+        // Fallback if import fails
+        const dirSelect = document.getElementById('dir-select');
+        if (dirSelect) {
+            dirSelect.innerHTML = '<option value="">Select Directory</option>';
+        }
+    });
+    
+    // Clear file selector
     const fileSelect = document.getElementById('file-select');
     if (fileSelect) {
         fileSelect.innerHTML = '<option value="">Select File</option>';

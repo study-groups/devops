@@ -37,15 +37,22 @@ const fileManager = {
             // Even if the directory hasn't changed, make sure the UI reflects it
             const dirSelect = document.getElementById('dir-select');
             if (dirSelect && dirSelect.value !== newDir) {
-                let option = Array.from(dirSelect.options).find(opt => opt.value === newDir);
-                if (!option) {
-                    option = document.createElement('option');
-                    option.value = newDir;
-                    option.textContent = getDirectoryDisplayName(newDir);
-                    dirSelect.appendChild(option);
-                    logMessage(`[FILES] Added missing directory option: ${newDir}`);
+                // Instead of adding a potentially duplicate option, ensure it's in the list
+                // and selected
+                if (!Array.from(dirSelect.options).some(opt => opt.value === newDir)) {
+                    // We need to fetch all directories and update the selector
+                    fetchDirectories().then(dirs => {
+                        updateDirectorySelector(dirs, newDir);
+                    }).catch(err => {
+                        // If we can't fetch directories, just ensure this one is in the list
+                        const currentOptions = Array.from(dirSelect.options)
+                            .filter(opt => opt.value !== '')
+                            .map(opt => opt.value);
+                        updateDirectorySelector([...currentOptions, newDir], newDir);
+                    });
+                } else {
+                    dirSelect.value = newDir;
                 }
-                dirSelect.value = newDir;
                 logMessage(`[FILES] Updated directory selector to match state: ${newDir}`);
             }
             
@@ -57,23 +64,22 @@ const fileManager = {
         const oldDir = currentStateDir;
         currentDir = newDir;
         
+        // Update the directory selector without adding duplicates
         const dirSelect = document.getElementById('dir-select');
         if (dirSelect) {
-            let option = Array.from(dirSelect.options).find(opt => opt.value === newDir);
-            if (!option) {
-                option = document.createElement('option');
-                option.value = newDir;
-                option.textContent = getDirectoryDisplayName(newDir);
-                dirSelect.appendChild(option);
-                logMessage(`[FILES] Added missing directory option: ${newDir}`);
-            }
-            dirSelect.value = newDir;
-            
-            // Update path display
-            const pathDisplay = document.getElementById('current-path');
-            if (pathDisplay) {
-                const displayPath = newDir === 'Community_Files' ? 'Community Files' : newDir;
-                pathDisplay.textContent = `Current: ${displayPath}`;
+            if (!Array.from(dirSelect.options).some(opt => opt.value === newDir)) {
+                // We need to fetch all directories and update the selector
+                fetchDirectories().then(dirs => {
+                    updateDirectorySelector(dirs, newDir);
+                }).catch(err => {
+                    // If we can't fetch directories, just ensure this one is in the list
+                    const currentOptions = Array.from(dirSelect.options)
+                        .filter(opt => opt.value !== '')
+                        .map(opt => opt.value);
+                    updateDirectorySelector([...currentOptions, newDir], newDir);
+                });
+            } else {
+                dirSelect.value = newDir;
             }
         }
         
@@ -130,5 +136,61 @@ const fileManager = {
         return true;
     }
 };
+
+// Add this new function to centralize directory selector management
+export function updateDirectorySelector(directories, selectedDir = null) {
+    const dirSelect = document.getElementById('dir-select');
+    if (!dirSelect) {
+        logMessage('[FILES] Directory selector not found');
+        return false;
+    }
+    
+    // Always clear existing options first
+    dirSelect.innerHTML = '<option value="">Select Directory</option>';
+    
+    // Add all directories
+    if (Array.isArray(directories)) {
+        directories.forEach(dir => {
+            const option = document.createElement('option');
+            option.value = typeof dir === 'string' ? dir : dir.id;
+            option.textContent = typeof dir === 'string' ? getDirectoryDisplayName(dir) : (dir.name || getDirectoryDisplayName(dir.id));
+            if (typeof dir !== 'string' && dir.description) {
+                option.title = dir.description;
+            }
+            dirSelect.appendChild(option);
+        });
+    } else if (directories && typeof directories === 'object') {
+        // Handle case where directories is an object with id/name properties
+        const option = document.createElement('option');
+        option.value = directories.id;
+        option.textContent = directories.name || getDirectoryDisplayName(directories.id);
+        if (directories.description) {
+            option.title = directories.description;
+        }
+        dirSelect.appendChild(option);
+    }
+    
+    // Set the selected directory if provided
+    if (selectedDir) {
+        dirSelect.value = selectedDir;
+    }
+    
+    logMessage(`[FILES] Directory selector updated with ${dirSelect.options.length - 1} directories`);
+    return true;
+}
+
+// Add a helper function to fetch directories
+async function fetchDirectories() {
+    try {
+        const response = await fetch('/api/files/dirs');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch directories: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        logMessage(`[FILES] Error fetching directories: ${error.message}`);
+        throw error;
+    }
+}
 
 export default fileManager;

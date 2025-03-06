@@ -170,73 +170,56 @@ function updatePathDisplay(docPath, selectedDir) {
 
 // Load directories from API
 export async function loadDirectories() {
+    const dirSelect = document.getElementById('dir-select');
+    if (!dirSelect) {
+        logMessage('[UI] Directory selector not found');
+        return null;
+    }
+    
+    // Get the saved directory from state
+    const { getCurrentDirectory } = await import('./fileSystemState.js');
+    const savedDirectory = getCurrentDirectory();
+    logMessage(`[UI] Saved directory from state: ${savedDirectory || 'none'}`);
+    
+    // Try to fetch directories from the server
     try {
-        logMessage('[UI] Loading directories...');
+        const response = await globalFetch('/api/files/dirs');
         
-        const dirSelect = document.getElementById('dir-select');
-        if (!dirSelect) {
-            logMessage('[UI] Directory selector not found in DOM');
-            return;
-        }
-        
-        // Clear existing options
-        dirSelect.innerHTML = '<option value="">Select Directory</option>';
-        
-        // Get the saved directory from state
-        const { getCurrentDirectory } = await import('./fileSystemState.js');
-        const savedDirectory = getCurrentDirectory();
-        logMessage(`[UI] Saved directory from state: ${savedDirectory || 'none'}`);
-        
-        // Try to fetch directories from the server
-        try {
-            const response = await globalFetch('/api/files/dirs');
+        if (response.ok) {
+            const dirs = await response.json();
+            logMessage(`[UI] Successfully loaded ${dirs.length} directories`);
             
-            if (response.ok) {
-                const dirs = await response.json();
-                logMessage(`[UI] Successfully loaded ${dirs.length} directories`);
-                
-                dirs.forEach(dir => {
-                    const option = document.createElement('option');
-                    option.value = dir.id;
-                    option.textContent = dir.name || dir.id;
-                    if (dir.description) {
-                        option.title = dir.description;
-                    }
-                    dirSelect.appendChild(option);
-                });
-                
-                // Set directory based on saved state or default to user directory
-                if (savedDirectory && Array.from(dirSelect.options).some(opt => opt.value === savedDirectory)) {
-                    dirSelect.value = savedDirectory;
-                    logMessage(`[UI] Restored directory selector to saved directory: ${savedDirectory}`);
-                } else if (authState.username) {
-                    dirSelect.value = authState.username;
-                    logMessage(`[UI] Set directory selector to user directory: ${authState.username}`);
-                }
-                
-                // Trigger change event
-                dirSelect.dispatchEvent(new Event('change'));
-                return dirs;
-            } else {
-                throw new Error(`Server returned ${response.status}`);
-            }
-        } catch (error) {
-            logMessage(`[UI] Server error when loading directories: ${error.message}`);
+            // Import the centralized function and use it
+            const { updateDirectorySelector } = await import('./fileManager/core.js');
+            updateDirectorySelector(dirs, savedDirectory || (authState.username ? authState.username : null));
             
-            // Fallback: Add just the user directory if we have a username
-            if (authState.username) {
-                const option = document.createElement('option');
-                option.value = authState.username;
-                option.textContent = `${authState.username} (Your Files)`;
-                dirSelect.appendChild(option);
-                dirSelect.value = authState.username;
-                dirSelect.dispatchEvent(new Event('change'));
-                logMessage('[UI] Added fallback directory for user');
-            }
+            // Trigger change event
+            dirSelect.dispatchEvent(new Event('change'));
+            return dirs;
+        } else {
+            throw new Error(`Failed to load directories: ${response.status}`);
         }
     } catch (error) {
-        logMessage('[UI ERROR] Failed to load directories: ' + error.message);
-        console.error('[UI ERROR]', error);
+        logMessage(`[UI] Error loading directories: ${error.message}`);
+        
+        // Use the centralized function for fallback too
+        const { updateDirectorySelector } = await import('./fileManager/core.js');
+        
+        // Add fallback with just the user directory if logged in
+        if (authState.username) {
+            updateDirectorySelector([{
+                id: authState.username,
+                name: `${authState.username} (Your Files)`
+            }], authState.username);
+            
+            // Trigger change event
+            dirSelect.dispatchEvent(new Event('change'));
+        } else {
+            // Just clear the selector if not logged in
+            updateDirectorySelector([]);
+        }
+        
+        return null;
     }
 }
 
@@ -288,19 +271,9 @@ export async function diagnoseDirSelector() {
                     const dirs = await altResponse.json();
                     console.log("6. Success! Found directories at alternate endpoint:", dirs);
                     
-                    // Populate selector
-                    dirSelect.innerHTML = '<option value="">Select Directory</option>';
-                    dirs.forEach(dir => {
-                        const option = document.createElement('option');
-                        option.value = dir.id;
-                        option.textContent = dir.name;
-                        dirSelect.appendChild(option);
-                    });
-                    
-                    if (authState.username) {
-                        dirSelect.value = authState.username;
-                        dirSelect.dispatchEvent(new Event('change'));
-                    }
+                    // Use the centralized function
+                    const { updateDirectorySelector } = await import('./fileManager/core.js');
+                    updateDirectorySelector(dirs, authState.username);
                     
                     console.log("7. Directory selector populated with alternate endpoint data");
                     return;
@@ -312,37 +285,28 @@ export async function diagnoseDirSelector() {
             const dirs = await response.json();
             console.log("4. Successfully fetched directories:", dirs);
             
-            // Populate selector
-            dirSelect.innerHTML = '<option value="">Select Directory</option>';
-            dirs.forEach(dir => {
-                const option = document.createElement('option');
-                option.value = dir.id;
-                option.textContent = dir.name;
-                dirSelect.appendChild(option);
-            });
-            
-            if (authState.username) {
-                dirSelect.value = authState.username;
-                dirSelect.dispatchEvent(new Event('change'));
-            }
+            // Use the centralized function
+            const { updateDirectorySelector } = await import('./fileManager/core.js');
+            updateDirectorySelector(dirs, authState.username);
             
             console.log("5. Directory selector populated successfully");
             
         } catch (error) {
             console.log("ERROR: Failed to fetch directories:", error.message);
             
-            // Add fallback directory
+            // Add fallback directory using the centralized function
             console.log("6. Using fallback with user directory only");
-            dirSelect.innerHTML = '<option value="">Select Directory</option>';
+            const { updateDirectorySelector } = await import('./fileManager/core.js');
             
             if (authState.username) {
-                const option = document.createElement('option');
-                option.value = authState.username;
-                option.textContent = `${authState.username} (Your Files)`;
-                dirSelect.appendChild(option);
-                dirSelect.value = authState.username;
-                dirSelect.dispatchEvent(new Event('change'));
+                updateDirectorySelector([{
+                    id: authState.username,
+                    name: `${authState.username} (Your Files)`
+                }], authState.username);
+                
                 console.log("7. Added fallback directory for current user");
+            } else {
+                updateDirectorySelector([]);
             }
         }
         

@@ -793,7 +793,7 @@ function addAppInfoToLogBar() {
     if (window.APP_CONFIG) {
         appInfo.textContent = `${window.APP_CONFIG.name} ${window.APP_CONFIG.version}`;
     } else {
-        appInfo.textContent = 'devPages 003m4';
+        appInfo.textContent = 'devPages 003m5 - dir selection';
     }
     
     console.log('[LOG DEBUG] App info added to toolbar');
