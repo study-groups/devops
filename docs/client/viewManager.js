@@ -59,10 +59,6 @@ export function setView(mode) {
         // For split view, let CSS handle the layout
         editor.style.display = 'block';
         preview.style.display = 'block';
-        // Show log in split view without toggling
-        import('./log.js').then(({ logState }) => {
-            logState.setVisible(true);
-        });
     }
     
     // Save the current view mode
