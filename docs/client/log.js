@@ -64,8 +64,22 @@ export function logMessage(message) {
         logContainer.scrollTop = logContainer.scrollHeight;
     }
     
+    // Update the log status counter
+    updateLogEntryCount();
+    
     // Also log to console for debugging
     console.log(`${timestamp} ${message}`);
+}
+
+// Add a function to update the log entry count
+function updateLogEntryCount() {
+    const logDiv = document.getElementById('log');
+    const logStatus = document.getElementById('log-status');
+    
+    if (logDiv && logStatus) {
+        const entryCount = logDiv.children.length;
+        logStatus.textContent = `${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`;
+    }
 }
 
 // Log state module with a single source of truth
@@ -362,10 +376,7 @@ export function clearLog() {
         logDiv.innerHTML = '';
         
         // Update log status count
-        const logStatus = document.getElementById('log-status');
-        if (logStatus) {
-            logStatus.textContent = '0 entries';
-        }
+        updateLogEntryCount();
         
         logMessage('[LOG] Log cleared');
     }
