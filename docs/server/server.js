@@ -45,6 +45,7 @@ const { router: imageRoutes } = require('./routes/images');
 const authRoutes = require('./routes/auth');
 const communityRoutes = require('./routes/community');
 const saveRoutes = require('./routes/save');
+const cliRoutes = require('./routes/cli');
 
 // Configure routes that need JSON parsing
 app.use('/api/auth', express.json(), authRoutes);
@@ -56,6 +57,9 @@ app.use('/api/images', express.json(), authMiddleware, imageRoutes);
 
 // Add this line with your other route registrations
 app.use('/api/save', express.text({ type: 'text/plain' }), express.json(), saveRoutes);
+
+// CLI routes with JSON parsing and authentication
+app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 
 // Handle 404s
 app.use('/api/*', (req, res) => {

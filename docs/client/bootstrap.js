@@ -89,6 +89,10 @@ async function initializeApp() {
     const communityLink = await safeImport('/client/components/communityLink.js');
     await communityLink.initCommunityLink();
     
+    // 8. Import and initialize the CLI component
+    const cliModule = await safeImport('/client/cli/index.js');
+    console.log('[BOOTSTRAP] CLI component loaded');
+
     // Mark initialization as complete
     window.APP.initializing = false;
     window.APP.initialized = true;
