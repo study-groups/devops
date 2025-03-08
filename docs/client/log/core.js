@@ -24,15 +24,13 @@ export function logMessage(message, type = 'text') {
     
     // Add click event listener to add to preview
     logEntry.addEventListener('click', () => {
-        const preview = document.getElementById('md-preview');
-        if (preview) {
+        const editor = document.querySelector('#md-editor textarea');
+        if (editor) {
             // For text, simply append. For JSON, you might want to format it.
             if (type === 'text') {
-                preview.innerHTML += `<p>${message}</p>`;
+                editor.value += message + "\n";
             } else if (type === 'json') {
-                const pre = document.createElement('pre');
-                pre.textContent = JSON.stringify(message, null, 2);
-                preview.appendChild(pre);
+                editor.value += JSON.stringify(message, null, 2) + "\n";
             }
         }
     });
