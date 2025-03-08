@@ -9,7 +9,7 @@ echo "[ENV] PWD=$(pwd)"
 export MD_DIR=$HOME/pj/md;
 echo "[ENV] MD_DIR=$MD_DIR"
 echo "[ENV] NVM_DIR=$NVM_DIR"
-source $NVM_DIR/nvm.sh   # initializes runtime to same as CLI
+source $HOME/pj/nvm/nvm.sh   # initializes runtime to same as CLI
 echo "[SERVER] Starting: node $path/server/server.js"
 PORT=4000
 export PORT
