@@ -45,7 +45,7 @@ async function initializeApp() {
   try {
     // 1. Import core modules first
     const logSystem = await safeImport('/client/log/index.js');
-    const { logMessage, initLogVisibility } = logSystem;
+    const { logMessage, initLogVisibility, ensureLogButtonsConnected } = logSystem;
     
     // Make log function available globally for other modules
     window.logMessage = logMessage;
@@ -63,6 +63,10 @@ async function initializeApp() {
     const uiManager = await safeImport('/client/uiManager.js');
     await uiManager.initializeUI();
     logMessage('[BOOTSTRAP] UI system initialized');
+    
+    // Explicitly ensure log buttons are connected after UI initialization
+    ensureLogButtonsConnected();
+    logMessage('[BOOTSTRAP] Log buttons connected');
 
     // 4. Import and initialize auth module
     const auth = await safeImport('/client/auth.js');
