@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { exec } = require('child_process');
 const { authMiddleware } = require('../middleware/auth');
+const fs = require('fs');
 
 /**
  * Execute a command and return the result
@@ -12,17 +13,31 @@ const { authMiddleware } = require('../middleware/auth');
 function executeCommand(command, username) {
     return new Promise((resolve, reject) => {
         console.log(`[CLI] User ${username} executing command: ${command}`);
-        
-        exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
+
+        // Determine the bash path.  This is the *most* crucial part for your use case.
+        const bashPaths = ['/usr/bin/bash', '/bin/bash'];
+        let shell = '/bin/sh'; // Fallback
+        for (const bashPath of bashPaths) {
+            if (fs.existsSync(bashPath)) {
+                shell = bashPath;
+                break;
+            }
+        }
+        console.log(`[CLI] Using shell: ${shell}`);
+
+        // Source ONLY api-env.sh, using the FULL, CORRECTED PATH.
+        //  *** REPLACE THIS WITH THE ACTUAL ABSOLUTE PATH TO api-env.sh ***
+        const fullCommand = `source  /root/src/devops/docs/api-env.sh; ${command}`;
+
+        exec(`${shell} -c "${fullCommand}"`, (error, stdout, stderr) => {
             if (error) {
-                console.error(`[CLI ERROR] Command execution failed: ${error.message}`);
-                reject(error);
+                // Combine stdout, stderr, and the error message for a complete error report.
+                const output = stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
+                reject(new Error(`Command failed: ${error.message}\n${output}`));
                 return;
             }
-            
-            // Combine stdout and stderr for the response
+
             const output = stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
-            console.log(`[CLI] Command executed successfully by user ${username}`);
             resolve(output);
         });
     });
@@ -77,6 +92,7 @@ router.get('/commands', authMiddleware, (req, res) => {
         { command: 'grep', description: 'Print lines that match patterns' },
         { command: 'wc', description: 'Print newline, word, and byte counts for each file' },
         { command: 'df', description: 'Report file system disk space usage' },
+        { command: 'qa_help', description: 'QAv' },
         { command: 'du', description: 'Estimate file space usage' }
     ];
     
