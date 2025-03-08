@@ -1,5 +1,5 @@
 // operations.js - Core file operations
-import { logMessage, initLogToolbar } from '../log.js';
+import { logMessage, initLogToolbar } from "../log/index.js";
 import { fetchFileContent, saveFileContent, fetchDirectoryListing } from './api.js';
 import { 
     loadFileSystemState, 
@@ -92,6 +92,9 @@ export async function loadFile(filename, directory = '') {
         // Save state separately to ensure it works even if URL update fails
         saveFileSystemState({ currentDir: dir, currentFile: filename });
         
+        // Refresh preview after saving
+        updatePreview(content);
+        
         // Update the community link button state
         try {
             // Dynamically import to avoid circular dependencies
@@ -164,6 +167,9 @@ export async function saveFile(filename, directory = '') {
             lastModified: Date.now()
         });
         
+        // Refresh preview after saving
+        updatePreview(content);
+        
         // Publish save event
         document.dispatchEvent(new CustomEvent('file:saved', {
             detail: { filename: file, directory: dir }
@@ -172,6 +178,7 @@ export async function saveFile(filename, directory = '') {
         return true;
     } catch (error) {
         logMessage(`[FILES ERROR] Failed to save file: ${error.message}`);
+        console.error('[FILES ERROR]', error);
         return false;
     }
 }

@@ -1,5 +1,5 @@
 import { authState } from './auth.js';
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 import { globalFetch } from './globalFetch.js';
 import { updateAuthDisplay } from './uiManager.js';
 
@@ -46,6 +46,12 @@ export function setUIState(newState, data = {}) {
 
 export async function fetchSystemInfo() {
     try {
+        // Check if user is logged in before making request
+        if (!authState.isLoggedIn) {
+            logMessage('error', 'Cannot fetch system info: User not logged in');
+            throw new Error('User not logged in');
+        }
+
         // Use globalFetch instead of native fetch
         const response = await globalFetch('/api/auth/system');
         if (!response.ok) throw new Error(`Failed to fetch system info: ${response.status} ${response.statusText}`);

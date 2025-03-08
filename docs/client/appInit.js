@@ -1,8 +1,8 @@
 // appInit.js - Central initialization for the entire application
 // Handles all startup tasks in a coordinated way
 
-import { logState, logMessage, initLogVisibility, forceLogHidden } from './log.js';
-import { authState, handleLogin } from './auth.js';
+import { logState, logMessage, initLogVisibility, forceLogHidden } from './log/index.js';
+import { authState, handleLogin, initializeAuth } from './auth.js';
 import { appName, appVer } from './config.js';
 import { initializeUI } from './uiManager.js';
 import { debugUI, testApiEndpoints, debugFileOperations, debugApiResponses, testFileLoading } from './debug.js';
@@ -11,104 +11,189 @@ import { initCommunityLink } from './components/communityLink.js';
 import { restoreLoginState } from './authManager.js';
 import { initializeFileManager } from './fileManager.js';
 import { UI_STATES, setUIState } from './uiState.js';
-// import { testAuthStatus } from './authManager.js';
+import { initializeEditor } from './editor.js';
 
-// Track initialization state
-let initialized = false;
+// GLOBAL INITIALIZATION FLAG - prevent any other initialization
+window.__APP_INITIALIZED = false;
+window.__INITIALIZATION_IN_PROGRESS = false;
 
 // Main initialization function
-export function initializeApp() {
+let initialized = false;
+export async function initializeApp() {
+    // Prevent re-initialization
     if (initialized) {
-        console.log('[APP] App already initialized, skipping');
+        console.log('[APP] Already initialized, skipping');
         return;
     }
-
-    initLogVisibility();
-    initialized = true;
-}
-
-// Initialize all localStorage-based settings
-function initLocalStorageSettings() {
-    console.log('[APP] Starting localStorage initialization');
     
-    // DEBUG: Show all localStorage at startup
-    console.log('[APP] All localStorage at startup:');
-    try {
-        const allStorage = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            allStorage[key] = localStorage.getItem(key);
-        }
-        console.log('[APP] localStorage:', allStorage);
-    } catch (e) {
-        console.log('[APP] Error accessing localStorage:', e);
+    // Prevent concurrent initialization
+    if (window.__INITIALIZATION_IN_PROGRESS) {
+        console.log('[APP] Initialization already in progress, skipping');
+        return;
     }
     
-    // Use the imported initLogVisibility from log.js - this respects localStorage
-    console.log('[APP] Calling initLogVisibility from log.js');
-    initLogVisibility();
+    // Set global initialization lock
+    window.__INITIALIZATION_IN_PROGRESS = true;
     
-    // Initialize view mode from localStorage
-    console.log('[APP] Initializing view mode');
-    initViewMode();
-    
-    // Initialize other localStorage settings as needed
-    // ...
-    
-    console.log('[APP] LocalStorage settings initialized');
-    logMessage('[APP] LocalStorage settings initialized');
+    try {
+        console.log('[APP] ====== STARTING APPLICATION INITIALIZATION ======');
+        logMessage('[APP] Starting application initialization...');
+        
+        // PHASE 1: Core systems
+        initLogVisibility();
+        initLocalStorageSettings();
+        registerGlobalFunctions();
+        
+        // PHASE 2: Auth state
+        logMessage('[APP] Restoring authentication state...');
+        const isLoggedIn = await restoreLoginState();
+        logMessage(`[APP] Login state restored: ${isLoggedIn ? 'logged in' : 'logged out'}`);
+        
+        // PHASE 3: Core UI components in correct order
+        logMessage('[APP] Initializing core systems...');
+        await initializeAuth();
+        await initializeUI();
+        await initializeEditor();
+        
+        // PHASE 4: Conditional systems based on auth state
+        if (isLoggedIn) {
+            logMessage('[APP] User is logged in, initializing file system...');
+            await initializeFileManager();
+            setUIState(UI_STATES.USER);
+        } else {
+            logMessage('[APP] User is not logged in, setting login UI state...');
+            setUIState(UI_STATES.LOGIN);
+        }
+        
+        // PHASE 5: Additional components
+        logMessage('[APP] Initializing additional components...');
+        try {
+            await initCommunityLink();
+        } catch (error) {
+            console.warn('[APP] Failed to initialize community link:', error.message);
+        }
+        
+        // PHASE 6: Register global event handlers
+        setupGlobalEventHandlers();
+        
+        // Initialization complete
+        initialized = true;
+        window.__APP_INITIALIZED = true;
+        window.__INITIALIZATION_IN_PROGRESS = false;
+        logMessage('[APP] ====== APPLICATION INITIALIZATION COMPLETE ======');
+        
+    } catch (error) {
+        console.error('[APP] Fatal initialization error:', error);
+        logMessage(`[APP ERROR] Initialization failed: ${error.message}`);
+        window.__INITIALIZATION_IN_PROGRESS = false;
+    }
 }
 
-// Initialize view mode from localStorage
-function initViewMode() {
-    const savedView = localStorage.getItem('viewMode') || 'split';
+// Register single global event handler for auth state changes
+function setupGlobalEventHandlers() {
+    // Clean up any existing handlers
+    const oldHandlers = window.__EVENT_HANDLERS || {};
     
-    // Apply the saved view mode
+    // Auth login event
+    if (oldHandlers.authLogin) {
+        document.removeEventListener('auth:login', oldHandlers.authLogin);
+    }
+    
+    // Create handler with marking to prevent duplicate processing
+    const handleAuthLogin = async (event) => {
+        // Check if this event has already been handled
+        if (event.detail.handled) {
+            console.log('[APP] Auth login event already handled, skipping');
+            return;
+        }
+        
+        // Mark as handled
+        event.detail.handled = true;
+        
+        try {
+            logMessage('[APP] Auth login event received');
+            
+            // Initialize file manager if needed
+            await initializeFileManager();
+            setUIState(UI_STATES.USER, { username: event.detail.username });
+        } catch (error) {
+            console.error('[APP] Error handling login event:', error);
+        }
+    };
+    
+    // Auth logout event
+    if (oldHandlers.authLogout) {
+        document.removeEventListener('auth:logout', oldHandlers.authLogout);
+    }
+    
+    const handleAuthLogout = () => {
+        logMessage('[APP] Auth logout event received');
+        setUIState(UI_STATES.LOGIN);
+    };
+    
+    // Register new handlers
+    document.addEventListener('auth:login', handleAuthLogin);
+    document.addEventListener('auth:logout', handleAuthLogout);
+    
+    // Store handlers for future cleanup
+    window.__EVENT_HANDLERS = {
+        authLogin: handleAuthLogin,
+        authLogout: handleAuthLogout
+    };
+    
+    logMessage('[APP] Global event handlers registered');
+}
+
+// Initialize localStorage settings once
+function initLocalStorageSettings() {
+    logMessage('[APP] Initializing localStorage settings');
+    
+    // Clear URL parameters if they contain sensitive data
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('username') || url.searchParams.has('password')) {
+        url.searchParams.delete('username');
+        url.searchParams.delete('password');
+        window.history.replaceState({}, document.title, url.toString());
+        logMessage('[APP] Removed sensitive data from URL');
+    }
+    
+    // Initialize view mode from localStorage
+    const savedView = localStorage.getItem('viewMode') || 'split';
+    document.body.setAttribute('data-view-mode', savedView);
+    
+    // Update view buttons
     const viewButtons = {
         'code': document.getElementById('code-view'),
         'split': document.getElementById('split-view'),
         'preview': document.getElementById('preview-view')
     };
     
-    // Remove active class from all buttons
-    Object.values(viewButtons).forEach(btn => {
-        if (btn) btn.classList.remove('active');
+    Object.entries(viewButtons).forEach(([mode, btn]) => {
+        if (btn) {
+            btn.classList.toggle('active', mode === savedView);
+        }
     });
     
-    // Add active class to the saved view button
-    if (viewButtons[savedView]) {
-        viewButtons[savedView].classList.add('active');
-    }
-    
-    // Apply the view mode to the UI
-    document.body.setAttribute('data-view-mode', savedView);
-    
-    console.log(`[APP] View mode initialized from localStorage: ${savedView}`);
+    logMessage('[APP] LocalStorage settings initialized');
 }
 
-// Register global functions for debugging and other purposes
+// Register global debugging functions
 function registerGlobalFunctions() {
-    // Debug functions
     window.debugUI = debugUI;
     window.testApiEndpoints = testApiEndpoints;
     window.debugFileOperations = debugFileOperations;
     window.debugApiResponses = debugApiResponses;
     window.testFileLoading = testFileLoading;
     window.debugFileSystemState = debugFileSystemState;
-    // Remove or correct this line if testAuthStatus is not available
-    // window.testAuthStatus = testAuthStatus;
+    window.showAppInfo = showAppInfo;
     
-    // Make app config available globally
     window.APP_CONFIG = {
         name: appName,
         version: appVer,
         buildDate: new Date().toISOString().split('T')[0]
     };
     
-    // Register the showAppInfo function
-    window.showAppInfo = showAppInfo;
-    
-    console.log('[APP] Global functions registered');
+    logMessage('[APP] Global functions registered');
 }
 
 // Show application information
@@ -116,158 +201,58 @@ function showAppInfo() {
     logMessage('\n=== APPLICATION INFORMATION ===');
     logMessage(`Name: ${appName}`);
     logMessage(`Version: ${appVer}`);
-    logMessage(`Build Date: ${window.APP_CONFIG.buildDate}`);
+    logMessage(`Build Date: ${window.APP_CONFIG?.buildDate || new Date().toISOString().split('T')[0]}`);
     logMessage('================================');
 }
 
-// Update app info in the UI
-function updateAppInfo() {
-    const appInfo = document.getElementById('app-info');
-    if (appInfo) {
-        appInfo.textContent = `${appName} ${appVer}`;
+// CRITICAL: The ONLY DOMContentLoaded handler
+function setupInitialization() {
+    // Remove any existing initialization handlers
+    if (window.__INIT_HANDLER) {
+        document.removeEventListener('DOMContentLoaded', window.__INIT_HANDLER);
+        window.removeEventListener('load', window.__LOAD_HANDLER);
     }
-}
-
-// Initialize UI components
-function initUIComponents() {
-    // Initialize main UI system
-    initializeUI();
     
-    // Initialize community link component
-    initCommunityLink();
-    
-    logMessage('[APP] All UI components initialized');
-}
-
-// Initialize when the DOM is ready
-document.addEventListener('DOMContentLoaded', async () => {
-    // All initialization happens here
-    initializeApp();
-    const isLoggedIn = await restoreLoginState();
-    initializeUI(); // This would include calling initializeTopNav()
-    
-    if (isLoggedIn) {
-        // Fetch system info
-        try {
-            const { fetchSystemInfo } = await import('./uiState.js');
-            await fetchSystemInfo();
-        } catch (error) {
-            console.warn('[APP] Failed to fetch system info during initialization:', error.message);
-            // Continue anyway - the UI will use fallback values
-        }
+    // Define initialization handler
+    const initHandler = () => {
+        console.log('[APP] DOM ready, starting initialization');
         
-        await initializeFileManager();
-        setUIState(UI_STATES.USER);
+        // Cancel any existing initialization attempts from other modules
+        if (window.__APP_TIMEOUTS) {
+            window.__APP_TIMEOUTS.forEach(timeout => clearTimeout(timeout));
+        }
+        window.__APP_TIMEOUTS = [];
+        
+        // Start initialization
+        initializeApp();
+    };
+    
+    // Store the handler for potential cleanup
+    window.__INIT_HANDLER = initHandler;
+    
+    // Register the handler based on document state
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initHandler);
+        console.log('[APP] Waiting for DOMContentLoaded event');
     } else {
-        setUIState(UI_STATES.LOGIN);
+        console.log('[APP] Document already loaded, initializing immediately');
+        setTimeout(initHandler, 0);
     }
     
-    // Set up login button handler
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', async () => {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // DYNAMIC IMPORT FOUND: This should be changed
-            // const { handleLogin } = await import('./auth.js'); // No longer needed
-            // Should be: import('$lib/auth.js')
-            await handleLogin(username, password);
-        });
-    }
-
-    // Listen for the login event and initialize file manager and set UI state
-    document.addEventListener('auth:login', async (event) => {
-        // Fetch system info after login
-        try {
-            const { fetchSystemInfo } = await import('./uiState.js');
-            await fetchSystemInfo();
-        } catch (error) {
-            console.warn('[APP] Failed to fetch system info after login:', error.message);
-            // Continue anyway - the UI will use fallback values
+    // Add a fallback handler for window.load
+    const loadHandler = () => {
+        if (!initialized && !window.__INITIALIZATION_IN_PROGRESS) {
+            console.log('[APP] Window loaded but app not initialized, starting initialization');
+            initializeApp();
         }
-        
-        await initializeFileManager();
-        setUIState(UI_STATES.USER, { username: event.detail.username });
-    });
-
-    // Listen for logout event and set UI state
-    document.addEventListener('auth:logout', () => {
-        setUIState(UI_STATES.LOGIN);
-    });
-
-    // Initialize the community link component
-    console.log('[APP] DOM loaded, initializing components');
+    };
     
-    // Initialize the community link component
-    try {
-        initCommunityLink();
-        console.log('[APP] Community link component initialized');
-    } catch (error) {
-        console.error('[APP] Error initializing community link component:', error);
-    }
-});
+    window.__LOAD_HANDLER = loadHandler;
+    window.addEventListener('load', loadHandler);
+}
 
-// Add a final check but DON'T override the localStorage value
-window.addEventListener('load', () => {
-    console.log('[APP] Window loaded, checking for localStorage conflicts');
-    
-    // Wait a bit to ensure all other initialization is complete
-    setTimeout(() => {
-        // Read current localStorage value
-        const storedVisibility = localStorage.getItem('logVisible');
-        console.log('[APP] FINAL CHECK - localStorage logVisible:', storedVisibility);
-        
-        // CRITICAL: Ensure UI reflects localStorage without triggering saveState()
-        if (storedVisibility === 'true' && !logState.visible) {
-            console.log('[APP] *** FIXING UI: Making log visible based on localStorage ***');
-            
-            // Temporarily disable saveState
-            const originalSaveState = logState.saveState;
-            logState.saveState = function() {
-                console.log('[APP] State save PREVENTED during visibility fix');
-            };
-            
-            // Update both logState and UI - this will fix button state too
-            logState.visible = true;
-            logState.updateUI();
-            
-            // Restore originalSaveState
-            setTimeout(() => {
-                logState.saveState = originalSaveState;
-                console.log('[APP] Normal state saving restored after visibility fix');
-            }, 100);
-            
-        } else if (storedVisibility === 'false' && logState.visible) {
-            console.log('[APP] *** FIXING UI: Making log hidden based on localStorage ***');
-            
-            // Temporarily disable saveState
-            const originalSaveState = logState.saveState;
-            logState.saveState = function() {
-                console.log('[APP] State save PREVENTED during visibility fix');
-            };
-            
-            // Update both logState and UI - this will fix button state too
-            logState.visible = false;
-            logState.updateUI();
-            
-            // Restore originalSaveState
-            setTimeout(() => {
-                logState.saveState = originalSaveState;
-                console.log('[APP] Normal state saving restored after visibility fix');
-            }, 100);
-        } else {
-            console.log('[APP] UI already matches localStorage value:', 
-                       (storedVisibility === 'true') ? 'visible' : 'hidden');
-        }
-        
-        // Final verification
-        console.log('[APP] After window.load fixes:');
-        console.log('[APP] - logState.visible =', logState.visible);
-        console.log('[APP] - localStorage.logVisible =', localStorage.getItem('logVisible'));
-        console.log('[APP] - Log button state =', document.getElementById('log-btn')?.classList.contains('active'));
-    }, 300);
-});
+// Start initialization process
+setupInitialization();
 
 // Export for direct use
 export default { initializeApp }; 

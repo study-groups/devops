@@ -1,5 +1,5 @@
 // previewRefresh.js - Handles manual preview refresh functionality
-import { logMessage } from './log.js';
+import { logMessage } from "./log/index.js";
 import { updatePreview } from './markdown.js';
 
 /**

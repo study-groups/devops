@@ -2,7 +2,7 @@
  * Main application entry point
  */
 
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 import { initAuth } from './auth.js';
 import { initializeFileManager } from './fileManager/init.js';
 import { initializeUI } from './uiManager.js';

@@ -1,5 +1,5 @@
 // preview.js - Handles markdown preview functionality
-import { logMessage } from '.s/log.js';
+import { logMessage } from './log/index.js';
 
 let previewElement = null;
 let updateTimer = null;

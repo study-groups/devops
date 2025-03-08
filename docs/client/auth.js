@@ -1,4 +1,4 @@
-import { logMessage } from './log.js';
+import { logMessage } from "./log/index.js";
 import { updateAuthDisplay, showSystemInfo } from './uiManager.js';
 import { appName, appVer } from './config.js';
 import { clearFileSystemState } from './fileSystemState.js';
@@ -58,7 +58,6 @@ export async function handleLogin(username, password) {
     if (!username || !password) {
         logMessage('[AUTH ERROR] Username and password are required');
         throw new Error('Username and password are required');
-        return;
     }
 
     try {
@@ -66,7 +65,6 @@ export async function handleLogin(username, password) {
         if (!saltResponse.ok) {
             logMessage(`[AUTH ERROR] Failed to get salt: ${saltResponse.status}`);
             throw new Error(`Failed to get salt: ${saltResponse.status}`);
-            return;
         }
         const { salt } = await saltResponse.json();
 
@@ -84,14 +82,12 @@ export async function handleLogin(username, password) {
             logMessage('[AUTH ERROR] Login failed: Invalid credentials');
             updateAuthDisplay('Invalid credentials');
             throw new Error('Unauthorized');
-            return;
         }
 
         if (!loginResponse.ok) {
           const errorText = await loginResponse.text();
           logMessage(`[AUTH ERROR] Login failed: ${loginResponse.status} - ${errorText}`);
           throw new Error(`Login failed: ${loginResponse.status} - ${errorText}`);
-          return;
         }
 
         const data = await loginResponse.json();
@@ -108,20 +104,15 @@ export async function handleLogin(username, password) {
             logMessage(`[AUTH] Login successful: ${username}`);
             updateAuthDisplay();
 
-            // Dispatch login event with a flag indicating it's the initial login
-            // This will help prevent duplicate initializations
+            // Dispatch login event with handled flag
             document.dispatchEvent(new CustomEvent('auth:login', {
                 detail: {
                     username: username,
                     isLoggedIn: true,
                     expiresAt: authState.expiresAt,
-                    initialLogin: true
+                    handled: false
                 }
             }));
-            
-            // Remove the explicit file manager initialization to avoid duplication
-            // The event listener in fileManager/init.js will handle it
-
         } else {
             logMessage('[AUTH ERROR] Unexpected server response');
             throw new Error('Unexpected server response');
@@ -215,8 +206,42 @@ export async function logout() {
     }
 }
 
-// Update attachLoginHandlers to use the same function
+// Add initialization state tracking
+let authInitialized = false;
+let handlersAttached = false;
+
+// Initialize authentication system
+export async function initializeAuth() {
+    if (authInitialized) {
+        console.log('[AUTH] Already initialized, skipping');
+        return;
+    }
+
+    logMessage('[AUTH] Initializing authentication system');
+    
+    try {
+        // Only attach handlers once
+        if (!handlersAttached) {
+            attachLoginHandlers();
+            setupLogoutButton();
+            handlersAttached = true;
+        }
+        
+        authInitialized = true;
+        logMessage('[AUTH] Authentication system initialized');
+    } catch (error) {
+        console.error('[AUTH] Initialization error:', error);
+        logMessage(`[AUTH ERROR] ${error.message}`);
+    }
+}
+
+// Update attachLoginHandlers to prevent duplicate handlers
 function attachLoginHandlers() {
+    if (handlersAttached) {
+        console.log('[AUTH] Handlers already attached, skipping');
+        return;
+    }
+
     logMessage('[AUTH] Attaching login handlers');
 
     // Handle form submission
@@ -238,41 +263,8 @@ function attachLoginHandlers() {
         });
 
         logMessage('[AUTH] Login form submit handler attached successfully.');
-    } else {
-        logMessage('[AUTH WARN] Login form not found, will try again later');
-        setTimeout(attachLoginHandlers, 500);
-        return;
     }
 
-    const loginButton = document.getElementById('login-btn');
-    if (loginButton) {
-        logMessage('[AUTH] Found login button');
-        // No need to attach click handler as it will be handled by form submission
-        loginButton._hasAuthHandler = true;
-    }
-
-    // Also attach handler to the username field for better UX
-    const usernameInput = document.getElementById('username');
-    if (usernameInput) {
-        logMessage('[AUTH] Found username input, attaching keypress handler');
-        
-        // Remove any existing event listeners first
-        const newUsernameInput = usernameInput.cloneNode(true);
-        usernameInput.parentNode.replaceChild(newUsernameInput, usernameInput);
-        
-        // Add our keypress handler
-        newUsernameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                // Focus the password field when Enter is pressed in username
-                const passwordField = document.getElementById('password');
-                if (passwordField) {
-                    passwordField.focus();
-                }
-            }
-        });
-    }
-    
     // Attach logout button handler
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
@@ -284,17 +276,18 @@ function attachLoginHandlers() {
         
         // Add our click handler
         newLogoutBtn.addEventListener('click', logout);
-    } else {
-        logMessage('[AUTH WARN] Logout button not found');
     }
 
     // Attach info button handler
     const infoBtn = document.getElementById('info-btn');
     if (infoBtn) {
         logMessage('[AUTH] Found info button, attaching click handler');
-        infoBtn.onclick = showSystemInfo;
+        const newInfoBtn = infoBtn.cloneNode(true);
+        infoBtn.parentNode.replaceChild(newInfoBtn, infoBtn);
+        newInfoBtn.addEventListener('click', showSystemInfo);
     }
     
+    handlersAttached = true;
     logMessage('[AUTH] Login handlers attached successfully');
 }
 
@@ -340,18 +333,6 @@ async function displayEnvironmentInfo() {
     }
 }
 
-// Simplified approach - no dynamic imports
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('[AUTH] Restoring login state on DOMContentLoaded');
-    restoreLoginState()
-        .then(isLoggedIn => {
-            console.log(`[AUTH] Login state restored: ${isLoggedIn ? 'logged in' : 'logged out'}`);
-        })
-        .catch(error => {
-            console.error('[AUTH] Error restoring login state:', error);
-        });
-});
-
 // Add or update this function in auth.js
 export function saveAuthState() {
     try {
@@ -391,11 +372,6 @@ export function setupLogoutButton() {
         });
     }
 }
-
-// Call this function during initialization
-document.addEventListener('DOMContentLoaded', () => {
-    setupLogoutButton();
-});
 
 // Update the refreshAuth function to handle 404 errors gracefully
 export async function refreshAuth() {

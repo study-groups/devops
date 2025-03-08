@@ -3,7 +3,7 @@
  * Handles persistence of user's filesystem context (directory, file, etc.)
  */
 
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 
 // Update the defaultState to include URL parameters if available
 const defaultState = (() => {

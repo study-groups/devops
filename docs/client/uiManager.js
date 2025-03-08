@@ -1,39 +1,41 @@
 import { authState } from './auth.js';
-import { logMessage } from './log.js';
+import { logMessage, toggleLog, logState } from "./log/index.js";
 import { globalFetch } from './globalFetch.js';
-import { toggleLog } from './log.js';
 import { UI_STATES, uiState, fetchSystemInfo } from './uiState.js';
 import { updateTopBar } from './components/topBar.js';
 
+// Add initialization tracking
+let uiInitialized = false;
+
 // Initialize the UI system - main entry point
 export function initializeUI() {
-    updateTopBar();
-    // Wait for DOM to be fully loaded
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', onDOMReady);
-    } else {
-        onDOMReady();
+    if (uiInitialized) {
+        console.log('[UI] Already initialized, skipping');
+        return;
     }
-    
-    // Register for auth events
-    document.addEventListener('auth:login', onAuthStateChanged);
-    document.addEventListener('auth:logout', onAuthStateChanged);
-}
 
-// Core function called when DOM is ready
-function onDOMReady() {
-    logMessage('[UI] DOM ready, initializing UI system...');
+    logMessage('[UI] Initializing UI system...');
     
-    // Initialize user display
-    updateAuthDisplay();
-    
-    // Set up directory selector
-    setupDirectorySelector();
-    
-    // If user is logged in, load directories
-    if (authState.isLoggedIn) {
-        logMessage('[UI] User logged in, loading directories...');
-        loadDirectories();
+    try {
+        // Initialize components in order
+        updateTopBar();
+        updateAuthDisplay();
+        setupDirectorySelector();
+        
+        // If user is logged in, load directories
+        if (authState.isLoggedIn) {
+            loadDirectories();
+        }
+        
+        // Register event listeners
+        document.addEventListener('auth:login', onAuthStateChanged);
+        document.addEventListener('auth:logout', onAuthStateChanged);
+        
+        uiInitialized = true;
+        logMessage('[UI] UI system initialized successfully');
+    } catch (error) {
+        console.error('[UI] Initialization error:', error);
+        logMessage(`[UI ERROR] ${error.message}`);
     }
 }
 
@@ -317,62 +319,79 @@ export async function diagnoseDirSelector() {
     console.log("============== DIAGNOSTIC COMPLETE ==============");
 }
 
-// Display detailed system information - original version
+// Display detailed system information
 export async function showSystemInfo() {
     try {
+        // Check if user is logged in
+        if (!authState.isLoggedIn) {
+            logMessage('[SYSTEM] Cannot fetch system info: Not logged in');
+            return;
+        }
+
+        logMessage('[SYSTEM] Fetching system information...');
+        
         // Fetch system info
         const response = await globalFetch('/api/auth/system');
-        if (!response.ok) throw new Error('Failed to fetch system info');
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
         
         const info = await response.json();
+        
+        // Log the information directly using logMessage
         logMessage('\n=== SYSTEM INFORMATION ===');
         
         // Environment
         logMessage('\nEnvironment:');
-        Object.entries(info.environment).forEach(([key, value]) => {
+        Object.entries(info.environment || {}).forEach(([key, value]) => {
             logMessage(`${key.padEnd(15)} = ${value}`);
         });
 
         // Paths
         logMessage('\nPaths:');
-        Object.entries(info.paths).forEach(([key, value]) => {
+        Object.entries(info.paths || {}).forEach(([key, value]) => {
             logMessage(`${key.padEnd(15)} = ${value}`);
         });
 
         // Server Stats
-        logMessage('\nServer:');
-        logMessage(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
-        logMessage(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
-        
-        // Active Users
-        logMessage('\nActive Users:');
-        info.server.activeUsers.forEach(user => {
-            const lastSeen = new Date(user.lastSeen).toLocaleTimeString();
-            const marker = user.isCurrentUser ? '👤' : '👻';
-            logMessage(`${marker} ${user.username.padEnd(15)} (last seen: ${lastSeen})`);
-        });
+        if (info.server) {
+            logMessage('\nServer:');
+            logMessage(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
+            logMessage(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
+            
+            // Active Users
+            if (info.server.activeUsers?.length > 0) {
+                logMessage('\nActive Users:');
+                info.server.activeUsers.forEach(user => {
+                    const lastSeen = new Date(user.lastSeen).toLocaleTimeString();
+                    const marker = user.isCurrentUser ? '👤' : '👻';
+                    logMessage(`${marker} ${user.username.padEnd(15)} (last seen: ${lastSeen})`);
+                });
+            }
+        }
         
         // Try to fetch stream info
         try {
-            // Import the fetchStreamInfo function from fileManager/api.js
             const { fetchStreamInfo } = await import('./fileManager/api.js');
             const streamInfo = await fetchStreamInfo();
             
-            // Display stream info
-            logMessage('\n=== STREAM INFORMATION ===');
-            if (typeof streamInfo === 'object') {
-                Object.entries(streamInfo).forEach(([key, value]) => {
-                    if (typeof value === 'object') {
-                        logMessage(`\n${key}:`);
-                        Object.entries(value).forEach(([subKey, subValue]) => {
-                            logMessage(`  ${subKey.padEnd(15)} = ${subValue}`);
-                        });
-                    } else {
-                        logMessage(`${key.padEnd(15)} = ${value}`);
-                    }
-                });
-            } else {
-                logMessage(JSON.stringify(streamInfo, null, 2));
+            if (streamInfo) {
+                // Display stream info
+                logMessage('\n=== STREAM INFORMATION ===');
+                if (typeof streamInfo === 'object') {
+                    Object.entries(streamInfo).forEach(([key, value]) => {
+                        if (typeof value === 'object') {
+                            logMessage(`\n${key}:`);
+                            Object.entries(value).forEach(([subKey, subValue]) => {
+                                logMessage(`  ${subKey.padEnd(15)} = ${subValue}`);
+                            });
+                        } else {
+                            logMessage(`${key.padEnd(15)} = ${value}`);
+                        }
+                    });
+                } else {
+                    logMessage(JSON.stringify(streamInfo, null, 2));
+                }
             }
         } catch (error) {
             logMessage(`\n[NOTE] Stream info not available: ${error.message}`);
@@ -380,8 +399,8 @@ export async function showSystemInfo() {
         
         logMessage('\n=== END OF SYSTEM INFORMATION ===');
     } catch (error) {
-        logMessage(`[ERROR] Failed to fetch system info: ${error.message}`);
         console.error('[SYSTEM ERROR]', error);
+        logMessage(`[SYSTEM ERROR] Failed to fetch system info: ${error.message}`);
     }
 }
 
@@ -405,11 +424,6 @@ export function initializeTopNav() {
         logBtn.addEventListener('click', handleLogButtonClick);
         console.log('[UI] Log button event listener attached');
     }
-    
-    // Setup scroll lock toggle
-    setupScrollLockToggle();
-    
-    // Other top nav initialization can go here
     
     // Mark as initialized
     topNavInitialized = true;
@@ -454,5 +468,7 @@ function setupScrollLockToggle() {
     });
 }
 
-// Make sure the function is exported and available globally
-window.showSystemInfo = showSystemInfo; 
+// Add showSystemInfo to the window object for direct access
+if (typeof window !== 'undefined') {
+    window.showSystemInfo = showSystemInfo;
+} 

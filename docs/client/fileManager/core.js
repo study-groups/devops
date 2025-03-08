@@ -1,4 +1,4 @@
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 import { 
     loadFile,
     saveFile,

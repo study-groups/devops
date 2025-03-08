@@ -1,4 +1,5 @@
-import { logMessage, toggleLog } from "./log.js";
+import { logMessage, toggleLog, logState } from "./log/index.js";
+import { setRecentViewChange } from "./log/state.js";
 
 export function setView(mode) {
     const container = document.getElementById('content');
@@ -11,10 +12,8 @@ export function setView(mode) {
         return;
     }
     
-    // Flag that we're changing views to prevent unwanted log toggling
-    if (window.recentViewChange !== undefined) {
-        window.recentViewChange = true;
-    }
+    // Use the setter function
+    setRecentViewChange(true);
     
     // Remove all view classes first
     container.classList.remove('code-view', 'preview-view', 'split-view');
@@ -43,18 +42,10 @@ export function setView(mode) {
         editor.style.display = 'flex';
         editor.style.flex = '1';
         preview.style.display = 'none';
-        // Show log in code view without toggling
-        import('./log.js').then(({ logState }) => {
-            logState.setVisible(true);
-        });
     } else if (mode === 'preview') {
         editor.style.display = 'none';
         preview.style.display = 'block';
         preview.style.flex = '1';
-        // Hide log in preview view without toggling
-        import('./log.js').then(({ logState }) => {
-            logState.setVisible(false);
-        });
     } else if (mode === 'split') {
         // For split view, let CSS handle the layout
         editor.style.display = 'block';
@@ -73,8 +64,6 @@ export function setView(mode) {
     
     // Reset the view change flag after a short delay
     setTimeout(() => {
-        if (window.recentViewChange !== undefined) {
-            window.recentViewChange = false;
-        }
+        setRecentViewChange(false);
     }, 300);
 }

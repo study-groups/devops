@@ -34,7 +34,6 @@ nav {
     display: flex;
     gap: 8px;
     margin: 0 16px;
-    justify-content: center;
 }
 
 .auth-info {
@@ -375,12 +374,6 @@ html[data-log-visible="true"] #log-container {
     margin: 0 16px;
 }
 
-/* Scroll lock */
-.scroll-lock #md-editor textarea,
-.scroll-lock #md-preview {
-    scroll-behavior: smooth;
-}
-
 /* Drag and drop zone */
 #drop-zone {
     border: 2px dashed #dee2e6;
@@ -414,7 +407,6 @@ html[data-log-visible="true"] #log-container {
 }
 
 /* View mode visibility */
-.code-view #log,
 .split-view #log {
     display: block !important;
 }

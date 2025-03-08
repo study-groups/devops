@@ -1,5 +1,5 @@
 import { authState } from './auth.js';
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 import { updateAuthDisplay } from './uiManager.js';
 import { initializeFileManager } from './fileManager.js';
 import { clearFileSystemState } from './fileSystemState.js';

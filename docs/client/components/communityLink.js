@@ -16,13 +16,18 @@ export async function checkLinkStatus(filename, directory) {
     console.log('[COMMUNITY] Checking link status for:', filename, 'in directory:', directory);
     
     // Use the community-link endpoint with action=check
-    const url = `/community-link?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=check`;
+    const url = `/api/community/link`;
     
     const response = await globalFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        filename: filename,
+        directory: directory,
+        action: 'check'
+      })
     });
     
     if (!response.ok) {
@@ -157,7 +162,7 @@ export function initCommunityLink() {
       console.log('[COMMUNITY] Action:', action);
       
       // Try the original endpoint format with query parameters
-      const url = `/community-link?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
+      const url = `/api/community/link`;
       console.log('[COMMUNITY] Request URL:', url);
       
       // Use globalFetch which should handle authentication properly
@@ -165,8 +170,12 @@ export function initCommunityLink() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
-        // No body, using query parameters instead
+        },
+        body: JSON.stringify({
+          filename: filename,
+          directory: directory,
+          action: action
+        })
       })
       .then(function(response) {
         console.log('[COMMUNITY] Response status:', response.status);

@@ -1,6 +1,7 @@
 import { UI_STATES, uiState } from '../uiState.js';
 import { authState, logout } from '../auth.js';
 import { fetchSystemInfo } from '../uiState.js';
+import { logMessage } from "../log/index.js";
 
 const userView = `
     <div class="user-container">

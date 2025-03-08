@@ -1,5 +1,5 @@
 // markdown-svg.js - SVG processing functionality
-import { logMessage } from './log.js';
+import { logMessage } from "./log/index.js";
 
 // Track SVG processing state
 let svgProcessingInProgress = false;

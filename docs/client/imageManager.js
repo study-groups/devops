@@ -1,4 +1,4 @@
-import { logMessage } from "./log.js";
+import { logMessage } from "./log/index.js";
 import { schedulePreviewUpdate } from "./markdown.js";
 import { globalFetch } from "./globalFetch.js";
 

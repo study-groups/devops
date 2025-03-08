@@ -3,7 +3,7 @@
  * Handles updating the URL with the current file system state
  */
 
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 
 // Add missing lastUrlUpdate variable to track when the URL was last updated
 let lastUrlUpdate = 0;

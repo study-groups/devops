@@ -6,11 +6,8 @@ import { initializeFileManager, loadFiles, loadFile, saveFile, connectLoadButton
 import { uploadImage } from "./imageManager.js";
 import { setView } from "./viewManager.js";
 
-// Only scroll sync + lock, no preview logic
-import { syncScroll, toggleScrollLock } from "./scrollSync.js";
-
 // For logging, if needed
-import { logMessage } from "./log.js";
+import { logMessage } from "./log/index.js";
 
 // Import SVG processing functionality
 import { initSvgRefreshButton, registerRefreshFunction, executeRefresh } from "./markdown-svg.js";
@@ -38,6 +35,9 @@ import { initRefreshButton } from './refresh.js';
 // Add this import at the top
 import { initializeTopNav } from './uiManager.js';
 
+// Add initialization tracking
+let editorInitialized = false;
+
 /**
  * Inserts Markdown image syntax at the current editor cursor location.
  */
@@ -55,29 +55,16 @@ function insertMarkdownImage(imageUrl) {
     schedulePreviewUpdate();
 }
 
-// Handle dynamic imports for consistency
-export function loadModule(name) {
-    // Convert any potential alias to relative path
-    if (name.startsWith('$lib/')) {
-        name = name.replace('$lib/', './');
-    } else if (name.startsWith('$components/')) {
-        name = name.replace('$components/', './components/');
-    } else if (name.startsWith('$utils/')) {
-        name = name.replace('$utils/', './utils/');
+// Initialize editor
+export async function initializeEditor() {
+    if (editorInitialized) {
+        console.log('[EDITOR] Already initialized, skipping');
+        return;
     }
+
+    logMessage('[EDITOR] Starting initialization');
     
-    console.log(`[MODULE] Importing: ${name}`);
-    return import(name);
-}
-
-// Make it available globally for easy access from all modules
-window.loadModule = loadModule;
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', async () => {
     try {
-        logMessage('[EDITOR] DOMContentLoaded event fired');
-
         // Initialize mermaid
         mermaid.initialize({ startOnLoad: false });
         
@@ -86,17 +73,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         connectFileSelect();
         connectSaveButton();
         
-        // Initialize the unified refresh button
+        // Initialize buttons and features
         initRefreshButton();
-        
-        // Initialize preview refresh button
         initPreviewRefreshButton();
+        initializeResizableEditor();
+        initKeyboardShortcuts();
         
         // Set up editor event listeners
         const editorTextarea = document.querySelector('#md-editor textarea');
         if (editorTextarea) {
             editorTextarea.addEventListener("input", schedulePreviewUpdate);
-            editorTextarea.addEventListener("scroll", syncScroll);
             
             // Add keyboard shortcut for saving (Ctrl+S)
             editorTextarea.addEventListener('keydown', async (e) => {
@@ -106,67 +92,65 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await saveFile();
                 }
             });
-        } else {
-            logMessage('[EDITOR ERROR] Editor textarea not found');
         }
         
-        // Set up view controls with localStorage saving
-        document.getElementById("code-view")?.addEventListener("click", () => {
-            setView("code");
-            localStorage.setItem('viewMode', 'code');
-        });
-        document.getElementById("preview-view")?.addEventListener("click", () => {
-            setView("preview");
-            localStorage.setItem('viewMode', 'preview');
-        });
-        document.getElementById("split-view")?.addEventListener("click", () => {
-            setView("split");
-            localStorage.setItem('viewMode', 'split');
-        });
-        
-        // Set up scroll lock
-        const scrollLockBtn = document.getElementById("scroll-lock-btn");
-        if (scrollLockBtn) {
-            scrollLockBtn.addEventListener("click", toggleScrollLock);
-        }
+        // Set up view controls
+        setupViewControls();
         
         // Initialize SVG refresh button
         initSvgRefreshButton();
         
-        // Check URL parameters for initial state
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlDir = urlParams.get('dir');
-        const urlFile = urlParams.get('file');
+        // Check URL parameters
+        handleUrlParameters();
         
-        // If URL has parameters, use them
-        if (urlDir) {
-            // Directory will be set when files are loaded
-            logMessage(`[EDITOR] URL parameter dir=${urlDir}`);
-        }
-        
-        if (urlFile) {
-            logMessage(`[EDITOR] URL parameter file=${urlFile}`);
-        }
-        
-        // Set default view (or restore from localStorage)
+        // Set default view
         const savedView = localStorage.getItem('viewMode') || 'split';
         setView(savedView);
-        logMessage(`[EDITOR] View mode changed to: ${savedView}`);
-
-        // Initialize resizable editor
-        initializeResizableEditor();
-
-        // Initialize keyboard shortcuts
-        initKeyboardShortcuts();
-
-        // Initialize top navigation
-        initializeTopNav();
+        
+        // Set up paste and drag & drop handlers
+        setupPasteHandler();
+        setupDragAndDrop();
+        
+        editorInitialized = true;
+        logMessage('[EDITOR] Initialization complete');
     } catch (error) {
-        logMessage(`[EDITOR ERROR] Initialization failed: ${error.message}`);
         console.error('[EDITOR ERROR]', error);
+        logMessage(`[EDITOR ERROR] Initialization failed: ${error.message}`);
     }
+}
 
-    // Paste Image from Clipboard
+// Helper function to set up view controls
+function setupViewControls() {
+    document.getElementById("code-view")?.addEventListener("click", () => {
+        setView("code");
+        localStorage.setItem('viewMode', 'code');
+    });
+    document.getElementById("preview-view")?.addEventListener("click", () => {
+        setView("preview");
+        localStorage.setItem('viewMode', 'preview');
+    });
+    document.getElementById("split-view")?.addEventListener("click", () => {
+        setView("split");
+        localStorage.setItem('viewMode', 'split');
+    });
+}
+
+// Helper function to handle URL parameters
+function handleUrlParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDir = urlParams.get('dir');
+    const urlFile = urlParams.get('file');
+    
+    if (urlDir) {
+        logMessage(`[EDITOR] URL parameter dir=${urlDir}`);
+    }
+    if (urlFile) {
+        logMessage(`[EDITOR] URL parameter file=${urlFile}`);
+    }
+}
+
+// Helper function to set up paste handler
+function setupPasteHandler() {
     document.addEventListener("paste", async (event) => {
         const items = (event.clipboardData || window.clipboardData).items;
         for (const item of items) {
@@ -177,8 +161,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+}
 
-    // Drag & Drop Image Upload
+// Helper function to set up drag and drop
+function setupDragAndDrop() {
     const dropZone = document.getElementById("drop-zone");
     if (dropZone) {
         dropZone.addEventListener("dragover", (event) => {
@@ -201,15 +187,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+}
 
-    // Add a keyboard shortcut for refreshing (Ctrl+Alt+R)
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'r') {
-            e.preventDefault();
-            logMessage('[REFRESH] Refresh triggered by keyboard shortcut (Ctrl+Alt+R)');
-            executeRefresh();
-        }
-    });
+// Initialize on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    initializeEditor();
 });
 
 // Extract resizable editor initialization to a separate function

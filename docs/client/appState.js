@@ -1,5 +1,5 @@
 import { authState } from './auth.js';
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 import { initializeFileManager } from '../fileManager.js';
 
 // Application states

@@ -2,7 +2,7 @@
  * Debug utilities for troubleshooting the application
  */
 
-import { logMessage } from './log.js';
+import { logMessage } from "./log/index.js";
 import { debugFileSystemState } from './fileSystemState.js';
 
 // Debug function to check the state of key elements

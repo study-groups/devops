@@ -1,5 +1,5 @@
 // ui.js - Handles UI interactions and DOM manipulation
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 import { loadFile, saveFile } from './operations.js';
 
 export function connectFileSelect() {

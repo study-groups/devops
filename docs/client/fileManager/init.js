@@ -1,4 +1,4 @@
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 import { loadFileSystemState, setCurrentDirectory, setCurrentFile, getCurrentDirectory } from './state.js';
 import { loadFiles, loadDirectories, getDirectoryDisplayName } from './operations.js';
 import { getDirectoryIdFromUrl, getFileFromUrl } from './url.js';

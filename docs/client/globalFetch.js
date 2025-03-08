@@ -1,6 +1,6 @@
 // globalFetch.js
 import { authState } from './auth.js';
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 
 // Add a simple refreshAuth function since it's missing
 async function refreshAuth() {

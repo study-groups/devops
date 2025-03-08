@@ -1,6 +1,6 @@
 // api.js - Handles API calls to the server
 import { globalFetch } from '../globalFetch.js';
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 import { authState } from '../auth.js';
 
 /**

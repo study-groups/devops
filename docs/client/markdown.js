@@ -1,6 +1,6 @@
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import mermaid from "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.4/mermaid.esm.min.mjs";
-import { logMessage } from "./log.js";
+import { logMessage } from "./log/index.js";
 import { currentDir } from "./fileManager.js";
 import { 
     processSvgInMarkdown, 

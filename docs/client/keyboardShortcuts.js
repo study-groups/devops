@@ -3,7 +3,7 @@
  * Handles global keyboard shortcuts for the application
  */
 
-import { logMessage } from './log.js';
+import { logMessage } from './log/index.js';
 import { saveFile } from './fileManager.js';
 import { setView } from './viewManager.js';
 import { executeRefresh } from './markdown-svg.js';

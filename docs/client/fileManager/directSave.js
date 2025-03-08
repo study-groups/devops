@@ -1,5 +1,5 @@
 // directSave.js - Direct file saving implementation
-import { logMessage } from '../log.js';
+import { logMessage } from '../log/index.js';
 import { authState } from '../auth.js';
 
 /**
