@@ -188,7 +188,22 @@ hotrod_status() {
     tail -n 3 "$LOG_FILE" | grep -vE '^\s*$'
 }
 
-[[ $# -eq 0 ]] && usage
+# If no arguments are given, read from stdin
+if [[ $# -eq 0 ]]; then
+    if is_remote; then
+        log_event "Remote Hotrod Stdin Mode"
+        log_message "📡 Streaming stdin to local clipboard..."
+        cat | socat - TCP:localhost:$PORT
+        log_message "✅ Clipboard data sent."
+        exit 0
+    else
+        log_event "Local Hotrod Stdin Mode"
+        log_message "📡 Reading stdin into clipboard..."
+        cat | handle_clipboard
+        exit 0
+    fi
+fi
+
 
 case "$1" in
     --install) install_dependencies ;;
