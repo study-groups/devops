@@ -7,136 +7,153 @@ REMOTE_USER="${TETRA_REMOTE_USER:-root}"
 PORT=9999  # Clipboard Listener
 LISTENER_PID_FILE="$HOTROD_DIR/listener.pid"
 LOG_FILE="$HOTROD_DIR/log.txt"
-FIFO="$HOTROD_DIR/hotrod.fifo"
 
+is_mac() { [[ "$OSTYPE" == "darwin"* ]]; }
 is_remote() { [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; }
 
+timestamp() {
+    date +"%Y-%m-%d %H:%M:%S"
+}
+
+log_event() {
+    echo "[$(timestamp)] ===== $1 =====" | tee -a "$LOG_FILE"
+}
+
+log_message() {
+    echo "[$(timestamp)] $1" | tee -a "$LOG_FILE"
+}
+
 usage() {
-    echo ""
-    echo "🚗💨 Hotrod: Remote-to-Local Clipboard Streaming"
-    echo ""
-    echo "Usage: hotrod.sh [command]"
-    echo ""
-    if is_remote; then
-        echo "Remote Mode (Client):"
-        echo "  Pipe data into Hotrod via SSH Tunnel:"
-        echo "    echo 'Hello' | hotrod"
-    else
-        echo "Home Base (Server):"
-        echo "  --start           Start SSH tunnel & clipboard listener"
-        echo "  --status          Show Hotrod status"
-        echo "  --stop            Stop all Hotrod processes"
-        echo "  --nuke            Aggressive cleanup of all Hotrod-related processes & ports"
-    fi
-    echo ""
+    cat <<EOF
+
+🚗💨 Hotrod: Remote-to-Local Clipboard Streaming
+
+Usage: hotrod.sh [command]
+
+  --install        Install dependencies (macOS only)
+  --start          Start SSH tunnel & clipboard listener
+  --status         Show Hotrod status
+  --stop           Stop all Hotrod processes
+  --nuke           Aggressive cleanup of all Hotrod-related processes & ports
+  --help           Show this help message
+
+EOF
+    exit 0
+}
+
+install_dependencies() {
+    is_mac || { log_message "❌ This installation feature is for macOS only."; exit 1; }
+
+    log_message "🔧 Installing required dependencies..."
+    local dependencies=("socat" "proctools" "lsof")
+
+    for dep in "${dependencies[@]}"; do
+        if ! command -v "$dep" &>/dev/null; then
+            log_message "📦 Installing $dep..."
+            brew install "$dep"
+        else
+            log_message "✅ $dep is already installed."
+        fi
+    done
+
+    log_message "✅ Installation complete."
     exit 0
 }
 
 hotrod_nuke() {
-    echo "💣 NUKING all Hotrod-related processes and ports..."
-    
-    # Kill socat listener
-    pkill -9 socat 2>/dev/null
-    
-    # Kill stored listener PID
-    [[ -f "$LISTENER_PID_FILE" ]] && kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null
-    rm -f "$LISTENER_PID_FILE"
+    log_event "NUKING Hotrod Processes"
 
-    # Kill SSH tunnels
+    pgrep socat | xargs kill -9 2>/dev/null
+    [[ -f "$LISTENER_PID_FILE" ]] && kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null && rm -f "$LISTENER_PID_FILE"
     ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}' | xargs kill -9 2>/dev/null
-
-    # Force release port 9999
     lsof -ti tcp:$PORT | xargs kill -9 2>/dev/null
-    fuser -k $PORT/tcp 2>/dev/null
 
-    # Ensure port is fully free
     sleep 1
-    if ss -tln | grep -q ":$PORT "; then
-        echo "❌ Port $PORT is still occupied. Manual intervention required."
+    if lsof -iTCP -sTCP:LISTEN | grep -q ":$PORT "; then
+        log_message "❌ Port $PORT is still occupied. Manual intervention required."
         exit 1
     fi
 
-    echo "✅ Hotrod fully nuked."
+    log_message "✅ Hotrod fully nuked."
 }
 
 hotrod_kill() {
-    echo "🔍 Stopping Hotrod processes..."
+    log_event "Stopping Hotrod Processes"
     
-    pkill -9 socat 2>/dev/null
-    [[ -f "$LISTENER_PID_FILE" ]] && kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null
-    rm -f "$LISTENER_PID_FILE"
+    pgrep socat | xargs kill -9 2>/dev/null
+
+    if [[ -f "$LISTENER_PID_FILE" ]]; then
+        kill -9 "$(cat "$LISTENER_PID_FILE")" 2>/dev/null
+        rm -f "$LISTENER_PID_FILE"
+    fi
 
     ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}' | xargs kill -9 2>/dev/null
-    fuser -k $PORT/tcp 2>/dev/null
+    lsof -ti tcp:$PORT | xargs kill -9 2>/dev/null
 
-    echo "✅ Hotrod stopped."
+    sleep 1
+    if lsof -iTCP -sTCP:LISTEN | grep -q ":$PORT "; then
+        log_message "❌ Port $PORT is still occupied. Manual intervention required."
+        exit 1
+    fi
+
+    log_message "✅ Hotrod stopped."
 }
 
 start_ssh_tunnel() {
-    is_remote && { echo "Cannot start tunnel from remote."; exit 1; }
-    
-    echo "🔗 Starting SSH Tunnel: $REMOTE_USER@$REMOTE_SERVER, forwarding $PORT → localhost:$PORT"
+    is_remote && { log_message "Cannot start tunnel from remote."; exit 1; }
 
-    # Kill existing tunnels
-    existing_tunnels=$(ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}')
-    if [[ -n "$existing_tunnels" ]]; then
-        echo "🔍 Found existing tunnels. Stopping..."
-        echo "$existing_tunnels" | xargs kill -9 2>/dev/null
-        sleep 1
-    fi
+    log_message "🔗 Starting SSH Tunnel: $REMOTE_USER@$REMOTE_SERVER, forwarding $PORT → localhost:$PORT"
+    ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | awk '{print $2}' | xargs kill -9 2>/dev/null
+    sleep 1
 
-    # Start fresh SSH tunnel
-    nohup ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" &
+    nohup ssh -N -R $PORT:localhost:$PORT "$REMOTE_USER@$REMOTE_SERVER" & disown
 
     sleep 2
     if ps aux | grep "[s]sh -N -R $PORT:localhost:$PORT" | grep "$REMOTE_SERVER" &>/dev/null; then
-        echo "✅ SSH Tunnel established."
+        log_message "✅ SSH Tunnel established."
     else
-        echo "❌ SSH Tunnel failed to start. Check your SSH connection."
+        log_message "❌ SSH Tunnel failed to start. Check your SSH connection."
         exit 1
     fi
 }
 
 handle_clipboard() {
     while IFS= read -r line; do
-        echo "$line"  # Keep stdout open for debugging/pipelining
-
-        DISPLAY=:0; export DISPLAY  # Ensure clipboard works in GUI
-        if command -v xclip &>/dev/null; then
-            echo "$line" | xclip -selection clipboard
-        else
-            echo "❌ xclip not found! Clipboard update failed." >> "$LOG_FILE"
-        fi
+        [[ -z "$line" ]] && continue
+        log_event "Clipboard Event"
+        log_message "📥 Received: $line"
+        echo "$line" > /tmp/hotrod_clipboard
+        cat /tmp/hotrod_clipboard | pbcopy
+        log_message "📋 Copied to clipboard: $line"
     done
 }
 
 start_clipboard_listener() {
-    is_remote && { echo "Cannot start listener from remote."; exit 1; }
-    echo "📋 Starting Clipboard Listener on localhost:$PORT..."
+    is_remote && { log_message "Cannot start listener from remote."; exit 1; }
+    log_message "📋 Starting Clipboard Listener on localhost:$PORT..."
 
-    hotrod_kill  # Ensure the port is clean
+    hotrod_kill
+    mkdir -p "$HOTROD_DIR"
 
-    nohup socat -u TCP-LISTEN:$PORT,reuseaddr,fork,bind=127.0.0.1 STDOUT | tee -a "$LOG_FILE" | handle_clipboard &
+    (socat -u TCP-LISTEN:$PORT,reuseaddr,fork STDOUT | handle_clipboard) > /tmp/hotrod_socat.log 2>&1 & disown
 
-    echo $! > "$LISTENER_PID_FILE"
-    sleep 1
-
-    if ! ss -tln | grep -q ":$PORT "; then
-        echo "❌ Clipboard listener failed to start!"
+    sleep 2
+    if ! pgrep -f "socat -u TCP-LISTEN:$PORT"; then
+        log_message "❌ Clipboard listener failed to start!"
+        cat /tmp/hotrod_socat.log  # Show error log
         exit 1
     fi
-
-    echo "✅ Clipboard listener started on localhost:$PORT"
+    log_message "✅ Clipboard listener started successfully."
 }
 
 hotrod_start() {
-    echo "🚗💨 Starting Hotrod..."
-    echo "  🔹 User     : $(whoami)"
-    echo "  🔹 Host     : $(hostname)"
-    echo "  🔹 Remote   : $REMOTE_USER@$REMOTE_SERVER"
-    echo "  🔹 Port     : $PORT"
-    echo "  🔹 FIFO     : $FIFO"
-    echo "  🔹 Log File : $LOG_FILE"
+    log_event "Hotrod Startup"
+    log_message "🚗💨 Starting Hotrod..."
+    log_message "🔹 User     : $(whoami)"
+    log_message "🔹 Host     : $(hostname)"
+    log_message "🔹 Remote   : $REMOTE_USER@$REMOTE_SERVER"
+    log_message "🔹 Port     : $PORT"
+    log_message "🔹 Log File : $LOG_FILE"
 
     hotrod_kill
     start_clipboard_listener
@@ -144,11 +161,11 @@ hotrod_start() {
 }
 
 hotrod_status() {
-    echo "🔥 Hotrod Status"
-    echo "Mode            : $(is_remote && echo Remote Client || echo Home Base)"
-    echo "Clipboard Port  : $PORT"
-    echo "FIFO            : $FIFO"
-    echo "Log File        : $LOG_FILE"
+    log_event "Hotrod Status Check"
+    log_message "🔥 Hotrod Status"
+    log_message "Mode            : $(is_remote && echo Remote Client || echo Home Base)"
+    log_message "Clipboard Port  : $PORT"
+    log_message "Log File        : $LOG_FILE"
 
     echo -n "Listener        : "
     [[ -f "$LISTENER_PID_FILE" ]] && echo "Running" || echo "Not Running"
@@ -161,44 +178,24 @@ hotrod_status() {
     fi
 
     echo -n "Port Listening  : "
-    if ss -tln | grep -q ":$PORT "; then
+    if lsof -iTCP -sTCP:LISTEN | grep -q ":$PORT "; then
         echo "✅ Port is open"
     else
         echo "❌ Port NOT open!"
     fi
 
-    active_clients=$(ss -tan | grep ":$PORT " | grep ESTABLISHED | grep -v "127.0.0.1" | awk '{print $5}' | cut -d: -f1 | sort | uniq -c)
-    if [[ -z "$active_clients" ]]; then
-        echo "Active Clients  : 0"
-    else
-        echo "Active Clients  : $(echo "$active_clients" | wc -l)"
-        echo "Connected Hosts :"
-        echo "$active_clients"
-    fi
-
-    echo "Last Clipboard Entries:"
-    tail -n 3 "$LOG_FILE" | sed 's/^/  📋 Clipboard: /' | grep -vE '^\s*$'
+    log_message "Last Clipboard Entries:"
+    tail -n 3 "$LOG_FILE" | grep -vE '^\s*$'
 }
-
-# **Remote Mode Handling**
-if is_remote; then
-    echo "🚗💨 Hotrod Remote Mode"
-    echo "Clipboard Port: $PORT"
-    echo "Sending data to Mothership..."
-
-    echo "🔗 Remote Status Report" | socat - TCP:localhost:$PORT
-    cat | socat - TCP:localhost:$PORT
-    echo "✅ Clipboard data sent."
-    exit 0
-fi
 
 [[ $# -eq 0 ]] && usage
 
 case "$1" in
+    --install) install_dependencies ;;
     --start) is_remote && exit 1; hotrod_start ;;
     --status) hotrod_status ;;
     --stop) is_remote && exit 1; hotrod_kill ;;
     --nuke) hotrod_nuke ;;
     --help) usage ;;
-    *) echo "Unknown command: $1"; usage ;;
+    *) log_message "Unknown command: $1"; usage ;;
 esac
