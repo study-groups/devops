@@ -204,6 +204,32 @@ if [[ $# -eq 0 ]]; then
     fi
 fi
 
+hotrod_last() {
+    local n="${1:-0}"  # Default to 0 if no argument is given
+    log_event "Fetching Last Clipboard Entry ($n ago)"
+
+    if [[ ! -f "$LOG_FILE" ]]; then
+        log_message "❌ No clipboard history available."
+        exit 1
+    fi
+
+    # Extract clipboard history lines
+    local lines
+    lines=$(grep "📋 Copied to clipboard:" "$LOG_FILE" | awk -F "📋 Copied to clipboard: " '{print $2}')
+
+    if [[ -z "$lines" ]]; then
+        log_message "❌ No clipboard history found."
+        exit 1
+    fi
+
+    # Determine the line to fetch based on $n
+    if [[ "$n" -eq 0 ]]; then
+        log_message "📋 Last clipboard entry: $(echo "$lines" | tail -n 1)"
+    else
+        log_message "📋 Clipboard entry ($n ago): $(echo "$lines" | tail -n "$((n+1))" | head -n 1)"
+    fi
+}
+
 
 case "$1" in
     --install) install_dependencies ;;
@@ -211,6 +237,11 @@ case "$1" in
     --status) hotrod_status ;;
     --stop) is_remote && exit 1; hotrod_kill ;;
     --nuke) hotrod_nuke ;;
+    --last)
+        shift
+        hotrod_last "${1:-0}"
+        ;;
     --help) usage ;;
     *) log_message "Unknown command: $1"; usage ;;
 esac
+
