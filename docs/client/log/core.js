@@ -5,6 +5,8 @@
  * @param {string|object} message - The message to log
  * @param {string} type - The type of message ('text' or 'json')
  */
+import { updatePreview } from '../markdown.js';
+
 export function logMessage(message, type = 'text') {
     const logContainer = document.getElementById('log');
     if (!logContainer) return;
@@ -32,6 +34,7 @@ export function logMessage(message, type = 'text') {
             } else if (type === 'json') {
                 editor.value += JSON.stringify(message, null, 2) + "\n";
             }
+            updatePreview(editor.value);
         }
     });
     

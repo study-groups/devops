@@ -84,7 +84,7 @@ router.get('/', (req, res) => {
 router.get('/commands', authMiddleware, (req, res) => {
     const safeCommands = [
         { command: 'ls', description: 'List directory contents' },
-        { command: 'pwd', description: 'Print working directory' },
+        { command: 'pd', description: 'Print working directory' },
         { command: 'date', description: 'Show current date and time' },
         { command: 'echo', description: 'Display a line of text' },
         { command: 'cat', description: 'Concatenate files and print on the standard output' },
