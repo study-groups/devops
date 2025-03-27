@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Preview</title>
+  <link rel="stylesheet" href="/client/styles.css">
+  <style>
+    /* Preview page styles */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      background-color: #f8f9fa;
+    }
+    
+    .preview-header {
+      background-color: #fff;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 16px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .preview-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #24292e;
+    }
+    
+    .preview-container {
+      max-width: 900px;
+      margin: 32px auto;
+      padding: 24px;
+      background-color: #fff;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .preview-footer {
+      text-align: center;
+      margin-top: 32px;
+      margin-bottom: 32px;
+      color: #6a737d;
+      font-size: 14px;
+    }
+    
+    .preview-error {
+      padding: 16px;
+      background-color: #ffeef0;
+      border: 1px solid #fdb8c0;
+      border-radius: 6px;
+      color: #86181d;
+      margin-bottom: 16px;
+    }
+    
+    .markdown-content {
+      /* Base styles for markdown content */
+      padding: 16px 0;
+    }
+    
+    .markdown-content h1 { font-size: 2em; margin-top: 0.67em; margin-bottom: 0.67em; }
+    .markdown-content h2 { font-size: 1.5em; margin-top: 0.83em; margin-bottom: 0.83em; }
+    .markdown-content h3 { font-size: 1.17em; margin-top: 1em; margin-bottom: 1em; }
+    .markdown-content h4 { font-size: 1em; margin-top: 1.33em; margin-bottom: 1.33em; }
+    
+    .markdown-content code {
+      padding: 0.2em 0.4em;
+      background-color: #f6f8fa;
+      border-radius: 3px;
+      font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 85%;
+    }
+    
+    .markdown-content pre {
+      background-color: #f6f8fa;
+      border-radius: 6px;
+      padding: 16px;
+      overflow: auto;
+    }
+    
+    .markdown-content pre code {
+      padding: 0;
+      background-color: transparent;
+    }
+    
+    .markdown-content a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+    
+    .markdown-content a:hover {
+      text-decoration: underline;
+    }
+    
+    .markdown-content blockquote {
+      border-left: 3px solid #e1e4e8;
+      padding-left: 16px;
+      color: #6a737d;
+      margin-left: 0;
+    }
+    
+    .markdown-content img {
+      max-width: 100%;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6a737d;
+    }
+  </style>
+</head>
+<body>
+  <header class="preview-header">
+    <h1 id="preview-title" class="preview-title">Markdown Preview</h1>
+  </header>
+  
+  <main class="preview-container">
+    <div id="preview-content" class="markdown-content">
+      <div class="loading">Loading preview...</div>
+    </div>
+  </main>
+  
+  <footer class="preview-footer">
+    <p>Shared via Markdown Editor</p>
+  </footer>
+
+  <script type="module">
+    // Main viewer script
+    (async function() {
+      // Get the preview ID from the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const querySlug = urlParams.get('id');
+      
+      // Use path if no query parameter exists
+      const path = window.location.pathname;
+      const pathSlug = path.split('/').pop();
+      
+      // Use querySlug if available, otherwise use pathSlug
+      const slug = querySlug || pathSlug;
+      
+      // Debug info
+      console.log(`[PREVIEW] Full path: ${path}`);
+      console.log(`[PREVIEW] Slug extracted: ${slug}`);
+      
+      // Extract the ID from the slug (last part after the last hyphen)
+      const parts = slug.split('-');
+      const previewId = parts[parts.length - 1];
+      
+      console.log(`[PREVIEW] Parsed as ID: ${previewId}`);
+      console.log(`[PREVIEW] Will look for data with key: preview_${previewId}`);
+      
+      // Add debug info to page
+      const debugInfo = document.createElement('div');
+      debugInfo.style.display = 'none';
+      debugInfo.id = 'debug-info';
+      debugInfo.innerHTML = `
+        <h4>Debug Info (Click to toggle)</h4>
+        <ul>
+          <li>Path: ${path}</li>
+          <li>Slug: ${slug}</li>
+          <li>Preview ID: ${previewId}</li>
+          <li>LocalStorage Key: preview_${previewId}</li>
+        </ul>
+      `;
+      document.body.appendChild(debugInfo);
+      
+      // Add toggle button
+      const debugButton = document.createElement('button');
+      debugButton.textContent = 'Debug';
+      debugButton.style.position = 'fixed';
+      debugButton.style.bottom = '10px';
+      debugButton.style.right = '10px';
+      debugButton.style.zIndex = '1000';
+      debugButton.style.padding = '5px 10px';
+      debugButton.style.background = '#f0f0f0';
+      debugButton.style.border = '1px solid #ccc';
+      debugButton.style.borderRadius = '3px';
+      debugButton.style.cursor = 'pointer';
+      
+      debugButton.addEventListener('click', () => {
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+      });
+      
+      document.body.appendChild(debugButton);
+      
+      // Try to render the content
+      async function renderPreview() {
+        try {
+          let data;
+          
+          // First try direct lookup with the ID we parsed
+          let previewData = localStorage.getItem(`preview_${previewId}`);
+          
+          if (previewData) {
+            console.log(`[PREVIEW] Found data in localStorage using key: preview_${previewId}`);
+            data = JSON.parse(previewData);
+          } else {
+            console.log(`[PREVIEW] No data found with key: preview_${previewId}, checking all localStorage keys`);
+            
+            // Try to find by matching the slug in all localStorage items
+            let matchFound = false;
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key.startsWith('preview_')) {
+                try {
+                  const itemData = JSON.parse(localStorage.getItem(key));
+                  if (itemData.slug === slug) {
+                    console.log(`[PREVIEW] Found data by slug match in key: ${key}`);
+                    data = itemData;
+                    matchFound = true;
+                    break;
+                  }
+                } catch (err) {
+                  console.error(`[PREVIEW] Error parsing localStorage item: ${key}`, err);
+                }
+              }
+            }
+            
+            if (!matchFound) {
+              // If not in localStorage, try to fetch from server API
+              console.log('[PREVIEW] Data not found in localStorage, trying server API');
+              try {
+                // Try the full slug first
+                let response = await fetch(`/api/preview/${slug}`);
+                
+                // If that fails, try just the ID part
+                if (!response.ok) {
+                  console.log(`[PREVIEW] API request with slug failed, trying with ID: ${previewId}`);
+                  response = await fetch(`/api/preview/${previewId}`);
+                }
+                
+                if (response.ok) {
+                  data = await response.json();
+                  console.log('[PREVIEW] Data retrieved from server API');
+                } else {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error || 'Failed to load preview from server');
+                }
+              } catch (fetchError) {
+                console.error('[PREVIEW] Error fetching from server:', fetchError);
+                showError('Preview not found or has expired. The preview may only be available on the device where it was created.');
+                return;
+              }
+            }
+          }
+          
+          if (!data) {
+            showError('Preview not found or has expired');
+            return;
+          }
+          
+          // Update page title
+          document.title = data.fileName || 'Markdown Preview';
+          document.getElementById('preview-title').textContent = data.fileName || 'Markdown Preview';
+          
+          // Try to import the markdown renderer
+          try {
+            const { renderMarkdown } = await import('/client/preview/renderer.js');
+            const html = await renderMarkdown(data.content);
+            document.getElementById('preview-content').innerHTML = html;
+            
+            // Process code blocks for syntax highlighting
+            if (window.hljs) {
+              document.querySelectorAll('pre code').forEach((block) => {
+                window.hljs.highlightBlock(block);
+              });
+            }
+            
+            // Process mermaid diagrams if available
+            if (window.mermaid) {
+              window.mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+            }
+            
+            console.log('[PREVIEW] Content rendered successfully');
+          } catch (importError) {
+            console.error('[PREVIEW] Failed to import renderer:', importError);
+            
+            // Fallback to basic markdown rendering
+            const html = basicMarkdownRender(data.content);
+            document.getElementById('preview-content').innerHTML = html;
+          }
+        } catch (error) {
+          console.error('[PREVIEW] Error loading preview:', error);
+          showError('Failed to load preview content');
+        }
+      }
+      
+      // Basic markdown rendering function as fallback
+      function basicMarkdownRender(content) {
+        if (!content) return '<div class="preview-error">No content to display</div>';
+        
+        // Very simple markdown conversion
+        return content
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+          .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+          .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+          .replace(/^#### (.*?)$/gm, '<h4>$1</h4>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/`(.*?)`/g, '<code>$1</code>')
+          .replace(/!\[(.*?)\]\((.*?)\)/g, '<img alt="$1" src="$2">')
+          .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+          .replace(/^- (.*?)$/gm, '<li>$1</li>')
+          .replace(/\n\n/g, '<br><br>');
+      }
+      
+      // Show error message
+      function showError(message) {
+        document.getElementById('preview-content').innerHTML = `
+          <div class="preview-error">
+            <h3>Error</h3>
+            <p>${message}</p>
+          </div>
+        `;
+      }
+      
+      // Start rendering
+      renderPreview();
+    })();
+  </script>
+</body>
+</html> 

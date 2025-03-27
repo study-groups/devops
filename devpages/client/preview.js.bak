@@ -1,0 +1,191 @@
+// preview.js - Handles markdown preview functionality
+import { logMessage } from './log/index.js';
+
+let previewElement = null;
+let updateTimer = null;
+
+export function initializePreview() {
+    previewElement = document.getElementById('md-preview');
+    if (!previewElement) {
+        logMessage('[PREVIEW ERROR] Preview element not found');
+        return false;
+    }
+    return true;
+}
+
+export function updatePreview(content) {
+    if (!previewElement) {
+        previewElement = document.getElementById('md-preview');
+    }
+    
+    if (!previewElement) {
+        logMessage('[PREVIEW ERROR] Preview element not found');
+        return;
+    }
+
+    try {
+        // Clear any pending updates
+        if (updateTimer) {
+            clearTimeout(updateTimer);
+        }
+
+        // Schedule the update
+        updateTimer = setTimeout(() => {
+            try {
+                // Use marked if available, otherwise use basic HTML escaping
+                if (typeof marked === 'function') {
+                    previewElement.innerHTML = marked(content);
+                } else {
+                    previewElement.innerHTML = escapeHtml(content);
+                }
+                logMessage('[PREVIEW] Preview updated');
+            } catch (error) {
+                logMessage('[PREVIEW ERROR] Failed to render markdown: ' + error.message);
+            }
+        }, 100);
+    } catch (error) {
+        logMessage('[PREVIEW ERROR] Failed to update preview: ' + error.message);
+    }
+}
+
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\n/g, '<br>');
+}
+
+function initializeMermaid() {
+    if (!window.mermaid) {
+        console.error('[PREVIEW] Mermaid library not found');
+        return false;
+    }
+    
+    try {
+        // Configure Mermaid with enhanced error display
+        window.mermaid.initialize({
+            startOnLoad: false, // We'll handle rendering manually
+            securityLevel: 'loose',
+            theme: 'default',
+            logLevel: 'error',
+            fontFamily: 'monospace',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'linear'
+            },
+            er: {
+                useMaxWidth: true
+            },
+            sequence: {
+                useMaxWidth: true,
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                boxMargin: 10
+            },
+            gantt: {
+                useMaxWidth: true
+            },
+            errorRenderer: function(message) {
+                // Create a visually distinct error display
+                return `<div class="mermaid-error">
+                    <div class="mermaid-error-header">⚠️ Mermaid Syntax Error</div>
+                    <pre class="mermaid-error-message">${message}</pre>
+                    <div class="mermaid-error-tip">Run 'mermaid:check' in CLI for details</div>
+                </div>`;
+            }
+        });
+        
+        console.log('[PREVIEW] Mermaid initialized with enhanced error handling');
+        logMessage('[PREVIEW] Mermaid diagrams initialized');
+        return true;
+    } catch (error) {
+        console.error('[PREVIEW] Error initializing Mermaid:', error);
+        logMessage(`[PREVIEW ERROR] Failed to initialize Mermaid: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+function renderMermaidDiagrams() {
+    try {
+        const preview = document.getElementById('md-preview');
+        if (!preview) return;
+        
+        // Find all unprocessed mermaid code blocks
+        const mermaidBlocks = preview.querySelectorAll('pre code.language-mermaid');
+        if (mermaidBlocks.length === 0) return;
+        
+        logMessage(`[PREVIEW] Found ${mermaidBlocks.length} mermaid blocks to process`);
+        
+        // Process each mermaid block
+        mermaidBlocks.forEach((block, index) => {
+            try {
+                // Get content and create unique ID
+                const content = block.textContent;
+                const diagramId = `mermaid-diagram-${Date.now()}-${index}`;
+                
+                // Replace the <pre><code> with a div for rendering
+                const preElement = block.parentElement;
+                const containerDiv = document.createElement('div');
+                containerDiv.className = 'mermaid-container';
+                containerDiv.dataset.index = index + 1;
+                preElement.parentElement.replaceChild(containerDiv, preElement);
+                
+                // Create the actual mermaid div inside the container
+                const mermaidDiv = document.createElement('div');
+                mermaidDiv.id = diagramId;
+                mermaidDiv.className = 'mermaid';
+                mermaidDiv.textContent = content;
+                containerDiv.appendChild(mermaidDiv);
+                
+                // Try to render the diagram
+                try {
+                    window.mermaid.render(diagramId, content).then(
+                        function success({ svg, bindFunctions }) {
+                            const element = document.getElementById(diagramId);
+                            if (element) {
+                                element.innerHTML = svg;
+                                if (bindFunctions) bindFunctions(element);
+                            }
+                        },
+                        function error(err) {
+                            console.error(`[PREVIEW] Error rendering Mermaid diagram #${index + 1}:`, err);
+                            
+                            const errorMsg = err.str || err.message || String(err);
+                            const element = document.getElementById(diagramId);
+                            if (element) {
+                                element.innerHTML = `
+                                    <div class="mermaid-error">
+                                        <div class="mermaid-error-header">⚠️ Mermaid Syntax Error</div>
+                                        <pre class="mermaid-error-message">${errorMsg}</pre>
+                                        <div class="mermaid-error-tip">Run 'mermaid:check' in CLI for details</div>
+                                    </div>
+                                `;
+                            }
+                        }
+                    );
+                } catch (renderError) {
+                    console.error(`[PREVIEW] Exception in Mermaid diagram #${index + 1}:`, renderError);
+                    
+                    const element = document.getElementById(diagramId);
+                    if (element) {
+                        element.innerHTML = `
+                            <div class="mermaid-error">
+                                <div class="mermaid-error-header">⚠️ Mermaid Processing Error</div>
+                                <pre class="mermaid-error-message">${renderError.message}</pre>
+                                <div class="mermaid-error-code">${content}</div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (blockError) {
+                console.error(`[PREVIEW] Error processing Mermaid block #${index + 1}:`, blockError);
+            }
+        });
+    } catch (error) {
+        console.error('[PREVIEW] Error in Mermaid diagram processing:', error);
+        logMessage(`[PREVIEW ERROR] Mermaid processing failed: ${error.message}`, 'error');
+    }
+} 

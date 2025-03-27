@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { padding: 10px; margin: 5px; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>API Route Test</h1>
+  
+  <button id="testBtn">Test GET /api/test</button>
+  <button id="directTestBtn">Test GET /api-direct-test</button>
+  <button id="publishTestBtn">Test POST /api/publish</button>
+  <button id="directPublishBtn">Test POST /api/direct-publish</button>
+  
+  <h3>Response:</h3>
+  <pre id="response">Click a button to test...</pre>
+  
+  <script>
+    document.getElementById('testBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/test');
+        const data = await response.json();
+        document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('response').textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    document.getElementById('directTestBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api-direct-test');
+        const data = await response.json();
+        document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('response').textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    document.getElementById('publishTestBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            dir: 'test-dir', 
+            file: 'test-file.md',
+            content: '# Test Content\n\nThis is a test.'
+          })
+        });
+        const data = await response.json();
+        document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('response').textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    document.getElementById('directPublishBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/direct-publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            dir: 'test-dir', 
+            file: 'test-file.md',
+            content: '# Test Content\n\nThis is a test.'
+          })
+        });
+        const data = await response.json();
+        document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('response').textContent = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html> 

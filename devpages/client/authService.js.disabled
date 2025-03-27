@@ -1,0 +1,390 @@
+import { logMessage } from "./log/index.js";
+import { eventBus } from './eventBus.js';
+import { clearFileSystemState } from './fileManager/fileSystemState.js';
+
+// Auth state - central source of truth
+export const AUTH_STATE = {
+    isLoggedIn: false,
+    username: '',
+    hashedPassword: '',
+    loginTime: null,
+    expiresAt: null
+};
+
+// Constants
+const DEFAULT_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Hash password with salt using PBKDF2 to match server implementation
+ * @param {string} password - The raw password
+ * @param {string} salt - The salt
+ * @returns {Promise<string>} - The hashed password
+ */
+export async function hashPasswordWithSalt(password, salt) {
+    // Convert password and salt to buffers
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
+    const saltBuffer = encoder.encode(salt);
+    
+    // Import the password as a key
+    const passwordKey = await crypto.subtle.importKey(
+        'raw', 
+        passwordBuffer,
+        { name: 'PBKDF2' }, 
+        false, 
+        ['deriveBits']
+    );
+    
+    // Derive bits using PBKDF2
+    const keyBuffer = await crypto.subtle.deriveBits(
+        {
+            name: 'PBKDF2',
+            salt: saltBuffer,
+            iterations: 10000,
+            hash: 'SHA-512'
+        },
+        passwordKey,
+        512 // 64 bytes = 512 bits
+    );
+    
+    // Convert to hex
+    const hashArray = Array.from(new Uint8Array(keyBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Simple SHA-256 hash for backward compatibility
+ */
+export async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Handle user login
+ * @param {string} username - The username to log in with
+ * @param {string} password - The password to log in with
+ * @returns {Promise<boolean>} - Whether the login was successful
+ */
+export async function serviceHandleLogin(username, password) {
+    try {
+        // First clear any existing state
+        await serviceLogout(true);
+        
+        logMessage('[AUTH] Attempting login...');
+        
+        // Step 1: Get the salt for this user
+        const saltResponse = await fetch(`/api/auth/salt?username=${encodeURIComponent(username)}`);
+        if (!saltResponse.ok) {
+            logMessage(`[AUTH ERROR] Failed to get salt: ${saltResponse.status}`, 'error');
+            return false;
+        }
+        
+        const saltData = await saltResponse.json();
+        const salt = saltData.salt;
+        
+        if (!salt) {
+            logMessage('[AUTH ERROR] No salt returned from server', 'error');
+            return false;
+        }
+        
+        logMessage('[AUTH] Retrieved salt for user');
+        
+        // Step 2: Hash the password with the salt using PBKDF2
+        const hashedPassword = await hashPasswordWithSalt(password, salt);
+        
+        // Step 3: Send the login request with username and properly hashed password
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                username, 
+                hashedPassword
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            logMessage(`[AUTH ERROR] Login failed: ${response.status} - ${errorText || response.statusText}`, 'error');
+            
+            // Emit the login failure event
+            eventBus.emit('auth:loginStatus', {
+                success: false,
+                error: errorText || response.statusText,
+                status: response.status
+            });
+            
+            return false;
+        }
+        
+        // Process successful response
+        let data;
+        try {
+            const responseText = await response.text();
+            data = JSON.parse(responseText);
+        } catch (error) {
+            // If response isn't valid JSON, create a basic result
+            data = { expiresIn: DEFAULT_EXPIRATION };
+            logMessage('[AUTH WARN] Could not parse login response as JSON, using default expiry');
+        }
+        
+        // Update auth state
+        Object.assign(AUTH_STATE, {
+            isLoggedIn: true,
+            username: username,
+            hashedPassword: hashedPassword,
+            loginTime: Date.now(),
+            expiresAt: Date.now() + (data.expiresIn || DEFAULT_EXPIRATION)
+        });
+        
+        // Save state to localStorage
+        serviceSaveAuthState();
+        
+        // Update event bus
+        eventBus.setAuthState({
+            isAuthenticated: true,
+            username: username,
+            token: hashedPassword,
+            loginTime: AUTH_STATE.loginTime,
+            expiresAt: AUTH_STATE.expiresAt
+        });
+        
+        // Emit the login success event
+        eventBus.emit('auth:loginStatus', {
+            success: true,
+            username,
+            expiresAt: AUTH_STATE.expiresAt
+        });
+        
+        logMessage(`[AUTH] Login successful: ${username}`);
+        return true;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] ${error.message}`, 'error');
+        
+        // Emit the login failure event
+        eventBus.emit('auth:loginStatus', {
+            success: false,
+            error: error.message
+        });
+        
+        return false;
+    }
+}
+
+/**
+ * Log the user out
+ * @param {boolean} silent - Whether to log the logout
+ */
+export async function serviceLogout(silent = false) {
+    // Clear auth state
+    Object.assign(AUTH_STATE, {
+        isLoggedIn: false,
+        username: '',
+        hashedPassword: '',
+        loginTime: null,
+        expiresAt: null
+    });
+    
+    // Clear localStorage
+    localStorage.removeItem('authState');
+    
+    // Clear file system state
+    clearFileSystemState();
+    
+    // Update event bus
+    eventBus.setAuthState({
+        isAuthenticated: false,
+        username: null,
+        token: null
+    });
+    
+    // Emit logout event
+    eventBus.emit('auth:logout');
+    
+    if (!silent) {
+        logMessage('[AUTH] User logged out');
+    }
+}
+
+/**
+ * Save the current auth state to localStorage
+ */
+export function serviceSaveAuthState() {
+    try {
+        const authData = {
+            isLoggedIn: AUTH_STATE.isLoggedIn,
+            username: AUTH_STATE.username,
+            hashedPassword: AUTH_STATE.hashedPassword,
+            loginTime: AUTH_STATE.loginTime,
+            expiresAt: AUTH_STATE.expiresAt
+        };
+        
+        localStorage.setItem('authState', JSON.stringify(authData));
+        logMessage('[AUTH] Auth state saved to localStorage');
+    } catch (error) {
+        logMessage(`[AUTH ERROR] Failed to save auth state: ${error.message}`);
+    }
+}
+
+/**
+ * Restore the login state from localStorage
+ * @returns {Promise<boolean>} - Whether a valid session was restored
+ */
+export async function serviceRestoreLoginState() {
+    try {
+        const storedAuth = localStorage.getItem('authState');
+        if (!storedAuth) {
+            logMessage('[AUTH] No stored auth state found');
+            return false;
+        }
+        
+        const parsedAuth = JSON.parse(storedAuth);
+        if (!parsedAuth.isLoggedIn || !parsedAuth.username || !parsedAuth.hashedPassword) {
+            logMessage('[AUTH] Stored auth state is invalid');
+            localStorage.removeItem('authState');
+            return false;
+        }
+        
+        const remainingTime = parsedAuth.expiresAt - Date.now();
+        if (remainingTime <= 0) {
+            logMessage('[AUTH] Stored session has expired');
+            localStorage.removeItem('authState');
+            return false;
+        }
+        
+        // Valid session exists, restore it
+        logMessage(`[AUTH] Restoring session for ${parsedAuth.username}, expires in ${Math.round(remainingTime/60000)} minutes`);
+        
+        // Update auth state
+        Object.assign(AUTH_STATE, {
+            isLoggedIn: true,
+            username: parsedAuth.username,
+            hashedPassword: parsedAuth.hashedPassword,
+            loginTime: parsedAuth.loginTime,
+            expiresAt: parsedAuth.expiresAt
+        });
+        
+        // Update event bus
+        eventBus.setAuthState({
+            isAuthenticated: true,
+            username: parsedAuth.username,
+            token: parsedAuth.hashedPassword,
+            loginTime: parsedAuth.loginTime,
+            expiresAt: parsedAuth.expiresAt
+        });
+        
+        // Emit login event
+        eventBus.emit('auth:loginStatus', {
+            success: true,
+            username: parsedAuth.username,
+            expiresAt: parsedAuth.expiresAt,
+            restored: true
+        });
+        
+        logMessage('[AUTH] Login state restored: logged in');
+        return true;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] Failed to restore login state: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Get authentication headers for API requests
+ * @returns {Object} - The auth headers
+ */
+export function serviceGetAuthHeaders() {
+    if (!AUTH_STATE.isLoggedIn || !AUTH_STATE.hashedPassword) {
+        return {};
+    }
+    
+    return {
+        'Authorization': `Basic ${btoa(`${AUTH_STATE.username}:${AUTH_STATE.hashedPassword}`)}`
+    };
+}
+
+/**
+ * Check if the current session is valid
+ * @returns {boolean} - Whether the session is valid
+ */
+export function isSessionValid() {
+    if (!AUTH_STATE.isLoggedIn || !AUTH_STATE.expiresAt) {
+        return false;
+    }
+    
+    return AUTH_STATE.expiresAt > Date.now();
+}
+
+/**
+ * Get the current authenticated user
+ * @returns {Object|null} - The current user or null if not logged in
+ */
+export function getCurrentUser() {
+    if (!AUTH_STATE.isLoggedIn) {
+        return null;
+    }
+    
+    return {
+        username: AUTH_STATE.username,
+        loginTime: AUTH_STATE.loginTime,
+        expiresAt: AUTH_STATE.expiresAt
+    };
+}
+
+// Initialize auth system
+export function initAuthSystem() {
+    logMessage('[AUTH] Initializing authentication system');
+    
+    // Check for session inconsistencies periodically
+    setInterval(() => {
+        // Session expired?
+        if (AUTH_STATE.isLoggedIn && AUTH_STATE.expiresAt && AUTH_STATE.expiresAt < Date.now()) {
+            logMessage('[AUTH] Session expired, logging out');
+            serviceLogout(true);
+        }
+        
+        // LocalStorage and memory state mismatch?
+        try {
+            const storedAuthStr = localStorage.getItem('authState');
+            if (storedAuthStr) {
+                const storedAuth = JSON.parse(storedAuthStr);
+                
+                // Check for inconsistencies
+                if (storedAuth.isLoggedIn !== AUTH_STATE.isLoggedIn ||
+                    storedAuth.username !== AUTH_STATE.username) {
+                    logMessage('[AUTH] Detected auth state inconsistency, reconciling');
+                    
+                    // If memory says logged in but storage doesn't, update storage
+                    if (AUTH_STATE.isLoggedIn) {
+                        serviceSaveAuthState();
+                    } 
+                    // If storage says logged in but memory doesn't, update memory
+                    else if (storedAuth.isLoggedIn && storedAuth.expiresAt > Date.now()) {
+                        Object.assign(AUTH_STATE, storedAuth);
+                        eventBus.setAuthState({
+                            isAuthenticated: true,
+                            username: storedAuth.username,
+                            token: storedAuth.hashedPassword
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Silent fail for this check
+        }
+    }, 30000); // Check every 30 seconds
+    
+    // Initial login state restoration attempt
+    return serviceRestoreLoginState();
+}
+
+// Initialize on load
+initAuthSystem();
+
+// Export aliases for backward compatibility
+export const getAuthHeaders = serviceGetAuthHeaders; 

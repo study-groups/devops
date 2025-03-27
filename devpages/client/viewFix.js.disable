@@ -1,0 +1,80 @@
+// viewFix.js - Last resort view button handler
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait for everything else to finish
+  setTimeout(function() {
+    console.log('[VIEW FIX] Applying last-resort view button handlers');
+    
+    // Get buttons
+    const codeBtn = document.getElementById('code-view');
+    const splitBtn = document.getElementById('split-view');
+    const previewBtn = document.getElementById('preview-view');
+    
+    // Define view switching function
+    function switchView(mode) {
+      console.log(`[VIEW FIX] Switching to ${mode} view`);
+      
+      const container = document.getElementById('content');
+      const editor = document.getElementById('md-editor');
+      const preview = document.getElementById('md-preview');
+      
+      // Handle missing elements
+      if (!container || !editor || !preview) {
+        console.error('[VIEW FIX] Critical elements missing');
+        return;
+      }
+      
+      // Reset classes and styles
+      container.classList.remove('code-view', 'preview-view', 'split-view');
+      container.classList.add(`${mode}-view`);
+      
+      container.style = '';
+      editor.style = '';
+      preview.style = '';
+      
+      // Update button states
+      document.querySelectorAll('.view-controls button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      const activeBtn = document.getElementById(`${mode}-view`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+      
+      localStorage.setItem('viewMode', mode);
+      
+      console.log(`[VIEW FIX] View changed to ${mode}`);
+    }
+    
+    // Attach handlers
+    if (codeBtn) {
+      codeBtn.addEventListener('click', function() {
+        switchView('code');
+      });
+      console.log('[VIEW FIX] Code button handler attached');
+    }
+    
+    if (splitBtn) {
+      splitBtn.addEventListener('click', function() {
+        switchView('split');
+      });
+      console.log('[VIEW FIX] Split button handler attached');
+    }
+    
+    if (previewBtn) {
+      previewBtn.addEventListener('click', function() {
+        switchView('preview');
+      });
+      console.log('[VIEW FIX] Preview button handler attached');
+    }
+    
+    // Expose globally
+    window.switchView = switchView;
+    
+    // Set initial view
+    const savedMode = localStorage.getItem('viewMode') || 'split';
+    switchView(savedMode);
+    
+    console.log('[VIEW FIX] View system fixed');
+  }, 500);
+}); 

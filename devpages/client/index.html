@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevPages 003m11 - Refactored</title>
+    <link rel="stylesheet" href="/client/styles.css">
+    <link rel="stylesheet" href="/css/publish-button.css">
+    
+    <!-- Early log visibility check to prevent flash -->
+    <script>
+      (function() {
+        // Check localStorage for log visibility setting
+        var logVisible = localStorage.getItem('logVisible') === 'true';
+        
+        // Get stored height or use default
+        var logHeight = parseInt(localStorage.getItem('logHeight'), 10) || 120;
+        
+        // Set a data attribute on the document element for CSS to use
+        document.documentElement.setAttribute('data-log-visible', logVisible ? 'true' : 'false');
+        
+        // Set the CSS variable for log height
+        document.documentElement.style.setProperty('--log-height', logHeight + 'px');
+        
+        console.log('[EARLY] Log visibility from localStorage:', logVisible);
+      })();
+    </script>
+    
+    <!-- Early login check to prevent flash of login form -->
+    <script>
+      (function() {
+        try {
+          const authState = JSON.parse(localStorage.getItem('authState') || '{}');
+          if (authState && authState.isLoggedIn) {
+            // Add style to hide login form immediately
+            document.write('<style id="auth-early-style">' +
+              '#login-form { display: none !important; }' +
+              '#pwd-display { display: inline-block !important; }' +
+              '#logout-btn { display: inline-block !important; }' +
+              '</style>');
+          }
+        } catch (e) {
+          console.error('[EARLY AUTH] Error checking auth state:', e);
+        }
+      })();
+    </script>
+    
+    <!-- Core scripts -->
+    <script src="/client/errorTracker.js"></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <!-- Left side: File operations -->
+        <div class="nav-group file-ops">
+            <div class="file-selectors">
+                <select id="dir-select">
+                    <option value="">Directory</option>
+                </select>
+                <select id="file-select">
+                    <option value="">File</option>
+                </select>
+            </div>
+            <div class="file-action-buttons">
+                <button id="load-btn">Load</button>
+                <button id="save-btn">Save</button>
+                <button id="community-link-btn" title="Add to Community Files">Link</button>
+            </div>
+        </div>
+
+        <!-- Middle: View controls with consistent styling -->
+        <div class="nav-group view-controls">
+            <button id="code-view" title="Code View">Code</button>
+            <button id="split-view" class="active" title="Split View">Split</button>
+            <button id="preview-view" title="Preview">Preview</button>
+            <button id="log-btn" title="Show/Hide Log">Log</button>
+            <button id="refresh-btn" title="Refresh Preview & SVG">↻</button>
+        </div>
+
+        <!-- Right side: Auth controls -->
+        <div class="nav-group auth-info">
+            <form id="login-form" class="login-form">
+                <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username">
+                <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password">
+                <button type="submit" id="login-btn">Login</button>
+            </form>
+            <span id="pwd-display">Not logged in</span>
+            <button id="logout-btn" style="display: none;">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Move top-bar to be first element in body -->
+    <div id="top-bar" class="top-bar">
+        <!-- Will be populated by JavaScript -->
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-container" class="log-hidden">
+        <div id="content">
+            <div id="md-editor" class="resizable">
+                <textarea placeholder="Write Markdown here..."></textarea>
+                <div class="resize-handle"></div>
+            </div>
+            <div id="md-preview"></div>
+        </div>
+        <div id="log-container" style="display: none; visibility: hidden; height: 0; overflow: hidden;" class="log-hiding" data-log-visible="false">
+            <div id="log-toolbar">
+                <button id="copy-log-btn" onclick="window.copyLog()">Copy</button>
+                <button id="info-btn" title="System Information" onclick="window.showSystemInfo()">ℹ️</button>
+                <button id="clear-log-btn" onclick="window.clearLog()">Clear</button>
+                <button id="debug-btn" title="Run diagnostics" onclick="window.debugUI()">🔍 Debug</button>
+                <button id="api-test-btn" title="Test API Endpoints" onclick="window.testApiEndpoints()">🔌 API</button>
+                <button id="file-debug-btn" title="Debug File Operations" onclick="window.debugFileOperations()">📁 Files</button>
+                <button id="api-debug-btn" title="Debug API Responses" onclick="window.debugApiResponses()">🔍 Resp</button>
+                <button id="file-load-test-btn" title="Test File Loading" onclick="window.testFileLoading()">📄 Test</button>
+                <button id="fs-state-debug-btn" title="Debug File System State" onclick="window.debugFileSystemState()">🗃️ State</button>
+                <button id="auth-test-btn" title="Test Authentication" onclick="window.testAuthStatus()">🔑 Auth</button>
+                <input type="text" id="cli-input" placeholder="Enter command..." class="cli-input">
+                <span id="app-info" class="app-info" onclick="window.showAppInfo()"></span>
+                <span id="log-status">0 entries</span>
+                <button id="minimize-log-btn" title="Minimize Log">×</button>
+            </div>
+            <div id="log"></div>
+            <div id="log-resize-handle" title="Resize Log"></div>
+        </div>
+    </div>
+    
+    <div id="toolbar-container" class="editor-toolbar"></div>
+
+    <!-- Main application module loader -->
+    <script type="module" src="/client/main.js"></script>
+</body>
+</html>

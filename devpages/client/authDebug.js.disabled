@@ -1,0 +1,55 @@
+// Add this function to help debug auth issues
+export function debugAuthHeaders() {
+    // Get auth state from localStorage
+    const authStateStr = localStorage.getItem('authState');
+    let authState = null;
+    
+    try {
+        if (authStateStr) {
+            authState = JSON.parse(authStateStr);
+            console.log('Auth state from localStorage:', authState);
+            
+            // Test different header formats
+            const basicAuth = btoa(`${authState.username}:${authState.hashedPassword}`);
+            console.log('Basic auth format:', `Basic ${basicAuth}`);
+            
+            // Bearer format
+            console.log('Bearer format:', `Bearer ${authState.hashedPassword}`);
+            
+            // Custom format (check your server code for expected format)
+            console.log('Custom format:', authState.hashedPassword);
+            
+            // Test a simple fetch with these headers
+            fetch('/api/auth/check', {
+                headers: {
+                    'Authorization': `Basic ${basicAuth}`
+                }
+            })
+            .then(response => {
+                console.log('Auth check response:', response.status);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Auth check response text:', text);
+            })
+            .catch(error => {
+                console.error('Auth check error:', error);
+            });
+        } else {
+            console.log('No auth state found in localStorage');
+        }
+    } catch (e) {
+        console.error('Error parsing auth state:', e);
+    }
+    
+    // Check eventBus auth state
+    if (window.eventBus) {
+        console.log('EventBus auth state:', window.eventBus.getAuthState());
+    }
+    
+    // Return auth state for further inspection
+    return { authState };
+}
+
+// Add to window for easy access in dev tools
+window.debugAuthHeaders = debugAuthHeaders; 

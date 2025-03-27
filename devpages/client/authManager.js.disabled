@@ -1,0 +1,263 @@
+// DEPRECATED: This file is being phased out in favor of authService.js
+// Please use the new implementation for any new code
+
+// Import local dependencies
+import { logMessage } from './log/index.js';
+import { initializeFileManager } from './fileManager/index.js';
+import { clearFileSystemState } from './fileManager/fileSystemState.js';
+import { eventBus } from './eventBus.js';
+
+// Import from authService.js with deferred execution
+let AUTH_STATE;
+let serviceHandleLogin;
+let serviceLogout;
+let serviceRestoreLoginState; 
+let serviceGetAuthHeaders;
+let hashPassword;
+
+// Initialize function to load dependencies safely
+async function initAuthManagerDependencies() {
+    const authService = await import('./authService.js');
+    AUTH_STATE = authService.AUTH_STATE;
+    serviceHandleLogin = authService.serviceHandleLogin;
+    serviceLogout = authService.serviceLogout;
+    serviceRestoreLoginState = authService.serviceRestoreLoginState;
+    serviceGetAuthHeaders = authService.serviceGetAuthHeaders;
+    hashPassword = authService.hashPassword;
+    
+    logMessage('[AUTH] AuthManager dependencies loaded');
+    return true;
+}
+
+// Export auth state getter to avoid direct reference
+export function getAuthState() {
+    return AUTH_STATE;
+}
+
+// Debug function to verify module is loaded
+export function authManagerLoaded() {
+    console.log("authManager.js loaded successfully");
+    logMessage('[AUTH] authManager.js loaded successfully');
+}
+
+// Expose for debugging
+window.authManagerLoaded = authManagerLoaded;
+
+// Expose these functions globally for debugging
+window.getCurrentUser = getCurrentUser;
+window.getAuthToken = getAuthToken;
+
+// Simple UI update function if we can't import it
+function updateAuthDisplay() {
+    try {
+        // Basic implementation to update UI based on auth state
+        if (!AUTH_STATE) return;
+        
+        const isLoggedIn = AUTH_STATE.isLoggedIn;
+        const username = AUTH_STATE.username;
+        
+        // Update body attribute
+        document.body.setAttribute('data-auth-state', isLoggedIn ? 'logged-in' : 'logged-out');
+        
+        // Update login/logout buttons
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        if (loginForm) {
+            loginForm.style.display = isLoggedIn ? 'none' : 'block';
+        }
+        
+        if (logoutBtn) {
+            logoutBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+        }
+        
+        // Update username display
+        const displayElement = document.getElementById('pwd-display');
+        if (displayElement && isLoggedIn) {
+            const remainingTime = Math.round((AUTH_STATE.expiresAt - Date.now()) / 1000 / 60);
+            displayElement.textContent = `${username} (${remainingTime}m)`;
+        } else if (displayElement) {
+            displayElement.textContent = '';
+        }
+        
+        logMessage('[AUTH] UI updated to reflect auth state');
+    } catch (error) {
+        console.error('Error updating auth display:', error);
+        logMessage('[AUTH ERROR] Failed to update UI');
+    }
+}
+
+/**
+ * Handle user login
+ */
+export async function handleLogin(username, password) {
+    // Ensure dependencies are loaded
+    await initAuthManagerDependencies();
+    
+    try {
+        // Use the service implementation
+        const success = await serviceHandleLogin(username, password);
+        
+        if (success) {
+            // Initialize file manager after successful login
+            try {
+                await initializeFileManager();
+                logMessage('[AUTH] File manager initialized after login');
+            } catch (e) {
+                logMessage(`[AUTH ERROR] Failed to initialize file manager: ${e.message}`);
+            }
+            
+            // Update UI to reflect logged-in state
+            updateAuthDisplay();
+        }
+        
+        return success;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] ${error.message}`, 'error');
+        return false;
+    }
+}
+
+/**
+ * Log the user out
+ */
+export async function logout(silent = false) {
+    // Ensure dependencies are loaded
+    await initAuthManagerDependencies();
+    
+    try {
+        await serviceLogout(silent);
+        
+        // Clear file system state
+        clearFileSystemState();
+        
+        // Update UI if needed
+        if (!silent) {
+            updateAuthDisplay();
+        }
+        
+        return true;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] Logout failed: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Restore login state from localStorage
+ */
+export async function restoreLoginState() {
+    // Ensure dependencies are loaded
+    await initAuthManagerDependencies();
+    
+    try {
+        const success = await serviceRestoreLoginState();
+        
+        // Update UI only if DOM is ready
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            updateAuthDisplay();
+        }
+        
+        // Initialize file manager if logged in
+        if (success) {
+            try {
+                await initializeFileManager();
+                logMessage('[AUTH] File manager initialized after login restore');
+            } catch (e) {
+                logMessage(`[AUTH ERROR] Failed to initialize file manager: ${e.message}`);
+            }
+        }
+        
+        return success;
+    } catch (error) {
+        logMessage(`[AUTH ERROR] Failed to restore login state: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Get authentication headers for API requests
+ */
+export function getAuthHeaders() {
+    // Synchronous function can't use await, so check if deps are loaded
+    if (!AUTH_STATE) {
+        // If AUTH_STATE is not loaded, get headers from localStorage directly
+        try {
+            const authStateStr = localStorage.getItem('authState');
+            if (authStateStr) {
+                const authState = JSON.parse(authStateStr);
+                if (authState.isLoggedIn && authState.username && authState.hashedPassword) {
+                    return {
+                        'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`
+                    };
+                }
+            }
+        } catch (e) {
+            console.error('Error accessing localStorage:', e);
+        }
+        return {};
+    }
+    
+    // Use the service if available
+    return serviceGetAuthHeaders ? serviceGetAuthHeaders() : {};
+}
+
+/**
+ * Get auth token
+ */
+export function getAuthToken() {
+    if (!AUTH_STATE || !AUTH_STATE.isLoggedIn) {
+        // Try localStorage fallback
+        try {
+            const authStateStr = localStorage.getItem('authState');
+            if (authStateStr) {
+                const authState = JSON.parse(authStateStr);
+                return authState.hashedPassword || '';
+            }
+        } catch (e) {}
+        return '';
+    }
+    
+    return AUTH_STATE.hashedPassword || '';
+}
+
+/**
+ * Get current user info
+ */
+export function getCurrentUser() {
+    if (!AUTH_STATE || !AUTH_STATE.isLoggedIn) {
+        return null;
+    }
+    
+    return {
+        username: AUTH_STATE.username,
+        loginTime: AUTH_STATE.loginTime,
+        expiresAt: AUTH_STATE.expiresAt
+    };
+}
+
+// Add this function to clean sensitive URL parameters
+export function cleanUrlParameters() {
+  try {
+    // Get current URL
+    const url = new URL(window.location.href);
+    
+    // Remove sensitive parameters
+    url.searchParams.delete('username');
+    url.searchParams.delete('password');
+    
+    // Update the URL without reloading the page
+    window.history.replaceState({}, document.title, url.toString());
+    logMessage('[AUTH] Cleaned sensitive parameters from URL');
+  } catch (error) {
+    logMessage(`[AUTH ERROR] Failed to clean URL parameters: ${error.message}`);
+  }
+}
+
+// Call this after successful login or on page load if user is already logged in
+
+// Initialize dependencies immediately
+initAuthManagerDependencies().catch(error => {
+    console.error('Error initializing authManager:', error);
+    logMessage('[AUTH ERROR] Failed to initialize authManager', 'error');
+}); 
