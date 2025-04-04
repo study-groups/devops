@@ -12,13 +12,30 @@ function generateSalt() {
 }
 
 // Hash password with salt
-function hashPassword(password, salt) {
+function hashPassword(password, saltHex) {
     console.log(`[AUTH DEBUG] Server hashing password with:`)
     console.log(`[AUTH DEBUG] Password: ${password}`);
-    console.log(`[AUTH DEBUG] Salt: ${salt}`);
-    const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-    console.log(`[AUTH DEBUG] Produced hash: ${hash.slice(0, 20)}...`);
-    return hash;
+    console.log(`[AUTH DEBUG] Salt (hex): ${saltHex}`);
+    
+    // Convert hex salt string to a Buffer
+    let saltBuffer;
+    try {
+        saltBuffer = Buffer.from(saltHex, 'hex');
+        console.log(`[AUTH DEBUG] Salt (Buffer): ${saltBuffer.toString('hex')}`); // Log buffer as hex again to verify
+    } catch (e) {
+        console.error(`[AUTH DEBUG ERROR] Failed to convert salt hex '${saltHex}' to Buffer:`, e);
+        return null; // Or throw error
+    }
+    
+    try {
+        // Use the saltBuffer with pbkdf2Sync
+        const hash = crypto.pbkdf2Sync(password, saltBuffer, 10000, 64, 'sha512').toString('hex');
+        console.log(`[AUTH DEBUG] Produced hash: ${hash.slice(0, 20)}...`);
+        return hash;
+    } catch (e) {
+        console.error(`[AUTH DEBUG ERROR] pbkdf2Sync failed:`, e);
+        return null; // Or throw error
+    }
 }
 
 // Modify the loadUsers function to include roles
@@ -67,10 +84,14 @@ function validateUser(username, hashedPassword) {
         return false;
     }
     
-    console.log(`[AUTH] Comparing hashes for ${username}:`);
-    console.log(`[AUTH] Received hash: ${hashedPassword.slice(0, 20)}...`);
-    console.log(`[AUTH] Stored hash:   ${user.hash.slice(0, 20)}...`);
-    console.log(`[AUTH] Using salt:    ${user.salt.slice(0, 20)}...`);
+    if (!hashedPassword) {
+        console.error(`[AUTH VALIDATE ERROR] Hashed password not received from client for user ${username}`);
+        return false;
+    }
+
+    console.log(`[AUTH] Comparing received client hash with stored hash:`);
+    console.log(`[AUTH] Received hash: ${hashedPassword ? hashedPassword.slice(0, 20) + '...' : '(Missing)'}`);
+    console.log(`[AUTH] Stored hash:   ${user.hash ? user.hash.slice(0, 20) + '...' : '(Missing stored)'}`);
     
     const isValid = hashedPassword === user.hash;
     console.log(`[AUTH] Validation ${isValid ? 'successful' : 'failed'} for user: ${username}`);

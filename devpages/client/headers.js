@@ -1,4 +1,5 @@
 /**
+ * headers.js
  * Provides consistent auth headers across the application
  */
 

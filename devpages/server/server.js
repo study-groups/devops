@@ -1,8 +1,11 @@
 const express = require('express');
 const path = require('path');
 const multer = require('multer');
+const session = require('express-session'); // Import express-session
+const cookieParser = require('cookie-parser'); // Import cookie-parser
 const { port, uploadsDirectory } = require('./config');
 const fs = require('fs/promises');
+const { hashPassword } = require('./utils/userUtils'); // Import hash function
 
 const app = express();
 
@@ -13,9 +16,32 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add this middleware to ensure correct Content-Type for JS files
+app.use((req, res, next) => {
+  if (req.path.endsWith('.js')) {
+    res.type('application/javascript');
+  }
+  next();
+});
+
 // Make sure express.json() middleware is registered BEFORE your routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Cookie Parser Middleware
+app.use(cookieParser());
+
+// Session Middleware Configuration
+app.use(session({
+  secret: 'YOUR_VERY_SECRET_KEY', // IMPORTANT: Replace with a strong secret from env vars!
+  resave: false,
+  saveUninitialized: false, // Don't save session if unmodified
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS)
+    httpOnly: true, // Prevent client-side JS access
+    maxAge: 24 * 60 * 60 * 1000 // Example: 1 day session lifetime
+  } 
+}));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -43,7 +69,6 @@ app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico'), staticOptions));
 // Serve SVG files from the root directory
 app.use(express.static(path.join(__dirname, '..'), staticOptions));
-app.use(express.static('client', staticOptions));
 
 // Serve index.html
 app.get('/', (req, res) => {
@@ -62,7 +87,7 @@ const filesRoutes = require('./routes/files');
 const previewRoutes = require('./routes/previewRoutes');
 
 // Configure routes that need JSON parsing
-app.use('/api/auth', express.json(), authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/files', filesRoutes.router || filesRoutes);
 app.use('/api/community', express.json(), authMiddleware, communityRoutes);
 

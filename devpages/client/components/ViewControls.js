@@ -1,5 +1,5 @@
-import { views } from '/client/core/index.js';
-import { ui } from '/client/core/index.js';
+import { views } from '/client/index.js';
+import { ui } from '/client/index.js';
 
 class ViewControls {
   constructor(container) {

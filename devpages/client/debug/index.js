@@ -1,8 +1,8 @@
 // client/debug/index.js - Consolidated debugging utilities
-import { logMessage } from "../log/index.js";
-import { AUTH_STATE } from '/client/core/auth.js';
+import { logMessage } from "/client/log/index.js";
+import { AUTH_STATE } from '/client/auth.js';
 import { loadFileSystemState } from '../fileSystemState.js';
-import { eventBus } from '../eventBus.js';
+import { eventBus } from '/client/eventBus.js';
 
 // Debug UI state and components
 export function debugUI() {

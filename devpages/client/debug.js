@@ -3,7 +3,6 @@
  */
 
 import { logMessage } from "./log/index.js";
-import { debugFileSystemState } from './fileManager/fileSystemState.js';
 
 // Debug function to check the state of key elements
 export function debugUI() {

@@ -1,4 +1,4 @@
-import { currentDir } from "/client/core/fileManager.js";
+import { getCurrentDirectory } from "/client/fileManager.js";
 import { logMessage } from "./log/index.js";
 import { initPreview, updatePreview } from "./preview/index.js";
 
@@ -70,7 +70,7 @@ export function updateMarkdownPreview(content) {
 // Backward compatibility with existing code
 export async function loadFile(filename) {
   try {
-    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(currentDir)}`);
+    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(getCurrentDirectory())}`);
     if (!response.ok) throw new Error(`Server returned ${response.status}`);
     
     const data = await response.json();
@@ -82,8 +82,8 @@ export async function loadFile(filename) {
     }
     
     updateMarkdownPreview(data.content);
-    saveState(currentDir, filename);
-    updateUrlState(currentDir, filename);
+    saveState(getCurrentDirectory(), filename);
+    updateUrlState(getCurrentDirectory(), filename);
   } catch (error) {
     logMessage(`[FILES ERROR] Failed to load file: ${error.message}`);
     console.error('[FILES ERROR]', error);

@@ -1,17 +1,25 @@
 /**
- * core/editor.js
- * Single source of truth for editor functionality
+ * editor.js
+ * Handles Markdown editor functionality
  */
-import { logMessage } from '../log/index.js';
-import { setView } from './views.js';
-import { eventBus } from '../eventBus.js';
+import { logMessage } from '/client/log/index.js';
+import { setView } from '/client/views.js';
+import { eventBus } from '/client/eventBus.js';
 import { uploadImage } from '/client/imageManager.js';
 
-// Import required file management functionality
-import { 
-  getCurrentDirectory, 
-  getCurrentFile 
-} from '../core/fileSystemState.js';
+// Import required file management functionality safely (dynamic)
+async function getFileSystemState() {
+    try {
+        const fsModule = await import('/client/fileSystemState.js');
+        return {
+            getCurrentDirectory: fsModule.getCurrentDirectory || (() => ''),
+            getCurrentFile: fsModule.getCurrentFile || (() => '')
+        };
+    } catch (e) {
+        logMessage('[EDITOR ERROR] Failed to load fileSystemState module dynamically', 'error');
+        return { getCurrentDirectory: () => '', getCurrentFile: () => '' };
+    }
+}
 
 // Track initialization state
 let editorInitialized = false;
@@ -155,13 +163,9 @@ const editorCore = {
         const updatedText = currentText.replace(loadingText, `![](${imageUrl})`);
         textarea.value = updatedText;
         
-        // Update the preview
-        if (typeof window.updateMarkdownPreview === 'function') {
-          window.updateMarkdownPreview();
-        }
+        // Emit event for preview update (instead of direct call)
+        eventBus.emit('editor:contentChanged', { content: updatedText });
         
-        // Trigger input event for consistency
-        textarea.dispatchEvent(new Event('input'));
         return true;
       } else {
         logMessage('[EDITOR ERROR] Image upload failed - no URL returned');
@@ -202,12 +206,13 @@ const editorCore = {
   
   /**
    * Get current file information
-   * @returns {Object} File information object
+   * @returns {Promise<Object>} File information object
    */
-  getCurrentFileInfo: function() {
+  getCurrentFileInfo: async function() {
+    const fsState = await getFileSystemState();
     return {
-      directory: getCurrentDirectory(),
-      filename: getCurrentFile()
+      directory: fsState.getCurrentDirectory(),
+      filename: fsState.getCurrentFile()
     };
   }
 };
@@ -265,12 +270,12 @@ function setupKeyboardShortcuts() {
       eventBus.emit('editor:save');
     }
     
-    // Ctrl+O / Cmd+O - Open
-    if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-      e.preventDefault();
-      logMessage('[EDITOR] Open shortcut triggered');
-      eventBus.emit('editor:open');
-    }
+    // Ctrl+O / Cmd+O - Open (Example - might need implementation)
+    // if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+    //   e.preventDefault();
+    //   logMessage('[EDITOR] Open shortcut triggered');
+    //   eventBus.emit('editor:open');
+    // }
   });
 }
 
@@ -281,9 +286,13 @@ function setupEventListeners() {
   const textarea = document.querySelector('#md-editor textarea');
   if (!textarea) return;
   
-  // Input event for preview updates
+  // Debounced input event for preview updates
+  let debounceTimer;
   textarea.addEventListener('input', () => {
-    eventBus.emit('editor:contentChanged', { content: textarea.value });
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+          eventBus.emit('editor:contentChanged', { content: textarea.value });
+      }, 250); // Debounce time (ms)
   });
   
   // Focus/blur events
@@ -351,23 +360,6 @@ function setupImagePasteHandler() {
   logMessage('[EDITOR] Image paste handler initialized');
   return true;
 }
-
-// Make sure the editor object is available globally (for backward compatibility)
-/*
-function ensureGlobalEditor() {
-  if (!window.editor) {
-    window.editor = editorCore;
-    logMessage('[EDITOR] Created global editor object');
-  } else {
-    // Merge existing editor object with our core
-    Object.assign(window.editor, editorCore);
-    logMessage('[EDITOR] Updated global editor object');
-  }
-}
-  */
-
-// Call immediately to ensure the editor object exists
-//ensureGlobalEditor();
 
 // Export for module use
 export default editorCore;

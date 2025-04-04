@@ -1,12 +1,9 @@
 /**
- * FileSystem State Manager
+ * fileSystemState.js
  * Handles persistence of user's filesystem context (directory, file, etc.)
- * 
- * Moved from client/fileSystemState.js to client/fileManager/fileSystemState.js
- * for better file organization
  */
-
-import { logMessage } from '../log/index.js';
+import { logMessage } from '/client/log/index.js';
+import { eventBus } from '/client/eventBus.js';
 
 // Get URL parameters if available
 const urlParams = new URLSearchParams(window.location.search);
@@ -40,7 +37,8 @@ export function loadFileSystemState() {
     return mergedState;
   } catch (error) {
     logMessage('[FS STATE ERROR] Failed to load state: ' + error.message);
-    return { currentDir: '', currentFile: '' };
+    // Return default state on error to prevent breaking
+    return { currentDir: '', currentFile: '', recentFiles: [] };
   }
 }
 
@@ -58,8 +56,16 @@ export function saveFileSystemState(state) {
     logMessage('[FS STATE] Saved state: ' + JSON.stringify(newState));
     
     // Also update legacy storage for backward compatibility
-    if (state.currentDir) localStorage.setItem('lastDir', state.currentDir);
-    if (state.currentFile) localStorage.setItem('lastFile', state.currentFile);
+    if (state.currentDir !== undefined) localStorage.setItem('currentDir', state.currentDir);
+    if (state.currentFile !== undefined) localStorage.setItem('currentFile', state.currentFile);
+    
+    // Emit events for state changes
+    if (state.currentDir !== undefined && state.currentDir !== currentState.currentDir) {
+        eventBus.emit('fileSystem:directoryChanged', state.currentDir);
+    }
+    if (state.currentFile !== undefined && state.currentFile !== currentState.currentFile) {
+        eventBus.emit('fileSystem:fileChanged', state.currentFile);
+    }
     
     return true;
   } catch (error) {
@@ -70,15 +76,19 @@ export function saveFileSystemState(state) {
 
 /**
  * Update current directory
+ * @deprecated Use fileManager.changeDirectory() instead
  */
 export function setCurrentDirectory(dir) {
+  logMessage('[FS STATE WARN] setCurrentDirectory is deprecated. Use fileManager.changeDirectory()', 'warning');
   return saveFileSystemState({ currentDir: dir });
 }
 
 /**
  * Update current file
+ * @deprecated Use fileManager.loadFile() instead
  */
 export function setCurrentFile(file) {
+  logMessage('[FS STATE WARN] setCurrentFile is deprecated. Use fileManager.loadFile()', 'warning');
   const state = loadFileSystemState();
   
   // Update recent files list
@@ -123,9 +133,13 @@ export function getCurrentFile() {
 export function clearFileSystemState() {
   try {
     localStorage.removeItem('fileSystemState');
-    localStorage.removeItem('lastDir');
-    localStorage.removeItem('lastFile');
+    localStorage.removeItem('currentDir'); // Keep legacy clear for safety
+    localStorage.removeItem('currentFile');
     logMessage('[FS STATE] Cleared state');
+    
+    // Emit event
+    eventBus.emit('fileSystem:cleared');
+    
     return true;
   } catch (error) {
     logMessage('[FS STATE ERROR] Failed to clear state: ' + error.message);
@@ -133,37 +147,14 @@ export function clearFileSystemState() {
   }
 }
 
-// Export a simplified API for direct use from global context
-window.fileSystem = {
-  getDirectory: getCurrentDirectory,
-  getFile: getCurrentFile,
-  setDirectory: setCurrentDirectory,
-  setFile: setCurrentFile,
-  saveState: (dir, file) => {
-    if (dir) setCurrentDirectory(dir);
-    if (file) setCurrentFile(file);
-  },
-  clearState: clearFileSystemState
-};
-
-
-// Add event listener to directory select
-const dirSelect = document.getElementById('dir-select');
-if (dirSelect) {
-  dirSelect.addEventListener('change', async function() {
-    const selectedDir = this.value;
-    if (selectedDir) {
-      console.log(`[FS DEBUG] Directory select changed to: ${selectedDir}`);
-      window.fileSystem.setDirectory(selectedDir);
-      
-      // Try to find loadFiles function
-      if (typeof loadFiles === 'function') {
-        await loadFiles(selectedDir);
-      } else if (window.fileSystem && typeof window.fileSystem.loadFiles === 'function') {
-        await window.fileSystem.loadFiles(selectedDir);
-      } else {
-        console.log('[FS DEBUG] loadFiles function not found');
-      }
-    }
-  });
-} 
+// Export functions needed by other modules
+export default {
+  loadState: loadFileSystemState,
+  saveState: saveFileSystemState,
+  getCurrentDirectory,
+  getCurrentFile,
+  clearState: clearFileSystemState,
+  // Deprecated, keep for potential backward compat issues temporarily
+  setCurrentDirectory,
+  setCurrentFile
+}; 

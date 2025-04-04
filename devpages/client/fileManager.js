@@ -1,10 +1,11 @@
 /**
- * core/fileManager.js
+ * fileManager.js
  * Single source of truth for file system operations
  */
-import { logMessage } from '../log/index.js';
-import { eventBus } from '../eventBus.js';
-import { getContent, setContent } from './editor.js';
+import { logMessage } from '/client/log/index.js';
+import { eventBus } from '/client/eventBus.js';
+import { getContent, setContent } from '/client/editor.js';
+import * as fileSystemState from '/client/fileSystemState.js';
 
 // State
 const fileState = {
@@ -20,6 +21,27 @@ const directoryCache = new Map();
 const fileContentCache = new Map();
 
 /**
+ * Get auth headers safely without circular dependencies
+ */
+function getAuthHeaders() {
+  try {
+    const storedAuth = localStorage.getItem('authState');
+    if (storedAuth) {
+      const parsed = JSON.parse(storedAuth);
+      if (parsed.isLoggedIn && parsed.username && parsed.hashedPassword) {
+        return {
+          'Authorization': `Basic ${btoa(`${parsed.username}:${parsed.hashedPassword}`)}`
+        };
+      }
+    }
+  } catch (e) {
+    logMessage('[FILEMGR] Error retrieving auth headers from localStorage');
+  }
+  
+  return {};
+}
+
+/**
  * Initialize the file manager
  * @param {Object} options - Configuration options
  * @returns {Promise<boolean>} Success status
@@ -33,19 +55,27 @@ export async function initializeFileManager(options = {}) {
   logMessage('[FILEMGR] Initializing file manager');
   
   try {
-    // First restore state from localStorage if available
+    // First restore state from localStorage using fileSystemState
     restoreState();
     
     // Ensure authentication is restored before loading directories
     try {
-      const auth = await import('./auth.js');
-      if (!auth.AUTH_STATE.isLoggedIn && typeof auth.restoreLoginState === 'function') {
-        logMessage('[FILEMGR] Auth state not loaded, attempting to restore...');
-        await auth.restoreLoginState();
+      // Use dynamic import for auth ONLY if needed, prefer localStorage check
+      let auth = null;
+      const authStateLocal = JSON.parse(localStorage.getItem('authState') || '{}');
+      if (!authStateLocal.isLoggedIn) {
+          logMessage('[FILEMGR] Auth state not loaded locally, attempting dynamic import and restore...');
+          auth = await import('/client/auth.js');
+          if (typeof auth.restoreLoginState === 'function') {
+              await auth.restoreLoginState();
+          }
       }
     } catch (authError) {
       logMessage(`[FILEMGR WARNING] Auth restoration failed: ${authError.message}`, 'warning');
     }
+    
+    // Setup event listeners
+    setupEventListeners();
     
     // Load available directories first
     await loadDirectories();
@@ -58,18 +88,22 @@ export async function initializeFileManager(options = {}) {
     if (urlDir) {
       logMessage(`[FILEMGR] URL has directory parameter: ${urlDir}`);
       fileState.currentDirectory = getDirectoryIdFromDisplayName(urlDir);
+      // Ensure state is saved if loaded from URL
+      saveState();
     }
     
     if (urlFile) {
       logMessage(`[FILEMGR] URL has file parameter: ${urlFile}`);
       fileState.currentFile = urlFile;
+       // Ensure state is saved if loaded from URL
+      saveState();
     }
     
     // Initialize UI elements
     initializeFileSelector();
     
-    // Set up event listeners
-    setupEventListeners();
+    // Set up directory select listener (moved from fileSystemState)
+    setupDirectorySelectListener();
     
     // If we have a current directory, load its files
     if (fileState.currentDirectory) {
@@ -82,17 +116,19 @@ export async function initializeFileManager(options = {}) {
             await loadFile(fileState.currentFile, fileState.currentDirectory);
           } catch (error) {
             // File couldn't be loaded, clear the current file but continue initialization
-            logMessage(`[FILEMGR WARNING] Could not load previously selected file. Clearing selection.`);
+            logMessage(`[FILEMGR WARNING] Could not load previously selected file: ${error.message}. Clearing selection.`);
             fileState.currentFile = '';
+            saveState(); // Save cleared state
             // Update URL to remove the file parameter
             updateUrlParameters(fileState.currentDirectory);
           }
         }
       } catch (error) {
         // Directory couldn't be loaded, clear both directory and file but continue initialization
-        logMessage(`[FILEMGR WARNING] Could not load previously selected directory. Clearing selection.`);
+        logMessage(`[FILEMGR WARNING] Could not load previously selected directory: ${error.message}. Clearing selection.`);
         fileState.currentDirectory = '';
         fileState.currentFile = '';
+        saveState(); // Save cleared state
         // Clear URL parameters
         updateUrlParameters();
       }
@@ -123,9 +159,8 @@ export async function loadFiles(directory) {
   logMessage(`[FILEMGR] Loading files from directory: ${directory}`);
   
   try {
-    // Get auth headers from auth module
-    const auth = await import('./auth.js');
-    const authHeaders = auth.getAuthHeaders();
+    // Get auth headers from local helper function
+    const authHeaders = getAuthHeaders();
     
     // Try multiple endpoints in sequence until one works
     const endpoints = [
@@ -222,8 +257,7 @@ export async function loadFile(filename, directory = null) {
   
   try {
     // Get auth headers
-    const auth = await import('./auth.js');
-    const authHeaders = auth.getAuthHeaders();
+    const authHeaders = getAuthHeaders();
     
     // Use the one endpoint that matches your server
     const endpoint = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}`;
@@ -280,7 +314,7 @@ export async function saveFile(filename = null, directory = null, content = null
   logMessage(`[FILEMGR] Saving file: ${filename} to ${directory}`);
   
   try {
-    const api = await import('./api.js');
+    const api = await import('/client/api.js'); // Use $lib alias
     const response = await api.saveFileContent(filename, directory, content);
     
     if (!response.ok) {
@@ -302,9 +336,8 @@ export async function loadDirectories() {
   logMessage('[FILEMGR] Loading directories');
   
   try {
-    // Get auth headers from auth module
-    const auth = await import('./auth.js');
-    const authHeaders = auth.getAuthHeaders();
+    // Get auth headers from local helper function
+    const authHeaders = getAuthHeaders();
     
     // Fetch from API with auth headers
     const response = await fetch('/api/files/dirs', {
@@ -317,12 +350,12 @@ export async function loadDirectories() {
     
     const directories = await response.json();
     
-    // Update the directory selector
-    // refreshDirectorySelector(directories);
+    // Update the directory selector - Now handled by UIManager
+    // updateDirectorySelector(directories);
     
-    // Optional: Update internal cache if needed
+    // Update internal cache
     directoryCache.clear();
-    directories.forEach(dir => directoryCache.set(dir, true)); // Example cache update
+    directories.forEach(dir => directoryCache.set(dir, true));
     
     logMessage(`[FILEMGR] Fetched ${directories.length} directories`);
     return directories;
@@ -351,13 +384,15 @@ export async function changeDirectory(directory) {
   
   logMessage(`[FILEMGR] Changing directory to: ${directory}`);
   
-  // Load files from the new directory
-  const success = await loadFiles(directory);
+  // Update internal state first
+  fileState.currentDirectory = directory;
+  fileState.currentFile = ''; // Reset file when changing directory
+  saveState();
   
-  if (success) {
-    // Reset current file when changing directories
-    fileState.currentFile = '';
-    
+  // Load files from the new directory
+  const files = await loadFiles(directory);
+  
+  if (files) { // Check if loading was successful (even if empty list)
     // Update URL
     updateUrlParameters(directory);
     
@@ -431,7 +466,7 @@ function updateFileSelector(files, selectedFile = null) {
   });
   
   // Set the selected value
-  if (currentValue) {
+  if (currentValue && files.includes(currentValue)) {
     selectFileInDropdown(currentValue);
   }
   
@@ -464,24 +499,51 @@ function selectFileInDropdown(filename) {
  * Set up event listeners
  */
 function setupEventListeners() {
-  // Listen for auth:loginComplete to initialize
-  eventBus.on('auth:loginComplete', async () => {
-    logMessage('[FILEMGR] Auth complete, potentially re-initializing file manager');
-    // await loadDirectories(); // REMOVED - Initialization path should handle loading
-    // Re-run initialization logic if needed, ensuring it handles being called multiple times
-    await initializeFileManager({ force: false }); // Use force: false to prevent re-init if already done
+  // Listen for auth:restored event to reload directories/state
+  eventBus.on('auth:restored', async (data) => {
+    logMessage('[FILEMGR] Auth restored, ensuring file manager state is consistent.');
+    // Reload directories and potentially the current file based on restored state
+    if (fileState.isInitialized) {
+       await loadDirectories();
+       if(fileState.currentDirectory) {
+          await loadFiles(fileState.currentDirectory);
+          if(fileState.currentFile) {
+             await loadFile(fileState.currentFile, fileState.currentDirectory);
+          }
+       }
+    } else {
+        // If not initialized yet, initialization flow should handle it
+        logMessage('[FILEMGR] Not initialized yet, init flow will handle state restoration.');
+    }
   });
   
-  // Listen for file:loaded to update state
+  // Listen for auth:logout event to clear file system state
+  eventBus.on('auth:logout', () => {
+    clearFileSystemState();
+  });
+  
+  // Listen for fileSystem:directorySelected event (from fileSystemState or UI manager)
+  eventBus.on('fileSystem:directorySelected', async (selectedDir) => {
+      logMessage(`[FILEMGR] Received directorySelected event: ${selectedDir}`);
+      await changeDirectory(selectedDir);
+  });
+  
+  // Listen for file:loaded to update internal state
+  // Note: This might be redundant if loadFile always calls saveState
+  eventBus.on('fileManager:fileLoaded', (data) => {
+    const { filename, directory } = data;
+    fileState.currentFile = filename;
+    fileState.currentDirectory = directory;
+    // saveState(); // Redundant? loadFile already calls saveState
+  });
+
+  // DOM listener for file:loaded (backward compatibility)
   document.addEventListener('file:loaded', (event) => {
     const { filename, directory } = event.detail;
     fileState.currentFile = filename;
     fileState.currentDirectory = directory;
     saveState();
   });
-
-  // Ensure the directory change listener is set up (might be redundant if initializeFileManager runs)
-  initializeDirectorySelector();
 }
 
 /**
@@ -519,13 +581,15 @@ function getDirectoryIdFromDisplayName(displayName) {
 }
 
 /**
- * Save the current state to localStorage
+ * Save the current state using fileSystemState module
  */
 function saveState() {
   try {
-    localStorage.setItem('currentDir', fileState.currentDirectory);
-    localStorage.setItem('currentFile', fileState.currentFile);
-    logMessage('[FILEMGR] File system state saved to localStorage');
+    fileSystemState.saveState({
+      currentDir: fileState.currentDirectory,
+      currentFile: fileState.currentFile
+    });
+    logMessage('[FILEMGR] File system state saved via fileSystemState');
   } catch (error) {
     console.error('[FILEMGR ERROR]', error);
     logMessage(`[FILEMGR ERROR] Failed to save state: ${error.message}`, 'error');
@@ -533,22 +597,21 @@ function saveState() {
 }
 
 /**
- * Restore state from localStorage
+ * Restore state using fileSystemState module
  */
 function restoreState() {
   try {
-    const savedDir = localStorage.getItem('currentDir');
-    const savedFile = localStorage.getItem('currentFile');
+    const state = fileSystemState.loadFileSystemState();
     
-    if (savedDir) {
-      fileState.currentDirectory = savedDir;
+    if (state.currentDir) {
+      fileState.currentDirectory = state.currentDir;
     }
     
-    if (savedFile) {
-      fileState.currentFile = savedFile;
+    if (state.currentFile) {
+      fileState.currentFile = state.currentFile;
     }
     
-    logMessage(`[FILEMGR] State restored from localStorage: dir=${savedDir}, file=${savedFile}`);
+    logMessage(`[FILEMGR] State restored from fileSystemState: dir=${state.currentDir || ''}, file=${state.currentFile || ''}`);
   } catch (error) {
     console.error('[FILEMGR ERROR]', error);
     logMessage(`[FILEMGR ERROR] Failed to restore state: ${error.message}`, 'error');
@@ -561,26 +624,30 @@ function restoreState() {
  * @param {string} file - File
  */
 function updateUrlParameters(directory, file = null) {
-  const url = new URL(window.location.href);
-  
-  // Set directory parameter, using display name for better readability
-  if (directory) {
-    url.searchParams.set('dir', getDirectoryDisplayName(directory));
-  } else {
-    url.searchParams.delete('dir');
+  try {
+      const url = new URL(window.location.href);
+    
+      // Set directory parameter, using display name for better readability
+      if (directory) {
+        url.searchParams.set('dir', getDirectoryDisplayName(directory));
+      } else {
+        url.searchParams.delete('dir');
+      }
+      
+      // Set file parameter if provided
+      if (file) {
+        url.searchParams.set('file', file);
+      } else {
+        url.searchParams.delete('file');
+      }
+      
+      // Update URL without reloading the page
+      window.history.replaceState({}, document.title, url.toString());
+      
+      logMessage('[FILEMGR] URL parameters updated');
+  } catch(e) {
+      logMessage(`[FILEMGR ERROR] Failed to update URL parameters: ${e.message}`, 'error');
   }
-  
-  // Set file parameter if provided
-  if (file) {
-    url.searchParams.set('file', file);
-  } else {
-    url.searchParams.delete('file');
-  }
-  
-  // Update URL without reloading the page
-  window.history.replaceState({}, document.title, url.toString());
-  
-  logMessage('[FILEMGR] URL parameters updated');
 }
 
 /**
@@ -600,28 +667,24 @@ export function getCurrentFile() {
 }
 
 /**
- * Set the current directory
- * @param {string} directory - Directory to set
+ * Set the current directory (deprecated - use changeDirectory)
  */
 export function setCurrentDirectory(directory) {
+  logMessage('[FILEMGR WARN] setCurrentDirectory is deprecated, use changeDirectory instead', 'warning');
   if (directory) {
-    fileState.currentDirectory = directory;
-    saveState();
-    logMessage(`[FILEMGR] Current directory set to: ${directory}`);
+    changeDirectory(directory);
     return true;
   }
   return false;
 }
 
 /**
- * Set the current file
- * @param {string} file - File to set
+ * Set the current file (deprecated - use loadFile)
  */
 export function setCurrentFile(file) {
+   logMessage('[FILEMGR WARN] setCurrentFile is deprecated, use loadFile instead', 'warning');
   if (file) {
-    fileState.currentFile = file;
-    saveState();
-    logMessage(`[FILEMGR] Current file set to: ${file}`);
+    loadFile(file);
     return true;
   }
   return false;
@@ -631,70 +694,60 @@ export function setCurrentFile(file) {
  * Clear the file system state
  */
 export function clearFileSystemState() {
-  localStorage.removeItem('currentDir');
-  localStorage.removeItem('currentFile');
+  logMessage('[FILEMGR] Clearing file system state');
   
+  // Clear internal state
   fileState.currentDirectory = '';
   fileState.currentFile = '';
+  fileState.filesLoaded = false;
+  
+  // Clear caches
+  directoryCache.clear();
+  fileContentCache.clear();
+  
+  // Clear UI
+  const fileSelect = document.getElementById('file-select');
+  if (fileSelect) {
+    fileSelect.innerHTML = '<option value="">Select File</option>';
+  }
+  
+  // Clear editor content
+  setContent('');
+  
+  // Use fileSystemState to clear localStorage
+  fileSystemState.clearState();
+  
+  // Emit event
+  eventBus.emit('fileManager:cleared');
   
   logMessage('[FILEMGR] File system state cleared');
 }
 
 /**
- * Initialize the directory selector
+ * Initialize the directory selector event listener (moved here from fileSystemState)
  */
-function initializeDirectorySelector() {
-  const directorySelector = document.getElementById('dir-select');
-  if (!directorySelector) {
-    logMessage('[FILEMGR WARNING] Directory selector not found for listener setup', 'warning');
-    return;
+function setupDirectorySelectListener() {
+  const dirSelect = document.getElementById('dir-select');
+  if (dirSelect) {
+    // Use a named function for the handler to allow removal
+    const handleDirChange = async function() {
+      const selectedDir = this.value;
+      if (selectedDir) {
+        logMessage(`[FILEMGR] Directory select changed to: ${selectedDir}`);
+        await changeDirectory(selectedDir);
+      }
+    };
+
+    // Remove any existing listeners to prevent duplicates
+    dirSelect.removeEventListener('change', handleDirChange); // Needs the exact function reference
+    
+    // Add the listener
+    dirSelect.addEventListener('change', handleDirChange);
+    
+    logMessage('[FILEMGR] Set up directory select listener');
+  } else {
+    logMessage('[FILEMGR WARNING] Directory select element not found for listener setup');
   }
-
-  // Clear existing options and add placeholder
-  // directorySelector.innerHTML = '<option value="">Select Directory</option>';
-
-  // Add event listener
-  // Ensure listener isn't added multiple times if init runs again
-  directorySelector.removeEventListener('change', handleDirectoryChangeFromUI); // Use a named function
-  directorySelector.addEventListener('change', handleDirectoryChangeFromUI);
-
-  logMessage('[FILEMGR] Directory selector event listener initialized');
-}
-
-// Add a named handler function for the directory change
-async function handleDirectoryChangeFromUI(event) {
-  const selectedDirectory = event.target.value;
-  if (!selectedDirectory) return;
-  // Call the existing fileManager logic when the UI selection changes
-  await changeDirectory(selectedDirectory);
-}
-
-/**
- * Update the directory selector with available directories
- * @param {Array} directories - Array of directories
- * @param {string} selectedDirectory - Directory to select
- */
-function updateDirectorySelector(directories, selectedDirectory = null) {
-  const directorySelector = document.getElementById('dir-select');
-  if (!directorySelector) {
-    // logMessage('[FILEMGR WARNING] Directory selector not found', 'warning'); // Commented out, UIManager handles UI
-    return;
-  }
-  logMessage('[FILEMGR] updateDirectorySelector called, but UI updates are handled by UIManager.'); // Log that this is now passive
-
-  // Store current selected value to preserve it if nothing else is specified
-  // const currentValue = selectedDirectory || directorySelector.value; // REMOVED
-
-  // Clear existing options and add placeholder
-  // directorySelector.innerHTML = '<option value="">Select Directory</option>'; // REMOVED
-
-  // Add options for each directory
-  // directories.forEach(dir => { ... }); // REMOVED
-
-  // Set the selected value
-  // if (currentValue) { ... } // REMOVED
-
-  // logMessage(`[FILEMGR] Directory selector updated with ${directories.length} directories`); // REMOVED
 }
 
 // Export the file manager object for module use
@@ -707,10 +760,12 @@ export default {
   changeDirectory,
   getCurrentDirectory,
   getCurrentFile,
-  setCurrentDirectory,
-  setCurrentFile,
+  setCurrentDirectory, // Keep for potential legacy usage, but warn
+  setCurrentFile,      // Keep for potential legacy usage, but warn
   clearFileSystemState,
   updateFileSelector
 };
 
-export const currentDir = getCurrentDirectory(); 
+// This export likely causes issues if fileManager initializes before auth
+// export const currentDir = getCurrentDirectory(); 
+// Consider accessing directory via getCurrentDirectory() when needed instead of top-level export. 

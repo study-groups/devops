@@ -1,22 +1,15 @@
-const basicAuth = require('basic-auth');
-const { validateUser, hashPassword } = require('../utils/userUtils');
-
 const authMiddleware = (req, res, next) => {
-    const credentials = basicAuth(req);
-
-    if (!credentials) {
-        return res.status(401).json({ error: 'Authentication required' });
+    console.log('[AUTH MIDDLEWARE] Checking session...');
+    // Check if session exists and user is marked as loggedIn
+    if (req.session && req.session.user && req.session.user.loggedIn) {
+        console.log(`[AUTH MIDDLEWARE] Session valid for user: ${req.session.user.username}`);
+        // Optionally attach user info to req for downstream handlers
+        req.user = req.session.user;
+        next(); // User is authenticated, proceed
+    } else {
+        console.log('[AUTH MIDDLEWARE] No valid session found.');
+        res.status(401).json({ error: 'Authentication required. Please log in.' });
     }
-
-    // Validate using stored hash
-    if (!validateUser(credentials.name, credentials.pass)) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    // Set both auth and user objects
-    req.auth = credentials;
-    req.user = { username: credentials.name };
-    next();
 };
 
 module.exports = { authMiddleware }; 

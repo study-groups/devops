@@ -1,5 +1,4 @@
-// UI module - Single source of truth for UI state
-// Contains button states and other UI elements
+// ui.js - Basic UI state management (e.g., button states)
 
 // State
 let buttonStates = {};

@@ -7,14 +7,13 @@ window.APP = {
   initFailed: false
 };
 
-// Simple logging fallback
+// Simple logging fallback / global access
+window.logMessage = console.log; // Fallback
 function logSafe(message) {
   console.log(message);
   try {
     // Try to log to the UI if available
-    if (window.logMessage) {
-      window.logMessage(message);
-    }
+    window.logMessage(message); // Use the potentially updated global function
   } catch (e) {
     // Ignore errors
   }
@@ -22,13 +21,14 @@ function logSafe(message) {
 
 // Safe import with error handling
 async function safeImport(path) {
-  console.log('[BOOTSTRAP] Loading:', path);
+  logSafe(`[BOOTSTRAP] Loading: ${path}`);
   try {
+    // Assume path is a correct absolute URL path like /client/...
     const module = await import(path);
-    console.log('[BOOTSTRAP] Successfully loaded:', path);
+    logSafe(`[BOOTSTRAP] Successfully loaded: ${path}`);
     return module;
   } catch (error) {
-    console.error('[BOOTSTRAP] Failed to load ' + path + ':', error.message);
+    console.error(`[BOOTSTRAP] Failed to load ${path}:`, error.message);
     // Show error on page for easier debugging
     const errorMsg = document.createElement('div');
     errorMsg.style.cssText = 'color: red; background: #ffeeee; padding: 10px; margin: 10px 0; border: 1px solid red; font-family: monospace;';
@@ -40,16 +40,60 @@ async function safeImport(path) {
   }
 }
 
+// Global Debug/Info Functions (Moved from appInit.js)
+function registerGlobalFunctions() {
+    // Avoid registering if already done (e.g., during HMR)
+    if (window.debugUI) return;
+    
+    // Import debug functions dynamically using absolute paths
+    safeImport('./debug.js').then(debugModule => {
+        if (debugModule && !debugModule.__ERROR__) {
+            window.debugUI = debugModule.debugUI;
+            window.testApiEndpoints = debugModule.testApiEndpoints;
+            window.debugFileOperations = debugModule.debugFileOperations;
+            window.debugApiResponses = debugModule.debugApiResponses;
+            window.testFileLoading = debugModule.testFileLoading;
+        }
+    }).catch(e => console.error('Failed to load debug module', e));
+
+    safeImport('/client/fileSystemState.js').then(fsStateModule => {
+        if(fsStateModule && !fsStateModule.__ERROR__) {
+           window.debugFileSystemState = fsStateModule.debugFileSystemState; // Assuming debug func is there
+        }
+    }).catch(e => console.error('Failed to load fsState module for debug', e));
+    
+    window.showAppInfo = showAppInfo;
+    
+    // Basic app config (Consider moving to a dedicated config.js)
+    window.APP_CONFIG = {
+        name: 'DevPages', // Replace with actual name if available
+        version: '1.0.0', // Replace with actual version if available
+        buildDate: new Date().toISOString().split('T')[0]
+    };
+    
+    logSafe('[BOOTSTRAP] Global functions registered');
+}
+
+function showAppInfo() {
+    const config = window.APP_CONFIG || {};
+    logSafe('\n=== APPLICATION INFORMATION ===');
+    logSafe(`Name: ${config.name || 'N/A'}`);
+    logSafe(`Version: ${config.version || 'N/A'}`);
+    logSafe(`Build Date: ${config.buildDate || 'N/A'}`);
+    logSafe('================================');
+}
+// --- End Global Functions ---
+
+
 // Initialize the application in the correct sequence
 async function initializeApp() {
   if (window.APP.initialized || window.APP.initializing) {
-    console.log('[BOOTSTRAP] Already initialized or initializing, skipping');
+    logSafe('[BOOTSTRAP] Already initialized or initializing, skipping');
     return;
   }
 
   window.APP.initializing = true;
-  // Use console.log for earliest possible logging before logSafe might be ready
-  console.log('[BOOTSTRAP] ===== STARTING APPLICATION BOOTSTRAP =====');
+  logSafe('[BOOTSTRAP] ===== STARTING APPLICATION BOOTSTRAP =====');
 
   // Clean sensitive URL parameters if present
   try {
@@ -87,318 +131,128 @@ async function initializeApp() {
   }
 
   try {
-    // 1. Import core modules first
-    console.log('[BOOTSTRAP] Attempting to import log system...'); // Log before import
+    // --- Phase 1: Logging --- 
+    logSafe('[BOOTSTRAP] Phase 1: Initializing Log System...');
     const logSystem = await safeImport('/client/log/index.js');
-
-    // --- Add Detailed Debugging ---
-    console.log('[BOOTSTRAP DEBUG] Result of safeImport("/client/log/index.js"):', logSystem);
-
-    if (!logSystem || logSystem.__ERROR__) {
-        console.error('[BOOTSTRAP CRITICAL] Log system import failed!', 
-                     logSystem?.__ERROR__ ? `Error: ${logSystem.message}` : 'Import returned null/undefined');
-        // Cannot proceed without log system - show user-friendly error
-        document.body.innerHTML = '<div style="color:red;padding:20px;">'+
-            '<h2>Critical Error</h2>'+
-            '<p>The application failed to load core components. Please try clearing your cache and reloading.</p>'+
-            '<button onclick="location.reload(true)">Reload Page</button>'+
-            '</div>';
-        return;
-    }
-
-    console.log('[BOOTSTRAP DEBUG] Keys found in imported logSystem:', Object.keys(logSystem));
-    console.log('[BOOTSTRAP DEBUG] typeof logSystem.initLogVisibility:', typeof logSystem.initLogVisibility);
-    console.log('[BOOTSTRAP DEBUG] Value of logSystem.initLogVisibility:', logSystem.initLogVisibility);
-    // --- End Detailed Debugging ---
-
-    // Explicit check BEFORE destructuring
-    if (typeof logSystem.initLogVisibility !== 'function') {
-        console.error('[BOOTSTRAP CRITICAL] initLogVisibility is NOT a function within the imported logSystem module!');
-        // Log the error using console.error as logMessage might not be available
-        // Optionally stop execution if this is critical
-        // return;
-    }
-    if (typeof logSystem.logMessage !== 'function') {
-        console.error('[BOOTSTRAP CRITICAL] logMessage is NOT a function within the imported logSystem module!');
-        // Use console.log as fallback
-        window.logMessage = console.log;
-    } else {
+    if (!logSystem || logSystem.__ERROR__) throw new Error('Log system failed to load');
+    
+    // Set global logMessage ASAP
+    if (typeof logSystem.logMessage === 'function') {
          window.logMessage = logSystem.logMessage;
-         logMessage('[BOOTSTRAP] logMessage function registered globally.');
+         logMessage('[BOOTSTRAP] logMessage registered globally.'); // Use the function now
+    } else {
+         throw new Error('logMessage function not found in log system');
     }
-
-    // Destructure AFTER checks
-    const { initLogVisibility, ensureLogButtonsConnected } = logSystem; // logMessage already handled
-
-    // Initialize log system first - only if the function exists and is valid
+    const { initLogVisibility, ensureLogButtonsConnected } = logSystem;
     if (typeof initLogVisibility === 'function') {
-        try {
-            logMessage('[BOOTSTRAP] Calling initLogVisibility...');
-            initLogVisibility();
-            logMessage('[BOOTSTRAP] Log system visibility initialized successfully.');
-        } catch (logInitError) {
-            console.error('[BOOTSTRAP ERROR] Error occurred during initLogVisibility execution:', logInitError);
-            logMessage(`[BOOTSTRAP ERROR] Log init failed: ${logInitError.message}`);
-        }
+        initLogVisibility();
+        logMessage('[BOOTSTRAP] Log visibility initialized.');
     } else {
-         logMessage('[BOOTSTRAP WARNING] Skipping log visibility initialization because initLogVisibility is not a function.');
+        logMessage('[BOOTSTRAP WARNING] initLogVisibility not found.', 'warning');
     }
+    registerGlobalFunctions(); // Register debug functions
 
-    // 2. Import auth manager and restore login state
-    logMessage('[BOOTSTRAP] Importing auth manager...');
-    const authManager = await safeImport('/client/authManager.js');
-
-    // --- Add Detailed Debugging for authManager ---
-    console.log('[BOOTSTRAP DEBUG] Result of safeImport("/client/authManager.js"):', authManager);
-    if (!authManager || typeof authManager.restoreLoginState !== 'function') {
-        console.error('[BOOTSTRAP CRITICAL] authManager import failed or restoreLoginState is not a function!');
-        logMessage('[BOOTSTRAP CRITICAL] Cannot restore login state.');
-        // Decide how to proceed - maybe assume logged out?
-        // return; // Or stop execution
-    } else {
-        logMessage('[BOOTSTRAP] authManager imported successfully.');
+    // --- Phase 2: Authentication --- 
+    logMessage('[BOOTSTRAP] Phase 2: Initializing Authentication...');
+    const authModule = await safeImport('/client/auth.js');
+    if (!authModule || authModule.__ERROR__ || typeof authModule.restoreLoginState !== 'function' || typeof authModule.initAuth !== 'function') {
+         throw new Error('Auth module failed to load or missing required functions');
     }
-    // --- End Detailed Debugging ---
-
-    const isLoggedIn = await authManager.restoreLoginState();
+    const { initAuth, restoreLoginState } = authModule;
+    initAuth(); // Initialize listeners etc.
+    const isLoggedIn = await restoreLoginState(); // Restore state
     logMessage(`[BOOTSTRAP] Login state restored: ${isLoggedIn ? 'logged in' : 'logged out'}`);
 
-    // Add this to ensure file manager is initialized
-    if (isLoggedIn) {
-        try {
-            const fileManager = await import('./fileManager/index.js');
-            await fileManager.initializeFileManager();
-            logMessage('[BOOTSTRAP] Explicitly initialized file manager after login state restored');
-        } catch (error) {
-            logMessage(`[BOOTSTRAP ERROR] Failed to initialize file manager: ${error.message}`);
-        }
+    // --- Phase 3: Core UI & Event Bus --- 
+    logMessage('[BOOTSTRAP] Phase 3: Initializing UI Manager & Event Bus...');
+    const eventBusModule = await safeImport('/client/eventBus.js');
+    if (!eventBusModule || eventBusModule.__ERROR__) throw new Error('EventBus failed to load');
+    // Make eventBus globally accessible if needed, or pass it around
+    // window.eventBus = eventBusModule.eventBus;
+
+    const uiManagerModule = await safeImport('/client/uiManager.js');
+     if (!uiManagerModule || uiManagerModule.__ERROR__ || typeof uiManagerModule.default?.initialize !== 'function') {
+        throw new Error('UIManager failed to load or missing initialize function');
     }
+    await uiManagerModule.default.initialize(); // Use default export
+    logMessage('[BOOTSTRAP] UI Manager initialized.');
 
-    // Add this line to properly update the event bus auth state
-    if (isLoggedIn) {
-        const { eventBus } = await safeImport('./eventBus.js');
-        const { authState } = await safeImport('./auth.js');
-        
-        eventBus.setAuthState({
-            isAuthenticated: true,
-            username: authState.username,
-            token: authState.hashedPassword || 'authenticated'
-        });
-        logMessage('[BOOTSTRAP] Updated eventBus auth state with login information');
-    }
-
-    // 3. Import and initialize UI manager
-    logMessage('[BOOTSTRAP] Importing UI manager...');
-    const uiManager = await safeImport('/client/uiManager.js');
-    // ... (add similar checks for uiManager if needed) ...
-    await uiManager.initializeUI();
-    logMessage('[BOOTSTRAP] UI system initialized');
-
-    // Explicitly ensure log buttons are connected after UI initialization
-    // Check if function exists before calling
+    // Ensure log buttons connected after UI init
     if (typeof ensureLogButtonsConnected === 'function') {
         ensureLogButtonsConnected();
         logMessage('[BOOTSTRAP] Log buttons connection ensured.');
+    }
+
+    // --- Phase 4: Editor & Preview --- 
+    logMessage('[BOOTSTRAP] Phase 4: Initializing Editor & Preview...');
+    const editorModule = await safeImport('/client/editor.js');
+    if (editorModule && !editorModule.__ERROR__ && typeof editorModule.initializeEditor === 'function') {
+        await editorModule.initializeEditor();
+        logMessage('[BOOTSTRAP] Editor initialized.');
     } else {
-        logMessage('[BOOTSTRAP WARNING] ensureLogButtonsConnected function not found in logSystem.');
+        logMessage('[BOOTSTRAP WARNING] Editor failed to load or initialize.', 'warning');
     }
-
-
-    // 4. Import and initialize auth module
-    logMessage('[BOOTSTRAP] Importing auth module...');
-    const auth = await safeImport('/client/auth.js');
-
-    // --- Add Detailed Debugging for auth ---
-    console.log('[BOOTSTRAP DEBUG] Result of safeImport("/client/auth.js"):', auth);
-    if (!auth || typeof auth.initializeAuth !== 'function') {
-        console.error('[BOOTSTRAP CRITICAL] auth module import failed or initializeAuth is not a function!');
-        logMessage('[BOOTSTRAP CRITICAL] Cannot initialize auth system.');
-        // Decide how to proceed
-        // return;
+    
+    const previewModule = await safeImport('/client/preview.js');
+     if (previewModule && !previewModule.__ERROR__ && typeof previewModule.initializePreview === 'function') {
+        await previewModule.initializePreview();
+        logMessage('[BOOTSTRAP] Preview initialized.');
     } else {
-        logMessage('[BOOTSTRAP] auth module imported successfully.');
+        logMessage('[BOOTSTRAP WARNING] Preview failed to load or initialize.', 'warning');
     }
-    // --- End Detailed Debugging ---
 
-    await auth.initializeAuth();
-    logMessage('[BOOTSTRAP] Auth system initialized');
-
-    // 5. Import and initialize editor
-    logMessage('[BOOTSTRAP] Importing editor...');
-    const editor = await import('./editor.js').catch(err => {
-        console.warn("Failed to import editor module:", err);
-        return { 
-            initializeEditor: () => Promise.resolve(true),
-            setContent: (content) => {
-                const textarea = document.querySelector('#md-editor textarea');
-                if (textarea) textarea.value = content || '';
-                return true;
-            },
-            getContent: () => {
-                const textarea = document.querySelector('#md-editor textarea');
-                return textarea ? textarea.value : '';
-            }
-        };
-    });
-
-    // Check if the function exists before calling it
-    if (typeof editor.initializeEditor === 'function') {
-        await editor.initializeEditor().catch(err => {
-            console.warn("Editor initialization failed:", err);
-        });
+    // --- Phase 5: File Manager --- 
+    logMessage('[BOOTSTRAP] Phase 5: Initializing File Manager...');
+    // Only init if logged in? Or let fileManager handle auth state check?
+    // Let fileManager handle it for robustness.
+    const fileManagerModule = await safeImport('/client/fileManager.js');
+    if (fileManagerModule && !fileManagerModule.__ERROR__ && typeof fileManagerModule.initializeFileManager === 'function') {
+        await fileManagerModule.initializeFileManager();
+        logMessage('[BOOTSTRAP] File Manager initialization triggered.');
     } else {
-        console.warn("initializeEditor function not found on editor module");
+         logMessage('[BOOTSTRAP ERROR] FileManager failed to load or initialize.', 'error');
     }
 
-    // 6. Initialize file manager if logged in
-    if (isLoggedIn) {
-      logMessage('[BOOTSTRAP] Importing file manager...');
-      try {
-        // Use dynamic import to avoid errors - import from the correct path
-        const fileManager = await import('./fileManager/index.js');
-        
-        // Check if the function exists before calling
-        if (typeof fileManager.initializeFileManager === 'function') {
-          const success = await fileManager.initializeFileManager();
-          if (success) {
-            logMessage('[BOOTSTRAP] File manager initialized for logged in user');
-          } else {
-            // If initial init fails, try force initializing
-            if (typeof fileManager.refreshFileManager === 'function') {
-              logMessage('[BOOTSTRAP] Directory selector not populated, retrying file manager initialization');
-              await fileManager.refreshFileManager();
-            }
-          }
-        } else {
-          logMessage('[BOOTSTRAP ERROR] initializeFileManager function not found');
-        }
-      } catch (importError) {
-        logMessage(`[BOOTSTRAP] Failed to import file manager module: ${importError.message}`);
-        
-        // Fallback to diagnose and fix directory issues
-        try {
-          logMessage('[BOOTSTRAP] Attempting to fix directory selector as fallback');
-          
-          // Try to at least populate the directory selector with the username
-          const dirSelect = document.getElementById('dir-select');
-          const authState = JSON.parse(localStorage.getItem('authState') || '{}');
-          
-          if (dirSelect && authState.isLoggedIn && authState.username) {
-            if (!Array.from(dirSelect.options).some(opt => opt.value === authState.username)) {
-              const option = document.createElement('option');
-              option.value = authState.username;
-              option.textContent = authState.username;
-              dirSelect.appendChild(option);
-              logMessage(`[BOOTSTRAP] Added user directory option: ${authState.username}`);
-            }
-            
-            // Don't force username selection if there's already a selected directory
-            if (!dirSelect.value) {
-              dirSelect.value = authState.username;
-              logMessage(`[BOOTSTRAP] Set directory selector to: ${authState.username}`);
-              dirSelect.dispatchEvent(new Event('change'));
-            } else {
-              logMessage(`[BOOTSTRAP] Directory already selected: ${dirSelect.value}, not changing to username`);
-            }
-          }
-        } catch (error) {
-          logMessage(`[BOOTSTRAP] Fallback directory fix failed: ${error.message}`);
-        }
-      }
+    // --- Phase 6: Additional Components --- 
+    logMessage('[BOOTSTRAP] Phase 6: Initializing Additional Components...');
+    const communityLinkModule = await safeImport('/client/communityLink.js');
+    if (communityLinkModule && !communityLinkModule.__ERROR__ && typeof communityLinkModule.initCommunityLink === 'function') {
+        await communityLinkModule.initCommunityLink();
+        logMessage('[BOOTSTRAP] Community Link initialized.');
+    } else {
+         logMessage('[BOOTSTRAP WARNING] Community Link failed to load or initialize.', 'warning');
     }
-
-    // 7. Additional modules
-    try {
-      const { initCommunityLink } = await safeImport('./communityLink.js');
-      await initCommunityLink();
-      logMessage('[BOOTSTRAP] Community link initialized');
-    } catch (error) {
-      logMessage(`[BOOTSTRAP] Failed to initialize community link: ${error.message}`);
-      
-      // Fallback initialization
-      try {
-        const communityLinkBtn = document.getElementById('community-link-btn');
-        if (communityLinkBtn && !communityLinkBtn._initialized) {
-          communityLinkBtn.addEventListener('click', async function() {
-            const authStateStr = localStorage.getItem('authState');
-            if (!authStateStr) {
-              alert('Please log in to share with the community');
-              return;
-            }
-            
-            const authState = JSON.parse(authStateStr);
-            if (!authState.isLoggedIn) {
-              alert('Please log in to share with the community');
-              return;
-            }
-            
-            const fileSelect = document.getElementById('file-select');
-            if (!fileSelect?.value) {
-              alert('Please select a file to share');
-              return;
-            }
-            
-            const editor = document.querySelector('#md-editor textarea');
-            if (!editor) {
-              alert('Editor not found');
-              return;
-            }
-            
-            if (confirm(`Share "${fileSelect.value}" with the community?`)) {
-              try {
-                const response = await fetch('/api/files/save', {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    name: fileSelect.value,
-                    dir: 'Community_Files',
-                    content: editor.value
-                  })
-                });
-                
-                if (response.ok) {
-                  alert('Successfully shared with the community!');
-                } else {
-                  const text = await response.text();
-                  alert(`Error sharing file: ${response.status} - ${text}`);
-                }
-              } catch (error) {
-                alert(`Error sharing file: ${error.message}`);
-              }
-            }
-          });
-          
-          communityLinkBtn._initialized = true;
-          logMessage('[BOOTSTRAP] Added fallback community link handler');
-        }
-      } catch (fallbackError) {
-        logMessage(`[BOOTSTRAP] Fallback community link initialization failed: ${fallbackError.message}`);
-      }
+    
+    const cliModule = await safeImport('/client/cli/index.js');
+    if (cliModule && !cliModule.__ERROR__ && typeof cliModule.initializeCLI === 'function') {
+        await cliModule.initializeCLI();
+        logMessage('[BOOTSTRAP] CLI initialized.');
+    } else {
+         logMessage('[BOOTSTRAP WARNING] CLI failed to load or initialize.', 'warning');
     }
-
-    // 8. Import and initialize the CLI component
-    logMessage('[BOOTSTRAP] Importing CLI component...');
-    try {
-        const cliModule = await safeImport('/client/cli/index.js');
-        if (cliModule && typeof cliModule.initializeCLI === 'function') {
-            await cliModule.initializeCLI();
-            logMessage('[BOOTSTRAP] CLI component initialized successfully');
-        } else {
-            console.error('[BOOTSTRAP] CLI module loaded but initializeCLI not found');
-            logMessage('[BOOTSTRAP] Failed to initialize CLI component: missing initialization function');
-        }
-    } catch (error) {
-        console.error('[BOOTSTRAP] Failed to load CLI component:', error);
-        logMessage('[BOOTSTRAP] Failed to load CLI component: ' + error.message);
+    
+    // Initialize DOM event listeners, actions etc. AFTER core modules are ready
+    const domEventsModule = await safeImport('/client/domEvents.js');
+    if(domEventsModule && !domEventsModule.__ERROR__ && typeof domEventsModule.initializeDomEvents === 'function') {
+        domEventsModule.initializeDomEvents();
+        logMessage('[BOOTSTRAP] DOM Events Initialized.');
+    } else {
+        logMessage('[BOOTSTRAP WARNING] DOM Events failed to load or initialize.', 'warning');
+    }
+    
+    const actionsModule = await safeImport('/client/actions.js');
+     if(actionsModule && !actionsModule.__ERROR__ && typeof actionsModule.initializeActions === 'function') {
+        actionsModule.initializeActions();
+        logMessage('[BOOTSTRAP] Actions Initialized.');
+    } else {
+        logMessage('[BOOTSTRAP WARNING] Actions failed to load or initialize.', 'warning');
     }
 
     // Mark initialization as complete
     window.APP.initializing = false;
     window.APP.initialized = true;
     logMessage('[BOOTSTRAP] ===== APPLICATION INITIALIZATION COMPLETE =====');
+    eventBusModule.eventBus.emit('app:ready'); // Emit ready event
     
   } catch (error) {
     window.APP.initFailed = true;
@@ -415,9 +269,8 @@ async function initializeApp() {
     `;
     document.body.appendChild(errorDiv);
   } finally {
-    window.APP.initializing = false;
-    window.APP.initialized = true;
-    console.log('[BOOTSTRAP] ===== APPLICATION BOOTSTRAP COMPLETE =====');
+     window.APP.initializing = false; // Ensure flag is always reset
+     // Do not set initialized = true in finally, only on success
   }
 }
 
@@ -427,39 +280,6 @@ window.APP = window.APP || {};
 // Start the initialization
 initializeApp();
 
-// Import core modules
-import { logMessage } from './log/index.js';
-import { eventBus } from './eventBus.js';
-import { initializeActions } from './actions.js';
-import { initializeDomEvents } from './domEvents.js';
-
-// Bootstrap the application
-async function bootstrap() {
-    console.log('[BOOTSTRAP] Application bootstrap started');
-    
-    try {
-        // Initialize early connectivity functions (connectGlobalFunctions)
-        initializeDomEvents();
-        
-        // Initialize action handlers
-        initializeActions();
-        
-        // Initialize UI components and other modules
-        // ...
-        
-        console.log('[BOOTSTRAP] Application bootstrap completed');
-    } catch (error) {
-        console.error('[BOOTSTRAP ERROR]', error);
-    }
-}
-
-// Start bootstrap process immediately
-bootstrap();
-
-// Also initialize on DOM content loaded for safety
-document.addEventListener('DOMContentLoaded', () => {
-    logMessage('[DOM] Content loaded, ensuring event system is initialized');
-    
-    // Dispatch an application:ready event
-    eventBus.emit('application:ready');
-}); 
+// Remove the duplicated bootstrap() function and its call
+// Remove the duplicated DOMContentLoaded listener
+// Remove duplicated imports at the end 

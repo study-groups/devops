@@ -1,7 +1,9 @@
 // Import necessary modules
-import { logMessage, toggleLog } from "./log/index.js";
-import { globalFetch } from './globalFetch.js';
-import { updateTopBar } from './components/topBar.js';
+import { logMessage, toggleLog } from "/client/log/index.js";
+import { globalFetch } from '/client/globalFetch.js';
+import { updateTopBar } from '/client/components/topBar.js';
+import { eventBus } from '/client/eventBus.js';
+import { AUTH_STATE } from '/client/auth.js';
 // Removed imports for functions/modules no longer used directly here
 
 // UI Manager class to handle all UI-related operations
@@ -34,7 +36,6 @@ class UIManager {
         console.log('[UI] Initializing UI Manager');
         updateTopBar(); // Initialize top bar first
         this.setupEventListeners();
-        await this.updateAuthDisplay(); // Update display based on initial auth state
         this.initializeSimpleMobileUI(); // Handle mobile specifics like password visibility
         this.updateMobileLayout(); // Adjust layout for mobile if needed
         window.addEventListener('resize', this.updateMobileLayout); // Handle resize
@@ -79,6 +80,11 @@ class UIManager {
             this.elements.pwdDisplay.addEventListener('click', this.handlePwdDisplayClick);
             console.log('[UI] Mobile logout (pwdDisplay click) handler set up');
         }
+
+        // Listen for auth state changes
+        eventBus.off('auth:stateChanged', this.updateAuthDisplay); // Prevent duplicates if re-initialized
+        eventBus.on('auth:stateChanged', this.updateAuthDisplay);
+        logMessage('[UI] Listening for auth:stateChanged events');
     }
 
     /**
@@ -89,7 +95,8 @@ class UIManager {
         if (selectedDir) {
             logMessage(`[UI] Directory selected: ${selectedDir}`);
             await this.loadDirectoryFiles(selectedDir);
-            localStorage.setItem('lastSelectedDirectory', selectedDir);
+            // Don't save to localStorage directly, let fileSystemState handle it
+            // localStorage.setItem('lastSelectedDirectory', selectedDir);
             } else {
             // Clear file select if no directory is chosen
             this.updateFileSelect([]);
@@ -108,22 +115,25 @@ class UIManager {
         }
 
         try {
+            // REMOVED client-side auth check
+            /*
             const authState = this.getAuthState();
             if (!authState.isLoggedIn) {
                 console.warn('[UI] Cannot load files: Not logged in');
                 this.updateFileSelect([]); // Clear files if not logged in
                 return;
             }
+            */
             logMessage(`[UI] Loading files for directory: ${directory}`);
 
-            // Use globalFetch which should handle auth headers
+            // Use globalFetch (relies on session cookie)
             const response = await globalFetch(`/api/files/list?dir=${encodeURIComponent(directory)}`);
 
             if (response.ok) {
                 const files = await response.json();
                 logMessage(`[UI] Files loaded: ${files.length}`);
                 this.updateFileSelect(files);
-        } else {
+            } else {
                  console.error(`[UI] Failed to load files: ${response.status}`);
                  this.updateFileSelect([]); // Clear files on error
             }
@@ -163,20 +173,31 @@ class UIManager {
             fileSelect.appendChild(option);
         });
 
-        // Show only if logged in and there are files (more than just placeholder)
-        fileSelect.style.display = this.getAuthState().isLoggedIn && files.length > 0 ? 'block' : 'none';
+        // Show only if logged in (check live state) and there are files
+        fileSelect.style.display = (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED && files.length > 0) ? 'block' : 'none';
     }
 
     /**
      * Handle logout action
      */
-    handleLogout(event) {
+    async handleLogout(event) {
         if (event) event.preventDefault();
-        logMessage('[UI] Logging out and reloading...');
-        localStorage.clear();
-        setTimeout(() => {
-            window.location.reload();
-        }, 100);
+        logMessage('[UI] Triggering logout...');
+        try {
+            const { logout } = await import('/client/auth.js');
+            await logout(); // Call the actual logout function
+            // UI update will happen via auth:stateChanged listener
+        } catch(e) {
+            const { AUTH_STATE } = await import('/client/auth.js'); // Need AUTH_STATE here
+            if (AUTH_STATE.current === AUTH_STATE.UNAUTHENTICATED) {
+                // Logout succeeded locally, server response might have been non-standard (e.g., 204)
+                logMessage(`[UI WARN] Logout completed but caught minor exception (likely server response): ${e.message}`, 'warning');
+            } else {
+                // Logout likely failed more significantly
+                logMessage(`[UI ERROR] Logout failed: ${e.message}`, 'error');
+                alert(`Logout failed: ${e.message}`); // Show alert only on significant failure
+            }
+        }
     }
 
     /**
@@ -196,65 +217,53 @@ class UIManager {
         logMessage(`[UI] Attempting login for user: ${username}`);
 
         try {
-            // Dynamically import handleLogin function from core auth module
-            const { handleLogin } = await import('./core/auth.js');
+            const { handleLogin } = await import('/client/auth.js');
             const success = await handleLogin(username, password);
 
             if (success) {
-                logMessage('[UI] Login successful, reloading page...');
-                window.location.reload(); // Reload for clean state
+                logMessage('[UI] Login successful');
+                // UI update will happen via auth:stateChanged listener
+                // REMOVED: window.location.reload();
             } else {
                  alert('Login failed. Please check username and password.');
             }
         } catch (error) {
-            console.error('[UI] Login error:', error);
             logMessage(`[UI] Login error: ${error.message}`, 'error');
             alert(`Login failed: ${error.message}`);
         }
     }
 
     /**
-     * Get current auth state from localStorage
-     */
-    getAuthState() {
-        try {
-            // Check if localStorage is available
-            if (typeof localStorage === 'undefined') {
-                console.warn("[UI] localStorage not available.");
-                return {};
-            }
-            return JSON.parse(localStorage.getItem('authState') || '{}');
-        } catch (e) {
-            console.error("[UI] Error parsing authState from localStorage", e);
-            return {}; // Return empty object on error
-        }
-    }
-
-    /**
-     * Update the auth display and related UI elements
+     * Update the auth display and related UI elements based on current AUTH_STATE
      */
     async updateAuthDisplay() {
-        const authState = this.getAuthState();
-        logMessage(`[UI] Updating auth display. Logged in: ${authState.isLoggedIn}`);
+        // Read current state directly from imported AUTH_STATE
+        const isLoggedIn = AUTH_STATE.current === AUTH_STATE.AUTHENTICATED;
+        const username = AUTH_STATE.username;
+        logMessage(`[UI] Updating auth display. Logged in: ${isLoggedIn}, User: ${username || 'none'}`);
 
-        if (authState.isLoggedIn) {
-            await this.updateLoggedInUI(authState);
+        if (isLoggedIn) {
+            // Pass username to updateLoggedInUI
+            await this.updateLoggedInUI(username);
         } else {
             this.updateLoggedOutUI();
         }
-        // Ensure mobile password visibility is correct after update
         this.initializeSimpleMobileUI();
     }
 
     /**
      * Update UI for logged in state
+     * @param {string} username - The logged in username
      */
-    async updateLoggedInUI(authState) {
+    async updateLoggedInUI(username) {
         const { loginForm, logoutBtn, pwdDisplay, dirSelect } = this.elements;
 
         if (loginForm) loginForm.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'block';
-        if (pwdDisplay) pwdDisplay.textContent = `Logged in as: ${authState.username}`;
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        if (pwdDisplay) {
+            pwdDisplay.textContent = username;
+            pwdDisplay.style.display = 'inline-block';
+        }
 
         document.body.setAttribute('data-auth-state', 'logged-in');
 
@@ -307,6 +316,9 @@ class UIManager {
              console.warn("[UI] Directory select element not found for logged-in state.");
              logMessage("[UI] Directory select element not found.");
         }
+
+        // Load initial directories
+        await this.loadInitialDirectories();
     }
 
     /**
@@ -315,9 +327,12 @@ class UIManager {
     updateLoggedOutUI() {
         const { loginForm, logoutBtn, pwdDisplay, dirSelect, fileSelect } = this.elements;
 
-        if (loginForm) loginForm.style.display = 'block'; // Or 'flex'
+        if (loginForm) loginForm.style.display = 'flex'; // Or 'flex'
         if (logoutBtn) logoutBtn.style.display = 'none';
-        if (pwdDisplay) pwdDisplay.textContent = 'Not logged in';
+        if (pwdDisplay) {
+            pwdDisplay.textContent = 'Not logged in';
+            pwdDisplay.style.display = 'inline-block';
+        }
         if (dirSelect) {
              this.updateDirectorySelect([]); // Clear options
              dirSelect.style.display = 'none'; // Hide
@@ -367,7 +382,7 @@ class UIManager {
         }
 
         // Show only if logged in
-        dirSelect.style.display = this.getAuthState().isLoggedIn ? 'block' : 'none';
+        dirSelect.style.display = AUTH_STATE.current === AUTH_STATE.AUTHENTICATED ? 'block' : 'none';
     }
 
     /**
@@ -385,7 +400,7 @@ class UIManager {
      */
     handlePwdDisplayClick(event) {
         // Check window width dynamically inside the handler
-        if (window.innerWidth <= 768 && this.getAuthState().isLoggedIn) {
+        if (window.innerWidth <= 768 && AUTH_STATE.current === AUTH_STATE.AUTHENTICATED) {
             event.preventDefault();
             if (window.confirm('Are you sure you want to log out?')) {
                 this.handleLogout();
@@ -429,44 +444,43 @@ class UIManager {
      */
     async showSystemInfo() {
         try {
-            const authState = this.getAuthState();
-        if (!authState.isLoggedIn) {
-            logMessage('[SYSTEM] Cannot fetch system info: Not logged in');
+            if (AUTH_STATE.current !== AUTH_STATE.AUTHENTICATED) {
+                logMessage('[SYSTEM] Cannot fetch system info: Not logged in');
                 alert('Please log in to view system information.'); // Provide user feedback
-            return;
-        }
+                return;
+            }
 
-        logMessage('[SYSTEM] Fetching system information...');
-        
-            // Fetch system info using globalFetch
-        const response = await globalFetch('/api/auth/system');
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const info = await response.json();
-        
-        // Log the information directly using logMessage
-        logMessage('\n=== SYSTEM INFORMATION ===');
-        
-        // Environment
-        logMessage('\nEnvironment:');
-        Object.entries(info.environment || {}).forEach(([key, value]) => {
-            logMessage(`${key.padEnd(15)} = ${value}`);
-        });
-
-        // Paths
-        logMessage('\nPaths:');
-        Object.entries(info.paths || {}).forEach(([key, value]) => {
-            logMessage(`${key.padEnd(15)} = ${value}`);
-        });
-
-        // Server Stats
-        if (info.server) {
-            logMessage('\nServer:');
-            logMessage(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
-            logMessage(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
+            logMessage('[SYSTEM] Fetching system information...');
             
+            // Fetch system info using globalFetch
+            const response = await globalFetch('/api/auth/system');
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            
+            const info = await response.json();
+            
+            // Log the information directly using logMessage
+            logMessage('\n=== SYSTEM INFORMATION ===');
+            
+            // Environment
+            logMessage('\nEnvironment:');
+            Object.entries(info.environment || {}).forEach(([key, value]) => {
+                logMessage(`${key.padEnd(15)} = ${value}`);
+            });
+
+            // Paths
+            logMessage('\nPaths:');
+            Object.entries(info.paths || {}).forEach(([key, value]) => {
+                logMessage(`${key.padEnd(15)} = ${value}`);
+            });
+
+            // Server Stats
+            if (info.server) {
+                logMessage('\nServer:');
+                logMessage(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
+                logMessage(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
+                
                 // Active Users (Optional: Check if needed)
                 // if (info.server.activeUsers?.length > 0) {
                 //     logMessage('\nActive Users:');
@@ -484,10 +498,30 @@ class UIManager {
             // Optionally, show a confirmation alert
             // alert('System information logged to console.');
 
-    } catch (error) {
-        console.error('[SYSTEM ERROR]', error);
-        logMessage(`[SYSTEM ERROR] Failed to fetch system info: ${error.message}`);
+        } catch (error) {
+            console.error('[SYSTEM ERROR]', error);
+            logMessage(`[SYSTEM ERROR] Failed to fetch system info: ${error.message}`);
             alert(`Error fetching system info: ${error.message}`); // User feedback on error
+        }
+    }
+
+    /**
+     * Helper to load initial directories, typically after login or on load if already logged in.
+     */
+    async loadInitialDirectories() {
+        logMessage('[UI] Loading initial directories...');
+        try {
+            const response = await globalFetch('/api/files/dirs');
+            if (response.ok) {
+                const dirs = await response.json();
+                this.updateDirectorySelect(dirs);
+            } else {
+                logMessage(`[UI] Failed to load initial directories: ${response.status}`, 'warning');
+                this.updateDirectorySelect([]); // Clear on error
+            }
+        } catch (error) {
+            logMessage(`[UI] Error loading initial directories: ${error.message}`, 'error');
+            this.updateDirectorySelect([]); // Clear on error
         }
     }
 }
@@ -514,7 +548,6 @@ document.addEventListener('DOMContentLoaded', () => {
 export default uiManagerInstance;
 
 // Export specific methods if they need to be called from other modules
-export const updateAuthDisplay = uiManagerInstance.updateAuthDisplay;
 export const showSystemInfo = () => uiManagerInstance.showSystemInfo();
 
 // Add any other exports needed by other modules here

@@ -26,13 +26,26 @@ router.get('/salt', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-    const { username, hashedPassword } = req.body;
+    // Expect HASHED password from client again
+    const { username, hashedPassword } = req.body; 
     
-    if (!username || !hashedPassword) {
-        return res.status(400).json({ error: 'Username and password required' });
+    console.log('[AUTH /login] Received body:', req.body); // Keep log for now
+
+    // Validate presence of HASHED password
+    if (!username || !hashedPassword) { 
+        return res.status(400).json({ error: 'Username and password hash required' });
     }
 
-    if (validateUser(username, hashedPassword)) {
+    // Pass HASHED password to validateUser
+    if (validateUser(username, hashedPassword)) { 
+        // --- Session Creation --- 
+        req.session.user = {
+            username: username,
+            loggedIn: true
+        };
+        console.log(`[AUTH] Session created for user: ${username}`);
+        // --- End Session Creation ---
+        
         res.json({ success: true });
     } else {
         res.status(401).json({ error: 'Invalid credentials' });

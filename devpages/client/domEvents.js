@@ -1,21 +1,94 @@
 // domEvents.js - Handles DOM events and delegates to event bus
-import { eventBus } from './eventBus.js';
-import { logMessage } from './log/index.js';
-import { triggerActions } from './actions.js';
-import { globalFetch } from './globalFetch.js';
+import { eventBus } from '/client/eventBus.js';
+import { logMessage } from '/client/log/index.js';
+import { triggerActions } from '/client/actions.js';
+import { globalFetch } from '/client/globalFetch.js';
+
+// Import AUTH_STATE object AND login/logout functions from auth.js
+import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
 
 // Add a isProcessingDelete variable to track ongoing operations
 let isProcessingDelete = false;
 
 export function initializeDomEvents() {
-    // Set up global event delegation
-    document.addEventListener('click', handleDocumentClick);
-    document.addEventListener('submit', handleFormSubmit);
+    logMessage('[DOM EVENT] Initializing DOM event listeners...');
+
+    // Delegate events from a common ancestor if possible for efficiency
+    document.body.addEventListener('click', (event) => {
+        const target = event.target;
+        const action = target.dataset.action;
+        
+        if (action) {
+            logMessage(`[DOM EVENT] Action triggered: ${action}`);
+            // Handle protected actions requiring authentication
+            if (target.dataset.protected === 'true') {
+                 if (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED) {
+                    // Assuming other actions are still handled by triggerActions
+                    if (typeof triggerActions[action] === 'function') {
+                        triggerActions[action](event); // Pass event if needed
+                    } else {
+                        logMessage(`[DOM EVENT WARN] No handler found for protected action: ${action}`, 'warning');
+                    }
+                } else {
+                    logMessage(`[DOM EVENT] Protected action '${action}' blocked: User not authenticated.`, 'warning');
+                    alert('Please log in to perform this action.');
+                }
+            } else {
+                 // Assuming other actions are still handled by triggerActions
+                 if (typeof triggerActions[action] === 'function') {
+                     triggerActions[action](event); // Pass event if needed
+                 } else {
+                     logMessage(`[DOM EVENT WARN] No handler found for action: ${action}`, 'warning');
+                 }
+            }
+        }
+    });
+
+    // Specific listeners for elements not easily handled by delegation
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default form submission
+            const username = event.target.username.value;
+            const password = event.target.password.value;
+            logMessage(`[DOM EVENT] Attempting login for user: ${username}`);
+            try {
+                const success = await handleLogin(username, password);
+                 if (success) {
+                    logMessage('[DOM EVENT] handleLogin successful');
+                    // UI updates are handled via auth:stateChanged event listener in uiManager.js
+                } else {
+                    logMessage('[DOM EVENT] handleLogin failed');
+                    alert('Login failed. Please check credentials.'); // Provide feedback
+                }
+            } catch (error) {
+                logMessage(`[DOM EVENT] Login error: ${error.message}`, 'error');
+                alert('An error occurred during login.');
+            }
+        });
+        logMessage('[DOM EVENT] Login form submit listener attached.');
+    }
     
-    // Connect window-level functions to our event system
-    connectGlobalFunctions();
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+             logMessage('[DOM EVENT] Logout button clicked');
+             try {
+                 await logout();
+                 logMessage('[DOM EVENT] Logout process initiated.');
+             } catch (error) {
+                 logMessage(`[DOM EVENT] Logout error: ${error.message}`, 'error');
+                 alert('An error occurred during logout.');
+             }
+        });
+         logMessage('[DOM EVENT] Logout button click listener attached.');
+    }
     
-    logMessage('[EVENTS] DOM event delegation initialized');
+    // Example: Setup listeners for file/view buttons using delegation or specific handlers
+    // setupProtectedButtonListener('save-btn', 'saveFile'); // Example if using specific listener
+    // setupProtectedButtonListener('load-btn', 'loadFile'); // Load might not need auth?
+
+    logMessage('[DOM EVENT] DOM event listeners initialized.');
 }
 
 // Handle document click events
@@ -133,4 +206,20 @@ function connectGlobalFunctions() {
     };
     
     logMessage('[EVENTS] Global compatibility functions connected');
+}
+
+// Example usage: Check auth state before allowing an action
+function setupProtectedButtonListener(buttonId, action) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.addEventListener('click', () => {
+            // Check current state from the imported object
+            if (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED) {
+                triggerActions(action);
+            } else {
+                logMessage(`[DOM EVENT] Action '${action}' blocked: User not authenticated.`, 'warning');
+                alert('Please log in to perform this action.');
+            }
+        });
+    }
 } 

@@ -1,7 +1,6 @@
-import { AUTH_STATE } from '/client/core/auth.js';
+import { AUTH_STATE } from '/client/auth.js';
 import { logMessage } from './log/index.js';
 import { globalFetch } from './globalFetch.js';
-import { updateAuthDisplay } from './uiManager.js';
 
 export const UI_STATES = {
     LOGIN: 'login',
@@ -16,11 +15,8 @@ export let uiState = {
 
 export function updateUIState() {
     if (!AUTH_STATE.isLoggedIn) {
-        updateAuthDisplay();
         return;
     }
-    
-    updateAuthDisplay();
 }
 
 export function setUIState(newState, data = {}) {

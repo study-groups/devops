@@ -1,7 +1,7 @@
 // api.js - Handles API calls to the server
-import { globalFetch } from '../globalFetch.js';
-import { logMessage } from '../log/index.js';
-import { AUTH_STATE, getAuthHeaders } from '/client/core/auth.js';
+import { globalFetch } from '/client/globalFetch.js';
+import { logMessage } from '/client/log/index.js';
+import { AUTH_STATE, getAuthHeaders } from '/client/auth.js';
 
 // Create backwards-compatible alias
 const authState = AUTH_STATE;
@@ -26,7 +26,8 @@ export async function fetchFileContent(filename, directory) {
     
     logMessage(`[API] Fetching file content from: ${url}`);
     
-    const response = await globalFetch(url);
+    // Use getAuthHeaders for secure requests
+    const response = await globalFetch(url, { headers: getAuthHeaders() });
     
     if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -36,12 +37,11 @@ export async function fetchFileContent(filename, directory) {
 }
 
 export async function saveFileContent(filename, directory, content) {
-    logMessage(`[DEBUG] Save attempt with filename: "${filename}", directory: "${directory}"`);
+    logMessage(`[API] Save attempt with filename: "${filename}", directory: "${directory}"`);
     
-    const authHeaders = {
-        'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`,
-        'Content-Type': 'text/plain'  // Important: text/plain, not application/json
-    };
+    const authHeaders = getAuthHeaders(); // Use the function
+    // Add content type
+    authHeaders['Content-Type'] = 'text/plain';  // Important: text/plain, not application/json
     
     try {
         // Use query parameters for file and directory
@@ -58,14 +58,14 @@ export async function saveFileContent(filename, directory, content) {
         
         if (!response.ok) {
             const errorText = await response.text();
-            logMessage(`[FILES] Save failed with error: ${errorText}`);
+            logMessage(`[API] Save failed with error: ${errorText}`, 'error');
             throw new Error(`Failed to save: ${response.status}`);
         }
         
-        logMessage('[FILES] Successfully saved file');
+        logMessage('[API] Successfully saved file');
         return response;
     } catch (error) {
-        logMessage(`[FILES] Save failed: ${error.message}`);
+        logMessage(`[API] Save failed: ${error.message}`, 'error');
         throw error;
     }
 }
@@ -76,8 +76,10 @@ export async function fetchDirectoryListing(directory) {
     // Add parameter to ensure we get symlinks for Community Files
     const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
     
+    // Use getAuthHeaders for secure requests
     const response = await globalFetch(
-        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`
+        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`,
+        { headers: getAuthHeaders() }
     );
     
     if (!response.ok) {
@@ -88,7 +90,11 @@ export async function fetchDirectoryListing(directory) {
 }
 
 export async function fetchDirectoryConfig(directory) {
-    const response = await globalFetch(`/api/files/config?dir=${encodeURIComponent(directory)}`);
+     // Use getAuthHeaders for secure requests
+    const response = await globalFetch(
+        `/api/files/config?dir=${encodeURIComponent(directory)}`,
+        { headers: getAuthHeaders() }
+        );
     
     if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -107,7 +113,8 @@ export async function manageCommunityLink(filename, directory, action = 'add') {
         // Add detailed logging for the fetch call
         console.log('[API] manageCommunityLink URL:', url);
         const fetchOptions = {
-            method: 'POST'
+            method: 'POST',
+            headers: getAuthHeaders() // Use getAuthHeaders for secure requests
         };
         console.log('[API] manageCommunityLink fetchOptions:', fetchOptions);
         
@@ -126,4 +133,13 @@ export async function manageCommunityLink(filename, directory, action = 'add') {
         console.error('[API] manageCommunityLink error:', error); // Log the error to the console
         throw error;
     }
-} 
+}
+
+// Export APIs
+export default {
+  fetchFileContent,
+  saveFileContent,
+  fetchDirectoryListing,
+  fetchDirectoryConfig,
+  manageCommunityLink
+}; 

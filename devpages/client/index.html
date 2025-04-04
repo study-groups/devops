@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevPages 003m11 - Refactored</title>
     <link rel="stylesheet" href="/client/styles.css">
-    <link rel="stylesheet" href="/css/publish-button.css">
+    
     
     <!-- Early log visibility check to prevent flash -->
     <script>
@@ -79,7 +79,7 @@
 
         <!-- Right side: Auth controls -->
         <div class="nav-group auth-info">
-            <form id="login-form" class="login-form">
+            <form id="login-form" class="login-form" method="POST">
                 <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username">
                 <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password">
                 <button type="submit" id="login-btn">Login</button>
@@ -128,6 +128,6 @@
     <div id="toolbar-container" class="editor-toolbar"></div>
 
     <!-- Main application module loader -->
-    <script type="module" src="/client/main.js"></script>
+    <script type="module" src="/client/bootstrap.js"></script>
 </body>
 </html>

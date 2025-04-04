@@ -4,10 +4,10 @@
  */
 
 import { logMessage } from './log/index.js';
-import { AUTH_STATE } from './core/auth.js';
+import { AUTH_STATE } from '/client/auth.js';
 import { eventBus } from './eventBus.js';
 import { saveFile } from './fileManager/index.js';
-import { setView } from './core/views.js';
+import { setView } from './views.js';
 import { executeRefresh } from './markdown-svg.js';
 
 // For backwards compatibility

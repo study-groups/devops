@@ -2,7 +2,7 @@
  * Login Form Component
  * Responsible for displaying login form and handling authentication
  */
-import * as authModule from '/client/core/auth.js';
+import * as authModule from '/client/auth.js';
 
 class LoginForm {
   constructor(container, options = {}) {

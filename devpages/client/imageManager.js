@@ -1,7 +1,7 @@
-import { logMessage } from "./log/index.js";
-import { schedulePreviewUpdate } from "./markdown.js";
-import { globalFetch } from "./globalFetch.js";
-import { withAuthHeaders } from '/client/core/headers.js';
+import { logMessage } from "/client/log/index.js";
+import { schedulePreviewUpdate } from "/client/markdown.js";
+import { globalFetch } from "/client/globalFetch.js";
+import { withAuthHeaders } from '/client/headers.js';
 
 // Undo stack for image operations
 const imageOperationsStack = [];
