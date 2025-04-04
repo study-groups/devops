@@ -196,9 +196,9 @@ class UIManager {
         logMessage(`[UI] Attempting login for user: ${username}`);
 
         try {
-            // Dynamically import login function from core auth module
-            const { login } = await import('./core/auth.js');
-            const success = await login(username, password);
+            // Dynamically import handleLogin function from core auth module
+            const { handleLogin } = await import('./core/auth.js');
+            const success = await handleLogin(username, password);
 
             if (success) {
                 logMessage('[UI] Login successful, reloading page...');
@@ -208,6 +208,7 @@ class UIManager {
             }
         } catch (error) {
             console.error('[UI] Login error:', error);
+            logMessage(`[UI] Login error: ${error.message}`, 'error');
             alert(`Login failed: ${error.message}`);
         }
     }
