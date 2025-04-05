@@ -1,231 +1,254 @@
 /**
- * Markdown Renderer
+ * Markdown Renderer (Using markdown-it)
  * 
  * Responsible for converting markdown to HTML with support for custom renderers
  * and extensions.
  */
 
-import { logMessage } from '../log/index.js';
-import { getEnabledPlugins } from './plugins/index.js';
-import { MermaidPlugin, createMermaidRenderer } from './plugins/mermaid.js';
+import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
+import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
+import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
+import { getEnabledPlugins } from '/client/preview/plugins/index.js';
+import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
 
-// Import marked from CDN
-const markedUrl = 'https://cdn.jsdelivr.net/npm/marked@4.3.0/lib/marked.esm.js';
-let marked = null;
+// Helper for logging within this module
+function logRenderer(message, level = 'text') {
+    const prefix = '[PREVIEW RENDERER]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
+
+let isInitialized = false;
+let md;
+
+// Function to load KaTeX CSS (keep)
+async function loadKatexCss() {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector('link[href*="katex.min.css"]')) {
+            logRenderer('KaTeX CSS already loaded.');
+            resolve();
+            return;
+        }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css';
+        link.onload = () => {
+            logRenderer('KaTeX CSS loaded successfully from CDN.');
+            resolve();
+        };
+        link.onerror = (err) => {
+            logRenderer('Failed to load KaTeX CSS from CDN.', 'error');
+            reject(err);
+        };
+        document.head.appendChild(link);
+    });
+}
+
+// Function to load KaTeX JS (keep)
+async function loadKatexScript() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.katex !== 'undefined') {
+            logRenderer('KaTeX JS already loaded.');
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js';
+        script.async = true;
+        script.onload = () => {
+            logRenderer('KaTeX JS loaded successfully from CDN.');
+            resolve();
+        };
+        script.onerror = (err) => {
+            logRenderer('Failed to load KaTeX JS from CDN.', 'error');
+            reject(err);
+        };
+        document.head.appendChild(script);
+    });
+}
+
+// Function to dynamically load markdown-it script (keep this)
+async function loadMarkdownItScript() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.markdownit !== 'undefined') {
+            logRenderer('markdown-it already loaded.');
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js';
+        script.async = true;
+        script.onload = () => {
+            logRenderer('markdown-it script loaded successfully from CDN.');
+            resolve();
+        };
+        script.onerror = (err) => {
+            logRenderer('Failed to load markdown-it script from CDN.', 'error');
+            reject(err);
+        };
+        document.head.appendChild(script);
+    });
+}
 
 /**
- * Initialize the markdown parser
- * @returns {Promise<Boolean>} Whether initialization was successful
+ * Initialize the Markdown renderer with necessary extensions and options.
  */
-export async function initMarkdownParser() {
-  try {
-    if (marked) return true;
+async function initializeRenderer() {
+    if (isInitialized) return;
+    logRenderer('Initializing Markdown renderer (markdown-it)...');
     
     try {
-      // Try to use existing marked
-      if (window.marked) {
-        marked = window.marked;
-        logMessage('[PREVIEW] Using global marked instance');
-      } else {
-        // Dynamically import marked
-        const module = await import(markedUrl);
-        marked = module.marked;
-        logMessage('[PREVIEW] Loaded marked from CDN');
-      }
+        // Load base libraries first (excluding AudioPlugin init)
+        await Promise.all([
+            initHighlight(),          
+            loadMarkdownItScript(),   
+            loadKatexCss(),           
+            loadKatexScript(),
+        ]);
+        logRenderer('Highlight.js, markdown-it, KaTeX base loaded.');
+
+        // Check if markdown-it loaded successfully
+        if (typeof window.markdownit === 'undefined') {
+            throw new Error('markdown-it library failed to load or define window.markdownit.');
+        }
+
+        md = new window.markdownit({
+            html: true,
+            xhtmlOut: false,
+            breaks: false,
+            langPrefix: 'language-',
+            linkify: true,
+            typographer: true,
+            highlight: null // Let highlight plugin handle this later if needed, or configure hljs here
+        });
+
+        // Apply KaTeX plugin
+        md.use(markdownitKatex); 
+        logRenderer('Applied KaTeX plugin.');
+
+        // Keep existing fence rule override for Mermaid/SVG
+        const defaultFence = md.renderer.rules.fence;
+        md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+            const token = tokens[idx];
+            const info = token.info ? token.info.trim().toLowerCase() : '';
+            
+            logRenderer(`[FENCE RULE] Processing fence. Info: '${info}'`);
+
+            if (info === 'mermaid') {
+                logRenderer('[FENCE RULE] Identified as Mermaid block. Returning <div class="mermaid">...');
+                const code = token.content.trim();
+                const sanitizedCode = code
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                return `<div class="mermaid">${sanitizedCode}</div>`;
+            }
+            
+            // <<< ADD: Handle SVG blocks >>>
+            if (info === 'svg') {
+                logRenderer('[FENCE RULE] Identified as SVG block. Returning raw SVG content.');
+                // Return the raw content directly for the browser to render as SVG
+                return token.content;
+            }
+
+            logRenderer(`[FENCE RULE] Not Mermaid or SVG ('${info}'). Falling back to default fence renderer.`);
+            return defaultFence(tokens, idx, options, env, self);
+        };
+        logRenderer('markdown-it extensions applied (fence override for mermaid/svg, katex).');
+
+        isInitialized = true;
+        logRenderer('Markdown renderer (markdown-it) initialized successfully.');
     } catch (error) {
-      logMessage(`[PREVIEW ERROR] Failed to load marked: ${error.message}`);
-      return false;
+        logRenderer(`Renderer initialization failed: ${error.message}`, 'error');
+        console.error('[RENDERER INIT ERROR]', error);
     }
-    
-    // Configure marked with safe options
-    marked.setOptions({
-      gfm: true,          // Enable GitHub flavored markdown
-      breaks: true,       // Convert line breaks to <br>
-      headerIds: true,    // Add IDs to headers
-      sanitize: false,    // We'll handle sanitization separately
-      mangle: false,      // Don't mess with email addresses
-      pedantic: false,    // Don't be too strict with original markdown spec
-      smartLists: true,   // Use smarter list behavior
-      smartypants: true,  // Use "smart" typographic punctuation
-    });
-    
-    // Create a custom renderer
-    const renderer = createCustomRenderer();
-    marked.use({ renderer });
-    
-    return true;
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to initialize markdown parser: ${error.message}`);
-    console.error('[PREVIEW ERROR]', error);
-    return false;
-  }
 }
 
 /**
- * Create a custom renderer for marked
- * @returns {Object} Custom renderer instance
+ * Render Markdown content to safe HTML.
+ * @param {string} markdownContent - The raw Markdown content.
+ * @returns {Promise<string>} The rendered and sanitized HTML.
  */
-function createCustomRenderer() {
-  const renderer = new marked.Renderer();
-  const mermaidRenderer = createMermaidRenderer();
-  
-  // Override code renderer to handle mermaid
-  renderer.code = function(code, infostring, escaped) {
-    const mermaidResult = mermaidRenderer.code(code, infostring);
-    if (mermaidResult) return mermaidResult;
-    
-    // Default code rendering
-    return false;
-  };
-  
-  // Original renderer methods for fallback
-  const originalRenderers = {
-    code: renderer.code.bind(renderer),
-    codespan: renderer.codespan.bind(renderer),
-    link: renderer.link.bind(renderer),
-    image: renderer.image.bind(renderer),
-  };
-  
-  // Override code spans
-  renderer.codespan = function(code) {
-    // Check if any plugin handles this code span
-    const plugins = getEnabledPlugins();
-    for (const plugin of plugins) {
-      if (plugin.renderers && plugin.renderers.codespan) {
-        const result = plugin.renderers.codespan(code);
-        if (result !== null && result !== undefined) {
-          return result;
+export async function renderMarkdown(markdownContent) {
+    if (!isInitialized) {
+        await initializeRenderer();
+        if (!isInitialized) {
+            return '<p style="color:red;">Error: Markdown renderer failed to initialize.</p>';
         }
-      }
     }
     
-    // Fall back to default renderer
-    return originalRenderers.codespan(code);
-  };
-  
-  // Override links for enhanced functionality
-  renderer.link = function(href, title, text) {
-    // Check if any plugin handles this link
-    const plugins = getEnabledPlugins();
-    for (const plugin of plugins) {
-      if (plugin.renderers && plugin.renderers.link) {
-        const result = plugin.renderers.link(href, title, text);
-        if (result !== null && result !== undefined) {
-          return result;
-        }
-      }
-    }
+    logRenderer(`Rendering markdown (length: ${markdownContent?.length || 0})`);
     
-    // Add target="_blank" and rel="noopener noreferrer" for security
-    const safeHref = href.startsWith('javascript:') ? '' : href;
-    return `<a href="${safeHref}" title="${title || ''}" 
-      ${href.startsWith('http') ? 'target="_blank" rel="noopener noreferrer"' : ''}>${text}</a>`;
-  };
-  
-  // Override images
-  renderer.image = function(href, title, text) {
-    // Check if any plugin handles this image
-    const plugins = getEnabledPlugins();
-    for (const plugin of plugins) {
-      if (plugin.renderers && plugin.renderers.image) {
-        const result = plugin.renderers.image(href, title, text);
-        if (result !== null && result !== undefined) {
-          return result;
-        }
-      }
+    try {
+        const rawHtml = md.render(markdownContent);
+        logRenderer('Markdown parsed by markdown-it.');
+        
+        const cleanHtml = DOMPurify.sanitize(rawHtml, {
+             USE_PROFILES: { 
+                 html: true, 
+                 svg: true,
+                 svgFilters: true
+             },
+             ADD_TAGS: ['iframe'], // Removed 'audio', 'source'
+        });
+        logRenderer('HTML sanitized.');
+        
+        return cleanHtml;
+    } catch (error) {
+        logRenderer(`Markdown rendering error: ${error.message}`, 'error');
+        console.error('[MARKDOWN RENDER ERROR]', error);
+        return `<p style="color:red; font-weight:bold;">Markdown Rendering Error:</p><pre style="color:red;">${error.message}</pre>`;
     }
-    
-    // Advanced image handling with lazy loading and error handling
-    return `<img src="${href}" alt="${text || ''}" title="${title || ''}" 
-      loading="lazy" onerror="this.onerror=null;this.style.opacity=0.2;this.parentNode.classList.add('img-error');">`;
-  };
-  
-  return renderer;
 }
 
 /**
- * Render markdown content to HTML
- * @param {String} content Markdown content
- * @param {HTMLElement} element Target element
- * @returns {String} Rendered HTML
+ * Run post-processing steps after HTML is in the DOM.
+ * @param {HTMLElement} previewElement - The element containing the rendered HTML.
  */
-export async function renderMarkdown(content, element) {
-  try {
-    logMessage('[PREVIEW RENDERER] renderMarkdown called with content length:', content?.length);
-    
-    // Get enabled plugins
-    const plugins = getEnabledPlugins();
-    logMessage('[PREVIEW RENDERER] Enabled plugins:', plugins.size);
-
-    // Pre-process content through plugins
-    for (const [name, plugin] of plugins) {
-      if (plugin.preProcess) {
-        try {
-          content = await plugin.preProcess(content);
-        } catch (error) {
-          logMessage(`[PREVIEW ERROR] Plugin "${name}" preProcess error: ${error.message}`);
-        }
-      }
+export async function postProcessRender(previewElement) {
+     if (!isInitialized) {
+        logRenderer('Renderer not initialized, cannot post-process.', 'warn');
+        return;
     }
-
-    // Render markdown
-    const html = marked(content);
-
-    // Post-process HTML through plugins
-    let processedHtml = html;
-    for (const [name, plugin] of plugins) {
-      if (plugin.postProcess) {
-        try {
-          processedHtml = await plugin.postProcess(processedHtml, element);
-        } catch (error) {
-          logMessage(`[PREVIEW ERROR] Plugin "${name}" postProcess error: ${error.message}`);
-        }
-      }
+    logRenderer('Running post-render processing...');
+    try {
+        // Add other post-processing steps here if needed (e.g., for Mermaid, Highlight.js)
+        // Example: If highlight.js needs explicit call after render:
+        // if (window.hljs) {
+        //     previewElement.querySelectorAll('pre code').forEach((block) => {
+        //         window.hljs.highlightElement(block);
+        //     });
+        // }
+        
+    } catch (error) {
+        logRenderer(`Post-processing error: ${error.message}`, 'error');
+        console.error('[POST-PROCESS ERROR]', error);
     }
-
-    return processedHtml;
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to render markdown: ${error.message}`);
-    console.error('[PREVIEW ERROR]', error);
-    throw error;
-  }
-}
-
-/**
- * Simple HTML escape function for fallback
- * @param {String} text Text to escape
- * @returns {String} Escaped HTML
- */
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-    .replace(/\n/g, '<br>');
 }
 
 export class Renderer {
   constructor() {
-    // ... existing initialization ...
-    
-    // Add Mermaid plugin
     this.plugins = [
       new MermaidPlugin()
-      // ... other plugins ...
     ];
   }
 
   async render(content, element) {
-    // ... existing render logic ...
-
-    // After markdown is rendered, run plugins
+    logRenderer('[DEPRECATED?] Renderer class render method called.', 'warning');
+    const html = await renderMarkdown(content);
+    element.innerHTML = html;
     this.plugins.forEach(plugin => {
       try {
-        plugin.render(element);
+        if (plugin instanceof MermaidPlugin) {
+            plugin.process(element);
+        } else {
+            plugin.render?.(element); 
+        }
       } catch (error) {
-        console.error(`Plugin ${plugin.name} error:`, error);
+        console.error(`Plugin error:`, error);
       }
     });
   }

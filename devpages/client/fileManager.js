@@ -2,7 +2,6 @@
  * fileManager.js
  * Single source of truth for file system operations
  */
-import { logMessage } from '/client/log/index.js';
 import { eventBus } from '/client/eventBus.js';
 import { getContent, setContent } from '/client/editor.js';
 import * as fileSystemState from '/client/fileSystemState.js';
@@ -20,25 +19,15 @@ const fileState = {
 const directoryCache = new Map();
 const fileContentCache = new Map();
 
-/**
- * Get auth headers safely without circular dependencies
- */
-function getAuthHeaders() {
-  try {
-    const storedAuth = localStorage.getItem('authState');
-    if (storedAuth) {
-      const parsed = JSON.parse(storedAuth);
-      if (parsed.isLoggedIn && parsed.username && parsed.hashedPassword) {
-        return {
-          'Authorization': `Basic ${btoa(`${parsed.username}:${parsed.hashedPassword}`)}`
-        };
-      }
+// Helper function for logging
+function logFileManager(message, level = 'text') {
+    const prefix = '[FILEMGR]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
     }
-  } catch (e) {
-    logMessage('[FILEMGR] Error retrieving auth headers from localStorage');
-  }
-  
-  return {};
 }
 
 /**
@@ -48,15 +37,21 @@ function getAuthHeaders() {
  */
 export async function initializeFileManager(options = {}) {
   if (fileState.isInitialized && !options.force) {
-    logMessage('[FILEMGR] Already initialized, skipping');
+    logFileManager('Already initialized, skipping');
     return true;
   }
   
-  logMessage('[FILEMGR] Initializing file manager');
+  logFileManager('Initializing file manager');
   
   try {
     // First restore state from localStorage using fileSystemState
     restoreState();
+    // Emit event AFTER restoring state
+    eventBus.emit('fileManager:stateRestored', { 
+        directory: fileState.currentDirectory, 
+        file: fileState.currentFile 
+    });
+    logFileManager(`Emitted stateRestored event: dir=${fileState.currentDirectory}, file=${fileState.currentFile}`);
     
     // Ensure authentication is restored before loading directories
     try {
@@ -64,14 +59,14 @@ export async function initializeFileManager(options = {}) {
       let auth = null;
       const authStateLocal = JSON.parse(localStorage.getItem('authState') || '{}');
       if (!authStateLocal.isLoggedIn) {
-          logMessage('[FILEMGR] Auth state not loaded locally, attempting dynamic import and restore...');
+          logFileManager('Auth state not loaded locally, attempting dynamic import and restore...', 'warning');
           auth = await import('/client/auth.js');
           if (typeof auth.restoreLoginState === 'function') {
               await auth.restoreLoginState();
           }
       }
     } catch (authError) {
-      logMessage(`[FILEMGR WARNING] Auth restoration failed: ${authError.message}`, 'warning');
+      logFileManager(`Auth restoration failed: ${authError.message}`, 'warning');
     }
     
     // Setup event listeners
@@ -86,18 +81,26 @@ export async function initializeFileManager(options = {}) {
     const urlFile = urlParams.get('file');
     
     if (urlDir) {
-      logMessage(`[FILEMGR] URL has directory parameter: ${urlDir}`);
+      logFileManager(`URL has directory parameter: ${urlDir}`);
       fileState.currentDirectory = getDirectoryIdFromDisplayName(urlDir);
       // Ensure state is saved if loaded from URL
       saveState();
     }
     
     if (urlFile) {
-      logMessage(`[FILEMGR] URL has file parameter: ${urlFile}`);
+      logFileManager(`URL has file parameter: ${urlFile}`);
       fileState.currentFile = urlFile;
        // Ensure state is saved if loaded from URL
       saveState();
     }
+    
+    // <<< ADDED: Emit event AFTER state is restored AND URL params are processed >>>
+    logFileManager(`Emitting stateSettled event. Settled state: dir=${fileState.currentDirectory}, file=${fileState.currentFile}`);
+    eventBus.emit('fileManager:stateSettled', { 
+        directory: fileState.currentDirectory, 
+        file: fileState.currentFile 
+    });
+    // <<< END ADDED >>>
     
     // Initialize UI elements
     initializeFileSelector();
@@ -116,7 +119,7 @@ export async function initializeFileManager(options = {}) {
             await loadFile(fileState.currentFile, fileState.currentDirectory);
           } catch (error) {
             // File couldn't be loaded, clear the current file but continue initialization
-            logMessage(`[FILEMGR WARNING] Could not load previously selected file: ${error.message}. Clearing selection.`);
+            logFileManager(`Could not load previously selected file: ${error.message}. Clearing selection.`, 'warning');
             fileState.currentFile = '';
             saveState(); // Save cleared state
             // Update URL to remove the file parameter
@@ -125,7 +128,7 @@ export async function initializeFileManager(options = {}) {
         }
       } catch (error) {
         // Directory couldn't be loaded, clear both directory and file but continue initialization
-        logMessage(`[FILEMGR WARNING] Could not load previously selected directory: ${error.message}. Clearing selection.`);
+        logFileManager(`Could not load previously selected directory: ${error.message}. Clearing selection.`, 'warning');
         fileState.currentDirectory = '';
         fileState.currentFile = '';
         saveState(); // Save cleared state
@@ -136,11 +139,11 @@ export async function initializeFileManager(options = {}) {
     
     fileState.isInitialized = true;
     eventBus.emit('fileManager:initialized', { state: { ...fileState } });
-    logMessage('[FILEMGR] File manager initialized');
+    logFileManager('File manager initialized');
     return true;
   } catch (error) {
     console.error('[FILEMGR ERROR]', error);
-    logMessage(`[FILEMGR ERROR] Initialization failed: ${error.message}`, 'error');
+    logFileManager(`Initialization failed: ${error.message}`, 'error');
     return false;
   }
 }
@@ -152,16 +155,13 @@ export async function initializeFileManager(options = {}) {
  */
 export async function loadFiles(directory) {
   if (!directory) {
-    logMessage('[FILEMGR WARNING] No directory specified for loadFiles', 'warning');
+    logFileManager('No directory specified for loadFiles', 'warning');
     return [];
   }
   
-  logMessage(`[FILEMGR] Loading files from directory: ${directory}`);
+  logFileManager(`Loading files from directory: ${directory}`);
   
   try {
-    // Get auth headers from local helper function
-    const authHeaders = getAuthHeaders();
-    
     // Try multiple endpoints in sequence until one works
     const endpoints = [
       `/api/files/list?dir=${encodeURIComponent(directory)}`,
@@ -176,11 +176,9 @@ export async function loadFiles(directory) {
     
     for (const endpoint of endpoints) {
       try {
-        logMessage(`[FILEMGR] Trying endpoint: ${endpoint}`);
+        logFileManager(`Trying endpoint: ${endpoint}`);
         
-        const resp = await fetch(endpoint, {
-          headers: authHeaders
-        });
+        const resp = await fetch(endpoint);
         
         if (resp.ok) {
           response = resp;
@@ -189,7 +187,7 @@ export async function loadFiles(directory) {
         }
       } catch (err) {
         // Continue to next endpoint
-        logMessage(`[FILEMGR] Endpoint ${endpoint} failed: ${err.message}`);
+        logFileManager(`Endpoint ${endpoint} failed: ${err.message}`, 'warning');
       }
     }
     
@@ -199,7 +197,7 @@ export async function loadFiles(directory) {
     
     // Parse the response
     const filesData = await response.json();
-    logMessage(`[FILEMGR] Successfully loaded files using endpoint: ${successEndpoint}`);
+    logFileManager(`Successfully loaded files using endpoint: ${successEndpoint}`);
     
     // Extract filenames from the response
     if (Array.isArray(filesData)) {
@@ -223,11 +221,11 @@ export async function loadFiles(directory) {
     // Update the file selector
     updateFileSelector(files);
     
-    logMessage(`[FILEMGR] Loaded ${files.length} files`);
+    logFileManager(`Loaded ${files.length} files`);
     return files;
   } catch (error) {
     console.error('[FILEMGR ERROR]', error);
-    logMessage(`[FILEMGR ERROR] Failed to load files: ${error.message}`, 'error');
+    logFileManager(`Failed to load files: ${error.message}`, 'error');
     
     // Clear the file selector on error
     const fileSelect = document.getElementById('file-select');
@@ -249,22 +247,17 @@ export async function loadFile(filename, directory = null) {
   directory = directory || fileState.currentDirectory;
   
   if (!filename || !directory) {
-    logMessage('[FILEMGR ERROR] Missing filename or directory', 'error');
+    logFileManager('Missing filename or directory for loadFile', 'error');
     return false;
   }
   
-  logMessage(`[FILEMGR] Loading file: ${filename} from ${directory}`);
+  logFileManager(`Loading file: ${filename} from ${directory}`);
   
   try {
-    // Get auth headers
-    const authHeaders = getAuthHeaders();
-    
     // Use the one endpoint that matches your server
     const endpoint = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}`;
     
-    const response = await fetch(endpoint, {
-      headers: authHeaders
-    });
+    const response = await fetch(endpoint);
     
     if (!response.ok) {
       throw new Error(`Failed to load file: ${response.status} ${response.statusText}`);
@@ -287,9 +280,10 @@ export async function loadFile(filename, directory = null) {
       detail: { filename, directory, content }
     }));
     
+    logFileManager('File content loaded into editor.');
     return true;
   } catch (error) {
-    logMessage(`[FILEMGR ERROR] Failed to load file: ${error.message}`, 'error');
+    logFileManager(`Failed to load file: ${error.message}`, 'error');
     return false;
   }
 }
@@ -307,23 +301,27 @@ export async function saveFile(filename = null, directory = null, content = null
   content = content || getContent();
   
   if (!filename || !directory) {
-    logMessage('[FILEMGR ERROR] Missing filename or directory', 'error');
+    logFileManager('Missing filename or directory for saveFile', 'error');
     return false;
   }
   
-  logMessage(`[FILEMGR] Saving file: ${filename} to ${directory}`);
+  logFileManager(`Saving file: ${filename} to ${directory}`);
   
   try {
-    const api = await import('/client/api.js'); // Use $lib alias
+    logFileManager('[FILEMGR DEBUG] >>> Attempting to import /client/api.js <<<'); // Log before import
+    const api = await import('/client/api.js'); 
+    logFileManager('[FILEMGR DEBUG] >>> Successfully imported /client/api.js <<<'); // Log after import
+    
     const response = await api.saveFileContent(filename, directory, content);
     
     if (!response.ok) {
       throw new Error(`Failed to save file: ${response.status} ${response.statusText}`);
     }
     
+    logFileManager('File saved successfully.');
     return true;
   } catch (error) {
-    logMessage(`[FILEMGR ERROR] Failed to save file: ${error.message}`, 'error');
+    logFileManager(`Failed to save file: ${error.message}`, 'error');
     return false;
   }
 }
@@ -333,16 +331,11 @@ export async function saveFile(filename = null, directory = null, content = null
  * @returns {Promise<string[]>} List of directories
  */
 export async function loadDirectories() {
-  logMessage('[FILEMGR] Loading directories');
+  logFileManager('Loading directories');
   
   try {
-    // Get auth headers from local helper function
-    const authHeaders = getAuthHeaders();
-    
-    // Fetch from API with auth headers
-    const response = await fetch('/api/files/dirs', {
-      headers: authHeaders
-    });
+    // Fetch from API (no custom headers needed, cookie is sent automatically)
+    const response = await fetch('/api/files/dirs');
     
     if (!response.ok) {
       throw new Error(`Failed to load directories: ${response.status} ${response.statusText}`);
@@ -585,7 +578,7 @@ function getDirectoryIdFromDisplayName(displayName) {
  */
 function saveState() {
   try {
-    fileSystemState.saveState({
+    fileSystemState.saveFileSystemState({
       currentDir: fileState.currentDirectory,
       currentFile: fileState.currentFile
     });
@@ -714,8 +707,8 @@ export function clearFileSystemState() {
   // Clear editor content
   setContent('');
   
-  // Use fileSystemState to clear localStorage
-  fileSystemState.clearState();
+  // Use fileSystemState to clear localStorage using the correct named export
+  fileSystemState.clearFileSystemState();
   
   // Emit event
   eventBus.emit('fileManager:cleared');

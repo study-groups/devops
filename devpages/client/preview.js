@@ -2,103 +2,27 @@
  * preview.js
  * Handles Markdown preview rendering and updates
  */
-import { logMessage } from '/client/log/index.js';
 import { eventBus } from '/client/eventBus.js';
 
 // Import from the underlying preview module in client/preview/
 import { initPreview as initPreviewModule, updatePreview as updatePreviewModule } from '/client/preview/index.js';
+import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
+
+// Helper for logging within this module
+function logPreview(message, level = 'text') {
+    const prefix = '[PREVIEW]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
 
 // Track initialization state
 let previewInitialized = false;
 let updateTimer = null;
-let mermaidInitialized = false;
-
-/**
- * Initialize Mermaid diagram rendering
- * @returns {Promise<boolean>} Success status
- */
-export async function initializeMermaid() {
-  if (mermaidInitialized) {
-    logMessage('[MERMAID] Already initialized');
-    return true;
-  }
-
-  logMessage('[MERMAID] Initializing Mermaid diagrams support');
-
-  try {
-    // Check if mermaid is already loaded
-    if (typeof window.mermaid === 'undefined') {
-      logMessage('[MERMAID] Loading Mermaid library from CDN');
-      // Dynamic import for mermaid
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js';
-      
-      // Wait for the script to load
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      
-      logMessage('[MERMAID] Library loaded successfully');
-    } else {
-      logMessage('[MERMAID] Library already available');
-    }
-
-    // Initialize mermaid with appropriate settings
-    window.mermaid.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-      flowchart: {
-        htmlLabels: true,
-        useMaxWidth: true
-      }
-    });
-
-    mermaidInitialized = true;
-    logMessage('[MERMAID] Initialized successfully');
-    return true;
-  } catch (error) {
-    console.error('[MERMAID ERROR]', error);
-    logMessage(`[MERMAID ERROR] Initialization failed: ${error.message}`, 'error');
-    return false;
-  }
-}
-
-/**
- * Render all Mermaid diagrams in the document
- * @returns {Promise<boolean>} Success status
- */
-export async function renderMermaidDiagrams() {
-  if (!mermaidInitialized) {
-    const initialized = await initializeMermaid();
-    if (!initialized) {
-      logMessage('[MERMAID ERROR] Could not initialize Mermaid', 'error');
-      return false;
-    }
-  }
-
-  logMessage('[MERMAID] Looking for diagrams to render');
-  const diagrams = document.querySelectorAll('.mermaid:not([data-processed="true"])');
-  
-  if (diagrams.length > 0) {
-    logMessage(`[MERMAID] Found ${diagrams.length} unprocessed diagrams`);
-    
-    try {
-      window.mermaid.init(undefined, diagrams);
-      logMessage('[MERMAID] Diagrams rendered successfully');
-      return true;
-    } catch (error) {
-      console.error('[MERMAID ERROR]', error);
-      logMessage(`[MERMAID ERROR] Error rendering diagrams: ${error.message}`, 'error');
-      return false;
-    }
-  } else {
-    logMessage('[MERMAID] No unprocessed diagrams found');
-    return true;
-  }
-}
+const mermaidPlugin = new MermaidPlugin();
 
 /**
  * Initialize the preview system with all required plugins
@@ -107,16 +31,13 @@ export async function renderMermaidDiagrams() {
  */
 export async function initializePreview(options = {}) {
   if (previewInitialized) {
-    logMessage('[PREVIEW] Preview already initialized, skipping');
+    logPreview('Preview already initialized, skipping');
     return true;
   }
   
-  logMessage('[PREVIEW] Initializing preview system');
+  logPreview('Initializing preview system');
   
   try {
-    // Initialize mermaid support
-    await initializeMermaid();
-    
     // Default options
     const defaultOptions = {
       container: '#md-preview',
@@ -133,7 +54,11 @@ export async function initializePreview(options = {}) {
     
     if (result) {
       previewInitialized = true;
-      logMessage('[PREVIEW] Preview system initialized successfully');
+      logPreview('Preview system initialized successfully');
+      
+      // Initialize Mermaid Plugin
+      await mermaidPlugin.init();
+      logPreview('Mermaid plugin initialized.');
       
       // Connect to editor input events via the event bus
       subscribeToEditorEvents();
@@ -149,12 +74,12 @@ export async function initializePreview(options = {}) {
       
       return true;
     } else {
-      logMessage('[PREVIEW ERROR] Failed to initialize preview system', 'error');
+      logPreview('Failed to initialize preview system', 'error');
       return false;
     }
   } catch (error) {
     console.error('[PREVIEW ERROR]', error);
-    logMessage(`[PREVIEW ERROR] Initialization failed: ${error.message}`, 'error');
+    logPreview(`Initialization failed: ${error.message}`, 'error');
     
     // Try fallback initialization
     return initializeFallbackPreview();
@@ -166,13 +91,13 @@ export async function initializePreview(options = {}) {
  * @returns {Promise<boolean>} Success status
  */
 async function initializeFallbackPreview() {
-  logMessage('[PREVIEW] Attempting fallback initialization');
+  logPreview('Attempting fallback initialization');
   
   try {
     // Find required elements
     const previewContainer = document.getElementById('md-preview');
     if (!previewContainer) {
-      logMessage('[PREVIEW ERROR] Preview container not found', 'error');
+      logPreview('Preview container not found', 'error');
       return false;
     }
     
@@ -180,35 +105,32 @@ async function initializeFallbackPreview() {
     const { renderMarkdown } = await import('/client/preview/renderer.js'); // Corrected: ./preview/
     
     if (typeof renderMarkdown !== 'function') {
-      logMessage('[PREVIEW ERROR] Markdown renderer not found', 'error');
+      logPreview('Markdown renderer not found', 'error');
       return false;
     }
+    
+    // Initialize Mermaid Plugin for Fallback
+    await mermaidPlugin.init();
+    logPreview('Mermaid plugin initialized for fallback.');
     
     // Create a custom update function
     window.updateMarkdownPreview = async function() {
       const editor = document.querySelector('#md-editor textarea');
       const content = editor?.value || '';
       
-      logMessage('[PREVIEW] Updating preview with direct renderer');
+      logPreview('Updating preview with direct renderer');
       
       try {
         const html = await renderMarkdown(content);
         previewContainer.innerHTML = html;
         
-        // Initialize mermaid if available
-        if (window.mermaid) {
-          try {
-            window.mermaid.init(undefined, previewContainer.querySelectorAll('.mermaid'));
-            logMessage('[PREVIEW] Mermaid diagrams processed');
-          } catch (mermaidError) {
-            logMessage(`[PREVIEW] Mermaid error: ${mermaidError.message}`);
-          }
-        }
+        // Process Mermaid for Fallback
+        mermaidPlugin.process(previewContainer);
         
-        logMessage('[PREVIEW] Preview updated via fallback method');
+        logPreview('Preview updated via fallback method');
         return true;
       } catch (error) {
-        logMessage(`[PREVIEW ERROR] Fallback update failed: ${error.message}`, 'error');
+        logPreview(`Fallback update failed: ${error.message}`, 'error');
         return false;
       }
     };
@@ -223,7 +145,7 @@ async function initializeFallbackPreview() {
     subscribeToViewChanges();
     
     previewInitialized = true;
-    logMessage('[PREVIEW] Fallback preview system initialized');
+    logPreview('Fallback preview system initialized');
     
     // Emit initialization event
     eventBus.emit('preview:initialized');
@@ -231,7 +153,7 @@ async function initializeFallbackPreview() {
     return true;
   } catch (error) {
     console.error('[PREVIEW ERROR]', error);
-    logMessage(`[PREVIEW ERROR] Fallback initialization failed: ${error.message}`, 'error');
+    logPreview(`Fallback initialization failed: ${error.message}`, 'error');
     return false;
   }
 }
@@ -244,39 +166,49 @@ export async function refreshPreview() {
   if (!previewInitialized) {
     const initialized = await initializePreview();
     if (!initialized) {
-      logMessage('[PREVIEW ERROR] Could not initialize preview system', 'error');
+      logPreview('Could not initialize preview system for refresh', 'error');
       return false;
     }
   }
   
   const editor = document.querySelector('#md-editor textarea');
   if (!editor) {
-    logMessage('[PREVIEW WARNING] Editor element not found', 'warning');
+    logPreview('[PREVIEW WARNING] Editor element not found', 'warning');
     return false;
   }
   
   const content = editor.value || '';
   
+  logPreview(`Refreshing preview (content length: ${content.length})`);
+  
   try {
     // Use the imported update function from the preview module
     const result = await updatePreviewModule(content);
     if (result) {
-      logMessage('[PREVIEW] Preview updated successfully');
+      logPreview('Preview refreshed successfully');
       
-      // Process mermaid diagrams after update
-      setTimeout(() => renderMermaidDiagrams(), 100);
+      // Process Mermaid diagrams using the plugin
+      setTimeout(() => {
+        const previewElement = document.querySelector('#md-preview');
+        if (previewElement) {
+          mermaidPlugin.process(previewElement);
+          logPreview('Mermaid diagrams processed by plugin (deferred).');
+        } else {
+          logPreview('Preview container not found for deferred Mermaid processing.', 'warning');
+        }
+      }, 0); // Use setTimeout with 0 delay to yield to the event loop
       
       // Emit update event
       eventBus.emit('preview:updated', { content });
       
       return true;
     } else {
-      logMessage('[PREVIEW WARNING] Preview update returned false', 'warning');
+      logPreview('[PREVIEW WARNING] Preview update returned false', 'warning');
       return false;
     }
   } catch (error) {
-    console.error('[PREVIEW ERROR]', error);
-    logMessage(`[PREVIEW ERROR] Update failed: ${error.message}`, 'error');
+    logPreview(`Preview refresh failed: ${error.message}`, 'error');
+    console.error('Preview refresh error:', error);
     return false;
   }
 }
@@ -286,8 +218,13 @@ export async function refreshPreview() {
  * @returns {void}
  */
 export function schedulePreviewUpdate() {
-  if (updateTimer) clearTimeout(updateTimer);
-  updateTimer = setTimeout(refreshPreview, 300); // Use configured delay? defaultOptions.updateDelay
+  if (updateTimer) {
+    clearTimeout(updateTimer);
+  }
+  updateTimer = setTimeout(() => {
+    refreshPreview();
+    updateTimer = null;
+  }, 300); // 300ms debounce
 }
 
 /**
@@ -295,7 +232,10 @@ export function schedulePreviewUpdate() {
  * @returns {void}
  */
 function subscribeToEditorEvents() {
-  // Subscribe to content changes
+  if (!eventBus) {
+    logPreview('EventBus not available for editor subscription', 'error');
+    return;
+  }
   eventBus.on('editor:contentChanged', () => {
     schedulePreviewUpdate();
   });
@@ -304,14 +244,14 @@ function subscribeToEditorEvents() {
   const editor = document.querySelector('#md-editor textarea');
   if (editor) {
     editor.addEventListener('input', schedulePreviewUpdate);
-    logMessage('[PREVIEW] Connected to editor input events');
+    logPreview('Subscribed to editor input events');
   }
   
   // Connect refresh button (Consider moving to button module)
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', refreshPreview);
-    logMessage('[PREVIEW] Connected refresh button');
+    logPreview('Subscribed to refresh button');
   }
 }
 
@@ -320,11 +260,14 @@ function subscribeToEditorEvents() {
  * @returns {void}
  */
 function subscribeToViewChanges() {
-  // Subscribe to view changes via event bus
-  eventBus.on('view:changed', (data) => {
-    const mode = data?.mode;
-    if (mode === 'preview' || mode === 'split') {
-      logMessage(`[PREVIEW] View changed to ${mode}, updating preview`);
+  if (!eventBus) {
+    logPreview('EventBus not available for view change subscription', 'error');
+    return;
+  }
+  eventBus.on('view:changed', (newView) => {
+    logPreview(`View changed to ${newView}, triggering preview update.`);
+    // Immediately refresh preview when switching views to ensure it shows
+    if (newView === 'preview' || newView === 'split') {
       refreshPreview();
     }
   });
@@ -333,15 +276,12 @@ function subscribeToViewChanges() {
   document.addEventListener('view:changed', (e) => {
     const mode = e.detail?.mode;
     if (mode === 'preview' || mode === 'split') {
-      logMessage(`[PREVIEW] View changed event detected, updating preview`);
+      logPreview(`[PREVIEW] View changed event detected, updating preview`);
       refreshPreview();
-      
-      // Process mermaid diagrams after view change
-      setTimeout(() => renderMermaidDiagrams(), 200);
     }
   });
   
-  logMessage('[PREVIEW] Connected to view change events');
+  logPreview('Subscribed to view changes.');
 }
 
 /**
@@ -349,53 +289,47 @@ function subscribeToViewChanges() {
  * @returns {Promise<boolean>} Success status
  */
 export async function setupContentViewer() {
-  const params = new URLSearchParams(window.location.search);
-  const viewSlug = params.get('view');
-  
-  if (viewSlug) {
-    logMessage(`[PREVIEW] Content viewer mode detected for: ${viewSlug}`);
-    
+  logPreview('Setting up content viewer...');
+
+  if (window.location.pathname.startsWith('/view/')) {
+    logPreview('Detected /view/ path, initializing read-only preview.');
+    const contentPath = window.location.pathname.substring(6); // Remove '/view/'
+    if (!contentPath) {
+      logPreview('No content path specified after /view/', 'error');
+      document.body.innerHTML = '<p style="color:red;">Error: No file path specified.</p>';
+      return;
+    }
+
     try {
-      // Find or create preview container
-      let previewContainer = document.getElementById('md-preview');
-      if (!previewContainer) {
-        previewContainer = document.createElement('div');
-        previewContainer.id = 'md-preview';
-        previewContainer.className = 'markdown-preview viewer-mode';
-        document.body.appendChild(previewContainer);
-      }
-      
-      // Apply viewer mode styles
-      previewContainer.classList.add('viewer-mode');
-      document.body.classList.add('viewer-mode');
-      
-      // Initialize preview system
-      await initializePreview({
-        container: previewContainer,
-        theme: params.get('theme') || 'light'
-      });
-      
-      // Load the content from the API
-      const response = await fetch(`/api/view/${viewSlug}`);
+      const response = await fetch(`/api/view/${contentPath}`);
       if (!response.ok) {
-        throw new Error(`Failed to load content: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
       }
-      
-      const content = await response.text();
-      
-      // Update the preview with the content
-      await updatePreviewModule(content);
-      
-      logMessage('[PREVIEW] Content viewer initialized successfully');
-      return true;
+      const markdownContent = await response.text();
+      logPreview(`Fetched content for ${contentPath}, length: ${markdownContent.length}`);
+
+      // Prepare the DOM - hide editor, show only preview
+      document.body.innerHTML = '<div id="md-preview">Loading preview...</div>'; // Simple container
+      const previewElement = document.getElementById('md-preview');
+      if (!previewElement) throw new Error('Preview container creation failed');
+
+      // Render the content
+      const { renderMarkdown } = await import('/client/preview/renderer.js');
+      const html = await renderMarkdown(markdownContent);
+      previewElement.innerHTML = html;
+      logPreview('Content rendered in read-only mode.');
+
+      // Initialize and Process Mermaid for read-only view
+      await mermaidPlugin.init();
+      mermaidPlugin.process(previewElement);
+      logPreview('Mermaid initialized and processed for read-only view.');
+
     } catch (error) {
-      console.error('[PREVIEW ERROR]', error);
-      logMessage(`[PREVIEW ERROR] Content viewer failed: ${error.message}`, 'error');
-      return false;
+      logPreview(`Error setting up content viewer: ${error.message}`, 'error');
+      console.error(error);
+      document.body.innerHTML = `<p style="color:red;">Error loading content: ${error.message}</p>`;
     }
   }
-  
-  return false;
 }
 
 // Export the preview manager object for module use
@@ -404,6 +338,5 @@ export default {
   refreshPreview,
   schedulePreviewUpdate,
   setupContentViewer,
-  initializeMermaid, // Expose if needed externally
-  renderMermaidDiagrams // Expose if needed externally
+  initializeFallbackPreview
 }; 

@@ -2,8 +2,8 @@
  * views.js
  * Handles view management functionality (code, split, preview)
  */
-import { logMessage } from '/client/log/index.js';
 import { eventBus } from '/client/eventBus.js';
+import { getUIState, setUIState } from './uiState.js';
 
 // View modes enum
 export const VIEW_MODES = {
@@ -17,6 +17,20 @@ let currentView = null;
 let initialized = false;
 const viewChangeListeners = [];
 
+// Helper for logging within this module
+function logView(message, level = 'text') {
+    const prefix = '[VIEWS]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
+
+const CONTENT_ID = 'content';
+const VIEW_MODE_ATTR = 'data-view-mode';
+
 /**
  * Set the current view mode
  * @param {string} mode - The view mode: 'code', 'split', or 'preview'
@@ -24,17 +38,17 @@ const viewChangeListeners = [];
 export function setView(mode) {
   // Validate mode
   if (!Object.values(VIEW_MODES).includes(mode)) {
-    logMessage(`[VIEWS ERROR] Invalid view mode: ${mode}`, 'error');
+    logView(`[VIEWS ERROR] Invalid view mode: ${mode}`, 'error');
     return;
   }
   
   // Get required elements
-  const container = document.getElementById('content');
+  const container = document.getElementById(CONTENT_ID);
   const editor = document.getElementById('md-editor');
   const preview = document.getElementById('md-preview');
   
   if (!container || !editor || !preview) {
-    logMessage('[VIEWS ERROR] Required view elements not found', 'error');
+    logView('[VIEWS ERROR] Required view elements not found', 'error');
     return;
   }
   
@@ -88,11 +102,11 @@ export function setView(mode) {
     try {
       listener(mode, previousView);
     } catch (error) {
-      logMessage(`[VIEWS ERROR] Error in view change listener: ${error.message}`, 'error');
+      logView(`[VIEWS ERROR] Error in view change listener: ${error.message}`, 'error');
     }
   });
   
-  logMessage(`[VIEWS] View changed to ${mode}`);
+  logView(`[VIEWS] View changed to ${mode}`);
 }
 
 /**
@@ -100,7 +114,7 @@ export function setView(mode) {
  * @returns {string} The current view mode
  */
 export function getView() {
-  return currentView || localStorage.getItem('viewMode') || VIEW_MODES.SPLIT;
+  return getUIState('viewMode');
 }
 
 /**
@@ -110,7 +124,7 @@ export function getView() {
  */
 export function onViewChange(callback) {
   if (typeof callback !== 'function') {
-    logMessage('[VIEWS ERROR] onViewChange requires a function callback', 'error');
+    logView('[VIEWS ERROR] onViewChange requires a function callback', 'error');
     return () => {}; // No-op unsubscribe
   }
   
@@ -142,11 +156,11 @@ function replaceButton(button) {
 export function initViewControls() {
   // Prevent multiple initializations
   if (initialized) {
-    logMessage('[VIEWS] View controls already initialized, skipping');
+    logView('[VIEWS] View controls already initialized, skipping');
     return;
   }
   
-  logMessage('[VIEWS] Initializing view controls');
+  logView('[VIEWS] Initializing view controls');
   
   // Set up event delegation on the parent container
   const viewControls = document.querySelector('.view-controls');
@@ -169,9 +183,9 @@ export function initViewControls() {
       e.stopPropagation();
     });
     
-    logMessage('[VIEWS] View controls event delegation set up');
+    logView('[VIEWS] View controls event delegation set up');
   } else {
-      logMessage('[VIEWS ERROR] View controls container not found!', 'error');
+      logView('[VIEWS ERROR] View controls container not found!', 'error');
       // Attempt direct binding as fallback (less ideal)
       const codeBtn = document.getElementById('code-view');
       const splitBtn = document.getElementById('split-view');
@@ -179,7 +193,7 @@ export function initViewControls() {
       if(codeBtn) codeBtn.addEventListener('click', () => setView(VIEW_MODES.CODE));
       if(splitBtn) splitBtn.addEventListener('click', () => setView(VIEW_MODES.SPLIT));
       if(previewBtn) previewBtn.addEventListener('click', () => setView(VIEW_MODES.PREVIEW));
-      logMessage('[VIEWS WARNING] Using direct event listeners as fallback.', 'warning');
+      logView('[VIEWS WARNING] Using direct event listeners as fallback.', 'warning');
   }
   
   // Apply saved view mode
@@ -206,7 +220,7 @@ export function initViewControls() {
   window.setView = setView;
   
   initialized = true;
-  logMessage('[VIEWS] View controls initialization complete');
+  logView('[VIEWS] View controls initialization complete');
   
   // Return current view for convenience
   return getView();

@@ -4,7 +4,10 @@
  * Responsible for loading, registering, and managing preview plugins
  */
 
-import { logMessage } from '../../log/index.js';
+// client/preview/plugins/index.js - Manages preview plugins
+
+// REMOVED incorrect static imports for MermaidPlugin and HighlightPlugin
+// They are loaded dynamically via builtInPlugins map below.
 
 // Plugin registry
 const plugins = new Map();
@@ -18,6 +21,17 @@ const builtInPlugins = {
   'audioMD': async () => (await import('./audio-md.js')).AudioMDPlugin
 };
 
+// Helper for logging within this module
+function logPlugins(message, level = 'text') {
+    const prefix = '[PLUGINS]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
+
 /**
  * Initialize plugins
  * @param {Array<String>} pluginNames Names of plugins to enable
@@ -26,12 +40,12 @@ const builtInPlugins = {
  */
 export async function initPlugins(pluginNames = [], options = {}) {
   try {
-    logMessage('[PREVIEW] Initializing plugins:', pluginNames);
+    logPlugins(`[PREVIEW] Initializing plugins: ${pluginNames.join(', ')}`);
     enabledPlugins.clear();
 
     for (const name of pluginNames) {
       if (!builtInPlugins[name]) {
-        logMessage(`[PREVIEW WARNING] Plugin "${name}" not found`);
+        logPlugins(`[PREVIEW WARNING] Plugin "${name}" not found`);
         continue;
       }
 
@@ -48,19 +62,19 @@ export async function initPlugins(pluginNames = [], options = {}) {
         
         if (initialized) {
           enabledPlugins.set(name, plugin);
-          logMessage(`[PREVIEW] Plugin "${name}" initialized`);
+          logPlugins(`[PREVIEW] Plugin "${name}" initialized`);
         } else {
-          logMessage(`[PREVIEW WARNING] Plugin "${name}" initialization failed`);
+          logPlugins(`[PREVIEW WARNING] Plugin "${name}" initialization failed`);
         }
       } catch (error) {
-        logMessage(`[PREVIEW ERROR] Failed to initialize plugin "${name}": ${error.message}`);
+        logPlugins(`[PREVIEW ERROR] Failed to initialize plugin "${name}": ${error.message}`);
         console.error(`[PREVIEW ERROR] Plugin "${name}":`, error);
       }
     }
 
     return enabledPlugins;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Plugin initialization failed: ${error.message}`);
+    logPlugins(`[PREVIEW ERROR] Plugin initialization failed: ${error.message}`);
     console.error('[PREVIEW ERROR] Plugin system:', error);
     return new Map();
   }
@@ -75,12 +89,12 @@ export async function initPlugins(pluginNames = [], options = {}) {
 export function registerPlugin(name, plugin) {
   try {
     if (!name || typeof name !== 'string') {
-      logMessage(`[PREVIEW ERROR] Invalid plugin name: ${name}`);
+      logPlugins(`[PREVIEW ERROR] Invalid plugin name: ${name}`);
       return false;
     }
     
     if (!plugin || typeof plugin !== 'object') {
-      logMessage(`[PREVIEW ERROR] Invalid plugin object for ${name}`);
+      logPlugins(`[PREVIEW ERROR] Invalid plugin object for ${name}`);
       return false;
     }
     
@@ -88,17 +102,17 @@ export function registerPlugin(name, plugin) {
     const requiredProps = ['init'];
     for (const prop of requiredProps) {
       if (typeof plugin[prop] !== 'function') {
-        logMessage(`[PREVIEW ERROR] Plugin ${name} missing required function: ${prop}`);
+        logPlugins(`[PREVIEW ERROR] Plugin ${name} missing required function: ${prop}`);
         return false;
       }
     }
     
     // Register the plugin
     plugins.set(name, plugin);
-    logMessage(`[PREVIEW] Registered plugin: ${name}`);
+    logPlugins(`[PREVIEW] Registered plugin: ${name}`);
     return true;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to register plugin ${name}: ${error.message}`);
+    logPlugins(`[PREVIEW ERROR] Failed to register plugin ${name}: ${error.message}`);
     console.error(`[PREVIEW ERROR] Plugin ${name}:`, error);
     return false;
   }
@@ -128,4 +142,53 @@ export function getPlugin(name) {
  */
 export function isPluginEnabled(name) {
   return enabledPlugins.has(name);
+}
+
+/**
+ * Initialize all registered plugins.
+ * @param {HTMLElement} previewElement - The preview container element.
+ */
+export function initializePlugins(previewElement) {
+    logPlugins(`Initializing ${plugins.length} plugins...`);
+    plugins.forEach(plugin => {
+        try {
+            if (typeof plugin.initialize === 'function') {
+                plugin.initialize(previewElement);
+                logPlugins(`Initialized plugin: ${plugin.constructor.name}`);
+            }
+        } catch (error) {
+             logPlugins(`Error initializing plugin ${plugin.constructor.name}: ${error.message}`, 'error');
+             console.error(error); // Log full error object
+        }
+    });
+    logPlugins('All plugins initialized.');
+}
+
+/**
+ * Execute the processing logic for all registered plugins after rendering.
+ * @param {HTMLElement} previewElement - The preview container element.
+ */
+export function processPlugins(previewElement) {
+    logPlugins(`Processing ${plugins.length} plugins...`);
+    plugins.forEach(plugin => {
+        try {
+            if (typeof plugin.process === 'function') {
+                plugin.process(previewElement);
+                logPlugins(`Processed plugin: ${plugin.constructor.name}`);
+            }
+        } catch (error) {
+             logPlugins(`Error processing plugin ${plugin.constructor.name}: ${error.message}`, 'error');
+             console.error(error); // Log full error object
+        }
+    });
+    logPlugins('All plugins processed.');
+}
+
+/**
+ * Get the names of enabled plugins (useful for debugging).
+ * @returns {string[]} Array of enabled plugin names.
+ */
+export function getEnabledPluginNames() {
+    // Simple implementation: return constructor names
+    return plugins.map(p => p.constructor.name);
 } 

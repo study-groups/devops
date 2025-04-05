@@ -1,77 +1,104 @@
-import { AUTH_STATE } from '/client/auth.js';
-import { logMessage } from './log/index.js';
-import { globalFetch } from './globalFetch.js';
+// uiState.js - Manages UI state variables and persistence
 
-export const UI_STATES = {
-    LOGIN: 'login',
-    USER: 'user',
-    ADMIN: 'admin'
+// Constants for localStorage keys
+const VIEW_MODE_KEY = 'viewMode';
+const SIDEBAR_VISIBLE_KEY = 'sidebarVisible';
+
+// Default state values
+const DEFAULT_VIEW_MODE = 'split'; // 'code', 'preview', 'split'
+const DEFAULT_SIDEBAR_VISIBLE = true;
+
+// The reactive state object (Ensure this is the only definition)
+const uiState = {
+    viewMode: DEFAULT_VIEW_MODE,
+    sidebarVisible: DEFAULT_SIDEBAR_VISIBLE,
+    // Add other UI state variables here as needed
 };
 
-export let uiState = {
-    current: UI_STATES.LOGIN,
-    systemInfo: null,
-};
+/**
+ * Initialize the UI state by loading from localStorage.
+ */
+export function initializeUIState() {
+    const savedViewMode = localStorage.getItem(VIEW_MODE_KEY);
+    const savedSidebarVisible = localStorage.getItem(SIDEBAR_VISIBLE_KEY);
 
-export function updateUIState() {
-    if (!AUTH_STATE.isLoggedIn) {
-        return;
+    uiState.viewMode = savedViewMode || DEFAULT_VIEW_MODE;
+    uiState.sidebarVisible = savedSidebarVisible !== null ? savedSidebarVisible === 'true' : DEFAULT_SIDEBAR_VISIBLE;
+
+    // Log initial state using window.logMessage if available
+    const logFunc = typeof window.logMessage === 'function' ? window.logMessage : console.log;
+    logFunc(`[UI STATE] Initialized: ViewMode=${uiState.viewMode}, SidebarVisible=${uiState.sidebarVisible}`);
+}
+
+/**
+ * Get the current value of a UI state variable.
+ * @param {string} key - The state key (e.g., 'viewMode').
+ * @returns {*} The current value of the state variable.
+ */
+export function getUIState(key) {
+    return uiState[key];
+}
+
+/**
+ * Set the value of a UI state variable and save to localStorage.
+ * @param {string} key - The state key (e.g., 'viewMode').
+ * @param {*} value - The new value.
+ */
+export function setUIState(key, value) {
+    if (uiState.hasOwnProperty(key)) {
+        if (uiState[key] !== value) {
+            uiState[key] = value;
+            saveUIState(key, value);
+
+            // Log state change using window.logMessage if available
+            const logFunc = typeof window.logMessage === 'function' ? window.logMessage : console.log;
+            logFunc(`[UI STATE] Changed: ${key}=${value}`);
+            
+            // Optional: Emit an event for specific state changes if needed
+            // import { eventBus } from './eventBus.js'; // Import locally if needed
+            // eventBus.emit(`uiState:${key}Changed`, value);
+        } else {
+            // Optional: Log if value hasn't changed
+             const logFunc = typeof window.logMessage === 'function' ? window.logMessage : console.log;
+             logFunc(`[UI STATE] State unchanged: ${key} already set to ${value}`);
+        }
+    } else {
+        console.warn(`[UI STATE] Attempted to set unknown state key: ${key}`);
     }
 }
 
-export function setUIState(newState, data = {}) {
-    if (!Object.values(UI_STATES).includes(newState)) {
-        console.error(`[UI STATE] Invalid state: ${newState}`);
-        return;
-    }
-
-    uiState.current = newState;
-    console.log(`[UI STATE] Changed to: ${newState}`);
-
-    // Update UI based on the new state
-    if (newState === UI_STATES.USER && data.username) {
-        // Update user-specific UI elements
-        console.log(`[UI STATE] Setting user-specific UI for: ${data.username}`);
-    }
-
-    // Dispatch a custom event for UI state change
-    document.dispatchEvent(new CustomEvent('ui:stateChange', {
-        detail: { state: newState, data }
-    }));
-}
-
-export async function fetchSystemInfo() {
+/**
+ * Save a specific UI state variable to localStorage.
+ * @param {string} key - The state key.
+ * @param {*} value - The value to save.
+ */
+function saveUIState(key, value) {
     try {
-        // Check if user is logged in before making request
-        if (!AUTH_STATE.isLoggedIn) {
-            logMessage('error', 'Cannot fetch system info: User not logged in');
-            throw new Error('User not logged in');
+        let storageValue;
+        // Ensure boolean values are stored as strings 'true' or 'false'
+        if (typeof value === 'boolean') {
+            storageValue = String(value);
+        } else {
+            storageValue = value;
         }
 
-        // Use globalFetch instead of native fetch
-        const response = await globalFetch('/api/auth/system');
-        if (!response.ok) throw new Error(`Failed to fetch system info: ${response.status} ${response.statusText}`);
-
-        const info = await response.json();
-        uiState.systemInfo = info;
-        console.log('[UI STATE] System info fetched:', info);
-
-        // Dispatch event for system info update
-        document.dispatchEvent(new CustomEvent('ui:systemInfo', {
-            detail: { systemInfo: info }
-        }));
+        // Determine the correct localStorage key
+        let storageKey = '';
+        if (key === 'viewMode') {
+            storageKey = VIEW_MODE_KEY;
+        } else if (key === 'sidebarVisible') {
+            storageKey = SIDEBAR_VISIBLE_KEY;
+        } // Add other keys here
         
-        return info;
-    } catch (error) {
-        console.error('[UI STATE] Failed to fetch system information:', error);
-        // Don't set systemInfo to null if it already has a value (keep previous data)
-        if (!uiState.systemInfo) {
-            // Use fallback values to prevent undefined showing in UI
-            uiState.systemInfo = {
-                MD_DIR: '',  // Empty string is better than undefined
-                version: 'unknown'
-            };
+        if (storageKey) {
+            localStorage.setItem(storageKey, storageValue);
+        } else {
+            console.warn(`[UI STATE] No localStorage key defined for state key: ${key}`);
         }
-        throw error; // Re-throw so callers can handle it
+    } catch (error) {
+        console.error(`[UI STATE] Failed to save state key '${key}' to localStorage:`, error);
     }
-} 
+}
+
+// Initialize on load
+initializeUIState(); 

@@ -1,7 +1,6 @@
 // api.js - Handles API calls to the server
 import { globalFetch } from '/client/globalFetch.js';
-import { logMessage } from '/client/log/index.js';
-import { AUTH_STATE, getAuthHeaders } from '/client/auth.js';
+import { AUTH_STATE } from '/client/auth.js';
 
 // Create backwards-compatible alias
 const authState = AUTH_STATE;
@@ -15,33 +14,56 @@ function normalizeDirectoryForApi(directory) {
     return directory;
 }
 
-export async function fetchFileContent(filename, directory) {
-    // Normalize directory name for API request
-    const normalizedDir = normalizeDirectoryForApi(directory);
-    
-    // Add parameter to ensure we get symlink content for Community Files
-    const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
-    
-    const url = `/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`;
-    
-    logMessage(`[API] Fetching file content from: ${url}`);
-    
-    // Use getAuthHeaders for secure requests
-    const response = await globalFetch(url, { headers: getAuthHeaders() });
-    
-    if (!response.ok) {
-        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+// Helper for logging within this module
+function logApi(message, level = 'text') {
+    const prefix = '[API]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
     }
-    
-    return response;
 }
+
+/**
+ * Fetch content for a file
+ * @param {string} filename - File name
+ * @param {string} directory - Directory name
+ * @returns {Promise<string>} File content
+ */
+export async function fetchFileContent(filename, directory) {
+    logApi(`Fetching content for ${filename} in ${directory}`);
+    const url = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}`;
+    try {
+        const response = await globalFetch(url);
+        if (!response.ok) {
+            throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
+        }
+        const content = await response.text();
+        logApi(`Content fetched successfully (length: ${content.length})`);
+        return content;
+    } catch (error) {
+        logApi(`Error fetching file content: ${error.message}`, 'error');
+        throw error; // Re-throw for the caller (e.g., fileManager)
+    }
+}
+
+/**
+ * Save content to a file
+ * @param {string} filename - File name
+ * @param {string} directory - Directory name
+ * @param {string} content - Content to save
+ * @returns {Promise<Response>} Raw server response
+ */
+
 
 export async function saveFileContent(filename, directory, content) {
     logMessage(`[API] Save attempt with filename: "${filename}", directory: "${directory}"`);
     
-    const authHeaders = getAuthHeaders(); // Use the function
-    // Add content type
-    authHeaders['Content-Type'] = 'text/plain';  // Important: text/plain, not application/json
+    // Headers only need Content-Type now
+    const headers = {
+      'Content-Type': 'text/plain' // Important: text/plain, not application/json
+    };
     
     try {
         // Use query parameters for file and directory
@@ -50,9 +72,10 @@ export async function saveFileContent(filename, directory, content) {
             dir: directory
         }).toString();
         
+        // Use fetch WITHOUT manual auth headers. Relies on browser sending session cookie.
         const response = await fetch(`/api/files/save?${queryParams}`, {
             method: 'POST',
-            headers: authHeaders,
+            headers: headers, // Only Content-Type needed
             body: content  // Send content directly as text
         });
         
@@ -70,16 +93,16 @@ export async function saveFileContent(filename, directory, content) {
     }
 }
 
+
+
 export async function fetchDirectoryListing(directory) {
     const normalizedDir = normalizeDirectoryForApi(directory);
     
     // Add parameter to ensure we get symlinks for Community Files
     const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
     
-    // Use getAuthHeaders for secure requests
     const response = await globalFetch(
-        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`,
-        { headers: getAuthHeaders() }
+        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`
     );
     
     if (!response.ok) {
@@ -90,11 +113,9 @@ export async function fetchDirectoryListing(directory) {
 }
 
 export async function fetchDirectoryConfig(directory) {
-     // Use getAuthHeaders for secure requests
     const response = await globalFetch(
-        `/api/files/config?dir=${encodeURIComponent(directory)}`,
-        { headers: getAuthHeaders() }
-        );
+        `/api/files/config?dir=${encodeURIComponent(directory)}`
+    );
     
     if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -108,13 +129,12 @@ export async function manageCommunityLink(filename, directory, action = 'add') {
     try {
         const url = `/api/community/link?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
         
-        logMessage(`[API] Managing community link: ${action} for ${filename} from ${directory}`);
+        logApi(`Managing community link: ${action} for ${filename} from ${directory}`);
 
         // Add detailed logging for the fetch call
         console.log('[API] manageCommunityLink URL:', url);
         const fetchOptions = {
-            method: 'POST',
-            headers: getAuthHeaders() // Use getAuthHeaders for secure requests
+            method: 'POST'
         };
         console.log('[API] manageCommunityLink fetchOptions:', fetchOptions);
         
@@ -129,7 +149,7 @@ export async function manageCommunityLink(filename, directory, action = 'add') {
         const result = await response.json();
         return result;
     } catch (error) {
-        logMessage(`[API ERROR] Failed to manage community link: ${error.message}`);
+        logApi(`Failed to manage community link: ${error.message}`, 'error');
         console.error('[API] manageCommunityLink error:', error); // Log the error to the console
         throw error;
     }

@@ -31,6 +31,9 @@ function executeCommand(command, username) {
 
         exec(`${shell} -c "${fullCommand}"`, (error, stdout, stderr) => {
             if (error) {
+                // ADDED: Log raw error and stderr from exec
+                console.error('[CLI EXEC RAW ERROR]', error);
+                console.error('[CLI EXEC RAW STDERR]', stderr);
                 // Combine stdout, stderr, and the error message for a complete error report.
                 const output = stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
                 reject(new Error(`Command failed: ${error.message}\n${output}`));
@@ -60,8 +63,10 @@ router.post('/', authMiddleware, async (req, res) => {
             const output = await executeCommand(command, username);
             res.json({ output });
         } catch (error) {
-            console.error(`[CLI ERROR] ${error.message}`);
-            res.status(500).json({ 
+            // ADDED: Log the full error object caught by the route handler
+            console.error('[CLI ROUTE CATCH ERROR]', error); 
+            console.error(`[CLI ERROR] ${error.message}`); // Keep original log for comparison
+            res.status(500).json({
                 error: 'Command execution failed',
                 output: `Error: ${error.message}`
             });

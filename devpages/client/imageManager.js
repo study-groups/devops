@@ -1,7 +1,7 @@
-import { logMessage } from "/client/log/index.js";
 import { schedulePreviewUpdate } from "/client/markdown.js";
 import { globalFetch } from "/client/globalFetch.js";
 import { withAuthHeaders } from '/client/headers.js';
+import { eventBus } from './eventBus.js';
 
 // Undo stack for image operations
 const imageOperationsStack = [];
@@ -27,9 +27,20 @@ class ImageOperation {
     }
 }
 
+// Helper for logging within this module
+function logImage(message, level = 'text') {
+    const prefix = '[IMAGES]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
+
 export async function undoLastImageOperation() {
     if (imageOperationsStack.length === 0) {
-        logMessage('No image operations to undo');
+        logImage('No image operations to undo');
         return;
     }
 
@@ -52,20 +63,20 @@ export async function undoLastImageOperation() {
                 body: JSON.stringify({ url: lastOperation.imageUrl })
             });
         } catch (error) {
-            logMessage(`Failed to delete image file: ${error.message}`);
+            logImage(`Failed to delete image file: ${error.message}`);
         }
     }
 
     schedulePreviewUpdate();
-    logMessage('Undid last image operation');
+    logImage('Undid last image operation');
 }
 
 export async function uploadImage(file) {
-    logMessage('Uploading image...');
+    logImage(`Attempting to upload image: ${file.name} (${Math.round(file.size / 1024)} KB)`);
     
     // Validate file type
     if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-        logMessage(`Unsupported file type: ${file.type}. Supported types: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
+        logImage(`Unsupported file type: ${file.type}. Supported types: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
         return null;
     }
     
@@ -77,7 +88,7 @@ export async function uploadImage(file) {
     
     // Check if the editor exists before trying to get selection
     if (!editor) {
-        logMessage('Error: Editor element not found. The image was uploaded but could not be inserted.');
+        logImage('Error: Editor element not found. The image was uploaded but could not be inserted.');
         return null;
     }
     
@@ -96,7 +107,7 @@ export async function uploadImage(file) {
             cursorPos = textarea.selectionStart || 0;
             previousState = textarea.value || '';
         } else {
-            logMessage('Warning: Could not find textarea in editor. Will append image at end.');
+            logImage('Warning: Could not find textarea in editor. Will append image at end.');
         }
     }
     
@@ -133,7 +144,7 @@ export async function uploadImage(file) {
         if (!data.url) throw new Error('Invalid URL in response');
 
         const imageUrl = data.url.startsWith('/') ? data.url : `/${data.url}`;
-        logMessage(`Uploaded file: ${imageUrl}`);
+        logImage(`Uploaded file: ${imageUrl}`);
 
         // Insert the Markdown image reference into the editor
         // This is the part that was failing
@@ -143,7 +154,7 @@ export async function uploadImage(file) {
             if (editor.tagName !== 'TEXTAREA' && editor.value === undefined) {
                 targetElement = editor.querySelector('textarea');
                 if (!targetElement) {
-                    logMessage('Warning: Could not find textarea to insert image into.');
+                    logImage('Warning: Could not find textarea to insert image into.');
                     // Return the URL even if we couldn't insert it
                     return imageUrl;
                 }
@@ -181,23 +192,25 @@ export async function uploadImage(file) {
                 await updateImageIndex();
             }
         } catch (insertError) {
-            logMessage(`Warning: Image uploaded but couldn't be inserted: ${insertError.message}`);
+            logImage(`Warning: Image uploaded but couldn't be inserted: ${insertError.message}`);
             console.error('Insert error:', insertError);
         }
         
+        eventBus.emit('image:uploaded', { url: imageUrl, filename: file.name });
         return imageUrl;
     } catch (error) {
         const errorMessage = error.message || 'Unknown error';
-        logMessage(`Upload error: ${errorMessage}`);
+        logImage(`Upload error: ${errorMessage}`, 'error');
         console.error('Upload error details:', error);
         
+        eventBus.emit('image:uploadError', { filename: file.name, error: errorMessage });
         return null;
     }
 }
 
 export async function deleteImage(imageUrl) {
     try {
-        logMessage(`Attempting to delete image: ${imageUrl}`);
+        logImage(`Attempting to delete image: ${imageUrl}`);
         
         // Extract the filename from the URL
         const filename = imageUrl.split('/').pop();
@@ -222,10 +235,10 @@ export async function deleteImage(imageUrl) {
         // Get the response data
         const data = await response.json();
         
-        logMessage(`Successfully deleted image: ${filename}`);
+        logImage(`Successfully deleted image: ${filename}`);
         return true;
     } catch (error) {
-        logMessage(`Failed to delete image: ${error.message}`);
+        logImage(`Failed to delete image: ${error.message}`);
         console.error('Delete error details:', error);
         return false;
     }
@@ -241,9 +254,9 @@ export async function updateImageIndex() {
             throw new Error(`Server returned ${response.status}: ${await response.text()}`);
         }
         
-        logMessage('Updated image index successfully');
+        logImage('Updated image index successfully');
     } catch (error) {
-        logMessage(`Failed to update image index: ${error.message}`);
+        logImage(`Failed to update image index: ${error.message}`);
         console.error('[IMAGES ERROR] Index update failed:', error);
     }
 }

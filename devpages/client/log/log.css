@@ -1,0 +1,206 @@
+/* /client/log/log.css - Styles for the Log Component */
+
+/* Log visibility controlled by root attribute */
+html[data-log-visible="false"] #log-container {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+}
+
+html[data-log-visible="true"] #log-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: var(--log-height, 120px) !important; /* Use CSS variable set by earlyInit */
+}
+
+/* Adjust main content padding based on log visibility */
+/* NOTE: These might affect layout outside the log itself, */
+/* consider if they belong here or in a more global layout file. */
+/* Keeping them here for now as they directly relate to log visibility. */
+html[data-log-visible="false"] #main-container.log-hidden #content {
+    max-height: calc(100vh - 50px); /* Assuming nav height approx 50px */
+}
+html[data-log-visible="true"] #main-container.log-visible #content {
+     max-height: calc(100vh - var(--log-height, 120px) - 50px);
+}
+
+
+/* Log container - base styles */
+#log-container {
+    display: flex; /* Base display state, overridden by html[data-log-visible] */
+    flex-direction: column;
+    height: var(--log-height, 120px); /* Use CSS variable with fallback */
+    min-height: 80px;
+    margin-left: 1rem;
+    margin-right: 4rem; /* Right margin - larger */
+    padding-left: 1rem;
+    padding-right: 1rem;
+
+    border-radius: .25rem;
+    overflow: hidden; /* Still needed for internal scrolling */
+    background: #1e1e1e;
+    border-top: 1px solid #333; /* Only top border */
+
+    position: sticky;
+    bottom: 0; /* Stick to bottom of container */
+    left: 0;
+    right: 0;
+    width: calc(100% - 5rem); /* Adjust width to account for margins */
+    z-index: 100; /* Ensure it stays above content */
+    transition: opacity 0.3s ease; /* Only opacity transition */
+}
+
+/* Log resize handle */
+#log-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px; /* DEBUG: Increased height */
+    background: inherit; /* DEBUG: Bright background */
+    cursor: ns-resize;
+    z-index: 101; /* Higher than log container */
+    user-select: none;
+    opacity: 1 !important; /* DEBUG: Ensure opacity */
+}
+
+#log-resize-handle:hover {
+    background: darkred; /* DEBUG: Darken on hover */
+}
+
+#log-resize-handle.resizing {
+    background: orange; /* DEBUG: Different color when resizing */
+}
+
+/* Log toolbar */
+#log-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #1e1e1e;
+    padding: 4px 8px;
+    border-bottom: 1px solid #333;
+    min-height: 28px;
+    flex-shrink: 0; /* Prevent toolbar from shrinking */
+}
+
+/* Log toolbar buttons */
+#log-toolbar button {
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+#log-toolbar button:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Specific toolbar items */
+#log-toolbar #cli-input {
+    flex-grow: 1; /* Allow input to take space */
+    background-color: #333;
+    border: 2px solid red;
+    color: #eee;
+    padding: 2px 6px;
+    font-size: 12px;
+    margin: 0 5px;
+    height: 20px;
+}
+
+#log-toolbar .app-info { /* Styling for the app-info span */
+    color: #888;
+    font-size: 11px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+#log-toolbar .app-info:hover {
+    color: #bbb;
+}
+
+/* Log status text */
+#log-status {
+    color: #666;
+    font-size: 11px;
+    margin-left: auto; /* Pushes status to the right */
+    padding-left: 10px;
+    white-space: nowrap;
+}
+
+/* Log content area */
+#log {
+    flex: 1; /* Take remaining space */
+    overflow-y: auto;
+    padding: 4px 8px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #d4d4d4;
+}
+
+/* Log scrollbar styling */
+#log::-webkit-scrollbar {
+    width: 8px;
+}
+
+#log::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 4px;
+}
+
+#log::-webkit-scrollbar-track {
+    background-color: #2a2a2a;
+}
+
+/* Log entry styling */
+#log .log-entry { /* Use class for entries if possible */
+    padding: 2px 0;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    cursor: pointer; /* If clicking adds to preview */
+}
+#log .log-entry:last-child {
+    border-bottom: none; /* No border for the last entry */
+}
+
+#log .log-entry pre { /* Style JSON within entries */
+    margin: 0;
+    padding-left: 1em;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Log message types */
+#log .log-entry.log-error { /* Add type classes to entry */
+    color: #f14c4c;
+}
+
+#log .log-entry.log-warning {
+    color: #ddb100;
+}
+
+#log .log-entry.log-config {
+    color: #3794ff;
+    font-weight: bold;
+    white-space: pre;
+    font-family: 'Consolas', monospace;
+}
+
+#log .log-entry.log-separator {
+    border-bottom: 2px solid #3794ff;
+    margin: 0;
+    padding: 0;
+    height: 0;
+    cursor: default;
+}

@@ -1,0 +1,53 @@
+/* Existing styles... */
+
+/* --- Audio Timestamp Styles --- */
+.timestamp {
+  /* Style the container if needed */
+  display: inline-block; /* Or inline, depending on desired flow */
+}
+
+.timestamp button {
+  background: none;
+  border: none;
+  color: var(--md-preview-link, #0366d6); /* Use link color variable */
+  cursor: pointer;
+  font-family: monospace;
+  padding: 0 2px;
+  margin: 0;
+  font-size: inherit; /* Inherit font size from surrounding text */
+  text-decoration: underline; /* Make it look like a link */
+}
+
+.timestamp button:hover,
+.timestamp button:focus {
+  color: #005cc5; /* Darker link color on hover/focus */
+  background-color: rgba(0, 102, 214, 0.1); /* Slight background highlight */
+}
+
+.timestamp.active button {
+  background-color: #ffff00; /* Yellow background for active */
+  color: #111; /* Darker text on yellow */
+  font-weight: bold;
+  text-decoration: none; /* Remove underline when active */
+  border-radius: 2px;
+}
+
+/* Optional: Container for the audio player itself */
+.audio-container {
+  margin: 1em 0;
+  padding: 10px;
+  background-color: var(--md-preview-code-bg, #f5f5f5);
+  border: 1px solid var(--md-preview-border, #ddd);
+  border-radius: 4px;
+}
+
+.audio-container audio {
+  width: 100%;
+}
+
+.audio-title {
+  font-size: 0.9em;
+  color: #555;
+  margin-top: 5px;
+  text-align: center;
+}

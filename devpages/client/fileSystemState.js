@@ -2,7 +2,6 @@
  * fileSystemState.js
  * Handles persistence of user's filesystem context (directory, file, etc.)
  */
-import { logMessage } from '/client/log/index.js';
 import { eventBus } from '/client/eventBus.js';
 
 // Get URL parameters if available
@@ -17,29 +16,37 @@ const defaultState = {
 // Maximum number of recent files to track
 const MAX_RECENT_FILES = 10;
 
+// Helper for logging within this module
+function logFS(message, level = 'text') {
+    const prefix = '[FS STATE]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
+
+const STATE_KEY = 'fileSystemState';
+
 /**
  * Load filesystem state from localStorage
  */
 export function loadFileSystemState() {
   try {
-    const state = JSON.parse(localStorage.getItem('fileSystemState') || '{}');
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // URL parameters take precedence over stored state
-    const mergedState = {
-      ...defaultState,
-      ...state,
-      currentDir: urlParams.get('dir') || state.currentDir || defaultState.currentDir,
-      currentFile: urlParams.get('file') || state.currentFile || defaultState.currentFile,
-    };
-    
-    logMessage('[FS STATE] Loaded state: ' + JSON.stringify(mergedState));
-    return mergedState;
+    const savedState = localStorage.getItem(STATE_KEY);
+    if (savedState) {
+      const state = JSON.parse(savedState);
+      logFS(`Loaded state: ${JSON.stringify(state)}`);
+      return state;
+    } else {
+        logFS('No saved file system state found.');
+    }
   } catch (error) {
-    logMessage('[FS STATE ERROR] Failed to load state: ' + error.message);
-    // Return default state on error to prevent breaking
-    return { currentDir: '', currentFile: '', recentFiles: [] };
+    logFS(`Error loading file system state: ${error.message}`, 'error');
   }
+  // Return default state if loading fails or no state exists
+  return { currentDir: '', currentFile: '', recentFiles: [], lastModified: null }; 
 }
 
 /**
@@ -50,10 +57,10 @@ export function saveFileSystemState(state) {
     const currentState = loadFileSystemState();
     const newState = { ...currentState, ...state, lastModified: Date.now() };
     
-    localStorage.setItem('fileSystemState', JSON.stringify(newState));
+    localStorage.setItem(STATE_KEY, JSON.stringify(newState));
     
     // Log the saved state for debugging
-    logMessage('[FS STATE] Saved state: ' + JSON.stringify(newState));
+    logFS(`Saved state: ${JSON.stringify(newState)}`);
     
     // Also update legacy storage for backward compatibility
     if (state.currentDir !== undefined) localStorage.setItem('currentDir', state.currentDir);
@@ -69,7 +76,7 @@ export function saveFileSystemState(state) {
     
     return true;
   } catch (error) {
-    logMessage('[FS STATE ERROR] Failed to save state: ' + error.message);
+    logFS(`Error saving file system state: ${error.message}`, 'error');
     return false;
   }
 }
@@ -79,7 +86,7 @@ export function saveFileSystemState(state) {
  * @deprecated Use fileManager.changeDirectory() instead
  */
 export function setCurrentDirectory(dir) {
-  logMessage('[FS STATE WARN] setCurrentDirectory is deprecated. Use fileManager.changeDirectory()', 'warning');
+  logFS('[FS STATE WARN] setCurrentDirectory is deprecated. Use fileManager.changeDirectory()', 'warning');
   return saveFileSystemState({ currentDir: dir });
 }
 
@@ -88,7 +95,7 @@ export function setCurrentDirectory(dir) {
  * @deprecated Use fileManager.loadFile() instead
  */
 export function setCurrentFile(file) {
-  logMessage('[FS STATE WARN] setCurrentFile is deprecated. Use fileManager.loadFile()', 'warning');
+  logFS('[FS STATE WARN] setCurrentFile is deprecated. Use fileManager.loadFile()', 'warning');
   const state = loadFileSystemState();
   
   // Update recent files list
@@ -132,17 +139,17 @@ export function getCurrentFile() {
  */
 export function clearFileSystemState() {
   try {
-    localStorage.removeItem('fileSystemState');
+    localStorage.removeItem(STATE_KEY);
     localStorage.removeItem('currentDir'); // Keep legacy clear for safety
     localStorage.removeItem('currentFile');
-    logMessage('[FS STATE] Cleared state');
+    logFS('Cleared file system state from localStorage.');
     
     // Emit event
     eventBus.emit('fileSystem:cleared');
     
     return true;
   } catch (error) {
-    logMessage('[FS STATE ERROR] Failed to clear state: ' + error.message);
+    logFS(`Error clearing file system state: ${error.message}`, 'error');
     return false;
   }
 }

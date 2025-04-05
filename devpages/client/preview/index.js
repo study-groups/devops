@@ -23,8 +23,8 @@
  */
 
 import { logMessage } from '../log/index.js';
-import { initPlugins, getEnabledPlugins } from './plugins/index.js';
-import { initMarkdownParser, renderMarkdown } from './renderer.js';
+import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
+import { renderMarkdown, postProcessRender } from './renderer.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
@@ -70,7 +70,6 @@ export class PreviewManager {
       this.previewElement.classList.add('markdown-preview');
 
       // Initialize components
-      await initMarkdownParser();
       await initPlugins(this.config.plugins, {
         theme: this.config.theme,
         container: this.previewElement
@@ -114,28 +113,25 @@ export class PreviewManager {
         // Schedule the update to avoid too many updates in quick succession
         this.updateTimer = setTimeout(async () => {
           try {
-            console.log('[PREVIEW] Calling renderMarkdown');
+            logMessage('[PREVIEW] Calling renderMarkdown');
             const html = await renderMarkdown(content);
-            console.log('[PREVIEW] renderMarkdown returned HTML length:', html?.length);
+            logMessage(`[PREVIEW] renderMarkdown returned HTML length: ${html?.length}`);
             
-            console.log('[PREVIEW] Setting innerHTML on previewElement:', this.previewElement);
-            this.previewElement.innerHTML = html;
-            console.log('[PREVIEW] innerHTML set successfully');
+            logMessage(`[PREVIEW] Setting innerHTML on previewElement.`);
+            if (this.previewElement) {
+                this.previewElement.innerHTML = html;
+                logMessage('[PREVIEW] innerHTML set successfully');
+                
+                logMessage('[PREVIEW] Calling postProcessRender...');
+                await postProcessRender(this.previewElement);
+                logMessage('[PREVIEW] postProcessRender finished.');
             
-            // Process plugins after rendering
-            const enabledPlugins = getEnabledPlugins();
-            console.log('[PREVIEW] Processing', enabledPlugins.length, 'plugins after rendering');
-            
-            for (const plugin of enabledPlugins) {
-              if (plugin.postProcess) {
-                console.log('[PREVIEW] Running postProcess for plugin');
-                await plugin.postProcess(this.previewElement, content);
-              }
+                logMessage('[PREVIEW] Preview updated successfully');
+                resolve(true);
+            } else {
+                logMessage('[PREVIEW ERROR] Preview element became null during update.', 'error');
+                resolve(false);
             }
-            
-            logMessage('[PREVIEW] Preview updated successfully');
-            console.log('[PREVIEW] Preview update complete');
-            resolve(true);
           } catch (error) {
             console.error('[PREVIEW] Render error:', error);
             logMessage(`[PREVIEW ERROR] Failed to render markdown: ${error.message}`);

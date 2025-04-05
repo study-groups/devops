@@ -5,7 +5,16 @@
  * using highlight.js library.
  */
 
-import { logMessage } from '../../log/index.js';
+// Helper for logging within this module
+function logHighlight(message, level = 'text') {
+    const prefix = '[HIGHLIGHT]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
 
 // Highlight.js CDN URLs
 const HIGHLIGHT_JS_CDN = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
@@ -85,10 +94,10 @@ async function loadHighlight() {
       languages: config.languages
     });
     
-    logMessage('[PREVIEW] Highlight.js loaded successfully');
+    logHighlight('[PREVIEW] Highlight.js loaded successfully');
     return true;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to load highlight.js: ${error.message}`);
+    logHighlight(`[PREVIEW ERROR] Failed to load highlight.js: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight.js load:', error);
     return false;
   }
@@ -96,10 +105,11 @@ async function loadHighlight() {
 
 /**
  * Initialize the highlighting plugin
+ * EXPORTED
  * @param {Object} options Plugin options
  * @returns {Promise<Boolean>} Whether initialization was successful
  */
-async function init(options = {}) {
+export async function init(options = {}) {
   try {
     // Update configuration
     if (options.theme) {
@@ -112,10 +122,10 @@ async function init(options = {}) {
       return false;
     }
     
-    logMessage('[PREVIEW] Syntax highlighting plugin initialized');
+    logHighlight('[PREVIEW] Syntax highlighting plugin initialized');
     return true;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to initialize highlighting plugin: ${error.message}`);
+    logHighlight(`[PREVIEW ERROR] Failed to initialize highlighting plugin: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlighting plugin:', error);
     return false;
   }
@@ -165,7 +175,7 @@ function codeRenderer(code, infostring, escaped) {
     // Return the highlighted code
     return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to highlight code: ${error.message}`);
+    logHighlight(`[PREVIEW ERROR] Failed to highlight code: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight:', error);
     
     // Fall back to basic code rendering
@@ -195,9 +205,9 @@ function setTheme(theme) {
       document.head.appendChild(link);
     }
     
-    logMessage(`[PREVIEW] Syntax highlighting theme set to ${theme}`);
+    logHighlight(`[PREVIEW] Syntax highlighting theme set to ${theme}`);
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to set highlighting theme: ${error.message}`);
+    logHighlight(`[PREVIEW ERROR] Failed to set highlighting theme: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight theme:', error);
   }
 }
@@ -210,7 +220,7 @@ function setTheme(theme) {
 async function postProcess(element) {
   try {
     if (!hljs) {
-      logMessage('[PREVIEW WARNING] Highlight.js not loaded, skipping code highlighting');
+      logHighlight('[PREVIEW WARNING] Highlight.js not loaded, skipping code highlighting');
       return;
     }
     
@@ -227,13 +237,14 @@ async function postProcess(element) {
       }
     });
     
-    logMessage(`[PREVIEW] Highlighted ${codeBlocks.length} code blocks`);
+    logHighlight(`[PREVIEW] Highlighted ${codeBlocks.length} code blocks`);
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed during code highlighting post-processing: ${error.message}`);
+    logHighlight(`[PREVIEW ERROR] Failed during code highlighting post-processing: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight post-process:', error);
   }
 }
 
+// Export the plugin class AND the init function
 export class HighlightPlugin {
   constructor() {
     this.name = 'highlight';
@@ -241,7 +252,9 @@ export class HighlightPlugin {
   }
 
   async init(options = {}) {
-    // ... implementation ...
+    // Delegate to the exported init function
+    this.initialized = await init(options);
+    return this.initialized;
   }
 
   async preProcess(content) {

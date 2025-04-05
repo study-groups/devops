@@ -43,12 +43,6 @@ nav {
     margin-left: auto;
 }
 
-#doc-path {
-    color: #666;
-    font-size: 0.9em;
-    margin-right: 1rem;
-}
-
 #pwd-display {
     font-family: monospace;
     color: #0d6efd;
@@ -120,19 +114,6 @@ button.loading::after {
     }
 }
 
-/* Auth state visibility */
-body[data-auth-state="logged-in"] .login-form {
-    display: none;
-}
-
-body[data-auth-state="logged-in"] #logout-btn {
-    display: inline-block;
-}
-
-body[data-auth-state="logged-out"] #logout-btn {
-    display: none;
-}
-
 /* Main container layout */
 #main-container {
     display: flex;
@@ -144,7 +125,7 @@ body[data-auth-state="logged-out"] #logout-btn {
 /* Content area */
 #content {
     display: flex;
-    height: 100%;
+    flex: 1;
     overflow: hidden;
 }
 
@@ -186,7 +167,6 @@ body[data-auth-state="logged-out"] #logout-btn {
     font-size: 14px;
     line-height: 1.6;
     overflow: auto;
-    transition: all 0.3s ease-in-out;
 }
 
 /* Editor container */
@@ -218,244 +198,11 @@ body[data-auth-state="logged-out"] #logout-btn {
     background-color: white;
 }
 
-/* Add early visibility control based on HTML data attribute */
-html[data-log-visible="false"] #log-container {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    opacity: 0 !important;
-    overflow: hidden !important;
-}
-
-html[data-log-visible="true"] #log-container {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: var(--log-height, 120px) !important;
-}
-
-/* Log container - fixed to bottom */
-#log-container {
-    display: flex;
-    flex-direction: column;
-    height: var(--log-height, 120px); /* Use CSS variable with fallback */
-    min-height: 80px;
-    margin-left: 1rem; /* Left margin */
-    margin-right: 4rem; /* Right margin - larger */
-    padding-left: 1rem; /* Left padding */
-    padding-right: 1rem; /* Right padding */
-    
-    border-radius: .25rem; /* Remove border radius */
-    overflow: hidden;
-    background: #1e1e1e;
-    border-top: 1px solid #333; /* Only top border */
-    position: sticky; /* Change to sticky */
-    bottom: 1rem; /* Stick to bottom */
-    left: 0;
-    right: 0;
-    width: calc(100% - 5rem); /* Adjust width to account for margins (1rem left + 4rem right) */
-    z-index: 100; /* Ensure it stays above content */
-    transition: height 0.3s ease, opacity 0.3s ease;
-}
-
-/* Log resize handle */
-#log-resize-handle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: rgba(55, 148, 255, 0.1);
-    cursor: ns-resize;
-    z-index: 101; /* Higher than log container */
-    user-select: none; /* Prevent text selection while dragging */
-}
-
-#log-resize-handle:hover {
-    background: rgba(55, 148, 255, 0.3);
-}
-
-#log-resize-handle.resizing {
-    background: rgba(55, 148, 255, 0.5);
-}
-
-/* Log toolbar */
-#log-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: #1e1e1e;
-    padding: 4px 8px;
-    border-bottom: 1px solid #333;
-    min-height: 28px;
-}
-
-/* Log content area */
-#log {
-    flex: 1;
-    overflow-y: auto;
-    padding: 4px 8px;
-    padding-left: 1rem; /* Increase left padding */
-    padding-right: 1rem; /* Increase right padding */
-    font-family: monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    color: #d4d4d4;
-}
-
-/* Log toolbar buttons */
-#log-toolbar button {
-    background: transparent;
-    border: none;
-    color: #d4d4d4;
-    padding: 2px 6px;
-    cursor: pointer;
-    font-size: 12px;
-    border-radius: 2px;
-}
-
-#log-toolbar button:hover {
-    background: rgba(255,255,255,0.1);
-}
-
-/* Log status text */
-#log-status {
-    color: #666;
-    font-size: 11px;
-    margin-left: auto;
-}
-
-/* Log scrollbar styling */
-#log::-webkit-scrollbar {
-    width: 8px;
-}
-
-#log::-webkit-scrollbar-thumb {
-    background-color: #555;
-    border-radius: 4px;
-}
-
-#log::-webkit-scrollbar-track {
-    background-color: #2a2a2a;
-}
-
-/* Log entry styling */
-#log div {
-    padding: 2px 0;
-    border-bottom: 1px solid #333;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    cursor: pointer;
-}
-
-#log div.expanded {
-    white-space: pre-wrap;
-    overflow: visible;
-    cursor: default;
-}
-
-/* Truncation indicator */
-#log div:not(.expanded).truncated::after {
-    content: "...";
-    color: #666;
-    font-style: italic;
-    margin-left: 4px;
-}
-
-/* Log message types */
-.log-error {
-    color: #f14c4c;
-}
-
-.log-warning {
-    color: #ddb100;
-}
-
-.log-config {
-    color: #3794ff;
-    font-weight: bold;
-    white-space: pre;
-    font-family: 'Consolas', monospace;
-}
-
-#log div.log-separator {
-    border-bottom: 2px solid #3794ff;
-    margin: 0;
-}
-
 /* View controls */
 .view-controls {
     display: flex;
     gap: 8px;
     margin: 0 16px;
-}
-
-/* Drag and drop zone */
-#drop-zone {
-    border: 2px dashed #ccc;
-    border-radius: 5px;
-    padding: 20px;
-    text-align: center;
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-}
-
-#drop-zone.active {
-    border-color: #007bff;
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-/* Error message styling */
-.upload-error {
-    color: #721c24;
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    padding: 10px;
-    margin-top: 10px;
-}
-
-/* Success message styling */
-.upload-success {
-    color: #155724;
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    border-radius: 4px;
-    padding: 10px;
-    margin-top: 10px;
-}
-
-/* Toast notification styling */
-.toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 10px 15px;
-    border-radius: 4px;
-    color: white;
-    z-index: 9999;
-    opacity: 1;
-    transition: opacity 0.3s;
-    max-width: 300px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.toast.fadeOut {
-    opacity: 0;
-}
-
-.toast-info {
-    background-color: #17a2b8;
-}
-
-.toast-error {
-    background-color: #dc3545;
-}
-
-.toast-success {
-    background-color: #28a745;
 }
 
 /* Resize handle */
@@ -528,28 +275,6 @@ html[data-log-visible="true"] #log-container {
 #main-container.log-hidden #content {
     max-height: calc(100vh - 50px);
     transition: max-height 0.3s ease;
-}
-
-/* Add styles for the save indicator */
-@keyframes save-pulse {
-    0% { background-color: #f0f0f0; }
-    50% { background-color: #4CAF50; }
-    100% { background-color: #f0f0f0; }
-}
-
-.saving {
-    animation: save-pulse 1s ease-in-out;
-}
-
-/* Add styles for the load indicator */
-@keyframes load-pulse {
-    0% { background-color: #f0f0f0; }
-    50% { background-color: #4169E1; }
-    100% { background-color: #f0f0f0; }
-}
-
-.loading {
-    animation: load-pulse 1s ease-in-out;
 }
 
 /* Community link button styling */
@@ -775,57 +500,6 @@ html[data-log-visible="true"] #log-container {
     }
 }
 
-/* Codebase tree styling */
-.codebase-tree {
-    list-style-type: none;
-    padding-left: 0;
-    margin: 0;
-    font-family: monospace;
-    font-size: 0.9rem;
-}
-
-.codebase-tree ul {
-    list-style-type: none;
-    padding-left: 1.5rem;
-    margin: 0;
-}
-
-.folder-name {
-    font-weight: bold;
-    cursor: pointer;
-    color: #0d6efd;
-}
-
-.folder-name:hover {
-    text-decoration: underline;
-}
-
-.file {
-    color: #333;
-    margin: 2px 0;
-}
-
-/* Collapsible folders */
-.folder > ul {
-    transition: max-height 0.3s ease;
-}
-
-.folder.collapsed > ul {
-    max-height: 0;
-    overflow: hidden;
-}
-
-/* Add clickable behavior to folders */
-.folder-name::before {
-    content: '▼ ';
-    display: inline-block;
-    transition: transform 0.2s;
-}
-
-.folder.collapsed .folder-name::before {
-    transform: rotate(-90deg);
-}
-
 /* Image index delete button styling */
 .delete-btn {
     background-color: #dc3545;
@@ -845,45 +519,6 @@ html[data-log-visible="true"] #log-container {
 .delete-btn:focus {
     outline: none;
     box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
-}
-
-/* Confirmation dialog styling (optional) */
-.confirm-dialog {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    max-width: 400px;
-    width: 90%;
-}
-
-.confirm-dialog-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.confirm-dialog-buttons button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.confirm-dialog-buttons .confirm-yes {
-    background-color: #dc3545;
-    color: white;
-}
-
-.confirm-dialog-buttons .confirm-no {
-    background-color: #6c757d;
-    color: white;
 }
 
 /* Add this to your styles.css or in a <style> tag in index.html */
@@ -913,3 +548,58 @@ html[data-log-visible="true"] #log-container {
     width: 100%;
     height: 100%;
 }
+
+/* --- Initial UI State Control --- */
+
+/* Default state (unauthenticated) */
+#login-form {
+    display: flex; /* Show login form by default */
+}
+#logout-btn, 
+#pwd-display {
+    display: none; /* Hide logout button and user display by default */
+}
+.file-ops {
+    /* Hide file ops if not authenticated? Optional. */
+    /* display: none; */ 
+}
+
+/* Authenticated state */
+html[data-auth-state="authenticated"] #login-form {
+    display: none; /* Hide login form when authenticated */
+}
+html[data-auth-state="authenticated"] #logout-btn,
+html[data-auth-state="authenticated"] #pwd-display {
+    display: inline-block; /* Show logout button and user display when authenticated */
+}
+html[data-auth-state="authenticated"] .file-ops {
+    /* display: flex; */ /* Ensure file ops are visible if hidden by default */
+}
+
+/* Log visibility */
+html[data-log-visible="false"] #log-container {
+    display: none !important; /* Important to override other display rules initially */
+    visibility: hidden !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+}
+
+html[data-log-visible="true"] #log-container {
+    display: flex !important; /* Important to override other display rules initially */
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: var(--log-height, 120px) !important; /* Use CSS variable set by earlyInit */
+}
+
+/* Adjust main content padding based on log visibility */
+html[data-log-visible="false"] #main-container.log-hidden #content {
+    /* Your existing rule probably handles this */
+    max-height: calc(100vh - 50px); /* Assuming nav height approx 50px */
+}
+html[data-log-visible="true"] #main-container.log-visible #content {
+    /* Your existing rule probably handles this */
+     max-height: calc(100vh - var(--log-height, 120px) - 50px); 
+}
+
+/* --- End Initial UI State Control --- */

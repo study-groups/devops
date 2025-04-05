@@ -2,11 +2,21 @@
  * buttons.js
  * Handles button registration and event handling
  */
-import { logMessage } from '/client/log/index.js';
 import { eventBus } from '/client/eventBus.js';
 
 // Maintain a registry of button handlers
 const buttonHandlers = new Map();
+
+// Helper for logging within this module
+function logButton(message, level = 'text') {
+    const prefix = '[BUTTONS]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
 
 /**
  * Safely register a button handler, replacing any existing handler
@@ -30,7 +40,7 @@ export function registerButtonHandler(buttonId, handler, description = '') {
     // Find the button
     const button = document.getElementById(buttonId);
     if (!button) {
-        logMessage(`[BUTTONS] Warning: Button #${buttonId} not found in DOM but handler registered`);
+        logButton(`[BUTTONS] Warning: Button #${buttonId} not found in DOM but handler registered`);
         return false;
     }
     
@@ -44,7 +54,7 @@ export function registerButtonHandler(buttonId, handler, description = '') {
         event.stopPropagation();
         
         // Log button click
-        logMessage(`[BUTTONS] Button clicked: ${buttonId}`);
+        logButton(`[BUTTONS] Button clicked: ${buttonId}`);
         
         // Dispatch button event
         eventBus.emit('button:clicked', {
@@ -57,11 +67,11 @@ export function registerButtonHandler(buttonId, handler, description = '') {
             handler(event);
         } catch (error) {
             console.error(`[BUTTONS] Error in handler for ${buttonId}:`, error);
-            logMessage(`[BUTTONS] Error in button handler: ${error.message}`, 'error');
+            logButton(`[BUTTONS] Error in button handler: ${error.message}`, 'error');
         }
     });
     
-    logMessage(`[BUTTONS] Registered handler for ${buttonId}${description ? ': ' + description : ''}`);
+    logButton(`[BUTTONS] Registered handler for ${buttonId}${description ? ': ' + description : ''}`);
     return true;
 }
 
@@ -93,7 +103,7 @@ export function registerButtons(handlersMap) {
         }
     }
     
-    logMessage(`[BUTTONS] Registered ${successCount} button handlers`);
+    logButton(`[BUTTONS] Registered ${successCount} button handlers`);
     return successCount > 0;
 }
 
@@ -115,11 +125,11 @@ export function unregisterButton(buttonId) {
         // Replace with a clone to remove event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
-        logMessage(`[BUTTONS] Unregistered handler for ${buttonId}`);
+        logButton(`[BUTTONS] Unregistered handler for ${buttonId}`);
         return true;
     }
     
-    logMessage(`[BUTTONS] Removed registry entry for ${buttonId} but button not found in DOM`);
+    logButton(`[BUTTONS] Removed registry entry for ${buttonId} but button not found in DOM`);
     return true;
 }
 
@@ -153,7 +163,7 @@ export function getAllButtons() {
 export function setupButtonGroup(containerId, handlers) {
     const container = document.getElementById(containerId);
     if (!container) {
-        logMessage(`[BUTTONS] Container #${containerId} not found`);
+        logButton(`[BUTTONS] Container #${containerId} not found`);
         return false;
     }
     
@@ -172,7 +182,7 @@ export function setupButtonGroup(containerId, handlers) {
         if (buttonId && handlers[buttonId]) {
             event.preventDefault();
             event.stopPropagation();
-            logMessage(`[BUTTONS] Group button clicked: ${buttonId}`);
+            logButton(`[BUTTONS] Group button clicked: ${buttonId}`);
             try {
                 handlers[buttonId](event);
             } catch (error) {
@@ -181,7 +191,7 @@ export function setupButtonGroup(containerId, handlers) {
         }
     });
     
-    logMessage(`[BUTTONS] Set up button group for ${containerId} with ${Object.keys(handlers).length} handlers`);
+    logButton(`[BUTTONS] Set up button group for ${containerId} with ${Object.keys(handlers).length} handlers`);
     return true;
 }
 
@@ -193,7 +203,7 @@ export function setupButtonGroup(containerId, handlers) {
 export function setButtonEnabled(buttonId, enabled = true) {
     const button = document.getElementById(buttonId);
     if (!button) {
-        logMessage(`[BUTTONS] Button #${buttonId} not found`);
+        logButton(`[BUTTONS] Button #${buttonId} not found`);
         return false;
     }
     
@@ -207,6 +217,9 @@ export function setButtonEnabled(buttonId, enabled = true) {
     
     return true;
 }
+
+// Consider if initialization is needed or if this module is just utility functions.
+logButton('Button utilities module loaded.');
 
 // Export all functions
 export default {

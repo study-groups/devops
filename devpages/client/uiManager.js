@@ -1,10 +1,22 @@
 // Import necessary modules
-import { logMessage, toggleLog } from "/client/log/index.js";
+// import { logMessage, toggleLog } from "/client/log/index.js";
 import { globalFetch } from '/client/globalFetch.js';
 import { updateTopBar } from '/client/components/topBar.js';
 import { eventBus } from '/client/eventBus.js';
 import { AUTH_STATE } from '/client/auth.js';
+import fileManager from '/client/fileManager.js'; // Assuming default export
 // Removed imports for functions/modules no longer used directly here
+
+// Helper for logging within this module
+function logUI(message, level = 'text') {
+    const prefix = '[UI]';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`${prefix} ${message}`, level);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`${prefix} ${message}`);
+    }
+}
 
 // UI Manager class to handle all UI-related operations
 class UIManager {
@@ -23,7 +35,7 @@ class UIManager {
         this.handleDirectoryChange = this.handleDirectoryChange.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
         this.handleLogin = this.handleLogin.bind(this);
-        this.handleLogButtonClick = this.handleLogButtonClick.bind(this);
+        this.handleMainLogToggle = this.handleMainLogToggle.bind(this);
         this.updateAuthDisplay = this.updateAuthDisplay.bind(this);
         this.updateMobileLayout = this.updateMobileLayout.bind(this); // Bind resize handler
         this.handlePwdDisplayClick = this.handlePwdDisplayClick.bind(this); // Bind mobile logout handler
@@ -33,13 +45,23 @@ class UIManager {
      * Initialize the UI manager
      */
     async initialize() {
-        console.log('[UI] Initializing UI Manager');
+        logUI('Initializing UI Manager');
         updateTopBar(); // Initialize top bar first
         this.setupEventListeners();
         this.initializeSimpleMobileUI(); // Handle mobile specifics like password visibility
         this.updateMobileLayout(); // Adjust layout for mobile if needed
         window.addEventListener('resize', this.updateMobileLayout); // Handle resize
-        console.log('[UI] UI Manager initialized successfully');
+        logUI('UI Manager initialized successfully');
+
+        // Listen for auth state changes
+        eventBus.off('auth:stateChanged', this.updateAuthDisplay); // Prevent duplicates if re-initialized
+        eventBus.on('auth:stateChanged', this.updateAuthDisplay);
+        logUI('Listening for auth:stateChanged events');
+
+        // Listen for file manager state being settled
+        eventBus.off('fileManager:stateSettled', this.handleFileManagerStateSettled);
+        eventBus.on('fileManager:stateSettled', this.handleFileManagerStateSettled.bind(this)); // Bind context
+        logUI('Listening for fileManager:stateSettled events');
     }
 
     /**
@@ -50,50 +72,53 @@ class UIManager {
         if (this.elements.logoutBtn) {
             this.elements.logoutBtn.removeEventListener('click', this.handleLogout);
             this.elements.logoutBtn.addEventListener('click', this.handleLogout);
-            console.log('[UI] Logout button handler set up');
+            logUI('Logout button handler set up');
         }
 
         // Login form handler
         if (this.elements.loginForm) {
             this.elements.loginForm.removeEventListener('submit', this.handleLogin);
             this.elements.loginForm.addEventListener('submit', this.handleLogin);
-            console.log('[UI] Login form handler set up');
+            logUI('Login form handler set up');
         }
 
         // Directory selection handler
         if (this.elements.dirSelect) {
             this.elements.dirSelect.removeEventListener('change', this.handleDirectoryChange);
             this.elements.dirSelect.addEventListener('change', this.handleDirectoryChange);
-            console.log('[UI] Directory handler set up');
+            logUI('Directory handler set up');
         }
 
-        // Log button handler
-        if (this.elements.logBtn) {
-            this.elements.logBtn.removeEventListener('click', this.handleLogButtonClick);
-            this.elements.logBtn.addEventListener('click', this.handleLogButtonClick);
-            console.log('[UI] Log button handler set up');
-        }
+        // // REMOVE or COMMENT OUT the explicit listener for #log-btn
+        // const logBtn = document.getElementById('log-btn');
+        // if (logBtn) {
+        //     logBtn.addEventListener('click', (event) => {
+        //         // Potentially problematic code was here, maybe preventDefault() or direct UI manipulation
+        //         // We now rely on data-action="toggleLogVisibility" and the global handler
+        //         // No need to explicitly trigger actions.trigger('toggleLogVisibility') here either
+        //         console.warn('[UI Manager] Explicit #log-btn listener removed/commented out.'); 
+        //     });
+        //     logUI('Main log toggle button (#log-btn) handler setup removed/commented.');
+        // } else {
+        //     logUI('Main log toggle button (#log-btn) not found during explicit listener setup.', 'warning');
+        // }
 
         // Add mobile logout handler for pwdDisplay click
         if (this.elements.pwdDisplay) {
             this.elements.pwdDisplay.removeEventListener('click', this.handlePwdDisplayClick);
             this.elements.pwdDisplay.addEventListener('click', this.handlePwdDisplayClick);
-            console.log('[UI] Mobile logout (pwdDisplay click) handler set up');
+            logUI('Mobile logout (pwdDisplay click) handler set up');
         }
-
-        // Listen for auth state changes
-        eventBus.off('auth:stateChanged', this.updateAuthDisplay); // Prevent duplicates if re-initialized
-        eventBus.on('auth:stateChanged', this.updateAuthDisplay);
-        logMessage('[UI] Listening for auth:stateChanged events');
     }
 
     /**
      * Handle directory selection change
      */
     async handleDirectoryChange(event) {
+        logUI(`handleDirectoryChange triggered. Event type: ${event?.type}, IsTrusted: ${event?.isTrusted}, Target value: ${event?.target?.value}`);
         const selectedDir = event.target.value;
         if (selectedDir) {
-            logMessage(`[UI] Directory selected: ${selectedDir}`);
+            logUI(`Directory selected: ${selectedDir}`);
             await this.loadDirectoryFiles(selectedDir);
             // Don't save to localStorage directly, let fileSystemState handle it
             // localStorage.setItem('lastSelectedDirectory', selectedDir);
@@ -124,14 +149,14 @@ class UIManager {
                 return;
             }
             */
-            logMessage(`[UI] Loading files for directory: ${directory}`);
+            logUI(`Loading files for directory: ${directory}`);
 
             // Use globalFetch (relies on session cookie)
             const response = await globalFetch(`/api/files/list?dir=${encodeURIComponent(directory)}`);
 
             if (response.ok) {
                 const files = await response.json();
-                logMessage(`[UI] Files loaded: ${files.length}`);
+                logUI(`Files loaded: ${files.length}`);
                 this.updateFileSelect(files);
             } else {
                  console.error(`[UI] Failed to load files: ${response.status}`);
@@ -173,6 +198,20 @@ class UIManager {
             fileSelect.appendChild(option);
         });
 
+        // --- ADDED: Restore file selection --- 
+        try {
+            const restoredFile = fileManager.getCurrentFile?.(); // Get restored file
+            if (restoredFile && files.some(f => (typeof f === 'string' ? f : f.name) === restoredFile)) {
+                 fileSelect.value = restoredFile;
+                 logUI(`Restored file selection to: ${restoredFile}`);
+            } else if (restoredFile) {
+                logUI(`Restored file '${restoredFile}' not found in current list.`, 'warning');
+            }
+        } catch (e) {
+            logUI(`Failed to get/set restored file: ${e.message}`, 'error');
+        }
+        // --- END ADDED --- 
+
         // Show only if logged in (check live state) and there are files
         fileSelect.style.display = (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED && files.length > 0) ? 'block' : 'none';
     }
@@ -182,7 +221,7 @@ class UIManager {
      */
     async handleLogout(event) {
         if (event) event.preventDefault();
-        logMessage('[UI] Triggering logout...');
+        logUI('Triggering logout...');
         try {
             const { logout } = await import('/client/auth.js');
             await logout(); // Call the actual logout function
@@ -191,10 +230,10 @@ class UIManager {
             const { AUTH_STATE } = await import('/client/auth.js'); // Need AUTH_STATE here
             if (AUTH_STATE.current === AUTH_STATE.UNAUTHENTICATED) {
                 // Logout succeeded locally, server response might have been non-standard (e.g., 204)
-                logMessage(`[UI WARN] Logout completed but caught minor exception (likely server response): ${e.message}`, 'warning');
+                logUI(`Logout completed but caught minor exception: ${e.message}`, 'warning');
             } else {
                 // Logout likely failed more significantly
-                logMessage(`[UI ERROR] Logout failed: ${e.message}`, 'error');
+                logUI(`Logout failed: ${e.message}`, 'error');
                 alert(`Logout failed: ${e.message}`); // Show alert only on significant failure
             }
         }
@@ -214,21 +253,21 @@ class UIManager {
         const username = usernameInput.value;
         const password = passwordInput.value;
 
-        logMessage(`[UI] Attempting login for user: ${username}`);
+        logUI(`Attempting login for user: ${username}`);
 
         try {
             const { handleLogin } = await import('/client/auth.js');
             const success = await handleLogin(username, password);
 
             if (success) {
-                logMessage('[UI] Login successful');
+                logUI('Login successful');
                 // UI update will happen via auth:stateChanged listener
                 // REMOVED: window.location.reload();
             } else {
                  alert('Login failed. Please check username and password.');
             }
         } catch (error) {
-            logMessage(`[UI] Login error: ${error.message}`, 'error');
+            logUI(`Login error: ${error.message}`, 'error');
             alert(`Login failed: ${error.message}`);
         }
     }
@@ -240,7 +279,7 @@ class UIManager {
         // Read current state directly from imported AUTH_STATE
         const isLoggedIn = AUTH_STATE.current === AUTH_STATE.AUTHENTICATED;
         const username = AUTH_STATE.username;
-        logMessage(`[UI] Updating auth display. Logged in: ${isLoggedIn}, User: ${username || 'none'}`);
+        logUI(`Updating auth display. Logged in: ${isLoggedIn}, User: ${username || 'none'}`);
 
         if (isLoggedIn) {
             // Pass username to updateLoggedInUI
@@ -253,7 +292,8 @@ class UIManager {
 
     /**
      * Update UI for logged in state
-     * @param {string} username - The logged in username
+     * SIMPLIFIED: Only fetches and populates directory list.
+     * Selection restoration is handled by fileManager:stateRestored listener.
      */
     async updateLoggedInUI(username) {
         const { loginForm, logoutBtn, pwdDisplay, dirSelect } = this.elements;
@@ -267,58 +307,39 @@ class UIManager {
 
         document.body.setAttribute('data-auth-state', 'logged-in');
 
-        // Load directories
+        // Load directories and populate dropdown, but DON'T set selection here
         if (dirSelect) {
-            logMessage('[UI] Attempting to load directories...');
+            logUI('Fetching directories for logged in UI...');
             try {
-                logMessage('[UI] Fetching directories from /api/files/dirs...');
-                const response = await globalFetch('/api/files/dirs'); // Use globalFetch
-
-                logMessage(`[UI] Directory fetch response status: ${response.status}`);
-
+                const response = await globalFetch('/api/files/dirs');
                 if (response.ok) {
                     const dirs = await response.json();
-                    logMessage(`[UI] Successfully loaded directories: ${JSON.stringify(dirs)}`);
-                    if (dirs && dirs.length > 0) {
-                        this.updateDirectorySelect(dirs);
-
-                        // Restore last selected directory if any
-                        const lastDir = localStorage.getItem('lastSelectedDirectory');
-                        if (lastDir && dirs.includes(lastDir)) {
-                            dirSelect.value = lastDir;
-                            // Trigger change event ONLY if value was actually set
-                            if (dirSelect.value === lastDir) {
-                                logMessage(`[UI] Restoring and triggering change for directory: ${lastDir}`);
-                                dirSelect.dispatchEvent(new Event('change'));
-                            }
-                        } else {
-                            logMessage('[UI] No last directory or last directory not found in list.');
-                            // If no directory is selected (value is ""), clear files
-                            this.updateFileSelect([]);
-                            if(this.elements.fileSelect) this.elements.fileSelect.style.display = 'none';
-                        }
+                    logUI(`Directories fetched successfully. Raw response: ${JSON.stringify(dirs)}`, 'debug');
+                    if (!Array.isArray(dirs)) {
+                        logUI(`Fetched directories is not an array! Type: ${typeof dirs}`, 'error');
+                        this.updateDirectorySelect([]); // Treat as error
+                    } else if (dirs.length === 0) {
+                        logUI('Fetched directories list is empty.', 'warning');
+                        this.updateDirectorySelect(dirs); // Proceed with empty list
                     } else {
-                        logMessage('[UI] Directory list received from server is empty or invalid.');
-                        this.updateDirectorySelect([]); // Show empty state
+                        logUI(`Successfully loaded directories: ${JSON.stringify(dirs).substring(0, 100)}...`);
+                        this.updateDirectorySelect(dirs); // Populates the dropdown
                     }
                 } else {
-                    const errorText = await response.text();
-                    console.error(`[UI] Failed to load directories: ${response.status}. Response: ${errorText}`);
-                    logMessage(`[UI] Failed to load directories: ${response.status}`);
-                    this.updateDirectorySelect([]); // Show empty state
+                     console.error(`[UI] Failed to load directories: ${response.status}`);
+                     const errorText = await response.text().catch(() => 'Could not read error text');
+                     logUI(`Failed to load directories. Status: ${response.status}. Response: ${errorText}`, 'error');
+                     this.updateDirectorySelect([]); // Show empty state
                 }
             } catch (error) {
                 console.error('[UI] Error during directory loading fetch:', error);
-                logMessage(`[UI] Error loading directories: ${error.message}`);
+                logUI(`[UI] Error loading directories: ${error.message}`);
                 this.updateDirectorySelect([]); // Show empty state on error
             }
         } else {
              console.warn("[UI] Directory select element not found for logged-in state.");
-             logMessage("[UI] Directory select element not found.");
+             logUI("[UI] Directory select element not found.");
         }
-
-        // Load initial directories
-        await this.loadInitialDirectories();
     }
 
     /**
@@ -374,25 +395,58 @@ class UIManager {
             dirSelect.appendChild(option);
         });
 
-        // Try to restore previous value if it still exists in the new list
-        if (dirs.includes(currentVal)) {
-            dirSelect.value = currentVal;
-        } else {
-            dirSelect.value = ''; // Reset to placeholder if previous value is gone
+        // Restore previous selection OR select username default AFTER populating
+        let selectionRestored = false;
+        try {
+            const restoredDir = fileManager.getCurrentDirectory?.(); // Get restored directory
+            logUI(`Attempting to restore directory. Restored value: '${restoredDir}'. Available dirs: ${JSON.stringify(dirs)}`, 'debug');
+
+            if (restoredDir && dirs.some(d => d === restoredDir)) {
+                 logUI(`Restored directory '${restoredDir}' found in options. Setting select value...`, 'debug');
+                 dirSelect.value = restoredDir;
+                 logUI(`dirSelect.value after setting: '${dirSelect.value}'`, 'debug');
+                 selectionRestored = (dirSelect.value === restoredDir); // Verify it was set
+                 if (selectionRestored) {
+                    logUI(`Restored directory selection to: ${restoredDir}`);
+                 } else {
+                    logUI(`Failed to set dirSelect.value to '${restoredDir}'!`, 'warning');
+                 }
+            } else if (restoredDir) {
+                 logUI(`Restored directory '${restoredDir}' not found in current list.`, 'warning');
+                 dirSelect.value = ''; // Reset selection if restored dir not found
+            } else {
+                // No specific directory restored, leave selection at placeholder
+                logUI('No specific directory state found to restore.');
+            }
+        } catch (e) {
+            logUI(`Failed to get/set restored directory: ${e.message}`, 'error');
+            dirSelect.value = ''; // Reset on error
         }
 
         // Show only if logged in
         dirSelect.style.display = AUTH_STATE.current === AUTH_STATE.AUTHENTICATED ? 'block' : 'none';
+
+        // If a directory was successfully restored, trigger change event to load files
+        if (selectionRestored && dirSelect.value) {
+             logUI(`Triggering change event for restored directory: ${dirSelect.value}`);
+             // Use setTimeout to ensure the UI has updated before dispatching
+             setTimeout(() => {
+                logUI(`Dispatching 'change' event on dirSelect now for '${dirSelect.value}'...`, 'debug');
+                dirSelect.dispatchEvent(new Event('change'));
+             }, 0);
+        } else if (!dirSelect.value) {
+             // If no directory is selected (placeholder or cleared), ensure file list is cleared
+             this.updateFileSelect([]);
+             if(this.elements.fileSelect) this.elements.fileSelect.style.display = 'none';
+        }
     }
 
-    /**
-     * Handle log button click
-     */
-    handleLogButtonClick(event) {
+    // Handler for the main log toggle button in the navbar
+    handleMainLogToggle(event) {
         event.preventDefault();
-        event.stopPropagation();
-        logMessage('[UI] Log button clicked, calling toggleLog');
-        toggleLog('button');
+        logUI('Main log toggle button clicked');
+        // Use the global LogPanel instance
+        window.logPanel?.toggle();
     }
 
     /**
@@ -417,7 +471,7 @@ class UIManager {
             if (passwordInput && passwordInput.type !== 'text') {
                 passwordInput.type = 'text';
                 passwordInput.setAttribute('autocomplete', 'off');
-                logMessage("[UI] Set password input type to text");
+                logUI("Set password input type to text for mobile");
         }
     } catch (error) {
         console.error('[UI ERROR] Failed to set password input type:', error);
@@ -432,10 +486,10 @@ class UIManager {
         // Example: Toggling classes, moving elements (carefully)
     if (window.innerWidth <= 768) {
             document.body.classList.add('mobile-layout');
-            logMessage("[UI] Applying mobile layout adjustments");
+            logUI("Applying mobile layout adjustments");
         } else {
             document.body.classList.remove('mobile-layout');
-            logMessage("[UI] Applying desktop layout adjustments");
+            logUI("Applying desktop layout adjustments");
         }
     }
 
@@ -445,12 +499,12 @@ class UIManager {
     async showSystemInfo() {
         try {
             if (AUTH_STATE.current !== AUTH_STATE.AUTHENTICATED) {
-                logMessage('[SYSTEM] Cannot fetch system info: Not logged in');
+                logUI('Cannot fetch system info: Not logged in', 'warning');
                 alert('Please log in to view system information.'); // Provide user feedback
                 return;
             }
 
-            logMessage('[SYSTEM] Fetching system information...');
+            logUI('Fetching system information...');
             
             // Fetch system info using globalFetch
             const response = await globalFetch('/api/auth/system');
@@ -460,68 +514,79 @@ class UIManager {
             
             const info = await response.json();
             
-            // Log the information directly using logMessage
-            logMessage('\n=== SYSTEM INFORMATION ===');
+            // Log the information directly using logUI
+            logUI('\n=== SYSTEM INFORMATION ===');
             
             // Environment
-            logMessage('\nEnvironment:');
+            logUI('\nEnvironment:');
             Object.entries(info.environment || {}).forEach(([key, value]) => {
-                logMessage(`${key.padEnd(15)} = ${value}`);
+                logUI(`${key.padEnd(15)} = ${value}`);
             });
 
             // Paths
-            logMessage('\nPaths:');
+            logUI('\nPaths:');
             Object.entries(info.paths || {}).forEach(([key, value]) => {
-                logMessage(`${key.padEnd(15)} = ${value}`);
+                logUI(`${key.padEnd(15)} = ${value}`);
             });
 
             // Server Stats
             if (info.server) {
-                logMessage('\nServer:');
-                logMessage(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
-                logMessage(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
+                logUI('\nServer:');
+                logUI(`Uptime         = ${Math.round(info.server.uptime / 60)} minutes`);
+                logUI(`Memory (RSS)   = ${Math.round(info.server.memory.rss / 1024 / 1024)} MB`);
                 
                 // Active Users (Optional: Check if needed)
                 // if (info.server.activeUsers?.length > 0) {
-                //     logMessage('\nActive Users:');
+                //     logUI('\nActive Users:');
                 //     info.server.activeUsers.forEach(user => {
                 //         const lastSeen = new Date(user.lastSeen).toLocaleTimeString();
                 //         const marker = user.isCurrentUser ? '👤' : '👻';
-                //         logMessage(`${marker} ${user.username.padEnd(15)} (last seen: ${lastSeen})`);
+                //         logUI(`${marker} ${user.username.padEnd(15)} (last seen: ${lastSeen})`);
                 //     });
                 // }
             }
 
             // Add other sections if needed (like stream info)
 
-            logMessage('\n=== END OF SYSTEM INFORMATION ===');
+            logUI('\n=== END OF SYSTEM INFORMATION ===');
             // Optionally, show a confirmation alert
             // alert('System information logged to console.');
 
         } catch (error) {
             console.error('[SYSTEM ERROR]', error);
-            logMessage(`[SYSTEM ERROR] Failed to fetch system info: ${error.message}`);
+            logUI(`[SYSTEM ERROR] Failed to fetch system info: ${error.message}`);
             alert(`Error fetching system info: ${error.message}`); // User feedback on error
         }
     }
 
-    /**
-     * Helper to load initial directories, typically after login or on load if already logged in.
-     */
     async loadInitialDirectories() {
-        logMessage('[UI] Loading initial directories...');
+        logUI('[UI] Loading initial directories...');
         try {
             const response = await globalFetch('/api/files/dirs');
-            if (response.ok) {
-                const dirs = await response.json();
-                this.updateDirectorySelect(dirs);
-            } else {
-                logMessage(`[UI] Failed to load initial directories: ${response.status}`, 'warning');
-                this.updateDirectorySelect([]); // Clear on error
-            }
+            // ... (error handling) ...
+            const dirs = await response.json();
+            this.updateDirectorySelect(dirs); // Populates dropdown again
         } catch (error) {
-            logMessage(`[UI] Error loading initial directories: ${error.message}`, 'error');
-            this.updateDirectorySelect([]); // Clear on error
+            // ...
+        }
+    }
+
+    // Handler for the new file manager state settled event
+    /**
+     * Handle the event indicating the file manager has determined its initial state.
+     * This is the correct time to update the UI based on auth state after a reload.
+     */
+    handleFileManagerStateSettled() {
+        logUI(`Received fileManager:stateSettled event. Checking auth state: ${AUTH_STATE.current}`);
+        if (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED) {
+            logUI('Auth is AUTHENTICATED upon state settlement, calling updateAuthDisplay.');
+            // No need for setTimeout here, as this event fires after the relevant state is ready
+            this.updateAuthDisplay(); 
+        } else {
+            logUI('Auth is not AUTHENTICATED upon state settlement.');
+            // If logged out, updateAuthDisplay might have already run via auth:stateChanged,
+            // but calling it again ensures UI is in the correct logged-out state.
+            this.updateLoggedOutUI(); 
         }
     }
 }

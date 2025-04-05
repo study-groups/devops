@@ -2,10 +2,11 @@
  * editor.js
  * Handles Markdown editor functionality
  */
-import { logMessage } from '/client/log/index.js';
 import { setView } from '/client/views.js';
 import { eventBus } from '/client/eventBus.js';
 import { uploadImage } from '/client/imageManager.js';
+import { logMessage } from '/client/log/index.js';
+import { globalFetch } from '/client/globalFetch.js';
 
 // Import required file management functionality safely (dynamic)
 async function getFileSystemState() {
@@ -16,7 +17,7 @@ async function getFileSystemState() {
             getCurrentFile: fsModule.getCurrentFile || (() => '')
         };
     } catch (e) {
-        logMessage('[EDITOR ERROR] Failed to load fileSystemState module dynamically', 'error');
+        logEditor('[EDITOR ERROR] Failed to load fileSystemState module dynamically', 'error');
         return { getCurrentDirectory: () => '', getCurrentFile: () => '' };
     }
 }
@@ -30,13 +31,13 @@ const editorCore = {
    * Initialize the editor
    * @returns {Promise<boolean>} Whether initialization was successful
    */
-  initializeEditor: async function() {
+  initializeEditor: async function(options = {}) {
     if (editorInitialized) {
-      logMessage('[EDITOR] Already initialized, skipping');
+      logEditor('[EDITOR] Already initialized, skipping');
       return true;
     }
 
-    logMessage('[EDITOR] Starting initialization');
+    logEditor('[EDITOR] Starting initialization');
     
     try {
       // Initialize basic functionality
@@ -53,15 +54,36 @@ const editorCore = {
       // Set up image paste handler
       setupImagePasteHandler();
       
+      // Attach drag and drop listeners
+      const editorElement = document.getElementById(options.containerId || 'md-editor');
+      if (editorElement) {
+        editorElement.addEventListener('dragover', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          editorElement.classList.add('dragover');
+        });
+
+        editorElement.addEventListener('dragleave', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          editorElement.classList.remove('dragover');
+        });
+
+        editorElement.addEventListener('drop', handleFileDrop);
+        logEditor('Drag and drop listeners attached to editor.');
+      } else {
+        logEditor('Editor element not found for attaching drag/drop listeners.', 'warning');
+      }
+      
       // Emit initialization event
       eventBus.emit('editor:initialized');
       
       editorInitialized = true;
-      logMessage('[EDITOR] Initialization complete');
+      logEditor('[EDITOR] Initialization complete');
       return true;
     } catch (error) {
       console.error('[EDITOR ERROR]', error);
-      logMessage(`[EDITOR ERROR] Initialization failed: ${error.message}`);
+      logEditor(`[EDITOR ERROR] Initialization failed: ${error.message}`);
       return false;
     }
   },
@@ -77,8 +99,10 @@ const editorCore = {
       textarea.value = content || '';
       // Trigger input event to update preview
       textarea.dispatchEvent(new Event('input'));
+      logEditor(`Content set (length: ${content.length})`);
       return true;
     }
+    logEditor('Cannot set content, editor element not found.', 'warning');
     return false;
   },
   
@@ -151,12 +175,12 @@ const editorCore = {
     
     try {
       // Upload the image
-      logMessage('[EDITOR] Uploading pasted image');
+      logEditor('[EDITOR] Uploading pasted image');
       const imageUrl = await uploadImage(blob);
       
       // Replace loading text with actual image markdown
       if (imageUrl) {
-        logMessage(`[EDITOR] Image upload successful: ${imageUrl}`);
+        logEditor(`[EDITOR] Image upload successful: ${imageUrl}`);
         
         // Replace the loading text with the actual image markdown
         const currentText = textarea.value;
@@ -168,7 +192,7 @@ const editorCore = {
         
         return true;
       } else {
-        logMessage('[EDITOR ERROR] Image upload failed - no URL returned');
+        logEditor('[EDITOR ERROR] Image upload failed - no URL returned');
         // Replace the loading text with an error message
         const currentText = textarea.value;
         const updatedText = currentText.replace(loadingText, '![Upload failed](error)');
@@ -177,7 +201,7 @@ const editorCore = {
         return false;
       }
     } catch (error) {
-      logMessage(`[EDITOR ERROR] Image upload failed: ${error.message}`);
+      logEditor(`[EDITOR ERROR] Image upload failed: ${error.message}`);
       console.error('[EDITOR ERROR]', error);
       
       // Replace the loading text with an error message
@@ -223,7 +247,7 @@ const editorCore = {
 function setupEditorTextarea() {
   const editorContainer = document.getElementById('md-editor');
   if (!editorContainer) {
-    logMessage('[EDITOR] Editor container not found, creating one');
+    logEditor('[EDITOR] Editor container not found, creating one');
     
     // Create editor container if it doesn't exist
     const newEditor = document.createElement('div');
@@ -240,9 +264,9 @@ function setupEditorTextarea() {
                             document.body;
     
     contentContainer.appendChild(newEditor);
-    logMessage('[EDITOR] Created editor container');
+    logEditor('[EDITOR] Created editor container');
   } else {
-    logMessage('[EDITOR] Found existing editor container');
+    logEditor('[EDITOR] Found existing editor container');
     
     // Ensure textarea exists
     let textarea = editorContainer.querySelector('textarea');
@@ -250,7 +274,7 @@ function setupEditorTextarea() {
       textarea = document.createElement('textarea');
       textarea.placeholder = 'Type Markdown here...';
       editorContainer.appendChild(textarea);
-      logMessage('[EDITOR] Added missing textarea to editor container');
+      logEditor('[EDITOR] Added missing textarea to editor container');
     }
   }
 }
@@ -266,14 +290,14 @@ function setupKeyboardShortcuts() {
     // Ctrl+S / Cmd+S - Save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      logMessage('[EDITOR] Save shortcut triggered');
+      logEditor('[EDITOR] Save shortcut triggered');
       eventBus.emit('editor:save');
     }
     
     // Ctrl+O / Cmd+O - Open (Example - might need implementation)
     // if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
     //   e.preventDefault();
-    //   logMessage('[EDITOR] Open shortcut triggered');
+    //   logEditor('[EDITOR] Open shortcut triggered');
     //   eventBus.emit('editor:open');
     // }
   });
@@ -309,21 +333,21 @@ function setupEventListeners() {
  * Set up image paste handler
  */
 function setupImagePasteHandler() {
-  logMessage('[EDITOR] Setting up image paste handler');
+  logEditor('[EDITOR] Setting up image paste handler');
   
   const textarea = document.querySelector('#md-editor textarea');
   if (!textarea) {
-    logMessage('[EDITOR ERROR] Textarea not found for image paste handler');
+    logEditor('[EDITOR ERROR] Textarea not found for image paste handler');
     return false;
   }
   
   // Setup paste event handler
   textarea.addEventListener('paste', async function(e) {
-    logMessage('[EDITOR] Paste event detected');
+    logEditor('[EDITOR] Paste event detected');
     
     // Check if there are items in the clipboard
     if (!e.clipboardData || !e.clipboardData.items) {
-      logMessage('[EDITOR] No clipboard data available');
+      logEditor('[EDITOR] No clipboard data available');
       return;
     }
     
@@ -340,7 +364,7 @@ function setupImagePasteHandler() {
     
     // If we found an image, handle it
     if (imageItem) {
-      logMessage('[EDITOR] Found image in clipboard data');
+      logEditor('[EDITOR] Found image in clipboard data');
       
       // Prevent default paste behavior for images
       e.preventDefault();
@@ -348,7 +372,7 @@ function setupImagePasteHandler() {
       // Get the image blob
       const blob = imageItem.getAsFile();
       if (!blob) {
-        logMessage('[EDITOR ERROR] Could not get image file from clipboard');
+        logEditor('[EDITOR ERROR] Could not get image file from clipboard');
         return;
       }
       
@@ -357,8 +381,140 @@ function setupImagePasteHandler() {
     }
   });
   
-  logMessage('[EDITOR] Image paste handler initialized');
+  logEditor('[EDITOR] Image paste handler initialized');
   return true;
+}
+
+// Helper function to log editor messages
+function logEditor(message, level = 'text') {
+    logMessage(`[EDITOR] ${message}`, level);
+}
+
+// <<< MODIFY: Drag and Drop Upload Logic >>>
+function handleFileDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const editorElement = document.getElementById('md-editor'); // Or the drop target
+    if (editorElement) editorElement.classList.remove('dragover');
+    logEditor('File drop detected.');
+
+    const files = event.dataTransfer.files;
+    if (!files || files.length === 0) {
+        logEditor('No files found in drop event.', 'warning');
+        return;
+    }
+
+    // Process each dropped file
+    for (const file of files) {
+        logEditor(`Processing dropped file: ${file.name} (${file.type})`);
+
+        const isImage = file.type.startsWith('image/');
+        const isAudio = file.type.startsWith('audio/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (isImage) {
+            logEditor(`Uploading image: ${file.name}`);
+            // Use the existing image upload logic from imageManager
+            // We assume uploadImage handles insertion or emits an event
+            uploadImage(file).catch(err => {
+                logEditor(`Image upload failed for ${file.name}: ${err.message}`, 'error');
+                alert(`Image upload failed: ${err.message}`);
+            });
+        } else if (isAudio || isVideo) {
+            logEditor(`Uploading media (audio/video): ${file.name}`);
+            // Use the new function to upload audio/video to Spaces
+            uploadMediaToSpaces(file);
+        } else {
+            logEditor(`Skipping unsupported file type: ${file.name} (${file.type})`, 'warning');
+            // Optionally inform the user about unsupported types
+            // alert(`File type not supported: ${file.type}`);
+        }
+    }
+}
+
+// <<< ADD: New function to upload audio/video to Spaces >>>
+async function uploadMediaToSpaces(file) {
+    const formData = new FormData();
+    formData.append('mediaFile', file); // Must match the key expected by the server route ('mediaFile')
+
+    logEditor(`Uploading ${file.type} to Spaces: ${file.name}...`);
+    // Optionally show a loading indicator specific to this upload
+
+    try {
+        // Use the new endpoint /api/media/upload
+        const response = await globalFetch('/api/media/upload', {
+            method: 'POST',
+            body: formData, // Browser sets Content-Type for FormData automatically
+        });
+
+        // Check if response is OK and content type is JSON before parsing
+        if (!response.ok) {
+            let errorMsg = `Server error: ${response.status} ${response.statusText}`;
+            try {
+                // Attempt to get more specific error from JSON body if possible
+                const errorResult = await response.json();
+                errorMsg = errorResult.error || errorMsg;
+            } catch (e) {
+                // If response is not JSON, use the status text
+                logEditor('Response was not JSON, using status text for error.', 'warning');
+            }
+            throw new Error(errorMsg);
+        }
+        
+        // Check content type before parsing JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error(`Unexpected response type: ${contentType}. Expected JSON.`);
+        }
+
+        const result = await response.json();
+
+        if (!result.url || !result.filePath) {
+             throw new Error('Server response missing required filePath or url field.');
+        }
+
+        logEditor(`Media upload successful: ${result.filename}, Path: ${result.filePath}, URL: ${result.url}`);
+
+        // Insert markdown using the absolute URL from the response
+        insertMediaMarkdown(file.type, result.url, file.name);
+
+        // Optionally hide loading indicator and show success message
+
+    } catch (error) {
+        logEditor(`Media upload failed: ${error.message}`, 'error');
+        console.error('[MEDIA UPLOAD ERROR]', error);
+        // Optionally hide loading indicator and show error message to user
+        alert(`Media upload failed: ${error.message}`);
+    }
+}
+
+// <<< KEEP: Existing function to insert Markdown >>>
+function insertMediaMarkdown(fileType, filePath, originalName) {
+    const editorTextarea = document.querySelector('#md-editor textarea');
+    if (!editorTextarea) {
+        logEditor('Editor textarea not found for inserting markdown.', 'error');
+        return;
+    }
+
+    const typeTag = fileType.startsWith('audio/') ? '!audio' : '!video';
+    // Use originalName as alt text, remove extension if desired
+    const altText = originalName.split('.').slice(0, -1).join('.') || originalName;
+    const markdownToInsert = `\n${typeTag}[${altText}](${filePath})\n`; // Add newlines
+
+    // Insert at cursor position or append
+    const start = editorTextarea.selectionStart;
+    const end = editorTextarea.selectionEnd;
+    const text = editorTextarea.value;
+    
+    editorTextarea.value = text.substring(0, start) + markdownToInsert + text.substring(end);
+    
+    // Move cursor after inserted text
+    editorTextarea.selectionStart = editorTextarea.selectionEnd = start + markdownToInsert.length;
+
+    // Trigger change event for preview update
+    editorTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+    logEditor(`Inserted markdown: ${markdownToInsert.trim()}`);
 }
 
 // Export for module use

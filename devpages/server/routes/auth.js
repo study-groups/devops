@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { validateUser, getUserSalt } = require('../utils/userUtils');
+const { validateUser, getUserSalt, loadUsers, hashPassword } = require('../utils/userUtils');
 const { authMiddleware } = require('../middleware/auth');
 const path = require('path');
 
@@ -26,29 +26,58 @@ router.get('/salt', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-    // Expect HASHED password from client again
-    const { username, hashedPassword } = req.body; 
+    // Expect PLAIN password from client
+    const { username, password } = req.body; 
     
-    console.log('[AUTH /login] Received body:', req.body); // Keep log for now
+    console.log('[AUTH /login] Received body:', { username, password: '[REDACTED]' }); 
 
-    // Validate presence of HASHED password
-    if (!username || !hashedPassword) { 
-        return res.status(400).json({ error: 'Username and password hash required' });
+    if (!username || !password) { 
+        console.log('[AUTH /login ERROR] Username or password missing');
+        return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Pass HASHED password to validateUser
-    if (validateUser(username, hashedPassword)) { 
-        // --- Session Creation --- 
-        req.session.user = {
-            username: username,
-            loggedIn: true
-        };
-        console.log(`[AUTH] Session created for user: ${username}`);
-        // --- End Session Creation ---
-        
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ error: 'Invalid credentials' });
+    try {
+        const users = loadUsers();
+        const user = users.get(username);
+
+        if (!user) {
+            console.log(`[AUTH /login] User not found: ${username}`);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Hash the received plain password with the user's stored salt
+        const receivedPasswordHash = hashPassword(password, user.salt);
+
+        if (!receivedPasswordHash) {
+             console.error(`[AUTH /login ERROR] Server-side hashing failed for user: ${username}`);
+             return res.status(500).json({ error: 'Login processing error' });
+        }
+
+        console.log(`[AUTH /login] Comparing password hashes for user: ${username}`);
+        // Compare the newly generated hash with the stored hash
+        if (receivedPasswordHash === user.hash) {
+            console.log(`[AUTH /login] Password validation successful for user: ${username}`);
+            // --- Session Creation --- 
+            req.session.regenerate((err) => { // Regenerate session to prevent fixation
+                 if (err) {
+                     console.error('[AUTH /login ERROR] Session regeneration failed:', err);
+                     return res.status(500).json({ error: 'Login session error' });
+                 }
+                 req.session.user = {
+                     username: username,
+                     loggedIn: true
+                 };
+                 console.log(`[AUTH] Session created for user: ${username}`);
+                 res.json({ success: true });
+            });
+            // --- End Session Creation ---
+        } else {
+            console.log(`[AUTH /login] Password validation failed for user: ${username}`);
+            res.status(401).json({ error: 'Invalid credentials' });
+        }
+    } catch (error) {
+        console.error('[AUTH /login ERROR] Error during login process:', error);
+        res.status(500).json({ error: 'Internal server error during login' });
     }
 });
 
@@ -79,7 +108,7 @@ router.get('/config', (req, res) => {
 
 // Protected routes (auth required)
 router.get('/user', authMiddleware, (req, res) => {
-    res.json({ username: req.auth.name });
+    res.json({ username: req.user.username });
 });
 
 const activeUsers = new Map(); // Store active users and their last activity
@@ -97,7 +126,7 @@ function updateActiveUser(username) {
 
 // Add this route to get detailed system info
 router.get('/system', authMiddleware, (req, res) => {
-    updateActiveUser(req.auth.name);
+    updateActiveUser(req.user.username);
     
     const systemInfo = {
         environment: {
@@ -107,7 +136,7 @@ router.get('/system', authMiddleware, (req, res) => {
         },
         paths: {
             MD_DIR: process.env.MD_DIR,
-            MD_PWD: path.join(process.env.MD_DIR, req.auth.name),
+            MD_PWD: path.join(process.env.MD_DIR, req.user.username),
             PJ_DIR: process.env.PJ_DIR,
             IMAGES_DIR: process.env.IMAGES_DIR,
             USERS_FILE: process.env.PJA_USERS_CSV
@@ -118,12 +147,25 @@ router.get('/system', authMiddleware, (req, res) => {
             activeUsers: Array.from(activeUsers.entries()).map(([user, lastSeen]) => ({
                 username: user,
                 lastSeen: new Date(lastSeen).toISOString(),
-                isCurrentUser: user === req.auth.name
+                isCurrentUser: user === req.user.username
             }))
         }
     };
 
     res.json(systemInfo);
+});
+
+// Logout route
+router.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('[AUTH Logout Error]', err);
+            return res.status(500).json({ error: 'Could not log out, please try again.' });
+        }
+        res.clearCookie('connect.sid'); // Use the default session cookie name, adjust if different
+        console.log('[AUTH] Session destroyed successfully.');
+        res.json({ success: true, message: 'Logged out successfully' });
+    });
 });
 
 module.exports = router; 

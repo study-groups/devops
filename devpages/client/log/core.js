@@ -64,41 +64,4 @@ export function updateLogEntryCount() {
         const entryCount = logDiv.children.length;
         logStatus.textContent = `${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`;
     }
-}
-
-/**
- * Clear all log entries
- */
-export function clearLog() {
-    const logDiv = document.getElementById('log');
-    if (logDiv) {
-        logDiv.innerHTML = '';
-        
-        // Update log status count
-        updateLogEntryCount();
-        
-        // Use direct console.log instead of logMessage to avoid circular reference
-        console.log('[LOG] Log cleared');
-    }
-}
-
-/**
- * Copy log contents to clipboard
- */
-export function copyLog() {
-    const logDiv = document.getElementById('log');
-    if (logDiv) {
-        const logText = Array.from(logDiv.children)
-            .map(entry => entry.textContent)
-            .join('\n');
-        
-        navigator.clipboard.writeText(logText)
-            .then(() => {
-                // Use direct console.log instead of logMessage to avoid circular reference
-                console.log('[LOG] Log copied to clipboard');
-            })
-            .catch(err => {
-                console.error('[LOG ERROR] Failed to copy log: ' + err);
-            });
-    }
 } 
