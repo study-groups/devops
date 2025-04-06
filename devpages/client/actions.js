@@ -309,8 +309,107 @@ export const triggerActions = {
                   // alert('Please select both a directory and a file to load.');
              }
          } catch (e) { logAction(`loadFile failed: ${e.message}`, 'error'); }
+    },
+
+    // --- Updated: Static HTML Download Action (Client-Side) ---
+    downloadStaticHTML: async () => { // Made async to await fileManager import
+        logAction('Triggering client-side downloadStaticHTML...');
+        try {
+            logMessage('[ACTION] Generating static HTML from Markdown preview area...');
+            
+            // Import editorCore to get content
+            const { getContent } = await import('/client/editor.js'); // Import specific function
+            
+            // Import file system state for metadata
+            const { getCurrentFile, getCurrentDirectory } = await import('/client/fileSystemState.js');
+            
+            // Get file info from fileSystemState
+            let currentFile = getCurrentFile() || 'unknown_file';
+            let currentDir = getCurrentDirectory() || 'unknown_dir';
+            
+            // 1. Get the Markdown preview element again
+            const previewElement = document.getElementById('md-preview');
+            if (!previewElement) {
+                throw new Error('Markdown preview element (#md-preview) not found.');
+            }
+            
+            // 2. Get preview's rendered inner HTML content for the body
+            const previewContent = previewElement.innerHTML;
+            
+            // --- Get Original Markdown for the comment ---
+            const markdownContent = getContent() || ''; // Use imported getContent()
+            const generationTime = new Date().toISOString();
+            
+            // 4. Construct YAML Front Matter (within the comment)
+            const yamlFrontMatter = `---
+file: ${currentFile}
+directory: ${currentDir}
+generated_at: ${generationTime}
+---`;
+            
+            // 5. Construct the hidden div containing metadata and source
+            const metadataContainer = `
+<div id="devpages-metadata-source" style="display:none; height:0; overflow:hidden; position:absolute;">
+<pre># --- DevPages Metadata & Source --- #
+${yamlFrontMatter}
+
+## Original Markdown Source ##
+
+${markdownContent}
+</pre>
+</div>`;
+            
+            // 6. Create the full HTML structure
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: ${currentFile}</title> <!-- Updated title -->
+  <link rel="stylesheet" href="/client/preview.css"> 
+</head>
+<body>
+  <div class="markdown-body">
+${previewContent} <!-- Use rendered HTML here -->
+  </div>
+${metadataContainer} <!-- Added hidden div at the end of body -->
+</body>
+</html>`;
+            
+            // 7. Create a Blob from the HTML content
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            
+            // 8. Create an Object URL for the Blob
+            const url = window.URL.createObjectURL(blob);
+            
+            // 9. Create a temporary link element
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'preview.html'; // Set the desired filename
+            
+            // 10. Append the link to the body and trigger the download
+            document.body.appendChild(a);
+            a.click();
+            
+            // 11. Clean up: Revoke the Object URL and remove the link
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            logMessage('[ACTION] Static HTML generated from preview (with metadata) and download initiated.');
+
+        } catch (error) {
+            logAction(`Error during client-side downloadStaticHTML: ${error.message}`, 'error');
+            logMessage(`[ACTION ERROR] Failed to generate static HTML: ${error.message}`, 'error');
+            alert(`Failed to generate static HTML: ${error.message}`); // Notify user
+        }
     }
 };
+
+// <<< ADD LOG AFTER triggerActions >>>
+console.log('[DEBUG] actions.js: Defined triggerActions:', Object.keys(triggerActions));
+
+// Backwards compatibility - Map old functions if needed
 
 // Add this helper function to get the current auth token
 async function getAuthToken() {

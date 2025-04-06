@@ -603,3 +603,24 @@ html[data-log-visible="true"] #main-container.log-visible #content {
 }
 
 /* --- End Initial UI State Control --- */
+
+/* ============================================= */
+/* AGGRESSIVE KaTeX DEBUG OVERRIDES - START     */
+/* Minimal necessary overrides for alignment fix */
+/* ============================================= */
+
+/* Reset needed for specific inner elements */
+.katex .mtable, 
+.katex .vlist, 
+.katex .frac-line,
+.katex .strut,
+.katex .delimsizing,
+.katex .mathit 
+/* , .katex span */ { 
+    vertical-align: baseline !important; 
+    line-height: normal !important;    
+}
+
+/* ============================================= */
+/* AGGRESSIVE KaTeX DEBUG OVERRIDES - END       */
+/* ============================================= */

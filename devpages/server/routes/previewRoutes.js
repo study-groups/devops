@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs').promises;
+const playwright = require('playwright');
+const { port } = require('../config');
 
 // Create a slug-to-id lookup table
 let slugLookupTable = {};
@@ -93,6 +95,58 @@ router.get('/preview-direct/:slug', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(data);
   });
+});
+
+// API endpoint to generate static HTML using Playwright
+router.get('/api/preview/static-html', async (req, res) => {
+  console.log(`[SERVER] Static HTML generation request received.`);
+  let browser = null;
+  try {
+    // Launch the browser (Chromium is often a good default)
+    browser = await playwright.chromium.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // Construct the base URL using the configured port
+    // Ensure process.env.NODE_ENV is checked for proper http/https handling if needed
+    const baseUrl = `http://localhost:${port}`;
+    const targetUrl = `${baseUrl}/`; // Target the root page
+
+    console.log(`[SERVER] Navigating to ${targetUrl} for HTML capture...`);
+
+    // Navigate to the page and wait for it to be fully loaded
+    await page.goto(targetUrl, { waitUntil: 'networkidle' }); 
+    // 'networkidle' waits until there are no network connections for 500 ms.
+    // This might need adjustment based on how your SPA loads data.
+
+    console.log(`[SERVER] Page loaded, extracting HTML...`);
+
+    // Get the full HTML content of the page
+    const htmlContent = await page.content();
+
+    console.log(`[SERVER] HTML extracted successfully.`);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', 'attachment; filename="preview.html"');
+
+    // Send the HTML content
+    res.send(htmlContent);
+
+  } catch (error) {
+    console.error(`[SERVER] Error generating static HTML: ${error.message}`);
+    console.error(error.stack); // Log the full stack trace
+    res.status(500).json({ 
+        error: 'Failed to generate static HTML preview.',
+        details: error.message 
+    });
+  } finally {
+    // Ensure the browser is closed even if an error occurs
+    if (browser) {
+      console.log(`[SERVER] Closing Playwright browser.`);
+      await browser.close();
+    }
+  }
 });
 
 // API endpoint to fetch preview data - useful for cross-device viewing

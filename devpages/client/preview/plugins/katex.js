@@ -34,9 +34,11 @@ let config = {
  * @returns {Promise<Boolean>} Whether loading was successful
  */
 async function loadKaTeX() {
+  logMessage('[PREVIEW DEBUG] loadKaTeX started.');
   try {
     // If already loaded, return early
     if (window.katex && window.renderMathInElement) {
+      logMessage('[PREVIEW DEBUG] KaTeX and renderMathInElement already loaded.');
       katex = window.katex;
       renderMathInElement = window.renderMathInElement;
       return true;
@@ -44,10 +46,12 @@ async function loadKaTeX() {
     
     // Check if the script is already loading
     if (document.querySelector(`script[src="${KATEX_JS_CDN}"]`)) {
+      logMessage('[PREVIEW DEBUG] KaTeX JS script already exists in DOM. Waiting...');
       // Wait for it to load
       await new Promise(resolve => {
         const checkLoaded = () => {
           if (window.katex) {
+            logMessage('[PREVIEW DEBUG] window.katex became available.');
             resolve();
           } else {
             setTimeout(checkLoaded, 100);
@@ -57,9 +61,13 @@ async function loadKaTeX() {
       });
       
       katex = window.katex;
+      logMessage('[PREVIEW DEBUG] katex variable assigned after wait.');
+
     } else {
+      logMessage('[PREVIEW DEBUG] KaTeX JS script not in DOM. Loading CSS and JS...');
       // Load KaTeX CSS
       if (!document.querySelector(`link[href="${KATEX_CSS_CDN}"]`)) {
+        logMessage('[PREVIEW DEBUG] Loading KaTeX CSS.');
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = KATEX_CSS_CDN;
@@ -67,34 +75,43 @@ async function loadKaTeX() {
       }
       
       // Load KaTeX JS
+      logMessage('[PREVIEW DEBUG] Attempting to load KaTeX JS script.');
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = KATEX_JS_CDN;
         script.async = true;
-        script.onload = resolve;
-        script.onerror = reject;
+        script.onload = () => { logMessage('[PREVIEW DEBUG] KaTeX JS onload triggered.'); resolve(); };
+        script.onerror = (err) => { logMessage(`[PREVIEW DEBUG] KaTeX JS onerror triggered: ${err}`); reject(err); };
         document.head.appendChild(script);
       });
       
+      logMessage('[PREVIEW DEBUG] KaTeX JS script finished loading (promise resolved).');
       katex = window.katex;
+      if (!katex) { logMessage('[PREVIEW DEBUG] WARNING: window.katex is null/undefined after load!'); }
       
       // Load auto-render extension
+      logMessage('[PREVIEW DEBUG] Attempting to load auto-render script.');
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = KATEX_AUTO_CDN;
         script.async = true;
-        script.onload = resolve;
-        script.onerror = reject;
+        script.onload = () => { logMessage('[PREVIEW DEBUG] Auto-render JS onload triggered.'); resolve(); };
+        script.onerror = (err) => { logMessage(`[PREVIEW DEBUG] Auto-render JS onerror triggered: ${err}`); reject(err); };
         document.head.appendChild(script);
       });
       
+      logMessage('[PREVIEW DEBUG] Auto-render script finished loading (promise resolved).');
       renderMathInElement = window.renderMathInElement;
+      if (!renderMathInElement) { logMessage('[PREVIEW DEBUG] WARNING: window.renderMathInElement is null/undefined after load!'); }
     }
     
+    logMessage('[PREVIEW DEBUG] Checking final katex and renderMathInElement variables.');
     if (!katex || !renderMathInElement) {
+      logMessage('[PREVIEW DEBUG] Final check FAILED.');
       throw new Error('KaTeX or auto-render extension not loaded');
     }
     
+    logMessage('[PREVIEW DEBUG] Final check PASSED. KaTeX loaded successfully');
     logMessage('[PREVIEW] KaTeX loaded successfully');
     return true;
   } catch (error) {

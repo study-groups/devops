@@ -85,6 +85,7 @@ export class LogPanel {
         this._createToolbarButton('info-btn', 'ℹ️', 'showSystemInfo', 'System Information');
         this._createToolbarButton('clear-log-btn', 'Clear', 'clearLog');
         this._createToolbarButton('debug-btn', '🔍 Debug', 'runDebugUI', 'Run diagnostics');
+        this._createToolbarButton('static-html-btn', 'Static HTML', 'downloadStaticHTML', 'Download Static HTML');
 
         // Create CLI Input
         this.cliInputElement = document.createElement('input');

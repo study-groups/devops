@@ -35,7 +35,7 @@ async function loadKatexCss() {
         }
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css';
+        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
         link.onload = () => {
             logRenderer('KaTeX CSS loaded successfully from CDN.');
             resolve();
@@ -57,7 +57,7 @@ async function loadKatexScript() {
             return;
         }
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
         script.async = true;
         script.onload = () => {
             logRenderer('KaTeX JS loaded successfully from CDN.');
@@ -94,6 +94,66 @@ async function loadMarkdownItScript() {
     });
 }
 
+// Function to load KaTeX Auto-Render JS (COMMENT OUT/REMOVE)
+/* async function loadKatexAutoRenderScript() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.renderMathInElement !== 'undefined') {
+            logRenderer('KaTeX Auto-Render JS already loaded.');
+            resolve();
+            return;
+        }
+        // Ensure KaTeX base is loaded first
+        if (typeof window.katex === 'undefined') {
+            logRenderer('KaTeX base not loaded before auto-render attempt.', 'error');
+            return reject(new Error('KaTeX base missing for auto-render'));
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
+        script.async = true;
+        script.onload = () => {
+            logRenderer('KaTeX Auto-Render JS loaded successfully from CDN.');
+            if (typeof window.renderMathInElement === 'undefined') {
+                logRenderer('window.renderMathInElement is STILL undefined after load!', 'error');
+                reject(new Error('renderMathInElement not defined after script load'));
+            } else {
+                 resolve();
+            }
+        };
+        script.onerror = (err) => {
+            logRenderer('Failed to load KaTeX Auto-Render JS from CDN.', 'error');
+            reject(err);
+        };
+        document.head.appendChild(script);
+    });
+} */
+
+// Function to preprocess content for KaTeX blocks
+function preprocessKatexBlocks(content) {
+    let changed = false;
+    logRenderer('[DEBUG] Running preprocessKatexBlocks...');
+    
+    // Match and process block math: \[ ... \]
+    const blockRegex = /\\\[([\s\S]*?)\\\]/g; 
+    let processedContent = content.replace(blockRegex, (match, formula) => {
+        logRenderer('[DEBUG] BLOCK MATH MATCH FOUND! Content length: ' + formula.length);
+        changed = true;
+        return '$$' + formula + '$$'; 
+    });
+    
+    // Match and process inline math: \( ... \)
+    const inlineRegex = /\\\(([\s\S]*?)\\\)/g;
+    processedContent = processedContent.replace(inlineRegex, (match, formula) => {
+        logRenderer('[DEBUG] INLINE MATH MATCH FOUND! Content length: ' + formula.length);
+        changed = true;
+        return '$' + formula.trim() + '$';
+    });
+    
+    if (changed) {
+         logRenderer('Pre-processed markdown: Replaced math delimiters with KaTeX format');
+    }
+    return processedContent;
+}
+
 /**
  * Initialize the Markdown renderer with necessary extensions and options.
  */
@@ -111,6 +171,10 @@ async function initializeRenderer() {
         ]);
         logRenderer('Highlight.js, markdown-it, KaTeX base loaded.');
 
+        // ALSO LOAD AUTO-RENDER - COMMENT OUT
+        // await loadKatexAutoRenderScript();
+        // logRenderer('KaTeX auto-render loaded.');
+
         // Check if markdown-it loaded successfully
         if (typeof window.markdownit === 'undefined') {
             throw new Error('markdown-it library failed to load or define window.markdownit.');
@@ -122,15 +186,22 @@ async function initializeRenderer() {
             breaks: false,
             langPrefix: 'language-',
             linkify: true,
-            typographer: true,
+            typographer: false,
             highlight: null // Let highlight plugin handle this later if needed, or configure hljs here
         });
 
-        // Apply KaTeX plugin
-        md.use(markdownitKatex); 
-        logRenderer('Applied KaTeX plugin.');
+        // Apply KaTeX plugin - RE-ENABLE
+        md.use(markdownitKatex, {
+            throwOnError: false,
+            errorColor: '#cc0000',
+            trust: true,
+            displayMode: false,
+            strict: "ignore"
+        });
+        logRenderer('Applied KaTeX plugin with permissive error handling.');
+        // logRenderer('Skipping markdown-it-katex plugin.'); // REMOVE/COMMENT OUT THIS LOG
 
-        // Keep existing fence rule override for Mermaid/SVG
+        // Keep existing fence rule override for Mermaid/SVG/LaTeX
         const defaultFence = md.renderer.rules.fence;
         md.renderer.rules.fence = (tokens, idx, options, env, self) => {
             const token = tokens[idx];
@@ -139,7 +210,7 @@ async function initializeRenderer() {
             logRenderer(`[FENCE RULE] Processing fence. Info: '${info}'`);
 
             if (info === 'mermaid') {
-                logRenderer('[FENCE RULE] Identified as Mermaid block. Returning <div class="mermaid">...');
+                logRenderer('[FENCE RULE] Identified as Mermaid block.');
                 const code = token.content.trim();
                 const sanitizedCode = code
                     .replace(/</g, '&lt;')
@@ -147,14 +218,33 @@ async function initializeRenderer() {
                 return `<div class="mermaid">${sanitizedCode}</div>`;
             }
             
-            // <<< ADD: Handle SVG blocks >>>
+            // Handle LaTeX blocks - especially tables
+            if (info === 'latex') {
+                logRenderer('[FENCE RULE] Identified as LaTeX block.');
+                try {
+                    if (window.katex) {
+                        const html = window.katex.renderToString(token.content, {
+                            displayMode: true,
+                            throwOnError: false,
+                            trust: true,
+                            strict: false
+                        });
+                        return `<div class="katex-block">${html}</div>`;
+                    } else {
+                        logRenderer('[FENCE RULE] KaTeX not available', 'error');
+                        return `<pre><code>${token.content}</code></pre>`;
+                    }
+                } catch (err) {
+                    logRenderer(`[FENCE RULE] Error: ${err.message}`, 'error');
+                    return `<pre><code class="error">${token.content}</code></pre>`;
+                }
+            }
+            
             if (info === 'svg') {
-                logRenderer('[FENCE RULE] Identified as SVG block. Returning raw SVG content.');
-                // Return the raw content directly for the browser to render as SVG
+                logRenderer('[FENCE RULE] Identified as SVG block.');
                 return token.content;
             }
 
-            logRenderer(`[FENCE RULE] Not Mermaid or SVG ('${info}'). Falling back to default fence renderer.`);
             return defaultFence(tokens, idx, options, env, self);
         };
         logRenderer('markdown-it extensions applied (fence override for mermaid/svg, katex).');
@@ -173,6 +263,11 @@ async function initializeRenderer() {
  * @returns {Promise<string>} The rendered and sanitized HTML.
  */
 export async function renderMarkdown(markdownContent) {
+    // Log the raw input string
+    console.log('--- KaTeX RAW INPUT DEBUG START ---');
+    console.log(markdownContent);
+    console.log('--- KaTeX RAW INPUT DEBUG END ---');
+
     if (!isInitialized) {
         await initializeRenderer();
         if (!isInitialized) {
@@ -183,18 +278,28 @@ export async function renderMarkdown(markdownContent) {
     logRenderer(`Rendering markdown (length: ${markdownContent?.length || 0})`);
     
     try {
-        const rawHtml = md.render(markdownContent);
-        logRenderer('Markdown parsed by markdown-it.');
+        // Preprocess LaTeX content for KaTeX compatibility
+        const processedContent = preprocessKatexBlocks(markdownContent); 
+        console.log('--- KaTeX AFTER PREPROCESS ---');
+        console.log(processedContent);
+        console.log('--- END KaTeX AFTER PREPROCESS ---');
+
+        // Render markdown with the processed content
+        const rawHtml = md.render(processedContent);
+        logRenderer('Markdown parsed by markdown-it with KaTeX preprocessing.');
         
-        const cleanHtml = DOMPurify.sanitize(rawHtml, {
-             USE_PROFILES: { 
-                 html: true, 
-                 svg: true,
-                 svgFilters: true
-             },
-             ADD_TAGS: ['iframe'], // Removed 'audio', 'source'
-        });
-        logRenderer('HTML sanitized.');
+        // TEMPORARILY SKIP SANITIZATION FOR DEBUGGING
+        // const cleanHtml = DOMPurify.sanitize(rawHtml, {
+        //      USE_PROFILES: { 
+        //          html: true, 
+        //          svg: true,
+        //          svgFilters: true
+        //      },
+        //      ADD_TAGS: ['iframe'], 
+        // });
+        // logRenderer('HTML sanitized.');
+        const cleanHtml = rawHtml; // USE RAW HTML - UNSAFE FOR PRODUCTION
+        logRenderer('[DEBUG] HTML sanitization SKIPPED.'); 
         
         return cleanHtml;
     } catch (error) {
@@ -215,6 +320,21 @@ export async function postProcessRender(previewElement) {
     }
     logRenderer('Running post-render processing...');
     try {
+        // Log the HTML content BEFORE attempting to render math - REMOVE DEBUG LOGS
+        // console.log('--- KaTeX PRE-RENDER DEBUG START ---');
+        // console.log(previewElement.innerHTML);
+        // console.log('--- KaTeX PRE-RENDER DEBUG END ---');
+
+        // Call KaTeX auto-render AFTER HTML is in the DOM - COMMENT OUT
+        /* if (typeof window.renderMathInElement === 'function') {
+            renderMathInElement(previewElement, {
+                 // ... delimiters ...
+            });
+            logRenderer('KaTeX renderMathInElement called.');
+        } else {
+            logRenderer('renderMathInElement function not found for post-processing.', 'warning');
+        } */
+
         // Add other post-processing steps here if needed (e.g., for Mermaid, Highlight.js)
         // Example: If highlight.js needs explicit call after render:
         // if (window.hljs) {
