@@ -18,7 +18,8 @@ const builtInPlugins = {
   'mermaid': async () => (await import('./mermaid.js')).MermaidPlugin,
   // 'katex': async () => (await import('./katex.js')).KaTeXPlugin, // <-- Disable custom plugin
   'highlight': async () => (await import('./highlight.js')).HighlightPlugin,
-  'audioMD': async () => (await import('./audio-md.js')).AudioMDPlugin
+  'audioMD': async () => (await import('./audio-md.js')).AudioMDPlugin,
+  'graphviz': async () => (await import('./graphviz.js')).GraphvizPlugin
 };
 
 // Helper for logging within this module

@@ -8,6 +8,7 @@
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
 import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
+import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins } from '/client/preview/plugins/index.js';
 import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
 
@@ -218,6 +219,16 @@ async function initializeRenderer() {
                 return `<div class="mermaid">${sanitizedCode}</div>`;
             }
             
+            // Handle DOT/Graphviz blocks
+            if (info === 'dot' || info === 'graphviz') {
+                logRenderer('[FENCE RULE] Identified as Graphviz DOT block.');
+                const code = token.content.trim();
+                const sanitizedCode = code
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                return `<div class="graphviz">${sanitizedCode}</div>`;
+            }
+            
             // Handle LaTeX blocks - especially tables
             if (info === 'latex') {
                 logRenderer('[FENCE RULE] Identified as LaTeX block.');
@@ -288,18 +299,17 @@ export async function renderMarkdown(markdownContent) {
         const rawHtml = md.render(processedContent);
         logRenderer('Markdown parsed by markdown-it with KaTeX preprocessing.');
         
-        // TEMPORARILY SKIP SANITIZATION FOR DEBUGGING
-        // const cleanHtml = DOMPurify.sanitize(rawHtml, {
-        //      USE_PROFILES: { 
-        //          html: true, 
-        //          svg: true,
-        //          svgFilters: true
-        //      },
-        //      ADD_TAGS: ['iframe'], 
-        // });
-        // logRenderer('HTML sanitized.');
-        const cleanHtml = rawHtml; // USE RAW HTML - UNSAFE FOR PRODUCTION
-        logRenderer('[DEBUG] HTML sanitization SKIPPED.'); 
+        // Enable sanitization with appropriate configurations for SVG and graphviz
+        const cleanHtml = DOMPurify.sanitize(rawHtml, {
+             USE_PROFILES: { 
+                 html: true, 
+                 svg: true,
+                 svgFilters: true
+             },
+             ADD_TAGS: ['iframe'],
+             ADD_ATTR: ['viewBox', 'preserveAspectRatio', 'xmlns', 'width', 'height']
+        });
+        logRenderer('HTML sanitized with SVG support enabled.');
         
         return cleanHtml;
     } catch (error) {
@@ -320,29 +330,52 @@ export async function postProcessRender(previewElement) {
     }
     logRenderer('Running post-render processing...');
     try {
-        // Log the HTML content BEFORE attempting to render math - REMOVE DEBUG LOGS
-        // console.log('--- KaTeX PRE-RENDER DEBUG START ---');
-        // console.log(previewElement.innerHTML);
-        // console.log('--- KaTeX PRE-RENDER DEBUG END ---');
-
-        // Call KaTeX auto-render AFTER HTML is in the DOM - COMMENT OUT
-        /* if (typeof window.renderMathInElement === 'function') {
-            renderMathInElement(previewElement, {
-                 // ... delimiters ...
-            });
-            logRenderer('KaTeX renderMathInElement called.');
-        } else {
-            logRenderer('renderMathInElement function not found for post-processing.', 'warning');
-        } */
-
-        // Add other post-processing steps here if needed (e.g., for Mermaid, Highlight.js)
-        // Example: If highlight.js needs explicit call after render:
-        // if (window.hljs) {
-        //     previewElement.querySelectorAll('pre code').forEach((block) => {
-        //         window.hljs.highlightElement(block);
-        //     });
-        // }
+        // Process all enabled plugins
+        const enabledPlugins = getEnabledPlugins();
         
+        // Process Mermaid diagrams
+        const mermaidPlugin = enabledPlugins.get('mermaid');
+        if (mermaidPlugin) {
+            try {
+                mermaidPlugin.process(previewElement);
+                logRenderer('Mermaid diagrams processed by plugin.', 'text');
+            } catch (error) {
+                logRenderer(`Error processing Mermaid diagrams: ${error.message}`, 'error');
+            }
+        }
+        
+        // Process Graphviz diagrams
+        const graphvizPlugin = enabledPlugins.get('graphviz');
+        if (graphvizPlugin) {
+            try {
+                graphvizPlugin.process(previewElement);
+                logRenderer('Graphviz diagrams processed by plugin.', 'text');
+            } catch (error) {
+                logRenderer(`Error processing Graphviz diagrams: ${error.message}`, 'error');
+            }
+        } else {
+            logRenderer('Graphviz plugin not enabled, attempting to initialize it directly.', 'text');
+            // Try to initialize and use Graphviz plugin directly
+            try {
+                const graphviz = new GraphvizPlugin();
+                await graphviz.init();
+                graphviz.process(previewElement);
+                logRenderer('Graphviz diagrams processed with direct plugin instance.', 'text');
+            } catch (error) {
+                logRenderer(`Failed to process Graphviz diagrams: ${error.message}`, 'error');
+            }
+        }
+        
+        // Process syntax highlighting
+        try {
+            const highlightPlugin = enabledPlugins.get('highlight');
+            if (highlightPlugin) {
+                highlightPlugin.process(previewElement);
+                logRenderer('Code highlighting applied.', 'text');
+            }
+        } catch (error) {
+            logRenderer(`Error applying syntax highlighting: ${error.message}`, 'error');
+        }
     } catch (error) {
         logRenderer(`Post-processing error: ${error.message}`, 'error');
         console.error('[POST-PROCESS ERROR]', error);
@@ -352,7 +385,8 @@ export async function postProcessRender(previewElement) {
 export class Renderer {
   constructor() {
     this.plugins = [
-      new MermaidPlugin()
+      new MermaidPlugin(),
+      new GraphvizPlugin()
     ];
   }
 
@@ -363,6 +397,8 @@ export class Renderer {
     this.plugins.forEach(plugin => {
       try {
         if (plugin instanceof MermaidPlugin) {
+            plugin.process(element);
+        } else if (plugin instanceof GraphvizPlugin) {
             plugin.process(element);
         } else {
             plugin.render?.(element); 

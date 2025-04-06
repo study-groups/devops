@@ -37,7 +37,7 @@ export class PreviewManager {
 
     this.config = {
       container: '#md-preview',
-      plugins: ['mermaid', 'katex', 'highlight'],
+      plugins: ['mermaid', 'katex', 'highlight', 'graphviz'],
       theme: 'light',
       updateDelay: 100,
       autoRender: true,
@@ -69,6 +69,9 @@ export class PreviewManager {
       // Add class for styling
       this.previewElement.classList.add('markdown-preview');
 
+      // Log which plugins we're going to initialize
+      logMessage(`[PREVIEW DEBUG] Initializing plugins: ${this.config.plugins.join(', ')}`);
+      
       // Initialize components
       await initPlugins(this.config.plugins, {
         theme: this.config.theme,

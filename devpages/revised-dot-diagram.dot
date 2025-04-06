@@ -1,0 +1,93 @@
+/* 
+ * Graphviz DOT code - Integrated QBist Cognitive State-Space Framework
+ * Enhanced for readability and visual clarity
+ */
+
+digraph QBistCognitiveFramework {
+    // GRAPH SETTINGS
+    rankdir=LR;         // Left-to-Right orientation
+    splines=ortho;      // Orthogonal edges for clarity
+    nodesep=0.6;        // Node separation
+    ranksep=0.8;        // Rank separation
+    compound=true;      // Allow edges between clusters
+    
+    // DEFAULT STYLES
+    node [shape=box, style="rounded,filled", fillcolor="#f8f8f8", 
+          fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=9, color="#4b5563"];
+    
+    // AGENT'S COGNITIVE MODEL CLUSTER
+    subgraph cluster_agent {
+        label = "Agent's Cognitive Model";
+        style="filled";
+        fillcolor="#FFF9F0";  // Light orange background
+        color="#F97316";      // Orange border
+        
+        // SUBJECTIVE BELIEF STATE NODE
+        node [shape=ellipse, style="filled", fillcolor="#FFEDD5", color="#F97316"] 
+        BeliefState [label=<<table border="0" cellborder="0" cellspacing="0">
+            <tr><td align="center"><b>Subjective Belief State</b></td></tr>
+            <tr><td align="center"><font point-size="9"><i>p(x<sub>t</sub> | y<sub>1:t</sub>)</i></font></td></tr>
+            <tr><td align="center"><font point-size="9">Mean: <font face="monospace">x̂<sub>t|t</sub></font></font></td></tr>
+            <tr><td align="center"><font point-size="9">Uncertainty: <font face="monospace">Σ<sub>t|t</sub></font></font></td></tr>
+        </table>>];
+        
+        // STATE DYNAMICS NODE
+        node [shape=box, style="rounded,filled", fillcolor="#F3E8FF", color="#A855F7"] 
+        Dynamics [label=<<table border="0" cellborder="0" cellspacing="0">
+            <tr><td align="center"><b>State Dynamics (Prediction)</b></td></tr>
+            <tr><td align="center"><font point-size="8" face="monospace">x̂<sub>t|t-1</sub> = Ax̂<sub>t-1|t-1</sub> + Bu<sub>t-1</sub></font></td></tr>
+            <tr><td align="center"><font point-size="8" face="monospace">Σ<sub>t|t-1</sub> = AΣ<sub>t-1|t-1</sub>A<sup>T</sup> + Q</font></td></tr>
+        </table>>];
+        
+        // BAYESIAN UPDATE NODE
+        node [shape=box, style="rounded,filled", fillcolor="#F3E8FF", color="#A855F7"] 
+        Update [label=<<table border="0" cellborder="0" cellspacing="0">
+            <tr><td align="center"><b>Bayesian Belief Update</b></td></tr>
+            <tr><td align="center"><font point-size="8" face="monospace">Gain K<sub>t</sub> = ΣC<sup>T</sup>(CΣC<sup>T</sup>+R)<sup>-1</sup></font></td></tr>
+            <tr><td align="center"><font point-size="8" face="monospace">x̂<sub>t|t</sub> = x̂<sub>t|t-1</sub> + K<sub>t</sub>(y<sub>t</sub> - Cx̂<sub>t|t-1</sub>)</font></td></tr>
+            <tr><td align="center"><font point-size="8" face="monospace">Σ<sub>t|t</sub> = (I - K<sub>t</sub>C)Σ<sub>t|t-1</sub></font></td></tr>
+        </table>>];
+        
+        // ACTION/PREDICTION NODE
+        node [shape=box, style="rounded,filled", fillcolor="#FFFBEB", color="#F59E0B"] 
+        ActionPrediction [label="Action Selection /\nPrediction Generation"];
+    }
+    
+    // EXTERNAL WORLD NODES
+    node [style="filled", fillcolor="#E0F2FE", color="#0EA5E9"] 
+    Environment [label="Environment /\nSensory Context"];
+    Sensing [label="Sensing\n(e.g., EEG Device)"];
+    
+    // SEMANTICS NODE
+    node [style="filled", fillcolor="#F1F5F9", color="#64748B"] 
+    Semantics [label=<<table border="0" cellborder="0" cellspacing="0">
+        <tr><td align="center"><b>Quantum-Inspired Semantics</b></td></tr>
+        <tr><td align="left"><font point-size="9">- Conditions (Projectors)</font></td></tr>
+        <tr><td align="left"><font point-size="9">- Actions (Unitaries)</font></td></tr>
+        <tr><td align="left"><font point-size="9">- Context (Tensor Prod.)</font></td></tr>
+        <tr><td align="left"><font point-size="9">- Hidden Semantics (Phase)</font></td></tr>
+    </table>>];
+    
+    // CONNECTION EDGES
+    // Environment connections
+    Environment -> Sensing [label="Sensory Stimuli u_t"];
+    Sensing -> Update [label="Measurement / Evidence y_t"];
+    
+    // Prediction loop connections
+    BeliefState -> Dynamics [label="Belief @ t-1"];
+    Dynamics -> Update [label="Prior Belief\n(x̂_t|t-1, Σ_t|t-1)"];
+    
+    // Update to belief connection
+    Update -> BeliefState [label="Posterior Belief\n(x̂_t|t, Σ_t|t)", weight=2];
+    
+    // Semantic influences (dashed)
+    edge [style=dashed, color="#64748B"];
+    Semantics -> Dynamics [label="Informs Model\nStructure (A, B, Q)"];
+    Semantics -> Update [label="Informs Model\nStructure (C, R)", constraint=false];
+    
+    // Action output edges
+    edge [style=solid, color="#4b5563"];
+    BeliefState -> ActionPrediction [label="Current Belief"];
+    ActionPrediction -> Environment [label="Actions"];
+} 
