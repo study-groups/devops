@@ -1,56 +1,41 @@
 /* /client/log/log.css - Styles for the Log Component */
 
-/* Log visibility controlled by root attribute */
-html[data-log-visible="false"] #log-container {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    opacity: 0 !important;
-    overflow: hidden !important;
-}
-
-html[data-log-visible="true"] #log-container {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: var(--log-height, 120px) !important; /* Use CSS variable set by earlyInit */
-}
-
-/* Adjust main content padding based on log visibility */
-/* NOTE: These might affect layout outside the log itself, */
-/* consider if they belong here or in a more global layout file. */
-/* Keeping them here for now as they directly relate to log visibility. */
-html[data-log-visible="false"] #main-container.log-hidden #content {
-    max-height: calc(100vh - 50px); /* Assuming nav height approx 50px */
-}
-html[data-log-visible="true"] #main-container.log-visible #content {
-     max-height: calc(100vh - var(--log-height, 120px) - 50px);
-}
-
-
 /* Log container - base styles */
 #log-container {
-    display: flex; /* Base display state, overridden by html[data-log-visible] */
+    /* display: flex; */ /* REMOVED - Set by .log-visible */
     flex-direction: column;
-    height: var(--log-height, 120px); /* Use CSS variable with fallback */
-    min-height: 80px;
-    margin-left: 1rem;
-    margin-right: 4rem; /* Right margin - larger */
-    padding-left: 1rem;
-    padding-right: 1rem;
+    /* height: var(--log-height, 120px); */ /* REMOVED - Set by .log-visible */
+    background: #161616;
+    border-top: 1px solid #444;
+    overflow: hidden;
+    /* transition: height 0.2s ease-out; /* REMOVE or adjust if causing issues */
+    position: relative; 
+}
 
-    border-radius: .25rem;
-    overflow: hidden; /* Still needed for internal scrolling */
-    background: #1e1e1e;
-    border-top: 1px solid #333; /* Only top border */
+/* State when log is VISIBLE */
+#log-container.log-visible {
+    display: flex; 
+    height: var(--log-height, 120px); 
+    visibility: visible;
+    opacity: 1;
+    transition: height 0.2s ease-out, opacity 0.2s ease-out;
+}
 
-    position: sticky;
-    bottom: 0; /* Stick to bottom of container */
-    left: 0;
-    right: 0;
-    width: calc(100% - 5rem); /* Adjust width to account for margins */
-    z-index: 100; /* Ensure it stays above content */
-    transition: opacity 0.3s ease; /* Only opacity transition */
+/* State when log is HIDDEN */
+#log-container.log-hidden {
+    display: none; 
+    height: 0;
+    visibility: hidden;
+    opacity: 0;
+    border-top: none; 
+}
+
+/* Adjust main content based on presence of log-visible class on main-container */
+#main-container.log-visible #content {
+    max-height: calc(100vh - var(--log-height, 120px) - 72px); /* Adjust 72px nav height if needed */
+}
+#main-container.log-hidden #content {
+     max-height: calc(100vh - 72px); /* Adjust 72px nav height if needed */
 }
 
 /* Log resize handle */

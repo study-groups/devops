@@ -1,6 +1,8 @@
+ignore.txt
+./**/*.NOTSURE
+./**/*.{1,2,3,4,5,6,7}
+./*.dot
 pb.sh
-users.csv.1
-users.csv.2
 out
 out.txt
 links.txt
@@ -8,3 +10,10 @@ uploads
 md
 users.csv
 roles.txt
+node_modules
+logs
+uploads
+data
+old
+colors.sh
+

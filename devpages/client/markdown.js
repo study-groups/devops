@@ -1,12 +1,8 @@
-import { getCurrentDirectory } from "/client/fileManager.js";
+import fileManager from "/client/fileManager.js";
 import { logMessage } from "./log/index.js";
 import { initPreview, updatePreview } from "./preview/index.js";
 
-// Import styles
-document.head.insertAdjacentHTML(
-  'beforeend',
-  `<link rel="stylesheet" href="/client/preview/styles.css">`
-);
+let requiresMathJax = false;
 
 let lastMarkdown = "";
 let updateScheduled = false;
@@ -70,7 +66,7 @@ export function updateMarkdownPreview(content) {
 // Backward compatibility with existing code
 export async function loadFile(filename) {
   try {
-    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(getCurrentDirectory())}`);
+    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(fileManager.getCurrentDirectory())}`);
     if (!response.ok) throw new Error(`Server returned ${response.status}`);
     
     const data = await response.json();
@@ -82,8 +78,8 @@ export async function loadFile(filename) {
     }
     
     updateMarkdownPreview(data.content);
-    saveState(getCurrentDirectory(), filename);
-    updateUrlState(getCurrentDirectory(), filename);
+    saveState(fileManager.getCurrentDirectory(), filename);
+    updateUrlState(fileManager.getCurrentDirectory(), filename);
   } catch (error) {
     logMessage(`[FILES ERROR] Failed to load file: ${error.message}`);
     console.error('[FILES ERROR]', error);
@@ -125,4 +121,9 @@ function updateUrlState(directory, filename) {
   } catch (error) {
     console.error('Failed to update URL state:', error);
   }
+}
+
+// Check if MathJax needs to be configured
+if (requiresMathJax) {
+  configureMathJax(head);
 }

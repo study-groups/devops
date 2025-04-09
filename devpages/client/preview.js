@@ -23,6 +23,7 @@ function logPreview(message, level = 'text') {
 let previewInitialized = false;
 let updateTimer = null;
 const mermaidPlugin = new MermaidPlugin();
+const PREVIEW_CSS_ID = 'preview-specific-styles'; // ID to prevent multiple additions
 
 /**
  * Initialize the preview system with all required plugins
@@ -37,10 +38,24 @@ export async function initializePreview(options = {}) {
   
   logPreview('Initializing preview system');
   
+  // --- Dynamically add preview-specific CSS --- 
+  if (!document.getElementById(PREVIEW_CSS_ID)) {
+      const link = document.createElement('link');
+      link.id = PREVIEW_CSS_ID;
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = '/client/preview/preview.css'; // Path to the preview CSS
+      document.head.appendChild(link);
+      logPreview('Dynamically added preview.css link tag.');
+  } else {
+      logPreview('Preview CSS link tag already exists.');
+  }
+  // --- End CSS addition ---
+  
   try {
     // Default options
     const defaultOptions = {
-      container: '#md-preview',
+      container: '#preview-container',
       plugins: ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md'], // Add other plugins as needed
       theme: 'light',
       updateDelay: 300
@@ -95,7 +110,7 @@ async function initializeFallbackPreview() {
   
   try {
     // Find required elements
-    const previewContainer = document.getElementById('md-preview');
+    const previewContainer = document.getElementById('preview-container');
     if (!previewContainer) {
       logPreview('Preview container not found', 'error');
       return false;
@@ -115,7 +130,7 @@ async function initializeFallbackPreview() {
     
     // Create a custom update function
     window.updateMarkdownPreview = async function() {
-      const editor = document.querySelector('#md-editor textarea');
+      const editor = document.querySelector('#editor-container textarea');
       const content = editor?.value || '';
       
       logPreview('Updating preview with direct renderer');
@@ -163,6 +178,7 @@ async function initializeFallbackPreview() {
  * @returns {Promise<boolean>} Success status
  */
 export async function refreshPreview() {
+  console.log('[DEBUG preview.js] refreshPreview called');
   if (!previewInitialized) {
     const initialized = await initializePreview();
     if (!initialized) {
@@ -171,25 +187,29 @@ export async function refreshPreview() {
     }
   }
   
-  const editor = document.querySelector('#md-editor textarea');
+  const editor = document.querySelector('#editor-container textarea');
   if (!editor) {
     logPreview('[PREVIEW WARNING] Editor element not found', 'warning');
+    console.warn('[DEBUG preview.js] Editor textarea not found in refreshPreview.');
     return false;
   }
   
   const content = editor.value || '';
+  console.log(`[DEBUG preview.js] Content length for refresh: ${content.length}`);
   
   logPreview(`Refreshing preview (content length: ${content.length})`);
   
   try {
+    console.log('[DEBUG preview.js] Calling updatePreviewModule...');
     // Use the imported update function from the preview module
     const result = await updatePreviewModule(content);
+    console.log(`[DEBUG preview.js] updatePreviewModule returned: ${result}`);
     if (result) {
       logPreview('Preview refreshed successfully');
       
       // Process Mermaid diagrams using the plugin
       setTimeout(() => {
-        const previewElement = document.querySelector('#md-preview');
+        const previewElement = document.querySelector('#preview-container');
         if (previewElement) {
           mermaidPlugin.process(previewElement);
           logPreview('Mermaid diagrams processed by plugin (deferred).');
@@ -218,10 +238,12 @@ export async function refreshPreview() {
  * @returns {void}
  */
 export function schedulePreviewUpdate() {
+  console.log('[DEBUG preview.js] schedulePreviewUpdate called');
   if (updateTimer) {
     clearTimeout(updateTimer);
   }
   updateTimer = setTimeout(() => {
+    console.log('[DEBUG preview.js] Debounced timeout executing refreshPreview');
     refreshPreview();
     updateTimer = null;
   }, 300); // 300ms debounce
@@ -236,12 +258,14 @@ function subscribeToEditorEvents() {
     logPreview('EventBus not available for editor subscription', 'error');
     return;
   }
-  eventBus.on('editor:contentChanged', () => {
+  eventBus.on('editor:contentChanged', (eventData) => {
+    const contentLength = eventData?.content?.length ?? 'unknown';
+    console.log(`[DEBUG preview.js] Received editor:contentChanged event. Content length: ${contentLength}. Scheduling update.`);
     schedulePreviewUpdate();
   });
   
   // Direct connection for backward compatibility (Consider removing)
-  const editor = document.querySelector('#md-editor textarea');
+  const editor = document.querySelector('#editor-container textarea');
   if (editor) {
     editor.addEventListener('input', schedulePreviewUpdate);
     logPreview('Subscribed to editor input events');
@@ -264,24 +288,18 @@ function subscribeToViewChanges() {
     logPreview('EventBus not available for view change subscription', 'error');
     return;
   }
-  eventBus.on('view:changed', (newView) => {
-    logPreview(`View changed to ${newView}, triggering preview update.`);
-    // Immediately refresh preview when switching views to ensure it shows
-    if (newView === 'preview' || newView === 'split') {
-      refreshPreview();
+  // Listen to the event emitted by ContentViewComponent / actions.js
+  eventBus.on('ui:viewModeChanged', (newMode) => {
+    console.log(`[DEBUG preview.js] Received ui:viewModeChanged event. New mode: ${newMode}`);
+    logPreview(`View changed to ${newMode}, triggering preview update if needed.`);
+    if (newMode === 'preview' || newMode === 'split') {
+      console.log(`[DEBUG preview.js] View is preview or split. Calling refreshPreview.`);
+      // Use setTimeout to ensure layout changes are potentially flushed before render
+      setTimeout(refreshPreview, 0);
     }
   });
   
-  // DOM event listener for backward compatibility (Consider removing)
-  document.addEventListener('view:changed', (e) => {
-    const mode = e.detail?.mode;
-    if (mode === 'preview' || mode === 'split') {
-      logPreview(`[PREVIEW] View changed event detected, updating preview`);
-      refreshPreview();
-    }
-  });
-  
-  logPreview('Subscribed to view changes.');
+  logPreview('Subscribed to ui:viewModeChanged events for preview refresh.');
 }
 
 /**
@@ -309,8 +327,8 @@ export async function setupContentViewer() {
       logPreview(`Fetched content for ${contentPath}, length: ${markdownContent.length}`);
 
       // Prepare the DOM - hide editor, show only preview
-      document.body.innerHTML = '<div id="md-preview">Loading preview...</div>'; // Simple container
-      const previewElement = document.getElementById('md-preview');
+      document.body.innerHTML = '<div id="preview-container">Loading preview...</div>'; // Simple container
+      const previewElement = document.getElementById('preview-container');
       if (!previewElement) throw new Error('Preview container creation failed');
 
       // Render the content

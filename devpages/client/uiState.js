@@ -3,17 +3,43 @@
 // Constants for localStorage keys
 const VIEW_MODE_KEY = 'viewMode';
 const SIDEBAR_VISIBLE_KEY = 'sidebarVisible';
+const LOG_VISIBLE_KEY = 'logVisible';
 
 // Default state values
 const DEFAULT_VIEW_MODE = 'split'; // 'code', 'preview', 'split'
 const DEFAULT_SIDEBAR_VISIBLE = true;
+const DEFAULT_LOG_VISIBLE = false;
 
 // The reactive state object (Ensure this is the only definition)
 const uiState = {
     viewMode: DEFAULT_VIEW_MODE,
     sidebarVisible: DEFAULT_SIDEBAR_VISIBLE,
+    logVisible: DEFAULT_LOG_VISIBLE,
     // Add other UI state variables here as needed
 };
+
+// --- ADDED: Simple Emitter for State Changes ---
+// This allows components to subscribe without importing the full eventBus if not needed
+const stateSubscribers = {};
+
+function subscribeToUIStateChange(key, callback) {
+    if (!stateSubscribers[key]) {
+        stateSubscribers[key] = [];
+    }
+    stateSubscribers[key].push(callback);
+    
+    // Return an unsubscribe function
+    return () => {
+        stateSubscribers[key] = stateSubscribers[key].filter(sub => sub !== callback);
+    };
+}
+
+function emitUIStateChange(key, value) {
+    if (stateSubscribers[key]) {
+        stateSubscribers[key].forEach(callback => callback(value));
+    }
+}
+// --- END ADDED Emitter ---
 
 /**
  * Initialize the UI state by loading from localStorage.
@@ -21,13 +47,15 @@ const uiState = {
 export function initializeUIState() {
     const savedViewMode = localStorage.getItem(VIEW_MODE_KEY);
     const savedSidebarVisible = localStorage.getItem(SIDEBAR_VISIBLE_KEY);
+    const savedLogVisible = localStorage.getItem(LOG_VISIBLE_KEY);
 
     uiState.viewMode = savedViewMode || DEFAULT_VIEW_MODE;
     uiState.sidebarVisible = savedSidebarVisible !== null ? savedSidebarVisible === 'true' : DEFAULT_SIDEBAR_VISIBLE;
+    uiState.logVisible = savedLogVisible !== null ? savedLogVisible === 'true' : DEFAULT_LOG_VISIBLE;
 
     // Log initial state using window.logMessage if available
     const logFunc = typeof window.logMessage === 'function' ? window.logMessage : console.log;
-    logFunc(`[UI STATE] Initialized: ViewMode=${uiState.viewMode}, SidebarVisible=${uiState.sidebarVisible}`);
+    logFunc(`[UI STATE] Initialized: ViewMode=${uiState.viewMode}, SidebarVisible=${uiState.sidebarVisible}, LogVisible=${uiState.logVisible}`);
 }
 
 /**
@@ -40,7 +68,7 @@ export function getUIState(key) {
 }
 
 /**
- * Set the value of a UI state variable and save to localStorage.
+ * Set the value of a UI state variable, save to localStorage, and notify subscribers.
  * @param {string} key - The state key (e.g., 'viewMode').
  * @param {*} value - The new value.
  */
@@ -53,6 +81,9 @@ export function setUIState(key, value) {
             // Log state change using window.logMessage if available
             const logFunc = typeof window.logMessage === 'function' ? window.logMessage : console.log;
             logFunc(`[UI STATE] Changed: ${key}=${value}`);
+            
+            // Notify direct subscribers
+            emitUIStateChange(key, value);
             
             // Optional: Emit an event for specific state changes if needed
             // import { eventBus } from './eventBus.js'; // Import locally if needed
@@ -88,6 +119,8 @@ function saveUIState(key, value) {
             storageKey = VIEW_MODE_KEY;
         } else if (key === 'sidebarVisible') {
             storageKey = SIDEBAR_VISIBLE_KEY;
+        } else if (key === 'logVisible') {
+            storageKey = LOG_VISIBLE_KEY;
         } // Add other keys here
         
         if (storageKey) {
@@ -101,4 +134,8 @@ function saveUIState(key, value) {
 }
 
 // Initialize on load
-initializeUIState(); 
+initializeUIState();
+
+// --- ADDED: Export subscribe function ---
+export { subscribeToUIStateChange };
+// --- END ADDED Export --- 

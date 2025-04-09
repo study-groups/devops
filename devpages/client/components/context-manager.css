@@ -1,0 +1,142 @@
+/* client/components/context-manager.css */
+
+.context-manager-container { /* Changed from .context-selector to avoid conflicts */
+    display: flex;
+    flex-direction: column; 
+    gap: 4px; 
+    padding: 5px; 
+    background-color: #f0f0f0; /* Light background */
+    border-radius: 4px;
+    margin: 0 5px; 
+}
+
+.context-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 2px; 
+    font-size: 13px;
+    line-height: 1;
+    padding-bottom: 4px; 
+    border-bottom: 1px solid #ddd; 
+    flex-wrap: wrap; 
+}
+
+.breadcrumb-item {
+    color: #337ab7; 
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.breadcrumb-item:hover {
+    background-color: #e0e0e0;
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    color: #777;
+    margin: 0 2px;
+}
+
+/* Style for the INLINE directory dropdown within breadcrumbs */
+.breadcrumb-dir-select {
+    /* Reset browser defaults */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    /* Styling */
+    margin-left: 4px; /* Space after preceding separator */
+    padding: 1px 4px; /* Smaller padding */
+    font-size: 12px;
+    border: 1px solid #ccc; /* Subtle border */
+    border-radius: 3px;
+    background-color: #fff; /* Keep white or slightly off-white? */
+    color: #333; /* Standard text color */
+    line-height: 1.4; /* Adjust for vertical centering */
+    height: auto; /* Let height be determined by content + padding */
+}
+
+/* Placeholder text */
+.no-subdirs, .no-content-placeholder, .breadcrumb-info {
+    color: #777; /* Quieter color */
+    font-style: italic;
+    font-size: 12px;
+    margin-left: 4px; 
+    padding: 2px 0; /* Align vertically slightly */
+    line-height: 1.4; /* Match dropdown line-height */
+}
+
+.context-selection-row {
+    display: flex;
+    align-items: center;
+    gap: 5px; 
+}
+
+/* General styles for selectors IN THE SECOND ROW */
+.context-selection-row .context-selector {
+    /* Reset browser defaults */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    /* Styling - Make it blend more */
+    flex-grow: 1; 
+    min-width: 150px; 
+    height: 28px; /* Match button heights? */
+    padding: 0 8px; /* Adjust padding */
+    border: none; /* Remove border */
+    border-radius: 3px;
+    background-color: transparent; /* Inherit container background */
+    color: #333; /* Standard text color, ensure contrast */
+    font-size: 13px; 
+    line-height: 26px; /* Try to center text vertically */
+    cursor: pointer;
+
+    /* Add subtle hover/focus */
+    transition: background-color 0.2s ease;
+}
+
+.context-selection-row .context-selector:not(:disabled):hover {
+    background-color: rgba(0, 0, 0, 0.05); /* Slight darkening */
+}
+
+/* Specific ID selectors if needed, but prefer class */
+/* #context-item-select, #context-mike-dir-select { ... apply .context-selector styles ... } */
+
+/* Style the options */
+.context-selection-row .context-selector option {
+   background-color: #fff; /* Options background often needs to be opaque */
+   color: #333;
+}
+
+/* Style disabled state */
+.context-selection-row .context-selector:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: transparent; /* Still transparent */
+  color: #777; /* Grey out text */
+}
+
+.file-action-buttons {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Reuse existing button styles if possible, or add specific ones */
+.file-action-buttons button {
+     padding: 4px 8px;
+     font-size: 12px;
+     border: 1px solid #ccc;
+     border-radius: 3px;
+     background-color: #fff;
+     cursor: pointer;
+}
+.file-action-buttons button:hover:not(:disabled) {
+    background-color: #eee;
+}
+
+.file-action-buttons button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+} 

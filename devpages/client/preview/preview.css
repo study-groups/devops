@@ -1,0 +1,160 @@
+/* client/preview/preview.css - Styles specifically for the Markdown preview content */
+
+/* --- START Preview Content Formatting Fixes --- */
+
+/* Ensure direct children behave like block elements */
+#preview-container > h1,
+#preview-container > h2,
+#preview-container > h3,
+#preview-container > h4,
+#preview-container > h5,
+#preview-container > h6,
+#preview-container > p,
+#preview-container > pre,
+#preview-container > ul,
+#preview-container > ol,
+#preview-container > blockquote,
+#preview-container > table,
+#preview-container > div { /* Catch other potential block wrappers */
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  float: none !important;
+  column-count: auto !important;
+  column-width: auto !important;
+  column-span: none !important;
+  flex-basis: auto !important;
+  flex-grow: 0 !important;
+  flex-shrink: 1 !important;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  box-sizing: border-box !important;
+}
+
+/* Specific overrides for code blocks if needed */
+#preview-container pre {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  background-color: #f8f9fa;
+  padding: 1em;
+  border-radius: 4px;
+  border: 1px solid #eee;
+  overflow-x: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#preview-container pre code {
+  display: block !important;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  white-space: inherit !important;
+  width: auto !important;
+  max-width: none !important;
+}
+
+/* Reset list styling if needed */
+#preview-container ul,
+#preview-container ol {
+  padding-left: 2em;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* --- END Preview Content Formatting Fixes --- */
+
+
+/* --- START Mermaid Error Styling --- */
+.mermaid-container {
+    margin: 1.5rem 0;
+    position: relative;
+    max-width: 100%;
+    overflow: auto;
+}
+
+.mermaid-error {
+    border: 2px dashed #ff3860;
+    border-radius: 4px;
+    background-color: #fff5f7;
+    margin: 1rem 0;
+    overflow: hidden;
+    max-width: 100%;
+    box-shadow: 0 2px 6px rgba(255, 56, 96, 0.3);
+}
+
+.mermaid-error-header {
+    padding: 0.75rem 1rem;
+    background-color: #ff3860;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.mermaid-error-message {
+    padding: 1rem;
+    margin: 0;
+    color: #ff3860;
+    font-weight: bold;
+    font-family: monospace;
+    white-space: pre-wrap;
+    font-size: 14px;
+    background-color: #fffafa;
+    border-bottom: 1px solid #ffdbdb;
+}
+
+.mermaid-error-tip {
+    padding: 0.5rem 1rem;
+    font-style: italic;
+    color: #666;
+    background-color: #f9f9f9;
+    border-top: 1px solid #eee;
+    font-size: 12px;
+}
+
+.mermaid-error-code {
+    padding: 0.5rem 1rem;
+    margin: 0;
+    background-color: #f8f8f8;
+    max-height: 200px;
+    overflow: auto;
+}
+
+.mermaid-error-code pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 13px;
+    color: #333;
+    /* Reset overrides from above */
+    width: auto !important; 
+    max-width: none !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    overflow-x: visible !important; /* Let parent div scroll */
+}
+
+/* --- END Mermaid Error Styling --- */
+
+/* ============================================= */
+/* AGGRESSIVE KaTeX DEBUG OVERRIDES - START       */
+/* ============================================= */
+
+/* Reset needed for specific inner elements */
+.katex .mtable, 
+.katex .vlist, 
+.katex .frac-line,
+.katex .strut,
+.katex .delimsizing,
+.katex .mathit 
+/* , .katex span */ { 
+    vertical-align: baseline !important; 
+    line-height: normal !important;    
+}
+
+/* ============================================= */
+/* AGGRESSIVE KaTeX DEBUG OVERRIDES - END         */
+/* ============================================= */

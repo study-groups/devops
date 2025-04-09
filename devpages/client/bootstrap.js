@@ -19,15 +19,15 @@ async function initializeApp() {
   try {
     // --- Phase 1: Logging --- 
     bootstrapLog('Phase 1: Initializing Log System with LogPanel...');
-    // Import the LogPanel class
-    const { LogPanel } = await import('/client/log/index.js');
+    // MODIFIED: Import the LogPanel class directly from its file
+    const { LogPanel } = await import('/client/log/LogPanel.js'); // Correct path
     if (!LogPanel) {
          throw new Error('LogPanel class not found in log system');
     }
     // Instantiate LogPanel
-    const logPanelInstance = new LogPanel();
+    const logPanelInstance = new LogPanel(); // Constructor takes optional container ID
     // Initialize it, targeting the container div
-    await logPanelInstance.initialize('log-container'); 
+    await logPanelInstance.initialize(); // Initialize method exists on LogPanel instance
     // Make the instance globally accessible
     window.logPanel = logPanelInstance;
     // Set the global logMessage function to use the panel's addEntry method
@@ -45,6 +45,21 @@ async function initializeApp() {
     authModule.initAuth(); // Initialize auth (this will check server status internally)
     logMessage('[BOOTSTRAP] Auth system initialization triggered.');
 
+    // --- Phase 2.5: Auth Display Component --- 
+    logMessage('[BOOTSTRAP] Phase 2.5: Initializing AuthDisplay Component...');
+    try {
+        const { createAuthDisplayComponent } = await import('/client/components/AuthDisplay.js');
+        const authDisplay = createAuthDisplayComponent('auth-component-container'); // Target the new div
+        authDisplay.mount(); // Just call mount
+        window.APP = window.APP || {}; // Ensure APP namespace exists
+        window.APP.authDisplayComponent = authDisplay; // Optional: make accessible for debugging
+        logMessage('[BOOTSTRAP] AuthDisplay Component Mounted.');
+    } catch (err) {
+        logMessage(`[BOOTSTRAP ERROR] Failed to initialize AuthDisplay Component: ${err.message}`, 'error');
+        // Decide if this is critical and should halt bootstrap
+        throw err; // Re-throw to halt if critical
+    }
+
     // --- Phase 3: Core UI & Event Bus --- 
     logMessage('[BOOTSTRAP] Phase 3: Initializing UI Manager & Event Bus...');
     const eventBusModule = await import('/client/eventBus.js');
@@ -60,7 +75,25 @@ async function initializeApp() {
     logMessage('[BOOTSTRAP] UI Manager initialized.');
 
     // --- Phase 4: Editor & Preview --- 
-    logMessage('[BOOTSTRAP] Phase 4: Initializing Editor & Preview...');
+    logMessage('[BOOTSTRAP] Phase 4: Initializing ContentView, Editor & Preview...');
+    try {
+        // Initialize the ContentView component first, which creates the containers
+        const { createContentViewComponent } = await import('/client/components/ContentView.js');
+        const contentView = createContentViewComponent('content-view-wrapper');
+        const mounted = contentView.mount();
+        if (!mounted) {
+            throw new Error('ContentViewComponent failed to mount.');
+        }
+        window.APP = window.APP || {}; // Ensure APP namespace exists
+        window.APP.contentView = contentView; // Optional: for debugging
+        logMessage('[BOOTSTRAP] ContentViewComponent Mounted.');
+
+    } catch (err) {
+        logMessage(`[BOOTSTRAP ERROR] Failed to initialize ContentViewComponent: ${err.message}`, 'error');
+        // Decide if this is critical and should halt bootstrap
+        throw err; // Re-throw to halt if critical
+    }
+
     try {
         const editorModule = await import('/client/editor.js');
         if (typeof editorModule.initializeEditor === 'function') {
@@ -105,8 +138,45 @@ async function initializeApp() {
     await Promise.allSettled([
         import('/client/communityLink.js').then(m => m.initCommunityLink?.()),
         import('/client/cli/index.js').then(m => m.initializeCLI?.()),
-        import('/client/domEvents.js').then(m => m.initializeDomEvents?.()),
-        import('/client/actions.js').then(m => m.initializeActions?.()),
+        import('/client/components/ViewControls.js').then(m => {
+            console.log('[DEBUG bootstrap.js] ViewControls.js module loaded successfully.'); 
+            if (typeof m.createViewControlsComponent === 'function') {
+                console.log('[DEBUG bootstrap.js] Found createViewControlsComponent function. Creating and mounting...'); 
+                const viewControls = m.createViewControlsComponent('view-controls-container');
+                viewControls.mount();
+                window.APP.viewControlsComponent = viewControls; // Optional debug access
+            } else {
+                console.error('[DEBUG bootstrap.js] ERROR: createViewControlsComponent function NOT FOUND in loaded ViewControls.js module!'); 
+            }
+        }).catch(err => {
+            console.error('[DEBUG bootstrap.js] ERROR loading ViewControls.js module:', err);
+            logMessage(`[BOOTSTRAP ERROR] Failed to load ViewControls.js: ${err.message}`, 'error');
+        }),
+        import('/client/domEvents.js').then(m => {
+            console.log('[DEBUG bootstrap.js] domEvents.js module loaded successfully.'); 
+            if (typeof m.initializeDomEvents === 'function') {
+                console.log('[DEBUG bootstrap.js] Found initializeDomEvents function. Calling it...'); 
+                m.initializeDomEvents(); // Call it directly
+            } else {
+                console.error('[DEBUG bootstrap.js] ERROR: initializeDomEvents function NOT FOUND in loaded domEvents.js module!'); 
+            }
+        }).catch(err => {
+            // Add catch for the domEvents import specifically
+            console.error('[DEBUG bootstrap.js] ERROR loading domEvents.js module:', err); 
+            logMessage(`[BOOTSTRAP ERROR] Failed to load domEvents.js: ${err.message}`, 'error');
+        }), 
+        import('/client/actions.js').then(m => {
+            console.log('[DEBUG bootstrap.js] actions.js module loaded successfully.');
+             if (typeof m.initializeActions === 'function') {
+                  console.log('[DEBUG bootstrap.js] Found initializeActions function. Calling it...');
+                 m.initializeActions();
+             } else {
+                 console.error('[DEBUG bootstrap.js] ERROR: initializeActions function NOT FOUND in loaded actions.js module!');
+             }
+        }).catch(err => {
+             console.error('[DEBUG bootstrap.js] ERROR loading actions.js module:', err);
+            logMessage(`[BOOTSTRAP ERROR] Failed to load actions.js: ${err.message}`, 'error');
+        }),
         import('/client/debug/index.js').then(() => {
             // The module handles its own global registration under window.dev now
              logMessage('[BOOTSTRAP] Debug module loaded (registers globally under window.dev if in dev mode).');
@@ -115,6 +185,21 @@ async function initializeApp() {
         })
     ]);
     logMessage('[BOOTSTRAP] Additional components initialization attempted.');
+
+    // --- Phase 7: Initialize Context Manager --- ADDED NEW PHASE
+    logMessage('[BOOTSTRAP] Phase 7: Initializing ContextManager Component...');
+    try {
+        const { createContextManagerComponent } = await import('/client/components/ContextManagerComponent.js');
+        const contextManager = createContextManagerComponent('context-manager-container');
+        contextManager.mount();
+        window.APP.contextManagerComponent = contextManager; // Optional debug access
+        logMessage('[BOOTSTRAP] ContextManager Component Mounted.');
+    } catch (err) {
+        logMessage(`[BOOTSTRAP ERROR] Failed to initialize ContextManager Component: ${err.message}`, 'error');
+        // Optionally re-throw if this component is critical
+        // throw err;
+    }
+    // --- END NEW PHASE ---
 
 
     logMessage('[BOOTSTRAP] ===== APPLICATION INITIALIZATION COMPLETE =====');

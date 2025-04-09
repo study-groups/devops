@@ -1,3 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 /* Base layout */
 body {
     margin: 0;
@@ -45,8 +48,13 @@ nav {
 
 #pwd-display {
     font-family: monospace;
-    color: #0d6efd;
+    color: #666;
     margin-right: 1rem;
+    font-size: 12px;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #ddd;
 }
 
 .login-form {
@@ -124,79 +132,15 @@ button.loading::after {
 
 /* Content area */
 #content {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
+    flex: 1; /* Keep this - allows #content to fill vertical space */
+    overflow: hidden; /* Keep this */
+    height: 100%; /* Explicitly set height */
+    width: 100%; /* Explicitly set width */
+    box-sizing: border-box; /* Ensure padding/border included */
 }
 
-/* Code view */
-#content.code-view #md-editor {
-    width: 100%;
-    display: block;
-}
-
-#content.code-view #md-preview {
-    display: none;
-}
-
-/* Preview view */
-#content.preview-view #md-editor {
-    display: none;
-}
-
-#content.preview-view #md-preview {
-    width: 100%;
-    display: block;
-}
-
-/* Split view */
-#content.split-view #md-editor,
-#content.split-view #md-preview {
-    width: 50%;
-    display: block;
-    overflow: auto;
-}
-
-#content.split-view #md-editor {
-    border-right: 1px solid #ddd;
-}
-
-/* Editor and preview shared styles */
-#md-editor, #md-preview {
-    border: none;
-    font-size: 14px;
-    line-height: 1.6;
-    overflow: auto;
-}
-
-/* Editor container */
-#md-editor {
-    display: flex;
-    border-right: 1px solid #ddd;
-    position: relative;
-    flex: 1;
-    overflow: hidden;
-}
-
-/* Editor textarea */
-#md-editor textarea {
-    width: 100%;
-    height: 100%;
-    padding: 1rem;
-    border: none;
-    resize: none;
-    font-family: monospace;
-    background-color: #f8f9fa;
-    color: #333;
-    overflow: auto;
-}
-
-/* Preview container */
-#md-preview {
-    padding: 1rem;
-    font-family: system-ui, -apple-system, sans-serif;
-    background-color: white;
-}
+/* Editor and preview shared styles (Keep base styles like font/border if needed, but layout is handled by ContentViewComponent rules) */
+/* REMOVED old #md-editor, #md-preview base layout rules */
 
 /* View controls */
 .view-controls {
@@ -299,69 +243,6 @@ button.loading::after {
     cursor: not-allowed;
 }
 
-/* Mermaid error styling */
-.mermaid-container {
-    margin: 1.5rem 0;
-    position: relative;
-    max-width: 100%;
-    overflow: auto;
-}
-
-.mermaid-error {
-    border: 2px dashed #ff3860;
-    border-radius: 4px;
-    background-color: #fff5f7;
-    margin: 1rem 0;
-    overflow: hidden;
-    max-width: 100%;
-    box-shadow: 0 2px 6px rgba(255, 56, 96, 0.3);
-}
-
-.mermaid-error-header {
-    padding: 0.75rem 1rem;
-    background-color: #ff3860;
-    color: white;
-    font-weight: bold;
-    font-size: 14px;
-}
-
-.mermaid-error-message {
-    padding: 1rem;
-    margin: 0;
-    color: #ff3860;
-    font-weight: bold;
-    font-family: monospace;
-    white-space: pre-wrap;
-    font-size: 14px;
-    background-color: #fffafa;
-    border-bottom: 1px solid #ffdbdb;
-}
-
-.mermaid-error-tip {
-    padding: 0.5rem 1rem;
-    font-style: italic;
-    color: #666;
-    background-color: #f9f9f9;
-    border-top: 1px solid #eee;
-    font-size: 12px;
-}
-
-.mermaid-error-code {
-    padding: 0.5rem 1rem;
-    margin: 0;
-    background-color: #f8f8f8;
-    max-height: 200px;
-    overflow: auto;
-}
-
-.mermaid-error-code pre {
-    margin: 0;
-    white-space: pre-wrap;
-    font-family: monospace;
-    font-size: 13px;
-    color: #333;
-}
-
 /* Mobile Styles - Replace lines 573-673 with this improved version */
 @media (max-width: 768px) {
     /* Basic mobile container */
@@ -458,19 +339,19 @@ button.loading::after {
     }
     
     body[data-auth-state="logged-in"] #pwd-display {
-        font-size: 15px;
-        font-weight: 500; 
-        color: #0066cc;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
         margin: 0;
-        cursor: pointer;
-        text-decoration: underline;
-        padding: 8px 16px;
-        border-radius: 4px;
-        text-align: center;
+        padding: 4px 8px;
+        background: #f0f0f0;
+        border-radius: 3px;
+        text-decoration: none;
+        border: 1px solid #ddd;
     }
     
     body[data-auth-state="logged-in"] #pwd-display:hover {
-        background-color: rgba(0, 102, 204, 0.1);
+        background-color: #e8e8e8;
     }
     
     /* Hide login form when logged in */
@@ -521,106 +402,111 @@ button.loading::after {
     box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
 }
 
-/* Add this to your styles.css or in a <style> tag in index.html */
-#content.split-view {
-    display: flex;
-    flex-direction: row;
-}
-
-#content.split-view #md-editor {
-    width: 50%;
-    display: block;
-    flex: 0 0 50%;
-    max-width: 50%;
-    border-right: 1px solid #ddd;
-    overflow: auto;
-}
-
-#content.split-view #md-preview {
-    width: 50%;
-    display: block;
-    flex: 0 0 50%;
-    max-width: 50%;
-    overflow: auto;
-}
-
-#content.split-view #md-editor textarea {
-    width: 100%;
-    height: 100%;
-}
-
-/* --- Initial UI State Control --- */
-
-/* Default state (unauthenticated) */
-#login-form {
-    display: flex; /* Show login form by default */
-}
-#logout-btn, 
-#pwd-display {
-    display: none; /* Hide logout button and user display by default */
-}
-.file-ops {
-    /* Hide file ops if not authenticated? Optional. */
-    /* display: none; */ 
-}
-
-/* Authenticated state */
-html[data-auth-state="authenticated"] #login-form {
-    display: none; /* Hide login form when authenticated */
-}
-html[data-auth-state="authenticated"] #logout-btn,
-html[data-auth-state="authenticated"] #pwd-display {
-    display: inline-block; /* Show logout button and user display when authenticated */
-}
-html[data-auth-state="authenticated"] .file-ops {
-    /* display: flex; */ /* Ensure file ops are visible if hidden by default */
-}
-
-/* Log visibility */
-html[data-log-visible="false"] #log-container {
-    display: none !important; /* Important to override other display rules initially */
-    visibility: hidden !important;
-    height: 0 !important;
-    opacity: 0 !important;
-    overflow: hidden !important;
-}
-
-html[data-log-visible="true"] #log-container {
-    display: flex !important; /* Important to override other display rules initially */
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: var(--log-height, 120px) !important; /* Use CSS variable set by earlyInit */
-}
-
-/* Adjust main content padding based on log visibility */
-html[data-log-visible="false"] #main-container.log-hidden #content {
-    /* Your existing rule probably handles this */
-    max-height: calc(100vh - 50px); /* Assuming nav height approx 50px */
-}
-html[data-log-visible="true"] #main-container.log-visible #content {
-    /* Your existing rule probably handles this */
-     max-height: calc(100vh - var(--log-height, 120px) - 50px); 
-}
-
-/* --- End Initial UI State Control --- */
-
 /* ============================================= */
-/* AGGRESSIVE KaTeX DEBUG OVERRIDES - START     */
-/* Minimal necessary overrides for alignment fix */
+/* REMOVED AGGRESSIVE KaTeX DEBUG OVERRIDES       */
 /* ============================================= */
 
-/* Reset needed for specific inner elements */
-.katex .mtable, 
-.katex .vlist, 
-.katex .frac-line,
-.katex .strut,
-.katex .delimsizing,
-.katex .mathit 
-/* , .katex span */ { 
-    vertical-align: baseline !important; 
-    line-height: normal !important;    
+/* Add plain CSS for Up buttons at the end */
+.up-button {
+  background-color: #e2e8f0; /* Tailwind gray-200 */
+  border: 1px solid #cbd5e1; /* Tailwind gray-400 */
+  border-radius: 0.25rem; /* Tailwind rounded-sm */
+  padding: 0.1rem 0.5rem; /* Adjust padding as needed */
+  font-size: 0.75rem; /* Tailwind text-xs */
+  font-weight: bold;
+  color: #4a5568; /* Tailwind gray-700 */
+  cursor: pointer;
+  margin-left: 2px; /* Add a little space */
+  vertical-align: middle; /* Align with select dropdowns */
 }
 
-/* ============================================= */
-/* AGGRESSIVE KaTeX DEBUG OVERRIDES - END       */
-/* ============================================= */
+.up-button:hover {
+  background-color: #cbd5e1; /* Tailwind gray-400 */
+}
+
+.up-button[hidden] {
+  display: none;
+}
+
+/* --- START ContentViewComponent Layout Rules --- */
+
+/* Make the main content wrapper a flex container */
+#content-view-wrapper {
+  display: flex;
+  height: 100%; /* Ensure it takes up available height */
+  width: 100%;
+}
+
+/* Base styles for the editor and preview panes */
+#content-view-wrapper > #editor-container,
+#content-view-wrapper > #preview-container {
+  flex: 1; /* Each takes up half the space by default (for split view) */
+  overflow: auto; /* Allow scrolling within panes */
+  height: 100%; /* Fill the height of the wrapper */
+  /* Add any other common padding/margin if needed */
+  /* border: 1px solid #ccc; /* Optional: for visibility during debug */
+}
+
+/* Hide preview when in editor-only mode */
+#content-view-wrapper.mode-editor #preview-container {
+  display: none;
+}
+
+/* Hide editor when in preview-only mode */
+#content-view-wrapper.mode-preview #editor-container {
+  display: none;
+}
+
+/* Ensure both are visible in split mode (styles above handle flex: 1) */
+#content-view-wrapper.mode-split #editor-container,
+#content-view-wrapper.mode-split #preview-container {
+   /* display: flex; /* REMOVED - Base flex: 1 on items should handle this */
+   /* flex: 1; /* Already set in base styles */
+}
+
+/* Ensure the textarea inside the editor fills its container */
+#editor-container {
+    display: flex; /* Make editor container flex */
+    flex-direction: column; /* Stack elements vertically */
+    background-color: #f8f9fa; /* Match previous editor background */
+}
+#editor-container textarea {
+    flex-grow: 1; /* Allow textarea to grow */
+    border: none; /* Remove default textarea border */
+    padding: 1rem; /* Match previous editor padding */
+    resize: none; /* Disable manual resize */
+    outline: none; /* Remove focus outline */
+    font-family: monospace; /* Use a monospaced font */
+    font-size: 14px; /* Adjust font size */
+    line-height: 1.6; /* Match previous editor line-height */
+    width: 100%; /* Ensure it takes full width */
+    box-sizing: border-box; /* Include padding/border in width */
+    background-color: transparent; /* Inherit from parent */
+    color: #333; /* Match previous editor text color */
+}
+#editor-container .resize-handle {
+    /* Styles for the resize handle if you re-implement resizing */
+    display: none; /* Hide for now */
+}
+
+/* Style the preview container */
+#preview-container {
+    padding: 1rem; /* Match previous preview padding */
+    overflow-y: auto; /* Ensure preview content can scroll */
+    background-color: white; /* Match previous preview background */
+    font-family: system-ui, -apple-system, sans-serif; /* Match previous */
+    line-height: 1.6; /* Match previous */
+}
+
+/* Optional: Add border between panes in split view */
+#content-view-wrapper.mode-split #editor-container {
+    border-right: 1px solid #ddd; 
+}
+
+/* --- END ContentViewComponent Layout Rules --- */
+
+/* --- REMOVED Preview Content Formatting Fixes --- */
+
+/* --- REMOVED Mermaid Error Styling --- */
+
+/* Ensure no blank lines at EOF */

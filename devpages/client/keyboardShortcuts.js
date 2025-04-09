@@ -4,23 +4,26 @@
  */
 
 import { logMessage } from './log/index.js';
-import { AUTH_STATE } from '/client/auth.js';
 import { eventBus } from './eventBus.js';
 import { saveFile } from './fileManager/index.js';
 import { setView } from './views.js';
 import { executeRefresh } from './markdown-svg.js';
-
-// For backwards compatibility
-const authState = AUTH_STATE;
+import { authState } from '/client/authState.js';
 
 // Initialize keyboard shortcuts
 export function initKeyboardShortcuts() {
     document.addEventListener('keydown', async (e) => {
         // Save file: Ctrl+S
-        if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             logMessage('[KEYBOARD] Save shortcut triggered (Ctrl+S)');
-            await saveFile();
+            if (authState.get().isAuthenticated) {
+                logMessage('[KEYBOARD] User authenticated, triggering saveFile...');
+                await saveFile();
+            } else {
+                logMessage('[KEYBOARD] Save shortcut ignored: User not authenticated.');
+                alert('Please log in to save.');
+            }
         }
         
         // Refresh SVG: Ctrl+Alt+R

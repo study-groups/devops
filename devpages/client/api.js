@@ -1,6 +1,8 @@
 // api.js - Handles API calls to the server
 import { globalFetch } from '/client/globalFetch.js';
-import { AUTH_STATE } from '/client/auth.js';
+// import { AUTH_STATE } from '/client/auth.js'; // No longer needed
+import { authState } from '/client/authState.js'; // Use reactive state
+import { withAuthHeaders } from '/client/headers.js'; // Assuming this uses authState now
 
 // Create backwards-compatible alias
 const authState = AUTH_STATE;

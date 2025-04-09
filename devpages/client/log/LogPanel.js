@@ -14,6 +14,9 @@ const MIN_LOG_HEIGHT = 80;
 // ADD: Import the event bus
 import eventBus from '/client/eventBus.js';
 
+// ADD: Import the necessary functions from uiState
+import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
+
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
         this.container = document.getElementById(containerElementId);
@@ -35,7 +38,6 @@ export class LogPanel {
         // Buttons are now found via toolbarElement or have data-actions
 
         this.state = {
-            visible: false,
             height: DEFAULT_LOG_HEIGHT,
             entryCount: 0,
         };
@@ -46,9 +48,11 @@ export class LogPanel {
 
         // Bind core methods that might be called externally or as listeners
         this.addEntry = this.addEntry.bind(this);
-        this.toggle = this.toggle.bind(this);
         this.copyLog = this.copyLog.bind(this);
         this.clearLog = this.clearLog.bind(this);
+
+        // Add a property to store the unsubscribe function
+        this._logVisibleUnsubscribe = null;
 
         console.log('[LogPanel] Instance created.');
     }
@@ -63,6 +67,7 @@ export class LogPanel {
         this.createDOMStructure(); // Create internal elements
         this.loadPreferences();
         this.attachEventListeners(); // Attach resize listener and potentially others
+        this.subscribeToStateChanges(); // ADDED: Subscribe to uiState.logVisible
         this.updateUI();
         this.updateEntryCount(); // Initial count
         console.log('[LogPanel] Initialized successfully.');
@@ -108,14 +113,14 @@ export class LogPanel {
         this.appInfoElement.dataset.action = 'showAppInfo'; 
         this.toolbarElement.appendChild(this.appInfoElement);
 
-        // Create Status Span
+        // Create Minimize Button (Moved BEFORE status span)
+        this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log');
+
+        // Create Status Span (Will be pushed right by margin-left: auto)
         this.statusElement = document.createElement('span');
         this.statusElement.id = 'log-status';
         this.statusElement.textContent = '0 entries';
         this.toolbarElement.appendChild(this.statusElement);
-
-        // Create Minimize Button
-        this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log');
 
         // Create Log Content Area
         this.logElement = document.createElement('div');
@@ -148,31 +153,44 @@ export class LogPanel {
     }
 
     /**
-     * Loads visibility and height preferences from localStorage.
+     * Loads height preference from localStorage.
      */
     loadPreferences() {
-        const savedVisible = localStorage.getItem(LOG_VISIBLE_KEY);
         const savedHeight = localStorage.getItem(LOG_HEIGHT_KEY);
 
-        this.state.visible = savedVisible === 'true'; // Default to false if null/not 'true'
         this.state.height = parseInt(savedHeight, 10) || DEFAULT_LOG_HEIGHT;
         if (this.state.height < MIN_LOG_HEIGHT) {
             this.state.height = MIN_LOG_HEIGHT;
         }
-        console.log(`[LogPanel] Preferences loaded: visible=${this.state.visible}, height=${this.state.height}`);
+        console.log(`[LogPanel] Preferences loaded: height=${this.state.height}`);
     }
 
     /**
-     * Saves visibility and height preferences to localStorage.
+     * Saves height preference to localStorage.
      */
     savePreferences() {
         try {
-            localStorage.setItem(LOG_VISIBLE_KEY, String(this.state.visible));
             localStorage.setItem(LOG_HEIGHT_KEY, String(this.state.height));
-            console.log(`[LogPanel] Preferences saved: visible=${this.state.visible}, height=${this.state.height}`);
+            console.log(`[LogPanel] Preferences saved: height=${this.state.height}`);
         } catch (error) {
             console.error(`[LogPanel] Failed to save preferences: ${error.message}`);
         }
+    }
+
+    /**
+     * ADDED: Subscribe to relevant UI state changes.
+     */
+    subscribeToStateChanges() {
+        // Unsubscribe if already subscribed (e.g., during re-initialization)
+        if (this._logVisibleUnsubscribe) {
+            this._logVisibleUnsubscribe();
+        }
+        // Subscribe to logVisible changes and trigger UI update
+        this._logVisibleUnsubscribe = subscribeToUIStateChange('logVisible', (isVisible) => {
+            console.log(`%c[LogPanel] Received uiState change via subscription: logVisible=${isVisible}`, 'color: cyan'); 
+            this.updateUI(); // Update UI when central state changes
+        });
+        console.log('[LogPanel] Subscribed to uiState.logVisible changes.');
     }
 
     /**
@@ -192,9 +210,8 @@ export class LogPanel {
         this._handleResizeMouseMove = this._handleResizeMouseMove.bind(this);
         this._handleResizeMouseUp = this._handleResizeMouseUp.bind(this);
 
-        // ADD: Listen for the toggle request event
-        eventBus.on('logPanel:toggleRequest', this.toggle); // Note: toggle is already bound in constructor
-        console.log('[LogPanel] Subscribed to logPanel:toggleRequest event.');
+        // REMOVED: eventBus listener for toggle request
+        // eventBus.on('logPanel:toggleRequest', this.toggle);
 
          // We might need a listener for CLI input here if not handled elsewhere
          // Or rely on the cli module attaching its own listener after DOM creation.
@@ -350,75 +367,41 @@ export class LogPanel {
     }
 
     /**
-     * Toggles the visibility of the log panel.
-     */
-    toggle() {
-        if (!this.container) return;
-        this.state.visible = !this.state.visible;
-        this.savePreferences();
-        this.updateUI();
-        console.log(`[LogPanel] Toggled visibility to: ${this.state.visible}`);
-    }
-
-    /**
-     * Forces the panel to be shown.
-     */
-    show() {
-        if (!this.container || this.state.visible) return;
-        this.state.visible = true;
-        this.savePreferences();
-        this.updateUI();
-    }
-
-    /**
-     * Forces the panel to be hidden.
-     */
-    hide() {
-        if (!this.container || !this.state.visible) return;
-        this.state.visible = false;
-        this.savePreferences();
-        this.updateUI();
-    }
-
-
-    // --- UI Update & Internal Helpers ---
-
-    /**
-     * Updates the DOM elements based on the current state (visibility, height).
+     * Updates the LogPanel's DOM based on the current central UI state (visibility) and internal state (height).
      */
     updateUI() {
-        if (!this.container) return;
+        console.log('%c[LogPanel] updateUI() method called.', 'color: yellow');
+        const mainContainer = document.getElementById('main-container'); // Get main container reference
 
-        // --- Visibility Control --- 
-        // Set the data attribute on the html element, which CSS uses
-        document.documentElement.dataset.logVisible = String(this.state.visible);
-        
-        // Keep class manipulation for potential secondary styling/transitions
-        if (this.state.visible) {
-            this.container.classList.add('log-panel-visible');
-            this.container.classList.remove('log-panel-hidden');
-            // REMOVED direct style setting for display, visibility, opacity
-        } else {
-            this.container.classList.remove('log-panel-visible');
-            this.container.classList.add('log-panel-hidden');
-            // REMOVED direct style setting for visibility, opacity, and display:none timeout
+        if (!this.container || !mainContainer) {
+             console.warn('[LogPanel updateUI] Missing required elements (#log-container or #main-container), cannot update.');
+             return;
         }
 
-        // --- Height Control ---
-        // Set the CSS variable that the CSS rules use
-        document.documentElement.style.setProperty('--log-height', `${this.state.height}px`);
-        // REMOVED direct style setting for height
+        const isVisible = getUIState('logVisible');
+        const currentHeight = this.state.height; // Still needed for --log-height
 
-        // --- Button States (Example) ---
-        if (this.minimizeButton) {
-             this.minimizeButton.textContent = this.state.visible ? '✕' : '❐'; // Example icons
-             this.minimizeButton.title = this.state.visible ? 'Hide Log' : 'Show Log';
-        }
-        // Update main toggle button in navbar if applicable (needs reference or event bus)
-        const mainLogToggle = document.getElementById('log-btn'); // Example ID
-        if (mainLogToggle) {
-            mainLogToggle.classList.toggle('active', this.state.visible);
-        }
+        console.log(`[LogPanel] Updating UI based on state: isVisible=${isVisible}`);
+
+        // Set CSS variable ONLY when visible
+        document.documentElement.style.setProperty('--log-height', isVisible ? `${currentHeight}px` : '0px');
+
+        // Toggle classes on log container
+        this.container.classList.toggle('log-visible', isVisible);
+        this.container.classList.toggle('log-hidden', !isVisible);
+
+        // Toggle classes on main container for content height adjustment
+        mainContainer.classList.toggle('log-visible', isVisible);
+        mainContainer.classList.toggle('log-hidden', !isVisible);
+
+        // Optional: Update the button in ViewControls still needs doing there via its own subscription.
+        // We don't need to update the button appearance from here anymore.
+
+        console.log(`[LogPanel] UI Updated. Toggled classes. IsVisible: ${isVisible}`);
+
+        // Emit resize event AFTER updating visibility/height potentially
+        // so other components react to the final state
+        eventBus.emit('layout:logResized', { height: isVisible ? currentHeight : 0 });
     }
 
     /**
@@ -453,36 +436,61 @@ export class LogPanel {
         document.addEventListener('mouseup', this._handleResizeMouseUp);
     }
 
+    /**
+     * Handles mouse move during resize.
+     */
     _handleResizeMouseMove(event) {
-        if (!this._isResizing || !this.container) return;
+        if (!this._isResizing) return;
 
-        const deltaY = event.clientY - this._startY;
-        let newHeight = this._startHeight - deltaY; // Inverted logic for top resize handle
+        const deltaY = this._startY - event.clientY;
+        let newHeight = this._startHeight + deltaY;
 
-        // Clamp height
-        newHeight = Math.max(MIN_LOG_HEIGHT, newHeight);
-        // Optional: Add a max height constraint if needed
-        // newHeight = Math.min(window.innerHeight * 0.8, newHeight);
+        if (newHeight < MIN_LOG_HEIGHT) {
+            newHeight = MIN_LOG_HEIGHT;
+        }
+        // Add a max height constraint if desired, e.g.:
+        // const maxHeight = window.innerHeight * 0.8; // 80% of viewport
+        // if (newHeight > maxHeight) newHeight = maxHeight;
 
-        // Update CSS variable live during resize
+        this.state.height = newHeight;
+        this.container.style.height = `${newHeight}px`;
+        
+        // Set the CSS variable immediately during resize
         document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-        // REMOVED direct style setting for height
+        
+        // MODIFIED: Emit event during resize for immediate layout updates elsewhere
+        eventBus.emit('layout:logResized', { height: newHeight });
     }
 
+    /**
+     * Handles mouse up after resize, saves the new height.
+     */
     _handleResizeMouseUp() {
-        if (!this._isResizing || !this.container) return;
-
+        if (!this._isResizing) return;
         this._isResizing = false;
-        this.container.classList.remove('resizing');
         document.removeEventListener('mousemove', this._handleResizeMouseMove);
         document.removeEventListener('mouseup', this._handleResizeMouseUp);
+        document.body.style.userSelect = ''; // Restore text selection
 
-        // Update state and save preferences based on the CSS variable (or container height)
-        // Reading offsetHeight is reliable here after styles have settled
-        this.state.height = this.container.offsetHeight; 
-        // Ensure the CSS variable is set to the final height explicitly
-        document.documentElement.style.setProperty('--log-height', `${this.state.height}px`);
-        this.savePreferences();
-        console.log(`[LogPanel] Resize finished. New height: ${this.state.height}`);
+        this.savePreferences(); // Save the final height
+        console.log(`[LogPanel] Resize ended. Final height: ${this.state.height}`);
+        // Event emission is now handled during mousemove
+    }
+
+    // ADDED: Method to clean up subscriptions
+    destroy() {
+        console.log('[LogPanel] Destroying...');
+        if (this._logVisibleUnsubscribe) {
+            this._logVisibleUnsubscribe();
+            this._logVisibleUnsubscribe = null;
+            console.log('[LogPanel] Unsubscribed from uiState changes.');
+        }
+        // Remove resize listener if necessary (though usually component is destroyed with page)
+        if (this.resizeHandle) {
+            this.resizeHandle.removeEventListener('mousedown', this._handleResizeMouseDown);
+        }
+        document.removeEventListener('mousemove', this._handleResizeMouseMove); // Clean up global listeners
+        document.removeEventListener('mouseup', this._handleResizeMouseUp); // Clean up global listeners
+        console.log('[LogPanel] Destroyed.');
     }
 } 

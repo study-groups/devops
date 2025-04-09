@@ -2,7 +2,6 @@
  * editor.js
  * Handles Markdown editor functionality
  */
-import { setView } from '/client/views.js';
 import { eventBus } from '/client/eventBus.js';
 import { uploadImage } from '/client/imageManager.js';
 import { logMessage } from '/client/log/index.js';
@@ -39,14 +38,24 @@ const editorCore = {
 
     logEditor('[EDITOR] Starting initialization');
     
+    // --- NEW: Verify required elements exist ---
+    const editorContainer = document.getElementById('editor-container');
+    const editorTextarea = editorContainer?.querySelector('textarea');
+    if (!editorContainer || !editorTextarea) {
+        logEditor('[EDITOR ERROR] Initialization failed: #editor-container or its textarea not found. Was ContentViewComponent mounted?', 'error');
+        console.error('[EDITOR ERROR] Initialization failed: #editor-container or its textarea not found.');
+        return false;
+    }
+    // --- END NEW --- 
+    
     try {
       // Initialize basic functionality
-      setupEditorTextarea();
+      // setupEditorTextarea(); // REMOVED: ContentViewComponent now creates the structure
       setupKeyboardShortcuts();
       
       // Set default view from localStorage if available
       const savedView = localStorage.getItem('viewMode') || 'split';
-      setView(savedView);
+      // setView(savedView);
       
       // Set up event listeners
       setupEventListeners();
@@ -55,7 +64,8 @@ const editorCore = {
       setupImagePasteHandler();
       
       // Attach drag and drop listeners
-      const editorElement = document.getElementById(options.containerId || 'md-editor');
+      // const editorElement = document.getElementById(options.containerId || 'md-editor'); // OLD
+      const editorElement = document.getElementById('editor-container'); // Use new ID
       if (editorElement) {
         editorElement.addEventListener('dragover', (event) => {
           event.preventDefault();
@@ -94,7 +104,8 @@ const editorCore = {
    * @returns {boolean} Whether content was set successfully
    */
   setContent: function(content) {
-    const textarea = document.querySelector('#md-editor textarea');
+    // const textarea = document.querySelector('#md-editor textarea'); // OLD
+    const textarea = document.querySelector('#editor-container textarea'); // Use new selector
     if (textarea) {
       textarea.value = content || '';
       // Trigger input event to update preview

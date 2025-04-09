@@ -4,6 +4,8 @@
  */
 import { globalFetch } from '/client/globalFetch.js';
 import { eventBus } from '/client/eventBus.js';
+import { authState } from './authState.js'; // Import the new reactive state
+import fileSystemState from './fileSystemState.js'; // Import fileSystemState directly
 
 // --- Constants ---
 const LOGIN_ENDPOINT = '/api/auth/login';
@@ -11,63 +13,31 @@ const LOGOUT_ENDPOINT = '/api/auth/logout';
 const USER_STATUS_ENDPOINT = '/api/auth/user';
 
 // --- State ---
-export const AUTH_STATE = {
-  UNKNOWN: 'unknown',
-  AUTHENTICATING: 'authenticating',
-  AUTHENTICATED: 'authenticated',
-  UNAUTHENTICATED: 'unauthenticated',
-  ERROR: 'error',
-  current: 'unknown',
-  username: '',
-  loginTime: null,
-  expiresAt: null, // Optional: For session expiration
-};
-
-// Need to import clearFileSystemState separately after moving fileManager
-let clearFileSystemState = async () => {
-  logAuth('[AUTH WARN] clearFileSystemState called before fileManager loaded');
-};
-try {
-  import('/client/fileManager.js').then(module => {
-    if (module && typeof module.clearFileSystemState === 'function') {
-      clearFileSystemState = module.clearFileSystemState;
-      logAuth('[AUTH] clearFileSystemState function dynamically loaded.');
-    } else {
-      logAuth('[AUTH ERROR] Failed to load clearFileSystemState from fileManager.', 'error');
-    }
-  }).catch(err => {
-     logAuth(`[AUTH ERROR] Error dynamically loading fileManager: ${err.message}`, 'error');
-  });
-} catch (e) {
-   logAuth(`[AUTH ERROR] Setup for dynamic import of fileManager failed: ${e.message}`, 'error');
-}
+// Removed the old AUTH_STATE object. State is now managed in authState.js
 
 // --- Private Functions ---
 
 /**
- * Updates the authentication state and notifies listeners.
- * @param {string} newState - The new state value (e.g., AUTH_STATE.AUTHENTICATED).
- * @param {object} [data={}] - Optional data associated with the state change.
+ * Updates the reactive authentication state.
+ * @param {object} data - The new state properties to merge.
  */
-function setAuthState(newState, data = {}) {
-  const oldState = AUTH_STATE.current;
-  if (oldState === newState && JSON.stringify(AUTH_STATE.username) === JSON.stringify(data.username)) {
-    return; // No change
-  }
+function updateReactiveAuthState(data) {
+  const currentState = authState.get(); // Get current state for comparison/logging if needed
+  logAuth(`Updating auth state: ${JSON.stringify(data)}`);
+  
+  // Use the update function from the created state
+  authState.update(prevState => ({ 
+      ...prevState, 
+      ...data, 
+      isChecking: false // Mark checking as complete on any update after init
+  }));
 
-  AUTH_STATE.current = newState;
-  AUTH_STATE.username = data.username || '';
-  AUTH_STATE.loginTime = data.loginTime || null;
-  AUTH_STATE.expiresAt = data.expiresAt || null;
-
-  logAuth(`[AUTH] State changed: ${oldState} -> ${newState} for user: ${AUTH_STATE.username || 'none'}`);
-  eventBus.emit('auth:stateChanged', newState, { username: AUTH_STATE.username });
-  // Specific event for login success/failure
-  if (newState === AUTH_STATE.AUTHENTICATED || newState === AUTH_STATE.UNAUTHENTICATED || newState === AUTH_STATE.ERROR) {
+  // Keep emitting specific status/lifecycle events if needed
+  if (data.isAuthenticated !== undefined || data.error !== undefined) {
       eventBus.emit('auth:loginStatus', {
-          success: newState === AUTH_STATE.AUTHENTICATED,
-          username: AUTH_STATE.username,
-          error: data.error || (newState === AUTH_STATE.ERROR ? 'Authentication error' : null)
+          success: data.isAuthenticated === true,
+          username: data.username !== undefined ? data.username : currentState.username, // Use new or old username
+          error: data.error
       });
   }
 }
@@ -85,25 +55,27 @@ async function checkInitialAuthStatus() {
             const data = await response.json();
             if (data.username) {
                 logAuth(`[AUTH] Server confirmed active session for: ${data.username}`);
-                setAuthState(AUTH_STATE.AUTHENTICATED, { 
+                updateReactiveAuthState({ 
+                    isAuthenticated: true, 
                     username: data.username, 
-                    loginTime: new Date().toISOString() // Set login time on status check success
+                    error: null
+                    // isChecking will be set to false by updateReactiveAuthState
                 });
-                eventBus.emit('auth:restored', { username: data.username }); // Reuse event for consistency
+                eventBus.emit('auth:restored', { username: data.username });
             } else {
                  logAuth('[AUTH] Server status OK but no username returned.', 'warning');
-                 setAuthState(AUTH_STATE.UNAUTHENTICATED);
+                 updateReactiveAuthState({ isAuthenticated: false, username: null, error: null });
             }
         } else if (response.status === 401) {
             logAuth('[AUTH] No active session found on server.');
-            setAuthState(AUTH_STATE.UNAUTHENTICATED);
+            updateReactiveAuthState({ isAuthenticated: false, username: null, error: null });
         } else {
             logAuth(`[AUTH] Unexpected status ${response.status} checking auth status.`, 'error');
-            setAuthState(AUTH_STATE.ERROR, { error: `Server status check failed: ${response.status}` });
+            updateReactiveAuthState({ isAuthenticated: false, username: null, error: `Server status check failed: ${response.status}` });
         }
     } catch (error) {
         logAuth(`[AUTH] Error checking initial auth status: ${error.message}`, 'error');
-        setAuthState(AUTH_STATE.ERROR, { error: 'Network error checking auth status' });
+        updateReactiveAuthState({ isAuthenticated: false, username: null, error: 'Network error checking auth status' });
     }
 }
 
@@ -112,10 +84,9 @@ async function checkInitialAuthStatus() {
  */
 export function initAuth() {
     logAuth('[AUTH] Initializing authentication system...');
-    // Check status with server instead of restoring from localStorage
+    // The initial state in authState.js already has isChecking: true
     checkInitialAuthStatus(); 
-    // Setup listeners or timers if needed
-    logAuth('[AUTH] System initialized.');
+    logAuth('[AUTH] System initialized. Initial check started.');
 }
 
 /**
@@ -127,21 +98,21 @@ export function initAuth() {
 export async function handleLogin(username, password) {
   if (!username || !password) {
     logAuth('[AUTH] Login attempt with missing credentials', 'warning');
-    setAuthState(AUTH_STATE.ERROR, { error: 'Username and password required' });
+    updateReactiveAuthState({ error: 'Username and password required' }); // Update error state
     return false;
   }
 
-  setAuthState(AUTH_STATE.AUTHENTICATING, { username });
+  // Optional: Indicate authenticating state if needed in authState
+  // authState.update(s => ({ ...s, isAuthenticating: true })); // If you add this flag to authState
 
   try {
-    // 1. Send plain username and password to the server
     logAuth(`[AUTH] Sending login request for user: ${username}`);
     const loginResponse = await globalFetch(LOGIN_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }), // Send plain password
+      body: JSON.stringify({ username, password }),
     });
 
     if (!loginResponse.ok) {
@@ -153,17 +124,21 @@ export async function handleLogin(username, password) {
         throw new Error(errorMsg);
     }
 
-    // Login successful on the server
     logAuth(`[AUTH] Server login successful for: ${username}`);
-    setAuthState(AUTH_STATE.AUTHENTICATED, { 
+    updateReactiveAuthState({ 
+        isAuthenticated: true, 
         username: username, 
-        loginTime: new Date().toISOString() 
+        error: null
     });
     return true;
 
   } catch (error) {
     logAuth(`[AUTH] Login failed: ${error.message}`, 'error');
-    setAuthState(AUTH_STATE.ERROR, { error: error.message });
+    updateReactiveAuthState({ 
+        isAuthenticated: false, // Ensure authenticated is false on error
+        username: null, // Clear username on error
+        error: error.message 
+    });
     return false;
   }
 }
@@ -173,14 +148,13 @@ export async function handleLogin(username, password) {
  * @param {boolean} [notifyServer=true] - Whether to send a request to the server.
  */
 export async function logout(notifyServer = true) {
-  const currentUser = AUTH_STATE.username;
+  const currentUser = authState.get().username; // Get username from reactive state
   logAuth(`[AUTH] Logout requested for ${currentUser || 'user'}. Notify server: ${notifyServer}`);
 
   if (notifyServer) {
     try {
       const response = await globalFetch(LOGOUT_ENDPOINT, { method: 'POST' });
       if (!response.ok) {
-        // Log error but proceed with client-side logout anyway
         logAuth(`[AUTH] Server logout failed: ${response.status}`, 'warning');
       } else {
          logAuth('[AUTH] Server logout successful.');
@@ -190,20 +164,36 @@ export async function logout(notifyServer = true) {
     }
   }
 
-  // Clear client state immediately regardless of server response
-  setAuthState(AUTH_STATE.UNAUTHENTICATED);
-  // Use dynamically imported function
-  await clearFileSystemState();
-  logAuth('[AUTH] Client state cleared.');
+  // Update reactive state for logout
+  updateReactiveAuthState({ 
+      isAuthenticated: false, 
+      username: null, 
+      error: null
+  });
+
+  // Clear other related state
+  fileSystemState.saveState({ currentDir: '', currentFile: '' });
+  logAuth('[AUTH] Client file system state cleared via fileSystemState.saveState.');
+  
+  // ADDED: Clear the editor content
+  try {
+      window.editor?.setContent('');
+      logAuth('[AUTH] Editor content cleared.');
+  } catch (editorError) {
+       logAuth(`[AUTH WARNING] Failed to clear editor content: ${editorError.message}`, 'warning');
+  }
+
+  // Emit lifecycle event
   eventBus.emit('auth:loggedOut', { username: currentUser });
 }
 
-// Default export for convenience
+// Default export updated to export authState as well if needed, or remove it
 export default {
-  AUTH_STATE,
+  // AUTH_STATE removed
   initAuth,
   handleLogin,
   logout,
+  authState // Export the state object itself if needed by consumers
 }; 
 
 /**

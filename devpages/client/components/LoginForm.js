@@ -2,7 +2,8 @@
  * Login Form Component
  * Responsible for displaying login form and handling authentication
  */
-import * as authModule from '/client/auth.js';
+import { handleLogin } from '/client/auth.js';
+import { authState } from '/client/authState.js';
 
 class LoginForm {
   constructor(container, options = {}) {
@@ -69,12 +70,13 @@ class LoginForm {
     const formElement = this.form.querySelector('form');
     formElement.addEventListener('submit', this.handleSubmit.bind(this));
     
-    // Update visibility based on current auth state
-    const { isLoggedIn } = authModule.getLoginStatus();
-    this.updateVisibility(isLoggedIn);
-    
-    // Subscribe to auth events
-    this.subscribeToAuthEvents();
+    // Update visibility based on current auth state using subscribe
+    // The subscription will call updateVisibility immediately with the current state
+    const unsubscribe = authState.subscribe(state => {
+        this.updateVisibility(state.isAuthenticated);
+    });
+    // Store the unsubscribe function to call it on destroy
+    this.unsubscribeHandlers.push(unsubscribe);
   }
   
   handleSubmit(event) {
@@ -92,13 +94,20 @@ class LoginForm {
       return;
     }
     
-    // Attempt login
-    authModule.login(username, password)
-      .then(user => {
-        console.log(`Login successful for user: ${user.username}`);
+    // Attempt login using the imported handleLogin function
+    handleLogin(username, password)
+      .then(success => { // handleLogin likely returns boolean now
+        if (success) {
+             console.log(`Login triggered successfully for user: ${username}`);
+             // UI update is handled by the authState subscription
+        } else {
+            console.error('Login failed (handleLogin returned false).');
+            // Error display might be handled within auth.js or via authState.error
+        }
       })
       .catch(error => {
         console.error('Login failed:', error);
+        // Error display might be handled within auth.js or via authState.error
       });
   }
   
@@ -108,23 +117,10 @@ class LoginForm {
     }
   }
   
-  subscribeToAuthEvents() {
-    // Handle login events
-    const loginUnsubscribe = authModule.onLogin(() => {
-      this.updateVisibility(true);
-    });
-    
-    // Handle logout events
-    const logoutUnsubscribe = authModule.onLogout(() => {
-      this.updateVisibility(false);
-    });
-    
-    this.unsubscribeHandlers.push(loginUnsubscribe, logoutUnsubscribe);
-  }
-  
   destroy() {
-    // Unsubscribe from all events
+    // Unsubscribe from authState changes
     this.unsubscribeHandlers.forEach(unsubscribe => unsubscribe());
+    this.unsubscribeHandlers = []; // Clear handlers
     
     // Remove the form from DOM
     if (this.form && this.form.parentNode) {

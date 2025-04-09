@@ -3,12 +3,21 @@ console.log('[DEBUG] actions.js: Module start');
 import eventBus from '/client/eventBus.js';
 import { withAuthHeaders } from '/client/headers.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { setView, getView } from '/client/views.js';
-import { AUTH_STATE, handleLogin } from '/client/auth.js';
+// REMOVED: Obsolete import from deleted views.js
+// import { setView, getView } from '/client/views.js';
+import { getUIState, setUIState } from '/client/uiState.js';
+import { handleLogin } from '/client/auth.js'; // Assuming triggerActions.login uses this
 import { logMessage } from '/client/log/index.js';
 // <<< UNCOMMENT THE DEBUG IMPORT >>>
-import * as debug from '/client/debug/index.js'; 
-console.log('[DEBUG] actions.js: Imported debug module:', debug);
+// import * as debug from '/client/debug/index.js'; 
+
+// Import other necessary modules
+import { refreshPreview } from '/client/previewManager.js'; // UPDATED - Correct function name
+// import { toggleCommunityLink } from '/client/communityLink.js'; // REMOVED - communityLink handles its own events
+import fileManager from '/client/fileManager.js'; // Needed for loadFile
+
+// REMOVED: Problematic debug console log
+// console.log('[DEBUG] actions.js: Imported modules check - debug:', !!debug, 'refreshPreview:', !!refreshPreview, 'fileManager:', !!fileManager); 
 
 // Helper for logging within this module
 function logAction(message, level = 'text') {
@@ -115,7 +124,7 @@ function registerAuthActions() {
             // This is just a notification of successful login
             // Make sure file manager is initialized
             try {
-                const { initializeFileManager } = await import('$lib/fileManager.js');
+                const { initializeFileManager } = await import('/client/fileManager.js');
                 await initializeFileManager();
                 logAction('File manager initialized after login event');
             } catch (error) {
@@ -131,7 +140,7 @@ function registerAuthActions() {
             
             // Initialize file manager after successful login
             try {
-                const { initializeFileManager } = await import('$lib/fileManager.js');
+                const { initializeFileManager } = await import('/client/fileManager.js');
                 await initializeFileManager();
                 logAction('File manager initialized after login status update');
             } catch (error) {
@@ -160,21 +169,32 @@ export const triggerActions = {
     saveFile: async () => {
         logAction('Triggering saveFile action...');
         try {
-            // Dynamically import fileManager and call saveFile
-            const fileManager = await import('/client/fileManager.js'); 
-            // Call saveFile without arguments - it uses internal state
-            const success = await fileManager.saveFile(); 
+            // Assuming fileManager.js exports saveFile correctly
+            const success = await fileManager.saveFile(); // Call saveFile from the imported module instance
             if (success) {
                 logAction('saveFile executed successfully.');
-                // Optionally provide user feedback (e.g., brief notification)
-                // alert('File saved!'); // Example simple feedback
             } else {
                 logAction('saveFile failed.', 'error');
-                alert('Failed to save file. Check console for details.'); // Provide error feedback
+                alert('Failed to save file. Check console for details.');
             }
         } catch (error) {
             logAction(`Error during saveFile trigger: ${error.message}`, 'error');
-            alert('An error occurred while trying to save.'); // Provide error feedback
+            alert('An error occurred while trying to save.');
+        }
+    },
+
+    // --- View Mode --- 
+    setView: (data) => {
+        console.log('[DEBUG actions.js] setView action triggered. Data:', data);
+        const mode = data.viewMode;
+        if (mode) {
+            logAction(`Triggering setView: ${mode}`);
+            console.log(`[DEBUG actions.js] Publishing ui:viewModeChanged with mode: ${mode}`);
+            eventBus.emit('ui:viewModeChanged', mode);
+            console.log('[DEBUG actions.js] Event published.');
+        } else {
+            logAction('setView triggered without viewMode data.', 'warning');
+            console.warn('[DEBUG actions.js] setView called without viewMode data.', data);
         }
     },
 
@@ -193,122 +213,187 @@ export const triggerActions = {
             window.logPanel?.clearLog();
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
     },
-    minimizeLog: async () => {
-        logAction('Triggering minimizeLog (toggle false)...');
+    // MODIFIED: Use uiState to toggle visibility
+    toggleLogVisibility: async () => { 
+        logAction('Triggering toggleLogVisibility via uiState...');
         try {
-             // Use the global LogPanel instance's toggle method
-            window.logPanel?.toggle(false); // Pass false to hide/minimize
-        } catch (e) { logAction(`minimizeLog failed: ${e.message}`, 'error'); }
+            const currentVisibility = getUIState('logVisible');
+            setUIState('logVisible', !currentVisibility);
+            // The LogPanel component will react to this state change via its subscription
+            // REMOVED: Direct call to window.logPanel?.toggle(); 
+        } catch (e) { logAction(`toggleLogVisibility failed: ${e.message}`, 'error'); }
     },
+    // MODIFIED: Use global debug object directly if available
     showSystemInfo: async () => {
         logAction('Triggering showSystemInfo (calling showAppInfo)...');
         try {
             // Re-route this to the showAppInfo debug function for consistency
-            debug.showAppInfo?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] showSystemInfo called (debug usage commented out)', 'warning');
+            window.dev?.showAppInfo?.(); // Use globally registered debug object
         } catch (e) { logAction(`showSystemInfo/showAppInfo failed: ${e.message}`, 'error'); }
     },
 
-    // --- Debug Actions (now using imported debug module) ---
+    // --- Debug Actions (now using global debug object) ---
     runDebugUI: async () => {
         logAction('Triggering runAllDiagnostics...');
         try {
-            // Call the new consolidated function
-            await debug.runAllDiagnostics?.(); 
+            // Call the new consolidated function via global object
+            await window.dev?.runAllDiagnostics?.(); 
         } catch (e) { logAction(`runAllDiagnostics failed: ${e.message}`, 'error'); }
     },
-    showAppInfo: async () => { // Keep this separate trigger if needed, maps to debug.showAppInfo
+    showAppInfo: async () => { 
         logAction('Triggering showAppInfo...');
         try {
-            debug.showAppInfo?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] showAppInfo called (debug usage commented out)', 'warning');
+            window.dev?.showAppInfo?.(); // Use globally registered debug object
         } catch (e) { logAction(`showAppInfo failed: ${e.message}`, 'error'); }
     },
     debugAllApiEndpoints: async () => { // New action for the consolidated endpoint tester
         logAction('Triggering debugAllApiEndpoints...');
         try {
-            debug.debugAllApiEndpoints?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] debugAllApiEndpoints called (debug usage commented out)', 'warning');
+            // CORRECTED: Use window.dev
+            window.dev?.debugAllApiEndpoints?.(); 
         } catch (e) { logAction(`debugAllApiEndpoints failed: ${e.message}`, 'error'); }
     },
     debugUrlParameters: async () => { // New action
         logAction('Triggering debugUrlParameters...');
         try {
-            debug.debugUrlParameters?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] debugUrlParameters called (debug usage commented out)', 'warning');
+            // CORRECTED: Use window.dev
+            window.dev?.debugUrlParameters?.(); 
         } catch (e) { logAction(`debugUrlParameters failed: ${e.message}`, 'error'); }
     },
     debugFileList: async () => { // New action
         logAction('Triggering debugFileList...');
         try {
-            debug.debugFileList?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] debugFileList called (debug usage commented out)', 'warning');
+            // CORRECTED: Use window.dev
+            window.dev?.debugFileList?.(); 
         } catch (e) { logAction(`debugFileList failed: ${e.message}`, 'error'); }
     },
-     debugFileLoadingIssues: async () => { // New action
-        logAction('Triggering debugFileLoadingIssues...');
+     debugFileLoadingIssues: async () => {
+        logAction('Manually triggering file manager initialization for debugging...');
         try {
-            debug.debugFileLoadingIssues?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] debugFileLoadingIssues called (debug usage commented out)', 'warning');
-        } catch (e) { logAction(`debugFileLoadingIssues failed: ${e.message}`, 'error'); }
+            // CORRECTED: Call named export directly
+            const { initializeFileManager } = await import('/client/fileManager.js');
+            await initializeFileManager(); 
+            logAction('File manager initialization attempt complete.');
+        } catch (error) {
+            logAction(`Failed to initialize file manager: ${error.message}`, 'error');
+        }
     },
-    debugAuthState: async () => { // New action
-        logAction('Triggering debugAuthState...');
+    debugAuthState: async () => {
+        logAction('Debugging Auth State...');
         try {
-            debug.debugAuthState?.(); // <<< UNCOMMENT debug USAGE >>>
-            // logAction('[TEMP] debugAuthState called (debug usage commented out)', 'warning');
-        } catch (e) { logAction(`debugAuthState failed: ${e.message}`, 'error'); }
+            // Use reactive state directly
+            const { authState } = await import('/client/authState.js'); 
+            const currentState = authState.get();
+            logAction(`Current Auth State: ${JSON.stringify(currentState)}`);
+            logAction(`Is Logged In: ${currentState.isAuthenticated}`);
+        } catch (error) {
+            logAction(`Error loading auth module or state: ${error.message}`, 'error');
+        }
     },
 
     // --- NEW Nav Bar Actions ---
-    setView: async (event) => {
-        const viewMode = event?.target?.dataset?.viewMode;
-        if (viewMode) {
-            logAction(`Triggering setView: ${viewMode}`);
-            try {
-                const viewsModule = await import('/client/views.js');
-                viewsModule.setView?.(viewMode);
-            } catch (e) { logAction(`setView failed: ${e.message}`, 'error'); }
-        } else {
-             logAction('setView called without viewMode in data attribute', 'warning');
+    refreshPreview: async () => {
+        logAction('Triggering refreshPreview...');
+        try {
+            await refreshPreview(); // Call the correctly imported function
+        } catch (error) {
+            logAction(`Error during refreshPreview trigger: ${error.message}`, 'error');
+            console.error('[ACTION ERROR] refreshPreview', error);
         }
     },
-    toggleLogVisibility: async () => {
-        logAction('Triggering toggleLogVisibility...');
+    loadFile: async (data = {}) => {
+        logAction(`Triggering loadFile action...`);
         try {
-            // Emit an event for the LogPanel instance to handle
-            eventBus.emit('logPanel:toggleRequest');
-            logAction('Emitted logPanel:toggleRequest event.');
+            const filename = data?.filename;
+            logAction(`  Filename from data: ${filename}`);
+
+            if (filename) {
+                // Filename provided in the action data (e.g., from future uses)
+                logAction(`  Emitting navigate:file for provided filename: ${filename}`);
+                eventBus.emit('navigate:file', { filename: filename });
+            } else {
+                // No filename in data, try to get from the file select dropdown
+                logAction('  No filename in data, checking file-select dropdown.');
+                const fileSelect = document.getElementById('file-select');
+                const selectedFile = fileSelect?.value;
+
+                if (selectedFile) {
+                    logAction(`  Found selected file in dropdown: ${selectedFile}. Emitting navigate:file.`);
+                    eventBus.emit('navigate:file', { filename: selectedFile });
+                } else {
+                    logAction('  Cannot load file: No filename provided and file select has no value.', 'error');
+                    alert('Cannot load file: No file selected.');
+                }
+            }
         } catch (error) {
-            logAction(`toggleLogVisibility failed: ${error.message}`, 'error');
-            console.error('[ACTION ERROR] toggleLogVisibility', error);
+            logAction(`Error during loadFile trigger: ${error.message}`, 'error');
+            alert('An error occurred while trying to load the file.');
         }
     },
     refreshPreview: async () => {
-         logAction('Triggering refreshPreview...');
-         try {
-             const previewModule = await import('/client/preview.js');
-             previewModule.refreshPreview?.(); // Assuming refreshPreview exists
-         } catch (e) { logAction(`refreshPreview failed: ${e.message}`, 'error'); }
+        logAction('Manual refresh triggered', 'debug');
+        const editor = document.getElementById('md-editor');
+        if (editor) {
+            const { updateMarkdownPreview } = await import('/client/markdown.js');
+            updateMarkdownPreview(editor.value);
+        }
     },
-    loadFile: async () => {
-         logAction('Triggering loadFile...');
-         try {
-             const fileManager = await import('/client/fileManager.js');
-             // Always get both filename and directory from UI state
-             const currentFile = document.getElementById('file-select')?.value;
-             const currentDir = document.getElementById('dir-select')?.value;
+    loadFile: async (data) => {
+        // Get the filename either from the data parameter or from the file select element
+        let filenameToLoad = data?.filename;
+        
+        if (!filenameToLoad) {
+            // Try to get from #file-select
+            const fileSelect = document.getElementById('file-select');
+            if (fileSelect && fileSelect.value) {
+                filenameToLoad = fileSelect.value;
+                logAction(`Getting filename from #file-select: ${filenameToLoad}`);
+            } else {
+                // As a last resort, try to get from current file state
+                const fileManager = await import('/client/fileManager.js');
+                if (fileManager.default?.getCurrentFile) {
+                    filenameToLoad = fileManager.default.getCurrentFile();
+                    logAction(`Getting filename from fileManager state: ${filenameToLoad}`);
+                }
+            }
+            
+            if (!filenameToLoad) {
+                logAction('Error: No filename found in data, select element, or file state.', 'error');
+                return;
+            }
+        }
+        
+        logAction(`Load file action triggered for: ${filenameToLoad}`, 'debug');
+        try {
+            const fileManager = await import('/client/fileManager.js');
+            
+            // Check if fileManager.default exists and has the necessary functions
+            if (!fileManager.default) {
+                logAction('Error: fileManager module not available.', 'error');
+                return;
+            }
+
+            const topLevelDir = document.getElementById('dir-select')?.value || '';
+            
+            // Get the subdirectory if selected
+            let relativePath = '';
+            const subdirSelect = document.getElementById('subdir-select');
+            if (subdirSelect && subdirSelect.value) {
+                // Remove trailing slash if present (e.g., "iframe/" becomes "iframe")
+                relativePath = subdirSelect.value.replace(/\/$/, '');
+                logAction(`Using subdirectory from dropdown: ${relativePath}`, 'debug');
+            }
+            
+            logAction(`Attempting to load '${filenameToLoad}' with context: Top='${topLevelDir}', Rel='${relativePath}'`, 'debug');
+
+            // Call loadFile with all required arguments
+            await fileManager.default.loadFile(filenameToLoad, topLevelDir, relativePath);
              
-             // Proceed only if BOTH file and directory are selected in the UI
-             if (currentFile && currentDir) {
-                  logAction(`Requesting load for: ${currentFile} in ${currentDir}`);
-                  await fileManager.loadFile(currentFile, currentDir);
-             } else {
-                  logAction('loadFile triggered, but file or directory not selected in UI.', 'warning');
-                  // Optionally provide user feedback
-                  // alert('Please select both a directory and a file to load.');
-             }
-         } catch (e) { logAction(`loadFile failed: ${e.message}`, 'error'); }
+            logAction(`File load attempt complete for ${filenameToLoad}.`);
+        } catch (error) {
+            logAction(`Error loading file via fileManager: ${error.message}`, 'error');
+            console.error('[ACTION loadFile ERROR]', error); // Log the full error
+        }
     },
 
     // --- Updated: Static HTML Download Action (Client-Side) ---
@@ -335,8 +420,7 @@ export const triggerActions = {
             
             // 2. Get preview's rendered inner HTML content for the body
             const previewContent = previewElement.innerHTML;
-            
-            // --- Get Original Markdown for the comment ---
+            // 3. Get original Markdown for the comment
             const markdownContent = getContent() || ''; // Use imported getContent()
             const generationTime = new Date().toISOString();
             
@@ -414,7 +498,7 @@ console.log('[DEBUG] actions.js: Defined triggerActions:', Object.keys(triggerAc
 // Add this helper function to get the current auth token
 async function getAuthToken() {
     // Try to get the token from your authManager
-    const { getCurrentUser, getAuthToken } = await import('$lib/auth.js');
+    const { getCurrentUser, getAuthToken } = await import('/client/auth.js');
     const token = getAuthToken();
     
     // If token exists, use it
@@ -445,32 +529,32 @@ async function executeAction(action, params = {}) {
       // ... existing code ...
       case 'initFileManager': {
         // Import from client/
-        const { initializeFileManager } = await import('$lib/fileManager.js'); 
+        const { initializeFileManager } = await import('/client/fileManager.js'); 
         await initializeFileManager();
         break;
       }
       case 'loadDirectory': {
         // Import from client/
-        const { loadFiles } = await import('$lib/fileManager.js'); 
+        const { loadFiles } = await import('/client/fileManager.js'); 
         await loadFiles(params.directory);
         break;
       }
       case 'loadFile': {
         // Import from client/
-        const { loadFile } = await import('$lib/fileManager.js'); 
+        const { loadFile } = await import('/client/fileManager.js'); 
         await loadFile(params.filename, params.directory);
         break;
       }
       case 'saveFile': {
         // Import from client/
-        const { saveFile } = await import('$lib/fileManager.js'); 
+        const { saveFile } = await import('/client/fileManager.js'); 
         await saveFile(params.filename, params.directory, params.content);
         break;
       }
       // ... existing code ...
       case 'authCheck': {
         // Import from client/
-        const { getCurrentUser, getAuthToken } = await import('$lib/auth.js'); 
+        const { getCurrentUser, getAuthToken } = await import('/client/auth.js'); 
         const user = getCurrentUser(); // Assuming getCurrentUser exists in auth.js
         const token = getAuthToken(); // Assuming getAuthToken exists in auth.js
         logMessage(`Auth Check: User=${user}, Token=${token ? 'Exists' : 'None'}`);

@@ -6,41 +6,39 @@
   
     try {
       // --- Log State ---
-      const logVisible = localStorage.getItem('logVisible') === 'true';
-      // Use a reasonable default and min height
+      // const logVisible = localStorage.getItem('logVisible') === 'true';
+      // document.documentElement.setAttribute('data-log-visible', logVisible ? 'true' : 'false');
+      
+      // KEEP setting --log-height CSS variable as it's used by log.css
       const logHeight = Math.max(80, parseInt(localStorage.getItem('logHeight'), 10) || 120);
-  
-      document.documentElement.setAttribute('data-log-visible', logVisible ? 'true' : 'false');
       document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
-      console.log(`[EARLY INIT] Log state: visible=${logVisible}, height=${logHeight}px`);
+      console.log(`[EARLY INIT] Log height set: ${logHeight}px`);
   
       // --- Auth State ---
       let authLoggedIn = false;
       try {
         // Safely parse auth state
-        const authStateRaw = localStorage.getItem('authState'); // Using the key from auth.js refactor attempt
+        const authStateRaw = localStorage.getItem('authState'); 
         if (authStateRaw) {
           const authState = JSON.parse(authStateRaw);
-          // Check for username as the indicator (aligns with server-driven state)
-          // If the simplified auth state is ever saved, this might need adjustment
-          if (authState && authState.username && authState.current === 'authenticated') { // Check state too
+          // Use the primary indicator from the authState object
+          if (authState && authState.isAuthenticated) { 
               authLoggedIn = true;
           }
         }
       } catch (e) {
         console.error('[EARLY INIT] Error parsing authState:', e);
-        // Proceed assuming logged out if parsing fails or key doesn't exist
-        // Clear potentially invalid state
          localStorage.removeItem('authState');
       }
   
+      // Keep setting data-auth-state as CSS might rely on it
       document.documentElement.setAttribute('data-auth-state', authLoggedIn ? 'authenticated' : 'unauthenticated');
       console.log(`[EARLY INIT] Auth state: ${authLoggedIn ? 'authenticated' : 'unauthenticated'}`);
   
     } catch (error) {
       console.error('[EARLY INIT] Critical error:', error);
       // Set safe defaults if any error occurs
-      document.documentElement.setAttribute('data-log-visible', 'false');
+      // document.documentElement.setAttribute('data-log-visible', 'false');
       document.documentElement.style.setProperty('--log-height', '120px');
       document.documentElement.setAttribute('data-auth-state', 'unauthenticated');
     }

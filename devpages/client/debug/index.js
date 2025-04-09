@@ -1,8 +1,10 @@
 // client/debug/index.js - Consolidated debugging utilities
 import { logMessage } from "/client/log/index.js";
-import { loadFileSystemState } from '../fileSystemState.js';
+import { loadState as loadFileSystemState } from '../fileSystemState.js';
 import { globalFetch } from '../globalFetch.js'; // Added for testFileLoading
-import { AUTH_STATE } from '/client/auth.js'; // Added for testAuthStatus and others
+import { authState } from '/client/authState.js'; // Use reactive state instead
+import { eventBus } from '/client/eventBus.js';
+import fileManager from '/client/fileManager.js';
 
 // --- App Info ---
 export function showAppInfo() {
@@ -46,7 +48,7 @@ export function debugUI() {
         logMessage('[DEBUG ERROR] Preview not found');
     }
     try {
-        const fsState = loadFileSystemState(); // Use imported function
+        const fsState = loadFileSystemState();
         logMessage(`[DEBUG] File system state: currentDir=${fsState.currentDir}, currentFile=${fsState.currentFile}`);
     } catch (e) {
         logMessage('[DEBUG ERROR] Could not parse file system state');
@@ -149,7 +151,7 @@ export function debugFileOperations() {
     } else {
         logMessage('[DEBUG ERROR] fileManager is not available');
     }
-    const fsState = loadFileSystemState(); // Use imported function
+    const fsState = loadFileSystemState();
     const dirSelect = document.getElementById('dir-select');
     const fileSelect = document.getElementById('file-select');
     if (dirSelect) {
@@ -247,7 +249,7 @@ export function debugFileList() {
         logMessage('[DEBUG] File selector not found');
     }
     try {
-        const fsState = loadFileSystemState(); // Use imported function
+        const fsState = loadFileSystemState();
         logMessage(`[DEBUG] FileSystemState in localStorage: ${JSON.stringify(fsState)}`);
     } catch (e) {
         logMessage(`[DEBUG] Error reading localStorage: ${e.message}`);
@@ -273,10 +275,10 @@ export function debugFileList() {
 
 export async function debugFileLoadingIssues() {
     logMessage('===== FILE LOADING DIAGNOSTIC =====');
-    logMessage(`[DEBUG] Authentication state: ${AUTH_STATE.isLoggedIn ? 'Logged in' : 'Not logged in'}`);
-    if (AUTH_STATE.isLoggedIn) {
-        logMessage(`[DEBUG] Logged in as: ${AUTH_STATE.username}`);
-        logMessage(`[DEBUG] Has hashed password: ${!!AUTH_STATE.hashedPassword}`);
+    logMessage(`[DEBUG] Authentication state: ${authState.get().isAuthenticated ? 'Logged in' : 'Not logged in'}`);
+    if (authState.get().isAuthenticated) {
+        logMessage(`[DEBUG] Logged in as: ${authState.get().username}`);
+        logMessage(`[DEBUG] Has hashed password: ${!!authState.get().hashedPassword}`);
     }
     let currentDir = null;
     try {
@@ -326,17 +328,40 @@ export async function debugFileLoadingIssues() {
 }
 
 // --- Auth Debug ---
-export async function testAuthStatus() {
-    logMessage('[DEBUG] Testing authentication status...');
+export function testAuthStatus() {
+    logMessage('[DEBUG] --- Testing Auth Status ---');
     try {
-        // AUTH_STATE is imported at the top
-        const isLoggedIn = AUTH_STATE.isLoggedIn; // Direct check
-        const username = AUTH_STATE.username;
-        logMessage(`[DEBUG] Auth State: LoggedIn='${isLoggedIn}', Username='${username || 'N/A'}'`);
-        logMessage(`[DEBUG] Test Result: User is ${isLoggedIn ? 'LOGGED IN' : 'LOGGED OUT'}.`);
+        const currentAuthState = authState.get(); // Get state from reactive store
+        logMessage(`[DEBUG] Current auth state (from authState): ${JSON.stringify(currentAuthState)}`);
+
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        const statusDisplay = document.getElementById('auth-status-display');
+
+        if (!loginForm || !logoutBtn || !statusDisplay) {
+            logMessage('[DEBUG][ERROR] Auth related DOM elements not found!', 'error');
+            return;
+        }
+
+        logMessage(`[DEBUG] Login form display: ${loginForm.style.display}`);
+        logMessage(`[DEBUG] Logout button display: ${logoutBtn.style.display}`);
+        logMessage(`[DEBUG] Status display text: ${statusDisplay.textContent}`);
+        logMessage(`[DEBUG] Body data-auth-state: ${document.body.getAttribute('data-auth-state')}`);
+
+        // Check if UI matches reactive state
+        if (currentAuthState.isAuthenticated) {
+            if (loginForm.style.display !== 'none') logMessage('[DEBUG][WARN] Login form should be hidden when authenticated.', 'warning');
+            if (logoutBtn.style.display === 'none') logMessage('[DEBUG][WARN] Logout button should be visible when authenticated.', 'warning');
+            if (!statusDisplay.textContent?.includes(currentAuthState.username || '')) logMessage(`[DEBUG][WARN] Status display should show username '${currentAuthState.username}'.`, 'warning');
+        } else {
+            if (loginForm.style.display === 'none') logMessage('[DEBUG][WARN] Login form should be visible when not authenticated.', 'warning');
+            if (logoutBtn.style.display !== 'none') logMessage('[DEBUG][WARN] Logout button should be hidden when not authenticated.', 'warning');
+            if (!statusDisplay.textContent?.includes('Not Logged In')) logMessage('[DEBUG][WARN] Status display should show "Not Logged In".', 'warning');
+        }
+        logMessage('[DEBUG] --- Auth Status Test Complete ---');
+
     } catch (error) {
-        logMessage(`[DEBUG ERROR] Authentication test failed: ${error.message}`,'error');
-        console.error('[DEBUG AUTH ERROR]', error);
+        logMessage(`[DEBUG][ERROR] Error during auth status test: ${error.message}`, 'error');
     }
 }
 
@@ -361,11 +386,11 @@ export function debugAuthState() {
     }
     // AUTH_STATE is imported at the top
     logMessage(`[AUTH DEBUG] Memory authState: ${JSON.stringify({
-        isLoggedIn: AUTH_STATE.isLoggedIn,
-        username: AUTH_STATE.username,
-        loginTime: AUTH_STATE.loginTime ? new Date(AUTH_STATE.loginTime).toLocaleString() : 'N/A',
-        expiresAt: AUTH_STATE.expiresAt ? new Date(AUTH_STATE.expiresAt).toLocaleString() : 'N/A',
-        hasHashedPassword: !!AUTH_STATE.hashedPassword
+        isLoggedIn: authState.get().isAuthenticated,
+        username: authState.get().username,
+        loginTime: authState.get().loginTime ? new Date(authState.get().loginTime).toLocaleString() : 'N/A',
+        expiresAt: authState.get().expiresAt ? new Date(authState.get().expiresAt).toLocaleString() : 'N/A',
+        hasHashedPassword: !!authState.get().hashedPassword
     })}`);
     try {
         const sessionAuth = sessionStorage.getItem('authState');
@@ -382,8 +407,8 @@ export function debugAuthState() {
         - Display text: ${pwdDisplay ? pwdDisplay.textContent : 'Not found'}`);
     logMessage('[AUTH DEBUG] Testing API authentication...');
     fetch('/api/files/dirs', {
-        headers: AUTH_STATE.isLoggedIn ? {
-            'Authorization': `Basic ${btoa(`${AUTH_STATE.username}:${AUTH_STATE.hashedPassword || ''}`)}`
+        headers: authState.get().isAuthenticated ? {
+            'Authorization': `Basic ${btoa(`${authState.get().username}:${authState.get().hashedPassword || ''}`)}`
         } : {}
     })
     .then(response => {
@@ -435,7 +460,7 @@ export async function debugAllApiEndpoints() {
     const state = loadFileSystemState();
     const currentFile = state.currentFile || 'README.md';
     const currentDir = state.currentDir || '';
-    const authHeader = AUTH_STATE.isLoggedIn ? { 'Authorization': `Basic ${btoa(`${AUTH_STATE.username}:${AUTH_STATE.hashedPassword || ''}`)}` } : {};
+    const authHeader = authState.get().isAuthenticated ? { 'Authorization': `Basic ${btoa(`${authState.get().username}:${authState.get().hashedPassword || ''}`)}` } : {};
 
     const endpoints = [
         // List

@@ -1,7 +1,12 @@
 // domEvents.js - Handles DOM events and delegates to event bus
 import { eventBus } from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
-import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
+// Remove old import
+// import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
+// Import only needed functions from auth.js
+import { handleLogin, logout } from '/client/auth.js'; 
+// Import the new reactive state
+import { authState } from '/client/authState.js'; 
 import { globalFetch } from '/client/globalFetch.js';
 
 // Add a isProcessingDelete variable to track ongoing operations
@@ -26,6 +31,7 @@ function logDomEvent(message, level = 'text') {
 }
 
 export function initializeDomEvents() {
+    console.log('[DEBUG domEvents.js] === initializeDomEvents function entered ===');
     console.log('[DEBUG] Entering initializeDomEvents function.');
     logDomEvent('Initializing DOM event listeners...');
 
@@ -81,30 +87,60 @@ export function initializeDomEvents() {
 
     // Setup delegated listener after DOM is ready
     const setupDelegatedListener = () => {
+        console.log('[DEBUG domEvents.js] === setupDelegatedListener function entered ===');
         logDomEvent('DOM ready, attaching delegated listener...');
 
-        // Delegate events from a common ancestor if possible for efficiency
+        console.log('[DEBUG domEvents.js] Adding click listener to document.body...');
         document.body.addEventListener('click', (event) => {
-            console.log('[DEBUG] Body click listener entered. Target:', event.target);
+            console.log('[DEBUG domEvents.js] Body click detected. Event target:', event.target);
 
-            // Find the closest element with a data-action attribute
             const target = event.target.closest('[data-action]');
+            console.log('[DEBUG domEvents.js] closest data-action result:', target);
+
             if (!target) {
-                console.log('[DEBUG] No data-action found on target or parents.');
-                return; // Exit if no action target found
+                console.log('[DEBUG domEvents.js] No data-action found on target or parents. Exiting handler.');
+                return;
             }
+            console.log('[DEBUG domEvents.js] Found target with data-action:', target);
 
             const action = target.dataset.action;
             logDomEvent(`Action triggered: ${action} on ${target.tagName}#${target.id}`);
+            console.log(`[DEBUG domEvents.js] Extracted action: "${action}"`);
             
-            console.log('[DEBUG] triggerActions object:', triggerActions);
+            let actionData = {}; 
+            for (const key in target.dataset) {
+                if (key !== 'action') { actionData[key] = target.dataset[key]; }
+            }
+            console.log(`[DEBUG domEvents.js] Extracted actionData:`, actionData);
+
+            if (action === 'loadFile') {
+                const fileSelect = document.getElementById('file-select');
+                if (fileSelect && fileSelect.value) {
+                    actionData.filename = fileSelect.value;
+                    logDomEvent(`Added filename '${actionData.filename}' to data for loadFile action.`);
+                } else {
+                    logDomEvent('Could not find selected filename for loadFile action.', 'warning');
+                }
+            }
             
-            // Check if the action requires authentication
+            console.log('[DEBUG domEvents.js] Checking triggerActions object:', triggerActions); 
+            // Add a specific check for the action *before* calling it
+            if (typeof triggerActions[action] !== 'function') {
+                console.error(`[DEBUG domEvents.js] Error: triggerActions does not contain a function for action: "${action}"`);
+                logDomEvent(`No handler function found for action: ${action}`, 'error');
+                // Maybe return here or show an alert depending on desired behavior
+                // return; 
+            } else {
+                 console.log(`[DEBUG domEvents.js] Found function for action "${action}" in triggerActions. Proceeding...`);
+            }
+            
+            // Check if the action requires authentication using the new authState
             if (PROTECTED_ACTIONS.has(action)) {
-                if (AUTH_STATE.current === AUTH_STATE.AUTHENTICATED) {
+                // Get current state directly from the reactive store
+                if (authState.get().isAuthenticated) { 
                     // Authenticated: Proceed with action
                      if (typeof triggerActions[action] === 'function') {
-                         triggerActions[action](event); // Pass event if handler needs it
+                         triggerActions[action](actionData);
                      } else {
                          logDomEvent(`No handler found for protected action: ${action}`, 'warning');
                      }
@@ -116,28 +152,31 @@ export function initializeDomEvents() {
             } else {
                 // Action does not require authentication: Proceed directly
                 if (typeof triggerActions[action] === 'function') {
-                    triggerActions[action](event); // Pass event if handler needs it
+                    triggerActions[action](actionData);
                 } else {
                     logDomEvent(`No handler found for action: ${action}`, 'warning');
                 }
             }
             
-            // Optional: Prevent default for buttons to avoid potential form submits if nested
             if (target.tagName === 'BUTTON') {
                  event.preventDefault();
             }
         });
+        console.log('[DEBUG domEvents.js] Click listener attached to document.body.');
         logDomEvent('Delegated click listener for data-actions attached.');
-        
-        logDomEvent('Delegated DOM event listener initialized.'); // Updated log message
+        logDomEvent('Delegated DOM event listener initialized.');
     };
 
     // Check if the DOM is already loaded
+    console.log(`[DEBUG domEvents.js] Checking document.readyState: ${document.readyState}`);
     if (document.readyState === 'loading') {  // Loading hasn't finished yet
+        console.log('[DEBUG domEvents.js] DOM not ready, adding DOMContentLoaded listener.');
         document.addEventListener('DOMContentLoaded', setupDelegatedListener);
     } else {  // 'DOMContentLoaded' has already fired
+        console.log('[DEBUG domEvents.js] DOM already ready, calling setupDelegatedListener directly.');
         setupDelegatedListener();
     }
+    console.log('[DEBUG domEvents.js] === initializeDomEvents function exiting ===');
 }
 
 // Handle document click events
