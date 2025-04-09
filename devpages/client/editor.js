@@ -122,7 +122,7 @@ const editorCore = {
    * @returns {string} Current editor content
    */
   getContent: function() {
-    const textarea = document.querySelector('#md-editor textarea');
+    const textarea = document.querySelector('#editor-container textarea');
     return textarea ? textarea.value : '';
   },
   

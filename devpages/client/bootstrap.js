@@ -119,18 +119,19 @@ async function initializeApp() {
     }
 
     // --- Phase 5: File Manager --- 
-    logMessage('[BOOTSTRAP] Phase 5: Initializing File Manager...');
-    try {
-        const fileManagerModule = await import('/client/fileManager.js');
-        if (typeof fileManagerModule.initializeFileManager === 'function') {
-            await fileManagerModule.initializeFileManager(); // Let fileManager check auth state internally
-            logMessage('[BOOTSTRAP] File Manager initialization triggered.');
-        } else {
-            logMessage('[BOOTSTRAP ERROR] FileManager loaded but initializeFileManager function not found.', 'error');
-        }
-    } catch (err) {
-         logMessage(`[BOOTSTRAP ERROR] Failed to load or initialize FileManager: ${err.message}`, 'error');
-    }
+    // logMessage('[BOOTSTRAP] Phase 5: Initializing File Manager...');
+    // REMOVED: Redundant initialization. uiManager.js handles this based on auth state.
+    // try {
+    //     const fileManagerModule = await import('/client/fileManager.js');
+    //     if (typeof fileManagerModule.initializeFileManager === 'function') {
+    //         await fileManagerModule.initializeFileManager(); // Let fileManager check auth state internally
+    //         logMessage('[BOOTSTRAP] File Manager initialization triggered.');
+    //     } else {
+    //         logMessage('[BOOTSTRAP ERROR] FileManager loaded but initializeFileManager function not found.', 'error');
+    //     }
+    // } catch (err) {
+    //      logMessage(`[BOOTSTRAP ERROR] Failed to load or initialize FileManager: ${err.message}`, 'error');
+    // }
 
     // --- Phase 6: Additional Components & Event Listeners --- 
     logMessage('[BOOTSTRAP] Phase 6: Initializing Additional Components...');

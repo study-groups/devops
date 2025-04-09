@@ -135,7 +135,10 @@ export async function initializeFileManager() {
 
         // 2. If a top-level directory is set, load its initial listing
         if (fileState.topLevelDirectory) {
-            currentListingData = await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits 'listingLoaded'
+            await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits 'listingLoaded', updates module var directly
+
+            // ADDED: Log currentListingData right before use
+            logFileManager(`[INIT] After loadFilesAndDirectories, checking currentListingData: ${JSON.stringify(currentListingData)}`, 'debug');
 
             // 3. Validate if the initial file exists in the loaded listing
             if (fileState.currentFile && Array.isArray(currentListingData.files) && currentListingData.files.includes(fileState.currentFile)) {
@@ -535,24 +538,54 @@ export async function saveFile() {
          return false;
     }
 
+    logFileManager('About to call getContent() for save...', 'debug');
     const content = getContent();
+    logFileManager(`>>> getContent() returned content with length: ${content.length}. Starting with: "${content.substring(0, 100)}..."`, 'debug');
+
+    // *** ADDED SAFEGUARD ***
+    // Check if content is actually empty. Allow saving whitespace, but not truly empty.
+    if (content === '') { 
+        logFileManager('Save aborted: getContent() returned an empty string.', 'error');
+        // Use a more informative alert
+        alert('Save Aborted: Cannot save an empty file. Please add content to the editor.'); 
+        setLoading(false); // Ensure loading state is reset
+        return false; // Prevent the save operation
+    }
+    // *** END SAFEGUARD ***
+
     const filename = fileState.currentFile;
-    // Path construction for API Call
     const fullPathForApi = pathJoin(fileState.topLevelDirectory, fileState.currentRelativePath);
 
-    logFileManager(`Saving file '${filename}' to API path '${fullPathForApi}'`);
-    setLoading(true, true); // Mark as loading and saving
+    // Prevent saving if content is unexpectedly empty (basic safeguard)
+    if (!filename) { // Also ensure filename hasn't somehow become empty
+         logFileManager('Save aborted: Filename became empty just before sending.', 'error');
+         alert('Save aborted: Filename missing.'); // Consider a less intrusive notification
+         return false;
+    }
+
+    logFileManager(`Saving file '${filename}' to API path '${fullPathForApi}' (Content length: ${content.length})`);
+    setLoading(true, true);
     try {
          const apiUrl = `/api/files/save`;
-         const response = await fetch(apiUrl, {
+         const requestBody = { dir: fullPathForApi, name: filename, content: content };
+         logFileManager(`Saving - API: ${apiUrl}, Body: ${JSON.stringify(requestBody)}`, 'debug');
+
+         const response = await globalFetch(apiUrl, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ dir: fullPathForApi, file: filename, content: content })
+             body: JSON.stringify(requestBody)
          });
 
-         if (!response.ok) { throw new Error(`(${response.status}) ${await response.text()}`) }
+         if (!response.ok) { 
+             const errorText = await response.text();
+             logFileManager(`Save failed with status ${response.status}: ${errorText}`, 'error');
+             throw new Error(`(${response.status}) ${errorText}`); 
+         }
          const result = await response.json();
-         if (!result.success) { throw new Error(result.message || 'Server reported save failure') }
+         if (!result.success) { 
+             logFileManager(`Server reported save failure: ${result.message || 'Unknown reason'}`, 'error');
+             throw new Error(result.message || 'Server reported save failure'); 
+         }
 
          logFileManager(`File '${filename}' saved successfully.`);
          eventBus.emit('file:saved', { filename });
@@ -560,8 +593,9 @@ export async function saveFile() {
          return true;
 
     } catch (error) {
-        logFileManager(`Failed to save file '${filename}': ${error.message}`, 'error');
-        alert(`Error saving file: ${error.message}`);
+        // Log the specific error object as well
+        logFileManager(`Failed to save file '${filename}'. Error: ${error.message}`, 'error', error); 
+        // alert(`Error saving file: ${error.message}`); // Already commented out
         eventBus.emit('file:saveError', { filename, error: error.message });
         setLoading(false);
         return false;

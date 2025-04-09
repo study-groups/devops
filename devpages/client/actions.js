@@ -169,13 +169,11 @@ export const triggerActions = {
     saveFile: async () => {
         logAction('Triggering saveFile action...');
         try {
-            // Assuming fileManager.js exports saveFile correctly
-            const success = await fileManager.saveFile(); // Call saveFile from the imported module instance
+            const success = await fileManager.saveFile();
             if (success) {
                 logAction('saveFile executed successfully.');
             } else {
                 logAction('saveFile failed.', 'error');
-                alert('Failed to save file. Check console for details.');
             }
         } catch (error) {
             logAction(`Error during saveFile trigger: ${error.message}`, 'error');

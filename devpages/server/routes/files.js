@@ -35,43 +35,60 @@ const isValidDirectory = (directory) => {
          !directory.includes('/');
 };
 
+// Helper function to get user's base directory
+const getUserBaseDir = (req) => {
+    const baseDir = process.env.MD_DIR || path.join(__dirname, '../../data');
+    const username = req.user?.username;
+    if (!username) {
+        // This case should ideally be prevented by authMiddleware
+        console.error('[getUserBaseDir] Failed: Username not found in req.user');
+        throw new Error('Cannot determine user base directory without username');
+    }
+    // Base directory is simply MD_DIR/username
+    const userSpecificBase = path.join(baseDir, username);
+    // console.log(`[getUserBaseDir] Determined base for '${username}': ${userSpecificBase}`); // Optional: uncomment if needed
+    return userSpecificBase;
+};
+
 // Gets full path to file, with security validation
 const getFullPath = (req, directory, filename) => {
-  // --- DETAILED LOGGING START ---
-  console.log(`[getFullPath ENTRY] Input directory: '${directory}', filename: '${filename}'`);
+  const username = req.user?.username || '[unknown_user]';
+  console.log(`[getFullPath ENTRY] User='${username}', Input directory='${directory}', filename='${filename}'`);
 
   if (!isValidFilename(filename)) {
-    console.error(`[getFullPath FAIL] Invalid filename: '${filename}'`);
-    throw new Error('Invalid filename');
+    console.error(`[getFullPath FAIL] Invalid filename: '${filename}'. User='${username}'.`);
+    throw new Error('Invalid filename format');
   }
-  
-  const userDir = getUserDir(req);
-  const relativeDir = directory || userDir;
-  console.log(`[getFullPath STEP] Determined relativeDir: '${relativeDir}' (Input was '${directory}', userDir is '${userDir}')`);
-  
+
+  // Use the overall base directory (e.g., /root/pj/md)
+  const serverBaseDir = getBaseDir(req); 
+  console.log(`[getFullPath STEP 1] Server base directory: '${serverBaseDir}'`);
+
+  const relativeDir = directory || '';
+  console.log(`[getFullPath STEP 2] Using relative directory from client: '${relativeDir}'`);
+
   if (relativeDir.includes('..') || relativeDir.startsWith('/')) {
-    console.error(`[getFullPath FAIL] Invalid relativeDir (contains '..' or starts with '/'): '${relativeDir}'`);
-    throw new Error('Invalid directory path');
+    console.error(`[getFullPath FAIL] Invalid relative directory: '${relativeDir}'. User='${username}'.`);
+    throw new Error('Invalid directory path structure (relative part)');
   }
-  
-  const baseDir = getBaseDir(req); 
-  console.log(`[getFullPath STEP] Determined baseDir: '${baseDir}'`);
-  
-  const fullPath = path.join(baseDir, relativeDir, filename);
-  console.log(`[getFullPath STEP] Result of path.join: '${fullPath}'`);
-  
-  // Extra check
-  const resolvedPath = path.resolve(fullPath);
-  const resolvedBaseDir = path.resolve(baseDir);
-  console.log(`[getFullPath CHECK] Resolved path: '${resolvedPath}', Resolved base: '${resolvedBaseDir}'`);
-  if (!resolvedPath.startsWith(resolvedBaseDir + path.sep)) {
-      console.error(`[getFullPath FAIL] Path escape detected: Resolved path '${resolvedPath}' is outside base '${resolvedBaseDir}'`);
-      throw new Error('Path resolution resulted in escape from base directory');
+
+  // Combine overall server base + client relative dir + filename
+  const combinedPath = path.join(serverBaseDir, relativeDir, filename);
+  console.log(`[getFullPath STEP 3] Combined path (serverBaseDir + relativeDir + filename): '${combinedPath}'`);
+
+  const resolvedPath = path.resolve(combinedPath);
+  // Use the overall server base for the security check now
+  const resolvedBaseDir = path.resolve(serverBaseDir); 
+  console.log(`[getFullPath STEP 4] Resolved path: '${resolvedPath}', Resolved server base: '${resolvedBaseDir}'`);
+
+  // Check if resolved path is within the overall server base directory
+  if (!resolvedPath.startsWith(resolvedBaseDir + path.sep) && resolvedPath !== resolvedBaseDir) {
+      console.error(`[getFullPath FAIL] Path escape detected! Resolved path '${resolvedPath}' is outside server base '${resolvedBaseDir}'. User='${username}'.`);
+      throw new Error('Security violation: Path escape detected');
   }
-  
-  console.log(`[getFullPath SUCCESS] Returning valid path: '${fullPath}'`);
-  // --- DETAILED LOGGING END ---
-  return fullPath; 
+
+  console.log(`[getFullPath SUCCESS] Returning validated path: '${resolvedPath}'`);
+  return resolvedPath; 
 };
 
 /**
@@ -235,7 +252,7 @@ router.get('/content/:dir/:file', authMiddleware, async (req, res) => {
  * GET /api/files/content
  * Get file content (query params version)
  */
-router.get('/content', authMiddleware, async (req, res) => {
+router.get('/content', async (req, res) => {
   // --- DETAILED LOGGING START ---
   console.log(`[/api/files/content ENTRY] Received query params: dir='${req.query.dir}', file='${req.query.file}'`);
   // --- DETAILED LOGGING END ---
@@ -287,35 +304,70 @@ router.get('/content', authMiddleware, async (req, res) => {
  * POST /api/files/save
  * Save file content
  */
-router.post('/save', authMiddleware, express.text({ type: '*/*' }), async (req, res) => {
+router.post('/save', authMiddleware, express.json({ type: '*/*' }), async (req, res) => {
+  const username = req.user?.username || '[unknown_user_in_save]';
+  console.log(`[POST /save ENTRY] User='${username}'. Received body: ${JSON.stringify(req.body)}`);
   try {
-    const { dir, file } = req.query;
-    
-    if (!file) {
-      return res.status(400).json({ error: 'Filename is required' });
+    // 1. Extract data from body
+    const { dir, name, content } = req.body;
+    console.log(`[POST /save STEP 1] Extracted from body: dir='${dir}', name='${name}', content provided?: ${content !== undefined}`);
+
+    // 2. Validate required fields
+    if (!name) {
+      console.error(`[POST /save FAIL @ Validation] Filename (name) missing in body. User='${username}'. Body: ${JSON.stringify(req.body)}`);
+      return res.status(400).json({ error: 'Filename (name) is required in request body' });
     }
-    
-    const content = req.body;
-    
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    if (dir === undefined || dir === null) { // Ensure dir is present, even if ""
+      console.error(`[POST /save FAIL @ Validation] Directory (dir) missing in body. User='${username}'. Body: ${JSON.stringify(req.body)}`);
+      return res.status(400).json({ error: 'Directory (dir) is required in request body' });
     }
-    
-    const fullPath = getFullPath(req, dir, file);
-    
-    console.log(`[API] Saving file: ${fullPath}`);
-    
-    // Ensure directory exists
-    const directory = path.dirname(fullPath);
-    await fs.mkdir(directory, { recursive: true });
-    
-    // Write file content
-    await fs.writeFile(fullPath, content, 'utf8');
-    
+    if (typeof content !== 'string') {
+      console.error(`[POST /save FAIL @ Validation] Content missing or not a string in body. User='${username}'. Body: ${JSON.stringify(req.body)}`);
+      return res.status(400).json({ error: 'Content string is required in request body' });
+    }
+
+    // 3. Get the fully resolved and validated path using the helper function
+    console.log(`[POST /save STEP 2] Calling getFullPath for User='${username}', dir='${dir}', name='${name}'`);
+    const fullPath = getFullPath(req, dir, name); // This now returns the resolved path
+    console.log(`[POST /save STEP 3] getFullPath returned resolved path: '${fullPath}'`);
+
+    // 4. Ensure parent directory exists
+    const directoryPath = path.dirname(fullPath);
+    console.log(`[POST /save STEP 4] Ensuring parent directory exists: '${directoryPath}'`);
+    // *** PERMISSION CHECK POINT 1 ***: Does user '${username}' (or the node process user) have write permissions for '${directoryPath}'?
+    try {
+        await fs.mkdir(directoryPath, { recursive: true });
+        console.log(`[POST /save STEP 5] fs.mkdir seemingly succeeded for: '${directoryPath}'`);
+    } catch (mkdirError) {
+        console.error(`[POST /save FAIL @ mkdir] fs.mkdir failed for directory '${directoryPath}'. Error Code: ${mkdirError.code}, Message: ${mkdirError.message}. User='${username}'`, mkdirError);
+        // Provide a more specific error message if possible
+        const userMessage = mkdirError.code === 'EACCES' ? 'Permission denied to create directory.' : `Server failed to create directory (${mkdirError.code}).`;
+        // Don't throw here, send response directly
+        return res.status(500).json({ error: userMessage });
+    }
+
+    // 5. Write file content
+    console.log(`[POST /save STEP 6] Attempting to write file: '${fullPath}'`);
+    // *** PERMISSION CHECK POINT 2 ***: Does user '${username}' (or the node process user) have write permissions for the file '${fullPath}'?
+    try {
+        await fs.writeFile(fullPath, content, 'utf8');
+        console.log(`[POST /save SUCCESS] fs.writeFile succeeded for: '${fullPath}'`);
+    } catch (writeFileError) {
+        console.error(`[POST /save FAIL @ writeFile] fs.writeFile failed for path '${fullPath}'. Error Code: ${writeFileError.code}, Message: ${writeFileError.message}. User='${username}'`, writeFileError);
+        // Provide a more specific error message if possible
+        const userMessage = writeFileError.code === 'EACCES' ? 'Permission denied to write file.' : `Server failed to write file (${writeFileError.code}).`;
+         // Don't throw here, send response directly
+        return res.status(500).json({ error: userMessage });
+    }
+
+    // 6. Send success response
+    console.log(`[POST /save FINAL SUCCESS] File saved successfully: User='${username}', Path='${fullPath}'`);
     res.json({ success: true, message: 'File saved successfully' });
-  } catch (error) {
-    console.error('[API ERROR]', error);
-    res.status(500).json({ error: error.message });
+
+  } catch (error) { // Catch errors from validation, getFullPath, or unexpected issues
+    console.error(`[POST /save CATCH] Overall error in /save handler for User='${username}'. Error Name: ${error.name}, Message: ${error.message}. Body received: ${JSON.stringify(req.body)}`, error);
+    // Ensure a response is sent
+    res.status(500).json({ error: `Server error processing save request: ${error.message}` });
   }
 });
 

@@ -50,30 +50,39 @@ export function createContextManagerComponent(targetElementId) {
              logCtx(`${logPrefix} Available Top Dirs for Mike Selector: [${availableTopDirs.join(', ')}]`);
         }
 
-        // --- Line 1: Generate Breadcrumbs (New Approach) --- 
+        // --- Line 1: Generate Breadcrumbs (Refined Logic) --- 
         const separator = `<span class="breadcrumb-separator">/</span>`;
+        // Always start with the clickable root link
         let breadcrumbsHTML = `<span class="breadcrumb-item root" data-target-top="" data-target-rel="" title="Go to Root">/</span>`;
-        let isFirstNamedDirectory = true;  // State variable to track first named directory
+        
+        // Track if we have added any path segments after the root
+        let addedPathSegment = false; 
 
-        // Handle different cases without adding separator for root-level cases
         if (isMikeAtRoot) {
-            logCtx(`${logPrefix} Determining Mike@Root post-root content`);
+            logCtx(`${logPrefix} Rendering Mike@Root selector`);
+            // Add selector right after root, no separator needed yet
             if (!isLoading && availableTopDirs.length > 0) {
                 let mikeDirOptions = `<option value="" selected disabled>Directory...</option>`;
                 availableTopDirs.sort();
                 availableTopDirs.forEach(dir => { mikeDirOptions += `<option value="${dir}">${dir}/</option>`; });
-                breadcrumbsHTML += `<select id="context-mike-dir-select" class="breadcrumb-dir-select" title="Select Directory">${mikeDirOptions}</select>`;
+                // CORRECTED: Remove separator before Mike's directory selector when at root
+                // breadcrumbsHTML += `${separator}<select id="context-mike-dir-select" class="breadcrumb-dir-select" title="Select Directory">${mikeDirOptions}</select>`; 
+                breadcrumbsHTML += ` <select id="context-mike-dir-select" class="breadcrumb-dir-select" title="Select Directory">${mikeDirOptions}</select>`; // Added space for visual separation
+                addedPathSegment = true;
             }
         } else if (isOtherUserAtRoot) {
-            logCtx(`${logPrefix} Determining OtherUser@Root post-root content`);
-            breadcrumbsHTML += `<span class="breadcrumb-info" title="Current User">${currentUser.username}</span>`;
+            logCtx(`${logPrefix} Rendering OtherUser@Root info`);
+            // Add username info right after root, add separator before
+            breadcrumbsHTML += `${separator}<span class="breadcrumb-info" title="Current User">${currentUser.username}</span>`;
+            addedPathSegment = true;
         } else if (currentUser.isAuthenticated && topDir) {
-            logCtx(`${logPrefix} Determining standard user post-root content`);
+            logCtx(`${logPrefix} Rendering standard user path`);
             let pathSegmentsArray = [];
-            // Add topDir span first
-            pathSegmentsArray.push(`<span class="breadcrumb-item" data-target-top="${topDir}" data-target-rel="" title="Go to ${topDir}">${topDir}</span>`);
-            isFirstNamedDirectory = false;  // Mark that we've added the first directory
             
+            // Add topDir span first (always add separator before this)
+            pathSegmentsArray.push(`<span class="breadcrumb-item" data-target-top="${topDir}" data-target-rel="" title="Go to ${topDir}">${topDir}</span>`);
+            
+            // Add intermediate relative path parts
             const pathParts = relPath.split('/').filter(p => p);
             let cumulativePath = '';
             pathParts.forEach((part, index) => {
@@ -81,7 +90,7 @@ export function createContextManagerComponent(targetElementId) {
                 pathSegmentsArray.push(`<span class="breadcrumb-item" data-target-top="${topDir}" data-target-rel="${cumulativePath}" title="Go to ${part}">${part}</span>`);
             });
 
-            // Add Subdirectory selector segment if conditions met
+            // Add Subdirectory selector segment at the end if conditions met
             if (!isLoading) {
                 const dirs = currentListing?.dirs || [];
                 if (dirs.length > 0) {
@@ -92,10 +101,14 @@ export function createContextManagerComponent(targetElementId) {
                 }
             }
             
-            // Only add separator and path segments if we have segments
+            // Join the path segments with separators and add to the initial root link
             if (pathSegmentsArray.length > 0) {
-                // Don't add separator before first named directory
-                breadcrumbsHTML += (isFirstNamedDirectory ? '' : separator) + pathSegmentsArray.join(separator);
+                 // CORRECTED: Join the array with the separator, and append that *directly* after the initial root `/`.
+                 // The separator will only appear *between* the items in the array.
+                 // breadcrumbsHTML += separator + pathSegmentsArray.join(separator); // OLD INCORRECT LOGIC
+                 breadcrumbsHTML += ` ${pathSegmentsArray.join(separator)}` // Add space for visual separation from root?
+                 // If no space needed: breadcrumbsHTML += pathSegmentsArray.join(separator);
+                 addedPathSegment = true;
             }
         }
         
@@ -135,10 +148,8 @@ export function createContextManagerComponent(targetElementId) {
         // --- Final Assembly (CONFIRMED Two Lines) --- 
         element.innerHTML = `
             <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
-            <div class="context-selection-row">
-                ${fileSelectorHTML} 
-                <div class="file-action-buttons">
-                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Save</button>
+            <div class="context-selection-row">                ${fileSelectorHTML} 
+                <div class="file-action-buttons">                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Save</button>
                     <button id="community-link-btn" title="Add to Community Files" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Link</button>
                 </div>
             </div>
