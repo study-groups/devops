@@ -104,7 +104,5 @@ router.get('/commands', authMiddleware, (req, res) => {
     res.json({ commands: safeCommands });
 });
 
-// Run a command to check permissions on your file
-executeCommand('ls -la ~/pj/md/mike/v99-deploy-002.md', 'your-username');
 
 module.exports = router; 
