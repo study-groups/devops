@@ -664,10 +664,6 @@ video {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
-.cursor-not-allowed {
-  cursor: not-allowed;
-}
-
 .resize {
   resize: both;
 }
@@ -678,10 +674,6 @@ video {
 
 .border {
   border-width: 1px;
-}
-
-.opacity-50 {
-  opacity: 0.5;
 }
 
 .blur {
@@ -1311,3 +1303,84 @@ button.loading::after {
 }
 
 /* <<< END TEST >>> */
+
+.log-version {
+  margin-right: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  --tw-text-opacity: 1;
+  color: rgb(156 163 175 / var(--tw-text-opacity, 1));
+  /* Match log-status color */
+}
+
+/* Log entry action buttons styling */
+
+.log-entry-actions button {
+  margin-right: 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  --tw-text-opacity: 1;
+  color: rgb(107 114 128 / var(--tw-text-opacity, 1));
+}
+
+.log-entry-actions button:hover {
+  --tw-text-opacity: 1;
+  color: rgb(209 213 219 / var(--tw-text-opacity, 1));
+}
+
+.log-entry {
+  /* Base styling for all log entries */
+  margin-bottom: 0.25rem;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  /* <<< ADDED: Monospace and smaller font size >>> */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  /* Use text-xs for smaller size */
+  line-height: 1.4;
+  /* <<< INCREASED line-height >>> */
+}
+
+.log-entry-text {
+  margin-top: 0.25rem;
+  overflow-x: auto;
+  border-radius: 0.25rem;
+  --tw-bg-opacity: 1;
+  background-color: rgb(31 41 55 / var(--tw-bg-opacity, 1));
+  padding: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+#cli-input {
+  /* <<< ENSURED standard border and blue focus border >>> */
+  flex-grow: 1;
+  border-radius: 0.25rem;
+  border-width: 1px;
+  --tw-border-opacity: 1;
+  border-color: rgb(75 85 99 / var(--tw-border-opacity, 1));
+  --tw-bg-opacity: 1;
+  background-color: rgb(55 65 81 / var(--tw-bg-opacity, 1));
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  --tw-text-opacity: 1;
+  color: rgb(229 231 235 / var(--tw-text-opacity, 1));
+}
+
+#cli-input:focus {
+  --tw-border-opacity: 1;
+  border-color: rgb(96 165 250 / var(--tw-border-opacity, 1));
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+#cli-send-button {
+  /* Use log toolbar button style */
+}

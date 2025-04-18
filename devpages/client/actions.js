@@ -181,7 +181,6 @@ export const triggerActions = {
     clearLog: async () => {
         logAction('Triggering clearLog...');
         try {
-            // Use the global LogPanel instance
             window.logPanel?.clearLog();
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
     },
@@ -283,37 +282,50 @@ export const triggerActions = {
     // --- NEW Nav Bar Actions ---
     refreshPreview: async () => {
         logAction('Refresh Preview action triggered', 'info');
-        // 1. Clear the specific logs in the preview pane
         try {
-            const hostLog = document.getElementById('host-log');
-            const eventLog = document.getElementById('event-bus-log');
-            if (hostLog) hostLog.innerHTML = 'Host script messages will appear here...';
-            if (eventLog) eventLog.innerHTML = 'Event bus messages will appear here...';
-            logAction('Cleared host and event bus logs in preview.', 'debug');
-        } catch (e) {
-            logAction(`Error clearing logs: ${e.message}`, 'error');
-        }
+            // 1. Clear the client-side log panel FIRST
+            if (window.logPanel && typeof window.logPanel.clearLog === 'function') {
+                 window.logPanel.clearLog();
+                 logAction('Client log panel cleared.', 'debug');
+             } else {
+                 logAction('window.logPanel or clearLog method not found.', 'warning');
+             }
 
-        // 2. Emit event for host script to re-initialize
-        if (window.previewEventBus) { 
-            logAction('Emitting preview:force_reload event.', 'debug');
-            window.previewEventBus.emit('preview:force_reload');
-        } else {
-            logAction('window.previewEventBus not found, cannot emit force_reload event.', 'warning');
-        }
-        
-        // 3. Refresh the actual markdown preview (if needed)
-        logAction('Refreshing markdown preview content.', 'debug');
-        try {
-            const editor = document.getElementById('editor-container')?.querySelector('textarea');
-            if (editor) {
-                const { updatePreview } = await import('/client/preview/index.js'); // Use index
-                updatePreview(editor.value);
+            // >>> ADDED: Emit event for host to reset its log <<<
+            if (window.previewEventBus && typeof window.previewEventBus.emit === 'function') {
+                window.previewEventBus.emit('host:reset_log');
+                logAction('Emitted host:reset_log event.', 'debug');
             } else {
-                logAction('Editor textarea not found, skipping markdown refresh.', 'warning');
+                logAction('window.previewEventBus not available, cannot emit host:reset_log', 'warning');
             }
+
+            // 1. Clear the specific logs in the preview pane (Optional - Uncomment if host script uses these IDs)
+            // try {
+            //     const hostLog = document.getElementById('host-script-log-entries'); // Use the specific container
+            //     const eventLog = document.getElementById('event-bus-log-entries'); // Use the specific container
+            //     if (hostLog) hostLog.innerHTML = '';
+            //     if (eventLog) eventLog.innerHTML = '';
+            //     logAction('Cleared host and event bus logs in preview.', 'debug');
+            // } catch (e) {
+            //     logAction(`Error clearing logs: ${e.message}`, 'error');
+            // }
+
+            // 2. Optionally emit an event if some component needs to react before refresh
+            // This part seems less necessary now that previewManager handles refresh directly
+            // logAction('Emitting preview:force_reload event.', 'debug');
+            // if (window.previewEventBus) {
+            //     window.previewEventBus.emit('preview:force_reload');
+            // } else {
+            //     logAction('window.previewEventBus not found, cannot emit force_reload event.', 'warning');
+            // }
+
+            // 3. Refresh the actual markdown preview content using previewManager
+            logAction('Refreshing markdown preview content via previewManager.refreshPreview().', 'debug');
+            await refreshPreview(); // Call the directly imported function
+            logAction('Called refreshPreview() successfully', 'debug');
         } catch (error) {
             logAction(`Error refreshing markdown preview: ${error.message}`, 'error');
+            console.error('[ACTION refreshPreview ERROR]', error);
         }
     },
     loadFile: async (data = {}) => {
@@ -643,6 +655,33 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
         }
     },
     // --- END Added Action ---
+
+    // Example action to toggle a setting (replace with actual implementation)
+    toggleSetting: async (data) => {
+        logAction(`Toggling setting: ${data.settingName}`);
+        // Implementation...
+    },
+
+    // Example action to toggle the preview mode (e.g., between 'live' and 'html')
+    togglePreviewMode: async (data) => {
+        const newMode = data.mode; // Assume mode is passed in data, e.g., { mode: 'html' }
+        if (!newMode) {
+            logAction('Toggle Preview Mode failed: No mode specified.', 'warning');
+            return;
+        }
+        logAction(`Toggling preview mode to: ${newMode}`, 'info');
+        try {
+            if (window.setPreviewMode) { // Assuming a global function exists
+                window.setPreviewMode(newMode);
+                logAction(`Preview mode set to ${newMode}.`, 'info');
+            } else {
+                logAction('setPreviewMode function not found.', 'warning');
+            }
+        } catch (error) {
+            logAction(`Error toggling preview mode: ${error.message}`, 'error');
+            console.error('[ACTION togglePreviewMode ERROR]', error);
+        }
+    },
 };
 
 // <<< ADD LOG AFTER triggerActions >>>

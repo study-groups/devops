@@ -77,7 +77,7 @@ export async function refreshPreview() {
 let updateTimer;
 function debouncePreviewUpdate() {
   if (updateTimer) clearTimeout(updateTimer);
-  updateTimer = setTimeout(refreshPreview, 300);
+  updateTimer = setTimeout(refreshPreview, 750);
 }
 
 // Handle view changes

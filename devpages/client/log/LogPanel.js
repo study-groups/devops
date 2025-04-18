@@ -50,6 +50,7 @@ export class LogPanel {
         this.state = {
             height: DEFAULT_LOG_HEIGHT,
             entryCount: 0,
+            clientLogIndex: 0 // <<< ADDED: Index counter for client logs
         };
 
         this._isResizing = false;
@@ -119,7 +120,6 @@ export class LogPanel {
         this.cliInputElement.type = 'text';
         this.cliInputElement.id = 'cli-input';
         this.cliInputElement.placeholder = 'Enter command...';
-        // keydown listener for CLI is attached separately in cli/index.js
         this.toolbarElement.appendChild(this.cliInputElement);
         
         // Create CLI Send Button
@@ -128,39 +128,43 @@ export class LogPanel {
         sendButton.textContent = 'Send';
         this.toolbarElement.appendChild(sendButton);
         
-        // Create App Info Span
+        // Create App Info Span (Now after version)
         this.appInfoElement = document.createElement('span');
         this.appInfoElement.id = 'app-info';
         this.appInfoElement.className = 'app-info'; // Use class for styling
         this.appInfoElement.dataset.action = 'showAppInfo'; 
         this.toolbarElement.appendChild(this.appInfoElement);
 
-        // Create App Version Span
+        // --- ADDED: Create Right-aligned wrapper for status items ---
+        const rightWrapper = document.createElement('div');
+        rightWrapper.style.marginLeft = 'auto'; // Push to the right
+        rightWrapper.style.display = 'flex';
+        rightWrapper.style.alignItems = 'center';
+        rightWrapper.style.gap = '0.5rem'; // Space between items
+        this.toolbarElement.appendChild(rightWrapper);
+        // --- END: Wrapper ---
+
+        // Create App Version Span (will be added to wrapper)
         this.appVersionElement = document.createElement('span');
         this.appVersionElement.id = 'log-app-version';
-        this.appVersionElement.className = 'app-version log-version';
+        this.appVersionElement.className = 'app-version log-version'; // Class for styling
         this.appVersionElement.textContent = `v${appVer}`;
         this.appVersionElement.title = `App Version: ${appVer}`;
-        // Inserted below
+        // Don't append here, append to wrapper below
 
-        // Create Minimize Button (Moved BEFORE status span)
-        this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log');
+        // Create Minimize Button (will be added to wrapper)
+        this.minimizeButton = this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true); // Pass flag to not append yet
 
-        // --- Insert Version BEFORE Minimize Button ---
-        if (this.minimizeButton) {
-            // Insert the version span just before the minimize button
-            this.toolbarElement.insertBefore(this.appVersionElement, this.minimizeButton);
-        } else {
-             // Fallback if minimize button wasn't created
-            this.toolbarElement.appendChild(this.appVersionElement);
-        }
-        // --- End Insert Version ---
-
-        // Create Status Span (Will be pushed right by margin-left: auto)
+        // Create Status Span (will be added to wrapper)
         this.statusElement = document.createElement('span');
         this.statusElement.id = 'log-status';
         this.statusElement.textContent = '0 entries';
-        this.toolbarElement.appendChild(this.statusElement);
+        // Don't append here, append to wrapper below
+
+        // >>> ADDED: Append right-aligned items to the wrapper <<<
+        if (this.appVersionElement) rightWrapper.appendChild(this.appVersionElement);
+        if (this.minimizeButton) rightWrapper.appendChild(this.minimizeButton);
+        if (this.statusElement) rightWrapper.appendChild(this.statusElement);
 
         // Create Log Content Area
         this.logElement = document.createElement('div');
@@ -179,7 +183,7 @@ export class LogPanel {
     }
     
     /** Helper to create toolbar buttons */
-    _createToolbarButton(id, text, action, title = null) {
+    _createToolbarButton(id, text, action, title = null, noAppend = false) {
         if (!this.toolbarElement) return null;
         const button = document.createElement('button');
         button.id = id;
@@ -190,7 +194,9 @@ export class LogPanel {
         if (title) {
             button.title = title;
         }
-        this.toolbarElement.appendChild(button);
+        if (!noAppend) {
+            this.toolbarElement.appendChild(button);
+        }
         return button; // Important: return the element
     }
 
@@ -402,12 +408,14 @@ export class LogPanel {
         // Explicitly handle all expected types
         if (type === 'text' || type === 'info' || type === 'debug' || type === 'warning' || type === 'error' || type === 'success' || type === 'RENDER' || type === 'EVENT' || type === 'COMPLETE') {
             // Apply specific class for styling based on type (level)
-            logEntry.classList.add(`log-${type.toLowerCase()}`); 
-            textSpan.innerText = `${timestamp} ${messageStr}`;
+            logEntry.classList.add(`log-${type.toLowerCase()}`);
+            // >>> MODIFIED: Prepend index <<<
+            textSpan.innerText = `[${this.state.clientLogIndex}] ${timestamp} ${messageStr}`;
             rawMessageForDataAttr = messageStr; // Store original string
         } else if (type === 'json') {
             logEntry.classList.add('log-json');
-            textSpan.textContent = `${timestamp} [JSON] `;
+            // >>> MODIFIED: Prepend index <<<
+            textSpan.textContent = `[${this.state.clientLogIndex}] ${timestamp} [JSON] `;
             const pre = document.createElement('pre');
             let jsonString = '[Error stringifying JSON]';
             try {
@@ -421,7 +429,8 @@ export class LogPanel {
         } else {
              console.warn(`[LogPanel] Unknown log type: ${type}`);
              const prefix = `[${type.toUpperCase()}]`;
-             textSpan.innerText = `${timestamp} ${prefix} ${messageStr}`;
+             // >>> MODIFIED: Prepend index <<<
+             textSpan.innerText = `[${this.state.clientLogIndex}] ${timestamp} ${prefix} ${messageStr}`;
              rawMessageForDataAttr = `${prefix} ${messageStr}`; // Include unknown prefix in raw data
         }
         
@@ -435,6 +444,7 @@ export class LogPanel {
         // console.log(`[LogPanel addEntry] Just appended logEntry. Current innerHTML:`, logEntry.innerHTML); // REMOVED diagnostic log
 
         this.state.entryCount++;
+        this.state.clientLogIndex++; // <<< ADDED: Increment client log index
         this.updateEntryCount(); // Use internal method
         this.scrollToBottom();
 
@@ -449,6 +459,7 @@ export class LogPanel {
         if (!this.logElement) return;
         this.logElement.innerHTML = '';
         this.state.entryCount = 0;
+        this.state.clientLogIndex = 0; // <<< ADDED: Reset client log index
         this.updateEntryCount(); // Use internal method
         console.log('[LogPanel] Log cleared.');
     }

@@ -517,3 +517,30 @@ button.loading::after {
     font-weight: 900 !important; /* Make it obvious */
 }
 /* <<< END TEST >>> */
+
+.log-version {
+    @apply text-xs text-gray-400 mr-2 font-mono; /* Match log-status color */
+}
+
+/* Log entry action buttons styling */
+.log-entry-actions button {
+    @apply text-xs text-gray-500 mr-2 cursor-pointer hover:text-gray-300;
+}
+
+.log-entry {
+    /* Base styling for all log entries */
+    @apply mb-1 p-1 rounded;
+    /* <<< ADDED: Monospace and smaller font size >>> */
+    @apply font-mono text-xs; /* Use text-xs for smaller size */
+    line-height: 1.4; /* <<< INCREASED line-height >>> */
+}
+.log-entry-text {
+    @apply mt-1 p-1 bg-gray-800 rounded text-sm overflow-x-auto;
+}
+#cli-input {
+    /* <<< ENSURED standard border and blue focus border >>> */
+    @apply bg-gray-700 text-gray-200 text-sm px-2 py-0.5 rounded flex-grow border border-gray-600 focus:outline-none focus:border-blue-400;
+}
+#cli-send-button {
+    /* Use log toolbar button style */
+}

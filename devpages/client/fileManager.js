@@ -9,6 +9,9 @@ import fileSystemState from '/client/fileSystemState.js'; // Authoritative state
 import { appState } from '/client/appState.js'; // IMPORT central state
 import { globalFetch } from '/client/globalFetch.js'; // ADDED import
 
+// >>> ADDED: Import for front matter parsing/handling
+import { renderMarkdown } from '/client/preview/renderer.js';
+
 // --- Module State ---
 const fileState = {
     topLevelDirectory: '',   // e.g., 'gridranger'
@@ -19,6 +22,13 @@ const fileState = {
     topLevelDirs: []         // ADDED: Store available top-level directories
 };
 let currentListingData = { dirs: [], files: [] }; // Store current listing
+
+// >>> ADDED: State for managing host scripts <<<
+let currentHostScriptPath = null;
+let currentHostScriptModule = null;
+
+// >>> ADDED: State for managing dynamic styles <<<
+let currentDynamicStyleElements = [];
 
 // --- Logging Helper ---
 function logFileManager(message, level = 'text') {
@@ -252,220 +262,150 @@ function setupEventListeners() {
 // --- Event Handlers (Triggered by UI/eventBus) ---
 
 async function handleTopLevelDirectoryChange(data) {
-    const newTopLevelDir = data?.directory || '';
-    logFileManager(`Event navigate:topLevelDir received: New dir = '${newTopLevelDir}'`);
+    const newTopDir = data?.directory;
+    if (newTopDir === fileState.topLevelDirectory) return; // No change
 
+    logFileManager(`Event navigate:topLevelDir received: newDir='${newTopDir}'`);
     // Update state: New top dir, clear relative path & file
-    updateAndPersistState({
-        topLevelDirectory: newTopLevelDir,
-        currentRelativePath: '',
-        currentFile: ''
-    });
+    updateAndPersistState({ topLevelDirectory: newTopDir, currentRelativePath: '', currentFile: '' });
     setContent(''); // Clear editor
     currentListingData = { dirs: [], files: [] }; // Clear listing
-    
+
     // Load listing for the new top-level dir (or clear if none selected)
-    if (newTopLevelDir) {
-        await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits listingLoaded which uses currentListingData
+    if (newTopDir) {
+        await loadFilesAndDirectories(newTopDir, '');
     } else {
         eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' }); // Clear UI listing
     }
-
     // Emit state settled AFTER listing is loaded/cleared
-    logFileManager('Emitting fileManager:stateSettled (TopLevelDir Change)...');
-    eventBus.emit('fileManager:stateSettled', {
-         topLevelDirectory: fileState.topLevelDirectory,
-         relativePath: fileState.currentRelativePath,
-         currentFile: fileState.currentFile
-    });
+    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: newTopDir, relativePath: '', currentFile: '' });
 }
 
 async function handleDirectoryNavigation(data) {
-    const subdirName = data?.directory;
-    if (!subdirName || !fileState.topLevelDirectory) return; // Need context
+    const subdir = data?.directory;
+    if (!subdir || !fileState.topLevelDirectory) return; // Need top-level context
 
-    const newRelativePath = pathJoin(fileState.currentRelativePath, subdirName);
-    logFileManager(`Event navigate:directory received: subdir='${subdirName}', newRelPath='${newRelativePath}'`);
-
+    logFileManager(`Event navigate:directory received: subdir='${subdir}'`);
     // Update state: New relative path, clear file
+    const newRelativePath = pathJoin(fileState.currentRelativePath, subdir);
     updateAndPersistState({ currentRelativePath: newRelativePath, currentFile: '' });
     setContent(''); // Clear editor
     currentListingData = { dirs: [], files: [] }; // Clear old listing before load
 
-    // Load listing for new path
-    await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits listingLoaded
-
-    // Emit state settled AFTER listing is loaded
-    logFileManager('Emitting fileManager:stateSettled (Directory Navigation)...');
-    eventBus.emit('fileManager:stateSettled', {
-         topLevelDirectory: fileState.topLevelDirectory,
-         relativePath: fileState.currentRelativePath,
-         currentFile: fileState.currentFile
-     });
+    // Load listing for the new subdirectory
+    await loadFilesAndDirectories(fileState.topLevelDirectory, newRelativePath);
+    // Emit state settled
+    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: fileState.topLevelDirectory, relativePath: newRelativePath, currentFile: '' });
 }
 
 async function handleUpNavigation() {
-    if (!fileState.topLevelDirectory || fileState.currentRelativePath === '') {
-         logFileManager('Event navigate:up ignored: No directory context or already at root relative path.');
-        return; // Cannot go up further
-    }
-    const parentPath = getParentRelativePath(fileState.currentRelativePath);
-    logFileManager(`Event navigate:up received: newRelPath='${parentPath}'`);
+    if (!fileState.currentRelativePath) return; // Already at top relative level
 
+    logFileManager(`Event navigate:up received.`);
     // Update state: Set parent path, clear file
+    const parentPath = getParentRelativePath(fileState.currentRelativePath);
     updateAndPersistState({ currentRelativePath: parentPath, currentFile: '' });
     setContent(''); // Clear editor
     currentListingData = { dirs: [], files: [] }; // Clear old listing before load
 
-    // Load listing for parent path
-    await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits listingLoaded
-
-    // Emit state settled AFTER listing is loaded
-    logFileManager('Emitting fileManager:stateSettled (Up Navigation)...');
-    eventBus.emit('fileManager:stateSettled', {
-         topLevelDirectory: fileState.topLevelDirectory,
-         relativePath: fileState.currentRelativePath,
-         currentFile: fileState.currentFile
-     });
+    // Load listing for the parent directory
+    await loadFilesAndDirectories(fileState.topLevelDirectory, parentPath);
+    // Emit state settled
+    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: fileState.topLevelDirectory, relativePath: parentPath, currentFile: '' });
 }
 
+// >>> REPLACED handleFileNavigation with version calling the modified loadFile <<<
 async function handleFileNavigation(data) {
     const filename = data?.filename;
+
+    // Validate necessary context
     if (!filename || !fileState.topLevelDirectory) {
-         logFileManager(`Event navigate:file ignored: Missing filename ('${filename}') or topLevelDirectory ('${fileState.topLevelDirectory}')`, 'warning');
-        return; // Need context and file
+        logFileManager(`Event navigate:file ignored: Missing filename ('${filename}') or topLevelDirectory ('${fileState.topLevelDirectory}')`, 'warning');
+        return;
     }
-    if (filename === fileState.currentFile) return; // Already loaded
 
     logFileManager(`Event navigate:file received: file='${filename}'`);
-    // Attempt to load the file. loadFile handles state updates & events internally.
-    await loadFile(filename, fileState.topLevelDirectory, fileState.currentRelativePath);
-    // NOTE: stateSettled is generally NOT emitted just for a file load,
-    // only file:loaded. UI needs to react appropriately.
-}
+    // Update internal state and persistence BEFORE loading content
+    updateAndPersistState({ currentFile: filename });
 
-// ADDED: Handler for navigating back to root selection
+    // Load the actual file content (this will emit file:loaded or file:loadError)
+    // The modified loadFile function now handles the host script logic internally
+    await loadFile(filename, fileState.topLevelDirectory, fileState.currentRelativePath);
+
+    // Emit state settled AFTER file is loaded (or failed)
+    // This ensures UI updates selections after potentially clearing the file state on load failure
+    eventBus.emit('fileManager:stateSettled', {
+        topLevelDirectory: fileState.topLevelDirectory,
+        relativePath: fileState.currentRelativePath,
+        currentFile: fileState.currentFile // Use the potentially updated file state
+    });
+}
+// >>> END REPLACEMENT <<<
+
 async function handleNavigateToRoot() {
     logFileManager(`Event navigate:root received.`);
+    // Clear relative path and file
+    updateAndPersistState({ currentRelativePath: '', currentFile: '' });
+    setContent(''); // Clear editor
+    currentListingData = { dirs: [], files: [] }; // Clear old listing before load
 
-    const currentAuthState = appState.getState().auth;
-    const currentUsername = currentAuthState.user?.username;
-    const isLoggedIn = currentAuthState.isLoggedIn;
+    // Load listing for the top-level directory
+    if (fileState.topLevelDirectory) {
+        await loadFilesAndDirectories(fileState.topLevelDirectory, '');
+    } else {
+        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' }); // Clear UI listing
+    }
+    // Emit state settled
+    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: fileState.topLevelDirectory, relativePath: '', currentFile: '' });
+}
 
-    if (!isLoggedIn) {
-        // ... (Logged-out logic remains the same) ...
-        updateAndPersistState({
-            topLevelDirectory: '',
-            currentRelativePath: '',
-            currentFile: ''
-        });
-        setContent(''); 
-        currentListingData = { dirs: [], files: [] }; 
-        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
-        // Log before emitting stateSettled for logged-out case
-        const stateToSettleLoggedOut = {
+// ADDED: Handler to respond to UI requests for top-level dirs
+async function handleRequestTopLevelSelector() {
+    logFileManager('handleRequestTopLevelSelector called', 'debug');
+    if (fileState.topLevelDirs && fileState.topLevelDirs.length > 0) {
+        logFileManager('Emitting fileManager:dirsLoaded with cached dirs', 'debug');
+        eventBus.emit('fileManager:dirsLoaded', { dirs: fileState.topLevelDirs });
+    } else {
+        logFileManager('No cached dirs, attempting to load top-level directories...', 'debug');
+        await loadTopLevelDirectories(); // This will load and emit dirsLoaded
+    }
+}
+
+async function handleNavigateAbsolute(data) {
+    const { dir, path: relativePath = '', file = '' } = data;
+    logFileManager(`Event navigate:absolute received: dir=${dir}, path=${relativePath}, file=${file}`);
+
+    if (!dir) {
+        logFileManager('Navigate absolute requires at least a directory (dir).', 'warning');
+        return;
+    }
+
+    // Update state: Set exact path, clear file
+    updateAndPersistState({ topLevelDirectory: dir, currentRelativePath: relativePath, currentFile: '' });
+    setContent(''); // Clear editor
+    currentListingData = { dirs: [], files: [] }; // Clear old listing before load
+
+    // Load listing for the target directory
+    await loadFilesAndDirectories(dir, relativePath);
+
+    // Emit state settled (without file first)
+    eventBus.emit('fileManager:stateSettled', {
+        topLevelDirectory: dir,
+        relativePath: relativePath,
+        currentFile: ''
+    });
+
+    // If a file was specified, attempt to load it
+    if (file) {
+        logFileManager(`Attempting to load specified file: ${file}`);
+        await loadFile(file, dir, relativePath); // This will update state.currentFile if successful
+        // Emit stateSettled AGAIN after file load attempt
+        eventBus.emit('fileManager:stateSettled', {
             topLevelDirectory: fileState.topLevelDirectory,
             relativePath: fileState.currentRelativePath,
-            currentFile: fileState.currentFile
-        };
-        logFileManager(`[DEBUG] About to emit stateSettled (Logged Out). State: ${JSON.stringify(stateToSettleLoggedOut)}`, 'debug');
-        logFileManager('Emitting fileManager:stateSettled (Navigate to Root - Logged Out)...');
-        eventBus.emit('fileManager:stateSettled', stateToSettleLoggedOut);
-        return; 
-    }
-
-    // User is logged in
-    if (currentUsername?.toLowerCase() === 'mike') {
-        logFileManager('User is Mike. Handling root navigation for Mike.');
-        updateAndPersistState({
-            topLevelDirectory: '',
-            currentRelativePath: '',
-            currentFile: ''
+            currentFile: fileState.currentFile // Use the potentially updated file state
         });
-        setContent(''); 
-        currentListingData = { dirs: [], files: [] };
-        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
-        
-        // Log before emitting stateSettled for Mike
-        const stateToSettleMike = {
-            topLevelDirectory: fileState.topLevelDirectory, // Should be ''
-            relativePath: fileState.currentRelativePath,    // Should be ''
-            currentFile: fileState.currentFile          // Should be ''
-        };
-        logFileManager(`[DEBUG] About to emit stateSettled (Mike@Root). State: ${JSON.stringify(stateToSettleMike)}`, 'debug');
-        logFileManager('Emitting fileManager:stateSettled (Navigate to Root - Mike)...');
-        eventBus.emit('fileManager:stateSettled', stateToSettleMike);
-
-    } else {
-        // Standard logged-in user at root
-        logFileManager(`User is ${currentUsername}. Handling root navigation (defaulting to user dir).`);
-        if (fileState.topLevelDirs.includes(currentUsername)) {
-             logFileManager(`User directory '${currentUsername}' exists. Navigating...`);
-             await handleTopLevelDirectoryChange({ directory: currentUsername }); // This function handles its own stateSettled emit
-        } else {
-             logFileManager(`User directory '${currentUsername}' not found in available top-level dirs. Clearing state.`, 'warning');
-             updateAndPersistState({
-                 topLevelDirectory: '',
-                 currentRelativePath: '',
-                 currentFile: ''
-             });
-             setContent(''); 
-             currentListingData = { dirs: [], files: [] }; 
-             eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
-             
-             // Log before emitting stateSettled for fallback case
-             const stateToSettleFallback = {
-                 topLevelDirectory: fileState.topLevelDirectory, // Should be ''
-                 relativePath: fileState.currentRelativePath,    // Should be ''
-                 currentFile: fileState.currentFile          // Should be ''
-             };
-             logFileManager(`[DEBUG] About to emit stateSettled (User Dir Not Found). State: ${JSON.stringify(stateToSettleFallback)}`, 'debug');
-             logFileManager('Emitting fileManager:stateSettled (Navigate to Root - User Dir Not Found)...');
-             eventBus.emit('fileManager:stateSettled', stateToSettleFallback);
-         }
     }
-}
-
-// ADDED: Handler for Mike's request to see the top-level selector
-async function handleRequestTopLevelSelector() {
-    logFileManager('Event ui:requestTopLevelSelector received (for Mike).');
-    // Ensure top-level dirs are loaded
-    if (fileState.topLevelDirs.length === 0) {
-        logFileManager('Top-level dirs not loaded for selector request, fetching...');
-        await loadTopLevelDirectories();
-    }
-    // Now, trigger the navigation to root state, which will clear the selection
-    // and allow the UI to render the selector based on the empty topLevelDirectory state.
-    await handleNavigateToRoot(); 
-}
-
-// ADDED: Handler for navigating to an absolute path (via breadcrumb)
-async function handleNavigateAbsolute(data) {
-     const { topLevelDir, relativePath } = data;
-     logFileManager(`Event navigate:absolute received: Top='${topLevelDir}', Rel='${relativePath}'`);
-     if (topLevelDir === fileState.topLevelDirectory && relativePath === fileState.currentRelativePath) {
-         return; // No change
-     }
-
-     // Update state: Set exact path, clear file
-     updateAndPersistState({
-         topLevelDirectory: topLevelDir,
-         currentRelativePath: relativePath,
-         currentFile: ''
-     });
-     setContent(''); // Clear editor
-     currentListingData = { dirs: [], files: [] }; // Clear old listing before load
-
-     // Load listing for new path
-     await loadFilesAndDirectories(topLevelDir, relativePath); // Emits listingLoaded
-
-     // Emit state settled AFTER listing is loaded
-     logFileManager('Emitting fileManager:stateSettled (Navigate Absolute)...');
-     eventBus.emit('fileManager:stateSettled', {
-         topLevelDirectory: fileState.topLevelDirectory,
-         relativePath: fileState.currentRelativePath,
-         currentFile: fileState.currentFile
-     });
 }
 
 // --- API Interaction & Core Logic ---
@@ -536,34 +476,216 @@ async function loadFilesAndDirectories(topLevelDir, relativePath) {
     }
 }
 
+/**
+ * Loads the content of a specific file.
+ * Emits 'file:loaded' on success or 'file:loadError' on failure.
+ * Handles host script loading/unloading based on front matter.
+ */
 export async function loadFile(filename, topLevelDir, relativePath) {
-    // Path construction for API Call
-    const fullPathForApi = pathJoin(topLevelDir, relativePath);
-    logFileManager(`Requesting file content: '${filename}' from API path '${fullPathForApi}'`);
+    const logPrefix = `[loadFile ${filename}]:`;
+    logFileManager(`${logPrefix} Starting load... (Top='${topLevelDir}', Rel='${relativePath}')`);
     setLoading(true);
+
+    // Reverted: Use /api/files/content with query params
+    const dirPathForApi = pathJoin(topLevelDir, relativePath);
+    const apiUrl = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(dirPathForApi)}`;
+    logFileManager(`${logPrefix} Fetching content from API: ${apiUrl}`, 'debug');
+
+    // >>> ADDED: Cleanup previous dynamic styles FIRST <<<
+    logFileManager(`${logPrefix} Cleaning up ${currentDynamicStyleElements.length} previous dynamic style element(s)...`, 'debug');
+    currentDynamicStyleElements.forEach(element => {
+        try {
+            element.remove();
+        } catch (e) {
+            logFileManager(`${logPrefix} Error removing style element: ${e.message}`, 'warn');
+        }
+    });
+    currentDynamicStyleElements = []; // Reset the array
+    logFileManager(`${logPrefix} Previous dynamic styles cleaned up.`, 'debug');
+
+    // >>> ADDED: Cleanup previous host script (moved before fetch) <<<
+    // It's better to cleanup the old script before even fetching new file content
+    if (currentHostScriptPath) { // Check if there *was* an old script
+        if (window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.cleanup === 'function') {
+            logFileManager(`${logPrefix} Calling cleanup() on previous host script: ${currentHostScriptPath}`, 'debug');
+            try { await window.__WB001_HOST_MODULE__.cleanup(); } catch (cleanupError) {
+                 logFileManager(`${logPrefix} Error cleaning up old host script '${currentHostScriptPath}': ${cleanupError.message}`, 'error');
+            }
+        } else { logFileManager(`${logPrefix} No cleanup function found on window.__WB001_HOST_MODULE__ for path ${currentHostScriptPath}`, 'debug'); }
+        if(window.__WB001_HOST_MODULE__) window.__WB001_HOST_MODULE__ = null; // Clear global ref
+        currentHostScriptModule = null; 
+        currentHostScriptPath = null;
+        logFileManager(`${logPrefix} Previous host script cleaned up.`, 'info');
+    }
+
     try {
-        const apiUrl = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(fullPathForApi)}`;
-        const response = await fetch(apiUrl);
-        if (!response.ok) { throw new Error(`(${response.status}) ${await response.text()}`) }
+        // Use globalFetch for the request
+        const response = await globalFetch(apiUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to read file: ${response.status} ${response.statusText} - ${await response.text()}`);
+        }
         const content = await response.text();
+        logFileManager(`${logPrefix} Content fetched (${content.length} chars).`);
 
+        // Parse Front Matter
+        let frontMatter = {};
+        try {
+            const renderResult = await renderMarkdown(content);
+            frontMatter = renderResult.frontMatter || {};
+            logFileManager(`${logPrefix} Parsed front matter: ${JSON.stringify(frontMatter)}`, 'debug');
+        } catch (parseError) {
+            logFileManager(`${logPrefix} Error parsing front matter: ${parseError.message}. Proceeding without host script/css logic.`, 'warning');
+            // If front matter fails, skip host script and dynamic CSS loading
+            frontMatter = {}; // Ensure it's empty
+        }
+
+        // >>> ADDED: Load Dynamic CSS Styles <<<
+        // 1. Handle embedded CSS block
+        if (frontMatter.css && typeof frontMatter.css === 'string') {
+            logFileManager(`${logPrefix} Applying embedded CSS from front matter...`, 'debug');
+            try {
+                const styleElement = document.createElement('style');
+                styleElement.textContent = frontMatter.css;
+                styleElement.setAttribute('data-dynamic-style-source', filename); // Mark for cleanup
+                document.head.appendChild(styleElement);
+                currentDynamicStyleElements.push(styleElement);
+                logFileManager(`${logPrefix} Embedded CSS added to head.`, 'debug');
+            } catch (e) {
+                logFileManager(`${logPrefix} Error applying embedded CSS: ${e.message}`, 'error');
+            }
+        }
+        // 2. Handle linked CSS files(s)
+        const cssLinks = frontMatter.css_link ? (Array.isArray(frontMatter.css_link) ? frontMatter.css_link : [frontMatter.css_link]) : [];
+        if (cssLinks.length > 0) {
+             logFileManager(`${logPrefix} Applying ${cssLinks.length} linked CSS file(s) from front matter...`, 'debug');
+             cssLinks.forEach(href => {
+                 if (typeof href === 'string' && href.trim()) {
+                     try {
+                         const linkElement = document.createElement('link');
+                         linkElement.rel = 'stylesheet';
+                         linkElement.href = href.trim();
+                         linkElement.setAttribute('data-dynamic-style-source', filename); // Mark for cleanup
+                         document.head.appendChild(linkElement);
+                         currentDynamicStyleElements.push(linkElement);
+                         logFileManager(`${logPrefix} Added <link> for ${href} to head.`, 'debug');
+                     } catch (e) {
+                         logFileManager(`${logPrefix} Error adding <link> for ${href}: ${e.message}`, 'error');
+                     }
+                 }
+             });
+        }
+        // >>> END: Load Dynamic CSS Styles <<<
+
+        // Host Script Loading (No changes needed here, cleanup moved earlier)
+        const newHostScriptPath = frontMatter.host_script;
+        if (newHostScriptPath) { // Only load if specified
+             logFileManager(`${logPrefix} Attempting to load host script: ${newHostScriptPath}`, 'info');
+             try {
+                const absolutePath = newHostScriptPath.startsWith('/') ? newHostScriptPath : `/${newHostScriptPath}`;
+                await import(absolutePath);
+                currentHostScriptPath = newHostScriptPath; // Track the path
+                logFileManager(`${logPrefix} Successfully loaded host script: ${newHostScriptPath}. Init will be called later.`, 'info');
+            } catch (importError) {
+                logFileManager(`${logPrefix} Failed to load new host script '${newHostScriptPath}': ${importError.message}`, 'error');
+                console.error(`Error loading host script ${newHostScriptPath}:`, importError);
+                currentHostScriptPath = null; // Reset path tracking on error
+                eventBus.emit('file:hostScriptLoadError', { path: newHostScriptPath, error: importError.message });
+            }
+        } else {
+             logFileManager(`${logPrefix} No host script specified in front matter.`, 'info');
+        }
+
+        // Iframe Update Logic (No changes needed here)
+        const iFrameSrc = frontMatter.iframe_src;
+        let iframeElement = document.getElementById('game-iframe'); 
+        if (iFrameSrc) {
+            logFileManager(`${logPrefix} Found iframe_src in front matter: ${iFrameSrc}`, 'info');
+            if (!iframeElement) {
+                // If it doesn't exist, maybe create it? Or assume it should exist in preview? For now, log error.
+                 logFileManager(`${logPrefix} iframe element with ID 'game-iframe' not found in DOM! Cannot set src.`, 'error');
+                 // Consider creating it if necessary based on UI structure
+                 // iframeElement = document.createElement('iframe');
+                 // iframeElement.id = 'game-iframe';
+                 // ... set other attributes ...
+                 // document.getElementById('preview-container').appendChild(iframeElement); // Example append target
+            } else {
+                 logFileManager(`${logPrefix} Updating iframe#game-iframe src to: ${iFrameSrc}`, 'debug');
+                 // Check if src is actually different to avoid unnecessary reloads
+                 const currentSrc = iframeElement.getAttribute('src');
+                 if (currentSrc !== iFrameSrc) {
+                    iframeElement.setAttribute('src', iFrameSrc);
+                    logFileManager(`${logPrefix} iframe src updated.`, 'debug');
+                 } else {
+                     logFileManager(`${logPrefix} iframe src is already correct.`, 'debug');
+                 }
+            }
+        } else if (iframeElement) {
+             // If no iframe_src is defined, but an iframe exists, maybe clear it?
+             logFileManager(`${logPrefix} No iframe_src in front matter. Clearing existing iframe#game-iframe src.`, 'debug');
+             iframeElement.setAttribute('src', 'about:blank'); 
+        }
+
+        // Delayed Host Script Initialization (No changes needed here)
+        if (currentHostScriptPath && window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.initialize === 'function') {
+             logFileManager(`${logPrefix} Scheduling initialization for host script: ${currentHostScriptPath}`, 'debug');
+             // Use setTimeout to allow the DOM (incl. iframe src update) to process
+             setTimeout(async () => {
+                 logFileManager(`${logPrefix} Timeout fired. Checking for iframe#game-iframe...`, 'info');
+                 const iframeCheck = document.getElementById('game-iframe');
+                 if (iframeCheck) {
+                     logFileManager(`${logPrefix} Found iframe#game-iframe. Now attempting to call initialize() on window.__WB001_HOST_MODULE__`, 'info');
+                     try {
+                         await window.__WB001_HOST_MODULE__.initialize();
+                         logFileManager(`${logPrefix} Host script initialize() completed.`, 'info');
+                     } catch (initError) {
+                         logFileManager(`${logPrefix} Error calling initialize() on host script: ${initError.message}`, 'error');
+                     }
+                 } else {
+                     logFileManager(`${logPrefix} iframe#game-iframe STILL NOT FOUND after delay! Cannot initialize host script.`, 'error');
+                 }
+             }, 500); // <<< Increased delay to 500ms >>>
+        } else if (currentHostScriptPath) {
+             logFileManager(`${logPrefix} Host script loaded (${currentHostScriptPath}) but initialize function not found on window.__WB001_HOST_MODULE__.`, 'warning');
+        }
+
+        // Set editor content AFTER potential iframe update and host script load
         setContent(content);
-        const previousFile = fileState.currentFile;
-        // Update state *after* successful load
-        updateAndPersistState({ currentFile: filename });
+        logFileManager(`${logPrefix} Editor content set.`);
 
-        logFileManager(`File '${filename}' loaded successfully.`);
-        eventBus.emit('file:loaded', { filename: fileState.currentFile, previousFile: previousFile });
-        setLoading(false);
-        return true;
+        // Emit success event WITHOUT host script info (handled internally now)
+        eventBus.emit('file:loaded', { 
+            filename, 
+            content, 
+            frontMatter
+        }); 
+        logFileManager(`${logPrefix} Emitted file:loaded event.`);
 
     } catch (error) {
-        logFileManager(`Failed to load file '${filename}': ${error.message}`, 'error');
-        setContent(`## Error loading ${filename}\n\n\`\`\`\n${error.message}\n\`\`\``);
+        logFileManager(`${logPrefix} Error loading file: ${error.message}`, 'error');
+        console.error(error);
+        // Clear editor and emit error event
+        setContent(''); // Clear editor on error
+        currentListingData = { dirs: [], files: [] }; // Clear listing data before load
+        logFileManager(`${logPrefix} Editor content cleared.`);
+        currentListingData = { dirs: [], files: [] }; // Clear listing data before load
+        logFileManager(`${logPrefix} Internal currentListingData cleared.`);
         eventBus.emit('file:loadError', { filename, error: error.message });
-        // Do NOT change persisted state on load error, user might want to retry save/load
+        // Emit explicitly here ensures UI clears if no load needed
+        logFileManager(`${logPrefix} Emitted file:loadError event.`);
+
+        // >>> ADDED: Use exposed cleanup function if available <<<
+        if (window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.cleanup === 'function') {
+            logFileManager(`${logPrefix} Calling cleanup() on window.__WB001_HOST_MODULE__ due to file load error...`, 'warning');
+            try { await window.__WB001_HOST_MODULE__.cleanup(); } catch (e) {
+                 logFileManager(`${logPrefix} Error during host script cleanup: ${e.message}`, 'error');
+            }
+        } else {
+             logFileManager(`${logPrefix} window.__WB001_HOST_MODULE__.cleanup not found during error handling.`, 'debug');
+        }
+        currentHostScriptModule = null; // Still clear internal reference
+
+    } finally {
         setLoading(false);
-        return false;
     }
 }
 
