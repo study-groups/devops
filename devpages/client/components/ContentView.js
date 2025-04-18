@@ -1,4 +1,5 @@
 import { eventBus } from '/client/eventBus.js'; // Keep for potential future use? Or remove if truly unused.
+import { appState } from '/client/appState.js'; // Add appState import
 
 // Helper to get logMessage safely
 function logMessage(message, level = 'text') {
@@ -15,6 +16,7 @@ export function createContentViewComponent(targetElementId) {
     let previewContainer = null;
     let currentViewMode = 'split'; // Default view mode
     let isLogVisible = false; // Assume initially hidden
+    let appStateUnsubscribe = null; // Store unsubscribe function
 
     // --- Rendering / Layout Logic ---
     const updateLayout = () => {
@@ -107,11 +109,32 @@ export function createContentViewComponent(targetElementId) {
         // Add class to element for component-specific styling if needed
         element.classList.add('content-view-component'); 
 
-        logMessage('Event bus subscriptions skipped (handled by uiManager).');
+        // Subscribe to appState changes
+        appStateUnsubscribe = appState.subscribe((newState, prevState) => {
+            if (newState.ui !== prevState.ui) {
+                console.log('[DEBUG ContentView.js] Received app state change:', newState.ui);
+                
+                // Update view mode if changed
+                if (newState.ui.viewMode !== prevState.ui?.viewMode) {
+                    update({ viewMode: newState.ui.viewMode });
+                }
+                
+                // Update log visibility if changed
+                if (newState.ui.logVisible !== prevState.ui?.logVisible) {
+                    update({ isLogVisible: newState.ui.logVisible });
+                }
+            }
+        });
+        logMessage('Subscribed to appState changes.');
 
-        // Apply initial layout based on defaults
-        console.log('[DEBUG ContentView.js] mount triggering initial updateLayout()');
-        updateLayout(); // Apply layout based on initial default state
+        // Initialize with current state values
+        const currentState = appState.getState();
+        currentViewMode = currentState.ui.viewMode || 'split';
+        isLogVisible = currentState.ui.logVisible || false;
+        
+        // Apply initial layout based on state
+        console.log('[DEBUG ContentView.js] mount triggering initial updateLayout() with state values');
+        updateLayout(); // Apply layout based on initial state
 
         logMessage('[ContentView] Mounted.');
         return true; // Indicate success
@@ -119,6 +142,14 @@ export function createContentViewComponent(targetElementId) {
 
     const destroy = () => {
         logMessage('[ContentView] Destroying...');
+        
+        // Unsubscribe from appState
+        if (appStateUnsubscribe) {
+            appStateUnsubscribe();
+            appStateUnsubscribe = null;
+            logMessage('Unsubscribed from appState changes.');
+        }
+        
         if (element) {
             element.innerHTML = ''; // Clear content
             element.classList.remove('content-view-component', 'mode-editor', 'mode-preview', 'mode-split');

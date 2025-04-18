@@ -15,13 +15,15 @@ const MIN_LOG_HEIGHT = 80;
 import eventBus from '/client/eventBus.js';
 
 // ADD: Import the necessary functions from uiState
-import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
+// import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
+import { appState } from '/client/appState.js'; // ADDED: Import central state
 
 // ADD: Import triggerActions to call pasteLogEntry directly
 import { triggerActions } from '/client/actions.js';
 
 // Comment out the import
 // import { appVer } from '/client/config.js';
+import { appVer } from '/config.js'; // Use absolute path
 
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
@@ -41,6 +43,8 @@ export class LogPanel {
         this.clearButton = null;
         this.cliInputElement = null; // Add CLI input element
         this.appInfoElement = null; // Add App Info element
+        this.appVersionElement = null; // Add element property
+        this.pauseLogButton = null; // Add element property
         // Buttons are now found via toolbarElement or have data-actions
 
         this.state = {
@@ -57,8 +61,13 @@ export class LogPanel {
         this.copyLog = this.copyLog.bind(this);
         this.clearLog = this.clearLog.bind(this);
 
-        // Add a property to store the unsubscribe function
-        this._logVisibleUnsubscribe = null;
+        // REMOVED: property to store the uiState unsubscribe function
+        // this._logVisibleUnsubscribe = null;
+        this._appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
+
+        // --- ADDED: Pause State ---
+        this.isPaused = false;
+        // --- END ADDED ---
 
         console.log('[LogPanel] Instance created.');
     }
@@ -73,7 +82,7 @@ export class LogPanel {
         this.createDOMStructure(); // Create internal elements
         this.loadPreferences();
         this.attachEventListeners(); // Attach resize listener and potentially others
-        this.subscribeToStateChanges(); // ADDED: Subscribe to uiState.logVisible
+        this.subscribeToStateChanges(); // ADDED: Subscribe to appState.ui.logVisible
         this.updateUI();
         this.updateEntryCount(); // Initial count
         // Comment out the call to updateAppInfo
@@ -93,6 +102,11 @@ export class LogPanel {
         this.toolbarElement.id = 'log-toolbar'; // Assign ID for CSS
         this.container.appendChild(this.toolbarElement);
         
+        // --- ADDED: Create Pause Button (First on Left) ---
+        this.pauseLogButton = this._createToolbarButton('pause-log-btn', '⏸️ Pause', 'toggleLogPause', 'Pause/Resume Logging');
+        // Initial styling can be set later in togglePause or updateUI
+        // --- END ADDED ---
+
         // Create Toolbar Buttons with data-actions
         this._createToolbarButton('copy-log-btn', 'Copy', 'copyLog');
         this._createToolbarButton('info-btn', 'ℹ️', 'showSystemInfo', 'System Information');
@@ -121,8 +135,26 @@ export class LogPanel {
         this.appInfoElement.dataset.action = 'showAppInfo'; 
         this.toolbarElement.appendChild(this.appInfoElement);
 
+        // Create App Version Span
+        this.appVersionElement = document.createElement('span');
+        this.appVersionElement.id = 'log-app-version';
+        this.appVersionElement.className = 'app-version log-version';
+        this.appVersionElement.textContent = `v${appVer}`;
+        this.appVersionElement.title = `App Version: ${appVer}`;
+        // Inserted below
+
         // Create Minimize Button (Moved BEFORE status span)
         this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log');
+
+        // --- Insert Version BEFORE Minimize Button ---
+        if (this.minimizeButton) {
+            // Insert the version span just before the minimize button
+            this.toolbarElement.insertBefore(this.appVersionElement, this.minimizeButton);
+        } else {
+             // Fallback if minimize button wasn't created
+            this.toolbarElement.appendChild(this.appVersionElement);
+        }
+        // --- End Insert Version ---
 
         // Create Status Span (Will be pushed right by margin-left: auto)
         this.statusElement = document.createElement('span');
@@ -142,11 +174,13 @@ export class LogPanel {
         this.container.appendChild(this.resizeHandle);
         
         console.log('[LogPanel] DOM structure created.');
+        // Update initial pause button state
+        this.updatePauseButtonState();
     }
     
     /** Helper to create toolbar buttons */
     _createToolbarButton(id, text, action, title = null) {
-        if (!this.toolbarElement) return;
+        if (!this.toolbarElement) return null;
         const button = document.createElement('button');
         button.id = id;
         button.textContent = text;
@@ -157,7 +191,7 @@ export class LogPanel {
             button.title = title;
         }
         this.toolbarElement.appendChild(button);
-        // Removed direct listener attachment here
+        return button; // Important: return the element
     }
 
     /**
@@ -186,19 +220,22 @@ export class LogPanel {
     }
 
     /**
-     * ADDED: Subscribe to relevant UI state changes.
+     * ADDED: Subscribe to relevant UI state changes from appState.
      */
     subscribeToStateChanges() {
         // Unsubscribe if already subscribed (e.g., during re-initialization)
-        if (this._logVisibleUnsubscribe) {
-            this._logVisibleUnsubscribe();
+        if (this._appStateUnsubscribe) {
+            this._appStateUnsubscribe();
         }
-        // Subscribe to logVisible changes and trigger UI update
-        this._logVisibleUnsubscribe = subscribeToUIStateChange('logVisible', (isVisible) => {
-            console.log(`%c[LogPanel] Received uiState change via subscription: logVisible=${isVisible}`, 'color: cyan'); 
-            this.updateUI(); // Update UI when central state changes
+        // Subscribe to appState changes
+        this._appStateUnsubscribe = appState.subscribe((newState, prevState) => {
+             // Only react if the relevant UI slice changed
+             if (newState.ui !== prevState.ui && newState.ui.logVisible !== prevState.ui?.logVisible) {
+                 console.log(`%c[LogPanel] Received appState change via subscription: logVisible=${newState.ui.logVisible}`, 'color: cyan'); 
+                 this.updateUI(); // Update UI when central state changes
+             }
         });
-        console.log('[LogPanel] Subscribed to uiState.logVisible changes.');
+        console.log('[LogPanel] Subscribed to appState.ui.logVisible changes.');
     }
 
     /**
@@ -229,7 +266,7 @@ export class LogPanel {
         const cliInput = document.getElementById('cli-input');
 
         // Function to handle sending commands
-        async function sendCommand() {
+        const sendCommand = async () => { // Make async if execute uses await
             const command = cliInput.value.trim();
             if (!command) return;
             
@@ -248,7 +285,14 @@ export class LogPanel {
                 // Import and use the handler module directly without destructuring
                 const handlersModule = await import('/client/cli/handlers.js');
                 if (handlersModule.executeRemoteCommand) {
-                    await handlersModule.executeRemoteCommand(command);
+                    // Assuming executeRemoteCommand logs its own output/errors via logMessage
+                    // If it returns output, log it here with 'cli-output' type
+                    const result = await handlersModule.executeRemoteCommand(command);
+                    if (result && typeof result === 'string') {
+                         this.addEntry(result, 'cli-output'); // Log success output
+                    } else if (result) {
+                         this.addEntry(JSON.stringify(result), 'cli-output'); // Log object output
+                    }
                 } else {
                     throw new Error("executeRemoteCommand function not found");
                 }
@@ -257,6 +301,7 @@ export class LogPanel {
                 if (typeof window.logMessage === 'function') {
                     window.logMessage(`[ERROR] ${error.message}`, 'error');
                 }
+                this.addEntry(`[ERROR] ${error.message}`, 'cli-error'); // Log error output
             }
         }
 
@@ -310,11 +355,20 @@ export class LogPanel {
     // --- Core Methods ---
 
     /**
-     * Adds a log message to the panel.
+     * Adds a log message to the panel, respecting the pause state.
      * @param {string|object} message - The message to log
-     * @param {string} [type='text'] - The message type ('text', 'json', 'error', 'warning', etc.). Used for styling.
+     * @param {string} [type=\'text\'] - The message type (e.g., 'text', 'json', 'error', 'cli-input', 'cli-output').
      */
     addEntry(message, type = 'text') {
+        // --- ADDED: Check Pause State ---
+        // Allow specific types through even when paused
+        const allowedTypesWhenPaused = ['cli-input', 'cli-output', 'cli-error'];
+        if (this.isPaused && !allowedTypesWhenPaused.includes(type)) {
+            // console.log(`[LogPanel] Paused. Ignoring entry type: ${type}`);
+            return; // Don't add the entry if paused and type is not allowed
+        }
+        // --- END ADDED ---
+
         if (!this.logElement) {
              console.warn('[LogPanel] Log element not ready for addEntry');
              return; 
@@ -335,7 +389,7 @@ export class LogPanel {
 
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
-        logEntry.className = `log-entry log-entry-${type}`; // Add type class for styling
+        logEntry.className = `log-entry log-entry-${type}`;
         logEntry.title = 'Click to paste into editor'; // Keep tooltip
 
         // Create a span for the actual text content
@@ -346,10 +400,13 @@ export class LogPanel {
         let rawMessageForDataAttr = '';
 
         // Explicitly handle all expected types
-        if (type === 'text' || type === 'warning' || type === 'error') {
+        if (type === 'text' || type === 'info' || type === 'debug' || type === 'warning' || type === 'error' || type === 'success' || type === 'RENDER' || type === 'EVENT' || type === 'COMPLETE') {
+            // Apply specific class for styling based on type (level)
+            logEntry.classList.add(`log-${type.toLowerCase()}`); 
             textSpan.innerText = `${timestamp} ${messageStr}`;
             rawMessageForDataAttr = messageStr; // Store original string
         } else if (type === 'json') {
+            logEntry.classList.add('log-json');
             textSpan.textContent = `${timestamp} [JSON] `;
             const pre = document.createElement('pre');
             let jsonString = '[Error stringifying JSON]';
@@ -428,7 +485,9 @@ export class LogPanel {
              return;
         }
 
-        const isVisible = getUIState('logVisible');
+        // Get uiState state directly
+        // const isVisible = getUIState('logVisible'); 
+        const isVisible = appState.getState().ui.logVisible; // ADDED: Get from appState
         const currentHeight = this.state.height; // Still needed for --log-height
 
         console.log(`[LogPanel] Updating UI based on state: isVisible=${isVisible}`);
@@ -452,6 +511,8 @@ export class LogPanel {
         // Emit resize event AFTER updating visibility/height potentially
         // so other components react to the final state
         eventBus.emit('layout:logResized', { height: isVisible ? currentHeight : 0 });
+
+        this.updatePauseButtonState(); // Update pause button state too
     }
 
     /**
@@ -530,10 +591,10 @@ export class LogPanel {
     // ADDED: Method to clean up subscriptions
     destroy() {
         console.log('[LogPanel] Destroying...');
-        if (this._logVisibleUnsubscribe) {
-            this._logVisibleUnsubscribe();
-            this._logVisibleUnsubscribe = null;
-            console.log('[LogPanel] Unsubscribed from uiState changes.');
+        if (this._appStateUnsubscribe) {
+            this._appStateUnsubscribe();
+            this._appStateUnsubscribe = null;
+            console.log('[LogPanel] Unsubscribed from appState changes.');
         }
         // Remove resize listener if necessary (though usually component is destroyed with page)
         if (this.resizeHandle) {
@@ -554,4 +615,25 @@ export class LogPanel {
         console.log(`[LogPanel] App info updated: v${appVer}`);
     }
     */
+
+    // --- ADDED: Pause Methods ---
+    togglePause() {
+        this.isPaused = !this.isPaused;
+        console.log(`[LogPanel] Pause state toggled: ${this.isPaused}`);
+        this.updatePauseButtonState();
+    }
+
+    updatePauseButtonState() {
+        if (!this.pauseLogButton) return;
+        if (this.isPaused) {
+            this.pauseLogButton.textContent = '▶️ Resume';
+            this.pauseLogButton.title = 'Resume Logging';
+            this.pauseLogButton.classList.add('paused'); // Optional: Add class for styling
+        } else {
+            this.pauseLogButton.textContent = '⏸️ Pause';
+            this.pauseLogButton.title = 'Pause Logging';
+            this.pauseLogButton.classList.remove('paused');
+        }
+    }
+    // --- END ADDED ---
 } 

@@ -268,17 +268,11 @@ export default {
  * Wrapper for logging auth messages.
  * Uses window.logMessage if available, otherwise console.log.
  * @param {string} message
- * @param {string} [level='text'] - 'text', 'error', 'warning'
+ * @param {string} [logLevel='info'] - 'text', 'error', 'warning', 'info', 'debug'
  */
-function logAuth(message, level = 'text') {
-    const type = "AUTH";
-    // Default level to 'text' if not provided or invalid
-    const validLevels = ['text', 'error', 'warning', 'info', 'debug']; // Extend if needed
-    const logLevel = validLevels.includes(level) ? level : 'text';
-    
+function logAuth(message, logLevel = 'info') {
+    const type = 'AUTH'; // Keep specific type
     if (typeof window.logMessage === 'function') {
-        // Assuming window.logMessage takes (message, level, type?)
-        // Adjust arguments if necessary
         window.logMessage(message, logLevel, type);
     } else {
         const logFunc = logLevel === 'error' ? console.error : (logLevel === 'warning' ? console.warn : console.log);

@@ -1,19 +1,18 @@
 import { eventBus } from '/client/eventBus.js';
-// Import necessary functions from uiState
-import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js'; 
+import { appState } from '/client/appState.js'; // ADDED: Import central state
 
 // Helper for logging
-function logMessage(message, type = 'VIEW_CONTROLS') {
+function logMessage(message, type = 'debug') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type);
+        window.logMessage(message, type, 'VIEW_CONTROLS');
     } else {
-        console.log(`${type}: ${message}`);
+        console.log(`[VIEW_CONTROLS]: ${message}`);
     }
 }
 
 export function createViewControlsComponent(targetElementId) {
     let element = null;
-    let logVisibleUnsubscribe = null; // Store unsubscribe function
+    let appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
 
     const updateActiveButton = (newMode) => {
         if (!element) return;
@@ -44,13 +43,21 @@ export function createViewControlsComponent(targetElementId) {
         }
     };
 
-    // --- Update Method (Kept for potential future use or external triggers) --- 
-    const update = (data = {}) => {
-        console.log('[DEBUG ViewControls] update called with data:', data);
-        if (data.viewMode !== undefined) {
-            updateActiveButton(data.viewMode);
+    // ADDED: Handler for appState changes relevant to this component
+    const handleAppStateChange = (newState, prevState) => {
+        // Only update if the relevant UI slice changed
+        if (newState.ui === prevState.ui) {
+            return;
         }
-        // Note: Log button updates are handled by subscription below
+        logMessage(`[ViewControls] Received appState change:`, 'debug', newState.ui);
+        
+        // Update buttons based on the new state
+        if (newState.ui.viewMode !== prevState.ui?.viewMode) {
+            updateActiveButton(newState.ui.viewMode);
+        }
+        if (newState.ui.logVisible !== prevState.ui?.logVisible) {
+            updateLogButtonState(newState.ui.logVisible);
+        }
     };
 
     const mount = () => {
@@ -67,54 +74,28 @@ export function createViewControlsComponent(targetElementId) {
             <button id="split-view" title="Split View" data-action="setView" data-view-mode="split">Split</button> 
             <button id="preview-view" title="Preview" data-action="setView" data-view-mode="preview">Preview</button>
             <button id="log-toggle-btn" title="Show Log" data-action="toggleLogVisibility">Log</button> <!-- ADDED -->
+            <button id="preview-reload-btn" title="Refresh Preview" data-action="refreshPreview">&#x21bb;</button> <!-- ADDED -->
         `;
         
-        // Event bus subscription for viewMode is handled by uiManager
-        logMessage('Event bus subscription skipped (handled by uiManager).');
-        
-        // --- Set Initial State for View Buttons --- 
-        try {
-            const initialViewMode = getUIState('viewMode'); 
-            if (initialViewMode !== undefined) { 
-                 logMessage(`Setting initial active view button state from uiState: ${initialViewMode}`);
-                 updateActiveButton(initialViewMode);
-            } else {
-                logMessage('Could not get initial viewMode from uiState, defaulting.', 'warning');
-                updateActiveButton('split'); 
-            }
-        } catch (err) {
-             logMessage(`Error getting initial viewMode from uiState: ${err.message}. Defaulting active button.`, 'error');
-             updateActiveButton('split'); 
-        }
-        
-        // --- Set Initial State & Subscribe for Log Button --- 
-        try {
-            const initialLogVisible = getUIState('logVisible');
-            if (initialLogVisible !== undefined) {
-                logMessage(`Setting initial log button state from uiState: ${initialLogVisible}`);
-                updateLogButtonState(initialLogVisible); // Set initial state
-            } else {
-                 logMessage('Could not get initial logVisible state', 'warning');
-            }
-            // Subscribe to future changes
-            logVisibleUnsubscribe = subscribeToUIStateChange('logVisible', updateLogButtonState);
-            logMessage('Subscribed to logVisible uiState changes.');
-            
-        } catch (err) {
-            logMessage(`Error setting initial log state or subscribing: ${err.message}`, 'error');
-        }
+        // ADDED: Subscribe to appState
+        if (appStateUnsubscribe) appStateUnsubscribe(); // Unsubscribe previous if any
+        appStateUnsubscribe = appState.subscribe(handleAppStateChange);
+        logMessage('Subscribed to appState changes.');
 
-        logMessage('Mounted.');
+        // ADDED: Call handler once with initial state to set initial button states
+        handleAppStateChange(appState.getState(), {}); // Pass empty object as prevState
+
+        logMessage('Mounted and subscribed to appState.');
         return true;
     };
 
     const destroy = () => {
         logMessage('Destroying...');
-        // Unsubscribe from uiState changes
-        if (logVisibleUnsubscribe) {
-            logVisibleUnsubscribe();
-            logVisibleUnsubscribe = null;
-            logMessage('Unsubscribed from logVisible uiState changes.');
+        // Unsubscribe from appState changes
+        if (appStateUnsubscribe) {
+            appStateUnsubscribe();
+            appStateUnsubscribe = null;
+            logMessage('Unsubscribed from appState changes.');
         }
         
         if (element) {
@@ -126,7 +107,6 @@ export function createViewControlsComponent(targetElementId) {
 
     return {
         mount,
-        update, 
         destroy
     };
 }

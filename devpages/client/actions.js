@@ -3,7 +3,7 @@ console.log('[DEBUG] actions.js: Module start');
 import eventBus from '/client/eventBus.js';
 import { withAuthHeaders } from '/client/headers.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { getUIState, setUIState } from '/client/uiState.js';
+import { appState } from '/client/appState.js'; // ADDED: Import central state
 import { logMessage } from '/client/log/index.js';
 
 
@@ -15,13 +15,13 @@ import { handleDeleteImageAction } from '/client/imageManager.js'; // Import del
 
 
 // Helper for logging within this module
-function logAction(message, level = 'text') {
+function logAction(message, level = 'debug') {
     const type = 'ACTION'
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message,type);
+        window.logMessage(message, level, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${type}: ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 
@@ -141,14 +141,32 @@ export const triggerActions = {
     setView: (data) => {
         console.log('[DEBUG actions.js] setView action triggered. Data:', data);
         const mode = data.viewMode;
-        if (mode) {
+        if (mode && ['editor', 'preview', 'split'].includes(mode)) { // Validate mode
             logAction(`Triggering setView: ${mode}`);
-            console.log(`[DEBUG actions.js] Publishing ui:viewModeChanged with mode: ${mode}`);
-            eventBus.emit('ui:viewModeChanged', mode);
-            console.log('[DEBUG actions.js] Event published.');
+            // console.log(`[DEBUG actions.js] Publishing ui:viewModeChanged with mode: ${mode}`);
+            // eventBus.emit('ui:viewModeChanged', mode);
+            // console.log('[DEBUG actions.js] Event published.');
+            
+            // Log the current state before updating
+            console.log('[DEBUG actions.js] Current state before update:', appState.getState().ui);
+            
+            // ADDED: Update central state
+            appState.update(currentState => {
+                console.log('[DEBUG actions.js] Inside update callback, currentState:', currentState);
+                const newState = {
+                    ui: { ...currentState.ui, viewMode: mode }
+                };
+                console.log('[DEBUG actions.js] Returning new state:', newState);
+                return newState;
+            });
+            
+            // Log the state after updating
+            console.log('[DEBUG actions.js] Updated state after update:', appState.getState().ui);
+            
+            logAction(`Updated appState.ui.viewMode to: ${mode}`);
         } else {
-            logAction('setView triggered without viewMode data.', 'warning');
-            console.warn('[DEBUG actions.js] setView called without viewMode data.', data);
+            logAction(`setView triggered with invalid or missing viewMode: ${mode}`, 'warning');
+            console.warn('[DEBUG actions.js] setView called with invalid/missing viewMode data.', data);
         }
     },
 
@@ -168,17 +186,32 @@ export const triggerActions = {
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
     },
     toggleLogVisibility: async () => { 
-        logAction('Triggering toggleLogVisibility via uiState...');
+        // logAction('Triggering toggleLogVisibility via uiState...');
+        // try {
+        //     const currentVisibility = getUIState('logVisible');
+        //     setUIState('logVisible', !currentVisibility);
+        // } catch (e) { logAction(`toggleLogVisibility failed: ${e.message}`, 'error'); }
+        logAction('Triggering toggleLogVisibility via appState...');
         try {
-            const currentVisibility = getUIState('logVisible');
-            setUIState('logVisible', !currentVisibility);
-        } catch (e) { logAction(`toggleLogVisibility failed: ${e.message}`, 'error'); }
+            // ADDED: Update central state
+            const currentVisibility = appState.getState().ui.logVisible;
+            appState.update(currentState => ({
+                ui: { ...currentState.ui, logVisible: !currentVisibility }
+            }));
+            logAction(`Updated appState.ui.logVisible to: ${!currentVisibility}`);
+        } catch (e) {
+            logAction(`toggleLogVisibility update failed: ${e.message}`, 'error');
+        }
     },
     minimizeLog: async () => {
-        logAction('Triggering minimizeLog...');
+        logAction('Triggering minimizeLog (setting logVisible=false via appState)...');
         try {
-            setUIState('logVisible', false); // Use uiState to hide the log
-            logAction('Log panel visibility set to false.');
+            // setUIState('logVisible', false); // Use uiState to hide the log
+            // ADDED: Update central state
+            appState.update(currentState => ({
+                ui: { ...currentState.ui, logVisible: false }
+            }));
+            logAction('Log panel visibility set to false via appState.');
         } catch (e) {
             logAction(`minimizeLog failed: ${e.message}`, 'error');
         }
@@ -249,12 +282,38 @@ export const triggerActions = {
 
     // --- NEW Nav Bar Actions ---
     refreshPreview: async () => {
-        logAction('Triggering refreshPreview...');
+        logAction('Refresh Preview action triggered', 'info');
+        // 1. Clear the specific logs in the preview pane
         try {
-            await refreshPreview(); // Call the correctly imported function
+            const hostLog = document.getElementById('host-log');
+            const eventLog = document.getElementById('event-bus-log');
+            if (hostLog) hostLog.innerHTML = 'Host script messages will appear here...';
+            if (eventLog) eventLog.innerHTML = 'Event bus messages will appear here...';
+            logAction('Cleared host and event bus logs in preview.', 'debug');
+        } catch (e) {
+            logAction(`Error clearing logs: ${e.message}`, 'error');
+        }
+
+        // 2. Emit event for host script to re-initialize
+        if (window.previewEventBus) { 
+            logAction('Emitting preview:force_reload event.', 'debug');
+            window.previewEventBus.emit('preview:force_reload');
+        } else {
+            logAction('window.previewEventBus not found, cannot emit force_reload event.', 'warning');
+        }
+        
+        // 3. Refresh the actual markdown preview (if needed)
+        logAction('Refreshing markdown preview content.', 'debug');
+        try {
+            const editor = document.getElementById('editor-container')?.querySelector('textarea');
+            if (editor) {
+                const { updatePreview } = await import('/client/preview/index.js'); // Use index
+                updatePreview(editor.value);
+            } else {
+                logAction('Editor textarea not found, skipping markdown refresh.', 'warning');
+            }
         } catch (error) {
-            logAction(`Error during refreshPreview trigger: ${error.message}`, 'error');
-            console.error('[ACTION ERROR] refreshPreview', error);
+            logAction(`Error refreshing markdown preview: ${error.message}`, 'error');
         }
     },
     loadFile: async (data = {}) => {
@@ -284,14 +343,6 @@ export const triggerActions = {
         } catch (error) {
             logAction(`Error during loadFile trigger: ${error.message}`, 'error');
             alert('An error occurred while trying to load the file.');
-        }
-    },
-    refreshPreview: async () => {
-        logAction('Manual refresh triggered', 'debug');
-        const editor = document.getElementById('md-editor');
-        if (editor) {
-            const { updateMarkdownPreview } = await import('/client/markdown.js');
-            updateMarkdownPreview(editor.value);
         }
     },
     loadFile: async (data) => {
@@ -580,6 +631,18 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
         element.textContent = '?';
         setTimeout(() => { element.textContent = originalText; }, 1000);
     },
+
+    // --- ADDED Pause Action ---
+    toggleLogPause: () => {
+        logAction('Triggering toggleLogPause...');
+        try {
+            // Call the method on the global instance
+            window.logPanel?.togglePause();
+        } catch (e) {
+            logAction(`toggleLogPause failed: ${e.message}`, 'error');
+        }
+    },
+    // --- END Added Action ---
 };
 
 // <<< ADD LOG AFTER triggerActions >>>

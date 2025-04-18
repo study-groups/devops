@@ -14,10 +14,12 @@ import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
 // import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
 
 // Helper for logging within this module
-function logRenderer(message, level = 'text') {
+function logRenderer(message, level = 'debug') {
     const prefix = '[PREVIEW RENDERER]';
+    const type = 'PREVIEW_RENDERER'; // Keep specific type
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        // Pass message, level, and type
+        window.logMessage(`${prefix} ${message}`, level, type); 
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
         logFunc(`${prefix} ${message}`);

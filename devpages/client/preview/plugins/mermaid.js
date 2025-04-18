@@ -5,10 +5,11 @@
  */
 
 // Helper for logging within this module
-function logMermaid(message, level = 'text') {
+function logMermaid(message, level = 'debug') {
     const prefix = '[MERMAID PLUGIN]';
+    const type = 'MERMAID_PLUGIN'; // Keep specific type
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(`${prefix} ${message}`, level, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
         logFunc(`${prefix} ${message}`);

@@ -5,13 +5,11 @@
  */
 
 // Helper for logging within this module
-function logGraphviz(message, level = 'text') {
-    const type = 'GRAPHVIZ_PLUGIN';
+function logMessage(message, type = 'debug') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type);
+        window.logMessage(message, type, 'GRAPHVIZ_PLUGIN');
     } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${type}: ${message}`);
+        console.log(`[GRAPHVIZ_PLUGIN] ${message}`);
     }
 }
 
@@ -26,19 +24,19 @@ export class GraphvizPlugin {
             format: 'svg', // Output format
             ...options
         };
-        logGraphviz('GraphvizPlugin instance created.');
+        logMessage('GraphvizPlugin instance created.');
     }
 
     async init() {
         if (vizInitialized) {
-            logGraphviz('Viz.js already initialized globally.');
+            logMessage('Viz.js already initialized globally.');
             return true;
         }
-        logGraphviz('Initializing Viz.js library...');
+        logMessage('Initializing Viz.js library...');
         try {
             // Load Viz.js script if not already loaded
             if (!vizScriptLoaded && typeof window.Viz === 'undefined') {
-                logGraphviz('Loading Viz.js script from CDN...');
+                logMessage('Loading Viz.js script from CDN...');
                 await this.loadVizScript();
                 vizScriptLoaded = true;
             }
@@ -48,10 +46,10 @@ export class GraphvizPlugin {
             }
 
             vizInitialized = true;
-            logGraphviz('Viz.js library initialized successfully.');
+            logMessage('Viz.js library initialized successfully.');
             return true;
         } catch (error) {
-            logGraphviz(`Initialization failed: ${error.message}`, 'error');
+            logMessage(`Initialization failed: ${error.message}`, 'error');
             console.error('[GRAPHVIZ INIT ERROR]', error);
             return false;
         }
@@ -65,7 +63,7 @@ export class GraphvizPlugin {
             vizScript.async = true;
             
             vizScript.onload = () => {
-                logGraphviz('Viz.js script loaded successfully.');
+                logMessage('Viz.js script loaded successfully.');
                 
                 // Then load the rendering worker
                 const workerScript = document.createElement('script');
@@ -73,12 +71,12 @@ export class GraphvizPlugin {
                 workerScript.async = true;
                 
                 workerScript.onload = () => {
-                    logGraphviz('Viz.js worker script loaded successfully.');
+                    logMessage('Viz.js worker script loaded successfully.');
                     resolve();
                 };
                 
                 workerScript.onerror = (err) => {
-                    logGraphviz('Failed to load Viz.js worker script.', 'error');
+                    logMessage('Failed to load Viz.js worker script.', 'error');
                     reject(err);
                 };
                 
@@ -86,7 +84,7 @@ export class GraphvizPlugin {
             };
             
             vizScript.onerror = (err) => {
-                logGraphviz('Failed to load Viz.js script.', 'error');
+                logMessage('Failed to load Viz.js script.', 'error');
                 reject(err);
             };
             
@@ -96,11 +94,11 @@ export class GraphvizPlugin {
 
     process(previewElement) {
         if (!vizInitialized) {
-            logGraphviz('Cannot process, Viz.js not initialized.', 'warning');
+            logMessage('Cannot process, Viz.js not initialized.', 'warning');
             this.init().then(() => {
                 this.renderDiagrams(previewElement);
             }).catch(error => {
-                logGraphviz(`Failed to initialize on-demand: ${error.message}`, 'error');
+                logMessage(`Failed to initialize on-demand: ${error.message}`, 'error');
             });
             return;
         }
@@ -109,11 +107,11 @@ export class GraphvizPlugin {
     }
     
     renderDiagrams(previewElement) {
-        logGraphviz('Processing Graphviz diagrams...');
+        logMessage('Processing Graphviz diagrams...');
         const elements = previewElement.querySelectorAll('.graphviz:not([data-processed="true"])');
         
         if (elements.length > 0) {
-            logGraphviz(`Found ${elements.length} diagrams to render.`);
+            logMessage(`Found ${elements.length} diagrams to render.`);
             
             // Initialize viz renderer once
             const viz = new window.Viz();
@@ -144,9 +142,9 @@ export class GraphvizPlugin {
                         svg.style.height = 'auto';
                     }
                     
-                    logGraphviz('Diagram rendered successfully.');
+                    logMessage('Diagram rendered successfully.');
                 } catch (error) {
-                    logGraphviz(`Error rendering diagram: ${error.message}`, 'error');
+                    logMessage(`Error rendering diagram: ${error.message}`, 'error');
                     console.error('[GRAPHVIZ RENDER ERROR]', error);
                     
                     // Display error message
@@ -160,7 +158,7 @@ export class GraphvizPlugin {
                 }
             });
         } else {
-            logGraphviz('No new diagrams found to process.');
+            logMessage('No new diagrams found to process.');
         }
     }
 } 

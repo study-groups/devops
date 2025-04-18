@@ -3,18 +3,14 @@ import { eventBus } from '/client/eventBus.js';
 import fileManager from '/client/fileManager.js';
 import { appState } from '/client/appState.js';
 
-const logContext = (message, subtype='', level='info') => {
-    // Construct the full type string: "type" or "type_subtype" if subtype exists
+const logContext = (message, level = 'debug') => {
     const type = "CTX";
-    const fullType = subtype ? `${type},${subtype}` : type;
+    const fullType = type;
 
     if (typeof window.logMessage === 'function') {
-        // Map 'debug' level for logMessage, otherwise use the provided level
-       window.logMessage(message, level, fullType);
+        window.logMessage(message, level, fullType);
     } else {
-        // Fallback to console logging if logMessage isn't available
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        // Log using the full type for consistency
+        const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : (level === 'info' ? console.info : console.log));
         logFunc(`[${fullType}] ${message}`);
     }
 };
@@ -28,7 +24,7 @@ export function createContextManagerComponent(targetElementId) {
     const render = () => {
         if (!element) return;
         const subtype = 'RENDER'; // Specific prefix
-        logContext('Starting render logic', subtype, `START`);
+        logContext('Starting render logic', 'info');
 
         // Get necessary state
         const isLoading = fileManager.getIsLoading();
@@ -41,8 +37,8 @@ export function createContextManagerComponent(targetElementId) {
         const isMikeAtRoot = currentAuthState.user?.username?.toLowerCase() === 'mike' && !topDir;
         const isOtherUserAtRoot = currentAuthState.isLoggedIn && !isMikeAtRoot && !topDir;
         
-        logContext(`Render Check: User='${currentAuthState.user?.username}', TopDir='${topDir}', isMike@Root=${isMikeAtRoot}, AvailableTopDirs=[${availableTopDirs?.join(',')}]`, 'DEBUG');
-        logContext(`State Used - isLoading: ${isLoading}, isMikeAtRoot: ${isMikeAtRoot}, topDir: ${topDir}, relPath: ${relPath}, file: ${currentFile}`, 'STATE');
+        logContext(`Render Check: User='${currentAuthState.user?.username}', TopDir='${topDir}', isMike@Root=${isMikeAtRoot}, AvailableTopDirs=[${availableTopDirs?.join(',')}]`, 'info');
+        logContext(`State Used - isLoading: ${isLoading}, isMikeAtRoot: ${isMikeAtRoot}, topDir: ${topDir}, relPath: ${relPath}, file: ${currentFile}`, 'info');
         // Log listing only if not loading and not Mike@Root (where it's irrelevant)
         if (!isLoading && !isMikeAtRoot) {
              logContext(`Listing Used: Dirs=[${currentListing?.dirs?.join(', ')}], Files=[${currentListing?.files?.join(', ')}]`, subtype); 
@@ -227,7 +223,7 @@ export function createContextManagerComponent(targetElementId) {
 
     // --- Lifecycle Methods --- 
     const mount = () => {
-        logContext('Mounting...','MOUNTING');
+        logContext('Mounting...','info');
         element = document.getElementById(targetElementId);
         if (!element) {
             logContext(`Target element #${targetElementId} not found.`, 'error');
@@ -246,7 +242,7 @@ export function createContextManagerComponent(targetElementId) {
             const handler = (data) => handleStateUpdate({ ...data, eventType: eventName });
             eventBus.on(eventName, handler);
             unsubscribeFunctions.push(() => eventBus.off(eventName, handler));
-            logContext(`Subscribed to fileManager event: ${eventName}`, "SUBSCRIBE");
+            logContext(`Subscribed to fileManager event: ${eventName}`, "info");
         });
 
         // REMOVED: Subscription to authState changes -> Re-enable this block
@@ -262,7 +258,7 @@ export function createContextManagerComponent(targetElementId) {
             authUnsubscribe(); 
             logContext('Unsubscribed from authState', 'EVENT', 'AUTH');
         });
-        logContext('Subscribed to authState', 'SUBSCRIBE', 'AUTH');
+        logContext('Subscribed to authState', 'info');
         
 
         // Initial Render (will use current fileManager state)

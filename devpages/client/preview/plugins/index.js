@@ -23,13 +23,11 @@ const builtInPlugins = {
 };
 
 // Helper for logging within this module
-function logPlugins(message, level = 'text') {
-    const type = 'PLUGINS';
+function logPlugins(message, level = 'debug', type='PLUGINS') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type);
+        window.logMessage(message, level, type);
     } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${type}: ${message}`);
+        console.log(`[${type}] ${message}`);
     }
 }
 

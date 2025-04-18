@@ -10,13 +10,11 @@ import { postProcessRender } from '/client/preview/renderer.js'; // Import postP
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 
 // Helper for logging within this module
-function logPreview(message, level = 'text') {
-    const type = 'PREVIEW';
+function logPreview(message, level = 'debug', type='PREVIEW') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message,type);
+        window.logMessage(message, level, type);
     } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
+        console.log(`[${type}] ${message}`);
     }
 }
 

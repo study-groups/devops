@@ -12,7 +12,7 @@ export async function initializePreview() {
   try {
     // Initialize with all plugins
     const result = await initPreview({
-      container: '#md-preview',
+      container: '#preview-container',
       plugins: ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md'],
       theme: 'light',
       autoInit: true
@@ -22,14 +22,14 @@ export async function initializePreview() {
       console.log('[PREVIEW] Preview system initialized successfully');
       
       // Set up editor input handler
-      const editor = document.querySelector('#md-editor textarea');
+      const editor = document.querySelector('#editor-container textarea');
       if (editor) {
         editor.addEventListener('input', debouncePreviewUpdate);
         console.log('[PREVIEW] Editor input handler connected');
       }
       
       // Set up refresh button handler
-      const refreshBtn = document.getElementById('refresh-btn');
+      const refreshBtn = document.getElementById('preview-reload-btn');
       if (refreshBtn) {
         refreshBtn.addEventListener('click', refreshPreview);
         console.log('[PREVIEW] Refresh button connected');
@@ -57,7 +57,7 @@ export async function initializePreview() {
 
 // Refresh the preview with current editor content
 export async function refreshPreview() {
-  const editor = document.querySelector('#md-editor textarea');
+  const editor = document.querySelector('#editor-container textarea');
   if (!editor) {
     console.error('[PREVIEW] Editor element not found');
     return;

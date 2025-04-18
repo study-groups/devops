@@ -26,6 +26,7 @@ import { logMessage } from '../log/index.js';
 import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
 import { processSvgContent } from '../markdown-svg.js';
+import { eventBus } from '/client/eventBus.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
@@ -63,7 +64,7 @@ export class PreviewManager {
       }
 
       if (!this.previewElement) {
-        logMessage('Preview container not found',"ERROR","PREVIEW");
+        logMessage('Preview container not found', "error", "PREVIEW");
         return false;
       }
 
@@ -71,7 +72,7 @@ export class PreviewManager {
       this.previewElement.classList.add('markdown-preview');
 
       // Log which plugins we're going to initialize
-      logMessage(`Initializing plugins: ${this.config.plugins.join(', ')}`, "DEBUG", "PREVIEW");
+      logMessage(`Initializing plugins: ${this.config.plugins.join(', ')}`, "debug", "PREVIEW");
       
       // Initialize components
       await initPlugins(this.config.plugins, {
@@ -79,14 +80,23 @@ export class PreviewManager {
         container: this.previewElement
       });
 
-      // Apply theme
-      this.applyTheme(this.config.theme);
+      // --- Assign previewEventBus early ---
+      if (typeof window.previewEventBus === 'undefined') {
+         if (eventBus) {
+             window.previewEventBus = eventBus;
+             logMessage('Assigned window.previewEventBus during PreviewManager init.', "debug", "PREVIEW");
+         } else {
+             logMessage('Main eventBus instance not available during PreviewManager init.', 'error', "PREVIEW");
+         }
+       }
+      // --- End Assignment ---
 
+      this.applyTheme(this.config.theme);
       this.initialized = true;
-      logMessage('Preview system initialized successfully',"DEBUG","PREVIEW");
+      logMessage('Preview system initialized successfully', "debug", "PREVIEW");
       return true;
     } catch (error) {
-      logMessage(`Failed to initialize preview: ${error.message}`,"ERROR", "PREVIEW");
+      logMessage(`Failed to initialize preview: ${error.message}`, "error", "PREVIEW");
       console.error('[PREVIEW ERROR]', error);
       return false;
     }
@@ -95,13 +105,13 @@ export class PreviewManager {
   async update(content) {
     if (!this.initialized) {
       console.error('[PREVIEW] Preview not initialized. Call initPreview() first.');
-      logMessage('Preview not initialized. Call initPreview() first.',"ERROR","PREVIEW");
+      logMessage('Preview not initialized. Call initPreview() first.', "error", "PREVIEW");
       return false;
     }
     
     if (!this.previewElement) {
       console.error('[PREVIEW] Preview element not found');
-      logMessage('[Preview element not found',"ERROR","PREVIEW");
+      logMessage('Preview element not found', "error", "PREVIEW");
       return false;
     }
     
@@ -119,61 +129,114 @@ export class PreviewManager {
           try {
             logMessage('Calling renderMarkdown');
             const renderResult = await renderMarkdown(content);
-            logMessage(`renderMarkdown returned. HTML length: ${renderResult.html?.length}, FrontMatter keys: ${Object.keys(renderResult.frontMatter).join(', ')}`, "DEBUG", "PREVIEW");
+            logMessage(`renderMarkdown returned. HTML length: ${renderResult.html?.length}, FrontMatter keys: ${Object.keys(renderResult.frontMatter).join(', ')}`, "debug", "PREVIEW");
+
+            // --- Revised Script Handling --- 
+            let processedHtml = renderResult.html;
+            const scriptsToExecute = [];
+
+            try {
+                 logMessage('Parsing rendered HTML for script tags before insertion...', "debug", "PREVIEW");
+                 // Use a temporary div to parse the HTML string
+                 const tempDiv = document.createElement('div');
+                 tempDiv.innerHTML = renderResult.html;
+                 const scriptsInHtml = tempDiv.querySelectorAll('script');
+                 
+                 logMessage(`Found ${scriptsInHtml.length} script tag(s) in parsed HTML.`, "debug", "PREVIEW");
+
+                 scriptsInHtml.forEach(scriptTag => {
+                     const src = scriptTag.getAttribute('src');
+                     const defer = scriptTag.hasAttribute('defer');
+                     const async = scriptTag.hasAttribute('async');
+                     const type = scriptTag.getAttribute('type');
+                     const content = scriptTag.textContent;
+                     
+                     if (src || content) { // Only process scripts with src or inline content
+                         scriptsToExecute.push({ src, defer, async, type, content });
+                         logMessage(`Extracted script: src=${src}, defer=${defer}, async=${async}, type=${type}, hasContent=${!!content}`, "debug", "PREVIEW");
+                         // Remove the script tag from the temporary div
+                         scriptTag.remove();
+                     }
+                 });
+                 
+                 // Get the HTML string *without* the script tags
+                 processedHtml = tempDiv.innerHTML;
+                 logMessage('Removed script tags from HTML string for innerHTML insertion.', "debug", "PREVIEW");
+            } catch (parseError) {
+                 logMessage(`Error parsing HTML for scripts: ${parseError.message}. Using original HTML.`, 'error', "PREVIEW");
+                 console.error('[PREVIEW SCRIPT PARSE ERROR]', parseError);
+                 processedHtml = renderResult.html; // Fallback to original HTML
+            }
+            // --- End Revised Script Handling ---
             
-            logMessage(`Setting innerHTML on previewElement.`, "DEBUG", "PREVIEW");
+            logMessage(`Setting innerHTML on previewElement (scripts removed).`, "debug", "PREVIEW");
             if (this.previewElement) {
-                // this.previewElement.innerHTML = renderResult.html; // Commented out - Redundant, handled in preview.js
-                logMessage('innerHTML set successfully', "DEBUG", "PREVIEW"); // This log might now be misleading
+                this.previewElement.innerHTML = processedHtml; // Use the processed HTML
+                logMessage('innerHTML set successfully', "debug", "PREVIEW");
                 
-                // >>>>> ADD SCRIPT EXECUTION LOGIC START <<<<<
+                // --- Execute Extracted Scripts Manually --- 
                 try {
-                    logMessage('Searching for and executing scripts in preview content...', "DEBUG", "PREVIEW");
-                    const scripts = this.previewElement.querySelectorAll('script');
-                    scripts.forEach(oldScript => {
-                        if (!oldScript.src && !oldScript.textContent) return; // Skip empty scripts
-
+                    logMessage(`Manually creating and appending ${scriptsToExecute.length} extracted script(s)...`, "debug", "PREVIEW");
+                    scriptsToExecute.forEach(scriptInfo => {
                         const newScript = document.createElement('script');
-                        
-                        // Copy attributes (important: src, type, defer, async)
-                        oldScript.getAttributeNames().forEach(attrName => {
-                            newScript.setAttribute(attrName, oldScript.getAttribute(attrName));
-                        });
-
-                        // Copy inline script content if present
-                        if (oldScript.textContent) {
-                            newScript.textContent = oldScript.textContent;
+                        if (scriptInfo.src) {
+                            newScript.src = scriptInfo.src;
                         }
-
-                        logMessage(`Replacing script (src: ${newScript.src || 'inline'}) to trigger execution.`, "DEBUG", "PREVIEW");
-                        // Replace the old script element with the new one to trigger execution
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                        if (scriptInfo.type) {
+                            newScript.type = scriptInfo.type;
+                        }
+                        if (scriptInfo.defer) {
+                            newScript.defer = true;
+                        }
+                        if (scriptInfo.async) {
+                            newScript.async = true;
+                        }
+                        if (scriptInfo.content) {
+                            newScript.textContent = scriptInfo.content;
+                        }
+                        logMessage(`Appending script: src=${newScript.src}, defer=${newScript.defer}, async=${newScript.async}, type=${newScript.type}, hasContent=${!!newScript.textContent}`, "debug", "PREVIEW");
+                        // Append to body to ensure execution context
+                        document.body.appendChild(newScript);
+                        // Optionally remove it after execution if it's a one-time setup script?
+                        // document.body.removeChild(newScript); 
                     });
-                    logMessage(`Processed ${scripts.length} script tag(s).`, "DEBUG", "PREVIEW");
-                } catch (scriptError) {
-                    logMessage(`Error processing scripts in preview: ${scriptError.message}`, 'error', "PREVIEW");
-                    console.error('[PREVIEW SCRIPT EXEC ERROR]', scriptError);
+                     logMessage('Finished appending extracted scripts.', "debug", "PREVIEW");
+                } catch (appendError) {
+                     logMessage(`Error appending extracted scripts: ${appendError.message}`, 'error', "PREVIEW");
+                     console.error('[PREVIEW SCRIPT APPEND ERROR]', appendError);
                 }
-                // >>>>> ADD SCRIPT EXECUTION LOGIC END <<<<<
+                 // --- End Execute Extracted Scripts ---
+
+                // --- Re-ensure previewEventBus before handleFrontMatter ---
+                // (In case init failed or was skipped somehow)
+                if (typeof window.previewEventBus === 'undefined') {
+                    if (eventBus) {
+                       window.previewEventBus = eventBus;
+                       logMessage('Re-assigned window.previewEventBus just before handleFrontMatter.', "debug", "PREVIEW");
+                   } else {
+                       logMessage('Main eventBus instance not available before handleFrontMatter.', 'error', "PREVIEW");
+                   }
+                 }
+                // --- End Re-ensure ---
 
                 // Handle front matter if present, using the 'frontMatter' property
                 if (renderResult.frontMatter && Object.keys(renderResult.frontMatter).length > 0) {
                     this.handleFrontMatter(renderResult.frontMatter);
                 } else {
-                    logMessage('No front matter data found to handle.', "DEBUG", "PREVIEW");
+                    logMessage('No front matter data found to handle.', "debug", "PREVIEW");
                 }
 
-                // logMessage('[PREVIEW] Calling postProcessRender...', "DEBUG", "PREVIEW");
-                // await postProcessRender(this.previewElement); // Moved to preview.js
-                // logMessage('postProcessRender finished.', "DEBUG", "PREVIEW");
+                logMessage('[PREVIEW] Calling postProcessRender...', "debug", "PREVIEW");
+                await postProcessRender(this.previewElement);
+                logMessage('postProcessRender finished.', "debug", "PREVIEW");
                 
                 // Ensure SVG processing call is still commented out
                 // logMessage('[PREVIEW] Processing SVG content...');
                 // await processSvgContent();
                 // logMessage('SVG processing finished.',"DEBUG","PREVIEW");
             
-                logMessage('Preview updated successfully', "DEBUG", "PREVIEW");
-                resolve(renderResult); // Return the actual result object
+                logMessage('Preview updated successfully', "debug", "PREVIEW");
+                resolve(renderResult); // Returnf the actual result object
             } else {
                 logMessage('Preview element became null during update.', 'error', "PREVIEW");
                 resolve(false); // Keep returning false on specific failure cases
@@ -235,14 +298,7 @@ export class PreviewManager {
   }
 
   handleFrontMatter(data = {}) {
-    logMessage(`Handling front matter data: ${Object.keys(data).join(', ')}`, "DEBUG", "PREVIEW");
-
-    // Ensure eventBus is available for scripts
-    // Note: Assumes eventBus is imported at the top of the module
-    if (typeof window.previewEventBus === 'undefined') {
-        window.previewEventBus = eventBus; 
-        logMessage('Made eventBus available as window.previewEventBus', "DEBUG", "PREVIEW");
-    }
+    logMessage(`Handling front matter data: ${Object.keys(data).join(', ')}`, "debug", "PREVIEW");
 
     // Define IDs within method scope or make them class properties if needed elsewhere
     const FRONT_MATTER_STYLE_ID = 'front-matter-styles';
@@ -259,7 +315,7 @@ export class PreviewManager {
             styleEl.id = FRONT_MATTER_STYLE_ID;
             styleEl.textContent = data.css; 
             document.head.appendChild(styleEl);
-            logMessage('Applied front matter CSS.', "DEBUG", "PREVIEW");
+            logMessage('Applied front matter CSS.', "debug", "PREVIEW");
         } catch (e) {
             logMessage(`Error applying front matter CSS: ${e.message}`, 'error', "PREVIEW");
         }
@@ -272,25 +328,25 @@ export class PreviewManager {
 
     // 3. Handle Script
     if (data.script) {
-        logMessage('Attempting to handle front matter script...', "DEBUG", "PREVIEW");
+        logMessage('Attempting to handle front matter script...', "debug", "PREVIEW");
         try {
-            logMessage('Creating script element...', "DEBUG", "PREVIEW");
+            logMessage('Creating script element...', "debug", "PREVIEW");
             const scriptEl = document.createElement('script');
             scriptEl.id = FRONT_MATTER_SCRIPT_ID;
-            logMessage('Setting script text content...', "DEBUG", "PREVIEW");
+            logMessage('Setting script text content...', "debug", "PREVIEW");
             scriptEl.textContent = data.script;
-            logMessage('Appending script element to body...', "DEBUG", "PREVIEW");
+            logMessage('Appending script element to body...', "debug", "PREVIEW");
             document.body.appendChild(scriptEl);
-            logMessage('Successfully applied front matter script.', "DEBUG", "PREVIEW");
+            logMessage('Successfully applied front matter script.', "debug", "PREVIEW");
         } catch (e) {
             logMessage(`Error applying front matter script: ${e.message}`, 'error', "PREVIEW");
             console.error("Error details during front matter script handling:", e);
         }
     } else {
-        logMessage('No script found in front matter data.', "DEBUG", "PREVIEW");
+        logMessage('No script found in front matter data.', "debug", "PREVIEW");
     }
 
-    logMessage('Front matter handling complete.', "DEBUG", "PREVIEW");
+    logMessage('Front matter handling complete.', "debug", "PREVIEW");
   }
 }
 

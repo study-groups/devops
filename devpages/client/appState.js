@@ -4,27 +4,59 @@
  */
 import { createState } from './statekit/statekit.js';
 
+// --- LocalStorage Keys ---
+const LS_VIEW_MODE_KEY = 'viewMode';
+const LS_LOG_VISIBLE_KEY = 'logVisible';
+const LS_LOG_HEIGHT_KEY = 'logHeight'; // Keep track of this too
+
+// --- Helper to safely parse JSON from localStorage ---
+function safeGetLocalStorage(key, defaultValue) {
+    try {
+        const storedValue = localStorage.getItem(key);
+        if (storedValue === null) {
+            // console.debug(`[AppState] localStorage key "${key}" not found, using default:`, defaultValue);
+            return defaultValue;
+        }
+        // Only parse if it looks like JSON, otherwise treat as string/primitive
+        if (storedValue.startsWith('{') || storedValue.startsWith('[')) {
+             return JSON.parse(storedValue);
+        }
+        // Handle simple boolean strings explicitly
+        if (storedValue === 'true') return true;
+        if (storedValue === 'false') return false;
+        // Handle numbers
+        const num = parseFloat(storedValue);
+        if (!isNaN(num)) return num;
+        
+        // Return as string if not parsed
+        return storedValue;
+    } catch (error) {
+        console.warn(`[AppState] Error reading or parsing localStorage key "${key}". Using default.`, error);
+        return defaultValue;
+    }
+}
+
+
 // --- Initial Application State Structure ---
-// Define the shape and default values of our application's state.
-// Start with authentication-related state. We'll add more sections (UI, editor, files, etc.) later.
 const initialState = {
     // Authentication Status
     auth: {
-        isLoggedIn: false, // Is there a valid, non-expired token?
-        user: null, // Holds user info like { username: '...' } when logged in
-        token: null, // The actual JWT or session token
-        tokenExpiresAt: null, // Timestamp (ms) when the token expires
-        authChecked: false, // Has the initial check (e.g., from localStorage) been performed?
-        isLoading: false, // Is an auth operation (login, logout, check) in progress?
-        error: null, // Any authentication-related error message
+        isLoggedIn: false, 
+        user: null, 
+        token: null, 
+        tokenExpiresAt: null, 
+        authChecked: false, 
+        isLoading: false, 
+        error: null, 
     },
 
-    // UI State (Example - we'll migrate uiState.js later)
-    // ui: {
-    //    logVisible: false,
-    //    logHeight: 120,
-    //    theme: 'dark',
-    // },
+    // UI State (Now managed here, reads from localStorage)
+    ui: {
+       viewMode: safeGetLocalStorage(LS_VIEW_MODE_KEY, 'preview'), // Default to 'preview'
+       logVisible: safeGetLocalStorage(LS_LOG_VISIBLE_KEY, false), // Default to false
+       logHeight: safeGetLocalStorage(LS_LOG_HEIGHT_KEY, 120), // Default height
+       // Add other UI states here if needed
+    },
 
     // Other top-level state sections can be added here as needed
     // files: { ... },
@@ -33,18 +65,39 @@ const initialState = {
 };
 
 // --- Create the Central State Instance ---
-// Instantiate the reactive state container with our initial structure.
-// This `appState` object will be imported by other modules to access and update state.
 export const appState = createState(initialState);
 
+// --- Persistence Subscriber ---
+// Subscribe to state changes specifically to persist the UI slice.
+appState.subscribe((newState, prevState) => {
+    // Check if the UI slice *actually* changed to avoid unnecessary writes
+    if (newState.ui !== prevState.ui) {
+        // console.debug('[AppState Persistence] UI state changed, saving to localStorage:', newState.ui);
+        try {
+            // Persist relevant UI state items individually
+            if (newState.ui.viewMode !== prevState.ui.viewMode) {
+                localStorage.setItem(LS_VIEW_MODE_KEY, newState.ui.viewMode);
+            }
+            if (newState.ui.logVisible !== prevState.ui.logVisible) {
+                 localStorage.setItem(LS_LOG_VISIBLE_KEY, newState.ui.logVisible.toString());
+            }
+            if (newState.ui.logHeight !== prevState.ui.logHeight) {
+                 localStorage.setItem(LS_LOG_HEIGHT_KEY, newState.ui.logHeight.toString());
+            }
+        } catch (error) {
+            console.error('[AppState Persistence] Failed to save UI state to localStorage:', error);
+        }
+    }
+});
+
+
 // --- Optional: Add Debugging Listener ---
-// You can subscribe here to log all state changes for debugging purposes.
 // appState.subscribe((newState, prevState) => {
 //    console.log('[AppState Change]', { prevState, newState });
 // });
 
-console.log('[AppState] Central state initialized.');
+console.log('[AppState] Central state initialized with state:', appState.getState());
 
 // Note: The old AppStateManager class and its event listeners/dispatchers are removed.
 // Modules previously relying on `app:stateChange` or specific states like `APP_STATES.LOGGED_IN`
-// will need to be refactored to subscribe to `appState.auth.isLoggedIn`, `appState.auth.authChecked`, etc. 
+// will need to be refactored to subscribe to `appState.auth.isLoggedIn`, `appState.auth.authChecked`, etc.

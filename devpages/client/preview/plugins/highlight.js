@@ -6,13 +6,11 @@
  */
 
 // Helper for logging within this module
-function logHighlight(message, level = 'text') {
-    const type = 'HIGHLIGHT';
+function logMessage(message, type = 'debug') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message,type);
+        window.logMessage(message, type, 'HIGHLIGHT');
     } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${type}: ${message}`);
+        console.log(`[HIGHLIGHT] ${message}`);
     }
 }
 
@@ -94,10 +92,10 @@ async function loadHighlight() {
       languages: config.languages
     });
     
-    logHighlight('[PREVIEW] Highlight.js loaded successfully');
+    logMessage('[PREVIEW] Highlight.js loaded successfully');
     return true;
   } catch (error) {
-    logHighlight(`[PREVIEW ERROR] Failed to load highlight.js: ${error.message}`);
+    logMessage(`[PREVIEW ERROR] Failed to load highlight.js: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight.js load:', error);
     return false;
   }
@@ -122,10 +120,10 @@ export async function init(options = {}) {
       return false;
     }
     
-    logHighlight('[PREVIEW] Syntax highlighting plugin initialized');
+    logMessage('[PREVIEW] Syntax highlighting plugin initialized');
     return true;
   } catch (error) {
-    logHighlight(`[PREVIEW ERROR] Failed to initialize highlighting plugin: ${error.message}`);
+    logMessage(`[PREVIEW ERROR] Failed to initialize highlighting plugin: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlighting plugin:', error);
     return false;
   }
@@ -175,7 +173,7 @@ function codeRenderer(code, infostring, escaped) {
     // Return the highlighted code
     return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
   } catch (error) {
-    logHighlight(`[PREVIEW ERROR] Failed to highlight code: ${error.message}`);
+    logMessage(`[PREVIEW ERROR] Failed to highlight code: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight:', error);
     
     // Fall back to basic code rendering
@@ -205,9 +203,9 @@ function setTheme(theme) {
       document.head.appendChild(link);
     }
     
-    logHighlight(`[PREVIEW] Syntax highlighting theme set to ${theme}`);
+    logMessage(`[PREVIEW] Syntax highlighting theme set to ${theme}`);
   } catch (error) {
-    logHighlight(`[PREVIEW ERROR] Failed to set highlighting theme: ${error.message}`);
+    logMessage(`[PREVIEW ERROR] Failed to set highlighting theme: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight theme:', error);
   }
 }
@@ -220,7 +218,7 @@ function setTheme(theme) {
 async function postProcess(element) {
   try {
     if (!hljs) {
-      logHighlight('[PREVIEW WARNING] Highlight.js not loaded, skipping code highlighting');
+      logMessage('[PREVIEW WARNING] Highlight.js not loaded, skipping code highlighting');
       return;
     }
     
@@ -237,9 +235,9 @@ async function postProcess(element) {
       }
     });
     
-    logHighlight(`[PREVIEW] Highlighted ${codeBlocks.length} code blocks`);
+    logMessage(`[PREVIEW] Highlighted ${codeBlocks.length} code blocks`);
   } catch (error) {
-    logHighlight(`[PREVIEW ERROR] Failed during code highlighting post-processing: ${error.message}`);
+    logMessage(`[PREVIEW ERROR] Failed during code highlighting post-processing: ${error.message}`);
     console.error('[PREVIEW ERROR] Highlight post-process:', error);
   }
 }
