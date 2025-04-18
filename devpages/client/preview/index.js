@@ -123,8 +123,8 @@ export class PreviewManager {
             
             logMessage(`Setting innerHTML on previewElement.`, "DEBUG", "PREVIEW");
             if (this.previewElement) {
-                this.previewElement.innerHTML = renderResult.html;
-                logMessage('innerHTML set successfully', "DEBUG", "PREVIEW");
+                // this.previewElement.innerHTML = renderResult.html; // Commented out - Redundant, handled in preview.js
+                logMessage('innerHTML set successfully', "DEBUG", "PREVIEW"); // This log might now be misleading
                 
                 // >>>>> ADD SCRIPT EXECUTION LOGIC START <<<<<
                 try {
@@ -163,9 +163,9 @@ export class PreviewManager {
                     logMessage('No front matter data found to handle.', "DEBUG", "PREVIEW");
                 }
 
-                logMessage('[PREVIEW] Calling postProcessRender...', "DEBUG", "PREVIEW");
-                await postProcessRender(this.previewElement);
-                logMessage('postProcessRender finished.', "DEBUG", "PREVIEW");
+                // logMessage('[PREVIEW] Calling postProcessRender...', "DEBUG", "PREVIEW");
+                // await postProcessRender(this.previewElement); // Moved to preview.js
+                // logMessage('postProcessRender finished.', "DEBUG", "PREVIEW");
                 
                 // Ensure SVG processing call is still commented out
                 // logMessage('[PREVIEW] Processing SVG content...');
@@ -173,10 +173,10 @@ export class PreviewManager {
                 // logMessage('SVG processing finished.',"DEBUG","PREVIEW");
             
                 logMessage('Preview updated successfully', "DEBUG", "PREVIEW");
-                resolve(true);
+                resolve(renderResult); // Return the actual result object
             } else {
                 logMessage('Preview element became null during update.', 'error', "PREVIEW");
-                resolve(false);
+                resolve(false); // Keep returning false on specific failure cases
             }
           } catch (error) {
             console.error('[PREVIEW] Render error:', error);

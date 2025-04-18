@@ -17,6 +17,9 @@ import eventBus from '/client/eventBus.js';
 // ADD: Import the necessary functions from uiState
 import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
 
+// ADD: Import triggerActions to call pasteLogEntry directly
+import { triggerActions } from '/client/actions.js';
+
 // Comment out the import
 // import { appVer } from '/client/config.js';
 
@@ -272,6 +275,36 @@ export class LogPanel {
                 }
             });
         }
+
+        // === ADD DELEGATED LISTENER FOR LOG ENTRIES ===
+        if (this.logElement) {
+            this.logElement.addEventListener('click', (event) => {
+                const logEntryDiv = event.target.closest('.log-entry');
+                if (logEntryDiv) {
+                    console.log('[LogPanel Delegated Listener] Click detected on/inside .log-entry.');
+                    // We don't need stopPropagation here unless it causes issues elsewhere
+                    
+                    console.log('[LogPanel Delegated Listener] Checking triggerActions...', typeof triggerActions);
+                    console.log('[LogPanel Delegated Listener] Checking triggerActions.pasteLogEntry...', typeof triggerActions?.pasteLogEntry);
+
+                    if (typeof triggerActions?.pasteLogEntry === 'function') {
+                         console.log('[LogPanel Delegated Listener] pasteLogEntry function found. Calling it...');
+                        try {
+                            triggerActions.pasteLogEntry({}, logEntryDiv); // Pass the found div
+                            console.log('[LogPanel Delegated Listener] pasteLogEntry call completed.');
+                        } catch (error) {
+                            console.error('[LogPanel Delegated Listener] Error calling pasteLogEntry:', error);
+                        }
+                    } else {
+                         console.error('[LogPanel Delegated Listener] pasteLogEntry action function NOT FOUND in triggerActions.');
+                    }
+                }
+            });
+            console.log('[LogPanel] Attached delegated click listener to #log element.');
+        } else {
+            console.warn('[LogPanel] #log element not found, cannot attach delegated listener.');
+        }
+        // === END DELEGATED LISTENER ===
     }
 
     // --- Core Methods ---
@@ -303,48 +336,47 @@ export class LogPanel {
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry log-entry-${type}`; // Add type class for styling
+        logEntry.title = 'Click to paste into editor'; // Keep tooltip
 
-        if (type === 'text') {
-            logEntry.textContent = `${timestamp} ${messageStr}`;
+        // Create a span for the actual text content
+        const textSpan = document.createElement('span');
+        textSpan.className = 'log-entry-text';
+        
+        // Store the RAW message in a data attribute
+        let rawMessageForDataAttr = '';
+
+        // Explicitly handle all expected types
+        if (type === 'text' || type === 'warning' || type === 'error') {
+            textSpan.innerText = `${timestamp} ${messageStr}`;
+            rawMessageForDataAttr = messageStr; // Store original string
         } else if (type === 'json') {
-            logEntry.textContent = `${timestamp} [JSON] `;
+            textSpan.textContent = `${timestamp} [JSON] `;
             const pre = document.createElement('pre');
+            let jsonString = '[Error stringifying JSON]';
             try {
-                pre.textContent = JSON.stringify(message, null, 2); // Pretty-print JSON
+                jsonString = JSON.stringify(message, null, 2);
+                pre.textContent = jsonString;
             } catch (e) {
-                pre.textContent = '[Error stringifying JSON]';
+                pre.textContent = jsonString;
             }
-            logEntry.appendChild(pre);
+            textSpan.appendChild(pre);
+            rawMessageForDataAttr = jsonString; // Store stringified JSON
         } else {
-            // Handle other types like 'error', 'warning' - maybe just add text?
-             logEntry.textContent = `${timestamp} ${messageStr}`;
+             console.warn(`[LogPanel] Unknown log type: ${type}`);
+             const prefix = `[${type.toUpperCase()}]`;
+             textSpan.innerText = `${timestamp} ${prefix} ${messageStr}`;
+             rawMessageForDataAttr = `${prefix} ${messageStr}`; // Include unknown prefix in raw data
         }
+        
+        // Set the data attribute on the span
+        textSpan.dataset.rawMessage = rawMessageForDataAttr;
 
-        // Add click event listener to add to preview (Optional - requires updatePreview)
-        /* // Commented out for now to avoid circular dependency
-        logEntry.addEventListener('click', () => {
-            const editor = document.querySelector('#md-editor textarea'); // Example selector
-            if (editor) {
-                let contentToAdd = '';
-                if (type === 'text') {
-                    contentToAdd = message;
-                } else if (type === 'json') {
-                    try {
-                       contentToAdd = JSON.stringify(message, null, 2);
-                    } catch { contentToAdd = '[Unstringifiable JSON]'; }
-                }
-                if (contentToAdd) {
-                    editor.value += contentToAdd + "\n";
-                    // Need a way to call updatePreview safely here
-                    // e.g., this.eventBus.emit('preview:updateRequest', editor.value);
-                    // or if passed in: this.updatePreviewCallback(editor.value);
-                    console.log('[LogPanel] Clicked log entry, requested preview update.');
-                }
-            }
-        });
-        */
+        // Append the text span to the log entry
+        logEntry.appendChild(textSpan);
 
         this.logElement.appendChild(logEntry);
+        // console.log(`[LogPanel addEntry] Just appended logEntry. Current innerHTML:`, logEntry.innerHTML); // REMOVED diagnostic log
+
         this.state.entryCount++;
         this.updateEntryCount(); // Use internal method
         this.scrollToBottom();

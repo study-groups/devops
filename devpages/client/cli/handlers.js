@@ -2,12 +2,15 @@
 import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
 import { globalFetch } from '../globalFetch.js';
-import { logMessage } from '../log/core.js';
 
 // New function to handle ONLY remote execution via API
 export async function executeRemoteCommand(command) {
   // Log the attempt to send to server
-  logMessage(`[CLI] Sending to server: ${command}`);
+  if (typeof window.logMessage === 'function') {
+      window.logMessage(`[CLI] Sending to server: ${command}`);
+  } else {
+      console.warn('window.logMessage not available for CLI send log');
+  }
   EventBus.emit(CLI_EVENTS.COMMAND_PROCESSING, {
     command,
     timestamp: Date.now()
@@ -46,10 +49,18 @@ export async function executeRemoteCommand(command) {
             if (line.startsWith('STDERR:')) {
                 // Log STDERR lines separately, potentially as errors or warnings
                 const stderrMsg = line.substring(7).trim(); // Remove 'STDERR:' prefix
-                logMessage(`[CLI STDERR] ${stderrMsg}`, 'warning'); // Use 'warning' or 'error' type
+                if (typeof window.logMessage === 'function') {
+                    window.logMessage(`[CLI STDERR] ${stderrMsg}`, 'warning'); // Use 'warning' or 'error' type
+                } else {
+                     console.warn('window.logMessage not available for CLI STDERR log');
+                }
             } else if (line.trim() !== '') {
                 // Log non-empty stdout lines
-                 logMessage(`[CLI Server] ${line}`);
+                if (typeof window.logMessage === 'function') {
+                    window.logMessage(`[CLI Server] ${line}`);
+                } else {
+                    console.warn('window.logMessage not available for CLI Server log');
+                }
                  stdoutBuffer.push(line); // Add to buffer for event payload
             }
         });
@@ -90,7 +101,11 @@ export async function executeRemoteCommand(command) {
     const errorMessage = error?.message || 'Unknown execution error';
 
     // Log a user-friendly error message to the UI log
-    logMessage(`[CLI ERROR] ${errorMessage}`, 'error'); // Use the safe error message
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(`[CLI ERROR] ${errorMessage}`, 'error'); // Use the safe error message
+    } else {
+        console.warn('window.logMessage not available for CLI ERROR log');
+    }
 
     // Emit an error event for other parts of the system if needed
     EventBus.emit(CLI_EVENTS.COMMAND_ERROR, {

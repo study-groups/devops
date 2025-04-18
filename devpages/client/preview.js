@@ -6,6 +6,7 @@ import { eventBus } from '/client/eventBus.js';
 
 // Import from the underlying preview module in client/preview/
 import { initPreview as initPreviewModule, updatePreview as updatePreviewModule } from '/client/preview/index.js';
+import { postProcessRender } from '/client/preview/renderer.js'; // Import postProcessRender
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 
 // Helper for logging within this module
@@ -215,6 +216,11 @@ export async function refreshPreview() {
     if (previewContainer) {
         previewContainer.innerHTML = html;
         logPreview('Preview container HTML updated.');
+
+        // Call post-processing AFTER innerHTML is set
+        await postProcessRender(previewContainer);
+        logPreview('Post-processing complete.');
+
     } else {
         logPreview('Preview container not found, cannot update HTML.', 'error');
         return false; // Stop if container missing

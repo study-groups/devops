@@ -46,16 +46,29 @@ export function initializeDomEvents() {
         document.body.addEventListener('click', (event) => {
             console.log('[DEBUG domEvents.js] Body click detected. Event target:', event.target);
 
+            // If the click originated inside a .log-entry, assume it's handled by the direct listener in LogPanel.js
+            if (event.target.closest('.log-entry')) {
+                console.log('[DEBUG domEvents.js] Click target is inside .log-entry, assuming handled directly. Exiting body listener.');
+                return;
+            }
+
             if (event.alreadyHandled) {
                 console.log('[DEBUG domEvents.js] Event already handled by another listener (e.g., inline script). Skipping global handler.');
                 return; // Stop processing if already handled
             }
 
-            const target = event.target.closest('[data-action]');
-            console.log('[DEBUG domEvents.js] closest data-action result:', target);
+            // Check the event.target directly first, then use closest as a fallback
+            let target = null;
+            if (event.target.hasAttribute('data-action')) {
+                target = event.target;
+                console.log('[DEBUG domEvents.js] Found data-action directly on event.target.');
+            } else {
+                target = event.target.closest('[data-action]');
+                console.log('[DEBUG domEvents.js] Used closest() to find data-action result:', target);
+            }
 
             if (!target) {
-                console.log('[DEBUG domEvents.js] No data-action found on target or parents. Exiting handler.');
+                console.log('[DEBUG domEvents.js] No data-action found on target or parents (checked both directly and via closest). Exiting handler.');
                 return;
             }
             console.log('[DEBUG domEvents.js] Found target with data-action:', target);

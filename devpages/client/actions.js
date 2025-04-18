@@ -481,34 +481,88 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
             logAction('Could not find text content for log entry.', 'warning');
         }
     },
-    pasteLogEntry: async (data, element) => {
-        logAction('Triggering pasteLogEntry...');
+    pasteLogEntry: (data, element) => {
+        logAction('>>> pasteLogEntry Action Started <<<'); // <--- We are likely not seeing this log
         if (!element) {
-            logAction('pasteLogEntry failed: No element provided.', 'error');
+            logAction('pasteLogEntry failed: Clicked element is null/undefined.', 'error');
             return;
         }
-        const logEntryDiv = element.closest('.log-entry');
-        const textSpan = logEntryDiv?.querySelector('.log-entry-text');
-        if (textSpan?.textContent) {
+        logAction(`Clicked element: ${element.tagName}#${element.id}.${element.className}`, 'debug');
+
+        // The element passed in IS the logEntryDiv because we attached the listener directly
+        const logEntryDiv = element;
+        logAction(`Using directly passed element as logEntryDiv: ${logEntryDiv ? 'Yes' : 'No'}`, 'debug');
+
+        if (!logEntryDiv) {
+            logAction('Passed element was null/undefined.', 'error');
+            return;
+        }
+
+        console.log('[DEBUG pasteLogEntry] logEntryDiv innerHTML:', logEntryDiv.innerHTML); // Log the innerHTML
+        const textSpan = logEntryDiv.querySelector('.log-entry-text');
+        logAction(`Found child .log-entry-text span: ${textSpan ? 'Yes' : 'No'}`, 'debug');
+        if (!textSpan) {
+            logAction('Could not find child .log-entry-text span.', 'error'); // Added error log
+            return; // Stop if we can't find the text span
+        }
+
+        // Get the RAW message from the data attribute
+        const logText = textSpan.dataset.rawMessage;
+        logAction(`Retrieved RAW log text (length ${logText?.length}): \"${logText?.substring(0, 50)}...\"`, 'debug');
+
+        if (logText !== undefined && logText !== null) { // Check if attribute exists and has value
             try {
-                // Attempt to get editor instance (adapt this if needed)
-                const editor = window.editorInstance; // Or use getEditorInstance()
-                if (editor && typeof editor.replaceSelection === 'function') {
-                    editor.replaceSelection(textSpan.textContent);
+                // Use standard textarea access
+                const editorTextArea = document.querySelector('#editor-container textarea'); 
+                logAction(`Found editor textarea (#editor-container textarea): ${editorTextArea ? 'Yes' : 'No'}`, 'debug');
+                
+                if (editorTextArea) {
+                    logAction(`Attempting to insert text into editor...`, 'debug');
+                    const start = editorTextArea.selectionStart;
+                    const end = editorTextArea.selectionEnd;
+                    const currentValue = editorTextArea.value;
+                    
+                    // Insert the log text at the cursor position
+                    const newValue = currentValue.substring(0, start) + logText + currentValue.substring(end);
+                    editorTextArea.value = newValue;
+                    
+                    // Move cursor to the end of the inserted text
+                    const newCursorPos = start + logText.length;
+                    editorTextArea.selectionStart = newCursorPos;
+                    editorTextArea.selectionEnd = newCursorPos;
+                    
+                    // Focus the editor
+                    editorTextArea.focus();
+
                     logAction('Log entry pasted into editor.');
-                    // Optional: Show brief feedback
-                    const originalText = element.textContent;
-                    element.textContent = '✓';
-                    setTimeout(() => { element.textContent = originalText; }, 1000);
+                    
+                    // --- Trigger preview update --- 
+                    if (eventBus) {
+                        logAction('Emitting editor:contentChanged to trigger preview update.', 'debug');
+                        eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
+                    } else {
+                        logAction('eventBus not available, cannot trigger preview update.', 'warning');
+                    }
+                    // --- End Trigger --- 
+
+                    // Optional: Show brief feedback on the clicked element (or the span)
+                    const originalText = textSpan.textContent; // Store original text of the span
+                    textSpan.textContent = '✓ Pasted'; // Change span text
+                    logEntryDiv.classList.add('pasted-feedback'); // Add class for styling
+                    setTimeout(() => { 
+                        textSpan.textContent = originalText; // Restore original text
+                        logEntryDiv.classList.remove('pasted-feedback'); // Remove class
+                    }, 1500); // Longer timeout for visibility
                 } else {
-                    logAction('Editor instance not found or lacks replaceSelection method.', 'error');
-                    alert('Could not paste into editor. Editor not available.');
+                    logAction(`Editor textarea not found ('#editor-container textarea'). Cannot paste.`, 'error'); // More specific error
+                    alert('Could not paste into editor. Textarea element not found.'); // User notification
                 }
             } catch (err) {
-                logAction(`Failed to paste log entry: ${err}`, 'error');
+                logAction(`Error during text insertion: ${err}`, 'error'); // Log insertion errors
+                console.error("Paste Log Entry Error:", err);
             }
         } else {
-            logAction('Could not find text content for log entry.', 'warning');
+            logAction('Could not get text content from .log-entry-text data-raw-message attribute.', 'warning');
         }
     },
     cLogEntry: async (data, element) => {

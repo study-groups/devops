@@ -424,14 +424,21 @@ export async function renderMarkdown(markdownContent) {
 
     // --- SANITIZATION STEP --- 
     logRenderer('Applying DOMPurify sanitization...', 'debug');
+    // // Temporarily disable DOMPurify for SVG debugging - RE-ENABLING
     try {
         html = DOMPurify.sanitize(html, {
-            USE_PROFILES: { html: true },
-            ADD_TAGS: ['script', 'iframe'],      // Allow <script> AND <iframe> tags
-            ADD_ATTR: ['src', 'defer',           // Allow attributes for <script>
-                       'width', 'height', 'id'] // Allow common attributes for <iframe> (and others)
-                                                 // Note: 'id' needed for getElementById in host script
-                                                 // 'allowfullscreen', 'frameborder' etc. could also be added if needed
+            USE_PROFILES: { html: true, svg: true }, // Enable SVG profile
+            ADD_TAGS: [
+                'script', 'iframe', 
+                // SVG specific tags (add more as needed)
+                'svg', 'path', 'circle', 'rect', 'text', 'g', 'defs', 'style', 'use', 'line', 'polyline', 'polygon', 'ellipse', 'image', 'foreignObject'
+            ],
+            ADD_ATTR: [
+                'src', 'defer', 'width', 'height', 'id', 'allowfullscreen', 'frameborder',
+                // SVG specific attributes (add more as needed)
+                'viewBox', 'xmlns', 'fill', 'stroke', 'stroke-width', 'd', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
+                'transform', 'style', 'class', 'preserveAspectRatio', 'points', 'href', 'xlink:href' // Include common SVG attributes
+            ]
         });
         logRenderer('DOMPurify sanitization complete.', 'debug');
         console.log('[PREVIEW RENDERER] HTML content AFTER DOMPurify:', html);
@@ -439,6 +446,8 @@ export async function renderMarkdown(markdownContent) {
         logRenderer(`DOMPurify sanitize error: ${sanitizeError.message}`, 'error');
         html = `<p>Error sanitizing content: ${sanitizeError.message}</p>`;
     }
+    // */
+    // logRenderer('DOMPurify sanitization temporarily disabled for SVG debugging.', 'warn'); // Removed disable message
     // --- END SANITIZATION ---
 
     logRenderer('Markdown rendering process finished.');
@@ -456,6 +465,8 @@ export async function postProcessRender(previewElement) {
     }
     logRenderer('Running post-render processing...');
     try {
+        // --- TEMPORARILY DISABLE PLUGIN PROCESSING FOR DEBUGGING --- RE-ENABLING ---
+        // /*
         // Process all enabled plugins
         const enabledPlugins = getEnabledPlugins();
         
@@ -507,6 +518,9 @@ export async function postProcessRender(previewElement) {
             logRenderer(`Error applying syntax highlighting: ${error.message}`, 'error');
             console.error('[HIGHLIGHT PLUGIN ERROR]', error);
         }
+        // */
+        // logRenderer('Plugin post-processing temporarily disabled for SVG debugging.', 'warn'); // Removed disable message
+        // --- END TEMPORARY DISABLE ---
     } catch (error) {
         logRenderer(`Post-processing error: ${error.message}`, 'error');
         console.error('[POST-PROCESS ERROR]', error);
