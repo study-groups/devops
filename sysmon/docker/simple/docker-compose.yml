@@ -1,4 +1,5 @@
 version: "3.9"
+
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -25,11 +26,23 @@ services:
       - GF_USERS_DISABLE_GRAVATAR=true
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=false
+
+      # If you want Grafana to auto-provision the InfluxDB datasource,
+      # you might need additional env vars or provisioning files.
+      # Example (adjust URL if needed):
+      # - GF_INSTALL_PLUGINS=grafana-influxdb-flux-datasource
+      # - GF_DATASOURCES_DEFAULT_NAME=InfluxDB
+      # - GF_DATASOURCES_DEFAULT_TYPE=influxdb
+      # - GF_DATASOURCES_DEFAULT_URL=http://influxdb:8086
+      # - GF_DATASOURCES_DEFAULT_ACCESS=proxy
+      # - GF_DATASOURCES_DEFAULT_DATABASE=mydb
+      # - GF_DATASOURCES_DEFAULT_USER=admin
+      # - GF_DATASOURCES_DEFAULT_PASSWORD=adminpassword
     ports:
       - "3000:3000"
     volumes:
       - grafana-storage:/var/lib/grafana
-      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./provisioning:/etc/grafana/provisioning:ro # Your existing provisioning
     depends_on:
       - prometheus
       - loki
@@ -40,7 +53,7 @@ services:
   loki:
     image: grafana/loki:2.8.2
     container_name: loki
-    user: "10001:10001"
+    user: "10001:10001" # Ensure permissions match init-loki volume ownership
     ports:
       - "3100:3100"
     volumes:
@@ -53,13 +66,39 @@ services:
       - init-loki
     restart: unless-stopped
 
-  init-loki:
+  init-loki: # Helper to set permissions for the Loki volume
     image: busybox
     command: ["sh", "-c", "chown -R 10001:10001 /loki"]
     volumes:
       - loki_data:/loki
     networks:
+      - monitoring # Needs to be on the network to access the shared volume conceptually
+
+  blackbox_exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: blackbox_exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    restart: unless-stopped
+    networks:
       - monitoring
+
+ 
+  nginx_prometheus_exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx_prometheus_exporter
+    ports:
+      - "9113:9113"
+    command:
+     - '-nginx.scrape-uri=http://host.docker.internal:8080/nginx_status'                               
+    restart: unless-stopped
+    networks:
+      - monitoring
+
 
 volumes:
   grafana-storage:

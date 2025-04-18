@@ -1,13 +1,21 @@
 /**
  * AuthDisplay.js - Component to manage login form and user status display.
  */
-import { authState } from '/client/authState.js';
+import { appState } from '/client/appState.js'; // IMPORT central state
 import { eventBus } from '/client/eventBus.js';
 import { logMessage } from '/client/log/index.js'; // Assuming logMessage is globally available or adjust path
 
-// Assuming auth.js exports handleLogin and logout directly now
-// NOTE: We need to ensure handleLogin and logout ARE exported from auth.js
-import { handleLogin, logout } from '/client/auth.js'; 
+// Remove handleLogin import, keep logout
+import { logout } from '/client/auth.js'; 
+
+function logAuth(message, level = 'info') {
+    const type = 'AUTH_DISPLAY';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        console.log(`[${type}] ${message}`); // Fallback
+    }
+}
 
 export function createAuthDisplayComponent(targetElementId) {
     let element = null;
@@ -16,7 +24,7 @@ export function createAuthDisplayComponent(targetElementId) {
     // --- Private Event Handlers (bound to component instance) ---
     const onLoginSubmit = async (event) => {
         event.preventDefault();
-        logMessage("[AuthDisplay] Login submitted");
+        logAuth("[AuthDisplay] Login submitted");
         const usernameInput = element?.querySelector('#username');
         const passwordInput = element?.querySelector('#password');
         const username = usernameInput?.value;
@@ -24,18 +32,30 @@ export function createAuthDisplayComponent(targetElementId) {
 
         if (username && password) {
             try {
-                // Call imported function
+                // Emit event instead of calling handleLogin
+                logAuth(`[AuthDisplay] Emitting auth:loginRequested for user: ${username}`);
+                eventBus.emit('auth:loginRequested', { username, password });
+
+                // Clear password field immediately (optimistic)
+                if (passwordInput) passwordInput.value = '';
+                
+                // Remove direct call and subsequent logic based on its return value
+                /*
                 const success = await handleLogin(username, password);
                 if (!success) {
-                    // Maybe show error near the form?
-                    alert("Login failed. Please check credentials or console.");
+                    // Error should be reflected in appState.auth.error, but we can still alert
+                    const errorMsg = appState.getState().auth.error || "Login failed. Please check credentials or console.";
+                    alert(errorMsg);
                 } else {
-                   // Clear password field on successful login
-                   if (passwordInput) passwordInput.value = '';
+                    // Clear password field on successful login
+                    if (passwordInput) passwordInput.value = '';
                 }
+                */
             } catch (error) {
-                logMessage(`[AuthDisplay] Login action failed: ${error.message}`, 'error');
-                alert(`Login failed: ${error.message}`);
+                // This catch block might be less relevant now as the event emitter doesn't throw
+                // But keep it in case eventBus.emit itself could error?
+                logAuth(`[AuthDisplay] Error emitting login event: ${error.message}`, 'error');
+                alert(`An error occurred trying to log in: ${error.message}`);
             }
         } else {
             alert("Please enter username and password.");
@@ -44,35 +64,44 @@ export function createAuthDisplayComponent(targetElementId) {
 
     const onLogoutClick = async (event) => {
         event.preventDefault();
-        logMessage("[AuthDisplay] Logout clicked");
+        logAuth("[AuthDisplay] Logout clicked");
         try {
             await logout();
         } catch (error) {
-            logMessage(`[AuthDisplay] Logout action failed: ${error.message}`, 'error');
+            logAuth(`[AuthDisplay] Logout action failed: ${error.message}`, 'error');
             alert(`Logout failed: ${error.message}`);
         }
     };
 
     // --- Rendering Logic --- 
-    const render = (state) => {
+    // Accepts the `auth` slice of the central state
+    const render = (authStateSlice) => {
         if (!element) return;
 
-        const isLoggedIn = state.isAuthenticated;
-        const username = state.username;
+        // Use properties from the central auth state
+        const isLoggedIn = authStateSlice.isLoggedIn;
+        const username = authStateSlice.user?.username; // Access nested username
+        const isLoading = authStateSlice.isLoading; // Check if auth action is in progress
+        const authChecked = authStateSlice.authChecked; // Check if initial load is done
+
+        // Don't render anything until the initial auth check is complete
+        if (!authChecked) {
+            element.innerHTML = '<span>Loading...</span>'; // Or some placeholder
+            return;
+        }
 
         // Use template literal for structure
-        // Note: Using inline styles for simplicity here, classes are better for real apps
         element.innerHTML = `
-            <form id="login-form" class="login-form hide-on-small" style="display: ${isLoggedIn ? 'none' : 'flex'}; flex-wrap: nowrap; gap: 5px;" method="POST">
-                <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px;">
-                <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px;">
-                <button type="submit" id="login-btn" class="btn btn-primary btn-sm">Login</button>
+            <form id="login-form" class="login-form hide-on-small" style="display: ${isLoggedIn || isLoading ? 'none' : 'flex'}; flex-wrap: nowrap; gap: 5px;" method="POST">
+                <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px;" ${isLoading ? 'disabled' : ''}>
+                <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px;" ${isLoading ? 'disabled' : ''}>
+                <button type="submit" id="login-btn" class="btn btn-primary btn-sm" ${isLoading ? 'disabled' : ''}>${isLoading ? 'Logging in...' : 'Login'}</button>
             </form>
             <div class="auth-status" style="display: ${isLoggedIn ? 'flex' : 'none'}; align-items: center; gap: 10px;">
                 <span id="auth-status-display" style="display: inline-block;">
                     👤 ${username || 'Logged In'}
                 </span>
-                <button id="logout-btn" class="btn btn-secondary btn-sm hide-on-small" style="display: inline-block;">Logout</button>
+                <button id="logout-btn" class="btn btn-secondary btn-sm hide-on-small" style="display: inline-block;" ${isLoading ? 'disabled' : ''}>${isLoading ? 'Logging out...' : 'Logout'}</button>
             </div>
             <!-- Add mobile profile button logic if needed -->
             <!-- <button id="profile-btn" class="show-on-small" style="display: none;" title="User Profile/Login">👤</button> -->
@@ -92,31 +121,37 @@ export function createAuthDisplayComponent(targetElementId) {
 
     // --- Lifecycle Methods --- 
     const mount = () => {
-        logMessage('[AuthDisplay] Mounting...');
+        logAuth('[AuthDisplay] Mounting...');
         element = document.getElementById(targetElementId);
         if (!element) {
             console.error(`[AuthDisplay] Target element #${targetElementId} not found.`);
-            logMessage(`[AuthDisplay] Target element #${targetElementId} not found.`, 'error'); // Log using helper
+            logAuth(`[AuthDisplay] Target element #${targetElementId} not found.`, 'error'); // Log using helper
             return false; // Indicate failure
         }
 
+        // Subscribe to central state changes, specifically watching the auth slice
+        authUnsubscribe = appState.subscribe((newState, prevState) => {
+            // Only re-render if the auth part of the state has changed
+            if (newState.auth !== prevState.auth) {
+                logAuth('[AuthDisplay] Auth state changed, re-rendering.');
+                 render(newState.auth); // Pass the auth slice
+            }
+        });
+
         // Initial render based on current auth state
-        // Subscribe to state changes, which also triggers initial render via the callback
-        // NOTE: The subscription automatically calls the callback (render) with the current state upon subscribing.
-        authUnsubscribe = authState.subscribe(render); 
-        logMessage('[AuthDisplay] Mounted and subscribed to authState.');
+        render(appState.getState().auth); // Pass the initial auth slice
+
+        logAuth('[AuthDisplay] Mounted and subscribed to appState.auth.');
         return true; // Indicate success
     };
 
     const update = (newState) => {
-        // In this simple case, the subscription handles updates.
-        // This method is kept for API consistency but might not be used directly.
-        logMessage('[AuthDisplay] Update called (likely redundant due to subscription).');
-        // render(newState); // Could force render if needed
+        // Subscription handles updates based on appState changes.
+        logAuth('[AuthDisplay] Update called (likely redundant).');
     };
 
     const destroy = () => {
-        logMessage('[AuthDisplay] Destroying...');
+        logAuth('[AuthDisplay] Destroying...');
         // Clean up: unsubscribe, remove specific listeners if needed
         if (authUnsubscribe) {
             authUnsubscribe();
@@ -132,7 +167,7 @@ export function createAuthDisplayComponent(targetElementId) {
             element.innerHTML = ''; // Clear content
         }
         element = null;
-        logMessage('[AuthDisplay] Destroyed.');
+        logAuth('[AuthDisplay] Destroyed.');
     };
 
     return { mount, update, destroy };

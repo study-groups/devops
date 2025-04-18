@@ -1,0 +1,1 @@
+// Statekit is a state management library for JavaScript.

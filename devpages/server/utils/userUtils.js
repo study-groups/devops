@@ -1,18 +1,23 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 
-// Use absolute path relative to server directory
-const USERS_FILE = process.env.PJA_USERS_CSV || path.join(__dirname, '../../users.csv');
+// Derive __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Use absolute path relative to server directory (using derived __dirname)
+export const USERS_FILE = process.env.PJA_USERS_CSV || path.join(__dirname, '../../users.csv');
 console.log(`[USERS] Using users file: ${path.resolve(USERS_FILE)}`);
 
 // Generate a random salt
-function generateSalt() {
+export function generateSalt() {
     return crypto.randomBytes(16).toString('hex');
 }
 
 // Hash password with salt
-function hashPassword(password, saltHex) {
+export function hashPassword(password, saltHex) {
     console.log(`[AUTH DEBUG] Server hashing password with:`)
     console.log(`[AUTH DEBUG] Password: ${password}`);
     console.log(`[AUTH DEBUG] Salt (hex): ${saltHex}`);
@@ -39,7 +44,7 @@ function hashPassword(password, saltHex) {
 }
 
 // Modify the loadUsers function to include roles
-function loadUsers() {
+export function loadUsers() {
     console.log(`[USERS] Attempting to load users from: ${path.resolve(USERS_FILE)}`);
     
     if (!fs.existsSync(USERS_FILE)) {
@@ -74,7 +79,7 @@ function loadUsers() {
     }
 }
 
-function validateUser(username, hashedPassword) {
+export function validateUser(username, hashedPassword) {
     console.log(`[AUTH] Validating user: ${username}`);
     const users = loadUsers();
     const user = users.get(username);
@@ -98,7 +103,7 @@ function validateUser(username, hashedPassword) {
     return isValid;
 }
 
-function getUserSalt(username) {
+export function getUserSalt(username) {
     console.log(`[AUTH] Getting salt for user: ${username} from ${path.resolve(USERS_FILE)}`);
     try {
         const users = loadUsers();
@@ -113,13 +118,4 @@ function getUserSalt(username) {
         console.error(`[AUTH ERROR] Failed to get salt: ${error.message}`);
         return null;
     }
-}
-
-module.exports = {
-    validateUser,
-    getUserSalt,
-    loadUsers,
-    generateSalt,
-    hashPassword,
-    USERS_FILE
-}; 
+} 

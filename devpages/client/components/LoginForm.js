@@ -4,6 +4,7 @@
  */
 import { handleLogin } from '/client/auth.js';
 import { authState } from '/client/authState.js';
+import { eventBus } from '/client/eventBus.js';
 
 class LoginForm {
   constructor(container, options = {}) {
@@ -59,6 +60,7 @@ class LoginForm {
           <label for="${passwordId}">Password</label>
           <input type="password" id="${passwordId}" name="password" required>
         </div>
+        <div class="error-message" style="color: red; margin-top: 10px;"></div>
         <button type="submit" class="login-button">Login</button>
       </form>
     `;
@@ -74,6 +76,7 @@ class LoginForm {
     // The subscription will call updateVisibility immediately with the current state
     const unsubscribe = authState.subscribe(state => {
         this.updateVisibility(state.isAuthenticated);
+        this.updateErrorMessage(state.error);
     });
     // Store the unsubscribe function to call it on destroy
     this.unsubscribeHandlers.push(unsubscribe);
@@ -94,26 +97,23 @@ class LoginForm {
       return;
     }
     
-    // Attempt login using the imported handleLogin function
-    handleLogin(username, password)
-      .then(success => { // handleLogin likely returns boolean now
-        if (success) {
-             console.log(`Login triggered successfully for user: ${username}`);
-             // UI update is handled by the authState subscription
-        } else {
-            console.error('Login failed (handleLogin returned false).');
-            // Error display might be handled within auth.js or via authState.error
-        }
-      })
-      .catch(error => {
-        console.error('Login failed:', error);
-        // Error display might be handled within auth.js or via authState.error
-      });
+    // Emit an event instead of calling handleLogin directly
+    eventBus.emit('auth:loginRequested', { username, password });
+    console.log(`[LoginForm] Emitted auth:loginRequested for user: ${username}`);
   }
   
   updateVisibility(isLoggedIn) {
     if (this.form) {
       this.form.style.display = isLoggedIn ? 'none' : 'flex';
+    }
+  }
+  
+  updateErrorMessage(errorMessage) {
+    if (this.form) {
+      const errorElement = this.form.querySelector('.error-message');
+      if (errorElement) {
+        errorElement.textContent = errorMessage || '';
+      }
     }
   }
   

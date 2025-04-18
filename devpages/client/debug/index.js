@@ -2,9 +2,19 @@
 import { logMessage } from "/client/log/index.js";
 import { loadState as loadFileSystemState } from '../fileSystemState.js';
 import { globalFetch } from '../globalFetch.js'; // Added for testFileLoading
-import { authState } from '/client/authState.js'; // Use reactive state instead
-import { eventBus } from '/client/eventBus.js';
-import fileManager from '/client/fileManager.js';
+import { appState } from '/client/appState.js'; // Use central state
+// import { eventBus } from '/client/eventBus.js'; // Removed
+// import fileManager from '/client/fileManager.js'; // Removed
+
+// Centralized logger function for this module
+function logDebug(message, level = 'debug') { // Default level to debug
+    const type = 'DEBUG';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        console.debug(`[${type}] ${message}`); // Fallback to console.debug
+    }
+}
 
 // --- App Info ---
 export function showAppInfo() {
@@ -13,130 +23,130 @@ export function showAppInfo() {
         version: '1.0.0', 
         buildDate: new Date().toISOString().split('T')[0]
     };
-    logMessage('\n=== APPLICATION INFORMATION ===');
-    logMessage(`Name: ${config.name || 'N/A'}`);
-    logMessage(`Version: ${config.version || 'N/A'}`);
-    logMessage(`Build Date: ${config.buildDate || 'N/A'}`);
-    logMessage('================================');
+    logDebug('\n=== APPLICATION INFORMATION ===');
+    logDebug(`Name: ${config.name || 'N/A'}`);
+    logDebug(`Version: ${config.version || 'N/A'}`);
+    logDebug(`Build Date: ${config.buildDate || 'N/A'}`);
+    logDebug('================================');
 }
 
 // --- UI Debug ---
 export function debugUI() {
-    logMessage('[DEBUG] Running UI diagnostics...');
+    logDebug('[DEBUG] Running UI diagnostics...');
     const content = document.getElementById('content');
     if (content) {
-        logMessage(`[DEBUG] Content container: class=${content.className}, display=${getComputedStyle(content).display}`);
+        logDebug(`[DEBUG] Content container: class=${content.className}, display=${getComputedStyle(content).display}`);
     } else {
-        logMessage('[DEBUG ERROR] Content container not found');
+        logDebug('[DEBUG ERROR] Content container not found');
     }
     const editor = document.getElementById('md-editor');
     if (editor) {
-        logMessage(`[DEBUG] Editor: display=${getComputedStyle(editor).display}, width=${getComputedStyle(editor).width}`);
+        logDebug(`[DEBUG] Editor: display=${getComputedStyle(editor).display}, width=${getComputedStyle(editor).width}`);
         const textarea = editor.querySelector('textarea');
         if (textarea) {
-            logMessage(`[DEBUG] Editor textarea found, content length: ${textarea.value.length} chars`);
+            logDebug(`[DEBUG] Editor textarea found, content length: ${textarea.value.length} chars`);
         } else {
-            logMessage('[DEBUG ERROR] Editor textarea not found');
+            logDebug('[DEBUG ERROR] Editor textarea not found');
         }
     } else {
-        logMessage('[DEBUG ERROR] Editor not found');
+        logDebug('[DEBUG ERROR] Editor not found');
     }
     const preview = document.getElementById('md-preview');
     if (preview) {
-        logMessage(`[DEBUG] Preview: display=${getComputedStyle(preview).display}, width=${getComputedStyle(preview).width}`);
+        logDebug(`[DEBUG] Preview: display=${getComputedStyle(preview).display}, width=${getComputedStyle(preview).width}`);
     } else {
-        logMessage('[DEBUG ERROR] Preview not found');
+        logDebug('[DEBUG ERROR] Preview not found');
     }
     try {
         const fsState = loadFileSystemState();
-        logMessage(`[DEBUG] File system state: currentDir=${fsState.currentDir}, currentFile=${fsState.currentFile}`);
+        logDebug(`[DEBUG] File system state: currentDir=${fsState.currentDir}, currentFile=${fsState.currentFile}`);
     } catch (e) {
-        logMessage('[DEBUG ERROR] Could not parse file system state');
+        logDebug('[DEBUG ERROR] Could not parse file system state');
     }
     const viewMode = localStorage.getItem('viewMode');
-    logMessage(`[DEBUG] Current view mode from localStorage: ${viewMode}`);
+    logDebug(`[DEBUG] Current view mode from localStorage: ${viewMode}`);
     const saveBtn = document.getElementById('save-btn');
     if (saveBtn) {
-      logMessage(`[DEBUG] Save button found: id=${saveBtn.id}, text=${saveBtn.textContent}`);
+      logDebug(`[DEBUG] Save button found: id=${saveBtn.id}, text=${saveBtn.textContent}`);
     } else {
-        logMessage('[DEBUG ERROR] Save button not found');
+        logDebug('[DEBUG ERROR] Save button not found');
     }
      const loadBtn = document.getElementById('load-btn');
     if (loadBtn) {
-        logMessage(`[DEBUG] Load button found: id=${loadBtn.id}, text=${loadBtn.textContent}`);
+        logDebug(`[DEBUG] Load button found: id=${loadBtn.id}, text=${loadBtn.textContent}`);
     } else {
-        logMessage('[DEBUG ERROR] Load button not found');
+        logDebug('[DEBUG ERROR] Load button not found');
     }
     const fileSelect = document.getElementById('file-select');
     if (fileSelect) {
-        logMessage(`[DEBUG] File select found: options=${fileSelect.options.length}`);
+        logDebug(`[DEBUG] File select found: options=${fileSelect.options.length}`);
     } else {
-        logMessage('[DEBUG ERROR] File select not found');
+        logDebug('[DEBUG ERROR] File select not found');
     }
     const dirSelect = document.getElementById('dir-select');
     if (dirSelect) {
-        logMessage(`[DEBUG] Directory select found: options=${dirSelect.options.length}`);
+        logDebug(`[DEBUG] Directory select found: options=${dirSelect.options.length}`);
     } else {
-        logMessage('[DEBUG ERROR] Directory select not found');
+        logDebug('[DEBUG ERROR] Directory select not found');
     }
-    logMessage('[DEBUG] UI diagnostics complete');
+    logDebug('[DEBUG] UI diagnostics complete');
 }
 
 // --- API Debug ---
 export function testApiEndpoints() {
-    logMessage('[DEBUG] Testing API endpoints...');
+    logDebug('[DEBUG] Testing API endpoints...');
     fetch('/api/files/list')
         .then(response => {
-            logMessage(`[DEBUG] /api/files/list: ${response.status} ${response.statusText}`);
+            logDebug(`[DEBUG] /api/files/list: ${response.status} ${response.statusText}`);
             return response.json();
         })
         .then(data => {
-            logMessage(`[DEBUG] Files list received: ${data.length} items`);
+            logDebug(`[DEBUG] Files list received: ${data.length} items`);
         })
         .catch(error => {
-            logMessage(`[DEBUG ERROR] Files list failed: ${error.message}`);
+            logDebug(`[DEBUG ERROR] Files list failed: ${error.message}`);
         });
     const testFile = 'README.md'; // Use a default/common file
     fetch(`/api/files/get?name=${testFile}`)
         .then(response => {
-            logMessage(`[DEBUG] /api/files/get?name=${testFile}: ${response.status} ${response.statusText}`);
+            logDebug(`[DEBUG] /api/files/get?name=${testFile}: ${response.status} ${response.statusText}`);
             return response.text();
         })
         .then(text => {
-            logMessage(`[DEBUG] File content received: ${text.length} chars`);
+            logDebug(`[DEBUG] File content received: ${text.length} chars`);
         })
         .catch(error => {
-            logMessage(`[DEBUG ERROR] File get failed: ${error.message}`);
+            logDebug(`[DEBUG ERROR] File get failed: ${error.message}`);
         });
-    logMessage('[DEBUG] API endpoint tests initiated');
+    logDebug('[DEBUG] API endpoint tests initiated');
 }
 
 export async function debugApiResponses() {
-    logMessage('[DEBUG] Testing API responses...');
+    logDebug('[DEBUG] Testing API responses...');
     try {
         const dirsResponse = await fetch('/api/files/dirs');
-        logMessage(`[DEBUG] /api/files/dirs: ${dirsResponse.status} ${dirsResponse.statusText}`);
+        logDebug(`[DEBUG] /api/files/dirs: ${dirsResponse.status} ${dirsResponse.statusText}`);
         if (dirsResponse.ok) {
             const dirsData = await dirsResponse.json();
-            logMessage(`[DEBUG] Directories response type: ${Array.isArray(dirsData) ? 'Array' : typeof dirsData}`);
-            logMessage(`[DEBUG] Directories response: ${JSON.stringify(dirsData).substring(0, 200)}...`);
+            logDebug(`[DEBUG] Directories response type: ${Array.isArray(dirsData) ? 'Array' : typeof dirsData}`);
+            logDebug(`[DEBUG] Directories response: ${JSON.stringify(dirsData).substring(0, 200)}...`);
         }
         const filesResponse = await fetch('/api/files/list');
-        logMessage(`[DEBUG] /api/files/list: ${filesResponse.status} ${filesResponse.statusText}`);
+        logDebug(`[DEBUG] /api/files/list: ${filesResponse.status} ${filesResponse.statusText}`);
         if (filesResponse.ok) {
             const filesData = await filesResponse.json();
-            logMessage(`[DEBUG] Files response type: ${Array.isArray(filesData) ? 'Array' : typeof filesData}`);
-            logMessage(`[DEBUG] Files response: ${JSON.stringify(filesData).substring(0, 200)}...`);
+            logDebug(`[DEBUG] Files response type: ${Array.isArray(filesData) ? 'Array' : typeof filesData}`);
+            logDebug(`[DEBUG] Files response: ${JSON.stringify(filesData).substring(0, 200)}...`);
             if (Array.isArray(filesData) && filesData.length > 0) {
                 const firstFile = filesData[0];
-                logMessage(`[DEBUG] First file type: ${typeof firstFile}`);
-                logMessage(`[DEBUG] First file: ${JSON.stringify(firstFile)}`);
+                logDebug(`[DEBUG] First file type: ${typeof firstFile}`);
+                logDebug(`[DEBUG] First file: ${JSON.stringify(firstFile)}`);
             }
         }
-        logMessage('[DEBUG] API response tests complete');
+        logDebug('[DEBUG] API response tests complete');
     } catch (error) {
-        logMessage(`[DEBUG ERROR] API response tests failed: ${error.message}`);
-        console.error('[DEBUG ERROR]', error);
+        logDebug(`[DEBUG ERROR] API response tests failed: ${error.message}`);
+        logDebug('[DEBUG ERROR]', error);
     }
 }
 
@@ -144,234 +154,233 @@ export async function debugApiResponses() {
 // Note: Removed dependency on debugFileSystemState() as it wasn't defined
 // and replaced fileSystemState usage with loadFileSystemState()
 export function debugFileOperations() {
-    logMessage('[DEBUG] Testing file operations...');
-    if (window.fileManager) {
-        logMessage(`[DEBUG] fileManager is available`);
-        logMessage(`[DEBUG] Current directory: ${window.fileManager.currentDir}`);
-    } else {
-        logMessage('[DEBUG ERROR] fileManager is not available');
-    }
+    logDebug('[DEBUG] Testing file operations...');
     const fsState = loadFileSystemState();
+
+    if (fsState) {
+        logDebug(`[DEBUG] File system state: currentDir=${fsState.currentDir || 'N/A'}, currentFile=${fsState.currentFile || 'N/A'}`);
+    } else {
+        logDebug('[DEBUG WARN] Could not load file system state for checking fileManager details.');
+    }
     const dirSelect = document.getElementById('dir-select');
     const fileSelect = document.getElementById('file-select');
     if (dirSelect) {
-        logMessage(`[DEBUG] Directory select exists, value: ${dirSelect.value}`);
+        logDebug(`[DEBUG] Directory select exists, value: ${dirSelect.value}`);
         if (fsState && fsState.currentDir && dirSelect.value !== fsState.currentDir) {
-            logMessage(`[DEBUG WARN] Directory select value (${dirSelect.value}) doesn't match state (${fsState.currentDir})`);
+            logDebug(`[DEBUG WARN] Directory select value (${dirSelect.value}) doesn't match state (${fsState.currentDir})`);
         }
     } else {
-        logMessage('[DEBUG ERROR] Directory select not found');
+        logDebug('[DEBUG ERROR] Directory select not found');
     }
     if (fileSelect) {
-        logMessage(`[DEBUG] File select exists, value: ${fileSelect.value}`);
+        logDebug(`[DEBUG] File select exists, value: ${fileSelect.value}`);
         if (fsState && fsState.currentFile && fileSelect.value !== fsState.currentFile) {
-            logMessage(`[DEBUG WARN] File select value (${fileSelect.value}) doesn't match state (${fsState.currentFile})`);
+            logDebug(`[DEBUG WARN] File select value (${fileSelect.value}) doesn't match state (${fsState.currentFile})`);
         }
     } else {
-        logMessage('[DEBUG ERROR] File select not found');
+        logDebug('[DEBUG ERROR] File select not found');
     }
     const editor = document.querySelector('#md-editor textarea');
     if (editor) {
-        logMessage(`[DEBUG] Editor exists, content length: ${editor.value.length} chars`);
+        logDebug(`[DEBUG] Editor exists, content length: ${editor.value.length} chars`);
     } else {
-        logMessage('[DEBUG ERROR] Editor not found');
+        logDebug('[DEBUG ERROR] Editor not found');
     }
     const saveBtn = document.getElementById('save-btn');
     if (saveBtn) {
-        logMessage('[DEBUG] Save button found');
+        logDebug('[DEBUG] Save button found');
         const saveBtnClone = saveBtn.cloneNode(true); // Simple check
         if (saveBtn.outerHTML !== saveBtnClone.outerHTML) {
-             logMessage('[DEBUG] Save button appears to have event handlers'); // May not be accurate
+             logDebug('[DEBUG] Save button appears to have event handlers'); // May not be accurate
         } else {
-            logMessage('[DEBUG WARN] Save button may not have event handlers (heuristic)');
+            logDebug('[DEBUG WARN] Save button may not have event handlers (heuristic)');
         }
     } else {
-        logMessage('[DEBUG ERROR] Save button not found');
+        logDebug('[DEBUG ERROR] Save button not found');
     }
-    logMessage('[DEBUG] File operations debug complete');
+    logDebug('[DEBUG] File operations debug complete');
 }
 
 export async function testFileLoading() {
-    logMessage('[DEBUG] Testing file loading...');
+    logDebug('[DEBUG] Testing file loading...');
     try {
         const state = loadFileSystemState();
         const currentFile = state.currentFile || 'README.md';
         const currentDir = state.currentDir || '';
-        logMessage(`[DEBUG] Testing file loading for: ${currentFile} in ${currentDir || 'root'}`);
+        logDebug(`[DEBUG] Testing file loading for: ${currentFile} in ${currentDir || 'root'}`);
         
         const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(currentFile)}&dir=${encodeURIComponent(currentDir)}`);
-        logMessage(`[DEBUG] /api/files/get response: ${response.status} ${response.statusText}`);
+        logDebug(`[DEBUG] /api/files/get response: ${response.status} ${response.statusText}`);
         const responseClone = response.clone();
         try {
             const data = await response.json();
-            logMessage(`[DEBUG] Response parsed as JSON: ${typeof data}`);
+            logDebug(`[DEBUG] Response parsed as JSON: ${typeof data}`);
             if (data.content) {
-                logMessage(`[DEBUG] JSON content type: ${typeof data.content}`);
-                logMessage(`[DEBUG] JSON content length: ${data.content.length} chars`);
-                logMessage(`[DEBUG] JSON content preview: ${data.content.substring(0, 50)}...`);
+                logDebug(`[DEBUG] JSON content type: ${typeof data.content}`);
+                logDebug(`[DEBUG] JSON content length: ${data.content.length} chars`);
+                logDebug(`[DEBUG] JSON content preview: ${data.content.substring(0, 50)}...`);
             } else {
-                logMessage(`[DEBUG] JSON data has no content property: ${JSON.stringify(data).substring(0, 100)}...`);
+                logDebug(`[DEBUG] JSON data has no content property: ${JSON.stringify(data).substring(0, 100)}...`);
             }
         } catch (e) {
-            logMessage(`[DEBUG] JSON parsing failed: ${e.message}`);
+            logDebug(`[DEBUG] JSON parsing failed: ${e.message}`);
             const text = await responseClone.text();
-            logMessage(`[DEBUG] Response as text (first 100 chars): ${text.substring(0, 100)}...`);
+            logDebug(`[DEBUG] Response as text (first 100 chars): ${text.substring(0, 100)}...`);
         }
-        logMessage('[DEBUG] File loading test complete');
+        logDebug('[DEBUG] File loading test complete');
     } catch (error) {
-        logMessage(`[DEBUG ERROR] File loading test failed: ${error.message}`);
-        console.error('[DEBUG ERROR]', error);
+        logDebug(`[DEBUG ERROR] File loading test failed: ${error.message}`);
+        logDebug('[DEBUG ERROR]', error);
     }
 }
 
 export function debugFileList() {
-    logMessage('[DEBUG] File List Diagnostics');
-    logMessage(`[DEBUG] File manager initialized: ${window.fileManagerInitialized || 'unknown'}`);
-    logMessage(`[DEBUG] File manager initializing: ${window.fileManagerInitializing || 'unknown'}`);
+    logDebug('[DEBUG] File List Diagnostics');
     const dirSelect = document.getElementById('dir-select');
     if (dirSelect) {
-        logMessage(`[DEBUG] Directory selector: ${dirSelect.options.length} options`);
-        logMessage(`[DEBUG] Current directory value: "${dirSelect.value}"`);
+        logDebug(`[DEBUG] Directory selector: ${dirSelect.options.length} options`);
+        logDebug(`[DEBUG] Current directory value: "${dirSelect.value}"`);
         for (let i = 0; i < dirSelect.options.length; i++) {
-            logMessage(`[DEBUG] Dir option ${i}: value="${dirSelect.options[i].value}", text="${dirSelect.options[i].text}"`);
+            logDebug(`[DEBUG] Dir option ${i}: value="${dirSelect.options[i].value}", text="${dirSelect.options[i].text}"`);
         }
     } else {
-        logMessage('[DEBUG] Directory selector not found');
+        logDebug('[DEBUG] Directory selector not found');
     }
     const fileSelect = document.getElementById('file-select');
     if (fileSelect) {
-        logMessage(`[DEBUG] File selector: ${fileSelect.options.length} options`);
-        logMessage(`[DEBUG] Current file value: "${fileSelect.value}"`);
+        logDebug(`[DEBUG] File selector: ${fileSelect.options.length} options`);
+        logDebug(`[DEBUG] Current file value: "${fileSelect.value}"`);
         for (let i = 0; i < fileSelect.options.length; i++) {
-            logMessage(`[DEBUG] File option ${i}: value="${fileSelect.options[i].value}", text="${fileSelect.options[i].text}"`);
+            logDebug(`[DEBUG] File option ${i}: value="${fileSelect.options[i].value}", text="${fileSelect.options[i].text}"`);
         }
     } else {
-        logMessage('[DEBUG] File selector not found');
+        logDebug('[DEBUG] File selector not found');
     }
     try {
         const fsState = loadFileSystemState();
-        logMessage(`[DEBUG] FileSystemState in localStorage: ${JSON.stringify(fsState)}`);
+        logDebug(`[DEBUG] FileSystemState in localStorage: ${JSON.stringify(fsState)}`);
     } catch (e) {
-        logMessage(`[DEBUG] Error reading localStorage: ${e.message}`);
+        logDebug(`[DEBUG] Error reading localStorage: ${e.message}`);
     }
-    logMessage('[DEBUG] Attempting to force reload files...');
+    logDebug('[DEBUG] Attempting to force reload files...');
     import('../fileManager/operations.js').then(async ({ loadFiles, getCurrentDirectory }) => {
         const dir = getCurrentDirectory();
-        logMessage(`[DEBUG] Current directory from state: ${dir}`);
+        logDebug(`[DEBUG] Current directory from state: ${dir}`);
         if (dir !== undefined && dir !== null) { // Check dir has a valid value
             try {
                 await loadFiles(dir, true);
-                logMessage('[DEBUG] File reload complete');
+                logDebug('[DEBUG] File reload complete');
             } catch (error) {
-                logMessage(`[DEBUG] File reload failed: ${error.message}`);
+                logDebug(`[DEBUG] File reload failed: ${error.message}`);
             }
         } else {
-            logMessage('[DEBUG] No current directory found in state to reload');
+            logDebug('[DEBUG] No current directory found in state to reload');
         }
     }).catch(error => {
-        logMessage(`[DEBUG] Import error during file reload: ${error.message}`);
+        logDebug(`[DEBUG] Import error during file reload: ${error.message}`);
     });
 }
 
 export async function debugFileLoadingIssues() {
-    logMessage('===== FILE LOADING DIAGNOSTIC =====');
-    logMessage(`[DEBUG] Authentication state: ${authState.get().isAuthenticated ? 'Logged in' : 'Not logged in'}`);
-    if (authState.get().isAuthenticated) {
-        logMessage(`[DEBUG] Logged in as: ${authState.get().username}`);
-        logMessage(`[DEBUG] Has hashed password: ${!!authState.get().hashedPassword}`);
+    logDebug('===== FILE LOADING DIAGNOSTIC =====');
+    const currentAuthState = appState.getState().auth;
+    logDebug(`[DEBUG] Authentication state: ${currentAuthState.isLoggedIn ? 'Logged in' : 'Not logged in'}`);
+    if (currentAuthState.isLoggedIn) {
+        logDebug(`[DEBUG] Logged in as: ${currentAuthState.user?.username}`);
+        logDebug(`[DEBUG] Has hashed password: ${!!currentAuthState.hashedPassword}`);
     }
     let currentDir = null;
     try {
         const fsState = loadFileSystemState();
         currentDir = fsState.currentDir; // Store for later use
-        logMessage(`[DEBUG] Current directory (state): ${fsState.currentDir || 'none'}`);
-        logMessage(`[DEBUG] Current file (state): ${fsState.currentFile || 'none'}`);
+        logDebug(`[DEBUG] Current directory (state): ${fsState.currentDir || 'none'}`);
+        logDebug(`[DEBUG] Current file (state): ${fsState.currentFile || 'none'}`);
     } catch (error) {
-        logMessage(`[DEBUG ERROR] Failed to load file system state: ${error.message}`);
+        logDebug(`[DEBUG ERROR] Failed to load file system state: ${error.message}`);
     }
     const dirSelect = document.getElementById('dir-select');
     const fileSelect = document.getElementById('file-select');
     if (dirSelect) {
-        logMessage(`[DEBUG] Directory select exists with ${dirSelect.options.length} options`);
-        logMessage(`[DEBUG] Current directory value (UI): ${dirSelect.value}`);
+        logDebug(`[DEBUG] Directory select exists with ${dirSelect.options.length} options`);
+        logDebug(`[DEBUG] Current directory value (UI): ${dirSelect.value}`);
         if (!currentDir) currentDir = dirSelect.value; // Fallback to UI value
     } else {
-        logMessage('[DEBUG ERROR] Directory select not found');
+        logDebug('[DEBUG ERROR] Directory select not found');
     }
     if (fileSelect) {
-        logMessage(`[DEBUG] File select exists with ${fileSelect.options.length} options`);
-        logMessage(`[DEBUG] Current file value (UI): ${fileSelect.value}`);
+        logDebug(`[DEBUG] File select exists with ${fileSelect.options.length} options`);
+        logDebug(`[DEBUG] Current file value (UI): ${fileSelect.value}`);
     } else {
-        logMessage('[DEBUG ERROR] File select not found');
+        logDebug('[DEBUG ERROR] File select not found');
     }
     try {
-        logMessage('[DEBUG] Attempting to load directories...');
+        logDebug('[DEBUG] Attempting to load directories...');
         const { loadDirectories } = await import('../fileManager/operations.js');
         const directories = await loadDirectories();
-        logMessage(`[DEBUG] Loaded ${directories.length} directories: ${directories.join(', ')}`);
+        logDebug(`[DEBUG] Loaded ${directories.length} directories: ${directories.join(', ')}`);
     } catch (error) {
-        logMessage(`[DEBUG ERROR] Failed to load directories: ${error.message}`);
+        logDebug(`[DEBUG ERROR] Failed to load directories: ${error.message}`);
     }
     if (currentDir !== null && currentDir !== undefined && currentDir !== '') {
         try {
-            logMessage(`[DEBUG] Attempting to load files for directory: ${currentDir}`);
+            logDebug(`[DEBUG] Attempting to load files for directory: ${currentDir}`);
             const { loadFiles } = await import('../fileManager/operations.js');
             const files = await loadFiles(currentDir, true); // Force reload
-            logMessage(`[DEBUG] Loaded ${files.length} files for ${currentDir}`);
+            logDebug(`[DEBUG] Loaded ${files.length} files for ${currentDir}`);
         } catch (error) {
-            logMessage(`[DEBUG ERROR] Failed to load files for ${currentDir}: ${error.message}`);
+            logDebug(`[DEBUG ERROR] Failed to load files for ${currentDir}: ${error.message}`);
         }
     } else {
-        logMessage('[DEBUG] No current directory identified to load files for');
+        logDebug('[DEBUG] No current directory identified to load files for');
     }
-    logMessage('===== END FILE LOADING DIAGNOSTIC =====');
+    logDebug('===== END FILE LOADING DIAGNOSTIC =====');
 }
 
 // --- Auth Debug ---
 export function testAuthStatus() {
-    logMessage('[DEBUG] --- Testing Auth Status ---');
+    logDebug('[DEBUG] --- Testing Auth Status ---');
     try {
-        const currentAuthState = authState.get(); // Get state from reactive store
-        logMessage(`[DEBUG] Current auth state (from authState): ${JSON.stringify(currentAuthState)}`);
+        const currentAuthState = appState.getState().auth;
+        logDebug(`[DEBUG] Current auth state (from appState): ${JSON.stringify(currentAuthState)}`);
 
         const loginForm = document.getElementById('login-form');
         const logoutBtn = document.getElementById('logout-btn');
         const statusDisplay = document.getElementById('auth-status-display');
 
         if (!loginForm || !logoutBtn || !statusDisplay) {
-            logMessage('[DEBUG][ERROR] Auth related DOM elements not found!', 'error');
+            logDebug('[DEBUG][ERROR] Auth related DOM elements not found!', 'error');
             return;
         }
 
-        logMessage(`[DEBUG] Login form display: ${loginForm.style.display}`);
-        logMessage(`[DEBUG] Logout button display: ${logoutBtn.style.display}`);
-        logMessage(`[DEBUG] Status display text: ${statusDisplay.textContent}`);
-        logMessage(`[DEBUG] Body data-auth-state: ${document.body.getAttribute('data-auth-state')}`);
+        logDebug(`[DEBUG] Login form display: ${loginForm.style.display}`);
+        logDebug(`[DEBUG] Logout button display: ${logoutBtn.style.display}`);
+        logDebug(`[DEBUG] Status display text: ${statusDisplay.textContent}`);
+        logDebug(`[DEBUG] Body data-auth-state: ${document.body.getAttribute('data-auth-state')}`);
 
         // Check if UI matches reactive state
-        if (currentAuthState.isAuthenticated) {
-            if (loginForm.style.display !== 'none') logMessage('[DEBUG][WARN] Login form should be hidden when authenticated.', 'warning');
-            if (logoutBtn.style.display === 'none') logMessage('[DEBUG][WARN] Logout button should be visible when authenticated.', 'warning');
-            if (!statusDisplay.textContent?.includes(currentAuthState.username || '')) logMessage(`[DEBUG][WARN] Status display should show username '${currentAuthState.username}'.`, 'warning');
+        if (currentAuthState.isLoggedIn) {
+            if (loginForm.style.display !== 'none') logDebug('[DEBUG][WARN] Login form should be hidden when authenticated.', 'warning');
+            if (logoutBtn.style.display === 'none') logDebug('[DEBUG][WARN] Logout button should be visible when authenticated.', 'warning');
+            if (!statusDisplay.textContent?.includes(currentAuthState.user?.username || '')) logDebug(`[DEBUG][WARN] Status display should show username '${currentAuthState.user?.username}'.`, 'warning');
         } else {
-            if (loginForm.style.display === 'none') logMessage('[DEBUG][WARN] Login form should be visible when not authenticated.', 'warning');
-            if (logoutBtn.style.display !== 'none') logMessage('[DEBUG][WARN] Logout button should be hidden when not authenticated.', 'warning');
-            if (!statusDisplay.textContent?.includes('Not Logged In')) logMessage('[DEBUG][WARN] Status display should show "Not Logged In".', 'warning');
+            if (loginForm.style.display === 'none') logDebug('[DEBUG][WARN] Login form should be visible when not authenticated.', 'warning');
+            if (logoutBtn.style.display !== 'none') logDebug('[DEBUG][WARN] Logout button should be hidden when not authenticated.', 'warning');
+            if (!statusDisplay.textContent?.includes('Not Logged In')) logDebug('[DEBUG][WARN] Status display should show "Not Logged In".', 'warning');
         }
-        logMessage('[DEBUG] --- Auth Status Test Complete ---');
+        logDebug('[DEBUG] --- Auth Status Test Complete ---');
 
     } catch (error) {
-        logMessage(`[DEBUG][ERROR] Error during auth status test: ${error.message}`, 'error');
+        logDebug(`[DEBUG][ERROR] Error during auth status test: ${error.message}`, 'error');
     }
 }
 
 export function debugAuthState() {
-    logMessage('===== AUTH STATE DEBUG =====');
+    logDebug('===== AUTH STATE DEBUG =====');
     try {
         const storedAuth = localStorage.getItem('authState');
         if (storedAuth) {
             const parsedAuth = JSON.parse(storedAuth);
-            logMessage(`[AUTH DEBUG] localStorage: ${JSON.stringify({
+            logDebug(`[AUTH DEBUG] localStorage: ${JSON.stringify({
                 isLoggedIn: parsedAuth.isLoggedIn,
                 username: parsedAuth.username,
                 loginTime: parsedAuth.loginTime ? new Date(parsedAuth.loginTime).toLocaleString() : 'N/A',
@@ -379,88 +388,89 @@ export function debugAuthState() {
                 hasHashedPassword: !!parsedAuth.hashedPassword
             })}`);
         } else {
-            logMessage('[AUTH DEBUG] No auth data in localStorage');
+            logDebug('[AUTH DEBUG] No auth data in localStorage');
         }
     } catch (error) {
-        logMessage(`[AUTH DEBUG] Error reading localStorage: ${error.message}`);
+        logDebug(`[AUTH DEBUG] Error reading localStorage: ${error.message}`);
     }
-    // AUTH_STATE is imported at the top
-    logMessage(`[AUTH DEBUG] Memory authState: ${JSON.stringify({
-        isLoggedIn: authState.get().isAuthenticated,
-        username: authState.get().username,
-        loginTime: authState.get().loginTime ? new Date(authState.get().loginTime).toLocaleString() : 'N/A',
-        expiresAt: authState.get().expiresAt ? new Date(authState.get().expiresAt).toLocaleString() : 'N/A',
-        hasHashedPassword: !!authState.get().hashedPassword
+    const currentAuthState = appState.getState().auth;
+    logDebug(`[AUTH DEBUG] Memory appState.auth: ${JSON.stringify({
+        isLoggedIn: currentAuthState.isLoggedIn,
+        username: currentAuthState.user?.username,
+        loginTime: currentAuthState.loginTime ? new Date(currentAuthState.loginTime).toLocaleString() : 'N/A',
+        expiresAt: currentAuthState.expiresAt ? new Date(currentAuthState.expiresAt).toLocaleString() : 'N/A',
+        hasHashedPassword: !!currentAuthState.hashedPassword
     })}`);
     try {
         const sessionAuth = sessionStorage.getItem('authState');
         if (sessionAuth) {
-            logMessage(`[AUTH DEBUG] Session storage has auth data (unexpected)`);
+            logDebug(`[AUTH DEBUG] Session storage has auth data (unexpected)`);
         }
     } catch (error) { /* Ignore */ }
     const loginForm = document.getElementById('login-form');
     const logoutBtn = document.getElementById('logout-btn');
     const pwdDisplay = document.getElementById('pwd-display');
-    logMessage(`[AUTH DEBUG] UI State: 
+    logDebug(`[AUTH DEBUG] UI State: 
         - Login form visible: ${!loginForm || loginForm.style.display !== 'none'}
         - Logout button visible: ${!!logoutBtn && logoutBtn.style.display !== 'none'}
         - Display text: ${pwdDisplay ? pwdDisplay.textContent : 'Not found'}`);
-    logMessage('[AUTH DEBUG] Testing API authentication...');
+    logDebug('[AUTH DEBUG] Testing API authentication...');
     fetch('/api/files/dirs', {
-        headers: authState.get().isAuthenticated ? {
-            'Authorization': `Basic ${btoa(`${authState.get().username}:${authState.get().hashedPassword || ''}`)}`
+        headers: currentAuthState.isLoggedIn ? {
+            'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}`
         } : {}
     })
     .then(response => {
-        logMessage(`[AUTH DEBUG] API test response: ${response.status} ${response.statusText}`);
+        logDebug(`[AUTH DEBUG] API test response: ${response.status} ${response.statusText}`);
         return response.text();
     })
     .then(text => {
-        try { JSON.parse(text); logMessage('[AUTH DEBUG] API returned valid JSON.'); }
-        catch (e) { logMessage(`[AUTH DEBUG] API returned non-JSON: ${text.substring(0, 50)}...`); }
+        try { JSON.parse(text); logDebug('[AUTH DEBUG] API returned valid JSON.'); }
+        catch (e) { logDebug(`[AUTH DEBUG] API returned non-JSON: ${text.substring(0, 50)}...`); }
     })
     .catch(error => {
-        logMessage(`[AUTH DEBUG] API test failed: ${error.message}`);
+        logDebug(`[AUTH DEBUG] API test failed: ${error.message}`);
     });
-    logMessage('===== END AUTH DEBUG =====');
+    logDebug('===== END AUTH DEBUG =====');
 }
 
 
 // --- URL Debug ---
 export function debugUrlParameters() {
-    logMessage('[DEBUG] Testing URL parameter handling...');
+    logDebug('[DEBUG] Testing URL parameter handling...');
     const urlParams = new URLSearchParams(window.location.search);
     const urlDir = urlParams.get('dir');
     const urlFile = urlParams.get('file');
-    logMessage(`[DEBUG] URL parameters: dir=${urlDir || 'none'}, file=${urlFile || 'none'}`);
+    logDebug(`[DEBUG] URL parameters: dir=${urlDir || 'none'}, file=${urlFile || 'none'}`);
     const state = loadFileSystemState();
-    logMessage(`[DEBUG] File system state: dir=${state.currentDir || 'none'}, file=${state.currentFile || 'none'}`);
+    logDebug(`[DEBUG] File system state: dir=${state.currentDir || 'none'}, file=${state.currentFile || 'none'}`);
     const dirSelect = document.getElementById('dir-select');
     const fileSelect = document.getElementById('file-select');
     if (dirSelect) {
-        logMessage(`[DEBUG] Directory select value: ${dirSelect.value || 'none'}`);
+        logDebug(`[DEBUG] Directory select value: ${dirSelect.value || 'none'}`);
         if (urlDir) {
             const dirOption = Array.from(dirSelect.options).find(opt => opt.value === urlDir);
-            logMessage(`[DEBUG] URL directory ${urlDir} ${dirOption ? 'found' : 'not found'} in options`);
+            logDebug(`[DEBUG] URL directory ${urlDir} ${dirOption ? 'found' : 'not found'} in options`);
         }
     }
     if (fileSelect) {
-        logMessage(`[DEBUG] File select value: ${fileSelect.value || 'none'}`);
+        logDebug(`[DEBUG] File select value: ${fileSelect.value || 'none'}`);
         if (urlFile) {
             const fileOption = Array.from(fileSelect.options).find(opt => opt.value === urlFile);
-            logMessage(`[DEBUG] URL file ${urlFile} ${fileOption ? 'found' : 'not found'} in options`);
+            logDebug(`[DEBUG] URL file ${urlFile} ${fileOption ? 'found' : 'not found'} in options`);
         }
     }
-    logMessage('[DEBUG] URL parameter test complete');
+    logDebug('[DEBUG] URL parameter test complete');
 }
 
 // --- Endpoint Debug --- (Consolidated from multiple functions)
 export async function debugAllApiEndpoints() {
-    logMessage('[DEBUG] Testing key API endpoints...');
+    logDebug('[DEBUG] Testing key API endpoints...');
     const state = loadFileSystemState();
     const currentFile = state.currentFile || 'README.md';
     const currentDir = state.currentDir || '';
-    const authHeader = authState.get().isAuthenticated ? { 'Authorization': `Basic ${btoa(`${authState.get().username}:${authState.get().hashedPassword || ''}`)}` } : {};
+    const currentAuthState = appState.getState().auth;
+    const authHeader = currentAuthState.isLoggedIn ? { 'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}` } : {};
 
     const endpoints = [
         // List
@@ -476,54 +486,50 @@ export async function debugAllApiEndpoints() {
 
     for (const endpoint of endpoints) {
         try {
-            logMessage(`[DEBUG] Testing: ${endpoint.name} (${endpoint.method} ${endpoint.url})`);
+            logDebug(`[DEBUG] Testing: ${endpoint.name} (${endpoint.method} ${endpoint.url})`);
             const options = {
                 method: endpoint.method,
                 headers: { ...authHeader, ...(endpoint.headers || {}) },
                 body: endpoint.body // Will be undefined for GET etc.
             };
             const response = await fetch(endpoint.url, options);
-            logMessage(`  Response: ${response.status} ${response.statusText}`);
+            logDebug(`  Response: ${response.status} ${response.statusText}`);
             if (!response.ok) {
                 const errorText = await response.text();
-                logMessage(`  Error Detail: ${errorText.substring(0, 100)}...`, 'warning');
+                logDebug(`  Error Detail: ${errorText.substring(0, 100)}...`, 'warning');
             } else {
-                // Optionally log success details if needed
-                 logMessage(`  Success.`, 'text');
+                 logDebug(`  Success.`, 'text');
             }
         } catch (error) {
-            logMessage(`  Exception: ${error.message}`, 'error');
+            logDebug(`  Exception: ${error.message}`, 'error');
         }
     }
-    logMessage('[DEBUG] API endpoint testing complete');
+    logDebug('[DEBUG] API endpoint testing complete');
 }
 
 // --- Consolidated Diagnostics Runner ---
 export async function runAllDiagnostics() {
-    logMessage('\n===== RUNNING ALL DIAGNOSTICS =====', 'heading'); // Use a distinct log level if available
-    showAppInfo(); // Show app info first
+    logDebug('\n===== RUNNING ALL DIAGNOSTICS =====', 'heading');
+    showAppInfo();
     debugUI();
-    await debugAllApiEndpoints(); // Covers testApiEndpoints, debugApiResponses
+    await debugAllApiEndpoints();
     debugFileOperations();
     await testFileLoading();
     await testAuthStatus();
-    debugAuthState(); // Add this for comprehensive auth check
+    debugAuthState();
     debugUrlParameters();
-    debugFileList(); // Add file list check
-    // debugFileLoadingIssues(); // Maybe too verbose for default run?
-    logMessage('===== ALL DIAGNOSTICS COMPLETE =====', 'heading');
+    debugFileList();
+    logDebug('===== ALL DIAGNOSTICS COMPLETE =====', 'heading');
 }
 
 // --- Global Registration ---
-// Only register globally in development or if explicitly enabled
-// const isDevelopment = process.env.NODE_ENV === 'development'; // Basic check - CRASHES IN BROWSER if process not defined
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'; // Browser-safe check
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-if (isDevelopment) { // Or add a specific debug flag check
-    window.dev = { // Use a namespace to avoid cluttering window
+if (isDevelopment) {
+    window.dev = {
         showAppInfo,
         debugUI,
-        testApiEndpoints, // Keep individual functions available for targeted debugging
+        testApiEndpoints,
         debugApiResponses,
         debugFileOperations,
         testFileLoading,
@@ -533,21 +539,11 @@ if (isDevelopment) { // Or add a specific debug flag check
         debugAuthState,
         debugUrlParameters,
         debugAllApiEndpoints,
-        runAllDiagnostics, // Add the new consolidated function
-        // debugSaveEndpoints, // Excluded, covered by debugAllApiEndpoints
+        runAllDiagnostics,
     };
-    logMessage('[DEBUG] Debug functions registered under window.dev');
+    logDebug('[DEBUG] Debug functions registered under window.dev');
 } else {
-     logMessage('[DEBUG] Debug functions not registered globally in production.');
+     logDebug('[DEBUG] Debug functions not registered globally in production.');
 }
 
-logMessage('[DEBUG] Consolidated debug utilities module loaded');
-
-// Removed old/redundant code:
-// - logDebug helper (use logMessage directly)
-// - Imports/exports for non-existent files (uiDebug.js etc)
-// - Redundant function wrappers
-// - Duplicate function definitions
-// - Individual window assignments (using window.dev now)
-// - debugSaveEndpoints (covered by debugAllApiEndpoints)
-// - debugApiEndpoints (covered by debugAllApiEndpoints)
+logDebug('[DEBUG] Consolidated debug utilities module loaded');

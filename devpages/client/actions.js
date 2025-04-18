@@ -3,30 +3,25 @@ console.log('[DEBUG] actions.js: Module start');
 import eventBus from '/client/eventBus.js';
 import { withAuthHeaders } from '/client/headers.js';
 import { globalFetch } from '/client/globalFetch.js';
-// REMOVED: Obsolete import from deleted views.js
-// import { setView, getView } from '/client/views.js';
 import { getUIState, setUIState } from '/client/uiState.js';
-import { handleLogin } from '/client/auth.js'; // Assuming triggerActions.login uses this
 import { logMessage } from '/client/log/index.js';
-// <<< UNCOMMENT THE DEBUG IMPORT >>>
-// import * as debug from '/client/debug/index.js'; 
 
-// Import other necessary modules
+
 import { refreshPreview } from '/client/previewManager.js'; // UPDATED - Correct function name
-// import { toggleCommunityLink } from '/client/communityLink.js'; // REMOVED - communityLink handles its own events
 import fileManager from '/client/fileManager.js'; // Needed for loadFile
+import { loadFile, saveFile } from '/client/fileManager.js';
+import { logout } from '/client/auth.js';
+import { handleDeleteImageAction } from '/client/imageManager.js'; // Import delete handler
 
-// REMOVED: Problematic debug console log
-// console.log('[DEBUG] actions.js: Imported modules check - debug:', !!debug, 'refreshPreview:', !!refreshPreview, 'fileManager:', !!fileManager); 
 
 // Helper for logging within this module
 function logAction(message, level = 'text') {
-    const prefix = '[ACTION]';
+    const type = 'ACTION'
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message,type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`${type}: ${message}`);
     }
 }
 
@@ -39,10 +34,10 @@ export function initializeActions() {
     // File actions
     registerFileActions();
     
-    // Auth actions
-    registerAuthActions();
+    // REMOVED: Auth actions registration via event bus is no longer needed here
+    // registerAuthActions();
     
-    logAction('All action handlers registered');
+    logAction('Action handlers registration complete (auth handled directly).');
 }
 
 // Register image-related actions
@@ -101,75 +96,36 @@ function registerFileActions() {
     logAction('File actions registered (now mostly via triggerActions)');
 }
 
-// Register authentication actions
-function registerAuthActions() {
-    // Handle login event received from form submission
-    eventBus.on('auth:login', async ({ username, password }) => {
-        logAction(`Login event received for user: ${username}`);
-        
-        // If password is provided, this is an initial login request
-        if (password) {
-            // Perform the actual login
-            try {
-                const success = await handleLogin(username, password);
-                if (success) {
-                    logAction(`Login successful via event for: ${username}`);
-                } else {
-                    logAction(`Login failed via event for: ${username}`);
-                }
-            } catch (error) {
-                logAction(`Login attempt via event failed: ${error.message}`);
-            }
-        } else {
-            // This is just a notification of successful login
-            // Make sure file manager is initialized
-            try {
-                const { initializeFileManager } = await import('/client/fileManager.js');
-                await initializeFileManager();
-                logAction('File manager initialized after login event');
-            } catch (error) {
-                logAction(`Failed to initialize file manager: ${error.message}`);
-            }
-        }
-    });
-    
-    // Handle login status updates
-    eventBus.on('auth:loginStatus', async (data) => {
-        if (data.success) {
-            logAction(`Login successful for user: ${data.username}`);
-            
-            // Initialize file manager after successful login
-            try {
-                const { initializeFileManager } = await import('/client/fileManager.js');
-                await initializeFileManager();
-                logAction('File manager initialized after login status update');
-            } catch (error) {
-                logAction(`Failed to initialize file manager: ${error.message}`);
-            }
-        } else {
-            logAction(`Login failed: ${data.error || 'Unknown error'}`, 'error');
-        }
-    });
-    
-    // Handle logout
-    eventBus.on('auth:logout', () => {
-        logAction('User logged out event received');
-    });
-    
-    logAction('Auth actions registered');
-}
 
-// <<< ADD LOG BEFORE triggerActions >>>
 console.log('[DEBUG] actions.js: Defining triggerActions...');
 // Export direct action triggers for convenience
 export const triggerActions = {
     deleteImage: (imageName) => eventBus.emit('image:delete', { imageName }),
-    login: (username, password) => eventBus.emit('auth:login', { username, password }),
-    logout: () => eventBus.emit('auth:logout'),
+    
+    // MODIFIED: Emit event instead of calling handleLogin
+    login: (username, password) => { // No need for async here anymore
+        logAction(`Triggering login action for user: ${username}`);
+        // Emit the event that auth.js is listening for
+        eventBus.emit('auth:loginRequested', { username, password }); 
+        logAction(`Emitted auth:loginRequested for user: ${username}`);
+    },
+    logout: async () => {
+        logAction('Triggering logout action...');
+        try {
+            await logout();
+             // Success/failure is now handled by components subscribing to appState
+        } catch (error) {
+            logAction(`logout call failed: ${error.message}`, 'error');
+             // Optionally show an alert or rely on appState error handling
+            alert(`Logout failed: ${error.message}`);
+        }
+    },
+    
     saveFile: async () => {
         logAction('Triggering saveFile action...');
         try {
-            const success = await fileManager.saveFile();
+            // Use the imported saveFile function directly
+            const success = await saveFile(); // Assuming saveFile is exported and handles getting content
             if (success) {
                 logAction('saveFile executed successfully.');
             } else {
@@ -211,22 +167,26 @@ export const triggerActions = {
             window.logPanel?.clearLog();
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
     },
-    // MODIFIED: Use uiState to toggle visibility
     toggleLogVisibility: async () => { 
         logAction('Triggering toggleLogVisibility via uiState...');
         try {
             const currentVisibility = getUIState('logVisible');
             setUIState('logVisible', !currentVisibility);
-            // The LogPanel component will react to this state change via its subscription
-            // REMOVED: Direct call to window.logPanel?.toggle(); 
         } catch (e) { logAction(`toggleLogVisibility failed: ${e.message}`, 'error'); }
     },
-    // MODIFIED: Use global debug object directly if available
+    minimizeLog: async () => {
+        logAction('Triggering minimizeLog...');
+        try {
+            setUIState('logVisible', false); // Use uiState to hide the log
+            logAction('Log panel visibility set to false.');
+        } catch (e) {
+            logAction(`minimizeLog failed: ${e.message}`, 'error');
+        }
+    },
     showSystemInfo: async () => {
         logAction('Triggering showSystemInfo (calling showAppInfo)...');
         try {
-            // Re-route this to the showAppInfo debug function for consistency
-            window.dev?.showAppInfo?.(); // Use globally registered debug object
+            window.dev?.showAppInfo?.();
         } catch (e) { logAction(`showSystemInfo/showAppInfo failed: ${e.message}`, 'error'); }
     },
 
@@ -234,21 +194,19 @@ export const triggerActions = {
     runDebugUI: async () => {
         logAction('Triggering runAllDiagnostics...');
         try {
-            // Call the new consolidated function via global object
             await window.dev?.runAllDiagnostics?.(); 
         } catch (e) { logAction(`runAllDiagnostics failed: ${e.message}`, 'error'); }
     },
     showAppInfo: async () => { 
         logAction('Triggering showAppInfo...');
         try {
-            window.dev?.showAppInfo?.(); // Use globally registered debug object
+            window.dev?.showAppInfo?.();
         } catch (e) { logAction(`showAppInfo failed: ${e.message}`, 'error'); }
     },
-    debugAllApiEndpoints: async () => { // New action for the consolidated endpoint tester
+    debugAllApiEndpoints: async () => {
         logAction('Triggering debugAllApiEndpoints...');
         try {
-            // CORRECTED: Use window.dev
-            window.dev?.debugAllApiEndpoints?.(); 
+            await window.dev?.debugAllApiEndpoints?.(); 
         } catch (e) { logAction(`debugAllApiEndpoints failed: ${e.message}`, 'error'); }
     },
     debugUrlParameters: async () => { // New action
@@ -279,13 +237,13 @@ export const triggerActions = {
     debugAuthState: async () => {
         logAction('Debugging Auth State...');
         try {
-            // Use reactive state directly
-            const { authState } = await import('/client/authState.js'); 
-            const currentState = authState.get();
-            logAction(`Current Auth State: ${JSON.stringify(currentState)}`);
-            logAction(`Is Logged In: ${currentState.isAuthenticated}`);
+            // Use appState instead of authState directly
+            const { appState } = await import('/client/appState.js'); 
+            const currentState = appState.getState().auth; // Get auth slice from appState
+            logAction(`Current Auth State (from appState): ${JSON.stringify(currentState)}`);
+            logAction(`Is Logged In: ${currentState.isLoggedIn}`); // Use isLoggedIn from appState.auth
         } catch (error) {
-            logAction(`Error loading auth module or state: ${error.message}`, 'error');
+            logAction(`Error loading appState or auth state: ${error.message}`, 'error');
         }
     },
 
@@ -398,7 +356,7 @@ export const triggerActions = {
     downloadStaticHTML: async () => { // Made async to await fileManager import
         logAction('Triggering client-side downloadStaticHTML...');
         try {
-            logMessage('[ACTION] Generating static HTML from Markdown preview area...');
+            logAction('Generating static HTML from Markdown preview area...');
             
             // Import editorCore to get content
             const { getContent } = await import('/client/editor.js'); // Import specific function
@@ -478,45 +436,102 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             
-            logMessage('[ACTION] Static HTML generated from preview (with metadata) and download initiated.');
+            logAction('Static HTML generated from preview (with metadata) and download initiated.');
 
         } catch (error) {
             logAction(`Error during client-side downloadStaticHTML: ${error.message}`, 'error');
-            logMessage(`[ACTION ERROR] Failed to generate static HTML: ${error.message}`, 'error');
+            logAction(`[ACTION ERROR] Failed to generate static HTML: ${error.message}`, 'error');
             alert(`Failed to generate static HTML: ${error.message}`); // Notify user
         }
-    }
+    },
+
+    // --- Image Actions ---
+    'delete-image': handleDeleteImageAction, // Map the action string to the handler
+
+    // --- Clipboard Actions ---
+    copyLog: async () => {
+        logAction('Triggering copyLog...');
+        try {
+            // Use the global LogPanel instance
+            window.logPanel?.copyLog(); 
+        } catch (e) { logAction(`copyLog failed: ${e.message}`, 'error'); }
+    },
+
+    // --- Log Entry Actions ---
+    copyLogEntry: async (data, element) => {
+        logAction('Triggering copyLogEntry...');
+        if (!element) {
+            logAction('copyLogEntry failed: No element provided.', 'error');
+            return;
+        }
+        const logEntryDiv = element.closest('.log-entry');
+        const textSpan = logEntryDiv?.querySelector('.log-entry-text');
+        if (textSpan?.textContent) {
+            try {
+                await navigator.clipboard.writeText(textSpan.textContent);
+                logAction('Log entry copied to clipboard.');
+                // Optional: Show brief feedback
+                const originalText = element.textContent;
+                element.textContent = '✓';
+                setTimeout(() => { element.textContent = originalText; }, 1000);
+            } catch (err) {
+                logAction(`Failed to copy log entry: ${err}`, 'error');
+            }
+        } else {
+            logAction('Could not find text content for log entry.', 'warning');
+        }
+    },
+    pasteLogEntry: async (data, element) => {
+        logAction('Triggering pasteLogEntry...');
+        if (!element) {
+            logAction('pasteLogEntry failed: No element provided.', 'error');
+            return;
+        }
+        const logEntryDiv = element.closest('.log-entry');
+        const textSpan = logEntryDiv?.querySelector('.log-entry-text');
+        if (textSpan?.textContent) {
+            try {
+                // Attempt to get editor instance (adapt this if needed)
+                const editor = window.editorInstance; // Or use getEditorInstance()
+                if (editor && typeof editor.replaceSelection === 'function') {
+                    editor.replaceSelection(textSpan.textContent);
+                    logAction('Log entry pasted into editor.');
+                    // Optional: Show brief feedback
+                    const originalText = element.textContent;
+                    element.textContent = '✓';
+                    setTimeout(() => { element.textContent = originalText; }, 1000);
+                } else {
+                    logAction('Editor instance not found or lacks replaceSelection method.', 'error');
+                    alert('Could not paste into editor. Editor not available.');
+                }
+            } catch (err) {
+                logAction(`Failed to paste log entry: ${err}`, 'error');
+            }
+        } else {
+            logAction('Could not find text content for log entry.', 'warning');
+        }
+    },
+    cLogEntry: async (data, element) => {
+        logAction('Triggering cLogEntry (placeholder)...');
+        if (!element) {
+            logAction('cLogEntry failed: No element provided.', 'error');
+            return;
+        }
+        const logEntryDiv = element.closest('.log-entry');
+        const textSpan = logEntryDiv?.querySelector('.log-entry-text');
+        logAction(`Placeholder action C triggered for log entry: ${textSpan?.textContent?.substring(0, 50)}...`);
+        alert('Action C is not yet implemented.');
+        // Optional: Show brief feedback
+        const originalText = element.textContent;
+        element.textContent = '?';
+        setTimeout(() => { element.textContent = originalText; }, 1000);
+    },
 };
 
 // <<< ADD LOG AFTER triggerActions >>>
 console.log('[DEBUG] actions.js: Defined triggerActions:', Object.keys(triggerActions));
 
 // Backwards compatibility - Map old functions if needed
-
-// Add this helper function to get the current auth token
-async function getAuthToken() {
-    // Try to get the token from your authManager
-    const { getCurrentUser, getAuthToken } = await import('/client/auth.js');
-    const token = getAuthToken();
-    
-    // If token exists, use it
-    if (token) {
-        return token;
-    }
-    
-    // Fallback to localStorage if needed
-    const authStateStr = localStorage.getItem('authState');
-    if (authStateStr) {
-        try {
-            const authState = JSON.parse(authStateStr);
-            return authState.hashedPassword || '';
-        } catch (e) {
-            console.error('Failed to parse authState from localStorage', e);
-        }
-    }
-    
-    return '';
-}
 
 async function executeAction(action, params = {}) {
   logAction(`Executing: ${action}`);
@@ -550,72 +565,22 @@ async function executeAction(action, params = {}) {
         break;
       }
       // ... existing code ...
-      case 'authCheck': {
-        // Import from client/
-        const { getCurrentUser, getAuthToken } = await import('/client/auth.js'); 
-        const user = getCurrentUser(); // Assuming getCurrentUser exists in auth.js
-        const token = getAuthToken(); // Assuming getAuthToken exists in auth.js
-        logMessage(`Auth Check: User=${user}, Token=${token ? 'Exists' : 'None'}`);
-        break;
-      }
-      // ... existing code ...
     }
   } catch (error) {
-    logMessage(`[ACTION ERROR] Failed to execute ${action}: ${error.message}`, 'error');
+    logAction(`[ACTION ERROR] Failed to execute ${action}: ${error.message}`, 'error');
     console.error(`[ACTION ERROR] Action: ${action}`, error);
   }
 }
 
 async function handleSaveClick() {
-  // Use AUTH_STATE.current to check if authenticated
-  if (AUTH_STATE.current !== AUTH_STATE.AUTHENTICATED) {
-    logMessage('[ACTION] User not logged in, cannot save.', 'warning');
+  // Use appState to check if authenticated
+  const { appState } = await import('/client/appState.js'); 
+  if (!appState.getState().auth.isLoggedIn) { // Check central state
+    logAction('[ACTION] User not logged in, cannot save.', 'warning');
     alert('You must be logged in to save.');
     return;
   }
   // ... rest of save logic ...
+  logAction('Save click approved (User logged in) - Actual save needs implementation here or call triggerActions.saveFile');
+  // Example: triggerActions.saveFile(); // If this function is meant to trigger the save
 }
-
-// Refactored handleLoginSubmit to use handleLogin from auth.js
-async function handleLoginSubmit(event) {
-    event.preventDefault(); // Prevent default form submission
-    logMessage('[ACTION] Login form submitted');
-    const form = event.target;
-    const username = form.username.value;
-    const password = form.password.value;
-
-    if (!username || !password) {
-        alert('Username and password are required.');
-        return;
-    }
-
-    try {
-        const success = await handleLogin(username, password);
-        if (success) {
-            logMessage('[ACTION] Login successful via handleLogin');
-            // UI updates are handled via auth:stateChanged event listener in uiManager.js
-        } else {
-             logMessage('[ACTION] Login failed via handleLogin');
-             // Potentially show error message to user, though handleLogin might do this
-             alert('Login failed. Please check credentials.');
-        }
-    } catch (error) {
-        logMessage(`[ACTION] Login error: ${error.message}`, 'error');
-        alert('An error occurred during login.');
-    }
-}
-
-// Function to handle logout click
-async function handleLogoutClick() {
-    logMessage('[ACTION] Logout requested');
-    try {
-        // Dynamically import the logout function only when needed
-        const { logout } = await import('/client/auth.js');
-        await logout();
-        logMessage('[ACTION] Logout process initiated.');
-        // UI updates handled via auth:stateChanged event
-    } catch (error) {
-        logMessage(`[ACTION] Logout error: ${error.message}`, 'error');
-        alert('An error occurred during logout.');
-    }
-} 

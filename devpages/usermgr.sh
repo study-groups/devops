@@ -37,19 +37,35 @@ add_user() {
     local password="$2"
     
     log "Adding user: $username"
-    node -e "
-        const { addUser } = require('./server/utils/manageUsers');
-        addUser('$username', '$password').then(() => process.exit(0));
-    "
+    # Original CommonJS approach (commented out or replaced)
+    # node -e "
+    #     const { addUser } = require('./server/utils/manageUsers');
+    #     addUser('$username', '$password').then(() => process.exit(0));
+    # "
+
+    # New ES Module approach
+    node --input-type=module << EOF
+import path from 'path';
+import { fileURLToPath } from 'url';
+// Ensure the path is correct relative to where usermgr.sh is executed
+const manageUsersPath = './server/utils/manageUsers.js'; 
+const { addUser } = await import(manageUsersPath);
+await addUser('$username', '$password');
+process.exit(0);
+EOF
 }
 
 # Function to list users
 list_users() {
     log "Listing users"
-    node -e "
-        const { listUsers } = require('./server/utils/manageUsers');
-        listUsers();
-    "
+    node --input-type=module << EOF
+import path from 'path';
+import { fileURLToPath } from 'url';
+// Ensure the path is correct relative to where usermgr.sh is executed
+const manageUsersPath = './server/utils/manageUsers.js'; 
+const { listUsers } = await import(manageUsersPath);
+listUsers();
+EOF
 }
 
 # Function to delete a user

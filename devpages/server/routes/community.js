@@ -1,7 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const path = require('path');
-const fs = require('fs').promises;
+import express from 'express';
+import { Router } from 'express';
+import path from 'path';
+import fs from 'fs/promises';
+
+const router = Router();
 
 // Helper function to ensure a directory exists
 async function ensureDirectory(dir) {
@@ -152,4 +154,4 @@ router.get('/test', (req, res) => {
     res.json({ success: true, message: 'Community API is working' });
 });
 
-module.exports = router; 
+export default router;

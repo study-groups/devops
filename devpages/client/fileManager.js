@@ -6,7 +6,7 @@ import { eventBus } from '/client/eventBus.js';
 import { getContent, setContent } from '/client/editor.js';
 import { logMessage } from '/client/log/index.js';
 import fileSystemState from '/client/fileSystemState.js'; // Authoritative state persistence
-import { authState } from '/client/authState.js'; // ADDED import
+import { appState } from '/client/appState.js'; // IMPORT central state
 import { globalFetch } from '/client/globalFetch.js'; // ADDED import
 
 // --- Module State ---
@@ -22,12 +22,12 @@ let currentListingData = { dirs: [], files: [] }; // Store current listing
 
 // --- Logging Helper ---
 function logFileManager(message, level = 'text') {
-    const prefix = '[FILEMGR]';
+    const type = 'FILEMGR';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message, level, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 
@@ -113,15 +113,53 @@ export async function initializeFileManager() {
     fileState.currentRelativePath = initialState.currentRelativePath; 
     fileState.currentFile = initialState.currentFile;
 
-    // --- ADDED: Default to username if logged in and no directory set ---
-    const currentUserState = authState.get();
-    if (currentUserState.isAuthenticated && !fileState.topLevelDirectory) {
+    // --- Check for deep link restore for already authenticated users ---
+    // This handles the case where a user is already logged in and arrives via a deep link
+    try {
+        // Only attempt if we don't already have a directory context from URL/localStorage
+        if (!fileState.topLevelDirectory) {
+            const deepLinkModule = await import('/client/deepLink.js');
+            const savedRequest = deepLinkModule.getSavedDeepLinkRequest();
+            if (savedRequest) {
+                logFileManager('Found saved deep link request, checking auth state...');
+                
+                // Check if user is authenticated
+                const currentAuthState = appState.getState().auth;
+                if (currentAuthState.isLoggedIn) {
+                    logFileManager(`Restoring deep link: dir=${savedRequest.dir}, path=${savedRequest.path}, file=${savedRequest.file}`);
+                    
+                    // Set state directly to avoid navigation event during initialization
+                    fileState.topLevelDirectory = savedRequest.dir;
+                    fileState.currentRelativePath = savedRequest.path;
+                    fileState.currentFile = savedRequest.file;
+                    
+                    // Clear the saved request to prevent duplicate processing
+                    deepLinkModule.clearSavedDeepLinkRequest();
+                    
+                    // Update localStorage with the restored values
+                    updateAndPersistState({
+                        topLevelDirectory: savedRequest.dir,
+                        currentRelativePath: savedRequest.path,
+                        currentFile: savedRequest.file
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        logFileManager(`Error checking deep links: ${error.message}`, 'warning');
+        // Non-critical error, continue with initialization
+    }
+
+    // --- Use central appState for auth check ---
+    const currentAuthState = appState.getState().auth; // Get auth slice from appState
+    if (currentAuthState.isLoggedIn && !fileState.topLevelDirectory) { // Check isLoggedIn
         logFileManager('No directory context from URL/localStorage, user logged in. Defaulting to username.');
-        fileState.topLevelDirectory = currentUserState.username;
+        // Use user?.username from central state
+        fileState.topLevelDirectory = currentAuthState.user?.username;
         // Persist this default state immediately
         updateAndPersistState({ topLevelDirectory: fileState.topLevelDirectory });
     }
-    // --- END ADDED SECTION ---
+    // --- END UPDATED SECTION ---
 
     logFileManager(`Initializing with state: Top=${fileState.topLevelDirectory}, Rel=${fileState.currentRelativePath}, File=${fileState.currentFile}`);
 
@@ -137,7 +175,6 @@ export async function initializeFileManager() {
         if (fileState.topLevelDirectory) {
             await loadFilesAndDirectories(fileState.topLevelDirectory, fileState.currentRelativePath); // Emits 'listingLoaded', updates module var directly
 
-            // ADDED: Log currentListingData right before use
             logFileManager(`[INIT] After loadFilesAndDirectories, checking currentListingData: ${JSON.stringify(currentListingData)}`, 'debug');
 
             // 3. Validate if the initial file exists in the loaded listing
@@ -168,7 +205,6 @@ export async function initializeFileManager() {
              topLevelDirectory: fileState.topLevelDirectory,
              relativePath: fileState.currentRelativePath,
              currentFile: fileState.currentFile
-             // No listing data needed here, UI uses separate events
         });
 
         // 5. AFTER state is settled and UI *should* be synced, load the initial file content if needed
@@ -310,78 +346,84 @@ async function handleFileNavigation(data) {
 
 // ADDED: Handler for navigating back to root selection
 async function handleNavigateToRoot() {
-    const logPrefix = '[FILEMGR_NAVROOT]';
-    logFileManager(`${logPrefix} START. Handling navigate to root...`);
-    
-    const currentUser = authState.get();
-    
-    // Always ensure top-level dirs are loaded first
-    if (fileState.topLevelDirs.length === 0) {
-        logFileManager(`${logPrefix} Top-level dirs not loaded, fetching...`);
-        await loadTopLevelDirectories();
-        logFileManager(`${logPrefix} Top-level dirs loaded.`);
-    }
-    
-    let targetTopDir = '';
-    let targetRelativePath = '';
-    let needsListingLoad = false;
+    logFileManager(`Event navigate:root received.`);
 
-    if (currentUser.isAuthenticated) {
-        if (currentUser.username.toLowerCase() === 'mike') {
-             // Mike goes to root selection, no specific dir/listing needed initially
-             targetTopDir = '';
-             targetRelativePath = '';
-             logFileManager(`${logPrefix} User is 'mike'. Setting context to root selection.`);
+    const currentAuthState = appState.getState().auth;
+    const currentUsername = currentAuthState.user?.username;
+    const isLoggedIn = currentAuthState.isLoggedIn;
+
+    if (!isLoggedIn) {
+        // ... (Logged-out logic remains the same) ...
+        updateAndPersistState({
+            topLevelDirectory: '',
+            currentRelativePath: '',
+            currentFile: ''
+        });
+        setContent(''); 
+        currentListingData = { dirs: [], files: [] }; 
+        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
+        // Log before emitting stateSettled for logged-out case
+        const stateToSettleLoggedOut = {
+            topLevelDirectory: fileState.topLevelDirectory,
+            relativePath: fileState.currentRelativePath,
+            currentFile: fileState.currentFile
+        };
+        logFileManager(`[DEBUG] About to emit stateSettled (Logged Out). State: ${JSON.stringify(stateToSettleLoggedOut)}`, 'debug');
+        logFileManager('Emitting fileManager:stateSettled (Navigate to Root - Logged Out)...');
+        eventBus.emit('fileManager:stateSettled', stateToSettleLoggedOut);
+        return; 
+    }
+
+    // User is logged in
+    if (currentUsername?.toLowerCase() === 'mike') {
+        logFileManager('User is Mike. Handling root navigation for Mike.');
+        updateAndPersistState({
+            topLevelDirectory: '',
+            currentRelativePath: '',
+            currentFile: ''
+        });
+        setContent(''); 
+        currentListingData = { dirs: [], files: [] };
+        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
+        
+        // Log before emitting stateSettled for Mike
+        const stateToSettleMike = {
+            topLevelDirectory: fileState.topLevelDirectory, // Should be ''
+            relativePath: fileState.currentRelativePath,    // Should be ''
+            currentFile: fileState.currentFile          // Should be ''
+        };
+        logFileManager(`[DEBUG] About to emit stateSettled (Mike@Root). State: ${JSON.stringify(stateToSettleMike)}`, 'debug');
+        logFileManager('Emitting fileManager:stateSettled (Navigate to Root - Mike)...');
+        eventBus.emit('fileManager:stateSettled', stateToSettleMike);
+
+    } else {
+        // Standard logged-in user at root
+        logFileManager(`User is ${currentUsername}. Handling root navigation (defaulting to user dir).`);
+        if (fileState.topLevelDirs.includes(currentUsername)) {
+             logFileManager(`User directory '${currentUsername}' exists. Navigating...`);
+             await handleTopLevelDirectoryChange({ directory: currentUsername }); // This function handles its own stateSettled emit
         } else {
-            // Other logged-in users go to their own directory
-            targetTopDir = currentUser.username;
-            targetRelativePath = '';
-            // Check if this directory actually exists in the list
-            if (fileState.topLevelDirs.includes(targetTopDir)) {
-                 logFileManager(`${logPrefix} User '${currentUser.username}'. Setting context to user directory '${targetTopDir}'.`);
-                 needsListingLoad = true; // We need to load the listing for this directory
-            } else {
-                 logFileManager(`${logPrefix} User directory '${targetTopDir}' not found for user '${currentUser.username}'. Defaulting to root selection.`, 'warning');
-                 targetTopDir = ''; // Fallback to root selection
-                 needsListingLoad = false;
-            }
-        }
-    } else {
-        // Logged out user goes to root selection
-        targetTopDir = '';
-        targetRelativePath = '';
-         logFileManager(`${logPrefix} User is logged out. Setting context to root selection.`);
+             logFileManager(`User directory '${currentUsername}' not found in available top-level dirs. Clearing state.`, 'warning');
+             updateAndPersistState({
+                 topLevelDirectory: '',
+                 currentRelativePath: '',
+                 currentFile: ''
+             });
+             setContent(''); 
+             currentListingData = { dirs: [], files: [] }; 
+             eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' });
+             
+             // Log before emitting stateSettled for fallback case
+             const stateToSettleFallback = {
+                 topLevelDirectory: fileState.topLevelDirectory, // Should be ''
+                 relativePath: fileState.currentRelativePath,    // Should be ''
+                 currentFile: fileState.currentFile          // Should be ''
+             };
+             logFileManager(`[DEBUG] About to emit stateSettled (User Dir Not Found). State: ${JSON.stringify(stateToSettleFallback)}`, 'debug');
+             logFileManager('Emitting fileManager:stateSettled (Navigate to Root - User Dir Not Found)...');
+             eventBus.emit('fileManager:stateSettled', stateToSettleFallback);
+         }
     }
-
-    // Update state
-    logFileManager(`${logPrefix} Updating state: Top='${targetTopDir}', Rel='${targetRelativePath}', File=''`);
-    updateAndPersistState({ 
-        topLevelDirectory: targetTopDir, 
-        currentRelativePath: targetRelativePath, 
-        currentFile: '' 
-    });
-    setContent(''); // Clear editor
-    currentListingData = { dirs: [], files: [] }; // Clear listing data before potential load
-
-    // Load listing if needed (only for non-Mike users going to their dir)
-    if (needsListingLoad) {
-         logFileManager(`${logPrefix} Needs listing load for '${targetTopDir}'. Calling loadFilesAndDirectories...`);
-         await loadFilesAndDirectories(targetTopDir, targetRelativePath);
-         logFileManager(`${logPrefix} Listing load complete.`);
-    } else {
-         logFileManager(`${logPrefix} No listing load needed. Emitting empty listingLoaded event.`);
-         // Ensure UI clears listing if none was loaded
-          eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' }); 
-    }
-
-    // Emit state settled AFTER potential listing load is complete
-    logFileManager(`${logPrefix} Emitting fileManager:stateSettled...`);
-    eventBus.emit('fileManager:stateSettled', {
-         topLevelDirectory: fileState.topLevelDirectory,
-         relativePath: fileState.currentRelativePath,
-         currentFile: fileState.currentFile
-    });
-    logFileManager(`${logPrefix} stateSettled emitted. END.`);
 }
 
 // ADDED: Handler for Mike's request to see the top-level selector
@@ -718,11 +760,13 @@ export async function refreshFileManagerForUser(username) {
         // 5. Emit state settled ONLY AFTER potential listing load is complete
         logFileManager(`${logPrefix} FINAL State before emitting stateSettled: Top=${fileState.topLevelDirectory}, Rel=${fileState.currentRelativePath}, File=${fileState.currentFile}`);
         logFileManager(`${logPrefix} Emitting fileManager:stateSettled...`);
-        eventBus.emit('fileManager:stateSettled', {
+        const stateToSettle = {
              topLevelDirectory: fileState.topLevelDirectory,
              relativePath: fileState.currentRelativePath,
              currentFile: fileState.currentFile
-        });
+        };
+        logFileManager(`[DEBUG] About to emit stateSettled (Mike@Root). State: ${JSON.stringify(stateToSettle)}`, 'debug');
+        eventBus.emit('fileManager:stateSettled', stateToSettle);
         logFileManager(`${logPrefix} stateSettled emitted.`);
 
     } catch (error) {

@@ -2,6 +2,15 @@
 import { logMessage } from "./log/index.js";
 import { updatePreview } from './markdown.js';
 
+// Centralized logger function for this module
+function logPreview(message, level = 'info') {
+    const type = 'PREVIEW';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        console.log(`[${type}] ${message}`); // Fallback
+    }
+}
 /**
  * Manually refreshes the markdown preview with the current editor content
  */
@@ -9,15 +18,15 @@ export function refreshPreview() {
     try {
         const editor = document.querySelector('#md-editor textarea');
         if (!editor) {
-            logMessage('[PREVIEW ERROR] Editor not found');
+            logPreview('[PREVIEW ERROR] Editor not found');
             return;
         }
         
         const content = editor.value;
         updatePreview(content);
-        logMessage('[PREVIEW] Preview manually refreshed');
+        logPreview('[PREVIEW] Preview manually refreshed');
     } catch (error) {
-        logMessage(`[PREVIEW ERROR] Failed to refresh preview: ${error.message}`);
+        logPreview(`[PREVIEW ERROR] Failed to refresh preview: ${error.message}`);
         console.error('[PREVIEW ERROR]', error);
     }
 }
@@ -28,7 +37,7 @@ export function refreshPreview() {
 export function initPreviewRefreshButton() {
     const refreshBtn = document.getElementById('refresh-preview-btn');
     if (!refreshBtn) {
-        logMessage('[PREVIEW] Refresh button not found');
+        logPreview('[PREVIEW] Refresh button not found');
         return;
     }
     
@@ -40,7 +49,7 @@ export function initPreviewRefreshButton() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.altKey && !e.shiftKey) {
             e.preventDefault(); // Prevent browser refresh
             refreshPreview();
-            logMessage('[PREVIEW] Refresh triggered by keyboard shortcut (Ctrl+R)');
+            logPreview('[PREVIEW] Refresh triggered by keyboard shortcut (Ctrl+R)');
         }
     });
-} 
+}

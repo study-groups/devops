@@ -3,11 +3,11 @@ import { eventBus } from '/client/eventBus.js';
 import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js'; 
 
 // Helper for logging
-function logMessage(message, level = 'text') {
+function logMessage(message, type = 'VIEW_CONTROLS') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level);
+        window.logMessage(message, type);
     } else {
-        console.log(`[ViewControls] ${message}`);
+        console.log(`${type}: ${message}`);
     }
 }
 

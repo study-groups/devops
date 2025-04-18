@@ -1,11 +1,9 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs').promises;
-const { uploadsDirectory } = require('../config');
-const { btoa } = require('crypto');
-
-const router = express.Router();
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
+import { uploadsDirectory } from '../config.js';
+import { Router } from 'express';
+const router = Router();
 
 // Supported image types
 const SUPPORTED_MIME_TYPES = [
@@ -159,72 +157,6 @@ async function generateImageIndex() {
         // Ensure images directory exists and write index
         await fs.mkdir(path.join(mdDir, 'images'), { recursive: true });
         await fs.writeFile(indexPath, content);
-        
-        content += `
-<script>
-// Self-contained secure event handling for this page
-document.addEventListener('click', function(event) {
-    // Only handle clicks directly on buttons (not delegated)
-    // This prevents double-handling with the global handler
-    if (event.target.matches('.delete-btn') || 
-        (event.target.matches('[data-action="delete-image"]') && !event.target.closest('[data-action="delete-image"]'))) {
-        
-        // Stop propagation to prevent other handlers
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // Mark as handled to prevent double processing
-        event.alreadyHandled = true;
-        
-        const button = event.target;
-        const imageName = button.getAttribute('data-image-name');
-        
-        if (imageName) {
-            if (confirm('Are you sure you want to delete ' + decodeURIComponent(imageName) + '?')) {
-                // Get auth from localStorage
-                let headers = { 'Content-Type': 'application/json' };
-                
-                try {
-                    const authStateStr = localStorage.getItem('authState');
-                    if (authStateStr) {
-                        const authState = JSON.parse(authStateStr);
-                        const basicAuth = btoa(authState.username + ':' + authState.hashedPassword);
-                        headers['Authorization'] = 'Basic ' + basicAuth;
-                    }
-                } catch (e) {
-                    console.error('Failed to get auth token', e);
-                    alert('Authentication error');
-                    return;
-                }
-                
-                // Explicitly use the working endpoint
-                fetch('/image-delete', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ url: '/uploads/' + decodeURIComponent(imageName) })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error('Server error: ' + response.status + ' ' + text);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(() => {
-                    alert('Image deleted successfully');
-                    window.location.reload();
-                })
-                .catch(error => {
-                    console.error('Delete error:', error);
-                    alert('Error deleting image: ' + error.message);
-                });
-            }
-        }
-    }
-});
-</script>
-`;
         
         return true;
     } catch (error) {
@@ -399,7 +331,5 @@ router.post('/delete', async (req, res) => {
     }
 });
 
-module.exports = {
-    router,
-    generateImageIndex // Export the function for use in markdown routes
-};
+export default router;
+export { generateImageIndex };

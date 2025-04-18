@@ -6,7 +6,7 @@ const SIDEBAR_VISIBLE_KEY = 'sidebarVisible';
 const LOG_VISIBLE_KEY = 'logVisible';
 
 // Default state values
-const DEFAULT_VIEW_MODE = 'split'; // 'code', 'preview', 'split'
+const DEFAULT_VIEW_MODE = 'preview'; // 'code', 'preview', 'split'
 const DEFAULT_SIDEBAR_VISIBLE = true;
 const DEFAULT_LOG_VISIBLE = false;
 

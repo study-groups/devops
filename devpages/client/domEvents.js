@@ -3,11 +3,13 @@ import { eventBus } from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
 // Remove old import
 // import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
-// Import only needed functions from auth.js
-import { handleLogin, logout } from '/client/auth.js'; 
+// Import only logout from auth.js
+import { logout } from '/client/auth.js'; 
 // Import the new reactive state
-import { authState } from '/client/authState.js'; 
+// import { authState } from '/client/authState.js'; 
 import { globalFetch } from '/client/globalFetch.js';
+import { handleDeleteImageAction } from '/client/imageManager.js'; // Import the new handler
+import { appState } from '/client/appState.js';
 
 // Add a isProcessingDelete variable to track ongoing operations
 let isProcessingDelete = false;
@@ -15,18 +17,18 @@ let isProcessingDelete = false;
 // Define actions that require authentication
 const PROTECTED_ACTIONS = new Set([
     'saveFile', 
-    'deleteImage', // Example, add others as needed
+    'delete-image', // Add back - Now handled by the global handler
     // 'toggleCommunityLink' - Handled internally now
 ]);
 
 // Helper for logging within this module
 function logDomEvent(message, level = 'text') {
-    const prefix = '[DOM EVENT]';
+    const type = 'DOM_EVENT';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message, level, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 
@@ -34,56 +36,6 @@ export function initializeDomEvents() {
     console.log('[DEBUG domEvents.js] === initializeDomEvents function entered ===');
     console.log('[DEBUG] Entering initializeDomEvents function.');
     logDomEvent('Initializing DOM event listeners...');
-
-    // Attach login/logout listeners immediately (assuming elements exist or handled elsewhere)
-    // Specific listeners for elements not easily handled by delegation
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault(); // Prevent default form submission
-            const usernameInput = loginForm.querySelector('input[name="username"]');
-            const passwordInput = loginForm.querySelector('input[name="password"]');
-            if (!usernameInput || !passwordInput) {
-                 alert('Login form elements missing!');
-                 logDomEvent('Login form elements missing!', 'error');
-                 return;
-            }
-            const username = usernameInput.value;
-            const password = passwordInput.value;
-            logDomEvent(`Login form submitted for user: ${username}`);
-            try {
-                const success = await handleLogin(username, password);
-                 if (success) {
-                    logDomEvent('Login successful via form submit.');
-                    // UI updates are handled via auth:stateChanged event listener in uiManager.js
-                } else {
-                    logDomEvent('Login failed via form submit.', 'warning');
-                    alert('Login failed. Please check username and password.'); // Provide feedback
-                }
-            } catch (error) {
-                logDomEvent(`Login form submission error: ${error.message}`, 'error');
-                alert(`Login error: ${error.message}`);
-            }
-        });
-        logDomEvent('Login form submit listener attached (immediate).');
-    }
-    
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (event) => {
-            event.preventDefault();
-            logDomEvent('Logout button clicked.');
-            try {
-                await logout();
-                logDomEvent('Logout function called successfully.');
-                // UI updates handled by auth state change listener in uiManager
-            } catch (error) {
-                 logDomEvent(`Logout button click error: ${error.message}`, 'error');
-                 // Maybe show an alert, though logout state should clear anyway
-            }
-        });
-         logDomEvent('Logout button click listener attached (immediate).');
-    }
 
     // Setup delegated listener after DOM is ready
     const setupDelegatedListener = () => {
@@ -93,6 +45,11 @@ export function initializeDomEvents() {
         console.log('[DEBUG domEvents.js] Adding click listener to document.body...');
         document.body.addEventListener('click', (event) => {
             console.log('[DEBUG domEvents.js] Body click detected. Event target:', event.target);
+
+            if (event.alreadyHandled) {
+                console.log('[DEBUG domEvents.js] Event already handled by another listener (e.g., inline script). Skipping global handler.');
+                return; // Stop processing if already handled
+            }
 
             const target = event.target.closest('[data-action]');
             console.log('[DEBUG domEvents.js] closest data-action result:', target);
@@ -104,12 +61,23 @@ export function initializeDomEvents() {
             console.log('[DEBUG domEvents.js] Found target with data-action:', target);
 
             const action = target.dataset.action;
+
+            // --- Revised Check --- 
+            // Only proceed if the action is defined in the global action map
+            if (typeof triggerActions[action] !== 'function') {
+                console.log(`[DEBUG domEvents.js] Action "${action}" not found in global triggerActions. Assuming handled elsewhere or invalid action.`);
+                return; // Exit gracefully, allowing other handlers (like embedded scripts)
+            }
+            // --- End Revised Check --- 
+
             logDomEvent(`Action triggered: ${action} on ${target.tagName}#${target.id}`);
-            console.log(`[DEBUG domEvents.js] Extracted action: "${action}"`);
+            console.log(`[DEBUG domEvents.js] Found function for action "${action}" in triggerActions. Proceeding...`);
             
             let actionData = {}; 
             for (const key in target.dataset) {
-                if (key !== 'action') { actionData[key] = target.dataset[key]; }
+                // Convert camelCase keys from data attributes (e.g., data-image-name -> imageName)
+                let camelCaseKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
+                if (camelCaseKey !== 'action') { actionData[camelCaseKey] = target.dataset[key]; }
             }
             console.log(`[DEBUG domEvents.js] Extracted actionData:`, actionData);
 
@@ -123,24 +91,13 @@ export function initializeDomEvents() {
                 }
             }
             
-            console.log('[DEBUG domEvents.js] Checking triggerActions object:', triggerActions); 
-            // Add a specific check for the action *before* calling it
-            if (typeof triggerActions[action] !== 'function') {
-                console.error(`[DEBUG domEvents.js] Error: triggerActions does not contain a function for action: "${action}"`);
-                logDomEvent(`No handler function found for action: ${action}`, 'error');
-                // Maybe return here or show an alert depending on desired behavior
-                // return; 
-            } else {
-                 console.log(`[DEBUG domEvents.js] Found function for action "${action}" in triggerActions. Proceeding...`);
-            }
-            
-            // Check if the action requires authentication using the new authState
+            // Check if the action requires authentication using appState
             if (PROTECTED_ACTIONS.has(action)) {
-                // Get current state directly from the reactive store
-                if (authState.get().isAuthenticated) { 
+                // Get current state directly from appState
+                if (appState.getState().auth.isLoggedIn) { 
                     // Authenticated: Proceed with action
                      if (typeof triggerActions[action] === 'function') {
-                         triggerActions[action](actionData);
+                         triggerActions[action](actionData, target);
                      } else {
                          logDomEvent(`No handler found for protected action: ${action}`, 'warning');
                      }
@@ -152,7 +109,7 @@ export function initializeDomEvents() {
             } else {
                 // Action does not require authentication: Proceed directly
                 if (typeof triggerActions[action] === 'function') {
-                    triggerActions[action](actionData);
+                    triggerActions[action](actionData, target);
                 } else {
                     logDomEvent(`No handler found for action: ${action}`, 'warning');
                 }
@@ -283,13 +240,13 @@ function connectGlobalFunctions() {
     
     // For login
     window.handleLogin = function(username, password) {
-        logDomEvent('[COMPAT] Legacy handleLogin called, forwarding to event system');
+        logDomEvent('[COMPAT] Legacy handleLogin called, forwarding to event system via triggerActions');
         triggerActions.login(username, password);
     };
     
     // For logout
     window.handleLogout = function() {
-        logDomEvent('[COMPAT] Legacy handleLogout called, forwarding to event system');
+        logDomEvent('[COMPAT] Legacy handleLogout called, forwarding to event system via triggerActions');
         triggerActions.logout();
     };
     

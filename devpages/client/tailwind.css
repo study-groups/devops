@@ -510,3 +510,10 @@ button.loading::after {
 /* --- REMOVED Mermaid Error Styling --- */
 
 /* Ensure no blank lines at EOF */
+
+/* <<< ADDED FOR TESTING BASIC BUILD PIPELINE >>> */
+.my-tailwind-test-marker {
+    color: limegreen !important;
+    font-weight: 900 !important; /* Make it obvious */
+}
+/* <<< END TEST >>> */

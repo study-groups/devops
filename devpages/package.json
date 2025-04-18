@@ -1,7 +1,7 @@
 {
+  "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.782.0",
-    "@tailwindcss/cli": "^4.1.3",
     "basic-auth": "^2.0.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
@@ -11,13 +11,15 @@
     "multer": "^1.4.5-lts.1",
     "playwright": "^1.51.1"
   },
+  "scripts": {
+    "build:css": "tailwindcss -i client/tailwind.css -o client/output.css",
+    "watch:css": "tailwindcss -i client/tailwind.css -o client/output.css --watch",
+    "use-tailwind-v3": "npm uninstall tailwindcss @tailwindcss/cli && npm install -D tailwindcss@^3 postcss@^8 autoprefixer@^10 && echo 'Remember to check/restore postcss.config.js for v3!'",
+    "use-tailwind-v4": "npm uninstall tailwindcss postcss autoprefixer && npm install -D tailwindcss@^4 @tailwindcss/cli@^4 && echo 'Remember to check/remove postcss.config.js if using v4 defaults!'"
+  },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.3"
-  },
-  "scripts": {
-    "build:css": "tailwindcss -i client/tailwind.css -o client/output.css",
-    "watch:css": "tailwindcss -i client/tailwind.css -o client/output.css --watch"
+    "tailwindcss": "^3.4.17"
   }
 }

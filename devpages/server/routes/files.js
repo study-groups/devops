@@ -2,11 +2,17 @@
  * files.js - Standardized API for file operations
  */
 
-const express = require('express');
+import express from 'express';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { authMiddleware } from '../middleware/auth.js';
+
+// Derive __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
-const fs = require('fs/promises');
-const path = require('path');
-const { authMiddleware } = require('../middleware/auth');
 
 // Base directory for storing files
 const getBaseDir = (req) => {
@@ -115,7 +121,7 @@ router.get('/list', authMiddleware, async (req, res) => {
        await fs.access(targetDir); 
 
        const entries = await fs.readdir(targetDir, { withFileTypes: true });
-       const files = entries.filter(e => e.isFile()).map(e => e.name);
+       const files = entries.filter(e => e.isFile() || e.isSymbolicLink()).map(e => e.name);
        const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
        
        // Sort directories and files alphabetically
@@ -453,4 +459,4 @@ router.post('/rename', authMiddleware, express.json(), async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

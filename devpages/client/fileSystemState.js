@@ -7,10 +7,10 @@ import { eventBus } from '/client/eventBus.js';
 
 // Helper for logging
 function logFS(message, level = 'text') {
-    const prefix = '[FS STATE]';
+    const type = 'FS_STATE';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
-    } else {
+        window.logMessage(message, level, type);
+    } else {f
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
         logFunc(`${prefix} ${message}`);
     }

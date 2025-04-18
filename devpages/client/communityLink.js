@@ -3,7 +3,15 @@
  * Handles functionality for the community link button
  */
 
-import { logMessage } from './log/index.js';
+// Centralized logger function for this module
+function logCommunity(message, level = 'info') {
+  const type = 'COMMUNITY';
+  if (typeof window.logMessage === 'function') {
+    window.logMessage(message, level, type);
+  } else {
+    console.log(`[${type}] ${message}`); // Fallback
+  }
+}
 
 // Track initialization state
 let initialized = false;
@@ -13,13 +21,13 @@ let initialized = false;
  */
 export function initCommunityLink() {
   if (initialized) {
-    logMessage('[COMMUNITY] Community link already initialized');
+    logCommunity('[COMMUNITY] Community link already initialized');
     return;
   }
   
   const communityLinkBtn = document.getElementById('community-link-btn');
   if (!communityLinkBtn) {
-    logMessage('[COMMUNITY] Community link button not found');
+    logCommunity('[COMMUNITY] Community link button not found');
     return;
   }
   
@@ -28,7 +36,7 @@ export function initCommunityLink() {
   
   // Mark as initialized
   initialized = true;
-  logMessage('[COMMUNITY] Community link initialized');
+  logCommunity('[COMMUNITY] Community link initialized');
 }
 
 /**

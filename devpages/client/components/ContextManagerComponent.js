@@ -1,22 +1,21 @@
 // client/components/ContextManagerComponent.js
 import { eventBus } from '/client/eventBus.js';
-// Import necessary functions from fileManager - Use default export
 import fileManager from '/client/fileManager.js';
-// Import authState to check the current user
-import { authState } from '/client/authState.js';
+import { appState } from '/client/appState.js';
 
-// Assuming logMessage is globally available or import correctly
-// import { logMessage } from '/client/log/index.js'; 
+const logContext = (message, subtype='', level='info') => {
+    // Construct the full type string: "type" or "type_subtype" if subtype exists
+    const type = "CTX";
+    const fullType = subtype ? `${type},${subtype}` : type;
 
-const logCtx = (message, level = 'debug') => { // Renamed log function
-    const prefix = '[CTX_MGR]';
     if (typeof window.logMessage === 'function') {
-        // Map 'debug' to 'text' or handle specific levels if logMessage supports them
-        const logLevel = level === 'debug' ? 'text' : level;
-        window.logMessage(`${prefix} ${message}`, logLevel);
+        // Map 'debug' level for logMessage, otherwise use the provided level
+       window.logMessage(message, level, fullType);
     } else {
+        // Fallback to console logging if logMessage isn't available
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        // Log using the full type for consistency
+        logFunc(`[${fullType}] ${message}`);
     }
 };
 
@@ -28,8 +27,8 @@ export function createContextManagerComponent(targetElementId) {
     // --- Rendering Logic --- 
     const render = () => {
         if (!element) return;
-        const logPrefix = '[CTX_MGR_RENDER]'; // Specific prefix
-        logCtx(`${logPrefix} START`);
+        const subtype = 'RENDER'; // Specific prefix
+        logContext('Starting render logic', subtype, `START`);
 
         // Get necessary state
         const isLoading = fileManager.getIsLoading();
@@ -38,16 +37,17 @@ export function createContextManagerComponent(targetElementId) {
         const currentFile = fileManager.getCurrentFile(); 
         const currentListing = fileManager.getCurrentListing ? fileManager.getCurrentListing() : { dirs: [], files: [] }; // Default to empty
         const availableTopDirs = fileManager.getAvailableTopLevelDirs ? fileManager.getAvailableTopLevelDirs() : []; // Default to empty array
-        const currentUser = authState.get();
-        const isMikeAtRoot = currentUser.username?.toLowerCase() === 'mike' && !topDir;
-        const isOtherUserAtRoot = currentUser.isAuthenticated && !isMikeAtRoot && !topDir;
+        const currentAuthState = appState.getState().auth;
+        const isMikeAtRoot = currentAuthState.user?.username?.toLowerCase() === 'mike' && !topDir;
+        const isOtherUserAtRoot = currentAuthState.isLoggedIn && !isMikeAtRoot && !topDir;
         
-        logCtx(`${logPrefix} State Used - isLoading: ${isLoading}, isMikeAtRoot: ${isMikeAtRoot}, topDir: ${topDir}, relPath: ${relPath}, file: ${currentFile}`);
+        logContext(`Render Check: User='${currentAuthState.user?.username}', TopDir='${topDir}', isMike@Root=${isMikeAtRoot}, AvailableTopDirs=[${availableTopDirs?.join(',')}]`, 'DEBUG');
+        logContext(`State Used - isLoading: ${isLoading}, isMikeAtRoot: ${isMikeAtRoot}, topDir: ${topDir}, relPath: ${relPath}, file: ${currentFile}`, 'STATE');
         // Log listing only if not loading and not Mike@Root (where it's irrelevant)
         if (!isLoading && !isMikeAtRoot) {
-             logCtx(`${logPrefix} Listing Used: Dirs=[${currentListing?.dirs?.join(', ')}], Files=[${currentListing?.files?.join(', ')}]`); 
+             logContext(`Listing Used: Dirs=[${currentListing?.dirs?.join(', ')}], Files=[${currentListing?.files?.join(', ')}]`, subtype); 
         } else if (isMikeAtRoot) {
-             logCtx(`${logPrefix} Available Top Dirs for Mike Selector: [${availableTopDirs.join(', ')}]`);
+             logContext(`Available Top Dirs for Mike Selector: [${availableTopDirs.join(', ')}]`, subtype);
         }
 
         // --- Line 1: Generate Breadcrumbs (Refined Logic) --- 
@@ -59,7 +59,7 @@ export function createContextManagerComponent(targetElementId) {
         let addedPathSegment = false; 
 
         if (isMikeAtRoot) {
-            logCtx(`${logPrefix} Rendering Mike@Root selector`);
+            logContext( `Rendering Mike@Root selector`,subtype);
             // Add selector right after root, no separator needed yet
             if (!isLoading && availableTopDirs.length > 0) {
                 let mikeDirOptions = `<option value="" selected disabled>Directory...</option>`;
@@ -71,12 +71,12 @@ export function createContextManagerComponent(targetElementId) {
                 addedPathSegment = true;
             }
         } else if (isOtherUserAtRoot) {
-            logCtx(`${logPrefix} Rendering OtherUser@Root info`);
+            logContext(`Rendering OtherUser@Root info`,subtype);
             // Add username info right after root, add separator before
-            breadcrumbsHTML += `${separator}<span class="breadcrumb-info" title="Current User">${currentUser.username}</span>`;
+            breadcrumbsHTML += `${separator}<span class="breadcrumb-info" title="Current User">${currentAuthState.user?.username}</span>`;
             addedPathSegment = true;
-        } else if (currentUser.isAuthenticated && topDir) {
-            logCtx(`${logPrefix} Rendering standard user path`);
+        } else if (currentAuthState.isLoggedIn && topDir) {
+            logContext(`Rendering standard user path`,subtype);
             let pathSegmentsArray = [];
             
             // Add topDir span first (always add separator before this)
@@ -112,7 +112,7 @@ export function createContextManagerComponent(targetElementId) {
             }
         }
         
-        logCtx(`${logPrefix} Final Breadcrumbs HTML: ${breadcrumbsHTML}`);
+        logContext(`inal Breadcrumbs HTML: ${breadcrumbsHTML}`, subtype);
         // --- End Line 1 ---
         
         // --- Line 2: Generate File Selector --- 
@@ -150,11 +150,11 @@ export function createContextManagerComponent(targetElementId) {
             <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
             <div class="context-selection-row">                ${fileSelectorHTML} 
                 <div class="file-action-buttons">                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Save</button>
-                    <button id="community-link-btn" title="Add to Community Files" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Link</button>
+                    <button id="community-link-btn" data-action="toggleCommunityLink" title="Add to Community Files" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Link</button>
                 </div>
             </div>
         `;
-        logCtx(`${logPrefix} innerHTML updated.`);
+        logContext(`innerHTML updated.`, subtype);
 
         // --- Re-attach Event Listeners --- 
         element.querySelectorAll('.breadcrumb-item').forEach(span => {
@@ -171,7 +171,7 @@ export function createContextManagerComponent(targetElementId) {
         const fileSelectElement = element.querySelector('#context-item-select');
         if (fileSelectElement) { fileSelectElement.addEventListener('change', handleFileDropdownChange); }
         
-        logCtx(`${logPrefix} Event listeners attached. END.`);
+        logContext(`Event listeners attached. END.`, subtype);
     };
 
     // --- Event Handlers --- 
@@ -179,7 +179,7 @@ export function createContextManagerComponent(targetElementId) {
         const target = event.target;
         const top = target.dataset.targetTop;
         const rel = target.dataset.targetRel;
-        logCtx(`Breadcrumb click: Top='${top}', Rel='${rel}'`);
+        logContext(`Breadcrumb click: Top='${top}', Rel='${rel}'`,"EVENT");
 
         // --- Emit appropriate navigation event --- 
         if (top === '') {
@@ -197,7 +197,7 @@ export function createContextManagerComponent(targetElementId) {
     const handleFileDropdownChange = (event) => {
         const selectedValue = event.target.value;
         if (!selectedValue) return;
-        logCtx(`File dropdown change: Selected file='${selectedValue}'`);
+        logContext(`File dropdown change: Selected file='${selectedValue}'`,"EVENT");
         // Emit navigate:file, value is just the filename
         eventBus.emit('navigate:file', { filename: selectedValue }); 
     };
@@ -205,8 +205,7 @@ export function createContextManagerComponent(targetElementId) {
     const handleDirectoryDropdownChange = (event) => {
         const selectedValue = event.target.value;
         if (!selectedValue) return;
-
-        logCtx(`Directory dropdown change: Selected directory='${selectedValue}'`);
+        logContext(`Directory dropdown change: Selected directory='${selectedValue}'`,"EVENT");
         eventBus.emit('navigate:directory', { directory: selectedValue });
     };
     
@@ -214,7 +213,7 @@ export function createContextManagerComponent(targetElementId) {
     const handleMikeDirectorySelectChange = (event) => {
         const selectedDir = event.target.value;
         if (!selectedDir) return;
-        logCtx(`Mike directory select change: Selected directory='${selectedDir}'`);
+        logContext(`Mike directory select change: Selected directory='${selectedDir}'`,"EVENT");
         // This selection sets the top-level directory
         eventBus.emit('navigate:topLevelDir', { directory: selectedDir });
     };
@@ -222,16 +221,16 @@ export function createContextManagerComponent(targetElementId) {
     // --- State/Event Subscriptions --- 
     const handleStateUpdate = (eventData = {}) => {
         const eventType = eventData.eventType || 'unknown';
-        logCtx(`[CTX_MGR_EVENT] Received event: ${eventType}. Triggering render.`);
+        logContext(`Received event: ${eventType}. Triggering render.`,'EVENT');
         render(); // Re-render on any relevant state change from fileManager
     };
 
     // --- Lifecycle Methods --- 
     const mount = () => {
-        logCtx('Mounting...');
+        logContext('Mounting...','MOUNTING');
         element = document.getElementById(targetElementId);
         if (!element) {
-            logCtx(`Target element #${targetElementId} not found.`, 'error');
+            logContext(`Target element #${targetElementId} not found.`, 'error');
             return false;
         }
 
@@ -247,31 +246,34 @@ export function createContextManagerComponent(targetElementId) {
             const handler = (data) => handleStateUpdate({ ...data, eventType: eventName });
             eventBus.on(eventName, handler);
             unsubscribeFunctions.push(() => eventBus.off(eventName, handler));
-            logCtx(`Subscribed to fileManager event: ${eventName}`);
+            logContext(`Subscribed to fileManager event: ${eventName}`, "SUBSCRIBE");
         });
 
-        // REMOVED: Subscription to authState changes
-        /*
-        const authUnsubscribe = authState.subscribe((newState) => {
-            logCtx(`Received authState update: user=${newState.username}, authenticated=${newState.isAuthenticated}`);
-            handleStateUpdate({ eventType: 'authStateChanged' }); // Trigger re-render
+        // REMOVED: Subscription to authState changes -> Re-enable this block
+        // Uncomment the following block
+        const authUnsubscribe = appState.subscribe((newState, prevState) => {
+            // Only re-render if the auth part of the state has changed
+            if (newState.auth !== prevState.auth) {
+                logContext(`Received authState update: user=${newState.auth.user?.username}, authenticated=${newState.auth.isLoggedIn}`, 'EVENT', 'AUTH');
+                handleStateUpdate({ eventType: 'authStateChanged' });
+            }
         });
         unsubscribeFunctions.push(() => { 
             authUnsubscribe(); 
-            logCtx('Unsubscribed from authState'); 
+            logContext('Unsubscribed from authState', 'EVENT', 'AUTH');
         });
-        logCtx('Subscribed to authState');
-        */
+        logContext('Subscribed to authState', 'SUBSCRIBE', 'AUTH');
+        
 
         // Initial Render (will use current fileManager state)
         render(); 
 
-        logCtx('Mounted.');
+        logContext('Mounted.',"COMPLETE");
         return true;
     };
 
     const destroy = () => {
-        logCtx('Destroying...');
+        logContext('Destroying...');
         // Unsubscribe from all stored events
         unsubscribeFunctions.forEach(unsub => unsub());
         unsubscribeFunctions = [];
@@ -280,7 +282,7 @@ export function createContextManagerComponent(targetElementId) {
             element.innerHTML = ''; // Clear content
         }
         element = null;
-        logCtx('Destroyed.');
+        logContext('Destroyed.');
     };
     
      // Simple path join helper needed for breadcrumbs

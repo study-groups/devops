@@ -6,12 +6,12 @@
 
 // Helper for logging within this module
 function logGraphviz(message, level = 'text') {
-    const prefix = '[GRAPHVIZ PLUGIN]';
+    const type = 'GRAPHVIZ_PLUGIN';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`${type}: ${message}`);
     }
 }
 

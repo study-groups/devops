@@ -29,12 +29,12 @@ class ImageOperation {
 
 // Helper for logging within this module
 function logImage(message, level = 'text') {
-    const prefix = '[IMAGES]';
+    const type = 'IMAGES';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(`[${type}] ${message}`, level);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 
@@ -84,7 +84,7 @@ export async function uploadImage(file) {
     formData.append('image', file);
 
     // Find the editor element more safely
-    const editor = document.getElementById('md-editor');
+    const editor = document.getElementById('editor-container');
     
     // Check if the editor exists before trying to get selection
     if (!editor) {
@@ -116,6 +116,7 @@ export async function uploadImage(file) {
     const uploadUrl = `/api/images/upload`;
 
     try {
+        logImage(`Calling globalFetch for ${uploadUrl}`);
         const response = await globalFetch(uploadUrl, { 
             method: 'POST', 
             body: formData,
@@ -123,14 +124,21 @@ export async function uploadImage(file) {
                 'Accept': 'application/json'
             }
         });
+        logImage(`globalFetch returned for ${uploadUrl}. Status: ${response?.status}, OK: ${response?.ok}`);
 
         if (!response.ok) {
-            let errorMessage = 'Upload failed';
+            let errorMessage = `Upload failed with status: ${response.status}`;
             try {
                 const errorData = await response.json();
-                errorMessage = errorData.error || `${response.status}: ${response.statusText}`;
-            } catch {
-                errorMessage = `${response.status}: ${response.statusText}`;
+                errorMessage = errorData.error || `${response.status}: ${response.statusText || 'Server error'}`;
+                logImage(`Server error response: ${JSON.stringify(errorData)}`);
+            } catch (parseError){
+                let rawResponse = '';
+                try {
+                    rawResponse = await response.text();
+                } catch {}
+                errorMessage = `${response.status}: ${response.statusText || 'Server error, non-JSON response'}`;
+                logImage(`Server error response was not JSON: ${rawResponse}`); 
             }
             
             if (response.status === 413) {
@@ -146,6 +154,8 @@ export async function uploadImage(file) {
         const imageUrl = data.url.startsWith('/') ? data.url : `/${data.url}`;
         logImage(`Uploaded file: ${imageUrl}`);
 
+        // REMOVED: Direct editor manipulation from imageManager
+        /*
         // Insert the Markdown image reference into the editor
         // This is the part that was failing
         try {
@@ -195,12 +205,13 @@ export async function uploadImage(file) {
             logImage(`Warning: Image uploaded but couldn't be inserted: ${insertError.message}`);
             console.error('Insert error:', insertError);
         }
+        */
         
         eventBus.emit('image:uploaded', { url: imageUrl, filename: file.name });
         return imageUrl;
     } catch (error) {
-        const errorMessage = error.message || 'Unknown error';
-        logImage(`Upload error: ${errorMessage}`, 'error');
+        const errorMessage = error.message || 'Unknown fetch error';
+        logImage(`Upload error caught: ${errorMessage}`, 'error');
         console.error('Upload error details:', error);
         
         eventBus.emit('image:uploadError', { filename: file.name, error: errorMessage });
@@ -269,3 +280,42 @@ document.addEventListener('keydown', (e) => {
         undoLastImageOperation();
     }
 });
+
+// Function specifically for handling the delete button click from the index page
+export async function handleDeleteImageAction(actionData) {
+    const imageName = actionData.imageName; // Get image name from data passed by domEvents
+    if (!imageName) {
+        logImage('handleDeleteImageAction called without imageName', 'error');
+        return;
+    }
+
+    const decodedImageName = decodeURIComponent(imageName);
+
+    if (confirm(`Are you sure you want to delete ${decodedImageName}?`)) {
+        logImage(`Attempting delete via action for: ${decodedImageName}`);
+        try {
+            const imageUrl = `/uploads/${decodedImageName}`;
+            const response = await globalFetch('/image-delete', { // Use correct POST endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: imageUrl })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error: ${response.status} ${errorText}`);
+            }
+
+            const result = await response.json(); // Assuming JSON success response
+            logImage(`Successfully deleted ${decodedImageName}: ${result.message || 'Success'}`);
+            alert('Image deleted successfully');
+            window.location.reload(); // Reload to update the index page
+
+        } catch (error) {
+            logImage(`Failed to delete ${decodedImageName}: ${error.message}`, 'error');
+            alert(`Error deleting image: ${error.message}`);
+        }
+    }
+}

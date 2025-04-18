@@ -11,16 +11,33 @@ export function logMessage(message, type = 'text') {
     const logContainer = document.getElementById('log');
     if (!logContainer) return;
     
+    // Check for empty, undefined, or null messages
+    if (message === undefined || message === null) {
+        console.warn('[LOG] Empty log message received, ignoring');
+        return;
+    }
+    
+    // Convert to string if it's not already (handles empty strings)
+    const messageStr = String(message);
+    if (messageStr.trim() === '' && type === 'text') {
+        console.warn('[LOG] Empty text log message received, ignoring');
+        return;
+    }
+    
     const timestamp = new Date().toLocaleTimeString();
     const logEntry = document.createElement('div');
     logEntry.className = 'log-entry';
     
     if (type === 'text') {
-        logEntry.textContent = `${timestamp} ${message}`;
+        logEntry.textContent = `${timestamp} ${messageStr}`;
     } else if (type === 'json') {
         logEntry.textContent = `${timestamp} [JSON] `;
         const pre = document.createElement('pre');
-        pre.textContent = JSON.stringify(message, null, 2); // Pretty-print JSON
+        try {
+            pre.textContent = JSON.stringify(message, null, 2); // Pretty-print JSON
+        } catch (e) {
+            pre.textContent = '[Error stringifying JSON]';
+        }
         logEntry.appendChild(pre);
     }
     
@@ -30,9 +47,13 @@ export function logMessage(message, type = 'text') {
         if (editor) {
             // For text, simply append. For JSON, you might want to format it.
             if (type === 'text') {
-                editor.value += message + "\n";
+                editor.value += messageStr + "\n";
             } else if (type === 'json') {
-                editor.value += JSON.stringify(message, null, 2) + "\n";
+                try {
+                    editor.value += JSON.stringify(message, null, 2) + "\n";
+                } catch (e) {
+                    editor.value += "[Error stringifying JSON]\n";
+                }
             }
             updatePreview(editor.value);
         }
@@ -50,7 +71,7 @@ export function logMessage(message, type = 'text') {
     updateLogEntryCount();
     
     // Also log to console for debugging
-    console.log(`${timestamp} ${message}`);
+    console.log(`${timestamp} ${type === 'json' ? JSON.stringify(message) : messageStr}`);
 }
 
 /**

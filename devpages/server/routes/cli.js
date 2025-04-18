@@ -1,8 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { exec } from 'child_process';
+import fs from 'fs';
+
+// Import local modules with .js extension
+import { authMiddleware } from '../middleware/auth.js';
+
 const router = express.Router();
-const { exec } = require('child_process');
-const { authMiddleware } = require('../middleware/auth');
-const fs = require('fs');
 
 /**
  * Execute a command and return the result
@@ -50,21 +53,22 @@ function executeCommand(command, username) {
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { command } = req.body;
-        const username = req.auth?.name || 'anonymous';
-        
+        // req.user should be attached by authMiddleware
+        const username = req.user?.username || 'anonymous';
+
         console.log(`[CLI] Received command request from ${username}: ${command}`);
-        
+
         if (!command) {
             console.log('[CLI] Missing command in request');
             return res.status(400).json({ error: 'Command is required' });
         }
-        
+
         try {
             const output = await executeCommand(command, username);
             res.json({ output });
         } catch (error) {
             // ADDED: Log the full error object caught by the route handler
-            console.error('[CLI ROUTE CATCH ERROR]', error); 
+            console.error('[CLI ROUTE CATCH ERROR]', error);
             console.error(`[CLI ERROR] ${error.message}`); // Keep original log for comparison
             res.status(500).json({
                 error: 'Command execution failed',
@@ -79,7 +83,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // Test endpoint to check if CLI API is working
 router.get('/', (req, res) => {
-    res.json({ 
+    res.json({
         status: 'CLI API is operational',
         usage: 'POST /api/cli with {"command": "your command here"}'
     });
@@ -100,9 +104,9 @@ router.get('/commands', authMiddleware, (req, res) => {
         { command: 'qa_help', description: 'QAv' },
         { command: 'du', description: 'Estimate file space usage' }
     ];
-    
+
     res.json({ commands: safeCommands });
 });
 
-
-module.exports = router; 
+// module.exports = router; // Old CommonJS export
+export default router; // New ESM export 

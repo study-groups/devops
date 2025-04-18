@@ -1,8 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const readline = require('readline');
-const { USERS_FILE, generateSalt, hashPassword } = require('./userUtils');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import readline from 'readline';
+import { USERS_FILE, generateSalt, hashPassword } from './userUtils.js';
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -13,7 +13,7 @@ function question(query) {
     return new Promise((resolve) => rl.question(query, resolve));
 }
 
-async function addUser(username, password) {
+export async function addUser(username, password) {
     console.log('\n[USERS] Adding new user');
     const salt = generateSalt();
     const hashedPassword = hashPassword(password, salt);
@@ -38,7 +38,7 @@ async function addUser(username, password) {
     }
 }
 
-function listUsers() {
+export function listUsers() {
     console.log('\n[USERS] Listing all users');
     try {
         if (!fs.existsSync(USERS_FILE)) {
@@ -58,7 +58,7 @@ function listUsers() {
     }
 }
 
-function deleteUser(username) {
+export function deleteUser(username) {
     // TODO: Implement user deletion
     console.log('[USERS] Delete user functionality coming soon');
 }
@@ -135,13 +135,26 @@ async function testHash() {
     console.log(`[TEST] Produced hash: ${hash}`);
 }
 
-if (require.main === module) {
+// Updated check for direct execution in ESM context
+// A common pattern is checking if the script path matches process.argv[1]
+// For simplicity, we'll keep the logic based on command-line args presence.
+// Note: `require.main === module` is a CJS pattern.
+const isDirectExecution = process.argv[1] && process.argv[1].endsWith('manageUsers.js');
+
+if (process.argv.length > 2) { // Check if command line arguments beyond node and script name exist
     const [,, command, ...args] = process.argv;
     if (command) {
-        runCommand(command, ...args).catch(console.error);
+        runCommand(command, ...args)
+            .catch(console.error)
+            .finally(() => rl.close()); // Ensure readline interface is closed
     } else {
-        main().catch(console.error);
+        main()
+            .catch(console.error)
+            .finally(() => rl.close()); // Ensure readline interface is closed
     }
-}
-
-module.exports = { addUser, listUsers, deleteUser }; 
+} else if (isDirectExecution) {
+    // Fallback to interactive main if run directly without specific commands
+    main()
+        .catch(console.error)
+        .finally(() => rl.close()); // Ensure readline interface is closed
+} 

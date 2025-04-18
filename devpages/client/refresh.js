@@ -1,7 +1,6 @@
 // refresh.js - Unified refresh functionality for the editor
 import { logMessage } from "./log/index.js";
 import { updatePreview } from './markdown.js';
-import { processSvgContent } from './markdown-svg.js';
 
 // Track registered refresh handlers
 const refreshHandlers = [];
@@ -114,21 +113,14 @@ function registerCoreHandlers() {
             if (editor) {
                 const content = editor.value;
                 
-                // First update the preview
+                // Update the preview (SVG processing is now handled within updatePreview)
                 updatePreview(content);
                 logMessage('[REFRESH] Markdown preview refreshed');
-                
-                // Then explicitly process SVG content to ensure it's rendered
-                return processSvgContent().then(() => {
-                    logMessage('[REFRESH] SVG content processed after preview update');
-                    return true;
-                });
+                return Promise.resolve(true);
             }
         } catch (error) {
             logMessage(`[REFRESH ERROR] Markdown preview update failed: ${error.message}`);
         }
         return Promise.resolve(false);
     }, 'markdown-preview');
-    
-    // We don't need a separate SVG processing handler since it's now included in the markdown handler
 } 

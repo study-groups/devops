@@ -1,9 +1,18 @@
-const express = require('express');
-const router = express.Router();
-const path = require('path');
-const fs = require('fs').promises;
-const playwright = require('playwright');
-const { port } = require('../config');
+import express from 'express';
+import { Router } from 'express';
+import path from 'path';
+import { promises as fs } from 'fs';
+import playwright from 'playwright';
+import { fileURLToPath } from 'url';
+
+// Import config with .js extension
+import { port } from '../config.js';
+
+// Derive __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const router = Router();
 
 // Create a slug-to-id lookup table
 let slugLookupTable = {};
@@ -85,15 +94,13 @@ router.get('/preview-direct/:slug', (req, res) => {
   console.log(`[SERVER] Serving file from: ${viewerPath}`);
   
   // Read the file directly instead of using sendFile
-  fs.readFile(viewerPath, 'utf8', (err, data) => {
-    if (err) {
+  fs.readFile(viewerPath, 'utf8').then(data => {
+      // Send the file contents directly
+      res.setHeader('Content-Type', 'text/html');
+      res.send(data);
+  }).catch(err => {
       console.error(`[SERVER] Error reading viewer.html: ${err.message}`);
       return res.status(500).send('Error loading preview page');
-    }
-    
-    // Send the file contents directly
-    res.setHeader('Content-Type', 'text/html');
-    res.send(data);
   });
 });
 
@@ -257,6 +264,12 @@ router.delete('/api/preview/:idOrSlug', async (req, res) => {
     // Remove from lookup table
     delete slugLookupTable[idOrSlug];
     console.log(`[SERVER] Removed slug ${idOrSlug} from lookup table`);
+  } else {
+    const parts = idOrSlug.split('-');
+    const extractedId = parts[parts.length - 1];
+    if (extractedId && extractedId.length >= 10) {
+      previewId = extractedId;
+    }
   }
   
   try {
@@ -286,4 +299,4 @@ router.get('/preview-fallback', async (req, res) => {
   res.sendFile(path.resolve(__dirname, '../../client/preview/viewer.html'));
 });
 
-module.exports = router; 
+export default router; 

@@ -25,6 +25,7 @@
 import { logMessage } from '../log/index.js';
 import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
+import { processSvgContent } from '../markdown-svg.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
@@ -62,7 +63,7 @@ export class PreviewManager {
       }
 
       if (!this.previewElement) {
-        logMessage('[PREVIEW ERROR] Preview container not found');
+        logMessage('Preview container not found',"ERROR","PREVIEW");
         return false;
       }
 
@@ -70,7 +71,7 @@ export class PreviewManager {
       this.previewElement.classList.add('markdown-preview');
 
       // Log which plugins we're going to initialize
-      logMessage(`[PREVIEW DEBUG] Initializing plugins: ${this.config.plugins.join(', ')}`);
+      logMessage(`Initializing plugins: ${this.config.plugins.join(', ')}`, "DEBUG", "PREVIEW");
       
       // Initialize components
       await initPlugins(this.config.plugins, {
@@ -82,10 +83,10 @@ export class PreviewManager {
       this.applyTheme(this.config.theme);
 
       this.initialized = true;
-      logMessage('[PREVIEW] Preview system initialized successfully');
+      logMessage('Preview system initialized successfully',"DEBUG","PREVIEW");
       return true;
     } catch (error) {
-      logMessage(`[PREVIEW ERROR] Failed to initialize preview: ${error.message}`);
+      logMessage(`Failed to initialize preview: ${error.message}`,"ERROR", "PREVIEW");
       console.error('[PREVIEW ERROR]', error);
       return false;
     }
@@ -94,13 +95,13 @@ export class PreviewManager {
   async update(content) {
     if (!this.initialized) {
       console.error('[PREVIEW] Preview not initialized. Call initPreview() first.');
-      logMessage('[PREVIEW ERROR] Preview not initialized. Call initPreview() first.');
+      logMessage('Preview not initialized. Call initPreview() first.',"ERROR","PREVIEW");
       return false;
     }
     
     if (!this.previewElement) {
       console.error('[PREVIEW] Preview element not found');
-      logMessage('[PREVIEW ERROR] Preview element not found');
+      logMessage('[Preview element not found',"ERROR","PREVIEW");
       return false;
     }
     
@@ -116,38 +117,80 @@ export class PreviewManager {
         // Schedule the update to avoid too many updates in quick succession
         this.updateTimer = setTimeout(async () => {
           try {
-            logMessage('[PREVIEW] Calling renderMarkdown');
-            const html = await renderMarkdown(content);
-            logMessage(`[PREVIEW] renderMarkdown returned HTML length: ${html?.length}`);
+            logMessage('Calling renderMarkdown');
+            const renderResult = await renderMarkdown(content);
+            logMessage(`renderMarkdown returned. HTML length: ${renderResult.html?.length}, FrontMatter keys: ${Object.keys(renderResult.frontMatter).join(', ')}`, "DEBUG", "PREVIEW");
             
-            logMessage(`[PREVIEW] Setting innerHTML on previewElement.`);
+            logMessage(`Setting innerHTML on previewElement.`, "DEBUG", "PREVIEW");
             if (this.previewElement) {
-                this.previewElement.innerHTML = html;
-                logMessage('[PREVIEW] innerHTML set successfully');
+                this.previewElement.innerHTML = renderResult.html;
+                logMessage('innerHTML set successfully', "DEBUG", "PREVIEW");
                 
-                logMessage('[PREVIEW] Calling postProcessRender...');
+                // >>>>> ADD SCRIPT EXECUTION LOGIC START <<<<<
+                try {
+                    logMessage('Searching for and executing scripts in preview content...', "DEBUG", "PREVIEW");
+                    const scripts = this.previewElement.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        if (!oldScript.src && !oldScript.textContent) return; // Skip empty scripts
+
+                        const newScript = document.createElement('script');
+                        
+                        // Copy attributes (important: src, type, defer, async)
+                        oldScript.getAttributeNames().forEach(attrName => {
+                            newScript.setAttribute(attrName, oldScript.getAttribute(attrName));
+                        });
+
+                        // Copy inline script content if present
+                        if (oldScript.textContent) {
+                            newScript.textContent = oldScript.textContent;
+                        }
+
+                        logMessage(`Replacing script (src: ${newScript.src || 'inline'}) to trigger execution.`, "DEBUG", "PREVIEW");
+                        // Replace the old script element with the new one to trigger execution
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                    logMessage(`Processed ${scripts.length} script tag(s).`, "DEBUG", "PREVIEW");
+                } catch (scriptError) {
+                    logMessage(`Error processing scripts in preview: ${scriptError.message}`, 'error', "PREVIEW");
+                    console.error('[PREVIEW SCRIPT EXEC ERROR]', scriptError);
+                }
+                // >>>>> ADD SCRIPT EXECUTION LOGIC END <<<<<
+
+                // Handle front matter if present, using the 'frontMatter' property
+                if (renderResult.frontMatter && Object.keys(renderResult.frontMatter).length > 0) {
+                    this.handleFrontMatter(renderResult.frontMatter);
+                } else {
+                    logMessage('No front matter data found to handle.', "DEBUG", "PREVIEW");
+                }
+
+                logMessage('[PREVIEW] Calling postProcessRender...', "DEBUG", "PREVIEW");
                 await postProcessRender(this.previewElement);
-                logMessage('[PREVIEW] postProcessRender finished.');
+                logMessage('postProcessRender finished.', "DEBUG", "PREVIEW");
+                
+                // Ensure SVG processing call is still commented out
+                // logMessage('[PREVIEW] Processing SVG content...');
+                // await processSvgContent();
+                // logMessage('SVG processing finished.',"DEBUG","PREVIEW");
             
-                logMessage('[PREVIEW] Preview updated successfully');
+                logMessage('Preview updated successfully', "DEBUG", "PREVIEW");
                 resolve(true);
             } else {
-                logMessage('[PREVIEW ERROR] Preview element became null during update.', 'error');
+                logMessage('Preview element became null during update.', 'error', "PREVIEW");
                 resolve(false);
             }
           } catch (error) {
             console.error('[PREVIEW] Render error:', error);
-            logMessage(`[PREVIEW ERROR] Failed to render markdown: ${error.message}`);
+            logMessage(`Failed to render markdown: ${error.message}`, 'error', "PREVIEW");
             console.error('[PREVIEW ERROR]', error);
-            resolve(false);
+            resolve(false); // Indicate failure
           }
         }, this.config.updateDelay);
       });
     } catch (error) {
       console.error('[PREVIEW] Update error:', error);
-      logMessage(`[PREVIEW ERROR] Failed to update preview: ${error.message}`);
+      logMessage(`Failed to update preview: ${error.message}`, 'error', "PREVIEW");
       console.error('[PREVIEW ERROR]', error);
-      return false;
+      return false; // Indicate failure
     }
   }
 
@@ -183,12 +226,71 @@ export class PreviewManager {
       }
     }
     
-    logMessage(`[PREVIEW] Theme set to ${theme}`);
+    logMessage(`Theme set to ${theme}`, "info", "PREVIEW");
     return true;
   }
 
   getConfig() {
     return { ...this.config };
+  }
+
+  handleFrontMatter(data = {}) {
+    logMessage(`Handling front matter data: ${Object.keys(data).join(', ')}`, "DEBUG", "PREVIEW");
+
+    // Ensure eventBus is available for scripts
+    // Note: Assumes eventBus is imported at the top of the module
+    if (typeof window.previewEventBus === 'undefined') {
+        window.previewEventBus = eventBus; 
+        logMessage('Made eventBus available as window.previewEventBus', "DEBUG", "PREVIEW");
+    }
+
+    // Define IDs within method scope or make them class properties if needed elsewhere
+    const FRONT_MATTER_STYLE_ID = 'front-matter-styles';
+    const FRONT_MATTER_SCRIPT_ID = 'front-matter-script';
+
+    // Remove previous elements first
+    document.getElementById(FRONT_MATTER_STYLE_ID)?.remove();
+    document.getElementById(FRONT_MATTER_SCRIPT_ID)?.remove();
+
+    // 1. Handle CSS
+    if (data.css) {
+        try {
+            const styleEl = document.createElement('style');
+            styleEl.id = FRONT_MATTER_STYLE_ID;
+            styleEl.textContent = data.css; 
+            document.head.appendChild(styleEl);
+            logMessage('Applied front matter CSS.', "DEBUG", "PREVIEW");
+        } catch (e) {
+            logMessage(`Error applying front matter CSS: ${e.message}`, 'error', "PREVIEW");
+        }
+    }
+
+    // 2. Handle Head (Ignored)
+    if (data.head) {
+        logMessage("Front matter 'head' key found, but currently ignored.", 'warning', "PREVIEW");
+    }
+
+    // 3. Handle Script
+    if (data.script) {
+        logMessage('Attempting to handle front matter script...', "DEBUG", "PREVIEW");
+        try {
+            logMessage('Creating script element...', "DEBUG", "PREVIEW");
+            const scriptEl = document.createElement('script');
+            scriptEl.id = FRONT_MATTER_SCRIPT_ID;
+            logMessage('Setting script text content...', "DEBUG", "PREVIEW");
+            scriptEl.textContent = data.script;
+            logMessage('Appending script element to body...', "DEBUG", "PREVIEW");
+            document.body.appendChild(scriptEl);
+            logMessage('Successfully applied front matter script.', "DEBUG", "PREVIEW");
+        } catch (e) {
+            logMessage(`Error applying front matter script: ${e.message}`, 'error', "PREVIEW");
+            console.error("Error details during front matter script handling:", e);
+        }
+    } else {
+        logMessage('No script found in front matter data.', "DEBUG", "PREVIEW");
+    }
+
+    logMessage('Front matter handling complete.', "DEBUG", "PREVIEW");
   }
 }
 
@@ -199,19 +301,13 @@ export function initPreview(options = {}) {
 }
 
 export function updatePreview(content) {
-  if (!previewInstance) {
-    logMessage('[PREVIEW ERROR] Preview not initialized');
-    return false;
-  }
-  return previewInstance.update(content);
+  const manager = new PreviewManager();
+  return manager.update(content);
 }
 
 export function setPreviewTheme(theme) {
-  if (!previewInstance) {
-    logMessage('[PREVIEW ERROR] Preview not initialized');
-    return false;
-  }
-  return previewInstance.setTheme(theme);
+  const manager = new PreviewManager();
+  return manager.setTheme(theme);
 }
 
 /**

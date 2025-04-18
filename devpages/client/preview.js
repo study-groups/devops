@@ -10,12 +10,12 @@ import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 
 // Helper for logging within this module
 function logPreview(message, level = 'text') {
-    const prefix = '[PREVIEW]';
+    const type = 'PREVIEW';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message,type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 
@@ -178,7 +178,7 @@ async function initializeFallbackPreview() {
  * @returns {Promise<boolean>} Success status
  */
 export async function refreshPreview() {
-  console.log('[DEBUG preview.js] refreshPreview called');
+  logPreview('refreshPreview called');
   if (!previewInitialized) {
     const initialized = await initializePreview();
     if (!initialized) {
@@ -195,37 +195,48 @@ export async function refreshPreview() {
   }
   
   const content = editor.value || '';
-  console.log(`[DEBUG preview.js] Content length for refresh: ${content.length}`);
   
   logPreview(`Refreshing preview (content length: ${content.length})`);
   
   try {
-    console.log('[DEBUG preview.js] Calling updatePreviewModule...');
     // Use the imported update function from the preview module
-    const result = await updatePreviewModule(content);
-    console.log(`[DEBUG preview.js] updatePreviewModule returned: ${result}`);
-    if (result) {
-      logPreview('Preview refreshed successfully');
-      
-      // Process Mermaid diagrams using the plugin
-      setTimeout(() => {
-        const previewElement = document.querySelector('#preview-container');
-        if (previewElement) {
-          mermaidPlugin.process(previewElement);
+    const renderResult = await updatePreviewModule(content);
+
+    if (!renderResult || typeof renderResult.html !== 'string') {
+        logPreview('Preview update returned invalid result.', 'error');
+        return false;
+    }
+
+    const { html, frontMatter } = renderResult;
+    logPreview(`Render complete. HTML length: ${html.length}, FrontMatter keys: ${Object.keys(frontMatter || {}).join(', ')}`);
+
+    // 1. Update preview container content
+    const previewContainer = document.querySelector('#preview-container');
+    if (previewContainer) {
+        previewContainer.innerHTML = html;
+        logPreview('Preview container HTML updated.');
+    } else {
+        logPreview('Preview container not found, cannot update HTML.', 'error');
+        return false; // Stop if container missing
+    }
+
+    // 2. Process Mermaid diagrams using the plugin (AFTER HTML is set)
+    // Use setTimeout to ensure DOM is updated before Mermaid processing
+    setTimeout(() => {
+        const element = document.querySelector('#preview-container'); // Re-select just in case
+        if (element) {
+          mermaidPlugin.process(element);
           logPreview('Mermaid diagrams processed by plugin (deferred).');
         } else {
           logPreview('Preview container not found for deferred Mermaid processing.', 'warning');
         }
-      }, 0); // Use setTimeout with 0 delay to yield to the event loop
-      
-      // Emit update event
-      eventBus.emit('preview:updated', { content });
-      
-      return true;
-    } else {
-      logPreview('[PREVIEW WARNING] Preview update returned false', 'warning');
-      return false;
-    }
+    }, 0);
+
+    // Emit update event
+    eventBus.emit('preview:updated', { content, frontMatter });
+
+    logPreview('Preview refreshed successfully including front matter handling.');
+    return true;
   } catch (error) {
     logPreview(`Preview refresh failed: ${error.message}`, 'error');
     console.error('Preview refresh error:', error);
@@ -238,12 +249,12 @@ export async function refreshPreview() {
  * @returns {void}
  */
 export function schedulePreviewUpdate() {
-  console.log('[DEBUG preview.js] schedulePreviewUpdate called');
+  logPreview('schedulePreviewUpdate called');
   if (updateTimer) {
     clearTimeout(updateTimer);
   }
   updateTimer = setTimeout(() => {
-    console.log('[DEBUG preview.js] Debounced timeout executing refreshPreview');
+    logPreview('Debounced timeout executing refreshPreview');
     refreshPreview();
     updateTimer = null;
   }, 300); // 300ms debounce
@@ -260,7 +271,7 @@ function subscribeToEditorEvents() {
   }
   eventBus.on('editor:contentChanged', (eventData) => {
     const contentLength = eventData?.content?.length ?? 'unknown';
-    console.log(`[DEBUG preview.js] Received editor:contentChanged event. Content length: ${contentLength}. Scheduling update.`);
+    logPreview(`Received editor:contentChanged event. Content length: ${contentLength}. Scheduling update.`);
     schedulePreviewUpdate();
   });
   
@@ -285,15 +296,13 @@ function subscribeToEditorEvents() {
  */
 function subscribeToViewChanges() {
   if (!eventBus) {
-    logPreview('EventBus not available for view change subscription', 'error');
+    logPreview('EventBus not available for view change subscription.', 'error');
     return;
   }
   // Listen to the event emitted by ContentViewComponent / actions.js
   eventBus.on('ui:viewModeChanged', (newMode) => {
-    console.log(`[DEBUG preview.js] Received ui:viewModeChanged event. New mode: ${newMode}`);
     logPreview(`View changed to ${newMode}, triggering preview update if needed.`);
     if (newMode === 'preview' || newMode === 'split') {
-      console.log(`[DEBUG preview.js] View is preview or split. Calling refreshPreview.`);
       // Use setTimeout to ensure layout changes are potentially flushed before render
       setTimeout(refreshPreview, 0);
     }
@@ -333,7 +342,8 @@ export async function setupContentViewer() {
 
       // Render the content
       const { renderMarkdown } = await import('/client/preview/renderer.js');
-      const html = await renderMarkdown(markdownContent);
+      const renderResult = await renderMarkdown(markdownContent);
+      const html = renderResult.html; // Only need HTML here, ignore front matter for /view/
       previewElement.innerHTML = html;
       logPreview('Content rendered in read-only mode.');
 

@@ -1,5 +1,4 @@
 import fileManager from "/client/fileManager.js";
-import { logMessage } from "./log/index.js";
 import { initPreview, updatePreview } from "./preview/index.js";
 
 let requiresMathJax = false;
@@ -8,6 +7,16 @@ let lastMarkdown = "";
 let updateScheduled = false;
 let updateTimeout;
 let previewInitialized = false;
+
+// Centralized logger function for this module
+function logMarkdown(message, level = 'info') {
+    const type = 'MARKDOWN';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        console.log(`[${type}] ${message}`); // Fallback
+    }
+}
 
 // Initialize the markdown preview
 export function initMarkdownPreview() {
@@ -23,7 +32,7 @@ export function initMarkdownPreview() {
     previewInitialized = result;
     return result;
   } catch (error) {
-    logMessage(`[MARKDOWN ERROR] Failed to initialize preview: ${error.message}`);
+    logMarkdown(`Failed to initialize preview: ${error.message}`, 'error');
     console.error('[MARKDOWN ERROR]', error);
     return false;
   }
@@ -81,7 +90,7 @@ export async function loadFile(filename) {
     saveState(fileManager.getCurrentDirectory(), filename);
     updateUrlState(fileManager.getCurrentDirectory(), filename);
   } catch (error) {
-    logMessage(`[FILES ERROR] Failed to load file: ${error.message}`);
+    logMarkdown(`Failed to load file: ${error.message}`, 'error');
     console.error('[FILES ERROR]', error);
   }
 }
@@ -93,12 +102,12 @@ export { updateMarkdownPreview as updatePreview };
 function initImageDeleteHandlers() {
   // Don't redefine the handler - it's now managed in main.js
   // and domEvents.js
-  logMessage('[MARKDOWN] Image delete handlers will be initialized by main.js');
+  logMarkdown('[MARKDOWN] Image delete handlers will be initialized by main.js');
 }
 
 // Process Mermaid diagrams (deprecated, kept for backward compatibility)
 export function processMermaidDiagrams() {
-  logMessage('[MARKDOWN] processMermaidDiagrams is deprecated, handled by preview system');
+  logMarkdown('[MARKDOWN] processMermaidDiagrams is deprecated, handled by preview system');
 }
 
 // Save the current state

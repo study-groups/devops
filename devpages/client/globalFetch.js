@@ -12,9 +12,17 @@
  * @returns {Promise<Response>} Fetch response
  */
 export async function globalFetch(url, options = {}) {
+    // Context for logging
+    const logContext = { 
+        module: 'globalFetch', 
+        url: url, 
+        method: options.method || 'GET' // Include method 
+    };
+
     // Check if window.logMessage is available before logging
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`[FETCH] Request to: ${url}`);
+        // Pass context object
+        window.logMessage(`Request to: ${url}`, 'debug', 'FETCH', logContext);
     } else {
         console.log(`[FETCH] Request to: ${url} (window.logMessage not available)`);
     }
@@ -25,22 +33,29 @@ export async function globalFetch(url, options = {}) {
     
     // const { addAuthHeadersIfNeeded } = await import('./auth.js');
     // options = await addAuthHeadersIfNeeded(options);
-    
     try {
         const response = await fetch(url, options);
         
+        // Add status to context for response log
+        const responseLogContext = { ...logContext, status: response.status }; 
+        
         // Check if window.logMessage is available before logging
         if (typeof window.logMessage === 'function') {
-            window.logMessage(`[FETCH] Response from ${url}: ${response.status} ${response.statusText}`);
+            // Pass updated context
+            window.logMessage(`Response from ${url}: ${response.status} ${response.statusText}`, 'debug', 'FETCH', responseLogContext);
         } else {
             console.log(`[FETCH] Response from ${url}: ${response.status} ${response.statusText}`);
         }
         
         return response;
     } catch (error) {
+        // Add error to context for error log
+        const errorLogContext = { ...logContext, error: error.message };
+        
         // Check if window.logMessage is available before logging
         if (typeof window.logMessage === 'function') {
-            window.logMessage(`[FETCH ERROR] Request to ${url} failed: ${error.message}`, 'error');
+            // Pass error context
+            window.logMessage(`Request to ${url} failed: ${error.message}`, 'error', 'FETCH', errorLogContext);
         } else {
             console.error(`[FETCH ERROR] Request to ${url} failed: ${error.message}`);
         }

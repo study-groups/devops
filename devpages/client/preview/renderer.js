@@ -11,6 +11,7 @@ import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins } from '/client/preview/plugins/index.js';
 import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
+// import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
 
 // Helper for logging within this module
 function logRenderer(message, level = 'text') {
@@ -155,6 +156,115 @@ function preprocessKatexBlocks(content) {
     return processedContent;
 }
 
+// --- REVISED AGAIN: Enhanced Inline Frontmatter Parser with Declarations ---
+function parseBasicFrontmatter(markdownContent) {
+    logRenderer('[InlineParser] Attempting to parse frontmatter (v3)...', 'debug');
+    const fmRegex = /^---\s*([\s\S]*?)\s*---\s*/;
+    const match = markdownContent.match(fmRegex);
+
+    let frontMatterData = {};
+    let markdownBody = markdownContent;
+
+    if (match && match[1]) {
+        const yamlContent = match[1];
+        markdownBody = markdownContent.substring(match[0].length);
+        logRenderer(`[InlineParser] Found frontmatter block. Length: ${yamlContent.length}`, 'debug');
+
+        try {
+            const lines = yamlContent.split('\n');
+            // --- CORRECT DECLARATIONS ---
+            let currentKey = null;
+            let currentValue = [];
+            let baseIndent = -1;
+            // --- END CORRECT DECLARATIONS ---
+
+            // Helper function defined within the scope
+            function processLine(line) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine || trimmedLine.startsWith('#')) return; // Skip empty/comments
+
+                const separatorIndex = line.indexOf(':');
+                if (separatorIndex > 0) {
+                    const key = line.substring(0, separatorIndex).trim();
+                    let value = line.substring(separatorIndex + 1).trim();
+
+                    if (value === '|' || value === '>') {
+                        if (key === 'css' || key === 'script') {
+                            currentKey = key; // Assign to declared variable
+                            currentValue = []; // Assign to declared variable
+                            baseIndent = line.search(/\S/); // Assign to declared variable
+                            logRenderer(`[InlineParser] Starting block scalar for key: ${key} at indent ${baseIndent}`, 'debug');
+                        } else {
+                            logRenderer(`[InlineParser] Block scalar indicator found for unsupported key: ${key}. Treating as empty.`, 'warn');
+                            frontMatterData[key] = '';
+                        }
+                    } else {
+                        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                            value = value.substring(1, value.length - 1);
+                        } else if (value === 'true') { value = true; }
+                        else if (value === 'false') { value = false; }
+                        else if (!isNaN(value) && value.trim() !== '') {
+                            const num = Number(value);
+                            if (!isNaN(num)) { value = num; }
+                        }
+                        frontMatterData[key] = value; // Assign to declared variable
+                    }
+                } else {
+                    logRenderer(`[InlineParser] Skipping invalid line (no colon): ${line}`, 'warn');
+                }
+            } // End of processLine helper
+
+            // Main processing loop
+            lines.forEach(line => {
+                // Check if currently capturing a block scalar
+                if (currentKey && (line.trim() === '' || line.search(/\S/) >= baseIndent)) { // Adjusted check slightly >=
+                     if (baseIndent === -1 && line.trim() !== '') { // Set base indent on first non-empty line of block
+                          baseIndent = line.search(/\S/);
+                          logRenderer(`[InlineParser] Setting baseIndent for ${currentKey} to ${baseIndent}`, 'debug');
+                     }
+
+                     if (line.trim() === '') {
+                         currentValue.push(''); // Keep empty lines
+                     } else {
+                         // Add the line, preserving relative indentation
+                         currentValue.push(line.substring(baseIndent));
+                     }
+                } else {
+                    // If we were capturing a block, finish it before processing the new line
+                    if (currentKey) {
+                        frontMatterData[currentKey] = currentValue.join('\n').trim(); // Assign to declared variable
+                        logRenderer(`[InlineParser] Finished block scalar for key: ${currentKey}`, 'debug');
+                        currentKey = null; // Assign to declared variable
+                        currentValue = []; // Assign to declared variable
+                        baseIndent = -1; // Assign to declared variable
+                    }
+                    // Process the current line normally now (which might start a *new* block)
+                    processLine(line);
+                }
+            }); // End of forEach loop
+
+            // If we finished parsing while still capturing a block scalar
+            if (currentKey) {
+                frontMatterData[currentKey] = currentValue.join('\n').trim(); // Assign to declared variable
+                 logRenderer(`[InlineParser] Finished final block scalar for key: ${currentKey}`, 'debug');
+            }
+
+            logRenderer(`[InlineParser] Parsed data keys: ${Object.keys(frontMatterData).join(', ')}`, 'debug');
+
+        } catch (parseError) {
+            logRenderer(`[InlineParser] Error parsing frontmatter YAML: ${parseError.message}`, 'error');
+            console.error("Frontmatter Parse Error:", parseError);
+            frontMatterData = {};
+        }
+    } else {
+         logRenderer('[InlineParser] No frontmatter block found.', 'debug');
+    }
+
+    console.log("[InlineParser] Final Parsed Frontmatter Data:", JSON.stringify(frontMatterData, null, 2));
+    return { frontMatter: frontMatterData, content: markdownBody };
+}
+// --- END: Inline Parser with Declarations ---
+
 /**
  * Initialize the Markdown renderer with necessary extensions and options.
  */
@@ -207,7 +317,7 @@ async function initializeRenderer() {
         md.renderer.rules.fence = (tokens, idx, options, env, self) => {
             const token = tokens[idx];
             const info = token.info ? token.info.trim().toLowerCase() : '';
-            
+            const content = token.content;
             logRenderer(`[FENCE RULE] Processing fence. Info: '${info}'`);
 
             if (info === 'mermaid') {
@@ -218,7 +328,7 @@ async function initializeRenderer() {
                     .replace(/>/g, '&gt;');
                 return `<div class="mermaid">${sanitizedCode}</div>`;
             }
-            
+
             // Handle DOT/Graphviz blocks
             if (info === 'dot' || info === 'graphviz') {
                 logRenderer('[FENCE RULE] Identified as Graphviz DOT block.');
@@ -228,10 +338,10 @@ async function initializeRenderer() {
                     .replace(/>/g, '&gt;');
                 return `<div class="graphviz">${sanitizedCode}</div>`;
             }
-            
+
             // Handle LaTeX blocks - especially tables
-            if (info === 'latex') {
-                logRenderer('[FENCE RULE] Identified as LaTeX block.');
+            if (info === 'latex' || info === 'katex' || info === 'tex') {
+                logRenderer('Identified as LaTeX block.', "KATEX, FENCEE");
                 try {
                     if (window.katex) {
                         const html = window.katex.renderToString(token.content, {
@@ -242,23 +352,37 @@ async function initializeRenderer() {
                         });
                         return `<div class="katex-block">${html}</div>`;
                     } else {
-                        logRenderer('[FENCE RULE] KaTeX not available', 'error');
+                        logRenderer('KaTeX not available', "KATEX, FENCE", 'error');
                         return `<pre><code>${token.content}</code></pre>`;
                     }
                 } catch (err) {
-                    logRenderer(`[FENCE RULE] Error: ${err.message}`, 'error');
+                    logRenderer(`Error: ${err.message}`, "KATEX, FENCE", 'error');
                     return `<pre><code class="error">${token.content}</code></pre>`;
                 }
             }
-            
-            if (info === 'svg') {
-                logRenderer('[FENCE RULE] Identified as SVG block.');
-                return token.content;
-            }
 
+            // --- SVG Handling (Reverted) ---
+            if (info === 'svg') {
+                logRenderer('Identified as SVG block. Returning raw content.', "FENCE");
+                try {
+                    if (!content || typeof content !== 'string') {
+                        logRenderer(`Invalid or non-string SVG content in block.`, "FENCE", "error");
+                        return `<div class="error">Invalid SVG code block content</div>`;
+                    }
+                    // Return the raw SVG content. DOMPurify will handle sanitization later.
+                    return content;
+                } catch (error) {
+                    logRenderer(`Error processing SVG content: ${error.message}`, "FENCE", "error");
+                    console.error("SVG Fence Rule Error:", error);
+                    return `<div class="error">Failed to process SVG code block</div>`;
+                }
+            }
+            // --- END SVG Handling ---
+
+            // Fallback to default fence renderer if no match
             return defaultFence(tokens, idx, options, env, self);
         };
-        logRenderer('markdown-it extensions applied (fence override for mermaid/svg, katex).');
+        logRenderer('markdown-it extensions applied (fence override for mermaid/svg/katex).'); // Log updated
 
         isInitialized = true;
         logRenderer('Markdown renderer (markdown-it) initialized successfully.');
@@ -274,49 +398,51 @@ async function initializeRenderer() {
  * @returns {Promise<string>} The rendered and sanitized HTML.
  */
 export async function renderMarkdown(markdownContent) {
-    // Log the raw input string
-    console.log('--- KaTeX RAW INPUT DEBUG START ---');
-    console.log(markdownContent);
-    console.log('--- KaTeX RAW INPUT DEBUG END ---');
-
+    // Ensure the renderer is initialized
     if (!isInitialized) {
+        logRenderer('Renderer not initialized. Attempting initialization...', 'warning');
         await initializeRenderer();
         if (!isInitialized) {
-            return '<p style="color:red;">Error: Markdown renderer failed to initialize.</p>';
+            logRenderer('Renderer initialization failed. Cannot render.', 'error');
+            return { html: '<p>Error: Markdown renderer failed to initialize.</p>', frontMatter: {} };
         }
     }
-    
-    logRenderer(`Rendering markdown (length: ${markdownContent?.length || 0})`);
-    
-    try {
-        // Preprocess LaTeX content for KaTeX compatibility
-        const processedContent = preprocessKatexBlocks(markdownContent); 
-        console.log('--- KaTeX AFTER PREPROCESS ---');
-        console.log(processedContent);
-        console.log('--- END KaTeX AFTER PREPROCESS ---');
 
-        // Render markdown with the processed content
-        const rawHtml = md.render(processedContent);
-        logRenderer('Markdown parsed by markdown-it with KaTeX preprocessing.');
-        
-        // Enable sanitization with appropriate configurations for SVG and graphviz
-        const cleanHtml = DOMPurify.sanitize(rawHtml, {
-             USE_PROFILES: { 
-                 html: true, 
-                 svg: true,
-                 svgFilters: true
-             },
-             ADD_TAGS: ['iframe'],
-             ADD_ATTR: ['viewBox', 'preserveAspectRatio', 'xmlns', 'width', 'height']
-        });
-        logRenderer('HTML sanitized with SVG support enabled.');
-        
-        return cleanHtml;
-    } catch (error) {
-        logRenderer(`Markdown rendering error: ${error.message}`, 'error');
-        console.error('[MARKDOWN RENDER ERROR]', error);
-        return `<p style="color:red; font-weight:bold;">Markdown Rendering Error:</p><pre style="color:red;">${error.message}</pre>`;
+    logRenderer('Starting markdown rendering...');
+    const { content: markdownBody, frontMatter: frontMatterData } = parseBasicFrontmatter(markdownContent);
+    logRenderer(`Parsed frontmatter. Keys: ${Object.keys(frontMatterData).join(', ') || 'None'}`, 'debug');
+    logRenderer(`Markdown body length: ${markdownBody.length}`, 'debug');
+
+    let html = '';
+    try {
+        html = md.render(markdownBody);
+        logRenderer('Markdown-it rendering complete.', 'debug');
+    } catch (renderError) {
+        logRenderer(`Markdown-it render error: ${renderError.message}`, 'error');
+        html = `<p>Error rendering markdown: ${renderError.message}</p>`;
     }
+
+    // --- SANITIZATION STEP --- 
+    logRenderer('Applying DOMPurify sanitization...', 'debug');
+    try {
+        html = DOMPurify.sanitize(html, {
+            USE_PROFILES: { html: true },
+            ADD_TAGS: ['script', 'iframe'],      // Allow <script> AND <iframe> tags
+            ADD_ATTR: ['src', 'defer',           // Allow attributes for <script>
+                       'width', 'height', 'id'] // Allow common attributes for <iframe> (and others)
+                                                 // Note: 'id' needed for getElementById in host script
+                                                 // 'allowfullscreen', 'frameborder' etc. could also be added if needed
+        });
+        logRenderer('DOMPurify sanitization complete.', 'debug');
+        console.log('[PREVIEW RENDERER] HTML content AFTER DOMPurify:', html);
+    } catch (sanitizeError) {
+        logRenderer(`DOMPurify sanitize error: ${sanitizeError.message}`, 'error');
+        html = `<p>Error sanitizing content: ${sanitizeError.message}</p>`;
+    }
+    // --- END SANITIZATION ---
+
+    logRenderer('Markdown rendering process finished.');
+    return { html, frontMatter: frontMatterData };
 }
 
 /**
@@ -369,12 +495,17 @@ export async function postProcessRender(previewElement) {
         // Process syntax highlighting
         try {
             const highlightPlugin = enabledPlugins.get('highlight');
-            if (highlightPlugin) {
-                highlightPlugin.process(previewElement);
-                logRenderer('Code highlighting applied.', 'text');
+            if (highlightPlugin && typeof highlightPlugin.postProcess === 'function') {
+                await highlightPlugin.postProcess(previewElement);
+                logRenderer('Code highlighting applied via postProcess.', 'text');
+            } else if (highlightPlugin) {
+                logRenderer(`Highlight plugin instance found, but postProcess method is missing!`, 'error');
+            } else {
+                logRenderer('Highlight plugin not found in enabled plugins.', 'warn');
             }
         } catch (error) {
             logRenderer(`Error applying syntax highlighting: ${error.message}`, 'error');
+            console.error('[HIGHLIGHT PLUGIN ERROR]', error);
         }
     } catch (error) {
         logRenderer(`Post-processing error: ${error.message}`, 'error');
@@ -393,7 +524,7 @@ export class Renderer {
   async render(content, element) {
     logRenderer('[DEPRECATED?] Renderer class render method called.', 'warning');
     const html = await renderMarkdown(content);
-    element.innerHTML = html;
+    element.innerHTML = html.html;
     this.plugins.forEach(plugin => {
       try {
         if (plugin instanceof MermaidPlugin) {

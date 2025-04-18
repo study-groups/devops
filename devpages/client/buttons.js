@@ -9,12 +9,12 @@ const buttonHandlers = new Map();
 
 // Helper for logging within this module
 function logButton(message, level = 'text') {
-    const prefix = '[BUTTONS]';
+    const type = 'BUTTONS';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message, level, type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${type}] ${message}`);
     }
 }
 

@@ -17,6 +17,9 @@ import eventBus from '/client/eventBus.js';
 // ADD: Import the necessary functions from uiState
 import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
 
+// Comment out the import
+// import { appVer } from '/client/config.js';
+
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
         this.container = document.getElementById(containerElementId);
@@ -70,6 +73,8 @@ export class LogPanel {
         this.subscribeToStateChanges(); // ADDED: Subscribe to uiState.logVisible
         this.updateUI();
         this.updateEntryCount(); // Initial count
+        // Comment out the call to updateAppInfo
+        // this.updateAppInfo();
         console.log('[LogPanel] Initialized successfully.');
     }
 
@@ -282,12 +287,25 @@ export class LogPanel {
              return; 
         }
 
+        // Check for empty, undefined, or null messages
+        if (message === undefined || message === null) {
+            console.warn('[LogPanel] Empty log message received, ignoring');
+            return;
+        }
+        
+        // Convert to string if it's not already (handles empty strings)
+        const messageStr = String(message);
+        if (messageStr.trim() === '' && type === 'text') {
+            console.warn('[LogPanel] Empty text log message received, ignoring');
+            return;
+        }
+
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry log-entry-${type}`; // Add type class for styling
 
         if (type === 'text') {
-            logEntry.textContent = `${timestamp} ${message}`;
+            logEntry.textContent = `${timestamp} ${messageStr}`;
         } else if (type === 'json') {
             logEntry.textContent = `${timestamp} [JSON] `;
             const pre = document.createElement('pre');
@@ -299,7 +317,7 @@ export class LogPanel {
             logEntry.appendChild(pre);
         } else {
             // Handle other types like 'error', 'warning' - maybe just add text?
-             logEntry.textContent = `${timestamp} ${message}`;
+             logEntry.textContent = `${timestamp} ${messageStr}`;
         }
 
         // Add click event listener to add to preview (Optional - requires updatePreview)
@@ -332,7 +350,7 @@ export class LogPanel {
         this.scrollToBottom();
 
         // Also log to console for debugging
-        console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : message}`);
+        console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : messageStr}`);
     }
 
     /**
@@ -493,4 +511,15 @@ export class LogPanel {
         document.removeEventListener('mouseup', this._handleResizeMouseUp); // Clean up global listeners
         console.log('[LogPanel] Destroyed.');
     }
+
+    // Comment out the entire method
+    /*
+    updateAppInfo() {
+        if (!this.appInfoElement) return;
+        // Set the text content to the imported version
+        this.appInfoElement.textContent = `v${appVer}`;
+        this.appInfoElement.title = `Application Version: ${appVer}`; // Add a tooltip
+        console.log(`[LogPanel] App info updated: v${appVer}`);
+    }
+    */
 } 

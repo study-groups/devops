@@ -1,167 +1,278 @@
 // api.js - Handles API calls to the server
 import { globalFetch } from '/client/globalFetch.js';
-// import { AUTH_STATE } from '/client/auth.js'; // No longer needed
-import { authState } from '/client/authState.js'; // Use reactive state
-import { withAuthHeaders } from '/client/headers.js'; // Assuming this uses authState now
+// import { AUTH_STATE } from '/client/auth.js'; // Removed
+// import { withAuthHeaders } from '/client/headers.js'; // Removed unused import
+import { appState } from '/client/appState.js'; // Import central state for auth info
 
-// Create backwards-compatible alias
-const authState = AUTH_STATE;
+// Remove backward-compatible alias
+// const authState = AUTH_STATE;
+
+// --- API Endpoints --- (Reinstate)
+const API_BASE = '/api';
+const endpoints = {
+    // Files
+    listFiles: (dir = '') => `${API_BASE}/files/list?dir=${encodeURIComponent(dir)}`,
+    getFileContent: (name, dir = '') => `${API_BASE}/files/content?file=${encodeURIComponent(name)}&dir=${encodeURIComponent(dir)}`, // Adjusted endpoint based on usage
+    saveFile: () => `${API_BASE}/files/save`, // POST request
+    listDirs: () => `${API_BASE}/files/dirs`,
+    deleteFile: () => `${API_BASE}/files/delete`, // POST request
+    getConfig: (dir = '') => `${API_BASE}/files/config?dir=${encodeURIComponent(dir)}`, // Adjusted endpoint
+
+    // Auth
+    login: () => `${API_BASE}/auth/login`, // POST
+    logout: () => `${API_BASE}/auth/logout`, // POST
+    userStatus: () => `${API_BASE}/auth/user`, // GET
+
+    // Community Files
+    manageLink: () => `${API_BASE}/community/link`, // Combined add/remove via action param
+    // Add other endpoints if needed (images, etc.)
+};
+
+// --- Helper Functions ---
+
+/**
+ * Helper for logging within this module
+ * @param {string} message
+ * @param {string} [level='info'] // Default level to info
+ */
+function logApi(message, level = 'info') {
+    const type = 'API';
+    // Use window.logMessage if available
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        // Fallback to console if global logger isn't ready
+        const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
+        logFunc(`[${type}] ${message}`);
+    }
+}
+
+/**
+ * Adds authentication headers if the user is logged in.
+ * Reads directly from appState.
+ * @param {object} options - Existing fetch options.
+ * @returns {object} Fetch options potentially augmented with Authorization header.
+ */
+function addAuthHeader(options = {}) {
+    const authInfo = appState.getState().auth; // Use central appState
+    if (authInfo.isLoggedIn && authInfo.user?.username) {
+        options.headers = {
+            ...options.headers,
+            // Assuming Basic Auth based on previous context
+            'Authorization': `Basic ${btoa(`${authInfo.user.username}:${authInfo.hashedPassword || ''}`)}`
+        };
+        logApi('Added Auth header.', 'debug');
+    } else {
+        logApi('No Auth header added (not logged in or missing credentials).', 'debug');
+    }
+    return options;
+}
 
 /**
  * Normalize directory names for API requests
- * This ensures special cases are handled properly
+ * @param {string} directory
+ * @returns {string}
  */
 function normalizeDirectoryForApi(directory) {
-    // No longer converting between variations - use as is
-    return directory;
+    return directory; // Keep simple for now
 }
 
-// Helper for logging within this module
-function logApi(message, level = 'text') {
-    const prefix = '[API]';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
-    }
-}
-
-/**
- * Fetch content for a file
- * @param {string} filename - File name
- * @param {string} directory - Directory name
- * @returns {Promise<string>} File content
- */
-export async function fetchFileContent(filename, directory) {
-    logApi(`Fetching content for ${filename} in ${directory}`);
-    const url = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}`;
-    try {
-        const response = await globalFetch(url);
-        if (!response.ok) {
-            throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
+// --- Exported API Object --- 
+export const api = {
+    /**
+     * Fetch content for a file
+     * @param {string} filename - File name
+     * @param {string} directory - Directory name
+     * @returns {Promise<string>} File content
+     */
+    async fetchFileContent(filename, directory) {
+        logApi(`Fetching content for ${filename} in ${directory}`);
+        const url = endpoints.getFileContent(filename, directory);
+        try {
+            // Use addAuthHeader
+            const options = addAuthHeader({ method: 'GET' });
+            const response = await globalFetch(url, options);
+            if (!response.ok) {
+                throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
+            }
+            const content = await response.text();
+            logApi(`Content fetched successfully (length: ${content.length})`);
+            return content;
+        } catch (error) {
+            logApi(`Error fetching file content: ${error.message}`, 'error');
+            throw error;
         }
-        const content = await response.text();
-        logApi(`Content fetched successfully (length: ${content.length})`);
-        return content;
-    } catch (error) {
-        logApi(`Error fetching file content: ${error.message}`, 'error');
-        throw error; // Re-throw for the caller (e.g., fileManager)
-    }
-}
+    },
 
-/**
- * Save content to a file
- * @param {string} filename - File name
- * @param {string} directory - Directory name
- * @param {string} content - Content to save
- * @returns {Promise<Response>} Raw server response
- */
-
-
-export async function saveFileContent(filename, directory, content) {
-    logMessage(`[API] Save attempt with filename: "${filename}", directory: "${directory}"`);
-    
-    // Headers only need Content-Type now
-    const headers = {
-      'Content-Type': 'text/plain' // Important: text/plain, not application/json
-    };
-    
-    try {
-        // Use query parameters for file and directory
-        const queryParams = new URLSearchParams({
-            file: filename,
-            dir: directory
-        }).toString();
-        
-        // Use fetch WITHOUT manual auth headers. Relies on browser sending session cookie.
-        const response = await fetch(`/api/files/save?${queryParams}`, {
-            method: 'POST',
-            headers: headers, // Only Content-Type needed
-            body: content  // Send content directly as text
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            logMessage(`[API] Save failed with error: ${errorText}`, 'error');
-            throw new Error(`Failed to save: ${response.status}`);
+    /**
+     * Save content to a file
+     * @param {string} filename - File name
+     * @param {string} directory - Directory name
+     * @param {string} content - Content to save
+     * @returns {Promise<Response>} Raw server response
+     */
+    async saveFileContent(filename, directory, content) {
+        logApi(`[API] Save attempt with filename: "${filename}", directory: "${directory}"`);
+        const url = endpoints.saveFile(); // Use endpoint
+        try {
+            // Standardize to use JSON body and auth header
+            const body = JSON.stringify({ name: filename, dir: directory, content: content });
+            const options = addAuthHeader({
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, // Use JSON
+                body: body
+            });
+            
+            const response = await globalFetch(url, options);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                logApi(`[API] Save failed with error: ${errorText}`, 'error');
+                throw new Error(`Failed to save: ${response.status}`);
+            }
+            
+            logApi('[API] Successfully saved file');
+            return response; // Return raw response for flexibility
+        } catch (error) {
+            logApi(`[API] Save failed: ${error.message}`, 'error');
+            throw error;
         }
-        
-        logMessage('[API] Successfully saved file');
-        return response;
-    } catch (error) {
-        logMessage(`[API] Save failed: ${error.message}`, 'error');
-        throw error;
-    }
-}
+    },
 
+    /**
+     * Fetch directory listing
+     * @param {string} directory
+     * @returns {Promise<object>} Parsed JSON listing
+     */
+    async fetchDirectoryListing(directory) {
+        const normalizedDir = normalizeDirectoryForApi(directory);
+        const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
+        const url = endpoints.listFiles(normalizedDir) + includeSymlinks; // Append symlink param
+        logApi(`Fetching listing for dir: '${normalizedDir}'`, 'debug');
+        try {
+            const options = addAuthHeader({ method: 'GET' });
+            const response = await globalFetch(url, options);
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            return await response.json(); // Parse JSON here
+        } catch (error) {
+            logApi(`Error fetching directory listing: ${error.message}`, 'error');
+            throw error;
+        }
+    },
 
+    /**
+     * Fetch directory configuration
+     * @param {string} directory
+     * @returns {Promise<object>} Parsed JSON config
+     */
+    async fetchDirectoryConfig(directory) {
+        const url = endpoints.getConfig(directory);
+        logApi(`Fetching config for dir: '${directory}'`, 'debug');
+        try {
+            const options = addAuthHeader({ method: 'GET' });
+            const response = await globalFetch(url, options);
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+        } catch (error) {
+            logApi(`Error fetching directory config: ${error.message}`, 'error');
+            throw error;
+        }
+    },
 
-export async function fetchDirectoryListing(directory) {
-    const normalizedDir = normalizeDirectoryForApi(directory);
-    
-    // Add parameter to ensure we get symlinks for Community Files
-    const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
-    
-    const response = await globalFetch(
-        `/api/files/list?dir=${encodeURIComponent(normalizedDir)}${includeSymlinks}`
-    );
-    
-    if (!response.ok) {
-        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-    }
-    
-    return response;
-}
-
-export async function fetchDirectoryConfig(directory) {
-    const response = await globalFetch(
-        `/api/files/config?dir=${encodeURIComponent(directory)}`
-    );
-    
-    if (!response.ok) {
-        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-    }
-    
-    return response.json();
-}
-
-// Export a helper for community link management
-export async function manageCommunityLink(filename, directory, action = 'add') {
-    try {
-        const url = `/api/community/link?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
-        
+    /**
+     * Manage community link (add/remove)
+     * @param {string} filename
+     * @param {string} directory
+     * @param {string} action - 'add' or 'remove'
+     * @returns {Promise<object>} Parsed JSON result
+     */
+    async manageCommunityLink(filename, directory, action = 'add') {
+        const url = `${endpoints.manageLink()}?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
         logApi(`Managing community link: ${action} for ${filename} from ${directory}`);
-
-        // Add detailed logging for the fetch call
-        console.log('[API] manageCommunityLink URL:', url);
-        const fetchOptions = {
-            method: 'POST'
-        };
-        console.log('[API] manageCommunityLink fetchOptions:', fetchOptions);
-        
-        const response = await globalFetch(url, fetchOptions);
-        
-        console.log('[API] manageCommunityLink response:', response);
-
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        try {
+            const options = addAuthHeader({ method: 'POST' }); // Needs auth
+            const response = await globalFetch(url, options);
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+        } catch (error) {
+            logApi(`Failed to manage community link: ${error.message}`, 'error');
+            throw error;
         }
-        
-        const result = await response.json();
-        return result;
-    } catch (error) {
-        logApi(`Failed to manage community link: ${error.message}`, 'error');
-        console.error('[API] manageCommunityLink error:', error); // Log the error to the console
-        throw error;
-    }
-}
+    },
 
-// Export APIs
-export default {
-  fetchFileContent,
-  saveFileContent,
-  fetchDirectoryListing,
-  fetchDirectoryConfig,
-  manageCommunityLink
-}; 
+    // --- Auth --- 
+    /**
+     * Sends login credentials to the server.
+     * @param {string} username
+     * @param {string} password
+     * @returns {Promise<Response>} Raw response object
+     */
+    async login(username, password) {
+        logApi(`[API] login called for user: ${username}`, 'debug');
+        const url = endpoints.login();
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        };
+        return await globalFetch(url, options);
+    },
+   
+    /**
+     * Sends logout request to the server.
+     * @returns {Promise<Response>} Raw response object
+     */
+    async logout() {
+        logApi(`[API] logout called`, 'debug');
+        const url = endpoints.logout();
+        const options = addAuthHeader({ method: 'POST' });
+        return await globalFetch(url, options);
+    },
+   
+    /**
+     * Fetches the current user's status from the server.
+     * @returns {Promise<Response>} Raw response object
+     */
+    async getUserStatus() {
+        logApi(`[API] getUserStatus called`, 'debug');
+        const url = endpoints.userStatus();
+        const options = addAuthHeader({ method: 'GET' });
+        return await globalFetch(url, options);
+    },
+   
+    // --- Files --- 
+    /**
+     * Deletes a file on the server.
+     * @param {string} filename 
+     * @param {string} directory 
+     * @returns {Promise<object>} Server response
+     */
+    async deleteFile(filename, directory = '') {
+        logApi(`[API] deleteFile called for: ${directory}/${filename}`, 'debug');
+        const url = endpoints.deleteFile();
+        const body = JSON.stringify({ name: filename, dir: directory });
+        const options = addAuthHeader({
+            method: 'POST', // Assuming POST based on endpoint def
+            headers: { 'Content-Type': 'application/json' },
+            body,
+        });
+        try {
+            const response = await globalFetch(url, options);
+            if (!response.ok) throw new Error(`Failed to delete file: ${response.statusText}`);
+            return await response.json();
+        } catch (error) {
+            logApi(`Error deleting file: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+     
+    // Add stubs/implementations for other endpoints (images etc.) if needed
+};
+
+logApi('[API] Client API module loaded.'); 

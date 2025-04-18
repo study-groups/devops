@@ -4,7 +4,6 @@
  */
 import { eventBus } from '/client/eventBus.js';
 import { uploadImage } from '/client/imageManager.js';
-import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
 
 // Import required file management functionality safely (dynamic)
@@ -134,7 +133,7 @@ const editorCore = {
   insertTextAtCursor: function(text) {
     if (!text) return false;
     
-    const textarea = document.querySelector('#md-editor textarea');
+    const textarea = document.querySelector('#editor-container textarea');
     if (!textarea) return false;
     
     const cursorPos = textarea.selectionStart;
@@ -170,56 +169,68 @@ const editorCore = {
   uploadPastedImage: async function(blob) {
     if (!blob) return false;
     
-    const textarea = document.querySelector('#md-editor textarea');
-    if (!textarea) return false;
+    const textarea = document.querySelector('#editor-container textarea');
+    if (!textarea) {
+        logEditor('[EDITOR ERROR] Textarea not found in #editor-container for uploadPastedImage');
+        return false;
+    }
     
-    // Create a loading indicator
-    const cursorPos = textarea.selectionStart;
-    const textBefore = textarea.value.substring(0, cursorPos);
-    const textAfter = textarea.value.substring(cursorPos);
-    const loadingText = '![Uploading image...](uploading)';
-    textarea.value = `${textBefore}${loadingText}${textAfter}`;
+    // Store original cursor position and text state
+    const originalCursorPos = textarea.selectionStart;
+    const originalText = textarea.value;
     
-    // Update cursor position
-    const newCursorPos = cursorPos + loadingText.length;
-    textarea.setSelectionRange(newCursorPos, newCursorPos);
+    // Show a temporary visual indicator (optional, e.g., change border style)
+    textarea.style.cursor = 'wait'; 
+    const originalBorder = textarea.style.border;
+    textarea.style.border = '2px dashed orange';
     
     try {
-      // Upload the image
-      logEditor('[EDITOR] Uploading pasted image');
+      // Upload the image (this just returns the URL)
+      logEditor('[EDITOR] Uploading pasted image (no placeholder)');
       const imageUrl = await uploadImage(blob);
       
-      // Replace loading text with actual image markdown
+      // Remove temporary indicator
+      textarea.style.cursor = 'text';
+      textarea.style.border = originalBorder;
+      
       if (imageUrl) {
-        logEditor(`[EDITOR] Image upload successful: ${imageUrl}`);
+        logEditor(`[EDITOR] Image upload successful: ${imageUrl}. Inserting...`);
         
-        // Replace the loading text with the actual image markdown
-        const currentText = textarea.value;
-        const updatedText = currentText.replace(loadingText, `![](${imageUrl})`);
+        // Insert the final markdown directly at the original cursor position
+        const textBefore = originalText.substring(0, originalCursorPos);
+        const textAfter = originalText.substring(originalCursorPos);
+        const markdownToInsert = `\n![](${imageUrl})\n`;
+        const updatedText = `${textBefore}${markdownToInsert}${textAfter}`;
         textarea.value = updatedText;
         
-        // Emit event for preview update (instead of direct call)
+        // Move cursor after inserted text
+        const newCursorPos = originalCursorPos + markdownToInsert.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        
+        // Emit event for preview update
         eventBus.emit('editor:contentChanged', { content: updatedText });
         
         return true;
       } else {
         logEditor('[EDITOR ERROR] Image upload failed - no URL returned');
-        // Replace the loading text with an error message
-        const currentText = textarea.value;
-        const updatedText = currentText.replace(loadingText, '![Upload failed](error)');
-        textarea.value = updatedText;
-        textarea.dispatchEvent(new Event('input'));
+        // Restore original text if upload failed (optional)
+        // textarea.value = originalText;
+        // textarea.setSelectionRange(originalCursorPos, originalCursorPos);
+        alert('Image upload failed.'); // Simple feedback
         return false;
       }
     } catch (error) {
       logEditor(`[EDITOR ERROR] Image upload failed: ${error.message}`);
       console.error('[EDITOR ERROR]', error);
       
-      // Replace the loading text with an error message
-      const currentText = textarea.value;
-      const updatedText = currentText.replace(loadingText, '![Upload failed](error)');
-      textarea.value = updatedText;
-      textarea.dispatchEvent(new Event('input'));
+      // Remove temporary indicator on error
+      textarea.style.cursor = 'text';
+      textarea.style.border = originalBorder;
+
+      // Restore original text (optional)
+      // textarea.value = originalText;
+      // textarea.setSelectionRange(originalCursorPos, originalCursorPos);
+      alert(`Image upload failed: ${error.message}`); // Simple feedback
       return false;
     }
   },
@@ -229,7 +240,7 @@ const editorCore = {
    * @returns {Object} Selection object with start, end, and text properties
    */
   getSelection: function() {
-    const textarea = document.querySelector('#md-editor textarea');
+    const textarea = document.querySelector('#editor-container textarea');
     if (!textarea) return { start: 0, end: 0, text: '' };
     
     return {
@@ -318,7 +329,7 @@ function setupKeyboardShortcuts() {
  * Set up event listeners
  */
 function setupEventListeners() {
-  const textarea = document.querySelector('#md-editor textarea');
+  const textarea = document.querySelector('#editor-container textarea');
   if (!textarea) return;
   
   // Debounced input event for preview updates
@@ -346,9 +357,9 @@ function setupEventListeners() {
 function setupImagePasteHandler() {
   logEditor('[EDITOR] Setting up image paste handler');
   
-  const textarea = document.querySelector('#md-editor textarea');
+  const textarea = document.querySelector('#editor-container textarea');
   if (!textarea) {
-    logEditor('[EDITOR ERROR] Textarea not found for image paste handler');
+    logEditor('[EDITOR ERROR] Textarea not found in #editor-container for image paste handler');
     return false;
   }
   
@@ -396,9 +407,14 @@ function setupImagePasteHandler() {
   return true;
 }
 
-// Helper function to log editor messages
-function logEditor(message, level = 'text') {
-    logMessage(`[EDITOR] ${message}`, level);
+// Centralized logger function for this module
+function logEditor(message, level = 'info') {
+    const type = 'EDITOR';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        console.log(`[${type}] ${message}`); // Fallback
+    }
 }
 
 // <<< MODIFY: Drag and Drop Upload Logic >>>
@@ -501,7 +517,7 @@ async function uploadMediaToSpaces(file) {
 
 // <<< KEEP: Existing function to insert Markdown >>>
 function insertMediaMarkdown(fileType, filePath, originalName) {
-    const editorTextarea = document.querySelector('#md-editor textarea');
+    const editorTextarea = document.querySelector('#editor-container textarea');
     if (!editorTextarea) {
         logEditor('Editor textarea not found for inserting markdown.', 'error');
         return;

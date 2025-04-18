@@ -7,12 +7,12 @@
 
 // Helper for logging within this module
 function logHighlight(message, level = 'text') {
-    const prefix = '[HIGHLIGHT]';
+    const type = 'HIGHLIGHT';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level);
+        window.logMessage(message,type);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`${type}: ${message}`);
     }
 }
 

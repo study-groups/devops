@@ -158,3 +158,11 @@
 /* ============================================= */
 /* AGGRESSIVE KaTeX DEBUG OVERRIDES - END         */
 /* ============================================= */
+
+#preview-container > h1 {
+  font-size: 2em; /* Make it bigger */
+  font-weight: bold; /* Make it bold */
+  border-bottom: 1px solid #ccc; /* Add a line underneath */
+  padding-bottom: 0.3em;
+  margin-bottom: 1em; /* Increase space below */
+}

@@ -54,106 +54,6 @@ export function extractSvgContent(content) {
 }
 
 /**
- * Process markdown text to handle SVG content
- */
-export function processSvgInMarkdown(mdText) {
-    // Only process SVGs if the content actually contains SVG tags
-    if (!mdText.includes('<svg') && !mdText.includes('.svg')) {
-        return { processedText: mdText, hasSvg: false };
-    }
-    
-    // Track all SVG content to ensure we don't miss any
-    let allSvgBlocks = [];
-    let allInlineSvgBlocks = [];
-    let processedText = mdText;
-    let svgBlockCount = 0;
-    let inlineSvgCount = 0;
-    
-    // Match SVG code blocks with language identifier
-    const svgCodeBlockRegex = /```(?:svg|xml)\s+([\s\S]*?<svg[\s\S]*?<\/svg>[\s\S]*?)```/g;
-    // Match SVG code blocks without language identifier
-    const plainSvgBlockRegex = /```\s*([\s\S]*?<svg[\s\S]*?<\/svg>[\s\S]*?)```/g;
-    // Match inline SVG tags
-    const inlineSvgRegex = /(?:^|[^`])<svg[\s\S]*?<\/svg>/g;
-    
-    // Process SVG code blocks with language identifier
-    let match;
-    while ((match = svgCodeBlockRegex.exec(mdText)) !== null) {
-        const fullMatch = match[0];
-        const svgContent = extractSvgContent(match[1]);
-        allSvgBlocks.push(svgContent);
-        
-        // Replace with a placeholder that includes the SVG content as a data attribute
-        const placeholder = `<div class="svg-container" data-svg-index="${svgBlockCount}" data-svg-content="${encodeURIComponent(svgContent)}"></div>`;
-        processedText = processedText.replace(fullMatch, placeholder);
-        svgBlockCount++;
-    }
-    
-    // Process SVG code blocks without language identifier
-    // Only match if the content actually contains an SVG tag
-    while ((match = plainSvgBlockRegex.exec(mdText)) !== null) {
-        const fullMatch = match[0];
-        const content = match[1];
-        
-        // Only process if it actually contains an SVG tag
-        if (content.includes('<svg') && content.includes('</svg>')) {
-            const svgContent = extractSvgContent(content);
-            allSvgBlocks.push(svgContent);
-            
-            // Replace with a placeholder that includes the SVG content as a data attribute
-            const placeholder = `<div class="svg-container" data-svg-index="${svgBlockCount}" data-svg-content="${encodeURIComponent(svgContent)}"></div>`;
-            processedText = processedText.replace(fullMatch, placeholder);
-            svgBlockCount++;
-        }
-    }
-    
-    // Process inline SVG tags (not in code blocks)
-    let inlineMatches = [];
-    let inlineMatch;
-    
-    // We need to be careful not to match SVGs inside code blocks
-    // So we'll split the text by code blocks and only process non-code parts
-    const codeBlockSplits = processedText.split('```');
-    for (let i = 0; i < codeBlockSplits.length; i++) {
-        // Skip code block contents (odd indices)
-        if (i % 2 === 1) continue;
-        
-        const textPart = codeBlockSplits[i];
-        while ((inlineMatch = inlineSvgRegex.exec(textPart)) !== null) {
-            const fullMatch = inlineMatch[0];
-            // If the match starts with a backtick, it's inside an inline code block
-            if (fullMatch.startsWith('`')) continue;
-            
-            const svgContent = extractSvgContent(fullMatch);
-            allInlineSvgBlocks.push(svgContent);
-            
-            // Store the match info for later replacement
-            inlineMatches.push({
-                fullMatch,
-                index: inlineMatch.index + textPart.indexOf(fullMatch, inlineMatch.index),
-                svgContent,
-                inlineSvgIndex: inlineSvgCount++
-            });
-        }
-    }
-    
-    // Replace inline SVGs with placeholders
-    // We need to do this from the end to avoid messing up indices
-    for (let i = inlineMatches.length - 1; i >= 0; i--) {
-        const { fullMatch, svgContent, inlineSvgIndex } = inlineMatches[i];
-        const placeholder = `<span class="inline-svg-container" data-inline-svg-index="${inlineSvgIndex}" data-svg-content="${encodeURIComponent(svgContent)}"></span>`;
-        processedText = processedText.replace(fullMatch, placeholder);
-    }
-    
-    logMessage(`Found ${svgBlockCount} SVG code blocks and ${inlineSvgCount} inline SVGs`);
-    
-    return { 
-        processedText, 
-        hasSvg: svgBlockCount > 0 || inlineSvgCount > 0 
-    };
-}
-
-/**
  * Process all SVG content in the document
  * @returns {Promise} A promise that resolves when all SVG processing is complete
  */
@@ -263,43 +163,33 @@ export function processInlineSvgContainer(container, index) {
             if (encodedSvgContent) {
                 logMessage(`Processing inline SVG #${index}, encoded content length: ${encodedSvgContent.length}`);
                 
-                // Decode the SVG content
-                const svgContent = decodeURIComponent(encodedSvgContent);
-                logMessage(`Decoded SVG content length: ${svgContent.length}`);
-                
-                // Set the SVG content directly - we've already extracted and cleaned it
-                container.innerHTML = svgContent;
-                
-                // Make sure SVG is responsive
-                const svgElement = container.querySelector('svg');
-                if (svgElement) {
-                    logMessage(`Found SVG element in container #${index}`);
-                    if (!svgElement.hasAttribute('width')) {
-                        svgElement.setAttribute('width', '100%');
-                    }
-                    if (!svgElement.hasAttribute('height')) {
-                        // Use CSS for auto height instead of setting the attribute
-                        svgElement.style.height = 'auto';
-                    }
-                    svgElement.style.maxWidth = '100%';
-                } else {
-                    logMessage(`ERROR: No SVG element found in container #${index} after setting innerHTML`);
-                    // Try to display the content for debugging
-                    const contentPreview = svgContent.length > 100 ? 
-                        svgContent.substring(0, 100) + '...' : 
-                        svgContent;
-                    logMessage(`Content preview: ${contentPreview}`);
+                try {
+                    // Decode the SVG content
+                    const svgContent = decodeURIComponent(encodedSvgContent);
+                    logMessage(`Decoded SVG content length: ${svgContent.length}`);
                     
-                    // Try to render as HTML if it doesn't contain an SVG element
-                    if (svgContent.includes('<') && svgContent.includes('>')) {
-                        logMessage(`Attempting to render as HTML for container #${index}`);
-                        // Keep the original content but wrap in a div for styling
-                        container.innerHTML = `<div class="html-content">${svgContent}</div>`;
+                    // Set the SVG content directly
+                    container.innerHTML = svgContent;
+                    
+                    // Make sure SVG is responsive
+                    const svgElement = container.querySelector('svg');
+                    if (svgElement) {
+                        logMessage(`Found SVG element in container #${index}`);
+                        if (!svgElement.hasAttribute('width')) {
+                            svgElement.setAttribute('width', '100%');
+                        }
+                        if (!svgElement.hasAttribute('height')) {
+                            svgElement.style.height = 'auto';
+                        }
+                        svgElement.style.maxWidth = '100%';
                     }
+                    
+                    // Remove the data attribute to prevent reprocessing
+                    container.removeAttribute('data-svg-content');
+                } catch (decodeError) {
+                    logMessage(`ERROR: Failed to decode SVG content: ${decodeError.message}`);
+                    container.innerHTML = `<div class="error">Failed to decode SVG content</div>`;
                 }
-                
-                // Remove the data attribute to prevent reprocessing
-                container.removeAttribute('data-svg-content');
             } else {
                 logMessage(`ERROR: Container #${index} has no data-svg-content attribute`);
             }

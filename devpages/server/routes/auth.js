@@ -1,15 +1,25 @@
-const express = require('express');
+import express from 'express';
+import path from 'path';
+import { createRequire } from 'module'; // Import createRequire
+
+// Import utilities and middleware using ESM
+import { validateUser, getUserSalt, loadUsers, hashPassword, USERS_FILE } from '../utils/userUtils.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { env, uploadsDirectory, imagesDirectory } from '../config.js';
+
+// Create a require function for JSON import
+const require = createRequire(import.meta.url);
+const pkg = require('../../package.json');
+
 const router = express.Router();
-const { validateUser, getUserSalt, loadUsers, hashPassword } = require('../utils/userUtils');
-const { authMiddleware } = require('../middleware/auth');
-const path = require('path');
 
 // Public routes (no auth required)
 router.get('/salt', (req, res) => {
     const username = req.query.username;
     console.log(`[AUTH] Salt request for user: ${username}`);
-    console.log(`[AUTH] Using users file: ${path.resolve(require('../utils/userUtils').USERS_FILE)}`);
-    
+    // Use imported USERS_FILE constant
+    console.log(`[AUTH] Using users file: ${path.resolve(USERS_FILE)}`);
+
     if (!username) {
         console.log('[AUTH ERROR] No username provided in salt request');
         return res.status(400).json({ error: 'Username required' });
@@ -27,11 +37,11 @@ router.get('/salt', (req, res) => {
 
 router.post('/login', (req, res) => {
     // Expect PLAIN password from client
-    const { username, password } = req.body; 
-    
-    console.log('[AUTH /login] Received body:', { username, password: '[REDACTED]' }); 
+    const { username, password } = req.body;
 
-    if (!username || !password) { 
+    console.log('[AUTH /login] Received body:', { username, password: '[REDACTED]' });
+
+    if (!username || !password) {
         console.log('[AUTH /login ERROR] Username or password missing');
         return res.status(400).json({ error: 'Username and password required' });
     }
@@ -82,9 +92,7 @@ router.post('/login', (req, res) => {
 });
 
 router.get('/config', (req, res) => {
-    const { env } = require('../config');
-    const { USERS_FILE } = require('../utils/userUtils');
-    
+    // Use imports from the top level
     console.log('[CONFIG] Gathering environment information');
     const safeConfig = {
         NODE_ENV: env.NODE_ENV,
@@ -93,22 +101,28 @@ router.get('/config', (req, res) => {
         PORT: env.PORT,
         SERVER_TIME: new Date().toISOString(),
         USERS_FILE: path.resolve(USERS_FILE),
-        UPLOADS_DIR: path.resolve(require('../config').uploadsDirectory),
-        IMAGES_DIR: path.resolve(require('../config').imagesDirectory),
-        VERSION: require('../../package.json').version || 'dev'
+        UPLOADS_DIR: path.resolve(uploadsDirectory),
+        IMAGES_DIR: path.resolve(imagesDirectory),
+        VERSION: pkg.version || 'dev'
     };
-    
+
     console.log('[CONFIG] Configuration values:');
     Object.entries(safeConfig).forEach(([key, value]) => {
         console.log(`[CONFIG] ${key.padEnd(15)} = ${value}`);
     });
-    
+
     res.json(safeConfig);
 });
 
 // Protected routes (auth required)
 router.get('/user', authMiddleware, (req, res) => {
-    res.json({ username: req.user.username });
+    // req.user is attached by authMiddleware if session is valid
+    if (req.user) {
+        res.json({ username: req.user.username });
+    } else {
+        // This case shouldn't be reached if authMiddleware is working, but good practice
+        res.status(401).json({ error: 'User not authenticated' });
+    }
 });
 
 const activeUsers = new Map(); // Store active users and their last activity
@@ -126,20 +140,23 @@ function updateActiveUser(username) {
 
 // Add this route to get detailed system info
 router.get('/system', authMiddleware, (req, res) => {
+    if (!req.user) { // Check if user exists from middleware
+         return res.status(401).json({ error: 'User not authenticated' });
+    }
     updateActiveUser(req.user.username);
-    
+
     const systemInfo = {
         environment: {
             NODE_ENV: process.env.NODE_ENV || 'development',
             PORT: process.env.PORT || 4000,
-            VERSION: process.env.VERSION || 'dev'
+            VERSION: process.env.VERSION || pkg.version || 'dev'
         },
         paths: {
             MD_DIR: process.env.MD_DIR,
             MD_PWD: path.join(process.env.MD_DIR, req.user.username),
             PJ_DIR: process.env.PJ_DIR,
-            IMAGES_DIR: process.env.IMAGES_DIR,
-            USERS_FILE: process.env.PJA_USERS_CSV
+            IMAGES_DIR: process.env.IMAGES_DIR, // Should use imported imagesDirectory?
+            USERS_FILE: process.env.PJA_USERS_CSV // Should use imported USERS_FILE?
         },
         server: {
             uptime: process.uptime(),
@@ -168,4 +185,5 @@ router.post('/logout', (req, res) => {
     });
 });
 
-module.exports = router; 
+// module.exports = router; // Old CommonJS export
+export default router; // New ESM export 

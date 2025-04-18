@@ -1,60 +1,59 @@
 global:
   scrape_interval: 15s
 
+
 scrape_configs:
-  - job_name: 'nginx'
+  - job_name: 'prometheus'  # Scrapes Prometheus itself
     static_configs:
-      - targets: ['10.124.0.3:9113']       # prod_priv
-      - targets: ['10.124.0.4:9113']       # dev_priv
-      - targets: ['137.184.226.163:9113']  # dev_pub
+      - targets: ['10.124.0.2:9090']  # 'localhost' works from within the container
 
-  - job_name: 'influxdb'
+  - job_name: 'telegraf-qa'
     static_configs:
-      - targets: ['influxdb:8086']
+      # Target the Telegraf instance running on pxjam-arcade-qa01
+      # Use the IP address reachable from the Prometheus container and port 9273
+      - targets: ['10.124.0.2:9273']  # <-- VERIFY this IP is correct for QA host
+        labels:
+          instance: 'pxjam-arcade-qa01'  # Optional: Add an instance label
 
-  - job_name: 'telegraf_prod'
-    static_configs:
-      - targets: ['10.124.0.3:9125']        # prod_priv
-      - targets: ['137.184.226.163:9125']   # dev_pub
+  - job_name: 'nginx'                                                                           
+    static_configs:                                                                             
+      - targets: ['10.123.0.2:9113']     
 
-  - job_name: 'website-monitoring-http'
+  - job_name: 'blackbox'  # Blackbox exporter for external websites
     metrics_path: /probe
     params:
-      module: [http_2xx_prod]
+      module: [http_2xx]  # Ensure this module is defined in your blackbox.yml
     static_configs:
       - targets:
-          - https://pixeljamarcade.com
-          - https://dev.pixeljamarcade.com
+          - https://nodeholder.com
+          - https://qa.nodeholder.com
+      - targets:
           - https://qa.pixeljamarcade.com
+        labels:
+          instance: 'pixeljam-qa'
+
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
-        target_label: instance
+        target_label: instance  # Sets instance label from the target URL
       - target_label: __address__
-        replacement: blackbox-exporter:9115
+        replacement: blackbox_exporter:9115
 
-  - job_name: 'dev-arcade-endpoints'
-    metrics_path: /probe
-    params:
-      module: [http_2xx]
+  - job_name: 'node'  # Assumes node_exporter running on these hosts
     static_configs:
-      - targets:
-          - http://10.124.0.3:8480/           # Main app
-          - http://10.124.0.3:8480/api/health # Health check
-          - http://10.124.0.3:8480/api/games  # Important endpoints
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: blackbox-exporter:9115
+      - targets: ['10.124.0.2:9100']
+        labels:
+          instance: 'qa-node'
+      - targets: ['10.124.0.3:9100']
+        labels:
+          instance: 'prod-node-private'
+      - targets: ['10.124.0.4:9100']
+        labels:
+          instance: 'dev-node-private'
 
-  - job_name: 'node'
+
+  - job_name: 'fail2ban'
     static_configs:
-      - targets:
-          - 'localhost:9100'         # Local machine
-          - '10.124.0.3:9100'        # prod_priv
-          - '10.124.0.4:9100'        # dev_priv (if exists)
-          - '137.184.226.163:9100'   # dev_pub (if exists)
+      # Target the exporter running on the HOST using its IP on the Docker bridge network
+      - targets: ['172.18.0.1:9191']  # Replace 9191 if your exporter listens on a different port
