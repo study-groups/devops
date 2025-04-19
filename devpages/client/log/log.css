@@ -1,3 +1,5 @@
+@import url('./log-markdown.css');
+
 /* /client/log/log.css - Styles for the Log Component */
 
 /* Log container - base styles */
@@ -5,14 +7,21 @@
     /* display: flex; */ /* REMOVED - Set by .log-visible */
     flex-direction: column;
     /* height: var(--log-height, 120px); */ /* REMOVED - Set by .log-visible */
-    background: #161616;
-    border-top: 1px solid #444;
+    background: #161616; /* RESTORED */
+    border-top: 1px solid #444; /* RESTORED */
     overflow: hidden;
     /* transition: height 0.2s ease-out; /* REMOVE or adjust if causing issues */
     position: relative; 
+    /* padding-left: 1rem; */  /* <<< REMOVED Breathing Room */
+    /* padding-right: 1rem; */ /* <<< REMOVED Breathing Room */
+    margin-left: .5rem;   /* <<< ADDED External Margin */
+    margin-right: .5rem;  /* <<< ADDED External Margin */
+    border-radius: 0.5rem;
+    margin-bottom: .5rem; /* <<< ADDED External Margin */
+    /* Consider adding margin-bottom if needed */
 }
 
-/* State when log is VISIBLE */
+/* State when log is VISIBLE - Keep for potential JS hooks */
 #log-container.log-visible {
     display: flex; 
     height: var(--log-height, 120px); 
@@ -21,7 +30,7 @@
     transition: height 0.2s ease-out, opacity 0.2s ease-out;
 }
 
-/* State when log is HIDDEN */
+/* State when log is HIDDEN - Keep for potential JS hooks */
 #log-container.log-hidden {
     display: none; 
     height: 0;
@@ -31,6 +40,7 @@
 }
 
 /* Adjust main content based on presence of log-visible class on main-container */
+/* Keep for now, relates to visibility logic */
 #main-container.log-visible #content {
     max-height: calc(100vh - var(--log-height, 120px) - 72px); /* Adjust 72px nav height if needed */
 }
@@ -38,68 +48,57 @@
      max-height: calc(100vh - 72px); /* Adjust 72px nav height if needed */
 }
 
-/* Log resize handle */
+/* Log resize handle - RESTORED */
 #log-resize-handle {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 4px; /* DEBUG: Increased height */
-    background: inherit; /* DEBUG: Bright background */
+    height: 4px; /* Small height */
+    background-color: #444; /* Match border */
     cursor: ns-resize;
-    z-index: 101; /* Higher than log container */
+    z-index: 50;
     user-select: none;
-    opacity: 1 !important; /* DEBUG: Ensure opacity */
 }
 
 #log-resize-handle:hover {
-    background: darkred; /* DEBUG: Darken on hover */
+    background-color: #666;
 }
+/* Add .resizing class style if needed via JS */
 
-#log-resize-handle.resizing {
-    background: orange; /* DEBUG: Different color when resizing */
-}
-
-/* Log toolbar */
+/* Log toolbar - RESTORED Base Styles */
 #log-toolbar {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px; /* Use gap from tailwind version */
     background: #1e1e1e;
-    padding: 4px 8px;
+    padding: 2px 8px; /* <<< REDUCED vertical padding slightly */
     border-bottom: 1px solid #333;
-    min-height: 28px;
-    flex-shrink: 0; /* Prevent toolbar from shrinking */
+    min-height: auto; /* <<< REMOVED min-height, let content dictate */
+    flex-shrink: 0;
 }
 
-/* Log toolbar buttons */
-#log-toolbar button {
+/* Log toolbar buttons - RESTORED Base Styles */
+#log-toolbar button:not(#cli-send-button):not(.log-entry-button) {
     background: transparent;
     border: none;
     color: #d4d4d4;
     padding: 2px 6px;
     cursor: pointer;
+    height: 3rem;
     font-size: 12px;
-    border-radius: 2px;
+    
 }
 
-#log-toolbar button:hover {
+#log-toolbar button:not(#cli-send-button):not(.log-entry-button):hover {
     background: rgba(255,255,255,0.1);
 }
 
-/* Specific toolbar items */
-#log-toolbar #cli-input {
-    flex-grow: 1; /* Allow input to take space */
-    background-color: #333;
-    border: 2px solid red;
-    color: #eee;
-    padding: 2px 6px;
-    font-size: 12px;
-    margin: 0 5px;
-    height: 20px;
-}
+/* Specific toolbar items - REMOVED #cli-input rule */
+/* #log-toolbar #cli-input { ... } */ /* <<< REMOVED */
 
-#log-toolbar .app-info { /* Styling for the app-info span */
+/* App Info - RESTORED */
+#log-toolbar .app-info { 
     color: #888;
     font-size: 11px;
     cursor: pointer;
@@ -109,29 +108,49 @@
     color: #bbb;
 }
 
-/* Log status text */
-#log-status {
-    color: #666;
-    font-size: 11px;
-    margin-left: auto; /* Pushes status to the right */
-    padding-left: 10px;
-    white-space: nowrap;
+/* NEW: Version text specific style */
+#log-app-version {
+    /* REMOVED - Moved to menu */
+    /*
+    color: #666; 
+    font-size: 10px;
+    text-align: center; 
+    font-family: monospace;
+    order: 1; 
+    */
 }
 
-/* Log content area */
+/* Style minimize button within toolbar */
+#minimize-log-btn {
+    /* order: 2; */ /* REMOVED - Order set by DOM */
+    padding: 0px 5px; /* Adjust padding for visual balance */
+    line-height: 1.2; /* Adjust line-height */
+    font-size: 14px; /* Ensure X is visible */
+    margin: 0 2px; /* Adjust margins */
+}
+
+/* Log status text - RESTORED */
+#log-status {
+    color: #888; /* Match app-info color? */
+    font-size: 11px;
+    /* margin-left: auto; */ /* Wrapper handles alignment */
+    padding-left: 0px; /* Remove specific padding */
+    white-space: nowrap;
+    /* order: 3; */ /* REMOVED - Order set by DOM */
+}
+
+/* Log content area - RESTORED Base Styles */
 #log {
     flex: 1; /* Take remaining space */
     overflow-y: auto;
-    padding: 4px 8px;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding: 4px 1rem 0 1rem; /* <<< RESTORED Right Padding */
     font-family: monospace;
-    font-size: 12px;
+    font-size: 12px; /* Default font size */
     line-height: 1.4;
-    color: #d4d4d4;
+    color: #d4d4d4; /* Default text color */
 }
 
-/* Log scrollbar styling */
+/* Log scrollbar styling - RESTORED */
 #log::-webkit-scrollbar {
     width: 8px;
 }
@@ -145,47 +164,605 @@
     background-color: #2a2a2a;
 }
 
-/* Log entry styling */
-#log .log-entry { /* Use class for entries if possible */
-    padding: 2px 0;
-    border-bottom: 1px solid #333;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    cursor: pointer; /* If clicking adds to preview */
+/* Log entry styling - RESTORED Base (tailwind.css handles density) */
+#log .log-entry { 
+    /* Base entry styles - padding/margin/font set by tailwind.css */
+    /* border-bottom: 1px solid #333; */ /* Maybe remove? */
+    cursor: pointer; /* Keep */
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Align items to top */
+    overflow: hidden; /* Add overflow hidden to parent */
 }
-#log .log-entry:last-child {
-    border-bottom: none; /* No border for the last entry */
+/* #log .log-entry:last-child { border-bottom: none; } */
+
+/* NEW: Wrapper for text content */
+#log .log-entry .log-entry-text-wrapper {
+    flex-grow: 1; /* Allow wrapper to grow */
+    flex-shrink: 1; /* Allow wrapper to shrink */
+    min-width: 0; /* Important for flex shrinking and ellipsis */
+    overflow: hidden; /* <<< ADD explicit overflow hidden here */
+    /* Truncation details (ellipsis, white-space) handled by the :not(.expanded) state */
 }
 
-#log .log-entry pre { /* Style JSON within entries */
-    margin: 0;
-    padding-left: 1em;
-    white-space: pre-wrap;
-    word-break: break-all;
+/* Targets the actual text span inside the wrapper */
+#log .log-entry .log-entry-text-content { 
+    display: block; /* Ensure it takes up block space for ellipsis */
+    /* Truncation is handled by the :not(.expanded) state */
 }
 
-/* Log message types */
-#log .log-entry.log-error { /* Add type classes to entry */
-    color: #f14c4c;
+/* Default (non-expanded) state text wrapper */
+#log .log-entry:not(.expanded) .log-entry-text-wrapper { /* Apply truncation details here */
+    white-space: pre; /* Prevent wrapping */
+    /* overflow: hidden; */ /* Moved to base wrapper rule */
+    text-overflow: ellipsis; /* Show ellipsis */
+}
+/* #log .log-entry:not(.expanded) .log-entry-text-content { */ /* No need for specific styles here */
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+    /* white-space: pre; */
+/* } */
+
+/* Hide expanded toolbar by default */
+#log .log-entry .log-entry-expanded-toolbar {
+    display: none;
+}
+
+/* Expanded state */
+#log .log-entry.expanded {
+    padding-bottom: 5px; 
+    border: 1px solid var(--log-border-color, #333); /* Darker border */
+    margin-bottom: 2px; 
+    margin: auto;
+    width: 80%;
+    background-color: var(--log-entry-expanded-bg, #1e1e1e); /* Darker background like toolbar */
+    cursor: default;
+    overflow: visible; 
+    align-items: stretch; 
+    flex-direction: column; 
+}
+
+/* Hide the original copy button when expanded */
+#log .log-entry.expanded .original-button {
+    display: none;
+}
+
+/* Style the expanded toolbar */
+#log .log-entry.expanded .log-entry-expanded-toolbar {
+    display: flex; 
+    align-items: center; 
+    justify-content: flex-end; /* Ensure right alignment */
+    gap: 0.5em; 
+    padding: 4px 8px; 
+    background-color: var(--log-toolbar-expanded-bg, #2a2a2a); /* Existing shaded background */
+    border-bottom: 1px solid var(--log-border-color, #333); /* Existing darker border */
+    margin-bottom: 5px; 
+    flex-wrap: wrap; 
+    min-height: 24px; 
+    flex-shrink: 0; 
+    order: 1; 
+}
+
+/* Initially hide the expanded toolbar */
+#log .log-entry .log-entry-expanded-toolbar {
+    display: none; 
+}
+
+/* Style for the tokens within the expanded toolbar */
+#log .log-entry.expanded .log-token {
+    display: inline-block; 
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    background-color: var(--log-token-bg, #444); /* Darker token background */
+    color: var(--log-token-color, #ccc); /* Lighter token text */
+    white-space: nowrap; 
+}
+
+/* Specific token styles (adjusting for darker theme) */
+#log .log-entry.expanded .log-token-index {
+    font-weight: bold;
+    background-color: var(--log-token-index-bg, #557); /* Darker blue */
+    color: #eee;
+}
+
+#log .log-entry.expanded .log-token-time {
+    background-color: var(--log-token-time-bg, #333); /* Darker gray */
+    color: #aaa;
+}
+
+#log .log-entry.expanded .log-token-type {
+    font-weight: bold;
+    text-transform: uppercase;
+    /* Use log type classes for specific colors (adjust for dark bg) */
+}
+#log .log-entry.expanded .log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
+#log .log-entry.expanded .log-token-type.log-type-debug { background-color: #444; color: #aaa; }
+#log .log-entry.expanded .log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
+#log .log-entry.expanded .log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
+#log .log-entry.expanded .log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
+/* Add other types as needed */
+
+#log .log-entry.expanded .log-token-subtype {
+    font-style: italic;
+    background-color: var(--log-token-subtype-bg, #2a4a5a); /* Darker teal/blue */
+    color: #bee;
+}
+
+/* Expanded message content */
+#log .log-entry.expanded .log-entry-text-wrapper {
+    padding: 5px 8px; 
+    display: block; 
+    user-select: text; 
+    white-space: pre-wrap; /* Default: Wrap raw text and preserve whitespace/newlines */
+    word-wrap: break-word; 
+    word-break: break-all; 
+    overflow: visible;     
+    text-overflow: clip;  
+    order: 2; 
+    color: #d4d4d4; /* Ensure message text is light */
+}
+
+/* NEW: Override whitespace for rendered Markdown */
+#log .log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
+    white-space: normal; /* Let HTML elements control wrapping */
+    word-wrap: normal; /* Reset if needed */
+    word-break: normal; /* Reset if needed */
+}
+
+/* Ensure <pre> tags inside also have light text */
+/* MOVED to log-markdown.css with more specific rule
+#log .log-entry.expanded .log-entry-text-wrapper pre {
+    color: #d4d4d4;
+}
+*/
+
+/* Adjust the toolbar button style */
+#log .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
+     /* Using .log-entry-button base from earlier styles */
+     /* Ensure they appear correctly on the dark toolbar */
+     padding: 1px 4px; 
+     font-size: 0.9em;
+     align-self: center; 
+     background: #4b5563; /* Match theme */
+     color: #d1d5db; /* Match theme */
+     border: 1px solid #6b7280; /* Match theme */
+     cursor: pointer;
+     opacity: 0.8; 
+     order: 3; /* Ensure buttons come after tokens */
+}
+#log .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
+     opacity: 1;
+     background-color: #6b7280; /* Match theme */
+}
+
+/* NEW: Markdown Toggle Button Style */
+#log .log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button {
+    /* Inherit base button styles */
+    font-weight: bold;
+    /* Add specific styles if needed */
+}
+
+/* NEW: Active state for Markdown Toggle Button */
+#log .log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button.active {
+    background-color: #60a5fa; /* Example: blue-400 */
+    color: #fff;
+    border-color: #3b82f6; /* Example: blue-500 */
+    opacity: 1;
+}
+
+/* Log message types - RESTORED */
+#log .log-entry.log-error {
+    color: #f14c4c !important; /* Use !important if needed */
 }
 
 #log .log-entry.log-warning {
-    color: #ddb100;
+    color: #ddb100 !important;
 }
 
 #log .log-entry.log-config {
-    color: #3794ff;
+    color: #3794ff !important;
     font-weight: bold;
-    white-space: pre;
     font-family: 'Consolas', monospace;
 }
 
 #log .log-entry.log-separator {
-    border-bottom: 2px solid #3794ff;
-    margin: 0;
-    padding: 0;
+    border-bottom: 2px solid #3794ff !important;
+    margin: 2px 0 !important;
+    padding: 0 !important;
     height: 0;
     cursor: default;
+    color: transparent;
+}
+
+/* NEW: Style for Local Echo Output */
+#log .log-entry.log-entry-cli-local-echo {
+    color: #aaa; /* Different color for local output */
+    font-style: italic;
+    /* Ensure it doesn't have the interactive button */
+    /* button hiding might need more specific rules if structure changes */
+    /* > .original-button, > .log-entry-expanded-toolbar { display: none !important; } */
+}
+
+/* === Styles Moved from tailwind.css === */
+
+#cli-input {
+    /* Toned-down styles */
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
+    line-height: 1.1rem;
+    font-size: 14px;
+    background-color: #374151; /* gray-700 */
+    color: #d1d5db; /* gray-300 */
+    border: 1px solid #4b5563; /* gray-600 */
+    border-radius: 4px;
+    flex-grow: 1;
+}
+#cli-input:focus {
+    outline: none;
+    border-color: #60a5fa; /* blue-400 */
+}
+
+#cli-send-button {
+    line-height: 1.0rem;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    background: #4b5563;
+    border: 1px solid #6b7280;
+    color: #d1d5db;
+    border-radius: 4px;
+    padding-left: 12px;
+    padding-right: 12px;
+    cursor: pointer;
+}
+#cli-send-button:hover {
+    background-color: #6b7280;
+}
+
+.log-entry {
+    /* Density styles - These apply to both states */
+    margin-bottom: 1px; /* <<< REDUCED Bottom Spacing */
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #d4d4d4;
+    /* white-space: pre; */ /* Handled above */
+    /* overflow: hidden; */ /* Handled above */
+    /* text-overflow: ellipsis; */ /* Handled above */
+    cursor: pointer;
+    /* Combine with existing .log-entry styles if needed */
+}
+
+.log-entry-button {
+    /* Base styles for ALL log entry buttons */
+    padding: 2px 5px; /* <<< INCREASED Padding */
+    font-size: 13px;  /* <<< INCREASED Font Size */
+    line-height: 1; 
+    /* margin-left: 6px; */ /* Removed, handled by original-button class */
+    opacity: 0.5;
+    cursor: pointer;
+    border-radius: 3px;
+    background-color: #4b5563;
+    color: #d1d5db;
+    border: none;
+    flex-shrink: 0; /* Ensure buttons don't shrink */
+}
+.log-entry-button.original-button {
+    margin-left: 6px; /* Keep margin only for original button */
+}
+.log-entry-button:hover {
+    opacity: 1;
+    background-color: #6b7280;
+}
+
+/* === End Moved Styles === */
+
+/* === REMOVE Log Menu Styles for log entries === */
+/*
+#log .log-entry.log-menu {
+    background-color: #2a2a2a; 
+    border: 1px solid #444;
+    padding: 5px 8px; 
+    cursor: default; 
+    display: block; 
+}
+#log .log-menu .log-menu-items {
+    margin-top: 5px; 
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 5px; 
+}
+#log .log-menu .log-menu-item {
+    display: inline-block;
+    padding: 2px 6px;
+    background-color: #4b5563; 
+    color: #d1d5db; 
+    border: 1px solid #6b7280; 
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+#log .log-menu .log-menu-item:hover {
+    background-color: #6b7280; 
+    color: #fff;
+}
+#log .log-entry.log-menu > .original-button,
+#log .log-entry.log-menu > .log-entry-expanded-toolbar {
+    display: none !important;
+}
+*/
+/* === END REMOVAL === */
+
+/* === NEW Toolbar Menu Styles === */
+
+/* Style the toggle button */
+#log-help-toggle-btn {
+    padding: 1px 6px; /* Make it squarish */
+    font-weight: bold;
+    flex-shrink: 0; /* Prevent shrinking */
+    /* Use base button styles */
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 12px;
+    border-radius: 3px;
+}
+#log-help-toggle-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #777;
+    color: #ccc;
+}
+
+/* NEW: Styles for State A/B Buttons */
+#log-state-a-btn, 
+#log-state-b-btn {
+    padding: 1px 6px; /* Match help button */
+    font-weight: bold;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 12px;
+    border-radius: 3px;
+    margin-left: 4px; /* Space from Send button */
+}
+
+#log-state-a-btn:hover,
+#log-state-b-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #777;
+    color: #ccc;
+}
+
+/* Feedback when state is set */
+#log-state-a-btn.state-set,
+#log-state-b-btn.state-set {
+    background-color: #374151; /* Example: gray-700 */
+    border-color: #60a5fa; /* Example: blue-400 */
+    color: #fff;
+}
+
+/* Log Menu Container (Dropdown) */
+#log-menu-container {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 30px; /* Position below toolbar (adjust as needed) */
+    left: 5px; /* Align with toggle button */
+    background-color: #2a2a2a; /* Match old menu background */
+    border: 1px solid #444; /* Match old menu border */
+    border-radius: 4px;
+    padding: 5px;
+    z-index: 100; /* Ensure it's above log content */
+    min-width: 120px; /* Give it some base width */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+#log-menu-container.visible {
+    display: block; /* Show when visible class is added */
+}
+
+/* Menu Items inside container */
+#log-menu-container .log-menu-item {
+    display: block; /* Vertical layout */
+    padding: 4px 8px;
+    color: #d1d5db;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    white-space: nowrap; /* Prevent wrapping */
+}
+
+#log-menu-container .log-menu-item:hover {
+    background-color: #4b5563; /* gray-600 on hover */
+    color: #fff;
+}
+
+/* NEW: Separator in Menu */
+#log-menu-container .log-menu-separator {
+    height: 1px;
+    background-color: #444; /* Match border color */
+    margin: 4px 0; /* Add vertical spacing */
+}
+
+/* NEW: Version info in Menu */
+#log-menu-container .log-menu-version {
+    padding: 4px 8px;
+    font-size: 10px;
+    color: #666; /* Match old toolbar version color */
+    font-family: monospace;
+    text-align: center;
+    cursor: default; /* Not clickable */
+}
+
+/* --- Log Entry Expansion --- */
+
+/* Style the log entry when expanded */
+.log-entry.expanded {
+    padding-bottom: 5px; 
+    border: 1px solid var(--log-border-color, #333); /* Darker border */
+    margin-bottom: 2px; 
+    background-color: var(--log-entry-expanded-bg, #1e1e1e); /* Darker background like toolbar */
+    cursor: default;
+    overflow: visible; 
+    align-items: stretch; 
+    flex-direction: column; 
+}
+
+/* Hide the original copy button when expanded */
+.log-entry.expanded .original-button {
+    display: none;
+}
+
+/* Style the expanded toolbar */
+.log-entry.expanded .log-entry-expanded-toolbar {
+    display: flex; 
+    align-items: center; 
+    justify-content: flex-end; /* Ensure right alignment */
+    gap: 0.5em; 
+    padding: 4px 8px; 
+    background-color: var(--log-toolbar-expanded-bg, #2a2a2a); /* Existing shaded background */
+    border-bottom: 1px solid var(--log-border-color, #333); /* Existing darker border */
+    margin-bottom: 5px; 
+    flex-wrap: wrap; 
+    min-height: 24px; 
+    flex-shrink: 0; 
+    order: 1; 
+}
+
+/* Initially hide the expanded toolbar */
+.log-entry .log-entry-expanded-toolbar {
+    display: none; 
+}
+
+/* Style for the tokens within the expanded toolbar */
+.log-token {
+    display: inline-block; 
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    background-color: var(--log-token-bg, #444); /* Darker token background */
+    color: var(--log-token-color, #ccc); /* Lighter token text */
+    white-space: nowrap; 
+}
+
+/* Specific token styles (adjusting for darker theme) */
+.log-token-index {
+    font-weight: bold;
+    background-color: var(--log-token-index-bg, #557); /* Darker blue */
+    color: #eee;
+}
+
+.log-token-time {
+    background-color: var(--log-token-time-bg, #333); /* Darker gray */
+    color: #aaa;
+}
+
+.log-token-type {
+    font-weight: bold;
+    text-transform: uppercase;
+    /* Use log type classes for specific colors (adjust for dark bg) */
+}
+.log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
+.log-token-type.log-type-debug { background-color: #444; color: #aaa; }
+.log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
+.log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
+.log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
+/* Add other types as needed */
+
+.log-token-subtype {
+    font-style: italic;
+    background-color: var(--log-token-subtype-bg, #2a4a5a); /* Darker teal/blue */
+    color: #bee;
+}
+
+/* Expanded message content */
+.log-entry.expanded .log-entry-text-wrapper {
+    padding: 5px 8px; 
+    display: block; 
+    user-select: text; 
+    white-space: pre-wrap; /* Default: Wrap raw text and preserve whitespace/newlines */
+    word-wrap: break-word; 
+    word-break: break-all; 
+    overflow: visible;     
+    text-overflow: clip;  
+    order: 2; 
+    color: #d4d4d4; /* Ensure message text is light */
+}
+
+/* NEW: Override whitespace for rendered Markdown */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
+    white-space: normal; /* Let HTML elements control wrapping */
+    word-wrap: normal; /* Reset if needed */
+    word-break: normal; /* Reset if needed */
+}
+
+/* Ensure <pre> tags inside also have light text */
+/* MOVED to log-markdown.css with more specific rule
+.log-entry.expanded .log-entry-text-wrapper pre {
+    color: #d4d4d4;
+}
+*/
+
+/* Adjust the toolbar button style */
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
+     /* Using .log-entry-button base from earlier styles */
+     /* Ensure they appear correctly on the dark toolbar */
+     padding: 1px 4px; 
+     font-size: 0.9em;
+     align-self: center; 
+     background: #4b5563; /* Match theme */
+     color: #d1d5db; /* Match theme */
+     border: 1px solid #6b7280; /* Match theme */
+     cursor: pointer;
+     opacity: 0.8; 
+     order: 3; /* Ensure buttons come after tokens */
+}
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
+     opacity: 1;
+     background-color: #6b7280; /* Match theme */
+}
+
+/* NEW: Markdown Toggle Button Style */
+.log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button {
+    /* Inherit base button styles */
+    font-weight: bold;
+    /* Add specific styles if needed */
+}
+
+/* NEW: Active state for Markdown Toggle Button */
+.log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button.active {
+    background-color: #60a5fa; /* Example: blue-400 */
+    color: #fff;
+    border-color: #3b82f6; /* Example: blue-500 */
+    opacity: 1;
+}
+
+/* --- Styles Moved from tailwind.css --- */
+
+/* Log visibility animation states */
+.log-hiding {
+    opacity: 0;
+    height: 0 !important;
+    overflow: hidden;
+}
+
+.log-showing {
+    opacity: 1;
+}
+
+/* Main container adjustments based on log visibility */
+/* Assumes log-visible/log-hidden classes are applied to #main-container */
+#main-container.log-visible #content {
+    max-height: calc(100vh - var(--log-height, 120px) - 50px); /* Adjust 50px nav height if needed */
+    transition: max-height 0.3s ease;
+}
+
+#main-container.log-hidden #content {
+    max-height: calc(100vh - 50px); /* Adjust 50px nav height if needed */
+    transition: max-height 0.3s ease;
 }

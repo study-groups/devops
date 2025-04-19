@@ -1,0 +1,54 @@
+/* client/log/log-markdown.css */
+/* Styles specifically for rendered Markdown content within expanded log entries */
+
+/* Example: Style paragraphs inside rendered markdown */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered p {
+    margin-bottom: 0.5em; /* Add some space below paragraphs */
+    color: #e0e0e0; /* Slightly lighter text for paragraphs */
+    line-height: 1.5;
+}
+
+/* Example: Style code blocks */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre {
+    background-color: #2a2d2a; /* Darker background for code blocks */
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.8em;
+    margin: 0.5em 0;
+    overflow-x: auto; /* Allow horizontal scrolling for long lines */
+}
+
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered code {
+    font-family: 'Courier New', Courier, monospace; /* Consistent mono font */
+    color: #bada55; /* Example code color */
+}
+
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre code {
+    background-color: transparent; /* Code inside pre shouldn't have its own bg */
+    padding: 0;
+    border-radius: 0;
+    border: none;
+}
+
+/* --- Heading Resets --- */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h1,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h2,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h3,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h4,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h5,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h6 {
+    font-size: 1.1em; /* Slightly larger than base text */
+    font-weight: bold;
+    color: #e0e0e0; /* Match paragraph color */
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    border-bottom: none; /* Remove any inherited borders */
+    padding-bottom: 0; /* Remove any inherited padding */
+}
+
+/* Slightly differentiate heading sizes */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h1 { font-size: 1.2em; }
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h2 { font-size: 1.15em; }
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h3 { font-size: 1.1em; }
+
+/* Add more rules here for blockquote, lists, etc. as needed */ 

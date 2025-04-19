@@ -71,5 +71,5 @@ export function initKeyboardShortcuts() {
         }
     });
     
-    logMessage('[KEYBOARD] Keyboard shortcuts initialized');
+    logMessage('[KEYBOARD] Keyboard shortcuts initialized', 'info');
 } 

@@ -73,25 +73,29 @@ function updateUrlParameters(dir, relativePath, file) {
 }
 
 // --- State Management & Persistence ---
-// Updates internal state, saves to persistence, updates URL
+// Updates internal state, saves to persistence, updates URL, updates appState
 function updateAndPersistState(newState) {
     const changedStateForPersistence = {};
     let stateActuallyChanged = false;
+    let appStateChanges = {}; // <<< Track changes for appState
 
     logFileManager(`updateAndPersistState: Called with newState=${JSON.stringify(newState)}. Current fileState BEFORE update: Top=${fileState.topLevelDirectory}, Rel=${fileState.currentRelativePath}, File=${fileState.currentFile}`, 'debug');
 
     if (newState.topLevelDirectory !== undefined && newState.topLevelDirectory !== fileState.topLevelDirectory) {
         fileState.topLevelDirectory = newState.topLevelDirectory;
         changedStateForPersistence.currentDir = fileState.topLevelDirectory;
+        appStateChanges.currentDir = fileState.topLevelDirectory; // <<< Update appState track
         stateActuallyChanged = true;
     }
     if (newState.currentRelativePath !== undefined && newState.currentRelativePath !== fileState.currentRelativePath) {
         fileState.currentRelativePath = newState.currentRelativePath;
+        appStateChanges.currentRelativePath = fileState.currentRelativePath; // <<< Update appState track
         stateActuallyChanged = true;
     }
     if (newState.currentFile !== undefined && newState.currentFile !== fileState.currentFile) {
         fileState.currentFile = newState.currentFile;
         changedStateForPersistence.currentFile = fileState.currentFile;
+        appStateChanges.currentFile = fileState.currentFile; // <<< Update appState track
         stateActuallyChanged = true;
     }
 
@@ -104,6 +108,16 @@ function updateAndPersistState(newState) {
         }
         // Update URL to reflect the full current state
         updateUrlParameters(fileState.topLevelDirectory, fileState.currentRelativePath, fileState.currentFile);
+        
+        // <<< Update central appState >>>
+        if (Object.keys(appStateChanges).length > 0) {
+            appState.update(currentState => ({
+                ...currentState,
+                file: { ...currentState.file, ...appStateChanges }
+            }));
+            logFileManager(`Updated central appState.file: ${JSON.stringify(appStateChanges)}`, 'debug');
+        }
+        // <<< END Update appState >>>
     } else {
         logFileManager(`updateAndPersistState: No actual state changes detected.`, 'debug');
     }
@@ -796,6 +810,14 @@ export function resetFileManagerState() {
 
     // Clear persistence related to file manager context
     fileSystemState.saveState({ currentDir: '', currentFile: '', currentRelativePath: '' }); // Persist the clear state
+
+    // <<< Update central appState on reset >>>
+    appState.update(currentState => ({
+        ...currentState,
+        file: { ...currentState.file, currentFile: null, currentDir: null, currentRelativePath: null }
+    }));
+    logFileManager('Updated central appState.file to nulls for reset.', 'debug');
+    // <<< END Update appState >>>
 
     // Clear URL parameters
     updateUrlParameters('', '', '');

@@ -98,8 +98,8 @@ async function loadMarkdownItScript() {
     });
 }
 
-// Function to load KaTeX Auto-Render JS (COMMENT OUT/REMOVE)
-/* async function loadKatexAutoRenderScript() {
+// Function to load KaTeX Auto-Render JS (UNCOMMENT/RESTORE)
+async function loadKatexAutoRenderScript() {
     return new Promise((resolve, reject) => {
         if (typeof window.renderMathInElement !== 'undefined') {
             logRenderer('KaTeX Auto-Render JS already loaded.');
@@ -129,7 +129,7 @@ async function loadMarkdownItScript() {
         };
         document.head.appendChild(script);
     });
-} */
+}
 
 // Function to preprocess content for KaTeX blocks
 function preprocessKatexBlocks(content) {
@@ -284,9 +284,15 @@ async function initializeRenderer() {
         ]);
         logRenderer('Highlight.js, markdown-it, KaTeX base loaded.');
 
-        // ALSO LOAD AUTO-RENDER - COMMENT OUT
-        // await loadKatexAutoRenderScript();
-        // logRenderer('KaTeX auto-render loaded.');
+        // <<< ADDED: Ensure KaTeX auto-render script is loaded during initialization >>>
+        try {
+            await loadKatexAutoRenderScript();
+            logRenderer('KaTeX auto-render script confirmed loaded.');
+        } catch (error) {
+            logRenderer('Failed to load KaTeX auto-render script during init.', 'error');
+            // Continue initialization even if auto-render fails?
+        }
+        // <<< END ADDED >>>
 
         // Check if markdown-it loaded successfully
         if (typeof window.markdownit === 'undefined') {
@@ -461,72 +467,111 @@ export async function renderMarkdown(markdownContent) {
  * @param {HTMLElement} previewElement - The element containing the rendered HTML.
  */
 export async function postProcessRender(previewElement) {
-     if (!isInitialized) {
-        logRenderer('Renderer not initialized, cannot post-process.', 'warn');
+    logRenderer('Running post-render processing...');
+    if (!previewElement) {
+        logRenderer('postProcessRender called with no previewElement.', 'error');
         return;
     }
-    logRenderer('Running post-render processing...');
-    try {
-        // --- TEMPORARILY DISABLE PLUGIN PROCESSING FOR DEBUGGING --- RE-ENABLING ---
-        // /*
-        // Process all enabled plugins
-        const enabledPlugins = getEnabledPlugins();
-        
-        // Process Mermaid diagrams
-        const mermaidPlugin = enabledPlugins.get('mermaid');
-        if (mermaidPlugin) {
-            try {
+
+    const enabledPlugins = getEnabledPlugins();
+    // Correctly get names from Map values for logging
+    const pluginNames = Array.from(enabledPlugins.values()).map(p => p.name).join(', '); 
+    logRenderer(`Enabled plugins for post-processing: ${pluginNames}`);
+
+    // --- KaTeX Rendering --- 
+    if (typeof window.renderMathInElement === 'function') {
+        logRenderer('Applying KaTeX rendering...');
+        try {
+            window.renderMathInElement(previewElement, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false},
+                    // Keep original LaTeX delimiters if needed for compatibility
+                    // {left: "\\(", right: "\\)", display: false},
+                    // {left: "\\[", right: "\\]", display: true}
+                ],
+                throwOnError : false // Don't halt rendering on KaTeX error
+            });
+            logRenderer('KaTeX rendering applied.');
+        } catch (error) {
+            logRenderer(`KaTeX rendering failed: ${error.message}`, 'error');
+            console.error("[KATEX RENDER ERROR]", error);
+        }
+    } else {
+        logRenderer('KaTeX renderMathInElement function not available.', 'warning');
+    }
+    // --- End KaTeX Rendering ---
+
+    // --- Mermaid Rendering --- 
+    if (enabledPlugins.has('mermaid')) { 
+        try {
+            const mermaidPlugin = enabledPlugins.get('mermaid');
+            if (mermaidPlugin) {
                 mermaidPlugin.process(previewElement);
                 logRenderer('Mermaid diagrams processed by plugin.', 'text');
-            } catch (error) {
-                logRenderer(`Error processing Mermaid diagrams: ${error.message}`, 'error');
-            }
-        }
-        
-        // Process Graphviz diagrams
-        const graphvizPlugin = enabledPlugins.get('graphviz');
-        if (graphvizPlugin) {
-            try {
-                graphvizPlugin.process(previewElement);
-                logRenderer('Graphviz diagrams processed by plugin.', 'text');
-            } catch (error) {
-                logRenderer(`Error processing Graphviz diagrams: ${error.message}`, 'error');
-            }
-        } else {
-            logRenderer('Graphviz plugin not enabled, attempting to initialize it directly.', 'text');
-            // Try to initialize and use Graphviz plugin directly
-            try {
-                const graphviz = new GraphvizPlugin();
-                await graphviz.init();
-                graphviz.process(previewElement);
-                logRenderer('Graphviz diagrams processed with direct plugin instance.', 'text');
-            } catch (error) {
-                logRenderer(`Failed to process Graphviz diagrams: ${error.message}`, 'error');
-            }
-        }
-        
-        // Process syntax highlighting
-        try {
-            const highlightPlugin = enabledPlugins.get('highlight');
-            if (highlightPlugin && typeof highlightPlugin.postProcess === 'function') {
-                await highlightPlugin.postProcess(previewElement);
-                logRenderer('Code highlighting applied via postProcess.', 'text');
-            } else if (highlightPlugin) {
-                logRenderer(`Highlight plugin instance found, but postProcess method is missing!`, 'error');
             } else {
-                logRenderer('Highlight plugin not found in enabled plugins.', 'warn');
+                logRenderer('Mermaid plugin not found in enabled plugins.', 'warn');
             }
         } catch (error) {
-            logRenderer(`Error applying syntax highlighting: ${error.message}`, 'error');
-            console.error('[HIGHLIGHT PLUGIN ERROR]', error);
+            logRenderer(`Error processing Mermaid diagrams: ${error.message}`, 'error');
         }
-        // */
-        // logRenderer('Plugin post-processing temporarily disabled for SVG debugging.', 'warn'); // Removed disable message
-        // --- END TEMPORARY DISABLE ---
-    } catch (error) {
-        logRenderer(`Post-processing error: ${error.message}`, 'error');
-        console.error('[POST-PROCESS ERROR]', error);
+    } else {
+        logRenderer('Mermaid plugin not enabled, attempting to initialize it directly.', 'text');
+        // Try to initialize and use Mermaid plugin directly
+        try {
+            const mermaid = new MermaidPlugin();
+            await mermaid.init();
+            mermaid.process(previewElement);
+            logRenderer('Mermaid diagrams processed with direct plugin instance.', 'text');
+        } catch (error) {
+            logRenderer(`Failed to process Mermaid diagrams: ${error.message}`, 'error');
+        }
     }
+    // --- END Mermaid Rendering ---
+
+    // --- Graphviz Rendering --- 
+    if (enabledPlugins.has('graphviz')) { 
+        try {
+            const graphvizPlugin = enabledPlugins.get('graphviz');
+            if (graphvizPlugin) {
+                graphvizPlugin.process(previewElement);
+                logRenderer('Graphviz diagrams processed by plugin.', 'text');
+            } else {
+                logRenderer('Graphviz plugin not found in enabled plugins.', 'warn');
+            }
+        } catch (error) {
+            logRenderer(`Error processing Graphviz diagrams: ${error.message}`, 'error');
+        }
+    } else {
+        logRenderer('Graphviz plugin not enabled, attempting to initialize it directly.', 'text');
+        // Try to initialize and use Graphviz plugin directly
+        try {
+            const graphviz = new GraphvizPlugin();
+            await graphviz.init();
+            graphviz.process(previewElement);
+            logRenderer('Graphviz diagrams processed with direct plugin instance.', 'text');
+        } catch (error) {
+            logRenderer(`Failed to process Graphviz diagrams: ${error.message}`, 'error');
+        }
+    }
+    // --- END Graphviz Rendering ---
+
+    // --- Syntax Highlighting --- 
+    try {
+        const highlightPlugin = enabledPlugins.get('highlight');
+        if (highlightPlugin && typeof highlightPlugin.postProcess === 'function') {
+            await highlightPlugin.postProcess(previewElement);
+            logRenderer('Code highlighting applied via postProcess.', 'text');
+        } else if (highlightPlugin) {
+            logRenderer(`Highlight plugin instance found, but postProcess method is missing!`, 'error');
+        } else {
+            logRenderer('Highlight plugin not found in enabled plugins.', 'warn');
+        }
+    } catch (error) {
+        logRenderer(`Error applying syntax highlighting: ${error.message}`, 'error');
+        console.error('[HIGHLIGHT PLUGIN ERROR]', error);
+    }
+    // --- END Syntax Highlighting ---
 }
 
 export class Renderer {

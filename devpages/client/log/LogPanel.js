@@ -5,7 +5,7 @@
 
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';
-const DEFAULT_LOG_HEIGHT = 120;
+const DEFAULT_LOG_HEIGHT = 150;
 const MIN_LOG_HEIGHT = 80;
 
 // Assuming updatePreview might be needed later
@@ -24,6 +24,31 @@ import { triggerActions } from '/client/actions.js';
 // Comment out the import
 // import { appVer } from '/client/config.js';
 import { appVer } from '/config.js'; // Use absolute path
+
+// ADD: Import markdown rendering function AND post-processing
+import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
+
+// <<< NEW: Logging helper for this module >>>
+function logPanelMessage(message, level = 'debug') {
+    const type = 'LOG_PANEL'; 
+    // ALWAYS use console for this internal helper to avoid recursion
+    const logFunc = 
+        level === 'error' ? console.error : 
+        level === 'warn' ? console.warn : 
+        level === 'debug' ? console.debug : // Use console.debug for debug level
+        console.log; 
+    logFunc(`[${type}] ${message}`);
+    /* // REMOVED Check for window.logMessage to prevent recursion
+    if (typeof window.logMessage === 'function') {
+        // Assuming window.logMessage takes message, level, type - THIS CAUSED RECURSION
+        // window.logMessage(message, level, type); 
+    } else {
+        // Fallback to console
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`[${type}] ${message}`);
+    }
+    */
+}
 
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
@@ -46,6 +71,12 @@ export class LogPanel {
         this.appVersionElement = null; // Add element property
         this.pauseLogButton = null; // Add element property
         // Buttons are now found via toolbarElement or have data-actions
+
+        // <<< NEW: Store selection details for $$ command >>>
+        this._lastCommandSelection = null;
+        // <<< NEW: Store persistent selection states >>>
+        this._selectionStateA = null; // { filePath: string, start: number, end: number, text: string }
+        this._selectionStateB = null; // { filePath: string, start: number, end: number, text: string }
 
         this.state = {
             height: DEFAULT_LOG_HEIGHT,
@@ -103,17 +134,10 @@ export class LogPanel {
         this.toolbarElement.id = 'log-toolbar'; // Assign ID for CSS
         this.container.appendChild(this.toolbarElement);
         
-        // --- ADDED: Create Pause Button (First on Left) ---
-        this.pauseLogButton = this._createToolbarButton('pause-log-btn', '⏸️ Pause', 'toggleLogPause', 'Pause/Resume Logging');
-        // Initial styling can be set later in togglePause or updateUI
-        // --- END ADDED ---
-
-        // Create Toolbar Buttons with data-actions
-        this._createToolbarButton('copy-log-btn', 'Copy', 'copyLog');
-        this._createToolbarButton('info-btn', 'ℹ️', 'showSystemInfo', 'System Information');
-        this._createToolbarButton('clear-log-btn', 'Clear', 'clearLog');
-        this._createToolbarButton('debug-btn', '🔍 Debug', 'runDebugUI', 'Run diagnostics');
-        this._createToolbarButton('static-html-btn', 'Static HTML', 'downloadStaticHTML', 'Download Static HTML');
+        // <<< NEW: Add '' Toggle Button >>>
+        const helpToggleButton = this._createToolbarButton('log-help-toggle-btn', '☰', 'toggleLogMenu', 'Toggle Log Menu');
+        // helpToggleButton.style.marginRight = 'auto'; // Push other items right if needed
+        // <<< END NEW >>>
 
         // Create CLI Input
         this.cliInputElement = document.createElement('input');
@@ -127,6 +151,11 @@ export class LogPanel {
         sendButton.id = 'cli-send-button';
         sendButton.textContent = 'Send';
         this.toolbarElement.appendChild(sendButton);
+        
+        // <<< NEW: Add State A/B Buttons >>>
+        const stateAButton = this._createToolbarButton('log-state-a-btn', 'A', 'setSelectionStateA', 'Store Editor Selection A');
+        const stateBButton = this._createToolbarButton('log-state-b-btn', 'B', 'setSelectionStateB', 'Store Editor Selection B');
+        // <<< END NEW >>>
         
         // Create App Info Span (Now after version)
         this.appInfoElement = document.createElement('span');
@@ -160,12 +189,9 @@ export class LogPanel {
         this.statusElement.id = 'log-status';
         this.statusElement.textContent = '0 entries';
         // Don't append here, append to wrapper below
-
-        // >>> ADDED: Append right-aligned items to the wrapper <<<
-        if (this.appVersionElement) rightWrapper.appendChild(this.appVersionElement);
-        if (this.minimizeButton) rightWrapper.appendChild(this.minimizeButton);
         if (this.statusElement) rightWrapper.appendChild(this.statusElement);
-
+        if (this.minimizeButton) rightWrapper.appendChild(this.minimizeButton);
+     
         // Create Log Content Area
         this.logElement = document.createElement('div');
         this.logElement.id = 'log';
@@ -177,6 +203,46 @@ export class LogPanel {
         this.resizeHandle.title = 'Resize Log';
         this.container.appendChild(this.resizeHandle);
         
+        // <<< NEW: Create Log Menu Container (hidden initially) >>>
+        const menuContainer = document.createElement('div');
+        menuContainer.id = 'log-menu-container'; // Assign ID for styling/toggling
+        // menuContainer.style.display = 'none'; // Hide via CSS initially
+        
+        const menuItems = [
+            { text: 'Pause/Resume', action: 'toggleLogPause' },
+            { text: 'Copy Log', action: 'copyLog' },
+            { text: 'Clear Log', action: 'clearLog' },
+            { text: 'Debug UI', action: 'runDebugUI' },
+            { text: 'Sys Info', action: 'showSystemInfo' }, 
+            { text: 'Static HTML', action: 'downloadStaticHTML' },
+        ];
+        
+        // Add a separator before version info
+        const separator = document.createElement('div');
+        separator.className = 'log-menu-separator';
+        menuContainer.appendChild(separator);
+
+  
+
+        menuItems.forEach(item => {
+            const menuItem = document.createElement('div'); // Use div for block layout
+            menuItem.className = 'log-menu-item';
+            menuItem.textContent = item.text;
+            menuItem.dataset.action = item.action;
+            menuContainer.appendChild(menuItem);
+        });
+
+        // Add version info (non-actionable)
+        const versionInfo = document.createElement('div');
+        versionInfo.className = 'log-menu-version';
+        versionInfo.textContent = `v${appVer}`;
+        versionInfo.title = `App Version: ${appVer}`;
+        menuContainer.appendChild(versionInfo);
+        
+        // Insert menu *after* toolbar, *before* log area
+        this.container.insertBefore(menuContainer, this.logElement);
+        // <<< END NEW >>>
+
         console.log('[LogPanel] DOM structure created.');
         // Update initial pause button state
         this.updatePauseButtonState();
@@ -272,32 +338,100 @@ export class LogPanel {
         const cliInput = document.getElementById('cli-input');
 
         // Function to handle sending commands
-        const sendCommand = async () => { // Make async if execute uses await
-            const command = cliInput.value.trim();
-            if (!command) return;
+        const sendCommand = async () => { 
+            let originalCommand = cliInput.value.trim();
+            let commandToSend = originalCommand;
+            let selectionInfo = null;
+
+            if (!originalCommand) return;
             
-            console.log("[LOG] Sending command:", command);
-            
-            // Log the command to the UI
+            // Log the original command input
             if (typeof window.logMessage === 'function') {
-                window.logMessage(`> ${command}`);
+                window.logMessage(`> ${originalCommand}`, 'cli-input');
             }
+
+            // <<< NEW: Handle $A / $B substitution >>>
+            if (commandToSend.toLowerCase().includes('$a') && this._selectionStateA?.text) {
+                commandToSend = commandToSend.replace(/\\$a/gi, this._selectionStateA.text);
+                window.logMessage(`[DEBUG] Substituted $A with text (length ${this._selectionStateA.text.length}).`, 'debug');
+            } else if (commandToSend.toLowerCase().includes('$a')) {
+                 window.logMessage('[WARN] Command contains $A but state A is not set or has no text.', 'warning');
+            }
+
+            if (commandToSend.toLowerCase().includes('$b') && this._selectionStateB?.text) {
+                commandToSend = commandToSend.replace(/\\$b/gi, this._selectionStateB.text);
+                window.logMessage(`[DEBUG] Substituted $B with text (length ${this._selectionStateB.text.length}).`, 'debug');
+            } else if (commandToSend.toLowerCase().includes('$b')) {
+                 window.logMessage('[WARN] Command contains $B but state B is not set or has no text.', 'warning');
+            }
+            // <<< END $A / $B Handling >>>
             
-            // Clear the input and refocus
+            // Clear the input and refocus BEFORE execution
             cliInput.value = '';
             cliInput.focus();
-            
+
+            // <<< NEW: Handle local echo/show/paste for $A/$B >>>
+            const commandLower = commandToSend.toLowerCase();
+            let handledLocally = false;
+            // Show $A
+            if (commandLower === 'show $a') {
+                if (this._selectionStateA) {
+                    const state = this._selectionStateA;
+                    const snippet = state.text.substring(0, 100).replace(/\n/g, ' ');
+                    const output = `State A: File='${state.filePath}', Range=[${state.start}-${state.end}], Text="${snippet}..."`;
+                    this.addEntry(output, 'cli-local-echo'); 
+                } else {
+                    this.addEntry('State A is not set.', 'cli-local-echo');
+                }
+                handledLocally = true;
+            // Show $B
+            } else if (commandLower === 'show $b') {
+                if (this._selectionStateB) {
+                    const state = this._selectionStateB;
+                    const snippet = state.text.substring(0, 100).replace(/\n/g, ' ');
+                    const output = `State B: File='${state.filePath}', Range=[${state.start}-${state.end}], Text="${snippet}..."`;
+                    this.addEntry(output, 'cli-local-echo'); 
+                } else {
+                    this.addEntry('State B is not set.', 'cli-local-echo');
+                }
+                handledLocally = true;
+            // Paste $A
+            } else if (commandLower === 'paste $a' || commandLower === 'insert $a') {
+                if (this._selectionStateA?.text) {
+                    triggerActions.pasteTextAtCursor({ textToPaste: this._selectionStateA.text });
+                    this.addEntry(`Pasted State A content into editor.`, 'cli-local-echo');
+                } else {
+                    this.addEntry('Cannot paste State A: State is not set or has no text.', 'cli-local-echo');
+                }
+                handledLocally = true;
+            // Paste $B
+            } else if (commandLower === 'paste $b' || commandLower === 'insert $b') {
+                if (this._selectionStateB?.text) {
+                    triggerActions.pasteTextAtCursor({ textToPaste: this._selectionStateB.text });
+                     this.addEntry(`Pasted State B content into editor.`, 'cli-local-echo');
+                } else {
+                     this.addEntry('Cannot paste State B: State is not set or has no text.', 'cli-local-echo');
+                }
+                 handledLocally = true;
+            }
+
+            // If handled locally, don't send to remote
+            if (handledLocally) {
+                return;
+            }
+            // <<< END Local Echo/Show >>>
+
+            // Execute the command (potentially modified)
+            console.log("[LOG] Sending command to remote:", commandToSend);
             try {
-                // Import and use the handler module directly without destructuring
                 const handlersModule = await import('/client/cli/handlers.js');
                 if (handlersModule.executeRemoteCommand) {
-                    // Assuming executeRemoteCommand logs its own output/errors via logMessage
-                    // If it returns output, log it here with 'cli-output' type
-                    const result = await handlersModule.executeRemoteCommand(command);
+                    const result = await handlersModule.executeRemoteCommand(commandToSend);
+                    // Process result (addEntry will check _lastCommandSelection)
                     if (result && typeof result === 'string') {
-                         this.addEntry(result, 'cli-output'); // Log success output
+                         this.addEntry(result, 'cli-output'); 
                     } else if (result) {
-                         this.addEntry(JSON.stringify(result), 'cli-output'); // Log object output
+                         this.addEntry(JSON.stringify(result), 'cli-output'); 
                     }
                 } else {
                     throw new Error("executeRemoteCommand function not found");
@@ -309,7 +443,7 @@ export class LogPanel {
                 }
                 this.addEntry(`[ERROR] ${error.message}`, 'cli-error'); // Log error output
             }
-        }
+        };
 
         // Add click handler to button
         const sendButton = document.getElementById('cli-send-button');
@@ -331,31 +465,205 @@ export class LogPanel {
         if (this.logElement) {
             this.logElement.addEventListener('click', (event) => {
                 const logEntryDiv = event.target.closest('.log-entry');
-                if (logEntryDiv) {
-                    console.log('[LogPanel Delegated Listener] Click detected on/inside .log-entry.');
-                    // We don't need stopPropagation here unless it causes issues elsewhere
-                    
-                    console.log('[LogPanel Delegated Listener] Checking triggerActions...', typeof triggerActions);
-                    console.log('[LogPanel Delegated Listener] Checking triggerActions.pasteLogEntry...', typeof triggerActions?.pasteLogEntry);
+                if (!logEntryDiv) return; // Click wasn't inside a log entry
 
-                    if (typeof triggerActions?.pasteLogEntry === 'function') {
-                         console.log('[LogPanel Delegated Listener] pasteLogEntry function found. Calling it...');
+                // --- Helper Function to set content based on MD state (Defined higher up) ---
+                const setContentByMarkdownState = async (entryDiv, isMarkdownActive, animate = false) => {
+                    const textWrapper = entryDiv.querySelector('.log-entry-text-wrapper');
+                    const markdownToggleButton = entryDiv.querySelector('.markdown-toggle-button'); // Query for the button
+                    
+                    if (!textWrapper) {
+                        console.warn('setContentByMarkdownState: Could not find text wrapper for entry.');
+                        return;
+                    }
+
+                    textWrapper.classList.toggle('markdown-rendered', isMarkdownActive);
+                    if (markdownToggleButton) {
+                       markdownToggleButton.classList.toggle('active', isMarkdownActive); 
+                    } // Only toggle button if it exists
+
+                    const coreMessage = entryDiv.dataset.logCoreMessage || '';
+                    const logType = entryDiv.dataset.logType;
+                    const isCurrentlyExpanded = entryDiv.classList.contains('expanded'); // Check current DOM state
+
+                    textWrapper.innerHTML = ''; // Clear previous content
+
+                    // Render MD only if Expanded AND MD Toggle is Active (and not JSON)
+                    if (isCurrentlyExpanded && isMarkdownActive && logType !== 'json') {
+                        // Render Markdown
                         try {
-                            triggerActions.pasteLogEntry({}, logEntryDiv); // Pass the found div
-                            console.log('[LogPanel Delegated Listener] pasteLogEntry call completed.');
-                        } catch (error) {
-                            console.error('[LogPanel Delegated Listener] Error calling pasteLogEntry:', error);
+                            const result = await renderMarkdown(coreMessage);
+                            textWrapper.innerHTML = result.html;
+                            // Run post-processing AFTER setting innerHTML
+                            await postProcessRender(textWrapper);
+                            logPanelMessage(`Post-processing applied to log entry ${entryDiv.dataset.logIndex}.`, 'debug');
+                        } catch (err) {
+                            const logIndex = entryDiv.dataset.logIndex; // Get index for error message
+                            console.error(`Error rendering markdown or post-processing for log entry ${logIndex}:`, err);
+                            textWrapper.innerHTML = `<pre>Error rendering Markdown/processing content:\n${err}</pre>`;
                         }
                     } else {
-                         console.error('[LogPanel Delegated Listener] pasteLogEntry action function NOT FOUND in triggerActions.');
+                        // Revert to Raw Text (or JSON pre)
+                        const pre = document.createElement('pre');
+                        pre.textContent = coreMessage; // Use coreMessage which is already stringified JSON or raw text
+                        textWrapper.appendChild(pre);
                     }
+                    // Optional: Add animation class
+                    // if (animate) { ... }
+                };
+
+                // Check if the click was on a button within the entry
+                const clickedButton = event.target.closest('.log-entry-button');
+
+                if (clickedButton) {
+                    // --- Clicked a Button (Copy/Paste/etc.) ---
+                    console.log('[LogPanel Listener] Clicked a button inside log entry.');
+                    
+                    // Handle the original copy/paste button logic
+                    if (clickedButton.classList.contains('original-button') || clickedButton.classList.contains('toolbar-button')) {
+                        const logText = clickedButton.dataset.logText; // Get text from button's data attr
+                        if (logText === undefined) {
+                           console.warn('Copy/Paste button clicked, but logText data attribute is missing!');
+                           return; 
+                        }
+
+                        if (event.shiftKey) {
+                            // Shift+Click: Paste to Editor
+                            console.log('[LogPanel Listener] Shift+Click detected. Triggering pasteLogEntry...');
+                            triggerActions.pasteLogEntry({ logText: logText }, clickedButton); 
+                        } else {
+                            // Normal Click: Copy to Clipboard
+                            console.log('[LogPanel Listener] Normal click detected. Triggering copyLogEntryToClipboard...');
+                            triggerActions.copyLogEntryToClipboard({ logText: logText }, clickedButton);
+                        }
+                    } 
+                    // <<< Add handling for other button types (like paste-over) here if re-introduced >>>
+                    
+                    // Prevent the click from also toggling the expand/collapse state
+                    event.stopPropagation(); 
+
+                } else {
+                    // --- Clicked the Log Entry Text Area (Toggle Expand/Collapse) ---
+                    console.log('[LogPanel Listener] Clicked log entry text area (or whitespace).');
+                    logEntryDiv.classList.toggle('expanded');
+                    const isExpanded = logEntryDiv.classList.contains('expanded');
+                    const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+                    
+                    // Move expanded element to top
+                    if (isExpanded && this.logElement) {
+                        this.logElement.prepend(logEntryDiv);
+                    }
+
+                    if (isExpanded && expandedToolbar) {
+                        console.log('[LogPanel Listener] Expanding entry, building toolbar.');
+                        // --- Build the Expanded Toolbar --- 
+                        expandedToolbar.innerHTML = ''; // Clear previous content
+                        const { logIndex, logTimestamp, logType, logSubtype, logCoreMessage, rawOriginalMessage } = logEntryDiv.dataset;
+                        const createToken = (text, className) => {
+                            const token = document.createElement('span');
+                            token.className = `log-token ${className}`; 
+                            token.textContent = text;
+                            return token;
+                        };
+                        if (logIndex !== undefined) expandedToolbar.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
+                        if (logTimestamp) expandedToolbar.appendChild(createToken(logTimestamp, 'log-token-time'));
+                        if (logType) expandedToolbar.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
+                        if (logSubtype) expandedToolbar.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
+                        
+                        const markdownToggleButton = document.createElement('button');
+                        markdownToggleButton.textContent = 'MD';
+                        markdownToggleButton.className = 'log-entry-button markdown-toggle-button';
+                        markdownToggleButton.title = 'Toggle Markdown Rendering';
+                        markdownToggleButton.dataset.action = 'toggleMarkdownRender'; 
+                        expandedToolbar.appendChild(markdownToggleButton);
+
+                        const toolbarCopyButton = document.createElement('button');
+                        toolbarCopyButton.innerHTML = '&#128203;'; 
+                        toolbarCopyButton.className = 'log-entry-button toolbar-button'; 
+                        toolbarCopyButton.title = 'Copy log entry text (Shift+Click to Paste)'; 
+                        toolbarCopyButton.dataset.logText = rawOriginalMessage || ''; 
+                        expandedToolbar.appendChild(toolbarCopyButton);
+
+                        // --- Set Initial Content and Button State on Expand ---
+                        const isMarkdownRenderedInitially = logEntryDiv.dataset.markdownRendered === 'true';
+                        (async () => {
+                           // Pass logEntryDiv to the helper function
+                           await setContentByMarkdownState(logEntryDiv, isMarkdownRenderedInitially, false);
+                        })();
+                         
+                        // --- Add Click Listener for MD Toggle --- 
+                        markdownToggleButton.addEventListener('click', async (mdEvent) => {
+                            mdEvent.stopPropagation(); 
+                            const currentState = logEntryDiv.dataset.markdownRendered === 'true';
+                            const newState = !currentState;
+                            logEntryDiv.dataset.markdownRendered = newState; // Update stored state
+                            
+                            // Pass logEntryDiv to the helper function
+                            await setContentByMarkdownState(logEntryDiv, newState, true);
+                        });
+
+                     } else if (!isExpanded) { // Removed expandedToolbar check here, we always want to reset content on collapse
+                        console.log('[LogPanel Listener] Collapsing entry.');
+                        // Reset the stored state attribute on collapse
+                        logEntryDiv.dataset.markdownRendered = 'false'; 
+
+                        // Explicitly revert content to raw text when collapsing
+                        (async () => {
+                           // Pass logEntryDiv to the helper function
+                           await setContentByMarkdownState(logEntryDiv, false, false);
+                        })();
+                     }
+                     
+                    // Optional: Adjust scroll if expanding makes it go off-screen
+                    // logEntryDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
-            console.log('[LogPanel] Attached delegated click listener to #log element.');
+            console.log('[LogPanel] Updated delegated click listener on #log element for expand/copy/paste.');
         } else {
             console.warn('[LogPanel] #log element not found, cannot attach delegated listener.');
         }
         // === END DELEGATED LISTENER ===
+
+        // <<< NEW: Add Editor Blur/Focus Listeners >>>
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        if (editorTextArea) {
+            editorTextArea.addEventListener('blur', (event) => {
+                // <<< SIMPLIFIED LOGIC: Store selection on blur if it has length >>>
+                const start = editorTextArea.selectionStart;
+                const end = editorTextArea.selectionEnd;
+                if (start !== end) {
+                    this._selectionStateA = { start, end };
+                    logPanelMessage(`Editor blurred. Stored selection: start=${start}, end=${end}`);
+                } else {
+                     // If selection has zero length on blur, clear stored value
+                     this._selectionStateA = null;
+                     logPanelMessage('Editor blurred with zero-length selection. Cleared stored selection.');
+                }
+                /* // OLD LOGIC with relatedTarget check
+                const relatedTarget = event.relatedTarget;
+                if (relatedTarget && (relatedTarget === this.cliInputElement || this.container.contains(relatedTarget))) {
+                    this._editorSelectionBeforeCliFocus = { 
+                        start: editorTextArea.selectionStart,
+                        end: editorTextArea.selectionEnd
+                    };
+                    logPanelMessage(`Editor blurred towards log panel. Stored selection: start=${this._editorSelectionBeforeCliFocus.start}, end=${this._editorSelectionBeforeCliFocus.end}`);
+                } else {
+                     // Clear if blurring elsewhere
+                     this._editorSelectionBeforeCliFocus = null;
+                     logPanelMessage('Editor blurred, but not towards log panel. Cleared stored selection.');
+                }
+                */
+            });
+            // Clear stored selection if editor is focused again
+            editorTextArea.addEventListener('focus', () => {
+                logPanelMessage('Editor focused. Cleared stored selection.');
+                this._selectionStateA = null;
+            });
+            logPanelMessage('Attached blur/focus listeners to editor textarea.');
+        } else {
+            logPanelMessage('Editor textarea not found during listener setup.', 'warning');
+        }
+        // <<< END NEW LISTENERS >>>
     }
 
     // --- Core Methods ---
@@ -363,12 +671,20 @@ export class LogPanel {
     /**
      * Adds a log message to the panel, respecting the pause state.
      * @param {string|object} message - The message to log
-     * @param {string} [type=\'text\'] - The message type (e.g., 'text', 'json', 'error', 'cli-input', 'cli-output').
+     * @param {string} [type=\'text\'] - The message type (e.g., \'text\', \'json\', \'error\', \'cli-input\', \'cli-output\').
      */
     addEntry(message, type = 'text') {
+        // <<< DEBUGGING: Log incoming message details >>>
+        // console.log(`[LogPanel DEBUG] addEntry received:`, {
+        //     message: message,
+        //     typeofMessage: typeof message,
+        //     messageStr: String(message),
+        //     messageTrimmed: String(message).trim(),
+        //     type: type
+        // });
         // --- ADDED: Check Pause State ---
         // Allow specific types through even when paused
-        const allowedTypesWhenPaused = ['cli-input', 'cli-output', 'cli-error'];
+        const allowedTypesWhenPaused = ['cli-input', 'cli-output', 'cli-error', 'cli-local-echo']; // Added cli-local-echo
         if (this.isPaused && !allowedTypesWhenPaused.includes(type)) {
             // console.log(`[LogPanel] Paused. Ignoring entry type: ${type}`);
             return; // Don't add the entry if paused and type is not allowed
@@ -376,8 +692,9 @@ export class LogPanel {
         // --- END ADDED ---
 
         if (!this.logElement) {
-             console.warn('[LogPanel] Log element not ready for addEntry');
-             return; 
+             // <<< MODIFIED DEBUGGING >>>
+             console.warn(`[LogPanel] Log element (#log) not found when trying to add entry:`, { message, type });
+             return;
         }
 
         // Check for empty, undefined, or null messages
@@ -386,70 +703,144 @@ export class LogPanel {
             return;
         }
         
-        // Convert to string if it's not already (handles empty strings)
-        const messageStr = String(message);
-        if (messageStr.trim() === '' && type === 'text') {
-            console.warn('[LogPanel] Empty text log message received, ignoring');
-            return;
+        // Convert to string if it's not already
+        let messageStr = String(message);
+        if (messageStr.trim() === '') { // Check trimmed empty string for *all* types now
+             console.warn('[LogPanel] Empty or whitespace-only log message received, ignoring');
+             return;
         }
 
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry log-entry-${type}`;
-        logEntry.title = 'Click to paste into editor'; // Keep tooltip
+        // Apply specific class for styling based on type (level) - moved earlier
+        logEntry.classList.add(`log-${type.toLowerCase()}`); 
+        logEntry.style.display = 'flex'; // Keep flex for main layout
+        logEntry.style.justifyContent = 'space-between';
+        logEntry.style.alignItems = 'flex-start'; // Align items to the top
 
-        // Create a span for the actual text content
-        const textSpan = document.createElement('span');
-        textSpan.className = 'log-entry-text';
-        
-        // Store the RAW message in a data attribute
-        let rawMessageForDataAttr = '';
-
-        // Explicitly handle all expected types
-        if (type === 'text' || type === 'info' || type === 'debug' || type === 'warning' || type === 'error' || type === 'success' || type === 'RENDER' || type === 'EVENT' || type === 'COMPLETE') {
-            // Apply specific class for styling based on type (level)
-            logEntry.classList.add(`log-${type.toLowerCase()}`);
-            // >>> MODIFIED: Prepend index <<<
-            textSpan.innerText = `[${this.state.clientLogIndex}] ${timestamp} ${messageStr}`;
-            rawMessageForDataAttr = messageStr; // Store original string
-        } else if (type === 'json') {
-            logEntry.classList.add('log-json');
-            // >>> MODIFIED: Prepend index <<<
-            textSpan.textContent = `[${this.state.clientLogIndex}] ${timestamp} [JSON] `;
-            const pre = document.createElement('pre');
-            let jsonString = '[Error stringifying JSON]';
-            try {
-                jsonString = JSON.stringify(message, null, 2);
-                pre.textContent = jsonString;
-            } catch (e) {
-                pre.textContent = jsonString;
-            }
-            textSpan.appendChild(pre);
-            rawMessageForDataAttr = jsonString; // Store stringified JSON
-        } else {
-             console.warn(`[LogPanel] Unknown log type: ${type}`);
-             const prefix = `[${type.toUpperCase()}]`;
-             // >>> MODIFIED: Prepend index <<<
-             textSpan.innerText = `[${this.state.clientLogIndex}] ${timestamp} ${prefix} ${messageStr}`;
-             rawMessageForDataAttr = `${prefix} ${messageStr}`; // Include unknown prefix in raw data
+        // --- Parse Subtype and Core Message ---
+        let subtype = null;
+        let coreMessage = messageStr;
+        // Replace the line below completely to fix potential hidden character issues
+        // const subtypeMatch = messageStr.match(/^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)/i);
+        // --- Try using RegExp constructor --- 
+        const subtypeRegex = new RegExp('^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)', 'i'); 
+        const subtypeMatch = subtypeRegex.exec(messageStr);
+        // --- End RegExp constructor attempt ---
+        if (subtypeMatch) {
+            subtype = subtypeMatch[1];
+            coreMessage = subtypeMatch[2].trim(); // Use the rest as the core message
+            // Add subtype class for potential styling
+            logEntry.classList.add(`log-subtype-${subtype.toLowerCase().replace(/[^a-z0-9\\-]/g, '-')}`);
         }
+        // --- End Subtype Parsing ---
+
+        // --- Store Data Attributes on logEntry element ---
+        const currentLogIndex = this.state.clientLogIndex; // Store before incrementing
+        logEntry.dataset.logIndex = currentLogIndex;
+        logEntry.dataset.logTimestamp = timestamp;
+        logEntry.dataset.logType = type;
+        if (subtype) {
+            logEntry.dataset.logSubtype = subtype;
+        }
+        logEntry.dataset.logCoreMessage = coreMessage; // Store the message without the subtype prefix
+        // Store the raw original string message as well for full copy/paste if needed
+        logEntry.dataset.rawOriginalMessage = messageStr; 
+        // --- End Data Attributes ---
+
+
+        // Create a span for the actual text content to be displayed initially
+        const textSpan = document.createElement('span');
+        textSpan.className = 'log-entry-text-content'; // Assign class to inner content span
         
-        // Set the data attribute on the span
-        textSpan.dataset.rawMessage = rawMessageForDataAttr;
+        let displayMessage = ''; // This will hold the formatted text shown initially
+        let rawMessageForCopyButton = ''; // This will be stored in the copy button
 
-        // Append the text span to the log entry
-        logEntry.appendChild(textSpan);
+        // Format the initially displayed message (index, timestamp, original message)
+        // We include the subtype prefix here if it existed, for initial visibility.
+        displayMessage = `[${currentLogIndex}] ${timestamp} ${messageStr}`; 
+        // Set the raw message for the copy button to the original message string
+        rawMessageForCopyButton = messageStr;
 
-        this.logElement.appendChild(logEntry);
-        // console.log(`[LogPanel addEntry] Just appended logEntry. Current innerHTML:`, logEntry.innerHTML); // REMOVED diagnostic log
+        // Handle JSON type separately for display formatting
+        if (type === 'json') {
+            let jsonString = '[Error stringifying JSON]';
+             try {
+                 // Use the original 'message' object here, not messageStr
+                 jsonString = JSON.stringify(message, null, 2); 
+                 coreMessage = jsonString; // Update core message for data attribute
+                 logEntry.dataset.logCoreMessage = coreMessage; 
+                 rawMessageForCopyButton = jsonString; // Update raw message for button
+             } catch (e) {
+                 // Keep default error string
+             }
+            // Display format for JSON
+            displayMessage = `[${currentLogIndex}] ${timestamp} [JSON]`;
+            const pre = document.createElement('pre');
+            pre.textContent = jsonString;
+            textSpan.textContent = displayMessage; // Set text part first
+            textSpan.appendChild(pre); // Append JSON <pre> block
+        } else {
+            // For non-JSON types, just set the text content
+            textSpan.innerText = displayMessage;
+        }
 
+
+        // >> Create a wrapper for the text content <<
+        const textWrapper = document.createElement('span');
+        textWrapper.className = 'log-entry-text-wrapper';
+        // textWrapper.dataset.rawMessage = rawMessageForDataAttr; // REMOVED: raw message now on logEntry.dataset.rawOriginalMessage
+        textWrapper.appendChild(textSpan); // Put the actual content span inside the wrapper
+
+        // Append the text WRAPPER to the log entry
+        logEntry.appendChild(textWrapper);
+
+        // >>> Create the ORIGINAL copy button (visible when collapsed) <<<
+        const originalCopyButton = document.createElement('button');
+        originalCopyButton.innerHTML = '&#128203;'; // Clipboard emoji
+        originalCopyButton.className = 'log-entry-button original-button'; // Add class to distinguish
+        originalCopyButton.title = 'Copy log entry text (Shift+Click to Paste)'; 
+        // Add the RAW message to the button's dataset for the action handler
+        originalCopyButton.dataset.logText = rawMessageForCopyButton; 
+        logEntry.appendChild(originalCopyButton);
+        
+        // >> NEW: Create the Expanded Toolbar (INITIALLY EMPTY) <<
+        const expandedToolbar = document.createElement('div');
+        expandedToolbar.className = 'log-entry-expanded-toolbar';
+        // Don't add buttons or content here; it will be built on expand
+
+        // Append the hidden toolbar to the log entry
+        logEntry.appendChild(expandedToolbar);
+
+        // --- Insert the log entry --- 
+        const expandedEntries = this.logElement.querySelectorAll('.log-entry.expanded');
+        if (expandedEntries.length > 0) {
+            // Find the last expanded entry
+            const lastExpandedEntry = expandedEntries[expandedEntries.length - 1];
+            // Insert the new entry *after* the last expanded one
+            lastExpandedEntry.after(logEntry);
+            logPanelMessage(`Prepended new entry after last expanded (Index: ${lastExpandedEntry.dataset.logIndex})`, 'debug');
+        } else {
+            // If no entries are expanded, prepend to the top as usual
+            this.logElement.prepend(logEntry); 
+            logPanelMessage(`Prepended new entry to top (no expanded entries found)`, 'debug');
+        }
+        // --- End Insertion Logic ---
+        
         this.state.entryCount++;
-        this.state.clientLogIndex++; // <<< ADDED: Increment client log index
+        this.state.clientLogIndex++; // <<< Increment client log index AFTER using it
         this.updateEntryCount(); // Use internal method
-        this.scrollToBottom();
+
+        // Scroll to top (consider if this is always desired with prepending)
+        // setTimeout(() => { 
+        //     if (this.logElement) { // Check if element still exists
+        //         this.logElement.scrollTop = 0; 
+        //     }
+        // }, 0); 
 
         // Also log to console for debugging
-        console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : messageStr}`);
+        // console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : messageStr}`); // Keep original console log format for now
     }
 
     /**

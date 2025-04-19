@@ -116,7 +116,8 @@ export class PreviewManager {
     }
     
     try {
-      console.log('[PREVIEW] updatePreview called with content length:', content?.length);
+      // logMessage('[PREVIEW] updatePreview called with content length:', "debug", "PREVIEW", { length: content?.length });
+      logMessage(`[PREVIEW] updatePreview called with content length: ${content?.length}`, "debug", "PREVIEW");
       
       // Clear any pending updates
       if (this.updateTimer) {
@@ -127,7 +128,7 @@ export class PreviewManager {
         // Schedule the update to avoid too many updates in quick succession
         this.updateTimer = setTimeout(async () => {
           try {
-            logMessage('Calling renderMarkdown');
+            // logMessage('Calling renderMarkdown'); // Commented out temporarily
             const renderResult = await renderMarkdown(content);
             logMessage(`renderMarkdown returned. HTML length: ${renderResult.html?.length}, FrontMatter keys: ${Object.keys(renderResult.frontMatter).join(', ')}`, "debug", "PREVIEW");
 

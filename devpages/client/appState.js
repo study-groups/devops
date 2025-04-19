@@ -59,7 +59,12 @@ const initialState = {
     },
 
     // Other top-level state sections can be added here as needed
-    // files: { ... },
+    file: { // <<< UNCOMMENTED/ADDED File State Slice >>>
+        currentFile: null, // Path of the currently loaded file
+        currentDir: null, // Top-level directory (redundant? maybe keep synced)
+        currentRelativePath: null, // Relative path within top-level dir
+        // Potentially add other file-related state like isDirty, etc.
+    },
     // editor: { ... },
     // settings: { ... },
 };

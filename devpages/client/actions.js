@@ -179,7 +179,7 @@ export const triggerActions = {
         } catch (e) { logAction(`copyLog failed: ${e.message}`, 'error'); }
     },
     clearLog: async () => {
-        logAction('Triggering clearLog...');
+        // logAction('Triggering clearLog...'); // <<< SILENCED
         try {
             window.logPanel?.clearLog();
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
@@ -545,87 +545,99 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
         }
     },
     pasteLogEntry: (data, element) => {
-        logAction('>>> pasteLogEntry Action Started <<<'); // <--- We are likely not seeing this log
-        if (!element) {
-            logAction('pasteLogEntry failed: Clicked element is null/undefined.', 'error');
+        console.log('[TEMP DEBUG] Entered pasteLogEntry function in actions.js'); // <<< ADD TEMP DEBUG
+        logAction('>>> pasteLogEntry Action Started <<<'); 
+        if (!element || element.tagName !== 'BUTTON') { // <<< Ensure element is the button
+            logAction(`pasteLogEntry failed: Expected button element, got ${element?.tagName}.`, 'error');
             return;
         }
-        logAction(`Clicked element: ${element.tagName}#${element.id}.${element.className}`, 'debug');
+        const buttonElement = element;
+        logAction(`Clicked button element: ${buttonElement.tagName}#${buttonElement.id}.${buttonElement.className}`, 'debug');
 
-        // The element passed in IS the logEntryDiv because we attached the listener directly
-        const logEntryDiv = element;
-        logAction(`Using directly passed element as logEntryDiv: ${logEntryDiv ? 'Yes' : 'No'}`, 'debug');
+        // Get the RAW message from the button's data attribute
+        const logText = buttonElement.dataset.logText;
+        logAction(`Retrieved RAW log text from button dataset (length ${logText?.length}): \"${logText?.substring(0, 50)}...\"`, 'debug');
 
-        if (!logEntryDiv) {
-            logAction('Passed element was null/undefined.', 'error');
-            return;
+        // <<< ADD More Debugging >>>
+        if (logText === undefined || logText === null) {
+            logAction('Paste failed: logText is undefined or null.', 'error');
+            return; // Stop if no text
         }
-
-        console.log('[DEBUG pasteLogEntry] logEntryDiv innerHTML:', logEntryDiv.innerHTML); // Log the innerHTML
-        const textSpan = logEntryDiv.querySelector('.log-entry-text');
-        logAction(`Found child .log-entry-text span: ${textSpan ? 'Yes' : 'No'}`, 'debug');
-        if (!textSpan) {
-            logAction('Could not find child .log-entry-text span.', 'error'); // Added error log
-            return; // Stop if we can't find the text span
+        if (logText.trim() === '') {
+            logAction('Paste failed: logText is empty or whitespace.', 'warning');
+            // Allow pasting whitespace if desired, otherwise return
+             return; 
         }
+        // <<< END Debugging >>>
 
-        // Get the RAW message from the data attribute
-        const logText = textSpan.dataset.rawMessage;
-        logAction(`Retrieved RAW log text (length ${logText?.length}): \"${logText?.substring(0, 50)}...\"`, 'debug');
-
-        if (logText !== undefined && logText !== null) { // Check if attribute exists and has value
-            try {
-                // Use standard textarea access
-                const editorTextArea = document.querySelector('#editor-container textarea'); 
-                logAction(`Found editor textarea (#editor-container textarea): ${editorTextArea ? 'Yes' : 'No'}`, 'debug');
-                
-                if (editorTextArea) {
-                    logAction(`Attempting to insert text into editor...`, 'debug');
-                    const start = editorTextArea.selectionStart;
-                    const end = editorTextArea.selectionEnd;
-                    const currentValue = editorTextArea.value;
-                    
-                    // Insert the log text at the cursor position
-                    const newValue = currentValue.substring(0, start) + logText + currentValue.substring(end);
-                    editorTextArea.value = newValue;
-                    
-                    // Move cursor to the end of the inserted text
-                    const newCursorPos = start + logText.length;
-                    editorTextArea.selectionStart = newCursorPos;
-                    editorTextArea.selectionEnd = newCursorPos;
-                    
-                    // Focus the editor
-                    editorTextArea.focus();
-
-                    logAction('Log entry pasted into editor.');
-                    
-                    // --- Trigger preview update --- 
-                    if (eventBus) {
-                        logAction('Emitting editor:contentChanged to trigger preview update.', 'debug');
-                        eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
-                    } else {
-                        logAction('eventBus not available, cannot trigger preview update.', 'warning');
-                    }
-                    // --- End Trigger --- 
-
-                    // Optional: Show brief feedback on the clicked element (or the span)
-                    const originalText = textSpan.textContent; // Store original text of the span
-                    textSpan.textContent = '✓ Pasted'; // Change span text
-                    logEntryDiv.classList.add('pasted-feedback'); // Add class for styling
-                    setTimeout(() => { 
-                        textSpan.textContent = originalText; // Restore original text
-                        logEntryDiv.classList.remove('pasted-feedback'); // Remove class
-                    }, 1500); // Longer timeout for visibility
-                } else {
-                    logAction(`Editor textarea not found ('#editor-container textarea'). Cannot paste.`, 'error'); // More specific error
-                    alert('Could not paste into editor. Textarea element not found.'); // User notification
-                }
-            } catch (err) {
-                logAction(`Error during text insertion: ${err}`, 'error'); // Log insertion errors
-                console.error("Paste Log Entry Error:", err);
+        try {
+            // Use standard textarea access
+            const editorTextArea = document.querySelector('#editor-container textarea'); 
+            logAction(`Found editor textarea (#editor-container textarea): ${editorTextArea ? 'Yes' : 'No'}`, 'debug');
+            // <<< ADD Editor Check >>>
+            if (!editorTextArea) {
+                logAction('Paste failed: Editor textarea element not found.', 'error');
+                alert('Editor is not available to paste into.');
+                return; // Stop if no editor
             }
-        } else {
-            logAction('Could not get text content from .log-entry-text data-raw-message attribute.', 'warning');
+            // <<< END Editor Check >>>
+
+            logAction(`Attempting to insert text into editor...`, 'debug');
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+            // const currentValue = editorTextArea.value; // No longer needed
+            
+            // // Insert the log text at the cursor position (OLD METHOD)
+            // const newValue = currentValue.substring(0, start) + logText + currentValue.substring(end);
+            // editorTextArea.value = newValue;
+            
+            // // Move cursor to the end of the inserted text
+            // const newCursorPos = start + logText.length;
+            // editorTextArea.selectionStart = newCursorPos;
+            // editorTextArea.selectionEnd = newCursorPos;
+            
+            // <<< NEW METHOD: Use execCommand for potential undo >>>
+            // First, focus the editor and select the range where text should be inserted/replaced
+            editorTextArea.focus();
+            editorTextArea.setSelectionRange(start, end);
+            
+            // Execute the insertText command
+            const success = document.execCommand('insertText', false, logText);
+            if (!success) {
+                // Fallback to old method if execCommand fails?
+                logAction('execCommand insertText failed. Pasting may not be undoable.', 'warning');
+                // Optionally fall back to the direct value manipulation if needed
+                // editorTextArea.value = currentValue.substring(0, start) + logText + currentValue.substring(end);
+                // editorTextArea.setSelectionRange(start + logText.length, start + logText.length);
+                throw new Error('document.execCommand("insertText") failed'); // Or throw error
+            }
+            // <<< END NEW METHOD >>>
+            
+            // Focus the editor (redundant but safe)
+            // editorTextArea.focus();
+
+            logAction('Log entry pasted into editor.');
+            
+            // --- Trigger preview update --- 
+            if (eventBus) {
+                logAction('Emitting editor:contentChanged to trigger preview update.', 'debug');
+                eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
+            } else {
+                logAction('eventBus not available, cannot trigger preview update.', 'warning');
+            }
+            // --- End Trigger --- 
+
+            // Optional: Show brief feedback on the clicked element (the button)
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '✓'; // Change button text briefly
+            buttonElement.classList.add('pasted-feedback'); // Add class for styling
+            setTimeout(() => { 
+                buttonElement.textContent = originalText; // Restore original text
+                buttonElement.classList.remove('pasted-feedback'); // Remove class
+            }, 1500); 
+        } catch (err) {
+            logAction(`Error during text insertion: ${err}`, 'error'); // Log insertion errors
+            console.error("Paste Log Entry Error:", err);
         }
     },
     cLogEntry: async (data, element) => {
@@ -682,6 +694,349 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
             console.error('[ACTION togglePreviewMode ERROR]', error);
         }
     },
+
+    // <<< NEW ACTION >>>
+    toggleLogMenu: () => {
+        // logAction('Toggling log menu visibility...'); // <<< SILENCED
+        const menuContainer = document.getElementById('log-menu-container');
+        if (menuContainer) {
+            menuContainer.classList.toggle('visible');
+            // logAction(`Log menu container visibility toggled. Has class 'visible': ${menuContainer.classList.contains('visible')}`); // <<< SILENCED
+        } else {
+            // logAction('Log menu container (#log-menu-container) not found.', 'error'); // Keep error log?
+        }
+    },
+    // <<< END NEW ACTION >>>
+
+    // <<< NEW ACTION: Paste CLI Response over $$ Selection >>>
+    pasteCliResponseOverSelection: (data, element) => {
+        logAction('>>> pasteCliResponseOverSelection Action Started <<<');
+        if (!element || element.tagName !== 'BUTTON') { 
+            logAction(`PasteOver failed: Expected button element, got ${element?.tagName}.`, 'error');
+            return;
+        }
+        const buttonElement = element;
+
+        // Retrieve data from button dataset
+        const start = parseInt(buttonElement.dataset.selectionStart, 10);
+        const end = parseInt(buttonElement.dataset.selectionEnd, 10);
+        const responseText = buttonElement.dataset.responseText;
+
+        logAction(`PasteOver: Start=${start}, End=${end}, ResponseText Length=${responseText?.length}`, 'debug');
+
+        // Validate data
+        if (isNaN(start) || isNaN(end) || responseText === undefined || responseText === null) {
+            logAction('PasteOver failed: Invalid data retrieved from button dataset.', 'error');
+            return;
+        }
+
+        try {
+            const editorTextArea = document.querySelector('#editor-container textarea');
+            if (!editorTextArea) {
+                logAction('PasteOver failed: Editor textarea not found.', 'error');
+                alert('Editor is not available to paste into.');
+                return;
+            }
+
+            // Select the original range
+            editorTextArea.focus();
+            editorTextArea.setSelectionRange(start, end);
+
+            // Execute the insertText command to replace selection
+            const success = document.execCommand('insertText', false, responseText);
+            if (!success) {
+                logAction('PasteOver execCommand insertText failed.', 'warning');
+                throw new Error('document.execCommand("insertText") failed');
+            }
+
+            logAction('CLI Response pasted over original selection.');
+
+            // Trigger preview update
+            if (eventBus) {
+                eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
+            }
+
+            // Optional: Feedback on button
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓'; 
+            setTimeout(() => { buttonElement.innerHTML = originalHTML; }, 1500);
+
+        } catch (err) {
+            logAction(`Error during PasteOver insertion: ${err}`, 'error');
+            console.error("Paste Over Selection Error:", err);
+        }
+    },
+    // <<< END NEW ACTION >>>
+
+    // <<< NEW ACTION: Copy Log Entry Text to Clipboard >>>
+    copyLogEntryToClipboard: async (data, element) => {
+        logAction('>>> copyLogEntryToClipboard Action Started <<<');
+        if (!element || element.tagName !== 'BUTTON') { 
+            logAction(`CopyEntry failed: Expected button element, got ${element?.tagName}.`, 'error');
+            return;
+        }
+        const buttonElement = element;
+        const logText = data?.logText; // Get text passed in data
+
+        if (logText === undefined || logText === null) {
+            logAction('CopyEntry failed: logText is undefined or null.', 'error');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(logText);
+            logAction('Log entry text copied to clipboard.');
+            
+            // Feedback
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ Copied'; 
+            buttonElement.disabled = true;
+            setTimeout(() => { 
+                buttonElement.innerHTML = originalHTML;
+                buttonElement.disabled = false; 
+            }, 1500);
+
+        } catch (err) {
+            logAction(`Failed to copy log entry to clipboard: ${err}`, 'error');
+            console.error("Copy Log Entry Error:", err);
+            // Optionally show error feedback on button
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '❌ Error'; 
+            setTimeout(() => { buttonElement.innerHTML = originalHTML; }, 2000);
+        }
+    },
+    // <<< END NEW ACTION >>>
+
+    // <<< NEW ACTIONS for A/B State >>>
+    setSelectionStateA: (data, element) => {
+        logAction('Setting Selection State A...');
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        const currentFile = appState.getState().file?.currentFile; // Get current file path from central state
+        
+        if (editorTextArea && currentFile !== undefined) {
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+            const text = editorTextArea.value.substring(start, end);
+
+            if (start === end) {
+                 logAction('Cannot set State A: No text selected.', 'warning');
+                 alert('Cannot store state: No text selected in editor.');
+                 return;
+            }
+
+            const stateData = { filePath: currentFile, start, end, text };
+            if (window.logPanel) {
+                window.logPanel._selectionStateA = stateData;
+                logAction(`State A stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                // Add visual feedback to button
+                element?.classList.add('state-set');
+                // <<< NEW: Update Tooltip >>>
+                if (element) {
+                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
+                    element.title = `State A: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                }
+                // Remove feedback after a delay?
+                // setTimeout(() => element?.classList.remove('state-set'), 2000);
+            } else {
+                logAction('Cannot set State A: LogPanel instance not found.', 'error');
+            }
+        } else {
+             logAction(`Cannot set State A: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+        }
+    },
+    setSelectionStateB: (data, element) => {
+        logAction('Setting Selection State B...');
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        const currentFile = appState.getState().file?.currentFile; // Get current file path
+
+        if (editorTextArea && currentFile !== undefined) {
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+            const text = editorTextArea.value.substring(start, end);
+
+            if (start === end) {
+                 logAction('Cannot set State B: No text selected.', 'warning');
+                 alert('Cannot store state: No text selected in editor.');
+                 return;
+            }
+
+            const stateData = { filePath: currentFile, start, end, text };
+            if (window.logPanel) {
+                window.logPanel._selectionStateB = stateData;
+                logAction(`State B stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                element?.classList.add('state-set');
+                // <<< NEW: Update Tooltip >>>
+                if (element) {
+                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
+                    element.title = `State B: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                }
+            } else {
+                logAction('Cannot set State B: LogPanel instance not found.', 'error');
+            }
+        } else {
+             logAction(`Cannot set State B: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+        }
+    },
+    // <<< END NEW ACTIONS >>>
+
+    // <<< NEW ACTION: Paste Text at Cursor >>>
+    pasteTextAtCursor: (data) => {
+        const textToPaste = data?.textToPaste;
+        logAction('>>> pasteTextAtCursor Action Started <<<');
+        
+        if (textToPaste === undefined || textToPaste === null) {
+            logAction('PasteText failed: textToPaste is undefined or null.', 'error');
+            return;
+        }
+
+        try {
+            const editorTextArea = document.querySelector('#editor-container textarea');
+            if (!editorTextArea) {
+                logAction('PasteText failed: Editor textarea not found.', 'error');
+                alert('Editor is not available to paste into.');
+                return;
+            }
+
+            // Get current cursor position
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+
+            // Select the current range (usually just the cursor position)
+            editorTextArea.focus();
+            editorTextArea.setSelectionRange(start, end);
+
+            // Execute the insertText command to insert/replace
+            const success = document.execCommand('insertText', false, textToPaste);
+            if (!success) {
+                logAction('PasteText execCommand insertText failed.', 'warning');
+                throw new Error('document.execCommand("insertText") failed');
+            }
+
+            logAction('Text pasted into editor at cursor.');
+
+            // Trigger preview update
+            if (eventBus) {
+                eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
+            }
+
+        } catch (err) {
+            logAction(`Error during PasteText insertion: ${err}`, 'error');
+            console.error("Paste Text Error:", err);
+        }
+    },
+    // <<< END NEW ACTION >>>
+
+    // --- END NEW ACTIONS >>>
+
+    copyLogEntryToClipboard: async (data, element) => {
+        logAction('>>> copyLogEntryToClipboard Action Started <<<');
+        if (!element || element.tagName !== 'BUTTON') { 
+            logAction(`CopyEntry failed: Expected button element, got ${element?.tagName}.`, 'error');
+            return;
+        }
+        const buttonElement = element;
+        const logText = data?.logText; // Get text passed in data
+
+        if (logText === undefined || logText === null) {
+            logAction('CopyEntry failed: logText is undefined or null.', 'error');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(logText);
+            logAction('Log entry text copied to clipboard.');
+            
+            // Feedback
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ Copied'; 
+            buttonElement.disabled = true;
+            setTimeout(() => { 
+                buttonElement.innerHTML = originalHTML;
+                buttonElement.disabled = false; 
+            }, 1500);
+
+        } catch (err) {
+            logAction(`Failed to copy log entry to clipboard: ${err}`, 'error');
+            console.error("Copy Log Entry Error:", err);
+            // Optionally show error feedback on button
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '❌ Error'; 
+            setTimeout(() => { buttonElement.innerHTML = originalHTML; }, 2000);
+        }
+    },
+    // <<< END NEW ACTION >>>
+
+    // <<< NEW ACTIONS for A/B State >>>
+    setSelectionStateA: (data, element) => {
+        logAction('Setting Selection State A...');
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        const currentFile = appState.getState().file?.currentFile; // Get current file path from central state
+        
+        if (editorTextArea && currentFile !== undefined) {
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+            const text = editorTextArea.value.substring(start, end);
+
+            if (start === end) {
+                 logAction('Cannot set State A: No text selected.', 'warning');
+                 alert('Cannot store state: No text selected in editor.');
+                 return;
+            }
+
+            const stateData = { filePath: currentFile, start, end, text };
+            if (window.logPanel) {
+                window.logPanel._selectionStateA = stateData;
+                logAction(`State A stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                // Add visual feedback to button
+                element?.classList.add('state-set');
+                // <<< NEW: Update Tooltip >>>
+                if (element) {
+                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
+                    element.title = `State A: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                }
+                // Remove feedback after a delay?
+                // setTimeout(() => element?.classList.remove('state-set'), 2000);
+            } else {
+                logAction('Cannot set State A: LogPanel instance not found.', 'error');
+            }
+        } else {
+             logAction(`Cannot set State A: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+        }
+    },
+    setSelectionStateB: (data, element) => {
+        logAction('Setting Selection State B...');
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        const currentFile = appState.getState().file?.currentFile; // Get current file path
+
+        if (editorTextArea && currentFile !== undefined) {
+            const start = editorTextArea.selectionStart;
+            const end = editorTextArea.selectionEnd;
+            const text = editorTextArea.value.substring(start, end);
+
+            if (start === end) {
+                 logAction('Cannot set State B: No text selected.', 'warning');
+                 alert('Cannot store state: No text selected in editor.');
+                 return;
+            }
+
+            const stateData = { filePath: currentFile, start, end, text };
+            if (window.logPanel) {
+                window.logPanel._selectionStateB = stateData;
+                logAction(`State B stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                element?.classList.add('state-set');
+                // <<< NEW: Update Tooltip >>>
+                if (element) {
+                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
+                    element.title = `State B: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                }
+            } else {
+                logAction('Cannot set State B: LogPanel instance not found.', 'error');
+            }
+        } else {
+             logAction(`Cannot set State B: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+        }
+    },
+    // <<< END NEW ACTIONS >>>
 };
 
 // <<< ADD LOG AFTER triggerActions >>>

@@ -74,58 +74,54 @@ export function initializeDomEvents() {
             console.log('[DEBUG domEvents.js] Found target with data-action:', target);
 
             const action = target.dataset.action;
+            const params = { ...target.dataset }; // Pass all data attributes
+            logDomEvent(`Delegated click found data-action: ${action} on target: ${target.tagName}#${target.id}.${target.className}`);
 
-            // --- Revised Check --- 
-            // Only proceed if the action is defined in the global action map
-            if (typeof triggerActions[action] !== 'function') {
-                console.log(`[DEBUG domEvents.js] Action "${action}" not found in global triggerActions. Assuming handled elsewhere or invalid action.`);
-                return; // Exit gracefully, allowing other handlers (like embedded scripts)
+            // --- Check Authentication --- 
+            const requiresAuth = PROTECTED_ACTIONS.has(action);
+            const isLoggedIn = appState.getState().auth.isLoggedIn;
+
+            if (requiresAuth && !isLoggedIn) {
+                logDomEvent(`Action '${action}' requires login. User not logged in. Preventing action.`, 'warning');
+                alert('Please log in to perform this action.'); 
+                return; // Stop execution if auth required and not logged in
             }
-            // --- End Revised Check --- 
+            // --- End Auth Check --- 
 
-            logDomEvent(`Action triggered: ${action} on ${target.tagName}#${target.id}`);
-            console.log(`[DEBUG domEvents.js] Found function for action "${action}" in triggerActions. Proceeding...`);
-            
-            let actionData = {}; 
-            for (const key in target.dataset) {
-                // Convert camelCase keys from data attributes (e.g., data-image-name -> imageName)
-                let camelCaseKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
-                if (camelCaseKey !== 'action') { actionData[camelCaseKey] = target.dataset[key]; }
-            }
-            console.log(`[DEBUG domEvents.js] Extracted actionData:`, actionData);
-
-            if (action === 'loadFile') {
-                const fileSelect = document.getElementById('file-select');
-                if (fileSelect && fileSelect.value) {
-                    actionData.filename = fileSelect.value;
-                    logDomEvent(`Added filename '${actionData.filename}' to data for loadFile action.`);
-                } else {
-                    logDomEvent('Could not find selected filename for loadFile action.', 'warning');
+            // Check if the action exists in triggerActions
+            if (triggerActions[action]) {
+                // <<< SILENCE menu item clicks >>>
+                const isMenuItem = target.closest('#log-menu-container');
+                if (!isMenuItem) {
+                    logDomEvent(`Found handler for action '${action}' in triggerActions. Executing...`);
                 }
-            }
-            
-            // Check if the action requires authentication using appState
-            if (PROTECTED_ACTIONS.has(action)) {
-                // Get current state directly from appState
-                if (appState.getState().auth.isLoggedIn) { 
-                    // Authenticated: Proceed with action
-                     if (typeof triggerActions[action] === 'function') {
-                         triggerActions[action](actionData, target);
-                     } else {
-                         logDomEvent(`No handler found for protected action: ${action}`, 'warning');
-                     }
-                } else {
-                    // Not authenticated: Block action and notify user
-                    logDomEvent(`Protected action '${action}' blocked: User not authenticated.`, 'warning');
-                    alert('Please log in to perform this action.');
+                try {
+                    triggerActions[action](params, target); // Pass params and the clicked element
+                    // <<< SILENCE menu item clicks >>>
+                    if (!isMenuItem) {
+                        logDomEvent(`Action '${action}' executed successfully via triggerActions.`);
+                    }
+                    
+                    // <<< MODIFIED: Close Menu Directly if click was inside it >>>
+                    // const menuContainer = target.closest('#log-menu-container'); // Already checked
+                    if (isMenuItem) { // Use the check from above
+                         // <<< SILENCED menu closure logging >>>
+                         /*
+                         if (action !== 'clearLog') {
+                            logDomEvent('Action originated inside log menu, closing menu directly...');
+                         }
+                         */
+                         const menuToClose = document.getElementById('log-menu-container'); 
+                         menuToClose?.classList.remove('visible'); 
+                    }
+                    // <<< END MODIFICATION >>>
+
+                } catch (error) {
+                    logDomEvent(`Error executing action '${action}' via triggerActions: ${error.message}`, 'error');
+                    console.error(`[DOM Event Action Error] Action: ${action}`, error);
                 }
             } else {
-                // Action does not require authentication: Proceed directly
-                if (typeof triggerActions[action] === 'function') {
-                    triggerActions[action](actionData, target);
-                } else {
-                    logDomEvent(`No handler found for action: ${action}`, 'warning');
-                }
+                logDomEvent(`No handler found for action: ${action}`, 'warning');
             }
             
             if (target.tagName === 'BUTTON') {

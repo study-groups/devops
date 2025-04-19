@@ -56,12 +56,7 @@ export async function executeRemoteCommand(command) {
                 }
             } else if (line.trim() !== '') {
                 // Log non-empty stdout lines
-                if (typeof window.logMessage === 'function') {
-                    window.logMessage(`[CLI Server] ${line}`);
-                } else {
-                    console.warn('window.logMessage not available for CLI Server log');
-                }
-                 stdoutBuffer.push(line); // Add to buffer for event payload
+                stdoutBuffer.push(line); // Add to buffer for event payload
             }
         });
 
