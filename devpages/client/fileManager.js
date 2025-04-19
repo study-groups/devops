@@ -358,19 +358,22 @@ async function handleFileNavigation(data) {
 
 async function handleNavigateToRoot() {
     logFileManager(`Event navigate:root received.`);
-    // Clear relative path and file
-    updateAndPersistState({ currentRelativePath: '', currentFile: '' });
+    // Clear relative path, file, AND top-level directory
+    updateAndPersistState({ topLevelDirectory: '', currentRelativePath: '', currentFile: '' }); 
     setContent(''); // Clear editor
     currentListingData = { dirs: [], files: [] }; // Clear old listing before load
 
-    // Load listing for the top-level directory
-    if (fileState.topLevelDirectory) {
-        await loadFilesAndDirectories(fileState.topLevelDirectory, '');
-    } else {
-        eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' }); // Clear UI listing
-    }
-    // Emit state settled
-    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: fileState.topLevelDirectory, relativePath: '', currentFile: '' });
+    // // Load listing for the top-level directory - REMOVED, no top dir selected now
+    // if (fileState.topLevelDirectory) { 
+    //     await loadFilesAndDirectories(fileState.topLevelDirectory, '');
+    // } else {
+    //     eventBus.emit('fileManager:listingLoaded', { ...currentListingData, relativePath: '' }); // Clear UI listing
+    // }
+    // Directly emit listingLoaded with empty data as no directory is selected
+    eventBus.emit('fileManager:listingLoaded', { dirs: [], files: [], relativePath: '' });
+
+    // Emit state settled - topLevelDirectory is now empty
+    eventBus.emit('fileManager:stateSettled', { topLevelDirectory: '', relativePath: '', currentFile: '' });
 }
 
 // ADDED: Handler to respond to UI requests for top-level dirs

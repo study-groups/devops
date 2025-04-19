@@ -1,6 +1,6 @@
 // Application configuration
 export const appName = 'devpages';
-export const appVer = '008m3';
+export const appVer = '009m2';
 
 // Export other configuration as needed
 export const config = {

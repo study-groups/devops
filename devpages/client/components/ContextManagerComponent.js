@@ -172,9 +172,10 @@ export function createContextManagerComponent(targetElementId) {
 
     // --- Event Handlers --- 
     const handleBreadcrumbClick = (event) => {
-        const target = event.target;
-        const top = target.dataset.targetTop;
-        const rel = target.dataset.targetRel;
+        // Use currentTarget to ensure we reference the element the listener is attached to
+        const targetSpan = event.currentTarget; 
+        const top = targetSpan.dataset.targetTop;
+        const rel = targetSpan.dataset.targetRel;
         logContext(`Breadcrumb click: Top='${top}', Rel='${rel}'`,"EVENT");
 
         // --- Emit appropriate navigation event --- 
@@ -209,6 +210,7 @@ export function createContextManagerComponent(targetElementId) {
     const handleMikeDirectorySelectChange = (event) => {
         const selectedDir = event.target.value;
         if (!selectedDir) return;
+        logContext(`Mike directory select CHANGE event fired. Selected: '${selectedDir}'`, "EVENT");
         logContext(`Mike directory select change: Selected directory='${selectedDir}'`,"EVENT");
         // This selection sets the top-level directory
         eventBus.emit('navigate:topLevelDir', { directory: selectedDir });

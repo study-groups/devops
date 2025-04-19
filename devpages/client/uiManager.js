@@ -205,36 +205,6 @@ function updateBreadcrumbs(fm) {
     } catch (error) { /* ... error handling ... */ }
 }
 
-// --- Breadcrumb Listener Setup ---
-function setupBreadcrumbListener() {
-    const contextManagerContainer = document.getElementById('context-manager-container');
-    breadcrumbContainer = contextManagerContainer?.querySelector('.context-breadcrumbs');
-    
-    if (!breadcrumbContainer) {
-        logUI('Breadcrumb container not found for listener setup.', 'error');
-        return;
-    }
-    
-    breadcrumbContainer.addEventListener('click', (event) => {
-        const target = event.target.closest('a[href="#"]');
-        if (!target) return;
-        event.preventDefault();
-        const targetTop = target.dataset.targetTop;
-        const targetRelative = target.dataset.targetRelative;
-        const targetId = target.id;
-        logUI(`Breadcrumb clicked: ID='${targetId}', Top='${targetTop}', Relative='${targetRelative}'`);
-        let dirToLoad;
-        if (targetId === 'breadcrumb-root') {
-             dirToLoad = '';
-             eventBus.emit('fileManager:navigate', { dir: dirToLoad }); 
-        } else if (targetTop !== undefined && targetRelative !== undefined) {
-            dirToLoad = targetRelative ? `${targetTop}/${targetRelative}` : targetTop;
-            eventBus.emit('fileManager:navigate', { dir: dirToLoad });
-        }
-    });
-    logUI('Breadcrumb click listener attached.');
-}
-
 // --- Main Exported Initialization Function ---
 export async function initializeUI() {
     logUI('[UI_MANAGER] Initializing UI (v_consolidated)...');
@@ -294,7 +264,7 @@ export async function initializeUI() {
     logUI('[UI_MANAGER] Event Bus listeners attached for fileManager events.');
 
     // 4. Setup Breadcrumb Listener
-    setupBreadcrumbListener();
+    // setupBreadcrumbListener(); // REMOVED - Handled internally by ContextManagerComponent
 
     // 5. Apply Initial UI and Auth State
     // Call the handler once with current state to set initial UI and trigger initial auth check
