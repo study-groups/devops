@@ -2,55 +2,29 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
-  grpc_listen_port: 9096
+  # grpc_listen_port: 9096 # Optional: uncomment if needed by specific clients
 
 common:
-  path_prefix: /loki
+  instance_addr: 127.0.0.1
+  path_prefix: /loki # Directory within the container volume for data
   storage:
-    filesystem:
+    filesystem: # Store data on the filesystem (using the 'loki_data' volume)
       chunks_directory: /loki/chunks
       rules_directory: /loki/rules
-  replication_factor: 1
+  replication_factor: 1 # Required for standalone mode
   ring:
-    instance_addr: 127.0.0.1
     kvstore:
-      store: inmemory
+      store: inmemory # Simple store for standalone mode
 
 schema_config:
   configs:
-    - from: 2020-10-24
-      store: boltdb-shipper
+    - from: 2020-10-24 # Use a date in the past
+      store: boltdb-shipper # Recommended index store type
       object_store: filesystem
-      schema: v11
+      schema: v12 # Schema version (v11 or v12 common for recent Loki)
       index:
         prefix: index_
         period: 24h
 
-ruler:
-  alertmanager_url: http://localhost:9093
-
-compactor:
-  working_directory: /loki/boltdb-shipper-compactor
-  shared_store: filesystem
-
-limits_config:
-  reject_old_samples: true
-  reject_old_samples_max_age: 168h
-  enforce_metric_name: false
-  ingestion_rate_mb: 10
-  ingestion_burst_size_mb: 20
-  max_global_streams_per_user: 10000
-
-chunk_store_config:
-  max_look_back_period: 0s
-
-table_manager:
-  retention_deletes_enabled: true
-  retention_period: 336h
-
-query_range:
-  results_cache:
-    cache:
-      embedded_cache:
-        enabled: true
-        max_size_mb: 100
+# You can add other sections like limits_config, ingester, etc., later if needed,
+# but this minimal config should allow Loki to start.
