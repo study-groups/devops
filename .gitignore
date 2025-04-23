@@ -1,6 +1,7 @@
 tmp
 *.1
 *.2
+pb.sh
 nh-data
 qik/
 qa/
