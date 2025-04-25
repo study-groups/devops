@@ -3,15 +3,13 @@ console.log('[DEBUG] actions.js: Module start');
 import eventBus from '/client/eventBus.js';
 import { withAuthHeaders } from '/client/headers.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { appState } from '/client/appState.js'; // ADDED: Import central state
+import { appStore } from '/client/appState.js'; // Correct import
 import { logMessage } from '/client/log/index.js';
-
-
-import { refreshPreview } from '/client/previewManager.js'; // UPDATED - Correct function name
-import fileManager from '/client/fileManager.js'; // Needed for loadFile
-import { loadFile, saveFile } from '/client/fileManager.js';
+import { ActionTypes, dispatch } from '/client/messaging/messageQueue.js';
+import fileManager from '/client/filesystem/fileManager.js'; // Needed for loadFile (Updated path)
+import { loadFile, saveFile } from '/client/filesystem/fileManager.js'; // (Updated path)
 import { logout } from '/client/auth.js';
-import { handleDeleteImageAction } from '/client/imageManager.js'; // Import delete handler
+import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
 
 
 // Helper for logging within this module
@@ -148,10 +146,10 @@ export const triggerActions = {
             // console.log('[DEBUG actions.js] Event published.');
             
             // Log the current state before updating
-            console.log('[DEBUG actions.js] Current state before update:', appState.getState().ui);
+            console.log('[DEBUG actions.js] Current state before update:', appStore.getState().ui);
             
             // ADDED: Update central state
-            appState.update(currentState => {
+            appStore.update(currentState => {
                 console.log('[DEBUG actions.js] Inside update callback, currentState:', currentState);
                 const newState = {
                     ui: { ...currentState.ui, viewMode: mode }
@@ -161,7 +159,7 @@ export const triggerActions = {
             });
             
             // Log the state after updating
-            console.log('[DEBUG actions.js] Updated state after update:', appState.getState().ui);
+            console.log('[DEBUG actions.js] Updated state after update:', appStore.getState().ui);
             
             logAction(`Updated appState.ui.viewMode to: ${mode}`);
         } else {
@@ -185,34 +183,19 @@ export const triggerActions = {
         } catch (e) { logAction(`clearLog failed: ${e.message}`, 'error'); }
     },
     toggleLogVisibility: async () => { 
-        // logAction('Triggering toggleLogVisibility via uiState...');
-        // try {
-        //     const currentVisibility = getUIState('logVisible');
-        //     setUIState('logVisible', !currentVisibility);
-        // } catch (e) { logAction(`toggleLogVisibility failed: ${e.message}`, 'error'); }
-        logAction('Triggering toggleLogVisibility via appState...');
+        logAction('Triggering toggleLogVisibility via dispatch...');
         try {
-            // ADDED: Update central state
-            const currentVisibility = appState.getState().ui.logVisible;
-            appState.update(currentState => ({
-                ui: { ...currentState.ui, logVisible: !currentVisibility }
-            }));
-            logAction(`Updated appState.ui.logVisible to: ${!currentVisibility}`);
+            dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
         } catch (e) {
-            logAction(`toggleLogVisibility update failed: ${e.message}`, 'error');
+            logAction(`toggleLogVisibility dispatch failed: ${e.message}`, 'error');
         }
     },
     minimizeLog: async () => {
-        logAction('Triggering minimizeLog (setting logVisible=false via appState)...');
+        logAction('Triggering minimizeLog via dispatch...');
         try {
-            // setUIState('logVisible', false); // Use uiState to hide the log
-            // ADDED: Update central state
-            appState.update(currentState => ({
-                ui: { ...currentState.ui, logVisible: false }
-            }));
-            logAction('Log panel visibility set to false via appState.');
+            dispatch({ type: ActionTypes.UI_SET_LOG_VISIBILITY, payload: false });
         } catch (e) {
-            logAction(`minimizeLog failed: ${e.message}`, 'error');
+            logAction(`minimizeLog dispatch failed: ${e.message}`, 'error');
         }
     },
     showSystemInfo: async () => {
@@ -259,7 +242,7 @@ export const triggerActions = {
         logAction('Manually triggering file manager initialization for debugging...');
         try {
             // CORRECTED: Call named export directly
-            const { initializeFileManager } = await import('/client/fileManager.js');
+            const { initializeFileManager } = await import('/client/filesystem/fileManager.js');
             await initializeFileManager(); 
             logAction('File manager initialization attempt complete.');
         } catch (error) {
@@ -270,8 +253,8 @@ export const triggerActions = {
         logAction('Debugging Auth State...');
         try {
             // Use appState instead of authState directly
-            const { appState } = await import('/client/appState.js'); 
-            const currentState = appState.getState().auth; // Get auth slice from appState
+            const { appStore } = await import('/client/appState.js'); 
+            const currentState = appStore.getState().auth; // Get auth slice from appState
             logAction(`Current Auth State (from appState): ${JSON.stringify(currentState)}`);
             logAction(`Is Logged In: ${currentState.isLoggedIn}`); // Use isLoggedIn from appState.auth
         } catch (error) {
@@ -369,7 +352,7 @@ export const triggerActions = {
                 logAction(`Getting filename from #file-select: ${filenameToLoad}`);
             } else {
                 // As a last resort, try to get from current file state
-                const fileManager = await import('/client/fileManager.js');
+                const fileManager = await import('/client/filesystem/fileManager.js');
                 if (fileManager.default?.getCurrentFile) {
                     filenameToLoad = fileManager.default.getCurrentFile();
                     logAction(`Getting filename from fileManager state: ${filenameToLoad}`);
@@ -384,7 +367,7 @@ export const triggerActions = {
         
         logAction(`Load file action triggered for: ${filenameToLoad}`, 'debug');
         try {
-            const fileManager = await import('/client/fileManager.js');
+            const fileManager = await import('/client/filesystem/fileManager.js');
             
             // Check if fileManager.default exists and has the necessary functions
             if (!fileManager.default) {
@@ -811,7 +794,7 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
     setSelectionStateA: (data, element) => {
         logAction('Setting Selection State A...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appState.getState().file?.currentFile; // Get current file path from central state
+        const currentFile = appStore.getState().file?.currentFile; // Get current file path from central state
         
         if (editorTextArea && currentFile !== undefined) {
             const start = editorTextArea.selectionStart;
@@ -847,7 +830,7 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
     setSelectionStateB: (data, element) => {
         logAction('Setting Selection State B...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appState.getState().file?.currentFile; // Get current file path
+        const currentFile = appStore.getState().file?.currentFile; // Get current file path
 
         if (editorTextArea && currentFile !== undefined) {
             const start = editorTextArea.selectionStart;
@@ -970,7 +953,7 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
     setSelectionStateA: (data, element) => {
         logAction('Setting Selection State A...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appState.getState().file?.currentFile; // Get current file path from central state
+        const currentFile = appStore.getState().file?.currentFile; // Get current file path from central state
         
         if (editorTextArea && currentFile !== undefined) {
             const start = editorTextArea.selectionStart;
@@ -1006,7 +989,7 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
     setSelectionStateB: (data, element) => {
         logAction('Setting Selection State B...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appState.getState().file?.currentFile; // Get current file path
+        const currentFile = appStore.getState().file?.currentFile; // Get current file path
 
         if (editorTextArea && currentFile !== undefined) {
             const start = editorTextArea.selectionStart;
@@ -1053,25 +1036,25 @@ async function executeAction(action, params = {}) {
       // ... existing code ...
       case 'initFileManager': {
         // Import from client/
-        const { initializeFileManager } = await import('/client/fileManager.js'); 
+        const { initializeFileManager } = await import('/client/filesystem/fileManager.js'); 
         await initializeFileManager();
         break;
       }
       case 'loadDirectory': {
         // Import from client/
-        const { loadFiles } = await import('/client/fileManager.js'); 
+        const { loadFiles } = await import('/client/filesystem/fileManager.js'); 
         await loadFiles(params.directory);
         break;
       }
       case 'loadFile': {
         // Import from client/
-        const { loadFile } = await import('/client/fileManager.js'); 
+        const { loadFile } = await import('/client/filesystem/fileManager.js'); 
         await loadFile(params.filename, params.directory);
         break;
       }
       case 'saveFile': {
         // Import from client/
-        const { saveFile } = await import('/client/fileManager.js'); 
+        const { saveFile } = await import('/client/filesystem/fileManager.js'); 
         await saveFile(params.filename, params.directory, params.content);
         break;
       }
@@ -1085,8 +1068,8 @@ async function executeAction(action, params = {}) {
 
 async function handleSaveClick() {
   // Use appState to check if authenticated
-  const { appState } = await import('/client/appState.js'); 
-  if (!appState.getState().auth.isLoggedIn) { // Check central state
+  const { appStore } = await import('/client/appState.js'); 
+  if (!appStore.getState().auth.isLoggedIn) { // Check central state
     logAction('[ACTION] User not logged in, cannot save.', 'warning');
     alert('You must be logged in to save.');
     return;

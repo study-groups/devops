@@ -1,7 +1,7 @@
-import { schedulePreviewUpdate } from "/client/markdown.js";
+import { schedulePreviewUpdate } from "/client/preview/markdown.js";
 import { globalFetch } from "/client/globalFetch.js";
 import { withAuthHeaders } from '/client/headers.js';
-import { eventBus } from './eventBus.js';
+import { eventBus } from '/client/eventBus.js';
 
 // Undo stack for image operations
 const imageOperationsStack = [];

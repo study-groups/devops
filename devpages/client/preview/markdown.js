@@ -1,5 +1,5 @@
-import fileManager from "/client/fileManager.js";
-import { initPreview, updatePreview } from "./preview/index.js";
+import fileManager from "/client/filesystem/fileManager.js";
+import { initPreview, updatePreview } from "./index.js";
 
 let requiresMathJax = false;
 

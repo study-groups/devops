@@ -1,108 +1,131 @@
 /**
- * appState.js
- * Centralized application state management using StateKit.
+ * client/state/appState.js
+ * Centralized application state management using statekit.
  */
-import { createState } from './statekit/statekit.js';
 
-// --- LocalStorage Keys ---
-const LS_VIEW_MODE_KEY = 'viewMode';
-const LS_LOG_VISIBLE_KEY = 'logVisible';
-const LS_LOG_HEIGHT_KEY = 'logHeight'; // Keep track of this too
+import { createState } from '/client/statekit/statekit.js';
 
-// --- Helper to safely parse JSON from localStorage ---
-function safeGetLocalStorage(key, defaultValue) {
+// <<< NEW: Key for localStorage persistence >>>
+const LOG_VISIBLE_KEY = 'logVisible'; 
+// <<< NEW: Key for persisting plugin state >>>
+const PLUGINS_STATE_KEY = 'pluginsEnabledState'; 
+
+// <<< NEW: Helper to safely get boolean from localStorage >>>
+function getInitialLogVisibility() {
     try {
-        const storedValue = localStorage.getItem(key);
-        if (storedValue === null) {
-            // console.debug(`[AppState] localStorage key "${key}" not found, using default:`, defaultValue);
-            return defaultValue;
+        const storedValue = localStorage.getItem(LOG_VISIBLE_KEY);
+        // localStorage stores strings, so compare explicitly
+        if (storedValue === 'true') {
+            return true;
+        } else if (storedValue === 'false') {
+            return false;
         }
-        // Only parse if it looks like JSON, otherwise treat as string/primitive
-        if (storedValue.startsWith('{') || storedValue.startsWith('[')) {
-             return JSON.parse(storedValue);
-        }
-        // Handle simple boolean strings explicitly
-        if (storedValue === 'true') return true;
-        if (storedValue === 'false') return false;
-        // Handle numbers
-        const num = parseFloat(storedValue);
-        if (!isNaN(num)) return num;
-        
-        // Return as string if not parsed
-        return storedValue;
-    } catch (error) {
-        console.warn(`[AppState] Error reading or parsing localStorage key "${key}". Using default.`, error);
-        return defaultValue;
+        // If null, undefined, or anything else, use default
+        console.log('[AppState] No valid logVisible state found in localStorage, defaulting to false.');
+        return false; // Default to false if not explicitly stored or invalid
+    } catch (e) {
+        console.error('[AppState] Error reading log visibility from localStorage:', e);
+        return false; // Default to false on error
     }
 }
 
-
-// --- Initial Application State Structure ---
-const initialState = {
-    // Authentication Status
-    auth: {
-        isLoggedIn: false, 
-        user: null, 
-        token: null, 
-        tokenExpiresAt: null, 
-        authChecked: false, 
-        isLoading: false, 
-        error: null, 
-    },
-
-    // UI State (Now managed here, reads from localStorage)
-    ui: {
-       viewMode: safeGetLocalStorage(LS_VIEW_MODE_KEY, 'preview'), // Default to 'preview'
-       logVisible: safeGetLocalStorage(LS_LOG_VISIBLE_KEY, false), // Default to false
-       logHeight: safeGetLocalStorage(LS_LOG_HEIGHT_KEY, 120), // Default height
-       // Add other UI states here if needed
-    },
-
-    // Other top-level state sections can be added here as needed
-    file: { // <<< UNCOMMENTED/ADDED File State Slice >>>
-        currentFile: null, // Path of the currently loaded file
-        currentDir: null, // Top-level directory (redundant? maybe keep synced)
-        currentRelativePath: null, // Relative path within top-level dir
-        // Potentially add other file-related state like isDirty, etc.
-    },
-    // editor: { ... },
-    // settings: { ... },
+// --- Default Plugin State --- 
+const defaultPluginsState = {
+    'highlight': { name: "Syntax Highlighting", enabled: true },
+    'mermaid': { name: "Mermaid Diagrams", enabled: true },
+    'katex': { name: "KaTeX Math Rendering", enabled: true },
+    'audio-md': { name: "Audio Markdown", enabled: true },
+    'github-md': { name: "GitHub Flavored Markdown", enabled: true }
 };
 
-// --- Create the Central State Instance ---
-export const appState = createState(initialState);
-
-// --- Persistence Subscriber ---
-// Subscribe to state changes specifically to persist the UI slice.
-appState.subscribe((newState, prevState) => {
-    // Check if the UI slice *actually* changed to avoid unnecessary writes
-    if (newState.ui !== prevState.ui) {
-        // console.debug('[AppState Persistence] UI state changed, saving to localStorage:', newState.ui);
-        try {
-            // Persist relevant UI state items individually
-            if (newState.ui.viewMode !== prevState.ui.viewMode) {
-                localStorage.setItem(LS_VIEW_MODE_KEY, newState.ui.viewMode);
+// --- Helper to load plugin state from localStorage --- 
+function getInitialPluginsState() {
+    try {
+        const storedValue = localStorage.getItem(PLUGINS_STATE_KEY);
+        if (storedValue) {
+            const parsedState = JSON.parse(storedValue);
+            // Basic validation: check if it's an object and has expected keys (optional but good)
+            if (typeof parsedState === 'object' && parsedState !== null && Object.keys(parsedState).length > 0) {
+                 // TODO: Deeper validation? Check if values have name/enabled?
+                 console.log('[AppState] Loaded plugin state from localStorage:', parsedState);
+                 // Merge with defaults to ensure all plugins are present if new ones were added
+                 const mergedState = { ...defaultPluginsState };
+                 for (const pluginId in parsedState) {
+                     if (mergedState.hasOwnProperty(pluginId)) { // Only merge known plugins
+                         mergedState[pluginId].enabled = !!parsedState[pluginId].enabled; // Ensure boolean
+                     }
+                 }
+                 return mergedState;
             }
-            if (newState.ui.logVisible !== prevState.ui.logVisible) {
-                 localStorage.setItem(LS_LOG_VISIBLE_KEY, newState.ui.logVisible.toString());
-            }
-            if (newState.ui.logHeight !== prevState.ui.logHeight) {
-                 localStorage.setItem(LS_LOG_HEIGHT_KEY, newState.ui.logHeight.toString());
-            }
-        } catch (error) {
-            console.error('[AppState Persistence] Failed to save UI state to localStorage:', error);
+             console.warn('[AppState] Invalid plugin state found in localStorage. Using defaults.', parsedState);
+        } else {
+            console.log('[AppState] No plugin state found in localStorage, using defaults.');
         }
+    } catch (e) {
+        console.error('[AppState] Error reading or parsing plugin state from localStorage:', e);
     }
-});
+    // Return defaults if anything goes wrong or nothing is stored
+    return defaultPluginsState; 
+}
 
+// Define the initial shape of the application state
+const initialAppState = {
+  auth: {
+    isInitializing: true, // Track auth initialization state
+    isAuthenticated: false,
+    user: null, // e.g., { username: '...', token: '...', roles: [] }
+    error: null,
+  },
+  ui: {
+    // Global UI states, e.g., current theme, loading indicators
+    theme: 'default', // Example
+    isLoading: false, // Keep general loading state? Or manage per feature?
+    logVisible: getInitialLogVisibility(), // <<< MODIFIED: Load from localStorage >>>
+  },
+  settingsPanel: {
+    enabled: false,
+    position: { x: 50, y: 50 },
+    size: { width: 380, height: 550 },
+    collapsedSections: {},
+    // Add specific settings here as needed, e.g.:
+    // logLevel: 'info'
+  },
+  editor: {
+    // Example placeholder
+    content: '', // Note: fileManager currently calls setContent directly. Refactor later?
+    dirty: false,
+  },
+  // --- Refactored File System State ---
+  file: { // Renamed from 'files' for clarity and consistency
+    isInitialized: false,       // Tracks if file manager has run initial load
+    isLoading: false,           // True when loading listing or file content
+    isSaving: false,            // True during save operation
+    topLevelDirectory: null,    // e.g., 'gridranger' or null if none selected
+    currentRelativePath: null,  // e.g., 'subdir' or null if at top level
+    currentFile: null,          // e.g., 'notes.md' or null if none selected
+    currentListing: {           // Contents of the current directory
+        dirs: [],
+        files: []
+    },
+    availableTopLevelDirs: [], // List of available root directories (e.g., ['user1', 'shared'])
+    error: null,                // Holds error messages related to file operations
+    // Consider adding current file content or front matter here if needed by many components,
+    // otherwise keep content primarily managed by the editor module.
+  },
+  // --- End Refactored File System State ---
 
-// --- Optional: Add Debugging Listener ---
-// appState.subscribe((newState, prevState) => {
-//    console.log('[AppState Change]', { prevState, newState });
-// });
+  // +++ Add the Plugins State Slice +++
+  plugins: {
+    // Load initial plugin state using the helper function
+    ...getInitialPluginsState()
+  }
+};
 
-console.log('[AppState] Central state initialized with state:', appState.getState());
+// Create the application state store instance
+export const appStore = createState(initialAppState);
 
-// Note: The old AppStateManager class and its event listeners/dispatchers are removed.
-// Modules previously relying on `app:stateChange` or specific states like `APP_STATES.LOGGED_IN`
-// will need to be refactored to subscribe to `appState.auth.isLoggedIn`, `appState.auth.authChecked`, etc.
+// Export state slices or selectors if needed for convenience
+// Example selector:
+// export const selectIsAuthenticated = derived(appStore, $state => $state.auth.isAuthenticated);
+
+console.log('[AppState] Central store initialized.');

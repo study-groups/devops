@@ -25,7 +25,7 @@
 import { logMessage } from '../log/index.js';
 import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
-import { processSvgContent } from '../markdown-svg.js';
+import { processSvgContent } from './markdown-svg.js';
 import { eventBus } from '/client/eventBus.js';
 
 // Singleton instance to prevent multiple initializations

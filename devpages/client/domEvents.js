@@ -8,8 +8,15 @@ import { logout } from '/client/auth.js';
 // Import the new reactive state
 // import { authState } from '/client/authState.js'; 
 import { globalFetch } from '/client/globalFetch.js';
-import { handleDeleteImageAction } from '/client/imageManager.js'; // Import the new handler
-import { appState } from '/client/appState.js';
+import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
+import { appStore } from '/client/appState.js';
+import { logMessage } from '/client/log/index.js';
+// --- REMOVED: Import settings state for dynamic toolbar ---
+// import { settingsState } from '/client/settings/settingsState.js'; 
+import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
+import { renderMarkdown } from '/client/preview/renderer.js'; // Import markdown renderer
+import { appVer } from '/config.js'; // Use absolute path
+// --- END ADDED ---
 
 // Add a isProcessingDelete variable to track ongoing operations
 let isProcessingDelete = false;
@@ -79,7 +86,7 @@ export function initializeDomEvents() {
 
             // --- Check Authentication --- 
             const requiresAuth = PROTECTED_ACTIONS.has(action);
-            const isLoggedIn = appState.getState().auth.isLoggedIn;
+            const isLoggedIn = appStore.getState().auth.isLoggedIn;
 
             if (requiresAuth && !isLoggedIn) {
                 logDomEvent(`Action '${action}' requires login. User not logged in. Preventing action.`, 'warning');
@@ -260,4 +267,22 @@ function connectGlobalFunctions() {
     };
     
     logDomEvent('[EVENTS] Global compatibility functions connected');
-} 
+}
+
+// --- ADDED: Subscribe to login state changes to update body class ---
+logDomEvent('Subscribing to auth state changes for body class.');
+appStore.subscribe((newState, prevState) => { // CHANGED: Use appStore
+    const newLoggedIn = newState.auth?.isLoggedIn;
+    const oldLoggedIn = prevState?.auth?.isLoggedIn;
+
+    if (newLoggedIn !== oldLoggedIn) {
+        const body = document.body;
+        if (newLoggedIn) {
+            body.classList.add('logged-in');
+            body.classList.remove('logged-out');
+        } else {
+            body.classList.add('logged-out');
+            body.classList.remove('logged-in');
+        }
+    }
+}); 

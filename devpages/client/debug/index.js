@@ -2,7 +2,7 @@
 import { logMessage } from "/client/log/index.js";
 import { loadState as loadFileSystemState } from '../fileSystemState.js';
 import { globalFetch } from '../globalFetch.js'; // Added for testFileLoading
-import { appState } from '/client/appState.js'; // Use central state
+import { appStore } from '/client/appState.js'; // Use central state
 // import { eventBus } from '/client/eventBus.js'; // Removed
 // import fileManager from '/client/fileManager.js'; // Removed
 
@@ -283,7 +283,7 @@ export function debugFileList() {
 
 export async function debugFileLoadingIssues() {
     logDebug('===== FILE LOADING DIAGNOSTIC =====');
-    const currentAuthState = appState.getState().auth;
+    const currentAuthState = appStore.getState().auth;
     logDebug(`[DEBUG] Authentication state: ${currentAuthState.isLoggedIn ? 'Logged in' : 'Not logged in'}`);
     if (currentAuthState.isLoggedIn) {
         logDebug(`[DEBUG] Logged in as: ${currentAuthState.user?.username}`);
@@ -340,8 +340,8 @@ export async function debugFileLoadingIssues() {
 export function testAuthStatus() {
     logDebug('[DEBUG] --- Testing Auth Status ---');
     try {
-        const currentAuthState = appState.getState().auth;
-        logDebug(`[DEBUG] Current auth state (from appState): ${JSON.stringify(currentAuthState)}`);
+        const currentAuthState = appStore.getState().auth;
+        logDebug(`[DEBUG] Current auth state (from appStore): ${JSON.stringify(currentAuthState)}`);
 
         const loginForm = document.getElementById('login-form');
         const logoutBtn = document.getElementById('logout-btn');
@@ -393,8 +393,8 @@ export function debugAuthState() {
     } catch (error) {
         logDebug(`[AUTH DEBUG] Error reading localStorage: ${error.message}`);
     }
-    const currentAuthState = appState.getState().auth;
-    logDebug(`[AUTH DEBUG] Memory appState.auth: ${JSON.stringify({
+    const currentAuthState = appStore.getState().auth;
+    logDebug(`[AUTH DEBUG] Memory appStore.auth: ${JSON.stringify({
         isLoggedIn: currentAuthState.isLoggedIn,
         username: currentAuthState.user?.username,
         loginTime: currentAuthState.loginTime ? new Date(currentAuthState.loginTime).toLocaleString() : 'N/A',
@@ -469,81 +469,5 @@ export async function debugAllApiEndpoints() {
     const state = loadFileSystemState();
     const currentFile = state.currentFile || 'README.md';
     const currentDir = state.currentDir || '';
-    const currentAuthState = appState.getState().auth;
-    const authHeader = currentAuthState.isLoggedIn ? { 'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}` } : {};
-
-    const endpoints = [
-        // List
-        { name: 'List Dirs', url: '/api/files/dirs', method: 'GET' },
-        { name: 'List Files', url: `/api/files/list?dir=${encodeURIComponent(currentDir)}`, method: 'GET' },
-        // Get
-        { name: 'Get File (name+dir)', url: `/api/files/get?name=${encodeURIComponent(currentFile)}&dir=${encodeURIComponent(currentDir)}`, method: 'GET' },
-        // Save/Update
-        { name: 'Save File (POST)', url: '/api/files/save', method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: currentFile, dir: currentDir, content: 'Test content' }) },
-        // Auth
-        { name: 'Auth Status', url: '/api/auth/status', method: 'GET' },
-    ];
-
-    for (const endpoint of endpoints) {
-        try {
-            logDebug(`[DEBUG] Testing: ${endpoint.name} (${endpoint.method} ${endpoint.url})`);
-            const options = {
-                method: endpoint.method,
-                headers: { ...authHeader, ...(endpoint.headers || {}) },
-                body: endpoint.body // Will be undefined for GET etc.
-            };
-            const response = await fetch(endpoint.url, options);
-            logDebug(`  Response: ${response.status} ${response.statusText}`);
-            if (!response.ok) {
-                const errorText = await response.text();
-                logDebug(`  Error Detail: ${errorText.substring(0, 100)}...`, 'warning');
-            } else {
-                 logDebug(`  Success.`, 'text');
-            }
-        } catch (error) {
-            logDebug(`  Exception: ${error.message}`, 'error');
-        }
-    }
-    logDebug('[DEBUG] API endpoint testing complete');
-}
-
-// --- Consolidated Diagnostics Runner ---
-export async function runAllDiagnostics() {
-    logDebug('\n===== RUNNING ALL DIAGNOSTICS =====', 'heading');
-    showAppInfo();
-    debugUI();
-    await debugAllApiEndpoints();
-    debugFileOperations();
-    await testFileLoading();
-    await testAuthStatus();
-    debugAuthState();
-    debugUrlParameters();
-    debugFileList();
-    logDebug('===== ALL DIAGNOSTICS COMPLETE =====', 'heading');
-}
-
-// --- Global Registration ---
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-if (isDevelopment) {
-    window.dev = {
-        showAppInfo,
-        debugUI,
-        testApiEndpoints,
-        debugApiResponses,
-        debugFileOperations,
-        testFileLoading,
-        debugFileList,
-        debugFileLoadingIssues,
-        testAuthStatus,
-        debugAuthState,
-        debugUrlParameters,
-        debugAllApiEndpoints,
-        runAllDiagnostics,
-    };
-    logDebug('[DEBUG] Debug functions registered under window.dev');
-} else {
-     logDebug('[DEBUG] Debug functions not registered globally in production.');
-}
-
-logDebug('[DEBUG] Consolidated debug utilities module loaded');
+    const currentAuthState = appStore.getState().auth;
+    const authHeader = currentAuthState.isLoggedIn ? { 'Authorization': `Basic ${btoa(`

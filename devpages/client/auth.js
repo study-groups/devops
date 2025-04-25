@@ -6,8 +6,8 @@
 // import { globalFetch } from '/client/globalFetch.js'; 
 import { eventBus } from '/client/eventBus.js'; // Import eventBus
 // REMOVED: import { authState } from './authState.js'; // Import the new reactive state
-import { appState } from '/client/appState.js'; // IMPORT the central state
-import fileSystemState from './fileSystemState.js'; // Keep for now, might refactor later
+import { appStore } from '/client/appState.js'; // IMPORT the central state
+import fileSystemState from '/client/filesystem/fileSystemState.js'; // Keep for now, might refactor later
 import { api } from '/client/api.js'; // Import the centralized API object
 
 // --- Constants ---
@@ -25,20 +25,9 @@ import { api } from '/client/api.js'; // Import the centralized API object
  * Updates the central application state's auth section.
  * @param {object} data - The new state properties to merge into appState.auth.
  */
-function updateCentralAuthState(data) {
-  logAuth(`Updating central auth state: ${JSON.stringify(data)}`);
-  appState.update(currentState => ({
-    ...currentState,
-    auth: {
-      ...currentState.auth,
-      ...data,
-      isLoading: false, // Reset loading flag on any update after an operation
-      error: data.error !== undefined ? data.error : null // Ensure error is explicitly set or cleared
-    }
-  }));
-
-  // REMOVED: eventBus emissions for auth status - components should subscribe to appState.auth
-}
+// function updateCentralAuthState(data) { // No longer needed, direct update used
+//   // ...
+// }
 
 // --- Public API ---
 
@@ -47,29 +36,32 @@ function updateCentralAuthState(data) {
  */
 async function checkInitialAuthStatus() {
     logAuth('[AUTH] Checking initial auth status with server...');
-    appState.update(s => ({ ...s, auth: { ...s.auth, isLoading: true, authChecked: false } }));
+    appStore.update(s => ({ ...s, auth: { ...s.auth, isInitializing: true, authChecked: false, error: null } }));
 
     let finalAuthState = {
         isLoggedIn: false,
         user: null,
-        token: null, // We don't get token here, just user info
+        token: null, 
         tokenExpiresAt: null,
         error: null,
-        isLoading: false,
-        authChecked: true // Mark as checked regardless of outcome
+        // isInitializing will be set false below
+        authChecked: true 
     };
 
     try {
-        // Use api.getUserStatus()
+        logAuth('[AUTH checkInitialAuthStatus] Awaiting api.getUserStatus()...', 'debug');
         const response = await api.getUserStatus(); 
+        logAuth(`[AUTH checkInitialAuthStatus] api.getUserStatus() responded with status: ${response?.status}`, 'debug');
+
         if (response.ok) {
             const data = await response.json();
             if (data.username) {
                 logAuth(`[AUTH] Server confirmed active session for: ${data.username}`);
                 finalAuthState = {
                     ...finalAuthState,
+                    isAuthenticated: true,
                     isLoggedIn: true,
-                    user: { username: data.username }, // Store user info object
+                    user: { username: data.username },
                 };
                 // REMOVED: eventBus.emit('auth:restored', { username: data.username });
             } else {
@@ -95,7 +87,19 @@ async function checkInitialAuthStatus() {
     }
 
     // Single update at the end
-    appState.update(s => ({ ...s, auth: { ...s.auth, ...finalAuthState } }));
+    logAuth('[AUTH checkInitialAuthStatus] Preparing final state update dispatch...', 'debug');
+    appStore.update(s => {
+        const newStateSlice = { 
+            ...s.auth, 
+            ...finalAuthState, 
+            isInitializing: false 
+        };
+        logAuth(`[AUTH checkInitialAuthStatus Update] Prev auth state: ${JSON.stringify(s.auth)}`, 'debug');
+        logAuth(`[AUTH checkInitialAuthStatus Update] Final auth state payload for merge: ${JSON.stringify(finalAuthState)}`, 'debug');
+        logAuth(`[AUTH checkInitialAuthStatus Update] Calculated next auth state: ${JSON.stringify(newStateSlice)}`, 'debug');
+        return { ...s, auth: newStateSlice };
+    });
+    logAuth(`[AUTH] Initial auth check complete. State update dispatched.`);
 }
 
 /**
@@ -104,17 +108,22 @@ async function checkInitialAuthStatus() {
  */
 export function initAuth() {
     logAuth('[AUTH] Initializing authentication system...');
-    // No need to set isLoading here, checkInitialAuthStatus does it.
-    checkInitialAuthStatus();
+    // Call the status check
+    checkInitialAuthStatus(); // This function now manages isInitializing state
     
     // Listen for login requests from UI components
-    eventBus.on('auth:loginRequested', ({ username, password }) => {
-        logAuth(`[AUTH] Received auth:loginRequested for user: ${username}`);
-        handleLogin(username, password);
-        // The handleLogin function already updates state and returns a promise,
-        // but we don't need to chain off it here as state updates handle UI.
-    });
-    logAuth('[AUTH] Event listener for auth:loginRequested set up.');
+    // Avoid adding listener multiple times if initAuth is called again
+    if (!window.APP?.authListenerAttached) {
+        eventBus.on('auth:loginRequested', ({ username, password }) => {
+            logAuth(`[AUTH] Received auth:loginRequested for user: ${username}`);
+            handleLogin(username, password); 
+        });
+        window.APP = window.APP || {};
+        window.APP.authListenerAttached = true; // Set flag
+        logAuth('[AUTH] Event listener for auth:loginRequested set up.');
+    } else {
+         logAuth('[AUTH] Event listener for auth:loginRequested already attached.');
+    }
     
     logAuth('[AUTH] System initialized. Initial check started.');
 }
@@ -133,16 +142,17 @@ async function handleLogin(username, password) {
     return false;
   }
 
-  appState.update(s => ({ ...s, auth: { ...s.auth, isLoading: true, error: null } }));
+  appStore.update(s => ({ ...s, auth: { ...s.auth, isLoading: true, error: null } }));
 
   let success = false;
   let finalAuthState = {
+      isAuthenticated: false,
       isLoggedIn: false,
       user: null,
-      token: null, // Assuming login doesn't return token directly here?
+      token: null, 
       tokenExpiresAt: null,
       error: null,
-      isLoading: false
+      isLoading: false 
   };
 
   try {
@@ -162,6 +172,7 @@ async function handleLogin(username, password) {
     logAuth(`[AUTH] Server login successful for: ${username}`);
     finalAuthState = {
         ...finalAuthState,
+        isAuthenticated: true,
         isLoggedIn: true,
         user: { username: username },
     };
@@ -184,12 +195,15 @@ async function handleLogin(username, password) {
 
   } catch (error) {
     logAuth(`[AUTH] Login failed: ${error.message}`, 'error');
+    finalAuthState.isAuthenticated = false;
+    finalAuthState.isLoggedIn = false;
     finalAuthState.error = error.message;
     success = false;
   }
 
   // Single update at the end
-  appState.update(s => ({ ...s, auth: { ...s.auth, ...finalAuthState } }));
+  appStore.update(s => ({ ...s, auth: { ...s.auth, ...finalAuthState } }));
+  
   return success;
 }
 
@@ -198,11 +212,11 @@ async function handleLogin(username, password) {
  * @param {boolean} [notifyServer=true] - Whether to send a request to the server.
  */
 export async function logout(notifyServer = true) {
-  const currentUser = appState.getState().auth.user; // Get user object from central state
+  const currentUser = appStore.getState().auth.user; // Get user object from central state
   const username = currentUser?.username;
   logAuth(`[LOGOUT_FLOW] Logout requested for ${username || 'user'}. Notify server: ${notifyServer}`);
 
-  appState.update(s => ({ ...s, auth: { ...s.auth, isLoading: true } }));
+  appStore.update(s => ({ ...s, auth: { ...s.auth, isLoading: true } }));
   logAuth(`[LOGOUT_FLOW] Set isLoading = true`);
 
   if (notifyServer) {
@@ -235,8 +249,12 @@ export async function logout(notifyServer = true) {
 
   try {
       logAuth('[LOGOUT_FLOW] Clearing editor content...');
-      window.editor?.setContent('');
-      logAuth('[LOGOUT_FLOW] Editor content cleared.');
+      if (window.editor && typeof window.editor.setContent === 'function') {
+          window.editor.setContent('');
+          logAuth('[LOGOUT_FLOW] Editor content cleared.');
+      } else {
+           logAuth('[LOGOUT_FLOW WARNING] window.editor or setContent not found.', 'warning');
+      }
   } catch (editorError) {
        logAuth(`[LOGOUT_FLOW WARNING] Failed to clear editor content: ${editorError.message}`, 'warning');
   }
@@ -244,16 +262,23 @@ export async function logout(notifyServer = true) {
 
   // Final state update
   const finalState = {
+      isAuthenticated: false,
       isLoggedIn: false,
       user: null,
       token: null,
       tokenExpiresAt: null,
       error: null,
-      isLoading: false // Explicitly set isLoading false here
+      isLoading: false 
   };
-  logAuth(`[LOGOUT_FLOW] Calling updateCentralAuthState with final state: ${JSON.stringify(finalState)}`);
-  updateCentralAuthState(finalState); // Use helper for final update
-  logAuth('[LOGOUT_FLOW] updateCentralAuthState called. Logout complete.');
+  logAuth(`[LOGOUT_FLOW] Updating central state with final logout state: ${JSON.stringify(finalState)}`);
+  appStore.update(s => ({ 
+      ...s, 
+      auth: { 
+          ...s.auth,
+          ...finalState 
+      } 
+  }));
+  logAuth('[LOGOUT_FLOW] Central state updated. Logout complete.');
 
   // REMOVED: eventBus.emit('auth:loggedOut', { username: username });
 }

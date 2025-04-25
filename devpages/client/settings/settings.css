@@ -1,0 +1,131 @@
+.settings-panel {
+  position: fixed; /* Redundant due to JS, but good practice */
+  background-color: #f0f0f0; /* Light background */
+  border: 1px solid #ccc;
+  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  overflow: hidden; /* Prevent content spill during resize */
+  display: flex; /* Set by JS, but useful for reference */
+  flex-direction: column; /* Set by JS */
+  color: #333;
+}
+
+.settings-panel.dragging {
+  opacity: 0.85;
+  box-shadow: 6px 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+.settings-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #e0e0e0; /* Slightly darker header */
+  border-bottom: 1px solid #ccc;
+  cursor: grab; /* Indicate draggable */
+  user-select: none; /* Prevent text selection */
+}
+
+.settings-panel-header:active,
+.settings-panel.dragging .settings-panel-header {
+  cursor: grabbing;
+}
+
+.settings-panel-title {
+  font-weight: bold;
+}
+
+.settings-panel-close {
+  background: none;
+  border: none;
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #555;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.settings-panel-close:hover {
+  color: #000;
+}
+
+.settings-panel-content {
+  padding: 15px;
+  flex-grow: 1; /* Allow content to fill available space */
+  overflow-y: auto; /* Scroll if content exceeds height */
+  background-color: #fff; /* White content area */
+}
+
+.settings-panel-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: se-resize;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 2px;
+}
+
+.settings-panel-resize-handle svg {
+  opacity: 0.6;
+}
+
+.settings-panel-resize-handle:hover svg {
+  opacity: 1;
+}
+
+/* Add styles for PluginsPanel content */
+.plugins-panel-content {
+  /* Add separation from potential content above */
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee; 
+}
+
+/* Style the "Available Plugins" heading */
+.plugins-panel-content h4 {
+  margin-top: 0; /* Remove default top margin */
+  margin-bottom: 12px; /* Add space below */
+  font-size: 1.05em; /* Slightly larger */
+  color: #444; /* Darker grey */
+  font-weight: 600; /* Semi-bold */
+}
+
+.plugins-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plugin-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 4px; /* Increased padding (top/bottom, left/right) */
+  border-bottom: 1px solid #eee;
+}
+
+.plugin-item:last-child {
+  border-bottom: none;
+}
+
+.plugin-item label {
+  flex-grow: 1;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.plugin-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Style for the container div added by PluginsPanel */
+.plugins-panel-content {
+  /* Ensure no browser default margins interfere */
+  margin: 0;
+  /* Can add padding here if needed, but parent .settings-panel-content already has padding */
+  /* padding: 10px 0; */
+}

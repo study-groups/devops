@@ -91,6 +91,7 @@ router.post('/login', (req, res) => {
     }
 });
 
+// THIS IS NOT USED ANYMORE
 router.get('/config', (req, res) => {
     // Use imports from the top level
     console.log('[CONFIG] Gathering environment information');
