@@ -3,7 +3,12 @@
 // Global namespace to prevent multiple initializations
 window.APP = window.APP || {};
 
-import { eventBus } from '/client/eventBus.js'; // ADDED: Import eventBus
+// ADDED: Import central state and messaging components
+import { appStore } from '/client/appState.js';
+import { dispatch, setReducer, ActionTypes } from '/client/messaging/messageQueue.js';
+import eventBus from '/client/eventBus.js'; // Keep for now for non-state events
+import { mainReducer } from '/client/store/reducer.js'; // Import the reducer
+import { initAuth } from '/client/auth.js'; // <<< ADDED: Import initAuth
 
 // Simple console logging for early bootstrap phases
 function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default level to info
@@ -16,6 +21,13 @@ function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default 
   }
 }
 const bootstrapError = (message, error) => console.error(`[BOOTSTRAP ERROR] ${message}`, error);
+
+// --- Central State Reducer --- 
+// REMOVE the mainReducer function definition from here
+
+// Inject the imported reducer into the message queue system
+setReducer(mainReducer);
+logBootstrap('Main state reducer injected into message queue.', 'debug');
 
 // Main application initialization function
 async function initializeApp() {
@@ -47,6 +59,23 @@ async function initializeApp() {
     
     logBootstrap('LogPanel initialized and logMessage registered globally.', 'debug');
 
+    // --- Phase 1.5: Initialize Settings Panel System --- 
+    // Moved earlier as it might influence UI/other setups
+    logBootstrap('Initializing Settings Panel System...', 'debug');
+    try {
+      // We will create this file next
+      const { initializeSettingsPanel } = await import('/client/settings/settingsInitializer.js'); 
+      if (typeof initializeSettingsPanel === 'function') {
+        await initializeSettingsPanel(); // Initialize the settings panel and store interactions
+        logBootstrap('Settings Panel System initialized.', 'debug');
+      } else {
+          logBootstrap('settingsInitializer.js loaded but initializeSettingsPanel not found.', 'error');
+      }
+    } catch (error) {
+      logBootstrap(`Failed to initialize Settings Panel System: ${error.message}`, 'error');
+      console.error('[SETTINGS PANEL INIT ERROR]', error);
+    }
+
     // --- Initialize Deep Link Handler (Before Authentication) ---
     logBootstrap('Initializing Deep Link Handler...', 'info');
     try {
@@ -63,29 +92,26 @@ async function initializeApp() {
     }
 
     // --- Initialize Authentication ---
-    logBootstrap('Initializing Authentication System...', 'debug');
+    logBootstrap('Initializing Authentication System...', 'debug'); // Simplified log
     try {
-      const authModule = await import('/client/auth.js');
-      // CORRECTED: Use default export
-      if (typeof authModule.default?.initAuth === 'function') { 
-        await authModule.default.initAuth(); // Call function from default export
-        logBootstrap('Authentication system initialized.', 'debug');
-      } else {
-        logBootstrap('Authentication module loaded but initAuth function not found on default export.', 'error'); // Updated error message
-      }
-    } catch (error) {
-      logBootstrap(`Failed to initialize Authentication: ${error.message}`, 'error');
-      console.error('[AUTH INIT ERROR]', error);
+        initAuth(); // <<< ADDED: Call initAuth directly
+        logBootstrap('Authentication system initialization triggered.');
+    } catch (authError) {
+         // This catch block might be less relevant now if initAuth itself doesn't throw
+         // but handles errors internally by updating appStore.auth.error.
+         logBootstrap(`Authentication initialization failed: ${authError.message}`, 'error');
+         // Optionally dispatch an error state if initAuth failed catastrophically
+         // appStore.update(s => ({ ...s, auth: { ...s.auth, isInitializing: false, error: authError.message }}));
     }
 
-    // --- Phase 4: Initialize Core UI Manager --- 
+    // --- Phase 4: Initialize Core UI Manager (Can now react to appStore.auth changes) ---
     logBootstrap('Phase 4: Initializing UI Manager...', 'debug');
     try {
         // MODIFIED: Import the named export initializeUI
         const { initializeUI } = await import('/client/uiManager.js'); 
         if (typeof initializeUI === 'function') {
-             await initializeUI(); // Call the correct initialization function
-             logBootstrap('UI Manager initialized via initializeUI().', 'debug');
+             await initializeUI(); // InitializeUI might now subscribe to appStore
+             logBootstrap('UI Manager initialized.', 'debug'); // Updated message
         } else {
              throw new Error('initializeUI function not found in uiManager.js');
         }
@@ -94,19 +120,32 @@ async function initializeApp() {
         console.error('[UI Manager ERROR]', error);
     }
 
-    // --- Phase 5: Initialize File Manager (Depends on Auth and UI) --- 
-    // Moved AFTER UI Manager initialization, but initialization is now triggered
-    // by auth state changes handled within uiManager/handleAppStateChange.
-    // No explicit call needed here anymore.
+    // --- Phase 5: Initialize File Manager (Depends on Auth and UI) ---
+    // Now likely triggered by state changes in appStore.auth or appStore.ui
     logBootstrap('Phase 5: FileManager initialization delegated to state changes.', 'info');
+    // May need an init function in fileManager.js to set up its subscriptions
+    try {
+        const { initializeFileManager } = await import('/client/filesystem/fileManager.js');
+        if (typeof initializeFileManager === 'function') {
+            initializeFileManager(); // Sets up listeners
+            logBootstrap('FileManager listeners setup.', 'debug');
+        } else {
+             logBootstrap('FileManager module loaded, but initializeFileManager not found. Assuming listeners setup on import.', 'warning');
+        }
+    } catch(error) {
+        logBootstrap(`Failed to setup FileManager listeners: ${error.message}`, 'error');
+        console.error('[FILEMANAGER SETUP ERROR]', error);
+    }
 
     // --- Phase 6: Initialize Other Components/Modules ---
     logBootstrap('Phase 6: Initializing Actions, Editor, Preview, etc...', 'debug');
-    // Actions (Listens for events from UI components)
+    // These modules will also increasingly rely on dispatching actions and subscribing to appStore
+    
+    // Actions (Listens for events from UI components, might dispatch actions)
     try {
         const actionsModule = await import('/client/actions.js');
         if (typeof actionsModule.initializeActions === 'function') {
-            actionsModule.initializeActions();
+            actionsModule.initializeActions(); // May set up listeners/dispatchers
             logBootstrap('Action handlers initialized.', 'debug');
         } else {
              logBootstrap('actions.js loaded but initializeActions not found.', 'error');
@@ -116,11 +155,11 @@ async function initializeApp() {
         console.error('[ACTIONS INIT ERROR]', error);
     }
     
-    // Editor 
+    // Editor (Will dispatch EDITOR_CONTENT_CHANGED, subscribe to file changes, etc.)
     try {
          const editorModule = await import('/client/editor.js');
          if (typeof editorModule.initializeEditor === 'function') {
-             editorModule.initializeEditor(); // Initialize the editor
+             editorModule.initializeEditor(); // Initialize the editor, setup subscriptions/dispatchers
              logBootstrap('Editor initialized.', 'debug');
          } else {
              logBootstrap('editor.js loaded but initializeEditor not found.', 'error');
@@ -130,11 +169,11 @@ async function initializeApp() {
          console.error('[EDITOR INIT ERROR]', error);
      }
      
-    // Preview Manager (Depends on Editor)
+    // Preview Manager (Subscribes to editor content changes, etc.)
     try {
         const previewManagerModule = await import('/client/previewManager.js');
         if (typeof previewManagerModule.initializePreview === 'function') {
-            await previewManagerModule.initializePreview();
+            await previewManagerModule.initializePreview(); // Setup subscriptions
             logBootstrap('Preview Manager initialized.', 'debug');
         } else {
              logBootstrap('previewManager.js loaded but initializePreview not found.', 'error');
@@ -144,11 +183,10 @@ async function initializeApp() {
         console.error('[PREVIEW INIT ERROR]', error);
     }
     
-    // Initialize DOM event listeners (e.g., global click handler)
+    // DOM event listeners (May dispatch actions based on global events)
     try {
         const domEventsModule = await import('/client/domEvents.js');
-        // CORRECTED: Check for initializeDomEvents (was already correct)
-        if (typeof domEventsModule.initializeDomEvents === 'function') { 
+        if (typeof domEventsModule.initializeDomEvents === 'function') {
              domEventsModule.initializeDomEvents();
              logBootstrap('DOM Event Listeners initialized.', 'debug');
         } else {
@@ -159,29 +197,28 @@ async function initializeApp() {
         console.error('[DOM EVENTS INIT ERROR]', error);
     }
     
-    // Initialize CLI handler (attaches to log panel input)
+    // CLI handler (Dispatches commands as actions? Subscribes to log panel input)
     try {
         const cliModule = await import('/client/cli/index.js');
-        // CORRECTED: Use initializeCLI
-        if (typeof cliModule.initializeCLI === 'function') { 
+        if (typeof cliModule.initializeCLI === 'function') {
             cliModule.initializeCLI();
             logBootstrap('CLI system initialized.', 'debug');
         } else {
-            logBootstrap('cli/index.js loaded but initializeCLI not found.', 'error'); // Updated error message
+            logBootstrap('cli/index.js loaded but initializeCLI not found.', 'error');
         }
     } catch(error) {
         logBootstrap(`Failed to initialize CLI: ${error.message}`, 'error');
         console.error('[CLI INIT ERROR]', error);
     }
 
-    // Initialize keyboard shortcuts
+    // Initialize keyboard shortcuts (Dispatches actions like SETTINGS_PANEL_TOGGLE)
     try {
         const shortcutsModule = await import('/client/keyboardShortcuts.js');
-        if (typeof shortcutsModule.initKeyboardShortcuts === 'function') {
-            shortcutsModule.initKeyboardShortcuts();
+        if (typeof shortcutsModule.initKeyboardShortcuts === 'function') { 
+            shortcutsModule.initKeyboardShortcuts(); // Setup listeners that dispatch actions
             logBootstrap('Keyboard shortcuts initialized.', 'debug');
         } else {
-            logBootstrap('keyboardShortcuts.js loaded but initKeyboardShortcuts not found.', 'error');
+            logBootstrap('keyboardShortcuts.js loaded but initKeyboardShortcuts not found.', 'error'); 
         }
     } catch (error) {
         logBootstrap(`Failed to initialize Keyboard Shortcuts: ${error.message}`, 'error');
@@ -190,8 +227,9 @@ async function initializeApp() {
     
     logBootstrap('===== APPLICATION BOOTSTRAP COMPLETE =====', 'info');
     
-    // Final event indicating app is ready
+    // Final event indicating app structure is ready (modules should be listening to appStore now)
     eventBus.emit('app:ready');
+    logBootstrap('app:ready event emitted.', 'info');
 
   } catch (error) {
     logBootstrap(`CRITICAL BOOTSTRAP ERROR: ${error.message}`, 'error');
@@ -206,7 +244,10 @@ async function initializeApp() {
 }
 
 // Start the initialization process
-initializeApp(); 
+initializeApp().catch(error => {
+    bootstrapError('Critical error during application initialization.', error);
+    // Optionally display a user-friendly error message on the page
+});
 
 // --- DOM Ready Listener ---
 if (document.readyState === 'loading') { 
@@ -216,3 +257,11 @@ if (document.readyState === 'loading') {
   // DOMContentLoaded has already fired, initialize immediately
   initializeApp();
 } 
+
+// Add a listener for appStore changes for debugging purposes (optional)
+appStore.subscribe((newState, prevState) => {
+  console.debug('[AppState Change]', { prevState, newState });
+  // You could add logic here to save parts of the state to localStorage,
+  // but it's often better to do this in response to specific actions 
+  // or within the components/initializers that own that state.
+}); 

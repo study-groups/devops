@@ -3,8 +3,10 @@
  * Handles Markdown editor functionality
  */
 import { eventBus } from '/client/eventBus.js';
-import { uploadImage } from '/client/imageManager.js';
+import { uploadImage } from '/client/image/imageManager.js';
 import { globalFetch } from '/client/globalFetch.js';
+import { logMessage } from '/client/log/index.js';
+import { appStore } from '/client/appState.js';
 
 // Import required file management functionality safely (dynamic)
 async function getFileSystemState() {

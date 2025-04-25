@@ -487,8 +487,8 @@ export async function postProcessRender(previewElement) {
                     {left: "$$", right: "$$", display: true},
                     {left: "$", right: "$", display: false},
                     // Keep original LaTeX delimiters if needed for compatibility
-                    // {left: "\\(", right: "\\)", display: false},
-                    // {left: "\\[", right: "\\]", display: true}
+                     {left: "\\(", right: "\\)", display: false},
+                     {left: "\\[", right: "\\]", display: true}
                 ],
                 throwOnError : false // Don't halt rendering on KaTeX error
             });

@@ -2,7 +2,9 @@
 import { globalFetch } from '/client/globalFetch.js';
 // import { AUTH_STATE } from '/client/auth.js'; // Removed
 // import { withAuthHeaders } from '/client/headers.js'; // Removed unused import
-import { appState } from '/client/appState.js'; // Import central state for auth info
+import { appStore } from '/client/appState.js'; // Import central state for auth info
+
+// REMOVE Alias: const appState = appStore; 
 
 // Remove backward-compatible alias
 // const authState = AUTH_STATE;
@@ -49,12 +51,12 @@ function logApi(message, level = 'info') {
 
 /**
  * Adds authentication headers if the user is logged in.
- * Reads directly from appState.
+ * Reads directly from appStore.
  * @param {object} options - Existing fetch options.
  * @returns {object} Fetch options potentially augmented with Authorization header.
  */
 function addAuthHeader(options = {}) {
-    const authInfo = appState.getState().auth; // Use central appState
+    const authInfo = appStore.getState().auth; // Use appStore
     if (authInfo.isLoggedIn && authInfo.user?.username) {
         options.headers = {
             ...options.headers,

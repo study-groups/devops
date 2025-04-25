@@ -1,16 +1,16 @@
 // client/components/ContextManagerComponent.js
-import { eventBus } from '/client/eventBus.js';
-import fileManager from '/client/fileManager.js';
-import { appState } from '/client/appState.js';
+// REMOVE: import fileManager from '/client/filesystem/fileManager.js'; // No longer needed for state
+import eventBus from '/client/eventBus.js';
+import { appStore } from '/client/appState.js'; // Use central state for context
 
-const logContext = (message, level = 'debug') => {
+const logContext = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX";
-    const fullType = type;
+    const fullType = `${type}${subtype ? `_${subtype}` : ''}`;
 
     if (typeof window.logMessage === 'function') {
         window.logMessage(message, level, fullType);
     } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : (level === 'info' ? console.info : console.log));
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : (level === 'info' ? console.info : console.log));
         logFunc(`[${fullType}] ${message}`);
     }
 };
@@ -18,280 +18,281 @@ const logContext = (message, level = 'debug') => {
 
 export function createContextManagerComponent(targetElementId) {
     let element = null;
-    let unsubscribeFunctions = []; // Store all unsubscribe functions
+    let storeUnsubscribe = null; // Generic name for the unsubscribe function
 
-    // --- Rendering Logic --- 
+    // --- Rendering Logic (Uses appStore state) ---
     const render = () => {
         if (!element) return;
-        const subtype = 'RENDER'; // Specific prefix
-        logContext('Starting render logic', 'info');
+        logContext('Render function START'); 
 
-        // Get necessary state
-        const isLoading = fileManager.getIsLoading();
-        const topDir = fileManager.getCurrentTopLevelDirectory();
-        const relPath = fileManager.getCurrentRelativePath();
-        const currentFile = fileManager.getCurrentFile(); 
-        const currentListing = fileManager.getCurrentListing ? fileManager.getCurrentListing() : { dirs: [], files: [] }; // Default to empty
-        const availableTopDirs = fileManager.getAvailableTopLevelDirs ? fileManager.getAvailableTopLevelDirs() : []; // Default to empty array
-        const currentAuthState = appState.getState().auth;
-        const isMikeAtRoot = currentAuthState.user?.username?.toLowerCase() === 'mike' && !topDir;
-        const isOtherUserAtRoot = currentAuthState.isLoggedIn && !isMikeAtRoot && !topDir;
-        
-        logContext(`Render Check: User='${currentAuthState.user?.username}', TopDir='${topDir}', isMike@Root=${isMikeAtRoot}, AvailableTopDirs=[${availableTopDirs?.join(',')}]`, 'info');
-        logContext(`State Used - isLoading: ${isLoading}, isMikeAtRoot: ${isMikeAtRoot}, topDir: ${topDir}, relPath: ${relPath}, file: ${currentFile}`, 'info');
-        // Log listing only if not loading and not Mike@Root (where it's irrelevant)
-        if (!isLoading && !isMikeAtRoot) {
-             logContext(`Listing Used: Dirs=[${currentListing?.dirs?.join(', ')}], Files=[${currentListing?.files?.join(', ')}]`, subtype); 
-        } else if (isMikeAtRoot) {
-             logContext(`Available Top Dirs for Mike Selector: [${availableTopDirs.join(', ')}]`, subtype);
-        }
+        const fileState = appStore.getState().file;
+        const authState = appStore.getState().auth;
 
-        // --- Line 1: Generate Breadcrumbs (Refined Logic) --- 
-        const separator = `<span class="breadcrumb-separator">/</span>`;
-        // Always start with the clickable root link
-        let breadcrumbsHTML = `<span class="breadcrumb-item root" data-target-top="" data-target-rel="" title="Go to Root">/</span>`;
+        const isLoading = fileState.isLoading || fileState.isSaving;
+        const topDir = fileState.topLevelDirectory;
+        const relPath = fileState.currentRelativePath || '';
+        const currentFile = fileState.currentFile;
+        const currentListing = fileState.currentListing || { dirs: [], files: [] };
+        const availableTopDirs = fileState.availableTopLevelDirs || [];
         
-        // Track if we have added any path segments after the root
-        let addedPathSegment = false; 
+        const isMikeAtRoot = authState.user?.username?.toLowerCase() === 'mike' && !topDir;
+        const isOtherUserAtRoot = authState.isAuthenticated && !isMikeAtRoot && !topDir;
+
+        logContext(`State Snapshot - isLoading: ${isLoading}, isSaving: ${fileState.isSaving}, isInitialized: ${fileState.isInitialized}`);
+        logContext(`State Snapshot - TopDir: ${topDir}, RelPath: '${relPath}', CurrentFile: ${currentFile}`);
+        logContext(`State Snapshot - Auth: User='${authState.user?.username}', IsAuth=${authState.isAuthenticated}`);
+        logContext(`State Snapshot - AvailableTopDirs: [${availableTopDirs.join(',')}]`);
+        logContext(`State Snapshot - CurrentListing Dirs: [${currentListing.dirs?.join(',')}]`);
+        logContext(`State Snapshot - CurrentListing Files: [${currentListing.files?.join(',')}]`);
+        logContext(`Calculated Flags: isMikeAtRoot=${isMikeAtRoot}, isOtherUserAtRoot=${isOtherUserAtRoot}`);
+
+        // --- Line 1: Generate Breadcrumbs (Logic mostly unchanged, uses new state variables) ---
+        const separator = `<span class=\"breadcrumb-separator\">/</span>`;
+        let breadcrumbsHTML = `<span class=\"breadcrumb-item root\" data-target-top=\"\" data-target-rel=\"\" title=\"Go to Root\">/</span>`;
+        let addedPathSegment = false;
 
         if (isMikeAtRoot) {
-            logContext( `Rendering Mike@Root selector`,subtype);
-            // Add selector right after root, no separator needed yet
+            logContext(`Rendering Mike@Root selector`);
             if (!isLoading && availableTopDirs.length > 0) {
-                let mikeDirOptions = `<option value="" selected disabled>Directory...</option>`;
-                availableTopDirs.sort();
-                availableTopDirs.forEach(dir => { mikeDirOptions += `<option value="${dir}">${dir}/</option>`; });
-                // CORRECTED: Remove separator before Mike's directory selector when at root
-                // breadcrumbsHTML += `${separator}<select id="context-mike-dir-select" class="breadcrumb-dir-select" title="Select Directory">${mikeDirOptions}</select>`; 
-                breadcrumbsHTML += ` <select id="context-mike-dir-select" class="breadcrumb-dir-select" title="Select Directory">${mikeDirOptions}</select>`; // Added space for visual separation
+                let mikeDirOptions = `<option value=\"\" selected disabled>Directory...</option>`;
+                // Ensure sorting happens on a copy if needed, though sort is in-place
+                const sortedDirs = [...availableTopDirs].sort(); 
+                sortedDirs.forEach(dir => { mikeDirOptions += `<option value=\"${dir}\">${dir}/</option>`; });
+                breadcrumbsHTML += ` <select id=\"context-mike-dir-select\" class=\"breadcrumb-dir-select\" title=\"Select Directory\">${mikeDirOptions}</select>`;
                 addedPathSegment = true;
             }
         } else if (isOtherUserAtRoot) {
-            logContext(`Rendering OtherUser@Root info`,subtype);
-            // Add username info right after root, add separator before
-            breadcrumbsHTML += `${separator}<span class="breadcrumb-info" title="Current User">${currentAuthState.user?.username}</span>`;
+            logContext(`Rendering OtherUser@Root info`);
+            breadcrumbsHTML += `${separator}<span class=\"breadcrumb-info\" title=\"Current User\">${authState.user?.username}</span>`;
             addedPathSegment = true;
-        } else if (currentAuthState.isLoggedIn && topDir) {
-            logContext(`Rendering standard user path`,subtype);
+        } else if (authState.isAuthenticated && topDir) {
+            logContext(`Rendering standard user path`);
             let pathSegmentsArray = [];
-            
-            // Add topDir span first (always add separator before this)
-            pathSegmentsArray.push(`<span class="breadcrumb-item" data-target-top="${topDir}" data-target-rel="" title="Go to ${topDir}">${topDir}</span>`);
-            
-            // Add intermediate relative path parts
+
+            pathSegmentsArray.push(`<span class=\"breadcrumb-item\" data-target-top=\"${topDir}\" data-target-rel=\"\" title=\"Go to ${topDir}\">${topDir}</span>`);
+
             const pathParts = relPath.split('/').filter(p => p);
             let cumulativePath = '';
             pathParts.forEach((part, index) => {
                 cumulativePath = pathJoin(cumulativePath, part);
-                pathSegmentsArray.push(`<span class="breadcrumb-item" data-target-top="${topDir}" data-target-rel="${cumulativePath}" title="Go to ${part}">${part}</span>`);
+                pathSegmentsArray.push(`<span class=\"breadcrumb-item\" data-target-top=\"${topDir}\" data-target-rel=\"${cumulativePath}\" title=\"Go to ${part}\">${part}</span>`);
             });
 
-            // Add Subdirectory selector segment at the end if conditions met
             if (!isLoading) {
                 const dirs = currentListing?.dirs || [];
                 if (dirs.length > 0) {
-                    let dirOptionsHTML = `<option value="" selected disabled>Subdirectory...</option>`;
-                    dirs.sort();
-                    dirs.forEach(dir => { dirOptionsHTML += `<option value="${dir}">${dir}/</option>`; });
-                    pathSegmentsArray.push(`<select id="context-dir-select" class="breadcrumb-dir-select" title="Select Subdirectory">${dirOptionsHTML}</select>`);
+                    let dirOptionsHTML = `<option value=\"\" selected disabled>Subdirectory...</option>`;
+                    // Sort dirs
+                    const sortedDirs = [...dirs].sort();
+                    sortedDirs.forEach(dir => { dirOptionsHTML += `<option value=\"${dir}\">${dir}/</option>`; });
+                    pathSegmentsArray.push(`<select id=\"context-dir-select\" class=\"breadcrumb-dir-select\" title=\"Select Subdirectory\">${dirOptionsHTML}</select>`);
                 }
             }
-            
-            // Join the path segments with separators and add to the initial root link
+
             if (pathSegmentsArray.length > 0) {
-                 // CORRECTED: Join the array with the separator, and append that *directly* after the initial root `/`.
-                 // The separator will only appear *between* the items in the array.
-                 // breadcrumbsHTML += separator + pathSegmentsArray.join(separator); // OLD INCORRECT LOGIC
-                 breadcrumbsHTML += ` ${pathSegmentsArray.join(separator)}` // Add space for visual separation from root?
-                 // If no space needed: breadcrumbsHTML += pathSegmentsArray.join(separator);
-                 addedPathSegment = true;
+                breadcrumbsHTML += ` ${pathSegmentsArray.join(separator)}`;
+                addedPathSegment = true;
             }
         }
-        
-        logContext(`inal Breadcrumbs HTML: ${breadcrumbsHTML}`, subtype);
+
+        logContext(`Final Breadcrumbs HTML: ${breadcrumbsHTML}`);
         // --- End Line 1 ---
-        
-        // --- Line 2: Generate File Selector --- 
+
+        // --- Line 2: Generate File Selector (Logic mostly unchanged, uses new state variables) ---
         let fileSelectorHTML = '';
-        // Determine file selector content based on state
-         if (isLoading) {
-             fileSelectorHTML = `<select id="context-item-select-loading" class="context-selector" title="Select File" disabled><option>Loading Files...</option></select>`;
-         } else if (isMikeAtRoot) {
-             // Mike doesn't select files when at root
-             fileSelectorHTML = `<select id="context-item-select-disabled" class="context-selector" title="Select File" disabled><option>Select directory above</option></select>`;
-         } else if (topDir) {
-            // Standard File Selector
+        if (isLoading && !isMikeAtRoot && topDir) { // Show loading only if expecting files
+            fileSelectorHTML = `<select id=\"context-item-select-loading\" class=\"context-selector\" title=\"Select File\" disabled><option>Loading Files...</option></select>`;
+        } else if (isMikeAtRoot) {
+            fileSelectorHTML = `<select id=\"context-item-select-disabled\" class=\"context-selector\" title=\"Select File\" disabled><option>Select directory above</option></select>`;
+        } else if (topDir) {
             const files = currentListing?.files || [];
-            const hasListingData = currentListing && currentListing.files !== undefined;
+            const hasListingData = currentListing && currentListing.files !== undefined; // Or check !isLoading
             if (files.length > 0) {
-                 let fileOptionsHTML = `<option value="" ${!currentFile ? 'selected' : ''} disabled>Select file...</option>`;
-                 files.sort((a, b) => a.localeCompare(b));
-                 files.forEach(file => {
-                     const isSelected = file === currentFile;
-                     fileOptionsHTML += `<option value="${file}" ${isSelected ? 'selected' : ''}>${file}</option>`;
-                 });
-                 fileSelectorHTML = `<select id="context-item-select" class="context-selector" title="Select File">${fileOptionsHTML}</select>`;
+                let fileOptionsHTML = `<option value=\"\" ${!currentFile ? 'selected' : ''} disabled>Select file...</option>`;
+                const sortedFiles = [...files].sort((a, b) => a.localeCompare(b));
+                sortedFiles.forEach(file => {
+                    const isSelected = file === currentFile;
+                    fileOptionsHTML += `<option value=\"${file}\" ${isSelected ? 'selected' : ''}>${file}</option>`;
+                });
+                fileSelectorHTML = `<select id=\"context-item-select\" class=\"context-selector\" title=\"Select File\">${fileOptionsHTML}</select>`;
             } else {
-                 // Show disabled selector if no files found (and not loading)
-                 fileSelectorHTML = `<select id="context-item-select-empty" class="context-selector" title="Select File" disabled><option>${hasListingData ? 'No files found' : 'Loading...'}</option></select>`;
+                // Use isLoading flag to differentiate between "loading" and "empty"
+                const message = isLoading ? 'Loading...' : 'No files found';
+                fileSelectorHTML = `<select id=\"context-item-select-empty\" class=\"context-selector\" title=\"Select File\" disabled><option>${message}</option></select>`;
             }
         } else {
-             // Default placeholder when no directory context is selected (and not Mike)
-             fileSelectorHTML = `<select id="context-item-select-placeholder" class="context-selector" title="Select File" disabled><option>Select directory context</option></select>`;
+            fileSelectorHTML = `<select id=\"context-item-select-placeholder\" class=\"context-selector\" title=\"Select File\" disabled><option>Select directory context</option></select>`;
         }
-        // --- End Line 2 Selector --- 
+        // --- End Line 2 Selector ---
 
-        // --- Final Assembly (CONFIRMED Two Lines) --- 
+        // --- Final Assembly (Buttons use new state variables) ---
+        const saveDisabled = isLoading || !currentFile || isMikeAtRoot;
+        const linkDisabled = true; // Disable community link button for now
+
+        // <<< ADD LOGGING HERE >>>
+        logContext(`FINAL HTML - Breadcrumbs: ${breadcrumbsHTML}`);
+        logContext(`FINAL HTML - File Selector: ${fileSelectorHTML}`);
+        // <<< END LOGGING >>>
+
         element.innerHTML = `
-            <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
-            <div class="context-selection-row">                ${fileSelectorHTML} 
-                <div class="file-action-buttons">                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Save</button>
-                    <button id="community-link-btn" data-action="toggleCommunityLink" title="Add to Community Files" ${isLoading || !currentFile || isMikeAtRoot ? 'disabled' : ''}>Link</button>
+            <div class=\"context-breadcrumbs\">${breadcrumbsHTML}</div>
+            <div class=\"context-selection-row\">
+                ${fileSelectorHTML}
+                <div class=\"file-action-buttons\">
+                    <button id=\"save-btn\" data-action=\"saveFile\" title=\"Save Current File\" ${saveDisabled ? 'disabled' : ''}>${fileState.isSaving ? 'Saving...' : 'Save'}</button>
+                    <button id=\"community-link-btn\" data-action=\"toggleCommunityLink\" title=\"Add to Community Files (Not Implemented)\" ${linkDisabled ? 'disabled' : ''}>Link</button>
                 </div>
             </div>
         `;
-        logContext(`innerHTML updated.`, subtype);
+        if (fileState.isSaving) {
+            element.querySelector('#save-btn')?.classList.add('saving');
+        }
+        logContext(`innerHTML updated.`);
 
-        // --- Re-attach Event Listeners --- 
-        element.querySelectorAll('.breadcrumb-item').forEach(span => {
-             if (span.dataset.targetTop !== undefined) { 
-                 span.addEventListener('click', handleBreadcrumbClick);
-             }
+        // --- Re-attach Event Listeners (No changes here, they emit events for fileManager) ---
+        element.querySelectorAll('.breadcrumb-item.clickable, .breadcrumb-item.root').forEach(span => {
+            span.removeEventListener('click', handleBreadcrumbClick); // Prevent duplicates
+            span.addEventListener('click', handleBreadcrumbClick);
         });
         const dirSelectElement = element.querySelector('#context-dir-select');
-        if (dirSelectElement) { dirSelectElement.addEventListener('change', handleDirectoryDropdownChange); }
-        
+        if (dirSelectElement) { 
+             dirSelectElement.removeEventListener('change', handleDirectoryDropdownChange); // Prevent duplicates
+             dirSelectElement.addEventListener('change', handleDirectoryDropdownChange); 
+        }
+
         const mikeDirSelectElement = element.querySelector('#context-mike-dir-select');
-        if (mikeDirSelectElement) { mikeDirSelectElement.addEventListener('change', handleMikeDirectorySelectChange); }
-        
+        if (mikeDirSelectElement) { 
+            mikeDirSelectElement.removeEventListener('change', handleMikeDirectorySelectChange); // Prevent duplicates
+            mikeDirSelectElement.addEventListener('change', handleMikeDirectorySelectChange); 
+        }
+
         const fileSelectElement = element.querySelector('#context-item-select');
-        if (fileSelectElement) { fileSelectElement.addEventListener('change', handleFileDropdownChange); }
-        
-        logContext(`Event listeners attached. END.`, subtype);
+        if (fileSelectElement) { 
+             fileSelectElement.removeEventListener('change', handleFileDropdownChange); // Prevent duplicates
+             fileSelectElement.addEventListener('change', handleFileDropdownChange); 
+        }
+
+        logContext(`Event listeners (re)attached. Render END.`);
+        logContext(`Render function END`);
     };
 
-    // --- Event Handlers --- 
+    // --- Event Handlers (No changes needed for these, they emit events) ---
     const handleBreadcrumbClick = (event) => {
-        // Use currentTarget to ensure we reference the element the listener is attached to
-        const targetSpan = event.currentTarget; 
+        const targetSpan = event.currentTarget;
         const top = targetSpan.dataset.targetTop;
         const rel = targetSpan.dataset.targetRel;
-        logContext(`Breadcrumb click: Top='${top}', Rel='${rel}'`,"EVENT");
+        logContext(`Breadcrumb click: Top='${top}', Rel='${rel}'`, "EVENT");
 
-        // --- Emit appropriate navigation event --- 
-        if (top === '') {
-             // Clicked root breadcrumb
-             eventBus.emit('navigate:root'); 
-        } else if (rel === '') {
-            // Clicked top-level dir breadcrumb
-             eventBus.emit('navigate:topLevelDir', { directory: top });
-        } else {
-            // Clicked intermediate path breadcrumb
-            eventBus.emit('navigate:absolute', { topLevelDir: top, relativePath: rel }); 
+        if (top === '' && rel === '') { // Check for root specifically
+            eventBus.emit('navigate:root');
+        } else if (top && rel === '') { // Clicked top-level dir breadcrumb
+            // Navigate to top-level dir root - use navigate:absolute for consistency
+            eventBus.emit('navigate:absolute', { dir: top, path: '', file: '' }); 
+            // Original: eventBus.emit('navigate:topLevelDir', { directory: top }); 
+        } else if (top && rel) { // Clicked intermediate path breadcrumb
+            eventBus.emit('navigate:absolute', { dir: top, path: rel, file: '' });
         }
     };
 
     const handleFileDropdownChange = (event) => {
         const selectedValue = event.target.value;
         if (!selectedValue) return;
-        logContext(`File dropdown change: Selected file='${selectedValue}'`,"EVENT");
-        // Emit navigate:file, value is just the filename
-        eventBus.emit('navigate:file', { filename: selectedValue }); 
+        logContext(`File dropdown change: Selected file='${selectedValue}'`, "EVENT");
+        eventBus.emit('navigate:file', { filename: selectedValue });
     };
 
     const handleDirectoryDropdownChange = (event) => {
         const selectedValue = event.target.value;
         if (!selectedValue) return;
-        logContext(`Directory dropdown change: Selected directory='${selectedValue}'`,"EVENT");
-        eventBus.emit('navigate:directory', { directory: selectedValue });
+        logContext(`Directory dropdown change: Selected subdir='${selectedValue}'`, "EVENT");
+        // Get current state to build the path correctly
+        const currentState = appStore.getState().file;
+        eventBus.emit('navigate:directory', { directory: selectedValue }); // Pass only the subdir name
     };
     
-    // ADDED: Handler for Mike's directory selector
     const handleMikeDirectorySelectChange = (event) => {
-        const selectedDir = event.target.value;
-        if (!selectedDir) return;
-        logContext(`Mike directory select CHANGE event fired. Selected: '${selectedDir}'`, "EVENT");
-        logContext(`Mike directory select change: Selected directory='${selectedDir}'`,"EVENT");
-        // This selection sets the top-level directory
-        eventBus.emit('navigate:topLevelDir', { directory: selectedDir });
+        const selectedValue = event.target.value;
+        if (!selectedValue) return;
+        logContext(`Mike directory select change: Selected dir='${selectedValue}'`, "EVENT");
+        eventBus.emit('navigate:topLevelDir', { directory: selectedValue });
     };
 
-    // --- State/Event Subscriptions --- 
-    const handleStateUpdate = (eventData = {}) => {
-        const eventType = eventData.eventType || 'unknown';
-        logContext(`Received event: ${eventType}. Triggering render.`,'EVENT');
-        render(); // Re-render on any relevant state change from fileManager
-    };
-
-    // --- Lifecycle Methods --- 
+    // --- Component Lifecycle ---
     const mount = () => {
-        logContext('Mounting...','info');
         element = document.getElementById(targetElementId);
         if (!element) {
-            logContext(`Target element #${targetElementId} not found.`, 'error');
+            logContext(`Target element #${targetElementId} not found. Cannot mount.`, 'error');
             return false;
         }
+        logContext(`Mounting component to #${targetElementId}`, 'MOUNT');
 
-        // Subscribe ONLY to fileManager events now
-        const fmEventsToSubscribe = [
-            'fileManager:stateSettled',
-            'fileManager:listingLoaded',
-            'fileManager:loadingStateChanged' // Keep loading state for disabling UI
-            // Removed file:loaded/loadError as stateSettled should cover necessary rerenders
-        ];
+        // Clear previous listeners if any (idempotency)
+        // destroy(); // <<< REMOVE THIS LINE >>>
 
-        fmEventsToSubscribe.forEach(eventName => {
-            const handler = (data) => handleStateUpdate({ ...data, eventType: eventName });
-            eventBus.on(eventName, handler);
-            unsubscribeFunctions.push(() => eventBus.off(eventName, handler));
-            logContext(`Subscribed to fileManager event: ${eventName}`, "info");
-        });
+        // Make sure we don't double-subscribe if mount is called again without destroy
+        if (storeUnsubscribe) {
+             logContext('Warning: mount called again without destroy, unsubscribing previous listener.', 'warn');
+             storeUnsubscribe();
+             storeUnsubscribe = null;
+        }
 
-        // REMOVED: Subscription to authState changes -> Re-enable this block
-        // Uncomment the following block
-        const authUnsubscribe = appState.subscribe((newState, prevState) => {
-            // Only re-render if the auth part of the state has changed
-            if (newState.auth !== prevState.auth) {
-                logContext(`Received authState update: user=${newState.auth.user?.username}, authenticated=${newState.auth.isLoggedIn}`, 'EVENT', 'AUTH');
-                handleStateUpdate({ eventType: 'authStateChanged' });
+        // Subscribe to appStore changes
+        let previousFileState = appStore.getState().file; // Store initial state for comparison
+        storeUnsubscribe = appStore.subscribe(newState => {
+            const fileStateChanged = newState.file !== previousFileState;
+            logContext(`Subscription triggered. File state changed: ${fileStateChanged}`, 'SUB'); 
+            if (fileStateChanged) {
+                logContext(`Prev File State: ${JSON.stringify(previousFileState)}`, 'SUB_DETAIL');
+                logContext(`New File State: ${JSON.stringify(newState.file)}`, 'SUB_DETAIL');
+                logContext('File state changed, calling render.', 'SUB');
+                previousFileState = newState.file; // Update previous state
+                render();
+            } else {
+                logContext('File state unchanged, skipping render.', 'SUB');
             }
         });
-        unsubscribeFunctions.push(() => { 
-            authUnsubscribe(); 
-            logContext('Unsubscribed from authState', 'EVENT', 'AUTH');
-        });
-        logContext('Subscribed to authState', 'info');
-        
 
-        // Initial Render (will use current fileManager state)
+        // Perform initial render based on current store state
+        logContext('Performing initial render.', 'MOUNT');
         render(); 
-
-        logContext('Mounted.',"COMPLETE");
+        
+        logContext('Component mounted and subscribed to appStore.', 'MOUNT');
         return true;
     };
 
     const destroy = () => {
-        logContext('Destroying...');
-        // Unsubscribe from all stored events
-        unsubscribeFunctions.forEach(unsub => unsub());
-        unsubscribeFunctions = [];
-
-        if (element) {
-            element.innerHTML = ''; // Clear content
+        logContext(`Destroying component and unsubscribing...`, 'info');
+        // Unsubscribe from appStore
+        if (storeUnsubscribe) {
+            storeUnsubscribe();
+            storeUnsubscribe = null;
         }
-        element = null;
-        logContext('Destroyed.');
+        // Remove listeners added directly in render (though re-render should handle this)
+        if (element) {
+             element.querySelectorAll('.breadcrumb-item.clickable, .breadcrumb-item.root').forEach(span => span.removeEventListener('click', handleBreadcrumbClick));
+             const dirSelect = element.querySelector('#context-dir-select');
+             if(dirSelect) dirSelect.removeEventListener('change', handleDirectoryDropdownChange);
+             const mikeDirSelect = element.querySelector('#context-mike-dir-select');
+             if(mikeDirSelect) mikeDirSelect.removeEventListener('change', handleMikeDirectorySelectChange);
+             const fileSelect = element.querySelector('#context-item-select');
+             if(fileSelect) fileSelect.removeEventListener('change', handleFileDropdownChange);
+             // Optionally clear innerHTML on explicit destroy, but maybe not needed if parent removes the element
+             // element.innerHTML = ''; 
+             logContext(`Listeners removed from element during destroy.`, 'DESTROY'); 
+        }
+        element = null; // Release reference
+        logContext('Component destroyed.', 'info');
     };
-    
-     // Simple path join helper needed for breadcrumbs
-    function pathJoin(...parts) {
-        const filteredParts = parts.filter(part => part && part !== '/');
-        if (filteredParts.length === 0) return '';
-        return filteredParts.join('/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
-    }
 
-    return {
-        mount,
-        destroy
-    };
+    // REMOVED pathJoin as it's now internal to fileManager.js
+    // function pathJoin(...parts) { ... } 
+
+    return { mount, destroy, render }; // Expose render if needed for manual triggers, otherwise just mount/destroy
+}
+
+// Helper function (can be moved if needed)
+function pathJoin(...parts) {
+    const filteredParts = parts.filter(part => part && part !== '/');
+    if (filteredParts.length === 0) return '';
+    return filteredParts.join('/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 } 

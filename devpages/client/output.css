@@ -616,6 +616,10 @@ video {
   visibility: visible;
 }
 
+.collapse {
+  visibility: collapse;
+}
+
 .static {
   position: static;
 }
@@ -945,27 +949,28 @@ button.loading::after {
     display: flex;
     flex-direction: column;
     padding: 12px 15px;
-    gap: 0;
-    /* Control spacing through child margins instead */
+    gap: 12px;
+    /* Add gap between rows */
     background-color: #f8f9fa;
   }
 
-  /* Hard-code the display order of elements */
+  /* >>> NEW CONTAINER FOR TOP ROW <<< */
 
-  nav > * {
-    order: 99;
-    /* Push everything down by default */
+  .mobile-top-row {
+    display: flex !important;
+    /* Force flex */
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
   }
 
-  nav > .file-ops {
-    order: 1;
-    /* Always first */
-  }
+  /* Hard-code the display order of elements - REMOVED order rules, handled by structure */
 
-  nav > .auth-info {
-    order: 2;
-    /* Always second */
-  }
+  /* nav > * { order: 99; } */
+
+  /* nav > .file-ops { order: 1; } */
+
+  /* nav > .auth-info { order: 2; } */
 
   /* Hide these elements on mobile */
 
@@ -979,21 +984,32 @@ button.loading::after {
     display: none !important;
   }
 
-  /* ===== FILE SELECTORS - TOP ROW ===== */
+  /* ===== FILE SELECTORS - MOVED INTO TOP ROW ===== */
 
-  .file-selectors {
+  .mobile-top-row .file-selectors {
+    /* Target within container */
     display: flex !important;
-    justify-content: space-between;
-    width: 100%;
-    margin: 0 0 16px 0;
-    /* Bottom margin creates space before next row */
+    justify-content: flex-start;
+    /* Align selectors to the left */
+    gap: 8px;
+    /* Space between selectors */
+    width: auto;
+    /* Allow shrinking */
+    flex-grow: 1;
+    /* Allow selectors to take up space */
+    margin: 0;
+    /* Remove margin */
     padding: 0;
   }
 
-  #dir-select,
-    #file-select {
-    width: 48%;
-    /* Slightly less than half to ensure gap */
+  .mobile-top-row .file-selectors #dir-select,
+    .mobile-top-row .file-selectors #file-select {
+    width: auto;
+    /* Let them size based on content + flex */
+    min-width: 100px;
+    /* Ensure minimum usability */
+    flex: 1;
+    /* Allow them to share space */
     height: 38px;
     font-size: 15px;
     padding: 0 8px;
@@ -1002,9 +1018,9 @@ button.loading::after {
     background-color: white;
   }
 
-  /* ===== AUTH SECTION - SECOND ROW ===== */
+  /* ===== AUTH SECTION ===== */
 
-  /* Logged out state - Login form */
+  /* Logged out state - Login form (Remains on second row) */
 
   body[data-auth-state="logged-out"] .login-form {
     display: flex !important;
@@ -1042,31 +1058,51 @@ button.loading::after {
     /* Hide the "Not logged in" text */
   }
 
-  /* Logged in state - Auth info - Make username/time a clickable link */
+  /* Logged in state - Auth info - MOVED INTO TOP ROW */
 
-  body[data-auth-state="logged-in"] .auth-info {
+  /* Target .auth-info only when it's inside the .mobile-top-row and logged in */
+
+  body[data-auth-state="logged-in"] .mobile-top-row .auth-info {
     display: flex !important;
-    justify-content: center;
+    /* Keep flex display */
+    justify-content: flex-end;
+    /* Align to the right */
     align-items: center;
-    width: 100%;
-    margin: 0;
-    /* No margin - clean layout */
+    width: auto;
+    /* Shrink to content */
+    margin: 0 0 0 10px;
+    /* Add left margin for spacing */
+    flex-shrink: 0;
+    /* Prevent shrinking */
   }
 
-  body[data-auth-state="logged-in"] #pwd-display {
+  /* Styles for the PWD display within the top row's auth-info */
+
+  body[data-auth-state="logged-in"] .mobile-top-row #pwd-display {
     font-size: 12px;
     font-weight: normal;
     color: #666;
     margin: 0;
+    /* Reset margin */
     padding: 4px 8px;
     background: #f0f0f0;
     border-radius: 3px;
     text-decoration: none;
     border: 1px solid #ddd;
+    white-space: nowrap;
+    /* Prevent wrapping */
   }
 
-  body[data-auth-state="logged-in"] #pwd-display:hover {
+  body[data-auth-state="logged-in"] .mobile-top-row #pwd-display:hover {
     background-color: #e8e8e8;
+  }
+
+  /* Hide original .auth-info container when logged in (it's now in .mobile-top-row) */
+
+  /* This selector targets the direct child of nav, which we no longer want */
+
+  body[data-auth-state="logged-in"] nav > .auth-info {
+    display: none !important;
   }
 
   /* Hide login form when logged in */
@@ -1088,11 +1124,11 @@ button.loading::after {
     display: none !important;
   }
 
-  /* Clean up any margin that might be inherited from desktop */
+  /* Clean up any margin that might be inherited from desktop (No change needed) */
 
-  .file-ops, .auth-info {
-    margin: 0 !important;
-  }
+  /* .file-ops, .auth-info { margin: 0 !important; } */
+
+  /* Let new rules handle spacing */
 
   /* Force password fields to always be type="text" on mobile */
 

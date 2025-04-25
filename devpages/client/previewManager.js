@@ -4,17 +4,26 @@
  */
 
 import { initPreview, updatePreview } from './preview/index.js';
+import { appStore } from '/client/appState.js'; // Import appStore to access state
 
 // Initialize the preview system
 export async function initializePreview() {
   console.log('[PREVIEW] Initializing preview system');
   
+  // Get enabled plugins from the application state
+  const state = appStore.getState();
+  const enabledPlugins = Object.entries(state.plugins || {})
+    .filter(([id, config]) => config.enabled)
+    .map(([id]) => id);
+
+  console.log('[PREVIEW] Enabled plugins:', enabledPlugins);
+
   try {
-    // Initialize with all plugins
+    // Initialize with ONLY enabled plugins from state
     const result = await initPreview({
       container: '#preview-container',
-      plugins: ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md'],
-      theme: 'light',
+      plugins: enabledPlugins, // Use the dynamic list
+      theme: 'light', // TODO: Make theme configurable via settings? 
       autoInit: true
     });
     

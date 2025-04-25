@@ -4,7 +4,7 @@
  */
 import { eventBus } from '/client/eventBus.js';
 import { logMessage } from '/client/log/index.js';
-import { appState } from '/client/appState.js';
+import { appStore } from '/client/appState.js';
 import { createAuthDisplayComponent } from '/client/components/AuthDisplay.js';
 import { createContextManagerComponent } from '/client/components/ContextManagerComponent.js';
 
@@ -64,150 +64,223 @@ function applyLogHeight(height) {
     window.dispatchEvent(new Event('resize'));
 }
 
-// --- appState Handler for UI & Auth ---
+// --- Central State Change Handler ---
 async function handleAppStateChange(newState, prevState) {
-    // --- UI Slice Handling ---
-    const viewModeChanged = newState.ui?.viewMode !== prevState.ui?.viewMode;
-    const logVisibleChanged = newState.ui?.logVisible !== prevState.ui?.logVisible;
-    const logHeightChanged = newState.ui?.logHeight !== prevState.ui?.logHeight;
+    logUI(`handleAppStateChange triggered.`, 'debug');
 
-    if (viewModeChanged || logVisibleChanged || logHeightChanged) {
-        logUI(`Received appState change affecting UI. Changes: viewMode=${viewModeChanged}, logVisible=${logVisibleChanged}, logHeight=${logHeightChanged}`, 'debug', newState.ui);
-        if (viewModeChanged) applyViewMode(newState.ui.viewMode);
-        if (logVisibleChanged) applyLogVisibility(newState.ui.logVisible);
-        if (logHeightChanged) applyLogHeight(newState.ui.logHeight);
-    }
+    // --- Auth State Handling (existing logic) ---
+    if (newState.auth !== prevState.auth) {
+        logUI(`Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
+        // Handle FileManager initialization/reset based on auth changes
+        // Only proceed if auth is no longer initializing
+        if (!newState.auth.isInitializing) {
+            const username = newState.auth.user?.username;
+            const wasLoggedIn = prevState.auth?.isAuthenticated; // Check previous state if available
+            const isLoggedIn = newState.auth.isAuthenticated;
+            const isFMInitialized = newState.file?.isInitialized; // Check file state
 
-    // --- Auth Slice Handling (for FileManager interaction) ---
-    const authChanged = newState.auth !== prevState.auth;
-    const authCheckCompleted = newState.auth.authChecked && !prevState.auth?.authChecked;
-    const loginStatusChanged = authChanged && newState.auth.isLoggedIn !== prevState.auth?.isLoggedIn;
+            try {
+                // Dynamically import fileManager *only when needed* for actions
+                const fmModule = await import('/client/filesystem/fileManager.js');
+                const fm = fmModule.default;
+                if (!fm) throw new Error('fileManager default export is missing');
 
-    if (authCheckCompleted || loginStatusChanged) {
-        logUI(`Handling auth state change for FileManager: isLoggedIn=${newState.auth.isLoggedIn}, authChecked=${newState.auth.authChecked}`);
-        const isLoggedIn = newState.auth.isLoggedIn;
-        const username = newState.auth.user?.username;
-        
-        // Dynamically import fileManager only when needed
-        let fm = null;
-        try {
-             const fileManagerModule = await import('/client/fileManager.js');
-             fm = fileManagerModule.default;
-             if (!fm) throw new Error('fileManager default export is missing');
-             
-             const isFMInitialized = typeof fm.getIsInitialized === 'function' && fm.getIsInitialized();
-
-             if (isLoggedIn) {
-                 if (!isFMInitialized) {
-                     logUI('User is authenticated & fileManager NOT initialized. Triggering fileManager.initializeFileManager()...');
-                     if (typeof fm.initializeFileManager === 'function') {
-                         await fm.initializeFileManager().catch(err => logUI(`FileManager initialization failed: ${err.message}`, 'error'));
-                         logUI('initializeFileManager awaited.');
+                if (isLoggedIn && !wasLoggedIn) { // User just logged in
+                    logUI(`User logged in: ${username}. Initializing/refreshing file manager...`);
+                    if (!isFMInitialized) {
+                         if (typeof fm.initializeFileManager === 'function') {
+                            await fm.initializeFileManager().catch(err => logUI(`FileManager initialization failed: ${err.message}`, 'error'));
+                         } else {
+                             logUI('initializeFileManager function not found on fileManager module', 'error');
+                         }
+                    } else {
+                        // If already initialized (e.g., page refresh while logged in), refresh context
+                        if (typeof fm.refreshFileManagerForUser === 'function') {
+                             await fm.refreshFileManagerForUser(username).catch(err => logUI(`FileManager refresh for user failed: ${err.message}`, 'error'));
+                             logUI('refreshFileManagerForUser awaited.');
+                         } else {
+                             logUI('refreshFileManagerForUser function not available on fileManager module.', 'warning');
+                         }
+                    }
+                } else if (!isLoggedIn && wasLoggedIn) { // User just logged out
+                     if (isFMInitialized) {
+                         logUI('User logged out. Resetting file manager state.');
+                         if (typeof fm.resetFileManagerState === 'function') {
+                             fm.resetFileManagerState(); // This function now dispatches actions
+                         } else {
+                             logUI('resetFileManagerState function not available on fileManager module.', 'warning');
+                         }
                      } else {
-                         logUI('initializeFileManager function not found on fileManager module', 'error');
+                          logUI('User logged out, but fileManager was not initialized. No reset needed.');
                      }
-                 } else {
-                     logUI('User authenticated & fileManager WAS initialized. Triggering fileManager.refreshFileManagerForUser()...');
-                     if (typeof fm.refreshFileManagerForUser === 'function') {
-                         await fm.refreshFileManagerForUser(username).catch(err => logUI(`FileManager refresh for user failed: ${err.message}`, 'error'));
-                         logUI('refreshFileManagerForUser awaited.');
-                     } else {
-                         logUI('refreshFileManagerForUser function not available on fileManager module.', 'warning');
-                     }
-                 }
-             } else { // User logged OUT
-                 if (isFMInitialized) { // Only reset if it was initialized
-                     logUI('User changed to logged-out. Clearing file manager state.');
-                     if (typeof fm.resetFileManagerState === 'function') {
-                         fm.resetFileManagerState();
-                     } else {
-                         logUI('resetFileManagerState function not available on fileManager module.', 'warning');
-                     }
-                 } else {
-                      logUI('User is logged out, but fileManager was not initialized. No reset needed.');
-                 }
-             }
-        } catch (err) {
-            logUI(`Critical error importing or interacting with fileManager during auth change: ${err.message}`, 'error');
+                }
+            } catch (err) {
+                logUI(`Critical error importing or interacting with fileManager during auth change: ${err.message}`, 'error');
+            }
         }
-        logUI('handleAuthStateChange finished.');
+        logUI('Auth state change handling finished.');
     }
-}
 
-// --- Event Bus Handlers ---
-async function handleFileManagerStateSettled(eventData = {}) {
-    logUI('Handling fileManager:stateSettled...');
-    // Dynamically import fileManager
-    let fm = null;
-    try {
-         const fileManagerModule = await import('/client/fileManager.js');
-         fm = fileManagerModule.default;
-         if (!fm) throw new Error('fileManager default export is missing');
-    } catch (err) {
-        logUI(`Critical error importing fileManager in stateSettled: ${err.message}`, 'error');
-        return; 
+    // --- File System State Handling ---
+    // Check if the file state slice itself or relevant sub-properties changed
+    if (newState.file !== prevState.file) {
+        logUI(`File state changed. isLoading: ${newState.file.isLoading}, isSaving: ${newState.file.isSaving}, file: ${newState.file.currentFile}`, 'debug');
+
+        // Update UI components based on the new file state
+        updateActionButtonsState(newState.file);
+        updateBreadcrumbs(newState.file);
+
+        // Logic previously in handleFileManagerStateSettled for showing top-level selector
+        const currentAuthState = newState.auth; // Use the current auth state
+        const currentUsername = currentAuthState.user?.username;
+        const isLoggedIn = currentAuthState.isAuthenticated;
+        const currentTopDir = newState.file.topLevelDirectory;
+        const availableTopDirs = newState.file.availableTopLevelDirs;
+
+        // Condition to show the top-level selector (e.g., logged out or specific user at root)
+        const showSelectorCondition = (!isLoggedIn || currentUsername?.toLowerCase() === 'mike') && !currentTopDir && availableTopDirs.length > 0;
+
+        if (showSelectorCondition) {
+            logUI('State changed to root/selector view. Emitting ui:renderFileList to show selector.');
+            // We might still need this specific event if ContextManagerComponent doesn't subscribe to the store directly yet
+            eventBus.emit('ui:renderFileList');
+        } else {
+            logUI('State changed, standard listing/file view expected.');
+            // If ContextManagerComponent subscribes, it will handle rendering the listing itself.
+            // If not, you might need to emit a different event here or pass data.
+            // For now, assume ContextManagerComponent will handle it via store subscription.
+        }
     }
-    updateActionButtonsState(fm);
-    updateBreadcrumbs(fm);
-     // Add check for Mike/logged-out root state rendering
-     try {
-         const currentAuthState = appState.getState().auth;
-         const currentUsername = currentAuthState.user?.username;
-         const isLoggedIn = currentAuthState.isLoggedIn;
-         const currentTopDir = typeof fm.getCurrentTopLevelDirectory === 'function' ? fm.getCurrentTopLevelDirectory() : null;
-         const availableTopDirs = typeof fm.getAvailableTopLevelDirs === 'function' ? fm.getAvailableTopLevelDirs() : [];
 
-         if ((currentUsername?.toLowerCase() === 'mike' || !isLoggedIn) && !currentTopDir && availableTopDirs.length > 0) {
-             logUI('State settled for Mike/LoggedOut at root. Emitting ui:renderFileList to show selector.');
-             eventBus.emit('ui:renderFileList'); 
-         } else {
-             logUI('State settled, standard listing expected.');
-         }
-     } catch (error) {
-         logUI(`Error during stateSettled check for selector: ${error.message}`, 'error');
+    // --- Settings Panel State Handling (Example) ---
+    if (newState.settingsPanel !== prevState.settingsPanel) {
+        // Update settings panel UI if needed
+        logUI('Settings Panel state changed.', 'debug');
+    }
+
+    // --- UI State Handling (Example) ---
+     if (newState.ui !== prevState.ui) {
+        logUI(`Global UI state changed. isLoading: ${newState.ui.isLoading}`, 'debug');
      }
 }
 
-async function handleLoadingStateChange(eventData) {
-    logUI(`Event received: loadingStateChanged. isLoading=${eventData?.isLoading}, isSaving=${eventData?.isSaving}`);
-    // Dynamically import fileManager
-     let fm = null;
-    try {
-         const fileManagerModule = await import('/client/fileManager.js');
-         fm = fileManagerModule.default;
-         if (!fm) throw new Error('fileManager default export is missing');
-    } catch (err) {
-        logUI(`Critical error importing fileManager in loadingStateChanged: ${err.message}`, 'error');
-        return; 
-    }
-    updateActionButtonsState(fm); // Pass fm
-}
-
-// --- UI Update Functions (Called by handlers) ---
-function updateActionButtonsState(fm) {
+// --- UI Update Functions (Modified) ---
+// Now accept state directly instead of the fileManager module
+function updateActionButtonsState(fileState) { // Accepts file state slice
     const saveButton = document.getElementById('save-btn');
-    if (!saveButton || !fm) return;
+    if (!saveButton) return;
+
     try {
-        const fmLoading = typeof fm.getIsLoading === 'function' ? fm.getIsLoading() : false;
-        const fileSelected = typeof fm.getCurrentFile === 'function' ? fm.getCurrentFile() : null;
-        const shouldDisableSave = fmLoading || !fileSelected;
+        // Use properties from the passed state object
+        const isLoading = fileState?.isLoading || false;
+        const isSaving = fileState?.isSaving || false;
+        const fileSelected = fileState?.currentFile !== null;
+
+        const shouldDisableSave = isLoading || isSaving || !fileSelected;
         saveButton.disabled = shouldDisableSave;
-        // ... (rest of button state update logic) ...
-        logUI(`Save button state updated: disabled=${shouldDisableSave}`);
-    } catch (error) { /* ... error handling ... */ }
+        
+        // Add visual indication for saving
+        if (isSaving) {
+            saveButton.textContent = 'Saving...';
+            saveButton.classList.add('saving'); 
+        } else {
+            saveButton.textContent = 'Save';
+            saveButton.classList.remove('saving');
+        }
+
+        // Maybe disable other actions during loading/saving?
+        // e.g., document.getElementById('new-file-btn').disabled = isLoading || isSaving;
+
+        logUI(`Save button state updated: disabled=${shouldDisableSave}, isSaving=${isSaving}`);
+    } catch (error) {
+         logUI(`Error updating action buttons state: ${error?.message}`, 'error');
+    }
 }
 
-function updateBreadcrumbs(fm) {
-    if (!breadcrumbContainer || !fm) return;
+function updateBreadcrumbs(fileState) { // Accepts file state slice
+    if (!breadcrumbContainer) return;
+
     try {
-        // ... (existing breadcrumb generation logic using fm getters) ...
+        // Use properties from the passed state object
+        const topLevelDir = fileState?.topLevelDirectory;
+        const relativePath = fileState?.currentRelativePath;
+        const currentFile = fileState?.currentFile;
+
+        // --- Breadcrumb Generation Logic ---
+        breadcrumbContainer.innerHTML = ''; // Clear existing
+
+        // Root link (always present, navigates to top-level selection)
+        const rootLink = document.createElement('span');
+        rootLink.textContent = 'Root';
+        rootLink.classList.add('breadcrumb-item');
+        if (topLevelDir || relativePath || currentFile) {
+            rootLink.classList.add('clickable');
+            rootLink.onclick = () => eventBus.emit('navigate:root'); // Keep using eventBus for UI interactions -> actions
+        } else {
+             rootLink.classList.add('active'); // Active if currently at root
+        }
+        breadcrumbContainer.appendChild(rootLink);
+
+        // Top Level Directory
+        if (topLevelDir) {
+            breadcrumbContainer.appendChild(document.createTextNode(' / '));
+            const topDirLink = document.createElement('span');
+            topDirLink.textContent = topLevelDir;
+            topDirLink.classList.add('breadcrumb-item');
+            if (relativePath || currentFile) {
+                topDirLink.classList.add('clickable');
+                // Navigate to top-level dir root
+                topDirLink.onclick = () => eventBus.emit('navigate:absolute', { dir: topLevelDir, path: '', file: '' });
+            } else {
+                 topDirLink.classList.add('active'); // Active if this is the current view
+            }
+            breadcrumbContainer.appendChild(topDirLink);
+        }
+
+        // Relative Path segments
+        if (relativePath) {
+            const pathSegments = relativePath.split('/');
+            let currentBuiltPath = '';
+            pathSegments.forEach((segment, index) => {
+                if (!segment) return; // Skip empty segments
+                currentBuiltPath = pathJoin(currentBuiltPath, segment);
+                breadcrumbContainer.appendChild(document.createTextNode(' / '));
+                const segmentLink = document.createElement('span');
+                segmentLink.textContent = segment;
+                segmentLink.classList.add('breadcrumb-item');
+                
+                // If it's not the last segment OR if no file is selected, it's clickable
+                if (index < pathSegments.length - 1 || !currentFile) {
+                    segmentLink.classList.add('clickable');
+                    // Navigate to this specific path segment
+                    segmentLink.onclick = () => eventBus.emit('navigate:absolute', { dir: topLevelDir, path: currentBuiltPath, file: '' });
+                } else {
+                     segmentLink.classList.add('active'); // Active if it's the last part and a file is selected
+                }
+                breadcrumbContainer.appendChild(segmentLink);
+            });
+        }
+
+        // Current File
+        if (currentFile) {
+            breadcrumbContainer.appendChild(document.createTextNode(' / '));
+            const fileSpan = document.createElement('span');
+            fileSpan.textContent = currentFile;
+            fileSpan.classList.add('breadcrumb-item', 'active'); // File is always the end of the path
+            breadcrumbContainer.appendChild(fileSpan);
+        }
+        // --- End Breadcrumb Generation ---
+
         logUI(`Breadcrumbs updated.`);
-    } catch (error) { /* ... error handling ... */ }
+    } catch (error) {
+        logUI(`Error updating breadcrumbs: ${error?.message}`, 'error');
+        console.error("Breadcrumb update error:", error); // Log full error for debugging
+    }
 }
 
 // --- Main Exported Initialization Function ---
 export async function initializeUI() {
-    logUI('[UI_MANAGER] Initializing UI (v_consolidated)...');
+    logUI('[UI_MANAGER] Initializing UI (v_state_refactor)...'); // Updated version log
 
     // 1. Mount Core Components
     try {
@@ -251,24 +324,22 @@ export async function initializeUI() {
         console.error('[BOOTSTRAP_CORE_COMPONENTS] Failed:', e);
     }
 
-    // 2. Setup appState Subscription (Handles UI and Auth changes)
-    if (appStateUnsubscribe) appStateUnsubscribe(); // Clear previous if any
-    appStateUnsubscribe = appState.subscribe(handleAppStateChange);
+    // 2. Setup appState Subscription (Handles UI, Auth, AND File state changes)
+    if (appStateUnsubscribe) appStateUnsubscribe(); 
+    appStateUnsubscribe = appStore.subscribe(handleAppStateChange); // Use appStore
     logUI('[UI_MANAGER] Subscribed to appState changes.');
 
-    // 3. Setup Event Bus Listeners (for non-UI state events like file loading)
-    eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange);
-    eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled);
-    eventBus.on('fileManager:loadingStateChanged', handleLoadingStateChange);
-    eventBus.on('fileManager:stateSettled', handleFileManagerStateSettled);
-    logUI('[UI_MANAGER] Event Bus listeners attached for fileManager events.');
+    // 3. Remove Event Bus Listeners for fileManager state
+    // eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange); // No longer needed
+    // eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled); // No longer needed
+    logUI('[UI_MANAGER] Removed specific fileManager event bus listeners.');
 
-    // 4. Setup Breadcrumb Listener
-    // setupBreadcrumbListener(); // REMOVED - Handled internally by ContextManagerComponent
+    // 4. Setup Breadcrumb Listener - Removed (handled by store subscription now)
 
-    // 5. Apply Initial UI and Auth State
-    // Call the handler once with current state to set initial UI and trigger initial auth check
-    await handleAppStateChange(appState.getState(), {});
+    // 5. Apply Initial UI State from Store
+    // Call the handler once with current state to set initial UI based on store
+    // Pass an empty object for prevState to ensure all checks run
+    await handleAppStateChange(appStore.getState(), {}); 
 
     logUI('[UI_MANAGER] UI Initialization complete.');
 }
@@ -280,17 +351,17 @@ export function destroyUI() {
         appStateUnsubscribe();
         appStateUnsubscribe = null;
     }
-    // Unsubscribe event bus listeners?
-    eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange);
-    eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled);
+    // No fileManager listeners to remove now
+    // eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange);
+    // eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled);
+    
     // Destroy components
     authDisplayComponent?.destroy();
     contextManagerComponent?.destroy();
-    // Remove breadcrumb listener? If container persists.
+    // ... destroy other components ...
+    
     logUI('[UI_MANAGER] UI destroyed and listeners removed.');
 }
-
-// REMOVED the UIManager class and its default export
 
 // --- Path Display Helper --- (Based on fileManager state)
 function constructDisplayPath(...parts) {

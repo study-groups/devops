@@ -1,5 +1,5 @@
 import { eventBus } from '/client/eventBus.js'; // Keep for potential future use? Or remove if truly unused.
-import { appState } from '/client/appState.js'; // Add appState import
+import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
 
 // Helper to get logMessage safely
 function logMessage(message, level = 'text') {
@@ -110,7 +110,7 @@ export function createContentViewComponent(targetElementId) {
         element.classList.add('content-view-component'); 
 
         // Subscribe to appState changes
-        appStateUnsubscribe = appState.subscribe((newState, prevState) => {
+        appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
             if (newState.ui !== prevState.ui) {
                 console.log('[DEBUG ContentView.js] Received app state change:', newState.ui);
                 
@@ -128,7 +128,7 @@ export function createContentViewComponent(targetElementId) {
         logMessage('Subscribed to appState changes.');
 
         // Initialize with current state values
-        const currentState = appState.getState();
+        const currentState = appStore.getState();
         currentViewMode = currentState.ui.viewMode || 'split';
         isLogVisible = currentState.ui.logVisible || false;
         

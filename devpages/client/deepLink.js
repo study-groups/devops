@@ -1,7 +1,9 @@
 /**
  * deepLink.js - Handles deep linking functionality and post-login redirection
  */
-import { appState } from '/client/appState.js';
+import { logMessage } from '/client/log/index.js';
+import { appStore } from '/client/appState.js';
+import eventBus from '/client/eventBus.js';
 
 const DEEP_LINK_KEY = 'deepLinkRequest';
 
@@ -107,12 +109,29 @@ export function initDeepLinkHandler() {
     // If there's a dir parameter, check if we need to save it for post-login
     if (dir) {
         // Check if user is logged in by accessing appState directly
-        const authState = appState.getState().auth;
+        const authState = appStore.getState().auth;
         if (!authState.isLoggedIn && authState.authChecked) {
             // User is not logged in but auth check is complete, save the deep link
             saveDeepLinkRequest();
             logDeepLink('URL parameters saved for post-login navigation');
         }
+    }
+}
+
+export function generateDeepLink() {
+    logMessage('Generating deep link...', 'debug');
+    const currentState = appStore.getState();
+    const currentFile = currentState.file?.currentFile;
+    const currentDir = currentState.file?.currentDirectory;
+    
+    // --- 2. Set Initial View Mode ---
+    const viewModeParam = urlParams.get('view');
+    if (viewModeParam && ['editor', 'preview', 'split'].includes(viewModeParam)) {
+        logMessage(`Deep link: Setting view mode to '${viewModeParam}'`, 'info');
+        // Update central state directly
+        appStore.update(currentState => ({
+            ui: { ...currentState.ui, viewMode: viewModeParam }
+        }));
     }
 }
 

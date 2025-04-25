@@ -11,18 +11,14 @@ const MIN_LOG_HEIGHT = 80;
 // Assuming updatePreview might be needed later
 // import { updatePreview } from '../preview.js'; // Potential path? Check correct path.
 
-// ADD: Import the event bus
 import eventBus from '/client/eventBus.js';
 
 // ADD: Import the necessary functions from uiState
 // import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
-import { appState } from '/client/appState.js'; // ADDED: Import central state
+import { appStore } from '/client/appState.js'; // CHANGED: Use appStore instead of appState
 
 // ADD: Import triggerActions to call pasteLogEntry directly
 import { triggerActions } from '/client/actions.js';
-
-// Comment out the import
-// import { appVer } from '/client/config.js';
 import { appVer } from '/config.js'; // Use absolute path
 
 // ADD: Import markdown rendering function AND post-processing
@@ -300,7 +296,7 @@ export class LogPanel {
             this._appStateUnsubscribe();
         }
         // Subscribe to appState changes
-        this._appStateUnsubscribe = appState.subscribe((newState, prevState) => {
+        this._appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
              // Only react if the relevant UI slice changed
              if (newState.ui !== prevState.ui && newState.ui.logVisible !== prevState.ui?.logVisible) {
                  console.log(`%c[LogPanel] Received appState change via subscription: logVisible=${newState.ui.logVisible}`, 'color: cyan'); 
@@ -889,7 +885,7 @@ export class LogPanel {
 
         // Get uiState state directly
         // const isVisible = getUIState('logVisible'); 
-        const isVisible = appState.getState().ui.logVisible; // ADDED: Get from appState
+        const isVisible = appStore.getState().ui.logVisible; // CHANGED: Use appStore
         const currentHeight = this.state.height; // Still needed for --log-height
 
         console.log(`[LogPanel] Updating UI based on state: isVisible=${isVisible}`);

@@ -1,5 +1,6 @@
-import { eventBus } from '/client/eventBus.js';
-import { appState } from '/client/appState.js'; // ADDED: Import central state
+import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
+import eventBus from '/client/eventBus.js';
+import { triggerActions } from '/client/actions.js';
 
 // Helper for logging
 function logMessage(message, type = 'debug') {
@@ -79,11 +80,11 @@ export function createViewControlsComponent(targetElementId) {
         
         // ADDED: Subscribe to appState
         if (appStateUnsubscribe) appStateUnsubscribe(); // Unsubscribe previous if any
-        appStateUnsubscribe = appState.subscribe(handleAppStateChange);
+        appStateUnsubscribe = appStore.subscribe(handleAppStateChange);
         logMessage('Subscribed to appState changes.');
 
         // ADDED: Call handler once with initial state to set initial button states
-        handleAppStateChange(appState.getState(), {}); // Pass empty object as prevState
+        handleAppStateChange(appStore.getState(), {}); // Pass empty object as prevState
 
         logMessage('Mounted and subscribed to appState.');
         return true;
