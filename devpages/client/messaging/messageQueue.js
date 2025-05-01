@@ -41,6 +41,11 @@ export const ActionTypes = {
   FS_LOAD_TOP_DIRS_START: 'FS_LOAD_TOP_DIRS_START',
   FS_LOAD_TOP_DIRS_ERROR: 'FS_LOAD_TOP_DIRS_ERROR',
   FS_CLEAR_ERROR: 'FS_CLEAR_ERROR',
+  FS_SET_PARENT_LISTING: 'FS_SET_PARENT_LISTING',
+
+  // SmartCopy Actions
+  SET_SMART_COPY_A: 'SET_SMART_COPY_A',
+  SET_SMART_COPY_B: 'SET_SMART_COPY_B',
 
   // Add other action types as needed
 };
@@ -69,19 +74,35 @@ export function setReducer(reducerFn) {
  * @param {object} action - The action object, typically { type: string, payload?: any }.
  */
 export function dispatch(action) {
-  if (!action || typeof action.type !== 'string') {
-     console.error('Invalid action dispatched. Action must have a type property.', action);
-     return; 
-  }
-  // Call the registered reducer with the action
-  // The reducer itself is responsible for getting the current state (e.g., from appStore)
-  // and updating it.
-  try {
-      mainReducer(action);
-  } catch (error) {
-      console.error(`Error executing reducer for action type ${action.type}:`, error);
-      // Optionally re-throw or handle error state
-  }
+    // Refined Check:
+    if (!action) {
+        console.error('Invalid action dispatched: Action object itself is null or undefined.', action);
+        return;
+    }
+    if (!action.hasOwnProperty('type')) { // Check if the key 'type' is even present
+        console.error('Invalid action dispatched: Action object is missing the "type" property.', action);
+        return;
+    }
+    if (typeof action.type === 'undefined') { // Check if the type key exists BUT its value is undefined
+        console.error('Action "type" property resolved to undefined. Check if the ActionTypes constant exists.', action);
+        // debugger; // Optional: uncomment to pause here when this specific error happens
+        return;
+    }
+    if (typeof action.type !== 'string' || action.type.trim() === '') { // Check if it's not a non-empty string
+         console.error(`Action "type" property must be string, but received type ${typeof action.type} with value "${action.type}".`, action);
+         return;
+    }
+
+    // If we reach here, action and action.type are valid
+    // console.debug(`[Dispatch] Processing action: ${action.type}`, action.payload); // Optional debug log
+
+    try {
+        mainReducer(action);
+    } catch (error) {
+        console.error(`[Reducer Error] Error processing action type ${action.type}:`, error);
+        // Optionally dispatch an error action
+        // dispatch({ type: ActionTypes.REDUCER_ERROR, payload: { error: error.message, originalAction: action } });
+    }
 }
 
 // Log initialization

@@ -139,3 +139,24 @@
     opacity: 0.6;
     cursor: not-allowed;
 } 
+
+/* Example CSS for the info popup */
+.info-popup {
+  display: none; /* Hidden by default */
+  position: absolute; /* Position relative to viewport or positioned ancestor */
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 0.8em; /* Small technical text */
+  font-family: monospace;
+  white-space: pre-line; /* Respect newlines in the text */
+  z-index: 100; /* Ensure it's above other elements */
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  max-width: 300px; /* Prevent it getting too wide */
+}
+
+/* Optional: Style the button itself */
+#context-info-btn {
+  /* Add styles if needed */
+} 

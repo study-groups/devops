@@ -5,6 +5,7 @@ import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+// import FileStore from 'session-file-store'; // <<< Remove this import
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
@@ -17,16 +18,48 @@ import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
+import { PData } from './utils/pdata.js'; // <--- Import PData
+import pdataRouter from './routes/pdataRoutes.js'; // <--- Import the new router
 
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// --- PData Initialization ---
+// Determine PD_DIR (PData config) and DATA_DIR (App data)
+// Using MD_DIR from env for DATA_DIR as planned for devPages
+const PD_DIR = process.env.PD_DIR || path.resolve(__dirname, '../../pd'); // Default to 'pd' in project root
+const DATA_DIR = process.env.MD_DIR || path.resolve(__dirname, '../../md'); // Default to 'md' in project root
+
+console.log(`[SERVER] Initializing PData with PD_DIR: ${PD_DIR}`);
+console.log(`[SERVER] PData dataDir (from MD_DIR env): ${DATA_DIR}`);
+
+// Ensure directories exist before instantiating PData (optional but recommended)
+// Consider creating them if they don't exist and defaults are used.
+// await fs.mkdir(PD_DIR, { recursive: true });
+// await fs.mkdir(DATA_DIR, { recursive: true });
+
+// Instantiate PData - will throw error on startup if roles.csv is missing/bad
+let pdataInstance;
+try {
+    pdataInstance = new PData(PD_DIR, DATA_DIR);
+    console.log("[SERVER] PData instance created successfully.");
+} catch (error) {
+     console.error(`[SERVER FATAL] Failed to initialize PData: ${error.message}. Server cannot start.`);
+     process.exit(1); // Exit if PData fails to initialize
+}
+// --- End PData Initialization ---
+
+// const FileStoreSession = FileStore(session); // <<< Remove this line
 
 const app = express();
 
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
+  // Make pdata instance available on request object (alternative to global)
+  req.pdata = pdataInstance;
+  req.dataDir = DATA_DIR; // Also make dataDir easily available if needed
   next();
 });
 
@@ -47,13 +80,16 @@ app.use(cookieParser());
 
 // Session Middleware Configuration
 app.use(session({
+  name: 'devpages.sid',
   secret: process.env.SESSION_SECRET || 'fallback-dev-secret-please-set-env',
   resave: false,
   saveUninitialized: false,
+  // store: new FileStoreSession({ ... }), // <<< Remove the store configuration
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax'
   }
 }));
 
@@ -78,8 +114,8 @@ const staticOptions = { followSymlinks: true };
 
 // Serve static files (using derived __dirname and imported env)
 app.use('/client', express.static(path.join(__dirname, '../client'), staticOptions));
-// Use env.MD_DIR from imported config
-app.use('/images', express.static(path.join(env.MD_DIR || '.', 'images'), staticOptions));
+// Use env.MD_DIR from imported config OR our DATA_DIR
+app.use('/images', express.static(path.join(DATA_DIR, 'images'), staticOptions));
 app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico'), staticOptions));
 app.use(express.static(path.join(__dirname, '..'), staticOptions)); // Serve root static files (like SVGs)
@@ -106,22 +142,24 @@ async function startServer() {
     app.use('/api/files', authMiddleware, filesRouter);
     app.use('/api/community', express.json(), authMiddleware, communityRoutes);
     // Legacy markdown route redirect - remove import if markdownRoutes isn't used elsewhere
-    app.use('/api/markdown', (req, res, next) => {
+    app.use('/api/markdown', authMiddleware, (req, res, next) => {
       console.log('[SERVER] Redirecting legacy markdown route to files API');
       const newUrl = req.url.replace('/api/markdown', '/api/files');
       console.log(`[SERVER] Redirecting ${req.method} ${req.url} to ${newUrl}`);
+      req.originalUrl = req.originalUrl.replace('/api/markdown', '/api/files');
       req.url = newUrl;
-      next('route');
+      filesRouter(req, res, next);
     });
     // Use the imported router directly
     app.use('/api/images', express.json(), authMiddleware, imageRouter);
     app.use('/api/save', express.text({ type: 'text/plain' }), express.json(), saveRoutes);
     app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
-    app.use('/', previewRoutes);
-
-    // Register the dynamically imported routes
     app.use('/api/media', mediaUploadRoutes);
     app.use('/api/media-proxy', mediaProxyRoutes);
+
+    // --- Mount the new PData Router ---
+    // Apply authMiddleware here so all routes in pdataRouter require login
+    app.use('/api/pdata', authMiddleware, pdataRouter); // <--- Mount the router
 
     // --- Other Endpoints ---
     app.post('/image-delete', express.json(), authMiddleware, async (req, res) => {
@@ -152,16 +190,28 @@ async function startServer() {
         if (!name) return res.status(400).json({ error: 'File name is required' });
 
         // Use env.MD_DIR from imported config
-        const baseDir = env.MD_DIR || '.';
-        const filePath = path.join(baseDir, dir || '', name);
-        console.log(`[SERVER] Reading file: ${filePath}`);
+        const baseDir = DATA_DIR;
+        const safeName = path.normalize(name).replace(/^(\.\.(\/|\\|$))+/, '');
+        const safeDir = dir ? path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '') : '';
+         if (safeName.includes('..') || safeDir.includes('..')) {
+             return res.status(400).json({ error: 'Invalid path components detected.' });
+        }
+        const filePath = path.resolve(baseDir, safeDir, safeName);
+        console.log(`[SERVER /api/files/get] Reading file: ${filePath}`);
+
+        const currentUser = req.user?.username || '__public__';
+        if (!req.pdata.can(currentUser, 'read', filePath)) {
+             console.log(`[SERVER /api/files/get] PData denied read access for ${currentUser} to ${filePath}`);
+             return res.status(403).json({ error: 'Permission denied.' });
+         }
+         console.log(`[SERVER /api/files/get] PData allowed read access for ${currentUser} to ${filePath}`);
 
         try { await fs.access(filePath); } catch (err) { return res.status(404).json({ error: 'File not found' }); }
 
         const content = await fs.readFile(filePath, 'utf8');
-        res.json({ name, dir, content, success: true });
+        res.json({ name: safeName, dir: safeDir, content, success: true });
       } catch (error) {
-        console.error('[SERVER] Error reading file:', error);
+        console.error('[SERVER /api/files/get] Error reading file:', error);
         res.status(500).json({ error: error.message });
       }
     });
@@ -170,12 +220,24 @@ async function startServer() {
       try {
         const dir = req.params.dir;
         const filename = req.params.file;
-        console.log(`[SERVER] Content request for ${dir}/${filename}`);
+        console.log(`[SERVER /api/files/content] Content request for ${dir}/${filename}`);
 
         // Use env.MD_DIR from imported config
-        const baseDir = env.MD_DIR || '.';
-        const filePath = path.join(baseDir, dir, filename);
-        console.log(`[SERVER] Reading file: ${filePath}`);
+        const baseDir = DATA_DIR;
+        const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
+        const safeFilename = path.normalize(filename).replace(/^(\.\.(\/|\\|$))+/, '');
+        if (safeDir.includes('..') || safeFilename.includes('..')) {
+             return res.status(400).json({ error: 'Invalid path components detected.' });
+        }
+        const filePath = path.resolve(baseDir, safeDir, safeFilename);
+        console.log(`[SERVER /api/files/content] Reading file: ${filePath}`);
+
+        const currentUser = req.user?.username || '__public__';
+        if (!req.pdata.can(currentUser, 'read', filePath)) {
+            console.log(`[SERVER /api/files/content] PData denied read access for ${currentUser} to ${filePath}`);
+            return res.status(403).json({ error: 'Permission denied.' });
+        }
+        console.log(`[SERVER /api/files/content] PData allowed read access for ${currentUser} to ${filePath}`);
 
         try { await fs.access(filePath); } catch (err) { return res.status(404).json({ error: 'File not found' }); }
 
@@ -184,7 +246,7 @@ async function startServer() {
         res.setHeader('Content-Type', ext === '.md' ? 'text/markdown' : 'text/plain');
         res.send(content);
       } catch (error) {
-        console.error('[SERVER] Error reading file:', error);
+        console.error('[SERVER /api/files/content] Error reading file:', error);
         res.status(500).json({ error: error.message });
       }
     });
@@ -194,17 +256,29 @@ async function startServer() {
       if (req.method !== 'GET' || req.url.includes('/api/') || req.url.includes('/client/') || req.url.includes('/images/') || req.url.includes('/uploads/')) {
         return next();
       }
-      const match = req.url.match(/^\/([^\/]+)\/([^\/]+\.md)$/);
+      const match = req.url.match(/^\/([^/]+)\/([^/]+\.md)$/);
       if (match) {
         const [, dir, file] = match;
         console.log(`[EMERGENCY SERVER] Detected potential file request: ${dir}/${file}`);
         try {
-          // Use env.MD_DIR from imported config
-          const baseDir = env.MD_DIR || '.';
-          const filePath = path.join(baseDir, dir, file);
+          const baseDir = DATA_DIR;
+          const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
+          const safeFile = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, '');
+          if (safeDir.includes('..') || safeFile.includes('..')) {
+                console.warn(`[EMERGENCY SERVER] Denying potentially malicious path: ${req.url}`);
+                return next();
+           }
+          const filePath = path.resolve(baseDir, safeDir, safeFile);
           console.log(`[EMERGENCY SERVER] Checking file: ${filePath}`);
-          try { await fs.access(filePath); } catch (err) { return next(); }
 
+          const currentUser = req.user?.username || '__public__';
+          if (!req.pdata.can(currentUser, 'read', filePath)) {
+               console.log(`[EMERGENCY SERVER] PData denied read access for ${currentUser} to ${filePath}`);
+               return next();
+          }
+           console.log(`[EMERGENCY SERVER] PData allowed read access for ${currentUser} to ${filePath}`);
+
+          try { await fs.access(filePath); } catch (err) { return next(); }
           console.log(`[EMERGENCY SERVER] Serving file: ${filePath}`);
           const content = await fs.readFile(filePath, 'utf8');
           res.setHeader('Content-Type', 'text/markdown');
@@ -290,6 +364,7 @@ async function startServer() {
         console.log(`[SERVER] Server running at http://localhost:${port}`);
         // Use env.MD_DIR from imported config
         console.log(`[SERVER] Using MD_DIR: ${env.MD_DIR || 'default'}`);
+        console.log(`[SERVER] Using DATA_DIR: ${DATA_DIR}`);
         console.log('='.repeat(50));
     });
 }

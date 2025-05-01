@@ -30,6 +30,21 @@ const endpoints = {
     // Add other endpoints if needed (images, etc.)
 };
 
+// --- Define Loggers FIRST ---
+const _log = (level, message, context, ...args) => {
+    const type = context || 'API';
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type, ...args);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`[${type}] ${message}`, ...args);
+    }
+};
+
+const logger = (message, level = 'debug', ...args) => _log(level, message, 'API', ...args);
+const errorLogger = (message, error, ...args) => _log('error', message, 'API', error, ...args);
+// --- End Logger Definitions ---
+
 // --- Helper Functions ---
 
 /**
@@ -216,14 +231,32 @@ export const api = {
      * @returns {Promise<Response>} Raw response object
      */
     async login(username, password) {
-        logApi(`[API] login called for user: ${username}`, 'debug');
-        const url = endpoints.login();
-        const options = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-        };
-        return await globalFetch(url, options);
+        logger(`Attempting login for user: ${username}`); // logger should be defined now
+        try {
+            const response = await globalFetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            logger(`[API login] Raw response status: ${response.status}`, 'debug');
+            const data = await response.json();
+            logger(`[API login] Parsed response data: ${JSON.stringify(data)}`, 'debug');
+
+            if (!response.ok) {
+                logger(`[API login] Response not OK (${response.status}). Throwing error.`, 'warning');
+                throw new Error(data.error || `Login failed: ${response.status}`);
+            }
+            if (!data.user || !data.user.username || !data.user.role) {
+                logger('[API login] Login success but server response missing nested user object or role!', 'error');
+                throw new Error('Login response from server is incomplete.');
+            }
+            logger(`[API login] Login successful. Returning user data: ${JSON.stringify(data.user)}`, 'info');
+            return data.user;
+        } catch (error) {
+            // errorLogger should definitely be defined now
+            errorLogger(`Login failed: ${error.message}`, error); 
+            throw error; 
+        }
     },
    
     /**
@@ -277,4 +310,4 @@ export const api = {
     // Add stubs/implementations for other endpoints (images etc.) if needed
 };
 
-logApi('[API] Client API module loaded.'); 
+logger('[API] Client API module loaded.'); 

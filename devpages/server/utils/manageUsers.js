@@ -2,7 +2,21 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import readline from 'readline';
-import { USERS_FILE, generateSalt, hashPassword } from './userUtils.js';
+import { generateSalt, hashPassword } from './userUtils.js';
+
+// Helper function to get the path to users.csv based on PD_DIR
+function getUsersFilePath() {
+    const pdDir = process.env.PD_DIR;
+    if (!pdDir) {
+        console.error('[USERS ERROR] PD_DIR environment variable is not set.');
+        process.exit(1); // Exit if PD_DIR is crucial and not set
+    }
+    if (!fs.existsSync(pdDir)) {
+        console.error(`[USERS ERROR] PD_DIR directory does not exist: ${pdDir}`);
+        process.exit(1); // Exit if PD_DIR doesn't exist
+    }
+    return path.join(pdDir, 'users.csv');
+}
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -21,17 +35,19 @@ export async function addUser(username, password) {
     const userLine = `${username},${salt},${hashedPassword}\n`;
     
     try {
-        if (!fs.existsSync(USERS_FILE)) {
-            fs.writeFileSync(USERS_FILE, userLine);
-            console.log(`[USERS] Created new users file with user: ${username}`);
+        // Use the helper function to get the correct path
+        const usersFilePath = getUsersFilePath();
+        if (!fs.existsSync(usersFilePath)) {
+            fs.writeFileSync(usersFilePath, userLine);
+            console.log(`[USERS] Created new users file (${usersFilePath}) with user: ${username}`);
         } else {
-            let content = fs.readFileSync(USERS_FILE, 'utf8');
+            let content = fs.readFileSync(usersFilePath, 'utf8');
             if (!content.endsWith('\n')) {
                 content += '\n';
-                fs.writeFileSync(USERS_FILE, content);
+                fs.writeFileSync(usersFilePath, content);
             }
-            fs.appendFileSync(USERS_FILE, userLine);
-            console.log(`[USERS] Added user: ${username}`);
+            fs.appendFileSync(usersFilePath, userLine);
+            console.log(`[USERS] Added user: ${username} to ${usersFilePath}`);
         }
     } catch (error) {
         console.error(`[USERS ERROR] Failed to add user: ${error.message}`);
@@ -41,12 +57,14 @@ export async function addUser(username, password) {
 export function listUsers() {
     console.log('\n[USERS] Listing all users');
     try {
-        if (!fs.existsSync(USERS_FILE)) {
-            console.log('[USERS] No users file exists yet');
+        // Use the helper function to get the correct path
+        const usersFilePath = getUsersFilePath();
+        if (!fs.existsSync(usersFilePath)) {
+            console.log(`[USERS] No users file exists yet at ${usersFilePath}`);
             return;
         }
         
-        const content = fs.readFileSync(USERS_FILE, 'utf8');
+        const content = fs.readFileSync(usersFilePath, 'utf8');
         const users = content.split('\n')
             .filter(line => line.trim())
             .map(line => line.split(',')[0]);
@@ -59,18 +77,52 @@ export function listUsers() {
 }
 
 export function deleteUser(username) {
-    // TODO: Implement user deletion
-    console.log('[USERS] Delete user functionality coming soon');
+    console.log('\n[USERS] Deleting user:', username);
+    try {
+        // Use the helper function to get the correct path
+        const usersFilePath = getUsersFilePath();
+        if (!fs.existsSync(usersFilePath)) {
+            console.error(`[USERS ERROR] Users file not found at ${usersFilePath}. Cannot delete user.`);
+            return;
+        }
+
+        let content = fs.readFileSync(usersFilePath, 'utf8');
+        let lines = content.split('\n');
+        
+        const initialLength = lines.filter(line => line.trim()).length; // Count non-empty lines
+        
+        // Filter out the user to be deleted
+        const updatedLines = lines.filter(line => {
+            if (!line.trim()) return false; // Skip empty lines
+            const parts = line.split(',');
+            return parts[0] !== username; // Keep lines where username doesn't match
+        });
+
+        const finalLength = updatedLines.length;
+
+        if (finalLength < initialLength) {
+            // Join the remaining lines, ensuring a trailing newline if there are any users left
+            const updatedContent = updatedLines.join('\n') + (updatedLines.length > 0 ? '\n' : '');
+            fs.writeFileSync(usersFilePath, updatedContent);
+            console.log(`[USERS] Deleted user: ${username} from ${usersFilePath}`);
+        } else {
+            console.log(`[USERS] User not found: ${username}`);
+        }
+
+    } catch (error) {
+        console.error(`[USERS ERROR] Failed to delete user: ${error.message}`);
+    }
 }
 
 async function main() {
     console.log('\n[USERS] User Management Utility');
-    console.log('[USERS] Using users file:', USERS_FILE);
+    // Use the helper function to get the correct path for logging
+    console.log('[USERS] Using users file:', getUsersFilePath());
     
     while (true) {
         console.log('\n1. Add user');
         console.log('2. List users');
-        console.log('3. Delete user (coming soon)');
+        console.log('3. Delete user');
         console.log('4. Exit');
         
         const choice = await question('\nSelect an option (1-4): ');
@@ -98,15 +150,62 @@ async function main() {
     }
 }
 
+export function updateUser(username, newPassword) {
+    console.log(`\n[USERS] Updating password for user: ${username}`);
+    try {
+        const usersFilePath = getUsersFilePath();
+        if (!fs.existsSync(usersFilePath)) {
+            console.error(`[USERS ERROR] Users file not found at ${usersFilePath}. Cannot update user.`);
+            return;
+        }
+
+        let content = fs.readFileSync(usersFilePath, 'utf8');
+        let lines = content.split('\n').filter(line => line.trim()); // Read non-empty lines
+        let userFound = false;
+
+        const updatedLines = lines.map(line => {
+            const parts = line.split(',');
+            if (parts[0] === username) {
+                userFound = true;
+                const newSalt = generateSalt();
+                const newHashedPassword = hashPassword(newPassword, newSalt);
+                console.log(`[USERS] Generating new salt and hash for ${username}`);
+                return `${username},${newSalt},${newHashedPassword}`; // Return updated line
+            }
+            return line; // Keep other lines as is
+        });
+
+        if (userFound) {
+            // Join the lines, ensuring a trailing newline
+            const updatedContent = updatedLines.join('\n') + '\n';
+            fs.writeFileSync(usersFilePath, updatedContent);
+            console.log(`[USERS] Updated password for user: ${username} in ${usersFilePath}`);
+        } else {
+            console.log(`[USERS] User not found: ${username}. Cannot update password.`);
+        }
+
+    } catch (error) {
+        console.error(`[USERS ERROR] Failed to update user password: ${error.message}`);
+    }
+}
+
 async function runCommand(command, ...args) {
     switch (command) {
         case 'add':
             const [username, password] = args;
             if (!username || !password) {
-                console.error('[USERS ERROR] Username and password required');
+                console.error('[USERS ERROR] Username and password required for add');
                 return;
             }
             await addUser(username, password);
+            break;
+        case 'update':
+            const [updateUser, newPassword] = args;
+            if (!updateUser || !newPassword) {
+                console.error('[USERS ERROR] Username and new password required for update');
+                return;
+            }
+            await updateUser(updateUser, newPassword);
             break;
         case 'list':
             listUsers();
@@ -114,7 +213,7 @@ async function runCommand(command, ...args) {
         case 'delete':
             const [userToDelete] = args;
             if (!userToDelete) {
-                console.error('[USERS ERROR] Username required');
+                console.error('[USERS ERROR] Username required for delete');
                 return;
             }
             await deleteUser(userToDelete);

@@ -75,6 +75,9 @@ export function createAuthDisplayComponent(targetElementId) {
     // --- Rendering Logic --- 
     // Accepts the `auth` slice of the central state
     const render = (authStateSlice) => {
+        // <<< ADD LOGGING HERE >>>
+        logAuth(`[AuthDisplay render] Received authStateSlice: ${JSON.stringify(authStateSlice)}`);
+
         if (!element) return;
 
         // Use properties from the central auth state
@@ -151,11 +154,12 @@ export function createAuthDisplayComponent(targetElementId) {
 
         // Subscribe to central state changes, specifically watching the auth slice
         authUnsubscribe = appStore.subscribe((newState, prevState) => {
-            // Only re-render if the auth part of the state has changed
-            // Use simple object comparison; statekit ensures new object on change
-            if (newState.auth !== prevState.auth) { 
-                logAuth('[AuthDisplay] Auth state changed, re-rendering.');
-                 render(newState.auth); // Pass the auth slice
+            if (newState.auth !== prevState.auth) {
+                // <<< ADD LOGGING HERE >>>
+                logAuth(`[AuthDisplay subscribe] Auth changed!`);
+                logAuth(`  prevState.auth: ${JSON.stringify(prevState.auth)}`);
+                logAuth(`  newState.auth: ${JSON.stringify(newState.auth)}`);
+                render(newState.auth);
             }
         });
 

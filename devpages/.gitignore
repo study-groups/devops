@@ -1,3 +1,6 @@
+qa
+*.OLD
+pd
 ignore.txt
 *.1
 *.2

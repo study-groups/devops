@@ -14,7 +14,7 @@
  *   subscribe: (listener: (newState: T, prevState: T) => void) => () => void;
  * }}
  */
-export function createState(initialState) {
+export function createStore(initialState) {
     let state = { ...initialState };
     const listeners = new Set();
 
