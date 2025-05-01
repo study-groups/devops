@@ -6,6 +6,8 @@
 import { logMessage } from './log/index.js';
 import { eventBus } from './eventBus.js';
 import { dispatch, ActionTypes } from './messaging/messageQueue.js'; // <<< Import dispatch and ActionTypes
+import { triggerActions } from '/client/actions.js';
+import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js'; // Import keys if needed, though actions.js handles storage
 // Remove imports for directly called functions and state
 // import { saveFile } from './fileManager/index.js';
 // import { setView } from './views.js';
@@ -19,6 +21,7 @@ import { dispatch, ActionTypes } from './messaging/messageQueue.js'; // <<< Impo
 // action: string (ActionType for dispatch or event name for eventBus)
 // useDispatch: boolean (true to use dispatch, false for eventBus)
 // payload: object | null (data for the action/event)
+// triggerAction: string | null (Name of function in triggerActions to call directly)
 // preventDefault: boolean (defaults true)
 const shortcutMappings = [
     // Settings Panel Toggle
@@ -33,17 +36,33 @@ const shortcutMappings = [
     { key: '3', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'split' } },
     // Add more mappings here...
     // { key: 'l', ctrl: true, shift: false, alt: false, useDispatch: false, action: 'shortcut:focusLogInput', payload: null } 
+
+    // SmartCopy Actions (Integrated)
+    { key: 'A', ctrl: true, shift: true, alt: false, triggerAction: 'setSmartCopyBufferA' },
+    { key: 'B', ctrl: true, shift: true, alt: false, useDispatch: true, action: ActionTypes.SET_SMART_COPY_B, payload: null },
 ];
 
 // Initialize keyboard shortcuts
 export function initKeyboardShortcuts() {
     document.addEventListener('keydown', (event) => {
-        // Ignore shortcuts if typing in an input field, textarea, or contenteditable
-        const targetTagName = event.target.tagName.toLowerCase();
-        if (['input', 'textarea', 'select'].includes(targetTagName) || event.target.isContentEditable) {
-            // Allow specific shortcuts even in inputs, e.g., Ctrl+S if needed
-            // if (!(event.ctrlKey && event.key === 's')) return; 
-            return; // Generally ignore shortcuts in inputs
+        // --- Detailed Log Start --- 
+        console.log(`[Shortcut DEBUG] KeyDown: key='${event.key}', code='${event.code}', ctrl=${event.ctrlKey}, meta=${event.metaKey}, shift=${event.shiftKey}, alt=${event.altKey}`);
+        const activeElement = document.activeElement;
+        const targetTagName = activeElement?.tagName?.toLowerCase() || 'none';
+        const isEditable = activeElement?.isContentEditable || false;
+        console.log(`[Shortcut DEBUG] Active Element: <${targetTagName}>, isContentEditable: ${isEditable}`);
+        // --- End Detailed Log --- 
+
+        // Ignore shortcuts if typing in an input field, textarea, or contenteditable,
+        // UNLESS modifier keys (Ctrl, Alt, Meta) are also pressed.
+        if ( (['input', 'textarea', 'select'].includes(targetTagName) || isEditable) && 
+             !(event.ctrlKey || event.altKey || event.metaKey) ) 
+        {
+            // Allow specific single-key shortcuts here if needed (e.g., Escape key)
+            // if (event.key === 'Escape') { /* handle escape */ }
+            
+            console.log(`[Shortcut DEBUG] Ignoring event: Typing in input/editable without Ctrl/Alt/Meta.`);
+            return; 
         }
 
         for (const mapping of shortcutMappings) {
@@ -56,26 +75,34 @@ export function initKeyboardShortcuts() {
             // Check key (case-insensitive for letters unless specified)
             const keyMatch = mapping.key.toUpperCase() === event.key.toUpperCase();
 
+            // --- Detailed Log Inside Loop (for A/B) --- 
+            if (mapping.key === 'A' || mapping.key === 'B') {
+                console.log(`[Shortcut DEBUG] Checking mapping for key '${mapping.key}': ctrlMatch=${ctrlMatch}, shiftMatch=${shiftMatch}, altMatch=${altMatch}, keyMatch=${keyMatch}`);
+            }
+            // --- End Detailed Log --- 
+
             if (ctrlMatch && shiftMatch && altMatch && keyMatch) {
                 // Shortcut match found!
                 if (mapping.preventDefault !== false) { // Default to true
                     event.preventDefault();
                 }
 
-                logMessage(`[Keyboard] Shortcut detected: ${mapping.key} (Ctrl: ${mapping.ctrl}, Shift: ${mapping.shift}, Alt: ${mapping.alt}). Action: ${mapping.action}`);
+                // Determine log message based on action type
+                const actionDesc = mapping.triggerAction ? `triggerActions.${mapping.triggerAction}` 
+                                   : (mapping.useDispatch ? `dispatch(${mapping.action})` : `eventBus.emit(${mapping.action})`);
+                logMessage(`[Keyboard] Shortcut detected: ${mapping.key} (Ctrl: ${mapping.ctrl}, Shift: ${mapping.shift}, Alt: ${mapping.alt}). Action: ${actionDesc}`);
 
-                if (mapping.useDispatch) {
+                // Execute the appropriate action
+                if (mapping.triggerAction && triggerActions[mapping.triggerAction]) {
+                    triggerActions[mapping.triggerAction](); // Call function from triggerActions
+                } else if (mapping.useDispatch) {
                     dispatch({ type: mapping.action, payload: mapping.payload });
-                } else {
+                } else { // Assumes eventBus if not useDispatch and not triggerAction
                     eventBus.emit(mapping.action, mapping.payload);
-                    // Example: Specific handling for non-dispatch actions if needed
-                    // if (mapping.action === 'shortcut:focusLogInput') {
-                    //     document.getElementById('cli-input')?.focus();
-                    // }
                 }
 
                 // Stop processing other mappings for this event
-                break; 
+                break;
             }
         }
     });

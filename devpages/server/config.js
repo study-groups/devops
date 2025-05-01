@@ -12,6 +12,7 @@ const env = {
     // Use the derived __dirname
     PJ_DIR: process.env.PJ_DIR || path.join(__dirname, '..'),
     MD_DIR: process.env.MD_DIR || path.join(__dirname, '../md'),
+    PD_DIR: process.env.PD_DIR || path.join(__dirname, '../pd'),
     PORT: process.env.PORT || 4000,
     AUTH_USER: process.env.AUTH_USER || 'gridranger',
     AUTH_PASS: process.env.AUTH_PASS || 'gridranger'

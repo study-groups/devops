@@ -1,38 +1,22 @@
 /**
  * fileManager.js - Manages file system state, navigation, loading, and saving.
- * Implements agreed path semantics and event-driven flow.
+ * Uses unified 'pathname' semantics.
  */
 import eventBus from '/client/eventBus.js';
 import { getContent, setContent } from '/client/editor.js';
 import { logMessage } from '/client/log/index.js';
-import * as fileSystemState from './fileSystemState.js'; // Use namespace import
-import { appStore } from '/client/appState.js'; // <<< ADDED: Import appStore
-import { globalFetch } from '/client/globalFetch.js'; // ADDED import
-
-// >>> ADDED: Import for front matter parsing/handling
+import * as fileSystemState from './fileSystemState.js'; // Handles loading initial path from URL
+import { appStore } from '/client/appState.js';
+import { api } from '/client/api.js'; // Use refactored API
+import { pathJoin, getParentPath, getFilename } from '/client/utils/pathUtils.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
-// Import dispatch and ActionTypes
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
-// --- Module State ---
-// const fileState = {
-//     topLevelDirectory: '',   // e.g., 'gridranger'
-//     currentRelativePath: '', // e.g., '', 'iframe', 'iframe/assets'
-//     currentFile: '',         // e.g., 'game-iframe-001.md'
-//     isInitialized: false,    // Ensure init runs only once
-//     isLoading: false,        // Track API call progress
-//     topLevelDirs: []         // ADDED: Store available top-level directories
-// };
-// let currentListingData = { dirs: [], files: [] }; // Store current listing
-
-// >>> ADDED: State for managing host scripts <<<
+// --- Module State (Removed - state now in appStore) ---
 let currentHostScriptPath = null;
-let currentHostScriptModule = null;
-
-// >>> ADDED: State for managing dynamic styles <<<
+// let currentHostScriptModule = null; // Not strictly needed?
 let currentDynamicStyleElements = [];
-
-let fmUnsubscribe = null; // <<< ADDED: Variable for store unsubscribe function
+let fmUnsubscribe = null;
 
 // --- Logging Helper ---
 function logFileManager(message, level = 'text') {
@@ -45,799 +29,509 @@ function logFileManager(message, level = 'text') {
     }
 }
 
-// --- Path Helper Functions ---
-function pathJoin(...parts) {
-    const filteredParts = parts.filter(part => part && part !== '/');
-    if (filteredParts.length === 0) return '';
-    return filteredParts.join('/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
-}
-
-function getParentRelativePath(relativePath) {
-    if (!relativePath) return '';
-    const parts = relativePath.split('/').filter(p => p);
-    parts.pop();
-    return parts.join('/');
-}
-
-// --- URL Parameter Helper ---
-function updateUrlParameters(dir, relativePath, file) {
+// --- URL Parameter Helper (Refactored for pathname) ---
+function updateUrlParameters(pathname) {
     try {
-        const params = new URLSearchParams(window.location.search);
-        if (dir) params.set('dir', dir); else params.delete('dir');
-        if (relativePath) params.set('path', relativePath); else params.delete('path');
-        if (file) params.set('file', file); else params.delete('file');
-        const newSearch = params.toString();
-        const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
+        // Direct URL construction without URLSearchParams to avoid encoding
+        const baseUrl = window.location.pathname;
+        const newUrl = pathname !== null && pathname !== undefined 
+            ? `${baseUrl}?pathname=${pathname}`
+            : baseUrl;
+            
         if (window.location.href !== newUrl) {
             window.history.replaceState({ path: newUrl }, '', newUrl);
+            logFileManager(`URL updated: pathname='${pathname ?? '(cleared)'}'`, 'debug');
         }
     } catch (error) {
         logFileManager(`Error updating URL: ${error.message}`, 'warning');
     }
 }
 
-// --- State Management & Persistence ---
-// Updates internal state, saves to persistence, updates URL, updates appState
-// function updateAndPersistState(newState) { ... }
-// This logic will now live within event handlers, which will dispatch FS_SET_STATE
-// and call fileSystemState.saveState / updateUrlParameters directly.
-
 // --- Initialization ---
 export async function initializeFileManager() {
-    // Use appStore state to check if already initialized VIA THE FLAG WE SET
-    // Checking store state directly might be tricky if init fails midway
-    if (window.APP?.fileManagerInitialized) { // Use window flag
+    if (window.APP?.fileManagerInitialized) {
         logFileManager('Attempted to initialize FileManager again. Skipping.', 'warning');
         return false;
     }
-    // Set flag immediately to prevent race conditions
-    window.APP = window.APP || {}; // Ensure APP exists
-    window.APP.fileManagerInitialized = true; 
+    window.APP = window.APP || {};
+    window.APP.fileManagerInitialized = true;
 
-    logFileManager('Initializing file manager (Refactored with statekit/reducer)...');
+    logFileManager('Initializing file manager (Using pathname)...');
     dispatch({ type: ActionTypes.FS_INIT_START });
 
-    let initialTopDir = null;
-    let initialRelativePath = null;
-    let initialFile = null;
+    let initialState = {
+        currentPathname: null,
+        isDirectorySelected: false, // Default assumption
+        isInitialized: false,
+        isLoading: true, // Start loading until auth check / data load
+    };
 
     try {
-        // --- Get initial state values (URL > localStorage) ---
-        const persistedState = fileSystemState.loadState();
-        initialTopDir = persistedState.currentDir;
-        initialRelativePath = persistedState.currentRelativePath;
-        initialFile = persistedState.currentFile;
-        logFileManager(`Loaded persisted state: Top=${initialTopDir}, Rel=${initialRelativePath}, File=${initialFile}`);
+        // --- Get initial path (URL only) ---
+        const { initialPathname } = fileSystemState.loadState(); // Gets 'pathname' from URL or null
+        if (initialPathname !== null) {
+            initialState.currentPathname = initialPathname;
+            // Simple check: assume it's a directory unless it looks like a file (has extension)
+            // This might be refined later based on actual listing results
+            initialState.isDirectorySelected = !/\.[^/]+$/.test(initialPathname);
+             logFileManager(`Loaded initial pathname from URL: '${initialState.currentPathname}', isDirectory: ${initialState.isDirectorySelected}`);
+        } else {
+             logFileManager(`No initial pathname from URL.`);
+        }
 
-        // --- Check for deep link restore ---
-        // (Defer this until authentication is confirmed?) - Let's keep it here for now
-        // It sets the *intended* initial state, which loadInitialFileData will use if authenticated.
-        // We need auth state here though.
-        const currentAuthState = appStore.getState().auth; 
-        if (!initialTopDir && currentAuthState.isAuthenticated) { 
+        // --- Check for deep link restore (If no URL path) ---
+        const currentAuthState = appStore.getState().auth;
+        if (initialState.currentPathname === null && currentAuthState.isAuthenticated) {
+            // ... (Deep link logic might need adjustment if it stored old format) ...
+            // Assuming deepLink returns a single 'pathname' now
             try {
                 const deepLinkModule = await import('/client/deepLink.js');
-                const savedRequest = deepLinkModule.getSavedDeepLinkRequest();
-                if (savedRequest) {
-                    logFileManager(`Restoring deep link: dir=${savedRequest.dir}, path=${savedRequest.path}, file=${savedRequest.file}`);
-                    initialTopDir = savedRequest.dir;
-                    initialRelativePath = savedRequest.path || ''; 
-                    initialFile = savedRequest.file || '';
+                const savedRequest = deepLinkModule.getSavedDeepLinkRequest(); // Assumes returns { pathname: '...' }
+                if (savedRequest?.pathname) {
+                    logFileManager(`Restoring deep link pathname: '${savedRequest.pathname}'`);
+                    initialState.currentPathname = savedRequest.pathname;
+                    initialState.isDirectorySelected = !/\.[^/]+$/.test(savedRequest.pathname); // Infer type
                     deepLinkModule.clearSavedDeepLinkRequest();
-                    fileSystemState.saveState({ currentDir: initialTopDir, currentFile: initialFile });
                 }
-            } catch (error) {
-                logFileManager(`Error checking deep links: ${error.message}`, 'warning');
-            }
-        }
-        
-        // --- Apply default directory if none set and user is authenticated ---
-        if (!initialTopDir && currentAuthState.isAuthenticated && currentAuthState.user?.username) {
-            logFileManager('No directory context from URL/localStorage/deepLink, user logged in. Defaulting to username.');
-            initialTopDir = currentAuthState.user.username;
-            initialRelativePath = '';
-            initialFile = '';
-             // Persist this default state immediately
-            fileSystemState.saveState({ currentDir: initialTopDir, currentFile: initialFile });
+            } catch (error) { /* ... log error ... */ }
         }
 
-        // --- Set initial state in appStore ---\n        logFileManager(`Dispatching initial FS_SET_STATE: Top=${initialTopDir}, Rel=${initialRelativePath}, File=${initialFile}`);
-        dispatch({
-            type: ActionTypes.FS_SET_STATE,
-            payload: {
-                topLevelDirectory: initialTopDir,
-                currentRelativePath: initialRelativePath,
-                currentFile: initialFile,
-                isInitialized: false, // Mark as not fully initialized yet
-                isLoading: true,     // Start in loading state until auth check / data load
-            }
-        });
+        // --- Set initial state in appStore ---
+        logFileManager(`Dispatching initial FS_SET_STATE: ${JSON.stringify(initialState)}`);
+        dispatch({ type: ActionTypes.FS_SET_STATE, payload: initialState });
         // Update URL based on the determined initial state
-        updateUrlParameters(initialTopDir, initialRelativePath, initialFile);
+        updateUrlParameters(initialState.currentPathname);
 
-        setupEventListeners(); // Keep event listeners for UI interactions
+        setupEventListeners(); // Setup NEW event listeners
 
-        // --- Subscribe to Auth Changes --- <<< ADDED
-        if (fmUnsubscribe) fmUnsubscribe(); // Clear previous if any
+        // --- Subscribe to Auth Changes ---
+        if (fmUnsubscribe) fmUnsubscribe();
         fmUnsubscribe = appStore.subscribe(handleAuthStateChangeForFileManager);
         logFileManager("Subscribed FileManager to appStore changes.");
 
-        // --- Trigger initial check based on current auth state --- <<< ADDED
-        // Call the handler immediately to potentially load data if already logged in
-        await handleAuthStateChangeForFileManager(appStore.getState(), null); 
+        // --- Trigger initial check ---
+        await handleAuthStateChangeForFileManager(appStore.getState(), null);
 
-        // <<< REMOVED: Direct calls to load data >>>
-        // // --- Load initial data ---
-        // // 1. Load top-level directories
-        // await loadTopLevelDirectories(); // This now dispatches FS_SET_TOP_DIRS
-        // // ... rest of data loading logic ...
-
-        // // 5. Mark initialization as complete in the store
-        // Note: FS_INIT_COMPLETE might now be dispatched within handleAuthStateChangeForFileManager
-        // or after loadInitialFileData finishes successfully. Let's dispatch it here for now,
-        // but set isLoading based on whether data loading was triggered.
-        const finalState = appStore.getState();
-        dispatch({ 
-            type: ActionTypes.FS_INIT_COMPLETE, 
-            payload: { 
-                error: null, 
-                // isLoading should remain true if we triggered data loading and it hasn't finished
-                // We'll manage isLoading via specific actions within the loading functions now.
-            } 
-        }); 
+        // --- Mark initialization process as started ---
+        // FS_INIT_COMPLETE will be dispatched by loadInitialFileData
         logFileManager('File manager initialization setup complete. Data loading deferred to auth state.');
         return true;
 
     } catch (error) {
         logFileManager(`Initialization failed critically: ${error.message}`, 'error');
-        console.error("FileManager Initialization Critical Error:", error);
-        // Mark initialization as complete but with an error
         dispatch({ type: ActionTypes.FS_INIT_COMPLETE, payload: { error: error.message } });
-        window.APP.fileManagerInitialized = false; // Allow retry?
+        window.APP.fileManagerInitialized = false;
         return false;
     }
 }
 
-// <<< ADDED: Handler for Auth State Changes >>>
+// --- Auth State Change Handler ---
 async function handleAuthStateChangeForFileManager(newState, prevState) {
-    const wasLoggedIn = prevState?.auth?.isAuthenticated ?? false; // Handle null prevState
+    const wasLoggedIn = prevState?.auth?.isAuthenticated ?? false;
     const isLoggedIn = newState.auth.isAuthenticated;
-    const isAuthInitializing = newState.auth.isInitializing; // Don't act while auth is pending
+    const isAuthInitializing = newState.auth.isInitializing;
 
-    logFileManager(`Auth state change detected by FM: wasLoggedIn=${wasLoggedIn}, isLoggedIn=${isLoggedIn}, isAuthInitializing=${isAuthInitializing}`, 'debug');
-
-    // Only react once auth is settled
-    if (isAuthInitializing) {
-        logFileManager("Auth initializing, FM deferring action.", 'debug');
-        return; 
-    }
+    if (isAuthInitializing) return; // Wait for auth
 
     if (!wasLoggedIn && isLoggedIn) {
-        // User just logged in (or was already logged in on page load and auth check finished)
         logFileManager("User authenticated. Triggering initial file data load.", 'info');
         await loadInitialFileData();
+        logFileManager("Finished awaiting loadInitialFileData in auth change handler.");
     } else if (wasLoggedIn && !isLoggedIn) {
-        // User just logged out
         logFileManager("User logged out. Resetting file manager state.", 'info');
-        resetFileManagerState(); // This dispatches FS_SET_STATE
+        resetFileManagerState();
     } else if (isLoggedIn && newState.auth.user?.username !== prevState?.auth?.user?.username) {
-        // User changed? (Might not happen in this app, but good practice)
-        logFileManager(`Auth user changed from ${prevState?.auth?.user?.username} to ${newState.auth.user?.username}. Triggering refresh.`, 'info');
-        await refreshFileManagerForUser(newState.auth.user?.username);
-    } else {
-        // No relevant auth change for FM (e.g., still logged in, still logged out)
-         logFileManager("No relevant auth change for FM.", 'debug');
+         logFileManager(`Auth user changed. Triggering refresh for ${newState.auth.user?.username}.`, 'info');
+         await refreshFileManagerForUser(newState.auth.user?.username); // Needs update
     }
 }
 
-// <<< ADDED: Function to load initial data based on current state >>>
+// --- Initial Data Load (Refactored) ---
 async function loadInitialFileData() {
-    // Mark as loading (might be redundant if FS_INIT_START did this, but safer)
     dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true, error: null } });
+    let initialStateError = null;
 
     try {
-        logFileManager("Loading initial file data...");
-        // 1. Load top-level directories
-        await loadTopLevelDirectories(); // Dispatches FS_SET_TOP_DIRS
+        logFileManager("Loading initial file data (pathname)...");
+        // 1. Load top-level directories (needed for context/admin view)
+        await loadTopLevelDirectories();
+        logFileManager("Finished awaiting loadTopLevelDirectories.");
 
-        // 2. If a top-level directory is set, load its initial listing
-        let currentFileIsValid = false;
-        const currentState = appStore.getState().file; // Get the potentially updated state
-        if (currentState.topLevelDirectory) {
-            await loadFilesAndDirectories(currentState.topLevelDirectory, currentState.currentRelativePath); // Dispatches listing actions
+        // 2. Determine effective initial path based on current state and role
+        const currentState = appStore.getState();
+        let targetPathname = currentState.file.currentPathname; // Path from URL/deepLink/persistence
+        let targetIsDir = currentState.file.isDirectorySelected;
+        const user = currentState.auth.user;
+
+        // Improved detection of file vs directory
+        if (targetPathname !== null) {
+            // Check if path likely points to a file (has extension or ends with specific pattern)
+            targetIsDir = !/\.[^/]+$/.test(targetPathname);
             
-            const stateAfterListing = appStore.getState().file; // Re-get state after listing load
-            logFileManager(`[LOAD_INIT] Checking listing: Dirs=[${stateAfterListing.currentListing?.dirs?.join()}], Files=[${stateAfterListing.currentListing?.files?.join()}]`, 'debug');
+            // Update state immediately with better isDirectorySelected detection
+            dispatch({
+                type: ActionTypes.FS_SET_STATE, 
+                payload: { 
+                    currentPathname: targetPathname, 
+                    isDirectorySelected: targetIsDir 
+                }
+            });
+            
+            logFileManager(`Initial pathname from URL/storage: '${targetPathname}', detected as ${targetIsDir ? 'directory' : 'file'}`);
+        }
 
-            // 3. Validate if the initial file exists
-            if (stateAfterListing.currentFile && stateAfterListing.currentListing?.files?.includes(stateAfterListing.currentFile)) {
-                currentFileIsValid = true;
-                logFileManager(`Initial file \'${stateAfterListing.currentFile}\' validated.`);
-            } else if (stateAfterListing.currentFile) {
-                logFileManager(`Initial file \'${stateAfterListing.currentFile}\' NOT found. Clearing file state.`, 'warning');
-                dispatch({ type: ActionTypes.FS_SET_STATE, payload: { currentFile: null } });
-                fileSystemState.saveState({ currentFile: '' });
-                updateUrlParameters(stateAfterListing.topLevelDirectory, stateAfterListing.currentRelativePath, '');
+        // If no path set yet AND user is logged in, set default path
+        if (targetPathname === null && user?.username) {
+            if (user.role !== 'admin') { // Regular user defaults to their own directory
+                targetPathname = user.username;
+                targetIsDir = true;
+                logFileManager(`Setting default pathname for user '${user.username}': '${targetPathname}'`);
+            } else { // Admin defaults to root
+                targetPathname = ''; // Admin starts at root
+                targetIsDir = true;
+                logFileManager(`Setting default pathname for admin: '(Root)'`);
+            }
+            // Update state immediately with the default path
+            dispatch({
+                type: ActionTypes.FS_SET_STATE, 
+                payload: { 
+                    currentPathname: targetPathname, 
+                    isDirectorySelected: targetIsDir 
+                }
+            });
+            updateUrlParameters(targetPathname); // Update URL too
+        } else {
+            logFileManager(`Using existing pathname: '${targetPathname}'`);
+        }
+
+        // 3. Load listing/file based on the determined targetPathname
+        if (targetPathname !== null) {
+            if (targetIsDir) {
+                logFileManager(`Loading initial directory listing for: '${targetPathname}'`);
+                await loadFilesAndDirectories(targetPathname); // Load listing for the directory
+            } else {
+                logFileManager(`Loading initial file content for: '${targetPathname}'`);
+                
+                // First load the parent directory to populate the file selector
+                const parentPath = getParentPath(targetPathname);
+                if (parentPath !== null) {
+                    logFileManager(`Loading parent directory listing first: '${parentPath}'`);
+                    await loadFilesAndDirectories(parentPath);
+                }
+                
+                // Then load the file content
+                await loadFile(targetPathname);
             }
         } else {
-            logFileManager('No initial directory context set for data loading.');
-            // Ensure listing is clear if no top dir
-             dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { listing: { dirs: [], files: [] } } });
+            // No path context yet (e.g., logged out or auth pending still?)
+            logFileManager('No initial pathname context set for data loading.');
+            dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { pathname: null, listing: { dirs: [], files: [] } } });
+            setContent(''); // Ensure editor is empty
         }
-
-        // 4. Load the initial file content if needed and valid
-        const finalInitialState = appStore.getState().file; // Get state again
-        if (currentFileIsValid && finalInitialState.currentFile) {
-            logFileManager(`Proceeding to load initial file content: \'${finalInitialState.currentFile}\'`);
-            await loadFile(finalInitialState.currentFile, finalInitialState.topLevelDirectory, finalInitialState.currentRelativePath); // Dispatches file content actions
-        } else if (finalInitialState.currentFile){
-            // If file was set but not valid, ensure editor is cleared
-            setContent('');
-        }
-
-        // Mark loading as complete (success case)
-        // Individual load functions (loadFile, loadFilesAndDirectories) should ideally manage their specific start/end/error actions
-        // Let's add a final "isLoading: false" dispatch here for the overall initial load sequence.
-        dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false, isInitialized: true } }); // Mark as initialized now
-        logFileManager("Initial file data loading sequence complete.");
 
     } catch (error) {
-        logFileManager(`Initial file data loading failed: ${error.message}`, 'error');
-        dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false, error: error.message, isInitialized: true } }); // Mark as initialized (even on error)
+        initialStateError = error.message;
+        logFileManager(`Initial file data loading failed: ${initialStateError}`, 'error');
+    } finally {
+        // Mark initialization complete (success or failure)
+        dispatch({
+            type: ActionTypes.FS_INIT_COMPLETE,
+            payload: { error: initialStateError, isLoading: false } // Ensure loading is false
+        });
+        logFileManager(`Initial file data loading sequence complete. Error: ${initialStateError || 'None'}`);
     }
 }
 
+// --- Event Listener Setup (Refactored) ---
 function setupEventListeners() {
-    logFileManager('Setting up navigation event listeners...');
+    logFileManager('Setting up event listeners...');
+    
     // Clear existing listeners first
-    eventBus.off('navigate:file');
-    eventBus.off('navigate:directory');
-    eventBus.off('navigate:up');
-    eventBus.off('navigate:topLevelDir');
-    eventBus.off('navigate:root');
-    eventBus.off('navigate:absolute');
-    eventBus.off('ui:requestTopLevelSelector'); // ADDED: Clear listener
-
-    // Listen for UI navigation requests
-    eventBus.on('navigate:topLevelDir', handleTopLevelDirectoryChange);
-    eventBus.on('navigate:directory', handleDirectoryNavigation);
-    eventBus.on('navigate:up', handleUpNavigation);
-    eventBus.on('navigate:file', handleFileNavigation);
-    eventBus.on('navigate:root', handleNavigateToRoot);
-    eventBus.on('navigate:absolute', handleNavigateAbsolute);
-    eventBus.on('ui:requestTopLevelSelector', handleRequestTopLevelSelector); // ADDED: Listen for request
-
-    logFileManager('Navigation event listeners ready.');
+    eventBus.off('navigate:pathname');
+    eventBus.off('request:directoryListing');
+    eventBus.off('file:save');
+    
+    // Add listeners
+    eventBus.on('navigate:pathname', handleNavigateToPathname);
+    eventBus.on('request:directoryListing', handleRequestDirectoryListing);
+    eventBus.on('file:save', handleFileSave);
+    
+    // Add event listener for save button clicks
+    document.addEventListener('click', handleDocumentClick);
+    
+    logFileManager('Event listeners ready.');
 }
 
-// --- Event Handlers (Triggered by UI/eventBus) ---
+// --- Event Handlers (Refactored) ---
 
-async function handleTopLevelDirectoryChange(data) {
-    // Get current state from the store
-    const currentState = appStore.getState().file;
-    const newTopDir = data?.directory ?? null; // Use null if undefined
+async function handleNavigateToPathname(data) {
+    const { pathname, isDirectory } = data;
+    const currentPathname = appStore.getState().file.currentPathname;
 
-    if (newTopDir === currentState.topLevelDirectory) return; // No change
-
-    logFileManager(`Event navigate:topLevelDir received: newDir='${newTopDir}'`);
-    // Update state: New top dir, clear relative path & file
-    dispatch({
-        type: ActionTypes.FS_SET_STATE,
-        payload: { topLevelDirectory: newTopDir, currentRelativePath: null, currentFile: null }
-    });
-    // Persist and update URL
-    fileSystemState.saveState({ currentDir: newTopDir, currentFile: '' });
-    updateUrlParameters(newTopDir, null, null);
-
-    setContent(''); // Clear editor
-
-    // Load listing for the new top-level dir (or clear if none selected)
-    if (newTopDir) {
-        await loadFilesAndDirectories(newTopDir, ''); // Dispatches listing actions
-    } else {
-        // Dispatch empty listing if no directory is selected
-        dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { listing: { dirs: [], files: [] } } });
-    }
-    // State is now managed by the store, no need for separate stateSettled event
-}
-
-async function handleDirectoryNavigation(data) {
-    const subdir = data?.directory;
-    const currentState = appStore.getState().file;
-
-    if (!subdir || !currentState.topLevelDirectory) return; // Need top-level context
-
-    logFileManager(`Event navigate:directory received: subdir='${subdir}'`);
-    const newRelativePath = pathJoin(currentState.currentRelativePath, subdir);
-
-    // Update state: New relative path, clear file
-    dispatch({
-        type: ActionTypes.FS_SET_STATE,
-        payload: { currentRelativePath: newRelativePath, currentFile: null }
-    });
-    // Persist and update URL (only need to update path and clear file)
-    fileSystemState.saveState({ currentFile: '' }); // Clear persisted file
-    updateUrlParameters(currentState.topLevelDirectory, newRelativePath, null);
-
-    setContent(''); // Clear editor
-
-    // Load listing for the new subdirectory
-    await loadFilesAndDirectories(currentState.topLevelDirectory, newRelativePath); // Dispatches listing actions
-    // State is managed by the store
-}
-
-async function handleUpNavigation() {
-    const currentState = appStore.getState().file;
-    if (!currentState.currentRelativePath) return; // Already at top relative level
-
-    logFileManager(`Event navigate:up received.`);
-    const parentPath = getParentRelativePath(currentState.currentRelativePath);
-
-    // Update state: Set parent path, clear file
-    dispatch({
-        type: ActionTypes.FS_SET_STATE,
-        payload: { currentRelativePath: parentPath, currentFile: null }
-    });
-    // Persist and update URL
-    fileSystemState.saveState({ currentFile: '' }); // Clear persisted file
-    updateUrlParameters(currentState.topLevelDirectory, parentPath, null);
-
-    setContent(''); // Clear editor
-
-    // Load listing for the parent directory
-    await loadFilesAndDirectories(currentState.topLevelDirectory, parentPath); // Dispatches listing actions
-    // State is managed by the store
-}
-
-async function handleFileNavigation(data) {
-    const filename = data?.filename;
-    const currentState = appStore.getState().file;
-
-    // Validate necessary context
-    if (!filename || !currentState.topLevelDirectory) {
-        logFileManager(`Event navigate:file ignored: Missing filename ('${filename}') or topLevelDirectory ('${currentState.topLevelDirectory}')`, 'warning');
+    // Basic validation
+    if (pathname === undefined || pathname === null || typeof isDirectory !== 'boolean') {
+        logFileManager(`Invalid navigate:pathname event received: ${JSON.stringify(data)}`, 'warning');
         return;
     }
+    // Normalize path
+    const normalizedPathname = pathJoin(pathname);
 
-    if (filename === currentState.currentFile) return; // No change
-
-    logFileManager(`Event navigate:file received: file='${filename}'`);
-
-    // Update state and persistence BEFORE loading content
-    dispatch({
-        type: ActionTypes.FS_SET_STATE,
-        payload: { currentFile: filename }
-    });
-    fileSystemState.saveState({ currentFile: filename });
-    updateUrlParameters(currentState.topLevelDirectory, currentState.currentRelativePath, filename);
-
-    // Load the actual file content (this will dispatch load success/error actions)
-    await loadFile(filename, currentState.topLevelDirectory, currentState.currentRelativePath);
-
-    // No need to dispatch stateSettled, UI should react to appStore changes.
-}
-
-async function handleNavigateToRoot() {
-    logFileManager(`Event navigate:root received.`);
-
-    // Clear state: top-level directory, relative path, file
-    dispatch({
-        type: ActionTypes.FS_SET_STATE,
-        payload: { topLevelDirectory: null, currentRelativePath: null, currentFile: null }
-    });
-    // Clear listing in state
-    dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { listing: { dirs: [], files: [] } } });
-
-    // Persist and update URL
-    fileSystemState.saveState({ currentDir: '', currentFile: '' }); // Persist empty context
-    updateUrlParameters(null, null, null);
-
-    setContent(''); // Clear editor
-
-    // No need to load listing or emit stateSettled
-}
-
-// Refactored to use appStore state
-async function handleRequestTopLevelSelector() {
-    logFileManager('handleRequestTopLevelSelector called', 'debug');
-    const currentFileState = appStore.getState().file;
-    if (currentFileState.availableTopLevelDirs && currentFileState.availableTopLevelDirs.length > 0) {
-        logFileManager('Responding with cached top-level dirs from appStore', 'debug');
-        // Potentially emit an event specific to this UI interaction if needed,
-        // or better yet, have the requesting component subscribe to the store.
-        // For now, keeping the event bus pattern for this specific case:
-        eventBus.emit('fileManager:dirsLoaded', { dirs: currentFileState.availableTopLevelDirs });
-    } else {
-        logFileManager('No cached dirs in appStore, attempting to load top-level directories...', 'debug');
-        await loadTopLevelDirectories(); // This will load and dispatch FS_SET_TOP_DIRS
-    }
-}
-
-async function handleNavigateAbsolute(data) {
-    const { dir, path: relativePath = null, file = null } = data; // Use null defaults
-    logFileManager(`Event navigate:absolute received: dir=${dir}, path=${relativePath}, file=${file}`);
-
-    if (!dir) {
-        logFileManager('Navigate absolute requires at least a directory (dir).', 'warning');
-        return;
+    if (normalizedPathname === currentPathname) {
+        logFileManager(`Navigation ignored, already at pathname: '${normalizedPathname}'`, 'debug');
+        return; // No change needed
     }
 
-    // 1. Update state: Set exact path, clear file initially
-    const initialStateUpdate = {
-        topLevelDirectory: dir,
-        currentRelativePath: relativePath,
-        currentFile: null // Clear file initially
-    };
-    dispatch({ type: ActionTypes.FS_SET_STATE, payload: initialStateUpdate });
-    fileSystemState.saveState({ currentDir: dir, currentFile: '' }); // Persist dir, clear file
-    updateUrlParameters(dir, relativePath, null); // Update URL without file
+    logFileManager(`Event navigate:pathname received: '${normalizedPathname}', isDirectory=${isDirectory}`);
 
-    setContent(''); // Clear editor
-
-    // 2. Load listing for the target directory
-    await loadFilesAndDirectories(dir, relativePath); // Dispatches listing actions
-
-    // 3. If a file was specified, validate and attempt to load it
-    if (file) {
-        logFileManager(`Attempting to load specified file: ${file}`);
-        // Validate against the newly loaded listing
-        const stateAfterListing = appStore.getState().file;
-        if (stateAfterListing.currentListing?.files?.includes(file)) {
-            // File exists, update state and load content
-             dispatch({ type: ActionTypes.FS_SET_STATE, payload: { currentFile: file } });
-             fileSystemState.saveState({ currentFile: file }); // Persist file
-             updateUrlParameters(dir, relativePath, file); // Update URL with file
-             await loadFile(file, dir, relativePath); // Dispatches load actions
-        } else {
-             logFileManager(`Specified file '${file}' not found in listing for dir='${dir}', path='${relativePath}'. Not loading.`, 'warning');
-             // State already has currentFile: null from step 1, so no further state update needed.
-             // URL and persisted state also correctly reflect no file selected.
+    // Update state optimistically BEFORE loading data
+    dispatch({
+        type: ActionTypes.FS_SET_STATE,
+        payload: {
+            currentPathname: normalizedPathname,
+            isDirectorySelected: isDirectory,
+            isLoading: true, // Set loading true as we'll fetch data
+            error: null,
+             // Clear parent listing when navigating normally
+             parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] }
         }
+    });
+    updateUrlParameters(normalizedPathname); // Update URL
+
+    // Clear editor content immediately if navigating away from a file or to a new directory
+    setContent('');
+
+    // Load data based on type
+    if (isDirectory) {
+        await loadFilesAndDirectories(normalizedPathname);
+    } else {
+        await loadFile(normalizedPathname);
     }
-    // No need for stateSettled event.
+    // isLoading will be set to false by the load functions upon completion/error
 }
 
-// --- API Interaction & Core Logic ---
+// Handler specifically for fetching parent listing for sibling dropdowns
+async function handleRequestDirectoryListing(data) {
+    const { pathname, triggeringPath } = data;
+    logFileManager(`Event request:directoryListing received for path: '${pathname}' (Triggered by: ${triggeringPath})`);
+    try {
+        // Use the correct API function name - fetchDirectoryListing
+        const listing = await api.fetchDirectoryListing(pathname);
+        logFileManager(`Parent listing received for '${pathname}': ${listing?.dirs?.length ?? 0} dirs, ${listing?.files?.length ?? 0} files`);
+        dispatch({
+            type: ActionTypes.FS_SET_PARENT_LISTING,
+            payload: { pathname, listing, triggeringPath }
+        });
+    } catch (error) {
+        logFileManager(`Error loading parent directory listing for '${pathname}': ${error.message}`, 'error');
+        dispatch({
+             type: ActionTypes.FS_SET_PARENT_LISTING,
+             payload: { pathname, listing: { dirs: [], files: [] }, triggeringPath, error: error.message }
+        });
+    }
+}
+
+// Add document click handler to catch save button clicks
+function handleDocumentClick(event) {
+    const target = event.target;
+    if (target.id === 'save-btn' || target.dataset.action === 'saveFile') {
+        logFileManager('Save button clicked via document event listener', 'debug');
+        event.preventDefault();
+        handleFileSave();
+    }
+}
+
+// Add this function to properly handle file save events
+async function handleFileSave() {
+    logFileManager('File save event received', 'info');
+    await saveFile();
+}
+
+// --- API Interaction & Core Logic (Refactored for pathname) ---
 
 async function loadTopLevelDirectories() {
-    logFileManager('Loading top-level directories...');
-    dispatch({ type: ActionTypes.FS_LOAD_TOP_DIRS_START }); // <<< ADDED START ACTION
+    logFileManager('Attempting to load top-level directories...'); // Log entry
+    dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true } }); // Ensure loading state is active
     try {
-        const response = await globalFetch('/api/files/dirs');
-        if (!response.ok) throw new Error(`Failed to fetch directories: ${response.status}`);
-        const dirs = await response.json();
-        if (!Array.isArray(dirs)) throw new Error('Invalid directory list format from server.');
-        
-        logFileManager(`Received ${dirs.length} top-level dirs: [${dirs.join(', ')}]`);
-        dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: { dirs } }); // Success uses SET action
-        
+        logFileManager(`Calling api.fetchDirectoryListing with pathname: ''`); // Log API call
+        const listing = await api.fetchDirectoryListing(''); // <<< CHANGE TO THIS
+
+        // Log the raw response from the API
+        logFileManager(`API response for root listing: ${JSON.stringify(listing)}`);
+
+        if (listing && listing.dirs && Array.isArray(listing.dirs)) {
+             logFileManager(`Top-level dirs received: [${listing.dirs.join(', ')}]`);
+             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: listing.dirs });
+             logFileManager(`Dispatched FS_SET_TOP_DIRS with payload: ${JSON.stringify(listing.dirs)}`);
+        } else {
+             logFileManager('No valid directories array found at the root or API error.', 'warning');
+             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] }); // Dispatch empty array
+             logFileManager(`Dispatched FS_SET_TOP_DIRS with empty payload due to invalid response.`);
+        }
     } catch (error) {
         logFileManager(`Error loading top-level directories: ${error.message}`, 'error');
-        dispatch({ type: ActionTypes.FS_LOAD_TOP_DIRS_ERROR, payload: { error: error.message } }); // <<< ADDED ERROR ACTION
-        // Optionally reset dirs on error
-        // dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: { dirs: [] } });
+        dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] }); // Dispatch empty on error
+        logFileManager(`Dispatched FS_SET_TOP_DIRS with empty payload due to error.`);
+        // Also dispatch error to state?
+        dispatch({ type: ActionTypes.FS_LOAD_TOP_DIRS_ERROR, payload: { error: error.message } });
+
+    } finally {
+         // Consider setting isLoading: false here ONLY if this is the *only* thing loading
+         // Probably better handled by FS_INIT_COMPLETE
+         // dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false } });
     }
 }
 
-async function loadFilesAndDirectories(topLevelDir, relativePath) {
-    const logPrefix = '[FILEMGR_LOADLIST]';
-    const apiPath = pathJoin(topLevelDir, relativePath);
-    logFileManager(`${logPrefix} START for API path: '${apiPath}'`);
-    
+// Loads listing for a given directory pathname
+async function loadFilesAndDirectories(pathname) {
+    const state = appStore.getState();
+    const currentPath = state.file.currentPathname;
+    const isLoading = state.file.isLoading;
+
+    logFileManager(`[LoadListing ${pathname}]: Starting load... Current state path: ${currentPath}, isLoading: ${isLoading}`);
+
+    // Prevent reload if already loading or already at the target directory
+    // Adjusted logic: Allow reload even if path matches, but maybe not if isLoading is true for THAT path?
+    // Let's keep it simple for now: proceed if not already loading
+    if (isLoading) {
+         logFileManager(`[LoadListing ${pathname}]: Currently loading. Skipping duplicate request.`);
+         // Maybe check if the *target* of the loading is different? For now, just skip if any load active.
+         // return; // Let's allow it to proceed for now, state updates should handle idempotency.
+    }
+
+
     dispatch({ type: ActionTypes.FS_LOAD_LISTING_START });
-    // REMOVED: setLoading(true);
-
     try {
-        const apiUrl = `/api/files/list?dir=${encodeURIComponent(apiPath)}`;
-        logFileManager(`${logPrefix} Fetching: ${apiUrl}`);
-        const response = await globalFetch(apiUrl);
-        if (!response.ok) throw new Error(`Failed to list files: ${response.status} for path '${apiPath}'`);
-        
-        const data = await response.json();
-        logFileManager(`${logPrefix} Received data: Dirs=[${data.dirs?.join(', ')}], Files=[${data.files?.join(', ')}]`);
-        
-        // Dispatch success action with listing data
-        dispatch({ 
-            type: ActionTypes.FS_LOAD_LISTING_SUCCESS, 
-            payload: { listing: { dirs: data.dirs || [], files: data.files || [] } } 
-        });
-        // REMOVED: currentListingData = data;
-        // REMOVED: eventBus.emit('fileManager:listingLoaded', { ... });
-        logFileManager(`${logPrefix} Dispatched FS_LOAD_LISTING_SUCCESS.`);
-
+        // <<< ENSURE THIS IS CORRECT >>>
+        // const listing = await api.listDirectory(pathname); // OLD/WRONG
+        // const listing = await api.requestDirectoryListing(pathname); // ALIAS - MIGHT FAIL
+        const listing = await api.fetchDirectoryListing(pathname); // <<< USE DIRECT METHOD NAME
+        logFileManager(`[LoadListing ${pathname}]: API Success. Dirs: ${listing?.dirs?.length}, Files: ${listing?.files?.length}`);
+        dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { pathname, listing } });
     } catch (error) {
-        logFileManager(`${logPrefix} ERROR: ${error.message}`, 'error');
-        // Dispatch error action
-        dispatch({ type: ActionTypes.FS_LOAD_LISTING_ERROR, payload: { error: error.message } });
-        // REMOVED: currentListingData = { dirs: [], files: [] };
-        // REMOVED: eventBus.emit('fileManager:listingLoaded', { ... });
-    } 
-    // No finally/setLoading needed, reducer handles loading state
+        logFileManager(`[LoadListing ${pathname}]: ERROR fetching listing: ${error.message}`, 'error');
+        dispatch({ type: ActionTypes.FS_LOAD_LISTING_ERROR, payload: { pathname, error: error.message } });
+    }
 }
 
-/**
- * Loads the content of a specific file.
- * Emits 'file:loaded' on success or 'file:loadError' on failure.
- * Handles host script loading/unloading based on front matter.
- */
-export async function loadFile(filename, topLevelDir, relativePath) {
-    const logPrefix = `[loadFile ${filename}]:`;
-    logFileManager(`${logPrefix} Starting load... (Top='${topLevelDir}', Rel='${relativePath}')`);
-    
+// Loads content for a given file pathname
+export async function loadFile(pathname) {
+    if (!pathname) {
+        logFileManager('LoadFile called with empty pathname. Clearing content.', 'warning');
+        setContent(''); // Clear editor
+        // Dispatch state? Maybe just clear editor is enough if path is null/empty
+        dispatch({ type: ActionTypes.FS_LOAD_FILE_SUCCESS, payload: { pathname: null } }); // Reflect empty state
+        return;
+    }
+    logFileManager(`[LoadFile ${pathname}]: Loading file content...`);
     dispatch({ type: ActionTypes.FS_LOAD_FILE_START });
-    // REMOVED: setLoading(true);
-
-    const dirPathForApi = pathJoin(topLevelDir, relativePath);
-    const apiUrl = `/api/files/content?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(dirPathForApi)}`;
-    logFileManager(`${logPrefix} Fetching content from API: ${apiUrl}`, 'debug');
-
-    // >>> ADDED: Cleanup previous dynamic styles FIRST <<<
-    logFileManager(`${logPrefix} Cleaning up ${currentDynamicStyleElements.length} previous dynamic style element(s)...`, 'debug');
-    currentDynamicStyleElements.forEach(element => {
-        try {
-            element.remove();
-        } catch (e) {
-            logFileManager(`${logPrefix} Error removing style element: ${e.message}`, 'warn');
-        }
-    });
-    currentDynamicStyleElements = []; // Reset the array
-    logFileManager(`${logPrefix} Previous dynamic styles cleaned up.`, 'debug');
-
-    // >>> ADDED: Cleanup previous host script (moved before fetch) <<<
-    // It's better to cleanup the old script before even fetching new file content
-    if (currentHostScriptPath) { // Check if there *was* an old script
-        if (window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.cleanup === 'function') {
-            logFileManager(`${logPrefix} Calling cleanup() on previous host script: ${currentHostScriptPath}`, 'debug');
-            try { await window.__WB001_HOST_MODULE__.cleanup(); } catch (cleanupError) {
-                 logFileManager(`${logPrefix} Error cleaning up old host script '${currentHostScriptPath}': ${cleanupError.message}`, 'error');
-            }
-        } else { logFileManager(`${logPrefix} No cleanup function found on window.__WB001_HOST_MODULE__ for path ${currentHostScriptPath}`, 'debug'); }
-        if(window.__WB001_HOST_MODULE__) window.__WB001_HOST_MODULE__ = null; // Clear global ref
-         currentHostScriptModule = null;
-        currentHostScriptPath = null;
-         logFileManager(`${logPrefix} Previous host script cleaned up.`, 'info');
-    }
 
     try {
-        // Use globalFetch for the request
-        const response = await globalFetch(apiUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to read file: ${response.status} ${response.statusText} - ${await response.text()}`);
-        }
-        const content = await response.text();
-        logFileManager(`${logPrefix} Content fetched (${content.length} chars).`);
+        // Extract directory and filename - Reuse pathUtils
+        const directory = getParentPath(pathname);
+        const filename = getFilename(pathname);
 
-        // Parse Front Matter
-        let frontMatter = {};
-        try {
-            const renderResult = await renderMarkdown(content);
-            frontMatter = renderResult.frontMatter || {};
-            logFileManager(`${logPrefix} Parsed front matter: ${JSON.stringify(frontMatter)}`, 'debug');
-        } catch (parseError) {
-            logFileManager(`${logPrefix} Error parsing front matter: ${parseError.message}. Proceeding without host script/css logic.`, 'warning');
-            // If front matter fails, skip host script and dynamic CSS loading
-            frontMatter = {}; // Ensure it's empty
+        if (!filename) {
+             throw new Error(`Could not extract filename from pathname: ${pathname}`);
         }
 
-        // >>> ADDED: Load Dynamic CSS Styles <<<
-        // 1. Handle embedded CSS block
-        if (frontMatter.css && typeof frontMatter.css === 'string') {
-            logFileManager(`${logPrefix} Applying embedded CSS from front matter...`, 'debug');
-            try {
-                const styleElement = document.createElement('style');
-                styleElement.textContent = frontMatter.css;
-                styleElement.setAttribute('data-dynamic-style-source', filename); // Mark for cleanup
-                document.head.appendChild(styleElement);
-                currentDynamicStyleElements.push(styleElement);
-                logFileManager(`${logPrefix} Embedded CSS added to head.`, 'debug');
-            } catch (e) {
-                logFileManager(`${logPrefix} Error applying embedded CSS: ${e.message}`, 'error');
-            }
-        }
-        // 2. Handle linked CSS files(s)
-        const cssLinks = frontMatter.css_link ? (Array.isArray(frontMatter.css_link) ? frontMatter.css_link : [frontMatter.css_link]) : [];
-        if (cssLinks.length > 0) {
-             logFileManager(`${logPrefix} Applying ${cssLinks.length} linked CSS file(s) from front matter...`, 'debug');
-             cssLinks.forEach(href => {
-                 if (typeof href === 'string' && href.trim()) {
-                     try {
-                         const linkElement = document.createElement('link');
-                         linkElement.rel = 'stylesheet';
-                         linkElement.href = href.trim();
-                         linkElement.setAttribute('data-dynamic-style-source', filename); // Mark for cleanup
-                         document.head.appendChild(linkElement);
-                         currentDynamicStyleElements.push(linkElement);
-                         logFileManager(`${logPrefix} Added <link> for ${href} to head.`, 'debug');
-                     } catch (e) {
-                         logFileManager(`${logPrefix} Error adding <link> for ${href}: ${e.message}`, 'error');
-                     }
-                 }
-             });
-        }
-        // >>> END: Load Dynamic CSS Styles <<<
+        // <<< USE CORRECT API FUNCTION >>>
+        // const content = await api.readFile(filename, directory); // OLD/WRONG
+        const content = await api.fetchFileContent(filename, directory); // CORRECTED
 
-        // Host Script Loading (No changes needed here, cleanup moved earlier)
-        const newHostScriptPath = frontMatter.host_script;
-        if (newHostScriptPath) { // Only load if specified
-             logFileManager(`${logPrefix} Attempting to load host script: ${newHostScriptPath}`, 'info');
-             try {
-                const absolutePath = newHostScriptPath.startsWith('/') ? newHostScriptPath : `/${newHostScriptPath}`;
-                await import(absolutePath);
-                currentHostScriptPath = newHostScriptPath; // Track the path
-                logFileManager(`${logPrefix} Successfully loaded host script: ${newHostScriptPath}. Init will be called later.`, 'info');
-            } catch (importError) {
-                logFileManager(`${logPrefix} Failed to load new host script '${newHostScriptPath}': ${importError.message}`, 'error');
-                console.error(`Error loading host script ${newHostScriptPath}:`, importError);
-                currentHostScriptPath = null; // Reset path tracking on error
-                dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { filename, error: importError.message } });
-            }
-        } else {
-             logFileManager(`${logPrefix} No host script specified in front matter.`, 'info');
-        }
+        logFileManager(`[LoadFile ${pathname}]: Content loaded successfully (Length: ${content?.length ?? 0}). Setting editor.`);
+        setContent(content); // Update the editor
 
-        // Iframe Update Logic (No changes needed here)
-        const iFrameSrc = frontMatter.iframe_src;
-        let iframeElement = document.getElementById('game-iframe'); 
-        if (iFrameSrc) {
-            logFileManager(`${logPrefix} Found iframe_src in front matter: ${iFrameSrc}`, 'info');
-            if (!iframeElement) {
-                // If it doesn't exist, maybe create it? Or assume it should exist in preview? For now, log error.
-                 logFileManager(`${logPrefix} iframe element with ID 'game-iframe' not found in DOM! Cannot set src.`, 'error');
-                 // Consider creating it if necessary based on UI structure
-                 // iframeElement = document.createElement('iframe');
-                 // iframeElement.id = 'game-iframe';
-                 // ... set other attributes ...
-                 // document.getElementById('preview-container').appendChild(iframeElement); // Example append target
-            } else {
-                 logFileManager(`${logPrefix} Updating iframe#game-iframe src to: ${iFrameSrc}`, 'debug');
-                 // Check if src is actually different to avoid unnecessary reloads
-                 const currentSrc = iframeElement.getAttribute('src');
-                 if (currentSrc !== iFrameSrc) {
-                    iframeElement.setAttribute('src', iFrameSrc);
-                    logFileManager(`${logPrefix} iframe src updated.`, 'debug');
-                 } else {
-                     logFileManager(`${logPrefix} iframe src is already correct.`, 'debug');
-                 }
-            }
-        } else if (iframeElement) {
-             // If no iframe_src is defined, but an iframe exists, maybe clear it?
-             logFileManager(`${logPrefix} No iframe_src in front matter. Clearing existing iframe#game-iframe src.`, 'debug');
-             iframeElement.setAttribute('src', 'about:blank'); 
-        }
-
-        // Delayed Host Script Initialization (No changes needed here)
-        if (currentHostScriptPath && window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.initialize === 'function') {
-             logFileManager(`${logPrefix} Scheduling initialization for host script: ${currentHostScriptPath}`, 'debug');
-             // Use setTimeout to allow the DOM (incl. iframe src update) to process
-             setTimeout(async () => {
-                 logFileManager(`${logPrefix} Timeout fired. Checking for iframe#game-iframe...`, 'info');
-                 const iframeCheck = document.getElementById('game-iframe');
-                 if (iframeCheck) {
-                     logFileManager(`${logPrefix} Found iframe#game-iframe. Now attempting to call initialize() on window.__WB001_HOST_MODULE__`, 'info');
-                     try {
-                         await window.__WB001_HOST_MODULE__.initialize();
-                         logFileManager(`${logPrefix} Host script initialize() completed.`, 'info');
-                     } catch (initError) {
-                         logFileManager(`${logPrefix} Error calling initialize() on host script: ${initError.message}`, 'error');
-                     }
-                 } else {
-                     logFileManager(`${logPrefix} iframe#game-iframe STILL NOT FOUND after delay! Cannot initialize host script.`, 'error');
-                 }
-             }, 500); // <<< Increased delay to 500ms >>>
-        } else if (currentHostScriptPath) {
-             logFileManager(`${logPrefix} Host script loaded (${currentHostScriptPath}) but initialize function not found on window.__WB001_HOST_MODULE__.`, 'warning');
-        }
-
-        // Set editor content AFTER potential iframe update and host script load
-        setContent(content);
-        logFileManager(`${logPrefix} Editor content set.`);
-
-        // Dispatch success action
-        dispatch({ 
-            type: ActionTypes.FS_LOAD_FILE_SUCCESS, 
-            payload: { filename, frontMatter } // Omit content from store payload
+        // Dispatch success, ensuring pathname and isDirectorySelected are correct
+        dispatch({
+             type: ActionTypes.FS_LOAD_FILE_SUCCESS,
+             payload: { pathname: pathname } // Reducer handles setting isDirectorySelected=false
         });
-        logFileManager(`${logPrefix} Dispatched FS_LOAD_FILE_SUCCESS.`);
-        // REMOVED: eventBus.emit('file:loaded', { ... });
+
+        // --- Handle dynamic assets based on front matter ---
+        try {
+             const previewModule = await import('/client/preview/markdown.js');
+             const { frontMatter } = previewModule.parseFrontMatter(content); // Assuming this exists
+             if (frontMatter) {
+                logFileManager(`[LoadFile ${pathname}]: Found front matter. Handling dynamic assets.`);
+                // Cleanup previous assets first
+                cleanupDynamicAssets(`LoadFile ${pathname}`);
+                // Load new ones
+                await loadDynamicStyles(frontMatter, `LoadFile ${pathname}`);
+                await loadHostScript(frontMatter.host_script, `LoadFile ${pathname}`); // Pass path directly
+                updateIframeSource(frontMatter.iframe_src, `LoadFile ${pathname}`);
+             } else {
+                 // No front matter, ensure any previous dynamic assets are cleared
+                 cleanupDynamicAssets(`LoadFile ${pathname} - No front matter`);
+             }
+         } catch (fmError) {
+              logFileManager(`[LoadFile ${pathname}]: Error processing front matter or dynamic assets: ${fmError.message}`, 'warning');
+         }
+        // --- End Dynamic Asset Handling ---
+
 
     } catch (error) {
-        logFileManager(`${logPrefix} Error loading file: ${error.message}`, 'error');
-        console.error(error);
-        setContent(''); // Clear editor on error
-        logFileManager(`${logPrefix} Editor content cleared.`);
-        
-        // Dispatch error action
-        dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { filename, error: error.message } });
-        logFileManager(`${logPrefix} Dispatched FS_LOAD_FILE_ERROR.`);
-        // REMOVED: eventBus.emit('file:loadError', { ... });
-
-        // >>> ADDED: Use exposed cleanup function if available <<<
-        if (window.__WB001_HOST_MODULE__ && typeof window.__WB001_HOST_MODULE__.cleanup === 'function') {
-            logFileManager(`${logPrefix} Calling cleanup() on window.__WB001_HOST_MODULE__ due to file load error...`, 'warning');
-            try { await window.__WB001_HOST_MODULE__.cleanup(); } catch (e) {
-                 logFileManager(`${logPrefix} Error during host script cleanup: ${e.message}`, 'error');
-            }
-        } else {
-             logFileManager(`${logPrefix} window.__WB001_HOST_MODULE__.cleanup not found during error handling.`, 'debug');
-        }
-        currentHostScriptModule = null; // Still clear internal reference
-
+        logFileManager(`[LoadFile ${pathname}]: ERROR loading file: ${error.message}`, 'error');
+        setContent(`## Error Loading File\n\nFailed to load \`${pathname}\`.\n\n**Error:**\n\`\`\`\n${error.message}\n\`\`\`\n\nPlease check the console and server logs for more details.`); // Show error in editor
+        dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { pathname, error: error.message } });
     }
-    // No finally/setLoading needed
 }
 
+// Fix saveFile function using direct fetch to the correct endpoint
 export async function saveFile() {
-    // Get current state from store
-    const currentState = appStore.getState().file; 
-    const filename = currentState.currentFile;
-    const topLevelDir = currentState.topLevelDirectory;
-    const relativePath = currentState.currentRelativePath;
+    const currentState = appStore.getState().file;
+    const pathname = currentState.currentPathname;
+    const isDirectory = currentState.isDirectorySelected;
 
-    logFileManager(`Save requested. State Check: File='${filename}', TopDir='${topLevelDir}', RelPath='${relativePath}'`, 'debug');
+    logFileManager(`Save requested. Pathname='${pathname}', isDirectory=${isDirectory}`, 'debug');
 
-    if (!filename || !topLevelDir) {
-        logFileManager('Save aborted: Missing current file or top-level directory.', 'warning');
-        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { filename: filename || '', error: 'Cannot save: No file or directory context is selected.' }});
+    if (isDirectory || !pathname) {
+        logFileManager('Save aborted: No file is currently selected.', 'warning');
+        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { pathname: pathname || '', error: 'Cannot save: No file selected.' }});
         return false;
     }
-    if (currentState.isLoading || currentState.isSaving) { // Check store state
-        logFileManager('Save aborted: Another file operation is in progress.', 'warning');
-        // Optionally dispatch another error or rely on UI disabling the save button
-        return false;
-    }
+    if (currentState.isLoading || currentState.isSaving) { return false; }
 
-    const content = getContent(); // Assume getContent is synchronous for now
-    logFileManager(`Got content for save, length: ${content?.length}.`, 'debug');
+    const content = getContent();
+    if (content === null || content === undefined || content === '') { return false; }
 
-    if (content === null || content === undefined) { // More robust check
-        logFileManager('Save aborted: getContent() returned null or undefined.', 'error');
-        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { filename, error: 'Save Aborted: Failed to get editor content.' }});
-        return false;
-    }
-    if (content === '') {
-        logFileManager('Save aborted: Content is empty.', 'warning');
-        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { filename, error: 'Save Aborted: Cannot save an empty file.' }});
-        return false;
-    }
-
-    const fullPathForApi = pathJoin(topLevelDir, relativePath);
-    logFileManager(`Saving file '${filename}' to API path '${fullPathForApi}' (Content length: ${content.length})`);
-
-    dispatch({ type: ActionTypes.FS_SAVE_FILE_START, payload: { filename } });
+    logFileManager(`Saving file '${pathname}' (Content length: ${content.length})`);
+    dispatch({ type: ActionTypes.FS_SAVE_FILE_START, payload: { pathname } });
 
     try {
-        const apiUrl = `/api/files/save`;
-        const requestBody = { dir: fullPathForApi, name: filename, content: content };
-        logFileManager(`Saving - API: ${apiUrl}`, 'debug');
+        // Extract filename and directory
+        const directory = getParentPath(pathname);
+        const filename = getFilename(pathname);
+        
+        if (!filename) {
+            throw new Error(`Could not extract filename from pathname: ${pathname}`);
+        }
 
-        const response = await globalFetch(apiUrl, {
+        // Use direct fetch to the API endpoint
+        const result = await fetch('/api/files/save', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: filename,
+                dir: directory,
+                content: content
+            }),
+            credentials: 'include' // Include cookies for auth
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            logFileManager(`Save failed with status ${response.status}: ${errorText}`, 'error');
-            throw new Error(`(${response.status}) ${errorText}`);
-        }
-        const result = await response.json();
-        if (!result.success) {
-            logFileManager(`Server reported save failure: ${result.message || 'Unknown reason'}`, 'error');
-            throw new Error(result.message || 'Server reported save failure');
+        
+        if (!result.ok) {
+            const errorText = await result.text();
+            throw new Error(`Server returned ${result.status}: ${errorText || result.statusText}`);
         }
 
-        logFileManager(`File '${filename}' saved successfully.`);
-        dispatch({ type: ActionTypes.FS_SAVE_FILE_SUCCESS, payload: { filename } });
-        // REMOVED: eventBus.emit('file:saved', { filename });
-        // Potentially dispatch an action to update editor 'dirty' state if applicable
-        // dispatch({ type: ActionTypes.EDITOR_SET_DIRTY, payload: false });
+        logFileManager(`File '${pathname}' saved successfully.`);
+        dispatch({ type: ActionTypes.FS_SAVE_FILE_SUCCESS, payload: { pathname } });
         return true;
 
     } catch (error) {
-        logFileManager(`Failed to save file '${filename}'. Error: ${error.message}`, 'error', error);
-        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { filename, error: error.message } });
-        // REMOVED: eventBus.emit('file:saveError', { ... });
+        logFileManager(`Failed to save file '${pathname}'. Error: ${error.message}`, 'error', error);
+        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { pathname, error: error.message } });
         return false;
     }
 }
@@ -845,111 +539,80 @@ export async function saveFile() {
 // --- State Reset and Refresh Logic (Refactored) ---
 
 export function resetFileManagerState() {
-    logFileManager('Resetting FileManager state via dispatch...');
-    
-    // Dispatch action to reset the file slice to initial state
-    dispatch({ 
-        type: ActionTypes.FS_SET_STATE, 
+    logFileManager('Resetting FileManager state (pathname)...');
+    // Dispatch action to reset the file slice
+    dispatch({
+        type: ActionTypes.FS_SET_STATE,
         payload: { // Define the full reset state payload explicitly
-            isInitialized: false, 
-            isLoading: false,
-            isSaving: false,
-            topLevelDirectory: null,
-            currentRelativePath: null,
-            currentFile: null,
-            currentListing: { dirs: [], files: [] },
-            availableTopLevelDirs: [],
-            error: null,
-        } 
+            isInitialized: false, isLoading: false, isSaving: false,
+            currentPathname: null, isDirectorySelected: false,
+            currentListing: { pathname: null, dirs: [], files: [] },
+            parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] },
+            availableTopLevelDirs: [], error: null,
+        }
     });
-    
-    // Unsubscribe from store changes if subscribed
-    if (fmUnsubscribe) {
-        fmUnsubscribe();
-        fmUnsubscribe = null;
-        logFileManager("Unsubscribed FileManager from appStore changes.");
-    }
-
-    // Reset the local window flag
-    if (window.APP) window.APP.fileManagerInitialized = false; 
-
-    fileSystemState.clearState(); 
-    updateUrlParameters(null, null, null);
-    setContent(''); 
-
+    if (fmUnsubscribe) { fmUnsubscribe(); fmUnsubscribe = null; }
+    if (window.APP) window.APP.fileManagerInitialized = false;
+    fileSystemState.clearState(); // Clear persisted state (though it does little now)
+    updateUrlParameters(null); // Clear pathname from URL
+    setContent('');
+    cleanupDynamicAssets('(Reset)'); // Clean up any dynamic assets
     logFileManager('FileManager state reset complete.');
 }
 
 export async function refreshFileManagerForUser(username) {
     const logPrefix = '[FILEMGR_REFRESH]';
-    if (!username) {
-        logFileManager(`${logPrefix} Called without username. Resetting.`, 'warning');
-        resetFileManagerState();
-        return;
-    }
-    
+    if (!username) { /* ... reset ... */ return; }
     logFileManager(`${logPrefix} START for user: ${username}`);
-    // Indicate loading state for the refresh operation
-    dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true, error: null } }); // <<< SET isLoading: true
-    
+    dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true, error: null } });
+
     try {
-        // 1. Reload top-level directories (dispatches FS_SET_TOP_DIRS)
-        logFileManager(`${logPrefix} Calling loadTopLevelDirectories...`);
-        await loadTopLevelDirectories();
-        // Read the updated dirs from the store *after* the load finishes
-        const availableDirs = appStore.getState().file.availableTopLevelDirs;
-        logFileManager(`${logPrefix} loadTopLevelDirectories DONE. Available: [${availableDirs.join(', ')}]`);
+        await loadTopLevelDirectories(); // Load dirs based on new user/role
+        const { availableTopLevelDirs } = appStore.getState().file;
+        const userRole = appStore.getState().auth.user?.role; // Get role
 
-        // 2. Determine target directory
-        let targetTopDir = null;
-        let targetRelativePath = null;
-        if (username.toLowerCase() === 'mike') {
-            targetTopDir = null;
-            targetRelativePath = null;
-            logFileManager(`${logPrefix} Determined context for 'mike': Root selection (Top=null, Rel=null)`);
+        let targetPathname = null;
+        let targetIsDir = false;
+
+        if (userRole === 'admin') {
+            targetPathname = ''; // Admin defaults to root
+            targetIsDir = true;
+            logFileManager(`${logPrefix} Determined context for admin: '(Root)'`);
+        } else if (userRole === 'user' && availableTopLevelDirs.includes(username)) {
+            targetPathname = username; // User defaults to own directory
+            targetIsDir = true;
+            logFileManager(`${logPrefix} Determined context for user '${username}': '${targetPathname}'`);
         } else {
-            if (availableDirs.includes(username)) {
-                targetTopDir = username;
-                targetRelativePath = null;
-                logFileManager(`${logPrefix} Determined context for '${username}': User directory (Top='${targetTopDir}', Rel=null)`);
-            } else {
-                targetTopDir = null;
-                targetRelativePath = null;
-                logFileManager(`${logPrefix} User directory '${username}' not found. Defaulting to Root selection (Top=null, Rel=null)`, 'warning');
+             logFileManager(`${logPrefix} Could not determine default context for '${username}' (Role: ${userRole}, Dirs: [${availableTopLevelDirs.join(',')}]). Defaulting to null.`, 'warning');
+             targetPathname = null; // No specific context
+             targetIsDir = false;
+        }
+
+        // Dispatch state update for the new context
+        dispatch({
+            type: ActionTypes.FS_SET_STATE,
+            payload: {
+                currentPathname: targetPathname,
+                isDirectorySelected: targetIsDir,
+                currentFile: null, // Ensure file is cleared
+                currentListing: { pathname: null, dirs: [], files: [] }, // Clear listing
+                parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] }, // Clear parent listing
+                isLoading: targetPathname !== null, // Stay loading only if we have a path to load
+                error: null
             }
-        }
-
-        // 3. Update state: Set new context, clear file and listing
-        const newStatePayload = {
-            topLevelDirectory: targetTopDir,
-            currentRelativePath: targetRelativePath,
-            currentFile: null,
-            currentListing: { dirs: [], files: [] }, // Ensure listing is cleared
-            isLoading: true, // Still loading until listing is fetched
-            error: null
-        };
-        logFileManager(`${logPrefix} Dispatching FS_SET_STATE for user context: ${JSON.stringify(newStatePayload)}`);
-        dispatch({ type: ActionTypes.FS_SET_STATE, payload: newStatePayload });
-
-        // Update persistence and URL
-        fileSystemState.saveState({ currentDir: targetTopDir || '', currentFile: '' });
-        updateUrlParameters(targetTopDir, targetRelativePath, null);
-        
+        });
+        updateUrlParameters(targetPathname); // Update URL
         setContent(''); // Clear editor
-        logFileManager(`${logPrefix} Editor content cleared.`);
 
-        // 4. Load listing for the new context (if applicable)
-        if (targetTopDir) {
-             logFileManager(`${logPrefix} Calling loadFilesAndDirectories for Top='${targetTopDir}', Rel='${targetRelativePath ?? ''}'...`);
-             await loadFilesAndDirectories(targetTopDir, targetRelativePath ?? '');
-             logFileManager(`${logPrefix} loadFilesAndDirectories finished.`);
+        // Load listing for the new context (if applicable)
+        if (targetPathname !== null && targetIsDir) {
+             logFileManager(`${logPrefix} Calling loadFilesAndDirectories for '${targetPathname}'...`);
+             await loadFilesAndDirectories(targetPathname);
         } else {
-             logFileManager(`${logPrefix} No topLevelDirectory set. Ensuring listing is cleared in state.`);
-             // Reducer for FS_SET_STATE already cleared listing
+             dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false } }); // Ensure loading stops if no path
         }
-
-        // 5. Finalize loading state
-        dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false } }); // <<< SET isLoading: false
+        // Finalize loading state (might be redundant if loadFilesAndDirectories handles it)
+        // dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false } });
         logFileManager(`${logPrefix} END.`);
 
     } catch (error) {
@@ -958,13 +621,88 @@ export async function refreshFileManagerForUser(username) {
     }
 }
 
-// --- Default Export --- 
-// Only export functions intended for external use
+// --- Helper Functions for Dynamic Assets ---
+
+function cleanupDynamicAssets(context = '(Unknown)') {
+    logFileManager(`[CleanupAssets ${context}] Cleaning dynamic styles and host script...`, 'debug');
+    // Styles
+    currentDynamicStyleElements.forEach(element => {
+        try { element.remove(); } catch (e) { logFileManager(`Error removing style: ${e.message}`, 'warn'); }
+    });
+    currentDynamicStyleElements = [];
+    // Script
+    cleanupHostScript(`(Asset Cleanup for ${context})`);
+}
+
+function cleanupHostScript(logContext = '') {
+    if (currentHostScriptPath) {
+        if (window.__WB001_HOST_MODULE__?.cleanup) {
+            logFileManager(`${logContext} Calling cleanup() on previous host script: ${currentHostScriptPath}`, 'debug');
+            try { window.__WB001_HOST_MODULE__.cleanup(); } catch (e) { logFileManager(`${logContext} Error cleaning up host script: ${e.message}`, 'error'); }
+        }
+        window.__WB001_HOST_MODULE__ = null; // Clear global ref regardless
+        currentHostScriptPath = null;
+        logFileManager(`${logContext} Previous host script reference cleared.`, 'info');
+    }
+}
+
+async function loadDynamicStyles(frontMatter, logContext = '') {
+    // Embedded CSS
+    if (frontMatter.css && typeof frontMatter.css === 'string') { /* ... create/append style tag ... */ }
+    // Linked CSS
+    const cssLinks = frontMatter.css_link ? (Array.isArray(frontMatter.css_link) ? frontMatter.css_link : [frontMatter.css_link]) : [];
+    cssLinks.forEach(href => { /* ... create/append link tag ... */ });
+}
+
+async function loadHostScript(scriptPath, logContext = '') {
+    if (!scriptPath) {
+        currentHostScriptPath = null;
+        return; // No script to load
+    }
+    logFileManager(`[LoadScript ${logContext}] Attempting load: ${scriptPath}`, 'info');
+    try {
+        // Assume scriptPath is relative to web root if not starting with /
+        const importPath = scriptPath.startsWith('/') ? scriptPath : `/${scriptPath}`;
+        await import(importPath); // Dynamic import
+        currentHostScriptPath = scriptPath; // Track success
+        logFileManager(`[LoadScript ${logContext}] Successfully loaded: ${scriptPath}`, 'info');
+    } catch (importError) {
+        logFileManager(`[LoadScript ${logContext}] FAILED to load '${scriptPath}': ${importError.message}`, 'error');
+        currentHostScriptPath = null; // Reset on error
+        // Maybe dispatch an error? For now, just log.
+        // dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { pathname: logContext, error: `Failed to load host script: ${scriptPath}` }});
+    }
+}
+
+function updateIframeSource(iframeSrc, logContext = '') {
+    let iframeElement = document.getElementById('game-iframe');
+    if (iframeSrc) { /* ... update src if different ... */ }
+    else if (iframeElement) { /* ... clear src ... */ }
+}
+
+function scheduleHostScriptInit(scriptPath, logContext = '') {
+     if (scriptPath && window.__WB001_HOST_MODULE__?.initialize) {
+         logFileManager(`${logContext} Scheduling initialization for host script: ${scriptPath}`, 'debug');
+         setTimeout(async () => {
+             logFileManager(`${logContext} Init timeout fired. Checking iframe...`, 'info');
+             const iframeCheck = document.getElementById('game-iframe');
+             if (iframeCheck) {
+                  logFileManager(`${logContext} Found iframe. Calling initialize()...`, 'info');
+                  try {
+                      await window.__WB001_HOST_MODULE__.initialize();
+                      logFileManager(`${logContext} Host script initialize() completed.`, 'info');
+                  } catch (initError) { /* ... log error ... */ }
+             } else { /* ... log error ... */ }
+         }, 500);
+    } else if (scriptPath) { /* ... log warning if initialize missing ... */ }
+}
+
+
+// --- Default Export ---
 export default {
     initializeFileManager,
     saveFile,
-    // loadFile, loadFilesAndDirectories, loadTopLevelDirectories are internal helpers called by event handlers/init
-    resetFileManagerState, 
-    refreshFileManagerForUser 
-    // Event handlers (handle*) are internal, triggered by eventBus listeners set up in initializeFileManager
+    resetFileManagerState,
+    // refreshFileManagerForUser // Removed? Or needs update if kept
+    // loadFile // Primarily internal now
 }; 

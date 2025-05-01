@@ -3,12 +3,15 @@
  * Centralized application state management using statekit.
  */
 
-import { createState } from '/client/statekit/statekit.js';
+import { createStore } from '/client/statekit/statekit.js';
 
 // <<< NEW: Key for localStorage persistence >>>
 const LOG_VISIBLE_KEY = 'logVisible'; 
 // <<< NEW: Key for persisting plugin state >>>
 const PLUGINS_STATE_KEY = 'pluginsEnabledState'; 
+// <<< NEW: Keys for persisting SmartCopy buffers >>>
+export const SMART_COPY_A_KEY = 'smartCopyBufferA';
+export const SMART_COPY_B_KEY = 'smartCopyBufferB';
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
 function getInitialLogVisibility() {
@@ -71,9 +74,9 @@ function getInitialPluginsState() {
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
-    isInitializing: true, // Track auth initialization state
+    isInitializing: true,
     isAuthenticated: false,
-    user: null, // e.g., { username: '...', token: '...', roles: [] }
+    user: null, // e.g., { username: '...', role: '...' } // <<< Role should be included here
     error: null,
   },
   ui: {
@@ -95,24 +98,37 @@ const initialAppState = {
     content: '', // Note: fileManager currently calls setContent directly. Refactor later?
     dirty: false,
   },
-  // --- Refactored File System State ---
-  file: { // Renamed from 'files' for clarity and consistency
-    isInitialized: false,       // Tracks if file manager has run initial load
+  // --- REFACTORED File System State ---
+  file: {
+    isInitialized: false,       // Tracks if file manager has run initial load attempt
     isLoading: false,           // True when loading listing or file content
     isSaving: false,            // True during save operation
-    topLevelDirectory: null,    // e.g., 'gridranger' or null if none selected
-    currentRelativePath: null,  // e.g., 'subdir' or null if at top level
-    currentFile: null,          // e.g., 'notes.md' or null if none selected
-    currentListing: {           // Contents of the current directory
+
+    // --- Simplified Path Representation ---
+    // Represents the currently selected item (file or directory) relative to MD_DIR.
+    // Examples: '' (MD_DIR root), 'mike', 'mike/notes', 'mike/notes/readme.md', null (nothing selected/init)
+    currentPathname: null,
+    isDirectorySelected: false, // True if currentPathname refers to a directory, false if it's a file or null.
+
+    // --- Listing and Context ---
+    // Stores the listing of the directory relevant to the current selection.
+    currentListing: {
+        pathname: null,           // The pathname of the directory whose contents are listed.
         dirs: [],
         files: []
     },
-    availableTopLevelDirs: [], // List of available root directories (e.g., ['user1', 'shared'])
+    // Listing of the parent directory, needed for sibling navigation dropdown
+    parentListing: {
+        pathname: null,           // Pathname of the parent directory listed
+        triggeringPath: null,     // Pathname that triggered the parent load (for ContextManager)
+        dirs: [],
+        files: []
+    },
+
+    availableTopLevelDirs: [], // Still useful for admin dropdown/initial context.
     error: null,                // Holds error messages related to file operations
-    // Consider adding current file content or front matter here if needed by many components,
-    // otherwise keep content primarily managed by the editor module.
   },
-  // --- End Refactored File System State ---
+  // --- End REFACTORED File System State ---
 
   // +++ Add the Plugins State Slice +++
   plugins: {
@@ -122,7 +138,7 @@ const initialAppState = {
 };
 
 // Create the application state store instance
-export const appStore = createState(initialAppState);
+export const appStore = createStore(initialAppState);
 
 // Export state slices or selectors if needed for convenience
 // Example selector:

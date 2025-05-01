@@ -1020,7 +1020,39 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
         }
     },
     // <<< END NEW ACTIONS >>>
-};
+
+    // --- SmartCopy Actions --- 
+    setSmartCopyBufferA: () => {
+        logAction('Setting SmartCopy Buffer A...');
+        const editorTextArea = document.querySelector('#editor-container textarea');
+        if (!editorTextArea) {
+            logAction('Cannot set SmartCopy A: Editor textarea not found.', 'error');
+            alert('Editor not found to copy selection from.');
+            return;
+        }
+        const start = editorTextArea.selectionStart;
+        const end = editorTextArea.selectionEnd;
+        const selectedText = editorTextArea.value.substring(start, end);
+
+        if (start === end) {
+             logAction('Cannot set SmartCopy A: No text selected.', 'warning');
+             // Optionally provide feedback - maybe a quick flash?
+             return;
+        }
+
+        try {
+            // Use the key defined in appState.js
+            localStorage.setItem('smartCopyBufferA', selectedText);
+            logAction(`SmartCopy Buffer A set (Length: ${selectedText.length})`);
+            // Dispatch action (primarily for logging/tracing)
+            dispatch({ type: ActionTypes.SET_SMART_COPY_A, payload: { length: selectedText.length } });
+            // TODO: Add user feedback (e.g., brief message, UI indicator)
+        } catch (e) {
+            logAction(`Failed to save SmartCopy Buffer A to localStorage: ${e.message}`, 'error');
+            alert('Failed to save selection to buffer A.');
+        }
+    },
+}; // <<< Add missing closing brace for triggerActions object
 
 // <<< ADD LOG AFTER triggerActions >>>
 console.log('[DEBUG] actions.js: Defined triggerActions:', Object.keys(triggerActions));

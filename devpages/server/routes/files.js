@@ -102,44 +102,84 @@ const getFullPath = (req, directory, filename) => {
  * Get list of files and subdirectories in a directory relative to the session context.
  */
 router.get('/list', authMiddleware, async (req, res) => {
+   const logPrefix = '[API /list]'; // For cleaner logs
    try {
-       const actualBaseDir = getBaseDir(req); // Get the root data directory (e.g., ./data)
-       const requestedDir = req.query.dir || ''; // Get the directory requested by client (e.g., 'gridranger' or 'gridranger/subdir')
+       const actualBaseDir = getBaseDir(req); // Get the root data directory (e.g., /root/pj/md)
+       // Treat 'dir' query param as the 'pathname' relative to actualBaseDir
+       const requestedPathname = req.query.dir ?? ''; // Default to empty string if undefined or null
 
-       // Basic validation
-       // Prevent climbing up the directory tree
-       if (requestedDir.includes('..')) {
-           return res.status(400).json({ error: 'Invalid directory path (contains ..)' });
+       // --- Add More Logging ---
+       console.log(`${logPrefix} Request received. Query dir='${req.query.dir}', using pathname='${requestedPathname}'`);
+       console.log(`${logPrefix} Base directory (MD_DIR): '${actualBaseDir}'`);
+       // --- End Logging ---
+
+       // Basic validation (already checks for '..')
+       if (requestedPathname.includes('..') || requestedPathname.startsWith('/')) {
+           console.warn(`${logPrefix} Invalid pathname detected: '${requestedPathname}'`);
+           return res.status(400).json({ error: 'Invalid directory path structure' });
        }
-       // Optional: Add user-specific access control here if needed later
-       // E.g., ensure requestedDir starts with req.user.username unless user is 'mike'
 
-       const targetDir = path.join(actualBaseDir, requestedDir); // Construct the full path
-       console.log(`[API /list] Listing contents of: ${targetDir} (Base: ${actualBaseDir}, Requested: ${requestedDir})`);
+       // Construct the full path to the target directory
+       const targetDir = path.resolve(actualBaseDir, requestedPathname); // Use resolve for robustness
+       console.log(`${logPrefix} Resolved target directory path: '${targetDir}'`);
 
-       // Check if target directory exists
-       await fs.access(targetDir); 
+       // Security Check: Ensure target is within the base directory
+       if (!targetDir.startsWith(actualBaseDir)) {
+            console.error(`${logPrefix} Security Alert! Resolved path '${targetDir}' is outside base '${actualBaseDir}'. Requested pathname was '${requestedPathname}'.`);
+            return res.status(400).json({ error: 'Invalid directory path (potential escape)' });
+       }
 
+       // Check if target directory exists using fs.stat
+       let stats;
+       try {
+           stats = await fs.stat(targetDir);
+           if (!stats.isDirectory()) {
+               // Path exists but is not a directory
+               console.warn(`${logPrefix} Path exists but is not a directory: '${targetDir}'`);
+               return res.status(400).json({ error: 'Path is not a directory' });
+           }
+           console.log(`${logPrefix} Target directory exists and is a directory.`);
+       } catch (error) {
+           if (error.code === 'ENOENT') {
+               console.log(`${logPrefix} Target directory not found: '${targetDir}'. Requested pathname was '${requestedPathname}'. Returning empty lists.`);
+               return res.json({ dirs: [], files: [] }); // Return empty lists if directory doesn't exist
+           } else {
+               // Other unexpected error checking existence
+               console.error(`${logPrefix} Error checking target directory '${targetDir}':`, error);
+               throw error; // Re-throw other errors
+           }
+       }
+
+       // Read directory contents
+       console.log(`${logPrefix} Reading contents of: '${targetDir}'`);
        const entries = await fs.readdir(targetDir, { withFileTypes: true });
-       const files = entries.filter(e => e.isFile() || e.isSymbolicLink()).map(e => e.name);
-       const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
-       
-       // Sort directories and files alphabetically
-       dirs.sort();
-       files.sort();
+       console.log(`${logPrefix} Found ${entries.length} entries.`);
 
-       console.log(`[API /list] Found Dirs: [${dirs.join(', ')}], Files: [${files.join(', ')}]`);
+       // Separate files and directories
+       const files = [];
+       const dirs = [];
+       entries.forEach(e => {
+           // Follow symlinks for directory check? Maybe not needed here.
+           if (e.isDirectory()) {
+               dirs.push(e.name);
+           } else if (e.isFile() || e.isSymbolicLink()) { // Treat symlinks as files for listing purposes
+               files.push(e.name);
+           }
+           // Ignore other types (sockets, block devices etc.)
+       });
+
+       // Sort directories and files alphabetically
+       dirs.sort((a, b) => a.localeCompare(b));
+       files.sort((a, b) => a.localeCompare(b));
+
+       console.log(`${logPrefix} Filtered - Dirs: [${dirs.join(', ')}], Files: [${files.join(', ')}]`);
        res.json({ dirs, files }); // Return object with both lists
 
    } catch (error) {
-       console.error('[API /list] Error:', error);
-       if (error.code === 'ENOENT') {
-           // Correctly handle directory not found - Log the directory requested in the query
-           console.log(`[API /list] Directory not found: '${req.query.dir || ''}'. Returning empty lists.`); 
-           res.json({ dirs: [], files: [] }); 
-       } else {
-           res.status(500).json({ error: error.message });
-       }
+       // Ensure generic error logging includes prefix
+       console.error(`${logPrefix} Unexpected Error:`, error);
+       // Avoid sending detailed error messages to client unless intended
+       res.status(500).json({ error: 'Internal server error while listing directory.' });
    }
 });
 
