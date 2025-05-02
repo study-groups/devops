@@ -1,9 +1,10 @@
 import express from 'express';
 import path from 'path';
 import { createRequire } from 'module'; // Import createRequire
+import session from 'express-session'; // Assuming session is used here for login
 
 // Import utilities and middleware using ESM
-import { validateUser, getUserSalt, loadUsers, hashPassword } from '../utils/userUtils.js';
+import { validateUser, getUserSalt, loadUsers, hashPassword } from '../../pdata/userUtils.js'; // Updated path
 import { authMiddleware } from '../middleware/auth.js';
 import { env, uploadsDirectory, imagesDirectory } from '../config.js';
 
@@ -41,7 +42,7 @@ router.get('/salt', (req, res) => {
     res.json({ salt });
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const logPrefix = `[AUTH /login] User='${username}' -`; // Add prefix for easier filtering
     console.log(`${logPrefix} Received login request.`);
@@ -110,13 +111,20 @@ router.post('/login', (req, res) => {
             console.log(`${logPrefix} New Session ID after regenerate: ${req.session.id}`);
             console.log(`${logPrefix} Session data set. Preparing success response.`);
 
-            res.json({
-                 success: true,
-                 user: {
-                     username: username,
-                     role: userRole
-                 }
-             });
+            req.session.save(err => {
+                if (err) {
+                    console.error(`${logPrefix} ERROR: Session save error:`, err);
+                    return res.status(500).json({ error: 'Login failed (session error)' });
+                }
+                console.log(`${logPrefix} Session saved for user '${username}'. Session ID: ${req.session.id}`);
+                res.json({
+                     success: true,
+                     user: {
+                         username: username,
+                         role: userRole
+                     }
+                 });
+            });
         });
 
     } catch (error) {

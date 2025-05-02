@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
-import { hashPassword } from './utils/userUtils.js';
+import { hashPassword } from '../pdata/userUtils.js';
 import { authMiddleware } from './middleware/auth.js';
 import imageRouter from './routes/images.js';
 import authRoutes from './routes/auth.js'; // Assuming default export
@@ -18,40 +18,31 @@ import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
-import { PData } from './utils/pdata.js'; // <--- Import PData
+import { PData } from '#pdata/pdata.js'; // Use the alias
 import pdataRouter from './routes/pdataRoutes.js'; // <--- Import the new router
 
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- PData Initialization ---
-// Determine PD_DIR (PData config) and DATA_DIR (App data)
-// Using MD_DIR from env for DATA_DIR as planned for devPages
-const PD_DIR = process.env.PD_DIR || path.resolve(__dirname, '../../pd'); // Default to 'pd' in project root
-const DATA_DIR = process.env.MD_DIR || path.resolve(__dirname, '../../md'); // Default to 'md' in project root
+// --- At the top with other configurations ---
+// Early access to environment variables for static routes
+const pdDir = process.env.PD_DIR;
+const dataDir = process.env.MD_DIR; // Define dataDir early based on env var
 
-console.log(`[SERVER] Initializing PData with PD_DIR: ${PD_DIR}`);
-console.log(`[SERVER] PData dataDir (from MD_DIR env): ${DATA_DIR}`);
-
-// Ensure directories exist before instantiating PData (optional but recommended)
-// Consider creating them if they don't exist and defaults are used.
-// await fs.mkdir(PD_DIR, { recursive: true });
-// await fs.mkdir(DATA_DIR, { recursive: true });
-
-// Instantiate PData - will throw error on startup if roles.csv is missing/bad
-let pdataInstance;
-try {
-    pdataInstance = new PData(PD_DIR, DATA_DIR);
-    console.log("[SERVER] PData instance created successfully.");
-} catch (error) {
-     console.error(`[SERVER FATAL] Failed to initialize PData: ${error.message}. Server cannot start.`);
-     process.exit(1); // Exit if PData fails to initialize
+if (!pdDir) {
+    console.error("[SERVER FATAL] PD_DIR environment variable is not set.");
+    process.exit(1);
 }
-// --- End PData Initialization ---
+if (!dataDir) {
+    console.error("[SERVER FATAL] MD_DIR environment variable is not set.");
+    process.exit(1);
+}
 
-// const FileStoreSession = FileStore(session); // <<< Remove this line
+console.log(`[SERVER] Using PD_DIR: ${pdDir}`);
+console.log(`[SERVER] Using MD_DIR: ${dataDir}`);
 
+// Continue with app setup and static routes which can now use dataDir
 const app = express();
 
 // Logging middleware
@@ -59,7 +50,7 @@ app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
   // Make pdata instance available on request object (alternative to global)
   req.pdata = pdataInstance;
-  req.dataDir = DATA_DIR; // Also make dataDir easily available if needed
+  req.dataDir = dataDir; // Also make dataDir easily available if needed
   next();
 });
 
@@ -115,7 +106,7 @@ const staticOptions = { followSymlinks: true };
 // Serve static files (using derived __dirname and imported env)
 app.use('/client', express.static(path.join(__dirname, '../client'), staticOptions));
 // Use env.MD_DIR from imported config OR our DATA_DIR
-app.use('/images', express.static(path.join(DATA_DIR, 'images'), staticOptions));
+app.use('/images', express.static(path.join(dataDir, 'images'), staticOptions));
 app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico'), staticOptions));
 app.use(express.static(path.join(__dirname, '..'), staticOptions)); // Serve root static files (like SVGs)
@@ -124,6 +115,39 @@ app.use(express.static(path.join(__dirname, '..'), staticOptions)); // Serve roo
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
 });
+
+// --- PData Initialization (later in the file) ---
+let pdataInstance;
+try {
+    // Initialize PData with already-verified pdDir and dataDir
+    // This requires a slight modification to the PData constructor
+    pdataInstance = new PData(pdDir, dataDir); // Pass both directories explicitly
+    console.log("[SERVER] PData instance created successfully.");
+} catch (error) {
+    console.error("[SERVER] FATAL ERROR: Failed to initialize PData:", error.message);
+    process.exit(1);
+}
+
+// const FileStoreSession = FileStore(session); // <<< Remove this line
+
+// Middleware to attach PData instance to requests
+app.use((req, res, next) => {
+    req.pdata = pdataInstance; // Attach the instance
+    next();
+});
+
+// Authentication middleware (ensure this runs AFTER session and PData attachment)
+// Apply auth middleware selectively or globally as needed
+// app.use('/api', authMiddleware); // Example: protect all /api routes
+
+// --- Routes ---
+// Import routers ONCE
+// import filesRouter from './routes/files.js'; // <<< REMOVE THIS ONE
+import authRouter from './routes/auth.js'; // Import auth routes
+
+// Use routers
+app.use('/api/files', authMiddleware, filesRouter); // Protect file routes
+app.use('/api/auth', authRouter); // Auth routes (login/logout) might not need authMiddleware themselves
 
 // --- Async Function to Load Routes and Start Server ---
 async function startServer() {
@@ -148,7 +172,7 @@ async function startServer() {
       console.log(`[SERVER] Redirecting ${req.method} ${req.url} to ${newUrl}`);
       req.originalUrl = req.originalUrl.replace('/api/markdown', '/api/files');
       req.url = newUrl;
-      filesRouter(req, res, next);
+      next('route');
     });
     // Use the imported router directly
     app.use('/api/images', express.json(), authMiddleware, imageRouter);
@@ -190,7 +214,7 @@ async function startServer() {
         if (!name) return res.status(400).json({ error: 'File name is required' });
 
         // Use env.MD_DIR from imported config
-        const baseDir = DATA_DIR;
+        const baseDir = dataDir;
         const safeName = path.normalize(name).replace(/^(\.\.(\/|\\|$))+/, '');
         const safeDir = dir ? path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '') : '';
          if (safeName.includes('..') || safeDir.includes('..')) {
@@ -223,7 +247,7 @@ async function startServer() {
         console.log(`[SERVER /api/files/content] Content request for ${dir}/${filename}`);
 
         // Use env.MD_DIR from imported config
-        const baseDir = DATA_DIR;
+        const baseDir = dataDir;
         const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
         const safeFilename = path.normalize(filename).replace(/^(\.\.(\/|\\|$))+/, '');
         if (safeDir.includes('..') || safeFilename.includes('..')) {
@@ -261,7 +285,7 @@ async function startServer() {
         const [, dir, file] = match;
         console.log(`[EMERGENCY SERVER] Detected potential file request: ${dir}/${file}`);
         try {
-          const baseDir = DATA_DIR;
+          const baseDir = dataDir;
           const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
           const safeFile = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, '');
           if (safeDir.includes('..') || safeFile.includes('..')) {
@@ -364,7 +388,7 @@ async function startServer() {
         console.log(`[SERVER] Server running at http://localhost:${port}`);
         // Use env.MD_DIR from imported config
         console.log(`[SERVER] Using MD_DIR: ${env.MD_DIR || 'default'}`);
-        console.log(`[SERVER] Using DATA_DIR: ${DATA_DIR}`);
+        console.log(`[SERVER] Using DATA_DIR: ${dataDir}`);
         console.log('='.repeat(50));
     });
 }
