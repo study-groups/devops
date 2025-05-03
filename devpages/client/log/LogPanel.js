@@ -33,7 +33,7 @@ function logPanelMessage(message, level = 'debug') {
         level === 'warn' ? console.warn : 
         level === 'debug' ? console.debug : // Use console.debug for debug level
         console.log; 
-    logFunc(`[${type}] ${message}`);
+   // logFunc(`[${type}] ${message}`);
     /* // REMOVED Check for window.logMessage to prevent recursion
     if (typeof window.logMessage === 'function') {
         // Assuming window.logMessage takes message, level, type - THIS CAUSED RECURSION
@@ -73,6 +73,11 @@ export class LogPanel {
         // <<< NEW: Store persistent selection states >>>
         this._selectionStateA = null; // { filePath: string, start: number, end: number, text: string }
         this._selectionStateB = null; // { filePath: string, start: number, end: number, text: string }
+
+        // <<< NEW: Constants for render modes >>>
+        this.RENDER_MODE_RAW = 'raw';
+        this.RENDER_MODE_MARKDOWN = 'markdown';
+        this.RENDER_MODE_HTML = 'html';
 
         this.state = {
             height: DEFAULT_LOG_HEIGHT,
@@ -325,158 +330,125 @@ export class LogPanel {
                 const logEntryDiv = event.target.closest('.log-entry');
                 if (!logEntryDiv) return; // Click wasn't inside a log entry
 
-                // --- Helper Function to set content based on MD state (Defined higher up) ---
-                const setContentByMarkdownState = async (entryDiv, isMarkdownActive, animate = false) => {
-                    const textWrapper = entryDiv.querySelector('.log-entry-text-wrapper');
-                    const markdownToggleButton = entryDiv.querySelector('.markdown-toggle-button'); // Query for the button
-                    
-                    if (!textWrapper) {
-                        console.warn('setContentByMarkdownState: Could not find text wrapper for entry.');
-                        return;
-                    }
-
-                    textWrapper.classList.toggle('markdown-rendered', isMarkdownActive);
-                    if (markdownToggleButton) {
-                       markdownToggleButton.classList.toggle('active', isMarkdownActive); 
-                    } // Only toggle button if it exists
-
-                    const coreMessage = entryDiv.dataset.logCoreMessage || '';
-                    const logType = entryDiv.dataset.logType;
-                    const isCurrentlyExpanded = entryDiv.classList.contains('expanded'); // Check current DOM state
-
-                    textWrapper.innerHTML = ''; // Clear previous content
-
-                    // Render MD only if Expanded AND MD Toggle is Active (and not JSON)
-                    if (isCurrentlyExpanded && isMarkdownActive && logType !== 'json') {
-                        // Render Markdown
-                        try {
-                            const result = await renderMarkdown(coreMessage);
-                            textWrapper.innerHTML = result.html;
-                            // Run post-processing AFTER setting innerHTML
-                            await postProcessRender(textWrapper);
-                            logPanelMessage(`Post-processing applied to log entry ${entryDiv.dataset.logIndex}.`, 'debug');
-                        } catch (err) {
-                            const logIndex = entryDiv.dataset.logIndex; // Get index for error message
-                            console.error(`Error rendering markdown or post-processing for log entry ${logIndex}:`, err);
-                            textWrapper.innerHTML = `<pre>Error rendering Markdown/processing content:\n${err}</pre>`;
-                        }
-                    } else {
-                        // Revert to Raw Text (or JSON pre)
-                        const pre = document.createElement('pre');
-                        pre.textContent = coreMessage; // Use coreMessage which is already stringified JSON or raw text
-                        textWrapper.appendChild(pre);
-                    }
-                    // Optional: Add animation class
-                    // if (animate) { ... }
-                };
-
                 // Check if the click was on a button within the entry
                 const clickedButton = event.target.closest('.log-entry-button');
 
-                if (clickedButton) {
-                    // --- Clicked a Button (Copy/Paste/etc.) ---
-                    console.log('[LogPanel Listener] Clicked a button inside log entry.');
-                    
+                if (clickedButton && !clickedButton.dataset.action?.startsWith('toggle')) { // Ignore toggle buttons here
+                    // --- Clicked a Functional Button (Copy/Paste/etc.) ---
+                    logPanelMessage('[LogPanel Listener] Clicked a functional button inside log entry.');
+
                     // Handle the original copy/paste button logic
                     if (clickedButton.classList.contains('original-button') || clickedButton.classList.contains('toolbar-button')) {
                         const logText = clickedButton.dataset.logText; // Get text from button's data attr
                         if (logText === undefined) {
                            console.warn('Copy/Paste button clicked, but logText data attribute is missing!');
-                           return; 
+                           return;
                         }
 
                         if (event.shiftKey) {
                             // Shift+Click: Paste to Editor
-                            console.log('[LogPanel Listener] Shift+Click detected. Triggering pasteLogEntry...');
-                            triggerActions.pasteLogEntry({ logText: logText }, clickedButton); 
+                            logPanelMessage('[LogPanel Listener] Shift+Click detected. Triggering pasteLogEntry...');
+                            triggerActions.pasteLogEntry({ logText: logText }, clickedButton);
                         } else {
                             // Normal Click: Copy to Clipboard
-                            console.log('[LogPanel Listener] Normal click detected. Triggering copyLogEntryToClipboard...');
+                            logPanelMessage('[LogPanel Listener] Normal click detected. Triggering copyLogEntryToClipboard...');
                             triggerActions.copyLogEntryToClipboard({ logText: logText }, clickedButton);
                         }
-                    } 
-                    // <<< Add handling for other button types (like paste-over) here if re-introduced >>>
-                    
-                    // Prevent the click from also toggling the expand/collapse state
-                    event.stopPropagation(); 
+                    }
+                    // <<< Add handling for other button types here if needed >>>
 
-                } else {
+                    // Prevent the click from also toggling the expand/collapse state or other button actions
+                    event.stopPropagation();
+
+                } else if (!clickedButton) { // Only toggle expand/collapse if clicking text area, not buttons
                     // --- Clicked the Log Entry Text Area (Toggle Expand/Collapse) ---
-                    console.log('[LogPanel Listener] Clicked log entry text area (or whitespace).');
-                    logEntryDiv.classList.toggle('expanded');
-                    const isExpanded = logEntryDiv.classList.contains('expanded');
-                    const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
-                    
+                    logPanelMessage('[LogPanel Listener] Clicked log entry text area (or whitespace). Toggling expand.');
+                    const isCurrentlyExpanded = logEntryDiv.classList.contains('expanded');
+                    const shouldExpand = !isCurrentlyExpanded;
+
+                    logEntryDiv.classList.toggle('expanded', shouldExpand);
+
                     // Move expanded element to top
-                    if (isExpanded && this.logElement) {
+                    if (shouldExpand && this.logElement) {
                         this.logElement.prepend(logEntryDiv);
                     }
 
-                    if (isExpanded && expandedToolbar) {
-                        console.log('[LogPanel Listener] Expanding entry, building toolbar.');
-                        // --- Build the Expanded Toolbar --- 
-                        expandedToolbar.innerHTML = ''; // Clear previous content
-                        const { logIndex, logTimestamp, logType, logSubtype, logCoreMessage, rawOriginalMessage } = logEntryDiv.dataset;
-                        const createToken = (text, className) => {
-                            const token = document.createElement('span');
-                            token.className = `log-token ${className}`; 
-                            token.textContent = text;
-                            return token;
-                        };
-                        if (logIndex !== undefined) expandedToolbar.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
-                        if (logTimestamp) expandedToolbar.appendChild(createToken(logTimestamp, 'log-token-time'));
-                        if (logType) expandedToolbar.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
-                        if (logSubtype) expandedToolbar.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
-                        
-                        const markdownToggleButton = document.createElement('button');
-                        markdownToggleButton.textContent = 'MD';
-                        markdownToggleButton.className = 'log-entry-button markdown-toggle-button';
-                        markdownToggleButton.title = 'Toggle Markdown Rendering';
-                        markdownToggleButton.dataset.action = 'toggleMarkdownRender'; 
-                        expandedToolbar.appendChild(markdownToggleButton);
+                    if (shouldExpand) {
+                        console.log('[LogPanel Listener] Expanding entry, building toolbar and setting initial content.');
+                        const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+                        // --- Build the Expanded Toolbar (if not already built or needs refresh) ---
+                        if (expandedToolbar && !expandedToolbar.dataset.toolbarBuilt) { // Check a flag
+                            expandedToolbar.innerHTML = ''; // Clear previous content
+                            const { logIndex, logTimestamp, logType, logSubtype, rawOriginalMessage } = logEntryDiv.dataset;
+                            const createToken = (text, className) => {
+                                const token = document.createElement('span');
+                                token.className = `log-token ${className}`;
+                                token.textContent = text;
+                                return token;
+                            };
+                            if (logIndex !== undefined) expandedToolbar.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
+                            if (logTimestamp) expandedToolbar.appendChild(createToken(logTimestamp, 'log-token-time'));
+                            if (logType) expandedToolbar.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
+                            if (logSubtype) expandedToolbar.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
 
-                        const toolbarCopyButton = document.createElement('button');
-                        toolbarCopyButton.innerHTML = '&#128203;'; 
-                        toolbarCopyButton.className = 'log-entry-button toolbar-button'; 
-                        toolbarCopyButton.title = 'Copy log entry text (Shift+Click to Paste)'; 
-                        toolbarCopyButton.dataset.logText = rawOriginalMessage || ''; 
-                        expandedToolbar.appendChild(toolbarCopyButton);
+                            // --- MD Toggle Button ---
+                            const markdownToggleButton = document.createElement('button');
+                            markdownToggleButton.textContent = 'MD';
+                            markdownToggleButton.className = 'log-entry-button markdown-toggle-button';
+                            markdownToggleButton.title = 'Toggle Markdown Rendering';
+                            markdownToggleButton.dataset.action = 'toggleMarkdownRender'; // Used for internal listener
+                            expandedToolbar.appendChild(markdownToggleButton);
 
-                        // --- Set Initial Content and Button State on Expand ---
-                        const isMarkdownRenderedInitially = logEntryDiv.dataset.markdownRendered === 'true';
-                        (async () => {
-                           // Pass logEntryDiv to the helper function
-                           await setContentByMarkdownState(logEntryDiv, isMarkdownRenderedInitially, false);
-                        })();
-                         
-                        // --- Add Click Listener for MD Toggle --- 
-                        markdownToggleButton.addEventListener('click', async (mdEvent) => {
-                            mdEvent.stopPropagation(); 
-                            const currentState = logEntryDiv.dataset.markdownRendered === 'true';
-                            const newState = !currentState;
-                            logEntryDiv.dataset.markdownRendered = newState; // Update stored state
-                            
-                            // Pass logEntryDiv to the helper function
-                            await setContentByMarkdownState(logEntryDiv, newState, true);
-                        });
+                            // --- HTML Toggle Button ---
+                            const htmlToggleButton = document.createElement('button');
+                            htmlToggleButton.textContent = 'HTML';
+                            htmlToggleButton.className = 'log-entry-button html-toggle-button';
+                            htmlToggleButton.title = 'Toggle HTML Page Rendering (iframe)';
+                            htmlToggleButton.dataset.action = 'toggleHtmlRender'; // Used for internal listener
+                            expandedToolbar.appendChild(htmlToggleButton);
+                            // --- End HTML Toggle Button ---
 
-                     } else if (!isExpanded) { // Removed expandedToolbar check here, we always want to reset content on collapse
-                        console.log('[LogPanel Listener] Collapsing entry.');
-                        // Reset the stored state attribute on collapse
-                        logEntryDiv.dataset.markdownRendered = 'false'; 
+                            const toolbarCopyButton = document.createElement('button');
+                            toolbarCopyButton.innerHTML = '&#128203;';
+                            toolbarCopyButton.className = 'log-entry-button toolbar-button';
+                            toolbarCopyButton.title = 'Copy log entry text (Shift+Click to Paste)';
+                            toolbarCopyButton.dataset.logText = rawOriginalMessage || '';
+                            expandedToolbar.appendChild(toolbarCopyButton);
 
-                        // Explicitly revert content to raw text when collapsing
-                        (async () => {
-                           // Pass logEntryDiv to the helper function
-                           await setContentByMarkdownState(logEntryDiv, false, false);
-                        })();
+                            expandedToolbar.dataset.toolbarBuilt = 'true'; // Mark toolbar as built
+
+                            // --- Add Internal Click Listeners for Toggle Buttons ---
+                            markdownToggleButton.addEventListener('click', (mdEvent) => {
+                                mdEvent.stopPropagation();
+                                const currentMode = logEntryDiv.dataset.renderMode;
+                                const newMode = currentMode === this.RENDER_MODE_MARKDOWN ? this.RENDER_MODE_RAW : this.RENDER_MODE_MARKDOWN;
+                                this._updateLogEntryDisplay(logEntryDiv, newMode);
+                            });
+
+                            htmlToggleButton.addEventListener('click', (htmlEvent) => {
+                                htmlEvent.stopPropagation();
+                                const currentMode = logEntryDiv.dataset.renderMode;
+                                const newMode = currentMode === this.RENDER_MODE_HTML ? this.RENDER_MODE_RAW : this.RENDER_MODE_HTML;
+                                this._updateLogEntryDisplay(logEntryDiv, newMode);
+                            });
+                             // --- End Internal Click Listeners ---
+                        }
+
+                        // --- Set Initial Content on Expand ---
+                        // Default to raw unless a previous state was stored (implement if needed)
+                        this._updateLogEntryDisplay(logEntryDiv, this.RENDER_MODE_RAW); // Start with raw view
+
+                     } else if (!shouldExpand) { // Collapsing
+                        logPanelMessage('[LogPanel Listener] Collapsing entry.');
+                        // Reset content to raw text when collapsing
+                        this._updateLogEntryDisplay(logEntryDiv, this.RENDER_MODE_RAW, true); // Pass true to force raw state reset
                      }
-                     
-                    // Optional: Adjust scroll if expanding makes it go off-screen
+
+                    // Optional: Adjust scroll
                     // logEntryDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
-            console.log('[LogPanel] Updated delegated click listener on #log element for expand/copy/paste.');
+            console.log('[LogPanel] Updated delegated click listener on #log element for expand/copy/paste/render toggle.');
         } else {
             console.warn('[LogPanel] #log element not found, cannot attach delegated listener.');
         }
@@ -896,4 +868,87 @@ export class LogPanel {
         }
     }
     // --- END ADDED ---
+
+    /**
+     * NEW: Updates the display content and button states for an expanded log entry.
+     * @param {HTMLElement} logEntryDiv The .log-entry element.
+     * @param {string} requestedMode 'raw', 'markdown', or 'html'.
+     * @param {boolean} [forceRawState=false] If true, forces the state to raw (used on collapse).
+     */
+    async _updateLogEntryDisplay(logEntryDiv, requestedMode, forceRawState = false) {
+        if (!logEntryDiv || !logEntryDiv.classList.contains('expanded') && !forceRawState) {
+             // Only update if expanded or forced (on collapse)
+             // If collapsing, force raw mode and clear button states etc.
+             if(forceRawState) requestedMode = this.RENDER_MODE_RAW;
+             else return; 
+        }
+
+        const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
+        const markdownToggleButton = logEntryDiv.querySelector('.markdown-toggle-button');
+        const htmlToggleButton = logEntryDiv.querySelector('.html-toggle-button'); // Get HTML button
+        const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+
+        if (!textWrapper || !expandedToolbar) { // Need toolbar elements too now
+            console.warn('_updateLogEntryDisplay: Could not find required elements (wrapper or toolbar) for entry.');
+            return;
+        }
+
+        const coreMessage = logEntryDiv.dataset.logCoreMessage || '';
+        const logType = logEntryDiv.dataset.logType;
+        const logIndex = logEntryDiv.dataset.logIndex; // For logging
+
+        // Determine the final render mode and update dataset
+        const finalMode = forceRawState ? this.RENDER_MODE_RAW : requestedMode;
+        logEntryDiv.dataset.renderMode = finalMode; // Store current mode
+        logPanelMessage(`Updating entry ${logIndex} display to: ${finalMode}`, 'debug');
+
+
+        // Update button active states
+        if (markdownToggleButton) markdownToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_MARKDOWN);
+        if (htmlToggleButton) htmlToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_HTML);
+
+        // Update wrapper class (optional, for styling)
+        textWrapper.classList.toggle('markdown-rendered', finalMode === this.RENDER_MODE_MARKDOWN);
+        textWrapper.classList.toggle('html-rendered', finalMode === this.RENDER_MODE_HTML); // Add class for HTML view
+
+        textWrapper.innerHTML = ''; // Clear previous content
+
+        try {
+            if (finalMode === this.RENDER_MODE_MARKDOWN && logType !== 'json') {
+                // --- Render Markdown ---
+                logPanelMessage(`Rendering Markdown for entry ${logIndex}...`, 'debug');
+                const result = await renderMarkdown(coreMessage);
+                textWrapper.innerHTML = result.html;
+                await postProcessRender(textWrapper); // Run post-processing
+                logPanelMessage(`Markdown rendered and post-processed for entry ${logIndex}.`, 'debug');
+
+            } else if (finalMode === this.RENDER_MODE_HTML) {
+                // --- Render HTML in iframe ---
+                logPanelMessage(`Rendering HTML in iframe for entry ${logIndex}...`, 'debug');
+                const iframe = document.createElement('iframe');
+                iframe.className = 'log-entry-html-iframe'; // Add class for styling
+                // Basic styles - consider moving to CSS
+                iframe.style.width = '100%';
+                iframe.style.height = '300px'; // Default height, maybe make adjustable later
+                iframe.style.border = '1px solid #ccc';
+                iframe.style.backgroundColor = '#fff'; // Ensure background for contrast
+
+                // Use srcdoc to directly set the iframe's content
+                iframe.srcdoc = coreMessage;
+
+                textWrapper.appendChild(iframe);
+                 logPanelMessage(`Iframe created and appended for entry ${logIndex}.`, 'debug');
+
+            } else { // Default to Raw/Preformatted (finalMode === this.RENDER_MODE_RAW or JSON type)
+                 // --- Render Raw Text (or JSON) ---
+                 logPanelMessage(`Rendering raw text/pre for entry ${logIndex}...`, 'debug');
+                 const pre = document.createElement('pre');
+                 pre.textContent = coreMessage; // Use coreMessage (already stringified JSON or raw text)
+                 textWrapper.appendChild(pre);
+            }
+        } catch (err) {
+             console.error(`Error rendering content for log entry ${logIndex} (mode: ${finalMode}):`, err);
+             textWrapper.innerHTML = `<pre>Error rendering content (mode: ${finalMode}):\n${err}</pre>`;
+        }
+    }
 } 

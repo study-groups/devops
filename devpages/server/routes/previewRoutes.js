@@ -2,7 +2,6 @@ import express from 'express';
 import { Router } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
-import playwright from 'playwright';
 import { fileURLToPath } from 'url';
 
 // Import config with .js extension
@@ -102,58 +101,6 @@ router.get('/preview-direct/:slug', (req, res) => {
       console.error(`[SERVER] Error reading viewer.html: ${err.message}`);
       return res.status(500).send('Error loading preview page');
   });
-});
-
-// API endpoint to generate static HTML using Playwright
-router.get('/api/preview/static-html', async (req, res) => {
-  console.log(`[SERVER] Static HTML generation request received.`);
-  let browser = null;
-  try {
-    // Launch the browser (Chromium is often a good default)
-    browser = await playwright.chromium.launch();
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    // Construct the base URL using the configured port
-    // Ensure process.env.NODE_ENV is checked for proper http/https handling if needed
-    const baseUrl = `http://localhost:${port}`;
-    const targetUrl = `${baseUrl}/`; // Target the root page
-
-    console.log(`[SERVER] Navigating to ${targetUrl} for HTML capture...`);
-
-    // Navigate to the page and wait for it to be fully loaded
-    await page.goto(targetUrl, { waitUntil: 'networkidle' }); 
-    // 'networkidle' waits until there are no network connections for 500 ms.
-    // This might need adjustment based on how your SPA loads data.
-
-    console.log(`[SERVER] Page loaded, extracting HTML...`);
-
-    // Get the full HTML content of the page
-    const htmlContent = await page.content();
-
-    console.log(`[SERVER] HTML extracted successfully.`);
-
-    // Set headers for file download
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', 'attachment; filename="preview.html"');
-
-    // Send the HTML content
-    res.send(htmlContent);
-
-  } catch (error) {
-    console.error(`[SERVER] Error generating static HTML: ${error.message}`);
-    console.error(error.stack); // Log the full stack trace
-    res.status(500).json({ 
-        error: 'Failed to generate static HTML preview.',
-        details: error.message 
-    });
-  } finally {
-    // Ensure the browser is closed even if an error occurs
-    if (browser) {
-      console.log(`[SERVER] Closing Playwright browser.`);
-      await browser.close();
-    }
-  }
 });
 
 // API endpoint to fetch preview data - useful for cross-device viewing
@@ -297,6 +244,153 @@ router.get('/preview-fallback', async (req, res) => {
   
   // Serve the viewer page
   res.sendFile(path.resolve(__dirname, '../../client/preview/viewer.html'));
+});
+
+// List of essential CSS files relative to the project root
+// Adjust these paths based on your actual project structure!
+const essentialCssFiles = [
+    'client/output.css', // Tailwind
+    // Example path if KaTeX installed via npm and served directly or copied to public
+     'client/vendor/katex/katex.min.css', // Assuming you might copy it here? Adjust path as needed.
+    // Or if served from node_modules (ensure your server setup allows this)
+    // 'node_modules/katex/dist/katex.min.css',
+    // Add paths to highlight.js themes or other preview-specific CSS here
+    // 'client/vendor/highlight/styles/github-dark.css',
+    // 'client/css/markdown-preview-theme.css',
+];
+
+async function readCssFile(filePath) {
+    try {
+        // Resolve relative to project root OR handle node_modules path specifically
+        let absolutePath;
+        if (filePath.startsWith('node_modules/')) {
+             // Special handling if accessing node_modules directly
+             absolutePath = path.resolve(__dirname, filePath);
+             // Make sure your server can actually serve/read from node_modules if using this path
+        } else {
+             // Assume paths relative to project root (like client/, server/, etc.)
+            absolutePath = path.resolve(__dirname, filePath);
+        }
+
+        logServer(`Reading CSS file: ${absolutePath}`);
+        let content = await fs.readFile(absolutePath, 'utf-8');
+
+        // Special handling for KaTeX font paths if needed
+        if (filePath.includes('katex.min.css')) {
+             // Base path calculation needs care depending on how it's served
+             // If served from /client/vendor/katex/, the base would be /client/vendor/katex/fonts/
+             const cssWebDir = path.dirname('/' + filePath.replace(/\\/g, '/')); // Get web path directory
+             const fontBase = `${cssWebDir}/fonts/`;
+             logServer(`Adjusting KaTeX font paths relative to web path: ${fontBase}`);
+             // Ensure replacement target is specific enough
+             content = content.replace(/url\(['"]?fonts\//g, `url('${fontBase}`); // Use single quotes for safety
+        }
+
+        return { source: filePath, content: content };
+    } catch (error) {
+        logServer(`Error reading CSS file ${filePath}: ${error.message}`, 'error');
+        return { source: filePath, content: `/* CSS File Not Found/Error: ${filePath} - ${error.message} */`, error: true };
+    }
+}
+
+// Helper for logging server-side messages
+function logServer(message, level = 'info') {
+    const logFunc = level === 'error' ? console.error : console.log;
+    logFunc(`[PREVIEW_API] ${message}`);
+}
+
+router.post('/api/preview/generate-static', express.json({ limit: '10mb' }), async (req, res) => { // Increased limit for HTML payload
+    logServer('Received request for POST /api/preview/generate-static');
+    try {
+        const { filePath, markdownSource, renderedHtml } = req.body;
+
+        if (!renderedHtml) {
+            return res.status(400).json({ error: 'Missing required field: renderedHtml' });
+        }
+
+        logServer(`Generating static HTML for path: ${filePath || 'N/A'}`);
+
+        // --- Determine Filename Info ---
+        let baseFilename = 'static-preview';
+        let directory = '.';
+        if (filePath) {
+            // Ensure filePath is treated as a string before calling path methods
+            const safeFilePath = String(filePath);
+            baseFilename = path.basename(safeFilePath);
+             // Handle case where filePath might just be a filename with no directory
+             directory = path.dirname(safeFilePath) === '.' && !safeFilePath.includes('/') && !safeFilePath.includes('\\') ? '.' : path.dirname(safeFilePath);
+        }
+        const generationTime = new Date().toISOString();
+
+        // --- Read Essential CSS Files Concurrently ---
+        logServer(`Reading ${essentialCssFiles.length} essential CSS files...`);
+        const cssReadPromises = essentialCssFiles.map(readCssFile);
+        const cssResults = await Promise.all(cssReadPromises);
+
+        // --- Combine CSS ---
+        let combinedCSS = '';
+        let tailwindCSS = ''; // Keep Tailwind separate to ensure it's last
+        cssResults.forEach(result => {
+             // Append error comments or actual content
+             if (result.source.includes('output.css') && !result.error) {
+                  tailwindCSS = `\n/* Tailwind Styles (${result.source}) */\n${result.content}\n`;
+             } else {
+                  // Include error comments in the output for debugging
+                  combinedCSS += `\n/* Styles from ${result.source} ${result.error ? '(ERROR)' : ''} */\n${result.content}\n`;
+             }
+        });
+        combinedCSS += tailwindCSS; // Append Tailwind last
+        logServer(`Combined CSS length: ${combinedCSS.length}`);
+
+        // --- Construct Metadata ---
+        const yamlFrontMatter = `---
+file: ${baseFilename}
+directory: ${directory}
+generated_at: ${generationTime}
+source_markdown_embedded: ${!!markdownSource && markdownSource !== '<!-- Could not retrieve original Markdown source -->'}
+---`;
+        const metadataContainer = `\n<div id="devpages-metadata-source" style="display:none; height:0; overflow:hidden; position:absolute;">\n<pre># --- DevPages Metadata & Source --- #\n${yamlFrontMatter}\n\n## Original Markdown Source ##\n\n${markdownSource || '<!-- Markdown source not provided -->'}\n</pre>\n</div>`;
+
+
+        // --- Construct Final HTML ---
+        const finalHtmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Static Preview: ${baseFilename}</title>
+  <style id="embedded-styles">
+    /* Basic page styles */
+    body { margin: 20px; padding: 0; font-family: sans-serif; line-height: 1.5; }
+    *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; } /* Basic reset */
+    img, video { max-width: 100%; height: auto; }
+
+    /* --- Embedded Preview Styles --- */
+    ${combinedCSS}
+  </style>
+</head>
+<body>
+  ${renderedHtml}
+  ${metadataContainer}
+</body>
+</html>`;
+
+        logServer(`Final HTML content assembled (length: ${finalHtmlContent.length}). Sending response.`);
+
+        // --- Send Response ---
+        res.setHeader('Content-Type', 'text/html');
+        // Optional: Set download filename on server (though client usually overrides)
+        // res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.html"`);
+        res.send(finalHtmlContent);
+
+    } catch (error) {
+        logServer(`Error in POST /api/preview/generate-static: ${error.message}`, 'error');
+        console.error(error.stack); // Log full stack
+        res.status(500).json({
+            error: 'Failed to generate static HTML preview on server.',
+            details: error.message
+        });
+    }
 });
 
 export default router; 

@@ -1,11 +1,21 @@
 import { appStore } from '/client/appState.js'; // Need access to appStore to call update
 import { ActionTypes } from '/client/messaging/messageQueue.js';
 import { SMART_COPY_B_KEY } from '/client/appState.js';
+import { createStore } from '/client/statekit/statekit.js';
+import { eventBus } from '/client/eventBus.js'; // <<< Import eventBus
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
-const LOG_VISIBLE_KEY = 'logVisible'; 
+const LOG_VISIBLE_KEY = 'logVisible';
 // <<< NEW: Key for persisting plugin state (should match appState.js) >>>
-const PLUGINS_STATE_KEY = 'pluginsEnabledState'; 
+const PLUGINS_STATE_KEY = 'pluginsEnabledState';
+// <<< NEW: Key for persisting preview CSS file list >>>
+const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
+// <<< NEW: Key for persisting root CSS enabled state >>>
+const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css';
+// <<< NEW: Key for persisting settings panel state >>>
+const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state';
+
+// Create the application state store instance
 
 // --- Auth Slice Reducer ---
 function authReducer(state, action) {
@@ -28,7 +38,7 @@ function authReducer(state, action) {
         case ActionTypes.AUTH_LOGIN_SUCCESS:
             nextState = {
                 ...state,
-                isInitializing: false, 
+                isInitializing: false,
                 isAuthenticated: true,
                 user: payload.user,
                 error: null,
@@ -63,33 +73,33 @@ function uiReducer(state, action) {
     let nextState = state;
 
     switch (type) {
-        case ActionTypes.UI_SET_LOADING: 
+        case ActionTypes.UI_SET_LOADING:
             nextState = { ...state, isLoading: !!payload };
             break;
-        
-        case ActionTypes.UI_SET_LOG_VISIBILITY: 
-            const newVisibility = !!payload; 
+
+        case ActionTypes.UI_SET_LOG_VISIBILITY:
+            const newVisibility = !!payload;
             nextState = { ...state, logVisible: newVisibility };
             try {
-                localStorage.setItem(LOG_VISIBLE_KEY, newVisibility); 
+                localStorage.setItem(LOG_VISIBLE_KEY, newVisibility);
                 // console.debug(`[Reducer] Saved logVisible=${newVisibility} to localStorage.`); // Keep or remove debug logs as desired
             } catch (e) { console.error('[Reducer] Failed to save log visibility state to localStorage:', e); }
             break;
-            
-        case ActionTypes.UI_TOGGLE_LOG_VISIBILITY: 
-            const toggledVisibility = !state.logVisible; 
+
+        case ActionTypes.UI_TOGGLE_LOG_VISIBILITY:
+            const toggledVisibility = !state.logVisible;
             nextState = { ...state, logVisible: toggledVisibility };
             try {
-                localStorage.setItem(LOG_VISIBLE_KEY, toggledVisibility); 
+                localStorage.setItem(LOG_VISIBLE_KEY, toggledVisibility);
                 // console.debug(`[Reducer] Saved logVisible=${toggledVisibility} to localStorage via toggle.`);
             } catch (e) { console.error('[Reducer] Failed to save log visibility state to localStorage:', e); }
-            break; 
+            break;
 
         case ActionTypes.UI_SET_VIEW_MODE:
             if (payload && ['editor', 'preview', 'split'].includes(payload.viewMode)) {
                 nextState = { ...state, viewMode: payload.viewMode };
                 // Optionally save to localStorage here too if needed
-                // try { localStorage.setItem('viewMode', payload.viewMode); } catch(e) {}
+                // try { localStorage.setItem('viewMode', payload.viewMode); } catch(e) {}\
             }
             break;
     }
@@ -100,19 +110,35 @@ function uiReducer(state, action) {
 function settingsPanelReducer(state, action) {
     const { type, payload } = action;
     let nextState = state;
+    let shouldPersist = false;
 
     switch(type) {
         case ActionTypes.SETTINGS_PANEL_TOGGLE:
-            nextState = { ...state, enabled: !state.enabled };
-            break;
+            const newPanelState = { ...state, visible: !state.visible };
+            
+            // Save the entire app state (or relevant parts) to localStorage
+            try {
+                const currentAppState = appStore.getState();
+                const stateToSave = {
+                    ...JSON.parse(localStorage.getItem('devpages_app_state') || '{}'),
+                    settingsPanel: newPanelState
+                };
+                localStorage.setItem('devpages_app_state', JSON.stringify(stateToSave));
+            } catch (e) {
+                console.error('[Reducer] Failed to save app state:', e);
+            }
+            
+            return newPanelState;
         case ActionTypes.SETTINGS_PANEL_SET_POSITION:
             if (payload && typeof payload.x === 'number' && typeof payload.y === 'number') {
                 nextState = { ...state, position: payload };
+                shouldPersist = true;
             }
             break;
         case ActionTypes.SETTINGS_PANEL_SET_SIZE:
             if (payload && typeof payload.width === 'number' && typeof payload.height === 'number') {
                 nextState = { ...state, size: payload };
+                shouldPersist = true;
             }
             break;
         case ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION:
@@ -125,16 +151,28 @@ function settingsPanelReducer(state, action) {
                         [payload.sectionId]: !currentSections[payload.sectionId]
                     }
                 };
+                shouldPersist = true;
             }
             break;
-        case ActionTypes.SETTINGS_PANEL_UPDATE_SETTING:
-            if (payload && typeof payload.key === 'string') {
-                nextState = { ...state, [payload.key]: payload.value };
+        case ActionTypes.SETTINGS_PANEL_SET_STATE:
+            if (payload && typeof payload === 'object') {
+                nextState = { ...state, ...payload };
             }
             break;
     }
+
+    // Persist settings panel state
+    if (shouldPersist) {
+        try {
+            localStorage.setItem(SETTINGS_PANEL_STATE_KEY, JSON.stringify(nextState));
+        } catch (e) {
+            console.error('[Reducer] Failed to save settings panel state:', e);
+        }
+    }
+    
     return nextState;
 }
+
 
 // --- File Slice Reducer (Refactored) ---
 function fileReducer(state, action) {
@@ -248,30 +286,21 @@ function fileReducer(state, action) {
                 currentPathname: payload.pathname, // Expect payload to have the full file pathname
                 isDirectorySelected: false,
                 // We might have the parent listing already in currentListing if navigation was correct
-                // Or fileManager could dispatch FS_LOAD_LISTING_SUCCESS for parent dir here. Let's assume FM handles it.
-                error: null
+                error: null // Clear previous errors on successful load
             };
             break;
         case ActionTypes.FS_LOAD_FILE_ERROR:
-            // Revert selection? Keep path but show error? Let's keep path and show error.
-            nextState = {
-                ...state,
-                isLoading: false,
-                // Keep currentPathname? Maybe revert? Let's keep it for context.
-                // currentPathname: null,
-                isDirectorySelected: false, // Assume file selection failed
-                error: payload.error || `Failed to load file '${payload.pathname}'.`
-            };
+            // Keep current path selection, but indicate error
+            nextState = { ...state, isLoading: false, error: payload.error || 'Failed to load file.' };
             break;
         case ActionTypes.FS_SAVE_FILE_START:
-            // Saving only happens when a file is selected (isDirectorySelected should be false)
-            nextState = { ...state, isSaving: true, isLoading: true, error: null };
+            nextState = { ...state, isSaving: true, error: null };
             break;
         case ActionTypes.FS_SAVE_FILE_SUCCESS:
-            nextState = { ...state, isSaving: false, isLoading: false, error: null };
+            nextState = { ...state, isSaving: false, error: null };
             break;
         case ActionTypes.FS_SAVE_FILE_ERROR:
-            nextState = { ...state, isSaving: false, isLoading: false, error: payload.error || `Failed to save file '${payload.pathname}'.` };
+            nextState = { ...state, isSaving: false, error: payload.error || 'Failed to save file.' };
             break;
         case ActionTypes.FS_CLEAR_ERROR:
             nextState = { ...state, error: null };
@@ -280,123 +309,263 @@ function fileReducer(state, action) {
     return nextState;
 }
 
-// --- Plugins Slice Reducer ---
+
+// --- Plugins Slice Reducer ---\
+// Assumes state structure like { mermaid: { name: 'Mermaid', enabled: true }, ... }
 function pluginsReducer(state, action) {
     const { type, payload } = action;
-    let nextState = state; // Start with current slice state
+    let nextState = state;
 
-    switch(type) {
-        case ActionTypes.PLUGIN_TOGGLE: {
-            const { pluginId, enabled } = payload;
-            // Ensure immutability: create new state objects
-            if (state && state[pluginId]) { // Check if state and pluginId exist
-                const updatedPlugin = {
-                    ...state[pluginId], // Keep existing properties like 'name'
-                    enabled: !!enabled // Ensure boolean
+    switch (type) {
+        case ActionTypes.PLUGIN_TOGGLE:
+            if (payload && state[payload.pluginId]) {
+                const updatedPluginState = {
+                    ...state[payload.pluginId], // Keep existing properties like 'name'
+                    enabled: !!payload.enabled // Update enabled status
                 };
-                // Return a new object for the plugins slice
-                const newStateSlice = {
+                nextState = {
                     ...state,
-                    [pluginId]: updatedPlugin
+                    [payload.pluginId]: updatedPluginState
                 };
-                console.log(`[Reducer] Toggled plugin '${pluginId}' to ${enabled}. New plugins state:`, newStateSlice);
 
-                // <<< ADD: Save the updated state slice to localStorage >>>
+                // --- Persist only the enabled status ---
                 try {
-                    localStorage.setItem(PLUGINS_STATE_KEY, JSON.stringify(newStateSlice));
-                    console.log(`[Reducer] Saved updated plugins state to localStorage.`);
+                    const enabledStateToSave = {};
+                    for (const pluginId in nextState) {
+                        if (nextState[pluginId]) {
+                             enabledStateToSave[pluginId] = nextState[pluginId].enabled;
+                        }
+                    }
+                    localStorage.setItem(PLUGINS_STATE_KEY, JSON.stringify(enabledStateToSave));
                 } catch (e) {
-                    console.error('[Reducer] Failed to save plugins state to localStorage:', e);
+                    console.error('[Reducer] Failed to save plugin enabled state to localStorage:', e);
                 }
-                // <<< END ADD >>>
-
-                nextState = newStateSlice; // Update nextState only on successful toggle
-            } else {
-                console.warn(`[Reducer] Attempted to toggle non-existent plugin: ${pluginId}`);
             }
             break;
-        }
-        // Add other plugin-related actions here if needed
     }
-    return nextState; // Return original state slice if action doesn't match
+    return nextState;
 }
 
-// --- Root Reducer ---
-// Combines results from slice reducers
-export function mainReducer(action) {
-    appStore.update(currentState => {
-        // --- Handle SmartCopy Actions Directly (for logging) ---
-        if (action.type === ActionTypes.SET_SMART_COPY_A) {
-            console.log(`[Reducer] Received SET_SMART_COPY_A (payload: ${JSON.stringify(action.payload)}) - State managed in localStorage.`);
-            // No state change needed here
-        } else if (action.type === ActionTypes.SET_SMART_COPY_B) {
-            console.log(`[Reducer] Received SET_SMART_COPY_B (payload: ${JSON.stringify(action.payload)}) - State managed in localStorage.`);
+// --- Settings Slice Reducer ---
+function settingsReducer(state, action) {
+    const { type, payload } = action;
+    const currentSettings = state || {};
+    const currentPreviewState = currentSettings.preview || { cssFiles: [], activeCssFiles: [], enableRootCss: true };
+    let nextState = currentSettings;
+    let nextPreviewState = currentPreviewState;
+    let updated = false;
+    let emitCssUpdateEvent = false; // <<< Flag to trigger event emission
 
-            // Side Effect: Get selection and save to localStorage
-            // Note: Performing side effects like DOM access in a reducer is generally discouraged,
-            // but done here for pedagogical comparison with the direct triggerAction approach.
-            console.log('[Reducer] Performing side effect for SET_SMART_COPY_B...');
-            const editorTextArea = document.querySelector('#editor-container textarea');
-            if (!editorTextArea) {
-                console.error('[Reducer] Cannot set SmartCopy B: Editor textarea not found.');
-            } else {
-                const start = editorTextArea.selectionStart;
-                const end = editorTextArea.selectionEnd;
-                const selectedText = editorTextArea.value.substring(start, end);
+    switch (type) {
+        case ActionTypes.SETTINGS_ADD_PREVIEW_CSS:
+            if (payload && typeof payload === 'string' && payload.trim()) {
+                const currentFiles = currentPreviewState.cssFiles || [];
+                if (!currentFiles.some(item => item.path === payload)) {
+                    const newItem = { path: payload, enabled: true };
+                    nextPreviewState = { ...currentPreviewState, cssFiles: [...currentFiles, newItem] };
+                    updated = true; emitCssUpdateEvent = true; // <<< Mark for event
+                    console.debug(`[Reducer] Added preview CSS config:`, newItem);
+                } else { console.warn(`[Reducer] Attempted to add duplicate CSS config path: "${payload}"`); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_ADD_PREVIEW_CSS:`, payload); }
+            break;
 
-                if (start === end) {
-                     console.warn('[Reducer] Cannot set SmartCopy B: No text selected.');
-                } else {
-                    try {
-                        localStorage.setItem(SMART_COPY_B_KEY, selectedText); // Use imported key
-                        console.log(`[Reducer] SmartCopy Buffer B set via reducer (Length: ${selectedText.length})`);
-                        // TODO: Add user feedback (difficult to trigger directly from reducer)
-                    } catch (e) {
-                        console.error(`[Reducer] Failed to save SmartCopy Buffer B to localStorage: ${e.message}`);
-                        // TODO: How to show error to user from reducer?
+        case ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS:
+            if (payload && typeof payload === 'string') {
+                const currentFiles = currentPreviewState.cssFiles || [];
+                const updatedFiles = currentFiles.filter(item => item.path !== payload);
+                if (updatedFiles.length !== currentFiles.length) {
+                    nextPreviewState = { ...currentPreviewState, cssFiles: updatedFiles };
+                    updated = true; emitCssUpdateEvent = true; // <<< Mark for event
+                    console.debug(`[Reducer] Removed preview CSS config for path: "${payload}"`);
+                } else { console.warn(`[Reducer] Attempted to remove non-existent CSS config path: "${payload}"`); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_REMOVE_PREVIEW_CSS:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED:
+             if (payload && typeof payload === 'string') {
+                const currentFiles = currentPreviewState.cssFiles || [];
+                let found = false;
+                const updatedFiles = currentFiles.map(item => {
+                    if (item.path === payload) {
+                        found = true;
+                        return { ...item, enabled: !item.enabled }; // Flip the enabled flag
                     }
-                }
+                    return item;
+                });
+                if (found) {
+                    nextPreviewState = { ...currentPreviewState, cssFiles: updatedFiles };
+                    updated = true; emitCssUpdateEvent = true; // <<< Mark for event
+                     console.debug(`[Reducer] Toggled enabled state for preview CSS: "${payload}"`);
+                } else { console.warn(`[Reducer] Path not found for toggle: "${payload}"`); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_TOGGLE_ROOT_CSS_ENABLED: // No payload needed
+            const currentEnableRoot = currentPreviewState.enableRootCss ?? true;
+            const newEnableRoot = !currentEnableRoot;
+            nextPreviewState = { ...currentPreviewState, enableRootCss: newEnableRoot };
+            updated = true; emitCssUpdateEvent = true; // <<< Mark for event
+            console.debug(`[Reducer] Toggled enableRootCss to: ${newEnableRoot}`);
+            // Persist this setting
+            try { localStorage.setItem(ENABLE_ROOT_CSS_KEY, newEnableRoot); }
+            catch (e) { console.error('[Reducer] Failed to save enableRootCss to localStorage:', e); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS:
+             if (Array.isArray(payload)) {
+                 if (JSON.stringify(payload.sort()) !== JSON.stringify((currentPreviewState.activeCssFiles || []).sort())) {
+                    nextPreviewState = { ...currentPreviewState, activeCssFiles: payload };
+                    updated = true;
+                    console.debug(`[Reducer] Updated active preview CSS files:`, payload);
+                 }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_ACTIVE_PREVIEW_CSS:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES:
+            if (Array.isArray(payload)) {
+                nextPreviewState = { ...currentPreviewState, cssFiles: payload };
+                updated = true; emitCssUpdateEvent = true;
             }
-            // --- End Side Effect ---
+            break;
+
+        case ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED:
+            if (typeof payload === 'boolean') {
+                nextPreviewState = { ...currentPreviewState, enableRootCss: payload };
+                updated = true; emitCssUpdateEvent = true;
+                try { localStorage.setItem(ENABLE_ROOT_CSS_KEY, payload); }
+                catch (e) { console.error('[Reducer] Failed to save enableRootCss:', e); }
+            }
+            break;
+    }
+
+    // Update the overall settings state if the preview slice changed
+    if (updated) {
+        nextState = { ...currentSettings, preview: nextPreviewState };
+        // Persist the configured cssFiles list if it was modified
+        if (type === ActionTypes.SETTINGS_ADD_PREVIEW_CSS ||
+            type === ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS ||
+            type === ActionTypes.SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED) {
+             try {
+                localStorage.setItem(PREVIEW_CSS_FILES_KEY, JSON.stringify(nextPreviewState.cssFiles));
+                 console.debug(`[Reducer] Saved preview CSS config to localStorage:`, nextPreviewState.cssFiles);
+            } catch (e) { /* handle error */ }
         }
+    }
 
-        const nextAuthState = authReducer(currentState.auth, action);
-        const nextUiState = uiReducer(currentState.ui, action);
-        const nextSettingsPanelState = settingsPanelReducer(currentState.settingsPanel, action);
-        const nextFileState = fileReducer(currentState.file, action);
-        const nextPluginsState = pluginsReducer(currentState.plugins, action);
-
-        // Check if any slice actually changed reference. 
-        // If not, return the original state to prevent unnecessary updates.
-        if (
-            nextAuthState === currentState.auth &&
-            nextUiState === currentState.ui &&
-            nextSettingsPanelState === currentState.settingsPanel &&
-            nextFileState === currentState.file &&
-            nextPluginsState === currentState.plugins
-        ) {
-            // No changes in any slice, bail out early
-            // Check if it was one of our SmartCopy actions (which don't change state)
-            if (action.type === ActionTypes.SET_SMART_COPY_A || action.type === ActionTypes.SET_SMART_COPY_B) {
-                return currentState; // Explicitly return current state for these
-            }
-            // Log only if the action type was potentially relevant but didn't change state
-             const prefixes = ['AUTH_', 'SETTINGS_PANEL_', 'UI_', 'FS_', 'PLUGIN_'];
-             const isPotentiallyHandled = prefixes.some(prefix => action.type?.startsWith(prefix));
-             if (!isPotentiallyHandled && action.type) {
-                 console.warn(`[Reducer] Unhandled action type: ${action.type}`);
+    // --- Emit event AFTER calculating next state, if flagged ---
+    if (emitCssUpdateEvent) {
+        // Use setTimeout to ensure state update completes before event handler runs
+        setTimeout(() => {
+             logMessage('[Reducer] Emitting preview:cssSettingsChanged event.', 'debug', 'SETTINGS');
+             // Check if eventBus exists before emitting
+             if (eventBus && typeof eventBus.emit === 'function') {
+                 eventBus.emit('preview:cssSettingsChanged');
+             } else {
+                 console.error('[Reducer] eventBus not available for emitting preview:cssSettingsChanged');
              }
-            return currentState;
-        }
+         }, 0);
+    }
+    // ----------------------------------------------------------
 
-        // At least one slice changed, construct the new state object
-        return {
-            ...currentState, // Keep other potential top-level state properties
+    // Ensure the settings slice always returns a valid object
+    return nextState || { preview: { cssFiles: [], activeCssFiles: [], enableRootCss: true } };
+}
+
+
+// --- Main Application Reducer ---
+// Combines slice reducers into the main reducer function
+// This function is passed to the messageQueue's setReducer
+export function mainReducer(action) {
+    const currentState = appStore.getState();
+
+    // Call each slice reducer with its relevant part of the state and the action
+    const nextAuthState = authReducer(currentState.auth, action);
+    const nextUiState = uiReducer(currentState.ui, action);
+    const nextSettingsPanelState = settingsPanelReducer(currentState.settingsPanel, action);
+    const nextFileState = fileReducer(currentState.file, action);
+    const nextPluginsState = pluginsReducer(currentState.plugins, action);
+    // Pass the current 'settings' slice to the settingsReducer
+    const nextSettingsState = settingsReducer(currentState.settings, action);
+
+    // --- SmartCopy Reducer Logic (kept simple for now) ---
+    let nextSmartCopyA = currentState.smartCopyA;
+    let nextSmartCopyB = currentState.smartCopyB;
+    if (action.type === ActionTypes.SET_SMART_COPY_A && typeof action.payload === 'string') {
+        nextSmartCopyA = action.payload;
+    }
+    if (action.type === ActionTypes.SET_SMART_COPY_B && typeof action.payload === 'string') {
+        nextSmartCopyB = action.payload;
+         try { localStorage.setItem(SMART_COPY_B_KEY, nextSmartCopyB); } catch (e) { console.error('Failed to save SmartCopyB'); }
+    }
+    // --- End SmartCopy ---
+
+    // Check if any slice state has changed
+    if (
+        nextAuthState !== currentState.auth ||
+        nextUiState !== currentState.ui ||
+        nextSettingsPanelState !== currentState.settingsPanel ||
+        nextFileState !== currentState.file ||
+        nextPluginsState !== currentState.plugins ||
+        nextSettingsState !== currentState.settings ||
+        nextSmartCopyA !== currentState.smartCopyA ||
+        nextSmartCopyB !== currentState.smartCopyB
+    ) {
+        // If changes occurred, construct the new overall state object
+        const nextState = {
+            ...currentState, // Keep other potential top-level keys
             auth: nextAuthState,
             ui: nextUiState,
             settingsPanel: nextSettingsPanelState,
             file: nextFileState,
             plugins: nextPluginsState,
+            settings: nextSettingsState,
+            smartCopyA: nextSmartCopyA,
+            smartCopyB: nextSmartCopyB,
         };
-    });
+        // --- Use appStore.update with an updater function ---
+        appStore.update(currentState => nextState); // <<< CORRECTED METHOD
+    }
+    // If no slice changed, the store remains unchanged
+}
+
+// --- Add at the beginning of the application init (probably in bootstrap.js) ---
+// Or add this to the appStore initialization code
+function loadSavedSettings() {
+    // Load saved settings panel state
+    try {
+        const savedPanelState = localStorage.getItem(SETTINGS_PANEL_STATE_KEY);
+        if (savedPanelState) {
+            const parsedState = JSON.parse(savedPanelState);
+            // Dispatch action to set panel state
+            dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_STATE, payload: parsedState });
+        }
+    } catch (e) {
+        console.error('[Init] Failed to load settings panel state:', e);
+    }
+
+    // Load saved CSS files configuration
+    try {
+        const savedCssFiles = localStorage.getItem(PREVIEW_CSS_FILES_KEY);
+        if (savedCssFiles) {
+            const parsedFiles = JSON.parse(savedCssFiles);
+            // Set saved CSS files
+            dispatch({ type: ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES, payload: parsedFiles });
+        }
+    } catch (e) {
+        console.error('[Init] Failed to load CSS files config:', e);
+    }
+
+    // Load root CSS enabled state (default to true if not found)
+    try {
+        const rootCssEnabled = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
+        if (rootCssEnabled !== null) {
+            const enabled = rootCssEnabled === 'true';
+            dispatch({ type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, payload: enabled });
+        } else {
+            // If not previously saved, set default (true)
+            dispatch({ type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, payload: true });
+        }
+    } catch (e) {
+        console.error('[Init] Failed to load root CSS state:', e);
+    }
 } 

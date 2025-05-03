@@ -65,27 +65,6 @@ function logApi(message, level = 'info') {
 }
 
 /**
- * Adds authentication headers if the user is logged in.
- * Reads directly from appStore.
- * @param {object} options - Existing fetch options.
- * @returns {object} Fetch options potentially augmented with Authorization header.
- */
-function addAuthHeader(options = {}) {
-    const authInfo = appStore.getState().auth; // Use appStore
-    if (authInfo.isLoggedIn && authInfo.user?.username) {
-        options.headers = {
-            ...options.headers,
-            // Assuming Basic Auth based on previous context
-            'Authorization': `Basic ${btoa(`${authInfo.user.username}:${authInfo.hashedPassword || ''}`)}`
-        };
-        logApi('Added Auth header.', 'debug');
-    } else {
-        logApi('No Auth header added (not logged in or missing credentials).', 'debug');
-    }
-    return options;
-}
-
-/**
  * Normalize directory names for API requests
  * @param {string} directory
  * @returns {string}
@@ -106,8 +85,7 @@ export const api = {
         logApi(`Fetching content for ${filename} in ${directory}`);
         const url = endpoints.getFileContent(filename, directory);
         try {
-            // Use addAuthHeader
-            const options = addAuthHeader({ method: 'GET' });
+            const options = { method: 'GET' };
             const response = await globalFetch(url, options);
             if (!response.ok) {
                 throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
@@ -134,11 +112,11 @@ export const api = {
         try {
             // Standardize to use JSON body and auth header
             const body = JSON.stringify({ name: filename, dir: directory, content: content });
-            const options = addAuthHeader({
+            const options = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }, // Use JSON
                 body: body
-            });
+            };
             
             const response = await globalFetch(url, options);
             
@@ -163,14 +141,18 @@ export const api = {
      */
     async fetchDirectoryListing(directory) {
         const normalizedDir = normalizeDirectoryForApi(directory);
-        const includeSymlinks = normalizedDir === 'Community_Files' ? '&symlinks=true' : '';
-        const url = endpoints.listFiles(normalizedDir) + includeSymlinks; // Append symlink param
+        const url = endpoints.listFiles(normalizedDir); // Simpler URL construction
         logApi(`Fetching listing for dir: '${normalizedDir}'`, 'debug');
         try {
-            const options = addAuthHeader({ method: 'GET' });
+            const options = { method: 'GET' };
             const response = await globalFetch(url, options);
             if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                let errorMsg = `Server returned ${response.status}: ${response.statusText}`;
+                try {
+                   const errData = await response.json();
+                   if (errData.error) errorMsg = errData.error;
+                } catch(e) {/* Ignore if body is not json */}
+                throw new Error(errorMsg);
             }
             return await response.json(); // Parse JSON here
         } catch (error) {
@@ -188,7 +170,7 @@ export const api = {
         const url = endpoints.getConfig(directory);
         logApi(`Fetching config for dir: '${directory}'`, 'debug');
         try {
-            const options = addAuthHeader({ method: 'GET' });
+            const options = { method: 'GET' };
             const response = await globalFetch(url, options);
             if (!response.ok) {
                 throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -211,7 +193,7 @@ export const api = {
         const url = `${endpoints.manageLink()}?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
         logApi(`Managing community link: ${action} for ${filename} from ${directory}`);
         try {
-            const options = addAuthHeader({ method: 'POST' }); // Needs auth
+            const options = { method: 'POST' };
             const response = await globalFetch(url, options);
             if (!response.ok) {
                 throw new Error(`Server returned ${response.status}: ${response.statusText}`);
@@ -223,6 +205,56 @@ export const api = {
         }
     },
 
+    /**
+     * Fetch public CSS content via the unprotected route.
+     * @param {string} relativePath - Path relative to PD_DIR root ('styles.css') or PD_DIR/data ('themes/dark.css').
+     * @returns {Promise<{content: string}|null>} CSS content object or null on error/not found.
+     */
+    async fetchPublicCss(relativePath) {
+        logApi(`Fetching public CSS for path: "${relativePath}"`, 'debug');
+        // Construct URL for the new public endpoint
+        const url = `/public/css?path=${encodeURIComponent(relativePath)}`;
+        try {
+            // No auth needed, but still use globalFetch if it adds other headers/handling
+            // NO credentials: 'include' needed here for public route
+            const response = await globalFetch(url, { method: 'GET' });
+
+            logApi(`Response from ${url}: ${response.status} ${response.statusText}`, 'debug');
+
+            if (!response.ok) {
+                // Handle 404 specifically maybe?
+                if (response.status === 404) {
+                    logApi(`Public CSS not found at ${url}`, 'debug');
+                    return null; // Return null for not found
+                }
+                 // Throw error for other non-OK statuses
+                 let errorText = `Server error fetching public CSS: ${response.status} ${response.statusText}`;
+                 try {
+                     const bodyText = await response.text(); // Attempt to get error body
+                     if (bodyText && !bodyText.startsWith('/*')) { // Avoid logging CSS comments as errors
+                          errorText += ` - ${bodyText}`;
+                     }
+                 } catch (e) { /* Ignore error reading body */ }
+                logApi(errorText, 'error');
+                throw new Error(errorText);
+            }
+            const content = await response.text();
+            logApi(`Public CSS content fetched successfully (length: ${content.length}) for path "${relativePath}"`, 'debug');
+            if (content && content.length > 0) {
+                logApi(`Public CSS content fetched successfully, returning object with content property`, 'debug');
+                return { content: content };
+            } else {
+                logApi(`Empty content received for CSS, returning null`, 'warn');
+                return null;
+            }
+        } catch (error) {
+            logApi(`Error in fetchPublicCss for ${relativePath}: ${error.message}`, 'error');
+            // Don't re-throw, return null to indicate failure gracefully
+            return null;
+            // throw error; // Or re-throw if callers expect exceptions
+        }
+    },
+
     // --- Auth --- 
     /**
      * Sends login credentials to the server.
@@ -231,31 +263,53 @@ export const api = {
      * @returns {Promise<Response>} Raw response object
      */
     async login(username, password) {
-        logger(`Attempting login for user: ${username}`); // logger should be defined now
+        logger(`Attempting login for user: ${username}`);
         try {
+            // Make the POST request to the login endpoint
             const response = await globalFetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
+                // Note: No explicit Authorization header needed here,
+                // using username/password in body for server check.
             });
             logger(`[API login] Raw response status: ${response.status}`, 'debug');
-            const data = await response.json();
-            logger(`[API login] Parsed response data: ${JSON.stringify(data)}`, 'debug');
 
+            let data;
+            try {
+                // Attempt to parse response body as JSON
+                data = await response.json();
+                logger(`[API login] Parsed response data: ${JSON.stringify(data)}`, 'debug');
+            } catch (e) {
+                 logger(`[API login] Failed to parse JSON response (Status: ${response.status})`, 'error');
+                 throw new Error(`Login failed: Server returned non-JSON response (Status: ${response.status})`);
+            }
+
+            // Check if the HTTP status code indicates success (e.g., 2xx)
             if (!response.ok) {
                 logger(`[API login] Response not OK (${response.status}). Throwing error.`, 'warning');
-                throw new Error(data.error || `Login failed: ${response.status}`);
+                // Use the error message from the JSON body if available
+                throw new Error(data?.error || `Login failed: ${response.status}`);
             }
-            if (!data.user || !data.user.username || !data.user.role) {
-                logger('[API login] Login success but server response missing nested user object or role!', 'error');
+
+            // --- Validate Success Response Structure ---
+            // Server successfully authenticated and should return { username: "...", role: "..." }
+            if (!data || !data.username || !data.role) {
+                logger('[API login] Login success (status 200) but server response missing username or role!', 'error');
+                // Throw an error to indicate to the calling code (e.g., auth.js)
+                // that the expected data wasn't received, even though the status was OK.
                 throw new Error('Login response from server is incomplete.');
             }
-            logger(`[API login] Login successful. Returning user data: ${JSON.stringify(data.user)}`, 'info');
-            return data.user;
+            // --- End Validation ---
+
+            // If response.ok and data structure is valid, consider login successful
+            logger(`[API login] Login successful. Returning user data: ${JSON.stringify(data)}`, 'info');
+            // Return the user data object { username, role } to the caller (e.g., auth.js)
+            return data;
         } catch (error) {
-            // errorLogger should definitely be defined now
-            errorLogger(`Login failed: ${error.message}`, error); 
-            throw error; 
+            // Log any error that occurred during fetch, parsing, or validation
+            errorLogger(`Login failed: ${error.message}`, error);
+            throw error; // Re-throw the error for the calling code (e.g., auth.js) to handle
         }
     },
    
@@ -266,7 +320,7 @@ export const api = {
     async logout() {
         logApi(`[API] logout called`, 'debug');
         const url = endpoints.logout();
-        const options = addAuthHeader({ method: 'POST' });
+        const options = { method: 'POST' };
         return await globalFetch(url, options);
     },
    
@@ -277,7 +331,7 @@ export const api = {
     async getUserStatus() {
         logApi(`[API] getUserStatus called`, 'debug');
         const url = endpoints.userStatus();
-        const options = addAuthHeader({ method: 'GET' });
+        const options = { method: 'GET' };
         return await globalFetch(url, options);
     },
    
@@ -292,11 +346,11 @@ export const api = {
         logApi(`[API] deleteFile called for: ${directory}/${filename}`, 'debug');
         const url = endpoints.deleteFile();
         const body = JSON.stringify({ name: filename, dir: directory });
-        const options = addAuthHeader({
+        const options = {
             method: 'POST', // Assuming POST based on endpoint def
             headers: { 'Content-Type': 'application/json' },
             body,
-        });
+        };
         try {
             const response = await globalFetch(url, options);
             if (!response.ok) throw new Error(`Failed to delete file: ${response.statusText}`);

@@ -12,6 +12,9 @@ const PLUGINS_STATE_KEY = 'pluginsEnabledState';
 // <<< NEW: Keys for persisting SmartCopy buffers >>>
 export const SMART_COPY_A_KEY = 'smartCopyBufferA';
 export const SMART_COPY_B_KEY = 'smartCopyBufferB';
+// <<< Key for persisting preview CSS file list >>>
+const PREVIEW_CSS_FILES_KEY = 'previewCssFiles';
+const ENABLE_ROOT_CSS_KEY = 'previewEnableRootCss'; // <<< NEW KEY
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
 function getInitialLogVisibility() {
@@ -71,6 +74,44 @@ function getInitialPluginsState() {
     return defaultPluginsState; 
 }
 
+// --- Helper to load configured CSS files (Handles new object structure) ---
+function getInitialPreviewCssFiles() {
+    try {
+        const storedValue = localStorage.getItem(PREVIEW_CSS_FILES_KEY);
+        if (storedValue) {
+            const parsed = JSON.parse(storedValue);
+            // Validate: Is it an array? Does each item have path (string) and enabled (boolean)?
+            if (Array.isArray(parsed) && parsed.every(item =>
+                item && typeof item.path === 'string' && typeof item.enabled === 'boolean'
+            )) {
+                console.log('[AppState] Loaded preview CSS config from localStorage:', parsed);
+                return parsed; // Return validated array of objects
+            } else {
+                 console.warn('[AppState] Invalid preview CSS config structure found in localStorage. Using default empty array.');
+            }
+        }
+    } catch(e) {
+        console.error('[AppState] Error reading preview CSS config from localStorage:', e);
+    }
+    return []; // Default to empty array
+}
+
+// --- Helper to load root CSS enabled state ---
+function getInitialEnableRootCss() {
+    try {
+        const storedValue = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
+        if (storedValue === 'false') { // Only disable if explicitly stored as false
+            console.log('[AppState] Loaded root CSS state (disabled) from localStorage.');
+            return false;
+        }
+    } catch(e) {
+        console.error('[AppState] Error reading root CSS enabled state from localStorage:', e);
+    }
+    // Default to true if not stored, invalid, or error
+    console.log('[AppState] Defaulting root CSS to enabled.');
+    return true;
+}
+
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
@@ -105,7 +146,7 @@ const initialAppState = {
     isSaving: false,            // True during save operation
 
     // --- Simplified Path Representation ---
-    // Represents the currently selected item (file or directory) relative to MD_DIR.
+    // Represents the currently selected item (file or directory) relative to PData's dataDir.
     // Examples: '' (MD_DIR root), 'mike', 'mike/notes', 'mike/notes/readme.md', null (nothing selected/init)
     currentPathname: null,
     isDirectorySelected: false, // True if currentPathname refers to a directory, false if it's a file or null.
@@ -134,7 +175,15 @@ const initialAppState = {
   plugins: {
     // Load initial plugin state using the helper function
     ...getInitialPluginsState()
-  }
+  },
+  settings: {
+      preview: {
+          cssFiles: getInitialPreviewCssFiles(),
+          activeCssFiles: [],
+          enableRootCss: getInitialEnableRootCss() // <<< NEW STATE FIELD
+      }
+  },
+  // ... smartCopy ...
 };
 
 // Create the application state store instance

@@ -5,6 +5,7 @@
 
 import { appStore } from '/client/appState.js'; // Assuming appStore path
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Assuming messageQueue path
+import { CssSettingsPanel } from './CssSettingsPanel.js'; // <<< Import CssSettingsPanel
 
 // Helper for logging specific to this panel
 function logPlugins(message, level = 'info') {
@@ -20,6 +21,8 @@ export class PluginsPanel {
   constructor(parentElement) {
     this.containerElement = null; // The main element for this panel's content
     this.pluginsListElement = null; // UL element to hold plugin items
+    this.cssSettingsContainer = null; // <<< Container for CSS Settings
+    this.cssSettingsPanelInstance = null; // <<< Instance of CssSettingsPanel
     this.stateUnsubscribe = null;
     this.plugins = {}; // Local cache of plugin states
 
@@ -38,17 +41,36 @@ export class PluginsPanel {
   createPanelContent(parentElement) {
     this.containerElement = document.createElement('div');
     this.containerElement.classList.add('plugins-panel-content');
-    this.containerElement.innerHTML = '<h4>Available Plugins</h4>'; // Add a title
 
+    // --- Plugin Toggles Section ---
+    const pluginsSection = document.createElement('div');
+    pluginsSection.classList.add('settings-section', 'plugins-toggles');
+    pluginsSection.innerHTML = '<h4>Available Plugins</h4>'; // Add a title
     this.pluginsListElement = document.createElement('ul');
     this.pluginsListElement.classList.add('plugins-list'); // Use class defined in settings.css
-    this.containerElement.appendChild(this.pluginsListElement);
-
-    // Attach the content to the provided parent (e.g., SettingsPanel's content area)
-    parentElement.appendChild(this.containerElement);
+    pluginsSection.appendChild(this.pluginsListElement);
+    this.containerElement.appendChild(pluginsSection);
 
     // Add event listener for checkbox changes (delegated to the list)
     this.pluginsListElement.addEventListener('change', this.handlePluginToggle.bind(this));
+
+
+    // --- CSS Settings Section ---
+    // Create a dedicated container for CssSettingsPanel to render into
+    this.cssSettingsContainer = document.createElement('div');
+    this.cssSettingsContainer.classList.add('css-settings-panel-container'); // Optional class for styling separation
+    this.containerElement.appendChild(this.cssSettingsContainer);
+
+    // Instantiate CssSettingsPanel, passing the dedicated container
+    try {
+        this.cssSettingsPanelInstance = new CssSettingsPanel(this.cssSettingsContainer);
+    } catch (error) {
+        logPlugins(`Failed to initialize CssSettingsPanel: ${error}`, 'error');
+        this.cssSettingsContainer.innerHTML = '<p style="color: red;">Error loading CSS settings.</p>';
+    }
+
+    // Attach the main content container to the provided parent
+    parentElement.appendChild(this.containerElement);
   }
 
   subscribeToState() {
@@ -60,21 +82,22 @@ export class PluginsPanel {
       const oldPluginsState = prevState.plugins;
 
       if (newPluginsState !== oldPluginsState) {
-        logPlugins('Plugin state change detected, rendering.', 'debug');
+        logPlugins('Plugin state change detected, rendering toggle list.', 'debug');
         // Pass only the relevant part of the state
         this.render(newPluginsState || {}); // Handle case where plugins state might not exist initially
       }
+      // Note: CssSettingsPanel has its own subscription and handles its own re-rendering
     });
 
-    // Perform an initial render with the current state
+    // Perform an initial render for the plugin toggles
     this.render(appStore.getState().plugins || {});
   }
 
-  // Render the list of plugins based on the current state
+  // Render the list of plugins based on the current state (Plugin Toggles only)
   render(pluginsState) {
      if (!this.pluginsListElement) return;
 
-     logPlugins(`Rendering plugins: ${JSON.stringify(pluginsState)}`, 'debug');
+     logPlugins(`Rendering plugin toggles: ${JSON.stringify(pluginsState)}`, 'debug');
      this.pluginsListElement.innerHTML = ''; // Clear existing list items
 
      // Assuming pluginsState is an object like: { mermaid: { name: "Mermaid Diagrams", enabled: true }, ... }
@@ -110,7 +133,7 @@ export class PluginsPanel {
       const isEnabled = event.target.checked;
 
       if (pluginId) {
-        logPlugins(`Toggling plugin '${pluginId}' to enabled: ${isEnabled}. Dispatching action.`);
+        logPlugins(`Toggling plugin \'${pluginId}\' to enabled: ${isEnabled}. Dispatching action.`);
         // Assume an action type like PLUGIN_TOGGLE
         // The reducer would handle updating the state in the store
         dispatch({
@@ -126,13 +149,20 @@ export class PluginsPanel {
     }
   }
 
-  // Method to clean up listeners
+  // Method to clean up listeners and child components
   destroy() {
     logPlugins('Destroying PluginsPanel...');
     if (this.stateUnsubscribe) {
       this.stateUnsubscribe();
       this.stateUnsubscribe = null;
     }
+
+    // --- Destroy the CssSettingsPanel instance ---
+    if (this.cssSettingsPanelInstance) {
+        this.cssSettingsPanelInstance.destroy();
+        this.cssSettingsPanelInstance = null;
+    }
+    // ---------------------------------------------
 
     // Remove event listeners if necessary (though delegated listener on pluginsListElement is removed when container is removed)
 
@@ -141,6 +171,7 @@ export class PluginsPanel {
     }
     this.containerElement = null;
     this.pluginsListElement = null;
+    this.cssSettingsContainer = null; // Clear reference
     this.plugins = {};
     logPlugins('PluginsPanel destroyed.');
   }

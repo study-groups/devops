@@ -35,7 +35,7 @@ log "Using PD_DIR: $PD_DIR"
 log "Expecting users file at: $USERS_CSV_PATH"
 
 # Define the path to the manageUsers Node.js script
-MANAGE_USERS_SCRIPT="./server/utils/manageUsers.js" # Corrected relative path
+MANAGE_USERS_SCRIPT="./pdata/manageUsers.js"
 
 if [ ! -f "$MANAGE_USERS_SCRIPT" ]; then
     error "Cannot find manageUsers script at: $MANAGE_USERS_SCRIPT"

@@ -8,6 +8,7 @@ import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { PluginsPanel } from './PluginsPanel.js'; // Import the new panel
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
+const SETTINGS_PANEL_VISIBLE_KEY = 'settings_panel_visible';
 
 // Helper for logging
 function logSettings(message, level = 'info') {
@@ -50,6 +51,22 @@ export class SettingsPanel {
 
     // Initial render based on store state
     this.render(initialState);
+    
+    // IMPORTANT: After render, check localStorage for saved visibility
+    try {
+      const savedVisible = localStorage.getItem(SETTINGS_PANEL_VISIBLE_KEY);
+      if (savedVisible === 'true') {
+        // Direct DOM update, don't use toggleVisibility to avoid unnecessary state changes
+        this.panelElement.style.display = 'flex';
+        this.isVisible = true;
+      } else {
+        // Ensure panel is hidden by default
+        this.panelElement.style.display = 'none';
+        this.isVisible = false;
+      }
+    } catch (e) {
+      console.error('Error restoring settings panel visibility:', e);
+    }
     
     logSettings('SettingsPanel instance created and initialized.');
   }
@@ -137,9 +154,14 @@ export class SettingsPanel {
     this.resizeHandle.addEventListener('mousedown', this.startResize.bind(this));
 
     // --- Closing --- 
-    this.closeButton.addEventListener('click', this.toggleVisibility.bind(this));
+    this.closeButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleVisibility(false); // Explicitly pass false to hide
+    });
+    
     // Prevent drag start when clicking close button
-    this.closeButton.addEventListener('mousedown', (e) => e.stopPropagation()); 
+    this.closeButton.addEventListener('mousedown', (e) => e.stopPropagation());
 
     // --- Global listeners for drag/resize --- 
     // Use arrow functions to maintain 'this' context
@@ -170,30 +192,51 @@ export class SettingsPanel {
   render(settingsState) {
     if (!this.panelElement) return;
 
-    this.panelElement.style.display = settingsState.enabled ? 'flex' : 'none'; // Use flex for structure
-    this.panelElement.style.flexDirection = 'column'; // Stack header/content
-
+    // Don't update display property here - we handle that in toggleVisibility
+    // Only manage other properties
+    
     // Only update position/size if not actively dragging/resizing
     if (!this.isDragging) {
       this.panelElement.style.left = `${settingsState.position.x}px`;
       this.panelElement.style.top = `${settingsState.position.y}px`;
-      this.currentPos = { ...settingsState.position }; // Sync local state
+      this.currentPos = { ...settingsState.position };
     }
+    
     if (!this.isResizing) {
       this.panelElement.style.width = `${settingsState.size.width}px`;
       this.panelElement.style.height = `${settingsState.size.height}px`;
-      this.currentSize = { ...settingsState.size }; // Sync local state
+      this.currentSize = { ...settingsState.size };
     }
-
-    // Update content based on collapsed sections or other settings later
-    // Example: this.renderSections(settingsState.collapsedSections);
   }
 
   // --- Interaction Handlers --- 
 
-  toggleVisibility() {
-    logSettings('Toggle visibility dispatched.');
-    dispatch({ type: ActionTypes.SETTINGS_PANEL_TOGGLE });
+  toggleVisibility(forceShow) {
+    // Allow explicit showing/hiding, or toggle current state
+    const newVisibility = forceShow !== undefined ? forceShow : !(this.panelElement.style.display === 'flex');
+    
+    // Apply the visibility directly to the DOM
+    this.panelElement.style.display = newVisibility ? 'flex' : 'none';
+    this.isVisible = newVisibility; // Update the internal state variable
+    
+    // Save state to localStorage
+    try {
+      localStorage.setItem(SETTINGS_PANEL_VISIBLE_KEY, newVisibility);
+    } catch (e) {
+      console.error('Failed to save settings panel state:', e);
+    }
+    
+    // Update app state through dispatch
+    try {
+      dispatch({ 
+        type: ActionTypes.SETTINGS_PANEL_TOGGLE,
+        payload: { enabled: newVisibility }
+      });
+    } catch (e) {
+      console.error('Failed to dispatch settings panel state change:', e);
+    }
+    
+    return newVisibility;
   }
 
   startDrag(event) {

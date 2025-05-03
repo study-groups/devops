@@ -22,6 +22,12 @@ const builtInPlugins = {
   'graphviz': async () => (await import('./graphviz.js')).GraphvizPlugin
 };
 
+import * as CssPlugin from './css.js';
+
+const pluginModules = {
+  'css': CssPlugin,
+};
+
 // Helper for logging within this module
 function logPlugins(message, level = 'debug', type='PLUGINS') {
     if (typeof window.logMessage === 'function') {
@@ -37,40 +43,76 @@ function logPlugins(message, level = 'debug', type='PLUGINS') {
  * @param {Object} options Configuration options
  * @returns {Promise<Map>} Map of initialized plugins
  */
-export async function initPlugins(pluginNames = [], options = {}) {
+export async function initPlugins(pluginNames = [], config = {}) {
   try {
+    console.log('*** initPlugins called with:', pluginNames);
     logPlugins(`[PREVIEW] Initializing plugins: ${pluginNames.join(', ')}`);
+    
+    // Is 'css' even in the pluginNames list?
+    console.log('Is CSS plugin requested?', pluginNames.includes('css'));
+    console.log('Available plugin modules:', Object.keys(pluginModules));
+    
     enabledPlugins.clear();
 
     for (const name of pluginNames) {
-      if (!builtInPlugins[name]) {
+      console.log(`*** Processing plugin: ${name}`);
+      
+      if (!builtInPlugins[name] && !pluginModules[name]) {
+        console.log(`*** Plugin ${name} not found in builtIn or modules!`);
         logPlugins(`[PREVIEW WARNING] Plugin "${name}" not found`);
         continue;
       }
 
       try {
-        // Get the plugin class and verify it exists
-        const PluginClass = await builtInPlugins[name]();
-        if (typeof PluginClass !== 'function') {
-          throw new Error(`Plugin ${name} did not return a valid class`);
-        }
-
-        // Create instance and initialize
-        const plugin = new PluginClass();
-        const initialized = await plugin.init(options);
+        console.log(`*** Starting initialization for: ${name}`);
         
-        if (initialized) {
-          enabledPlugins.set(name, plugin);
-          logPlugins(`[PREVIEW] Plugin "${name}" initialized`);
-        } else {
-          logPlugins(`[PREVIEW WARNING] Plugin "${name}" initialization failed`);
+        // Use a simplified approach - handle both module and class-based plugins
+        if (name === 'css') {
+          // Special handling for CSS plugin
+          try {
+            const cssPlugin = pluginModules[name];
+            if (cssPlugin && typeof cssPlugin.init === 'function') {
+              await cssPlugin.init(config);
+              enabledPlugins.set(name, cssPlugin);
+              logPlugins(`[PREVIEW] CSS plugin initialized successfully`);
+            }
+          } catch (error) {
+            logPlugins(`[PREVIEW] Failed to initialize CSS plugin: ${error.message}`, 'error');
+          }
+        } else if (pluginModules[name]) {
+          console.log(`*** Initializing module plugin: ${name}`);
+          const modulePlugin = pluginModules[name];
+          console.log(`*** Module structure:`, Object.keys(modulePlugin));
+          
+          if (typeof modulePlugin.init === 'function') {
+            await modulePlugin.init(config);
+            console.log(`*** Adding ${name} to enabledPlugins`);
+            enabledPlugins.set(name, modulePlugin);
+            console.log(`*** After adding, enabledPlugins has:`, [...enabledPlugins.keys()]);
+            logPlugins(`[PREVIEW] Module plugin "${name}" initialized`);
+          }
+        } else if (builtInPlugins[name]) {
+          console.log(`*** Initializing class plugin: ${name}`);
+          // Class-based plugins
+          let PluginClass = await builtInPlugins[name]();
+          const plugin = new PluginClass();
+          const initialized = await plugin.init(config);
+          
+          if (initialized) {
+            enabledPlugins.set(name, plugin);
+            logPlugins(`[PREVIEW] Plugin "${name}" initialized`);
+          } else {
+            logPlugins(`[PREVIEW WARNING] Plugin "${name}" initialization failed`);
+          }
         }
       } catch (error) {
+        console.log(`*** Error initializing ${name}:`, error);
         logPlugins(`[PREVIEW ERROR] Failed to initialize plugin "${name}": ${error.message}`);
         console.error(`[PREVIEW ERROR] Plugin "${name}":`, error);
       }
     }
-
+    
+    console.log('*** After all initialization, enabledPlugins has:', [...enabledPlugins.keys()]);
     return enabledPlugins;
   } catch (error) {
     logPlugins(`[PREVIEW ERROR] Plugin initialization failed: ${error.message}`);
@@ -190,4 +232,26 @@ export function processPlugins(previewElement) {
 export function getEnabledPluginNames() {
     // Simple implementation: return constructor names
     return plugins.map(p => p.constructor.name);
+}
+
+// --- Export specific function for CSS ---
+export async function applyCssStyles() {
+    console.log("*** Entering applyCssStyles directly");
+    
+    // BYPASS THE ENABLEDPLUGINS CHECK - Call CSS functions directly
+    try {
+        // Import and call CSS module functions directly
+        const cssModule = await import('./css.js');
+        console.log("*** CSS module imported:", Object.keys(cssModule));
+        
+        if (typeof cssModule.applyStyles === 'function') {
+            console.log("*** Calling applyStyles directly");
+            await cssModule.applyStyles();
+            console.log("*** Direct applyStyles call completed");
+        } else {
+            console.error("*** No applyStyles function found in CSS module");
+        }
+    } catch (error) {
+        console.error('[DIRECT CSS Apply Error]', error);
+    }
 } 

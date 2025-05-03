@@ -89,237 +89,79 @@ const resolvePathInDataDir = (req, relativeDir, filename = '') => {
 
 /**
  * GET /api/files/list
- * Get list of files and subdirectories in a directory relative to the PData dataDir.
+ * Get list of files and subdirectories in a directory
  */
-router.get('/list', async (req, res) => { // Removed authMiddleware here
-   const logPrefix = '[API /list]';
-   const username = req.user.username; // From authMiddleware
-   const pdata = req.pdata; // PData instance
-
-   try {
-       const requestedRelativeDir = req.query.dir ?? ''; // Relative path from client
-       console.log(`${logPrefix} User='${username}', Request query dir='${req.query.dir}', using relativeDir='${requestedRelativeDir}'`);
-
-       // 1. Resolve the absolute path to the target directory
-       const targetDirAbsPath = resolvePathInDataDir(req, requestedRelativeDir); // Filename is empty
-       console.log(`${logPrefix} Resolved target directory absolute path: '${targetDirAbsPath}'`);
-
-       // 2. Check permission using PData
-       if (!pdata.can(username, 'list', targetDirAbsPath)) {
-           console.warn(`${logPrefix} Access Denied. User='${username}', action='list', resource='${targetDirAbsPath}'`);
-           return res.status(403).json({ error: 'Forbidden: You do not have permission to list this directory.' });
-       }
-       console.log(`${logPrefix} Access Granted. User='${username}', action='list', resource='${targetDirAbsPath}'`);
-
-       // 3. Check if directory exists and is a directory
-       let stats;
-       try {
-           stats = await fs.stat(targetDirAbsPath);
-           if (!stats.isDirectory()) {
-               console.warn(`${logPrefix} Path exists but is not a directory: '${targetDirAbsPath}'`);
-               return res.status(400).json({ error: 'Path is not a directory' });
-           }
-           console.log(`${logPrefix} Target directory exists and is a directory.`);
-       } catch (error) {
-           if (error.code === 'ENOENT') {
-               console.log(`${logPrefix} Target directory not found: '${targetDirAbsPath}'. Requested relativeDir='${requestedRelativeDir}'. Returning empty lists.`);
-               // If user had permission to list a non-existent dir, return empty (consistent with previous logic)
-               return res.json({ dirs: [], files: [] });
-           } else {
-               console.error(`${logPrefix} Error checking target directory '${targetDirAbsPath}':`, error);
-               throw error; // Re-throw other errors
-           }
-       }
-
-       // 4. Read directory contents (Permission already checked)
-       console.log(`${logPrefix} Reading contents of: '${targetDirAbsPath}'`);
-       const entries = await fs.readdir(targetDirAbsPath, { withFileTypes: true });
-       console.log(`${logPrefix} Found ${entries.length} entries.`);
-
-       // 5. Separate files and directories (filtering logic remains the same)
-       const files = [];
-       const dirs = [];
-       for (const e of entries) {
-            const entryAbsPath = path.join(targetDirAbsPath, e.name);
-             // Optional: Add fine-grained check? Maybe not needed if 'list' on parent is enough.
-             // However, consider symlinks potentially pointing outside allowed areas.
-             // Let's stick to the simpler model for now: if you can list parent, you see names.
-           if (e.isDirectory()) {
-               dirs.push(e.name);
-           } else if (e.isFile() || e.isSymbolicLink()) {
-               files.push(e.name);
-           }
-       }
-       dirs.sort((a, b) => a.localeCompare(b));
-       files.sort((a, b) => a.localeCompare(b));
-
-       console.log(`${logPrefix} Filtered - Dirs: [${dirs.join(', ')}], Files: [${files.join(', ')}]`);
-       res.json({ dirs, files });
-
-   } catch (error) {
-       console.error(`${logPrefix} User='${username}'. Unexpected Error:`, error);
-       res.status(500).json({ error: error.message || 'Internal server error while listing directory.' });
-   }
-});
-
-// --- Endpoint: /api/files/dirs ---
-// This endpoint's logic was quite specific (mike vs others).
-// Let's adapt it using PData roles and permissions.
-router.get('/dirs', async (req, res) => { // Removed authMiddleware
-    const logPrefix = '[API /dirs]';
+router.get('/list', async (req, res) => {
+  try {
     const username = req.user.username;
-    const pdata = req.pdata;
-    const userRole = req.user.role; // Assumes role is populated in session by login route
-
-    console.log(`${logPrefix} Request received. User='${username}', Role='${userRole}'`);
-
-    if (!userRole) {
-        console.warn(`${logPrefix} User '${username}' has no role assigned in session.`);
-        // Fallback or error? Let's deny access for now if role is missing.
-        return res.status(403).json({ error: 'Forbidden: User role not determined.' });
+    const requestedDir = req.query.dir || '';
+    
+    console.log(`[API /list] User='${username}', Requested directory='${requestedDir}'`);
+    
+    const { dirs, files } = await req.pdata.listDirectory(username, requestedDir);
+    
+    res.json({ dirs, files });
+  } catch (error) {
+    console.error('[API /list] Error:', error);
+    
+    if (error.message === 'Permission denied') {
+      return res.status(403).json({ error: 'Permission denied' });
     }
-
-    const dataDir = pdata.dataDir; // The root data directory managed by PData
-
-    try {
-        let directoriesToList = [];
-
-        if (userRole === 'admin') {
-            // Admin: List all top-level directories *within dataDir* they have 'list' permission for.
-            console.log(`${logPrefix} Admin user '${username}'. Listing accessible top-level dirs in '${dataDir}'`);
-            try {
-                const entries = await fs.readdir(dataDir, { withFileTypes: true });
-                for (const entry of entries) {
-                    if (entry.isDirectory()) {
-                        const dirAbsPath = path.join(dataDir, entry.name);
-                        // Check if admin can list this specific subdirectory
-                        if (pdata.can(username, 'list', dirAbsPath)) {
-                            directoriesToList.push(entry.name);
-                        } else {
-                             console.log(`${logPrefix} Admin '${username}' cannot list specific dir: '${dirAbsPath}' (Skipping)`);
-                        }
-                    }
-                }
-                console.log(`${logPrefix} Admin accessible dirs: [${directoriesToList.join(', ')}]`);
-            } catch (error) {
-                 if (error.code === 'ENOENT') {
-                    console.warn(`${logPrefix} dataDir '${dataDir}' not found.`);
-                    directoriesToList = []; // Return empty list
-                } else {
-                    console.error(`${logPrefix} Error reading dataDir '${dataDir}' for admin:`, error);
-                    throw error; // Re-throw unexpected errors
-                }
-            }
-        } else if (userRole === 'user') {
-            // User: Their implicit top directory is dataDir/username.
-            // Return only their own directory name *if* they have list permission on it.
-            const userImplicitTopDir = path.join(dataDir, username);
-            console.log(`${logPrefix} Normal user '${username}'. Checking access to implicit dir: '${userImplicitTopDir}'`);
-
-            if (pdata.can(username, 'list', userImplicitTopDir)) {
-                // Check existence, create if necessary (and allowed implicitly by 'list'?)
-                // PData's current design doesn't explicitly handle auto-creation based on 'can'.
-                // Let's check existence first. If it exists, add it.
-                // If not, we might need a separate mechanism or policy decision on auto-creation.
-                 try {
-                    const stats = await fs.stat(userImplicitTopDir);
-                    if (stats.isDirectory()) {
-                         directoriesToList.push(username);
-                         console.log(`${logPrefix} User '${username}' can list existing implicit dir.`);
-                    } else {
-                         console.warn(`${logPrefix} User '${username}' implicit path '${userImplicitTopDir}' exists but is not a directory.`);
-                    }
-                 } catch (error) {
-                    if (error.code === 'ENOENT') {
-                        console.log(`${logPrefix} User '${username}' implicit dir '${userImplicitTopDir}' does not exist. Not including in list.`);
-                        // Original code created it. Let's reconsider that.
-                        // If PData grants 'list' on a non-existent dir, should it appear? Probably not.
-                        // Let's *not* auto-create here. Creation should likely be tied to a 'write' or 'create' action.
-                    } else {
-                        console.error(`${logPrefix} Error checking user implicit dir '${userImplicitTopDir}':`, error);
-                        throw error; // Re-throw unexpected errors
-                    }
-                 }
-            } else {
-                console.log(`${logPrefix} User '${username}' does not have 'list' permission on implicit dir '${userImplicitTopDir}'.`);
-            }
-        } else {
-            console.warn(`${logPrefix} Unknown role '${userRole}' for user '${username}'. Returning empty list.`);
-            // Return empty list for unknown roles
-        }
-
-        // Sort and return
-        directoriesToList.sort((a, b) => a.localeCompare(b));
-        console.log(`${logPrefix} Returning directories for user '${username}': [${directoriesToList.join(', ')}]`);
-        res.json(directoriesToList);
-
-    } catch (error) {
-        console.error(`${logPrefix} User='${username}'. General Error:`, error);
-        res.status(500).json({ error: error.message || 'Internal server error' });
-    }
+    
+    res.status(500).json({ error: 'Error listing directory' });
+  }
 });
-
 
 /**
- * GET /api/files/content?dir=...&file=...
- * Get file content (query params version)
+ * GET /api/files/dirs
+ * Get list of directories based on username and permissions
  */
-// Note: Removed the /content/:dir/:file version for simplicity unless needed.
-router.get('/content', async (req, res) => { // Removed authMiddleware
-  const logPrefix = '[API /content]';
-  const username = req.user.username;
-  const pdata = req.pdata;
-  console.log(`${logPrefix} User='${username}'. Received query params: dir='${req.query.dir}', file='${req.query.file}'`);
-
+router.get('/dirs', async (req, res) => {
   try {
-    const { dir: relativeDir, file: filename } = req.query;
+    const username = req.user.username;
+    
+    const directories = await req.pdata.getUserDirectories(username);
+    
+    res.json(directories);
+  } catch (error) {
+    console.error('[API /dirs] Error:', error);
+    res.status(500).json({ error: 'Error fetching directories' });
+  }
+});
 
-    if (!filename) {
-      console.error(`${logPrefix} FAIL Filename missing in query. User='${username}'.`);
+/**
+ * GET /api/files/content
+ * Get file content
+ */
+router.get('/content', async (req, res) => {
+  try {
+    const username = req.user.username;
+    const { dir, file } = req.query;
+    
+    if (!file) {
       return res.status(400).json({ error: 'Filename is required' });
     }
-
-    // 1. Resolve absolute path
-    console.log(`${logPrefix} STEP Resolving path with relativeDir='${relativeDir}', filename='${filename}'`);
-    const resolvedAbsPath = resolvePathInDataDir(req, relativeDir, filename);
-    console.log(`${logPrefix} STEP Resolved absolute path: '${resolvedAbsPath}'`);
-
-    // 2. Check permission using PData
-    if (!pdata.can(username, 'read', resolvedAbsPath)) {
-           console.warn(`${logPrefix} Access Denied. User='${username}', action='read', resource='${resolvedAbsPath}'`);
-           return res.status(403).json({ error: 'Forbidden: You do not have permission to read this file.' });
-    }
-    console.log(`${logPrefix} Access Granted. User='${username}', action='read', resource='${resolvedAbsPath}'`);
-
-
-    // 3. Read file content (Permission already checked)
-    console.log(`${logPrefix} STEP Attempting readFile: '${resolvedAbsPath}'`);
-    const content = await fs.readFile(resolvedAbsPath, 'utf8');
-    console.log(`${logPrefix} SUCCESS Read file content for '${resolvedAbsPath}'.`);
-
-    // Set content type and send
-    const ext = path.extname(filename).toLowerCase();
+    
+    const relativePath = path.join(dir || '', file);
+    console.log(`[API /content] User='${username}', Requested file='${relativePath}'`);
+    
+    const content = await req.pdata.readFile(username, relativePath);
+    
+    const ext = path.extname(file).toLowerCase();
     res.setHeader('Content-Type', ext === '.md' ? 'text/markdown' : 'text/plain');
     res.send(content);
-
   } catch (error) {
-    console.error(`${logPrefix} User='${username}'. CATCH Error: ${error.message}`, error);
+    console.error('[API /content] Error:', error);
+    
+    if (error.message === 'Permission denied') {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
     if (error.code === 'ENOENT') {
-      // Check if the error was because the file itself doesn't exist,
-      // even if the user *could* have read it if it did.
       return res.status(404).json({ error: 'File not found' });
     }
-     // Handle specific errors thrown by resolvePathInDataDir (like invalid name/dir)
-     if (error.message.startsWith('Invalid') || error.message.startsWith('Security violation')) {
-        return res.status(400).json({ error: error.message });
-     }
-     // Check for permission denied errors at the FS level (should ideally be caught by pdata.can, but defense-in-depth)
-     if (error.code === 'EACCES') {
-          console.error(`${logPrefix} Filesystem EACCES error despite PData check for User='${username}', action='read'. This might indicate a permissions mismatch.`);
-          return res.status(500).json({ error: 'Internal server error (filesystem permission issue)' });
-     }
-    // Generic error
-    res.status(500).json({ error: `Server error reading file: ${error.message}` });
+    
+    res.status(500).json({ error: 'Error reading file' });
   }
 });
 
@@ -327,166 +169,68 @@ router.get('/content', async (req, res) => { // Removed authMiddleware
  * POST /api/files/save
  * Save file content
  */
-router.post('/save', express.json({ type: '*/*' }), async (req, res) => { // Removed authMiddleware
-    const logPrefix = '[API /save]';
+router.post('/save', express.json({ type: '*/*' }), async (req, res) => {
+  try {
     const username = req.user.username;
-    const pdata = req.pdata;
-    console.log(`${logPrefix} User='${username}'. Received body: ${JSON.stringify(req.body)}`);
-
-    try {
-        const { dir: relativeDir, name: filename, content } = req.body;
-        console.log(`${logPrefix} STEP Extracted: relativeDir='${relativeDir}', filename='${filename}', content provided?: ${content !== undefined}`);
-
-        // 1. Validate required body fields
-        if (filename === undefined || filename === null) {
-             console.error(`${logPrefix} FAIL Filename (name) missing. User='${username}'.`);
-             return res.status(400).json({ error: 'Filename (name) is required' });
-        }
-        if (relativeDir === undefined || relativeDir === null) { // Allow ""
-             console.error(`${logPrefix} FAIL Directory (dir) missing. User='${username}'.`);
-             return res.status(400).json({ error: 'Directory (dir) is required' });
-        }
-        if (typeof content !== 'string') {
-             console.error(`${logPrefix} FAIL Content missing or not string. User='${username}'.`);
-             return res.status(400).json({ error: 'Content string is required' });
-        }
-
-        // 2. Resolve absolute path
-        console.log(`${logPrefix} STEP Resolving path with relativeDir='${relativeDir}', filename='${filename}'`);
-        const resolvedAbsPath = resolvePathInDataDir(req, relativeDir, filename);
-        console.log(`${logPrefix} STEP Resolved absolute path: '${resolvedAbsPath}'`);
-
-        // 3. Check permission using PData
-        // We need 'write' permission for the file itself.
-        if (!pdata.can(username, 'write', resolvedAbsPath)) {
-            console.warn(`${logPrefix} Access Denied. User='${username}', action='write', resource='${resolvedAbsPath}'`);
-            return res.status(403).json({ error: 'Forbidden: You do not have permission to write to this file path.' });
-        }
-        console.log(`${logPrefix} Access Granted. User='${username}', action='write', resource='${resolvedAbsPath}'`);
-
-        // 4. Ensure parent directory exists
-        // PData's permission model implies if you can write a file, you should be able
-        // to ensure its parent directory exists *within the managed dataDir*.
-        // However, fs.mkdir needs permission on the *parent* directory.
-        // Let's check pdata.can('write', directoryPath) as well.
-        const directoryPath = path.dirname(resolvedAbsPath);
-        console.log(`${logPrefix} STEP Ensuring parent directory exists: '${directoryPath}'`);
-
-        // Check if parent is within dataDir (should be guaranteed by resolvePathInDataDir)
-        if (!directoryPath.startsWith(pdata.dataDir)) {
-             console.error(`${logPrefix} FAIL Parent directory '${directoryPath}' is outside dataDir '${pdata.dataDir}' after resolving. This shouldn't happen.`);
-             throw new Error("Internal error: Parent directory resolution failed security check.");
-        }
-
-        // Check permission to write to parent directory (implicitly needed for mkdir)
-        if (!pdata.can(username, 'write', directoryPath)) {
-             console.warn(`${logPrefix} Access Denied. User='${username}', action='write' (implicitly needed for mkdir), resource='${directoryPath}'`);
-             // Provide a slightly different error message
-             return res.status(403).json({ error: 'Forbidden: You do not have permission to create subdirectories in the target location.' });
-        }
-         console.log(`${logPrefix} Access Granted. User='${username}', action='write' (for mkdir), resource='${directoryPath}'`);
-
-
-        try {
-            await fs.mkdir(directoryPath, { recursive: true });
-            console.log(`${logPrefix} STEP fs.mkdir seemingly succeeded for: '${directoryPath}'`);
-        } catch (mkdirError) {
-            // This might happen due to underlying FS permissions mismatch, even if PData allowed it.
-            console.error(`${logPrefix} FAIL @ mkdir fs.mkdir failed for directory '${directoryPath}'. Error Code: ${mkdirError.code}. User='${username}'`, mkdirError);
-            const userMessage = mkdirError.code === 'EACCES' ? 'Permission denied to create directory (filesystem).' : `Server failed to create directory (${mkdirError.code}).`;
-            return res.status(500).json({ error: userMessage });
-        }
-
-        // 5. Write file content (Permissions already checked by PData)
-        console.log(`${logPrefix} STEP Attempting writeFile: '${resolvedAbsPath}'`);
-        try {
-            await fs.writeFile(resolvedAbsPath, content, 'utf8');
-            console.log(`${logPrefix} SUCCESS fs.writeFile succeeded for: '${resolvedAbsPath}'`);
-        } catch (writeFileError) {
-             // This might happen due to underlying FS permissions mismatch
-            console.error(`${logPrefix} FAIL @ writeFile fs.writeFile failed for path '${resolvedAbsPath}'. Error Code: ${writeFileError.code}. User='${username}'`, writeFileError);
-            const userMessage = writeFileError.code === 'EACCES' ? 'Permission denied to write file (filesystem).' : `Server failed to write file (${writeFileError.code}).`;
-            return res.status(500).json({ error: userMessage });
-        }
-
-        // 6. Send success response
-        console.log(`${logPrefix} FINAL SUCCESS File saved: User='${username}', Path='${resolvedAbsPath}'`);
-        res.json({ success: true, message: 'File saved successfully' });
-
-    } catch (error) {
-        console.error(`${logPrefix} User='${username}'. CATCH Overall error. Error Name: ${error.name}, Message: ${error.message}. Body: ${JSON.stringify(req.body)}`, error);
-         // Handle specific errors thrown by resolvePathInDataDir
-         if (error.message.startsWith('Invalid') || error.message.startsWith('Security violation')) {
-            return res.status(400).json({ error: error.message });
-         }
-        res.status(500).json({ error: `Server error processing save request: ${error.message}` });
+    const { dir, name, content } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Filename is required' });
     }
+    
+    if (content === undefined) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+    
+    const relativePath = path.join(dir || '', name);
+    console.log(`[API /save] User='${username}', Saving file='${relativePath}'`);
+    
+    await req.pdata.writeFile(username, relativePath, content);
+    
+    res.json({ success: true, message: 'File saved successfully' });
+  } catch (error) {
+    console.error('[API /save] Error:', error);
+    
+    if (error.message === 'Permission denied' || error.message === 'Permission denied to write in parent directory') {
+      return res.status(403).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Error saving file' });
+  }
 });
 
-
 /**
- * DELETE /api/files/delete?dir=...&file=...
+ * DELETE /api/files/delete
  * Delete a file
  */
-router.delete('/delete', async (req, res) => { // Removed authMiddleware
-    const logPrefix = '[API /delete]';
+router.delete('/delete', async (req, res) => {
+  try {
     const username = req.user.username;
-    const pdata = req.pdata;
-    console.log(`${logPrefix} User='${username}'. Received query: dir='${req.query.dir}', file='${req.query.file}'`);
-
-    try {
-        const { dir: relativeDir, file: filename } = req.query;
-
-        if (!filename) {
-            console.error(`${logPrefix} FAIL Filename missing. User='${username}'.`);
-            return res.status(400).json({ error: 'Filename is required' });
-        }
-
-        // 1. Resolve absolute path
-        const resolvedAbsPath = resolvePathInDataDir(req, relativeDir, filename);
-        console.log(`${logPrefix} STEP Resolved absolute path: '${resolvedAbsPath}'`);
-
-        // 2. Check permission using PData (requires 'write' to delete)
-        if (!pdata.can(username, 'write', resolvedAbsPath)) {
-            console.warn(`${logPrefix} Access Denied. User='${username}', action='write' (for delete), resource='${resolvedAbsPath}'`);
-            return res.status(403).json({ error: 'Forbidden: You do not have permission to delete this file.' });
-        }
-         console.log(`${logPrefix} Access Granted. User='${username}', action='write' (for delete), resource='${resolvedAbsPath}'`);
-
-        // 3. Check if file exists before attempting delete
-        try {
-            await fs.access(resolvedAbsPath); // Check existence
-            console.log(`${logPrefix} STEP File exists: '${resolvedAbsPath}'`);
-        } catch (error) {
-             if (error.code === 'ENOENT') {
-                 console.log(`${logPrefix} File not found: '${resolvedAbsPath}'. Cannot delete.`);
-                return res.status(404).json({ error: 'File not found' });
-             }
-             // Other access error
-             throw error;
-        }
-
-        // 4. Delete file (Permission checked)
-        console.log(`${logPrefix} STEP Attempting unlink: '${resolvedAbsPath}'`);
-        try {
-            await fs.unlink(resolvedAbsPath);
-            console.log(`${logPrefix} SUCCESS File deleted: '${resolvedAbsPath}'`);
-            res.json({ success: true, message: 'File deleted successfully' });
-        } catch (unlinkError) {
-            // Filesystem error (e.g., EACCES despite PData check)
-             console.error(`${logPrefix} FAIL @ unlink fs.unlink failed for path '${resolvedAbsPath}'. Error Code: ${unlinkError.code}. User='${username}'`, unlinkError);
-            const userMessage = unlinkError.code === 'EACCES' ? 'Permission denied to delete file (filesystem).' : `Server failed to delete file (${unlinkError.code}).`;
-            return res.status(500).json({ error: userMessage });
-        }
-
-    } catch (error) {
-         console.error(`${logPrefix} User='${username}'. CATCH Overall error. Error Name: ${error.name}, Message: ${error.message}. Query: ${JSON.stringify(req.query)}`, error);
-         // Handle specific errors from resolvePathInDataDir
-         if (error.message.startsWith('Invalid') || error.message.startsWith('Security violation')) {
-            return res.status(400).json({ error: error.message });
-         }
-         res.status(500).json({ error: `Server error deleting file: ${error.message}` });
+    const { dir, file } = req.query;
+    
+    if (!file) {
+      return res.status(400).json({ error: 'Filename is required' });
     }
+    
+    const relativePath = path.join(dir || '', file);
+    console.log(`[API /delete] User='${username}', Deleting file='${relativePath}'`);
+    
+    await req.pdata.deleteFile(username, relativePath);
+    
+    res.json({ success: true, message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('[API /delete] Error:', error);
+    
+    if (error.message === 'Permission denied') {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    res.status(500).json({ error: 'Error deleting file' });
+  }
 });
 
 

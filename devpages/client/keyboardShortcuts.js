@@ -5,14 +5,9 @@
 
 import { logMessage } from './log/index.js';
 import { eventBus } from './eventBus.js';
-import { dispatch, ActionTypes } from './messaging/messageQueue.js'; // <<< Import dispatch and ActionTypes
+import { dispatch, ActionTypes } from './messaging/messageQueue.js';
 import { triggerActions } from '/client/actions.js';
-import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js'; // Import keys if needed, though actions.js handles storage
-// Remove imports for directly called functions and state
-// import { saveFile } from './fileManager/index.js';
-// import { setView } from './views.js';
-// import { executeRefresh } from './markdown-svg.js';
-// import { authState } from '/client/authState.js';
+import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js';
 
 // --- Shortcut Definitions ---
 // ctrl: boolean | 'optional' (allows Ctrl or Meta)
@@ -24,19 +19,15 @@ import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js'; // Imp
 // triggerAction: string | null (Name of function in triggerActions to call directly)
 // preventDefault: boolean (defaults true)
 const shortcutMappings = [
-    // Settings Panel Toggle
-    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: ActionTypes.SETTINGS_PANEL_TOGGLE, payload: null },
+    // REMOVED Settings Panel Toggle from here - handled separately below
     // Save File
     { key: 's', ctrl: 'optional', shift: false, alt: false, useDispatch: false, action: 'shortcut:saveFile', payload: null }, 
     // Refresh Preview (Assuming this triggers a non-state process)
     { key: 'r', ctrl: 'optional', shift: false, alt: true, useDispatch: false, action: 'shortcut:refreshPreview', payload: null },
     // Set View Modes (Using dispatch and the reducer)
-    { key: '1', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'editor' } }, // Using 'editor' to match bootstrap.js
+    { key: '1', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'editor' } },
     { key: '2', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'preview' } },
     { key: '3', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'split' } },
-    // Add more mappings here...
-    // { key: 'l', ctrl: true, shift: false, alt: false, useDispatch: false, action: 'shortcut:focusLogInput', payload: null } 
-
     // SmartCopy Actions (Integrated)
     { key: 'A', ctrl: true, shift: true, alt: false, triggerAction: 'setSmartCopyBufferA' },
     { key: 'B', ctrl: true, shift: true, alt: false, useDispatch: true, action: ActionTypes.SET_SMART_COPY_B, payload: null },
@@ -44,6 +35,7 @@ const shortcutMappings = [
 
 // Initialize keyboard shortcuts
 export function initKeyboardShortcuts() {
+    // Main shortcut handler for configured mappings
     document.addEventListener('keydown', (event) => {
         // --- Detailed Log Start --- 
         console.log(`[Shortcut DEBUG] KeyDown: key='${event.key}', code='${event.code}', ctrl=${event.ctrlKey}, meta=${event.metaKey}, shift=${event.shiftKey}, alt=${event.altKey}`);
@@ -58,9 +50,6 @@ export function initKeyboardShortcuts() {
         if ( (['input', 'textarea', 'select'].includes(targetTagName) || isEditable) && 
              !(event.ctrlKey || event.altKey || event.metaKey) ) 
         {
-            // Allow specific single-key shortcuts here if needed (e.g., Escape key)
-            // if (event.key === 'Escape') { /* handle escape */ }
-            
             console.log(`[Shortcut DEBUG] Ignoring event: Typing in input/editable without Ctrl/Alt/Meta.`);
             return; 
         }
@@ -103,6 +92,17 @@ export function initKeyboardShortcuts() {
 
                 // Stop processing other mappings for this event
                 break;
+            }
+        }
+    });
+    
+    // Add a SINGLE handler for Ctrl+Shift+S
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'S' && event.ctrlKey && event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            
+            if (window.settingsPanel) {
+                window.settingsPanel.toggleVisibility();
             }
         }
     });

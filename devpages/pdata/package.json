@@ -1,0 +1,37 @@
+    {
+      "name": "pdata",
+      "version": "1.0.0",
+      "description": "PData service for secure file management",
+      "main": "./index.js",
+      "type": "module",
+      "exports": {
+        ".": "./index.js"
+      },
+      "files": [
+        "index.js",
+        "PData.js",
+        "routes.js",
+        "userUtils.js"
+      ],
+      "scripts": {
+      },
+      "keywords": [
+        "pdata",
+        "file",
+        "auth",
+        "api"
+      ],
+      "author": "",
+      "license": "ISC",
+      "dependencies": {
+        "multer": "^1.4.5-lts.1"
+      },
+      "peerDependencies": {
+        "express": "^4.17.1",
+        "passport": "^0.6.0",
+        "express-session": "^1.17.0"
+      },
+      "engines": {
+        "node": ">=18.0.0"
+      }
+    }

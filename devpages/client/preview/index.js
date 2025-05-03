@@ -23,10 +23,12 @@
  */
 
 import { logMessage } from '../log/index.js';
-import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
+import { api } from '/client/api.js';
+import { initPlugins, getEnabledPlugins, processPlugins, applyCssStyles } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
 import { processSvgContent } from './markdown-svg.js';
 import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
@@ -39,7 +41,7 @@ export class PreviewManager {
 
     this.config = {
       container: '#md-preview',
-      plugins: ['mermaid', 'katex', 'highlight', 'graphviz'],
+      plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'],
       theme: 'light',
       updateDelay: 100,
       autoRender: true,
@@ -49,6 +51,7 @@ export class PreviewManager {
     this.previewElement = null;
     this.initialized = false;
     this.updateTimer = null;
+    this.eventBusListeners = [];
 
     previewInstance = this;
     return this;
@@ -80,24 +83,40 @@ export class PreviewManager {
         container: this.previewElement
       });
 
-      // --- Assign previewEventBus early ---
-      if (typeof window.previewEventBus === 'undefined') {
-         if (eventBus) {
-             window.previewEventBus = eventBus;
-             logMessage('Assigned window.previewEventBus during PreviewManager init.', "debug", "PREVIEW");
-         } else {
-             logMessage('Main eventBus instance not available during PreviewManager init.', 'error', "PREVIEW");
-         }
-       }
-      // --- End Assignment ---
+      // --- Subscribe to CSS Settings Changes ---
+      const cssSettingsListener = async () => {
+          if (!this.initialized) return; // Don't run if not ready
+          logMessage('Received preview:cssSettingsChanged event, re-applying styles.', 'debug', 'PREVIEW');
+          try { await applyCssStyles(); } // Directly call applyStyles
+          catch(error) { logMessage(`Error applying styles after settings change: ${error.message}`, 'error', 'PREVIEW'); }
+      };
+      // Ensure eventBus exists before subscribing
+      if (eventBus && typeof eventBus.on === 'function') {
+          eventBus.on('preview:cssSettingsChanged', cssSettingsListener);
+          this.eventBusListeners.push({ event: 'preview:cssSettingsChanged', listener: cssSettingsListener });
+          logMessage('Subscribed PreviewManager to preview:cssSettingsChanged event.', 'debug', 'PREVIEW');
+      } else {
+          console.error('[PreviewManager] eventBus not available for subscribing to preview:cssSettingsChanged');
+      }
+      // ------------------------------------------
 
       this.applyTheme(this.config.theme);
       this.initialized = true;
+
+      // --- Apply initial styles after init ---
+      try {
+        logMessage('Applying initial CSS styles...', 'debug', 'PREVIEW');
+        await applyCssStyles(); // Apply styles once on initialization
+      } catch (styleError) {
+          logMessage(`Error applying initial styles: ${styleError.message}`, 'error', 'PREVIEW');
+      }
+      // ---------------------------------------
+
       logMessage('Preview system initialized successfully', "debug", "PREVIEW");
       return true;
     } catch (error) {
       logMessage(`Failed to initialize preview: ${error.message}`, "error", "PREVIEW");
-      console.error('[PREVIEW ERROR]', error);
+      console.error('[PREVIEW INIT ERROR]', error);
       return false;
     }
   }
@@ -220,24 +239,22 @@ export class PreviewManager {
                  }
                 // --- End Re-ensure ---
 
-                // Handle front matter if present, using the 'frontMatter' property
+                // --- Apply CSS Plugin Styles (from Settings) ---
+                await applyCssStyles();
+                // ---------------------------------------------
+
+                // --- Handle front matter ---
                 if (renderResult.frontMatter && Object.keys(renderResult.frontMatter).length > 0) {
-                    this.handleFrontMatter(renderResult.frontMatter);
+                   this.handleFrontMatter(renderResult.frontMatter);
                 } else {
-                    logMessage('No front matter data found to handle.', "debug", "PREVIEW");
+                   logMessage('No front matter data found to handle.', "debug", "PREVIEW");
                 }
 
-                logMessage('[PREVIEW] Calling postProcessRender...', "debug", "PREVIEW");
+                // --- Post Processing ---
                 await postProcessRender(this.previewElement);
-                logMessage('postProcessRender finished.', "debug", "PREVIEW");
-                
-                // Ensure SVG processing call is still commented out
-                // logMessage('[PREVIEW] Processing SVG content...');
-                // await processSvgContent();
-                // logMessage('SVG processing finished.',"DEBUG","PREVIEW");
-            
+
                 logMessage('Preview updated successfully', "debug", "PREVIEW");
-                resolve(renderResult); // Returnf the actual result object
+                resolve(renderResult);
             } else {
                 logMessage('Preview element became null during update.', 'error', "PREVIEW");
                 resolve(false); // Keep returning false on specific failure cases
@@ -247,6 +264,8 @@ export class PreviewManager {
             logMessage(`Failed to render markdown: ${error.message}`, 'error', "PREVIEW");
             console.error('[PREVIEW ERROR]', error);
             resolve(false); // Indicate failure
+          } finally {
+            this.updateTimer = null; // Clear timer reference
           }
         }, this.config.updateDelay);
       });
@@ -349,11 +368,35 @@ export class PreviewManager {
 
     logMessage('Front matter handling complete.', "debug", "PREVIEW");
   }
+
+  destroy() {
+      logMessage('Destroying PreviewManager instance...', 'debug', 'PREVIEW');
+      // --- Unsubscribe from Event Bus ---
+      if (eventBus && typeof eventBus.off === 'function') {
+        this.eventBusListeners.forEach(({ event, listener }) => {
+            eventBus.off(event, listener);
+            logMessage(`Unsubscribed from event: ${event}`, 'debug', 'PREVIEW');
+        });
+      }
+      this.eventBusListeners = [];
+      // ---------------------------------
+      if (this.updateTimer) { clearTimeout(this.updateTimer); }
+      this.previewElement = null; this.initialized = false; previewInstance = null;
+  }
 }
 
 // Export these functions for external use
 export function initPreview(options = {}) {
-  const manager = new PreviewManager(options);
+  // Ensure 'css' is included in default plugins if desired
+  const defaultOptions = {
+    plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'], // Added 'css'
+    container: '#md-preview',
+    theme: 'light',
+    updateDelay: 100,
+    autoRender: true,
+  };
+  const finalOptions = { ...defaultOptions, ...options };
+  const manager = new PreviewManager(finalOptions);
   return manager.init();
 }
 

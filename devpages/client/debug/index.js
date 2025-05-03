@@ -415,11 +415,11 @@ export function debugAuthState() {
         - Logout button visible: ${!!logoutBtn && logoutBtn.style.display !== 'none'}
         - Display text: ${pwdDisplay ? pwdDisplay.textContent : 'Not found'}`);
     logDebug('[AUTH DEBUG] Testing API authentication...');
-    fetch('/api/files/dirs', {
-        headers: currentAuthState.isLoggedIn ? {
-            'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}`
-        } : {}
-    })
+    const authHeader = currentAuthState.isLoggedIn ? {
+         'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}`
+        } : {};
+    logDebug('[DEBUG] Constructed auth header for API tests (if logged in).');
+    fetch('/api/files/dirs', { headers: authHeader })
     .then(response => {
         logDebug(`[AUTH DEBUG] API test response: ${response.status} ${response.statusText}`);
         return response.text();
@@ -470,4 +470,35 @@ export async function debugAllApiEndpoints() {
     const currentFile = state.currentFile || 'README.md';
     const currentDir = state.currentDir || '';
     const currentAuthState = appStore.getState().auth;
-    const authHeader = currentAuthState.isLoggedIn ? { 'Authorization': `Basic ${btoa(`
+    const authHeader = currentAuthState.isLoggedIn ? {
+         'Authorization': `Basic ${btoa(`${currentAuthState.user?.username}:${currentAuthState.hashedPassword || ''}`)}`
+        } : {};
+    logDebug('[DEBUG] Constructed auth header for API tests (if logged in).');
+
+    try {
+        logDebug('[DEBUG] Fetching /api/files/dirs with potentially added auth...');
+        const dirsResponse = await fetch('/api/files/dirs', { headers: authHeader });
+        logDebug(`[DEBUG] /api/files/dirs response: ${dirsResponse.status} ${dirsResponse.statusText}`);
+        if (dirsResponse.ok) {
+            const dirsData = await dirsResponse.json();
+            logDebug(`[DEBUG] Directories response type: ${Array.isArray(dirsData) ? 'Array' : typeof dirsData}`);
+            logDebug(`[DEBUG] Directories response: ${JSON.stringify(dirsData).substring(0, 200)}...`);
+        }
+        const filesResponse = await fetch('/api/files/list');
+        logDebug(`[DEBUG] /api/files/list: ${filesResponse.status} ${filesResponse.statusText}`);
+        if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            logDebug(`[DEBUG] Files response type: ${Array.isArray(filesData) ? 'Array' : typeof filesData}`);
+            logDebug(`[DEBUG] Files response: ${JSON.stringify(filesData).substring(0, 200)}...`);
+            if (Array.isArray(filesData) && filesData.length > 0) {
+                const firstFile = filesData[0];
+                logDebug(`[DEBUG] First file type: ${typeof firstFile}`);
+                logDebug(`[DEBUG] First file: ${JSON.stringify(firstFile)}`);
+            }
+        }
+        logDebug('[DEBUG] API response tests complete');
+    } catch (error) {
+        logDebug(`[DEBUG ERROR] API response tests failed: ${error.message}`);
+        logDebug('[DEBUG ERROR]', error);
+    }
+}

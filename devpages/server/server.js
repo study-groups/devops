@@ -4,12 +4,13 @@ import multer from 'multer';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import fs from 'fs/promises';
+import fsSync from 'fs';  // For sync methods like existsSync
 import { fileURLToPath } from 'url';
+import passport from 'passport'; // Assuming passport for auth
 // import FileStore from 'session-file-store'; // <<< Remove this import
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
-import { hashPassword } from '../pdata/userUtils.js';
 import { authMiddleware } from './middleware/auth.js';
 import imageRouter from './routes/images.js';
 import authRoutes from './routes/auth.js'; // Assuming default export
@@ -18,39 +19,47 @@ import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
-import { PData } from '#pdata/pdata.js'; // Use the alias
-import pdataRouter from './routes/pdataRoutes.js'; // <--- Import the new router
+import { PData, createPDataRoutes } from 'pdata'; // Import class and factory
 
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const currentDir = path.dirname(__filename); // Directory of the current file (e.g., /server)
+const projectRoot = path.resolve(currentDir, '..'); // Go up one level to the project root
 
 // --- At the top with other configurations ---
 // Early access to environment variables for static routes
 const pdDir = process.env.PD_DIR;
-const dataDir = process.env.MD_DIR; // Define dataDir early based on env var
-
 if (!pdDir) {
     console.error("[SERVER FATAL] PD_DIR environment variable is not set.");
     process.exit(1);
 }
-if (!dataDir) {
-    console.error("[SERVER FATAL] MD_DIR environment variable is not set.");
-    process.exit(1);
-}
 
 console.log(`[SERVER] Using PD_DIR: ${pdDir}`);
-console.log(`[SERVER] Using MD_DIR: ${dataDir}`);
+console.log(`[SERVER] Current Directory (__dirname equivalent): ${currentDir}`);
+console.log(`[SERVER] Resolved Project Root: ${projectRoot}`);
+
+// Add this extra log right before using clientDir
+console.log(`[DEBUG] Path used for client static: ${currentDir}`);
 
 // Continue with app setup and static routes which can now use dataDir
 const app = express();
+
+// Initialize PData **once**
+let pdataInstance;
+try {
+	pdataInstance = new PData();
+	console.log('[Server] PData initialized successfully.');
+} catch (error) {
+	console.error('[Server] CRITICAL: PData failed to initialize. Server cannot start securely.', error);
+	process.exit(1); // Exit if PData fails
+}
 
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
   // Make pdata instance available on request object (alternative to global)
   req.pdata = pdataInstance;
-  req.dataDir = dataDir; // Also make dataDir easily available if needed
+  req.dataDir = pdataInstance.dataDir; // Also make dataDir easily available if needed
   next();
 });
 
@@ -72,7 +81,7 @@ app.use(cookieParser());
 // Session Middleware Configuration
 app.use(session({
   name: 'devpages.sid',
-  secret: process.env.SESSION_SECRET || 'fallback-dev-secret-please-set-env',
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-for-prod',
   resave: false,
   saveUninitialized: false,
   // store: new FileStoreSession({ ... }), // <<< Remove the store configuration
@@ -84,6 +93,48 @@ app.use(session({
   }
 }));
 
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ----- PASSPORT CONFIGURATION -----
+
+// Define how to store the user identifier in the session
+passport.serializeUser((user, done) => {
+    console.log('[Passport serializeUser] Storing user identifier in session:', user.username);
+    // We logged in with the user object { username: '...' }
+    // Store only the username in the session.
+    done(null, user.username); // Pass null for error, and the identifier (username)
+});
+
+// Define how to retrieve the full user object from the session identifier
+passport.deserializeUser((username, done) => {
+    // The 'username' here is what we stored via serializeUser
+    console.log('[Passport deserializeUser] Retrieving user from session identifier:', username);
+    // For simplicity, just create the user object with the username.
+    // The role can be fetched via req.pdata.getUserRole(req.user.username) in specific routes if needed.
+    // Or, you could fetch the role here using pdataInstance if available globally,
+    // but passing the instance around might be complex.
+    const user = { username: username };
+    done(null, user); // Pass null for error, and the reconstructed user object
+});
+
+// Optional: Configure Passport Local Strategy (if you want Passport to handle password check)
+// If you use this, your /login route might simplify further.
+// passport.use(new LocalStrategy(
+//   function(username, password, done) {
+//     // Use PData to validate
+//     const isValid = pdataInstance.validateUser(username, password);
+//     if (!isValid) {
+//       return done(null, false, { message: 'Incorrect username or password.' });
+//     }
+//     const user = { username: username }; // Or fetch more details
+//     return done(null, user);
+//   }
+// ));
+
+// ----- END PASSPORT CONFIGURATION -----
+
 // Configure multer (using imported 'uploadsDirectory')
 const storage = multer.diskStorage({
     destination: uploadsDirectory,
@@ -92,6 +143,11 @@ const storage = multer.diskStorage({
         const ext = path.extname(file.originalname);
         cb(null, `${timestamp}-${Math.random().toString(36).substring(7)}${ext}`);
     }
+});
+
+// Home route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(projectRoot, 'client', 'index.html'));
 });
 
 // Configure MIME types
@@ -103,36 +159,43 @@ express.static.mime.define({
 
 const staticOptions = { followSymlinks: true };
 
-// Serve static files (using derived __dirname and imported env)
-app.use('/client', express.static(path.join(__dirname, '../client'), staticOptions));
-// Use env.MD_DIR from imported config OR our DATA_DIR
-app.use('/images', express.static(path.join(dataDir, 'images'), staticOptions));
-app.use('/uploads', express.static(uploadsDirectory, staticOptions));
-app.use('/favicon.ico', express.static(path.join(__dirname, '../client/favicon.ico'), staticOptions));
-app.use(express.static(path.join(__dirname, '..'), staticOptions)); // Serve root static files (like SVGs)
-
-// Serve index.html (using derived __dirname)
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/index.html'));
+app.use('/client', (req, res, next) => {
+    console.log(`[DEBUG] Middleware BEFORE static: Request for /client${req.path}`);
+    next();
 });
 
-// --- PData Initialization (later in the file) ---
-let pdataInstance;
+// --- The actual static middleware ---
+app.use('/client', express.static(path.join(projectRoot, 'client'), staticOptions));
+
+// --- DEBUG: Log if request *passed through* static (shouldn't happen for existing files) ---
+app.use('/client', (req, res, next) => {
+    // This should ONLY log if express.static did NOT find the file
+    console.log(`[DEBUG] Middleware AFTER static: File /client${req.path} likely not found by express.static`);
+    next();
+});
+
+// --- Other static routes ---
+app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));
+app.use('/uploads', express.static(uploadsDirectory, staticOptions));
+app.use('/favicon.ico', express.static(path.join(currentDir, 'favicon.ico'), staticOptions));
+app.use(express.static(projectRoot, staticOptions)); // Serve root static files (like config.js)
+
+// Application-specific directories within dataDir
+const appImagesDir = path.join(pdataInstance.dataRoot, 'images');
+// Ensure application directories exist
 try {
-    // Initialize PData with already-verified pdDir and dataDir
-    // This requires a slight modification to the PData constructor
-    pdataInstance = new PData(pdDir, dataDir); // Pass both directories explicitly
-    console.log("[SERVER] PData instance created successfully.");
+    if (!fsSync.existsSync(appImagesDir)) {
+        console.log(`[SERVER] Creating images directory: ${appImagesDir}`);
+        await fs.mkdir(appImagesDir, { recursive: true });
+    }
 } catch (error) {
-    console.error("[SERVER] FATAL ERROR: Failed to initialize PData:", error.message);
+    console.error(`[SERVER] Error creating application directories: ${error.message}`);
     process.exit(1);
 }
 
-// const FileStoreSession = FileStore(session); // <<< Remove this line
-
 // Middleware to attach PData instance to requests
 app.use((req, res, next) => {
-    req.pdata = pdataInstance; // Attach the instance
+    req.pdata = pdataInstance;
     next();
 });
 
@@ -160,9 +223,47 @@ async function startServer() {
     const mediaUploadModule = await import('./routes/mediaUpload.js');
     const mediaUploadRoutes = mediaUploadModule.default;
 
-    // --- Route Registration ---
+    // --- START: Add *unprotected* route for public preview CSS ---
+    app.get('/public/css', async (req, res) => {
+        console.log(`[SERVER /public/css] ROUTE HANDLER ENTERED for path: ${req.query.path}`);
+        if (!req.pdata?.dataRoot) {
+            console.error('[SERVER /public/css] PData instance or dataRoot not found on request.');
+            res.type('text/plain').status(500).send('/* Server Configuration Error */');
+            return;
+        }
+        const relativePath = req.query.path || '';
+        const normalizedPath = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '').replace(/^[/\\]+|[/\\]+$/g, '');
+        if (normalizedPath.includes('..') || !normalizedPath.endsWith('.css')) {
+            console.warn(`[SERVER /public/css] Denying invalid path/type: ${relativePath}`);
+            return res.status(400).send('/* Invalid Path or File Type */');
+        }
+
+        const fullFilePath = path.join(req.pdata.dataRoot, normalizedPath);
+        console.log(`[SERVER /public/css] Attempting to serve PUBLIC file: ${fullFilePath} (from request path: ${relativePath})`);
+
+        try {
+            await fs.access(fullFilePath, fs.constants.R_OK);
+            res.type('text/css').sendFile(fullFilePath, (err) => {
+                if (err) {
+                    console.error(`[SERVER /public/css] Error sending file ${fullFilePath}:`, err);
+                    if (!res.headersSent) { res.type('text/plain').status(500).send('/* Error serving stylesheet */'); }
+                } else { console.log(`[SERVER /public/css] Successfully served ${fullFilePath}`); }
+            });
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log(`[SERVER /public/css] Public CSS not found at ${fullFilePath}`);
+                res.type('text/plain').status(404).send('/* Stylesheet not found */');
+            } else {
+                console.error(`[SERVER /public/css] Error accessing file ${fullFilePath}:`, error);
+                res.type('text/plain').status(500).send('/* Internal Server Error accessing stylesheet */');
+            }
+        }
+    });
+    // --- END: Add *unprotected* route for public preview CSS ---
+
+    // --- Protected API Routes (Example) ---
+    // These should come AFTER specific public routes if paths could potentially overlap
     app.use('/api/auth', authRoutes);
-    // Use the imported router directly
     app.use('/api/files', authMiddleware, filesRouter);
     app.use('/api/community', express.json(), authMiddleware, communityRoutes);
     // Legacy markdown route redirect - remove import if markdownRoutes isn't used elsewhere
@@ -181,11 +282,15 @@ async function startServer() {
     app.use('/api/media', mediaUploadRoutes);
     app.use('/api/media-proxy', mediaProxyRoutes);
 
+    // --- Mount the Preview Router ---
+    app.use('/api/preview', previewRoutes); // <--- ADD THIS LINE
+
     // --- Mount the new PData Router ---
     // Apply authMiddleware here so all routes in pdataRouter require login
-    app.use('/api/pdata', authMiddleware, pdataRouter); // <--- Mount the router
+    const pdataRouter = createPDataRoutes(pdataInstance);
+    app.use('/api/pdata', pdataRouter);
 
-    // --- Other Endpoints ---
+    // --- Other Specific Endpoints (like /image-delete) ---
     app.post('/image-delete', express.json(), authMiddleware, async (req, res) => {
         try {
             const { url } = req.body;
@@ -214,7 +319,7 @@ async function startServer() {
         if (!name) return res.status(400).json({ error: 'File name is required' });
 
         // Use env.MD_DIR from imported config
-        const baseDir = dataDir;
+        const baseDir = pdataInstance.dataRoot;
         const safeName = path.normalize(name).replace(/^(\.\.(\/|\\|$))+/, '');
         const safeDir = dir ? path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '') : '';
          if (safeName.includes('..') || safeDir.includes('..')) {
@@ -247,7 +352,7 @@ async function startServer() {
         console.log(`[SERVER /api/files/content] Content request for ${dir}/${filename}`);
 
         // Use env.MD_DIR from imported config
-        const baseDir = dataDir;
+        const baseDir = pdataInstance.dataRoot;
         const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
         const safeFilename = path.normalize(filename).replace(/^(\.\.(\/|\\|$))+/, '');
         if (safeDir.includes('..') || safeFilename.includes('..')) {
@@ -285,7 +390,7 @@ async function startServer() {
         const [, dir, file] = match;
         console.log(`[EMERGENCY SERVER] Detected potential file request: ${dir}/${file}`);
         try {
-          const baseDir = dataDir;
+          const baseDir = pdataInstance.dataRoot;
           const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
           const safeFile = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, '');
           if (safeDir.includes('..') || safeFile.includes('..')) {
@@ -312,25 +417,32 @@ async function startServer() {
       next();
     });
 
-    // API 404 Handler
+    // --- API 404 Handler (Specific to /api) ---
+    // Place this *after* all your other /api routes
     app.use('/api/*', (req, res) => {
-        console.log(`[API] 404 Not Found: ${req.method} ${req.originalUrl}`);
-        res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl, method: req.method, message: 'The requested API endpoint does not exist or is misconfigured.' });
+        console.log(`[API 404 Not Found]: ${req.method} ${req.originalUrl}`);
+        res.status(404).json({ error: 'API endpoint not found' });
     });
 
-    // General 404 Handler (including preview fallback)
+    // --- General 404 Handler (Catch-all) ---
+    // >>>>>>>> THIS MUST BE REGISTERED *LAST* or very close to last <<<<<<<<<<<
     app.use((req, res, next) => {
-      console.log(`[SERVER] 404 Not Found: ${req.originalUrl}`);
+      // --- DEBUG: Log clearly when 404 handler catches a client path ---
+      if (req.originalUrl.startsWith('/client/')) {
+          console.error(`[DEBUG 404 HANDLER] Caught request for MISSING client file: ${req.originalUrl}`);
+          return res.status(404).send(`Static file not found: ${req.originalUrl}`);
+      }
+      console.log(`[GENERAL 404] ${req.method} ${req.originalUrl}`);
       if (req.originalUrl.startsWith('/preview/')) {
         console.log('[SERVER] Attempting to serve preview page as fallback for unmatched preview URL');
         // Use derived __dirname
-        res.sendFile(path.resolve(__dirname, '../client/preview/viewer.html'));
+        res.sendFile(path.resolve(currentDir, 'preview/viewer.html'));
       } else {
-        res.status(404).send('404 Not Found');
+        res.status(404).send('Resource not found');
       }
     });
 
-    // --- Log Registered Routes ---
+    // --- Log Registered Routes (Keep this near the end before listen) ---
     console.log('Registered routes:');
     app._router.stack.forEach(middleware => {
         if (middleware.route) {
@@ -388,7 +500,9 @@ async function startServer() {
         console.log(`[SERVER] Server running at http://localhost:${port}`);
         // Use env.MD_DIR from imported config
         console.log(`[SERVER] Using MD_DIR: ${env.MD_DIR || 'default'}`);
-        console.log(`[SERVER] Using DATA_DIR: ${dataDir}`);
+        console.log(`PData DB Root: ${pdataInstance.dbRoot}`);
+        console.log(`PData Data Root: ${pdataInstance.dataRoot}`);
+        console.log(`PData Uploads Dir: ${pdataInstance.uploadsDir}`);
         console.log('='.repeat(50));
     });
 }

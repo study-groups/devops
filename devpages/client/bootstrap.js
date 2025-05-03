@@ -29,6 +29,27 @@ const bootstrapError = (message, error) => console.error(`[BOOTSTRAP ERROR] ${me
 setReducer(mainReducer);
 logBootstrap('Main state reducer injected into message queue.', 'debug');
 
+// Add this function at the beginning of the bootstrap process
+async function loadUIState() {
+  try {
+    // Specifically for settings panel visibility
+    const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
+    if (settingsPanelState) {
+      const parsedState = JSON.parse(settingsPanelState);
+      if (parsedState.enabled === true) {
+        // Apply immediately - don't wait for other initializations
+        document.getElementById('settings-panel').classList.add('visible');
+        console.log('[Bootstrap] Restored settings panel visible state');
+      }
+    }
+  } catch (e) {
+    console.error('[Bootstrap] Error restoring UI state:', e);
+  }
+}
+
+// Call this very early in your initialization sequence
+loadUIState();
+
 // Main application initialization function
 async function initializeApp() {
   if (window.APP.initialized) {
@@ -265,3 +286,27 @@ appStore.subscribe((newState, prevState) => {
   // but it's often better to do this in response to specific actions 
   // or within the components/initializers that own that state.
 }); 
+
+async function initializeUI() {
+  // Load saved application state from localStorage
+  try {
+    const savedAppState = localStorage.getItem('devpages_app_state');
+    if (savedAppState) {
+      const parsedState = JSON.parse(savedAppState);
+      
+      // Apply UI states immediately
+      if (parsedState.settingsPanel && parsedState.settingsPanel.visible) {
+        document.getElementById('settings-panel').classList.add('visible');
+        console.log('[Bootstrap] Restored settings panel visible state');
+      }
+      
+      // Apply to appStore (assuming you have appStore.setInitialState or similar)
+      appStore.update(state => ({
+        ...state,
+        settingsPanel: parsedState.settingsPanel || state.settingsPanel
+      }));
+    }
+  } catch (e) {
+    console.error('[Bootstrap] Error restoring app state:', e);
+  }
+} 
