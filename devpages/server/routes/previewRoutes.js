@@ -10,6 +10,8 @@ import { port } from '../config.js';
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Define project root relative to this file's location
+const projectRootDir = path.resolve(__dirname, '../..');
 
 const router = Router();
 
@@ -259,88 +261,124 @@ const essentialCssFiles = [
     // 'client/css/markdown-preview-theme.css',
 ];
 
-async function readCssFile(filePath) {
-    try {
-        // Resolve relative to project root OR handle node_modules path specifically
-        let absolutePath;
-        if (filePath.startsWith('node_modules/')) {
-             // Special handling if accessing node_modules directly
-             absolutePath = path.resolve(__dirname, filePath);
-             // Make sure your server can actually serve/read from node_modules if using this path
-        } else {
-             // Assume paths relative to project root (like client/, server/, etc.)
-            absolutePath = path.resolve(__dirname, filePath);
-        }
-
-        logServer(`Reading CSS file: ${absolutePath}`);
-        let content = await fs.readFile(absolutePath, 'utf-8');
-
-        // Special handling for KaTeX font paths if needed
-        if (filePath.includes('katex.min.css')) {
-             // Base path calculation needs care depending on how it's served
-             // If served from /client/vendor/katex/, the base would be /client/vendor/katex/fonts/
-             const cssWebDir = path.dirname('/' + filePath.replace(/\\/g, '/')); // Get web path directory
-             const fontBase = `${cssWebDir}/fonts/`;
-             logServer(`Adjusting KaTeX font paths relative to web path: ${fontBase}`);
-             // Ensure replacement target is specific enough
-             content = content.replace(/url\(['"]?fonts\//g, `url('${fontBase}`); // Use single quotes for safety
-        }
-
-        return { source: filePath, content: content };
-    } catch (error) {
-        logServer(`Error reading CSS file ${filePath}: ${error.message}`, 'error');
-        return { source: filePath, content: `/* CSS File Not Found/Error: ${filePath} - ${error.message} */`, error: true };
-    }
-}
-
-// Helper for logging server-side messages
+// --- Logging Helper ---
 function logServer(message, level = 'info') {
-    const logFunc = level === 'error' ? console.error : console.log;
+    const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
     logFunc(`[PREVIEW_API] ${message}`);
 }
 
-router.post('/api/preview/generate-static', express.json({ limit: '10mb' }), async (req, res) => { // Increased limit for HTML payload
-    logServer('Received request for POST /api/preview/generate-static');
+// --- Define Base/Essential CSS Resources ---
+// Can include local paths (relative to project root) and full URLs
+const basePreviewCssResources = [
+    // 'client/output.css', // <<< REMOVED Tailwind CSS
+    'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css', // KaTeX CDN URL
+    // Add other essential local paths or CDN URLs ONLY IF NEEDED for preview
+];
+
+// --- CSS Reading Function (Only for local files) ---
+async function readLocalCssFile(relativePath, dataRootDir, projectRootDir) {
     try {
-        const { filePath, markdownSource, renderedHtml } = req.body;
+        let absolutePath;
+        const normalizedPath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
+
+        // Determine root based on path prefix
+        if (normalizedPath.startsWith('client/')) {
+            absolutePath = path.resolve(projectRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to project root: ${absolutePath}`, 'debug');
+        } else if (normalizedPath.startsWith('node_modules/')) {
+             absolutePath = path.resolve(projectRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to project node_modules: ${absolutePath}`, 'debug');
+        } else {
+             // Assume relative to data root (MD_DIR)
+             if (!dataRootDir) throw new Error('Data root directory (MD_DIR) is not configured or available.');
+             absolutePath = path.resolve(dataRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to data root (${dataRootDir}): ${absolutePath}`, 'debug');
+        }
+
+        if (!absolutePath.startsWith(projectRootDir) && !absolutePath.startsWith(dataRootDir)) {
+             throw new Error(`CSS path escape attempt detected: ${relativePath} resolved to ${absolutePath}`);
+        }
+
+        logServer(`Reading LOCAL CSS file: ${absolutePath}`);
+        let content = await fs.readFile(absolutePath, 'utf-8');
+        return { source: relativePath, content: content };
+    } catch (error) {
+        logServer(`Error reading LOCAL CSS file ${relativePath}: ${error.message}`, 'error');
+        return { source: relativePath, content: `/* CSS File Read Error: ${relativePath} - ${error.message} */`, error: true };
+    }
+}
+
+// --- Static HTML Generation Route (Modified for Links) ---
+router.post('/generate-static', express.json({ limit: '10mb' }), async (req, res) => {
+    logServer('Received request for POST /generate-static');
+    try {
+        const { filePath, markdownSource, renderedHtml, activeCssPaths } = req.body;
 
         if (!renderedHtml) {
             return res.status(400).json({ error: 'Missing required field: renderedHtml' });
         }
 
-        logServer(`Generating static HTML for path: ${filePath || 'N/A'}`);
+        // --- Combine Base CSS with Client Requested CSS ---
+        const userRequestedCss = Array.isArray(activeCssPaths) ? activeCssPaths : [];
+        logServer(`Client requested ${userRequestedCss.length} CSS files: ${JSON.stringify(userRequestedCss)}`);
+
+        const combinedCssResources = new Set([...basePreviewCssResources, ...userRequestedCss]);
+        const resourcesToInclude = Array.from(combinedCssResources);
+
+        // --- Separate URLs and Local Paths ---
+        const cssUrlsToLink = [];
+        const localCssPathsToRead = [];
+        resourcesToInclude.forEach(resource => {
+            if (resource.startsWith('http://') || resource.startsWith('https://')) {
+                cssUrlsToLink.push(resource);
+            } else {
+                localCssPathsToRead.push(resource);
+            }
+        });
+        logServer(`Identified ${cssUrlsToLink.length} CSS URLs to link: ${JSON.stringify(cssUrlsToLink)}`);
+        logServer(`Identified ${localCssPathsToRead.length} local CSS paths to read: ${JSON.stringify(localCssPathsToRead)}`);
+
+
+        // --- Get Necessary Directory Roots from PData ---
+        const dataRootDir = req.pdata?.dataRoot;
+        if (!dataRootDir && localCssPathsToRead.some(p => !p.startsWith('client/') && !p.startsWith('node_modules/'))) {
+             // Only critical if we need to read from dataRoot
+             logServer('CRITICAL: Cannot determine data root (MD_DIR) from req.pdata, and local non-client/non-node_modules CSS requested.', 'error');
+             return res.status(500).json({ error: 'Server configuration error: Cannot find data root directory for requested CSS.' });
+        }
+        // projectRootDir defined at top of file
+
+        logServer(`Generating static HTML for client path: ${filePath || 'N/A'}`);
 
         // --- Determine Filename Info ---
         let baseFilename = 'static-preview';
         let directory = '.';
         if (filePath) {
-            // Ensure filePath is treated as a string before calling path methods
             const safeFilePath = String(filePath);
             baseFilename = path.basename(safeFilePath);
-             // Handle case where filePath might just be a filename with no directory
              directory = path.dirname(safeFilePath) === '.' && !safeFilePath.includes('/') && !safeFilePath.includes('\\') ? '.' : path.dirname(safeFilePath);
         }
         const generationTime = new Date().toISOString();
 
-        // --- Read Essential CSS Files Concurrently ---
-        logServer(`Reading ${essentialCssFiles.length} essential CSS files...`);
-        const cssReadPromises = essentialCssFiles.map(readCssFile);
+        // --- Read ONLY Local CSS Files Concurrently ---
+        logServer(`Reading ${localCssPathsToRead.length} local CSS files...`);
+        const cssReadPromises = localCssPathsToRead.map(relativePath =>
+            readLocalCssFile(relativePath, dataRootDir, projectRootDir) // Pass roots
+        );
         const cssResults = await Promise.all(cssReadPromises);
 
-        // --- Combine CSS ---
-        let combinedCSS = '';
-        let tailwindCSS = ''; // Keep Tailwind separate to ensure it's last
+        // --- Combine Local CSS ---
+        // Simpler loop now - append everything received (which is just user CSS now)
+        let combinedLocalCSS = '';
         cssResults.forEach(result => {
-             // Append error comments or actual content
-             if (result.source.includes('output.css') && !result.error) {
-                  tailwindCSS = `\n/* Tailwind Styles (${result.source}) */\n${result.content}\n`;
-             } else {
-                  // Include error comments in the output for debugging
-                  combinedCSS += `\n/* Styles from ${result.source} ${result.error ? '(ERROR)' : ''} */\n${result.content}\n`;
-             }
+             combinedLocalCSS += `\n/* Styles from ${result.source} ${result.error ? `(ERROR: ${result.content.split('\n')[0].replace('/*','').replace('*/','').trim()})` : ''} */\n${result.error ? result.content : result.content}\n`;
         });
-        combinedCSS += tailwindCSS; // Append Tailwind last
-        logServer(`Combined CSS length: ${combinedCSS.length}`);
+        logServer(`Combined local CSS length: ${combinedLocalCSS.length}.`); // Updated log
+
+        // --- Construct Link Tags for URLs ---
+        const linkTags = cssUrlsToLink.map(url =>
+            `<link rel="stylesheet" href="${url.replace(/"/g, '&quot;')}">` // Basic sanitization for href
+        ).join('\n  ');
 
         // --- Construct Metadata ---
         const yamlFrontMatter = `---
@@ -348,6 +386,8 @@ file: ${baseFilename}
 directory: ${directory}
 generated_at: ${generationTime}
 source_markdown_embedded: ${!!markdownSource && markdownSource !== '<!-- Could not retrieve original Markdown source -->'}
+embedded_local_css_files: ${JSON.stringify(localCssPathsToRead)}
+linked_external_css_files: ${JSON.stringify(cssUrlsToLink)}
 ---`;
         const metadataContainer = `\n<div id="devpages-metadata-source" style="display:none; height:0; overflow:hidden; position:absolute;">\n<pre># --- DevPages Metadata & Source --- #\n${yamlFrontMatter}\n\n## Original Markdown Source ##\n\n${markdownSource || '<!-- Markdown source not provided -->'}\n</pre>\n</div>`;
 
@@ -359,14 +399,17 @@ source_markdown_embedded: ${!!markdownSource && markdownSource !== '<!-- Could n
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Static Preview: ${baseFilename}</title>
+  <!-- Linked CSS Files -->
+  ${linkTags}
+  <!-- Embedded Local CSS Files -->
   <style id="embedded-styles">
     /* Basic page styles */
-    body { margin: 20px; padding: 0; font-family: sans-serif; line-height: 1.5; }
+    body { margin: 0; padding: 0; font-family: sans-serif; line-height: 1.5; }
     *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; } /* Basic reset */
     img, video { max-width: 100%; height: auto; }
 
     /* --- Embedded Preview Styles --- */
-    ${combinedCSS}
+    ${combinedLocalCSS}
   </style>
 </head>
 <body>
@@ -376,15 +419,11 @@ source_markdown_embedded: ${!!markdownSource && markdownSource !== '<!-- Could n
 </html>`;
 
         logServer(`Final HTML content assembled (length: ${finalHtmlContent.length}). Sending response.`);
-
-        // --- Send Response ---
         res.setHeader('Content-Type', 'text/html');
-        // Optional: Set download filename on server (though client usually overrides)
-        // res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.html"`);
         res.send(finalHtmlContent);
 
     } catch (error) {
-        logServer(`Error in POST /api/preview/generate-static: ${error.message}`, 'error');
+        logServer(`Error in POST /generate-static: ${error.message}`, 'error');
         console.error(error.stack); // Log full stack
         res.status(500).json({
             error: 'Failed to generate static HTML preview on server.',

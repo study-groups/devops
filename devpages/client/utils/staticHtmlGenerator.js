@@ -25,8 +25,8 @@ export async function downloadStaticHTML() {
         if (!previewElement) {
             throw new Error('Preview container element (#preview-container) not found.');
         }
-        const renderedHtml = previewElement.innerHTML;
-        logStaticGen(`Captured preview div innerHTML (length: ${renderedHtml.length})`);
+        const renderedHtml = previewElement.outerHTML;
+        logStaticGen(`Captured preview div outerHTML (length: ${renderedHtml.length})`);
 
         // --- Get File Info (using appStore) ---
         const state = appStore.getState();
@@ -51,6 +51,11 @@ export async function downloadStaticHTML() {
             logStaticGen(`Could not get markdown content from editor: ${editorError.message}`, 'warning');
         }
 
+        // --- Get Active CSS Files from Settings ---
+        const activeCssFiles = state.settings?.preview?.activeCssFiles || [];
+        logStaticGen(`Including ${activeCssFiles.length} active CSS paths from settings: ${JSON.stringify(activeCssFiles)}`);
+
+
         // --- Call Server API ---
         logStaticGen(`Sending request to /api/preview/generate-static...`);
         const response = await globalFetch('/api/preview/generate-static', {
@@ -62,13 +67,21 @@ export async function downloadStaticHTML() {
             body: JSON.stringify({
                 filePath: currentPathname, // Send the full path if available
                 markdownSource: markdownContent,
-                renderedHtml: renderedHtml
+                renderedHtml: renderedHtml,
+                activeCssPaths: activeCssFiles // <<< SEND ACTIVE CSS PATHS
             })
         });
 
         if (!response.ok) {
              const errorText = await response.text();
-             throw new Error(`Server error ${response.status}: ${errorText || response.statusText}`);
+             try {
+                 // Attempt to parse JSON error from server
+                 const errorJson = JSON.parse(errorText);
+                 throw new Error(`Server error ${response.status}: ${errorJson.error || errorJson.details || errorText}`);
+             } catch (e) {
+                 // Fallback to plain text error
+                 throw new Error(`Server error ${response.status}: ${errorText || response.statusText}`);
+             }
         }
 
         // --- Get HTML from Response ---
