@@ -19,6 +19,7 @@ import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
+import publishRouter from './routes/publish.js'; // <--- ADD THIS IMPORT
 import { PData, createPDataRoutes } from 'pdata'; // Import class and factory
 
 // Derive __dirname in ES module
@@ -98,44 +99,21 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ----- PASSPORT CONFIGURATION -----
-
-// Define how to store the user identifier in the session
+// Also uncomment the serialize/deserialize functions if they were commented
 passport.serializeUser((user, done) => {
     console.log('[Passport serializeUser] Storing user identifier in session:', user.username);
-    // We logged in with the user object { username: '...' }
-    // Store only the username in the session.
-    done(null, user.username); // Pass null for error, and the identifier (username)
+    done(null, user.username);
 });
-
-// Define how to retrieve the full user object from the session identifier
 passport.deserializeUser((username, done) => {
-    // The 'username' here is what we stored via serializeUser
     console.log('[Passport deserializeUser] Retrieving user from session identifier:', username);
-    // For simplicity, just create the user object with the username.
-    // The role can be fetched via req.pdata.getUserRole(req.user.username) in specific routes if needed.
-    // Or, you could fetch the role here using pdataInstance if available globally,
-    // but passing the instance around might be complex.
     const user = { username: username };
-    done(null, user); // Pass null for error, and the reconstructed user object
+    done(null, user);
 });
-
-// Optional: Configure Passport Local Strategy (if you want Passport to handle password check)
-// If you use this, your /login route might simplify further.
-// passport.use(new LocalStrategy(
-//   function(username, password, done) {
-//     // Use PData to validate
-//     const isValid = pdataInstance.validateUser(username, password);
-//     if (!isValid) {
-//       return done(null, false, { message: 'Incorrect username or password.' });
-//     }
-//     const user = { username: username }; // Or fetch more details
-//     return done(null, user);
-//   }
-// ));
-
 // ----- END PASSPORT CONFIGURATION -----
 
+
 // Configure multer (using imported 'uploadsDirectory')
+// Multer setup might be okay here, or move it after the static block if causing issues
 const storage = multer.diskStorage({
     destination: uploadsDirectory,
     filename: (req, file, cb) => {
@@ -159,49 +137,62 @@ express.static.mime.define({
 
 const staticOptions = { followSymlinks: true };
 
+// --- /client Static Serving Block (KEEP THIS ACTIVE) ---
 app.use('/client', (req, res, next) => {
     console.log(`[DEBUG] Middleware BEFORE static: Request for /client${req.path}`);
     next();
 });
-
 // --- The actual static middleware ---
 app.use('/client', express.static(path.join(projectRoot, 'client'), staticOptions));
-
 // --- DEBUG: Log if request *passed through* static (shouldn't happen for existing files) ---
 app.use('/client', (req, res, next) => {
     // This should ONLY log if express.static did NOT find the file
     console.log(`[DEBUG] Middleware AFTER static: File /client${req.path} likely not found by express.static`);
     next();
 });
+// --- End /client Static Serving Block ---
+
 
 // --- Other static routes ---
 app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));
 app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 app.use('/favicon.ico', express.static(path.join(currentDir, 'favicon.ico'), staticOptions));
-app.use(express.static(projectRoot, staticOptions)); // Serve root static files (like config.js)
+app.get('/config.js', (req, res) => {
+    res.sendFile(path.join(projectRoot, 'config.js'));
+});
 
 // Application-specific directories within dataDir
 const appImagesDir = path.join(pdataInstance.dataRoot, 'images');
 // Ensure application directories exist
-try {
-    if (!fsSync.existsSync(appImagesDir)) {
-        console.log(`[SERVER] Creating images directory: ${appImagesDir}`);
-        await fs.mkdir(appImagesDir, { recursive: true });
-    }
-} catch (error) {
-    console.error(`[SERVER] Error creating application directories: ${error.message}`);
-    process.exit(1);
-}
+// Note: fs operations moved inside startServer() as they are async
+// try {
+//     if (!fsSync.existsSync(appImagesDir)) {
+//         console.log(`[SERVER] Creating images directory: ${appImagesDir}`);
+//         await fs.mkdir(appImagesDir, { recursive: true }); // await needs async context
+//     }
+// } catch (error) {
+//     console.error(`[SERVER] Error creating application directories: ${error.message}`);
+//     process.exit(1);
+// }
 
-// Middleware to attach PData instance to requests
+// Middleware to attach PData instance to requests (KEEP THIS)
 app.use((req, res, next) => {
     req.pdata = pdataInstance;
     next();
 });
 
+
+// ==============================================
+// === REMOVE THE RESTORED MIDDLEWARE BLOCK BEFORE API ===
+// ==============================================
+// Remove the block around line 214-226 where we temporarily restored them
+// ==============================================
+
+
 // Authentication middleware (ensure this runs AFTER session and PData attachment)
 // Apply auth middleware selectively or globally as needed
 // app.use('/api', authMiddleware); // Example: protect all /api routes
+
 
 // --- Routes ---
 // Import routers ONCE
@@ -214,6 +205,20 @@ app.use('/api/auth', authRouter); // Auth routes (login/logout) might not need a
 
 // --- Async Function to Load Routes and Start Server ---
 async function startServer() {
+
+    // --- Ensure application directories exist (Moved inside async function) ---
+    try {
+        if (!fsSync.existsSync(appImagesDir)) {
+            console.log(`[SERVER] Creating images directory: ${appImagesDir}`);
+            await fs.mkdir(appImagesDir, { recursive: true });
+        }
+    } catch (error) {
+        console.error(`[SERVER] Error creating application directories: ${error.message}`);
+        process.exit(1);
+    }
+    // --- End Directory Check ---
+
+
     // Routes are now imported at the top level
 
     // Dynamically import remaining ES Module routes (if any were missed)
@@ -265,6 +270,7 @@ async function startServer() {
     // These should come AFTER specific public routes if paths could potentially overlap
     app.use('/api/auth', authRoutes);
     app.use('/api/files', authMiddleware, filesRouter);
+    app.use('/api/publish', authMiddleware, publishRouter); // <--- ADD THIS LINE
     app.use('/api/community', express.json(), authMiddleware, communityRoutes);
     // Legacy markdown route redirect - remove import if markdownRoutes isn't used elsewhere
     app.use('/api/markdown', authMiddleware, (req, res, next) => {

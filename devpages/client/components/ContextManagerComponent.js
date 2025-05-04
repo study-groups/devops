@@ -202,12 +202,11 @@ export function createContextManagerComponent(targetElementId) {
                 ${primarySelectorHTML}
                 <div class="file-action-buttons">
                     <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
-                    <button id="context-info-btn" title="Show Context Info">Info</button>
+                    <button id="publish-btn" title="Publish File">Publish</button>
                 </div>
-                <div id="context-info-popup" class="info-popup"></div>
             </div>
         `;
-        infoPopupElement = element.querySelector('#context-info-popup');
+        // infoPopupElement = element.querySelector('#context-info-popup'); // Remove if popup div removed
         if (isSaving) element.querySelector('#save-btn')?.classList.add('saving');
         logContext(`innerHTML updated.`);
 
@@ -233,12 +232,10 @@ export function createContextManagerComponent(targetElementId) {
              primarySelectElement.removeEventListener('change', handlePrimarySelectChange);
              primarySelectElement.addEventListener('change', handlePrimarySelectChange);
         }
-        const infoButton = element.querySelector('#context-info-btn');
-        if (infoButton) {
-            infoButton.removeEventListener('mouseenter', handleInfoMouseEnter);
-            infoButton.removeEventListener('mouseleave', handleInfoMouseLeave);
-            infoButton.addEventListener('mouseenter', handleInfoMouseEnter);
-            infoButton.addEventListener('mouseleave', handleInfoMouseLeave);
+        const publishButton = element.querySelector('#publish-btn');
+        if (publishButton) {
+             publishButton.removeEventListener('click', handlePublishButtonClick);
+             publishButton.addEventListener('click', handlePublishButtonClick);
         }
 
         logContext(`Event listeners (re)attached. Render END.`);
@@ -418,6 +415,31 @@ export function createContextManagerComponent(targetElementId) {
         
         // Emit event to request file save
         eventBus.emit('file:save');
+    };
+
+    // *** Add/Modify the Publish Button Click Handler ***
+    const handlePublishButtonClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        logContext('Publish button clicked', 'EVENT');
+
+        const fileState = appStore.getState().file;
+        if (fileState.isDirectorySelected || !fileState.currentPathname) {
+            logContext('Cannot publish: No file selected or directory view.', 'warn', 'EVENT');
+            alert('Please select a file to publish.');
+            return;
+        }
+
+        // *** Call the action from triggerActions ***
+        if (typeof window.triggerActions?.publishToSpaces === 'function') {
+            logContext('Calling triggerActions.publishToSpaces()', 'debug', 'EVENT');
+            window.triggerActions.publishToSpaces(); // Assumes actions.js makes triggerActions global
+        } else {
+            logContext('Cannot publish: triggerActions.publishToSpaces is not available.', 'error', 'EVENT');
+            alert('Publish action is not configured correctly.');
+            // Optionally log error to main console for debugging
+            console.error("triggerActions.publishToSpaces is not defined on window.");
+        }
     };
 
     // --- Component Lifecycle ---

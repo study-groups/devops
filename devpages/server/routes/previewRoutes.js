@@ -413,7 +413,9 @@ linked_external_css_files: ${JSON.stringify(cssUrlsToLink)}
   </style>
 </head>
 <body>
-  ${renderedHtml}
+  <div id="preview-container">
+    ${renderedHtml}
+  </div>
   ${metadataContainer}
 </body>
 </html>`;

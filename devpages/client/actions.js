@@ -10,7 +10,7 @@ import fileManager from '/client/filesystem/fileManager.js'; // Needed for loadF
 import { loadFile, saveFile } from '/client/filesystem/fileManager.js'; // (Updated path)
 import { logout } from '/client/auth.js';
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
-import { downloadStaticHTML as generateAndDownloadStaticHTML } from '/client/utils/staticHtmlGenerator.js'; // Import the refactored function
+import { downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js'; // Use the correct absolute path
 
 
 // Helper for logging within this module
@@ -403,7 +403,7 @@ export const triggerActions = {
     downloadStaticHTML: async () => {
         logAction('Triggering static HTML generation via imported function...');
         // Call the refactored function
-        await generateAndDownloadStaticHTML();
+        await downloadStaticHTML();
     },
 
     // --- Image Actions ---
@@ -965,6 +965,87 @@ export const triggerActions = {
         } catch (e) {
             logAction(`Failed to save SmartCopy Buffer A to localStorage: ${e.message}`, 'error');
             alert('Failed to save selection to buffer A.');
+        }
+    },
+
+    publishToSpaces: async () => {
+        const logPrefix = 'ACTION publishToSpaces';
+        logAction('Triggering file publish to DO Spaces...', 'info', 'PUBLISH');
+        let editor, rawMarkdownContent, currentPathname, generatedHtmlContent;
+
+        try {
+            // 1. Get Editor Content
+            const editorSelectors = [
+                '#md-editor textarea', '#editor-container textarea',
+                'textarea.markdown-editor', 'textarea#editor', 'textarea'
+            ];
+            editor = editorSelectors.map(sel => document.querySelector(sel)).find(el => el);
+            if (!editor) throw new Error('Editor element not found.');
+            rawMarkdownContent = editor.value || '';
+            if (!rawMarkdownContent.trim()) throw new Error('Editor content is empty.');
+            logAction('Editor content retrieved.', 'debug', 'PUBLISH');
+
+            // 2. Get Current Pathname from appStore
+            currentPathname = appStore.getState().file?.currentPathname;
+            if (!currentPathname || appStore.getState().file?.isDirectorySelected) {
+                throw new Error('No file is currently selected for publishing.');
+            }
+            logAction(`Publishing: ${currentPathname}`, 'debug', 'PUBLISH');
+
+            // 3. Generate HTML using the Client-Side Utility
+            logAction('Generating static HTML string...', 'debug', 'PUBLISH');
+            // Ensure generateStaticHTMLString is correctly imported and works
+            generatedHtmlContent = await downloadStaticHTML({
+                markdownSource: rawMarkdownContent,
+                originalFilePath: currentPathname,
+                // activeCssPaths: [], // Pass active CSS if needed by your generator
+            });
+            if (generatedHtmlContent === null || typeof generatedHtmlContent !== 'string') {
+                // Check for null or non-string return value indicating failure
+                throw new Error('Static HTML string generation failed or returned invalid content.');
+            }
+            logAction(`HTML generated (Length: ${generatedHtmlContent.length})`, 'debug', 'PUBLISH');
+
+            // 4. Send Generated HTML to Server
+            logAction(`Sending generated HTML to /api/publish...`, 'debug', 'PUBLISH');
+            const response = await fetch('/api/publish', { // Use fetch directly
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, // Ensure correct header
+                body: JSON.stringify({
+                    pathname: currentPathname,          // Original MD path for tracking
+                    htmlContent: generatedHtmlContent   // Send the generated HTML
+                })
+            });
+
+            const data = await response.json(); // Always try to parse JSON response
+
+            if (!response.ok) {
+                // Use error message from server response if available
+                throw new Error(data?.error || `Server error: ${response.status} ${response.statusText}`);
+            }
+            if (!data.success || !data.url) {
+                 throw new Error('Publish API returned success=false or missing URL');
+            }
+
+            // 5. Handle Success
+            logAction(`Published successfully to: ${data.url}`, 'info', 'PUBLISH');
+            if (confirm(`File published successfully!\n\nURL: ${data.url}\n\nClick OK to copy URL.`)) {
+                try {
+                    await navigator.clipboard.writeText(data.url);
+                    logAction('Published URL copied.', 'info', 'PUBLISH');
+                } catch (copyError) {
+                     logAction(`Failed to copy URL to clipboard: ${copyError.message}`, 'warn', 'PUBLISH');
+                     // Alert user maybe?
+                     alert("Could not automatically copy URL, but it is: " + data.url);
+                }
+            }
+            // Maybe update the button state via publishButton.js checkPublishStatus?
+            // import { checkPublishStatus } from '/client/components/publishButton.js'; checkPublishStatus(currentPathname);
+
+        } catch (error) {
+            logAction(`Publish error: ${error.message}`, 'error', 'PUBLISH');
+            console.error('[PUBLISH ACTION ERROR]', error);
+            alert(`Failed to publish: ${error.message}`);
         }
     },
 }; // <<< Add missing closing brace for triggerActions object
