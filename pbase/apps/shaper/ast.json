@@ -1,0 +1,66 @@
+{
+    "type": "Root",
+    "attributes": {},
+    "children": [
+        {
+            "type": "Circle",
+            "attributes": { "id": "c1", "position": [50, 50], "size": 20, "color": "blue" }
+        },
+        {
+            "type": "Square",
+            "attributes": { "id": "s1", "position": [150, 50], "size": 30, "color": "red" }
+        },
+        {
+            "type": "Link",
+            "attributes": { "shape1": "c1", "shape2": "s1", "color": "gray", "thickness": 2 }
+        },
+        {
+            "type": "Circle",
+            "attributes": { "id": "c2", "position": [50, 150], "size": 20, "color": "green" }
+        },
+        {
+            "type": "Square",
+            "attributes": { "id": "s2", "position": [150, 150], "size": 30, "color": "orange" }
+        },
+        {
+            "type": "Link",
+            "attributes": { "shape1": "c2", "shape2": "s2", "color": "gray", "thickness": 2 }
+        },
+        {
+            "type": "Circle",
+            "attributes": { "id": "c3", "position": [50, 250], "size": 20, "color": "purple" }
+        },
+        {
+            "type": "Square",
+            "attributes": { "id": "s3", "position": [150, 250], "size": 30, "color": "yellow" }
+        },
+        {
+            "type": "Link",
+            "attributes": { "shape1": "c3", "shape2": "s3", "color": "gray", "thickness": 2 }
+        },
+        {
+            "type": "Circle",
+            "attributes": { "id": "c4", "position": [50, 350], "size": 20, "color": "cyan" }
+        },
+        {
+            "type": "Square",
+            "attributes": { "id": "s4", "position": [150, 350], "size": 30, "color": "brown" }
+        },
+        {
+            "type": "Link",
+            "attributes": { "shape1": "c4", "shape2": "s4", "color": "gray", "thickness": 2 }
+        },
+        {
+            "type": "Circle",
+            "attributes": { "id": "c5", "position": [50, 450], "size": 20, "color": "pink" }
+        },
+        {
+            "type": "Square",
+            "attributes": { "id": "s5", "position": [150, 450], "size": 30, "color": "lime" }
+        },
+        {
+            "type": "Link",
+            "attributes": { "shape1": "c5", "shape2": "s5", "color": "gray", "thickness": 2 }
+        }
+    ]
+}

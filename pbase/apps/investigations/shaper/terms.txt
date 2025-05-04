@@ -1,0 +1,1 @@
+A semantic resolution tree is a tree used for the definition of the semantics of a programming language.[1] They have often been used as a theoretical tool for showing the unsatisfiability of clauses in first-order predicate logic.

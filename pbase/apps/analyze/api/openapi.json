@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Analyze API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/html_objects": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["pageUrl", "treeMap", "node", "meta"],
+                  "properties": {
+                    "pageUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "unique": true
+                    },
+                    "treeMap": {
+                      "type": "object"
+                    },
+                    "nodes": {
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 

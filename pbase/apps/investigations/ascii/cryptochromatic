@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+
+# Function to generate a title with color gradient
+generate_title() {
+    local title="${1:-Cryptochromatic}"
+    local palette_index=$2
+    local center=${3:-true}
+    local colors=(196 202 226 46 21 201)
+    local colored_title=""
+    local index=0
+
+    # Double-space the title
+    local spaced_title=""
+    for ((i=0; i<${#title}; i++)); do
+        spaced_title+="${title:$i:1} "
+    done
+    spaced_title="${spaced_title% }"  # Remove trailing space
+
+    for ((i=0; i<${#spaced_title}; i++)); do
+        local char="${spaced_title:$i:1}"
+        if [[ "$char" != " " ]]; then
+            local color_index=$(( (palette_index + index) % ${#colors[@]} ))
+            local color=${colors[$color_index]}
+            colored_title+="\e[38;5;${color}m${char}\e[0m"
+            index=$((index + 1))
+        else
+            colored_title+=" "
+        fi
+    done
+
+    # Center the title if required
+    if [[ "$center" == "true" ]]; then
+        local padding=$(( (COLUMNS - ${#spaced_title}) / 2 ))
+        printf "%*s%s%*s\n" $padding "" "$colored_title" $padding ""
+    else
+        printf "%s\n" "$colored_title"
+    fi
+}
+
+# Function to handle delay array and index calculations
+setup_delay_array() {
+    delays=(0.0001 0.001 0.005 0.01 0.020 0.040 0.060 0.080 0.125 0.25 0.5 inf 0.5 0.25 0.125 0.080 0.060 0.040 0.020 0.010 0.005 0.001 0.0001)
+    center_index=$((${#delays[@]} / 2))
+    max_movement=$((center_index))
+    echo "${delays[@]}"
+    echo "$center_index"
+    echo "$max_movement"
+}
+
+# Function to generate a centered delay indicator
+generate_delay_indicator() {
+    local delay_index=$1
+    local center_index=$2
+    local delays=("${!3}")
+    local current_delay=${delays[$delay_index]}
+    local indicator="$((delay_index - center_index)):${current_delay}"
+    local line_width=$COLUMNS
+    local indicator_position=$(( line_width / 2 - ${#indicator} / 2 ))
+    
+    printf "%*s%s%*s\n" $indicator_position "" "$indicator" $((line_width - indicator_position - ${#indicator})) ""
+}
+
+# Function to shift the rainbow array
+shift_rainbow() {
+    local -n array=$1
+    local offset=$2
+    local length=${#array[@]}
+    local shifted=("${array[@]:$offset}" "${array[@]:0:$offset}")
+    echo "${shifted[@]}"
+}
+
+display_buffer(){ 
+    for line in "${buffer[@]}"; do echo -e "$line"; done
+}
+write_to_buffer () 
+{ 
+    local line_number=$1;
+    shift;
+    buffer[line_number]="$@"
+}
+
+generate_color_line() { 
+    local colors=("${!1}")  # Accept palette as an array argument
+    local length=${2:-$((COLUMNS * 70 / 100))}  # Use provided length or default to 70% of terminal width
+    local offset=${3:-0}  # New parameter for color offset, default to 0
+    local block_index=${4:-8}  # Parameter for block index, default to 8 (full block)
+    local color_count=${#colors[@]}
+    local margin=$(( (COLUMNS - length) / 2 ))  # Calculate margin for centering
+    local line=""
+
+    # Add left margin
+    line+=$(printf "%*s" $margin "")
+
+    # Unicode block characters for gradient
+    local blocks=(" " "▏" "▎" "▍" "▌" "▋" "▊" "▉" "█")
+
+    # Generate the gradient line
+    for ((i=0; i<length; i++)); do
+        local color_index=$(( (i + offset) % color_count ))
+        local next_color_index=$(( (i + offset + 1) % color_count ))
+        
+        local char="█"
+        line+="\e[48;5;${colors[$color_index]}m\e[38;5;${colors[$color_index]}m${char}\e[0m"
+    done
+
+    # Add right margin to fill the entire width
+    line+=$(printf "%*s" $((COLUMNS - margin - length)) "")
+
+    echo -e "$line"
+}
+
+generate_palette_demo() {
+    # Clear screen
+    printf "\033[2J\033[H"
+
+    # Print instructions
+    echo "Color Palette Demo"
+    echo "Press any key to return to the main animation"
+    echo ""
+
+    # Display 16 standard colors
+    echo "Standard 16 colors:"
+    for ((i=0; i<16; i++)); do
+        printf "\e[48;5;%dm  \e[0m" $i
+        if (( (i+1) % 8 == 0 )); then echo; fi
+    done
+    echo; echo
+
+    # Display 6x6x6 color cube
+    echo "6x6x6 color cube:"
+    for ((r=0; r<6; r++)); do
+        for ((g=0; g<6; g++)); do
+            for ((b=0; b<6; b++)); do
+                local color=$((16 + 36*r + 6*g + b))
+                printf "\e[48;5;%dm  \e[0m" $color
+            done
+            echo -n " "  # Space between columns
+        done
+        echo  # New line after each row
+    done
+    echo
+
+    # Display grayscale ramp
+    echo "Grayscale ramp:"
+    for ((i=232; i<256; i++)); do
+        printf "\e[48;5;%dm  \e[0m" $i
+    done
+    echo; echo
+
+    # Color code display function
+    display_color_codes() {
+        local start=$1
+        local end=$2
+        local cols=$3
+        for ((i=start; i<=end; i++)); do
+            printf "\e[48;5;%dm\e[38;5;15m%3d\e[0m " $i $i
+            if (( (i-start+1) % cols == 0 )); then echo; fi
+        done
+        echo
+    }
+
+    # Display color codes
+    echo "Color codes:"
+    echo "Standard colors:"
+    display_color_codes 0 15 8
+    echo "6x6x6 color cube:"
+    display_color_codes 16 231 18
+    echo "Grayscale ramp:"
+    display_color_codes 232 255 12
+
+    # Wait for keypress
+    read -n 1 -s
+}
+
+# Main function
+main() {
+
+
+    local palette_index=0
+    local colors=(196 202 226 46 21 201)  # Ensure colors array is defined
+    
+    # Setup delay array and get center index
+    IFS=$'\n' read -d '' -r delays center_index max_movement < <(setup_delay_array)
+    IFS=' ' read -ra delays <<< "$delays"
+    
+    local delay_index=$center_index
+    local offset_a=0
+
+    # Define gradient and rainbow arrays inline
+    gradient=(196 202 226 46 21 201 201 21 46 226 202 196 196 202 226 46 21 201 201 21 46 226 202 196)
+    
+    rainbow_a=(201 21 46 226 202 196)
+    rainbow_b=(196 202 226 46 21 201)
+    rainbow_b=(201 21 46 226 202 196)
+    gradient=(196 202 226 46 21 201 201 21 46 226 202 196)
+
+    # Initialize buffer with empty lines
+    buffer=()
+    for ((i=0; i<20; i++)); do
+        buffer+=("")
+    done
+
+    center_text() {
+        local text="$1"
+        local columns=$(tput cols)  # Ensure COLUMNS is defined
+        local padding=$(( (columns - ${#text}) / 2 ))
+        #echo "PADDING COLUMNS - TEXTLEN: $padding col:$columns - len:${#text}"
+        printf "%*s%s" $padding "" "$text"
+    }
+
+
+    write_to_buffer 13 "$(center_text "Find three keys: left, right stop.")"
+    clear
+    display_buffer
+    read
+
+
+    # Get initial terminal size
+    shopt -s checkwinsize
+    (:;:)
+
+    while true; do
+        # Check if terminal size has changed
+        shopt -s checkwinsize
+        (:;:)
+
+        # Check for key press to adjust delay and direction
+        if read -t 0.0001 -n 1 key; then
+            case $key in
+                a)
+                    # 'a' key pressed, move delay index to the left
+                    delay_index=$((delay_index - 1))
+                    if ((delay_index < 0)); then
+                        delay_index=0
+                    fi
+                    ;;
+                d)
+                    # 'd' key pressed, move delay index to the right
+                    delay_index=$((delay_index + 1))
+                    if ((delay_index >= ${#delays[@]})); then
+                        delay_index=$(( ${#delays[@]} - 1 ))
+                    fi
+                    ;;
+                s)
+                    # 's' key pressed, stop the animation
+                    delay_index=$center_index  # Set to "inf" (pause)
+                    ;;
+                p)
+                    # 'p' key pressed, generate palette demo
+                    generate_palette_demo
+                    # Redraw the main screen after returning from palette demo
+                    draw_screen
+                    ;;
+            esac
+        fi
+
+        local current_delay=${delays[$delay_index]}
+        # Update offset_a
+        if [[ ${delays[$delay_index]} != "inf" ]]; then
+            # Determine direction based on delay index
+            local direction
+            if ((delay_index < center_index)); then
+                direction=1
+            elif ((delay_index > center_index)); then
+                direction=-1
+            else
+                direction=0
+            fi
+            
+            # Update offset_a
+            offset_a=$(( (offset_a + direction + ${#rainbow_a[@]}) % ${#rainbow_a[@]} ))
+        fi
+
+        # Redraw the screen
+        draw_screen
+
+        # Sleep for the current delay duration if it's a number, otherwise sleep for a long time
+        if [[ ${delays[$delay_index]} =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            sleep $current_delay
+        else
+            sleep 1
+        fi
+    done
+}
+
+
+draw_screen() {
+    # Generate title
+    local title=$(generate_title "Cryptochromatic" $palette_index true)
+    write_to_buffer 2 "$title"
+
+    # Generate delay indicator
+    local delay_indicator=$(generate_delay_indicator $delay_index $center_index delays[@])
+    write_to_buffer 5 "$delay_indicator"
+
+    # Generate color lines
+    local gradient_line=$(generate_color_line gradient[@] $((COLUMNS * 80 / 100)) )
+    local rainbow_a_line=$(generate_color_line rainbow_b[@] $((COLUMNS * 50 / 100)) $offset_a 8)
+    local rainbow_b_line=$(generate_color_line rainbow_b[@] $((COLUMNS * 50 / 100)) 10)
+
+    # Write to buffer
+    write_to_buffer 7 "$gradient_line"
+    write_to_buffer 9 "$rainbow_a_line"
+    write_to_buffer 11 "$rainbow_b_line"
+    write_to_buffer 13 "$gradient_line"
+
+    # Clear screen and display buffer
+    clear
+    display_buffer
+}
+
+   
+main

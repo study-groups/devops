@@ -1,0 +1,28 @@
+<form id="protectedForm" class="bg-gray-800 shadow-md rounded px-10 py-8 mb-6">
+    <div class="mb-6">
+      <label class="flex items-center space-x-3">
+        <input type="checkbox" id="debugCheckbox"
+         class="form-checkbox text-blue-600" 
+         _="on load
+             log 'Initializing debug checkbox'
+             set isDebug to localStorage.getItem('debugVisible')
+             log 'Initial debug state:', isDebug
+             if isDebug is 'true' then
+               set my.checked to true
+               remove .hidden from #debug
+               trigger debugPanelShown
+             end
+           on change
+             log 'Debug checkbox changed:', my.checked
+             set localStorage.debugVisible to my.checked
+             if my.checked then
+               remove .hidden from #debug
+               trigger debugPanelShown
+             else
+               add .hidden to #debug
+             end">
+        <span class="text-gray-400 text-lg">
+          Enable Debugging</span>
+      </label>
+    </div>
+  </form>

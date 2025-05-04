@@ -1,0 +1,15 @@
+.
+├── src
+│   ├── lib
+│   │   ├── pjaStyleSdk.js
+│   │   ├── store
+│   │   │   └── styleStore.js
+│   │   └── types
+│   └── routes
+│       └── play
+│           └── [game]
+│               ├── +layout.svelte
+│               └── +page.svelte
+└── tree.txt
+
+8 directories, 5 files
