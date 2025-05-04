@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import path from 'path';
 import readline from 'readline';
 import { PData } from './PData.js'; // Import the PData class

@@ -11,167 +11,112 @@ import { generateSalt, hashPassword } from './userUtils.js';
 
 class PData {
 	/**
-	 * Initializes PData. Establishes separate roots for PData's database/storage and application data.
-	 * - DB Root (users, roles, uploads): Determined by PD_DB env var.
-	 * - Data Root (managed files): Determined by PD_DATA env var, defaults to <dbRoot>/data.
+	 * Initializes PData. Establishes the root directory based on PD_DIR.
+	 * - Root (PD_DIR): Contains users.csv, roles.csv (optional), data/, uploads/.
 	 */
-	constructor() {
+	constructor(config = {}) {
 		console.log('[PDATA Class] Initializing...');
 
-		// --- Initialize PData Database Root (PD_DB) ---
-		this._initializeDbRoot(); // Sets this.dbRoot from PD_DB
+		// --- Initialize PData Root Directory (PD_DIR) ---
+		this._initializeDataRoot(); // Sets this.dataRoot from PD_DIR
 
-		// --- Determine and Resolve Application Data Root (PD_DATA) ---
-		this._initializeDataRoot(); // Sets this.dataRoot from PD_DATA or default
+		// --- Initialize User Data Directory ---
+		// The 'data' subdirectory within PD_DIR where user folders reside
+		this.userDataBaseDir = path.join(this.dataRoot, 'data');
+		this._ensureDirectoryExists(this.userDataBaseDir, 'User Data Base');
 
-		// --- Setup DB Paths & Uploads (relative to dbRoot) ---
-		this._setupDbPaths(); // Uses this.dbRoot
+		// --- Initialize Uploads Directory ---
+		// Uploads are stored within PD_DIR as well
+		this.uploadsDir = path.join(this.dataRoot, 'uploads');
+		this._ensureDirectoryExists(this.uploadsDir, 'Uploads');
+		this.tempUploadsDir = path.join(this.uploadsDir, 'temp'); // Multer needs this sub-dir
+		this._ensureDirectoryExists(this.tempUploadsDir, 'Temp Uploads');
 
-		// --- Load Users & Roles (from dbRoot) ---
-		// These maps will store the loaded data
-		this._users = new Map();
-		this._roles = new Map();
-		this._loadRolesAndUsers(); // Uses paths from _setupDbPaths
+		// --- Set User/Role File Paths ---
+		this.usersFilePath = path.join(this.dataRoot, 'users.csv'); // User file directly in PD_DIR
+		this.rolesFilePath = path.join(this.dataRoot, 'roles.csv'); // Role file directly in PD_DIR (optional)
 
-		console.log('[PDATA Class] Initialization complete');
-		console.log(`  • DB Root (PD_DB):        ${this.dbRoot}`);
-		console.log(`  • Data Root (PD_DATA):    ${this.dataRoot}`);
+		// --- Load User and Role Data ---
+		this.users = {}; // Initialize empty user cache
+		this.roles = {}; // Initialize empty role cache
+		this._loadRolesAndUsers(); // Load or create users.csv and roles.csv
+
+		console.log('[PDATA Class] Initialized with configuration:');
+		console.log(`  • PData Root (PD_DIR):    ${this.dataRoot}`);
+		console.log(`  • User Data Base Dir:   ${this.userDataBaseDir}`);
+		console.log(`  • Uploads Base Dir:     ${this.uploadsDir}`);
+		console.log(`  • Users File Path:      ${this.usersFilePath}`);
+		console.log(`  • Roles File Path:      ${this.rolesFilePath}`);
 	}
 
 	/**
-	 * Initializes and validates the PData database root directory from PD_DB.
-	 * Stores the path in this.dbRoot.
+	 * Initializes and validates the PData root directory from PD_DIR.
 	 * @private
-	 */
-	_initializeDbRoot() {
-		const dbRootPath = process.env.PD_DB;
-		if (!dbRootPath) {
-			throw new Error('[PDATA Class FATAL] PD_DB environment variable must be set (for PData DB root).');
-		}
-		if (!path.isAbsolute(dbRootPath)) {
-			throw new Error(`[PDATA Class FATAL] PD_DB must be an absolute path: ${dbRootPath}`);
-		}
-		// Ensure DB Root exists
-		try {
-			this._ensureDirectoryExists(dbRootPath, 'PD_DB (DB Root)');
-		} catch (error) {
-			console.error(`[PDATA Class FATAL] Could not access or create PD_DB directory: ${dbRootPath}`);
-			throw error;
-		}
-		this.dbRoot = dbRootPath; // Store the validated DB root path
-		console.log(`[PDATA Class] DB Root (PD_DB): ${this.dbRoot}`);
-	}
-
-	/**
-	 * Determines the application data directory path from PD_DATA (or defaults to <dbRoot>/data),
-	 * resolves it to its real path, ensures it exists, and stores it as this.dataRoot.
-	 * @private
+	 * @throws {Error} If PD_DIR is not set, not absolute, or inaccessible.
 	 */
 	_initializeDataRoot() {
-		// 1. Get configured path: Use PD_DATA env var first, default to <dbRoot>/data
-		const configuredDataPath = process.env.PD_DATA || path.join(this.dbRoot, 'data');
-		console.log(`[PDATA Class] Using configured application data path: ${configuredDataPath}`);
+		const dataRootPath = process.env.PD_DIR;
 
-		let needsCreationCheck = false; // Flag if we might need to create the default dir
-
-		if (!fs.existsSync(configuredDataPath)) {
-			if (configuredDataPath === path.join(this.dbRoot, 'data')) {
-				console.warn(`[PDATA Class WARN] Default data directory '${configuredDataPath}' does not exist. Will attempt creation.`);
-				needsCreationCheck = true; // Mark that we expect realpathSync to fail and we should try creating it
-			} else {
-				// If PD_DATA was explicitly set but doesn't exist, it's a fatal error.
-				throw new Error(`[PDATA Class FATAL] Explicitly configured data path (PD_DATA) does not exist: ${configuredDataPath}`);
-			}
+		if (!dataRootPath) {
+			throw new Error('[PDATA Class FATAL] PD_DIR environment variable must be set (for PData root).');
+		}
+		if (!path.isAbsolute(dataRootPath)) {
+			throw new Error(`[PDATA Class FATAL] PD_DIR must be an absolute path: ${dataRootPath}`);
 		}
 
-		// 2. Resolve to absolute real path (handles links automatically)
 		try {
-			// This will throw if the path doesn't exist, which we expect if needsCreationCheck is true
-			this.dataRoot = fs.realpathSync(configuredDataPath);
-			console.log(`[PDATA Class] Resolved application data root to real path: ${this.dataRoot}`);
+			// Use the internal helper to ensure it exists and is a directory
+			this._ensureDirectoryExists(dataRootPath, 'PD_DIR (PData Root)');
+			// Resolve to real path AFTER ensuring it exists to handle symlinks correctly
+			this.dataRoot = fs.realpathSync(dataRootPath);
 		} catch (error) {
-			// If realpath failed AND we expected it because the default didn't exist, try creating it.
-			if (error.code === 'ENOENT' && needsCreationCheck) {
-				console.warn(`[PDATA Class] Default data directory '${configuredDataPath}' not found, attempting creation...`);
-				try {
-					// Create the default directory relative to dbRoot
-					this._ensureDirectoryExists(configuredDataPath, 'Default Data Directory');
-					// Try resolving again now that it should exist
-					this.dataRoot = fs.realpathSync(configuredDataPath);
-					console.log(`[PDATA Class] Created and resolved default data root to real path: ${this.dataRoot}`);
-				} catch (creationError) {
-					console.error(`[PDATA Class FATAL] Failed to create or resolve default data directory '${configuredDataPath}': ${creationError.message}`);
-					throw new Error(`Failed to create or resolve default data directory: ${creationError.message}`);
-				}
-			} else {
-				// Otherwise, it's a real error (e.g., permissions, broken explicit link, or unexpected existence failure)
-			console.error(`[PDATA Class FATAL] Failed to resolve real path for data directory '${configuredDataPath}': ${error.message}`);
-			throw new Error(`Failed to resolve data directory: ${error.message}`);
-			}
+			// Catch errors from _ensureDirectoryExists or realpathSync
+			console.error(`[PDATA Class FATAL] Could not access, create, or resolve PD_DIR directory: ${dataRootPath}`);
+			console.error(error); // Log the underlying error
+			throw error; // Re-throw to stop initialization
 		}
-
-		// 3. Ensure the final resolved target directory exists and is a directory
-		try {
-			if (!fs.existsSync(this.dataRoot)) {
-				// This shouldn't happen after the logic above, but check anyway.
-				throw new Error(`Resolved data root path does not exist after potential creation: ${this.dataRoot}`);
-			 } else if (!fs.statSync(this.dataRoot).isDirectory()) {
-				  throw new Error(`Resolved data root path exists but is not a directory: ${this.dataRoot}`);
-			 }
-			console.log(`[PDATA Class] Verified application data root exists and is a directory: ${this.dataRoot}`);
-		} catch(error) {
-			 console.error(`[PDATA Class FATAL] Error verifying resolved data root directory (${this.dataRoot}):`, error);
-			 throw new Error(`Failed to verify data root directory: ${error.message}`);
-		}
-	}
-
-	/** Sets up paths for DB files (users, roles) and uploads directory relative to dbRoot */
-	_setupDbPaths() {
-		// Uploads dir is relative to dbRoot (PD_DB)
-		// Still allow PD_UPLOADS override for flexibility
-		const uploadsDir = process.env.PD_UPLOADS || path.join(this.dbRoot, 'uploads');
-		this._ensureDirectoryExists(uploadsDir, 'Uploads (relative to DB Root)');
-		this.uploadsDir = uploadsDir; // Store the absolute path
-
-		// DB config files are relative to dbRoot (PD_DB)
-		this.rolesFile = path.join(this.dbRoot, 'roles.csv');
-		this.usersFile = path.join(this.dbRoot, 'users.csv');
-
-		console.log(`[PDATA Class] DB/Upload Path Setup:`);
-		console.log(`  • Uploads Dir: ${this.uploadsDir}`);
-		console.log(`  • Roles File:  ${this.rolesFile}`);
-		console.log(`  • Users File:  ${this.usersFile}`);
-
-		// Touch config files if they don't exist
-		this._touchFileSync(this.rolesFile, 'Roles');
-		this._touchFileSync(this.usersFile, 'Users');
+		console.log(`[PDATA Class] PData Root (PD_DIR): ${this.dataRoot}`);
 	}
 
 	/** Loads roles and user credentials from CSV files into instance maps. */
 	_loadRolesAndUsers() {
-		// Uses this.rolesFile and this.usersFile derived from dbRoot
-		// --- Load user roles ---
+		// --- Load user roles (Optional File) ---
 		try {
-			this._roles = this._loadCsvFile(this.rolesFile, 2, (parts, map) => {
+			// Use rolesFilePath set in constructor
+			this.roles = this._loadCsvFile(this.rolesFilePath, 2, (parts, map) => {
 				const username = parts[0].trim();
 				const role = parts[1].trim();
+				if (!username || !role) {
+					console.warn(`[PDATA Class WARN] Skipping role entry due to empty username or role.`);
+					return;
+				}
 				if (map.has(username)) {
 					console.warn(`[PDATA Class WARN] Duplicate username found in roles file: "${username}". Using the last entry.`);
 				}
+				// Basic role validation
+				if (role !== 'admin' && role !== 'user') {
+					console.warn(`[PDATA Class WARN] Invalid role '${role}' for user '${username}' in roles file. Skipping.`);
+					return;
+				}
 				map.set(username, role);
-			}, "Roles");
-			console.log(`[PDATA Class] Loaded roles for ${this._roles.size} users from ${this.rolesFile}`);
+			}, "Roles", true); // Mark as optional file
+			console.log(`[PDATA Class] Loaded roles for ${this.roles.size} users from ${this.rolesFilePath}`);
 		} catch (error) {
 			console.error('[PDATA Class FATAL] Failed to load roles:', error);
 			throw error; // Rethrow fatal error
 		}
 
-		 // --- Load user credentials ---
-		 try {
-			this._users = this._loadCsvFile(this.usersFile, 3, (parts, map) => {
+		// --- Load user credentials (Required File) ---
+		try {
+			// Use usersFilePath set in constructor
+			this.users = this._loadCsvFile(this.usersFilePath, 3, (parts, map) => {
 				const username = parts[0].trim();
 				const salt = parts[1].trim();
 				const hash = parts[2].trim();
+				if (!username) {
+					console.warn(`[PDATA Class WARN] Skipping user entry due to empty username in users file.`);
+					return;
+				}
 				if (!salt || !hash) {
 					console.warn(`[PDATA Class WARN] Skipping user '${username}' due to empty salt or hash in users file.`);
 					return;
@@ -180,8 +125,19 @@ class PData {
 					console.warn(`[PDATA Class WARN] Duplicate username found in users file: "${username}". Using the last entry.`);
 				}
 				map.set(username, { salt, hash });
-			}, "Users");
-			console.log(`[PDATA Class] Loaded credentials for ${this._users.size} users from ${this.usersFile}`);
+			}, "Users", false); // Mark as required file
+			console.log(`[PDATA Class] Loaded credentials for ${this.users.size} users from ${this.usersFilePath}`);
+
+			// Ensure roles map has entries for all users found in users.csv, defaulting to 'user'
+			for (const username of this.users.keys()) {
+				if (!this.roles.has(username)) {
+					console.log(`[PDATA Class] User '${username}' found in users.csv but not in roles.csv. Defaulting role to 'user'.`);
+					this.roles.set(username, 'user');
+					// Optionally, append the default role to roles.csv for consistency?
+					// this._appendLineToFile(this.rolesFilePath, `${username},user`, 'Roles'); // Be careful about race conditions/performance
+				}
+			}
+
 		} catch (error) {
 			console.error('[PDATA Class FATAL] Failed to load user credentials:', error);
 			throw error; // Rethrow fatal error
@@ -219,25 +175,35 @@ class PData {
 	}
 
 	/** Load CSV file (private helper) */
-	_loadCsvFile(filePath, expectedParts, processLine, label) {
+	_loadCsvFile(filePath, expectedParts, processLine, label, isOptional = false) {
 		const map = new Map();
 		if (!fs.existsSync(filePath)) {
-			console.warn(`[PDATA Class WARN] ${label} file not found at ${filePath}. Starting with empty ${label.toLowerCase()}.`);
-			return map;
+			if (isOptional) {
+				console.warn(`[PDATA Class WARN] Optional ${label} file not found at ${filePath}. Starting with empty ${label.toLowerCase()}.`);
+				// Optionally create it here if desired: this._touchFileSync(filePath, label);
+				return map;
+			} else {
+				// If required file doesn't exist, create it? Or throw error? Let's create it.
+				console.warn(`[PDATA Class WARN] Required ${label} file not found at ${filePath}. Creating empty file.`);
+				this._touchFileSync(filePath, label);
+				return map; // Return empty map after creating
+				// Alternatively: throw new Error(`[PDATA Class FATAL] Required ${label} file not found: ${filePath}`);
+			}
 		}
 		 if (!fs.statSync(filePath).isFile()) {
 			 throw new Error(`[PDATA Class FATAL] ${label} path exists but is not a file: ${filePath}`);
 		 }
 		try {
 			const content = fs.readFileSync(filePath, 'utf8');
-			content.split('\n').forEach(line => {
+			content.split('\n').forEach((line, index) => {
 				const trimmedLine = line.trim();
-				if (trimmedLine) {
+				if (trimmedLine) { // Skip empty lines
+					// Basic CSV parsing, assumes commas are not within fields
 					const parts = trimmedLine.split(',');
 					if (parts.length === expectedParts) {
 						processLine(parts, map);
 					} else {
-						console.warn(`[PDATA Class WARN] Skipping invalid line in ${label.toLowerCase()} file (expected ${expectedParts} parts, got ${parts.length}): "${line}"`);
+						console.warn(`[PDATA Class WARN] Skipping invalid line #${index + 1} in ${label.toLowerCase()} file (expected ${expectedParts} parts, got ${parts.length}): "${line}"`);
 					}
 				}
 			});
@@ -257,7 +223,8 @@ class PData {
 			for (const [key, value] of map.entries()) {
 				lines.push(formatLine(key, value));
 			}
-			const content = lines.join('\n') + (lines.length > 0 ? '\n' : '');
+			// Ensure trailing newline only if there's content
+			const content = lines.length > 0 ? lines.join('\n') + '\n' : '';
 			fs.writeFileSync(filePath, content, 'utf8');
 			console.log(`[PDATA Class] Successfully rewrote ${label.toLowerCase()} file with ${map.size} entries.`);
 		} catch (error) {
@@ -270,13 +237,14 @@ class PData {
 		console.log(`[PDATA Class] Appending to ${label.toLowerCase()} file: ${filePath}`);
 		try {
 			let contentToAppend = '';
-			if (fs.existsSync(filePath)) {
-				const currentContent = fs.readFileSync(filePath, 'utf8');
-				if (currentContent.length > 0 && !currentContent.endsWith('\n')) {
-					contentToAppend += '\n';
-				}
+			// Ensure file exists before appending (could happen if roles file was optional and never created)
+			this._touchFileSync(filePath, label);
+			// Check current content for trailing newline
+			const currentContent = fs.readFileSync(filePath, 'utf8');
+			if (currentContent.length > 0 && !currentContent.endsWith('\n')) {
+				contentToAppend += '\n'; // Add newline if missing
 			}
-			contentToAppend += lineToAdd + '\n';
+			contentToAppend += lineToAdd + '\n'; // Add the new line and ensure newline
 			fs.appendFileSync(filePath, contentToAppend, 'utf8');
 			console.log(`[PDATA Class] Successfully appended to ${label.toLowerCase()} file.`);
 		} catch (error) {
@@ -286,11 +254,11 @@ class PData {
 	}
 
 	// --- Public User Management Methods ---
-	// These now use 'this' to access instance state (_users, _roles, usersFile, rolesFile)
+	// These now use 'this' to access instance state (users, roles, usersFilePath, rolesFilePath)
 
 	/** Validates user credentials */
 	validateUser(username, password) {
-		const userData = this._users.get(username);
+		const userData = this.users.get(username); // Use this.users
 		if (!userData) {
 			console.log(`[PDATA Class.validate] User '${username}' not found.`);
 			return false;
@@ -315,7 +283,7 @@ class PData {
 	/** Adds a new user */
 	async addUser(username, password, role = 'user') {
 		console.log(`[PDATA Class.addUser] Attempting to add user '${username}' with role '${role}'`);
-		if (this._users.has(username) || this._roles.has(username)) { // Use this._users, this._roles
+		if (this.users.has(username)) { // Use this.users
 			console.warn(`[PDATA Class.addUser WARN] User '${username}' already exists.`);
 			return false;
 		}
@@ -336,19 +304,20 @@ class PData {
 		const roleLine = `${username},${role}`;
 
 		try {
-			// Use private helper methods and instance paths (this.usersFile, this.rolesFile)
-			this._appendLineToFile(this.usersFile, userLine, 'Users');
-			this._appendLineToFile(this.rolesFile, roleLine, 'Roles');
+			// Use private helper methods and instance paths (this.usersFilePath, this.rolesFilePath)
+			this._appendLineToFile(this.usersFilePath, userLine, 'Users');
+			this._appendLineToFile(this.rolesFilePath, roleLine, 'Roles');
 
 			// Update in-memory maps
-			this._users.set(username, newUser);
-			this._roles.set(username, role);
+			this.users.set(username, newUser); // Use this.users
+			this.roles.set(username, role); // Use this.roles
 
 			console.log(`[PDATA Class.addUser] Successfully added user '${username}' with role '${role}'.`);
 			return true;
 		} catch (error) {
 			console.error(`[PDATA Class.addUser ERROR] Failed to add user '${username}': ${error.message}`);
 			console.error(`[PDATA Class.addUser CRITICAL] Inconsistency possible: File operations failed for addUser '${username}'.`);
+			// Attempt to rollback in-memory state? Maybe not necessary if error is fatal.
 			return false;
 		}
 	}
@@ -356,29 +325,31 @@ class PData {
 	/** Deletes a user */
 	async deleteUser(username) {
 		console.log(`[PDATA Class.deleteUser] Attempting to delete user '${username}'`);
-		if (!this._users.has(username) && !this._roles.has(username)) { // Use this._users, this._roles
+		if (!this.users.has(username) && !this.roles.has(username)) { // Use this.users, this.roles
 			console.warn(`[PDATA Class.deleteUser WARN] User '${username}' not found. Cannot delete.`);
 			return false;
 		}
 
-		const originalUser = this._users.get(username);
-		const originalRole = this._roles.get(username);
+		// Store original state for potential rollback
+		const originalUser = this.users.get(username);
+		const originalRole = this.roles.get(username);
 
-		this._users.delete(username);
-		this._roles.delete(username);
+		// Remove from in-memory maps first
+		this.users.delete(username);
+		this.roles.delete(username);
 		console.log(`[PDATA Class.deleteUser] Removed '${username}' from in-memory maps.`);
 
 		try {
 			// Use private helper and instance paths/maps
-			this._rewriteCsvFile(this.usersFile, this._users, (uname, udata) => `${uname},${udata.salt},${udata.hash}`, 'Users');
-			this._rewriteCsvFile(this.rolesFile, this._roles, (uname, urole) => `${uname},${urole}`, 'Roles');
+			this._rewriteCsvFile(this.usersFilePath, this.users, (uname, udata) => `${uname},${udata.salt},${udata.hash}`, 'Users');
+			this._rewriteCsvFile(this.rolesFilePath, this.roles, (uname, urole) => `${uname},${urole}`, 'Roles');
 			console.log(`[PDATA Class.deleteUser] Successfully deleted user '${username}' and updated files.`);
 			return true;
 		} catch (error) {
 			console.error(`[PDATA Class.deleteUser ERROR] Failed to rewrite files after deleting user '${username}': ${error.message}`);
 			// Rollback in-memory state
-			if (originalUser) this._users.set(username, originalUser);
-			if (originalRole) this._roles.set(username, originalRole);
+			if (originalUser) this.users.set(username, originalUser);
+			if (originalRole) this.roles.set(username, originalRole);
 			console.error(`[PDATA Class.deleteUser CRITICAL] Rolled back in-memory state for '${username}' due to file write failure.`);
 			return false;
 		}
@@ -387,7 +358,7 @@ class PData {
 	/** Updates a user's password */
 	async updatePassword(username, newPassword) {
 		console.log(`[PDATA Class.updatePassword] Attempting to update password for '${username}'`);
-		if (!this._users.has(username)) { // Use this._users
+		if (!this.users.has(username)) { // Use this.users
 			console.warn(`[PDATA Class.updatePassword WARN] User '${username}' not found. Cannot update password.`);
 			return false;
 		}
@@ -399,21 +370,21 @@ class PData {
 			return false;
 		}
 
-		const originalUserData = { ...this._users.get(username) }; // Clone original
+		const originalUserData = { ...this.users.get(username) }; // Clone original
 		const updatedUserData = { salt: newSalt, hash: newHashedPassword };
 
-		this._users.set(username, updatedUserData); // Update in-memory
+		this.users.set(username, updatedUserData); // Update in-memory
 		console.log(`[PDATA Class.updatePassword] Updated in-memory password hash for '${username}'.`);
 
 		try {
 			// Use private helper and instance paths/maps
-			this._rewriteCsvFile(this.usersFile, this._users, (uname, udata) => `${uname},${udata.salt},${udata.hash}`, 'Users');
+			this._rewriteCsvFile(this.usersFilePath, this.users, (uname, udata) => `${uname},${udata.salt},${udata.hash}`, 'Users');
 			console.log(`[PDATA Class.updatePassword] Successfully updated password for '${username}' in file.`);
 			return true;
 		} catch (error) {
 			console.error(`[PDATA Class.updatePassword ERROR] Failed to rewrite users file after updating password for '${username}': ${error.message}`);
 			// Rollback in-memory state
-			this._users.set(username, originalUserData);
+			this.users.set(username, originalUserData);
 			console.error(`[PDATA Class.updatePassword CRITICAL] Rolled back in-memory password change for '${username}' due to file write failure.`);
 			return false;
 		}
@@ -422,8 +393,8 @@ class PData {
 	/** Sets a user's role */
 	async setUserRole(username, newRole) {
 		console.log(`[PDATA Class.setUserRole] Attempting to set role for '${username}' to '${newRole}'`);
-		if (!this._users.has(username)) { // Use this._users
-			console.warn(`[PDATA Class.setUserRole WARN] User '${username}' not found. Cannot set role.`);
+		if (!this.users.has(username)) { // User must exist in users.csv to have a role set
+			console.warn(`[PDATA Class.setUserRole WARN] User '${username}' not found in credential store. Cannot set role.`);
 			return false;
 		}
 		if (newRole !== 'user' && newRole !== 'admin') {
@@ -431,23 +402,23 @@ class PData {
 			return false;
 		}
 
-		const originalRole = this._roles.get(username); // Use this._roles
+		const originalRole = this.roles.get(username); // Use this.roles
 
-		this._roles.set(username, newRole); // Update in-memory
+		this.roles.set(username, newRole); // Update in-memory
 		console.log(`[PDATA Class.setUserRole] Updated in-memory role for '${username}' to '${newRole}'.`);
 
 		try {
 			// Use private helper and instance paths/maps
-			this._rewriteCsvFile(this.rolesFile, this._roles, (uname, urole) => `${uname},${urole}`, 'Roles');
+			this._rewriteCsvFile(this.rolesFilePath, this.roles, (uname, urole) => `${uname},${urole}`, 'Roles');
 			console.log(`[PDATA Class.setUserRole] Successfully updated role for '${username}' in file.`);
 			return true;
 		} catch (error) {
 			console.error(`[PDATA Class.setUserRole ERROR] Failed to rewrite roles file after setting role for '${username}': ${error.message}`);
 			// Rollback in-memory state
 			if (originalRole === undefined) {
-				this._roles.delete(username);
+				this.roles.delete(username); // If user didn't have a role before, remove it again
 			} else {
-				this._roles.set(username, originalRole);
+				this.roles.set(username, originalRole); // Otherwise, restore the previous role
 			}
 			console.error(`[PDATA Class.setUserRole CRITICAL] Rolled back in-memory role change for '${username}' due to file write failure.`);
 			return false;
@@ -456,7 +427,19 @@ class PData {
 
 	/** Lists all registered usernames */
 	listUsers() {
-		return Array.from(this._users.keys()); // Use this._users
+		return Array.from(this.users.keys()); // Use this.users
+	}
+
+	/** Lists all registered usernames with their roles */
+	listUsersWithRoles() {
+		const userList = [];
+		for (const username of this.users.keys()) {
+			const role = this.roles.get(username) || 'user'; // Default to user if missing?
+			userList.push({ username, role });
+		}
+		// Sort by username for consistent output
+		userList.sort((a, b) => a.username.localeCompare(b.username));
+		return userList;
 	}
 
 	// --- Authorization & Path Methods ---
@@ -471,7 +454,7 @@ class PData {
 	 */
 	can(username, action, resourcePath) {
 		// Ensure user exists in the system before checking roles/permissions
-		if (!username || !this._users.has(username)) {
+		if (!username || !this.users.has(username)) { // Use this.users
 			console.log(`[PDATA Class.can] Denied. User '${username || 'N/A'}' not found in loaded users.`);
 			return false;
 		}
@@ -481,7 +464,7 @@ class PData {
 			 return false;
 		}
 
-		const role = this._roles.get(username);
+		const role = this.roles.get(username); // Use this.roles
 		// Use the resolved application data root for all checks
 		const currentDataRoot = this.dataRoot;
 
@@ -489,7 +472,7 @@ class PData {
 
 		// Deny if user exists but has no assigned role
 		if (!role) {
-			console.log(`[PDATA Class.can] Denied. User '${username}' found but has no role defined in roles file.`);
+			console.log(`[PDATA Class.can] Denied. User '${username}' found but has no role defined.`);
 			return false;
 		}
 
@@ -508,29 +491,37 @@ class PData {
 		// --- User Role Check ---
 		if (role === 'user') {
 			// Users primarily operate within their implicit top-level directory
-			const userImplicitTopDir = path.join(currentDataRoot, username);
+			const userImplicitTopDir = path.join(this.userDataBaseDir, username); // User dir is inside userDataBaseDir
 
 			// Check if the resource is the user's directory itself or within it
 			if (resourcePath === userImplicitTopDir || resourcePath.startsWith(userImplicitTopDir + path.sep)) {
-				console.log(`[PDATA Class.can] Allowed. Resource is within user '${username}' implicit top directory '${userImplicitTopDir}'.`);
+				console.log(`[PDATA Class.can] Allowed. Resource is within user '${username}' directory '${userImplicitTopDir}'.`);
 				return true; // Access within own directory allowed for all actions
 			} else {
-				// Check if the resource is within the *overall* data root (but outside the user's dir)
+				// Check if the resource is within the *overall* data root (but outside the user's specific dir)
+				// This allows read/list of shared areas potentially.
 				if (resourcePath.startsWith(currentDataRoot + path.sep)) {
 					// Allow read/list access to shared top-level directories/files
 					if (action === 'read' || action === 'list') {
-						console.log(`[PDATA Class.can] Allowed (Shared Read/List). Resource '${resourcePath}' is outside user dir but within dataRoot.`);
-						return true;
+						// Is the resource directly under dataRoot or userDataBaseDir?
+						const parentDir = path.dirname(resourcePath);
+						if (parentDir === currentDataRoot || parentDir === this.userDataBaseDir) {
+							console.log(`[PDATA Class.can] Allowed (Shared Read/List). Resource '${resourcePath}' is at top level or user base level.`);
+							return true;
+						} else {
+							console.log(`[PDATA Class.can] Denied (Shared Read/List). Resource '${resourcePath}' is too deep outside user dir.`);
+							return false;
+						}
 					} else {
 						// Deny write/delete actions outside the user's own directory
 						console.log(`[PDATA Class.can] Denied. Action '${action}' not permitted for user '${username}' outside their own directory '${userImplicitTopDir}'.`);
 						return false;
 					}
-                } else {
+				} else {
 					// Deny access if the resource is outside the data root entirely
 					console.log(`[PDATA Class.can] Denied. Resource '${resourcePath}' is outside the resolved dataRoot '${currentDataRoot}'.`);
-				    return false;
-                }
+					return false;
+				}
 			}
 		}
 
@@ -545,108 +536,175 @@ class PData {
 	 * @returns {string | null} - The user's role ('admin', 'user') or null if not found or no role assigned.
 	  */
 	 getUserRole(username) {
-		return this._roles.get(username) || null;
+		return this.roles.get(username) || null; // Use this.roles
 	 }
 
 	/**
-	 * Resolves a relative path against the application data root, ensuring it stays within bounds.
-	 * @param {string} [relativePath=''] - The path relative to the data root.
+	 * Resolves a relative path for a specific user, ensuring it stays within permitted bounds.
+	 * For 'users', paths resolve relative to their data directory (<PD_DIR>/data/<username>/).
+	 * For 'admins', paths resolve relative to the overall PData root (<PD_DIR>/).
+	 * @param {string} username - The user context for resolution.
+	 * @param {string} [relativePath=''] - The path relative to the user's allowed base.
 	 * @returns {string} - The absolute, resolved path.
-	 * @throws {Error} - If the path attempts to escape the data root.
+	 * @throws {Error} - If the path attempts to escape the allowed bounds or user is invalid.
 	 */
-	resolvePath(relativePath = '') {
-		const currentDataRoot = this.dataRoot;
-		// Resolve the path fully first
-		const intendedPath = path.resolve(currentDataRoot, relativePath);
-
-		// Security Check: Ensure the fully resolved path is still within the data root
-		if (!intendedPath.startsWith(currentDataRoot + path.sep) && intendedPath !== currentDataRoot) {
-			console.error(`[PDATA Class SECURITY] Path traversal attempt detected: relativePath='${relativePath}', resolved='${intendedPath}', base='${currentDataRoot}'`);
-			// Throw a generic permission error, don't leak path details
-			 throw new Error('Permission denied: Invalid path');
+	resolvePathForUser(username, relativePath = '') {
+		const role = this.getUserRole(username);
+		console.log(`[resolvePathForUser] START: User='${username}', Role='${role}', RelativePath='${relativePath}'`);
+		if (!role) {
+			throw new Error(`Permission denied: User '${username}' not found or has no role.`);
 		}
-		return intendedPath;
+
+		let userBaseDir;
+        let resolvedBaseDir; // Store the resolved base for comparison
+
+		if (role === 'admin') {
+			userBaseDir = this.dataRoot; // Admin's base is the PData root
+            resolvedBaseDir = path.resolve(userBaseDir); // Resolve base path once
+            console.log(`[resolvePathForUser] Role is admin. Using baseDir: ${resolvedBaseDir}`);
+		} else { // role === 'user'
+			userBaseDir = path.join(this.userDataBaseDir, username); // User's base is their specific data dir
+            resolvedBaseDir = path.resolve(userBaseDir); // Resolve base path once
+            console.log(`[resolvePathForUser] Role is user. Calculated baseDir: ${resolvedBaseDir}`);
+			try {
+                // Ensure directory exists for non-admins; admins might need to access non-existent paths initially
+                this._ensureDirectoryExists(userBaseDir, `User dir check for ${username}`);
+            } catch (ensureError) {
+                 throw new Error(`Failed to ensure base directory for user '${username}': ${ensureError.message}`);
+            }
+		}
+
+		// Resolve the intended path fully relative to the user's allowed base
+		const intendedPath = path.resolve(userBaseDir, relativePath);
+        console.log(`[resolvePathForUser] Intended absolute path: ${intendedPath}`);
+
+
+		// Security Check: Ensure the resolved intended path is within the resolved base directory.
+        // This prevents tricks like '../' escaping the base.
+		if (!intendedPath.startsWith(resolvedBaseDir + path.sep) && intendedPath !== resolvedBaseDir) {
+			console.error(`[PDATA Class SECURITY] Path traversal attempt detected: user='${username}', role='${role}', relativePath='${relativePath}'. Resolved '${intendedPath}' is outside base '${resolvedBaseDir}'.`);
+			throw new Error('Permission denied: Invalid path');
+		}
+
+        console.log(`[resolvePathForUser] END: Returning resolved path: ${intendedPath}`);
+		return intendedPath; // Return the resolved path
 	}
 
 	// --- File Operation Methods ---
-	// These now use 'this' to access instance state (dataRoot, uploadsDir) and methods (resolvePath, can)
+	// These now use 'this' to access instance state (dataRoot, uploadsDir) and methods (resolvePathForUser, can)
 
 	/** List directory contents (files and dirs), handling symlinks */
 	async listDirectory(username, relativePath = '') {
 		const logPrefix = '[PDATA Class.listDirectory]';
+		const role = this.getUserRole(username);
+        console.log(`${logPrefix} START: User='${username}', Role='${role}', Requested RelativePath='${relativePath}'`);
+
 		let absolutePath;
 		try {
-			absolutePath = this.resolvePath(relativePath); // Use this.resolvePath
+			absolutePath = this.resolvePathForUser(username, relativePath);
+            console.log(`${logPrefix} Resolved absolute path to list: ${absolutePath}`);
 		} catch (resolveError) {
-			console.error(`${logPrefix} Error resolving path '${relativePath}': ${resolveError.message}`);
+			console.error(`${logPrefix} Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'list', absolutePath)) { // Use this.can
-			console.log(`${logPrefix} Permission denied for user '${username}' on '${absolutePath}'.`);
+        console.log(`${logPrefix} Checking 'list' permission for user '${username}' on path '${absolutePath}'...`);
+		if (!this.can(username, 'list', absolutePath)) {
+			console.log(`${logPrefix} Permission DENIED for user '${username}' on '${absolutePath}'.`);
 			throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
 		}
+        console.log(`${logPrefix} Permission GRANTED for user '${username}' on path '${absolutePath}'.`);
 
 		try {
+            console.log(`${logPrefix} Attempting to read directory contents from: ${absolutePath}`);
 			const entries = await fsPromises.readdir(absolutePath, { withFileTypes: true });
+            console.log(`${logPrefix} Found ${entries.length} raw entries.`);
 			const dirs = [];
 			const files = [];
-			const currentDataRoot = this.dataRoot; // Use this.dataRoot
+            // Base directory for the user (still needed for relative path calculations)
+			const userBaseDir = role === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username);
 
 			for (const entry of entries) {
-				if (entry.name.startsWith('.')) continue;
+                console.log(`${logPrefix} Processing entry: Name='${entry.name}', Type=${entry.isDirectory() ? 'Dir' : entry.isFile() ? 'File' : entry.isSymbolicLink() ? 'Link' : 'Other'}`);
+				if (entry.name.startsWith('.')) {
+                    console.log(`${logPrefix} Skipping hidden entry '${entry.name}'.`);
+                    continue;
+                }
 				const entryAbsolutePath = path.join(absolutePath, entry.name);
-				const entryRelativePath = path.join(relativePath, entry.name);
+                let entryRelativePath = path.relative(userBaseDir, entryAbsolutePath);
+
 				try {
-					this.resolvePath(entryRelativePath); // Check entry bounds
+                    // Check 1: Can the user resolve this entry's path? (Bounds check on the link/file/dir itself)
+					const resolvedEntryPath = this.resolvePathForUser(username, entryRelativePath);
+
+                    // Check 2: Can the user 'list' or 'read' this specific entry?
+                    const checkAction = entry.isDirectory() || entry.isSymbolicLink() ? 'list' : 'read';
+                    if (!this.can(username, checkAction, resolvedEntryPath)) {
+                         console.warn(`${logPrefix} Skipping entry '${entry.name}' because 'can(${checkAction})' check failed.`);
+                         continue;
+                    }
 
 					if (entry.isDirectory()) {
+                        console.log(`${logPrefix} Including directory '${entry.name}'.`);
 						dirs.push(entry.name);
 					} else if (entry.isFile()) {
+                        console.log(`${logPrefix} Including file '${entry.name}'.`);
 						files.push(entry.name);
 					} else if (entry.isSymbolicLink()) {
-						console.log(`${logPrefix} Found symlink: '${entry.name}' in '${absolutePath}'`);
-						let targetAbsolutePath;
+						// *** MODIFIED SYMLINK LOGIC ***
+						console.log(`${logPrefix} Found symlink: '${entry.name}'. Including in list. Checking target type (best effort)...`);
+						let targetType = 'unknown'; // Default if we can't determine target type
 						try {
 							const linkTarget = await fsPromises.readlink(entryAbsolutePath);
-							targetAbsolutePath = path.resolve(path.dirname(entryAbsolutePath), linkTarget);
-							const targetRelativePath = path.relative(currentDataRoot, targetAbsolutePath);
-							const finalResolvedTargetPath = this.resolvePath(targetRelativePath); // Use this.resolvePath
-							const stats = await fsPromises.lstat(finalResolvedTargetPath);
-
-							if (stats.isDirectory()) {
-								console.log(`${logPrefix} Symlink '${entry.name}' points to DIRECTORY within bounds: ${finalResolvedTargetPath}. Adding to dirs.`);
-								dirs.push(entry.name);
-							} else if (stats.isFile()) {
-								console.log(`${logPrefix} Symlink '${entry.name}' points to FILE within bounds: ${finalResolvedTargetPath}. Adding to files.`);
-								files.push(entry.name);
-							} else {
-								console.warn(`${logPrefix} Symlink '${entry.name}' points to something neither file nor directory (at ${finalResolvedTargetPath}). Skipping.`);
+							const targetAbsolutePath = path.resolve(path.dirname(entryAbsolutePath), linkTarget);
+							// Use lstat to check target type without following further links
+							const targetStats = await fsPromises.lstat(targetAbsolutePath);
+							if (targetStats.isDirectory()) {
+								targetType = 'directory';
+							} else if (targetStats.isFile()) {
+								targetType = 'file';
 							}
+                            console.log(`${logPrefix} Symlink '${entry.name}' target '${linkTarget}' appears to be a ${targetType}.`);
 						} catch (targetError) {
-							if (targetError.message.includes('Permission denied: Invalid path')) {
-								console.warn(`${logPrefix} Symlink '${entry.name}' target resolves outside allowed dataRoot. Skipping. (Target: ${targetAbsolutePath})`);
-							} else if (targetError.code === 'ENOENT') {
-								console.warn(`${logPrefix} Symlink '${entry.name}' is broken (Target not found: '${targetAbsolutePath || 'unknown'}'). Skipping.`);
-							} else {
-								console.warn(`${logPrefix} Error accessing symlink target for '${entry.name}' (Target: ${targetAbsolutePath || 'unknown'}): ${targetError.code || targetError.message}. Skipping link.`);
-							}
+							// Log error determining target type, but still list the link
+							console.warn(`${logPrefix} Could not determine target type for symlink '${entry.name}': ${targetError.message}. Listing as link.`);
+                            targetType = 'link'; // Explicitly mark as link if target is inaccessible/broken
 						}
+
+                        // Add to appropriate list based on determined target type
+                        if (targetType === 'directory') {
+                             dirs.push(entry.name);
+                        } else {
+                            // Add to files list if target is file, link, or unknown type
+                            files.push(entry.name);
+                        }
+                        // *** END MODIFIED SYMLINK LOGIC ***
 					}
 				} catch (entryError) {
-					console.warn(`${logPrefix} Error processing entry '${entry.name}' in '${absolutePath}': ${entryError.message}. Skipping entry.`);
+					// Handle errors processing the entry itself
+					if (entryError.message.includes('Permission denied: Invalid path')) {
+						console.warn(`${logPrefix} Skipping entry '${entry.name}' because it resolves outside allowed user bounds.`);
+					} else {
+						console.warn(`${logPrefix} Error processing entry '${entry.name}' in '${absolutePath}': ${entryError.message}. Skipping entry.`);
+					}
 				}
 			}
-			console.log(`${logPrefix} Listing for '${relativePath || '/'}': Dirs=[${dirs.join(',')}], Files=[${files.join(',')}]`);
 			dirs.sort();
 			files.sort();
+			console.log(`${logPrefix} Finished. Found top-level dirs for '${username}': [${dirs.join(',')}]`);
 			return { dirs, files };
 		} catch (error) {
-			console.error(`${logPrefix} Error reading directory '${absolutePath}':`, error);
-			if (error.code === 'ENOENT') throw new Error(`Directory not found: '${relativePath || '/'}'.`);
-			else if (error.code === 'EACCES') throw new Error(`Permission denied reading directory: '${relativePath || '/'}'.`);
-			else if (error.message.startsWith('Permission denied')) throw error;
-			else throw new Error(`Failed to list directory '${relativePath || '/'}': ${error.message}`);
+			// ... (error handling remains the same) ...
+            if (error.code === 'ENOENT') {
+				console.error(`${logPrefix} CRITICAL: Base directory '${userBaseDir}' reported as non-existent during readdir, despite earlier check.`);
+                return { dirs: [], files: [] }; // Return empty list, though this indicates a problem
+			}
+            if (error.code === 'EACCES') {
+                console.error(`${logPrefix} CRITICAL: Permission denied reading base directory '${userBaseDir}' during readdir, despite passing 'can' check.`);
+                throw new Error(`Permission denied listing directory contents for '${username}'.`);
+            }
+			console.error(`${logPrefix} Unexpected error reading user base directory '${userBaseDir}' for '${username}':`, error);
+			throw new Error(`Failed to list directories for user '${username}': ${error.message}`);
 		}
 	}
 
@@ -655,22 +713,25 @@ class PData {
 		if (!relativePath) throw new Error("File path is required.");
 		let absolutePath;
 		try {
-			absolutePath = this.resolvePath(relativePath); // Use this.resolvePath
+			absolutePath = this.resolvePathForUser(username, relativePath); // Use user-specific resolver
 		} catch (resolveError) {
-			console.error(`[PDATA Class.readFile] Error resolving path '${relativePath}': ${resolveError.message}`);
+			console.error(`[PDATA Class.readFile] Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'read', absolutePath)) { // Use this.can
+		if (!this.can(username, 'read', absolutePath)) {
 			console.log(`[PDATA Class.readFile] Permission denied for user '${username}' on '${absolutePath}'.`);
 			throw new Error(`Permission denied to read file '${relativePath}'.`);
 		}
 
 		try {
+			// Use lstat to check type without following symlinks initially
 			const stats = await fsPromises.lstat(absolutePath);
 			if (!stats.isFile() && !stats.isSymbolicLink()) {
-				throw new Error(`'${relativePath}' (resolved: ${absolutePath}) is not a readable file or symlink.`);
+				throw new Error(`'${relativePath}' is not a readable file or symlink.`);
 			}
+			// If it's a symlink, lstat already verified we have 'read' access *to the link itself*.
+			// readFile will follow the link; Node's underlying fs operations handle target permissions.
 			const content = await fsPromises.readFile(absolutePath, 'utf8');
 			console.log(`[PDATA Class.readFile] Successfully read file '${absolutePath}' for user '${username}'.`);
 			return content;
@@ -679,6 +740,7 @@ class PData {
 			if (error.code === 'ENOENT') throw new Error(`File not found: '${relativePath}'.`);
 			else if (error.code === 'EACCES') throw new Error(`Permission denied reading file: '${relativePath}'.`);
 			else if (error.message.includes('not a readable file or symlink')) throw error;
+			else if (error.code === 'EISDIR') throw new Error(`Cannot read file: '${relativePath}' is a directory.`);
 			else throw new Error(`Failed to read file '${relativePath}': ${error.message}`);
 		}
 	}
@@ -689,48 +751,65 @@ class PData {
 		if (content === undefined) throw new Error("Content is required for writeFile.");
 
 		let absolutePath;
-		let dirPath;
+		let dirAbsolutePath;
 		try {
-			absolutePath = this.resolvePath(relativePath); // Use this.resolvePath
-			dirPath = path.dirname(absolutePath);
-			this.resolvePath(path.relative(this.dataRoot, dirPath)); // Use this.resolvePath, this.dataRoot
+			absolutePath = this.resolvePathForUser(username, relativePath); // Use user-specific resolver
+			dirAbsolutePath = path.dirname(absolutePath);
+			// Verify the target directory is also resolvable/within bounds for the user
+			const dirRelativePath = path.relative(
+				this.getUserRole(username) === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username),
+				dirAbsolutePath
+			);
+			this.resolvePathForUser(username, dirRelativePath);
+
 		} catch (resolveError) {
-			console.error(`[PDATA Class.writeFile] Error resolving path '${relativePath}': ${resolveError.message}`);
+			console.error(`[PDATA Class.writeFile] Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'write', dirPath)) { // Use this.can
-			const relativeDirPath = path.dirname(relativePath);
-			console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to write in directory '${relativeDirPath}' (resolved: ${dirPath}).`);
-			throw new Error(`Permission denied to write in directory '${relativeDirPath}'.`);
+		// Check permission to write in the *directory* first
+		if (!this.can(username, 'write', dirAbsolutePath)) {
+			console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to write in directory '${dirAbsolutePath}'.`);
+			throw new Error(`Permission denied to write in directory '${path.dirname(relativePath)}'.`);
 		}
 
+		// Check if file exists and if user can overwrite *it*
 		try {
 			const stats = await fsPromises.lstat(absolutePath);
-			if (!stats.isFile() && !stats.isSymbolicLink()) {
-				throw new Error(`Cannot overwrite: '${relativePath}' exists and is not a file or symlink.`);
+			// Allow overwriting files and symlinks, but not directories
+			if (stats.isDirectory()) {
+				throw new Error(`Cannot overwrite: '${relativePath}' exists and is a directory.`);
 			}
-			if (!this.can(username, 'write', absolutePath)) { // Use this.can
+			// If it exists (file/symlink), check 'write' permission on the item itself
+			if (!this.can(username, 'write', absolutePath)) {
 				console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to overwrite existing file/link '${absolutePath}'.`);
 				throw new Error(`Permission denied to overwrite file '${relativePath}'.`);
 			}
 		} catch (statError) {
-			if (statError.code === 'ENOENT') { /* File doesn't exist, OK */ }
+			if (statError.code === 'ENOENT') {
+				/* File doesn't exist, this is okay, proceed to write */
+				// Check write permission on the parent directory again (redundant but safe)
+				if (!this.can(username, 'write', dirAbsolutePath)) {
+					throw new Error(`Permission denied to create file in directory '${path.dirname(relativePath)}'.`);
+				}
+			}
 			else if (statError.message.startsWith('Cannot overwrite:')) throw statError;
 			else {
-				console.error(`[PDATA Class.writeFile] Error stating existing file '${absolutePath}':`, statError);
-				throw new Error(`Failed to check existing file status for '${relativePath}': ${statError.message}`);
+				console.error(`[PDATA Class.writeFile] Error stating existing path '${absolutePath}':`, statError);
+				throw new Error(`Failed to check existing path status for '${relativePath}': ${statError.message}`);
 			}
 		}
 
+		// Proceed with writing
 		try {
-			await fsPromises.mkdir(dirPath, { recursive: true });
+			// Ensure directory exists before writing file
+			await fsPromises.mkdir(dirAbsolutePath, { recursive: true });
 			await fsPromises.writeFile(absolutePath, content, 'utf8');
 			console.log(`[PDATA Class.writeFile] Successfully wrote file '${absolutePath}' for user '${username}'.`);
 		} catch (error) {
 			console.error(`[PDATA Class.writeFile] Error writing file '${absolutePath}':`, error);
 			if (error.code === 'EACCES') throw new Error(`Permission denied writing file: '${relativePath}'.`);
-			else if (error.code === 'EISDIR') throw new Error(`Cannot write file: '${relativePath}' is a directory.`);
+			else if (error.code === 'EISDIR') throw new Error(`Cannot write file: '${relativePath}' is a directory.`); // Should be caught earlier
 			else throw new Error(`Failed to write file '${relativePath}': ${error.message}`);
 		}
 	}
@@ -740,13 +819,13 @@ class PData {
 		if (!relativePath) throw new Error("File path is required.");
 		let absolutePath;
 		try {
-			absolutePath = this.resolvePath(relativePath); // Use this.resolvePath
+			absolutePath = this.resolvePathForUser(username, relativePath); // Use user-specific resolver
 		} catch (resolveError) {
-			console.error(`[PDATA Class.deleteFile] Error resolving path '${relativePath}': ${resolveError.message}`);
+			console.error(`[PDATA Class.deleteFile] Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'delete', absolutePath)) { // Use this.can
+		if (!this.can(username, 'delete', absolutePath)) {
 			console.log(`[PDATA Class.deleteFile] Permission denied for user '${username}' on '${absolutePath}'.`);
 			throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
 		}
@@ -756,53 +835,111 @@ class PData {
 			if (!stats.isFile() && !stats.isSymbolicLink()) {
 				throw new Error(`Cannot delete: '${relativePath}' is not a file or symbolic link.`);
 			}
-			await fsPromises.unlink(absolutePath);
+			await fsPromises.unlink(absolutePath); // unlink works for files and symlinks
 			console.log(`[PDATA Class.deleteFile] Successfully deleted file/link '${absolutePath}' for user '${username}'.`);
 		} catch (error) {
 			console.error(`[PDATA Class.deleteFile] Error deleting file/link '${absolutePath}':`, error);
 			if (error.code === 'ENOENT') throw new Error(`File or link not found: '${relativePath}'. Cannot delete.`);
 			else if (error.code === 'EACCES') throw new Error(`Permission denied deleting file/link: '${relativePath}'.`);
-			else if (error.code === 'EPERM' || error.code === 'EISDIR' || error.message.includes('not a file or symbolic link')) {
-                 throw new Error(`Cannot delete: '${relativePath}' is not a file or symbolic link.`);
-            }
+			else if (error.code === 'EPERM' || error.code === 'EISDIR') {
+				// EPERM on Windows, EISDIR on Unix when trying to unlink a directory
+				throw new Error(`Cannot delete: '${relativePath}' is not a file or symbolic link.`);
+			}
+			else if (error.message.includes('not a file or symbolic link')) throw error;
 			else throw new Error(`Failed to delete file/link '${relativePath}': ${error.message}`);
 		}
 	}
 
-	/** Get user's top-level directories (within their implicit folder) */
+	/** Get user's top-level directories (within their specific base directory) */
 	async getUserTopLevelDirectories(username) {
 		const logPrefix = '[PDATA Class.getUserTopLevelDirs]';
-		let userDirPath;
+		const role = this.getUserRole(username);
+		if (!role) {
+            console.error(`${logPrefix} Failed: User '${username}' not found or has no role.`);
+			throw new Error(`Cannot list directories: User '${username}' not found or has no role.`);
+		}
+        console.log(`${logPrefix} User='${username}', Role='${role}'`);
+
+		// Determine base directory based on role
+		const userBaseDir = role === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username);
+        console.log(`${logPrefix} Determined base directory: ${userBaseDir}`);
+
+        // *** Ensure the base directory itself exists BEFORE checking permissions or reading ***
 		try {
-			userDirPath = this.resolvePath(username); // Use this.resolvePath
-		} catch (resolveError) {
-			console.error(`${logPrefix} Error resolving user directory path for '${username}': ${resolveError.message}`);
-			throw new Error(`Cannot access directory for user '${username}'.`);
+			this._ensureDirectoryExists(userBaseDir, `Base dir for ${username}`);
+            console.log(`${logPrefix} Ensured base directory exists.`);
+		} catch (ensureError) {
+			console.error(`${logPrefix} Failed to ensure base directory '${userBaseDir}' exists: ${ensureError.message}`);
+			throw new Error(`Failed to access base directory for '${username}': ${ensureError.message}`);
 		}
 
-		if (!this.can(username, 'list', userDirPath)) { // Use this.can
-			console.log(`${logPrefix} Permission denied for user '${username}' to list their own directory '${userDirPath}'.`);
-			throw new Error(`Permission denied to access directory for '${username}'.`);
+        // *** Check permission to list the base directory ***
+		if (!this.can(username, 'list', userBaseDir)) {
+			console.error(`${logPrefix} Permission denied check failed for user '${username}' to list their base directory '${userBaseDir}'.`);
+			throw new Error(`Permission denied to access base directory for '${username}'.`);
 		}
+        console.log(`${logPrefix} Permission check 'list' on base directory '${userBaseDir}' passed.`);
 
 		try {
-			const entries = await fsPromises.readdir(userDirPath, { withFileTypes: true });
+            // *** Read the directory entries ***
+			console.log(`${logPrefix} Reading directory entries from '${userBaseDir}'...`);
+			const entries = await fsPromises.readdir(userBaseDir, { withFileTypes: true });
+            console.log(`${logPrefix} Found ${entries.length} raw entries.`);
 			const dirs = [];
 			for (const entry of entries) {
-				if (entry.name.startsWith('.')) continue;
-				if (entry.isDirectory()) {
-					dirs.push(entry.name);
+                console.log(`${logPrefix} Processing entry: Name='${entry.name}', Type=${entry.isDirectory() ? 'Dir' : entry.isFile() ? 'File' : entry.isSymbolicLink() ? 'Link' : 'Other'}`);
+				if (entry.name.startsWith('.')) {
+                    console.log(`${logPrefix} Skipping hidden entry '${entry.name}'.`);
+                    continue; // Skip hidden
+                }
+				const entryAbsolutePath = path.join(userBaseDir, entry.name);
+				try {
+					const stats = await fsPromises.lstat(entryAbsolutePath); // Use lstat to check type
+					if (stats.isDirectory()) {
+						// Verify the directory is still within bounds (paranoid check)
+                        try {
+						    this.resolvePathForUser(username, entry.name);
+                            console.log(`${logPrefix} Including directory '${entry.name}'.`);
+						    dirs.push(entry.name);
+                        } catch (resolveCheckError) {
+                             console.warn(`${logPrefix} Skipping directory '${entry.name}' because it failed bounds check: ${resolveCheckError.message}`);
+                        }
+					} else if (stats.isSymbolicLink()){
+						// Optionally list symlinks that point to directories within bounds
+						try {
+                            // Resolve the target using resolvePathForUser to check bounds
+							const finalResolvedTargetPath = this.resolvePathForUser(username, entry.name);
+							const targetStats = await fsPromises.stat(finalResolvedTargetPath); // Use stat to follow link
+							if(targetStats.isDirectory()){
+								console.log(`${logPrefix} Including directory symlink '${entry.name}' pointing to '${finalResolvedTargetPath}'.`);
+								dirs.push(entry.name);
+							} else {
+                                 console.log(`${logPrefix} Skipping symlink '${entry.name}' because target is not a directory.`);
+                            }
+						} catch(linkError){
+							console.warn(`${logPrefix} Skipping symlink '${entry.name}' due to error resolving/checking target: ${linkError.message}`);
+						}
+					} else {
+                        console.log(`${logPrefix} Skipping entry '${entry.name}' because it's not a directory or directory symlink.`);
+                    }
+				} catch (entryError) {
+					console.warn(`${logPrefix} Error processing entry '${entry.name}' for user '${username}': ${entryError.message}. Skipping.`);
 				}
 			}
 			dirs.sort();
-			console.log(`${logPrefix} Found top-level dirs for '${username}': [${dirs.join(',')}]`);
+			console.log(`${logPrefix} Finished. Found top-level dirs for '${username}': [${dirs.join(',')}]`);
 			return dirs;
 		} catch (error) {
+			// Handle if the base directory doesn't exist (should be caught by ensureDir now)
 			if (error.code === 'ENOENT') {
-				console.log(`${logPrefix} User directory not found for '${username}' at '${userDirPath}'. Returning empty list.`);
-				return [];
+				console.error(`${logPrefix} CRITICAL: Base directory '${userBaseDir}' reported as non-existent during readdir, despite earlier check.`);
+                return []; // Return empty list, though this indicates a problem
 			}
-			console.error(`${logPrefix} Error reading user directory '${userDirPath}' for '${username}':`, error);
+            if (error.code === 'EACCES') {
+                console.error(`${logPrefix} CRITICAL: Permission denied reading base directory '${userBaseDir}' during readdir, despite passing 'can' check.`);
+                throw new Error(`Permission denied listing directory contents for '${username}'.`);
+            }
+			console.error(`${logPrefix} Unexpected error reading user base directory '${userBaseDir}' for '${username}':`, error);
 			throw new Error(`Failed to list directories for user '${username}': ${error.message}`);
 		}
 	}
@@ -818,22 +955,27 @@ class PData {
 		const tempPath = file.path;
 		const finalUploadsDir = this.uploadsDir; // Use this.uploadsDir
 
+		// Security: Basic filename sanitization
+		const safeOriginalName = path.basename(file.originalname).replace(/[^a-zA-Z0-9_.-]/g, '_');
 		const timestamp = Date.now();
 		const randomPart = Math.random().toString(36).substring(2, 8);
-		const ext = path.extname(file.originalname);
-		const uniqueFilename = `${timestamp}-${randomPart}${ext}`;
+		const ext = path.extname(safeOriginalName);
+		// Construct a unique filename, avoiding potential collisions or exploits
+		const uniqueFilename = `${timestamp}-${randomPart}${ext || '.upload'}`; // Add default ext if missing
 		const destinationPath = path.join(finalUploadsDir, uniqueFilename);
-		const relativeUrlPath = `/uploads/${uniqueFilename}`;
+		const relativeUrlPath = `/uploads/${uniqueFilename}`; // Path used for accessing via web server
 
 		try {
 			console.log(`${logPrefix} Moving upload from ${tempPath} to ${destinationPath}`);
-			// Use internal helper, though it might be redundant if called at init
+			// Ensure the final uploads directory exists (might be redundant if checked at init)
 			this._ensureDirectoryExists(finalUploadsDir, 'Uploads Target');
+			// Move the file
 			await fsPromises.rename(tempPath, destinationPath);
 			console.log(`${logPrefix} Upload successful: ${relativeUrlPath}`);
-			return relativeUrlPath;
+			return relativeUrlPath; // Return the web-accessible path
 		} catch (error) {
 			console.error(`${logPrefix} Failed to move uploaded file ${tempPath} to ${destinationPath}: ${error.message}`);
+			// Attempt to clean up the temporary file if move fails
 			try { await fsPromises.unlink(tempPath); console.log(`${logPrefix} Cleaned up temporary file ${tempPath}`); }
 			catch (cleanupError) { console.error(`${logPrefix} Failed to cleanup temp upload file ${tempPath}: ${cleanupError.message}`); }
 			throw new Error(`Failed to save uploaded file: ${error.message}`);
