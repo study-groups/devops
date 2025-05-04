@@ -1,3 +1,4 @@
+alias pbvm='$TETRA_SRC/bash/pbvm/pbvm.sh'
 alias hotrod='$TETRA_SRC/bash/hotrod/hotrod.sh'
 alias tro='$TETRA_SRC/bash/hotrod/tro.sh'
 alias ttro='$TETRA_SRC/bash/hotrod/tro.sh'
@@ -20,8 +21,6 @@ alias ttl="ssh $TETRA_REMOTE_USER@$TETRA_REMOTE ls $TETRA_REMOTE_DIR"
 
 tte=$tetra_remote_endpoint
 ttr=$tetra_remote_connector
-
-
 
 alias tna='tetra_nvm_activate'
 alias tpa='tetra_python_activate'
