@@ -1,11 +1,20 @@
 #!/bin/bash
-path=$(dirname $(readlink -f ${0}))
-NODE_ENVIRONMENT=development
-# Set and export PJ_DIR
-export PD_DB=$HOME/pj/pd
-export PD_DIR=$HOME/pj/pd
-export PD_DATA=$HOME/pj/pd/data
-export MD_DIR=$HOME/pj/md;
-source $HOME/pj/nvm/nvm.sh
-#node --inspect-brk $HOME/src/devops/devpages/server/server.js
-node $HOME/src/devops/devpages/server/server.js
+
+# Source shared environment variables
+source ./env.sh
+
+# Ensure PD_DIR is set (typically inherited from env.sh for dev)
+export PD_DIR=${PD_DIR:-$HOME/pj/pd} # Default dev path if not set by env.sh
+
+# Set development-specific variables (could override env.sh)
+export NODE_ENV=development
+# export PORT=3001 # Example: use a different port for dev
+
+echo "--- DevPages Development Environment ---"
+echo "NODE_ENV: $NODE_ENV"
+echo "PORT: $PORT"
+echo "PD_DIR: $PD_DIR"
+echo "-------------------------------------"
+
+# Start the server using nodemon for auto-reloading
+nodemon server/server.js

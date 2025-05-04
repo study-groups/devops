@@ -119,9 +119,10 @@ router.get('/list', async (req, res) => {
 router.get('/dirs', async (req, res) => {
   try {
     const username = req.user.username;
-    
-    const directories = await req.pdata.getUserDirectories(username);
-    
+
+    // Use the correct method name from PData.js
+    const directories = await req.pdata.getUserTopLevelDirectories(username);
+
     res.json(directories);
   } catch (error) {
     console.error('[API /dirs] Error:', error);

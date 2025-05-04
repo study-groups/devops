@@ -1,12 +1,12 @@
 #!/bin/bash
-path=$(dirname $(readlink -f ${0}))
-NODE_ENVIRONMENT=development # or production
 
-source $path/env.sh 
-export PD_DIR=$HOME/pj/pd
-export PD_DB=$HOME/pj/pd
-export PD_DATA=$HOME/pj/pd/data
+source ./env.sh
+#export NODE_ENV=production
+export NODE_ENV=development
+export PD_DIR=${PD_DIR:-/var/www/devpages/pdata} # Example production path
+echo "--- DevPages Production Environment ---"
+echo "NODE_ENV: $NODE_ENV"
+echo "PORT: $PORT"
+echo "PD_DIR: $PD_DIR"
 source $HOME/pj/nvm/nvm.sh
-PORT=4000
-export PORT
-node $HOME/src/devops/devpages/server/server.js
+node server/server.js

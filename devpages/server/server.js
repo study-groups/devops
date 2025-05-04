@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 import fsSync from 'fs';  // For sync methods like existsSync
 import { fileURLToPath } from 'url';
 import passport from 'passport'; // Assuming passport for auth
-// import FileStore from 'session-file-store'; // <<< Remove this import
+import FileStore from 'session-file-store'; // 1. Import
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
@@ -80,17 +80,22 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // Session Middleware Configuration
+const FileStoreSession = FileStore(session); // 2. Create the store constructor
 app.use(session({
   name: 'devpages.sid',
   secret: process.env.SESSION_SECRET || 'dev-secret-change-for-prod',
-  resave: false,
-  saveUninitialized: false,
-  // store: new FileStoreSession({ ... }), // <<< Remove the store configuration
+  resave: false, // Recommended: false
+  saveUninitialized: false, // Recommended: false
+  store: new FileStoreSession({ // 3. Configure the file store
+      path: path.join(projectRoot, '.sessions'), // Store sessions in project root/.sessions
+      logFn: console.log, // Optional: Log session store activity
+      ttl: 24 * 60 * 60 // Session TTL in seconds (e.g., 24 hours)
+  }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // Keep this check
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+    sameSite: 'lax' // 'lax' is usually a good default
   }
 }));
 
@@ -111,6 +116,7 @@ passport.deserializeUser((username, done) => {
 });
 // ----- END PASSPORT CONFIGURATION -----
 
+console.log(`[SERVER] Using SESSION_SECRET: ${process.env.SESSION_SECRET || '!!! FALLBACK USED !!!'}`);
 
 // Configure multer (using imported 'uploadsDirectory')
 // Multer setup might be okay here, or move it after the static block if causing issues
@@ -230,37 +236,70 @@ async function startServer() {
 
     // --- START: Add *unprotected* route for public preview CSS ---
     app.get('/public/css', async (req, res) => {
-        console.log(`[SERVER /public/css] ROUTE HANDLER ENTERED for path: ${req.query.path}`);
-        if (!req.pdata?.dataRoot) {
-            console.error('[SERVER /public/css] PData instance or dataRoot not found on request.');
-            res.type('text/plain').status(500).send('/* Server Configuration Error */');
-            return;
-        }
-        const relativePath = req.query.path || '';
-        const normalizedPath = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '').replace(/^[/\\]+|[/\\]+$/g, '');
-        if (normalizedPath.includes('..') || !normalizedPath.endsWith('.css')) {
-            console.warn(`[SERVER /public/css] Denying invalid path/type: ${relativePath}`);
-            return res.status(400).send('/* Invalid Path or File Type */');
+        const logPrefix = '[SERVER /public/css]';
+        const requestedFile = req.query.path;
+
+        console.log(`${logPrefix} ROUTE HANDLER ENTERED for path: ${requestedFile}`);
+
+        // --- Security Check 1: Allow only specific files ---
+        // ONLY allow 'styles.css' (or a predefined list) through this route.
+        // Prevents requesting arbitrary files like '../users.csv' etc.
+        if (requestedFile !== 'styles.css') {
+            console.warn(`${logPrefix} Denied request for non-allowed file: ${requestedFile}`);
+            return res.status(403).send('Forbidden: Invalid file requested.');
         }
 
-        const fullFilePath = path.join(req.pdata.dataRoot, normalizedPath);
-        console.log(`[SERVER /public/css] Attempting to serve PUBLIC file: ${fullFilePath} (from request path: ${relativePath})`);
+        // --- Security Check 2: Basic Authentication Check (Optional but Recommended) ---
+        // Decide if *any* visitor or only logged-in users can get this CSS.
+        // If only logged-in users:
+        // if (!req.isAuthenticated || !req.isAuthenticated()) {
+        //     console.warn(`${logPrefix} Denied request for '${requestedFile}' - User not authenticated.`);
+        //     return res.status(401).send('Unauthorized');
+        // }
+        // console.log(`${logPrefix} User authenticated, proceeding to serve '${requestedFile}'.`);
 
+
+        // --- Construct Correct Path ---
+        // This CSS lives in the 'data' subdirectory of the main PData root.
+        if (!req.pdata || !req.pdata.dataRoot) {
+             console.error(`${logPrefix} CRITICAL: PData instance or dataRoot not available on request object.`);
+             return res.status(500).send('Internal Server Error: Configuration Error.');
+        }
+        // Construct path: PD_DIR/data/styles.css
+        const absoluteFilePath = path.join(req.pdata.dataRoot, 'data', requestedFile);
+
+        console.log(`${logPrefix} Attempting to serve file from resolved path: ${absoluteFilePath}`);
+
+        // --- Serve the File ---
         try {
-            await fs.access(fullFilePath, fs.constants.R_OK);
-            res.type('text/css').sendFile(fullFilePath, (err) => {
+            // Check if file exists before sending
+            await fs.access(absoluteFilePath, fs.constants.R_OK); // Check read access
+            console.log(`${logPrefix} File found and readable: ${absoluteFilePath}`);
+
+            // Send the file, letting Express handle Content-Type based on extension
+            res.sendFile(absoluteFilePath, (err) => {
                 if (err) {
-                    console.error(`[SERVER /public/css] Error sending file ${fullFilePath}:`, err);
-                    if (!res.headersSent) { res.type('text/plain').status(500).send('/* Error serving stylesheet */'); }
-                } else { console.log(`[SERVER /public/css] Successfully served ${fullFilePath}`); }
+                    console.error(`${logPrefix} Error sending file '${absoluteFilePath}':`, err);
+                    // Avoid sending detailed errors to client unless needed
+                    if (!res.headersSent) {
+                         res.status(500).send('Error serving file');
+                    }
+                } else {
+                     console.log(`${logPrefix} Successfully sent file: ${absoluteFilePath}`);
+                }
             });
+
         } catch (error) {
+            // Handle errors like file not found or permission issues
             if (error.code === 'ENOENT') {
-                console.log(`[SERVER /public/css] Public CSS not found at ${fullFilePath}`);
-                res.type('text/plain').status(404).send('/* Stylesheet not found */');
+                console.error(`${logPrefix} File not found at: ${absoluteFilePath}`);
+                res.status(404).send('Not Found: CSS file missing.');
+            } else if (error.code === 'EACCES') {
+                 console.error(`${logPrefix} Permission denied reading file: ${absoluteFilePath}`);
+                 res.status(403).send('Forbidden: Cannot access file.');
             } else {
-                console.error(`[SERVER /public/css] Error accessing file ${fullFilePath}:`, error);
-                res.type('text/plain').status(500).send('/* Internal Server Error accessing stylesheet */');
+                console.error(`${logPrefix} Unexpected error accessing file '${absoluteFilePath}':`, error);
+                res.status(500).send('Internal Server Error');
             }
         }
     });
