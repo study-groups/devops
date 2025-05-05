@@ -6,9 +6,6 @@
 
 // client/preview/plugins/index.js - Manages preview plugins
 
-// REMOVED incorrect static imports for MermaidPlugin and HighlightPlugin
-// They are loaded dynamically via builtInPlugins map below.
-
 // Plugin registry
 const plugins = new Map();
 const enabledPlugins = new Map();
@@ -16,7 +13,7 @@ const enabledPlugins = new Map();
 // Built-in plugins with their classes
 const builtInPlugins = {
   'mermaid': async () => (await import('./mermaid.js')).MermaidPlugin,
-  // 'katex': async () => (await import('./katex.js')).KaTeXPlugin, // <-- Disable custom plugin
+   'katex': async () => (await import('./katex.js')).KaTeXPlugin,
   'highlight': async () => (await import('./highlight.js')).HighlightPlugin,
   'audioMD': async () => (await import('./audio-md.js')).AudioMDPlugin,
   'graphviz': async () => (await import('./graphviz.js')).GraphvizPlugin

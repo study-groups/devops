@@ -132,14 +132,9 @@
 
 /* --- General Section Styling (apply to plugins and css settings) --- */
 .settings-section {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
-}
-.settings-section:first-child {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
+  /* margin-top: 15px; */  /* <-- REMOVE */
+  /* padding-top: 15px; */ /* <-- REMOVE */
+  /* border-top: 1px solid #eee; */ /* Already removed */
 }
 
 .settings-section-title {
@@ -162,6 +157,39 @@
   display: flex;
   margin-bottom: 15px;
 }
+
+/* --- NEW: Collapse/Expand Styling --- */
+.settings-section-header {
+  position: relative; /* For positioning the indicator */
+  cursor: pointer;
+  display: flex; /* Use flex to align indicator and title */
+  align-items: center;
+  font-size: 1.15em; /* <-- Increase font size */
+  font-weight: bold; /* <-- Ensure bold */
+  margin-bottom: 5px; /* <-- Add a little space below header always */
+}
+
+.settings-section-header .collapse-indicator {
+  display: inline-block;
+  width: 1em; /* Reserve space for the indicator */
+  margin-right: 6px;
+  font-size: 0.8em;
+  transition: transform 0.2s ease-in-out;
+}
+
+.settings-section-container.collapsed .settings-section-header .collapse-indicator {
+  transform: rotate(-90deg);
+}
+
+.settings-section-container.collapsed > :not(.settings-section-header) {
+  display: none;
+}
+
+/* --- ADD spacing for collapsed header --- */
+.settings-section-container.collapsed .settings-section-header {
+  margin-bottom: 10px; /* Add space below the header when collapsed */
+}
+/* --- END ADD --- */
 
 .settings-input {
   flex-grow: 1;

@@ -11,6 +11,7 @@ import { loadFile, saveFile } from '/client/filesystem/fileManager.js'; // (Upda
 import { logout } from '/client/auth.js';
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
 import { downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js'; // Use the correct absolute path
+import { refreshPreview as refreshPreviewFunction } from '/client/previewManager.js';
 
 
 // Helper for logging within this module
@@ -264,52 +265,14 @@ export const triggerActions = {
     },
 
     // --- NEW Nav Bar Actions ---
-    refreshPreview: async () => {
-        logAction('Refresh Preview action triggered', 'info');
+    refreshPreview: (params, element) => {
+        console.log('[Action] refreshPreview triggered');
         try {
-            // 1. Clear the client-side log panel FIRST
-            if (window.logPanel && typeof window.logPanel.clearLog === 'function') {
-                 window.logPanel.clearLog();
-                 logAction('Client log panel cleared.', 'debug');
-             } else {
-                 logAction('window.logPanel or clearLog method not found.', 'warning');
-             }
-
-            // >>> ADDED: Emit event for host to reset its log <<<
-            if (window.previewEventBus && typeof window.previewEventBus.emit === 'function') {
-                window.previewEventBus.emit('host:reset_log');
-                logAction('Emitted host:reset_log event.', 'debug');
-            } else {
-                logAction('window.previewEventBus not available, cannot emit host:reset_log', 'warning');
-            }
-
-            // 1. Clear the specific logs in the preview pane (Optional - Uncomment if host script uses these IDs)
-            // try {
-            //     const hostLog = document.getElementById('host-script-log-entries'); // Use the specific container
-            //     const eventLog = document.getElementById('event-bus-log-entries'); // Use the specific container
-            //     if (hostLog) hostLog.innerHTML = '';
-            //     if (eventLog) eventLog.innerHTML = '';
-            //     logAction('Cleared host and event bus logs in preview.', 'debug');
-            // } catch (e) {
-            //     logAction(`Error clearing logs: ${e.message}`, 'error');
-            // }
-
-            // 2. Optionally emit an event if some component needs to react before refresh
-            // This part seems less necessary now that previewManager handles refresh directly
-            // logAction('Emitting preview:force_reload event.', 'debug');
-            // if (window.previewEventBus) {
-            //     window.previewEventBus.emit('preview:force_reload');
-            // } else {
-            //     logAction('window.previewEventBus not found, cannot emit force_reload event.', 'warning');
-            // }
-
-            // 3. Refresh the actual markdown preview content using previewManager
-            logAction('Refreshing markdown preview content via previewManager.refreshPreview().', 'debug');
-            await refreshPreview(); // Call the directly imported function
-            logAction('Called refreshPreview() successfully', 'debug');
+            // CORRECTED: Call the imported and aliased function
+            refreshPreviewFunction();
         } catch (error) {
-            logAction(`Error refreshing markdown preview: ${error.message}`, 'error');
-            console.error('[ACTION refreshPreview ERROR]', error);
+            console.error('[Action refreshPreview ERROR]', error);
+            // Optionally show an error message to the user
         }
     },
     loadFile: async (data = {}) => {

@@ -8,6 +8,7 @@ import fsSync from 'fs';  // For sync methods like existsSync
 import { fileURLToPath } from 'url';
 import passport from 'passport'; // Assuming passport for auth
 import FileStore from 'session-file-store'; // 1. Import
+import { S3Client } from '@aws-sdk/client-s3'; // Import S3Client
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
@@ -21,6 +22,7 @@ import filesRouter from './routes/files.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
 import publishRouter from './routes/publish.js'; // <--- ADD THIS IMPORT
 import { PData, createPDataRoutes } from 'pdata'; // Import class and factory
+import spacesRouter from './routes/spaces.js'; // Keep spaces router import
 
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -42,24 +44,57 @@ console.log(`[SERVER] Resolved Project Root: ${projectRoot}`);
 // Add this extra log right before using clientDir
 console.log(`[DEBUG] Path used for client static: ${currentDir}`);
 
+// --- NEW: Single S3 Client Initialization (Using DO Spaces details) ---
+const s3ClientInstance = (() => {
+    const requiredEnvVars = ['DO_SPACES_KEY', 'DO_SPACES_SECRET', 'DO_SPACES_REGION', 'DO_SPACES_ENDPOINT'];
+    const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+    
+    if (missingVars.length > 0) {
+        console.warn(`[Server Config] Missing DO Spaces environment variables: ${missingVars.join(', ')}. S3 features disabled.`);
+        return null;
+    }
+
+    console.log(`[Server Config] DO Spaces config found. Initializing S3 client...`);
+    try {
+        const client = new S3Client({
+            endpoint: process.env.DO_SPACES_ENDPOINT,
+            region: process.env.DO_SPACES_REGION,
+            credentials: {
+                accessKeyId: process.env.DO_SPACES_KEY,
+                secretAccessKey: process.env.DO_SPACES_SECRET,
+            },
+            forcePathStyle: true, // Required for DO Spaces - SET TO TRUE
+        });
+        console.log(`[Server Config] S3 Client initialized successfully for region ${process.env.DO_SPACES_REGION}.`);
+        return client;
+    } catch (error) {
+        console.error('[Server Config] Error initializing S3 Client:', error);
+        return null;
+    }
+})();
+// --- END NEW: Single S3 Client Initialization ---
+
 // Continue with app setup and static routes which can now use dataDir
 const app = express();
 
 // Initialize PData **once**
 let pdataInstance;
 try {
-	pdataInstance = new PData();
+	pdataInstance = new PData(); // PData no longer needs S3 config directly
 	console.log('[Server] PData initialized successfully.');
 } catch (error) {
 	console.error('[Server] CRITICAL: PData failed to initialize. Server cannot start securely.', error);
-	process.exit(1); // Exit if PData fails
+	process.exit(1);
 }
 
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
-  // Make pdata instance available on request object (alternative to global)
+  // Make pdata instance available on request object
   req.pdata = pdataInstance;
+  // --- ADD Single s3Client to request ---
+  req.s3Client = s3ClientInstance;
+  // ------------------------------------
   req.dataDir = pdataInstance.dataDir; // Also make dataDir easily available if needed
   next();
 });
@@ -167,6 +202,76 @@ app.get('/config.js', (req, res) => {
     res.sendFile(path.join(projectRoot, 'config.js'));
 });
 
+// --- NEW: Securely serve JS/CSS files from pdata for preview --- 
+const ALLOWED_PREVIEW_EXTENSIONS = ['.js', '.css'];
+app.get('/pdata-files/*', async (req, res) => {
+    const logPrefix = '[SERVER /pdata-files]';
+    try {
+        // 1. Extract requested relative path from URL
+        // req.params[0] will contain everything after '/pdata-files/'
+        const requestedRelativePath = req.params[0];
+        if (!requestedRelativePath) {
+            console.warn(`${logPrefix} Request path is empty.`);
+            return res.status(400).send('Bad Request: No file path specified.');
+        }
+        console.log(`${logPrefix} Requested relative path: ${requestedRelativePath}`);
+
+        // 2. Security: Basic path validation (check for null bytes, etc.)
+        if (requestedRelativePath.includes('\0')) {
+            console.warn(`${logPrefix} Denied request with null byte: ${requestedRelativePath}`);
+            return res.status(400).send('Bad Request: Invalid characters in path.');
+        }
+        
+        // 3. Security: Check file extension
+        const requestedExt = path.extname(requestedRelativePath).toLowerCase();
+        if (!ALLOWED_PREVIEW_EXTENSIONS.includes(requestedExt)) {
+            console.warn(`${logPrefix} Denied request for non-allowed extension (${requestedExt}): ${requestedRelativePath}`);
+            return res.status(403).send(`Forbidden: File type (${requestedExt}) not allowed.`);
+        }
+
+        // 4. Construct absolute path using pdataInstance.dataRoot
+        // path.join naturally handles path normalization (removes '.', handles '/')
+        const absolutePath = path.join(pdataInstance.dataRoot, requestedRelativePath);
+        console.log(`${logPrefix} Resolved absolute path: ${absolutePath}`);
+
+        // 5. Security: Ensure the resolved path is *still within* the dataRoot directory
+        // path.resolve() is used here to get the canonical path before comparing
+        if (!path.resolve(absolutePath).startsWith(path.resolve(pdataInstance.dataRoot))) {
+            console.error(`${logPrefix} CRITICAL SECURITY: Directory traversal attempt detected! Resolved path '${path.resolve(absolutePath)}' is outside data root '${path.resolve(pdataInstance.dataRoot)}'. Request: ${requestedRelativePath}`);
+            return res.status(403).send('Forbidden: Access denied.');
+        }
+
+        // 6. Check if file exists
+        await fs.access(absolutePath, fs.constants.R_OK); // Check for read access
+
+        // 7. Send the file (Express handles Content-Type based on extension)
+        console.log(`${logPrefix} Serving file: ${absolutePath}`);
+        res.sendFile(absolutePath, (err) => {
+            if (err) {
+                // Handle potential errors during sendFile (e.g., file deleted after check)
+                console.error(`${logPrefix} Error sending file ${absolutePath}:`, err);
+                if (!res.headersSent) {
+                    // Use status code from error if available, otherwise 500
+                    res.status(err.status || 500).send('Error sending file.');
+                }
+            }
+        });
+
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.warn(`${logPrefix} File not found: ${req.params[0]}`);
+            res.status(404).send('Not Found');
+        } else if (error.code === 'EACCES') {
+            console.error(`${logPrefix} Permission denied for: ${req.params[0]}`);
+            res.status(403).send('Forbidden');
+        } else {
+            console.error(`${logPrefix} Unexpected error serving file ${req.params[0]}:`, error);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+// --- END NEW ROUTE --- 
+
 // Application-specific directories within dataDir
 const appImagesDir = path.join(pdataInstance.dataRoot, 'images');
 // Ensure application directories exist
@@ -204,10 +309,22 @@ app.use((req, res, next) => {
 // Import routers ONCE
 // import filesRouter from './routes/files.js'; // <<< REMOVE THIS ONE
 import authRouter from './routes/auth.js'; // Import auth routes
+console.log('[DEBUG server.js] Imported spacesRouter:', typeof spacesRouter, spacesRouter); // <<< ADD THIS LOG
 
 // Use routers
-app.use('/api/files', authMiddleware, filesRouter); // Protect file routes
-app.use('/api/auth', authRouter); // Auth routes (login/logout) might not need authMiddleware themselves
+app.use('/api/files', authMiddleware, filesRouter);
+app.use('/api/auth', authRouter);
+
+// <<< --- ADD THIS DEBUG MIDDLEWARE --- >>>
+app.use('/api/spaces', (req, res, next) => {
+    console.log(`[DEBUG] Request reached /api/spaces prefix. Path: ${req.path}, Method: ${req.method}`);
+    // You could add more checks here if needed, e.g., console.log(req.user);
+    next(); // Pass control to the next middleware in the chain
+});
+// <<< --- END DEBUG MIDDLEWARE --- >>>
+
+// Mount the spaces router, protected by authentication
+app.use('/api/spaces', authMiddleware, spacesRouter);
 
 // --- Async Function to Load Routes and Start Server ---
 async function startServer() {

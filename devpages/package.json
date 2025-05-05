@@ -9,6 +9,7 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.782.0",
+    "@aws-sdk/s3-request-presigner": "^3.802.0",
     "basic-auth": "^2.0.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
@@ -35,5 +36,6 @@
   "imports": {
     "#pdata": "./pdata/index.js",
     "#server/*": "./server/*"
-  }
+  },
+  "version": "0.0.1"
 }

@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js'; // Assuming appStore path
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Assuming messageQueue path
-import { CssSettingsPanel } from './CssSettingsPanel.js'; // <<< Import CssSettingsPanel
+// import { CssSettingsPanel } from './CssSettingsPanel.js'; // <<< REMOVE Import CssSettingsPanel
 
 // Helper for logging specific to this panel
 function logPlugins(message, level = 'info') {
@@ -21,8 +21,8 @@ export class PluginsPanel {
   constructor(parentElement) {
     this.containerElement = null; // The main element for this panel's content
     this.pluginsListElement = null; // UL element to hold plugin items
-    this.cssSettingsContainer = null; // <<< Container for CSS Settings
-    this.cssSettingsPanelInstance = null; // <<< Instance of CssSettingsPanel
+    // this.cssSettingsContainer = null; // <<< REMOVE Container for CSS Settings
+    // this.cssSettingsPanelInstance = null; // <<< REMOVE Instance of CssSettingsPanel
     this.stateUnsubscribe = null;
     this.plugins = {}; // Local cache of plugin states
 
@@ -45,7 +45,6 @@ export class PluginsPanel {
     // --- Plugin Toggles Section ---
     const pluginsSection = document.createElement('div');
     pluginsSection.classList.add('settings-section', 'plugins-toggles');
-    pluginsSection.innerHTML = '<h4>Available Plugins</h4>'; // Add a title
     this.pluginsListElement = document.createElement('ul');
     this.pluginsListElement.classList.add('plugins-list'); // Use class defined in settings.css
     pluginsSection.appendChild(this.pluginsListElement);
@@ -54,11 +53,11 @@ export class PluginsPanel {
     // Add event listener for checkbox changes (delegated to the list)
     this.pluginsListElement.addEventListener('change', this.handlePluginToggle.bind(this));
 
-
-    // --- CSS Settings Section ---
+    // --- REMOVE CSS Settings Section Instantiation ---
+    /*
     // Create a dedicated container for CssSettingsPanel to render into
     this.cssSettingsContainer = document.createElement('div');
-    this.cssSettingsContainer.classList.add('css-settings-panel-container'); // Optional class for styling separation
+    this.cssSettingsContainer.classList.add('css-settings-panel-container'); 
     this.containerElement.appendChild(this.cssSettingsContainer);
 
     // Instantiate CssSettingsPanel, passing the dedicated container
@@ -68,6 +67,8 @@ export class PluginsPanel {
         logPlugins(`Failed to initialize CssSettingsPanel: ${error}`, 'error');
         this.cssSettingsContainer.innerHTML = '<p style="color: red;">Error loading CSS settings.</p>';
     }
+    */
+    // --- END REMOVE CSS SECTION ---
 
     // Attach the main content container to the provided parent
     parentElement.appendChild(this.containerElement);
@@ -157,21 +158,23 @@ export class PluginsPanel {
       this.stateUnsubscribe = null;
     }
 
-    // --- Destroy the CssSettingsPanel instance ---
+    // --- REMOVE Destroying the CssSettingsPanel instance ---
+    /*
     if (this.cssSettingsPanelInstance) {
         this.cssSettingsPanelInstance.destroy();
         this.cssSettingsPanelInstance = null;
     }
+    */
     // ---------------------------------------------
 
-    // Remove event listeners if necessary (though delegated listener on pluginsListElement is removed when container is removed)
+    // Remove event listeners if necessary
 
     if (this.containerElement && this.containerElement.parentNode) {
         this.containerElement.parentNode.removeChild(this.containerElement);
     }
     this.containerElement = null;
     this.pluginsListElement = null;
-    this.cssSettingsContainer = null; // Clear reference
+    // this.cssSettingsContainer = null; // <<< REMOVE reference
     this.plugins = {};
     logPlugins('PluginsPanel destroyed.');
   }

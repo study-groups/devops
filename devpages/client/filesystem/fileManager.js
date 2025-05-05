@@ -447,27 +447,36 @@ export async function loadFile(pathname) {
              payload: { pathname: pathname } // Reducer handles setting isDirectorySelected=false
         });
 
-        // --- Handle dynamic assets based on front matter ---
+        // --- REMOVE Entire Dynamic Asset Handling Block --- 
+        /*
         try {
-             const previewModule = await import('/client/preview/markdown.js');
-             const { frontMatter } = previewModule.parseFrontMatter(content); // Assuming this exists
-             if (frontMatter) {
-                logFileManager(`[LoadFile ${pathname}]: Found front matter. Handling dynamic assets.`);
-                // Cleanup previous assets first
-                cleanupDynamicAssets(`LoadFile ${pathname}`);
-                // Load new ones
-                await loadDynamicStyles(frontMatter, `LoadFile ${pathname}`);
-                await loadHostScript(frontMatter.host_script, `LoadFile ${pathname}`); // Pass path directly
-                updateIframeSource(frontMatter.iframe_src, `LoadFile ${pathname}`);
-             } else {
-                 // No front matter, ensure any previous dynamic assets are cleared
-                 cleanupDynamicAssets(`LoadFile ${pathname} - No front matter`);
-             }
-         } catch (fmError) {
-              logFileManager(`[LoadFile ${pathname}]: Error processing front matter or dynamic assets: ${fmError.message}`, 'warning');
-         }
-        // --- End Dynamic Asset Handling ---
+            const previewModule = await import('/client/preview/markdown.js');
+            // Removed front matter pre-parsing - Renderer handles this now
+            // const { frontMatter } = previewModule.parseFrontMatter(content); // Assuming this exists
 
+            // Dispatch completion action
+            dispatch({
+                type: ActionTypes.FS_LOAD_FILE_COMPLETE,
+                payload: { pathname: pathname }
+            });
+
+            // --- Dynamic Asset Handling REMOVED - Handled by Renderer --- 
+            // The renderer now parses front matter and injects necessary
+            // <script>, <link>, and <style> tags directly into the preview HTML.
+            /* 
+            // Cleanup previous assets first
+            cleanupDynamicAssets(`LoadFile ${pathname}`);
+            // Load new ones
+            await loadDynamicStyles(frontMatter, `LoadFile ${pathname}`);
+            await loadHostScript(frontMatter.host_script, `LoadFile ${pathname}`); // Pass path directly
+            updateIframeSource(frontMatter.iframe_src, `LoadFile ${pathname}`);
+            * /
+            // --- End REMOVED ---
+        } catch (fmError) {
+             logFileManager(`[LoadFile ${pathname}]: Error processing front matter or dynamic assets: ${fmError.message}`, 'warning');
+        }
+        */
+        // --- END REMOVED BLOCK ---
 
     } catch (error) {
         logFileManager(`[LoadFile ${pathname}]: ERROR loading file: ${error.message}`, 'error');

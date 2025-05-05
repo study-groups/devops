@@ -1,6 +1,9 @@
 import path from 'path';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+// Import AWS SDK components for S3 & Presigner
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 // Import only the pure helpers we need
 import { generateSalt, hashPassword } from './userUtils.js';
 
@@ -21,12 +24,10 @@ class PData {
 		this._initializeDataRoot(); // Sets this.dataRoot from PD_DIR
 
 		// --- Initialize User Data Directory ---
-		// The 'data' subdirectory within PD_DIR where user folders reside
 		this.userDataBaseDir = path.join(this.dataRoot, 'data');
 		this._ensureDirectoryExists(this.userDataBaseDir, 'User Data Base');
 
 		// --- Initialize Uploads Directory ---
-		// Uploads are stored within PD_DIR as well
 		this.uploadsDir = path.join(this.dataRoot, 'uploads');
 		this._ensureDirectoryExists(this.uploadsDir, 'Uploads');
 		this.tempUploadsDir = path.join(this.uploadsDir, 'temp'); // Multer needs this sub-dir

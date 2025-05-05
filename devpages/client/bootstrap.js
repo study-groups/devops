@@ -10,6 +10,10 @@ import eventBus from '/client/eventBus.js'; // Keep for now for non-state events
 import { mainReducer } from '/client/store/reducer.js'; // Import the reducer
 import { initAuth } from '/client/auth.js'; // <<< ADDED: Import initAuth
 
+// --- ADD THIS IMPORT --- Ensure previewManager module loads and runs its setup
+import '/client/previewManager.js'; 
+// -----------------------
+
 // Simple console logging for early bootstrap phases
 function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default level to info
   const fullType = type;
@@ -190,20 +194,6 @@ async function initializeApp() {
          console.error('[EDITOR INIT ERROR]', error);
      }
      
-    // Preview Manager (Subscribes to editor content changes, etc.)
-    try {
-        const previewManagerModule = await import('/client/previewManager.js');
-        if (typeof previewManagerModule.initializePreview === 'function') {
-            await previewManagerModule.initializePreview(); // Setup subscriptions
-            logBootstrap('Preview Manager initialized.', 'debug');
-        } else {
-             logBootstrap('previewManager.js loaded but initializePreview not found.', 'error');
-        }
-    } catch (error) {
-        logBootstrap(`Failed to initialize Preview Manager: ${error.message}`, 'error');
-        console.error('[PREVIEW INIT ERROR]', error);
-    }
-    
     // DOM event listeners (May dispatch actions based on global events)
     try {
         const domEventsModule = await import('/client/domEvents.js');
