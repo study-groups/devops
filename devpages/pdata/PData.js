@@ -778,17 +778,15 @@ class PData {
 		if (!relativePath) throw new Error("File path is required.");
 		if (content === undefined) throw new Error("Content is required for writeFile.");
 
-		let absolutePath;
-		let dirAbsolutePath;
+		let absoluteFilePath;
+		let parentDirAbsolute;
 		try {
-			absolutePath = this.resolvePathForUser(username, relativePath); // Use user-specific resolver
-			dirAbsolutePath = path.dirname(absolutePath);
-			// Verify the target directory is also resolvable/within bounds for the user
-			const dirRelativePath = path.relative(
-				this.getUserRole(username) === 'admin' ? this.dataRoot : path.join(this.dataRoot, 'data', username),
-				dirAbsolutePath
-			);
-			this.resolvePathForUser(username, dirRelativePath);
+			absoluteFilePath = this.resolvePathForUser(username, relativePath); 
+			parentDirAbsolute = path.dirname(absoluteFilePath);
+
+			// The initial resolvePathForUser on 'relativePath' already confirmed the target file's path is valid for the user.
+			// The parentDirAbsolute is derived from this valid path, so it's also implicitly valid in terms of location.
+			// No need to re-resolve parentDirAbsolute via resolvePathForUser with a potentially misleading relative path.
 
 		} catch (resolveError) {
 			console.error(`[PDATA Class.writeFile] Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
@@ -796,34 +794,31 @@ class PData {
 		}
 
 		// Check permission to write in the *directory* first
-		if (!this.can(username, 'write', dirAbsolutePath)) {
-			console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to write in directory '${dirAbsolutePath}'.`);
+		if (!this.can(username, 'write', parentDirAbsolute)) {
+			console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to write in directory '${parentDirAbsolute}'.`);
 			throw new Error(`Permission denied to write in directory '${path.dirname(relativePath)}'.`);
 		}
 
 		// Check if file exists and if user can overwrite *it*
 		try {
-			const stats = await fsPromises.lstat(absolutePath);
+			const stats = await fsPromises.lstat(absoluteFilePath);
 			// Allow overwriting files and symlinks, but not directories
 			if (stats.isDirectory()) {
 				throw new Error(`Cannot overwrite: '${relativePath}' exists and is a directory.`);
 			}
-			// If it exists (file/symlink), check 'write' permission on the item itself
-			if (!this.can(username, 'write', absolutePath)) {
-				console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to overwrite existing file/link '${absolutePath}'.`);
+			// If it exists (file/symlink), check 'write' permission on the item itself (the symlink path, not its target)
+			if (!this.can(username, 'write', absoluteFilePath)) {
+				console.log(`[PDATA Class.writeFile] Permission denied for user '${username}' to overwrite existing file/link '${absoluteFilePath}'.`);
 				throw new Error(`Permission denied to overwrite file '${relativePath}'.`);
 			}
 		} catch (statError) {
 			if (statError.code === 'ENOENT') {
 				/* File doesn't exist, this is okay, proceed to write */
-				// Check write permission on the parent directory again (redundant but safe)
-				if (!this.can(username, 'write', dirAbsolutePath)) {
-					throw new Error(`Permission denied to create file in directory '${path.dirname(relativePath)}'.`);
-				}
+				// The check on parentDirAbsolute write permission above is sufficient for new files.
 			}
 			else if (statError.message.startsWith('Cannot overwrite:')) throw statError;
 			else {
-				console.error(`[PDATA Class.writeFile] Error stating existing path '${absolutePath}':`, statError);
+				console.error(`[PDATA Class.writeFile] Error stating existing path '${absoluteFilePath}':`, statError);
 				throw new Error(`Failed to check existing path status for '${relativePath}': ${statError.message}`);
 			}
 		}
@@ -831,11 +826,11 @@ class PData {
 		// Proceed with writing
 		try {
 			// Ensure directory exists before writing file
-			await fsPromises.mkdir(dirAbsolutePath, { recursive: true });
-			await fsPromises.writeFile(absolutePath, content, 'utf8');
-			console.log(`[PDATA Class.writeFile] Successfully wrote file '${absolutePath}' for user '${username}'.`);
+			await fsPromises.mkdir(parentDirAbsolute, { recursive: true });
+			await fsPromises.writeFile(absoluteFilePath, content, 'utf8');
+			console.log(`[PDATA Class.writeFile] Successfully wrote file '${absoluteFilePath}' for user '${username}'.`);
 		} catch (error) {
-			console.error(`[PDATA Class.writeFile] Error writing file '${absolutePath}':`, error);
+			console.error(`[PDATA Class.writeFile] Error writing file '${absoluteFilePath}':`, error);
 			if (error.code === 'EACCES') throw new Error(`Permission denied writing file: '${relativePath}'.`);
 			else if (error.code === 'EISDIR') throw new Error(`Cannot write file: '${relativePath}' is a directory.`); // Should be caught earlier
 			else throw new Error(`Failed to write file '${relativePath}': ${error.message}`);
