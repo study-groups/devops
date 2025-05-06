@@ -76,58 +76,82 @@ function normalizeDirectoryForApi(directory) {
 // --- Exported API Object --- 
 export const api = {
     /**
-     * Fetch content for a file
-     * @param {string} filename - File name
-     * @param {string} directory - Directory name
+     * Fetch content for a file using a single relative path.
+     * @param {string} relativePath - The full path relative to the MD_DIR root (e.g., 'mike/bizcard/mr-bizcard-001.md').
      * @returns {Promise<string>} File content
      */
-    async fetchFileContent(filename, directory) {
-        logApi(`Fetching content for ${filename} in ${directory}`);
-        const url = endpoints.getFileContent(filename, directory);
+    async fetchFileContent(relativePath) {
+        if (typeof relativePath !== 'string' || relativePath === '') {
+            const errorMsg = `Invalid relativePath provided to fetchFileContent: ${relativePath}`;
+            logApi(errorMsg, 'error');
+            throw new Error(errorMsg);
+        }
+        logApi(`Fetching content for relativePath: ${relativePath}`);
+
+        // --- CONSTRUCT URL WITH pathname ---
+        const encodedPath = encodeURIComponent(relativePath);
+        const url = `/api/files/content?pathname=${encodedPath}`; // Use pathname=
+        // --- END URL CONSTRUCTION ---
+
         try {
             const options = { method: 'GET' };
-            const response = await globalFetch(url, options);
+            const response = await globalFetch(url, options); // Use globalFetch
             if (!response.ok) {
-                throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
+                 const errorText = await response.text();
+                 logApi(`Server error fetching content for '${relativePath}': ${response.status} ${response.statusText} - ${errorText}`, 'error');
+                 throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
             }
             const content = await response.text();
-            logApi(`Content fetched successfully (length: ${content.length})`);
+            logApi(`Content fetched successfully for '${relativePath}' (length: ${content.length})`);
             return content;
         } catch (error) {
-            logApi(`Error fetching file content: ${error.message}`, 'error');
-            throw error;
+            logApi(`Error fetching file content for '${relativePath}': ${error.message}`, 'error');
+            throw error; // Re-throw for calling code
         }
     },
 
     /**
-     * Save content to a file
-     * @param {string} filename - File name
-     * @param {string} directory - Directory name
+     * Save content to a file using a single relative path.
+     * @param {string} relativePath - The full path relative to the MD_DIR root (e.g., 'mike/bizcard/mr-bizcard-001.md').
      * @param {string} content - Content to save
      * @returns {Promise<Response>} Raw server response
      */
-    async saveFileContent(filename, directory, content) {
-        logApi(`[API] Save attempt with filename: "${filename}", directory: "${directory}"`);
-        const url = endpoints.saveFile(); // Use endpoint
+    async saveFileContent(relativePath, content) {
+        if (typeof relativePath !== 'string' || relativePath === '') {
+             const errorMsg = `Invalid relativePath provided to saveFileContent: ${relativePath}`;
+             logApi(errorMsg, 'error');
+             throw new Error(errorMsg);
+        }
+        logApi(`[API] Save attempt for relativePath: "${relativePath}"`);
+        const url = endpoints.saveFile(); // POST /api/files/save
+
         try {
-            // Standardize to use JSON body and auth header
-            const body = JSON.stringify({ name: filename, dir: directory, content: content });
+            // --- SEND pathname IN BODY ---
+            const body = JSON.stringify({ pathname: relativePath, content: content });
+            // --- END BODY ---
             const options = {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }, // Use JSON
+                headers: { 'Content-Type': 'application/json' },
                 body: body
             };
-            
+
             const response = await globalFetch(url, options);
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 logApi(`[API] Save failed with error: ${errorText}`, 'error');
-                throw new Error(`Failed to save: ${response.status}`);
+                // Try to parse JSON error response from server
+                try {
+                    const errData = JSON.parse(errorText);
+                    throw new Error(errData.error || `Failed to save: ${response.status}`);
+                } catch (e) {
+                     throw new Error(`Failed to save: ${response.status}`);
+                }
             }
-            
+
             logApi('[API] Successfully saved file');
-            return response; // Return raw response for flexibility
+            // Maybe parse and return the success JSON?
+            return await response.json(); // { success: true, message: ..., pathname: ... }
         } catch (error) {
             logApi(`[API] Save failed: ${error.message}`, 'error');
             throw error;
@@ -140,9 +164,10 @@ export const api = {
      * @returns {Promise<object>} Parsed JSON listing
      */
     async fetchDirectoryListing(directory) {
-        const normalizedDir = normalizeDirectoryForApi(directory);
-        const url = endpoints.listFiles(normalizedDir); // Simpler URL construction
-        logApi(`Fetching listing for dir: '${normalizedDir}'`, 'debug');
+        const pathParam = directory || '';
+        const encodedPath = encodeURIComponent(pathParam);
+        const url = `/api/files/list?pathname=${encodedPath}`;
+        logApi(`Fetching listing for dir: '${pathParam}'`, 'debug');
         try {
             const options = { method: 'GET' };
             const response = await globalFetch(url, options);
@@ -337,30 +362,46 @@ export const api = {
    
     // --- Files --- 
     /**
-     * Deletes a file on the server.
-     * @param {string} filename 
-     * @param {string} directory 
+     * Deletes a file on the server using a single relative path.
+     * @param {string} relativePath - Path relative to MD_DIR root.
      * @returns {Promise<object>} Server response
      */
-    async deleteFile(filename, directory = '') {
-        logApi(`[API] deleteFile called for: ${directory}/${filename}`, 'debug');
-        const url = endpoints.deleteFile();
-        const body = JSON.stringify({ name: filename, dir: directory });
+    async deleteFile(relativePath) {
+        if (typeof relativePath !== 'string' || relativePath === '') {
+            const errorMsg = `Invalid relativePath provided to deleteFile: ${relativePath}`;
+            logApi(errorMsg, 'error');
+            throw new Error(errorMsg);
+        }
+        logApi(`[API] deleteFile called for: ${relativePath}`, 'debug');
+
+        // --- CONSTRUCT URL WITH pathname ---
+        const encodedPath = encodeURIComponent(relativePath);
+        const url = `/api/files/delete?pathname=${encodedPath}`; // Use DELETE method with pathname query param
+        // --- END URL CONSTRUCTION ---
+
         const options = {
-            method: 'POST', // Assuming POST based on endpoint def
-            headers: { 'Content-Type': 'application/json' },
-            body,
+            method: 'DELETE' // Use DELETE method
         };
         try {
             const response = await globalFetch(url, options);
-            if (!response.ok) throw new Error(`Failed to delete file: ${response.statusText}`);
-            return await response.json();
+            if (!response.ok) {
+                const errorText = await response.text();
+                logApi(`Error deleting file '${relativePath}': ${response.status} ${response.statusText} - ${errorText}`, 'error');
+                try {
+                    const errData = JSON.parse(errorText);
+                     throw new Error(errData.error || `Failed to delete file: ${response.status}`);
+                } catch(e) {
+                     throw new Error(`Failed to delete file: ${response.status}`);
+                }
+            }
+            logApi(`Successfully deleted '${relativePath}'`);
+            return await response.json(); // { success: true, message: ..., pathname: ... }
         } catch (error) {
             logApi(`Error deleting file: ${error.message}`, 'error');
             throw error;
         }
-    }
-     
+    },
+
     // Add stubs/implementations for other endpoints (images etc.) if needed
 };
 

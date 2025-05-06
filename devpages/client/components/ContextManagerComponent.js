@@ -2,7 +2,7 @@
 // REMOVE: import fileManager from '/client/filesystem/fileManager.js'; // No longer needed for state
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js'; // Use central state for context
-import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Example: Create pathUtils.js
+import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure these handle relative paths correctly ('', 'a', 'a/b')
 
 const logContext = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX";
@@ -32,16 +32,15 @@ export function createContextManagerComponent(targetElementId) {
     // --- Rendering Logic (Further Streamlined) ---
     const render = () => {
         if (!element) return;
-        logContext('Render function START'); 
+        logContext('Render function START');
 
         const fileState = appStore.getState().file;
         const authState = appStore.getState().auth;
 
         // --- Get state & Determine Loading Status ---
         const isAuthInitializing = authState.isInitializing;
-        // Consider file system loading if auth is done but file state isn't initialized or is explicitly loading
         const isFileLoading = !isAuthInitializing && (!fileState.isInitialized || fileState.isLoading);
-        const isOverallLoading = isAuthInitializing || isFileLoading || !!fetchingParentPath; // Broader loading check
+        const isOverallLoading = isAuthInitializing || isFileLoading || !!fetchingParentPath;
         const isSaving = fileState.isSaving;
 
         const currentPathname = fileState.currentPathname;
@@ -62,106 +61,244 @@ export function createContextManagerComponent(targetElementId) {
         const selectedFilename = currentPathname !== null && !isDirectorySelected
             ? getFilename(currentPathname)
             : null;
-        // Only consider "at root" if authenticated and pathname is empty or null
-        const isAtRoot = isAuthenticated && (currentPathname === null || currentPathname === '');
 
-        logContext(`State Snapshot - isAuthInitializing: ${isAuthInitializing}, isFileLoading: ${isFileLoading}, isOverallLoading: ${isOverallLoading}`);
-        logContext(`State Snapshot - Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}, isAtRoot: ${isAtRoot}`);
+        logContext(`State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`);
         logContext(`State Snapshot - Auth: User='${username}', Role=${userRole}, isAdmin=${isAdmin}`);
-        logContext(`State Snapshot - CurrentListing Path: '${currentListing.pathname}', Dirs: [${currentListing.dirs?.join(',')}]`);
-        logContext(`State Snapshot - ParentListing Path: '${parentListing.pathname}', Dirs: [${parentListing.dirs?.join(',')}]`);
         logContext(`Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`);
         logContext(`Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`);
 
-        // --- Line 1: Generate Breadcrumbs (Refined) ---
+
+        // --- Line 1: Generate Breadcrumbs (Refactored with Corrected Prefix Handling) ---
         const separator = `<span class="breadcrumb-separator">/</span>`;
         let breadcrumbsHTML = '';
+        // *** Corrected Prefix: Use the base directory DevPages uses ***
+        // Match the prefix reported by the server log "[SERVER] Using MD_DIR: ..."
+        // Ensure this includes the trailing slash if the server paths do.
+        const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/'; // <-- CHANGE THIS LINE
 
         if (isAuthInitializing || !isAuthenticated) {
             breadcrumbsHTML = `<span class="breadcrumb-info">${isAuthInitializing ? 'Authenticating...' : 'Please log in'}</span>`;
-        } else if (isAtRoot) {
-            // --- Root Rendering (Prefix with /) ---
-            if (isAdmin) {
-                if (isFileLoading && availableTopLevelDirs.length === 0) {
-                    breadcrumbsHTML = separator + `<select class="breadcrumb-dir-select admin-top-select" title="Select Top Directory" disabled><option>Loading Dirs...</option></select>`;
-                } else if (availableTopLevelDirs.length > 0) {
-                    let adminDirOptions = `<option value="" selected disabled>Select Top Directory...</option>`;
-                    const sortedDirs = [...availableTopLevelDirs].sort();
-                    sortedDirs.forEach(dir => { adminDirOptions += `<option value="${dir}">${dir}/</option>`; });
-                    breadcrumbsHTML = separator + `<select id="context-root-dir-select" class="breadcrumb-dir-select admin-top-select" title="Select Top Directory">${adminDirOptions}</select>`;
-                } else if (!isFileLoading){
-                    breadcrumbsHTML = `<span class="breadcrumb-info">No top-level directories found.</span>`;
-                } else {
-                    breadcrumbsHTML = `<span class="breadcrumb-info">Loading...</span>`;
-                }
-            } else { // Non-admin at root
-                 if (username && availableTopLevelDirs.includes(username)) {
-                      breadcrumbsHTML = separator + `<span class="breadcrumb-item non-admin-top root-link" data-target-pathname="${username}" title="Go to ${username} root">${username}</span>`;
-                 } else if (isFileLoading || !fileState.isInitialized) {
-                      breadcrumbsHTML = `<span class="breadcrumb-info">Loading context...</span>`;
-                 } else {
-                     breadcrumbsHTML = `<span class="breadcrumb-info">User: ${username || 'N/A'} (Context not set)</span>`;
-                 }
+        } else {
+            // --- Determine path characteristics and strip prefix ---
+            let displayPathname = currentPathname;
+            let detectedPrefix = ''; // Store the prefix actually found
+            if (currentPathname !== null && currentPathname.startsWith(CONTENT_ROOT_PREFIX)) {
+                 displayPathname = currentPathname.substring(CONTENT_ROOT_PREFIX.length);
+                 detectedPrefix = CONTENT_ROOT_PREFIX;
+                 logContext(`Detected and stripped prefix: '${CONTENT_ROOT_PREFIX}'. Display path: '${displayPathname}'`, 'DEBUG');
+            } else if (currentPathname !== null) {
+                 logContext(`Warning: currentPathname '${currentPathname}' does not start with expected prefix '${CONTENT_ROOT_PREFIX}'`, 'WARN');
+                 displayPathname = currentPathname;
+                 detectedPrefix = '';
             }
-        } else if (currentPathname !== null) {
-            // --- Path Segment Rendering ---
-            logContext(`Rendering breadcrumbs for Pathname: '${currentPathname}'`);
-            const pathParts = currentPathname.split('/').filter(p => p);
-            let cumulativePath = '';
+
+
+            const isEffectivelyAtRoot = displayPathname === null || displayPathname === '';
             const breadcrumbSegments = [];
 
-            breadcrumbSegments.push(separator);
+            breadcrumbSegments.push(separator); // Always start with '/'
 
-            pathParts.forEach((part, index) => {
-                cumulativePath = pathJoin(cumulativePath, part);
-                const isLastPart = index === pathParts.length - 1;
-                // A segment represents a directory IF it's not the last part, OR if it is the last part AND a directory is selected overall
-                const isDirectorySegment = !isLastPart || (isLastPart && isDirectorySelected);
-                const isFirstSegmentAdmin = index === 0 && isAdmin;
-
-                let segmentContent = '';
-
-                if (isDirectorySegment) {
-                    if (isFirstSegmentAdmin && activeSiblingDropdownPath === cumulativePath) {
-                        let siblingOptions = `<option value="" selected disabled>Select Top Dir...</option>`;
-                        const sortedSiblings = [...availableTopLevelDirs].sort();
-                        sortedSiblings.forEach(siblingDir => {
-                           siblingOptions += `<option value="${siblingDir}" ${siblingDir === part ? 'selected' : ''}>${siblingDir}/</option>`;
-                        });
-                        segmentContent = `<select class="breadcrumb-dir-select admin-sibling-select" data-current-segment-path="${cumulativePath}" title="Select Sibling Top-Level Directory">${siblingOptions}</select>`;
-                    } else if (!isFirstSegmentAdmin && activeSiblingDropdownPath === cumulativePath && parentListing?.dirs && parentListing.pathname === getParentPath(cumulativePath)) {
-                        let siblingOptions = `<option value="" selected disabled>Change directory...</option>`;
-                        const parentPathForDropdown = getParentPath(cumulativePath) ?? '';
-                        const sortedSiblings = [...parentListing.dirs].sort();
-                        sortedSiblings.forEach(siblingDir => {
-                            siblingOptions += `<option value="${siblingDir}" ${siblingDir === part ? 'selected' : ''}>${siblingDir}/</option>`;
-                        });
-                        segmentContent = `<select class="breadcrumb-dir-select sibling-select" data-parent-path="${parentPathForDropdown}" data-current-segment-path="${cumulativePath}" title="Select Sibling Directory">${siblingOptions}</select>`;
-                    } else if (fetchingParentPath === cumulativePath) {
-                       segmentContent = `<span class="breadcrumb-item loading-segment" title="Loading siblings...">${part}(...)</span>`;
+            // --- Admin Rendering ---
+            if (isAdmin) {
+                if (isEffectivelyAtRoot) {
+                    // Admin at root ('/') - Selector logic unchanged
+                    let adminRootSelectorHTML = '';
+                    if (isFileLoading && availableTopLevelDirs.length === 0) {
+                        adminRootSelectorHTML = `<select class="breadcrumb-dir-select admin-top-select" title="Select Top Directory" disabled><option>Loading Dirs...</option></select>`;
+                    } else if (availableTopLevelDirs.length > 0) {
+                        let adminDirOptions = `<option value="" selected disabled>Select Directory...</option>`;
+                        const sortedDirs = [...availableTopLevelDirs].sort();
+                        // Value should be the directory name (e.g., 'mike')
+                        sortedDirs.forEach(dir => { adminDirOptions += `<option value="${dir}">${dir}</option>`; });
+                        adminRootSelectorHTML = `<select id="context-root-dir-select" class="breadcrumb-dir-select admin-top-select" title="Select Top Directory">${adminDirOptions}</select>`;
+                    } else if (!isFileLoading){
+                        adminRootSelectorHTML = `<span class="breadcrumb-info">No top-level directories found.</span>`;
                     } else {
-                       const spanClass = isFirstSegmentAdmin ? "breadcrumb-item intermediate-dir admin-top-segment" : "breadcrumb-item intermediate-dir";
-                       const spanTitle = isFirstSegmentAdmin ? `Go to ${part} / Click to change Top Dir` : `Go to ${part} / Click to see siblings`;
-                       segmentContent = `<span class="${spanClass}" data-target-pathname="${cumulativePath}" title="${spanTitle}">${part}</span>`;
+                        adminRootSelectorHTML = `<span class="breadcrumb-info">Loading Dirs...</span>`;
                     }
-                    breadcrumbSegments.push( (index > 0 ? separator : '') + segmentContent );
+                    breadcrumbSegments.push(adminRootSelectorHTML);
+
+                } else if (displayPathname) {
+                    // Admin viewing a path (e.g., 'mike/notes')
+                    const pathParts = displayPathname.split('/').filter(p => p); // Parts from display path
+                    // Base for FULL path starts with the DETECTED prefix
+                    let cumulativeFullPathBase = detectedPrefix.endsWith('/') ? detectedPrefix.slice(0,-1) : detectedPrefix;
+
+                    pathParts.forEach((part, index) => { // 'part' is prefix-free
+                        const cumulativeFullPath = pathJoin(cumulativeFullPathBase, part);
+                        const isLastPart = index === pathParts.length - 1;
+
+                        // --- Define isAdminTopLevelContext for the current part ---
+                        const targetName = part; // part is the segment name, e.g., "mike"
+                        const parentOfCumulativeFullPath = getParentPath(cumulativeFullPath);
+                        // Ensure detectedPrefix comparison is robust (e.g. handle trailing slashes consistently or lack thereof)
+                        const effectiveDetectedPrefixRoot = detectedPrefix ? (detectedPrefix.endsWith('/') ? detectedPrefix.slice(0, -1) : detectedPrefix) : '';
+                        const isAdminTopLevelContext = isAdmin && availableTopLevelDirs.includes(targetName) && parentOfCumulativeFullPath === effectiveDetectedPrefixRoot;
+                        // --- End definition ---
+
+                        // --- MODIFICATION: Skip filename part for breadcrumbsHTML if file is selected ---
+                        if (isLastPart && !isDirectorySelected && selectedFilename && part === selectedFilename) {
+                            return; // Skip this file part, it's handled by fileSelectorHTML
+                        }
+                        // --- END MODIFICATION ---
+
+                        const isDirectorySegmentForDisplay = !isLastPart || (isLastPart && isDirectorySelected);
+
+                        let segmentContent = '';
+                        if (isDirectorySegmentForDisplay) {
+                            const isDropdownActiveForThisSegment = activeSiblingDropdownPath === cumulativeFullPath;
+                            // Case 1: Dropdown for Admin Top-Level Selection is Active
+                             if (isAdminTopLevelContext && isDropdownActiveForThisSegment) {
+                                let siblingOptions = `<option value="" selected disabled>Select Top Dir...</option>`;
+                                const sortedSiblings = [...availableTopLevelDirs].sort();
+                                sortedSiblings.forEach(siblingDir => { siblingOptions += `<option value="${siblingDir}" ${siblingDir === part ? 'selected' : ''}>${siblingDir}/</option>`; });
+                                segmentContent = `<select class="breadcrumb-dir-select admin-top-sibling-select" data-current-segment-path="${cumulativeFullPath}" title="Change Top-Level Directory">${siblingOptions}</select>`;
+                            }
+                            // Case 2: Dropdown for Regular Sibling Selection is Active
+                            else if (!isAdminTopLevelContext && isDropdownActiveForThisSegment && parentListing?.dirs && parentListing.pathname === getParentPath(cumulativeFullPath)) {
+                                let siblingOptions = `<option value="" selected disabled>Change directory...</option>`;
+                                const parentPathForDropdown = getParentPath(cumulativeFullPath) ?? '';
+                                const sortedSiblings = [...parentListing.dirs].sort();
+                                sortedSiblings.forEach(siblingDir => { siblingOptions += `<option value="${siblingDir}" ${siblingDir === part ? 'selected' : ''}>${siblingDir}/</option>`; });
+                                segmentContent = `<select class="breadcrumb-dir-select sibling-select" data-parent-path="${parentPathForDropdown}" data-current-segment-path="${cumulativeFullPath}" title="Select Sibling Directory">${siblingOptions}</select>`;
+                            }
+                            // Case 3: Loading Sibling Information
+                            else if (fetchingParentPath === cumulativeFullPath) {
+                                segmentContent = `<span class="breadcrumb-item loading-segment" title="Loading siblings...">${part}(...)</span>`;
+                            }
+                            // Case 4: Clickable Directory Span
+                            else {
+                                let spanClass = "breadcrumb-item intermediate-dir";
+                                let spanTitle = `Go to ${part}`;
+
+                                // *** ADD THIS CHECK for last selected directory ***
+                                if (isLastPart && isDirectorySelected) {
+                                    spanClass += " current-dir-segment"; // New class for styling
+                                    // Optionally change title, e.g., remove sibling hint if desired
+                                    // spanTitle = `Current directory: ${part}`;
+                                }
+                                // *** END ADDED CHECK ***
+
+                                if (isAdminTopLevelContext) {
+                                     spanClass += " admin-top-segment"; // Style admin top level differently if needed
+                                     spanTitle += ` / Click to change`; // Title indicates clicking shows dropdown
+                                } else { // Non-top level dirs (admin or user)
+                                    spanTitle += ` / Click to see siblings`;
+                                }
+                                // data-target-pathname always uses the *full* path
+                                segmentContent = `<span class="${spanClass}" data-target-pathname="${cumulativeFullPath}" title="${spanTitle}">${part}</span>`;
+                                // The unified handleDirectorySpanClick handler will be attached later
+                            }
+                        } else {
+                             // Case 5: Last part is a file
+                             segmentContent = `<span class="breadcrumb-item current-file">${part}</span>`;
+                        }
+                        breadcrumbSegments.push(segmentContent);
+
+                        // Separator only after directory segments that are actually added
+                        if (isDirectorySegmentForDisplay) { // Check based on what was processed
+                            breadcrumbSegments.push(separator);
+                        }
+                     });
+
+                    // After the loop, if a file was selected and breadcrumbs end with a separator, remove it.
+                    if (!isDirectorySelected && selectedFilename) {
+                        if (breadcrumbSegments.length > 1 && breadcrumbSegments[breadcrumbSegments.length - 1] === separator) {
+                            breadcrumbSegments.pop();
+                        }
+                    }
+                 }
+            } else if (username) {
+                // Construct user's full root path using the DETECTED prefix
+                const userRootFullPath = detectedPrefix + username; // e.g., MD_DIR/mike
+                // Display ONLY the username, link uses full path
+                breadcrumbSegments.push(`<span class="breadcrumb-item non-admin-top root-link" data-target-pathname="${userRootFullPath}" title="Your root directory">${username}</span>`); // Display username, link uses full path
+
+                const isDeeperPath = displayPathname && displayPathname !== username && displayPathname.startsWith(username + '/');
+
+                if (isDeeperPath) {
+                    breadcrumbSegments.push(separator);
+                    const relativePath = displayPathname.substring(username.length + 1);
+                    const userPathParts = relativePath.split('/').filter(p => p); // Parts from relative path
+                    let cumulativeFullPathBase = userRootFullPath; // Base for FULL path starts at user's full root
+
+                    userPathParts.forEach((part, index) => { // 'part' is prefix-free and relative to username
+                        const cumulativeFullPath = pathJoin(cumulativeFullPathBase, part);
+                         const isLastPart = index === userPathParts.length - 1;
+
+                        // --- MODIFICATION: Skip filename part for breadcrumbsHTML if file is selected ---
+                        if (isLastPart && !isDirectorySelected && selectedFilename && part === selectedFilename) {
+                            return; // Skip this file part, it's handled by fileSelectorHTML
+                        }
+                        // --- END MODIFICATION ---
+
+                         const isDirectorySegmentForDisplay = !isLastPart || (isLastPart && isDirectorySelected);
+
+                         let segmentContent = '';
+                          if (isDirectorySegmentForDisplay) {
+                             const isDropdownActiveForThisSegment = activeSiblingDropdownPath === cumulativeFullPath;
+                              // Case 1: Dropdown for Regular Sibling Selection is Active
+                              if (isDropdownActiveForThisSegment && parentListing?.dirs && parentListing.pathname === getParentPath(cumulativeFullPath)) {
+                                  let siblingOptions = `<option value="" selected disabled>Change directory...</option>`;
+                                  const parentPathForDropdown = getParentPath(cumulativeFullPath) ?? '';
+                                  const sortedSiblings = [...parentListing.dirs].sort();
+                                  sortedSiblings.forEach(siblingDir => { siblingOptions += `<option value="${siblingDir}" ${siblingDir === part ? 'selected' : ''}>${siblingDir}/</option>`; });
+                                  segmentContent = `<select class="breadcrumb-dir-select sibling-select" data-parent-path="${parentPathForDropdown}" data-current-segment-path="${cumulativeFullPath}" title="Select Sibling Directory">${siblingOptions}</select>`;
+                              }
+                              // Case 2: Loading Sibling Information
+                              else if (fetchingParentPath === cumulativeFullPath) {
+                                  segmentContent = `<span class="breadcrumb-item loading-segment" title="Loading siblings...">${part}(...)</span>`;
+                              }
+                               // Case 3: Clickable Directory Span (Non-top level)
+                              else {
+                                  let spanClass = "breadcrumb-item intermediate-dir";
+                                  let spanTitle = `Go to ${part} / Click to see siblings`;
+                                  // data-target-pathname uses the full path relative to user root
+                                  segmentContent = `<span class="${spanClass}" data-target-pathname="${cumulativeFullPath}" title="${spanTitle}">${part}</span>`;
+                                  // Attach handleDirectorySpanClick later
+                              }
+                          } else {
+                             // Case 4: Last part is a file
+                             segmentContent = `<span class="breadcrumb-item current-file">${part}</span>`;
+                         }
+                         breadcrumbSegments.push(segmentContent);
+
+                          // Separator only after directory segments that are actually added
+                         if (isDirectorySegmentForDisplay) { // Check based on what was processed
+                            breadcrumbSegments.push(separator);
+                         }
+                     });
+
+                    // After the loop, if a file was selected and breadcrumbs end with a separator, remove it.
+                    if (!isDirectorySelected && selectedFilename) {
+                        if (breadcrumbSegments.length > 1 && breadcrumbSegments[breadcrumbSegments.length - 1] === separator) {
+                            breadcrumbSegments.pop();
+                        }
+                    }
+                } else if (currentPathname === userRootFullPath && isDirectorySelected) {
+                     breadcrumbSegments.push(separator);
                 }
-            });
+
+            } else {
+                // --- Fallback / Not Logged In / Context Loading ---
+                 if (isFileLoading || authState.isInitializing) {
+                     breadcrumbsHTML = `<span class="breadcrumb-info">Loading context...</span>`;
+                 } else {
+                     breadcrumbsHTML = `<span class="breadcrumb-info">Context unavailable</span>`;
+                 }
+            }
             breadcrumbsHTML = breadcrumbSegments.join('');
-
-        } else {
-            breadcrumbsHTML = `<span class="breadcrumb-info">Initializing...</span>`;
         }
-        // --- End Line 1 ---
+        // --- End Line 1 Refined ---
 
-        // --- Line 2: Generate Unified Primary Selector (Ensure file selection is handled correctly) ---
+        // --- Line 2: Generate Unified Primary Selector (Logic remains the same) ---
         let primarySelectorHTML = '';
         const listingForSelector = currentListing?.pathname === selectedDirectoryPath ? currentListing : null;
 
         if (isAuthInitializing || !isAuthenticated) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
-        } else if (isAtRoot) {
-           primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Select directory</option></select>`;
+        } else if (selectedDirectoryPath === null) { // Covers admin at root or user at root before selection
+           primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>${isAdmin ? 'Select directory' : 'Select item...'}</option></select>`;
         } else if (isFileLoading && !listingForSelector) {
            primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading Items...</option></select>`;
         } else if (listingForSelector) {
@@ -190,11 +327,11 @@ export function createContextManagerComponent(targetElementId) {
         } else {
              primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Select item...</option></select>`;
         }
-        // --- End Line 2 Selector ---
+
 
         // --- Final Assembly ---
-        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || isDirectorySelected;
-        logContext(`Save button disabled check: !isAuthenticated=${!isAuthenticated}, isOverallLoading=${isOverallLoading}, isSaving=${isSaving}, isDirectorySelected=${isDirectorySelected}. Final: ${saveDisabled}`);
+        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || isDirectorySelected || currentPathname === null;
+        logContext(`Save button disabled check: !isAuth=${!isAuthenticated}, isLoading=${isOverallLoading}, isSaving=${isSaving}, isDir=${isDirectorySelected}, noPath=${currentPathname === null}. Final: ${saveDisabled}`);
 
         element.innerHTML = `
             <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
@@ -206,140 +343,226 @@ export function createContextManagerComponent(targetElementId) {
                 </div>
             </div>
         `;
-        // infoPopupElement = element.querySelector('#context-info-popup'); // Remove if popup div removed
         if (isSaving) element.querySelector('#save-btn')?.classList.add('saving');
         logContext(`innerHTML updated.`);
 
         // --- Re-attach Event Listeners ---
+        // Non-admin root link
         element.querySelectorAll('.breadcrumb-item.non-admin-top.root-link').forEach(span => {
-            span.removeEventListener('click', handleNavigateToPathname);
+            span.removeEventListener('click', handleNavigateToPathname); // Generic handler for direct nav
             span.addEventListener('click', handleNavigateToPathname);
         });
+        // Intermediate directory spans (both admin and user, excluding non-admin root)
         element.querySelectorAll('.breadcrumb-item.intermediate-dir').forEach(span => {
-            span.removeEventListener('click', handleIntermediateDirClick);
-            span.addEventListener('click', handleIntermediateDirClick);
+            span.removeEventListener('click', handleDirectorySpanClick); // Use the unified handler
+            span.addEventListener('click', handleDirectorySpanClick);
         });
-        element.querySelectorAll('.sibling-select, .admin-sibling-select').forEach(select => {
+         // Sibling selection dropdowns (regular and admin top-level)
+        element.querySelectorAll('.sibling-select, .admin-top-sibling-select').forEach(select => {
             select.removeEventListener('change', handleSiblingDirectorySelectChange);
             select.addEventListener('change', handleSiblingDirectorySelectChange);
         });
+        // Admin root directory selector (shown only when admin is at '/')
         element.querySelectorAll('.admin-top-select').forEach(select => {
              select.removeEventListener('change', handleRootDirectorySelectChange);
              select.addEventListener('change', handleRootDirectorySelectChange);
         });
+        // Primary item selector
         const primarySelectElement = element.querySelector('#context-primary-select');
         if (primarySelectElement) {
              primarySelectElement.removeEventListener('change', handlePrimarySelectChange);
              primarySelectElement.addEventListener('change', handlePrimarySelectChange);
         }
+        // Action buttons
         const publishButton = element.querySelector('#publish-btn');
         if (publishButton) {
              publishButton.removeEventListener('click', handlePublishButtonClick);
              publishButton.addEventListener('click', handlePublishButtonClick);
         }
-
-        logContext(`Event listeners (re)attached. Render END.`);
-        logContext(`Render function END`);
-
-        // After attaching other event listeners, add:
         const saveButton = element.querySelector('#save-btn');
         if (saveButton) {
             saveButton.removeEventListener('click', handleSaveButtonClick);
             saveButton.addEventListener('click', handleSaveButtonClick);
         }
+
+        logContext(`Event listeners (re)attached. Render END.`);
     };
 
     // --- Event Handlers (Updated for pathname) ---
 
+    // Generic handler for spans/links that directly navigate to a path
     const handleNavigateToPathname = (event) => {
-         const pathname = event.currentTarget.dataset.targetPathname;
-         logContext(`Navigate direct: Pathname='${pathname}'`, "EVENT");
-         activeSiblingDropdownPath = null; // Reset sibling state
-         fetchingParentPath = null;
-         // Emit event with full pathname, specifying it's a directory
-         eventBus.emit('navigate:pathname', { pathname: pathname, isDirectory: true });
+         const relativePathname = event.currentTarget.dataset.targetPathname; // Should be relative
+         logContext(`Navigate direct: Relative Pathname='${relativePathname}'`, "EVENT");
+         activeSiblingDropdownPath = null; fetchingParentPath = null;
+         eventBus.emit('navigate:pathname', { pathname: relativePathname, isDirectory: true }); // Emit relative path
     };
 
-     const handleIntermediateDirClick = (event) => {
-        const segmentPath = event.currentTarget.dataset.targetPathname;
-        const parentPath = getParentPath(segmentPath);
-        const isAdminClicker = appStore.getState().auth.user?.role === 'admin';
-        const isFirstSegment = parentPath === ''; // Check if it's a top-level dir
+    // --- Unified handler for clickable directory spans ---
+    const handleDirectorySpanClick = (event) => {
+        const targetRelativePathname = event.currentTarget.dataset.targetPathname; // Should be relative
+        if (targetRelativePathname === null || targetRelativePathname === undefined) return;
+        logContext(`Directory span click: Relative Path='${targetRelativePathname}'`, "EVENT");
 
-        logContext(`Intermediate dir click: Path='${segmentPath}', Parent='${parentPath}', isAdmin=${isAdminClicker}, isFirst=${isFirstSegment}`, "EVENT");
+        const previouslyActiveDropdown = activeSiblingDropdownPath;
+        const previouslyFetching = fetchingParentPath;
 
-        // Always navigate to the directory when clicked, clearing everything to the right
+        // Reset dropdown states immediately
         activeSiblingDropdownPath = null;
         fetchingParentPath = null;
-        eventBus.emit('navigate:pathname', { pathname: segmentPath, isDirectory: true });
+
+        // --- Action 1: Always navigate to the clicked directory ---
+        eventBus.emit('navigate:pathname', { pathname: targetRelativePathname, isDirectory: true });
+
+        // --- Action 2: If the same path wasn't already fetching or showing a dropdown, prepare to show it ---
+        // This allows clicking an active segment to *just* navigate and close the dropdown.
+        if (previouslyActiveDropdown === targetRelativePathname || previouslyFetching === targetRelativePathname) {
+             logContext(`Clicked segment (${targetRelativePathname}) that was active/fetching. Clearing dropdown/fetch state only.`, "EVENT");
+             // State is already cleared above. Render will happen due to navigation event.
+             return;
+        }
+
+        // Determine if we should show admin top-level or regular siblings based on the targetPathname
+        const currentState = appStore.getState();
+        const isAdmin = currentState.auth.user?.role === 'admin';
+        const fileState = currentState.file;
+        const availableTopLevelDirs = fileState.availableTopLevelDirs || [];
+
+        // Check if it's effectively a top-level directory click for an admin
+        const targetName = targetRelativePathname.split('/')[0]; // Get the first part after prefix
+        const isAdminTopLevelClick = isAdmin && availableTopLevelDirs.includes(targetName) && getParentPath(targetRelativePathname) === '';
+
+        logContext(`Directory span click: isAdminTopLevelClick=${isAdminTopLevelClick}`, "EVENT");
+
+        if (isAdminTopLevelClick) {
+            // Target is a top-level directory (for admin)
+            if (availableTopLevelDirs.length > 0) {
+                 logContext(`Setting activeSiblingDropdownPath for top-level: ${targetRelativePathname}`, "EVENT");
+                 activeSiblingDropdownPath = targetRelativePathname; // Set state for next render to show dropdown
+             } else {
+                 logContext(`Top-level dirs not available for dropdown.`, "EVENT");
+                 // activeSiblingDropdownPath is already null
+             }
+        } else {
+            // Target is a non-top-level directory (or user clicking within their dir)
+            const parentRelativePath = getParentPath(targetRelativePathname);
+            // Check if parent listing is already loaded in the state
+            if (fileState.parentListing && fileState.parentListing.pathname === parentRelativePath && fileState.parentListing.dirs) {
+                 logContext(`Setting activeSiblingDropdownPath for non-top-level: ${targetRelativePathname}`, "EVENT");
+                 activeSiblingDropdownPath = targetRelativePathname; // Set state for next render
+            } else {
+                 logContext(`Requesting parent listing fetch for parent of: ${targetRelativePathname}`, "EVENT");
+                 fetchingParentPath = targetRelativePathname; // Set state to indicate loading for this target
+                 activeSiblingDropdownPath = null; // Ensure dropdown isn't shown while fetching
+                 // Emit event to trigger the actual fetch in file manager / app state
+                 eventBus.emit('context:requestParentListing', { parentPath: parentRelativePath, triggerPath: targetRelativePathname }); // Send parent path needed
+            }
+        }
+        // No manual render needed here; the navigation event + potential state updates for dropdown/fetching
+        // will trigger the store subscription, which calls render(). Render reads the new activeSibling/fetching state.
     };
 
+
     const handleSiblingDirectorySelectChange = (event) => {
-        const selectedValue = event.target.value;
+        const selectedValue = event.target.value; // The directory name (e.g., 'notes' or 'jane')
         if (!selectedValue) return;
 
-        let newPath;
-        // Check if it's the admin top-level sibling select
-        if (event.target.classList.contains('admin-sibling-select')) {
-             newPath = selectedValue; // The value is the full top-level path name
-             logContext(`Admin top-level sibling change: Selected='${selectedValue}', New Pathname='${newPath}'`, "EVENT");
+        const currentSegmentPath = event.target.dataset.currentSegmentPath; // Full path where dropdown appeared
+        let newRelativePath;
+        const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/'; // <-- Use the same constant
+
+        if (event.target.classList.contains('admin-top-sibling-select')) {
+             // Admin changing top-level dir
+             let prefix = '';
+             // Check if context path starts with the known prefix
+             if (currentSegmentPath && currentSegmentPath.startsWith(CONTENT_ROOT_PREFIX)) {
+                 prefix = CONTENT_ROOT_PREFIX;
+             } else if (currentSegmentPath) {
+                 // Log if prefix doesn't match expectation
+                 logContext(`Warning: Admin top-sibling select context path '${currentSegmentPath}' doesn't start with expected prefix '${CONTENT_ROOT_PREFIX}'`, 'WARN', 'EVENT');
+                 // Attempt recovery? Maybe assume prefix anyway if context seems root-level? Risky.
+                 // For now, stick to detected prefix logic. If currentSegmentPath is 'mike', prefix will be ''.
+             }
+
+             newRelativePath = prefix + selectedValue; // Construct full path: prefix + selected dir name
+             logContext(`Admin top-level sibling change: Selected='${selectedValue}', Prefix='${prefix}', New Relative Path='${newRelativePath}'`, "EVENT");
         } else {
-             // Original logic for regular siblings
-             const parentPath = event.target.dataset.parentPath;
-             newPath = pathJoin(parentPath, selectedValue);
-             logContext(`Regular sibling directory change: Parent='${parentPath}', Selected='${selectedValue}', New Pathname='${newPath}'`, "EVENT");
+             // Regular sibling directory change
+             const parentRelativePath = event.target.dataset.parentPath; // Full parent path
+             newRelativePath = pathJoin(parentRelativePath, selectedValue); // Join full parent + selected dir name
+             logContext(`Regular sibling directory change: Parent Relative='${parentRelativePath}', Selected='${selectedValue}', New Relative Path='${newRelativePath}'`, "EVENT");
         }
 
         activeSiblingDropdownPath = null; // Deactivate dropdown
         fetchingParentPath = null;
-        eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: true }); // Navigate
+        eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: true }); // Navigate to full path
     };
 
+    // Handles the dropdown shown only when admin is at root ('/')
     const handleRootDirectorySelectChange = (event) => {
-         const selectedDir = event.target.value;
+         const selectedDir = event.target.value; // e.g., "data"
          if (!selectedDir) return;
-         logContext(`Root directory select change: Selected dir='${selectedDir}'`, "EVENT");
+         logContext(`Root directory select change: Selected dir='${selectedDir}' (relative path)`, "EVENT");
          activeSiblingDropdownPath = null;
          fetchingParentPath = null;
+         // The selected directory name IS the relative path from root
          eventBus.emit('navigate:pathname', { pathname: selectedDir, isDirectory: true });
     };
 
-    const handlePrimarySelectChange = (event) => {
+    // handlePrimarySelectChange remains mostly the same, ensures pathJoin uses correct base
+     const handlePrimarySelectChange = (event) => {
         const selectedOption = event.target.selectedOptions[0];
         if (!selectedOption || !selectedOption.value) return; // Ignore "Select item..."
 
         const selectedValue = selectedOption.value; // e.g., "subdir" or "myfile.md"
         const selectedType = selectedOption.dataset.type; // "dir" or "file"
 
-        // Get the current directory path from state
+        // --- Get the base directory path FROM THE CURRENT STATE ---
         const fileState = appStore.getState().file;
-        const baseDirectoryPath = fileState.isDirectorySelected
-                               ? fileState.currentPathname
-                               : getParentPath(fileState.currentPathname);
+        const currentPathname = fileState.currentPathname; // This should be the relative path
+        const isDirectorySelected = fileState.isDirectorySelected;
 
-        if (baseDirectoryPath === null || baseDirectoryPath === undefined) {
-            logContext(`Error: Cannot determine base directory for primary selection. State Pathname: ${fileState.currentPathname}`, 'error', 'EVENT');
-            return;
+        // Determine the base directory relative path at the moment the handler runs
+        let baseRelativeDirectoryPath = null;
+        if (currentPathname !== null) {
+             // If a directory is selected, its path is the base.
+             // If a file is selected, the parent path is the base.
+             baseRelativeDirectoryPath = isDirectorySelected ? currentPathname : getParentPath(currentPathname);
         }
+        // Handle potential null/empty base path (e.g., at root '')
+        // If currentPathname is '' (root) and a directory is selected, the base is ''
+        if (baseRelativeDirectoryPath === null || baseRelativeDirectoryPath === undefined) {
+            if (currentPathname === '' && isDirectorySelected) {
+                 baseRelativeDirectoryPath = ''; // Base is the root
+             } else {
+                 // Log an error if we still can't determine the base
+                 logContext(`Error: Cannot determine base directory for primary selection. State Pathname: ${currentPathname}, isDirSelected: ${isDirectorySelected}`, 'error', 'EVENT');
+                 alert("Error determining current directory. Cannot navigate.");
+                 return;
+             }
+        }
+        // --- End base directory calculation ---
 
-        const newPath = pathJoin(baseDirectoryPath, selectedValue);
-        logContext(`Primary select change: Base='${baseDirectoryPath}', Selected='${selectedValue}', Type='${selectedType}', New Pathname='${newPath}'`, "EVENT");
+        // Now join the relative base path with the selected item name
+        const newRelativePath = pathJoin(baseRelativeDirectoryPath, selectedValue); // Joins relative paths
+        logContext(`Primary select change: Base Relative='${baseRelativeDirectoryPath}', Selected='${selectedValue}', Type='${selectedType}', New Relative Path='${newRelativePath}'`, "EVENT");
 
         // Reset interaction states
         activeSiblingDropdownPath = null;
         fetchingParentPath = null;
 
-        // Emit navigation event based on type
+        // Emit navigation event based on type using the new relative path
         if (selectedType === 'dir') {
-            eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: true });
+            eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: true });
         } else if (selectedType === 'file') {
-            eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: false });
+            eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: false });
         } else {
             logContext(`Unknown item type selected: ${selectedType}`, 'warning', 'EVENT');
         }
     };
 
-    // --- Info Popup Handler (Improved Loading States) ---
+
+    // --- Info Popup Handler (No changes needed for this refactor) ---
     const handleInfoMouseEnter = (event) => {
         if (!infoPopupElement) return;
 
@@ -401,7 +624,7 @@ export function createContextManagerComponent(targetElementId) {
         }
     };
 
-    // Fix the save button click handler
+    // --- Action Button Handlers (No changes needed for this refactor) ---
     const handleSaveButtonClick = (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -451,60 +674,75 @@ export function createContextManagerComponent(targetElementId) {
         }
         logContext(`Mounting component to #${targetElementId}`, 'MOUNT');
 
-        // Clear previous listeners if any (idempotency)
-        // destroy(); // <<< REMOVE THIS LINE >>>
-
-        // Make sure we don't double-subscribe if mount is called again without destroy
+        // --- Store Subscription ---
         if (storeUnsubscribe) {
              logContext('Warning: mount called again without destroy, unsubscribing previous listener.', 'warn');
              storeUnsubscribe();
              storeUnsubscribe = null;
         }
 
-        // Subscribe to appStore changes
+        // Keep track of previous relevant state parts to minimize renders
         let previousAuthState = appStore.getState().auth;
         let previousFileState = appStore.getState().file;
+        // Include component's local interactive state in the check
+        let previousActiveDropdownPath = activeSiblingDropdownPath;
+        let previousFetchingPath = fetchingParentPath;
+
         storeUnsubscribe = appStore.subscribe(currentState => {
             const newAuthState = currentState.auth;
             const newFileState = currentState.file;
-            // Check for relevant changes
+
+            // --- Check for relevant state changes ---
             const authRelevantChanged =
                  newAuthState.isInitializing !== previousAuthState.isInitializing ||
                  newAuthState.isAuthenticated !== previousAuthState.isAuthenticated ||
-                 newAuthState.user !== previousAuthState.user; // Shallow compare user object
+                 newAuthState.user?.role !== previousAuthState.user?.role || // Check role change
+                 newAuthState.user?.username !== previousAuthState.user?.username; // Check username change
 
             const fileRelevantChanged =
-                 newFileState.isInitialized !== previousFileState.isInitialized || // Check init flag
+                 newFileState.isInitialized !== previousFileState.isInitialized ||
                  newFileState.isLoading !== previousFileState.isLoading ||
                  newFileState.isSaving !== previousFileState.isSaving ||
                  newFileState.currentPathname !== previousFileState.currentPathname ||
                  newFileState.isDirectorySelected !== previousFileState.isDirectorySelected ||
-                 newFileState.currentListing !== previousFileState.currentListing ||
-                 newFileState.parentListing !== previousFileState.parentListing ||
-                 newFileState.availableTopLevelDirs !== previousFileState.availableTopLevelDirs;
+                 newFileState.currentListing !== previousFileState.currentListing || // Shallow compare is okay here
+                 newFileState.parentListing !== previousFileState.parentListing ||   // Shallow compare okay
+                 newFileState.availableTopLevelDirs !== previousFileState.availableTopLevelDirs; // Shallow compare okay
 
-            // --- Handle parent listing fetch completion (existing logic) ---
-             if (fetchingParentPath && newFileState.parentListing && fetchingParentPath === newFileState.parentListing.triggeringPath) {
-                 logContext(`Detected parent listing arrival for path: ${fetchingParentPath}. Activating dropdown.`, 'SUB');
-                 activeSiblingDropdownPath = fetchingParentPath; fetchingParentPath = null;
+            // --- Handle parent listing fetch completion ---
+            // This logic needs refinement based on the event emitted by handleDirectorySpanClick
+            // Let's assume the store/fileManager updates parentListing and clears any 'isLoadingParent' flag.
+             if (fetchingParentPath && // We were fetching for a specific RELATIVE segment
+                  newFileState.parentListing && // A parent listing arrived
+                  newFileState.parentListing.pathname === getParentPath(fetchingParentPath) && // Compare RELATIVE paths
+                  !newFileState.isLoading // And general file loading is false (or a specific parent loading flag)
+                 ) {
+                 logContext(`Detected parent listing arrival relevant to ${fetchingParentPath} (relative). Activating dropdown.`, 'SUB');
+                 activeSiblingDropdownPath = fetchingParentPath; // Activate dropdown using relative path
+                 fetchingParentPath = null;
              } else if (fetchingParentPath && !newFileState.isLoading && fetchingParentPath !== activeSiblingDropdownPath) {
-                  logContext(`Fetch seems complete/cancelled for ${fetchingParentPath}, but no dropdown activation. Clearing fetch state.`, 'SUB');
+                  // If fetching was active, but loading finished and we didn't activate the dropdown
+                  // (e.g., fetch failed, or listing arrived but didn't match), clear fetching state.
+                  logContext(`Fetch seems complete/cancelled for ${fetchingParentPath} (relative). Clearing fetch state.`, 'SUB');
                   fetchingParentPath = null;
              }
             // --- End Parent Listing Fetch Handling ---
 
-             const localStateChanged = fetchingParentPath !== previousFileState.fetchingParentPath || activeSiblingDropdownPath !== previousFileState.activeSiblingDropdownPath;
+            // Check if component's local interactive state changed
+            const localStateChanged = activeSiblingDropdownPath !== previousActiveDropdownPath ||
+                                      fetchingParentPath !== previousFetchingPath;
+
 
             if (authRelevantChanged || fileRelevantChanged || localStateChanged) {
-                logContext('Relevant state changed (Auth, Store, or Local), calling render.', 'SUB');
-                previousAuthState = newAuthState;
-                previousFileState = { ...newFileState, fetchingParentPath, activeSiblingDropdownPath };
+                logContext('Relevant state changed (Auth, File, or Local Interaction), calling render.', 'SUB');
                 render(); // Trigger re-render
-            } else {
-                // Update snapshot even if no render
-                previousAuthState = newAuthState;
-                previousFileState = { ...newFileState, fetchingParentPath, activeSiblingDropdownPath };
             }
+
+            // Update previous state snapshot for the next comparison
+            previousAuthState = newAuthState;
+            previousFileState = newFileState;
+            previousActiveDropdownPath = activeSiblingDropdownPath;
+            previousFetchingPath = fetchingParentPath;
         });
 
         logContext('Performing initial render.', 'MOUNT');
@@ -514,33 +752,37 @@ export function createContextManagerComponent(targetElementId) {
     };
 
     const destroy = () => {
-        logContext(`Destroying component and unsubscribing...`, 'info');
+        logContext(`Destroying component and unsubscribing...`, 'DESTROY');
         // Unsubscribe from appStore
         if (storeUnsubscribe) {
             storeUnsubscribe();
             storeUnsubscribe = null;
         }
-        // Remove listeners added directly in render (though re-render should handle this)
+        // Remove listeners explicitly (although they should be managed by render)
         if (element) {
-             element.querySelectorAll('.breadcrumb-item.non-admin-top.root-link').forEach(span => span.removeEventListener('click', handleNavigateToPathname));
-             element.querySelectorAll('.breadcrumb-item.intermediate-dir').forEach(span => span.removeEventListener('click', handleIntermediateDirClick));
-             element.querySelectorAll('.sibling-select, .admin-sibling-select').forEach(select => select.removeEventListener('change', handleSiblingDirectorySelectChange));
-             const rootDirSelect = element.querySelector('#context-root-dir-select');
-             if(rootDirSelect) rootDirSelect.removeEventListener('change', handleRootDirectorySelectChange);
+             // Clear listeners using the latest handlers/selectors
+              element.querySelectorAll('.breadcrumb-item.non-admin-top.root-link').forEach(span => span.removeEventListener('click', handleNavigateToPathname));
+             element.querySelectorAll('.breadcrumb-item.intermediate-dir').forEach(span => span.removeEventListener('click', handleDirectorySpanClick));
+             element.querySelectorAll('.sibling-select, .admin-top-sibling-select').forEach(select => select.removeEventListener('change', handleSiblingDirectorySelectChange));
+             element.querySelectorAll('.admin-top-select').forEach(select => select.removeEventListener('change', handleRootDirectorySelectChange));
              const primarySelect = element.querySelector('#context-primary-select');
              if(primarySelect) primarySelect.removeEventListener('change', handlePrimarySelectChange);
-             // Optionally clear innerHTML on explicit destroy, but maybe not needed if parent removes the element
-             // element.innerHTML = ''; 
-             logContext(`Listeners removed from element during destroy.`, 'DESTROY'); 
+             const saveBtn = element.querySelector('#save-btn');
+             if(saveBtn) saveBtn.removeEventListener('click', handleSaveButtonClick);
+              const publishBtn = element.querySelector('#publish-btn');
+             if(publishBtn) publishBtn.removeEventListener('click', handlePublishButtonClick);
+
+             // Optionally clear innerHTML on explicit destroy
+             // element.innerHTML = '';
+             logContext(`Listeners removed from element during destroy.`, 'DESTROY');
         }
         element = null; // Release reference
-        infoPopupElement = null; // Clear popup reference
-        activeSiblingDropdownPath = null; fetchingParentPath = null;
-        logContext('Component destroyed.', 'info');
+        activeSiblingDropdownPath = null; fetchingParentPath = null; // Reset local state
+        logContext('Component destroyed.', 'DESTROY');
     };
 
-    // REMOVED pathJoin as it's now internal to fileManager.js
-    // function pathJoin(...parts) { ... } 
+    // pathJoin utility is assumed to be imported correctly
+    // import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 
-    return { mount, destroy, render }; // Expose render if needed for manual triggers, otherwise just mount/destroy
+    return { mount, destroy }; // Expose only mount/destroy typically
 }

@@ -436,7 +436,7 @@ export async function loadFile(pathname) {
 
         // <<< USE CORRECT API FUNCTION >>>
         // const content = await api.readFile(filename, directory); // OLD/WRONG
-        const content = await api.fetchFileContent(filename, directory); // CORRECTED
+        const content = await api.fetchFileContent(pathname); // Pass the full pathname
 
         logFileManager(`[LoadFile ${pathname}]: Content loaded successfully (Length: ${content?.length ?? 0}). Setting editor.`);
         setContent(content); // Update the editor
