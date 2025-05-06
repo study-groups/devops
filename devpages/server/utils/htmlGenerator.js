@@ -17,15 +17,11 @@ const basePreviewCssResources = [
 
 // --- CSS Reading Function (Only for local files) ---
 async function readLocalCssFile(relativePath, dataRootDir, projectRootDir) {
-    logGenerator(`readLocalCssFile called with: relativePath='${relativePath}', dataRootDir='${dataRootDir}', projectRootDir='${projectRootDir}'`, 'debug');
+    logGenerator(`readLocalCssFile ENTRY: relativePath='${relativePath}', received dataRootDir='${dataRootDir}'`, 'debug');
+    let absolutePath = 'N/A'; // Initialize for error logging
 
     try {
-        let absolutePath;
         const normalizedPath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
-
-        if (normalizedPath === 'styles.css') {
-             logGenerator(`Attempting to resolve 'styles.css'...`);
-        }
 
         if (normalizedPath.startsWith('client/')) {
             absolutePath = path.resolve(projectRootDir, normalizedPath);
@@ -34,14 +30,15 @@ async function readLocalCssFile(relativePath, dataRootDir, projectRootDir) {
              absolutePath = path.resolve(projectRootDir, normalizedPath);
              logGenerator(`Resolved as node_modules path: ${absolutePath}`, 'debug');
         } else {
-             if (!dataRootDir) throw new Error('Data root directory (MD_DIR) is not configured.');
+             // Assume relative to data root (dataRootDir should be PD_DIR/data)
+             if (!dataRootDir) throw new Error('Data root directory (MD_DIR/data) is not configured.');
              absolutePath = path.resolve(dataRootDir, normalizedPath);
              logGenerator(`Resolved relative to data root: ${absolutePath}`, 'debug');
         }
 
-        // Basic security check
+        // Basic security check - ensure path stays within project or data root
         if (!absolutePath.startsWith(projectRootDir) && (!dataRootDir || !absolutePath.startsWith(dataRootDir))) {
-             throw new Error(`CSS path escape attempt detected: ${relativePath}`);
+             throw new Error(`CSS path escape attempt detected: ${relativePath} resolved to ${absolutePath}`);
         }
 
         logGenerator(`Reading LOCAL CSS file: ${absolutePath}`);
@@ -49,7 +46,7 @@ async function readLocalCssFile(relativePath, dataRootDir, projectRootDir) {
         logGenerator(`Successfully read CSS file: ${absolutePath} (Length: ${content.length})`, 'debug');
         return { source: relativePath, content: content };
     } catch (error) {
-        logGenerator(`Error reading LOCAL CSS file ${relativePath} (Resolved Path: ${absolutePath || 'N/A'}): ${error.message}`, 'error');
+        logGenerator(`Error reading LOCAL CSS file ${relativePath} (Resolved Path: ${absolutePath}): ${error.message}`, 'error');
         return { source: relativePath, content: `/* CSS File Read Error: ${relativePath} */`, error: true };
     }
 }

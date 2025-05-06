@@ -56,6 +56,7 @@ export class PreviewManager {
     this.initialized = false;
     this.updateTimer = null;
     this.eventBusListeners = [];
+    this.previewCssId = 'preview-specific-styles'; // Add ID as property
 
     previewInstance = this;
     return this;
@@ -64,6 +65,20 @@ export class PreviewManager {
   async init() {
     console.log('[PreviewManager.init] Starting initialization...');
     try {
+      // --- Add dynamic CSS link loading here --- 
+      if (!document.getElementById(this.previewCssId)) {
+          const link = document.createElement('link');
+          link.id = this.previewCssId;
+          link.rel = 'stylesheet';
+          link.type = 'text/css';
+          link.href = '/client/preview/preview.css'; // Path to the preview CSS
+          document.head.appendChild(link);
+          logMessage('Dynamically added preview.css link tag.', 'debug', 'PREVIEW');
+      } else {
+          logMessage('Preview CSS link tag already exists.', 'debug', 'PREVIEW');
+      }
+      // --- End dynamic CSS link loading ---
+
       // --- MODIFIED: Retry finding container --- 
       const containerSelector = (typeof this.config.container === 'string') ? this.config.container : null;
       let attempt = 0;
@@ -97,12 +112,19 @@ export class PreviewManager {
       // Add class for styling
       this.previewElement.classList.add('markdown-preview');
 
-      // Log which plugins we're going to initialize
-      logMessage(`Initializing plugins: ${this.config.plugins.join(', ')}`, "debug", "PREVIEW");
-      console.log(`[PreviewManager.init] Calling initPlugins with:`, this.config.plugins);
+      // --- FIX: Determine plugins to init based on appState ---
+      const currentPluginSettings = appStore.getState().plugins || {};
+      const pluginIdsToInit = Object.entries(currentPluginSettings)
+                                 .filter(([id, config]) => config.enabled) // Only where enabled: true
+                                 .map(([id, config]) => id);
       
-      // Initialize components
-      await initPlugins(this.config.plugins, {
+      logMessage(`Initializing ENABLED plugins based on state: ${pluginIdsToInit.join(', ') || 'None'}`, "info", "PREVIEW");
+      console.log(`[PreviewManager.init] Calling initPlugins with state-derived list:`, pluginIdsToInit);
+      // --- END FIX ---
+
+      // Initialize components using the filtered list
+      // Pass pluginIdsToInit instead of this.config.plugins
+      await initPlugins(pluginIdsToInit, { 
         theme: this.config.theme,
         container: this.previewElement
       });
@@ -277,6 +299,7 @@ export class PreviewManager {
                         this.previewElement.appendChild(node.cloneNode(true));
                     }
                 });
+
             } else {
                  // This case should no longer happen with the ContentView reverted, but keep log for safety.
                  logMessage(`Preview element is unexpectedly an IFRAME. Cannot update content correctly.`, "error", "PREVIEW"); 
@@ -287,6 +310,33 @@ export class PreviewManager {
             
             // Post-processing for things like Mermaid/Katex might still be needed after content is added
             await postProcessRender(this.previewElement);
+
+            // Force a brief pause to allow the browser to potentially finish DOM updates
+            // after setting innerHTML and running postProcessRender.
+            await new Promise(resolve => setTimeout(resolve, 0)); 
+            // <<< END ADDED DELAY >>>
+
+            // --- ADD the correct plugin processing loop ---
+            logMessage(`Processing initialized plugins after content update...`, "debug", "PREVIEW");
+            const initializedPlugins = getEnabledPlugins(); 
+            logMessage(`Plugins to process (keys): ${[...initializedPlugins.keys()].join(', ')}`, "debug", "PREVIEW"); 
+            logMessage(`Plugins to process (map size): ${initializedPlugins.size}`, "debug", "PREVIEW"); // Log size
+
+            for (const [name, pluginInstance] of initializedPlugins.entries()) {
+              logMessage(`Looping: name='${name}', typeof instance=${typeof pluginInstance}, instance has process=${typeof pluginInstance?.process === 'function'}`, 'debug', 'PREVIEW_LOOP');
+              if (pluginInstance && typeof pluginInstance.process === 'function') {
+                try {
+                  logMessage(`Processing plugin: ${name}...`, "debug", "PREVIEW"); // <<< This logs for 'mermaid'
+                  await pluginInstance.process(this.previewElement); 
+                  logMessage(`Plugin processed: ${name}`, "debug", "PREVIEW"); // <<< This logs for 'mermaid'
+                } catch (processError) {
+                  logMessage(`Error processing plugin: ${name}: ${processError.message}`, "error", "PREVIEW");
+                  console.error("Error details during plugin processing:", processError);
+                }
+              } else if (name !== 'css' && name !== 'highlight') { 
+                   logMessage(`Plugin ${name} has no process method or is not initialized.`, 'warn', 'PREVIEW_LOOP');
+              }
+            }
 
             resolve(true);
           } catch (error) {
@@ -439,6 +489,25 @@ export function updatePreview(content, markdownFilePath) {
 export function setPreviewTheme(theme) {
   const manager = new PreviewManager();
   return manager.setTheme(theme);
+}
+
+/**
+ * Reset all plugin settings to defaults (all enabled)
+ * Use this for troubleshooting or if settings get corrupted
+ */
+export function resetPluginSettings() {
+  try {
+    // Clear the plugin state from localStorage
+    localStorage.removeItem('pluginsEnabledState');
+    console.log('[PREVIEW] Plugin settings reset to defaults (all enabled)');
+    
+    // Force reload of the page to apply changes
+    window.location.reload();
+    return true;
+  } catch (error) {
+    console.error('[PREVIEW] Failed to reset plugin settings:', error);
+    return false;
+  }
 }
 
 /**

@@ -261,6 +261,16 @@ const essentialCssFiles = [
     // 'client/css/markdown-preview-theme.css',
 ];
 
+// Helper function to check if a path is an HTTP/HTTPS URL
+const isHttpUrl = (str) => {
+  try {
+    const url = new URL(str);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) {
+    return false; // Not a valid URL format
+  }
+};
+
 // --- Logging Helper ---
 function logServer(message, level = 'info') {
     const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
@@ -318,29 +328,37 @@ router.post('/generate-static', express.json({ limit: '10mb' }), async (req, res
             return res.status(400).json({ error: 'Missing required field: renderedHtml' });
         }
 
-        // --- Combine Base CSS with Client Requested CSS ---
-        const userRequestedCss = Array.isArray(activeCssPaths) ? activeCssPaths : [];
-        logServer(`Client requested ${userRequestedCss.length} CSS files: ${JSON.stringify(userRequestedCss)}`);
+        // Get CSS paths from client request (e.g., ["styles.css"])
+        let requestedCssFiles = req.body.cssFiles || [];
+        logServer(`Client requested ${requestedCssFiles.length} CSS files: ${JSON.stringify(requestedCssFiles)}`);
 
-        const combinedCssResources = new Set([...basePreviewCssResources, ...userRequestedCss]);
-        const resourcesToInclude = Array.from(combinedCssResources);
+        // Always include the core preview CSS needed for basic rendering and KaTeX fixes
+        const corePreviewCss = 'client/preview/preview.css';
+        if (!requestedCssFiles.includes(corePreviewCss)) {
+            requestedCssFiles.unshift(corePreviewCss);
+            logServer(`Prepended core preview CSS. Updated list: ${JSON.stringify(requestedCssFiles)}`);
+        }
 
-        // --- Separate URLs and Local Paths ---
-        const cssUrlsToLink = [];
-        const localCssPathsToRead = [];
-        resourcesToInclude.forEach(resource => {
-            if (resource.startsWith('http://') || resource.startsWith('https://')) {
-                cssUrlsToLink.push(resource);
-            } else {
-                localCssPathsToRead.push(resource);
+        // --- Separate CSS URLs and Local Paths ---
+        const cssUrlsToLink = requestedCssFiles.filter(isHttpUrl);
+        const localCssPathsToRead = requestedCssFiles.filter(file => !isHttpUrl(file));
+
+        // Add essential external CSS if not already included (e.g., KaTeX)
+        // TODO: Make this configurable or derive from plugin states
+        const essentialExternalCss = [
+            'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css'
+        ];
+        essentialExternalCss.forEach(url => {
+            if (!cssUrlsToLink.includes(url)) {
+                cssUrlsToLink.push(url);
             }
         });
+
         logServer(`Identified ${cssUrlsToLink.length} CSS URLs to link: ${JSON.stringify(cssUrlsToLink)}`);
         logServer(`Identified ${localCssPathsToRead.length} local CSS paths to read: ${JSON.stringify(localCssPathsToRead)}`);
 
-
         // --- Get Necessary Directory Roots from PData ---
-        const dataRootDir = req.pdata?.dataRoot;
+        const dataRootDir = req.pdata?.dataRoot; // This should be the MD_DIR root (e.g., /root/pj/pd)
         if (!dataRootDir && localCssPathsToRead.some(p => !p.startsWith('client/') && !p.startsWith('node_modules/'))) {
              // Only critical if we need to read from dataRoot
              logServer('CRITICAL: Cannot determine data root (MD_DIR) from req.pdata, and local non-client/non-node_modules CSS requested.', 'error');
@@ -360,11 +378,25 @@ router.post('/generate-static', express.json({ limit: '10mb' }), async (req, res
         }
         const generationTime = new Date().toISOString();
 
+        // --- Determine the correct root for reading USER css files (MD_DIR/data) ---
+        const userCssRootDir = dataRootDir ? path.join(dataRootDir, 'data') : null;
+        if (!userCssRootDir && localCssPathsToRead.some(p => !p.startsWith('client/') && !p.startsWith('node_modules/'))) {
+            // Check if we actually NEED the userCssRootDir before erroring
+            logServer('CRITICAL: Cannot construct user CSS root directory (MD_DIR/data) path, and user-specific CSS is requested.', 'error');
+            return res.status(500).json({ error: 'Server configuration error: Cannot find user data directory for requested CSS.' });
+        }
+        logServer(`Using user CSS root directory: ${userCssRootDir || 'N/A'}`, 'debug');
+
         // --- Read ONLY Local CSS Files Concurrently ---
         logServer(`Reading ${localCssPathsToRead.length} local CSS files...`);
-        const cssReadPromises = localCssPathsToRead.map(relativePath =>
-            readLocalCssFile(relativePath, dataRootDir, projectRootDir) // Pass roots
-        );
+        const cssReadPromises = localCssPathsToRead.map(relativePath => {
+            // Pass the appropriate root based on path type
+            const rootForThisFile = (relativePath.startsWith('client/') || relativePath.startsWith('node_modules/')) 
+                                     ? projectRootDir 
+                                     : userCssRootDir; // Use the potentially modified root for user files
+            logServer(`Mapping CSS read: relativePath='${relativePath}', determined rootForThisFile='${rootForThisFile}'`, 'debug');
+            return readLocalCssFile(relativePath, rootForThisFile, projectRootDir);
+        });
         const cssResults = await Promise.all(cssReadPromises);
 
         // --- Combine Local CSS ---

@@ -45,6 +45,24 @@ export class PluginsPanel {
     // --- Plugin Toggles Section ---
     const pluginsSection = document.createElement('div');
     pluginsSection.classList.add('settings-section', 'plugins-toggles');
+    
+    // Add a header with reset button
+    const sectionHeader = document.createElement('div');
+    sectionHeader.classList.add('section-header');
+    
+    const heading = document.createElement('h3');
+    heading.textContent = 'Preview Plugins';
+    sectionHeader.appendChild(heading);
+    
+    const resetButton = document.createElement('button');
+    resetButton.textContent = 'Reset All to Defaults';
+    resetButton.classList.add('reset-plugins-button');
+    resetButton.title = 'Reset all plugins to enabled (default state)';
+    resetButton.addEventListener('click', this.handleResetPlugins.bind(this));
+    sectionHeader.appendChild(resetButton);
+    
+    pluginsSection.appendChild(sectionHeader);
+    
     this.pluginsListElement = document.createElement('ul');
     this.pluginsListElement.classList.add('plugins-list'); // Use class defined in settings.css
     pluginsSection.appendChild(this.pluginsListElement);
@@ -148,6 +166,14 @@ export class PluginsPanel {
           logPlugins('Could not determine plugin ID from toggle event.', 'warn');
       }
     }
+  }
+
+  handleResetPlugins() {
+    logPlugins('Resetting all plugins to defaults.');
+    dispatch({
+      type: ActionTypes.PLUGIN_RESET,
+      payload: {}
+    });
   }
 
   // Method to clean up listeners and child components

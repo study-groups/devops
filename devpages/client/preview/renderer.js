@@ -29,52 +29,6 @@ function logRenderer(message, level = 'debug') {
 let isInitialized = false;
 let md;
 
-// Function to load KaTeX CSS (keep)
-async function loadKatexCss() {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector('link[href*="katex.min.css"]')) {
-            logRenderer('KaTeX CSS already loaded.');
-            resolve();
-            return;
-        }
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
-        link.onload = () => {
-            logRenderer('KaTeX CSS loaded successfully from CDN.');
-            resolve();
-        };
-        link.onerror = (err) => {
-            logRenderer('Failed to load KaTeX CSS from CDN.', 'error');
-            reject(err);
-        };
-        document.head.appendChild(link);
-    });
-}
-
-// Function to load KaTeX JS (keep)
-async function loadKatexScript() {
-    return new Promise((resolve, reject) => {
-        if (typeof window.katex !== 'undefined') {
-            logRenderer('KaTeX JS already loaded.');
-            resolve();
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
-        script.async = true;
-        script.onload = () => {
-            logRenderer('KaTeX JS loaded successfully from CDN.');
-            resolve();
-        };
-        script.onerror = (err) => {
-            logRenderer('Failed to load KaTeX JS from CDN.', 'error');
-            reject(err);
-        };
-        document.head.appendChild(script);
-    });
-}
-
 // Function to dynamically load markdown-it script (keep this)
 async function loadMarkdownItScript() {
     return new Promise((resolve, reject) => {
@@ -92,39 +46,6 @@ async function loadMarkdownItScript() {
         };
         script.onerror = (err) => {
             logRenderer('Failed to load markdown-it script from CDN.', 'error');
-            reject(err);
-        };
-        document.head.appendChild(script);
-    });
-}
-
-// Function to load KaTeX Auto-Render JS (UNCOMMENT/RESTORE)
-async function loadKatexAutoRenderScript() {
-    return new Promise((resolve, reject) => {
-        if (typeof window.renderMathInElement !== 'undefined') {
-            logRenderer('KaTeX Auto-Render JS already loaded.');
-            resolve();
-            return;
-        }
-        // Ensure KaTeX base is loaded first
-        if (typeof window.katex === 'undefined') {
-            logRenderer('KaTeX base not loaded before auto-render attempt.', 'error');
-            return reject(new Error('KaTeX base missing for auto-render'));
-        }
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
-        script.async = true;
-        script.onload = () => {
-            logRenderer('KaTeX Auto-Render JS loaded successfully from CDN.');
-            if (typeof window.renderMathInElement === 'undefined') {
-                logRenderer('window.renderMathInElement is STILL undefined after load!', 'error');
-                reject(new Error('renderMathInElement not defined after script load'));
-            } else {
-                 resolve();
-            }
-        };
-        script.onerror = (err) => {
-            logRenderer('Failed to load KaTeX Auto-Render JS from CDN.', 'error');
             reject(err);
         };
         document.head.appendChild(script);
@@ -308,20 +229,8 @@ async function initializeRenderer() {
         await Promise.all([
             initHighlight(),          
             loadMarkdownItScript(),   
-            loadKatexCss(),           
-            loadKatexScript(),
         ]);
-        logRenderer('Highlight.js, markdown-it, KaTeX base loaded.');
-
-        // <<< ADDED: Ensure KaTeX auto-render script is loaded during initialization >>>
-        try {
-            await loadKatexAutoRenderScript();
-            logRenderer('KaTeX auto-render script confirmed loaded.');
-        } catch (error) {
-            logRenderer('Failed to load KaTeX auto-render script during init.', 'error');
-            // Continue initialization even if auto-render fails?
-        }
-        // <<< END ADDED >>>
+        logRenderer('Highlight.js, markdown-it loaded.');
 
         // Check if markdown-it loaded successfully
         if (typeof window.markdownit === 'undefined') {
@@ -338,19 +247,10 @@ async function initializeRenderer() {
             highlight: null // Let highlight plugin handle this later if needed, or configure hljs here
         });
 
-        // Apply KaTeX plugin - RE-ENABLE
-        md.use(markdownitKatex, {
-            throwOnError: false,
-            errorColor: '#cc0000',
-            trust: true,
-            displayMode: false,
-            strict: "ignore"
-        });
-        logRenderer('Applied KaTeX plugin with permissive error handling.');
-        // logRenderer('Skipping markdown-it-katex plugin.'); // REMOVE/COMMENT OUT THIS LOG
-
-        // Keep existing fence rule override for Mermaid/SVG/LaTeX
-        const defaultFence = md.renderer.rules.fence;
+        // Apply custom fence rule to the 'md' instance (used by initializeRenderer)
+        // Note: This instance might not be the one used for actual rendering if getMarkdownItInstance() is called later.
+        // It's kept here for potential direct use cases or historical reasons, but the primary fence rule 
+        // application happens in getMarkdownItInstance() now.
         md.renderer.rules.fence = (tokens, idx, options, env, self) => {
             const token = tokens[idx];
             const info = token.info ? token.info.trim().toLowerCase() : '';
@@ -363,7 +263,9 @@ async function initializeRenderer() {
                 const sanitizedCode = code
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
-                return `<div class="mermaid">${sanitizedCode}</div>`;
+                const outputHtml = `<div class="mermaid">${sanitizedCode}</div>`;
+                logRenderer(`[FENCE RULE] Returning Mermaid HTML: ${outputHtml.substring(0, 100)}...`, 'debug');
+                return outputHtml;
             }
 
             // Handle DOT/Graphviz blocks
@@ -422,10 +324,11 @@ async function initializeRenderer() {
         logRenderer('markdown-it extensions applied (fence override for mermaid/svg/katex).'); // Log updated
 
         isInitialized = true;
-        logRenderer('Markdown renderer (markdown-it) initialized successfully.');
+        logRenderer('Markdown renderer (markdown-it) initialized (v1 instance).');
     } catch (error) {
-        logRenderer(`Renderer initialization failed: ${error.message}`, 'error');
+        logRenderer(`Error initializing markdown-it: ${error.message}`, 'error');
         console.error('[RENDERER INIT ERROR]', error);
+        isInitialized = false; // Ensure it's marked as not initialized on error
     }
 }
 
@@ -447,8 +350,6 @@ async function getMarkdownItInstance() {
     // Add plugins conditionally based on enabled status
     if (isPluginEnabled('katex')) {
         try {
-            await loadKatexCss();
-            await loadKatexScript(); // Ensure base KaTeX is loaded
             mdInstance.use(markdownitKatex);
             logRenderer('markdown-it-katex plugin enabled.');
         } catch (error) {
@@ -471,6 +372,85 @@ async function getMarkdownItInstance() {
         GraphvizPlugin.use(mdInstance); // Apply graphviz plugin
         logRenderer('Graphviz plugin enabled for markdown-it.');
     }
+
+    // <<< CRITICAL FIX: Apply custom fence rule for Mermaid/SVG/LaTeX to this instance >>>
+    // Fixed bug: Previously, the custom fence rule was only applied to the markdown-it instance created in initializeRenderer(),
+    // but that instance was never actually used for rendering. Instead, renderMarkdown() used the instance from getMarkdownItInstance()
+    // which didn't have the fence rule. This caused Mermaid, KaTeX and SVG code blocks to render as plain code instead of specialized content.
+    logRenderer('Adding CRITICAL fence rule override to markdown-it instance!', 'warning');
+    const defaultFence = mdInstance.renderer.rules.fence;
+    mdInstance.renderer.rules.fence = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        const info = token.info ? token.info.trim().toLowerCase() : '';
+        const content = token.content;
+        logRenderer(`[FENCE RULE 2] Processing fence. Info: '${info}'`);
+
+        if (info === 'mermaid') {
+            logRenderer('[FENCE RULE 2] Identified as Mermaid block.');
+            const code = token.content.trim();
+            const sanitizedCode = code
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            const outputHtml = `<div class="mermaid">${sanitizedCode}</div>`;
+            logRenderer(`[FENCE RULE 2] Creating Mermaid block HTML wrapper`, 'debug');
+            return outputHtml;
+        }
+
+        // Handle DOT/Graphviz blocks
+        if (info === 'dot' || info === 'graphviz') {
+            logRenderer('[FENCE RULE 2] Identified as Graphviz DOT block.');
+            const code = token.content.trim();
+            const sanitizedCode = code
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return `<div class="graphviz">${sanitizedCode}</div>`;
+        }
+
+        // Handle LaTeX blocks - especially tables
+        if (info === 'latex' || info === 'katex' || info === 'tex') {
+            logRenderer('[FENCE RULE 2] Identified as LaTeX block.', 'debug');
+            try {
+                if (window.katex) {
+                    const html = window.katex.renderToString(token.content, {
+                        displayMode: true,
+                        throwOnError: false,
+                        trust: true,
+                        strict: false
+                    });
+                    return `<div class="katex-block">${html}</div>`;
+                } else {
+                    logRenderer('[FENCE RULE 2] KaTeX not available', 'error');
+                    return `<pre><code>${token.content}</code></pre>`;
+                }
+            } catch (err) {
+                logRenderer(`[FENCE RULE 2] Error: ${err.message}`, 'error');
+                return `<pre><code class="error">${token.content}</code></pre>`;
+            }
+        }
+
+        // --- SVG Handling ---
+        if (info === 'svg') {
+            logRenderer('[FENCE RULE 2] Identified as SVG block. Returning raw content.');
+            try {
+                if (!content || typeof content !== 'string') {
+                    logRenderer(`[FENCE RULE 2] Invalid or non-string SVG content in block.`, 'error');
+                    return `<div class="error">Invalid SVG code block content</div>`;
+                }
+                // Return the raw SVG content. DOMPurify will handle sanitization later.
+                return content;
+            } catch (error) {
+                logRenderer(`[FENCE RULE 2] Error processing SVG content: ${error.message}`, 'error');
+                console.error("[SVG FENCE RULE Error]", error);
+                return `<div class="error">Failed to process SVG code block</div>`;
+            }
+        }
+        // --- END SVG Handling ---
+
+        // Fallback to default fence renderer if no match
+        return defaultFence(tokens, idx, options, env, self);
+    };
+    logRenderer('CRITICAL fence rule override for mermaid/svg/katex applied to markdown-it instance', 'warning');
+    // <<< END CRITICAL FIX >>>
 
     return mdInstance;
 }
@@ -606,140 +586,51 @@ ${sanitizedBody}
  */
 export async function postProcessRender(previewElement) {
     logRenderer('Starting post-processing...');
-
-    // Get the map of currently enabled plugins (might be useful for instances)
-    // const enabledPluginInstances = getEnabledPlugins(); 
-
-    // --- 1. Syntax Highlighting ---
-    if (isPluginEnabled('highlight')) {
-        try {
-            logRenderer('Applying syntax highlighting...');
-            // Assuming HighlightPlugin has a static process method or similar helper
-            // If it relies on an instance, get it from enabledPluginInstances
-            const highlightModule = await import('/client/preview/plugins/highlight.js');
-            if (highlightModule && typeof highlightModule.process === 'function') {
-                await highlightModule.process(previewElement);
-            }
-            logRenderer('Syntax highlighting applied.');
-        } catch (e) {
-            logRenderer(`Error applying syntax highlighting: ${e.message}`, 'error');
-        }
-    } else {
-        logRenderer('Syntax highlighting plugin disabled, skipping.');
+    if (!previewElement) {
+        logRenderer('No preview element provided to postProcessRender.', 'warn');
+        return;
     }
 
-    // --- 2. Mermaid Diagrams ---
+    // --- 1. Mermaid Rendering --- 
     if (isPluginEnabled('mermaid')) {
         try {
-            logRenderer('Processing Mermaid diagrams...');
-            // Check if mermaid global is available and run it
-            if (typeof window.mermaid?.run === 'function') {
-                // Find all potential mermaid blocks
-                const mermaidElements = previewElement.querySelectorAll('pre.mermaid > code, div.mermaid'); 
-                if (mermaidElements.length > 0) {
-                    logRenderer(`Found ${mermaidElements.length} potential Mermaid elements. Calling mermaid.run()...`);
-                    // Use mermaid.run() for dynamic rendering after initial load
-                    await window.mermaid.run({ nodes: mermaidElements });
-                } else {
-                    logRenderer('No Mermaid elements found to process.');
-                }
+            // Ensure Mermaid plugin's process method exists and call it
+            const mermaidInstance = getEnabledPlugins().get('mermaid');
+            if (mermaidInstance && typeof mermaidInstance.process === 'function') {
+                logRenderer('Running Mermaid processing...');
+                await mermaidInstance.process(previewElement); // Pass the element
+                logRenderer('Mermaid processing complete.');
             } else {
-                logRenderer('Mermaid library or mermaid.run not available.', 'warn');
+                logRenderer('Mermaid plugin enabled but no process method found or instance missing.', 'warn');
             }
-            logRenderer('Mermaid diagrams processing attempted.');
         } catch (e) {
-            logRenderer(`Error processing Mermaid: ${e.message}`, 'error');
-            console.error('[MERMAID POST-PROCESS ERROR]', e);
+            logRenderer(`Error during Mermaid processing: ${e.message}`, 'error');
         }
     } else {
-        logRenderer('Mermaid plugin disabled, skipping.');
+        logRenderer('Mermaid plugin disabled, skipping processing.');
     }
 
-    // --- 3. KaTeX Math Rendering --- 
-    if (isPluginEnabled('katex')) {
+    // --- 2. Highlight.js Rendering --- 
+    if (isPluginEnabled('highlight')) {
         try {
-            if (typeof window.renderMathInElement === 'function') {
-                logRenderer('Running KaTeX auto-render...');
-                // Default options for auto-render - adjust if needed
-                const katexOptions = {
-                    delimiters: [
-                        {left: "$$", right: "$$", display: true},
-                        {left: "$", right: "$", display: false},
-                        // Keep \[, \] and \(, \) if markdown-it-katex isn't handling them
-                        // {left: "\\[", right: "\\]", display: true},
-                        // {left: "\\(", right: "\\)", display: false}
-                    ],
-                    throwOnError : false
-                };
-                window.renderMathInElement(previewElement, katexOptions);
-                logRenderer('KaTeX auto-render complete.');
-            } else {
-                logRenderer('KaTeX auto-render function not available.', 'warn');
-                // Attempt to load it dynamically if missing? Or rely on initial load.
-            }
+            const highlightInstance = getEnabledPlugins().get('highlight');
+            if (highlightInstance && typeof highlightInstance.process === 'function') {
+                 logRenderer('Running Highlight.js processing...');
+                 await highlightInstance.process(previewElement); // Pass the element
+                 logRenderer('Highlight.js processing complete.');
+             } else {
+                 logRenderer('Highlight plugin enabled but no process method found or instance missing.', 'warn');
+             }
         } catch (e) {
-            logRenderer(`Error during KaTeX auto-render: ${e.message}`, 'error');
+            logRenderer(`Error during Highlight.js processing: ${e.message}`, 'error');
         }
     } else {
-        logRenderer('KaTeX plugin disabled, skipping auto-render.');
+        logRenderer('Highlight.js plugin disabled, skipping processing.');
     }
 
-    // --- 4. Graphviz Diagrams ---
-    if (isPluginEnabled('graphviz')) {
-        try {
-            logRenderer('Processing Graphviz diagrams...');
-            // Assuming GraphvizPlugin exposes a static method or needs instantiation
-            const graphvizModule = await import('/client/preview/plugins/graphviz.js');
-            if (graphvizModule && typeof graphvizModule.process === 'function') {
-                await graphvizModule.process(previewElement);
-            } else if (graphvizModule.GraphvizPlugin) {
-                // Maybe get instance or call static method?
-                console.warn('[Renderer] Graphviz processing needs specific implementation call.');
-            }
-            logRenderer('Graphviz diagrams processing attempted.');
-        } catch (e) {
-            logRenderer(`Error processing Graphviz: ${e.message}`, 'error');
-        }
-    } else {
-        logRenderer('Graphviz plugin disabled, skipping.');
-    }
+    // --- Add other post-processing steps here as needed ---
 
-    // --- 5. Audio Markdown ---
-    if (isPluginEnabled('audio-md')) {
-        try {
-            logRenderer('Processing Audio Markdown...');
-            const audioMdModule = await import('/client/preview/plugins/audio-md.js');
-            if (audioMdModule && typeof audioMdModule.process === 'function') {
-                await audioMdModule.process(previewElement);
-            }
-            logRenderer('Audio Markdown processing attempted.');
-        } catch (e) {
-            logRenderer(`Error processing Audio Markdown: ${e.message}`, 'error');
-        }
-    } else {
-        logRenderer('Audio Markdown plugin disabled, skipping.');
-    }
-
-    // --- 6. GitHub Markdown Specifics (e.g., task lists) ---
-    if (isPluginEnabled('github-md')) {
-        try {
-            // Find and potentially make task list items interactive
-            const taskItems = previewElement.querySelectorAll('.task-list-item input[type="checkbox"]');
-            if (taskItems.length > 0) {
-                logRenderer(`Processing ${taskItems.length} GitHub task list items...`);
-                taskItems.forEach(checkbox => {
-                    checkbox.disabled = false; // Ensure they are not disabled by default
-                    // Add event listeners if needed for interaction
-                });
-            }
-        } catch (e) {
-            logRenderer(`Error processing GitHub Markdown specifics: ${e.message}`, 'error');
-        }
-    } else {
-        logRenderer('GitHub Markdown plugin disabled, skipping specifics.');
-    }
-
-    logRenderer('Post-processing complete.');
+    logRenderer('Post-processing finished.');
 }
 
 export class Renderer {

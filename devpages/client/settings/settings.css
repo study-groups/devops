@@ -310,3 +310,31 @@
 /* .plugins-panel-content h4 { ... } */
 /* .plugins-list { ... } */
 /* .plugin-item { ... } */
+
+/* Reset Plugins Button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.reset-plugins-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-plugins-button:hover {
+  background-color: #e0e0e0;
+  border-color: #999;
+}
+
+.reset-plugins-button:active {
+  background-color: #d0d0d0;
+  transform: translateY(1px);
+}

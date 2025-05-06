@@ -76,12 +76,18 @@ export async function downloadStaticHTML() {
 
 
         // --- Get Active CSS Files (using appStore) ---
-        // Assuming previewCssFiles is the correct state path now
-        const activeCssFiles = state.editor?.previewCssFiles || [];
-        const rootCssEnabled = state.editor?.rootCssEnabled ?? true; // Default to true
-        const cssFilesToSend = [...activeCssFiles];
-        if (rootCssEnabled) {
-             cssFilesToSend.unshift('styles.css'); // Add root styles if enabled
+        // Get CSS settings from the correct state path
+        const activeCssFiles = state.settings?.preview?.activeCssFiles || [];
+        const rootCssEnabled = state.settings?.preview?.enableRootCss ?? true; // Default to true
+        logStaticGen(`CSS settings state path: activeCssFiles=${JSON.stringify(activeCssFiles)}, rootCssEnabled=${rootCssEnabled}`);
+
+        // Start with active files, ensuring no duplicates initially
+        const cssFilesToSend = [...new Set(activeCssFiles)];
+        const rootCssPath = 'styles.css'; // Define root path
+        
+        // Add root styles if enabled AND not already included
+        if (rootCssEnabled && !cssFilesToSend.includes(rootCssPath)) {
+            cssFilesToSend.unshift(rootCssPath); // Add root styles if enabled and not already present
         }
         logStaticGen(`Including ${cssFilesToSend.length} active CSS paths: ${JSON.stringify(cssFilesToSend)}`);
 
@@ -98,7 +104,7 @@ export async function downloadStaticHTML() {
                 filePath: currentPathname, // Send the original path for context
                 markdownSource: markdownContent,
                 renderedHtml: renderedHtml, // Send the client-captured rendered HTML
-                activeCssPaths: cssFilesToSend // Send the list of CSS files used
+                cssFiles: cssFilesToSend // Send the list of CSS files used (Corrected field name)
             })
         });
 

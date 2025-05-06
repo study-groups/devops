@@ -63,6 +63,27 @@ export function pluginsReducer(state = initialState, action) {
                  // Optionally persist the initial enabled state here too
              }
              break;
+             
+        // Reset all plugins to defaults (enabled)
+        case ActionTypes.PLUGIN_RESET:
+            // Create a new state with all plugins enabled
+            nextState = {};
+            for (const pluginId in state) {
+                nextState[pluginId] = {
+                    ...state[pluginId],
+                    enabled: true // Force enabled
+                };
+            }
+            console.log(`[Reducer PLUGIN_RESET] All plugins reset to enabled state`);
+            
+            // Clear localStorage to revert to defaults on next load
+            try {
+                localStorage.removeItem(PLUGINS_STATE_KEY);
+                console.log(`[Reducer PLUGIN_RESET] Cleared plugin settings from localStorage`);
+            } catch (e) {
+                console.error('[Reducer] Failed to clear plugin settings from localStorage:', e);
+            }
+            break;
     }
     return nextState;
 }

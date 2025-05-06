@@ -37,20 +37,6 @@ export async function initializePreview(options = {}) {
   
   logPreview('Initializing preview system');
   
-  // --- Dynamically add preview-specific CSS --- 
-  if (!document.getElementById(PREVIEW_CSS_ID)) {
-      const link = document.createElement('link');
-      link.id = PREVIEW_CSS_ID;
-      link.rel = 'stylesheet';
-      link.type = 'text/css';
-      link.href = '/client/preview/preview.css'; // Path to the preview CSS
-      document.head.appendChild(link);
-      logPreview('Dynamically added preview.css link tag.');
-  } else {
-      logPreview('Preview CSS link tag already exists.');
-  }
-  // --- End CSS addition ---
-  
   try {
     // Default options
     const defaultOptions = {
