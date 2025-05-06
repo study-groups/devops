@@ -115,7 +115,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // Session Middleware Configuration
-const FileStoreSession = FileStore(session); // 2. Create the store constructor
+console.log('>>> [DEBUG] projectRoot for session path:', projectRoot); // Add this log
+const FileStoreSession = FileStore(session);
 app.use(session({
   name: 'devpages.sid',
   secret: process.env.SESSION_SECRET || 'dev-secret-change-for-prod',

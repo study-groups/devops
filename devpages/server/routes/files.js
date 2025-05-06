@@ -6,6 +6,7 @@ import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { authMiddleware } from '../middleware/auth.js'; // Import the exported name
 // authMiddleware is likely applied *before* this router in server.js now
 // import { authMiddleware } from '../middleware/auth.js'; // No longer needed here if applied globally/per-route earlier
 
@@ -63,7 +64,7 @@ const resolvePathInDataDir = (req, relativeDir, filename = '') => {
         throw new Error('Invalid filename format');
     }
 
-    const dataDir = pdata.dataDir; // Get the managed data directory root from PData
+    const dataDir = pdata.dataRoot; // Get the managed data directory root from PData
     console.log(`${logPrefix} STEP 1 PData managed dataDir: '${dataDir}'`);
 
     // Combine dataDir + relativeDir + filename
@@ -86,29 +87,41 @@ const resolvePathInDataDir = (req, relativeDir, filename = '') => {
     return resolvedPath;
 };
 
+const contentSubDir = 'data'; // The name of the subdir in PD_DIR linking to MD_DIR
 
 /**
  * GET /api/files/list
  * Get list of files and subdirectories in a directory
  */
-router.get('/list', async (req, res) => {
+router.get('/list', authMiddleware, async (req, res) => {
+  const username = req.user.username;
+  const logPrefix = '[API /list]';
+
+  let requestedRelativePath = '';
+
   try {
-    const username = req.user.username;
-    const requestedDir = req.query.dir || '';
-    
-    console.log(`[API /list] User='${username}', Requested directory='${requestedDir}'`);
-    
-    const { dirs, files } = await req.pdata.listDirectory(username, requestedDir);
-    
-    res.json({ dirs, files });
+    requestedRelativePath = req.query.pathname || '';
+    console.log(`${logPrefix} Client requested relative path: '${requestedRelativePath}'`);
+
+    // Call PData directly with the client's requested relative path
+    const listing = await req.pdata.listDirectory(username, requestedRelativePath);
+
+    // Construct response using the ORIGINAL relative path
+    const responseJson = {
+      pathname: requestedRelativePath,
+      dirs: listing.dirs,
+      files: listing.files
+    };
+    console.log(`${logPrefix} Sending JSON response:`, JSON.stringify(responseJson));
+    res.json(responseJson);
+
   } catch (error) {
-    console.error('[API /list] Error:', error);
-    
-    if (error.message === 'Permission denied') {
-      return res.status(403).json({ error: 'Permission denied' });
-    }
-    
-    res.status(500).json({ error: 'Error listing directory' });
+    console.error(`${logPrefix} Error processing request for client path '${requestedRelativePath}':`, error);
+    const statusCode = (error.code === 'ENOENT' || error.message?.includes('not found')) ? 404 : 500;
+    res.status(statusCode).json({
+      error: error.message || 'Failed processing request',
+      requestedPath: requestedRelativePath
+    });
   }
 });
 
@@ -134,35 +147,47 @@ router.get('/dirs', async (req, res) => {
  * GET /api/files/content
  * Get file content
  */
-router.get('/content', async (req, res) => {
+router.get('/content', authMiddleware, async (req, res) => {
+  const username = req.user.username;
+  const contentSubDir = 'data'; // Name of subdir in PD_DIR linking to MD_DIR
+
+  // --- Expect a single 'pathname' parameter ---
+  const requestedRelativePath = req.query.pathname; // Use 'pathname' or 'path'
+
+  if (typeof requestedRelativePath !== 'string') { // Basic validation
+    return res.status(400).json({ error: "Missing or invalid 'pathname' query parameter." });
+  }
+  console.log(`[API /content] Client requested relative path: '${requestedRelativePath}'`);
+
+  // Declare error variable outside try
+  let errorOccurred = null;
+
   try {
-    const username = req.user.username;
-    const { dir, file } = req.query;
-    
-    if (!file) {
-      return res.status(400).json({ error: 'Filename is required' });
-    }
-    
-    const relativePath = path.join(dir || '', file);
-    console.log(`[API /content] User='${username}', Requested file='${relativePath}'`);
-    
-    const content = await req.pdata.readFile(username, relativePath);
-    
-    const ext = path.extname(file).toLowerCase();
-    res.setHeader('Content-Type', ext === '.md' ? 'text/markdown' : 'text/plain');
+    // Call PData.readFile with the translated path
+    const content = await req.pdata.readFile(username, requestedRelativePath);
+
+    // Determine Content-Type based on file extension (important!)
+    const ext = path.extname(requestedRelativePath).toLowerCase();
+    let contentType = 'text/plain'; // Default
+    if (ext === '.md') contentType = 'text/markdown; charset=utf-8';
+    else if (ext === '.html') contentType = 'text/html; charset=utf-8';
+    else if (ext === '.css') contentType = 'text/css; charset=utf-8';
+    else if (ext === '.js') contentType = 'application/javascript; charset=utf-8';
+    else if (ext === '.json') contentType = 'application/json; charset=utf-8';
+    // Add more types as needed
+
+    console.log(`[API /content] Sending content for '${requestedRelativePath}' with Content-Type: ${contentType}`);
+    res.setHeader('Content-Type', contentType);
     res.send(content);
+
   } catch (error) {
-    console.error('[API /content] Error:', error);
-    
-    if (error.message === 'Permission denied') {
-      return res.status(403).json({ error: 'Permission denied' });
-    }
-    
-    if (error.code === 'ENOENT') {
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
-    res.status(500).json({ error: 'Error reading file' });
+    errorOccurred = error; // Store error for logging below
+    console.error(`[API /content] Error processing request for client path '${requestedRelativePath}':`, error);
+    const statusCode = (error.code === 'ENOENT' || error.message?.includes('not found')) ? 404 : 500;
+    res.status(statusCode).json({
+      error: error.message || 'Failed to read file',
+      requestedPath: requestedRelativePath
+    });
   }
 });
 

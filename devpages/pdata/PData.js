@@ -23,10 +23,6 @@ class PData {
 		// --- Initialize PData Root Directory (PD_DIR) ---
 		this._initializeDataRoot(); // Sets this.dataRoot from PD_DIR
 
-		// --- Initialize User Data Directory ---
-		this.userDataBaseDir = path.join(this.dataRoot, 'data');
-		this._ensureDirectoryExists(this.userDataBaseDir, 'User Data Base');
-
 		// --- Initialize Uploads Directory ---
 		this.uploadsDir = path.join(this.dataRoot, 'uploads');
 		this._ensureDirectoryExists(this.uploadsDir, 'Uploads');
@@ -44,7 +40,6 @@ class PData {
 
 		console.log('[PDATA Class] Initialized with configuration:');
 		console.log(`  • PData Root (PD_DIR):    ${this.dataRoot}`);
-		console.log(`  • User Data Base Dir:   ${this.userDataBaseDir}`);
 		console.log(`  • Uploads Base Dir:     ${this.uploadsDir}`);
 		console.log(`  • Users File Path:      ${this.usersFilePath}`);
 		console.log(`  • Roles File Path:      ${this.rolesFilePath}`);
@@ -468,6 +463,7 @@ class PData {
 		const role = this.roles.get(username); // Use this.roles
 		// Use the resolved application data root for all checks
 		const currentDataRoot = this.dataRoot;
+		const userDataDirRoot = path.join(this.dataRoot, 'data'); // Define user data root path
 
 		console.log(`[PDATA Class.can] Checking: user='${username}', role='${role || 'N/A'}', action='${action}', resource='${resourcePath}' within dataRoot='${currentDataRoot}'`);
 
@@ -492,21 +488,20 @@ class PData {
 		// --- User Role Check ---
 		if (role === 'user') {
 			// Users primarily operate within their implicit top-level directory
-			const userImplicitTopDir = path.join(this.userDataBaseDir, username); // User dir is inside userDataBaseDir
+			const userImplicitTopDir = path.join(userDataDirRoot, username);
 
 			// Check if the resource is the user's directory itself or within it
 			if (resourcePath === userImplicitTopDir || resourcePath.startsWith(userImplicitTopDir + path.sep)) {
 				console.log(`[PDATA Class.can] Allowed. Resource is within user '${username}' directory '${userImplicitTopDir}'.`);
-				return true; // Access within own directory allowed for all actions
+				return true;
 			} else {
 				// Check if the resource is within the *overall* data root (but outside the user's specific dir)
-				// This allows read/list of shared areas potentially.
 				if (resourcePath.startsWith(currentDataRoot + path.sep)) {
-					// Allow read/list access to shared top-level directories/files
+					// Allow read/list access to shared areas
 					if (action === 'read' || action === 'list') {
-						// Is the resource directly under dataRoot or userDataBaseDir?
 						const parentDir = path.dirname(resourcePath);
-						if (parentDir === currentDataRoot || parentDir === this.userDataBaseDir) {
+						// *** Check against derived userDataDirRoot ***
+						if (parentDir === currentDataRoot || parentDir === userDataDirRoot) {
 							console.log(`[PDATA Class.can] Allowed (Shared Read/List). Resource '${resourcePath}' is at top level or user base level.`);
 							return true;
 						} else {
@@ -514,12 +509,10 @@ class PData {
 							return false;
 						}
 					} else {
-						// Deny write/delete actions outside the user's own directory
 						console.log(`[PDATA Class.can] Denied. Action '${action}' not permitted for user '${username}' outside their own directory '${userImplicitTopDir}'.`);
 						return false;
 					}
 				} else {
-					// Deny access if the resource is outside the data root entirely
 					console.log(`[PDATA Class.can] Denied. Resource '${resourcePath}' is outside the resolved dataRoot '${currentDataRoot}'.`);
 					return false;
 				}
@@ -541,54 +534,74 @@ class PData {
 	 }
 
 	/**
-	 * Resolves a relative path for a specific user, ensuring it stays within permitted bounds.
-	 * For 'users', paths resolve relative to their data directory (<PD_DIR>/data/<username>/).
-	 * For 'admins', paths resolve relative to the overall PData root (<PD_DIR>/).
-	 * @param {string} username - The user context for resolution.
-	 * @param {string} [relativePath=''] - The path relative to the user's allowed base.
-	 * @returns {string} - The absolute, resolved path.
-	 * @throws {Error} - If the path attempts to escape the allowed bounds or user is invalid.
+	 * Resolves a client-provided relative path (assumed to be relative to MD_DIR)
+	 * to an absolute filesystem path based on the user's role and context.
+	 * Handles security checks to prevent path traversal.
+	 *
+	 * @param {string} username The user making the request.
+	 * @param {string} inputPath The relative path from the client (e.g., '', 'mike', 'mike/notes'). Defaults to ''.
+	 * @returns {string} The resolved absolute filesystem path.
+	 * @throws {Error} If access is denied or the path is invalid.
 	 */
-	resolvePathForUser(username, relativePath = '') {
-		const role = this.getUserRole(username);
-		console.log(`[resolvePathForUser] START: User='${username}', Role='${role}', RelativePath='${relativePath}'`);
-		if (!role) {
-			throw new Error(`Permission denied: User '${username}' not found or has no role.`);
+	resolvePathForUser(username, inputPath = '') {
+		const userRole = this.getUserRole(username);
+		if (!userRole) {
+			console.error(`[resolvePathForUser FATAL] Cannot resolve path. Role not found for user: ${username}`);
+			throw new Error(`User role not found for ${username}`);
 		}
 
-		let userBaseDir;
-        let resolvedBaseDir; // Store the resolved base for comparison
+		console.log(`[resolvePathForUser] START: User='${username}', Role='${userRole}', InputPath='${inputPath}'`);
 
-		if (role === 'admin') {
-			userBaseDir = this.dataRoot; // Admin's base is the PData root
-            resolvedBaseDir = path.resolve(userBaseDir); // Resolve base path once
-            console.log(`[resolvePathForUser] Role is admin. Using baseDir: ${resolvedBaseDir}`);
-		} else { // role === 'user'
-			userBaseDir = path.join(this.userDataBaseDir, username); // User's base is their specific data dir
-            resolvedBaseDir = path.resolve(userBaseDir); // Resolve base path once
-            console.log(`[resolvePathForUser] Role is user. Calculated baseDir: ${resolvedBaseDir}`);
-			try {
-                // Ensure directory exists for non-admins; admins might need to access non-existent paths initially
-                this._ensureDirectoryExists(userBaseDir, `User dir check for ${username}`);
-            } catch (ensureError) {
-                 throw new Error(`Failed to ensure base directory for user '${username}': ${ensureError.message}`);
-            }
+		// This is the actual root for user content, effectively MD_DIR
+		// this.dataRoot is PD_DIR. PD_DIR/data is symlinked to MD_DIR.
+		const contentRootActual = path.join(this.dataRoot, 'data'); 
+
+		const normalizedClientPath = path.posix.normalize(inputPath || '.').replace(/^(\\.\\.[\\/\\\\])+/, '');
+
+		if (userRole === 'admin') {
+			// Admin paths are relative to contentRootActual (MD_DIR)
+			const resolvedAdminPath = path.join(contentRootActual, normalizedClientPath);
+			console.log(`[resolvePathForUser] Admin '${username}' mapping client path '${inputPath}' (normalized: '${normalizedClientPath}') to FS path '${resolvedAdminPath}' (contentRootActual: ${contentRootActual})`);
+			
+			const resolvedContentRoot = path.resolve(contentRootActual);
+			if (!path.resolve(resolvedAdminPath).startsWith(resolvedContentRoot + path.sep) && path.resolve(resolvedAdminPath) !== resolvedContentRoot) {
+				console.error(`[resolvePathForUser SECURITY] Critical: Admin '${username}' with input '${inputPath}' resolved to '${resolvedAdminPath}' which is OUTSIDE contentRootActual '${contentRootActual}'. Denying.`);
+        		throw new Error('Security Violation: Path escape attempt detected.');
+			}
+			console.log(`[resolvePathForUser] END: Returning resolved path: ${resolvedAdminPath}`);
+			return resolvedAdminPath;
+		} else { // Non-admin user
+			const userOwnDirectoryName = username; // e.g., 'rich'
+			// User's root directory is within contentRootActual
+			const userRootOnFs = path.join(contentRootActual, userOwnDirectoryName); // e.g., /root/pj/pd/data/rich (which is /root/pj/md/rich)
+			console.log(`[resolvePathForUser] User '${username}'. Calculated userRootOnFs: ${userRootOnFs}`);
+
+			let finalPathOnFs;
+
+			if (normalizedClientPath === '.' || normalizedClientPath === userOwnDirectoryName) {
+				finalPathOnFs = userRootOnFs;
+				console.log(`[resolvePathForUser] User '${username}' requesting own root via '${inputPath}'. Mapped to: ${finalPathOnFs}`);
+			}
+			else if (normalizedClientPath.startsWith(userOwnDirectoryName + path.posix.sep)) {
+				// Client path 'rich/notes' is relative to contentRootActual ('MD_DIR')
+				finalPathOnFs = path.join(contentRootActual, normalizedClientPath);
+				console.log(`[resolvePathForUser] User '${username}' requesting subpath '${inputPath}'. Mapped relative to contentRootActual: ${finalPathOnFs}`);
+			}
+			else {
+				console.warn(`[resolvePathForUser] Denying access for user '${username}': client path '${inputPath}' (normalized: '${normalizedClientPath}') is not within their allowed scope ('${userOwnDirectoryName}/...' or '${userOwnDirectoryName}' or '').`);
+				throw new Error(`Access Denied: Path '${inputPath}' is invalid or outside your allowed directory.`);
+			}
+
+			const resolvedFinalPath = path.resolve(finalPathOnFs);
+			const resolvedUserRoot = path.resolve(userRootOnFs);
+			if (!resolvedFinalPath.startsWith(resolvedUserRoot + path.sep) && resolvedFinalPath !== resolvedUserRoot) {
+				console.error(`[resolvePathForUser SECURITY] Critical: User '${username}' with input '${inputPath}' resolved to '${resolvedFinalPath}' which is OUTSIDE their resolved root '${resolvedUserRoot}'. Denying.`);
+				throw new Error('Security Violation: Attempt to access path outside user scope.');
+			}
+
+			console.log(`[resolvePathForUser] END: Returning resolved path: ${finalPathOnFs}`);
+			return finalPathOnFs;
 		}
-
-		// Resolve the intended path fully relative to the user's allowed base
-		const intendedPath = path.resolve(userBaseDir, relativePath);
-        console.log(`[resolvePathForUser] Intended absolute path: ${intendedPath}`);
-
-
-		// Security Check: Ensure the resolved intended path is within the resolved base directory.
-        // This prevents tricks like '../' escaping the base.
-		if (!intendedPath.startsWith(resolvedBaseDir + path.sep) && intendedPath !== resolvedBaseDir) {
-			console.error(`[PDATA Class SECURITY] Path traversal attempt detected: user='${username}', role='${role}', relativePath='${relativePath}'. Resolved '${intendedPath}' is outside base '${resolvedBaseDir}'.`);
-			throw new Error('Permission denied: Invalid path');
-		}
-
-        console.log(`[resolvePathForUser] END: Returning resolved path: ${intendedPath}`);
-		return intendedPath; // Return the resolved path
 	}
 
 	// --- File Operation Methods ---
@@ -600,30 +613,32 @@ class PData {
 		const role = this.getUserRole(username);
         console.log(`${logPrefix} START: User='${username}', Role='${role}', Requested RelativePath='${relativePath}'`);
 
-		let absolutePath;
+		let absolutePathToList;
 		try {
-			absolutePath = this.resolvePathForUser(username, relativePath);
-            console.log(`${logPrefix} Resolved absolute path to list: ${absolutePath}`);
+			absolutePathToList = this.resolvePathForUser(username, relativePath); // Path of the directory we are listing
+            console.log(`${logPrefix} Resolved absolute path to list: ${absolutePathToList}`);
 		} catch (resolveError) {
 			console.error(`${logPrefix} Error resolving path '${relativePath}' for user '${username}': ${resolveError.message}`);
 			throw resolveError;
 		}
 
-        console.log(`${logPrefix} Checking 'list' permission for user '${username}' on path '${absolutePath}'...`);
-		if (!this.can(username, 'list', absolutePath)) {
-			console.log(`${logPrefix} Permission DENIED for user '${username}' on '${absolutePath}'.`);
+        console.log(`${logPrefix} Checking 'list' permission for user '${username}' on path '${absolutePathToList}'...`);
+		if (!this.can(username, 'list', absolutePathToList)) {
+			console.log(`${logPrefix} Permission DENIED for user '${username}' on '${absolutePathToList}'.`);
 			throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
 		}
-        console.log(`${logPrefix} Permission GRANTED for user '${username}' on path '${absolutePath}'.`);
+        console.log(`${logPrefix} Permission GRANTED for user '${username}' on path '${absolutePathToList}'.`);
+
+        // Base directory for calculating relative paths for display/client (not used for resolvePathForUser on entries)
+        // const baseDirForDisplayRelativePath = role === 'admin' ? path.join(this.dataRoot, 'data') : path.join(this.dataRoot, 'data', username);
+        // console.log(`${logPrefix} Base directory for calculating display relative paths: ${baseDirForDisplayRelativePath}`);
 
 		try {
-            console.log(`${logPrefix} Attempting to read directory contents from: ${absolutePath}`);
-			const entries = await fsPromises.readdir(absolutePath, { withFileTypes: true });
+            console.log(`${logPrefix} Attempting to read directory contents from: ${absolutePathToList}`);
+			const entries = await fsPromises.readdir(absolutePathToList, { withFileTypes: true });
             console.log(`${logPrefix} Found ${entries.length} raw entries.`);
 			const dirs = [];
 			const files = [];
-            // Base directory for the user (still needed for relative path calculations)
-			const userBaseDir = role === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username);
 
 			for (const entry of entries) {
                 console.log(`${logPrefix} Processing entry: Name='${entry.name}', Type=${entry.isDirectory() ? 'Dir' : entry.isFile() ? 'File' : entry.isSymbolicLink() ? 'Link' : 'Other'}`);
@@ -631,22 +646,29 @@ class PData {
                     console.log(`${logPrefix} Skipping hidden entry '${entry.name}'.`);
                     continue;
                 }
-				const entryAbsolutePath = path.join(absolutePath, entry.name);
-                let entryRelativePath = path.relative(userBaseDir, entryAbsolutePath);
 
+                // Construct the full relative path for this entry, from the perspective of the content root (MD_DIR)
+                // This is what resolvePathForUser expects.
+                const entryRelativePathFromContentRoot = path.posix.join(relativePath, entry.name);
+                console.log(`${logPrefix} Constructed entryRelativePathFromContentRoot for '${entry.name}': '${entryRelativePathFromContentRoot}' (based on dirRelativePath: '${relativePath}')`);
+
+				// --- Process Entry ---
 				try {
-                    // Check 1: Can the user resolve this entry's path? (Bounds check on the link/file/dir itself)
-					const resolvedEntryPath = this.resolvePathForUser(username, entryRelativePath);
+                    // Check 1: Resolve the entry's full relative path to ensure bounds and get its absolute path
+					const entryAbsolutePath = this.resolvePathForUser(username, entryRelativePathFromContentRoot);
+                    console.log(`${logPrefix} Resolved absolute path for entry '${entry.name}': '${entryAbsolutePath}'`);
 
-                    // Check 2: Can the user 'list' or 'read' this specific entry?
+                    // Check 2: Permission check on the specific item
                     const checkAction = entry.isDirectory() || entry.isSymbolicLink() ? 'list' : 'read';
-                    if (!this.can(username, checkAction, resolvedEntryPath)) {
-                         console.warn(`${logPrefix} Skipping entry '${entry.name}' because 'can(${checkAction})' check failed.`);
+                    if (!this.can(username, checkAction, entryAbsolutePath)) {
+                         console.warn(`${logPrefix} Skipping entry '${entry.name}' because 'can(${checkAction})' check failed on '${entryAbsolutePath}'.`);
                          continue;
                     }
+                    console.log(`${logPrefix} Permission GRANTED for '${checkAction}' on entry '${entry.name}' at '${entryAbsolutePath}'`);
 
-					if (entry.isDirectory()) {
-                        console.log(`${logPrefix} Including directory '${entry.name}'.`);
+					// --- Add to lists based on type ---
+                    if (entry.isDirectory()) {
+                         console.log(`${logPrefix} Including directory '${entry.name}'.`);
 						dirs.push(entry.name);
 					} else if (entry.isFile()) {
                         console.log(`${logPrefix} Including file '${entry.name}'.`);
@@ -682,32 +704,37 @@ class PData {
                         // *** END MODIFIED SYMLINK LOGIC ***
 					}
 				} catch (entryError) {
-					// Handle errors processing the entry itself
-					if (entryError.message.includes('Permission denied: Invalid path')) {
-						console.warn(`${logPrefix} Skipping entry '${entry.name}' because it resolves outside allowed user bounds.`);
-					} else {
-						console.warn(`${logPrefix} Error processing entry '${entry.name}' in '${absolutePath}': ${entryError.message}. Skipping entry.`);
-					}
+					// ... (Inner error handling for processing a single entry) ...
+                    console.warn(`${logPrefix} Error processing entry '${entry.name}' in '${absolutePathToList}': ${entryError.message}. Skipping entry.`);
+                    if (!entryError.message.includes('Permission denied') && !entryError.message.includes('outside allowed base')) {
+                         console.error(entryError);
+                    }
 				}
-			}
+			} // End for loop
+
 			dirs.sort();
 			files.sort();
-			console.log(`${logPrefix} Finished. Found top-level dirs for '${username}': [${dirs.join(',')}]`);
-			return { dirs, files };
-		} catch (error) {
-			// ... (error handling remains the same) ...
+			console.log(`${logPrefix} Finished. Returning dirs: [${dirs.join(',')}], files: [${files.join(',')}]`);
+			// *** Ensure the API endpoint using this sends back the RELATIVE path in 'pathname' ***
+			// The API handler needs modification if it's not already doing this.
+			// Example: return { pathname: relativePath, dirs, files };
+			return { dirs, files }; // Return just dirs/files for now, API needs to add pathname
+
+		} catch (error) { // Outer catch for readdir failure
+            console.error(`${logPrefix} Error reading directory '${absolutePathToList}':`, error);
             if (error.code === 'ENOENT') {
-				console.error(`${logPrefix} CRITICAL: Base directory '${userBaseDir}' reported as non-existent during readdir, despite earlier check.`);
-                return { dirs: [], files: [] }; // Return empty list, though this indicates a problem
-			}
-            if (error.code === 'EACCES') {
-                console.error(`${logPrefix} CRITICAL: Permission denied reading base directory '${userBaseDir}' during readdir, despite passing 'can' check.`);
-                throw new Error(`Permission denied listing directory contents for '${username}'.`);
+                // This case should ideally not happen if resolvePathForUser worked, but handle defensively.
+                console.error(`${logPrefix} Directory not found: ${absolutePathToList}`);
+                throw new Error(`Directory not found: '${relativePath || '/'}'.`);
             }
-			console.error(`${logPrefix} Unexpected error reading user base directory '${userBaseDir}' for '${username}':`, error);
-			throw new Error(`Failed to list directories for user '${username}': ${error.message}`);
+            if (error.code === 'EACCES') {
+                 console.error(`${logPrefix} Permission denied reading directory: ${absolutePathToList}`);
+                 throw new Error(`Permission denied reading contents of '${relativePath || '/'}'.`);
+            }
+            // Rethrow other unexpected errors
+			throw new Error(`Failed to list contents for '${relativePath || '/'}': ${error.message}`);
 		}
-	}
+	} // End listDirectory
 
 	/** Read file content */
 	async readFile(username, relativePath) {
@@ -758,7 +785,7 @@ class PData {
 			dirAbsolutePath = path.dirname(absolutePath);
 			// Verify the target directory is also resolvable/within bounds for the user
 			const dirRelativePath = path.relative(
-				this.getUserRole(username) === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username),
+				this.getUserRole(username) === 'admin' ? this.dataRoot : path.join(this.dataRoot, 'data', username),
 				dirAbsolutePath
 			);
 			this.resolvePathForUser(username, dirRelativePath);
@@ -861,8 +888,8 @@ class PData {
 		}
         console.log(`${logPrefix} User='${username}', Role='${role}'`);
 
-		// Determine base directory based on role
-		const userBaseDir = role === 'admin' ? this.dataRoot : path.join(this.userDataBaseDir, username);
+        // *** Calculate base directory using dataRoot ***
+		const userBaseDir = role === 'admin' ? this.dataRoot : path.join(this.dataRoot, 'data', username);
         console.log(`${logPrefix} Determined base directory: ${userBaseDir}`);
 
         // *** Ensure the base directory itself exists BEFORE checking permissions or reading ***
