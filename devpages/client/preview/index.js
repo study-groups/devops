@@ -23,13 +23,19 @@
  */
 
 import { logMessage } from '../log/index.js';
-import { initPlugins, getEnabledPlugins, processPlugins } from './plugins/index.js';
+import { api } from '/client/api.js';
+import { initPlugins, getEnabledPlugins, processPlugins, applyCssStyles } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
 import { processSvgContent } from './markdown-svg.js';
 import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
+
+export function getPreviewInstance() {
+    return previewInstance;
+}
 
 export class PreviewManager {
   constructor(options = {}) {
@@ -39,7 +45,7 @@ export class PreviewManager {
 
     this.config = {
       container: '#md-preview',
-      plugins: ['mermaid', 'katex', 'highlight', 'graphviz'],
+      plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'],
       theme: 'light',
       updateDelay: 100,
       autoRender: true,
@@ -49,60 +55,129 @@ export class PreviewManager {
     this.previewElement = null;
     this.initialized = false;
     this.updateTimer = null;
+    this.eventBusListeners = [];
+    this.previewCssId = 'preview-specific-styles'; // Add ID as property
 
     previewInstance = this;
     return this;
   }
 
   async init() {
+    console.log('[PreviewManager.init] Starting initialization...');
     try {
-      // Get container element
-      if (typeof this.config.container === 'string') {
-        this.previewElement = document.querySelector(this.config.container);
-      } else if (this.config.container instanceof HTMLElement) {
-        this.previewElement = this.config.container;
+      // --- Add dynamic CSS link loading here --- 
+      if (!document.getElementById(this.previewCssId)) {
+          const link = document.createElement('link');
+          link.id = this.previewCssId;
+          link.rel = 'stylesheet';
+          link.type = 'text/css';
+          link.href = '/client/preview/preview.css'; // Path to the preview CSS
+          document.head.appendChild(link);
+          logMessage('Dynamically added preview.css link tag.', 'debug', 'PREVIEW');
+      } else {
+          logMessage('Preview CSS link tag already exists.', 'debug', 'PREVIEW');
       }
+      // --- End dynamic CSS link loading ---
+
+      // --- MODIFIED: Retry finding container --- 
+      const containerSelector = (typeof this.config.container === 'string') ? this.config.container : null;
+      let attempt = 0;
+      const maxAttempts = 10; // Retry 10 times (1 second total)
+      const retryDelay = 100; // 100ms delay
+
+      while (!this.previewElement && attempt < maxAttempts) {
+        attempt++;
+        console.log(`[PreviewManager.init] Attempt ${attempt}/${maxAttempts} to find container: ${containerSelector || 'HTMLElement'}`);
+        if (containerSelector) {
+          this.previewElement = document.querySelector(containerSelector);
+        } else if (this.config.container instanceof HTMLElement) {
+          // If passed directly, check if it's still in the DOM (simple check)
+          this.previewElement = document.body.contains(this.config.container) ? this.config.container : null;
+        }
+
+        if (!this.previewElement && attempt < maxAttempts) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+      // --- END MODIFIED --- 
 
       if (!this.previewElement) {
-        logMessage('Preview container not found', "error", "PREVIEW");
+        logMessage('Preview container not found after multiple attempts', "error", "PREVIEW"); // Updated log
+        console.error('[PreviewManager.init] Container element not found after multiple attempts. Initialization failed.');
         return false;
       }
+      console.log('[PreviewManager.init] Container found:', this.previewElement);
 
       // Add class for styling
       this.previewElement.classList.add('markdown-preview');
 
-      // Log which plugins we're going to initialize
-      logMessage(`Initializing plugins: ${this.config.plugins.join(', ')}`, "debug", "PREVIEW");
+      // --- FIX: Determine plugins to init based on appState ---
+      const currentPluginSettings = appStore.getState().plugins || {};
+      const pluginIdsToInit = Object.entries(currentPluginSettings)
+                                 .filter(([id, config]) => config.enabled) // Only where enabled: true
+                                 .map(([id, config]) => id);
       
-      // Initialize components
-      await initPlugins(this.config.plugins, {
+      logMessage(`Initializing ENABLED plugins based on state: ${pluginIdsToInit.join(', ') || 'None'}`, "info", "PREVIEW");
+      console.log(`[PreviewManager.init] Calling initPlugins with state-derived list:`, pluginIdsToInit);
+      // --- END FIX ---
+
+      // Initialize components using the filtered list
+      // Pass pluginIdsToInit instead of this.config.plugins
+      await initPlugins(pluginIdsToInit, { 
         theme: this.config.theme,
         container: this.previewElement
       });
+      console.log('[PreviewManager.init] initPlugins call completed.');
 
-      // --- Assign previewEventBus early ---
-      if (typeof window.previewEventBus === 'undefined') {
-         if (eventBus) {
-             window.previewEventBus = eventBus;
-             logMessage('Assigned window.previewEventBus during PreviewManager init.', "debug", "PREVIEW");
-         } else {
-             logMessage('Main eventBus instance not available during PreviewManager init.', 'error', "PREVIEW");
-         }
-       }
-      // --- End Assignment ---
+      // --- Subscribe to CSS Settings Changes ---
+      const cssSettingsListener = async () => {
+          if (!this.initialized) return; // Don't run if not ready
+          logMessage('Received preview:cssSettingsChanged event, re-applying styles.', 'debug', 'PREVIEW');
+          try { await applyCssStyles(); } // Directly call applyStyles
+          catch(error) { logMessage(`Error applying styles after settings change: ${error.message}`, 'error', 'PREVIEW'); }
+      };
+      // Ensure eventBus exists before subscribing
+      if (eventBus && typeof eventBus.on === 'function') {
+          eventBus.on('preview:cssSettingsChanged', cssSettingsListener);
+          this.eventBusListeners.push({ event: 'preview:cssSettingsChanged', listener: cssSettingsListener });
+          logMessage('Subscribed PreviewManager to preview:cssSettingsChanged event.', 'debug', 'PREVIEW');
+          console.log('[PreviewManager.init] CSS Settings listener setup complete.');
+      } else {
+          console.error('[PreviewManager] eventBus not available for subscribing to preview:cssSettingsChanged');
+      }
+      // ------------------------------------------
 
+      console.log(`[PreviewManager.init] Applying theme: ${this.config.theme}`);
       this.applyTheme(this.config.theme);
       this.initialized = true;
+
+      // --- Apply initial styles after init ---
+      try {
+        logMessage('Applying initial CSS styles...', 'debug', 'PREVIEW');
+        console.log('[PreviewManager.init] Applying initial CSS styles...');
+        await applyCssStyles(); // Apply styles once on initialization
+        console.log('[PreviewManager.init] Initial CSS styles applied.');
+      } catch (styleError) {
+          logMessage(`Error applying initial styles: ${styleError.message}`, 'error', 'PREVIEW');
+          console.error('[PreviewManager.init] Error applying initial CSS styles:', styleError);
+          // Decide if this error should cause init to fail
+          // return false; 
+      }
+      // ---------------------------------------
+
       logMessage('Preview system initialized successfully', "debug", "PREVIEW");
+      console.log('[PreviewManager.init] Initialization successful, returning true.');
       return true;
     } catch (error) {
       logMessage(`Failed to initialize preview: ${error.message}`, "error", "PREVIEW");
-      console.error('[PREVIEW ERROR]', error);
+      console.error('[PREVIEW INIT ERROR] Error during PreviewManager.init:', error);
+      console.log('[PreviewManager.init] Initialization failed due to error, returning false.');
       return false;
     }
   }
 
-  async update(content) {
+  async update(content, markdownFilePath) {
     if (!this.initialized) {
       console.error('[PREVIEW] Preview not initialized. Call initPreview() first.');
       logMessage('Preview not initialized. Call initPreview() first.', "error", "PREVIEW");
@@ -116,8 +191,7 @@ export class PreviewManager {
     }
     
     try {
-      // logMessage('[PREVIEW] updatePreview called with content length:', "debug", "PREVIEW", { length: content?.length });
-      logMessage(`[PREVIEW] updatePreview called with content length: ${content?.length}`, "debug", "PREVIEW");
+      logMessage(`[PREVIEW] update called. Path: ${markdownFilePath || 'N/A'}, Content length: ${content?.length}`, "debug", "PREVIEW");
       
       // Clear any pending updates
       if (this.updateTimer) {
@@ -128,133 +202,154 @@ export class PreviewManager {
         // Schedule the update to avoid too many updates in quick succession
         this.updateTimer = setTimeout(async () => {
           try {
-            // logMessage('Calling renderMarkdown'); // Commented out temporarily
-            const renderResult = await renderMarkdown(content);
-            logMessage(`renderMarkdown returned. HTML length: ${renderResult.html?.length}, FrontMatter keys: ${Object.keys(renderResult.frontMatter).join(', ')}`, "debug", "PREVIEW");
+            // Pass the path to renderMarkdown
+            const fullHtml = await renderMarkdown(content, markdownFilePath); 
+            logMessage(`renderMarkdown returned HTML length: ${fullHtml?.length}`, "debug", "PREVIEW");
 
-            // --- Revised Script Handling --- 
-            let processedHtml = renderResult.html;
-            const scriptsToExecute = [];
-
-            try {
-                 logMessage('Parsing rendered HTML for script tags before insertion...', "debug", "PREVIEW");
-                 // Use a temporary div to parse the HTML string
-                 const tempDiv = document.createElement('div');
-                 tempDiv.innerHTML = renderResult.html;
-                 const scriptsInHtml = tempDiv.querySelectorAll('script');
-                 
-                 logMessage(`Found ${scriptsInHtml.length} script tag(s) in parsed HTML.`, "debug", "PREVIEW");
-
-                 scriptsInHtml.forEach(scriptTag => {
-                     const src = scriptTag.getAttribute('src');
-                     const defer = scriptTag.hasAttribute('defer');
-                     const async = scriptTag.hasAttribute('async');
-                     const type = scriptTag.getAttribute('type');
-                     const content = scriptTag.textContent;
-                     
-                     if (src || content) { // Only process scripts with src or inline content
-                         scriptsToExecute.push({ src, defer, async, type, content });
-                         logMessage(`Extracted script: src=${src}, defer=${defer}, async=${async}, type=${type}, hasContent=${!!content}`, "debug", "PREVIEW");
-                         // Remove the script tag from the temporary div
-                         scriptTag.remove();
-                     }
-                 });
-                 
-                 // Get the HTML string *without* the script tags
-                 processedHtml = tempDiv.innerHTML;
-                 logMessage('Removed script tags from HTML string for innerHTML insertion.', "debug", "PREVIEW");
-            } catch (parseError) {
-                 logMessage(`Error parsing HTML for scripts: ${parseError.message}. Using original HTML.`, 'error', "PREVIEW");
-                 console.error('[PREVIEW SCRIPT PARSE ERROR]', parseError);
-                 processedHtml = renderResult.html; // Fallback to original HTML
-            }
-            // --- End Revised Script Handling ---
-            
-            logMessage(`Setting innerHTML on previewElement (scripts removed).`, "debug", "PREVIEW");
-            if (this.previewElement) {
-                this.previewElement.innerHTML = processedHtml; // Use the processed HTML
-                logMessage('innerHTML set successfully', "debug", "PREVIEW");
+            // --- Setting content via DOM manipulation (to execute scripts) --- 
+            if (this.previewElement.tagName !== 'IFRAME') { // Ensure we are dealing with the DIV
+                logMessage(`Updating preview DIV content via DOM manipulation.`, "debug", "PREVIEW");
                 
-                // --- Execute Extracted Scripts Manually --- 
-                try {
-                    logMessage(`Manually creating and appending ${scriptsToExecute.length} extracted script(s)...`, "debug", "PREVIEW");
-                    scriptsToExecute.forEach(scriptInfo => {
+                const parser = new DOMParser();
+                const parsedDoc = parser.parseFromString(fullHtml, 'text/html');
+
+                // --- Reconcile <link rel="stylesheet"> tags in main document <head> --- 
+                const requiredCssHrefs = new Set();
+                parsedDoc.head.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href) {
+                        requiredCssHrefs.add(href);
+                    }
+                });
+                logMessage(`Required CSS Hrefs: ${[...requiredCssHrefs].join(', ')}`, "debug", "PREVIEW");
+
+                const injectedCssLinks = document.head.querySelectorAll('link[data-md-preview-css="true"]');
+                const existingCssHrefs = new Set();
+                injectedCssLinks.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (!requiredCssHrefs.has(href)) {
+                         logMessage(`Removing obsolete CSS link: ${href}`, "debug", "PREVIEW");
+                        link.remove();
+                    } else {
+                        existingCssHrefs.add(href);
+                    }
+                });
+
+                requiredCssHrefs.forEach(href => {
+                    if (!existingCssHrefs.has(href)) {
+                        logMessage(`Adding new CSS link: ${href}`, "debug", "PREVIEW");
+                        const newLink = document.createElement('link');
+                        newLink.setAttribute('rel', 'stylesheet');
+                        newLink.setAttribute('href', href);
+                        newLink.setAttribute('data-md-preview-css', 'true'); // Mark as injected
+                        document.head.appendChild(newLink);
+                    }
+                });
+                // --- End CSS Reconciliation ---
+
+                // --- Reconcile <script> tags in main document <head> --- 
+                const requiredScriptSrcs = new Map(); // Map src to { type, defer, async, etc. }
+                parsedDoc.head.querySelectorAll('script[src]').forEach(scriptNode => {
+                    const src = scriptNode.getAttribute('src');
+                    if (src) {
+                        const attributes = {};
+                        for (const attr of scriptNode.attributes) {
+                            if (attr.name !== 'src') { // Store other attributes
+                                attributes[attr.name] = attr.value;
+                            }
+                        }
+                        requiredScriptSrcs.set(src, attributes);
+                    }
+                });
+                logMessage(`Required Script Srcs: ${[...requiredScriptSrcs.keys()].join(', ')}`, "debug", "PREVIEW");
+
+                const injectedScripts = document.head.querySelectorAll('script[data-md-preview-js="true"]');
+                const existingScriptSrcs = new Set();
+                injectedScripts.forEach(script => {
+                    const src = script.getAttribute('src');
+                    if (!requiredScriptSrcs.has(src)) {
+                        logMessage(`Removing obsolete script: ${src}`, "debug", "PREVIEW");
+                        script.remove();
+                    } else {
+                        existingScriptSrcs.add(src);
+                    }
+                });
+
+                requiredScriptSrcs.forEach((attributes, src) => {
+                    if (!existingScriptSrcs.has(src)) {
+                        logMessage(`Adding new script: ${src}`, "debug", "PREVIEW");
                         const newScript = document.createElement('script');
-                        if (scriptInfo.src) {
-                            newScript.src = scriptInfo.src;
+                        newScript.setAttribute('src', src);
+                        // Apply other attributes (type, defer, etc.)
+                        for (const attrName in attributes) {
+                            newScript.setAttribute(attrName, attributes[attrName]);
                         }
-                        if (scriptInfo.type) {
-                            newScript.type = scriptInfo.type;
-                        }
-                        if (scriptInfo.defer) {
-                            newScript.defer = true;
-                        }
-                        if (scriptInfo.async) {
-                            newScript.async = true;
-                        }
-                        if (scriptInfo.content) {
-                            newScript.textContent = scriptInfo.content;
-                        }
-                        logMessage(`Appending script: src=${newScript.src}, defer=${newScript.defer}, async=${newScript.async}, type=${newScript.type}, hasContent=${!!newScript.textContent}`, "debug", "PREVIEW");
-                        // Append to body to ensure execution context
-                        document.body.appendChild(newScript);
-                        // Optionally remove it after execution if it's a one-time setup script?
-                        // document.body.removeChild(newScript); 
-                    });
-                     logMessage('Finished appending extracted scripts.', "debug", "PREVIEW");
-                } catch (appendError) {
-                     logMessage(`Error appending extracted scripts: ${appendError.message}`, 'error', "PREVIEW");
-                     console.error('[PREVIEW SCRIPT APPEND ERROR]', appendError);
-                }
-                 // --- End Execute Extracted Scripts ---
+                        newScript.setAttribute('data-md-preview-js', 'true'); // Mark as injected
+                        document.head.appendChild(newScript);
+                    }
+                });
+                // --- End Script Reconciliation ---
 
-                // --- Re-ensure previewEventBus before handleFrontMatter ---
-                // (In case init failed or was skipped somehow)
-                if (typeof window.previewEventBus === 'undefined') {
-                    if (eventBus) {
-                       window.previewEventBus = eventBus;
-                       logMessage('Re-assigned window.previewEventBus just before handleFrontMatter.', "debug", "PREVIEW");
-                   } else {
-                       logMessage('Main eventBus instance not available before handleFrontMatter.', 'error', "PREVIEW");
-                   }
-                 }
-                // --- End Re-ensure ---
+                // --- Process Body Content (only non-script nodes now) --- 
+                this.previewElement.innerHTML = ''; // Clear existing content
+                parsedDoc.body.childNodes.forEach(node => {
+                    // Only append non-script nodes from the body
+                    // Scripts from body (e.g., inline frontmatter script) might need different handling if required
+                    if (node.nodeName !== 'SCRIPT') { 
+                        this.previewElement.appendChild(node.cloneNode(true));
+                    }
+                });
 
-                // Handle front matter if present, using the 'frontMatter' property
-                if (renderResult.frontMatter && Object.keys(renderResult.frontMatter).length > 0) {
-                    this.handleFrontMatter(renderResult.frontMatter);
-                } else {
-                    logMessage('No front matter data found to handle.', "debug", "PREVIEW");
-                }
-
-                logMessage('[PREVIEW] Calling postProcessRender...', "debug", "PREVIEW");
-                await postProcessRender(this.previewElement);
-                logMessage('postProcessRender finished.', "debug", "PREVIEW");
-                
-                // Ensure SVG processing call is still commented out
-                // logMessage('[PREVIEW] Processing SVG content...');
-                // await processSvgContent();
-                // logMessage('SVG processing finished.',"DEBUG","PREVIEW");
-            
-                logMessage('Preview updated successfully', "debug", "PREVIEW");
-                resolve(renderResult); // Returnf the actual result object
             } else {
-                logMessage('Preview element became null during update.', 'error', "PREVIEW");
-                resolve(false); // Keep returning false on specific failure cases
+                 // This case should no longer happen with the ContentView reverted, but keep log for safety.
+                 logMessage(`Preview element is unexpectedly an IFRAME. Cannot update content correctly.`, "error", "PREVIEW"); 
+                 // Maybe set srcdoc as a fallback? Or throw error? 
+                 // this.previewElement.srcdoc = fullHtml;
             }
+            logMessage('Preview content updated successfully via DOM manipulation', "debug", "PREVIEW");
+            
+            // Post-processing for things like Mermaid/Katex might still be needed after content is added
+            await postProcessRender(this.previewElement);
+
+            // Force a brief pause to allow the browser to potentially finish DOM updates
+            // after setting innerHTML and running postProcessRender.
+            await new Promise(resolve => setTimeout(resolve, 0)); 
+            // <<< END ADDED DELAY >>>
+
+            // --- ADD the correct plugin processing loop ---
+            logMessage(`Processing initialized plugins after content update...`, "debug", "PREVIEW");
+            const initializedPlugins = getEnabledPlugins(); 
+            logMessage(`Plugins to process (keys): ${[...initializedPlugins.keys()].join(', ')}`, "debug", "PREVIEW"); 
+            logMessage(`Plugins to process (map size): ${initializedPlugins.size}`, "debug", "PREVIEW"); // Log size
+
+            for (const [name, pluginInstance] of initializedPlugins.entries()) {
+              logMessage(`Looping: name='${name}', typeof instance=${typeof pluginInstance}, instance has process=${typeof pluginInstance?.process === 'function'}`, 'debug', 'PREVIEW_LOOP');
+              if (pluginInstance && typeof pluginInstance.process === 'function') {
+                try {
+                  logMessage(`Processing plugin: ${name}...`, "debug", "PREVIEW"); // <<< This logs for 'mermaid'
+                  await pluginInstance.process(this.previewElement); 
+                  logMessage(`Plugin processed: ${name}`, "debug", "PREVIEW"); // <<< This logs for 'mermaid'
+                } catch (processError) {
+                  logMessage(`Error processing plugin: ${name}: ${processError.message}`, "error", "PREVIEW");
+                  console.error("Error details during plugin processing:", processError);
+                }
+              } else if (name !== 'css' && name !== 'highlight') { 
+                   logMessage(`Plugin ${name} has no process method or is not initialized.`, 'warn', 'PREVIEW_LOOP');
+              }
+            }
+
+            resolve(true);
           } catch (error) {
-            console.error('[PREVIEW] Render error:', error);
-            logMessage(`Failed to render markdown: ${error.message}`, 'error', "PREVIEW");
-            console.error('[PREVIEW ERROR]', error);
-            resolve(false); // Indicate failure
+            logMessage(`Error during delayed preview update: ${error.message}`, "error", "PREVIEW");
+            console.error("[PREVIEW TIMEOUT ERROR]", error);
+            resolve(false);
           }
         }, this.config.updateDelay);
       });
     } catch (error) {
-      console.error('[PREVIEW] Update error:', error);
-      logMessage(`Failed to update preview: ${error.message}`, 'error', "PREVIEW");
-      console.error('[PREVIEW ERROR]', error);
-      return false; // Indicate failure
+      logMessage(`Error in updatePreview (scheduling phase): ${error.message}`, "error", "PREVIEW");
+      console.error("[PREVIEW SCHEDULING ERROR]", error);
+      return Promise.resolve(false); // Indicate failure
     }
   }
 
@@ -349,22 +444,70 @@ export class PreviewManager {
 
     logMessage('Front matter handling complete.', "debug", "PREVIEW");
   }
+
+  destroy() {
+      logMessage('Destroying PreviewManager instance...', 'debug', 'PREVIEW');
+      // --- Unsubscribe from Event Bus ---
+      if (eventBus && typeof eventBus.off === 'function') {
+        this.eventBusListeners.forEach(({ event, listener }) => {
+            eventBus.off(event, listener);
+            logMessage(`Unsubscribed from event: ${event}`, 'debug', 'PREVIEW');
+        });
+      }
+      this.eventBusListeners = [];
+      // ---------------------------------
+      if (this.updateTimer) { clearTimeout(this.updateTimer); }
+      this.previewElement = null; this.initialized = false; previewInstance = null;
+  }
 }
 
 // Export these functions for external use
 export function initPreview(options = {}) {
-  const manager = new PreviewManager(options);
+  // Ensure 'css' is included in default plugins if desired
+  const defaultOptions = {
+    plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'], // Added 'css'
+    container: '#md-preview',
+    theme: 'light',
+    updateDelay: 100,
+    autoRender: true,
+  };
+  const finalOptions = { ...defaultOptions, ...options };
+  const manager = new PreviewManager(finalOptions);
   return manager.init();
 }
 
-export function updatePreview(content) {
-  const manager = new PreviewManager();
-  return manager.update(content);
+export function updatePreview(content, markdownFilePath) {
+  if (!previewInstance || !previewInstance.initialized) {
+    console.error('[PREVIEW] Preview not initialized. Call initPreview() first.');
+    logMessage('Attempted to update non-initialized preview', 'error', 'PREVIEW');
+    return Promise.reject('Preview not initialized');
+  }
+  // Pass the path to the instance method
+  return previewInstance.update(content, markdownFilePath);
 }
 
 export function setPreviewTheme(theme) {
   const manager = new PreviewManager();
   return manager.setTheme(theme);
+}
+
+/**
+ * Reset all plugin settings to defaults (all enabled)
+ * Use this for troubleshooting or if settings get corrupted
+ */
+export function resetPluginSettings() {
+  try {
+    // Clear the plugin state from localStorage
+    localStorage.removeItem('pluginsEnabledState');
+    console.log('[PREVIEW] Plugin settings reset to defaults (all enabled)');
+    
+    // Force reload of the page to apply changes
+    window.location.reload();
+    return true;
+  } catch (error) {
+    console.error('[PREVIEW] Failed to reset plugin settings:', error);
+    return false;
+  }
 }
 
 /**

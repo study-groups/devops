@@ -1,3 +1,7 @@
+.sessions
+env.sh
+*.DIFF
+*.WORKING
 qa
 *.OLD
 pd

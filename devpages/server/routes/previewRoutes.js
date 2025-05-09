@@ -2,8 +2,8 @@ import express from 'express';
 import { Router } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
-import playwright from 'playwright';
 import { fileURLToPath } from 'url';
+import { generateStaticHtml } from '../utils/htmlGenerator.js';
 
 // Import config with .js extension
 import { port } from '../config.js';
@@ -11,6 +11,8 @@ import { port } from '../config.js';
 // Derive __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Define project root relative to this file's location
+const projectRootDir = path.resolve(__dirname, '../..');
 
 const router = Router();
 
@@ -102,58 +104,6 @@ router.get('/preview-direct/:slug', (req, res) => {
       console.error(`[SERVER] Error reading viewer.html: ${err.message}`);
       return res.status(500).send('Error loading preview page');
   });
-});
-
-// API endpoint to generate static HTML using Playwright
-router.get('/api/preview/static-html', async (req, res) => {
-  console.log(`[SERVER] Static HTML generation request received.`);
-  let browser = null;
-  try {
-    // Launch the browser (Chromium is often a good default)
-    browser = await playwright.chromium.launch();
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    // Construct the base URL using the configured port
-    // Ensure process.env.NODE_ENV is checked for proper http/https handling if needed
-    const baseUrl = `http://localhost:${port}`;
-    const targetUrl = `${baseUrl}/`; // Target the root page
-
-    console.log(`[SERVER] Navigating to ${targetUrl} for HTML capture...`);
-
-    // Navigate to the page and wait for it to be fully loaded
-    await page.goto(targetUrl, { waitUntil: 'networkidle' }); 
-    // 'networkidle' waits until there are no network connections for 500 ms.
-    // This might need adjustment based on how your SPA loads data.
-
-    console.log(`[SERVER] Page loaded, extracting HTML...`);
-
-    // Get the full HTML content of the page
-    const htmlContent = await page.content();
-
-    console.log(`[SERVER] HTML extracted successfully.`);
-
-    // Set headers for file download
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', 'attachment; filename="preview.html"');
-
-    // Send the HTML content
-    res.send(htmlContent);
-
-  } catch (error) {
-    console.error(`[SERVER] Error generating static HTML: ${error.message}`);
-    console.error(error.stack); // Log the full stack trace
-    res.status(500).json({ 
-        error: 'Failed to generate static HTML preview.',
-        details: error.message 
-    });
-  } finally {
-    // Ensure the browser is closed even if an error occurs
-    if (browser) {
-      console.log(`[SERVER] Closing Playwright browser.`);
-      await browser.close();
-    }
-  }
 });
 
 // API endpoint to fetch preview data - useful for cross-device viewing
@@ -299,4 +249,124 @@ router.get('/preview-fallback', async (req, res) => {
   res.sendFile(path.resolve(__dirname, '../../client/preview/viewer.html'));
 });
 
-export default router; 
+// List of essential CSS files relative to the project root
+// Adjust these paths based on your actual project structure!
+const essentialCssFiles = [
+    'client/output.css', // Tailwind
+    // Example path if KaTeX installed via npm and served directly or copied to public
+     'client/vendor/katex/katex.min.css', // Assuming you might copy it here? Adjust path as needed.
+    // Or if served from node_modules (ensure your server setup allows this)
+    // 'node_modules/katex/dist/katex.min.css',
+    // Add paths to highlight.js themes or other preview-specific CSS here
+    // 'client/vendor/highlight/styles/github-dark.css',
+    // 'client/css/markdown-preview-theme.css',
+];
+
+// Helper function to check if a path is an HTTP/HTTPS URL
+const isHttpUrl = (str) => {
+  try {
+    const url = new URL(str);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) {
+    return false; // Not a valid URL format
+  }
+};
+
+// --- Logging Helper ---
+function logServer(message, level = 'info') {
+    const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
+    logFunc(`[PREVIEW_API] ${message}`);
+}
+
+// --- Define Base/Essential CSS Resources ---
+// Can include local paths (relative to project root) and full URLs
+const basePreviewCssResources = [
+    // 'client/output.css', // <<< REMOVED Tailwind CSS
+    'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css', // KaTeX CDN URL
+    // Add other essential local paths or CDN URLs ONLY IF NEEDED for preview
+];
+
+// --- CSS Reading Function (Only for local files) ---
+async function readLocalCssFile(relativePath, dataRootDir, projectRootDir) {
+    try {
+        let absolutePath;
+        const normalizedPath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
+
+        // Determine root based on path prefix
+        if (normalizedPath.startsWith('client/')) {
+            absolutePath = path.resolve(projectRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to project root: ${absolutePath}`, 'debug');
+        } else if (normalizedPath.startsWith('node_modules/')) {
+             absolutePath = path.resolve(projectRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to project node_modules: ${absolutePath}`, 'debug');
+        } else {
+             // Assume relative to data root (MD_DIR)
+             if (!dataRootDir) throw new Error('Data root directory (MD_DIR) is not configured or available.');
+             absolutePath = path.resolve(dataRootDir, normalizedPath);
+             logServer(`Resolving LOCAL CSS relative to data root (${dataRootDir}): ${absolutePath}`, 'debug');
+        }
+
+        if (!absolutePath.startsWith(projectRootDir) && !absolutePath.startsWith(dataRootDir)) {
+             throw new Error(`CSS path escape attempt detected: ${relativePath} resolved to ${absolutePath}`);
+        }
+
+        logServer(`Reading LOCAL CSS file: ${absolutePath}`);
+        let content = await fs.readFile(absolutePath, 'utf-8');
+        return { source: relativePath, content: content };
+    } catch (error) {
+        logServer(`Error reading LOCAL CSS file ${relativePath}: ${error.message}`, 'error');
+        return { source: relativePath, content: `/* CSS File Read Error: ${relativePath} - ${error.message} */`, error: true };
+    }
+}
+
+// --- Static HTML Generation Route (Modified for Links) ---
+router.post('/generate-static', express.json({ limit: '10mb' }), async (req, res) => {
+    logServer('Received request for POST /generate-static');
+    try {
+        const { filePath, markdownSource, renderedHtml, activeCssPaths } = req.body;
+
+        if (!renderedHtml) {
+            logServer('Missing renderedHtml in request body', 'error');
+            return res.status(400).json({ error: 'Missing required field: renderedHtml' });
+        }
+        if (!req.pdata?.dataRoot) {
+            logServer('dataRoot not found in req.pdata. This is needed for resolving some asset paths.', 'error');
+            // Depending on strictness, you might return an error or proceed if only project-relative assets are expected.
+            // For now, we'll proceed, but htmlGenerator might have issues with user-content paths.
+        }
+        
+        // projectRootDir is defined at the top of previewRoutes.js
+        // dataRootDir for htmlGenerator should be the user's content root (e.g., /root/pj/pd or MD_DIR)
+        // If your `req.pdata.dataRoot` is `/root/pj/pd`, and user content (MD files) are in `/root/pj/pd/data`,
+        // then htmlGenerator's dataRootDir might need to be path.join(req.pdata.dataRoot, 'data')
+        // For now, let's assume req.pdata.dataRoot is the direct root for MD files for simplicity,
+        // or that htmlGenerator handles the /data subdir internally if needed.
+        // The crucial part is that `htmlGenerator` needs a `dataRootDir` that represents the base from which
+        // paths like "observability/screenshots/screenshot-001.md" or CSS "styles.css" (if in dataRoot) are resolved.
+
+        const htmlGeneratorOptions = {
+            renderedHtml: renderedHtml,
+            markdownSource: markdownSource,
+            requestedCssPaths: req.body.cssFiles || [],
+            originalFilePath: filePath,
+            dataRootDir: req.pdata?.dataRoot,
+            projectRootDir: projectRootDir,
+            uploadsDir: req.pdata?.uploadsDir
+        };
+
+        // Simplified log message to avoid syntax errors
+        logServer('Calling generateStaticHtml with some options...', 'debug'); 
+        // console.log('DEBUG htmlGeneratorOptions:', htmlGeneratorOptions); // Alternative direct console log for debugging if needed
+        
+        const finalHtmlContent = await generateStaticHtml(htmlGeneratorOptions);
+
+        logServer(`Static HTML generated by htmlGenerator.js (length: ${finalHtmlContent.length}). Sending response.`);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(finalHtmlContent);
+    } catch (error) {
+        console.error(`[SERVER] Error generating static HTML: ${error.message}`);
+        res.status(500).json({ error: 'Error generating static HTML' });
+    }
+});
+
+export default router;

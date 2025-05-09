@@ -1,0 +1,51 @@
+{
+      "name": "@nodeholder/pdata",
+      "version": "0.1.4",
+      "description": "PData service for secure file management",
+      "keywords": [
+            "pdata",
+            "file",
+            "auth",
+            "api"
+      ],
+      "homepage": "https://github.com/study-groups/devops#readme",
+      "bugs": {
+            "url": "https://github.com/study-groups/devops/issues"
+      },
+      "repository": {
+            "type": "git",
+            "url": "git+https://github.com/study-groups/devops.git"
+      },
+      "license": "ISC",
+      "author": "Mike Ricos",
+      "type": "module",
+      "exports": {
+            ".": "./index.js"
+      },
+      "main": "./index.js",
+      "bin": {
+            "pdata-usermgr": "./manageUsers.js"
+      },
+      "files": [
+            "index.js",
+            "PData.js",
+            "routes.js",
+            "userUtils.js",
+            "manageUsers.js"
+      ],
+      "scripts": {},
+      "dependencies": {
+            "multer": "^1.4.5-lts.1",
+            "passport": "^0.6.0",
+            "express-session": "^1.17.0"
+      },
+      "peerDependencies": {
+            "express": "^4.17.1"
+      },
+      "engines": {
+            "node": ">=18.0.0"
+      },
+      "publishConfig": {
+            "access": "public"
+      }
+}

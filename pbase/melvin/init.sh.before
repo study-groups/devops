@@ -1,0 +1,14 @@
+# melvin: check if PJ_DIR set
+PBVM_ROOT=$PJ_DIR/pbvm
+
+# melvin:
+# prompt to set PBASE_DIR if not set
+# suggest $HOME/pj as a default
+# if it is already set, say so and 
+# state what you are going to do with it
+# do the same for PBASE_SRC
+ 
+source $PBASE_DIR/local.env
+source $PBASE_SRC/bash/bootstrap.sh
+source $PBASE_SRC/pbvm/pbvm.sh
+pbvm status

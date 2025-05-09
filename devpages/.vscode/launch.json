@@ -3,7 +3,36 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
+
     "configurations": [
+          {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Launch Server",
+            "program": "${workspaceFolder}/server/server.js",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "runtimeExecutable": "node",
+            "env": {
+              "NODE_ENV": "development",
+              "PD_DB": "${workspaceFolder}/pd",
+              "PD_DIR": "${workspaceFolder}/pd",
+              "PD_DATA": "${workspaceFolder}/md",
+              "SESSION_SECRET": "dev-secret-change-for-prod"
+            }
+          },
+      
+      
+
+        {
+            "type": "pwa-node",
+            "request": "attach",
+            "name": "Attach to Node Process",
+            "processId": "${command:PickProcess}",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
 
         {
             "type": "chrome",

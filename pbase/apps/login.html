@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <!-- Tailwind CSS and DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" 
+  rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@1.15.0/dist/full.css" 
+  rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@1.6.1"></script>
+  <style>
+    /* Set a single background color for the entire page */
+    html, body, main, #loginForm {
+        background-color: #1a202c; /* Adjust this color as needed */
+    }
+
+    /* Remove any potential margins or padding that might cause gaps */
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+    }
+
+    /* Ensure the main content fills the entire viewport */
+    body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    main {
+        flex: 1;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+  <main class="flex-1 flex items-center justify-center">
+    <div class="w-full max-w-xs">
+      <form id="loginForm" class="bg-gray-900 shadow-md rounded px-8 pt-6 pb-8 mb-4"
+       onsubmit="return handleLoginFormSubmit(event)">
+        <h2 class="text-center text-xl font-bold mb-6">Login</h2>
+        <div class="mb-4">
+          <label class="block text-gray-400 text-sm font-bold mb-2"
+           for="password">
+            Password
+          </label>
+          <input class="shadow appearance-none border
+           rounded w-full py-2 px-3 text-gray-700 leading-tight 
+           focus:outline-none focus:shadow-outline" id="password" 
+           name="password" type="password" placeholder="********" 
+           required autofocus>
+        </div>
+        <div class="mb-4">
+          <label class="flex items-center">
+            <input type="checkbox" id="debugCheckbox" 
+            class="form-checkbox text-blue-600" 
+            onclick="toggleDebugging()">
+            <span class="ml-2 text-gray-400">Enable Debugging</span>
+          </label>
+        </div>
+        <div class="flex items-center justify-between">
+          <button id="signInButton" class="bg-blue-500 hover:bg-blue-700
+           text-white font-bold py-2 px-4 rounded focus:outline-none
+            focus:shadow-outline" type="submit">
+            Sign In
+          </button>
+          <button id="goToButton" class="bg-gray-500 text-white 
+          font-bold py-2 px-4 rounded focus:outline-none 
+          focus:shadow-outline ml-2" type="button" 
+          disabled onclick="goToIndex()">
+            Enter
+          </button>
+        </div>
+      </form>
+      <div id="statusModal" class="hidden bg-gray-900 bg-opacity-75 
+      fixed inset-0 flex items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded shadow-md">
+          <p id="statusText" class="text-center text-xl text-white"></p>
+          <button id="backButton" class="bg-gray-700 hover:bg-gray-600
+           text-white font-bold py-2 px-4 mt-4 rounded focus:outline-none
+            focus:shadow-outline" 
+            onclick="backToLogin()">Back</button>
+        </div>
+      </div>
+      <p id="hashDisplay" class="text-gray-500 text-center mt-4"></p>
+    </div>
+  </main>
+  
+  <!-- Container where the debug panel will be loaded -->
+  <div id="debug-container"></div>
+</body>
+</html>
+
+</html>

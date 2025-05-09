@@ -1,0 +1,68 @@
+# Melvin: Check if PJ_DIR is set. If it's set, derive PBVM_ROOT from it.
+if [ -z "$PJ_DIR" ]; then
+    echo "Error: PJ_DIR is not set. Please set PJ_DIR to proceed."
+    exit 1
+else
+    PBVM_ROOT="$PJ_DIR/pbvm"
+    echo "PBVM_ROOT is set to $PBVM_ROOT"
+fi
+
+# Melvin: Prompt to set PBASE_DIR if not set, suggest $HOME/pj as default.
+if [ -z "$PBASE_DIR" ]; then
+    echo "PBASE_DIR is not set. Suggesting default: $HOME/pj"
+    PBASE_DIR="$HOME/pj"  # Default setting if PBASE_DIR is not explicitly set
+    echo "Setting PBASE_DIR to $PBASE_DIR" 
+else
+    echo "PBASE_DIR is already set to $PBASE_DIR."
+    echo "Proceeding to use $PBASE_DIR as base directory."
+fi
+
+# Melvin: Process the same for PBASE_SRC
+if [ -z "$PBASE_SRC" ]; then
+    echo "PBASE_SRC is not set. Please set PBASE_SRC to point to your source directory."
+    exit 1
+else
+    echo "PBASE_SRC is set to $PBASE_SRC, configuring environment."
+fi
+
+# Melvin: Source required environment and scripts
+source "$PBASE_DIR/local.env"
+source "$PBASE_SRC/bash/bootstrap.sh"
+source "$PBASE_SRC/pbvm/pbvm.sh"
+
+# Melvin: Now checking pbvm status
+pbvm status
+# Melvin: Check if PJ_DIR is set. If it's set, derive PBVM_ROOT from it.
+if [ -z "$PJ_DIR" ]; then
+    echo "Error: PJ_DIR is not set. Please set PJ_DIR to proceed."
+    exit 1
+else
+    PBVM_ROOT="$PJ_DIR/pbvm"
+    echo "PBVM_ROOT is set to $PBVM_ROOT"
+fi
+
+# Melvin: Prompt to set PBASE_DIR if not set, suggest $HOME/pj as default.
+if [ -z "$PBASE_DIR" ]; then
+    echo "PBASE_DIR is not set. Suggesting default: $HOME/pj"
+    PBASE_DIR="$HOME/pj"  # Default setting if PBASE_DIR is not explicitly set
+    echo "Setting PBASE_DIR to $PBASE_DIR" 
+else
+    echo "PBASE_DIR is already set to $PBASE_DIR."
+    echo "Proceeding to use $PBASE_DIR as base directory."
+fi
+
+# Melvin: Process the same for PBASE_SRC
+if [ -z "$PBASE_SRC" ]; then
+    echo "PBASE_SRC is not set. Please set PBASE_SRC to point to your source directory."
+    exit 1
+else
+    echo "PBASE_SRC is set to $PBASE_SRC, configuring environment."
+fi
+
+# Melvin: Source required environment and scripts
+source "$PBASE_DIR/local.env"
+source "$PBASE_SRC/bash/bootstrap.sh"
+source "$PBASE_SRC/pbvm/pbvm.sh"
+
+# Melvin: Now checking pbvm status
+pbvm status

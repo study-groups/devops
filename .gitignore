@@ -1,5 +1,6 @@
-pb.sh
-pbase
+tmp
+*.1
+*.2
 nh-data
 qik/
 qa/

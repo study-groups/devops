@@ -10,6 +10,8 @@ import fileManager from '/client/filesystem/fileManager.js'; // Needed for loadF
 import { loadFile, saveFile } from '/client/filesystem/fileManager.js'; // (Updated path)
 import { logout } from '/client/auth.js';
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
+import { downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js'; // Use the correct absolute path
+import { refreshPreview as refreshPreviewFunction } from '/client/previewManager.js';
 
 
 // Helper for logging within this module
@@ -263,52 +265,14 @@ export const triggerActions = {
     },
 
     // --- NEW Nav Bar Actions ---
-    refreshPreview: async () => {
-        logAction('Refresh Preview action triggered', 'info');
+    refreshPreview: (params, element) => {
+        console.log('[Action] refreshPreview triggered');
         try {
-            // 1. Clear the client-side log panel FIRST
-            if (window.logPanel && typeof window.logPanel.clearLog === 'function') {
-                 window.logPanel.clearLog();
-                 logAction('Client log panel cleared.', 'debug');
-             } else {
-                 logAction('window.logPanel or clearLog method not found.', 'warning');
-             }
-
-            // >>> ADDED: Emit event for host to reset its log <<<
-            if (window.previewEventBus && typeof window.previewEventBus.emit === 'function') {
-                window.previewEventBus.emit('host:reset_log');
-                logAction('Emitted host:reset_log event.', 'debug');
-            } else {
-                logAction('window.previewEventBus not available, cannot emit host:reset_log', 'warning');
-            }
-
-            // 1. Clear the specific logs in the preview pane (Optional - Uncomment if host script uses these IDs)
-            // try {
-            //     const hostLog = document.getElementById('host-script-log-entries'); // Use the specific container
-            //     const eventLog = document.getElementById('event-bus-log-entries'); // Use the specific container
-            //     if (hostLog) hostLog.innerHTML = '';
-            //     if (eventLog) eventLog.innerHTML = '';
-            //     logAction('Cleared host and event bus logs in preview.', 'debug');
-            // } catch (e) {
-            //     logAction(`Error clearing logs: ${e.message}`, 'error');
-            // }
-
-            // 2. Optionally emit an event if some component needs to react before refresh
-            // This part seems less necessary now that previewManager handles refresh directly
-            // logAction('Emitting preview:force_reload event.', 'debug');
-            // if (window.previewEventBus) {
-            //     window.previewEventBus.emit('preview:force_reload');
-            // } else {
-            //     logAction('window.previewEventBus not found, cannot emit force_reload event.', 'warning');
-            // }
-
-            // 3. Refresh the actual markdown preview content using previewManager
-            logAction('Refreshing markdown preview content via previewManager.refreshPreview().', 'debug');
-            await refreshPreview(); // Call the directly imported function
-            logAction('Called refreshPreview() successfully', 'debug');
+            // CORRECTED: Call the imported and aliased function
+            refreshPreviewFunction();
         } catch (error) {
-            logAction(`Error refreshing markdown preview: ${error.message}`, 'error');
-            console.error('[ACTION refreshPreview ERROR]', error);
+            console.error('[Action refreshPreview ERROR]', error);
+            // Optionally show an error message to the user
         }
     },
     loadFile: async (data = {}) => {
@@ -398,97 +362,11 @@ export const triggerActions = {
         }
     },
 
-    // --- Updated: Static HTML Download Action (Client-Side) ---
-    downloadStaticHTML: async () => { // Made async to await fileManager import
-        logAction('Triggering client-side downloadStaticHTML...');
-        try {
-            logAction('Generating static HTML from Markdown preview area...');
-            
-            // Import editorCore to get content
-            const { getContent } = await import('/client/editor.js'); // Import specific function
-            
-            // Import file system state for metadata
-            const { getCurrentFile, getCurrentDirectory } = await import('/client/fileSystemState.js');
-            
-            // Get file info from fileSystemState
-            let currentFile = getCurrentFile() || 'unknown_file';
-            let currentDir = getCurrentDirectory() || 'unknown_dir';
-            
-            // 1. Get the Markdown preview element again
-            const previewElement = document.getElementById('md-preview');
-            if (!previewElement) {
-                throw new Error('Markdown preview element (#md-preview) not found.');
-            }
-            
-            // 2. Get preview's rendered inner HTML content for the body
-            const previewContent = previewElement.innerHTML;
-            // 3. Get original Markdown for the comment
-            const markdownContent = getContent() || ''; // Use imported getContent()
-            const generationTime = new Date().toISOString();
-            
-            // 4. Construct YAML Front Matter (within the comment)
-            const yamlFrontMatter = `---
-file: ${currentFile}
-directory: ${currentDir}
-generated_at: ${generationTime}
----`;
-            
-            // 5. Construct the hidden div containing metadata and source
-            const metadataContainer = `
-<div id="devpages-metadata-source" style="display:none; height:0; overflow:hidden; position:absolute;">
-<pre># --- DevPages Metadata & Source --- #
-${yamlFrontMatter}
-
-## Original Markdown Source ##
-
-${markdownContent}
-</pre>
-</div>`;
-            
-            // 6. Create the full HTML structure
-            const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview: ${currentFile}</title> <!-- Updated title -->
-  <link rel="stylesheet" href="/client/preview.css"> 
-</head>
-<body>
-  <div class="markdown-body">
-${previewContent} <!-- Use rendered HTML here -->
-  </div>
-${metadataContainer} <!-- Added hidden div at the end of body -->
-</body>
-</html>`;
-            
-            // 7. Create a Blob from the HTML content
-            const blob = new Blob([htmlContent], { type: 'text/html' });
-            
-            // 8. Create an Object URL for the Blob
-            const url = window.URL.createObjectURL(blob);
-            
-            // 9. Create a temporary link element
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = 'preview.html'; // Set the desired filename
-            
-            // 10. Append the link to the body and trigger the download
-            document.body.appendChild(a);
-            a.click();
-            
-            // 11. Clean up: Revoke the Object URL and remove the link
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            logAction('Static HTML generated from preview (with metadata) and download initiated.');
-
-        } catch (error) {
-            logAction(`Error during client-side downloadStaticHTML: ${error.message}`, 'error');
-            logAction(`[ACTION ERROR] Failed to generate static HTML: ${error.message}`, 'error');
-            alert(`Failed to generate static HTML: ${error.message}`); // Notify user
-        }
+    // --- FIXED & REFINED: Static HTML Download Action ---
+    downloadStaticHTML: async () => {
+        logAction('Triggering static HTML generation via imported function...');
+        // Call the refactored function
+        await downloadStaticHTML();
     },
 
     // --- Image Actions ---
@@ -1050,6 +928,87 @@ ${metadataContainer} <!-- Added hidden div at the end of body -->
         } catch (e) {
             logAction(`Failed to save SmartCopy Buffer A to localStorage: ${e.message}`, 'error');
             alert('Failed to save selection to buffer A.');
+        }
+    },
+
+    publishToSpaces: async () => {
+        const logPrefix = 'ACTION publishToSpaces';
+        logAction('Triggering file publish to DO Spaces...', 'info', 'PUBLISH');
+        let editor, rawMarkdownContent, currentPathname, generatedHtmlContent;
+
+        try {
+            // 1. Get Editor Content
+            const editorSelectors = [
+                '#md-editor textarea', '#editor-container textarea',
+                'textarea.markdown-editor', 'textarea#editor', 'textarea'
+            ];
+            editor = editorSelectors.map(sel => document.querySelector(sel)).find(el => el);
+            if (!editor) throw new Error('Editor element not found.');
+            rawMarkdownContent = editor.value || '';
+            if (!rawMarkdownContent.trim()) throw new Error('Editor content is empty.');
+            logAction('Editor content retrieved.', 'debug', 'PUBLISH');
+
+            // 2. Get Current Pathname from appStore
+            currentPathname = appStore.getState().file?.currentPathname;
+            if (!currentPathname || appStore.getState().file?.isDirectorySelected) {
+                throw new Error('No file is currently selected for publishing.');
+            }
+            logAction(`Publishing: ${currentPathname}`, 'debug', 'PUBLISH');
+
+            // 3. Generate HTML using the Client-Side Utility
+            logAction('Generating static HTML string...', 'debug', 'PUBLISH');
+            // Ensure generateStaticHTMLString is correctly imported and works
+            generatedHtmlContent = await downloadStaticHTML({
+                markdownSource: rawMarkdownContent,
+                originalFilePath: currentPathname,
+                // activeCssPaths: [], // Pass active CSS if needed by your generator
+            });
+            if (generatedHtmlContent === null || typeof generatedHtmlContent !== 'string') {
+                // Check for null or non-string return value indicating failure
+                throw new Error('Static HTML string generation failed or returned invalid content.');
+            }
+            logAction(`HTML generated (Length: ${generatedHtmlContent.length})`, 'debug', 'PUBLISH');
+
+            // 4. Send Generated HTML to Server
+            logAction(`Sending generated HTML to /api/publish...`, 'debug', 'PUBLISH');
+            const response = await fetch('/api/publish', { // Use fetch directly
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, // Ensure correct header
+                body: JSON.stringify({
+                    pathname: currentPathname,          // Original MD path for tracking
+                    htmlContent: generatedHtmlContent   // Send the generated HTML
+                })
+            });
+
+            const data = await response.json(); // Always try to parse JSON response
+
+            if (!response.ok) {
+                // Use error message from server response if available
+                throw new Error(data?.error || `Server error: ${response.status} ${response.statusText}`);
+            }
+            if (!data.success || !data.url) {
+                 throw new Error('Publish API returned success=false or missing URL');
+            }
+
+            // 5. Handle Success
+            logAction(`Published successfully to: ${data.url}`, 'info', 'PUBLISH');
+            if (confirm(`File published successfully!\n\nURL: ${data.url}\n\nClick OK to copy URL.`)) {
+                try {
+                    await navigator.clipboard.writeText(data.url);
+                    logAction('Published URL copied.', 'info', 'PUBLISH');
+                } catch (copyError) {
+                     logAction(`Failed to copy URL to clipboard: ${copyError.message}`, 'warn', 'PUBLISH');
+                     // Alert user maybe?
+                     alert("Could not automatically copy URL, but it is: " + data.url);
+                }
+            }
+            // Maybe update the button state via publishButton.js checkPublishStatus?
+            // import { checkPublishStatus } from '/client/components/publishButton.js'; checkPublishStatus(currentPathname);
+
+        } catch (error) {
+            logAction(`Publish error: ${error.message}`, 'error', 'PUBLISH');
+            console.error('[PUBLISH ACTION ERROR]', error);
+            alert(`Failed to publish: ${error.message}`);
         }
     },
 }; // <<< Add missing closing brace for triggerActions object

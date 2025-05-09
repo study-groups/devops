@@ -140,24 +140,41 @@
 /* --- END Mermaid Error Styling --- */
 
 /* ============================================= */
-/* AGGRESSIVE KaTeX DEBUG OVERRIDES - START       */
+/* KaTeX Styling Adjustments (Increased Specificity) */
 /* ============================================= */
 
-/* Reset needed for specific inner elements */
-.katex .mtable, 
-.katex .vlist, 
-.katex .frac-line,
-.katex .strut,
-.katex .delimsizing,
-.katex .mathit 
-/* , .katex span */ { 
+/* 
+ * Applying baseline vertical alignment with increased specificity 
+ * by targeting elements within #preview-container.
+ * This attempts to override conflicting styles that might be causing 
+ * vertical alignment issues with exponents/subscripts.
+ */
+/*
+#preview-container .katex .mtable, 
+#preview-container .katex .vlist, 
+#preview-container .katex .frac-line,
+#preview-container .katex .strut,
+#preview-container .katex .delimsizing,
+#preview-container .katex .mathit 
+{ 
     vertical-align: baseline !important; 
     line-height: normal !important;    
 }
+*/
+
+/* More targeted override for vertical lists (used for sup/sub) */
+#preview-container .katex .vlist {
+    /* This override counteracts conflicting base styles that incorrectly */
+    /* affect the vertical positioning of elements like superscripts */
+    /* and subscripts within KaTeX's vertical list structure. */
+    vertical-align: baseline !important; 
+    line-height: normal !important; 
+}
 
 /* ============================================= */
-/* AGGRESSIVE KaTeX DEBUG OVERRIDES - END         */
+/* End KaTeX Styling Adjustments                */
 /* ============================================= */
+
 
 #preview-container > h1 {
   font-size: 2em; /* Make it bigger */

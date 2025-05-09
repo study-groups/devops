@@ -251,22 +251,50 @@ export class KaTeXPlugin {
   }
 
   async init(options = {}) {
-    // ... implementation ...
+    try {
+      this.initialized = await init(options);
+      logMessage('[KATEX PLUGIN] Initialization ' + (this.initialized ? 'successful' : 'failed'));
+      return this.initialized;
+    } catch (error) {
+      logMessage(`[KATEX PLUGIN] Initialization failed: ${error.message}`, 'error');
+      console.error('[KATEX PLUGIN] Error during init:', error);
+      this.initialized = false;
+      return false;
+    }
   }
 
-  async preProcess(content) {
-    return content;
-  }
+  async process(previewElement) {
+    if (!this.initialized) {
+      await this.init(); // Try to initialize if not already done
+      if (!this.initialized) {
+        logMessage('[KATEX PLUGIN] Cannot process content - plugin not initialized', 'warning');
+        return;
+      }
+    }
 
-  async postProcess(html, element) {
-    // ... implementation ...
-    return html;
+    // --- DISABLED: The markdown-it-katex plugin handles rendering during markdown parsing. --- 
+    // --- Running renderMathInElement here would try to re-process already rendered HTML, causing errors. --- 
+    /*
+    try {
+      logMessage('[KATEX PLUGIN] Processing math expressions...');
+      await postProcess(previewElement);
+      logMessage('[KATEX PLUGIN] Math expressions processed successfully');
+    } catch (error) {
+      logMessage(`[KATEX PLUGIN] Error processing math: ${error.message}`, 'error');
+      console.error('[KATEX PLUGIN] Error during processing:', error);
+    }
+    */
+   logMessage('[KATEX PLUGIN] Skipping process step as markdown-it handles rendering.', 'debug');
   }
-
+  
+  // Used by markdown-it system
   renderers() {
     return {
       code: codeRenderer,
       paragraph: paragraphRenderer
     };
   }
-} 
+}
+
+// Export the KaTeX plugin and its initialization function
+export { init }; 

@@ -1,0 +1,7 @@
+:root {
+    --hue: 200; /* Default hue value */
+}
+
+.bg-hue {
+    background-color: hsl(var(--hue), 100%, 50%);
+}

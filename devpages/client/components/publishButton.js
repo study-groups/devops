@@ -1,231 +1,307 @@
 /**
- * Simple Publish/Unpublish Button Component
- * Creates a link to a preview page for sharing markdown content
+ * Publish/Unpublish Button Component - Interacts with Server for DO Spaces
+ * Creates/removes a publicly accessible link via a server endpoint.
  */
 
-import { logMessage } from '../log/index.js';
+import eventBus from '/client/eventBus.js';
+import { appStore } from '/client/appState.js'; 
 
-// Add this function at the top of your file
-function publishButtonExists() {
-  return document.getElementById('publish-btn') !== null;
-}
+// --- Configuration ---
+const PUBLISH_API_ENDPOINT = '/api/publish'; // Base endpoint
+const EDITOR_SELECTORS = [
+    '#md-editor textarea',           // Original selector
+    '#editor-container textarea',    // From actions.js
+    'textarea.markdown-editor',      // Class-based selector
+    'textarea#editor',               // ID-based selector
+    'textarea'                       // Last resort - any textarea
+];
 
-// Create and render the publish button
-export function createPublishButton(container) {
-  // Check if button already exists
-  if (document.getElementById('publish-btn')) {
-    logMessage('[PUBLISH] Publish button already exists, not creating another one');
-    return null;
-  }
+// --- State ---
+let currentPublishedState = { isPublished: false, url: null, path: null };
+let isHandlingClick = false; // Prevent double clicks
 
-  const buttonContainer = document.createElement('div');
-  buttonContainer.className = 'publish-button-container';
-  
-  const button = document.createElement('button');
-  button.id = 'publish-btn';
-  button.className = 'btn btn-secondary';
-  button.innerHTML = '🌐 Publish';
-  button.title = 'Create shareable preview link';
-  
-  buttonContainer.appendChild(button);
-  
-  // Add a URL display area that appears when published
-  const linkDisplay = document.createElement('div');
-  linkDisplay.className = 'publish-link-display';
-  linkDisplay.style.display = 'none';
-  buttonContainer.appendChild(linkDisplay);
-  
-  // Find a suitable container
-  const targetContainer = document.querySelector(container) || 
-                         document.querySelector('#toolbar-container') ||
-                         document.querySelector('.md-toolbar') ||
-                         document.querySelector('#md-editor');
-  
-  if (targetContainer) {
-    targetContainer.appendChild(buttonContainer);
-  } else {
-    document.body.appendChild(buttonContainer);
-  }
-  
-  // Attach event handler
-  button.addEventListener('click', handlePublishClick);
-  
-  // Check initial state
-  checkPublishStatus();
-  
-  return buttonContainer;
-}
+// --- DOM Elements ---
+let publishButtonElement = null;
+let linkDisplayElement = null;
+let linkInputElement = null;
+let copyButtonElement = null;
 
-// Handle publish/unpublish button clicks
-async function handlePublishClick() {
-  const button = document.getElementById('publish-btn');
-  const linkDisplay = document.querySelector('.publish-link-display');
-  
-  if (!button || !linkDisplay) return;
-  
-  // Get current file info
-  const currentDir = localStorage.getItem('currentDir');
-  const currentFile = localStorage.getItem('currentFile');
-  
-  if (!currentDir || !currentFile) {
-    alert('Please open a file before publishing');
-    return;
-  }
-  
-  // Get editor content
-  const editor = document.querySelector('#md-editor textarea');
-  if (!editor) {
-    logMessage('[PUBLISH] Editor not found');
-    return;
-  }
-  
-  const content = editor.value || '';
-  
-  try {
-    // NEW: CLIENT-SIDE PUBLISHING SYSTEM
-    // We'll implement publish/unpublish completely on the client side
-    // using localStorage and URL parameters
-    
-    // Check local published data
-    const localPublishData = localStorage.getItem('publishedFiles');
-    const publishedFiles = localPublishData ? JSON.parse(localPublishData) : {};
-    
-    const fileKey = `${currentDir}/${currentFile}`;
-    const isPublished = publishedFiles[fileKey] ? true : false;
-    
-    if (isPublished) {
-      // Unpublish
-      delete publishedFiles[fileKey];
-      localStorage.setItem('publishedFiles', JSON.stringify(publishedFiles));
-      
-      button.innerHTML = '🌐 Publish';
-      button.classList.remove('published');
-      linkDisplay.style.display = 'none';
-      logMessage(`[PUBLISH] File unpublished: ${fileKey}`);
+// Helper for logging
+const logMessage = (message, level = 'info') => {
+    const type = "PUBLISH";
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
     } else {
-      // Publish - generate a unique ID
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substring(2, 8);
-      const publishId = `${timestamp}-${randomStr}`;
-      
-      // Clean the filename for use in URLs
-      const cleanFileName = currentFile
-        .replace(/\.md$/, '')
-        .replace(/[^a-zA-Z0-9-_]/g, '-')
-        .toLowerCase();
-      
-      // Create URL-friendly slug
-      const urlSlug = `${cleanFileName}-${publishId}`;
-      
-      // Store in localStorage
-      // Save the actual content
-      localStorage.setItem(`publish_content_${publishId}`, content);
-      
-      // Save metadata
-      publishedFiles[fileKey] = {
-        id: publishId,
-        slug: urlSlug,
-        fileName: currentFile,
-        publishedAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('publishedFiles', JSON.stringify(publishedFiles));
-      
-      // Create the URL - use a special route that doesn't need server changes
-      const baseUrl = window.location.origin;
-      const viewUrl = `${baseUrl}/index.html?view=${urlSlug}`;
-      
-      button.innerHTML = '🚫 Unpublish';
-      button.classList.add('published');
-      
-      // Display the link
-      linkDisplay.innerHTML = `
-        <input type="text" readonly value="${viewUrl}" class="publish-link-input" />
-        <button class="copy-link-btn">
-          <i class="fas fa-copy"></i> Copy
-        </button>
-      `;
-      linkDisplay.style.display = 'flex';
-      
-      // Add copy button functionality
-      const copyBtn = linkDisplay.querySelector('.copy-link-btn');
-      const linkInput = linkDisplay.querySelector('.publish-link-input');
-      
-      copyBtn.addEventListener('click', () => {
-        linkInput.select();
-        document.execCommand('copy');
-        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        setTimeout(() => {
-          copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-        }, 2000);
-      });
-      
-      logMessage(`[PUBLISH] File published: ${fileKey} at ${viewUrl}`);
+        const logFunc = level === 'error' ? console.error : 
+                      (level === 'warning' ? console.warn : 
+                      (level === 'info' ? console.info : console.log));
+        logFunc(`[${type}] ${message}`);
     }
-  } catch (error) {
-    logMessage(`[PUBLISH ERROR] ${error.message}`);
-    alert(`Publishing failed: ${error.message}`);
-  }
+};
+
+// Setup event listeners
+function setupPublishButtonListener() {
+    logMessage('Setting up publish button listener...', 'info');
+    
+    // Listen for requests from ContextManagerComponent
+    eventBus.on('publish:request', handlePublishRequest);
+    
+    // Initial check when setup is called
+    const fileState = appStore.getState().file;
+    if (fileState.currentPathname && !fileState.isDirectorySelected) {
+        checkPublishStatus(fileState.currentPathname);
+    } else {
+        updateButtonUI(false); // Assume not published if no file selected
+    }
+
+    // Also listen for navigation events to re-check status
+    eventBus.on('navigate:pathname', (data) => {
+        if (data.pathname && !data.isDirectory) {
+            checkPublishStatus(data.pathname);
+        } else {
+            // Clear publish state if navigating to a directory or null path
+            currentPublishedState = { isPublished: false, url: null, path: null };
+            updateButtonUI(false);
+        }
+    });
+    
+    logMessage('Publish button listener setup complete', 'info');
+}
+
+// Find and cache button elements
+function ensureElements() {
+    if (!publishButtonElement) {
+        publishButtonElement = document.getElementById('publish-btn');
+    }
+    
+    if (!linkDisplayElement) {
+        const container = document.querySelector('.file-action-buttons'); 
+        if (container) {
+            linkDisplayElement = container.querySelector('.publish-link-display');
+            if (!linkDisplayElement) {
+                linkDisplayElement = document.createElement('div');
+                linkDisplayElement.className = 'publish-link-display';
+                linkDisplayElement.style.display = 'none';
+                linkDisplayElement.innerHTML = `
+                    <input type="text" readonly class="publish-link-input" />
+                    <button class="copy-link-btn">Copy</button>
+                `;
+                container.appendChild(linkDisplayElement);
+
+                linkInputElement = linkDisplayElement.querySelector('.publish-link-input');
+                copyButtonElement = linkDisplayElement.querySelector('.copy-link-btn');
+                copyButtonElement.addEventListener('click', handleCopyClick);
+            } else {
+                linkInputElement = linkDisplayElement.querySelector('.publish-link-input');
+                copyButtonElement = linkDisplayElement.querySelector('.copy-link-btn');
+            }
+        }
+    }
+    return publishButtonElement && linkDisplayElement;
+}
+
+// Handle publish request from button click
+async function handlePublishRequest(data) {
+    if (isHandlingClick) {
+        logMessage('Already handling a publish/unpublish action.', 'warn');
+        return;
+    }
+    
+    if (!data || !data.pathname) {
+        logMessage('Invalid publish request data.', 'error');
+        return;
+    }
+
+    const pathname = data.pathname;
+    logMessage(`Received publish request for: ${pathname}`);
+
+    if (!ensureElements()) {
+        logMessage('Publish button or link display not found.', 'error');
+        return;
+    }
+
+    isHandlingClick = true;
+    publishButtonElement.disabled = true;
+    const originalButtonText = publishButtonElement.textContent;
+    publishButtonElement.textContent = 'Processing...';
+
+    try {
+        const isCurrentlyPublished = currentPublishedState.isPublished && 
+                                    currentPublishedState.path === pathname;
+
+        let response;
+        let payload;
+
+        if (isCurrentlyPublished) {
+            // --- Unpublish ---
+            logMessage(`Attempting to unpublish: ${pathname}`);
+            response = await fetch(`${PUBLISH_API_ENDPOINT}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pathname: pathname }),
+            });
+            payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || `Failed to unpublish (${response.status})`);
+            }
+            
+            logMessage(`Successfully unpublished: ${pathname}`);
+            currentPublishedState = { isPublished: false, url: null, path: pathname };
+            updateButtonUI(false);
+
+        } else {
+            // --- Publish ---
+            logMessage(`Attempting to publish: ${pathname}`);
+            let editor = null;
+            let content = '';
+
+            // Try each selector until we find the editor
+            for (const selector of EDITOR_SELECTORS) {
+                editor = document.querySelector(selector);
+                if (editor) {
+                    logMessage(`Found editor using selector: ${selector}`, 'debug');
+                    break;
+                }
+            }
+
+            if (!editor) {
+                // Log which selectors were tried
+                logMessage(`Editor not found. Tried selectors: ${EDITOR_SELECTORS.join(', ')}`, 'error');
+                throw new Error('Markdown editor not found.');
+            }
+
+            // Get editor content
+            content = editor.value || '';
+            logMessage(`Got editor content (${content.length} characters)`, 'debug');
+
+            response = await fetch(`${PUBLISH_API_ENDPOINT}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pathname: pathname, content: content }),
+            });
+            payload = await response.json();
+
+            if (!response.ok || !payload.success || !payload.url) {
+                throw new Error(payload.message || `Failed to publish (${response.status})`);
+            }
+            
+            logMessage(`Successfully published: ${pathname} at ${payload.url}`);
+            currentPublishedState = { isPublished: true, url: payload.url, path: pathname };
+            updateButtonUI(true, payload.url);
+        }
+
+    } catch (error) {
+        logMessage(`Error: ${error.message}`, 'error');
+        alert(`Action failed: ${error.message}`);
+        updateButtonUI(currentPublishedState.isPublished, currentPublishedState.url);
+    } finally {
+        isHandlingClick = false;
+        if (publishButtonElement) {
+            publishButtonElement.disabled = false;
+            if (publishButtonElement.textContent === 'Processing...') {
+                publishButtonElement.textContent = originalButtonText;
+            }
+        }
+    }
 }
 
 // Check if the current file is published
-export async function checkPublishStatus() {
-  const currentDir = localStorage.getItem('currentDir');
-  const currentFile = localStorage.getItem('currentFile');
-  
-  if (!currentDir || !currentFile) return;
-  
-  const button = document.getElementById('publish-btn');
-  const linkDisplay = document.querySelector('.publish-link-display');
-  
-  if (!button || !linkDisplay) return;
-  
-  try {
-    // Check local published data
-    const localPublishData = localStorage.getItem('publishedFiles');
-    const publishedFiles = localPublishData ? JSON.parse(localPublishData) : {};
+async function checkPublishStatus(pathname) {
+    if (!pathname) return;
     
-    const fileKey = `${currentDir}/${currentFile}`;
-    const isPublished = publishedFiles[fileKey] ? true : false;
+    logMessage(`Checking status for: ${pathname}`);
     
-    if (isPublished) {
-      // Create the URL
-      const baseUrl = window.location.origin;
-      const urlSlug = publishedFiles[fileKey].slug;
-      const viewUrl = `${baseUrl}/index.html?view=${urlSlug}`;
-      
-      button.innerHTML = '🚫 Unpublish';
-      button.classList.add('published');
-      
-      // Show the link
-      linkDisplay.innerHTML = `
-        <input type="text" readonly value="${viewUrl}" class="publish-link-input" />
-        <button class="copy-link-btn">
-          <i class="fas fa-copy"></i> Copy
-        </button>
-      `;
-      linkDisplay.style.display = 'flex';
-      
-      // Add copy button functionality
-      const copyBtn = linkDisplay.querySelector('.copy-link-btn');
-      const linkInput = linkDisplay.querySelector('.publish-link-input');
-      
-      copyBtn.addEventListener('click', () => {
-        linkInput.select();
-        document.execCommand('copy');
-        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        setTimeout(() => {
-          copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-        }, 2000);
-      });
-    } else {
-      button.innerHTML = '🌐 Publish';
-      button.classList.remove('published');
-      linkDisplay.style.display = 'none';
+    if (!ensureElements()) {
+        logMessage('Cannot check status, UI elements not ready.', 'warn');
+        return;
     }
-  } catch (error) {
-    logMessage(`[PUBLISH ERROR] Failed to check publish status: ${error.message}`);
-  }
+    
+    publishButtonElement.disabled = true;
+
+    try {
+        const response = await fetch(`${PUBLISH_API_ENDPOINT}?pathname=${encodeURIComponent(pathname)}`, {
+            method: 'GET',
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                logMessage(`File not found for status check: ${pathname}`);
+                currentPublishedState = { isPublished: false, url: null, path: pathname };
+                updateButtonUI(false);
+                return;
+            }
+            throw new Error(payload.message || `Failed to check status (${response.status})`);
+        }
+
+        logMessage(`Status checked for ${pathname}: Published=${payload.isPublished}`);
+        currentPublishedState = { isPublished: payload.isPublished, url: payload.url, path: pathname };
+        updateButtonUI(payload.isPublished, payload.url);
+
+    } catch (error) {
+        logMessage(`Status check error: ${error.message}`, 'error');
+        currentPublishedState = { isPublished: false, url: null, path: pathname };
+        updateButtonUI(false);
+    } finally {
+        if (publishButtonElement) {
+            publishButtonElement.disabled = false;
+        }
+    }
 }
 
-export { handlePublishClick }; 
+// Update Button and Link Display UI
+function updateButtonUI(isPublished, url = null) {
+    if (!ensureElements()) return;
+
+    if (isPublished && url) {
+        publishButtonElement.textContent = 'Unpublish';
+        publishButtonElement.classList.add('published');
+        linkInputElement.value = url;
+        linkDisplayElement.style.display = 'flex';
+        copyButtonElement.textContent = 'Copy';
+    } else {
+        publishButtonElement.textContent = 'Publish';
+        publishButtonElement.classList.remove('published');
+        linkDisplayElement.style.display = 'none';
+        linkInputElement.value = '';
+    }
+    publishButtonElement.disabled = isHandlingClick;
+}
+
+// Handle Copy Button Click
+function handleCopyClick() {
+    if (!linkInputElement || !copyButtonElement) return;
+    
+    linkInputElement.select();
+    
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(linkInputElement.value).then(() => {
+                copyButtonElement.textContent = 'Copied!';
+                setTimeout(() => { copyButtonElement.textContent = 'Copy'; }, 2000);
+            }).catch(err => {
+                logMessage('Async copy failed: ' + err, 'warn');
+                fallbackCopy();
+            });
+        } else {
+            fallbackCopy();
+        }
+    } catch (error) {
+        logMessage(`Copy error: ${error.message}`, 'error');
+        alert('Failed to copy link.');
+    }
+}
+
+function fallbackCopy() {
+    if (document.execCommand('copy')) {
+        copyButtonElement.textContent = 'Copied!';
+        setTimeout(() => { copyButtonElement.textContent = 'Copy'; }, 2000);
+    } else {
+        logMessage('execCommand copy failed.', 'warn');
+        alert('Copy command failed.');
+    }
+}
+
+// Export at the end only
+export { setupPublishButtonListener, checkPublishStatus }; 

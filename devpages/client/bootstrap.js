@@ -10,6 +10,10 @@ import eventBus from '/client/eventBus.js'; // Keep for now for non-state events
 import { mainReducer } from '/client/store/reducer.js'; // Import the reducer
 import { initAuth } from '/client/auth.js'; // <<< ADDED: Import initAuth
 
+// --- ADD THIS IMPORT --- Ensure previewManager module loads and runs its setup
+import '/client/previewManager.js'; 
+// -----------------------
+
 // Simple console logging for early bootstrap phases
 function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default level to info
   const fullType = type;
@@ -28,6 +32,27 @@ const bootstrapError = (message, error) => console.error(`[BOOTSTRAP ERROR] ${me
 // Inject the imported reducer into the message queue system
 setReducer(mainReducer);
 logBootstrap('Main state reducer injected into message queue.', 'debug');
+
+// Add this function at the beginning of the bootstrap process
+async function loadUIState() {
+  try {
+    // Specifically for settings panel visibility
+    const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
+    if (settingsPanelState) {
+      const parsedState = JSON.parse(settingsPanelState);
+      if (parsedState.enabled === true) {
+        // Apply immediately - don't wait for other initializations
+        document.getElementById('settings-panel').classList.add('visible');
+        console.log('[Bootstrap] Restored settings panel visible state');
+      }
+    }
+  } catch (e) {
+    console.error('[Bootstrap] Error restoring UI state:', e);
+  }
+}
+
+// Call this very early in your initialization sequence
+loadUIState();
 
 // Main application initialization function
 async function initializeApp() {
@@ -169,20 +194,6 @@ async function initializeApp() {
          console.error('[EDITOR INIT ERROR]', error);
      }
      
-    // Preview Manager (Subscribes to editor content changes, etc.)
-    try {
-        const previewManagerModule = await import('/client/previewManager.js');
-        if (typeof previewManagerModule.initializePreview === 'function') {
-            await previewManagerModule.initializePreview(); // Setup subscriptions
-            logBootstrap('Preview Manager initialized.', 'debug');
-        } else {
-             logBootstrap('previewManager.js loaded but initializePreview not found.', 'error');
-        }
-    } catch (error) {
-        logBootstrap(`Failed to initialize Preview Manager: ${error.message}`, 'error');
-        console.error('[PREVIEW INIT ERROR]', error);
-    }
-    
     // DOM event listeners (May dispatch actions based on global events)
     try {
         const domEventsModule = await import('/client/domEvents.js');
@@ -265,3 +276,27 @@ appStore.subscribe((newState, prevState) => {
   // but it's often better to do this in response to specific actions 
   // or within the components/initializers that own that state.
 }); 
+
+async function initializeUI() {
+  // Load saved application state from localStorage
+  try {
+    const savedAppState = localStorage.getItem('devpages_app_state');
+    if (savedAppState) {
+      const parsedState = JSON.parse(savedAppState);
+      
+      // Apply UI states immediately
+      if (parsedState.settingsPanel && parsedState.settingsPanel.visible) {
+        document.getElementById('settings-panel').classList.add('visible');
+        console.log('[Bootstrap] Restored settings panel visible state');
+      }
+      
+      // Apply to appStore (assuming you have appStore.setInitialState or similar)
+      appStore.update(state => ({
+        ...state,
+        settingsPanel: parsedState.settingsPanel || state.settingsPanel
+      }));
+    }
+  } catch (e) {
+    console.error('[Bootstrap] Error restoring app state:', e);
+  }
+} 

@@ -18,19 +18,23 @@ let settingsPanelInstance = null;
 
 export function initializeSettingsPanel() {
   if (settingsPanelInstance) {
-    logSettingsInit('SettingsPanel already initialized.');
     return settingsPanelInstance;
   }
   
   try {
-    logSettingsInit('Initializing SettingsPanel...');
-    settingsPanelInstance = new SettingsPanel(); 
-    // Store instance globally if needed for debugging or direct access
-    window.settingsPanel = settingsPanelInstance; 
-    logSettingsInit('SettingsPanel initialized successfully.');
+    settingsPanelInstance = new SettingsPanel();
+    window.settingsPanel = settingsPanelInstance;
+    
+    // Restore state from localStorage immediately after creation
+    try {
+      const savedVisible = localStorage.getItem('settings_panel_visible');
+      if (savedVisible === 'true') {
+        settingsPanelInstance.toggleVisibility(true);
+      }
+    } catch (e) {}
+    
     return settingsPanelInstance;
   } catch (error) {
-    logSettingsInit(`Error initializing SettingsPanel: ${error.message}`, 'error');
     console.error('[SETTINGS INIT ERROR]', error);
     return null;
   }

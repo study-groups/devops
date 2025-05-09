@@ -4,7 +4,7 @@
 SCRIPT_DIR=$(dirname $(readlink -f ${0}))
 
 # Ensure we're in the right directory context
-cd $SCRIPT_DIR
+# cd $SCRIPT_DIR # <<< REMOVE THIS LINE
 
 # Log with timestamps and prefixes
 log() {
@@ -26,7 +26,7 @@ elif [ ! -d "$PD_DIR" ]; then
 fi
 
 # --- Export PD_DIR for Node.js scripts ---
-export PD_DIR 
+export PD_DIR
 
 # Construct the expected path to users.csv for checks/logging
 USERS_CSV_PATH="$PD_DIR/users.csv"
@@ -34,12 +34,13 @@ USERS_CSV_PATH="$PD_DIR/users.csv"
 log "Using PD_DIR: $PD_DIR"
 log "Expecting users file at: $USERS_CSV_PATH"
 
-# Define the path to the manageUsers Node.js script
-MANAGE_USERS_SCRIPT="./server/utils/manageUsers.js" # Corrected relative path
+# Define the path to the manageUsers Node.js script relative to THIS script's location
+MANAGE_USERS_SCRIPT="$SCRIPT_DIR/manageUsers.js" # <<< FIX THIS LINE
 
+# Check if the Node.js script exists at the calculated path
 if [ ! -f "$MANAGE_USERS_SCRIPT" ]; then
     error "Cannot find manageUsers script at: $MANAGE_USERS_SCRIPT"
-    error "Ensure you are running usermgr.sh from the project root."
+    error "Calculated based on usermgr.sh location: $SCRIPT_DIR"
     exit 1
 fi
 

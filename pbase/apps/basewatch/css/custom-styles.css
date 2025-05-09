@@ -1,0 +1,90 @@
+
+/* Custom classes for Tailwind */
+.font-pj43 {
+  font-family: 'PJ43', sans-serif;
+}
+
+.font-ag {
+  font-family: 'AG', sans-serif;
+}
+
+.text-one {
+  color: var(--ink); /* Assuming --one is defined in your custom properties */
+}
+
+h1, h2 {
+  @apply font-display text-one;
+}
+
+/* Custom styles */
+body, html {
+  @apply flex flex-col min-h-full min-w-full 
+  bg-gray-899 text-gray-200;
+  font-family: 'PJ43', sans-serif;
+}
+
+h1, h2 {
+  @apply font-display text-one;
+}
+
+/* Custom Button Styles */
+.btn {
+  background-color: #444444; /* More muted color */
+  color: #bbbbbb; /* Less contrasty text */
+  border-radius: 8px; /* Slightly rounded corners */
+  padding: 0.5rem 1rem; /* Consistent padding */
+}
+
+#protectedForm .form-checkbox {
+  @apply text-blue-500;
+}
+
+/* Custom spacing for main-content */
+#main-content {
+  margin-top: 2rem; /* Add space at the top */
+  margin-bottom: 2rem; /* Add space at the bottom */
+}
+
+/* Additional customizations */
+.font-display {
+  text-transform: uppercase;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+.page-width {
+  width: calc(100% - 4rem);
+}
+
+@media screen(lg) {
+  .page-width {
+    width: calc(100% - 8rem);
+  }
+}
+@media screen(2xl) {
+  .page-width {
+    width: 82rem;
+  }
+}
+
+.fade-in {
+  animation: fade-in 0.5s ease-in-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+body.monospace-font {
+  font-family: 'Courier New', Courier, monospace;
+}
+v
+footer * {
+  font-size: inherit;
+  font-family: inherit;
+}

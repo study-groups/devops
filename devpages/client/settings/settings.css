@@ -129,3 +129,212 @@
   /* Can add padding here if needed, but parent .settings-panel-content already has padding */
   /* padding: 10px 0; */
 }
+
+/* --- General Section Styling (apply to plugins and css settings) --- */
+.settings-section {
+  /* margin-top: 15px; */  /* <-- REMOVE */
+  /* padding-top: 15px; */ /* <-- REMOVE */
+  /* border-top: 1px solid #eee; */ /* Already removed */
+}
+
+.settings-section-title {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1.05em;
+  color: #444;
+  font-weight: 600;
+}
+
+.settings-description {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+/* --- Styling for Input Groups (used in CSS settings) --- */
+.settings-input-group {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+/* --- NEW: Collapse/Expand Styling --- */
+.settings-section-header {
+  position: relative; /* For positioning the indicator */
+  cursor: pointer;
+  display: flex; /* Use flex to align indicator and title */
+  align-items: center;
+  font-size: 1.15em; /* <-- Increase font size */
+  font-weight: bold; /* <-- Ensure bold */
+  margin-bottom: 5px; /* <-- Add a little space below header always */
+}
+
+.settings-section-header .collapse-indicator {
+  display: inline-block;
+  width: 1em; /* Reserve space for the indicator */
+  margin-right: 6px;
+  font-size: 0.8em;
+  transition: transform 0.2s ease-in-out;
+}
+
+.settings-section-container.collapsed .settings-section-header .collapse-indicator {
+  transform: rotate(-90deg);
+}
+
+.settings-section-container.collapsed > :not(.settings-section-header) {
+  display: none;
+}
+
+/* --- ADD spacing for collapsed header --- */
+.settings-section-container.collapsed .settings-section-header {
+  margin-bottom: 10px; /* Add space below the header when collapsed */
+}
+/* --- END ADD --- */
+
+.settings-input {
+  flex-grow: 1;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  margin-right: 8px; /* Space between input and button */
+}
+
+/* General Button Styles (if not already defined elsewhere) */
+.settings-button {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap; /* Prevent button text wrapping */
+}
+.settings-button:hover {
+  background-color: #e0e0e0;
+  border-color: #bbb;
+}
+.settings-button:active {
+   background-color: #d0d0d0;
+}
+
+/* Smaller variant for list item buttons */
+.settings-button-small {
+  padding: 3px 8px;
+  font-size: 0.9em;
+}
+
+/* --- List Styling (used for plugins and CSS settings) --- */
+.settings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #eee; /* Add a light border around the list */
+  border-radius: 3px;
+}
+
+.settings-list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px; /* Adjust padding */
+  border-bottom: 1px solid #eee;
+}
+
+.settings-list-item:last-child {
+  border-bottom: none;
+}
+
+.settings-list-empty {
+   padding: 10px;
+   color: #888;
+   font-style: italic;
+}
+
+/* --- Plugin List Specific Styles --- */
+.plugin-item label {
+  flex-grow: 1;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.plugin-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* --- CSS Settings List Specific Styles --- */
+.css-list-item input[type="checkbox"].css-enable-toggle {
+  margin-right: 8px; /* Space between checkbox and label */
+  cursor: pointer;
+}
+
+.css-list-item label.css-file-path {
+  flex-grow: 1; /* Take up available space */
+  margin-right: 10px; /* Space before remove button */
+  cursor: pointer; /* Match checkbox cursor */
+  /* Optional: Style for wrapping long paths */
+  word-break: break-all;
+}
+
+.css-list-item button.remove-css-btn {
+  flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+/* Style for the container div added by PluginsPanel (if needed) */
+.plugins-panel-content {
+  margin: 0;
+}
+
+/* Container for CSS settings inside PluginsPanel (if you added one) */
+.css-settings-panel-container {
+   /* Inherits .settings-section styles via CssSettingsPanel */
+}
+
+/* ============================================= */
+/* Existing PluginsPanel styles (keep or adjust) */
+/* ============================================= */
+
+/* Style the \"Available Plugins\" heading */
+/* .plugins-panel-content h4 { ... } -> Use .settings-section-title now */
+
+/* Style the list container */
+/* .plugins-list { ... } -> Use .settings-list now */
+
+/* Style individual plugin items */
+/* .plugin-item { ... } -> Use .settings-list-item now */
+
+/* ... any other specific plugin styles ... */
+
+/* ============================================= */
+/* Deprecated Styles (if migrated above)         */
+/* ============================================= */
+/* Remove or comment out old styles if they are fully replaced by the new ones */
+/* .plugins-panel-content h4 { ... } */
+/* .plugins-list { ... } */
+/* .plugin-item { ... } */
+
+/* Reset Plugins Button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.reset-plugins-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-plugins-button:hover {
+  background-color: #e0e0e0;
+  border-color: #999;
+}
+
+.reset-plugins-button:active {
+  background-color: #d0d0d0;
+  transform: translateY(1px);
+}

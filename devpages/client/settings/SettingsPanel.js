@@ -6,8 +6,11 @@
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { PluginsPanel } from './PluginsPanel.js'; // Import the new panel
+import { CssSettingsPanel } from './CssSettingsPanel.js';
+import { JavaScriptPanel } from './JavaScriptPanel.js';
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
+const SETTINGS_PANEL_VISIBLE_KEY = 'settings_panel_visible';
 
 // Helper for logging
 function logSettings(message, level = 'info') {
@@ -31,6 +34,8 @@ export class SettingsPanel {
     this.closeButton = null;
 
     this.pluginsPanelInstance = null; // Add property to hold the instance
+    this.cssSettingsPanelInstance = null; // Renamed from cssSettingsInstance
+    this.jsPanelInstance = null;
 
     this.isDragging = false;
     this.isResizing = false;
@@ -44,12 +49,27 @@ export class SettingsPanel {
 
     this.stateUnsubscribe = null;
 
-    this.createPanelDOM();
-    this.attachEventListeners();
+    this.initializePanel();
     this.subscribeToState();
 
     // Initial render based on store state
     this.render(initialState);
+    
+    // IMPORTANT: After render, check localStorage for saved visibility
+    try {
+      const savedVisible = localStorage.getItem(SETTINGS_PANEL_VISIBLE_KEY);
+      if (savedVisible === 'true') {
+        // Direct DOM update, don't use toggleVisibility to avoid unnecessary state changes
+        this.panelElement.style.display = 'flex';
+        this.isVisible = true;
+      } else {
+        // Ensure panel is hidden by default
+        this.panelElement.style.display = 'none';
+        this.isVisible = false;
+      }
+    } catch (e) {
+      console.error('Error restoring settings panel visibility:', e);
+    }
     
     logSettings('SettingsPanel instance created and initialized.');
   }
@@ -78,19 +98,111 @@ export class SettingsPanel {
     }
   }
 
+  // --- Moved Helper Method --- 
+  // Helper to create section containers with headers
+  createSectionContainer(id, title) {
+    const container = document.createElement('div');
+    container.id = id;
+    container.classList.add('settings-section-container');
+
+    const header = document.createElement('h4');
+    header.classList.add('settings-section-header');
+    header.tabIndex = 0; // Make focusable
+    header.setAttribute('role', 'button'); // Indicate interactive
+    header.setAttribute('aria-expanded', 'true'); // Default state
+    
+    // Title Text
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = title;
+    
+    // Collapse Indicator
+    const indicator = document.createElement('span');
+    indicator.classList.add('collapse-indicator');
+    indicator.innerHTML = '&#9660;'; // Down arrow initially (expanded)
+    indicator.setAttribute('aria-hidden', 'true'); // Hide from screen readers
+
+    header.appendChild(indicator);
+    header.appendChild(titleSpan);
+    
+    // Click listener for collapsing
+    header.addEventListener('click', () => this.toggleSectionCollapse(id, container, header, indicator));
+    // Allow keyboard activation (Enter/Space)
+    header.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.toggleSectionCollapse(id, container, header, indicator);
+        }
+    });
+
+    container.appendChild(header);
+    // Content of the section will be added later by the specific panel
+    return container;
+  }
+
+  // --- NEW Method to handle section collapse/expand ---
+  toggleSectionCollapse(sectionId, containerElement, headerElement, indicatorElement) {
+    logSettings(`Toggling collapse for section: ${sectionId}`);
+    const isCurrentlyCollapsed = containerElement.classList.contains('collapsed');
+    const shouldCollapse = !isCurrentlyCollapsed;
+
+    // Dispatch action to update state
+    dispatch({
+        type: ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION,
+        payload: { sectionId: sectionId }
+    });
+
+    // Update UI immediately (state update will confirm later via render)
+    containerElement.classList.toggle('collapsed', shouldCollapse);
+    headerElement.setAttribute('aria-expanded', !shouldCollapse);
+    indicatorElement.innerHTML = shouldCollapse ? '&#9654;' : '&#9660;'; // Right/Down arrow
+  }
+  // --- End NEW Method --- 
+  
+  // --- Moved updatePanelState Method ---
+  updatePanelState() {
+    if (!this.panelElement) return;
+    const state = appStore.getState().settingsPanel || {};
+
+    // Update visibility based on internal state (controlled by toggleVisibility)
+    this.panelElement.style.display = this.isVisible ? 'flex' : 'none';
+
+    // Use local copies for position/size if dragging/resizing
+    const posX = this.isDragging ? this.currentPos.x : state.position.x;
+    const posY = this.isDragging ? this.currentPos.y : state.position.y;
+    const width = this.isResizing ? this.currentSize.width : state.size.width;
+    const height = this.isResizing ? this.currentSize.height : state.size.height;
+
+    this.panelElement.style.left = `${posX}px`;
+    this.panelElement.style.top = `${posY}px`;
+    this.panelElement.style.width = `${width}px`;
+    this.panelElement.style.height = `${height}px`;
+    
+    // Update ARIA hidden state based on visibility
+    this.panelElement.setAttribute('aria-hidden', !this.isVisible);
+
+    logSettings('Panel state updated (pos, size, visibility).', 'debug');
+  }
+  // --- End Moved updatePanelState ---
+
+  initializePanel() {
+    this.createPanelDOM();
+    this.attachEventListeners();
+    this.updatePanelState();
+  }
+
   createPanelDOM() {
+    logSettings('[DEBUG] Starting createPanelDOM...');
+    // 1. Create main panel elements
     this.panelElement = document.createElement('div');
     this.panelElement.id = 'settings-panel';
     this.panelElement.classList.add('settings-panel');
-    // Add ARIA roles for accessibility
     this.panelElement.setAttribute('role', 'dialog');
     this.panelElement.setAttribute('aria-label', 'Application Settings Panel');
-    this.panelElement.setAttribute('aria-modal', 'true'); // Treat as modal when visible
-    this.panelElement.style.position = 'fixed'; // Essential for dragging
-    this.panelElement.style.zIndex = '9998'; // High z-index
-    this.panelElement.style.display = 'none'; // Initially hidden
+    this.panelElement.setAttribute('aria-modal', 'true'); 
+    this.panelElement.style.position = 'fixed'; 
+    this.panelElement.style.zIndex = '9998'; 
+    this.panelElement.style.display = 'none'; 
 
-    // Header for dragging and title
     this.headerElement = document.createElement('div');
     this.headerElement.classList.add('settings-panel-header');
     this.headerElement.innerHTML = `
@@ -99,34 +211,82 @@ export class SettingsPanel {
     `;
     this.closeButton = this.headerElement.querySelector('.settings-panel-close');
 
-    // Content area
     this.contentElement = document.createElement('div');
     this.contentElement.classList.add('settings-panel-content');
-    this.contentElement.innerHTML = '<p>Settings content will go here...</p>'; // Placeholder
 
-    // Clear the placeholder content before adding the plugins panel
-    this.contentElement.innerHTML = ''; 
-
-    // Instantiate PluginsPanel and attach its content
-    try {
-      this.pluginsPanelInstance = new PluginsPanel(this.contentElement);
-    } catch (error) {
-      logSettings(`Failed to initialize PluginsPanel: ${error}`, 'error');
-      this.contentElement.innerHTML = '<p style="color: red;">Error loading plugin settings.</p>';
-    }
-
-    // Resize handle
+    // --- CREATE RESIZE HANDLE --- (Ensure it's created here)
     this.resizeHandle = document.createElement('div');
     this.resizeHandle.classList.add('settings-panel-resize-handle');
     this.resizeHandle.setAttribute('aria-label', 'Resize Settings Panel');
-    // Basic SVG handle indicator
     this.resizeHandle.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 8L14 14M10 14H14V10" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/></svg>`;
+    logSettings('[DEBUG] Main panel elements created.', 'debug');
 
+    // 2. Append main parts to panelElement
     this.panelElement.appendChild(this.headerElement);
-    this.panelElement.appendChild(this.contentElement);
-    this.panelElement.appendChild(this.resizeHandle);
+    this.panelElement.appendChild(this.contentElement); 
+    this.panelElement.appendChild(this.resizeHandle); // Append the handle
+    logSettings('[DEBUG] Main panel structure assembled.', 'debug');
 
+    // 3. Append the main panel to the document body
     document.body.appendChild(this.panelElement);
+    logSettings('[DEBUG] Panel appended to body.', 'debug');
+
+    // 4. Now, create section containers and instantiate sub-panels within the contentElement
+    const collapsedSections = appStore.getState().settingsPanel.collapsedSections || {}; // Get initial collapsed state
+    
+    // Instantiate PluginsPanel
+    logSettings('[DEBUG] Creating Plugins Panel Section...', 'debug');
+    const pluginsContainer = this.createSectionContainer('plugins-settings-container', 'Plugins');
+    if (collapsedSections['plugins-settings-container']) { pluginsContainer.classList.add('collapsed'); } // Apply initial state
+    if (pluginsContainer instanceof Node) {
+        this.contentElement.appendChild(pluginsContainer);
+        try {
+            this.pluginsPanelInstance = new PluginsPanel(pluginsContainer);
+            logSettings('[DEBUG] PluginsPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init PluginsPanel: ${error}`, 'error');
+            pluginsContainer.innerHTML = '<p style="color: red;">Error loading plugin settings.</p>';
+        }
+    } else {
+        logSettings('[ERROR] pluginsContainer was not a valid Node!', 'error');
+    }
+
+    // Instantiate CssSettingsPanel
+    logSettings('[DEBUG] Creating CSS Panel Section...', 'debug');
+    const cssContainer = this.createSectionContainer('css-settings-container', 'Preview CSS');
+    if (collapsedSections['css-settings-container']) { cssContainer.classList.add('collapsed'); } // Apply initial state
+    if (cssContainer instanceof Node) {
+        this.contentElement.appendChild(cssContainer);
+        try {
+            this.cssSettingsPanelInstance = new CssSettingsPanel(cssContainer); 
+            logSettings('[DEBUG] CssSettingsPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init CssSettingsPanel: ${error}`, 'error');
+            cssContainer.innerHTML = '<p style="color: red;">Error loading CSS settings.</p>';
+        }
+    } else {
+         logSettings('[ERROR] cssContainer was not a valid Node!', 'error');
+    }
+    
+    // Instantiate JavaScriptPanel
+    logSettings('[DEBUG] Creating JS Panel Section...', 'debug');
+    const jsContainer = this.createSectionContainer('js-settings-container', 'Preview JavaScript');
+    if (collapsedSections['js-settings-container']) { jsContainer.classList.add('collapsed'); } // Apply initial state
+    if (jsContainer instanceof Node) {
+        this.contentElement.appendChild(jsContainer);
+        try {
+            logSettings('[DEBUG] Instantiating JavaScriptPanel...', 'debug');
+            this.jsPanelInstance = new JavaScriptPanel(jsContainer);
+            logSettings('[DEBUG] JavaScriptPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init JavaScriptPanel: ${error}`, 'error');
+            jsContainer.innerHTML = '<p style="color: red;">Error loading JavaScript info.</p>';
+        }
+    } else {
+        logSettings('[ERROR] jsContainer was not a valid Node!', 'error');
+    }
+
+    logSettings('Panel content and sub-panels created.', 'debug');
   }
 
   attachEventListeners() {
@@ -137,9 +297,14 @@ export class SettingsPanel {
     this.resizeHandle.addEventListener('mousedown', this.startResize.bind(this));
 
     // --- Closing --- 
-    this.closeButton.addEventListener('click', this.toggleVisibility.bind(this));
+    this.closeButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleVisibility(false); // Explicitly pass false to hide
+    });
+    
     // Prevent drag start when clicking close button
-    this.closeButton.addEventListener('mousedown', (e) => e.stopPropagation()); 
+    this.closeButton.addEventListener('mousedown', (e) => e.stopPropagation());
 
     // --- Global listeners for drag/resize --- 
     // Use arrow functions to maintain 'this' context
@@ -170,30 +335,51 @@ export class SettingsPanel {
   render(settingsState) {
     if (!this.panelElement) return;
 
-    this.panelElement.style.display = settingsState.enabled ? 'flex' : 'none'; // Use flex for structure
-    this.panelElement.style.flexDirection = 'column'; // Stack header/content
-
+    // Don't update display property here - we handle that in toggleVisibility
+    // Only manage other properties
+    
     // Only update position/size if not actively dragging/resizing
     if (!this.isDragging) {
       this.panelElement.style.left = `${settingsState.position.x}px`;
       this.panelElement.style.top = `${settingsState.position.y}px`;
-      this.currentPos = { ...settingsState.position }; // Sync local state
+      this.currentPos = { ...settingsState.position };
     }
+    
     if (!this.isResizing) {
       this.panelElement.style.width = `${settingsState.size.width}px`;
       this.panelElement.style.height = `${settingsState.size.height}px`;
-      this.currentSize = { ...settingsState.size }; // Sync local state
+      this.currentSize = { ...settingsState.size };
     }
-
-    // Update content based on collapsed sections or other settings later
-    // Example: this.renderSections(settingsState.collapsedSections);
   }
 
   // --- Interaction Handlers --- 
 
-  toggleVisibility() {
-    logSettings('Toggle visibility dispatched.');
-    dispatch({ type: ActionTypes.SETTINGS_PANEL_TOGGLE });
+  toggleVisibility(forceShow) {
+    // Allow explicit showing/hiding, or toggle current state
+    const newVisibility = forceShow !== undefined ? forceShow : !(this.panelElement.style.display === 'flex');
+    
+    // Apply the visibility directly to the DOM
+    this.panelElement.style.display = newVisibility ? 'flex' : 'none';
+    this.isVisible = newVisibility; // Update the internal state variable
+    
+    // Save state to localStorage
+    try {
+      localStorage.setItem(SETTINGS_PANEL_VISIBLE_KEY, newVisibility);
+    } catch (e) {
+      console.error('Failed to save settings panel state:', e);
+    }
+    
+    // Update app state through dispatch
+    try {
+      dispatch({ 
+        type: ActionTypes.SETTINGS_PANEL_TOGGLE,
+        payload: { enabled: newVisibility }
+      });
+    } catch (e) {
+      console.error('Failed to dispatch settings panel state change:', e);
+    }
+    
+    return newVisibility;
   }
 
   startDrag(event) {
@@ -296,6 +482,10 @@ export class SettingsPanel {
         this.pluginsPanelInstance.destroy();
         this.pluginsPanelInstance = null;
     }
+
+    // Destroy child panels
+    this.cssSettingsPanelInstance?.destroy();
+    this.jsPanelInstance?.destroy();
 
     // --- Remove CSS --- 
     this.removeStyles();
