@@ -29,28 +29,35 @@ export async function downloadStaticHTML() {
             alert('Error: Preview container element not found. Cannot generate static HTML.');
             return; // Stop execution
         }
-        // Capture the innerHTML, assuming the server wrapper adds the container back
-        // Or capture outerHTML if the server expects the full container. Let's start with outerHTML
-        // as the diff implies the old version sent renderedHtml from client.
         const renderedHtml = previewElement.outerHTML;
         logStaticGen(`Captured preview div outerHTML (length: ${renderedHtml.length})`);
+        console.log("STATIC_GEN_CLIENT: Captured HTML to be sent to server:", renderedHtml);
         if (!renderedHtml || renderedHtml.trim() === '') {
              logStaticGen('Preview container content is empty.', 'warn');
              // Optional: Alert user? Proceeding might result in empty file.
         }
 
         // --- Get File Info (using appStore) ---
-        const state = appStore.getState(); // Use appStore here
+        const state = appStore.getState();
         const currentPathname = state.file?.currentPathname || null;
         const isDirectory = state.file?.isDirectorySelected || false;
-        let baseFilename = 'static-preview'; // Default base filename
+        let descriptiveNamePart = 'static-preview'; // Default
 
         if (currentPathname && !isDirectory) {
-             baseFilename = currentPathname.split('/').pop() || baseFilename;
+            // Example: currentPathname = "observability/screenshots/screenshot-001.md"
+            let pathForName = currentPathname;
+            // Remove .md extension if present
+            if (pathForName.toLowerCase().endsWith('.md')) {
+                pathForName = pathForName.substring(0, pathForName.length - 3);
+            }
+            // Replace slashes with hyphens
+            descriptiveNamePart = pathForName.replace(/\//g, '-');
+            // Sanitize further (optional, but good practice)
+            descriptiveNamePart = descriptiveNamePart.replace(/[^a-z0-9_.-]/gi, '_').replace(/ /g, '-');
         } else {
              logStaticGen(`Selection is directory or unknown: Path='${currentPathname}', IsDir=${isDirectory}. Using default base filename.`, 'warning');
         }
-        logStaticGen(`Using file info: Pathname='${currentPathname}', BaseFilename='${baseFilename}'`);
+        logStaticGen(`Using file info: Pathname='${currentPathname}', BaseFilename='${descriptiveNamePart}'`);
 
 
         // --- Get Original Markdown ---
@@ -136,15 +143,12 @@ export async function downloadStaticHTML() {
         a.style.display = 'none';
         a.href = url;
 
-        // --- Updated Filename Generation ---
-        // 1. Get Unix epoch time in seconds
+        // --- Updated Filename Generation (incorporating new descriptiveNamePart) ---
         const epochSeconds = Math.floor(Date.now() / 1000);
-        // 2. Convert to base-36
         const base36Timestamp = epochSeconds.toString(36);
-        // 3. Get base filename and sanitize
-        const safeBaseFilename = baseFilename.replace(/[^a-z0-9_.-]/gi, '_').replace(/ /g, '-');
-        // 4. Construct the final filename
-        a.download = `${safeBaseFilename}-${base36Timestamp}.html`;
+        
+        // Construct the final filename using the new descriptiveNamePart
+        a.download = `${descriptiveNamePart}-${base36Timestamp}.html`;
         // --- End Updated Filename Generation ---
 
         document.body.appendChild(a);

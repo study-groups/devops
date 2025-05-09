@@ -3,6 +3,7 @@ import { Router } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
+import { generateStaticHtml } from '../utils/htmlGenerator.js';
 
 // Import config with .js extension
 import { port } from '../config.js';
@@ -325,145 +326,47 @@ router.post('/generate-static', express.json({ limit: '10mb' }), async (req, res
         const { filePath, markdownSource, renderedHtml, activeCssPaths } = req.body;
 
         if (!renderedHtml) {
+            logServer('Missing renderedHtml in request body', 'error');
             return res.status(400).json({ error: 'Missing required field: renderedHtml' });
         }
-
-        // Get CSS paths from client request (e.g., ["styles.css"])
-        let requestedCssFiles = req.body.cssFiles || [];
-        logServer(`Client requested ${requestedCssFiles.length} CSS files: ${JSON.stringify(requestedCssFiles)}`);
-
-        // Always include the core preview CSS needed for basic rendering and KaTeX fixes
-        const corePreviewCss = 'client/preview/preview.css';
-        if (!requestedCssFiles.includes(corePreviewCss)) {
-            requestedCssFiles.unshift(corePreviewCss);
-            logServer(`Prepended core preview CSS. Updated list: ${JSON.stringify(requestedCssFiles)}`);
+        if (!req.pdata?.dataRoot) {
+            logServer('dataRoot not found in req.pdata. This is needed for resolving some asset paths.', 'error');
+            // Depending on strictness, you might return an error or proceed if only project-relative assets are expected.
+            // For now, we'll proceed, but htmlGenerator might have issues with user-content paths.
         }
+        
+        // projectRootDir is defined at the top of previewRoutes.js
+        // dataRootDir for htmlGenerator should be the user's content root (e.g., /root/pj/pd or MD_DIR)
+        // If your `req.pdata.dataRoot` is `/root/pj/pd`, and user content (MD files) are in `/root/pj/pd/data`,
+        // then htmlGenerator's dataRootDir might need to be path.join(req.pdata.dataRoot, 'data')
+        // For now, let's assume req.pdata.dataRoot is the direct root for MD files for simplicity,
+        // or that htmlGenerator handles the /data subdir internally if needed.
+        // The crucial part is that `htmlGenerator` needs a `dataRootDir` that represents the base from which
+        // paths like "observability/screenshots/screenshot-001.md" or CSS "styles.css" (if in dataRoot) are resolved.
 
-        // --- Separate CSS URLs and Local Paths ---
-        const cssUrlsToLink = requestedCssFiles.filter(isHttpUrl);
-        const localCssPathsToRead = requestedCssFiles.filter(file => !isHttpUrl(file));
+        const htmlGeneratorOptions = {
+            renderedHtml: renderedHtml,
+            markdownSource: markdownSource,
+            requestedCssPaths: req.body.cssFiles || [],
+            originalFilePath: filePath,
+            dataRootDir: req.pdata?.dataRoot,
+            projectRootDir: projectRootDir,
+            uploadsDir: req.pdata?.uploadsDir
+        };
 
-        // Add essential external CSS if not already included (e.g., KaTeX)
-        // TODO: Make this configurable or derive from plugin states
-        const essentialExternalCss = [
-            'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css'
-        ];
-        essentialExternalCss.forEach(url => {
-            if (!cssUrlsToLink.includes(url)) {
-                cssUrlsToLink.push(url);
-            }
-        });
+        // Simplified log message to avoid syntax errors
+        logServer('Calling generateStaticHtml with some options...', 'debug'); 
+        // console.log('DEBUG htmlGeneratorOptions:', htmlGeneratorOptions); // Alternative direct console log for debugging if needed
+        
+        const finalHtmlContent = await generateStaticHtml(htmlGeneratorOptions);
 
-        logServer(`Identified ${cssUrlsToLink.length} CSS URLs to link: ${JSON.stringify(cssUrlsToLink)}`);
-        logServer(`Identified ${localCssPathsToRead.length} local CSS paths to read: ${JSON.stringify(localCssPathsToRead)}`);
-
-        // --- Get Necessary Directory Roots from PData ---
-        const dataRootDir = req.pdata?.dataRoot; // This should be the MD_DIR root (e.g., /root/pj/pd)
-        if (!dataRootDir && localCssPathsToRead.some(p => !p.startsWith('client/') && !p.startsWith('node_modules/'))) {
-             // Only critical if we need to read from dataRoot
-             logServer('CRITICAL: Cannot determine data root (MD_DIR) from req.pdata, and local non-client/non-node_modules CSS requested.', 'error');
-             return res.status(500).json({ error: 'Server configuration error: Cannot find data root directory for requested CSS.' });
-        }
-        // projectRootDir defined at top of file
-
-        logServer(`Generating static HTML for client path: ${filePath || 'N/A'}`);
-
-        // --- Determine Filename Info ---
-        let baseFilename = 'static-preview';
-        let directory = '.';
-        if (filePath) {
-            const safeFilePath = String(filePath);
-            baseFilename = path.basename(safeFilePath);
-             directory = path.dirname(safeFilePath) === '.' && !safeFilePath.includes('/') && !safeFilePath.includes('\\') ? '.' : path.dirname(safeFilePath);
-        }
-        const generationTime = new Date().toISOString();
-
-        // --- Determine the correct root for reading USER css files (MD_DIR/data) ---
-        const userCssRootDir = dataRootDir ? path.join(dataRootDir, 'data') : null;
-        if (!userCssRootDir && localCssPathsToRead.some(p => !p.startsWith('client/') && !p.startsWith('node_modules/'))) {
-            // Check if we actually NEED the userCssRootDir before erroring
-            logServer('CRITICAL: Cannot construct user CSS root directory (MD_DIR/data) path, and user-specific CSS is requested.', 'error');
-            return res.status(500).json({ error: 'Server configuration error: Cannot find user data directory for requested CSS.' });
-        }
-        logServer(`Using user CSS root directory: ${userCssRootDir || 'N/A'}`, 'debug');
-
-        // --- Read ONLY Local CSS Files Concurrently ---
-        logServer(`Reading ${localCssPathsToRead.length} local CSS files...`);
-        const cssReadPromises = localCssPathsToRead.map(relativePath => {
-            // Pass the appropriate root based on path type
-            const rootForThisFile = (relativePath.startsWith('client/') || relativePath.startsWith('node_modules/')) 
-                                     ? projectRootDir 
-                                     : userCssRootDir; // Use the potentially modified root for user files
-            logServer(`Mapping CSS read: relativePath='${relativePath}', determined rootForThisFile='${rootForThisFile}'`, 'debug');
-            return readLocalCssFile(relativePath, rootForThisFile, projectRootDir);
-        });
-        const cssResults = await Promise.all(cssReadPromises);
-
-        // --- Combine Local CSS ---
-        // Simpler loop now - append everything received (which is just user CSS now)
-        let combinedLocalCSS = '';
-        cssResults.forEach(result => {
-             combinedLocalCSS += `\n/* Styles from ${result.source} ${result.error ? `(ERROR: ${result.content.split('\n')[0].replace('/*','').replace('*/','').trim()})` : ''} */\n${result.error ? result.content : result.content}\n`;
-        });
-        logServer(`Combined local CSS length: ${combinedLocalCSS.length}.`); // Updated log
-
-        // --- Construct Link Tags for URLs ---
-        const linkTags = cssUrlsToLink.map(url =>
-            `<link rel="stylesheet" href="${url.replace(/"/g, '&quot;')}">` // Basic sanitization for href
-        ).join('\n  ');
-
-        // --- Construct Metadata ---
-        const yamlFrontMatter = `---
-file: ${baseFilename}
-directory: ${directory}
-generated_at: ${generationTime}
-source_markdown_embedded: ${!!markdownSource && markdownSource !== '<!-- Could not retrieve original Markdown source -->'}
-embedded_local_css_files: ${JSON.stringify(localCssPathsToRead)}
-linked_external_css_files: ${JSON.stringify(cssUrlsToLink)}
----`;
-        const metadataContainer = `\n<div id="devpages-metadata-source" style="display:none; height:0; overflow:hidden; position:absolute;">\n<pre># --- DevPages Metadata & Source --- #\n${yamlFrontMatter}\n\n## Original Markdown Source ##\n\n${markdownSource || '<!-- Markdown source not provided -->'}\n</pre>\n</div>`;
-
-
-        // --- Construct Final HTML ---
-        const finalHtmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Static Preview: ${baseFilename}</title>
-  <!-- Linked CSS Files -->
-  ${linkTags}
-  <!-- Embedded Local CSS Files -->
-  <style id="embedded-styles">
-    /* Basic page styles */
-    body { margin: 0; padding: 0; font-family: sans-serif; line-height: 1.5; }
-    *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; } /* Basic reset */
-    img, video { max-width: 100%; height: auto; }
-
-    /* --- Embedded Preview Styles --- */
-    ${combinedLocalCSS}
-  </style>
-</head>
-<body>
-  <div id="preview-container">
-    ${renderedHtml}
-  </div>
-  ${metadataContainer}
-</body>
-</html>`;
-
-        logServer(`Final HTML content assembled (length: ${finalHtmlContent.length}). Sending response.`);
+        logServer(`Static HTML generated by htmlGenerator.js (length: ${finalHtmlContent.length}). Sending response.`);
         res.setHeader('Content-Type', 'text/html');
         res.send(finalHtmlContent);
-
     } catch (error) {
-        logServer(`Error in POST /generate-static: ${error.message}`, 'error');
-        console.error(error.stack); // Log full stack
-        res.status(500).json({
-            error: 'Failed to generate static HTML preview on server.',
-            details: error.message
-        });
+        console.error(`[SERVER] Error generating static HTML: ${error.message}`);
+        res.status(500).json({ error: 'Error generating static HTML' });
     }
 });
 
-export default router; 
+export default router;

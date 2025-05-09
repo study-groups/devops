@@ -230,15 +230,14 @@ app.get('/pdata-files/*', async (req, res) => {
             return res.status(403).send(`Forbidden: File type (${requestedExt}) not allowed.`);
         }
 
-        // 4. Construct absolute path using pdataInstance.dataRoot
-        // path.join naturally handles path normalization (removes '.', handles '/')
-        const absolutePath = path.join(pdataInstance.dataRoot, requestedRelativePath);
-        console.log(`${logPrefix} Resolved absolute path: ${absolutePath}`);
+        // 4. Construct absolute path using pdataInstance.dataRoot AND ADDING 'data' for MD_DIR
+        const mdDirRoot = path.join(pdataInstance.dataRoot, 'data'); // Base for user content
+        const absolutePath = path.join(mdDirRoot, requestedRelativePath);
+        console.log(`${logPrefix} Resolved absolute path (target MD_DIR): ${absolutePath}`);
 
-        // 5. Security: Ensure the resolved path is *still within* the dataRoot directory
-        // path.resolve() is used here to get the canonical path before comparing
-        if (!path.resolve(absolutePath).startsWith(path.resolve(pdataInstance.dataRoot))) {
-            console.error(`${logPrefix} CRITICAL SECURITY: Directory traversal attempt detected! Resolved path '${path.resolve(absolutePath)}' is outside data root '${path.resolve(pdataInstance.dataRoot)}'. Request: ${requestedRelativePath}`);
+        // 5. Security: Ensure the resolved path is *still within* the mdDirRoot directory
+        if (!path.resolve(absolutePath).startsWith(path.resolve(mdDirRoot))) {
+            console.error(`${logPrefix} CRITICAL SECURITY: Directory traversal attempt detected! Resolved path '${path.resolve(absolutePath)}' is outside MD_DIR root '${path.resolve(mdDirRoot)}'. Request: ${requestedRelativePath}`);
             return res.status(403).send('Forbidden: Access denied.');
         }
 

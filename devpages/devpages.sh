@@ -8,5 +8,7 @@ echo "--- DevPages Production Environment ---"
 echo "NODE_ENV: $NODE_ENV"
 echo "PORT: $PORT"
 echo "PD_DIR: $PD_DIR"
+PORT=4000
+export PORT
 source $HOME/pj/nvm/nvm.sh
 node server/server.js

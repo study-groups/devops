@@ -463,100 +463,87 @@ async function getMarkdownItInstance() {
  */
 export async function renderMarkdown(markdownContent, markdownFilePath) {
     logRenderer(`Rendering markdown for path: ${markdownFilePath || 'unknown path'}`, 'debug');
-    if (markdownFilePath === undefined) {
-         logRenderer('markdownFilePath is undefined, cannot resolve local includes!', 'error');
-         // Fallback or throw error? For now, proceed without includes.
+
+    // 1. Parse Frontmatter and preprocess body once
+    const { frontMatter, body: markdownBodyWithoutFrontmatter } = parseBasicFrontmatter(markdownContent);
+    // Preprocess for KaTeX if enabled, using the body from frontmatter parsing
+    const preprocessedBody = isPluginEnabled('katex') 
+        ? preprocessKatexBlocks(markdownBodyWithoutFrontmatter) 
+        : markdownBodyWithoutFrontmatter;
+
+    // 2. Get Markdown-it instance and render the preprocessed body to HTML
+    md = await getMarkdownItInstance(); // Assign the returned instance to the module-scoped md
+    if (!md) { // Add a guard clause in case getMarkdownItInstance fails to return an instance
+        logRenderer('Failed to get markdown-it instance. Aborting render.', 'error');
+        // Return a basic error HTML or throw, depending on desired error handling
+        return '<!DOCTYPE html><html><head><title>Error</title></head><body><p>Error rendering Markdown: Could not initialize renderer.</p></body></html>';
     }
+    const htmlBody = md.render(preprocessedBody);
 
-    const md = await getMarkdownItInstance(); // Get initialized markdown-it instance
+    // 3. Initialize headContent for CSS/JS includes
+    let headContent = '';
 
-    // 1. Parse Frontmatter
-    const { frontMatter, body: markdownBody } = parseBasicFrontmatter(markdownContent);
-    logRenderer('Parsed frontmatter:', 'debug'); console.log(frontMatter);
+    // 4. Path adjustment logic for assets
+    let markdownDirForAssets = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1);
+    const baseDirToRemove = 'md/'; // Assuming 'md' is the base directory known by the server's dataRoot
 
-    // <<< ADD DEBUG LOGS HERE >>>
-    logRenderer(`[Inject JS Check] markdownFilePath type: ${typeof markdownFilePath}, value: ${markdownFilePath}`, 'debug');
-    logRenderer(`[Inject JS Check] frontMatter.js_includes exists: ${frontMatter && frontMatter.hasOwnProperty('js_includes')}`, 'debug');
-    if (frontMatter && frontMatter.hasOwnProperty('js_includes')) {
-         logRenderer(`[Inject JS Check] frontMatter.js_includes type: ${typeof frontMatter.js_includes}`, 'debug');
-         logRenderer(`[Inject JS Check] Array.isArray(frontMatter.js_includes): ${Array.isArray(frontMatter.js_includes)}`, 'debug');
-         try {
-             logRenderer(`[Inject JS Check] frontMatter.js_includes value (JSON): ${JSON.stringify(frontMatter.js_includes)}`, 'debug');
-         } catch (e) {
-              logRenderer(`[Inject JS Check] Error stringifying frontMatter.js_includes: ${e}`, 'warn');
-              logRenderer(`[Inject JS Check] frontMatter.js_includes value (raw):`, 'debug');
-              console.log(frontMatter.js_includes); // Log raw object if JSON fails
-         }
-    } else {
-         logRenderer(`[Inject JS Check] frontMatter does not have js_includes property.`, 'debug');
+    if (markdownDirForAssets.startsWith(baseDirToRemove)) {
+        markdownDirForAssets = markdownDirForAssets.substring(baseDirToRemove.length);
     }
-    // <<< END ADD DEBUG LOGS >>>
+    // Ensure it ends with a slash if it's not empty
+    if (markdownDirForAssets && !markdownDirForAssets.endsWith('/')) {
+        markdownDirForAssets += '/';
+    }
+    logRenderer(`[Asset Path] markdownFilePath: ${markdownFilePath}, Original markdownDir: ${markdownFilePath ? markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1) : 'N/A'}, Adjusted markdownDirForAssets: '${markdownDirForAssets}'`, 'debug');
 
-    // 2. Generate <head> content
-    let headContent = '<meta charset="UTF-8">';
-    headContent += '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
-    headContent += `<title>${frontMatter.title || 'Preview'}</title>`;
-
-    // Inject CSS includes from frontmatter
+    // 5. Inject CSS includes from frontmatter
     if (markdownFilePath && frontMatter.css_includes && Array.isArray(frontMatter.css_includes)) {
-        const markdownDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1); // Get dir part (e.g., 'my/folder/') or '' if root
         frontMatter.css_includes.forEach(relPath => {
             if (typeof relPath === 'string' && relPath.trim()) {
                 const trimmedRelPath = relPath.trim();
-                // Construct path without unnecessary "./" (like we do for JS)
                 const resolvedPath = trimmedRelPath.startsWith('./') ? trimmedRelPath.substring(2) : trimmedRelPath;
-                const serverPath = joinUrlPath('/pdata-files', markdownDir, resolvedPath);
+                const serverPath = joinUrlPath('/pdata-files', markdownDirForAssets, resolvedPath);
                 headContent += `<link rel="stylesheet" href="${serverPath}">\n`;
-                logRenderer(`Injecting CSS: ${serverPath}`, 'debug');
+                logRenderer(`Injecting CSS: ${serverPath} (from original relPath: ${relPath}, markdownDirForAssets: ${markdownDirForAssets})`, 'debug');
             }
         });
     }
 
-    // Inject JS includes from frontmatter
+    // 6. Inject JS includes from frontmatter
     if (markdownFilePath && frontMatter.js_includes && Array.isArray(frontMatter.js_includes)) {
         logRenderer(`[Inject JS] Found js_includes: ${JSON.stringify(frontMatter.js_includes)} for path: ${markdownFilePath}`, 'debug');
-        const markdownDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1); 
-        logRenderer(`[Inject JS] Calculated markdownDir: ${markdownDir}`, 'debug');
         frontMatter.js_includes.forEach(relPath => {
             logRenderer(`[Inject JS] Processing relPath: ${relPath}`, 'debug');
             if (typeof relPath === 'string' && relPath.trim()) {
                 const trimmedRelPath = relPath.trim();
-                // Construct path without unnecessary "./"
                 const resolvedPath = trimmedRelPath.startsWith('./') ? trimmedRelPath.substring(2) : trimmedRelPath;
-                const serverPath = joinUrlPath('/pdata-files', markdownDir, resolvedPath);
+                const serverPath = joinUrlPath('/pdata-files', markdownDirForAssets, resolvedPath);
                 const scriptTag = `<script type="module" src="${serverPath}" defer></script>\n`;
                 headContent += scriptTag;
-                logRenderer(`[Inject JS] Added script tag: ${scriptTag.trim()}`, 'debug');
+                logRenderer(`[Inject JS] Added script tag: ${scriptTag.trim()} (from original relPath: ${relPath}, markdownDirForAssets: ${markdownDirForAssets})`, 'debug');
             } else {
                  logRenderer(`[Inject JS] Skipping invalid relPath: ${relPath}`, 'warning');
             }
         });
-    } else {
-         let reason = 'Unknown';
-         if (!markdownFilePath) reason = 'markdownFilePath missing';
-         else if (!frontMatter.js_includes) reason = 'frontMatter.js_includes missing';
-         else if (!Array.isArray(frontMatter.js_includes)) reason = 'frontMatter.js_includes is not an array';
-         logRenderer(`[Inject JS] Skipped JS injection. Reason: ${reason}. Path: ${markdownFilePath}, FrontMatter Keys: ${Object.keys(frontMatter)}`, 'debug');
     }
 
-    // Inject inline CSS from frontmatter (if using 'css' key with block scalar)
+    // 7. Inject inline CSS from frontmatter (if using 'css' key with block scalar)
     if (frontMatter.css) {
         headContent += `<style>\n${frontMatter.css}\n</style>\n`;
         logRenderer('Injecting inline CSS from frontmatter.', 'debug');
     }
 
-    // 3. Render Markdown Body
-    const preprocessedBody = isPluginEnabled('katex') ? preprocessKatexBlocks(markdownBody) : markdownBody;
+    // 8. Render Markdown Body
     const renderedBody = md.render(preprocessedBody);
 
-    // 4. Sanitize Rendered Body HTML (Important!)
+    // 9. Sanitize Rendered Body HTML (Important!)
     const sanitizedBody = DOMPurify.sanitize(renderedBody, {
         USE_PROFILES: { html: true }, // Allow standard HTML tags
         // ADD_TAGS: ['iframe'], // Example: Allow iframes if needed
         // ADD_ATTR: ['allowfullscreen'], // Example: Allow specific attributes
     });
 
-    // 5. Construct Full HTML
+    // 10. Construct Full HTML
     let finalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
