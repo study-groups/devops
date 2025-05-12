@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
 PORT=$1
-TETRA_DIR="${TETRA_DIR:-$HOME/.tetra}"
+TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
 HOTROD_DIR="$TETRA_DIR/hotrod"
-LOG_FILE="$HOTROD_DIR/clipboard.log"
 
 mkdir -p "$HOTROD_DIR"
 
@@ -12,11 +11,10 @@ timestamp() {
 }
 
 log() {
-  echo "[$(timestamp)] $1" | tee -a "$LOG_FILE"
+  echo "[$(timestamp)] $1"
 }
 
 log "📋 Clipboard Hotrod Listener started on port $PORT"
-log "📄 Logs: $LOG_FILE"
 
 handle_clipboard() {
   local line
