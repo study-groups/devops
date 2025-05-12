@@ -54,7 +54,7 @@ function add_app() {
   fi
 
   pm2 start "$HOTROD_SRC/tunnel.sh" \
-	  --name "hr-tunnel-$PORT" \
+	  --name "hr-$PORT-tunnel" \
 	  --interpreter bash -- "$PORT"
 
   pm2 start "$ENTRYPOINT" \
