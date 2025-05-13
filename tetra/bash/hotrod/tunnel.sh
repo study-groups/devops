@@ -7,7 +7,7 @@ REMOTE_PORT=$1
 
 export AUTOSSH_GATETIME=0
 export AUTOSSH_LOGLEVEL=7
-export AUTOSSH_LOGFILE="${TETRA_DIR:-$HOME/.tetra}/hotrod/logs/autossh-$REMOTE_PORT.log"
+export AUTOSSH_LOGFILE="${TETRA_DIR:-$HOME/tetra}/hotrod/logs/autossh-$REMOTE_PORT.log"
 
 exec autossh -M 0 -N \
   -o "ServerAliveInterval=30" \

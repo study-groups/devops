@@ -53,12 +53,20 @@ function add_app() {
     exit 1
   fi
 
-  pm2 start "$HOTROD_SRC/tunnel.sh" \
-	  --name "hr-$PORT-tunnel" \
-	  --interpreter bash -- "$PORT"
 
-  pm2 start "$ENTRYPOINT" \
-	  --name "hr-${PORT}-${APPNAME}" -- "$PORT"
+  pm2 start "$HOTROD_SRC/tunnel.sh" \
+      --name "hr-$PORT-tunnel" \
+      --interpreter bash \
+      --restart-delay 30000 \
+      --max-restarts 3 \
+      --no-autorestart \
+      --namespace hotrod \
+      -- "$PORT"
+
+
+  PORT=$PORT pm2 start "$ENTRYPOINT" \
+      --name "hr-${PORT}-${APPNAME}" \
+      --namespace hotrod 
 
   echo "Hotrod app '$APPNAME' started on port $PORT."
 }
@@ -74,8 +82,8 @@ function remove_app() {
     exit 1
   fi
 
-  pm2 delete "hr-tunnel-$PORT" &>/dev/null
   pm2 delete "hr-${PORT}-${APPNAME}" &>/dev/null
+  pm2 delete "hr-tunnel-$PORT" &>/dev/null
 
   echo "Removed hotrod app $APPNAME on port $PORT."
 }

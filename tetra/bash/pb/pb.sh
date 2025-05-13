@@ -36,7 +36,8 @@ pb() {
             ;;
             
         ls)
-            pm2 ls
+            echo "PM2_HOME=$PM2_HOME"
+	    pm2 ls
             ;;
             
         stop)
