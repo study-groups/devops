@@ -117,6 +117,7 @@ app.use(cookieParser());
 // Session Middleware Configuration
 console.log('>>> [DEBUG] projectRoot for session path:', projectRoot); // Add this log
 const FileStoreSession = FileStore(session);
+app.set('trust proxy', 1); // Add this line before app.use(session(...))
 app.use(session({
   name: 'devpages.sid',
   secret: process.env.SESSION_SECRET || 'dev-secret-change-for-prod',
