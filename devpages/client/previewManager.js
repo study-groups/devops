@@ -178,7 +178,41 @@ function subscribeToStoreChanges() {
   });
 }
 
+// --- NEW EXPORTED INITIALIZATION FUNCTION ---
+export async function initializePreviewManager() {
+  if (isPreviewInitialized) {
+    console.log('[previewManager] Preview system already initialized. Skipping initializePreviewManager call.');
+    return;
+  }
+  console.log('[previewManager] initializePreviewManager called to begin setup...');
+
+  // Ensure the container exists before proceeding (Bootstrap.js should ensure this by calling us at the right time)
+  // However, a defensive check here is good practice.
+  if (!document.querySelector('#preview-container')) {
+    console.error('[previewManager] CRITICAL: #preview-container not found in DOM. Preview cannot initialize.');
+    // Optionally, dispatch an error state to the appStore or throw an error
+    return; // Halt initialization if container is missing
+  }
+
+  try {
+    await initializeOrUpdatePreview(false); // Perform the actual initialization
+    
+    // Only subscribe to store changes if the initial setup was successful
+    if (isPreviewInitialized) {
+      subscribeToStoreChanges();
+      console.log('[previewManager] Preview system setup complete and subscriptions active.');
+    } else {
+      // This case implies initializeOrUpdatePreview returned early due to an error (e.g., initPreview failed)
+      console.warn('[previewManager] Preview system main setup (initializeOrUpdatePreview) did not complete successfully. Store subscriptions skipped.');
+    }
+  } catch (error) {
+    console.error('[previewManager] CRITICAL ERROR during initializePreviewManager execution:', error);
+    // Optionally, dispatch an error or update UI to reflect this critical failure
+  }
+}
+
 // --- Initial Setup --- 
+/* --- Auto-start removed, initialization now controlled by bootstrap.js --- 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[previewManager DEBUG] DOMContentLoaded event fired. Running setup...'); 
   try {
@@ -189,3 +223,4 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('[previewManager DEBUG] CRITICAL ERROR inside DOMContentLoaded handler:', error);
   }
 }); 
+*/ 

@@ -11,7 +11,8 @@ import { mainReducer } from '/client/store/reducer.js'; // Import the reducer
 import { initAuth } from '/client/auth.js'; // <<< ADDED: Import initAuth
 
 // --- ADD THIS IMPORT --- Ensure previewManager module loads and runs its setup
-import '/client/previewManager.js'; 
+// import '/client/previewManager.js'; // No longer needed just for side-effects
+import { initializePreviewManager } from '/client/previewManager.js'; // Import the new explicit initializer
 // -----------------------
 
 // Simple console logging for early bootstrap phases
@@ -166,6 +167,16 @@ async function initializeApp() {
     logBootstrap('Phase 6: Initializing Actions, Editor, Preview, etc...', 'debug');
     // These modules will also increasingly rely on dispatching actions and subscribing to appStore
     
+    // Initialize Preview Manager (depends on #preview-container being ready from initializeUI)
+    logBootstrap('Initializing Preview Manager...', 'debug');
+    try {
+        await initializePreviewManager();
+        logBootstrap('Preview Manager initialized.', 'debug');
+    } catch (error) {
+        logBootstrap(`Failed to initialize Preview Manager: ${error.message}`, 'error');
+        console.error('[PREVIEW MANAGER INIT ERROR]', error);
+    }
+
     // Actions (Listens for events from UI components, might dispatch actions)
     try {
         const actionsModule = await import('/client/actions.js');
