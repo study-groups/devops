@@ -172,7 +172,7 @@ export const triggerActions = {
 
     // --- Log Toolbar Actions ---
     copyLog: async () => {
-        logAction('Triggering copyLog...');
+        // logAction('Triggering copyLog...'); // <<< SILENCED
         try {
             // Use the global LogPanel instance
             window.logPanel?.copyLog(); 
@@ -201,7 +201,7 @@ export const triggerActions = {
         }
     },
     showSystemInfo: async () => {
-        logAction('Triggering showSystemInfo (calling showAppInfo)...');
+        // logAction('Triggering showSystemInfo (calling showAppInfo)...'); // <<< SILENCED
         try {
             window.dev?.showAppInfo?.();
         } catch (e) { logAction(`showSystemInfo/showAppInfo failed: ${e.message}`, 'error'); }
@@ -374,16 +374,15 @@ export const triggerActions = {
 
     // --- Clipboard Actions ---
     copyLog: async () => {
-        logAction('Triggering copyLog...');
+        // logAction('Triggering copyLog...'); // <<< SILENCED
         try {
-            // Use the global LogPanel instance
-            window.logPanel?.copyLog(); 
+            window.logPanel?.copyLog();
         } catch (e) { logAction(`copyLog failed: ${e.message}`, 'error'); }
     },
 
     // --- Log Entry Actions ---
     copyLogEntry: async (data, element) => {
-        logAction('Triggering copyLogEntry...');
+        // logAction('Triggering copyLogEntry...'); // <<< SILENCED for now
         if (!element) {
             logAction('copyLogEntry failed: No element provided.', 'error');
             return;

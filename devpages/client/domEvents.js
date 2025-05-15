@@ -82,7 +82,14 @@ export function initializeDomEvents() {
 
             const action = target.dataset.action;
             const params = { ...target.dataset }; // Pass all data attributes
-            logDomEvent(`Delegated click found data-action: ${action} on target: ${target.tagName}#${target.id}.${target.className}`);
+            const isMenuItem = target.closest('#log-menu-container'); // Defined earlier
+
+            // Condition for logging: not a menu item AND not the toggleLogMenu action itself
+            const shouldLogDomEvent = !isMenuItem && action !== 'toggleLogMenu';
+
+            if (shouldLogDomEvent) {
+                logDomEvent(`Delegated click found data-action: ${action} on target: ${target.tagName}#${target.id}.${target.className}`);
+            }
 
             // --- Check Authentication --- 
             const requiresAuth = PROTECTED_ACTIONS.has(action);
@@ -97,15 +104,12 @@ export function initializeDomEvents() {
 
             // Check if the action exists in triggerActions
             if (triggerActions[action]) {
-                // <<< SILENCE menu item clicks >>>
-                const isMenuItem = target.closest('#log-menu-container');
-                if (!isMenuItem) {
+                if (shouldLogDomEvent) {
                     logDomEvent(`Found handler for action '${action}' in triggerActions. Executing...`);
                 }
                 try {
                     triggerActions[action](params, target); // Pass params and the clicked element
-                    // <<< SILENCE menu item clicks >>>
-                    if (!isMenuItem) {
+                    if (shouldLogDomEvent) {
                         logDomEvent(`Action '${action}' executed successfully via triggerActions.`);
                     }
                     
