@@ -599,147 +599,47 @@
     cursor: default; /* Not clickable */
 }
 
-/* --- Log Entry Expansion --- */
-
-/* Style the log entry when expanded */
-.log-entry.expanded {
-    padding-bottom: 5px; 
-    border: 1px solid var(--log-border-color, #333); /* Darker border */
-    margin-bottom: 2px; 
-    background-color: var(--log-entry-expanded-bg, #1e1e1e); /* Darker background like toolbar */
-    cursor: default;
-    overflow: visible; 
-    align-items: stretch; 
-    flex-direction: column; 
+/* === Log Filtering Tags Bar === */
+#log-tags-bar {
+    display: flex; /* Will be set to none by JS if empty */
+    flex-wrap: wrap;
+    padding: 4px 8px;
+    padding-left:3rem;
+    background-color: #2a2a2a; /* Similar to toolbar */
+    border-bottom: 1px solid #333; /* Similar to toolbar */
+    gap: 5px; /* Spacing between tag buttons */
+    align-items: center;
+    /* Position it below the main toolbar and above the log content */
+    /* This is handled by DOM insertion order, specific positioning might be needed if layout is complex */
 }
 
-/* Hide the original copy button when expanded */
-.log-entry.expanded .original-button {
-    display: none;
-}
-
-/* Style the expanded toolbar */
-.log-entry.expanded .log-entry-expanded-toolbar {
-    display: flex; 
-    align-items: center; 
-    justify-content: flex-end; /* Ensure right alignment */
-    gap: 0.5em; 
-    padding: 4px 8px; 
-    background-color: var(--log-toolbar-expanded-bg, #2a2a2a); /* Existing shaded background */
-    border-bottom: 1px solid var(--log-border-color, #333); /* Existing darker border */
-    margin-bottom: 5px; 
-    flex-wrap: wrap; 
-    min-height: 24px; 
-    flex-shrink: 0; 
-    order: 1; 
-}
-
-/* Initially hide the expanded toolbar */
-.log-entry .log-entry-expanded-toolbar {
-    display: none; 
-}
-
-/* Style for the tokens within the expanded toolbar */
-.log-token {
-    display: inline-block; 
-    padding: 2px 5px;
+.log-tag-button {
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #ccc;
+    background-color: #4b5563; /* Default button color */
+    border: 1px solid #555;
     border-radius: 3px;
-    font-size: 0.85em;
-    background-color: var(--log-token-bg, #444); /* Darker token background */
-    color: var(--log-token-color, #ccc); /* Lighter token text */
-    white-space: nowrap; 
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-/* Specific token styles (adjusting for darker theme) */
-.log-token-index {
-    font-weight: bold;
-    background-color: var(--log-token-index-bg, #557); /* Darker blue */
-    color: #eee;
-}
-
-.log-token-time {
-    background-color: var(--log-token-time-bg, #333); /* Darker gray */
-    color: #aaa;
-}
-
-.log-token-type {
-    font-weight: bold;
-    text-transform: uppercase;
-    /* Use log type classes for specific colors (adjust for dark bg) */
-}
-.log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
-.log-token-type.log-type-debug { background-color: #444; color: #aaa; }
-.log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
-.log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
-.log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
-/* Add other types as needed */
-
-.log-token-subtype {
-    font-style: italic;
-    background-color: var(--log-token-subtype-bg, #2a4a5a); /* Darker teal/blue */
-    color: #bee;
-}
-
-/* Expanded message content */
-.log-entry.expanded .log-entry-text-wrapper {
-    padding: 5px 8px; 
-    display: block; 
-    user-select: text; 
-    white-space: pre-wrap; /* Default: Wrap raw text and preserve whitespace/newlines */
-    word-wrap: break-word; 
-    word-break: break-all; 
-    overflow: visible;     
-    text-overflow: clip;  
-    order: 2; 
-    color: #d4d4d4; /* Ensure message text is light */
-}
-
-/* NEW: Override whitespace for rendered Markdown */
-.log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
-    white-space: normal; /* Let HTML elements control wrapping */
-    word-wrap: normal; /* Reset if needed */
-    word-break: normal; /* Reset if needed */
-}
-
-/* Ensure <pre> tags inside also have light text */
-/* MOVED to log-markdown.css with more specific rule
-.log-entry.expanded .log-entry-text-wrapper pre {
-    color: #d4d4d4;
-}
-*/
-
-/* Adjust the toolbar button style */
-.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
-     /* Using .log-entry-button base from earlier styles */
-     /* Ensure they appear correctly on the dark toolbar */
-     padding: 1px 4px; 
-     font-size: 0.9em;
-     align-self: center; 
-     background: #4b5563; /* Match theme */
-     color: #d1d5db; /* Match theme */
-     border: 1px solid #6b7280; /* Match theme */
-     cursor: pointer;
-     opacity: 0.8; 
-     order: 3; /* Ensure buttons come after tokens */
-}
-.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
-     opacity: 1;
-     background-color: #6b7280; /* Match theme */
-}
-
-/* NEW: Markdown Toggle Button Style */
-.log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button {
-    /* Inherit base button styles */
-    font-weight: bold;
-    /* Add specific styles if needed */
-}
-
-/* NEW: Active state for Markdown Toggle Button */
-.log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button.active {
-    background-color: #60a5fa; /* Example: blue-400 */
+.log-tag-button:hover {
+    background-color: #6b7280;
+    border-color: #777;
     color: #fff;
-    border-color: #3b82f6; /* Example: blue-500 */
-    opacity: 1;
+}
+
+.log-tag-button.active {
+    background-color: #3b82f6; /* A distinct color for active filters (e.g., blue) */
+    border-color: #2563eb;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* Class to hide log entries that are filtered out */
+.log-entry-hidden-by-filter {
+    display: none !important; 
 }
 
 /* --- Styles Moved from tailwind.css --- */
@@ -765,4 +665,38 @@
 #main-container.log-hidden #content {
     max-height: calc(100vh - 50px); /* Adjust 50px nav height if needed */
     transition: max-height 0.3s ease;
+}
+
+.log-tag-button.clear-filters-button {
+    /* Optional: Differentiate "Clear Filters" button */
+    /* e.g., background-color: #555; */
+}
+
+/* General disabled state for tag buttons, including clear/show all */
+.log-tag-button.disabled {
+    background-color: #3a3f47; /* Example disabled style */
+    color: #777;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Ensure hover on non-disabled "Clear Filters" is consistent */
+.log-tag-button.clear-filters-button:not(.disabled):hover {
+    background-color: #6b7280; /* Match other tag buttons' hover */
+    border-color: #777;
+    color: #fff;
+}
+
+.log-tag-button.master-control-button {
+    /* Optional: Differentiate the master control button if desired */
+    /* font-weight: bold; */
+    /* margin-right: 5px; */ /* Add some space if needed */
+}
+
+/* General disabled state for tag buttons */
+.log-tag-button.disabled {
+    background-color: #3a3f47; 
+    color: #777;
+    cursor: not-allowed;
+    opacity: 0.6;
 }

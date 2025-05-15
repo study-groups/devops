@@ -1,15 +1,7 @@
 import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
 import eventBus from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
-
-// Helper for logging
-function logMessage(message, type = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type, 'VIEW_CONTROLS');
-    } else {
-        console.log(`[VIEW_CONTROLS]: ${message}`);
-    }
-}
+import { logMessage } from '/client/log/index.js'; // Use the central logger
 
 export function createViewControlsComponent(targetElementId) {
     let element = null;
@@ -17,7 +9,7 @@ export function createViewControlsComponent(targetElementId) {
 
     const updateActiveButton = (newMode) => {
         if (!element) return;
-        logMessage(`Updating active button for mode: ${newMode}`);
+        logMessage(`Updating active button for mode: ${newMode}`, 'debug', 'VIEW_CONTROLS');
         const buttons = element.querySelectorAll('button[data-action="setView"]');
         buttons.forEach(btn => {
             if (btn.dataset.viewMode === newMode) {
@@ -34,38 +26,38 @@ export function createViewControlsComponent(targetElementId) {
         if (!element) return;
         const logButton = element.querySelector('#log-toggle-btn');
         if (logButton) {
-             logMessage(`Updating log button state: isVisible=${isVisible}`);
+             logMessage(`Updating log button state: isVisible=${isVisible}`, 'debug', 'VIEW_CONTROLS');
             logButton.classList.toggle('active', isVisible);
             // Optional: Change icon or text based on state
             // logButton.textContent = isVisible ? 'Hide Log' : 'Show Log';
             logButton.title = isVisible ? 'Hide Log' : 'Show Log';
         } else {
-            logMessage('Log toggle button not found for state update.', 'warning');
+            logMessage('Log toggle button not found for state update.', 'warning', 'VIEW_CONTROLS');
         }
     };
 
     // ADDED: Handler for appState changes relevant to this component
     const handleAppStateChange = (newState, prevState) => {
-        // Only update if the relevant UI slice changed
-        if (newState.ui === prevState.ui) {
-            return;
-        }
-        logMessage(`[ViewControls] Received appState change:`, 'debug', newState.ui);
+        const viewModeChanged = newState.ui.viewMode !== prevState.ui?.viewMode;
+        const logVisibilityChanged = newState.ui.logVisible !== prevState.ui?.logVisible;
+
+        if (!viewModeChanged && !logVisibilityChanged) return;
+
+        logMessage(
+            `Relevant appState.ui change. Mode: ${newState.ui.viewMode}, LogVisible: ${newState.ui.logVisible}`,
+            'debug',
+            'APP_STATE'
+        );
         
-        // Update buttons based on the new state
-        if (newState.ui.viewMode !== prevState.ui?.viewMode) {
-            updateActiveButton(newState.ui.viewMode);
-        }
-        if (newState.ui.logVisible !== prevState.ui?.logVisible) {
-            updateLogButtonState(newState.ui.logVisible);
-        }
+        if (viewModeChanged) updateActiveButton(newState.ui.viewMode);
+        if (logVisibilityChanged) updateLogButtonState(newState.ui.logVisible);
     };
 
     const mount = () => {
-        logMessage('Mounting...');
+        logMessage('Mounting ViewControls...', 'info', 'VIEW_CONTROLS');
         element = document.getElementById(targetElementId);
         if (!element) {
-            logMessage(`Target element #${targetElementId} not found.`, 'error');
+            logMessage(`Target element #${targetElementId} not found.`, 'error', 'VIEW_CONTROLS');
             return false;
         }
 
@@ -81,29 +73,29 @@ export function createViewControlsComponent(targetElementId) {
         // ADDED: Subscribe to appState
         if (appStateUnsubscribe) appStateUnsubscribe(); // Unsubscribe previous if any
         appStateUnsubscribe = appStore.subscribe(handleAppStateChange);
-        logMessage('Subscribed to appState changes.');
+        logMessage('ViewControls subscribed to appState changes.', 'info', 'VIEW_CONTROLS');
 
         // ADDED: Call handler once with initial state to set initial button states
         handleAppStateChange(appStore.getState(), {}); // Pass empty object as prevState
 
-        logMessage('Mounted and subscribed to appState.');
+        logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');
         return true;
     };
 
     const destroy = () => {
-        logMessage('Destroying...');
+        logMessage('Destroying ViewControls...', 'info', 'VIEW_CONTROLS');
         // Unsubscribe from appState changes
         if (appStateUnsubscribe) {
             appStateUnsubscribe();
             appStateUnsubscribe = null;
-            logMessage('Unsubscribed from appState changes.');
+            logMessage('ViewControls unsubscribed from appState changes.', 'info', 'VIEW_CONTROLS');
         }
         
         if (element) {
             element.innerHTML = '';
         }
         element = null;
-        logMessage('Destroyed.');
+        logMessage('ViewControls destroyed.', 'info', 'VIEW_CONTROLS');
     };
 
     return {

@@ -24,6 +24,9 @@ import { appVer } from '/config.js'; // Use absolute path
 // ADD: Import markdown rendering function AND post-processing
 import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 
+// ADD: Import setLogPanelInstance
+import { setLogPanelInstance } from './core.js'; // Or from './index.js' if re-exported there
+
 // <<< NEW: Logging helper for this module >>>
 function logPanelMessage(message, level = 'debug') {
     const type = 'LOG_PANEL'; 
@@ -56,6 +59,7 @@ export class LogPanel {
 
         // --- Initialize internal elements to null initially --- 
         this.toolbarElement = null;
+        this.tagsBarElement = null; // ADDED: For filter tags
         this.logElement = null;
         this.statusElement = null;
         this.resizeHandle = null;
@@ -97,12 +101,15 @@ export class LogPanel {
         // REMOVED: property to store the uiState unsubscribe function
         // this._logVisibleUnsubscribe = null;
         this._appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
+        this._logFilteringUnsubscribe = null; // ADDED: For log filtering state
 
         // --- ADDED: Pause State ---
         this.isPaused = false;
         // --- END ADDED ---
 
         console.log('[LogPanel] Instance created.');
+        // Make this instance available to the global logger system
+        setLogPanelInstance(this); // <<< ADDED
     }
 
     /**
@@ -115,7 +122,8 @@ export class LogPanel {
         this.createDOMStructure(); // Create internal elements
         this.loadPreferences();
         this.attachEventListeners(); // Attach resize listener and potentially others
-        this.subscribeToStateChanges(); // ADDED: Subscribe to appState.ui.logVisible
+        this.subscribeToStateChanges(); // ADDED: Subscribe to appState.ui.logVisible and logFiltering
+        this._updateTagsBar(); // ADDED: Initial render of tags bar
         this.updateUI();
         this.updateEntryCount(); // Initial count
         // Comment out the call to updateAppInfo
@@ -192,6 +200,11 @@ export class LogPanel {
         // Don't append here, append to wrapper below
         if (this.statusElement) rightWrapper.appendChild(this.statusElement);
         if (this.minimizeButton) rightWrapper.appendChild(this.minimizeButton);
+     
+        // Create Tags Bar (after toolbar, before log content)
+        this.tagsBarElement = document.createElement('div');
+        this.tagsBarElement.id = 'log-tags-bar';
+        this.container.appendChild(this.tagsBarElement); // Appending it directly to container, will be styled to sit between toolbar and log
      
         // Create Log Content Area
         this.logElement = document.createElement('div');
@@ -296,19 +309,63 @@ export class LogPanel {
      * ADDED: Subscribe to relevant UI state changes from appState.
      */
     subscribeToStateChanges() {
-        // Unsubscribe if already subscribed (e.g., during re-initialization)
         if (this._appStateUnsubscribe) {
             this._appStateUnsubscribe();
         }
-        // Subscribe to appState changes
         this._appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
-             // Only react if the relevant UI slice changed
              if (newState.ui !== prevState.ui && newState.ui.logVisible !== prevState.ui?.logVisible) {
-                 console.log(`%c[LogPanel] Received appState change via subscription: logVisible=${newState.ui.logVisible}`, 'color: cyan'); 
-                 this.updateUI(); // Update UI when central state changes
+                 // This is an APP_STATE change, LogPanel is just observing it.
+                 // So, it should use the main `logMessage` (imported from ./index.js)
+                 // to ensure consistency with how other modules log APP_STATE changes.
+                 // Or, if we decide LogPanel's observation of this specific event is
+                 // an internal "LOG_PANEL" concern about an external event, it could be:
+                 // this.addEntry(`[DEBUG] [LOG_PANEL] Observed appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'LOG_PANEL');
+
+                 // Let's stick to the established pattern: if it's an APP_STATE change, log it as such.
+                 // This requires LogPanel to import logMessage from its own index.
+                 // import { logMessage as appLog } from './index.js';
+                 // appLog(`appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE');
+                 // For now, the previous direct window.logMessage call for this specific case was:
+                 // window.logMessage(`[LogPanel] appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE', ...);
+                 // This will now correctly pass 'APP_STATE' as the component type via the new globalLogMessageHandler.
+                 // So, if window.logMessage is already called, ensure it uses 3 args.
+
+                 // The goal is that APP_STATE changes are logged with type APP_STATE.
+                 // The existing code was:
+                 // if (typeof window.logMessage === 'function') {
+                 //    window.logMessage(`[LogPanel] appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE', { visible: newState.ui.logVisible });
+                 // }
+                 // This call should now work correctly with the new globalLogMessageHandler.
+                 // The 4th arg {visible: ...} will be ignored by globalLogMessageHandler, include in message if needed.
+                 if (typeof window.logMessage === 'function') {
+                    window.logMessage(
+                        `appState.ui.logVisible changed to: ${newState.ui.logVisible}`, // messageContent
+                        'debug', // level
+                        'APP_STATE' // componentType
+                    );
+                 }
+                 this.updateUI(); 
              }
         });
         console.log('[LogPanel] Subscribed to appState.ui.logVisible changes.');
+
+        // Subscribe to appState changes for log filtering
+        if (this._logFilteringUnsubscribe) {
+            this._logFilteringUnsubscribe();
+        }
+        this._logFilteringUnsubscribe = appStore.subscribe((newState, prevState) => {
+            const filtersChanged = newState.logFiltering !== prevState.logFiltering &&
+                (newState.logFiltering.discoveredTypes !== prevState.logFiltering?.discoveredTypes ||
+                 newState.logFiltering.activeFilters !== prevState.logFiltering?.activeFilters);
+
+            if (filtersChanged) {
+                // This subscription is for LogPanel to react to filter changes by updating its UI.
+                // IT SHOULD NOT LOG when filter tags are toggled, as per user request.
+                this._updateTagsBar(); // This will be removed later during refactor
+                this._applyFiltersToLogEntries(); 
+            }
+        });
+        console.log('[LogPanel] Subscribed to appState.logFiltering changes.');
     }
 
     /**
@@ -494,6 +551,54 @@ export class LogPanel {
             logPanelMessage('Editor textarea not found during listener setup.', 'warning');
         }
         // <<< END NEW LISTENERS >>>
+
+        // Delegated event listener for tags bar (for individual type filters and "Clear Filters")
+        if (this.tagsBarElement) {
+            this.tagsBarElement.addEventListener('click', (event) => {
+                const targetButton = event.target.closest('.log-tag-button');
+                if (!targetButton) return; // Click wasn't on a button
+
+                const action = targetButton.dataset.action;
+                const logTypeToToggle = targetButton.dataset.logType;
+
+                if (action === 'clear-all-log-filters') {
+                    // Handle "Clear Filters" button click
+                    if (targetButton.disabled) return; // Do nothing if button is disabled
+
+                    appStore.update(prevState => {
+                        // Set activeFilters to an empty array
+                        return {
+                            ...prevState,
+                            logFiltering: {
+                                ...prevState.logFiltering,
+                                activeFilters: [] // Clear all active filters
+                            }
+                        };
+                    });
+                } else if (logTypeToToggle) {
+                    // Handle individual log type filter button click
+                    appStore.update(prevState => {
+                        const currentActiveFilters = prevState.logFiltering.activeFilters;
+                        let newActiveFilters;
+                        if (currentActiveFilters.includes(logTypeToToggle)) {
+                            newActiveFilters = currentActiveFilters.filter(t => t !== logTypeToToggle);
+                        } else {
+                            newActiveFilters = [...currentActiveFilters, logTypeToToggle];
+                        }
+                        return {
+                            ...prevState,
+                            logFiltering: {
+                                ...prevState.logFiltering,
+                                activeFilters: newActiveFilters
+                            }
+                        };
+                    });
+                }
+            });
+            // logPanelMessage('[LogPanel] Attached click listener to tags bar.', 'debug');
+        } else {
+            console.warn('[LogPanel] Tags bar element not found, cannot attach listener for filters.');
+        }
     }
 
     // --- Core Methods ---
@@ -637,6 +742,32 @@ export class LogPanel {
 
         // Also log to console for debugging
         // console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : messageStr}`); // Keep original console log format for now
+
+        // ADDED: Update discovered log types in appState
+        const currentLogFilteringState = appStore.getState().logFiltering;
+        if (!currentLogFilteringState.discoveredTypes.includes(type)) {
+            appStore.update(prevState => {
+                const newDiscoveredTypes = [...prevState.logFiltering.discoveredTypes, type];
+                // New types are active by default, unless they were previously discovered and deactivated
+                const newActiveFilters = prevState.logFiltering.activeFilters.includes(type) ?
+                                         prevState.logFiltering.activeFilters :
+                                         [...prevState.logFiltering.activeFilters, type];
+                return {
+                    ...prevState,
+                    logFiltering: {
+                        discoveredTypes: newDiscoveredTypes,
+                        activeFilters: newActiveFilters // Add new type to active filters by default
+                    }
+                };
+            });
+            logPanelMessage(`[LogPanel] New log type discovered and added: ${type}`, 'debug');
+        }
+
+        // ADDED: Apply filter to new entry
+        const activeFilters = appStore.getState().logFiltering.activeFilters;
+        if (!activeFilters.includes(type)) {
+            logEntry.classList.add('log-entry-hidden-by-filter');
+        }
     }
 
     /**
@@ -648,7 +779,16 @@ export class LogPanel {
         this.state.entryCount = 0;
         this.state.clientLogIndex = 0; // <<< ADDED: Reset client log index
         this.updateEntryCount(); // Use internal method
-        console.log('[LogPanel] Log cleared.');
+        
+        // ADDED: Reset discovered types and active filters
+        appStore.update(prevState => ({
+            ...prevState,
+            logFiltering: {
+                discoveredTypes: [],
+                activeFilters: []
+            }
+        }));
+        console.log('[LogPanel] Log cleared and filters reset.');
     }
 
     /**
@@ -658,7 +798,13 @@ export class LogPanel {
         if (!this.logElement) return;
 
         const logText = Array.from(this.logElement.children)
-            .map(entry => entry.textContent)
+            .filter(entry => !entry.classList.contains('log-entry-hidden-by-filter'))
+            .map(entry => {
+                const index = entry.dataset.logIndex;
+                const timestamp = entry.dataset.logTimestamp;
+                const rawMessage = entry.dataset.rawOriginalMessage;
+                return `[${index}] ${timestamp} ${rawMessage}`;
+            })
             .join('\n');
 
         navigator.clipboard.writeText(logText)
@@ -715,10 +861,30 @@ export class LogPanel {
 
     /**
      * Updates the entry count display in the status bar.
+     * Shows "visibleEntries/totalEntries entries".
      */
     updateEntryCount() {
         if (!this.statusElement) return;
-        this.statusElement.textContent = `${this.state.entryCount} ${this.state.entryCount === 1 ? 'entry' : 'entries'}`;
+
+        const totalEntries = this.state.entryCount;
+        let visibleEntries = 0;
+
+        if (this.logElement) {
+            // Count children that do NOT have the 'log-entry-hidden-by-filter' class
+            const allEntries = this.logElement.children;
+            for (let i = 0; i < allEntries.length; i++) {
+                if (!allEntries[i].classList.contains('log-entry-hidden-by-filter')) {
+                    visibleEntries++;
+                }
+            }
+        } else {
+            // If logElement isn't available, assume visible is same as total (or 0 if total is 0)
+            // This case should be rare if statusElement is present.
+            visibleEntries = totalEntries > 0 ? 0 : 0; // Or perhaps just stick to total if no logElement
+        }
+        
+        const entryText = (totalEntries === 1 && visibleEntries === 1) ? 'entry' : 'entries';
+        this.statusElement.textContent = `${visibleEntries}/${totalEntries} ${entryText}`;
     }
 
     /**
@@ -792,7 +958,12 @@ export class LogPanel {
         if (this._appStateUnsubscribe) {
             this._appStateUnsubscribe();
             this._appStateUnsubscribe = null;
-            console.log('[LogPanel] Unsubscribed from appState changes.');
+            console.log('[LogPanel] Unsubscribed from appState.ui.logVisible changes.');
+        }
+        if (this._logFilteringUnsubscribe) { // ADDED: Unsubscribe from log filtering
+            this._logFilteringUnsubscribe();
+            this._logFilteringUnsubscribe = null;
+            console.log('[LogPanel] Unsubscribed from appState.logFiltering changes.');
         }
         // Remove resize listener if necessary (though usually component is destroyed with page)
         if (this.resizeHandle) {
@@ -914,4 +1085,87 @@ export class LogPanel {
              textWrapper.innerHTML = `<pre>Error rendering content (mode: ${finalMode}):\n${err}</pre>`;
         }
     }
+
+    // +++ NEW METHODS FOR LOG FILTERING +++
+    /**
+     * Updates the tags bar with a "Clear Filters" button and buttons for each discovered log type.
+     */
+    _updateTagsBar() {
+        if (!this.tagsBarElement) {
+            console.warn('[LogPanel] Tags bar element not found for update.');
+            return;
+        }
+
+        const { discoveredTypes, activeFilters } = appStore.getState().logFiltering;
+        this.tagsBarElement.innerHTML = ''; // Clear existing buttons
+
+        // 1. Create and add the "Clear Filters" button
+        const clearFiltersButton = document.createElement('button');
+        clearFiltersButton.className = 'log-tag-button clear-filters-button'; // Specific class for styling
+        clearFiltersButton.textContent = 'Clear Filters';
+        clearFiltersButton.dataset.action = 'clear-all-log-filters'; // Special action
+
+        // Determine if "Clear Filters" should be disabled
+        // (i.e., if no filters are currently active, or no types exist to be filtered)
+        if (activeFilters.length === 0 || discoveredTypes.length === 0) {
+            clearFiltersButton.classList.add('disabled');
+            clearFiltersButton.disabled = true;
+        } else {
+            clearFiltersButton.classList.remove('disabled');
+            clearFiltersButton.disabled = false;
+        }
+        this.tagsBarElement.appendChild(clearFiltersButton);
+
+        // 2. Add individual type filter buttons
+        if (discoveredTypes.length > 0) {
+            discoveredTypes.forEach(type => {
+                const button = document.createElement('button');
+                button.className = 'log-tag-button';
+                button.textContent = type;
+                button.dataset.logType = type;
+                if (activeFilters.includes(type)) {
+                    button.classList.add('active');
+                }
+                this.tagsBarElement.appendChild(button);
+            });
+        }
+        
+        // Visibility of the bar itself
+        if (discoveredTypes.length === 0) { 
+            this.tagsBarElement.style.display = 'none'; 
+        } else {
+            this.tagsBarElement.style.display = 'flex';
+        }
+        // logPanelMessage('[LogPanel] Tags bar updated.', 'debug');
+    }
+
+    /**
+     * Applies current filters to all visible log entries.
+     * Shows/hides entries based on whether their type is in activeFilters.
+     */
+    _applyFiltersToLogEntries() {
+        if (!this.logElement) {
+            console.warn('[LogPanel] Log element not found for applying filters.');
+            return;
+        }
+
+        const { activeFilters } = appStore.getState().logFiltering;
+        const logEntries = this.logElement.querySelectorAll('.log-entry');
+
+        logEntries.forEach(entry => {
+            const entryType = entry.dataset.logType;
+            if (entryType) { // Ensure logType is defined on the entry
+                if (activeFilters.includes(entryType)) {
+                    entry.classList.remove('log-entry-hidden-by-filter');
+                } else {
+                    entry.classList.add('log-entry-hidden-by-filter');
+                }
+            }
+        });
+        // logPanelMessage('[LogPanel] Applied filters to existing log entries.', 'debug'); // Optional: keep if useful
+        
+        // ADDED: Update the count after filters are applied
+        this.updateEntryCount(); 
+    }
+    // +++ END NEW METHODS FOR LOG FILTERING +++
 }

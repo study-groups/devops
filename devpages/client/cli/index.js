@@ -185,7 +185,14 @@ async function handleSendCommand() {
 
         const resultOutput = await executeRemoteCommand(payload);
         console.log(`[CLI Action] executeRemoteCommand returned: "${resultOutput}"`);
-        if (resultOutput && resultOutput.trim()) logMessage(resultOutput, 'cli-output');
+        // --- DEBUG LINES ADDED ---
+        console.log(`[CLI DEBUG] resultOutput from executeRemoteCommand: "${resultOutput}" (Type: ${typeof resultOutput})`);
+        console.log(`[CLI DEBUG] Is resultOutput trimmed non-empty?: ${!!(resultOutput && resultOutput.trim())}`);
+        // --- END DEBUG LINES ---
+        if (resultOutput && resultOutput.trim()) {
+            console.log(`[CLI DEBUG] Calling logMessage with message, level 'info', and componentType 'cli-output'`); // DEBUG LINE
+            logMessage(resultOutput, 'info', 'cli-output');
+        }
 
     } catch (error) { // Catch errors from substitution or main execution
          console.error(`[CLI Action] Command processing failed: ${error.message}`);

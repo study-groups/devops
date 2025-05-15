@@ -215,6 +215,11 @@ const initialAppState = {
           enableRootCss: getInitialEnableRootCss() // <<< NEW STATE FIELD
       }
   },
+  // +++ Add the Log Filtering State Slice +++
+  logFiltering: {
+    discoveredTypes: [], // Stores all unique types encountered, e.g., ['text', 'json', 'cli-input']
+    activeFilters: [],   // Stores types currently active for display
+  },
   // ... smartCopy ...
 };
 

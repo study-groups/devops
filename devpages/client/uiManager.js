@@ -66,10 +66,33 @@ function applyLogHeight(height) {
 
 // --- Central State Change Handler ---
 async function handleAppStateChange(newState, prevState) {
-    logUI(`handleAppStateChange triggered.`, 'debug');
+    // Determine if a change relevant to UIManager occurred
+    const authChanged = newState.auth !== prevState.auth;
+    const fileChanged = newState.file !== prevState.file;
+    const settingsPanelChanged = newState.settingsPanel !== prevState.settingsPanel;
+    
+    let uiManagerSpecificUiChange = false;
+    if (newState.ui !== prevState.ui) {
+        if (newState.ui.isLoading !== prevState.ui?.isLoading) { // Example specific interest
+            uiManagerSpecificUiChange = true;
+        }
+        // Add other checks for ui properties UIManager directly acts upon
+    }
+
+    const uimanagerRelevantChange = authChanged || fileChanged || settingsPanelChanged || uiManagerSpecificUiChange;
+
+    if (uimanagerRelevantChange) {
+        if (typeof window.logMessage === 'function') {
+            window.logMessage(`[UIManager] handleAppStateChange processing relevant changes.`, 'debug', 'APP_STATE', 
+                { auth: authChanged, file: fileChanged, settingsPanel: settingsPanelChanged, uiRelevant: uiManagerSpecificUiChange });
+        } else {
+            console.log(`[APP_STATE] [UIManager] Processing relevant state changes.`);
+        }
+    }
+    // No early return here, as individual handlers below still need to process their slices if they changed.
 
     // --- Auth State Handling (existing logic) ---
-    if (newState.auth !== prevState.auth) {
+    if (authChanged) {
         logUI(`Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
         // Handle FileManager initialization/reset based on auth changes
         // Only proceed if auth is no longer initializing
@@ -122,9 +145,8 @@ async function handleAppStateChange(newState, prevState) {
     }
 
     // --- File System State Handling ---
-    // Check if the file state slice itself or relevant sub-properties changed
-    if (newState.file !== prevState.file) {
-        logUI(`File state changed. isLoading: ${newState.file.isLoading}, isSaving: ${newState.file.isSaving}, file: ${newState.file.currentFile}`, 'debug');
+    if (fileChanged) {
+        logUI(`File state changed. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`, 'debug');
 
         // Update UI components based on the new file state
         updateActionButtonsState(newState.file);
@@ -153,14 +175,18 @@ async function handleAppStateChange(newState, prevState) {
     }
 
     // --- Settings Panel State Handling (Example) ---
-    if (newState.settingsPanel !== prevState.settingsPanel) {
+    if (settingsPanelChanged) {
         // Update settings panel UI if needed
         logUI('Settings Panel state changed.', 'debug');
     }
 
-    // --- UI State Handling (Example) ---
-     if (newState.ui !== prevState.ui) {
-        logUI(`Global UI state changed. isLoading: ${newState.ui.isLoading}`, 'debug');
+    // --- UI State Handling (Example for properties uiManager itself handles like global isLoading) ---
+     if (uiManagerSpecificUiChange) { 
+         if (typeof window.logMessage === 'function') {
+            window.logMessage(`[UIManager] Global UI properties changed (e.g., isLoading: ${newState.ui.isLoading})`, 'debug', 'APP_STATE', { isLoading: newState.ui.isLoading });
+         } else {
+            console.log(`[APP_STATE] [UIManager] Global UI properties changed (e.g. isLoading).`);
+         }
      }
 }
 

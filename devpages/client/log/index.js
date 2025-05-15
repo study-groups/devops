@@ -2,23 +2,19 @@
 
 // Define the logMessage function to safely access the global one
 // This ensures modules can import it reliably.
-export function logMessage(message, type = 'info', subtype = null) { 
-    // Default type to 'info' if not provided or null/undefined
-    const logType = type || 'info'; 
-    
-    if (typeof window.logMessage === 'function') {
-        // Call the global logMessage (bound to LogPanel.addEntry)
-        // Pass the message and the determined type. 
-        // Note: LogPanel.addEntry expects (message, type) signature.
-        // The 'subtype' concept is handled by prepending it to the 'message' string at the call site.
-        window.logMessage(message, logType); 
-    } else {
-        // Fallback if the global function isn't set up yet (shouldn't happen after bootstrap)
-        const subtypePrefix = subtype ? `[${subtype.toUpperCase()}] ` : '';
-        console.warn(`[LOG FALLBACK] ${subtypePrefix}${message} (Type: ${logType})`);
-    }
+import { globalLogMessageHandler, setLogPanelInstance } from './core.js';
+import { LogPanel } from './LogPanel.js';
+
+/**
+ * The primary logging function to be imported and used by other modules.
+ * @param {string} messageContent - The core message string.
+ * @param {string} [level='info'] - The log level (e.g., 'debug', 'info', 'warn', 'error').
+ * @param {string} [componentType='GENERAL'] - The component or system generating the log. This becomes the filter tag.
+ */
+export function logMessage(messageContent, level = 'info', componentType = 'GENERAL') {
+    // Directly call the core handler.
+    globalLogMessageHandler(messageContent, level, componentType);
 }
 
-// Import and re-export the LogPanel class
-import { LogPanel } from './LogPanel.js';
-export { LogPanel }; 
+// Re-export LogPanel and the instance setter for bootstrapping.
+export { LogPanel, setLogPanelInstance }; 
