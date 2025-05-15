@@ -204,74 +204,90 @@ app.get('/config.js', (req, res) => {
     res.sendFile(path.join(projectRoot, 'config.js'));
 });
 
-// --- NEW: Securely serve JS/CSS files from pdata for preview --- 
-const ALLOWED_PREVIEW_EXTENSIONS = ['.js', '.css'];
-app.get('/pdata-files/*', async (req, res) => {
-    const logPrefix = '[SERVER /pdata-files]';
-    try {
-        // 1. Extract requested relative path from URL
-        // req.params[0] will contain everything after '/pdata-files/'
-        const requestedRelativePath = req.params[0];
-        if (!requestedRelativePath) {
-            console.warn(`${logPrefix} Request path is empty.`);
-            return res.status(400).send('Bad Request: No file path specified.');
-        }
-        console.log(`${logPrefix} Requested relative path: ${requestedRelativePath}`);
+// --- REMOVE/COMMENT OUT the /md_static_content route IF IT WAS ADDED ---
+/*
+const projectMdAssetPath = path.join(projectRoot, 'md');
+console.log(`[SERVER] REMOVING/COMMENTING OUT /md_static_content route`);
+// app.use('/md_static_content', authMiddleware, express.static(projectMdAssetPath, staticOptions));
+*/
 
-        // 2. Security: Basic path validation (check for null bytes, etc.)
-        if (requestedRelativePath.includes('\0')) {
-            console.warn(`${logPrefix} Denied request with null byte: ${requestedRelativePath}`);
-            return res.status(400).send('Bad Request: Invalid characters in path.');
-        }
+// --- REMOVED /pdata-files/* route ---
+// const ALLOWED_PDATA_ASSET_EXTENSIONS = ['.js', '.css']; 
+// app.get('/pdata-files/*', authMiddleware, async (req, res) => {
+//     const logPrefix = '[SERVER /pdata-files]';
+//     try {
+//         const requestedRelativePath = req.params[0]; 
+//         if (!requestedRelativePath) {
+//             console.warn(`${logPrefix} Request path is empty.`);
+//             return res.status(400).send('Bad Request: No file path specified.');
+//         }
+//         console.log(`${logPrefix} User '${req.user?.username || 'Unknown (pre-auth or no user)'}' requested relative path: '${requestedRelativePath}'`);
+
+//         if (requestedRelativePath.includes('\\0')) {
+//             console.warn(`${logPrefix} Denied request with null byte: ${requestedRelativePath}`);
+//             return res.status(400).send('Bad Request: Invalid characters in path.');
+//         }
         
-        // 3. Security: Check file extension
-        const requestedExt = path.extname(requestedRelativePath).toLowerCase();
-        if (!ALLOWED_PREVIEW_EXTENSIONS.includes(requestedExt)) {
-            console.warn(`${logPrefix} Denied request for non-allowed extension (${requestedExt}): ${requestedRelativePath}`);
-            return res.status(403).send(`Forbidden: File type (${requestedExt}) not allowed.`);
-        }
+//         const requestedExt = path.extname(requestedRelativePath).toLowerCase();
+//         if (!ALLOWED_PDATA_ASSET_EXTENSIONS.includes(requestedExt)) {
+//             console.warn(`${logPrefix} Denied request for non-allowed extension (${requestedExt}): ${requestedRelativePath}`);
+//             return res.status(403).send(`Forbidden: File type (${requestedExt}) not allowed for this route.`);
+//         }
 
-        // 4. Construct absolute path using pdataInstance.dataRoot AND ADDING 'data' for MD_DIR
-        const mdDirRoot = path.join(pdataInstance.dataRoot, 'data'); // Base for user content
-        const absolutePath = path.join(mdDirRoot, requestedRelativePath);
-        console.log(`${logPrefix} Resolved absolute path (target MD_DIR): ${absolutePath}`);
+//         if (!req.pdata || !req.pdata.dataRoot) {
+//             console.error(`${logPrefix} CRITICAL: PData instance or dataRoot not found on request object.`);
+//             return res.status(500).send('Internal Server Error: PData context missing.');
+//         }
+//         const pdataContentRoot = path.join(req.pdata.dataRoot, 'data'); 
+//         const absoluteFsPath = path.join(pdataContentRoot, requestedRelativePath);
+        
+//         console.log(`${logPrefix} Attempting to resolve to FS path: '${absoluteFsPath}' (from pdataContentRoot: '${pdataContentRoot}')`);
 
-        // 5. Security: Ensure the resolved path is *still within* the mdDirRoot directory
-        if (!path.resolve(absolutePath).startsWith(path.resolve(mdDirRoot))) {
-            console.error(`${logPrefix} CRITICAL SECURITY: Directory traversal attempt detected! Resolved path '${path.resolve(absolutePath)}' is outside MD_DIR root '${path.resolve(mdDirRoot)}'. Request: ${requestedRelativePath}`);
-            return res.status(403).send('Forbidden: Access denied.');
-        }
+//         const resolvedPdataContentRoot = path.resolve(pdataContentRoot);
+//         const resolvedAbsoluteFsPath = path.resolve(absoluteFsPath);
 
-        // 6. Check if file exists
-        await fs.access(absolutePath, fs.constants.R_OK); // Check for read access
+//         if (!resolvedAbsoluteFsPath.startsWith(resolvedPdataContentRoot + path.sep) && resolvedAbsoluteFsPath !== resolvedPdataContentRoot) {
+//             console.error(`${logPrefix} CRITICAL SECURITY: Directory traversal attempt detected! Resolved path '${resolvedAbsoluteFsPath}' is outside pdataContentRoot '${resolvedPdataContentRoot}'. Request: '${requestedRelativePath}'`);
+//             return res.status(403).send('Forbidden: Access to this path is denied.');
+//         }
 
-        // 7. Send the file (Express handles Content-Type based on extension)
-        console.log(`${logPrefix} Serving file: ${absolutePath}`);
-        res.sendFile(absolutePath, (err) => {
-            if (err) {
-                // Handle potential errors during sendFile (e.g., file deleted after check)
-                console.error(`${logPrefix} Error sending file ${absolutePath}:`, err);
-                if (!res.headersSent) {
-                    // Use status code from error if available, otherwise 500
-                    res.status(err.status || 500).send('Error sending file.');
-                }
-            }
-        });
+//         if (!req.user || !req.user.username) {
+//             console.warn(`${logPrefix} User context not found on request (req.user.username missing) after authMiddleware. Denying access to '${requestedRelativePath}'.`);
+//             return res.status(403).send('Forbidden: User authentication context incomplete.');
+//         }
+//         const username = req.user.username;
+        
+//         // Authorization check using PData's `can` method, resolving path via PData's logic for user access context
+//         // For /pdata-files/, the relative path is always from the 'data' subfolder of PD_DIR.
+//         // PData.resolvePathForUser expects paths relative to user's scope or admin's view of 'data'.
+//         // Here, we are serving content that is effectively from "MD_DIR", which is PD_DIR/data.
+//         // The `absoluteFsPath` is already resolved to what we want to serve.
+//         // We need to ensure the user has 'read' permission *on this specific absolute file path*.
+        
+//         // Let's use a direct 'can' check on the already resolved absoluteFsPath.
+//         // PData.can() needs the user and the absolute path.
+//         if (!req.pdata.can(username, 'read', resolvedAbsoluteFsPath)) {
+//             console.warn(`${logPrefix} Authorization DENIED by PData.can() for user '${username}' on resolved path '${resolvedAbsoluteFsPath}'. Requested relative path: '${requestedRelativePath}'.`);
+//             return res.status(403).send('Forbidden: You do not have permission to access this file.');
+//         }
+//         console.log(`${logPrefix} Authorization GRANTED by PData.can() for user '${username}' on resolved path '${resolvedAbsoluteFsPath}'.`);
 
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.warn(`${logPrefix} File not found: ${req.params[0]}`);
-            res.status(404).send('Not Found');
-        } else if (error.code === 'EACCES') {
-            console.error(`${logPrefix} Permission denied for: ${req.params[0]}`);
-            res.status(403).send('Forbidden');
-        } else {
-            console.error(`${logPrefix} Unexpected error serving file ${req.params[0]}:`, error);
-            res.status(500).send('Internal Server Error');
-        }
-    }
-});
-// --- END NEW ROUTE --- 
+//         // Security: Final check to ensure file exists before sending
+//         try {
+//             await fs.access(resolvedAbsoluteFsPath, fsSync.constants.R_OK);
+//         } catch (accessError) {
+//             console.warn(`${logPrefix} File not found or not readable at '${resolvedAbsoluteFsPath}'. Error: ${accessError.message}`);
+//             return res.status(404).send('Not Found');
+//         }
+//         console.log(`${logPrefix} Sending file: ${resolvedAbsoluteFsPath}`);
+//         res.sendFile(resolvedAbsoluteFsPath);
+
+//     } catch (error) {
+//         console.error(`${logPrefix} Error processing request for '${req.params[0]}':`, error);
+//         res.status(500).send('Internal ServerError');
+//     }
+// });
+// --- END REMOVED /pdata-files/* route ---
 
 // Application-specific directories within dataDir
 const appImagesDir = path.join(pdataInstance.dataRoot, 'images');

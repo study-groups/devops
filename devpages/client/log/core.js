@@ -1,46 +1,70 @@
+/* ----------------------------------------------------------------
+   Central logging hub – object-based API with legacy shim
+---------------------------------------------------------------- */
 let logPanelInstance = null;
 
-/**
- * Stores the LogPanel instance for the global logger to use.
- * @param {object} instance - The LogPanel instance.
- */
+/* 0.  CONSTANTS & HELPERS ------------------------------------ */
+export const LEVELS = Object.freeze(['DEBUG', 'INFO', 'WARN', 'ERROR']);
+
+export const canonicalLevel = (raw = 'INFO') => {
+    const u = String(raw).toUpperCase();
+    if (u === 'WARNING') return 'WARN';
+    return LEVELS.includes(u) ? u : 'INFO';
+};
+export const canonicalType  = (raw = 'GENERAL') =>
+    String(raw).trim().toUpperCase();
+
+/* 1.  LOG PANEL REGISTRATION --------------------------------- */
 export function setLogPanelInstance(instance) {
     if (instance && typeof instance.addEntry === 'function') {
         logPanelInstance = instance;
     } else {
-        console.error('[LogCore] Invalid instance provided to setLogPanelInstance. Must have addEntry method.');
-        logPanelInstance = null; // Ensure it's reset if invalid
+        console.error('[LogCore] Invalid LogPanel instance supplied');
+        logPanelInstance = null;
     }
 }
 
-/**
- * Global logging function. All modules should aim to use this via the exported `logMessage`.
- * It ensures that the componentType is correctly passed to LogPanel for tagging.
- * @param {string} messageContent - The core message string.
- * @param {string} [level='info'] - The log level (e.g., 'debug', 'info', 'warn', 'error').
- * @param {string} [componentType='GENERAL'] - The component or system generating the log. This becomes the filter tag.
- */
-export function globalLogMessageHandler(messageContent, level = 'info', componentType = 'GENERAL') {
-    const effectiveLevel = level || 'info';
-    const effectiveComponentType = componentType || 'GENERAL';
+/* 2.  PRIMARY LOG FUNCTION ----------------------------------- */
+export function log({ message,
+                      level   = 'INFO',
+                      type    = 'GENERAL',
+                      subtype = null,
+                      details = null,
+                      ts      = Date.now() }) {
 
-    // Construct the message that will be displayed in the log panel entry.
-    // Example: "[INFO] [MY_COMPONENT] This is the message."
-    const displayString = `[${effectiveLevel.toUpperCase()}] [${effectiveComponentType.toUpperCase()}] ${messageContent}`;
+    const lvl = canonicalLevel(level);
+    const typ = canonicalType(type);
+    const sub = subtype ? String(subtype).toUpperCase() : null;
+
+    const entry = { ts, message, level: lvl, type: typ, subtype: sub, details };
 
     if (logPanelInstance) {
-        // Call LogPanel.addEntry, passing the componentType as the second argument for tagging.
-        logPanelInstance.addEntry(displayString, effectiveComponentType);
+        logPanelInstance.addEntry(entry);   // new path
     } else {
-        // Fallback to console if LogPanel isn't ready or properly set.
-        console.warn(`[LOG FALLBACK]${displayString}`); // displayString already contains level and component
+        console.log(`[${lvl}] [${typ}${sub ? ':' + sub : ''}] ${message}`,
+                    details ?? '');
     }
 }
 
-// Assign to window.logMessage. Modules should prefer importing `logMessage` from `client/log/index.js`
-// but this ensures a global fallback and a single point of definition for the global logger.
+/* 3.  CONVENIENCE HELPERS ----------------------------------- */
+export const logDebug = (m, o = {}) => log({ ...o, message: m, level: 'DEBUG' });
+export const logInfo  = (m, o = {}) => log({ ...o, message: m, level: 'INFO'  });
+export const logWarn  = (m, o = {}) => log({ ...o, message: m, level: 'WARN'  });
+export const logError = (m, o = {}) => log({ ...o, message: m, level: 'ERROR' });
+
+/* 4.  LEGACY POSITIONAL SHIM -------------------------------- */
+export function legacyPositional(message,
+                                 maybeLevel = 'INFO',
+                                 maybeType  = 'GENERAL') {
+    log({
+        message,
+        level : canonicalLevel(maybeLevel),
+        type  : canonicalType(maybeType)
+    });
+}
+
+/* expose legacy name so old imports keep working */
+export { legacyPositional as globalLogMessageHandler };
 if (typeof window !== 'undefined') {
-    window.logMessage = globalLogMessageHandler;
-} else {
-    console.warn('[LogCore] window object not found; window.logMessage not set. (Expected in browser env)');
+    window.logMessage = legacyPositional;
 }

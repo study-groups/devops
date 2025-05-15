@@ -604,99 +604,128 @@ export class LogPanel {
     // --- Core Methods ---
 
     /**
-     * Adds a log message to the panel, respecting the pause state.
-     * @param {string|object} message - The message to log
-     * @param {string} [type=\'text\'] - The message type (e.g., \'text\', \'json\', \'error\', \'cli-input\', \'cli-output\').
+     * Adds a log message to the panel.
+     * Accepts the NEW structured object form or the old (messageString, typeString) form.
      */
-    addEntry(message, type = 'text') {
-        // <<< DEBUGGING: Log incoming message details >>>
-        // console.log(`[LogPanel DEBUG] addEntry received:`, {
-        //     message: message,
-        //     typeofMessage: typeof message,
-        //     messageStr: String(message),
-        //     messageTrimmed: String(message).trim(),
-        //     type: type
-        // });
-        // --- ADDED: Check Pause State ---
-        // Allow specific types through even when paused
-        const allowedTypesWhenPaused = ['cli-input', 'cli-output', 'cli-error', 'cli-local-echo']; // Added cli-local-echo
-        if (this.isPaused && !allowedTypesWhenPaused.includes(type)) {
-            // console.log(`[LogPanel] Paused. Ignoring entry type: ${type}`);
-            return; // Don't add the entry if paused and type is not allowed
+    addEntry(entryData, legacyTypeArgument = 'text') {
+        let messageForDisplay; // Renamed to avoid confusion, this is the final string for the log line
+        let level;
+        let type;   // This will be the primary type for filtering/tagging
+        let subtype; // This will be the subtype for filtering/tagging
+        let timestamp;
+        let originalCoreMessage; // To store the actual core message content
+
+        if (typeof entryData === 'object' && entryData && 'message' in entryData && 'level' in entryData && 'type' in entryData) {
+            // New structured object payload from core.js/log
+            originalCoreMessage = entryData.message; // Store the original message content
+            level = entryData.level; // Already canonicalized (UPPERCASE)
+            type = entryData.type;   // Already canonicalized (UPPERCASE)
+            subtype = entryData.subtype; // Already canonicalized (UPPERCASE) or null
+            timestamp = new Date(entryData.ts).toLocaleTimeString();
+
+            let displayPrefix = `[${level}]`;
+            // Add type to prefix if it's not GENERAL (unless there's a subtype, then always show type)
+            if (type !== 'GENERAL' || subtype) {
+                 displayPrefix += ` [${type}]`;
+            }
+            if (subtype) {
+                displayPrefix += ` [${subtype}]`;
+            }
+
+            // Ensure originalCoreMessage is a string for concatenation
+            const coreMessageString = typeof originalCoreMessage === 'string' ? originalCoreMessage : JSON.stringify(originalCoreMessage);
+            messageForDisplay = `${displayPrefix} ${coreMessageString}`;
+
+        } else if (typeof entryData === 'string') {
+            // Legacy call path
+            originalCoreMessage = entryData; // The incoming string is the core message
+            type = legacyTypeArgument.toUpperCase();
+            level = 'INFO'; // Default for plain string messages
+            subtype = null;
+            timestamp = new Date().toLocaleTimeString();
+
+            // Attempt to parse out level/type from pre-formatted legacy strings
+            // Example: "[ERROR] [LEGACY_TYPE] Actual message"
+            const legacyMatch = originalCoreMessage.match(/^\s*\[([A-Z]+)\](?:\s*\[(.+?)\])?\s*(.*)/s);
+            let coreContentAfterMatch = originalCoreMessage;
+            if (legacyMatch) {
+                level = legacyMatch[1] || level;
+                // If legacyTypeArgument was 'TEXT' (default for simple strings), we might infer type from brackets
+                if (type === 'TEXT' && legacyMatch[2]) {
+                    type = legacyMatch[2].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_'); // Sanitize type
+                }
+                coreContentAfterMatch = legacyMatch[3] || originalCoreMessage; // The rest is the message
+            }
+            
+            let displayPrefix = `[${level}]`;
+            if (type !== 'GENERAL' && type !== 'TEXT') { // Use the determined type, avoid double [TEXT]
+                 displayPrefix += ` [${type}]`;
+            }
+            messageForDisplay = `${displayPrefix} ${coreContentAfterMatch}`;
+            originalCoreMessage = coreContentAfterMatch; // Update originalCoreMessage to the core part
+
+        } else {
+            console.warn('[LogPanel] addEntry received invalid data:', entryData);
+            return;
         }
-        // --- END ADDED ---
+
+        console.log(`[LogPanel.addEntry DEBUG] Logging: FinalDisplayMessage="${String(messageForDisplay).substring(0,70)}...", Level="${level}", Type="${type}", Subtype="${subtype}"`);
+
+        const upperCaseType = type.toUpperCase(); // Ensure consistency for checks like allowedTypesWhenPaused
+
+        // --- PAUSE CHECK (using 'upperCaseType') ---
+        const allowedTypesWhenPaused = ['CLI-INPUT', 'CLI-OUTPUT', 'CLI-ERROR', 'CLI-LOCAL-ECHO'];
+        if (this.isPaused && !allowedTypesWhenPaused.includes(upperCaseType)) {
+            return;
+        }
 
         if (!this.logElement) {
-             console.warn(`[LogPanel] Log element (#log) not found when trying to add entry:`, { message, type });
+             console.warn(`[LogPanel] Log element (#log) not found. Cannot add entry.`);
              return;
         }
 
-        if (message === undefined || message === null) {
-            console.warn('[LogPanel] Empty log message received, ignoring');
+        if (messageForDisplay === undefined || messageForDisplay === null || String(messageForDisplay).trim() === '') {
+            console.warn('[LogPanel] Empty or whitespace-only log message after processing, ignoring');
             return;
         }
         
-        let messageStr = String(message);
-        if (messageStr.trim() === '') {
-             console.warn('[LogPanel] Empty or whitespace-only log message received, ignoring');
-             return;
-        }
-
-        const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
-        logEntry.className = `log-entry log-entry-${type} log-${type.toLowerCase()}`; 
+        logEntry.className = `log-entry log-entry-${upperCaseType.toLowerCase()} log-level-${level.toLowerCase()}`;
+        if (subtype) {
+            logEntry.classList.add(`log-subtype-${subtype.toLowerCase().replace(/[^a-z0-9\\-]/g, '-')}`);
+        }
         logEntry.style.display = 'flex';
         logEntry.style.justifyContent = 'space-between';
         logEntry.style.alignItems = 'flex-start';
 
-        let subtype = null;
-        let rawContentForDisplay = messageStr;    // Default for <pre> in raw view
-        let coreMessageForProcessing = messageStr.trim(); // Default for MD/HTML processing
-
-        const subtypeRegex = new RegExp('^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)', 'is');
-        const subtypeMatch = subtypeRegex.exec(messageStr);
-
-        if (subtypeMatch) {
-            subtype = subtypeMatch[1];
-            rawContentForDisplay = subtypeMatch[2]; // Raw content after subtype
-            coreMessageForProcessing = subtypeMatch[2].trim(); // Trimmed content for processing
-            logEntry.classList.add(`log-subtype-${subtype.toLowerCase().replace(/[^a-z0-9\\-]/g, '-')}`);
-        }
-
         const textSpan = document.createElement('span');
         textSpan.className = 'log-entry-text-content';
-        let displayMessage = `[${this.state.clientLogIndex}] ${timestamp} ${messageStr}`;
-        let rawMessageForCopyButton = messageStr;
-
-        if (type === 'json') {
+        
+        const fullDisplayMessage = `[${this.state.clientLogIndex}] ${timestamp} ${messageForDisplay}`;
+        
+        if (upperCaseType === 'JSON' && entryData && typeof entryData.message === 'object') { // Check original message type from entryData
             let jsonString = '[Error stringifying JSON]';
             try {
-                jsonString = JSON.stringify(message, null, 2);
-                coreMessageForProcessing = jsonString; // For JSON, stringified is used for processing
-                rawContentForDisplay = jsonString;     // And for raw display
-                rawMessageForCopyButton = jsonString;
+                jsonString = JSON.stringify(entryData.message, null, 2); // Stringify original object from entryData
             } catch (e) { /* keep default error string */ }
             
-            displayMessage = `[${this.state.clientLogIndex}] ${timestamp} [JSON]`;
             const preForCollapsedView = document.createElement('pre');
             preForCollapsedView.textContent = jsonString;
-            textSpan.textContent = displayMessage;
+            textSpan.textContent = `[${this.state.clientLogIndex}] ${timestamp} [${level}] [JSON]`; // Header
             textSpan.appendChild(preForCollapsedView);
         } else {
-            textSpan.innerText = displayMessage;
+            textSpan.innerText = fullDisplayMessage;
         }
         
-        // --- Store Data Attributes on logEntry element ---
         logEntry.dataset.logIndex = this.state.clientLogIndex;
         logEntry.dataset.logTimestamp = timestamp;
-        logEntry.dataset.logType = type;
+        logEntry.dataset.logType = upperCaseType; 
         if (subtype) {
-            logEntry.dataset.logSubtype = subtype;
+            logEntry.dataset.logSubtype = subtype; 
         }
-        logEntry.dataset.logCoreMessage = coreMessageForProcessing; 
-        logEntry.dataset.logRawContentPart = rawContentForDisplay;   
-        logEntry.dataset.rawOriginalMessage = messageStr;            
-        // --- End Data Attributes ---
+        logEntry.dataset.logCoreMessage = (typeof originalCoreMessage === 'string') ? originalCoreMessage : JSON.stringify(originalCoreMessage);
+        logEntry.dataset.rawOriginalMessage = fullDisplayMessage; 
+        logEntry.dataset.logLevel = level;
 
         const textWrapper = document.createElement('span');
         textWrapper.className = 'log-entry-text-wrapper';
@@ -707,65 +736,54 @@ export class LogPanel {
         originalCopyButton.innerHTML = '&#128203;';
         originalCopyButton.className = 'log-entry-button original-button';
         originalCopyButton.title = 'Copy log entry text (Shift+Click to Paste)'; 
-        originalCopyButton.dataset.logText = rawMessageForCopyButton; 
+        originalCopyButton.dataset.logText = fullDisplayMessage; 
         logEntry.appendChild(originalCopyButton);
         
         const expandedToolbar = document.createElement('div');
         expandedToolbar.className = 'log-entry-expanded-toolbar';
         logEntry.appendChild(expandedToolbar);
 
-        // --- Insert the log entry --- 
         const expandedEntries = this.logElement.querySelectorAll('.log-entry.expanded');
         if (expandedEntries.length > 0) {
-            // Find the last expanded entry
             const lastExpandedEntry = expandedEntries[expandedEntries.length - 1];
-            // Insert the new entry *after* the last expanded one
             lastExpandedEntry.after(logEntry);
-            logPanelMessage(`Prepended new entry after last expanded (Index: ${lastExpandedEntry.dataset.logIndex})`, 'debug');
         } else {
-            // If no entries are expanded, prepend to the top as usual
             this.logElement.prepend(logEntry); 
-            logPanelMessage(`Prepended new entry to top (no expanded entries found)`, 'debug');
         }
-        // --- End Insertion Logic ---
         
         this.state.entryCount++;
-        this.state.clientLogIndex++; // <<< Increment client log index AFTER using it
-        this.updateEntryCount(); // Use internal method
+        this.state.clientLogIndex++;
+        this.updateEntryCount();
 
-        // Scroll to top (consider if this is always desired with prepending)
-        // setTimeout(() => { 
-        //     if (this.logElement) { // Check if element still exists
-        //         this.logElement.scrollTop = 0; 
-        //     }
-        // }, 0); 
-
-        // Also log to console for debugging
-        // console.log(`${timestamp} [${type.toUpperCase()}] ${type === 'json' ? JSON.stringify(message) : messageStr}`); // Keep original console log format for now
-
-        // ADDED: Update discovered log types in appState
         const currentLogFilteringState = appStore.getState().logFiltering;
-        if (!currentLogFilteringState.discoveredTypes.includes(type)) {
-            appStore.update(prevState => {
-                const newDiscoveredTypes = [...prevState.logFiltering.discoveredTypes, type];
-                // New types are active by default, unless they were previously discovered and deactivated
-                const newActiveFilters = prevState.logFiltering.activeFilters.includes(type) ?
-                                         prevState.logFiltering.activeFilters :
-                                         [...prevState.logFiltering.activeFilters, type];
-                return {
-                    ...prevState,
-                    logFiltering: {
-                        discoveredTypes: newDiscoveredTypes,
-                        activeFilters: newActiveFilters // Add new type to active filters by default
-                    }
-                };
-            });
-            logPanelMessage(`[LogPanel] New log type discovered and added: ${type}`, 'debug');
+        let discoveredTypesChanged = false;
+        let newDiscoveredTypes = [...(currentLogFilteringState.discoveredTypes || [])];
+        let newActiveTypes = [...(currentLogFilteringState.activeFilters || [])]; 
+
+        if (!newDiscoveredTypes.includes(upperCaseType)) {
+            newDiscoveredTypes.push(upperCaseType);
+            if (!newActiveTypes.includes(upperCaseType)) { 
+                newActiveTypes.push(upperCaseType);
+            }
+            discoveredTypesChanged = true;
+        }
+        
+        // TODO: Implement discoveredSubtypes logic
+
+        if (discoveredTypesChanged) {
+            appStore.update(prevState => ({
+                ...prevState,
+                logFiltering: {
+                    ...prevState.logFiltering,
+                    discoveredTypes: newDiscoveredTypes,
+                    activeFilters: newActiveTypes 
+                }
+            }));
+            logPanelMessage(`[LogPanel] Filters updated. Discovered Type: ${upperCaseType}`, 'debug');
         }
 
-        // ADDED: Apply filter to new entry
-        const activeFilters = appStore.getState().logFiltering.activeFilters;
-        if (!activeFilters.includes(type)) {
+        const activeFiltersCurrent = appStore.getState().logFiltering.activeFilters;
+        if (!activeFiltersCurrent.includes(upperCaseType)) {
             logEntry.classList.add('log-entry-hidden-by-filter');
         }
     }

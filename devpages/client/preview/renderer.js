@@ -13,6 +13,8 @@ import { getEnabledPlugins, isPluginEnabled } from '/client/preview/plugins/inde
 import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
 // import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
 
+console.log("%%%%% NEW RENDERER.JS LOADED - VERSION X %%%%%"); 
+
 // Helper for logging within this module
 function logRenderer(message, level = 'debug') {
     const prefix = '[PREVIEW RENDERER]';
@@ -361,80 +363,132 @@ function joinUrlPath(...parts) {
     return parts.map(part => part.replace(/^\/+|\/+$/g, '')).filter(part => part).join('/');
 }
 
+// --- BEGIN: Functions adapted from markdown-svg.js for size parsing ---
+function parseSizeParameters(text, title) {
+    let width = null;
+    let height = null;
+
+    const parseFrom = (str) => {
+        if (!str) return {};
+        let w = null;
+        let h = null;
+        const widthMatch = str.match(/(?:^|\s)(width|w)=(\d+)(px|%|em|rem)?/i);
+        const heightMatch = str.match(/(?:^|\s)(height|h)=(\d+)(px|%|em|rem)?/i);
+        if (widthMatch) w = widthMatch[2] + (widthMatch[3] || 'px');
+        if (heightMatch) h = heightMatch[2] + (heightMatch[3] || 'px');
+        return { w, h };
+    };
+
+    const altSizes = parseFrom(text);
+    const titleSizes = parseFrom(title);
+
+    width = titleSizes.w || altSizes.w; // Title overrides alt
+    height = titleSizes.h || altSizes.h; // Title overrides alt
+
+    let style = 'max-width:100%;';
+    if (width) style += `width:${width}; `;
+    if (height) style += `height:${height}; `;
+    
+    return { width, height, style };
+}
+// --- END: Functions adapted from markdown-svg.js ---
+
 // Keep the markdown-it initialization separate
-let mdInstance;
+// let mdInstance; // REMOVE this global mdInstance, as getMarkdownItInstance creates fresh ones.
 async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath might be optional
     logRenderer('[getMarkdownItInstance] Called - creating a new, dynamically configured instance.', 'debug');
     
-    await ensureBaseInitialized(); // This should ensure window.markdownit and hljs (from initHighlight) are ready
+    await ensureBaseInitialized(); 
 
     const currentMd = new window.markdownit({
         html: true,
         xhtmlOut: false,
         breaks: true,
-        langPrefix: 'language-', // Crucial for CSS to pick up the language
+        langPrefix: 'language-', 
         linkify: true,
         typographer: true,
         highlight: function (str, lang) {
-            // Check if the 'highlight' plugin itself is enabled in your app's settings
+            logRenderer(`[Highlight] lang: '${lang}', str length: ${str.length}`);
             if (!isPluginEnabled('highlight')) {
-                // If disabled, return the string unhighlighted but HTML-escaped
+                logRenderer('[Highlight] Highlighting disabled by plugin state.', 'debug');
                 return currentMd.utils.escapeHtml(str);
             }
-
-            // Proceed with highlighting if the plugin is enabled
             if (lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang)) {
                 try {
-                    // If you have a custom wrapper like customHighlightJsRenderer, use it:
-                    // return customHighlightJsRenderer(str, lang); 
-                    
-                    // Otherwise, the direct way:
                     const result = hljs.highlight(str, { language: lang, ignoreIllegals: true });
+                    logRenderer(`[Highlight] Result for '${lang}': ${result.value.substring(0,100)}...`);
                     return result.value;
                 } catch (error) {
                     logRenderer(`Error during syntax highlighting for lang '${lang}': ${error.message}`, 'error');
-                    // Fallback to escaped HTML on error
                     return currentMd.utils.escapeHtml(str);
                 }
             }
-            // If no lang, or lang not supported by hljs, or hljs not loaded, return escaped.
+            logRenderer(`[Highlight] No specific highlighting for lang '${lang}'. Returning escaped HTML.`);
             return currentMd.utils.escapeHtml(str);
         }
     });
 
-    // Conditionally apply KaTeX
     if (isPluginEnabled('katex')) {
         logRenderer('[getMarkdownItInstance] KaTeX plugin is enabled. Applying markdown-it-katex.', 'debug');
-        // Ensure markdownitKatex is imported and available
         currentMd.use(markdownitKatex);
     } else {
         logRenderer('[getMarkdownItInstance] KaTeX plugin is disabled. Not applying markdown-it-katex.', 'debug');
     }
 
-    // ... (apply other markdown-it plugins like GFM, custom rules for ::: messages etc.)
-
-    // --- BEGIN: Custom Mermaid Fence Renderer ---
     if (isPluginEnabled('mermaid')) {
         logRenderer('[getMarkdownItInstance] Mermaid plugin is enabled, applying custom fence rule for mermaid blocks.', 'debug');
         
-        const defaultFenceRenderer = currentMd.renderer.rules.fence || function(tokens, idx, options, env, self) {
+        const existingFenceRule = currentMd.renderer.rules.fence || function(tokens, idx, options, env, self) {
             return self.renderToken(tokens, idx, options);
         };
 
         currentMd.renderer.rules.fence = (tokens, idx, options, env, self) => {
             const token = tokens[idx];
-            const langName = token.info ? token.info.trim().split(/\s+/g)[0] : '';
+            const langName = token.info ? token.info.trim().split(/\s+/g)[0].toLowerCase() : '';
+            logRenderer(`[Fence Rule] lang: '${langName}'`);
 
             if (langName === 'mermaid') {
                 logRenderer(`[getMarkdownItInstance] Custom fence: Rendering "mermaid" block. Content length: ${token.content.length}`, 'debug');
                 return `<div class="mermaid">\n${token.content.trim()}\n</div>\n`;
             }
-            return defaultFenceRenderer(tokens, idx, options, env, self);
+            // For all other languages (including 'svg'), fallback to the original fence renderer,
+            // which will use the `highlight` function provided to markdown-it.
+            const fallbackResult = existingFenceRule(tokens, idx, options, env, self);
+            logRenderer(`[Fence Rule] Fallback result for '${langName}': ${fallbackResult.substring(0,100)}...`);
+            return fallbackResult;
         };
     } else {
         logRenderer('[getMarkdownItInstance] Mermaid plugin is disabled, custom fence rule for mermaid NOT applied.', 'debug');
     }
-    // --- END: Custom Mermaid Fence Renderer ---
+
+    // --- BEGIN: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
+    const defaultImageRenderer = currentMd.renderer.rules.image || function(tokens, idx, options, env, self) {
+        return self.renderToken(tokens, idx, options);
+    };
+
+    currentMd.renderer.rules.image = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        const src = token.attrGet('src');
+        const title = token.attrGet('title') || ''; 
+        const alt = token.children && token.children[0] ? token.children[0].content : ''; 
+        logRenderer(`[Image Rule] src: '${src}', alt: '${alt}', title: '${title}'`);
+
+        if (src && src.toLowerCase().endsWith('.svg')) {
+            logRenderer(`[getMarkdownItInstance] Custom image rule: Rendering SVG image from src: ${src}`, 'debug');
+            const { width, height, style } = parseSizeParameters(alt, title);
+            
+            const dataWidth = width ? `data-width="${currentMd.utils.escapeHtml(width)}"` : '';
+            const dataHeight = height ? `data-height="${currentMd.utils.escapeHtml(height)}"` : '';
+
+            const outputHtml = `<div class="svg-container" data-src="${currentMd.utils.escapeHtml(src)}" ${dataWidth} ${dataHeight} style="${currentMd.utils.escapeHtml(style)}"></div>`;
+            logRenderer(`[Image Rule] SVG image output: ${outputHtml}`);
+            return outputHtml;
+        }
+        const defaultHtml = defaultImageRenderer(tokens, idx, options, env, self);
+        logRenderer(`[Image Rule] Default image output for non-SVG: ${defaultHtml.substring(0, 100)}...`);
+        return defaultHtml;
+    };
+    // --- END: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
 
     logRenderer('[getMarkdownItInstance] Returning newly configured instance.', 'debug');
     return currentMd;
@@ -449,6 +503,9 @@ async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath mig
 export async function renderMarkdown(markdownContent, markdownFilePath) {
     logRenderer(`[renderMarkdown] Called. Path: '${markdownFilePath || 'N/A'}'. MD content length: ${markdownContent?.length || 0}.`, 'debug');
     
+    let headContent = ''; // Initialize headContent
+    let fullPageHtml = ''; // Initialize fullPageHtml
+
     let contentToProcess = markdownContent || '';
     
     // Preprocessing for KaTeX (this should also respect the plugin state)
@@ -459,119 +516,316 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
         logRenderer('[renderMarkdown] KaTeX plugin disabled, skipping preprocessKatexBlocks.', 'debug');
     }
 
-    const { frontMatter, body } = parseBasicFrontmatter(contentToProcess);
-    logRenderer(`[renderMarkdown] Frontmatter parsed. Body content length for md.render(): ${body?.length || 0}.`, 'debug');
+    const { frontMatter: rawFrontMatter, body: markdownBody } = parseBasicFrontmatter(contentToProcess);
+    logRenderer(`[renderMarkdown] Frontmatter parsed. Body content length for md.render(): ${markdownBody?.length || 0}.`, 'debug');
 
-    const localMd = await getMarkdownItInstance(markdownFilePath); // Gets a fresh instance
+    const localMd = await getMarkdownItInstance(markdownFilePath);
+    const htmlBodyRaw = localMd.render(markdownBody);
+    logRenderer(`[renderMarkdown] After localMd.render(). Raw HTML body length: ${htmlBodyRaw.length}.`, 'debug');
+
+    // ----- SCRIPT COLLECTION -----
+    let collectedExternalScriptUrls = []; // Use a different name to avoid any confusion
+    if (rawFrontMatter.js_includes && Array.isArray(rawFrontMatter.js_includes)) {
+        collectedExternalScriptUrls = [...rawFrontMatter.js_includes];
+        logRenderer(`[renderMarkdown] SUCCESSFULLY populated collectedExternalScriptUrls from js_includes. Count: ${collectedExternalScriptUrls.length}, Content: ${JSON.stringify(collectedExternalScriptUrls)}`, 'info');
+    } else {
+        if (!rawFrontMatter.js_includes) {
+            logRenderer(`[renderMarkdown] rawFrontMatter.js_includes is missing or undefined.`, 'warn');
+        } else {
+            logRenderer(`[renderMarkdown] rawFrontMatter.js_includes is NOT an array. Type: ${typeof rawFrontMatter.js_includes}. Value: ${JSON.stringify(rawFrontMatter.js_includes)}`, 'warn');
+        }
+        logRenderer(`[renderMarkdown] collectedExternalScriptUrls remains empty.`, 'info');
+    }
     
-    let htmlBody = '';
+    const collectedInlineScriptContents = []; // Different name
+    if (rawFrontMatter.script && typeof rawFrontMatter.script === 'string') {
+        collectedInlineScriptContents.push(rawFrontMatter.script);
+        logRenderer(`[renderMarkdown] SUCCESSFULLY added script from frontmatter block to collectedInlineScriptContents. New count: ${collectedInlineScriptContents.length}`, 'info');
+    }
+
+    let processedHtmlBody = htmlBodyRaw;
+    let foundInlineScriptsInBodyCount = 0;
     try {
-        htmlBody = localMd.render(body);
-        logRenderer(`[renderMarkdown] After localMd.render(). Raw HTML body length: ${htmlBody.length}. Preview (50chars): '${htmlBody.substring(0, 50).replace(/\n/g, '')}'`, 'debug');
-    } catch (renderError) {
-        logRenderer(`[renderMarkdown] Error during localMd.render(): ${renderError}`, 'error');
-        htmlBody = '<p>Error rendering Markdown content.</p>';
+        const tempDoc = new DOMParser().parseFromString(htmlBodyRaw, 'text/html');
+        const bodyScripts = tempDoc.body.querySelectorAll('script:not([src])');
+        
+        if (bodyScripts.length > 0) {
+            logRenderer(`[renderMarkdown] Found ${bodyScripts.length} inline <script> tags in Markdown body.`, 'debug');
+            bodyScripts.forEach(scriptTag => {
+                if (scriptTag.textContent) {
+                    collectedInlineScriptContents.push(scriptTag.textContent);
+                    foundInlineScriptsInBodyCount++;
+                }
+                scriptTag.remove(); 
+            });
+            processedHtmlBody = tempDoc.body.innerHTML; 
+            logRenderer(`[renderMarkdown] Extracted and removed ${foundInlineScriptsInBodyCount} inline script(s) from HTML body. collectedInlineScriptContents count: ${collectedInlineScriptContents.length}`, 'debug');
+        } else {
+            logRenderer(`[renderMarkdown] No inline <script> tags found in Markdown body.`, 'debug');
+        }
+    } catch (e) {
+        logRenderer(`[renderMarkdown] Error processing/removing inline scripts from HTML body: ${e}`, 'error');
+        processedHtmlBody = htmlBodyRaw; 
     }
-
-    // ... (rest of your existing renderMarkdown logic for DOMPurify, asset injection, full page HTML construction)
-    // For example:
-    // const sanitizedHtmlBody = DOMPurify.sanitize(htmlBody, { /* ... DOMPurify options ... */ });
-    // ... build headContent, fullPageHTML ...
-    // return { html: sanitizedHtmlBody, head: headContent, fullPage: fullPageHTML, frontMatter };
-
-    // This is a simplified return for now, ensure your actual return includes all necessary parts
-    // The key is that 'localMd.render(body)' used a correctly configured instance.
-    // Your existing logic for DOMPurify, asset path handling, and full HTML page assembly should follow.
     
-    // Placeholder for the actual comprehensive return object structure:
-    const sanitizedHtml = DOMPurify.sanitize(htmlBody, { USE_PROFILES: { html: true } });
-    let headContent = ''; // Populate this based on frontMatter.css_includes or other needs
-    
-    // Example: Reconstruct head based on front matter or global settings
-    if (frontMatter.css_includes && Array.isArray(frontMatter.css_includes)) {
-        frontMatter.css_includes.forEach(cssPath => {
-            // You'll need to resolve cssPath relative to markdownFilePath or a base assets path
-            // and ensure it's a safe, valid path.
-            // headContent += `<link rel="stylesheet" href="${resolvedCssPath}">\\n`;
-        });
-    }
-    // Add KaTeX CSS if plugin is enabled (markdown-it-katex might not add it automatically)
-    if (isPluginEnabled('katex')) {
-        headContent += '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI7zTUXhFlZ_ZODrFoDRReqG3" crossorigin="anonymous">\n';
-    }
-
-    const fullPageHTML = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-F-8">
-    <title>Preview</title>
-    ${headContent}
-</head>
-<body>
-    ${sanitizedHtml}
-    ${frontMatter.js_includes && Array.isArray(frontMatter.js_includes) ? 
-        frontMatter.js_includes.map(jsPath => {
-            // Resolve jsPath similarly to CSS
-            // return `<script src="${resolvedJsPath}" type="module" defer></script>`;
-            return ''; // Placeholder
-        }).join('\\n') : ''
-    }
-</body>
-</html>`;
-
-    logRenderer(`[renderMarkdown] Returning result object. Keys: html, head, fullPage, frontMatter.`, 'debug');
-    return {
-        html: sanitizedHtml, // The sanitized body HTML
-        head: headContent,   // Any dynamically added head content
-        fullPage: fullPageHTML, // The full HTML document string
-        frontMatter: frontMatter
+    // ----- DOMPURIFY -----
+    // Ensure 'script' is NOT in ADD_TAGS
+    const DYNAMIC_CONFIG = { /* your full config here, ensuring script is not in ADD_TAGS */ 
+        ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'track', 'style', 'link', 'meta', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'details', 'summary', 'div', 'span', 'p', 'pre', 'code', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'a', 'br', 'hr', 'em', 'strong', 'del', 'ins', 'blockquote', 'figure', 'figcaption'],
+        ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'srcdoc', 'target', 'rel', 'type', 'href', 'media', 'charset', 'name', 'content', 'property', 'http-equiv', 'open', 'id', 'class', 'style', 'width', 'height', 'alt', 'title', 'datetime', 'cite', 'lang', 'start', 'value', 'colspan', 'rowspan', 'scope', 'placeholder', 'required', 'disabled', 'checked', 'selected', 'autoplay', 'controls', 'loop', 'muted', 'poster', 'preload', 'reversed', 'for', 'accept', 'max', 'min', 'step', 'pattern', 'maxlength', 'minlength', 'readonly', 'spellcheck', 'draggable', 'contenteditable'],
+        FORCE_BODY: false, 
+        ALLOW_DATA_ATTR: true,
+        ALLOW_UNKNOWN_PROTOCOLS: true, 
+        WHOLE_DOCUMENT: false, 
+        SAFE_FOR_TEMPLATES: false, 
+        USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true },
+        ALLOW_ARIA_ATTR: true, 
+        ALLOW_COMMENTS: true,
     };
+    const finalHtmlBody = DOMPurify.sanitize(processedHtmlBody, DYNAMIC_CONFIG);
+    logRenderer(`[renderMarkdown] Sanitized HTML length: ${finalHtmlBody.length}`, 'info');
+
+    if (finalHtmlBody.includes('alert("hello")')) {
+        logRenderer('[renderMarkdown] DEBUG ALERT CHECK: Script "alert(\\"hello\\")" IS STILL PRESENT in finalHtmlBody AFTER script removal and DOMPurify.', 'warn');
+    } else {
+        logRenderer('[renderMarkdown] DEBUG ALERT CHECK: Script "alert(\\"hello\\")" is NOT present in finalHtmlBody (as expected).', 'info');
+    }
+    
+    // Potentially, if frontmatter contains CSS links or inline styles meant for the head,
+    // they could be appended to `headContent` here.
+    // For example:
+    // if (rawFrontMatter && rawFrontMatter.css_includes) {
+    //   rawFrontMatter.css_includes.forEach(cssPath => {
+    //     const resolvedCssPath = joinUrlPath(basePath, cssPath.path || cssPath);
+    //     headContent += `<link rel="stylesheet" href="${resolvedCssPath}">\\n`;
+    //   });
+    // }
+    // if (rawFrontMatter && rawFrontMatter.inline_css) {
+    //   headContent += `<style>${rawFrontMatter.inline_css}</style>\\n`;
+    // }
+
+    // ----- LOGGING BEFORE RETURN -----
+    logRenderer(`[renderMarkdown] FINAL PRE-RETURN CHECK: collectedExternalScriptUrls = ${JSON.stringify(collectedExternalScriptUrls)}, Count: ${collectedExternalScriptUrls.length}`, 'info');
+    logRenderer(`[renderMarkdown] FINAL PRE-RETURN CHECK: collectedInlineScriptContents (count) = ${collectedInlineScriptContents.length}`, 'info');
+    collectedInlineScriptContents.forEach((content, idx) => {
+        logRenderer(`[renderMarkdown] FINAL PRE-RETURN CHECK: collectedInlineScriptContents[${idx}] (length) = ${content.length}, Preview: ${content.substring(0,50).replace(/\\n/g,'')}`, 'info');
+    });
+    
+    const result = {
+        html: finalHtmlBody,
+        head: headContent,
+        fullPage: fullPageHtml,
+        frontMatter: rawFrontMatter,
+        externalScriptUrls: collectedExternalScriptUrls,
+        inlineScriptContents: collectedInlineScriptContents
+    };
+    
+    logRenderer(`[renderMarkdown] Returning result object. Keys: ${Object.keys(result).join(', ')}. External script URLs: ${result.externalScriptUrls?.length}, Inline script contents: ${result.inlineScriptContents?.length}.`, 'info');
+    return result;
+}
+
+// Basic path joining utility
+function simpleJoinPath(base, relative) {
+    const baseParts = base.split('/').filter(p => p && p !== '.');
+    // If base is a file path (e.g., 'foo/bar.md'), get its directory ('foo/')
+    // Handles cases where base might already be a directory path (e.g., 'foo/bar/')
+    if (baseParts.length > 0 && base.includes('.') && base.lastIndexOf('.') > base.lastIndexOf('/')) {
+        baseParts.pop(); // Remove filename part
+    }
+
+    const relativeParts = relative.split('/');
+    
+    for (const part of relativeParts) {
+        if (part === '..') {
+            if (baseParts.length > 0) {
+                baseParts.pop();
+            }
+        } else if (part && part !== '.') {
+            baseParts.push(part);
+        }
+    }
+    return baseParts.join('/');
 }
 
 /**
  * Run post-processing steps after HTML is in the DOM.
  * @param {HTMLElement} previewElement - The element containing the rendered HTML.
+ * @param {Array<string|object>} externalScriptUrls - URLs or path objects for external scripts.
+ * @param {Array<string>} inlineScriptContents - Strings of inline script code.
+ * @param {string} [markdownFilePath=''] - The path of the markdown file being rendered.
  */
-export async function postProcessRender(previewElement) {
-    logRenderer(`[postProcessRender] Called for element: ${previewElement?.id || 'Unnamed element'}.`, 'info');
+export async function postProcessRender(previewElement, externalScriptUrls = [], inlineScriptContents = [], markdownFilePath = '') {
+    logRenderer(`[postProcessRender] Called for element: ${previewElement ? previewElement.id : 'null'}. External scripts: ${externalScriptUrls.length}, Inline scripts: ${inlineScriptContents.length}. Path: '${markdownFilePath}'`);
+
     if (!previewElement) {
-        logRenderer('[postProcessRender] No preview element provided.', 'warn');
+        logRenderer('[postProcessRender] Preview element is null. Skipping post-processing.', 'warn');
         return;
     }
 
-    if (isPluginEnabled('mermaid')) {
-        logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...', 'debug');
-        try {
-            const mermaidInstance = getEnabledPlugins().get('mermaid');
-            if (mermaidInstance && typeof mermaidInstance.process === 'function') {
-                logRenderer('[postProcessRender] Calling MermaidPlugin.process()...', 'debug');
-                await mermaidInstance.process(previewElement);
-                logRenderer('[postProcessRender] MermaidPlugin.process() finished.', 'debug');
+    const { appStore } = window; 
+    if (!appStore || !appStore.getState) {
+        logRenderer('[postProcessRender] appStore is not available. Cannot resolve relative script paths.', 'error');
+    }
+
+    let fetchedExternalScripts = [];
+
+    if (externalScriptUrls && externalScriptUrls.length > 0) {
+        logRenderer(`[postProcessRender] Fetching ${externalScriptUrls.length} external scripts... Base dir for relative paths derived from: '${markdownFilePath}'`);
+        const scriptPromises = externalScriptUrls.map(scriptUrlOrPath => {
+            const trimmedUrl = scriptUrlOrPath.trim();
+            let finalFetchUrl = trimmedUrl;
+            const scriptName = trimmedUrl.substring(trimmedUrl.lastIndexOf('/') + 1);
+            logRenderer(`[postProcessRender] Processing scriptUrlOrPath: '${trimmedUrl}'`);
+
+
+            if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+                // Branch A: Absolute URL
+                logRenderer(`[postProcessRender] Branch A: Absolute URL: '${trimmedUrl}'`);
+                // finalFetchUrl is already absolute
+            } else if (trimmedUrl.startsWith('/')) {
+                // Branch B: Root-relative path
+                logRenderer(`[postProcessRender] Branch B: Root-relative path: '${trimmedUrl}'`);
+                finalFetchUrl = new URL(trimmedUrl, window.location.origin).href;
+            } else if ((trimmedUrl.startsWith('./') || trimmedUrl.startsWith('../')) && markdownFilePath) {
+                // Branch C: Relative path, resolve against markdownFilePath using pdata API
+                logRenderer(`[postProcessRender] Branch C: Relative path. markdownFilePath: '${markdownFilePath}'`);
+                const pdataFilePathDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/'));
+                // Note: simpleJoinPath ensures no double slashes and correct joining.
+                const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedUrl);
+                finalFetchUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                logRenderer(`[postProcessRender] Branch C: Resolved PData path: '${resolvedPDataPath}'. finalFetchUrl: ${finalFetchUrl}`);
             } else {
-                logRenderer('[postProcessRender] Mermaid plugin instance or process method not found.', 'warn');
+                // Branch D: Fallback or ambiguous path - try resolving against current page, then root.
+                // This branch might need refinement based on actual use cases.
+                logRenderer(`[postProcessRender] Branch D: Fallback/Ambiguous path: '${trimmedUrl}'. Attempting to resolve.`);
+                try {
+                    finalFetchUrl = new URL(trimmedUrl, window.location.href).href; // Try relative to current page
+                    logRenderer(`[postProcessRender] Branch D: Resolved against current page: '${finalFetchUrl}'`);
+                } catch (e) {
+                    try {
+                        finalFetchUrl = new URL(trimmedUrl, window.location.origin).href; // Try relative to root
+                        logRenderer(`[postProcessRender] Branch D: Resolved against root: '${finalFetchUrl}'`);
+                    } catch (e2) {
+                         logRenderer(`[postProcessRender] Branch D: Could not resolve ambiguous path '${trimmedUrl}'. Using as is. Error: ${e2.message}`, 'warn');
+                         // finalFetchUrl remains trimmedUrl, hoping it's a direct server path.
+                    }
+                }
             }
+            logRenderer(`[postProcessRender] Attempting to fetch: ${finalFetchUrl}`);
+            return fetch(finalFetchUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        logRenderer(`[postProcessRender] Failed to fetch external script: ${finalFetchUrl} - Status: ${response.status}`, 'error');
+                        return { name: scriptName, url: finalFetchUrl, content: `console.error("Failed to load ${finalFetchUrl}: ${response.status}");`, error: true };
+                    }
+                    return response.text().then(text => {
+                         logRenderer(`[postProcessRender] Fetched and added script from: ${finalFetchUrl} (length: ${text.length})`);
+                        return { name: scriptName, url: finalFetchUrl, content: text, error: false };
+                    });
+                })
+                .catch(error => {
+                    logRenderer(`[postProcessRender] Network error fetching external script: ${finalFetchUrl} - ${error.message}`, 'error');
+                    return { name: scriptName, url: finalFetchUrl, content: `console.error("Network error loading ${finalFetchUrl}: ${error.message}");`, error: true };
+                });
+        });
+
+        fetchedExternalScripts = await Promise.all(scriptPromises);
+    }
+
+    // ** MODIFIED SCRIPT BUNDLING LOGIC **
+    let scriptParts = [];
+
+    fetchedExternalScripts.forEach(script => {
+        if (script && typeof script.content === 'string') {
+            const trimmedContent = script.content.trim();
+            if (trimmedContent) {
+                scriptParts.push(trimmedContent);
+                logRenderer(`[postProcessRender] Added EXTERNAL script from "${script.url}" (trimmed length: ${trimmedContent.length}) to bundle parts. Preview (100 chars): ${trimmedContent.substring(0,100)}`);
+            } else {
+                 logRenderer(`[postProcessRender] Skipped empty external script from "${script.url}" after trimming.`, 'warn');
+            }
+        } else {
+            logRenderer(`[postProcessRender] Skipped invalid external script object or content for URL: ${script ? script.url : 'unknown'}.`, 'warn');
+        }
+    });
+
+    const currentInlineScriptContents = inlineScriptContents || [];
+    currentInlineScriptContents.forEach((content, i) => {
+        if (content && typeof content === 'string') {
+            const trimmedContent = content.trim();
+            if (trimmedContent) {
+                scriptParts.push(trimmedContent);
+                logRenderer(`[postProcessRender] Added INLINE script #${i+1} (trimmed length: ${trimmedContent.length}) to bundle parts. Preview (100 chars): ${trimmedContent.substring(0,100)}`);
+            } else {
+                logRenderer(`[postProcessRender] Skipped empty inline script #${i+1} after trimming.`, 'warn');
+            }
+        } else {
+            logRenderer(`[postProcessRender] Skipped invalid inline script content at index ${i}. Content type: ${typeof content}`, 'warn');
+        }
+    });
+
+    // Join script parts with a semicolon and a newline
+    const bundledScriptContent = scriptParts.join(";\n");
+    // ** END MODIFIED SCRIPT BUNDLING LOGIC **
+
+    if (bundledScriptContent.trim() !== '') {
+        // The detailed logging for bundledScriptContent you requested previously:
+        logRenderer(`[postProcessRender] FINAL SCRIPT BUNDLE about to be appended (length: ${bundledScriptContent.length}):\n------------ START BUNDLE ------------\n${bundledScriptContent}\n------------- END BUNDLE -------------`);
+
+
+        const scriptElement = document.createElement('script');
+        scriptElement.type = 'text/javascript';
+        try {
+            scriptElement.textContent = bundledScriptContent;
+            logRenderer(`[postProcessRender] Created script element. Text content preview (100chars): '${bundledScriptContent.substring(0,100)}'`);
         } catch (e) {
-            logRenderer(`[postProcessRender] Error during Mermaid processing: ${e.message}`, 'error');
+            logRenderer(`[postProcessRender] Error setting textContent for script: ${e.message}. Bundled content preview (first 200 chars): ${bundledScriptContent.substring(0,200)}`, 'error');
+            return; 
+        }
+
+        if (previewElement && typeof previewElement.appendChild === 'function') {
+            logRenderer(`[postProcessRender] previewElement is valid. About to appendChild.`);
+            try {
+                previewElement.appendChild(scriptElement); 
+                logRenderer(`[postProcessRender] Successfully created and appended bundled script to previewElement.`);
+            } catch (e) {
+                logRenderer(`[postProcessRender] Error appending script to previewElement: ${e.message}. Node name: ${scriptElement.nodeName}, Type: ${scriptElement.type}, Content preview (first 200 chars): ${scriptElement.textContent.substring(0,200)}`, 'error');
+            }
+        } else {
+            logRenderer(`[postProcessRender] previewElement is invalid or appendChild is not a function. Cannot append script.`, 'warn');
         }
     } else {
-        logRenderer('[postProcessRender] Mermaid plugin disabled.', 'debug');
+        logRenderer(`[postProcessRender] No scripts (external or inline) to bundle or execute after trimming.`);
+    }
+
+    // Mermaid processing
+    if (isPluginEnabled('mermaid')) {
+        logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...');
+        if (window.mermaid && typeof window.mermaid.run === 'function') {
+            try {
+                await window.mermaid.run({
+                    nodes: Array.from(previewElement.querySelectorAll('.mermaid')),
+                });
+                logRenderer('[postProcessRender] Mermaid processing completed via mermaid.run().');
+            } catch (error) {
+                logRenderer(`[postProcessRender] Error during Mermaid processing: ${error.message}`, 'error');
+            }
+        } else if (MermaidPlugin && typeof MermaidPlugin.process === 'function') {
+            MermaidPlugin.process(previewElement); 
+            logRenderer('[postProcessRender] Mermaid processing called via MermaidPlugin.process().');
+        }
+         else {
+            logRenderer('[postProcessRender] MermaidPlugin.process function not found or mermaid.run not available. Mermaid diagrams may not render.', 'warn');
+        }
+    } else {
+        logRenderer('[postProcessRender] Mermaid plugin is NOT enabled.');
     }
 
     if (isPluginEnabled('highlight')) {
-        logRenderer('[postProcessRender] Highlight plugin is enabled. Main highlighting via md.options.highlight. Optional post-processing if needed.', 'debug');
-        // const highlightInstance = getEnabledPlugins().get('highlight');
-        // if (highlightInstance && typeof highlightInstance.postProcess === 'function') { // This signature was the issue
-        //    await highlightInstance.postProcess(previewElement.innerHTML, previewElement);
-        // }
-        // OR use the module-level one if necessary:
-        // await moduleLevelPostProcessFunctionFromHighlightJs(previewElement);
-        // For now, let's comment out the specific highlight post-process here,
-        // assuming md.options.highlight handles most cases.
-    } else {
-        logRenderer('[postProcessRender] Highlight.js plugin disabled.', 'debug');
+        logRenderer('[postProcessRender] Highlight plugin is enabled. Main highlighting via md.options.highlight. Optional post-processing if needed.');
     }
 
-    logRenderer('[postProcessRender] Finished.', 'info');
+    logRenderer(`[postProcessRender] Finished.`);
 }
 
 export class Renderer {

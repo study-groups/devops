@@ -26,7 +26,6 @@ import { logMessage } from '../log/index.js';
 import { api } from '/client/api.js';
 import { initPlugins, getEnabledPlugins, processPlugins, applyCssStyles } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
-import { processSvgContent } from './markdown-svg.js';
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 
@@ -182,7 +181,6 @@ export class PreviewManager {
 
     if (!this.initialized || !this.previewElement) {
       logMessage(`[PreviewManager.update] Not initialized or no previewElement. Aborting. Initialized: ${this.initialized}, PreviewElement: ${!!this.previewElement}`, "error", "PREVIEW");
-      // Ensure a consistent return type for the promise if refreshPreview expects an object
       return Promise.resolve(this.initialized ? { html: '<p>Error: Preview element not found.</p>', frontMatter: {} } : false);
     }
     
@@ -198,10 +196,10 @@ export class PreviewManager {
           try {
             logMessage(`[PreviewManager.update] Calling renderMarkdown...`, "debug", "PREVIEW");
             const renderResult = await renderMarkdown(content, markdownFilePath);
-            // renderResult now contains { html, head, fullPage, frontMatter }
-            logMessage(`[PreviewManager.update] renderMarkdown returned. Result keys: ${Object.keys(renderResult || {}).join(', ')}. HTML body length: ${renderResult?.html?.length}. Full page length: ${renderResult?.fullPage?.length}. FrontMatter keys: ${Object.keys(renderResult?.frontMatter || {}).join(', ')}`, "debug", "PREVIEW");
+            
+            logMessage(`[PreviewManager.update] renderMarkdown returned. Result keys: ${Object.keys(renderResult || {}).join(', ')}. External Scripts: ${renderResult?.externalScriptUrls?.length || 0}. Inline Scripts: ${renderResult?.inlineScriptContents?.length || 0}.`, "debug", "PREVIEW");
 
-            if (!renderResult || typeof renderResult.fullPage !== 'string' || typeof renderResult.html !== 'string' || typeof renderResult.frontMatter === 'undefined') {
+            if (!renderResult || typeof renderResult.fullPage !== 'string' || typeof renderResult.html !== 'string' || typeof renderResult.frontMatter === 'undefined' || !Array.isArray(renderResult.externalScriptUrls) || !Array.isArray(renderResult.inlineScriptContents) ) {
                 logMessage('[PreviewManager.update] renderMarkdown returned invalid result structure. Aborting update.', 'error', 'PREVIEW');
                 resolve({ html: '<p>Error rendering content.</p>', frontMatter: renderResult?.frontMatter || {} });
                 return;
@@ -215,44 +213,42 @@ export class PreviewManager {
                 const parsedDoc = parser.parseFromString(renderResult.fullPage, 'text/html');
                 logMessage(`[PreviewManager.update] DOMParser finished. Parsed head: ${parsedDoc.head.children.length} children, Parsed body: ${parsedDoc.body.children.length} children.`, "debug", "PREVIEW");
 
-                // CSS and JS reconciliation logic remains here...
-                // ...
+                // TODO: Reconcile head content (styles, meta) from parsedDoc.head if needed.
+                // For now, we focus on body and scripts.
+                // The 'headContent' from renderResult can be used for dynamic CSS links if not handled by CssPlugin
 
                 logMessage(`[PreviewManager.update] Setting previewElement.innerHTML with renderResult.html (length: ${renderResult.html.length})...`, "debug", "PREVIEW");
-                this.previewElement.innerHTML = renderResult.html;
+                this.previewElement.innerHTML = renderResult.html; // Set the sanitized body HTML
                 logMessage(`[PreviewManager.update] previewElement.innerHTML updated.`, "debug", "PREVIEW");
 
             } else {
-                 logMessage(`[PreviewManager.update] Preview element is IFRAME. This path should ideally not be taken.`, "warn", "PREVIEW"); 
-                 this.previewElement.srcdoc = renderResult.fullPage;
+                 logMessage(`[PreviewManager.update] Preview element is IFRAME. This path should ideally not be taken. Using srcdoc.`, "warn", "PREVIEW"); 
+                 // If using srcdoc, the script bundling needs to happen *within* the iframe,
+                 // or the bundled script needs to be part of the srcdoc string.
+                 // For simplicity, the current bundling approach assumes direct DOM manipulation.
+                 // If iframe is essential, postProcessRender would need to target iframe.contentDocument.
+                 this.previewElement.srcdoc = renderResult.fullPage; // This will execute scripts within the fullPage
             }
             
             logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
-            await postProcessRender(this.previewElement);
+            // MODIFIED: Pass script arrays AND markdownFilePath to postProcessRender
+            await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath);
             logMessage(`[PreviewManager.update] postProcessRender finished.`, "debug", "PREVIEW");
-
-            // Plugin processing loop logs...
-            // ...
-            const initializedPlugins = getEnabledPlugins();
-            // ... (loop as before) ...
-
-
-            logMessage(`[PreviewManager.update] Resolving promise with html and frontMatter from renderResult.`, "info", "PREVIEW");
-            // MODIFIED: Use frontMatter directly from renderResult
-            resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter }); 
+            
+            resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
 
           } catch (error) {
-            logMessage(`[PreviewManager.update] Error during setTimeout callback: ${error.message}`, "error", "PREVIEW");
-            console.error("[PREVIEW TIMEOUT ERROR]", error);
-            resolve({ html: '<p>Error during preview update.</p>', frontMatter: {} });
+            logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW");
+            console.error('[PREVIEW UPDATE ERROR]', error);
+            resolve({ html: '<p>Error during update.</p>', frontMatter: {} }); 
           }
         }, this.config.updateDelay);
       });
-    } catch (error) {
-      logMessage(`[PreviewManager.update] Error in scheduling phase: ${error.message}`, "error", "PREVIEW");
-      console.error("[PREVIEW SCHEDULING ERROR]", error);
-      // Ensure a consistent return type for the promise if refreshPreview expects an object
-      return Promise.resolve({ html: '<p>Error scheduling preview update.</p>', frontMatter: {} });
+    } catch (e) {
+      // This catch is for synchronous errors before the Promise/setTimeout
+      logMessage(`[PreviewManager.update] Synchronous error setting up update: ${e.message}`, "error", "PREVIEW");
+      console.error('[PREVIEW SETUP UPDATE ERROR]', e);
+      return Promise.resolve({ html: '<p>Error setting up update.</p>', frontMatter: {} });
     }
   }
 

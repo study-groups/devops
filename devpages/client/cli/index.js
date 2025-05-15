@@ -1,5 +1,5 @@
 // client/cli/index.js - Main CLI integration
-import { logMessage } from '../log/index.js';
+import { logInfo } from '../log/index.js';
 import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
 // Remove unused registry imports
@@ -57,14 +57,14 @@ const substituteCommands = async (text) => {
         if (!commandToRun) continue; // Skip empty $( )
 
         // Use logMessage for user-visible actions/info
-        logMessage(`[CLI Subst] Executing sub-command from ${placeholder}: '${commandToRun}'...`, 'info');
+        logInfo(`[CLI Subst] Executing sub-command from ${placeholder}: '${commandToRun}'...`, 'info');
         try {
             // Execute the sub-command via the API
             const subPayload = { command: commandToRun, encoded_data: btoa(''), environment: {} };
             const subResultOutput = await executeRemoteCommand(subPayload);
             const outputSnippet = (subResultOutput || '').substring(0, 50);
             // Log output info to UI log
-            logMessage(`[CLI Subst] Sub-command '${commandToRun}' output: "${outputSnippet}${subResultOutput.length > 50 ? '...' : ''}"`, 'info');
+            logInfo(`[CLI Subst] Sub-command '${commandToRun}' output: "${outputSnippet}${subResultOutput.length > 50 ? '...' : ''}"`, 'info');
 
             // Replace the *first* occurrence of this specific placeholder in the *current* text state.
             // This handles cases where the same placeholder appears multiple times, replacing them one by one.
@@ -75,7 +75,7 @@ const substituteCommands = async (text) => {
         } catch (error) {
              // Log error to console and UI log
              console.error(`[CLI Subst] Sub-command '${commandToRun}' failed: ${error.message}`);
-             logMessage(`[CLI Subst ERROR] Sub-command '${commandToRun}' failed: ${error.message}`, 'error');
+             logInfo(`[CLI Subst ERROR] Sub-command '${commandToRun}' failed: ${error.message}`, 'error');
              // Abort main command if sub-command fails
              throw new Error(`Sub-command '${commandToRun}' failed: ${error.message}`);
         }
@@ -144,7 +144,7 @@ async function handleSendCommand() {
              encodedData = btoa(unescape(encodeURIComponent(argumentsDataString)));
         } catch (e) {
              console.error('[CLI Flow] Error Base64 encoding arguments/data:', e);
-             logMessage(`[CLIENT ERROR] Failed to Base64 encode arguments/data for ${mainCommand}.`, 'error');
+             logInfo(`[CLIENT ERROR] Failed to Base64 encode arguments/data for ${mainCommand}.`, 'error');
              return; // Stop processing if encoding fails
         }
 
@@ -178,9 +178,9 @@ async function handleSendCommand() {
 
         // --- Execute Main Command ---
     cliInput.value = '';
-        logMessage(`> ${originalRawInput}`); // Log original input
+        logInfo(`> ${originalRawInput}`); // Log original input
          // Log execution start to UI
-         logMessage(`Executing main command: ${payload.command}...`, 'info');
+         logInfo(`Executing main command: ${payload.command}...`, 'info');
         console.log('[CLI Action] Payload OBJECT being sent to executeRemoteCommand:', payload); // Log final payload
 
         const resultOutput = await executeRemoteCommand(payload);
@@ -190,13 +190,12 @@ async function handleSendCommand() {
         console.log(`[CLI DEBUG] Is resultOutput trimmed non-empty?: ${!!(resultOutput && resultOutput.trim())}`);
         // --- END DEBUG LINES ---
         if (resultOutput && resultOutput.trim()) {
-            console.log(`[CLI DEBUG] Calling logMessage with message, level 'info', and componentType 'cli-output'`); // DEBUG LINE
-            logMessage(resultOutput, 'info', 'cli-output');
+            logInfo(resultOutput, { type: 'CLI', subtype: 'OUTPUT' });
         }
 
     } catch (error) { // Catch errors from substitution or main execution
          console.error(`[CLI Action] Command processing failed: ${error.message}`);
-         logMessage(`[ERROR] ${error.message}`, 'error'); // Display error in log panel
+         logInfo(`[ERROR] ${error.message}`, 'error'); // Display error in log panel
     } finally {
     console.log('[CLI Action] Command handling complete.');
     }

@@ -11,7 +11,7 @@ let isPreviewInitialized = false;
 let appStateUnsubscribe = null;
 
 // Define a default set of plugins known to work for initial load
-const DEFAULT_INITIAL_PLUGINS = ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md', 'css']; // Adjust if needed
+const DEFAULT_INITIAL_PLUGINS = ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md', 'css', 'markdown-svg']; // Adjust if needed
 
 // Initialize or Update Preview Logic
 async function initializeOrUpdatePreview(isUpdate = false) {
