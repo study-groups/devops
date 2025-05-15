@@ -522,125 +522,91 @@ export class LogPanel {
         // --- END ADDED ---
 
         if (!this.logElement) {
-             // <<< MODIFIED DEBUGGING >>>
              console.warn(`[LogPanel] Log element (#log) not found when trying to add entry:`, { message, type });
              return;
         }
 
-        // Check for empty, undefined, or null messages
         if (message === undefined || message === null) {
             console.warn('[LogPanel] Empty log message received, ignoring');
             return;
         }
         
-        // Convert to string if it's not already
         let messageStr = String(message);
-        if (messageStr.trim() === '') { // Check trimmed empty string for *all* types now
+        if (messageStr.trim() === '') {
              console.warn('[LogPanel] Empty or whitespace-only log message received, ignoring');
              return;
         }
 
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
-        logEntry.className = `log-entry log-entry-${type}`;
-        // Apply specific class for styling based on type (level) - moved earlier
-        logEntry.classList.add(`log-${type.toLowerCase()}`); 
-        logEntry.style.display = 'flex'; // Keep flex for main layout
+        logEntry.className = `log-entry log-entry-${type} log-${type.toLowerCase()}`; 
+        logEntry.style.display = 'flex';
         logEntry.style.justifyContent = 'space-between';
-        logEntry.style.alignItems = 'flex-start'; // Align items to the top
+        logEntry.style.alignItems = 'flex-start';
 
-        // --- Parse Subtype and Core Message ---
         let subtype = null;
-        let coreMessage = messageStr;
-        // Replace the line below completely to fix potential hidden character issues
-        // const subtypeMatch = messageStr.match(/^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)/i);
-        // --- Try using RegExp constructor --- 
-        const subtypeRegex = new RegExp('^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)', 'i'); 
+        let rawContentForDisplay = messageStr;    // Default for <pre> in raw view
+        let coreMessageForProcessing = messageStr.trim(); // Default for MD/HTML processing
+
+        const subtypeRegex = new RegExp('^\\s*\\[([A-Z0-9_-]+)\\]\\s*(.*)', 'is');
         const subtypeMatch = subtypeRegex.exec(messageStr);
-        // --- End RegExp constructor attempt ---
+
         if (subtypeMatch) {
             subtype = subtypeMatch[1];
-            coreMessage = subtypeMatch[2].trim(); // Use the rest as the core message
-            // Add subtype class for potential styling
+            rawContentForDisplay = subtypeMatch[2]; // Raw content after subtype
+            coreMessageForProcessing = subtypeMatch[2].trim(); // Trimmed content for processing
             logEntry.classList.add(`log-subtype-${subtype.toLowerCase().replace(/[^a-z0-9\\-]/g, '-')}`);
         }
-        // --- End Subtype Parsing ---
 
+        const textSpan = document.createElement('span');
+        textSpan.className = 'log-entry-text-content';
+        let displayMessage = `[${this.state.clientLogIndex}] ${timestamp} ${messageStr}`;
+        let rawMessageForCopyButton = messageStr;
+
+        if (type === 'json') {
+            let jsonString = '[Error stringifying JSON]';
+            try {
+                jsonString = JSON.stringify(message, null, 2);
+                coreMessageForProcessing = jsonString; // For JSON, stringified is used for processing
+                rawContentForDisplay = jsonString;     // And for raw display
+                rawMessageForCopyButton = jsonString;
+            } catch (e) { /* keep default error string */ }
+            
+            displayMessage = `[${this.state.clientLogIndex}] ${timestamp} [JSON]`;
+            const preForCollapsedView = document.createElement('pre');
+            preForCollapsedView.textContent = jsonString;
+            textSpan.textContent = displayMessage;
+            textSpan.appendChild(preForCollapsedView);
+        } else {
+            textSpan.innerText = displayMessage;
+        }
+        
         // --- Store Data Attributes on logEntry element ---
-        const currentLogIndex = this.state.clientLogIndex; // Store before incrementing
-        logEntry.dataset.logIndex = currentLogIndex;
+        logEntry.dataset.logIndex = this.state.clientLogIndex;
         logEntry.dataset.logTimestamp = timestamp;
         logEntry.dataset.logType = type;
         if (subtype) {
             logEntry.dataset.logSubtype = subtype;
         }
-        logEntry.dataset.logCoreMessage = coreMessage; // Store the message without the subtype prefix
-        // Store the raw original string message as well for full copy/paste if needed
-        logEntry.dataset.rawOriginalMessage = messageStr; 
+        logEntry.dataset.logCoreMessage = coreMessageForProcessing; 
+        logEntry.dataset.logRawContentPart = rawContentForDisplay;   
+        logEntry.dataset.rawOriginalMessage = messageStr;            
         // --- End Data Attributes ---
 
-
-        // Create a span for the actual text content to be displayed initially
-        const textSpan = document.createElement('span');
-        textSpan.className = 'log-entry-text-content'; // Assign class to inner content span
-        
-        let displayMessage = ''; // This will hold the formatted text shown initially
-        let rawMessageForCopyButton = ''; // This will be stored in the copy button
-
-        // Format the initially displayed message (index, timestamp, original message)
-        // We include the subtype prefix here if it existed, for initial visibility.
-        displayMessage = `[${currentLogIndex}] ${timestamp} ${messageStr}`; 
-        // Set the raw message for the copy button to the original message string
-        rawMessageForCopyButton = messageStr;
-
-        // Handle JSON type separately for display formatting
-        if (type === 'json') {
-            let jsonString = '[Error stringifying JSON]';
-             try {
-                 // Use the original 'message' object here, not messageStr
-                 jsonString = JSON.stringify(message, null, 2); 
-                 coreMessage = jsonString; // Update core message for data attribute
-                 logEntry.dataset.logCoreMessage = coreMessage; 
-                 rawMessageForCopyButton = jsonString; // Update raw message for button
-             } catch (e) {
-                 // Keep default error string
-             }
-            // Display format for JSON
-            displayMessage = `[${currentLogIndex}] ${timestamp} [JSON]`;
-            const pre = document.createElement('pre');
-            pre.textContent = jsonString;
-            textSpan.textContent = displayMessage; // Set text part first
-            textSpan.appendChild(pre); // Append JSON <pre> block
-        } else {
-            // For non-JSON types, just set the text content
-            textSpan.innerText = displayMessage;
-        }
-
-
-        // >> Create a wrapper for the text content <<
         const textWrapper = document.createElement('span');
         textWrapper.className = 'log-entry-text-wrapper';
-        // textWrapper.dataset.rawMessage = rawMessageForDataAttr; // REMOVED: raw message now on logEntry.dataset.rawOriginalMessage
-        textWrapper.appendChild(textSpan); // Put the actual content span inside the wrapper
-
-        // Append the text WRAPPER to the log entry
+        textWrapper.appendChild(textSpan);
         logEntry.appendChild(textWrapper);
 
-        // >>> Create the ORIGINAL copy button (visible when collapsed) <<<
         const originalCopyButton = document.createElement('button');
-        originalCopyButton.innerHTML = '&#128203;'; // Clipboard emoji
-        originalCopyButton.className = 'log-entry-button original-button'; // Add class to distinguish
+        originalCopyButton.innerHTML = '&#128203;';
+        originalCopyButton.className = 'log-entry-button original-button';
         originalCopyButton.title = 'Copy log entry text (Shift+Click to Paste)'; 
-        // Add the RAW message to the button's dataset for the action handler
         originalCopyButton.dataset.logText = rawMessageForCopyButton; 
         logEntry.appendChild(originalCopyButton);
         
-        // >> NEW: Create the Expanded Toolbar (INITIALLY EMPTY) <<
         const expandedToolbar = document.createElement('div');
         expandedToolbar.className = 'log-entry-expanded-toolbar';
-        // Don't add buttons or content here; it will be built on expand
-
-        // Append the hidden toolbar to the log entry
         logEntry.appendChild(expandedToolbar);
 
         // --- Insert the log entry --- 
@@ -877,73 +843,70 @@ export class LogPanel {
      */
     async _updateLogEntryDisplay(logEntryDiv, requestedMode, forceRawState = false) {
         if (!logEntryDiv || !logEntryDiv.classList.contains('expanded') && !forceRawState) {
-             // Only update if expanded or forced (on collapse)
-             // If collapsing, force raw mode and clear button states etc.
              if(forceRawState) requestedMode = this.RENDER_MODE_RAW;
              else return; 
         }
 
         const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
         const markdownToggleButton = logEntryDiv.querySelector('.markdown-toggle-button');
-        const htmlToggleButton = logEntryDiv.querySelector('.html-toggle-button'); // Get HTML button
+        const htmlToggleButton = logEntryDiv.querySelector('.html-toggle-button');
         const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
 
-        if (!textWrapper || !expandedToolbar) { // Need toolbar elements too now
+        if (!textWrapper || !expandedToolbar) {
             console.warn('_updateLogEntryDisplay: Could not find required elements (wrapper or toolbar) for entry.');
             return;
         }
 
-        const coreMessage = logEntryDiv.dataset.logCoreMessage || '';
+        // Use the trimmed coreMessage for processing (MD, HTML)
+        const coreMessage = logEntryDiv.dataset.logCoreMessage || ''; 
+        // Use the new rawContentPart for raw <pre> display
+        const rawContentPart = logEntryDiv.dataset.logRawContentPart;
         const logType = logEntryDiv.dataset.logType;
-        const logIndex = logEntryDiv.dataset.logIndex; // For logging
+        const logIndex = logEntryDiv.dataset.logIndex;
 
-        // Determine the final render mode and update dataset
         const finalMode = forceRawState ? this.RENDER_MODE_RAW : requestedMode;
-        logEntryDiv.dataset.renderMode = finalMode; // Store current mode
+        logEntryDiv.dataset.renderMode = finalMode;
         logPanelMessage(`Updating entry ${logIndex} display to: ${finalMode}`, 'debug');
 
-
-        // Update button active states
         if (markdownToggleButton) markdownToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_MARKDOWN);
         if (htmlToggleButton) htmlToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_HTML);
 
-        // Update wrapper class (optional, for styling)
-        textWrapper.classList.toggle('markdown-rendered', finalMode === this.RENDER_MODE_MARKDOWN);
-        textWrapper.classList.toggle('html-rendered', finalMode === this.RENDER_MODE_HTML); // Add class for HTML view
+        // MODIFIED: Explicitly remove all mode classes, then add the current one
+        textWrapper.classList.remove('markdown-rendered', 'html-rendered');
+        if (finalMode === this.RENDER_MODE_MARKDOWN) {
+            textWrapper.classList.add('markdown-rendered');
+        } else if (finalMode === this.RENDER_MODE_HTML) {
+            textWrapper.classList.add('html-rendered');
+        }
+        // If finalMode is RENDER_MODE_RAW, no specific mode class is added here.
 
-        textWrapper.innerHTML = ''; // Clear previous content
+        textWrapper.innerHTML = ''; 
 
         try {
-            if (finalMode === this.RENDER_MODE_MARKDOWN && logType !== 'json') {
-                // --- Render Markdown ---
+            if (finalMode === this.RENDER_MODE_MARKDOWN) {
                 logPanelMessage(`Rendering Markdown for entry ${logIndex}...`, 'debug');
-                const result = await renderMarkdown(coreMessage);
+                const result = await renderMarkdown(coreMessage); // Uses trimmed coreMessage
                 textWrapper.innerHTML = result.html;
-                await postProcessRender(textWrapper); // Run post-processing
+                await postProcessRender(textWrapper);
                 logPanelMessage(`Markdown rendered and post-processed for entry ${logIndex}.`, 'debug');
 
             } else if (finalMode === this.RENDER_MODE_HTML) {
-                // --- Render HTML in iframe ---
                 logPanelMessage(`Rendering HTML in iframe for entry ${logIndex}...`, 'debug');
                 const iframe = document.createElement('iframe');
-                iframe.className = 'log-entry-html-iframe'; // Add class for styling
-                // Basic styles - consider moving to CSS
+                iframe.className = 'log-entry-html-iframe';
                 iframe.style.width = '100%';
-                iframe.style.height = '300px'; // Default height, maybe make adjustable later
+                iframe.style.height = '300px'; 
                 iframe.style.border = '1px solid #ccc';
-                iframe.style.backgroundColor = '#fff'; // Ensure background for contrast
-
-                // Use srcdoc to directly set the iframe's content
-                iframe.srcdoc = coreMessage;
-
+                iframe.style.backgroundColor = '#fff';
+                iframe.srcdoc = coreMessage; // Uses trimmed coreMessage
                 textWrapper.appendChild(iframe);
-                 logPanelMessage(`Iframe created and appended for entry ${logIndex}.`, 'debug');
+                logPanelMessage(`Iframe created and appended for entry ${logIndex}.`, 'debug');
 
             } else { // Default to Raw/Preformatted (finalMode === this.RENDER_MODE_RAW or JSON type)
-                 // --- Render Raw Text (or JSON) ---
                  logPanelMessage(`Rendering raw text/pre for entry ${logIndex}...`, 'debug');
                  const pre = document.createElement('pre');
-                 pre.textContent = coreMessage; // Use coreMessage (already stringified JSON or raw text)
+                 // MODIFIED: Use rawContentPart if available, otherwise fallback to coreMessage
+                 pre.textContent = (typeof rawContentPart === 'string') ? rawContentPart : coreMessage;
                  textWrapper.appendChild(pre);
             }
         } catch (err) {
@@ -951,4 +914,4 @@ export class LogPanel {
              textWrapper.innerHTML = `<pre>Error rendering content (mode: ${finalMode}):\n${err}</pre>`;
         }
     }
-} 
+}

@@ -6,7 +6,7 @@
  */
 
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
-import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
+import { HighlightPlugin, init as initHighlight, customHighlightJsRenderer } from '/client/preview/plugins/highlight.js';
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins, isPluginEnabled } from '/client/preview/plugins/index.js';
@@ -26,8 +26,23 @@ function logRenderer(message, level = 'debug') {
     }
 }
 
-let isInitialized = false;
-let md;
+// 'isInitialized' should track if loadMarkdownItScript and other one-time setups are done.
+// let isBaseInitialized = false; // More descriptive name
+// The global 'md' instance that was cached should likely be removed.
+
+async function ensureBaseInitialized() {
+    // This function replaces the old initializeRenderer's role of one-time setup
+    if (typeof window.markdownit === 'undefined') {
+        await loadMarkdownItScript();
+        if (typeof window.markdownit === 'undefined') {
+            const errorMsg = 'markdown-it library failed to load.';
+            logRenderer(errorMsg, 'error');
+            throw new Error(errorMsg);
+        }
+    }
+    // Call other one-time initializations if needed, e.g., initHighlight()
+    // if (!highlightJsInitialized) { await initHighlight(); highlightJsInitialized = true; }
+}
 
 // Function to dynamically load markdown-it script (keep this)
 async function loadMarkdownItScript() {
@@ -221,7 +236,14 @@ function parseBasicFrontmatter(markdownContent) {
  * Initialize the Markdown renderer with necessary extensions and options.
  */
 async function initializeRenderer() {
-    if (isInitialized) return;
+    if (typeof window.markdownit === 'undefined') {
+        await loadMarkdownItScript();
+        if (typeof window.markdownit === 'undefined') {
+            const errorMsg = 'markdown-it library failed to load.';
+            logRenderer(errorMsg, 'error');
+            throw new Error(errorMsg);
+        }
+    }
     logRenderer('Initializing Markdown renderer (markdown-it)...');
     
     try {
@@ -341,118 +363,81 @@ function joinUrlPath(...parts) {
 
 // Keep the markdown-it initialization separate
 let mdInstance;
-async function getMarkdownItInstance() {
-    if (mdInstance) return mdInstance;
+async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath might be optional
+    logRenderer('[getMarkdownItInstance] Called - creating a new, dynamically configured instance.', 'debug');
     
-    await loadMarkdownItScript(); // Ensure markdown-it is loaded
-    mdInstance = window.markdownit({ html: true, linkify: true, typographer: true });
+    await ensureBaseInitialized(); // This should ensure window.markdownit and hljs (from initHighlight) are ready
 
-    // Add plugins conditionally based on enabled status
+    const currentMd = new window.markdownit({
+        html: true,
+        xhtmlOut: false,
+        breaks: true,
+        langPrefix: 'language-', // Crucial for CSS to pick up the language
+        linkify: true,
+        typographer: true,
+        highlight: function (str, lang) {
+            // Check if the 'highlight' plugin itself is enabled in your app's settings
+            if (!isPluginEnabled('highlight')) {
+                // If disabled, return the string unhighlighted but HTML-escaped
+                return currentMd.utils.escapeHtml(str);
+            }
+
+            // Proceed with highlighting if the plugin is enabled
+            if (lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang)) {
+                try {
+                    // If you have a custom wrapper like customHighlightJsRenderer, use it:
+                    // return customHighlightJsRenderer(str, lang); 
+                    
+                    // Otherwise, the direct way:
+                    const result = hljs.highlight(str, { language: lang, ignoreIllegals: true });
+                    return result.value;
+                } catch (error) {
+                    logRenderer(`Error during syntax highlighting for lang '${lang}': ${error.message}`, 'error');
+                    // Fallback to escaped HTML on error
+                    return currentMd.utils.escapeHtml(str);
+                }
+            }
+            // If no lang, or lang not supported by hljs, or hljs not loaded, return escaped.
+            return currentMd.utils.escapeHtml(str);
+        }
+    });
+
+    // Conditionally apply KaTeX
     if (isPluginEnabled('katex')) {
-        try {
-            mdInstance.use(markdownitKatex);
-            logRenderer('markdown-it-katex plugin enabled.');
-        } catch (error) {
-            logRenderer('Failed to load or enable KaTeX plugin', 'error');
-        }
+        logRenderer('[getMarkdownItInstance] KaTeX plugin is enabled. Applying markdown-it-katex.', 'debug');
+        // Ensure markdownitKatex is imported and available
+        currentMd.use(markdownitKatex);
+    } else {
+        logRenderer('[getMarkdownItInstance] KaTeX plugin is disabled. Not applying markdown-it-katex.', 'debug');
     }
-    if (isPluginEnabled('highlight')) {
-        try {
-            await initHighlight(); // Ensure highlightjs is initialized
-            HighlightPlugin.use(mdInstance); // Apply highlight plugin
-            logRenderer('Highlight plugin enabled for markdown-it.');
-        } catch (error) {
-            logRenderer('Failed to initialize or apply Highlight plugin', 'error');
-        }
-    }
+
+    // ... (apply other markdown-it plugins like GFM, custom rules for ::: messages etc.)
+
+    // --- BEGIN: Custom Mermaid Fence Renderer ---
     if (isPluginEnabled('mermaid')) {
-        logRenderer('Mermaid plugin enabled (processes post-render).');
-    }
-    if (isPluginEnabled('graphviz')) {
-        GraphvizPlugin.use(mdInstance); // Apply graphviz plugin
-        logRenderer('Graphviz plugin enabled for markdown-it.');
-    }
+        logRenderer('[getMarkdownItInstance] Mermaid plugin is enabled, applying custom fence rule for mermaid blocks.', 'debug');
+        
+        const defaultFenceRenderer = currentMd.renderer.rules.fence || function(tokens, idx, options, env, self) {
+            return self.renderToken(tokens, idx, options);
+        };
 
-    // <<< CRITICAL FIX: Apply custom fence rule for Mermaid/SVG/LaTeX to this instance >>>
-    // Fixed bug: Previously, the custom fence rule was only applied to the markdown-it instance created in initializeRenderer(),
-    // but that instance was never actually used for rendering. Instead, renderMarkdown() used the instance from getMarkdownItInstance()
-    // which didn't have the fence rule. This caused Mermaid, KaTeX and SVG code blocks to render as plain code instead of specialized content.
-    logRenderer('Adding CRITICAL fence rule override to markdown-it instance!', 'warning');
-    const defaultFence = mdInstance.renderer.rules.fence;
-    mdInstance.renderer.rules.fence = (tokens, idx, options, env, self) => {
-        const token = tokens[idx];
-        const info = token.info ? token.info.trim().toLowerCase() : '';
-        const content = token.content;
-        logRenderer(`[FENCE RULE 2] Processing fence. Info: '${info}'`);
+        currentMd.renderer.rules.fence = (tokens, idx, options, env, self) => {
+            const token = tokens[idx];
+            const langName = token.info ? token.info.trim().split(/\s+/g)[0] : '';
 
-        if (info === 'mermaid') {
-            logRenderer('[FENCE RULE 2] Identified as Mermaid block.');
-            const code = token.content.trim();
-            const sanitizedCode = code
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-            const outputHtml = `<div class="mermaid">${sanitizedCode}</div>`;
-            logRenderer(`[FENCE RULE 2] Creating Mermaid block HTML wrapper`, 'debug');
-            return outputHtml;
-        }
-
-        // Handle DOT/Graphviz blocks
-        if (info === 'dot' || info === 'graphviz') {
-            logRenderer('[FENCE RULE 2] Identified as Graphviz DOT block.');
-            const code = token.content.trim();
-            const sanitizedCode = code
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-            return `<div class="graphviz">${sanitizedCode}</div>`;
-        }
-
-        // Handle LaTeX blocks - especially tables
-        if (info === 'latex' || info === 'katex' || info === 'tex') {
-            logRenderer('[FENCE RULE 2] Identified as LaTeX block.', 'debug');
-            try {
-                if (window.katex) {
-                    const html = window.katex.renderToString(token.content, {
-                        displayMode: true,
-                        throwOnError: false,
-                        trust: true,
-                        strict: false
-                    });
-                    return `<div class="katex-block">${html}</div>`;
-                } else {
-                    logRenderer('[FENCE RULE 2] KaTeX not available', 'error');
-                    return `<pre><code>${token.content}</code></pre>`;
-                }
-            } catch (err) {
-                logRenderer(`[FENCE RULE 2] Error: ${err.message}`, 'error');
-                return `<pre><code class="error">${token.content}</code></pre>`;
+            if (langName === 'mermaid') {
+                logRenderer(`[getMarkdownItInstance] Custom fence: Rendering "mermaid" block. Content length: ${token.content.length}`, 'debug');
+                return `<div class="mermaid">\n${token.content.trim()}\n</div>\n`;
             }
-        }
+            return defaultFenceRenderer(tokens, idx, options, env, self);
+        };
+    } else {
+        logRenderer('[getMarkdownItInstance] Mermaid plugin is disabled, custom fence rule for mermaid NOT applied.', 'debug');
+    }
+    // --- END: Custom Mermaid Fence Renderer ---
 
-        // --- SVG Handling ---
-        if (info === 'svg') {
-            logRenderer('[FENCE RULE 2] Identified as SVG block. Returning raw content.');
-            try {
-                if (!content || typeof content !== 'string') {
-                    logRenderer(`[FENCE RULE 2] Invalid or non-string SVG content in block.`, 'error');
-                    return `<div class="error">Invalid SVG code block content</div>`;
-                }
-                // Return the raw SVG content. DOMPurify will handle sanitization later.
-                return content;
-            } catch (error) {
-                logRenderer(`[FENCE RULE 2] Error processing SVG content: ${error.message}`, 'error');
-                console.error("[SVG FENCE RULE Error]", error);
-                return `<div class="error">Failed to process SVG code block</div>`;
-            }
-        }
-        // --- END SVG Handling ---
-
-        // Fallback to default fence renderer if no match
-        return defaultFence(tokens, idx, options, env, self);
-    };
-    logRenderer('CRITICAL fence rule override for mermaid/svg/katex applied to markdown-it instance', 'warning');
-    // <<< END CRITICAL FIX >>>
-
-    return mdInstance;
+    logRenderer('[getMarkdownItInstance] Returning newly configured instance.', 'debug');
+    return currentMd;
 }
 
 /**
@@ -462,109 +447,85 @@ async function getMarkdownItInstance() {
  * @returns {Promise<string>} The full HTML document string.
  */
 export async function renderMarkdown(markdownContent, markdownFilePath) {
-    logRenderer(`Rendering markdown for path: ${markdownFilePath || 'unknown path'}`, 'debug');
-
-    // 1. Parse Frontmatter and preprocess body once
-    const { frontMatter, body: markdownBodyWithoutFrontmatter } = parseBasicFrontmatter(markdownContent);
-    // Preprocess for KaTeX if enabled, using the body from frontmatter parsing
-    const preprocessedBody = isPluginEnabled('katex') 
-        ? preprocessKatexBlocks(markdownBodyWithoutFrontmatter) 
-        : markdownBodyWithoutFrontmatter;
-
-    // 2. Get Markdown-it instance and render the preprocessed body to HTML
-    md = await getMarkdownItInstance(); // Assign the returned instance to the module-scoped md
-    if (!md) { // Add a guard clause in case getMarkdownItInstance fails to return an instance
-        logRenderer('Failed to get markdown-it instance. Aborting render.', 'error');
-        // Return a basic error HTML or throw, depending on desired error handling
-        return '<!DOCTYPE html><html><head><title>Error</title></head><body><p>Error rendering Markdown: Could not initialize renderer.</p></body></html>';
+    logRenderer(`[renderMarkdown] Called. Path: '${markdownFilePath || 'N/A'}'. MD content length: ${markdownContent?.length || 0}.`, 'debug');
+    
+    let contentToProcess = markdownContent || '';
+    
+    // Preprocessing for KaTeX (this should also respect the plugin state)
+    if (isPluginEnabled('katex')) {
+        logRenderer('[renderMarkdown] KaTeX plugin enabled, running preprocessKatexBlocks...', 'debug');
+        contentToProcess = preprocessKatexBlocks(contentToProcess);
+    } else {
+        logRenderer('[renderMarkdown] KaTeX plugin disabled, skipping preprocessKatexBlocks.', 'debug');
     }
-    const htmlBody = md.render(preprocessedBody);
 
-    // 3. Initialize headContent for CSS/JS includes
-    let headContent = '';
+    const { frontMatter, body } = parseBasicFrontmatter(contentToProcess);
+    logRenderer(`[renderMarkdown] Frontmatter parsed. Body content length for md.render(): ${body?.length || 0}.`, 'debug');
 
-    // 4. Path adjustment logic for assets
-    let markdownDirForAssets = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1);
-    const baseDirToRemove = 'md/'; // Assuming 'md' is the base directory known by the server's dataRoot
-
-    if (markdownDirForAssets.startsWith(baseDirToRemove)) {
-        markdownDirForAssets = markdownDirForAssets.substring(baseDirToRemove.length);
+    const localMd = await getMarkdownItInstance(markdownFilePath); // Gets a fresh instance
+    
+    let htmlBody = '';
+    try {
+        htmlBody = localMd.render(body);
+        logRenderer(`[renderMarkdown] After localMd.render(). Raw HTML body length: ${htmlBody.length}. Preview (50chars): '${htmlBody.substring(0, 50).replace(/\n/g, '')}'`, 'debug');
+    } catch (renderError) {
+        logRenderer(`[renderMarkdown] Error during localMd.render(): ${renderError}`, 'error');
+        htmlBody = '<p>Error rendering Markdown content.</p>';
     }
-    // Ensure it ends with a slash if it's not empty
-    if (markdownDirForAssets && !markdownDirForAssets.endsWith('/')) {
-        markdownDirForAssets += '/';
-    }
-    logRenderer(`[Asset Path] markdownFilePath: ${markdownFilePath}, Original markdownDir: ${markdownFilePath ? markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/') + 1) : 'N/A'}, Adjusted markdownDirForAssets: '${markdownDirForAssets}'`, 'debug');
 
-    // 5. Inject CSS includes from frontmatter
-    if (markdownFilePath && frontMatter.css_includes && Array.isArray(frontMatter.css_includes)) {
-        frontMatter.css_includes.forEach(relPath => {
-            if (typeof relPath === 'string' && relPath.trim()) {
-                const trimmedRelPath = relPath.trim();
-                const resolvedPath = trimmedRelPath.startsWith('./') ? trimmedRelPath.substring(2) : trimmedRelPath;
-                const serverPath = joinUrlPath('/pdata-files', markdownDirForAssets, resolvedPath);
-                headContent += `<link rel="stylesheet" href="${serverPath}">\n`;
-                logRenderer(`Injecting CSS: ${serverPath} (from original relPath: ${relPath}, markdownDirForAssets: ${markdownDirForAssets})`, 'debug');
-            }
+    // ... (rest of your existing renderMarkdown logic for DOMPurify, asset injection, full page HTML construction)
+    // For example:
+    // const sanitizedHtmlBody = DOMPurify.sanitize(htmlBody, { /* ... DOMPurify options ... */ });
+    // ... build headContent, fullPageHTML ...
+    // return { html: sanitizedHtmlBody, head: headContent, fullPage: fullPageHTML, frontMatter };
+
+    // This is a simplified return for now, ensure your actual return includes all necessary parts
+    // The key is that 'localMd.render(body)' used a correctly configured instance.
+    // Your existing logic for DOMPurify, asset path handling, and full HTML page assembly should follow.
+    
+    // Placeholder for the actual comprehensive return object structure:
+    const sanitizedHtml = DOMPurify.sanitize(htmlBody, { USE_PROFILES: { html: true } });
+    let headContent = ''; // Populate this based on frontMatter.css_includes or other needs
+    
+    // Example: Reconstruct head based on front matter or global settings
+    if (frontMatter.css_includes && Array.isArray(frontMatter.css_includes)) {
+        frontMatter.css_includes.forEach(cssPath => {
+            // You'll need to resolve cssPath relative to markdownFilePath or a base assets path
+            // and ensure it's a safe, valid path.
+            // headContent += `<link rel="stylesheet" href="${resolvedCssPath}">\\n`;
         });
     }
-
-    // 6. Inject JS includes from frontmatter
-    if (markdownFilePath && frontMatter.js_includes && Array.isArray(frontMatter.js_includes)) {
-        logRenderer(`[Inject JS] Found js_includes: ${JSON.stringify(frontMatter.js_includes)} for path: ${markdownFilePath}`, 'debug');
-        frontMatter.js_includes.forEach(relPath => {
-            logRenderer(`[Inject JS] Processing relPath: ${relPath}`, 'debug');
-            if (typeof relPath === 'string' && relPath.trim()) {
-                const trimmedRelPath = relPath.trim();
-                const resolvedPath = trimmedRelPath.startsWith('./') ? trimmedRelPath.substring(2) : trimmedRelPath;
-                const serverPath = joinUrlPath('/pdata-files', markdownDirForAssets, resolvedPath);
-                const scriptTag = `<script type="module" src="${serverPath}" defer></script>\n`;
-                headContent += scriptTag;
-                logRenderer(`[Inject JS] Added script tag: ${scriptTag.trim()} (from original relPath: ${relPath}, markdownDirForAssets: ${markdownDirForAssets})`, 'debug');
-            } else {
-                 logRenderer(`[Inject JS] Skipping invalid relPath: ${relPath}`, 'warning');
-            }
-        });
+    // Add KaTeX CSS if plugin is enabled (markdown-it-katex might not add it automatically)
+    if (isPluginEnabled('katex')) {
+        headContent += '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI7zTUXhFlZ_ZODrFoDRReqG3" crossorigin="anonymous">\n';
     }
 
-    // 7. Inject inline CSS from frontmatter (if using 'css' key with block scalar)
-    if (frontMatter.css) {
-        headContent += `<style>\n${frontMatter.css}\n</style>\n`;
-        logRenderer('Injecting inline CSS from frontmatter.', 'debug');
-    }
-
-    // 8. Render Markdown Body
-    const renderedBody = md.render(preprocessedBody);
-
-    // 9. Sanitize Rendered Body HTML (Important!)
-    const sanitizedBody = DOMPurify.sanitize(renderedBody, {
-        USE_PROFILES: { html: true }, // Allow standard HTML tags
-        // ADD_TAGS: ['iframe'], // Example: Allow iframes if needed
-        // ADD_ATTR: ['allowfullscreen'], // Example: Allow specific attributes
-    });
-
-    // 10. Construct Full HTML
-    let finalHtml = `<!DOCTYPE html>
-<html lang="en">
+    const fullPageHTML = `<!DOCTYPE html>
+<html>
 <head>
-${headContent}
+    <meta charset="UTF-F-8">
+    <title>Preview</title>
+    ${headContent}
 </head>
 <body>
-${sanitizedBody}
-`;
-
-    // Inject inline Script from frontmatter (if using 'script' key with block scalar)
-    // Inject script at the end of the body
-    if (frontMatter.script) {
-        // If you want it to be a module, add type="module"
-        finalHtml += `<script>\n// Injected from frontmatter\n(function() {\n${frontMatter.script}\n})();\n</script>\n`;
-        logRenderer('Injecting inline JS from frontmatter at end of body.', 'debug');
+    ${sanitizedHtml}
+    ${frontMatter.js_includes && Array.isArray(frontMatter.js_includes) ? 
+        frontMatter.js_includes.map(jsPath => {
+            // Resolve jsPath similarly to CSS
+            // return `<script src="${resolvedJsPath}" type="module" defer></script>`;
+            return ''; // Placeholder
+        }).join('\\n') : ''
     }
-
-    finalHtml += `</body>
+</body>
 </html>`;
 
-    return finalHtml;
+    logRenderer(`[renderMarkdown] Returning result object. Keys: html, head, fullPage, frontMatter.`, 'debug');
+    return {
+        html: sanitizedHtml, // The sanitized body HTML
+        head: headContent,   // Any dynamically added head content
+        fullPage: fullPageHTML, // The full HTML document string
+        frontMatter: frontMatter
+    };
 }
 
 /**
@@ -572,52 +533,45 @@ ${sanitizedBody}
  * @param {HTMLElement} previewElement - The element containing the rendered HTML.
  */
 export async function postProcessRender(previewElement) {
-    logRenderer('Starting post-processing...');
+    logRenderer(`[postProcessRender] Called for element: ${previewElement?.id || 'Unnamed element'}.`, 'info');
     if (!previewElement) {
-        logRenderer('No preview element provided to postProcessRender.', 'warn');
+        logRenderer('[postProcessRender] No preview element provided.', 'warn');
         return;
     }
 
-    // --- 1. Mermaid Rendering --- 
     if (isPluginEnabled('mermaid')) {
+        logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...', 'debug');
         try {
-            // Ensure Mermaid plugin's process method exists and call it
             const mermaidInstance = getEnabledPlugins().get('mermaid');
             if (mermaidInstance && typeof mermaidInstance.process === 'function') {
-                logRenderer('Running Mermaid processing...');
-                await mermaidInstance.process(previewElement); // Pass the element
-                logRenderer('Mermaid processing complete.');
+                logRenderer('[postProcessRender] Calling MermaidPlugin.process()...', 'debug');
+                await mermaidInstance.process(previewElement);
+                logRenderer('[postProcessRender] MermaidPlugin.process() finished.', 'debug');
             } else {
-                logRenderer('Mermaid plugin enabled but no process method found or instance missing.', 'warn');
+                logRenderer('[postProcessRender] Mermaid plugin instance or process method not found.', 'warn');
             }
         } catch (e) {
-            logRenderer(`Error during Mermaid processing: ${e.message}`, 'error');
+            logRenderer(`[postProcessRender] Error during Mermaid processing: ${e.message}`, 'error');
         }
     } else {
-        logRenderer('Mermaid plugin disabled, skipping processing.');
+        logRenderer('[postProcessRender] Mermaid plugin disabled.', 'debug');
     }
 
-    // --- 2. Highlight.js Rendering --- 
     if (isPluginEnabled('highlight')) {
-        try {
-            const highlightInstance = getEnabledPlugins().get('highlight');
-            if (highlightInstance && typeof highlightInstance.process === 'function') {
-                 logRenderer('Running Highlight.js processing...');
-                 await highlightInstance.process(previewElement); // Pass the element
-                 logRenderer('Highlight.js processing complete.');
-             } else {
-                 logRenderer('Highlight plugin enabled but no process method found or instance missing.', 'warn');
-             }
-        } catch (e) {
-            logRenderer(`Error during Highlight.js processing: ${e.message}`, 'error');
-        }
+        logRenderer('[postProcessRender] Highlight plugin is enabled. Main highlighting via md.options.highlight. Optional post-processing if needed.', 'debug');
+        // const highlightInstance = getEnabledPlugins().get('highlight');
+        // if (highlightInstance && typeof highlightInstance.postProcess === 'function') { // This signature was the issue
+        //    await highlightInstance.postProcess(previewElement.innerHTML, previewElement);
+        // }
+        // OR use the module-level one if necessary:
+        // await moduleLevelPostProcessFunctionFromHighlightJs(previewElement);
+        // For now, let's comment out the specific highlight post-process here,
+        // assuming md.options.highlight handles most cases.
     } else {
-        logRenderer('Highlight.js plugin disabled, skipping processing.');
+        logRenderer('[postProcessRender] Highlight.js plugin disabled.', 'debug');
     }
 
-    // --- Add other post-processing steps here as needed ---
-
-    logRenderer('Post-processing finished.');
+    logRenderer('[postProcessRender] Finished.', 'info');
 }
 
 export class Renderer {

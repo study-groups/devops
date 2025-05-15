@@ -273,4 +273,7 @@ export default {
   renderers: {
     code: codeRenderer
   }
-}; 
+};
+
+// Export codeRenderer so markdown-it can use it
+export { codeRenderer as customHighlightJsRenderer }; 

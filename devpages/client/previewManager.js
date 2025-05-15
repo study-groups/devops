@@ -171,8 +171,30 @@ function subscribeToStoreChanges() {
   }
   console.log('[previewManager] Subscribing to appStore changes...');
   appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
-    if (isPreviewInitialized && newState.plugins !== prevState.plugins) {
-      console.log('[previewManager] Detected change in appStore plugins state. Re-initializing plugins...');
+    const pluginsChanged = newState.plugins !== prevState.plugins;
+
+    // Check if preview CSS settings have changed.
+    // A proper deep comparison would be more robust than JSON.stringify for arrays of objects.
+    const newCssFilesString = JSON.stringify(newState.settings?.preview?.cssFiles);
+    const oldCssFilesString = JSON.stringify(prevState.settings?.preview?.cssFiles);
+    const cssFilesChanged = newCssFilesString !== oldCssFilesString;
+
+    // Consider activeCssFiles as well if its changes should also trigger re-evaluation
+    const newActiveCssFilesString = JSON.stringify(newState.settings?.preview?.activeCssFiles);
+    const oldActiveCssFilesString = JSON.stringify(prevState.settings?.preview?.activeCssFiles);
+    const activeCssFilesChanged = newActiveCssFilesString !== oldActiveCssFilesString;
+
+    const cssSettingsChanged = cssFilesChanged || activeCssFilesChanged;
+
+    if (isPreviewInitialized && (pluginsChanged || cssSettingsChanged)) {
+      if (pluginsChanged) {
+        console.log('[previewManager] Detected change in appStore plugins state. Re-initializing plugins...');
+      }
+      if (cssSettingsChanged && !pluginsChanged) { // Log only if it's the primary reason
+        console.log('[previewManager] Detected change in preview CSS files state. Re-evaluating plugins.');
+      }
+      // Trigger re-initialization of plugins. The 'css' plugin, if enabled,
+      // should then pick up the latest cssFiles from the store during its re-initialization.
       initializeOrUpdatePreview(true);
     }
   });

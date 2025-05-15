@@ -48,30 +48,62 @@ const defaultPluginsState = {
 function getInitialPluginsState() {
     try {
         const storedValue = localStorage.getItem(PLUGINS_STATE_KEY);
+        // Use console.debug for this initial, less critical log
+        console.debug(`[AppState] Attempting to load plugins from localStorage. Key: '${PLUGINS_STATE_KEY}'. Stored value: ${storedValue ? `"${storedValue}"` : 'null'}`);
+
         if (storedValue) {
             const parsedState = JSON.parse(storedValue);
-            // Basic validation: check if it's an object and has expected keys (optional but good)
-            if (typeof parsedState === 'object' && parsedState !== null && Object.keys(parsedState).length > 0) {
-                 // TODO: Deeper validation? Check if values have name/enabled?
-                 console.log('[AppState] Loaded plugin state from localStorage:', parsedState);
-                 // Merge with defaults to ensure all plugins are present if new ones were added
-                 const mergedState = { ...defaultPluginsState };
-                 for (const pluginId in parsedState) {
-                     if (mergedState.hasOwnProperty(pluginId)) { // Only merge known plugins
-                         mergedState[pluginId].enabled = !!parsedState[pluginId].enabled; // Ensure boolean
+            // Use console.debug for successful parsing
+            console.debug(`[AppState] Parsed plugin state from localStorage: ${JSON.stringify(parsedState)}`);
+
+            if (typeof parsedState === 'object' && parsedState !== null) {
+                 const mergedState = { ...defaultPluginsState }; 
+                 let appliedFromStorage = false; 
+
+                 for (const pluginId in defaultPluginsState) {
+                     if (Object.prototype.hasOwnProperty.call(defaultPluginsState, pluginId)) {
+                         if (Object.prototype.hasOwnProperty.call(parsedState, pluginId)) {
+                             mergedState[pluginId] = {
+                                 ...defaultPluginsState[pluginId], 
+                                 enabled: !!parsedState[pluginId] 
+                             };
+                             // Use console.debug for successful application
+                             console.debug(`[AppState] Applied stored 'enabled' for ${pluginId}: ${mergedState[pluginId].enabled} (from localStorage value: ${parsedState[pluginId]})`);
+                             appliedFromStorage = true;
+                         } else {
+                             // Use console.debug for cases where default is used because item not in storage
+                             console.debug(`[AppState] Plugin ${pluginId} not in localStorage, using default 'enabled': ${mergedState[pluginId].enabled}`);
+                         }
                      }
                  }
+
+                 if (Object.keys(parsedState).length > 0 && !appliedFromStorage) {
+                    // Use console.warn for potentially unexpected situations
+                    console.warn('[AppState] localStorage had plugin data, but no keys matched known default plugins. Using defaults for all known plugins.');
+                 } else if (!appliedFromStorage && Object.keys(parsedState).length === 0) {
+                    // Use console.info for expected empty storage
+                    console.info('[AppState] localStorage plugin data was an empty object. Using defaults.');
+                 }
+                 
+                 // Use console.debug for the final state
+                 console.debug(`[AppState] Final merged plugin state for initialization: ${JSON.stringify(mergedState)}`);
                  return mergedState;
+            } else {
+                // Use console.warn for invalid parsed state
+                console.warn('[AppState] Parsed plugin state from localStorage was not a valid object. Using defaultPluginsState.');
+                return { ...defaultPluginsState };
             }
-             console.warn('[AppState] Invalid plugin state found in localStorage. Using defaults.', parsedState);
         } else {
-            console.log('[AppState] No plugin state found in localStorage, using defaults.');
+            // Use console.info for the expected case of no stored state
+            console.info('[AppState] No plugin state in localStorage, using defaultPluginsState.');
+            return { ...defaultPluginsState };
         }
     } catch (e) {
-        console.error('[AppState] Error reading or parsing plugin state from localStorage:', e);
+        // Use console.error for actual errors
+        console.error(`[AppState] Error reading or parsing plugin state from localStorage: ${e.message}. Using defaultPluginsState.`);
+        console.error(e); // Log the full error object for detailed diagnostics
+        return { ...defaultPluginsState };
     }
-    // Return defaults if anything goes wrong or nothing is stored
-    return defaultPluginsState; 
 }
 
 // --- Helper to load configured CSS files (Handles new object structure) ---
