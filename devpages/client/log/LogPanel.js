@@ -1,7 +1,35 @@
 /**
  * LogPanel.js
- * Encapsulates the UI and logic for the log panel component.
+ * Orchestrates the LogPanel component, delegating tasks to specialized modules.
  */
+import { appStore } from '/client/appState.js';
+import { triggerActions } from '/client/actions.js';
+import { appVer } from '/config.js';
+import { setLogPanelInstance, logInfo, logError, logDebug, logWarn } from './core.js';
+import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logPanelDOM.js'; // Import from new DOM module
+import { attachLogPanelEventListeners, removeLogPanelEventListeners } from './logPanelEvents.js';
+import { 
+    loadLogPanelPreferences, 
+    saveLogPanelPreferences as saveLogPanelPreferencesState,
+    subscribeToAppStoreChanges,
+    updateSelectionButtonUI
+} from './logPanelState.js'; // Placeholder for state module
+import {
+    updateLogEntryDisplay,
+    enhanceCodeBlocksAndMermaid,
+    showTemporaryFeedback,
+    expandLogEntry,
+    collapseLogEntry
+} from './logPanelEntryDisplay.js'; // Placeholder for entry display module
+import {
+    updateTagsBar,
+    applyFiltersToLogEntries
+} from './LogFilterBar.js';
+
+import eventBus from '/client/eventBus.js';
+
+// ADD: Import markdown rendering function AND post-processing
+import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';
@@ -11,50 +39,28 @@ const MIN_LOG_HEIGHT = 80;
 // Assuming updatePreview might be needed later
 // import { updatePreview } from '../preview.js'; // Potential path? Check correct path.
 
-import eventBus from '/client/eventBus.js';
-
 // ADD: Import the necessary functions from uiState
 // import { getUIState, setUIState, subscribeToUIStateChange } from '/client/uiState.js';
-import { appStore } from '/client/appState.js'; // CHANGED: Use appStore instead of appState
 
-// ADD: Import triggerActions to call pasteLogEntry directly
-import { triggerActions } from '/client/actions.js';
-import { appVer } from '/config.js'; // Use absolute path
-
-// ADD: Import markdown rendering function AND post-processing
-import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
-
-// ADD: Import setLogPanelInstance
-import { setLogPanelInstance } from './core.js'; // Or from './index.js' if re-exported there
-
-// <<< NEW: Logging helper for this module >>>
-function logPanelMessage(message, level = 'debug') {
-    const type = 'LOG_PANEL'; 
+// <<< NEW: Logging helper for this module (for BROWSER CONSOLE ONLY to avoid recursion) >>>
+function logPanelInternalDebug(message, level = 'debug') { // Renamed to be clear it's for internal console debugging
+    const type = 'LOG_PANEL_INTERNAL'; 
     // ALWAYS use console for this internal helper to avoid recursion
     const logFunc = 
         level === 'error' ? console.error : 
         level === 'warn' ? console.warn : 
-        level === 'debug' ? console.debug : // Use console.debug for debug level
+        level === 'debug' ? console.debug :
         console.log; 
-   // logFunc(`[${type}] ${message}`);
-    /* // REMOVED Check for window.logMessage to prevent recursion
-    if (typeof window.logMessage === 'function') {
-        // Assuming window.logMessage takes message, level, type - THIS CAUSED RECURSION
-        // window.logMessage(message, level, type); 
-    } else {
-        // Fallback to console
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
         logFunc(`[${type}] ${message}`);
-    }
-    */
 }
 
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
         this.container = document.getElementById(containerElementId);
         if (!this.container) {
-            console.error(`[LogPanel] Container element with ID '${containerElementId}' not found.`);
-            return; // Prevent further errors if container doesn't exist
+            // Use logError for important setup issues that should be in the UI log
+            logError(`Container element with ID '${containerElementId}' not found. LogPanel will not function.`, { type: 'LOG_PANEL_SETUP' });
+            return; 
         }
 
         // --- Initialize internal elements to null initially --- 
@@ -69,7 +75,6 @@ export class LogPanel {
         this.cliInputElement = null; // Add CLI input element
         this.appInfoElement = null; // Add App Info element
         this.appVersionElement = null; // Add element property
-        this.pauseLogButton = null; // Add element property
         // Buttons are now found via toolbarElement or have data-actions
 
         // <<< NEW: Store selection details for $$ command >>>
@@ -77,6 +82,10 @@ export class LogPanel {
         // <<< NEW: Store persistent selection states >>>
         this._selectionStateA = null; // { filePath: string, start: number, end: number, text: string }
         this._selectionStateB = null; // { filePath: string, start: number, end: number, text: string }
+
+        // <<< ADDED: Buffers for code fence content >>>
+        this._codeFenceBufferA = null; // Stores string content from code fences
+        this._codeFenceBufferB = null; // Stores string content from code fences
 
         // <<< NEW: Constants for render modes >>>
         this.RENDER_MODE_RAW = 'raw';
@@ -103,589 +112,107 @@ export class LogPanel {
         this._appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
         this._logFilteringUnsubscribe = null; // ADDED: For log filtering state
 
-        // --- ADDED: Pause State ---
-        this.isPaused = false;
-        // --- END ADDED ---
-
-        console.log('[LogPanel] Instance created.');
-        // Make this instance available to the global logger system
-        setLogPanelInstance(this); // <<< ADDED
+        // logPanelInternalDebug('Instance created.'); // Use internal debug for this kind of low-level trace
+        logInfo('LogPanel instance created.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
+        setLogPanelInstance(this); 
     }
 
     /**
      * Initializes the LogPanel: creates DOM, loads preferences, attaches listeners, updates UI.
      */
     initialize() {
-        if (!this.container) return; // Don't initialize if container wasn't found
+        if (!this.container) return; 
 
-        console.log('[LogPanel] Initializing...');
-        this.createDOMStructure(); // Create internal elements
-        this.loadPreferences();
-        this.attachEventListeners(); // Attach resize listener and potentially others
-        this.subscribeToStateChanges(); // ADDED: Subscribe to appState.ui.logVisible and logFiltering
-        this._updateTagsBar(); // ADDED: Initial render of tags bar
+        // logPanelInternalDebug('Initializing...');
+        logInfo('Initializing LogPanel UI.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
+        createLogPanelDOM(this, appVer); 
+        loadLogPanelPreferences(this, DEFAULT_LOG_HEIGHT, MIN_LOG_HEIGHT); 
+        subscribeToAppStoreChanges(this);
+        attachLogPanelEventListeners(this); 
+        this._updateTagsBar(); 
         this.updateUI();
-        this.updateEntryCount(); // Initial count
-        // Comment out the call to updateAppInfo
-        // this.updateAppInfo();
-        console.log('[LogPanel] Initialized successfully.');
+        this.updateEntryCount(); 
+        // logPanelInternalDebug('Initialized successfully.');
+        logInfo('LogPanel UI initialized successfully.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
     }
-
-    /**
-     * Creates the necessary DOM elements inside the container.
-     */
-    createDOMStructure() {
-        // Clear any existing content (e.g., from static HTML)
-        this.container.innerHTML = ''; 
-
-        // Create Toolbar
-        this.toolbarElement = document.createElement('div');
-        this.toolbarElement.id = 'log-toolbar'; // Assign ID for CSS
-        this.container.appendChild(this.toolbarElement);
-        
-        // <<< NEW: Add '' Toggle Button >>>
-        const helpToggleButton = this._createToolbarButton('log-help-toggle-btn', '☰', 'toggleLogMenu', 'Toggle Log Menu');
-        // helpToggleButton.style.marginRight = 'auto'; // Push other items right if needed
-        // <<< END NEW >>>
-
-        // Create CLI Input
-        this.cliInputElement = document.createElement('input');
-        this.cliInputElement.type = 'text';
-        this.cliInputElement.id = 'cli-input';
-        this.cliInputElement.placeholder = 'Enter command...';
-        this.toolbarElement.appendChild(this.cliInputElement);
-        
-        // Create CLI Send Button
-        const sendButton = document.createElement('button');
-        sendButton.id = 'cli-send-button';
-        sendButton.textContent = 'Send';
-        this.toolbarElement.appendChild(sendButton);
-        
-        // <<< NEW: Add State A/B Buttons >>>
-        const stateAButton = this._createToolbarButton('log-state-a-btn', 'A', 'setSelectionStateA', 'Store Editor Selection A');
-        const stateBButton = this._createToolbarButton('log-state-b-btn', 'B', 'setSelectionStateB', 'Store Editor Selection B');
-        // <<< END NEW >>>
-        
-        // Create App Info Span (Now after version)
-        this.appInfoElement = document.createElement('span');
-        this.appInfoElement.id = 'app-info';
-        this.appInfoElement.className = 'app-info'; // Use class for styling
-        this.appInfoElement.dataset.action = 'showAppInfo'; 
-        this.toolbarElement.appendChild(this.appInfoElement);
-
-        // --- ADDED: Create Right-aligned wrapper for status items ---
-        const rightWrapper = document.createElement('div');
-        rightWrapper.style.marginLeft = 'auto'; // Push to the right
-        rightWrapper.style.display = 'flex';
-        rightWrapper.style.alignItems = 'center';
-        rightWrapper.style.gap = '0.5rem'; // Space between items
-        this.toolbarElement.appendChild(rightWrapper);
-        // --- END: Wrapper ---
-
-        // Create App Version Span (will be added to wrapper)
-        this.appVersionElement = document.createElement('span');
-        this.appVersionElement.id = 'log-app-version';
-        this.appVersionElement.className = 'app-version log-version'; // Class for styling
-        this.appVersionElement.textContent = `v${appVer}`;
-        this.appVersionElement.title = `App Version: ${appVer}`;
-        // Don't append here, append to wrapper below
-
-        // Create Minimize Button (will be added to wrapper)
-        this.minimizeButton = this._createToolbarButton('minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true); // Pass flag to not append yet
-
-        // Create Status Span (will be added to wrapper)
-        this.statusElement = document.createElement('span');
-        this.statusElement.id = 'log-status';
-        this.statusElement.textContent = '0 entries';
-        // Don't append here, append to wrapper below
-        if (this.statusElement) rightWrapper.appendChild(this.statusElement);
-        if (this.minimizeButton) rightWrapper.appendChild(this.minimizeButton);
-     
-        // Create Tags Bar (after toolbar, before log content)
-        this.tagsBarElement = document.createElement('div');
-        this.tagsBarElement.id = 'log-tags-bar';
-        this.container.appendChild(this.tagsBarElement); // Appending it directly to container, will be styled to sit between toolbar and log
-     
-        // Create Log Content Area
-        this.logElement = document.createElement('div');
-        this.logElement.id = 'log';
-        this.container.appendChild(this.logElement);
-
-        // Create Resize Handle
-        this.resizeHandle = document.createElement('div');
-        this.resizeHandle.id = 'log-resize-handle';
-        this.resizeHandle.title = 'Resize Log';
-        this.container.appendChild(this.resizeHandle);
-        
-        // <<< NEW: Create Log Menu Container (hidden initially) >>>
-        const menuContainer = document.createElement('div');
-        menuContainer.id = 'log-menu-container'; // Assign ID for styling/toggling
-        // menuContainer.style.display = 'none'; // Hide via CSS initially
-        
-        const menuItems = [
-            { text: 'Pause/Resume', action: 'toggleLogPause' },
-            { text: 'Copy Log', action: 'copyLog' },
-            { text: 'Clear Log', action: 'clearLog' },
-            { text: 'Debug UI', action: 'runDebugUI' },
-            { text: 'Sys Info', action: 'showSystemInfo' }, 
-            { text: 'Static HTML', action: 'downloadStaticHTML' },
-        ];
-        
-        // Add a separator before version info
-        const separator = document.createElement('div');
-        separator.className = 'log-menu-separator';
-        menuContainer.appendChild(separator);
-
-  
-
-        menuItems.forEach(item => {
-            const menuItem = document.createElement('div'); // Use div for block layout
-            menuItem.className = 'log-menu-item';
-            menuItem.textContent = item.text;
-            menuItem.dataset.action = item.action;
-            menuContainer.appendChild(menuItem);
-        });
-
-        // Add version info (non-actionable)
-        const versionInfo = document.createElement('div');
-        versionInfo.className = 'log-menu-version';
-        versionInfo.textContent = `v${appVer}`;
-        versionInfo.title = `App Version: ${appVer}`;
-        menuContainer.appendChild(versionInfo);
-        
-        // Insert menu *after* toolbar, *before* log area
-        this.container.insertBefore(menuContainer, this.logElement);
-        // <<< END NEW >>>
-
-        console.log('[LogPanel] DOM structure created.');
-        // Update initial pause button state
-        this.updatePauseButtonState();
-    }
-    
-    /** Helper to create toolbar buttons */
-    _createToolbarButton(id, text, action, title = null, noAppend = false) {
-        if (!this.toolbarElement) return null;
-        const button = document.createElement('button');
-        button.id = id;
-        button.textContent = text;
-        if (action) {
-            button.dataset.action = action; // Set data-action for global handler
-        }
-        if (title) {
-            button.title = title;
-        }
-        if (!noAppend) {
-            this.toolbarElement.appendChild(button);
-        }
-        return button; // Important: return the element
-    }
-
-    /**
-     * Loads height preference from localStorage.
-     */
-    loadPreferences() {
-        const savedHeight = localStorage.getItem(LOG_HEIGHT_KEY);
-
-        this.state.height = parseInt(savedHeight, 10) || DEFAULT_LOG_HEIGHT;
-        if (this.state.height < MIN_LOG_HEIGHT) {
-            this.state.height = MIN_LOG_HEIGHT;
-        }
-        console.log(`[LogPanel] Preferences loaded: height=${this.state.height}`);
-    }
-
-    /**
-     * Saves height preference to localStorage.
-     */
-    savePreferences() {
-        try {
-            localStorage.setItem(LOG_HEIGHT_KEY, String(this.state.height));
-            console.log(`[LogPanel] Preferences saved: height=${this.state.height}`);
-        } catch (error) {
-            console.error(`[LogPanel] Failed to save preferences: ${error.message}`);
-        }
-    }
-
-    /**
-     * ADDED: Subscribe to relevant UI state changes from appState.
-     */
-    subscribeToStateChanges() {
-        if (this._appStateUnsubscribe) {
-            this._appStateUnsubscribe();
-        }
-        this._appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
-             if (newState.ui !== prevState.ui && newState.ui.logVisible !== prevState.ui?.logVisible) {
-                 // This is an APP_STATE change, LogPanel is just observing it.
-                 // So, it should use the main `logMessage` (imported from ./index.js)
-                 // to ensure consistency with how other modules log APP_STATE changes.
-                 // Or, if we decide LogPanel's observation of this specific event is
-                 // an internal "LOG_PANEL" concern about an external event, it could be:
-                 // this.addEntry(`[DEBUG] [LOG_PANEL] Observed appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'LOG_PANEL');
-
-                 // Let's stick to the established pattern: if it's an APP_STATE change, log it as such.
-                 // This requires LogPanel to import logMessage from its own index.
-                 // import { logMessage as appLog } from './index.js';
-                 // appLog(`appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE');
-                 // For now, the previous direct window.logMessage call for this specific case was:
-                 // window.logMessage(`[LogPanel] appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE', ...);
-                 // This will now correctly pass 'APP_STATE' as the component type via the new globalLogMessageHandler.
-                 // So, if window.logMessage is already called, ensure it uses 3 args.
-
-                 // The goal is that APP_STATE changes are logged with type APP_STATE.
-                 // The existing code was:
-                 // if (typeof window.logMessage === 'function') {
-                 //    window.logMessage(`[LogPanel] appState.ui.logVisible changed to: ${newState.ui.logVisible}`, 'debug', 'APP_STATE', { visible: newState.ui.logVisible });
-                 // }
-                 // This call should now work correctly with the new globalLogMessageHandler.
-                 // The 4th arg {visible: ...} will be ignored by globalLogMessageHandler, include in message if needed.
-                 if (typeof window.logMessage === 'function') {
-                    window.logMessage(
-                        `appState.ui.logVisible changed to: ${newState.ui.logVisible}`, // messageContent
-                        'debug', // level
-                        'APP_STATE' // componentType
-                    );
-                 }
-                 this.updateUI(); 
-             }
-        });
-        console.log('[LogPanel] Subscribed to appState.ui.logVisible changes.');
-
-        // Subscribe to appState changes for log filtering
-        if (this._logFilteringUnsubscribe) {
-            this._logFilteringUnsubscribe();
-        }
-        this._logFilteringUnsubscribe = appStore.subscribe((newState, prevState) => {
-            const filtersChanged = newState.logFiltering !== prevState.logFiltering &&
-                (newState.logFiltering.discoveredTypes !== prevState.logFiltering?.discoveredTypes ||
-                 newState.logFiltering.activeFilters !== prevState.logFiltering?.activeFilters);
-
-            if (filtersChanged) {
-                // This subscription is for LogPanel to react to filter changes by updating its UI.
-                // IT SHOULD NOT LOG when filter tags are toggled, as per user request.
-                this._updateTagsBar(); // This will be removed later during refactor
-                this._applyFiltersToLogEntries(); 
-            }
-        });
-        console.log('[LogPanel] Subscribed to appState.logFiltering changes.');
-    }
-
-    /**
-     * Attaches necessary event listeners to the panel's elements.
-     */
-    attachEventListeners() {
-        if (this.resizeHandle) {
-            this.resizeHandle.addEventListener('mousedown', this._handleResizeMouseDown.bind(this));
-        } else {
-            console.warn('[LogPanel] Resize handle not found, resize disabled.');
-        }
-
-        this._handleResizeMouseMove = this._handleResizeMouseMove.bind(this);
-        this._handleResizeMouseUp = this._handleResizeMouseUp.bind(this);
-
-        // === ADD DELEGATED LISTENER FOR LOG ENTRIES ===
-        if (this.logElement) {
-            this.logElement.addEventListener('click', (event) => {
-                const logEntryDiv = event.target.closest('.log-entry');
-                if (!logEntryDiv) return; // Click wasn't inside a log entry
-
-                // Check if the click was on a button within the entry
-                const clickedButton = event.target.closest('.log-entry-button');
-
-                if (clickedButton && !clickedButton.dataset.action?.startsWith('toggle')) { // Ignore toggle buttons here
-                    // --- Clicked a Functional Button (Copy/Paste/etc.) ---
-                    logPanelMessage('[LogPanel Listener] Clicked a functional button inside log entry.');
-
-                    // Handle the original copy/paste button logic
-                    if (clickedButton.classList.contains('original-button') || clickedButton.classList.contains('toolbar-button')) {
-                        const logText = clickedButton.dataset.logText; // Get text from button's data attr
-                        if (logText === undefined) {
-                           console.warn('Copy/Paste button clicked, but logText data attribute is missing!');
-                           return;
-                        }
-
-                        if (event.shiftKey) {
-                            // Shift+Click: Paste to Editor
-                            logPanelMessage('[LogPanel Listener] Shift+Click detected. Triggering pasteLogEntry...');
-                            triggerActions.pasteLogEntry({ logText: logText }, clickedButton);
-                        } else {
-                            // Normal Click: Copy to Clipboard
-                            logPanelMessage('[LogPanel Listener] Normal click detected. Triggering copyLogEntryToClipboard...');
-                            triggerActions.copyLogEntryToClipboard({ logText: logText }, clickedButton);
-                        }
-                    }
-                    // <<< Add handling for other button types here if needed >>>
-
-                    // Prevent the click from also toggling the expand/collapse state or other button actions
-                    event.stopPropagation();
-
-                } else if (!clickedButton) { // Only toggle expand/collapse if clicking text area, not buttons
-                    // --- Clicked the Log Entry Text Area (Toggle Expand/Collapse) ---
-                    logPanelMessage('[LogPanel Listener] Clicked log entry text area (or whitespace). Toggling expand.');
-                    const isCurrentlyExpanded = logEntryDiv.classList.contains('expanded');
-                    const shouldExpand = !isCurrentlyExpanded;
-
-                    logEntryDiv.classList.toggle('expanded', shouldExpand);
-
-                    // Move expanded element to top
-                    if (shouldExpand && this.logElement) {
-                        this.logElement.prepend(logEntryDiv);
-                    }
-
-                    if (shouldExpand) {
-                        console.log('[LogPanel Listener] Expanding entry, building toolbar and setting initial content.');
-                        const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
-                        // --- Build the Expanded Toolbar (if not already built or needs refresh) ---
-                        if (expandedToolbar && !expandedToolbar.dataset.toolbarBuilt) { // Check a flag
-                            expandedToolbar.innerHTML = ''; // Clear previous content
-                            const { logIndex, logTimestamp, logType, logSubtype, rawOriginalMessage } = logEntryDiv.dataset;
-                            const createToken = (text, className) => {
-                                const token = document.createElement('span');
-                                token.className = `log-token ${className}`;
-                                token.textContent = text;
-                                return token;
-                            };
-                            if (logIndex !== undefined) expandedToolbar.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
-                            if (logTimestamp) expandedToolbar.appendChild(createToken(logTimestamp, 'log-token-time'));
-                            if (logType) expandedToolbar.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
-                            if (logSubtype) expandedToolbar.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
-
-                            // --- MD Toggle Button ---
-                            const markdownToggleButton = document.createElement('button');
-                            markdownToggleButton.textContent = 'MD';
-                            markdownToggleButton.className = 'log-entry-button markdown-toggle-button';
-                            markdownToggleButton.title = 'Toggle Markdown Rendering';
-                            markdownToggleButton.dataset.action = 'toggleMarkdownRender'; // Used for internal listener
-                            expandedToolbar.appendChild(markdownToggleButton);
-
-                            // --- HTML Toggle Button ---
-                            const htmlToggleButton = document.createElement('button');
-                            htmlToggleButton.textContent = 'HTML';
-                            htmlToggleButton.className = 'log-entry-button html-toggle-button';
-                            htmlToggleButton.title = 'Toggle HTML Page Rendering (iframe)';
-                            htmlToggleButton.dataset.action = 'toggleHtmlRender'; // Used for internal listener
-                            expandedToolbar.appendChild(htmlToggleButton);
-                            // --- End HTML Toggle Button ---
-
-                            const toolbarCopyButton = document.createElement('button');
-                            toolbarCopyButton.innerHTML = '&#128203;';
-                            toolbarCopyButton.className = 'log-entry-button toolbar-button';
-                            toolbarCopyButton.title = 'Copy log entry text (Shift+Click to Paste)';
-                            toolbarCopyButton.dataset.logText = rawOriginalMessage || '';
-                            expandedToolbar.appendChild(toolbarCopyButton);
-
-                            expandedToolbar.dataset.toolbarBuilt = 'true'; // Mark toolbar as built
-
-                            // --- Add Internal Click Listeners for Toggle Buttons ---
-                            markdownToggleButton.addEventListener('click', (mdEvent) => {
-                                mdEvent.stopPropagation();
-                                const currentMode = logEntryDiv.dataset.renderMode;
-                                const newMode = currentMode === this.RENDER_MODE_MARKDOWN ? this.RENDER_MODE_RAW : this.RENDER_MODE_MARKDOWN;
-                                this._updateLogEntryDisplay(logEntryDiv, newMode);
-                            });
-
-                            htmlToggleButton.addEventListener('click', (htmlEvent) => {
-                                htmlEvent.stopPropagation();
-                                const currentMode = logEntryDiv.dataset.renderMode;
-                                const newMode = currentMode === this.RENDER_MODE_HTML ? this.RENDER_MODE_RAW : this.RENDER_MODE_HTML;
-                                this._updateLogEntryDisplay(logEntryDiv, newMode);
-                            });
-                             // --- End Internal Click Listeners ---
-                        }
-
-                        // --- Set Initial Content on Expand ---
-                        // Default to raw unless a previous state was stored (implement if needed)
-                        this._updateLogEntryDisplay(logEntryDiv, this.RENDER_MODE_RAW); // Start with raw view
-
-                     } else if (!shouldExpand) { // Collapsing
-                        logPanelMessage('[LogPanel Listener] Collapsing entry.');
-                        // Reset content to raw text when collapsing
-                        this._updateLogEntryDisplay(logEntryDiv, this.RENDER_MODE_RAW, true); // Pass true to force raw state reset
-                     }
-
-                    // Optional: Adjust scroll
-                    // logEntryDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            });
-            console.log('[LogPanel] Updated delegated click listener on #log element for expand/copy/paste/render toggle.');
-        } else {
-            console.warn('[LogPanel] #log element not found, cannot attach delegated listener.');
-        }
-        // === END DELEGATED LISTENER ===
-
-        // <<< NEW: Add Editor Blur/Focus Listeners >>>
-        const editorTextArea = document.querySelector('#editor-container textarea');
-        if (editorTextArea) {
-            editorTextArea.addEventListener('blur', (event) => {
-                // <<< SIMPLIFIED LOGIC: Store selection on blur if it has length >>>
-                const start = editorTextArea.selectionStart;
-                const end = editorTextArea.selectionEnd;
-                if (start !== end) {
-                    this._selectionStateA = { start, end };
-                    logPanelMessage(`Editor blurred. Stored selection: start=${start}, end=${end}`);
-                } else {
-                     // If selection has zero length on blur, clear stored value
-                     this._selectionStateA = null;
-                     logPanelMessage('Editor blurred with zero-length selection. Cleared stored selection.');
-                }
-                /* // OLD LOGIC with relatedTarget check
-                const relatedTarget = event.relatedTarget;
-                if (relatedTarget && (relatedTarget === this.cliInputElement || this.container.contains(relatedTarget))) {
-                    this._editorSelectionBeforeCliFocus = { 
-                        start: editorTextArea.selectionStart,
-                        end: editorTextArea.selectionEnd
-                    };
-                    logPanelMessage(`Editor blurred towards log panel. Stored selection: start=${this._editorSelectionBeforeCliFocus.start}, end=${this._editorSelectionBeforeCliFocus.end}`);
-                } else {
-                     // Clear if blurring elsewhere
-                     this._editorSelectionBeforeCliFocus = null;
-                     logPanelMessage('Editor blurred, but not towards log panel. Cleared stored selection.');
-                }
-                */
-            });
-            // Clear stored selection if editor is focused again
-            editorTextArea.addEventListener('focus', () => {
-                logPanelMessage('Editor focused. Cleared stored selection.');
-                this._selectionStateA = null;
-            });
-            logPanelMessage('Attached blur/focus listeners to editor textarea.');
-        } else {
-            logPanelMessage('Editor textarea not found during listener setup.', 'warning');
-        }
-        // <<< END NEW LISTENERS >>>
-
-        // Delegated event listener for tags bar (for individual type filters and "Clear Filters")
-        if (this.tagsBarElement) {
-            this.tagsBarElement.addEventListener('click', (event) => {
-                const targetButton = event.target.closest('.log-tag-button');
-                if (!targetButton) return; // Click wasn't on a button
-
-                const action = targetButton.dataset.action;
-                const logTypeToToggle = targetButton.dataset.logType;
-
-                if (action === 'clear-all-log-filters') {
-                    // Handle "Clear Filters" button click
-                    if (targetButton.disabled) return; // Do nothing if button is disabled
-
-                    appStore.update(prevState => {
-                        // Set activeFilters to an empty array
-                        return {
-                            ...prevState,
-                            logFiltering: {
-                                ...prevState.logFiltering,
-                                activeFilters: [] // Clear all active filters
-                            }
-                        };
-                    });
-                } else if (logTypeToToggle) {
-                    // Handle individual log type filter button click
-                    appStore.update(prevState => {
-                        const currentActiveFilters = prevState.logFiltering.activeFilters;
-                        let newActiveFilters;
-                        if (currentActiveFilters.includes(logTypeToToggle)) {
-                            newActiveFilters = currentActiveFilters.filter(t => t !== logTypeToToggle);
-                        } else {
-                            newActiveFilters = [...currentActiveFilters, logTypeToToggle];
-                        }
-                        return {
-                            ...prevState,
-                            logFiltering: {
-                                ...prevState.logFiltering,
-                                activeFilters: newActiveFilters
-                            }
-                        };
-                    });
-                }
-            });
-            // logPanelMessage('[LogPanel] Attached click listener to tags bar.', 'debug');
-        } else {
-            console.warn('[LogPanel] Tags bar element not found, cannot attach listener for filters.');
-        }
-    }
-
-    // --- Core Methods ---
 
     /**
      * Adds a log message to the panel.
      * Accepts the NEW structured object form or the old (messageString, typeString) form.
      */
     addEntry(entryData, legacyTypeArgument = 'text') {
-        let messageForDisplay; // Renamed to avoid confusion, this is the final string for the log line
+        // --- START TEMPORARY CONSOLE LOGGING (REMOVE LATER) ---
+        console.log('%%%% LogPanel.addEntry CALLED. entryData:', entryData);
+        if (entryData && typeof entryData === 'object') {
+            console.log('%%%% entryData props: message?', ('message' in entryData), 'level?', ('level' in entryData), 'type?', ('type' in entryData));
+            console.log('%%%% entryData.message:', entryData.message);
+            console.log('%%%% entryData.level:', entryData.level);
+            console.log('%%%% entryData.type:', entryData.type);
+        }
+        // --- END TEMPORARY CONSOLE LOGGING ---
+
+        let messageForDisplay; 
         let level;
-        let type;   // This will be the primary type for filtering/tagging
-        let subtype; // This will be the subtype for filtering/tagging
+        let type;   
+        let subtype; 
         let timestamp;
-        let originalCoreMessage; // To store the actual core message content
+        let originalCoreMessage; 
 
         if (typeof entryData === 'object' && entryData && 'message' in entryData && 'level' in entryData && 'type' in entryData) {
-            // New structured object payload from core.js/log
-            originalCoreMessage = entryData.message; // Store the original message content
-            level = entryData.level; // Already canonicalized (UPPERCASE)
-            type = entryData.type;   // Already canonicalized (UPPERCASE)
-            subtype = entryData.subtype; // Already canonicalized (UPPERCASE) or null
+            originalCoreMessage = entryData.message; 
+            level = entryData.level; 
+            type = entryData.type;   
+            subtype = entryData.subtype; 
             timestamp = new Date(entryData.ts).toLocaleTimeString();
 
             let displayPrefix = `[${level}]`;
-            // Add type to prefix if it's not GENERAL (unless there's a subtype, then always show type)
             if (type !== 'GENERAL' || subtype) {
                  displayPrefix += ` [${type}]`;
             }
             if (subtype) {
                 displayPrefix += ` [${subtype}]`;
             }
-
-            // Ensure originalCoreMessage is a string for concatenation
             const coreMessageString = typeof originalCoreMessage === 'string' ? originalCoreMessage : JSON.stringify(originalCoreMessage);
             messageForDisplay = `${displayPrefix} ${coreMessageString}`;
 
         } else if (typeof entryData === 'string') {
-            // Legacy call path
-            originalCoreMessage = entryData; // The incoming string is the core message
+            // This path is for legacy calls, or if addEntry is directly called with a string
+            originalCoreMessage = entryData; 
             type = legacyTypeArgument.toUpperCase();
-            level = 'INFO'; // Default for plain string messages
+            level = 'INFO'; 
             subtype = null;
             timestamp = new Date().toLocaleTimeString();
 
-            // Attempt to parse out level/type from pre-formatted legacy strings
-            // Example: "[ERROR] [LEGACY_TYPE] Actual message"
             const legacyMatch = originalCoreMessage.match(/^\s*\[([A-Z]+)\](?:\s*\[(.+?)\])?\s*(.*)/s);
             let coreContentAfterMatch = originalCoreMessage;
             if (legacyMatch) {
                 level = legacyMatch[1] || level;
-                // If legacyTypeArgument was 'TEXT' (default for simple strings), we might infer type from brackets
                 if (type === 'TEXT' && legacyMatch[2]) {
-                    type = legacyMatch[2].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_'); // Sanitize type
+                    type = legacyMatch[2].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_'); 
                 }
-                coreContentAfterMatch = legacyMatch[3] || originalCoreMessage; // The rest is the message
+                coreContentAfterMatch = legacyMatch[3] || originalCoreMessage; 
             }
             
             let displayPrefix = `[${level}]`;
-            if (type !== 'GENERAL' && type !== 'TEXT') { // Use the determined type, avoid double [TEXT]
+            if (type !== 'GENERAL' && type !== 'TEXT') { 
                  displayPrefix += ` [${type}]`;
             }
             messageForDisplay = `${displayPrefix} ${coreContentAfterMatch}`;
-            originalCoreMessage = coreContentAfterMatch; // Update originalCoreMessage to the core part
+            originalCoreMessage = coreContentAfterMatch; 
 
         } else {
-            console.warn('[LogPanel] addEntry received invalid data:', entryData);
+            // This is the "final else" block (around line 655 in your file based on the latest stack)
+            logPanelInternalDebug(`addEntry received invalid data (falling into final else): ${JSON.stringify(entryData)}. This entry will not be added to the UI log.`, 'error');
             return;
         }
 
-        console.log(`[LogPanel.addEntry DEBUG] Logging: FinalDisplayMessage="${String(messageForDisplay).substring(0,70)}...", Level="${level}", Type="${type}", Subtype="${subtype}"`);
+        // ... (message processing logic from entryData to messageForDisplay, level, type) ...
+        // logPanelInternalDebug(`[LogPanel.addEntry DEBUG (after processing)] DisplayMsg: "${String(messageForDisplay).substring(0,70)}...", Level: "${level}", Type: "${type}", Subtype: "${subtype}"`);
 
-        const upperCaseType = type.toUpperCase(); // Ensure consistency for checks like allowedTypesWhenPaused
-
-        // --- PAUSE CHECK (using 'upperCaseType') ---
-        const allowedTypesWhenPaused = ['CLI-INPUT', 'CLI-OUTPUT', 'CLI-ERROR', 'CLI-LOCAL-ECHO'];
-        if (this.isPaused && !allowedTypesWhenPaused.includes(upperCaseType)) {
-            return;
-        }
-
-        if (!this.logElement) {
-             console.warn(`[LogPanel] Log element (#log) not found. Cannot add entry.`);
-             return;
-        }
+        const upperCaseType = type.toUpperCase();
 
         if (messageForDisplay === undefined || messageForDisplay === null || String(messageForDisplay).trim() === '') {
-            console.warn('[LogPanel] Empty or whitespace-only log message after processing, ignoring');
+            logPanelInternalDebug('Empty or whitespace-only log message after processing, ignoring', 'warn');
             return;
         }
         
@@ -743,17 +270,23 @@ export class LogPanel {
         expandedToolbar.className = 'log-entry-expanded-toolbar';
         logEntry.appendChild(expandedToolbar);
 
-        const expandedEntries = this.logElement.querySelectorAll('.log-entry.expanded');
-        if (expandedEntries.length > 0) {
-            const lastExpandedEntry = expandedEntries[expandedEntries.length - 1];
-            lastExpandedEntry.after(logEntry);
+        if (this.logElement) {
+            const expandedEntries = this.logElement.querySelectorAll('.log-entry.expanded');
+            if (expandedEntries.length > 0) {
+                const lastExpandedEntry = expandedEntries[expandedEntries.length - 1];
+                lastExpandedEntry.after(logEntry);
+            } else {
+                this.logElement.prepend(logEntry); 
+            }
+            
+            this.state.entryCount++;
+            this.state.clientLogIndex++;
+            this.updateEntryCount();
         } else {
-            this.logElement.prepend(logEntry); 
+            // Log element not available (happens during bootstrap)
+            console.warn('[LogPanel] Cannot add entry: Log element not found or not initialized yet');
+            // Don't increment counts or add to DOM in this case
         }
-        
-        this.state.entryCount++;
-        this.state.clientLogIndex++;
-        this.updateEntryCount();
 
         const currentLogFilteringState = appStore.getState().logFiltering;
         let discoveredTypesChanged = false;
@@ -779,7 +312,7 @@ export class LogPanel {
                     activeFilters: newActiveTypes 
                 }
             }));
-            logPanelMessage(`[LogPanel] Filters updated. Discovered Type: ${upperCaseType}`, 'debug');
+            logPanelInternalDebug(`[LogPanel] Filters updated. Discovered Type: ${upperCaseType}`, 'debug');
         }
 
         const activeFiltersCurrent = appStore.getState().logFiltering.activeFilters;
@@ -806,7 +339,7 @@ export class LogPanel {
                 activeFilters: []
             }
         }));
-        console.log('[LogPanel] Log cleared and filters reset.');
+        logPanelInternalDebug('[LogPanel] Log cleared and filters reset.', 'info');
     }
 
     /**
@@ -827,11 +360,11 @@ export class LogPanel {
 
         navigator.clipboard.writeText(logText)
             .then(() => {
-                console.log('[LogPanel] Log copied to clipboard.');
+                logPanelInternalDebug('[LogPanel] Log copied to clipboard.', 'info');
                 // Optional: Show temporary feedback like "Copied!"
             })
             .catch(err => {
-                console.error('[LogPanel] Failed to copy log:', err);
+                logPanelInternalDebug('[LogPanel] Failed to copy log:', err, 'error');
             });
     }
 
@@ -839,42 +372,41 @@ export class LogPanel {
      * Updates the LogPanel's DOM based on the current central UI state (visibility) and internal state (height).
      */
     updateUI() {
-        console.log('%c[LogPanel] updateUI() method called.', 'color: yellow');
-        const mainContainer = document.getElementById('main-container'); // Get main container reference
+        // Log for debugging
+        console.log('[LOG_PANEL_INTERNAL] %c[LogPanel] updateUI() method called.', 'color: #8884');
 
-        if (!this.container || !mainContainer) {
-             console.warn('[LogPanel updateUI] Missing required elements (#log-container or #main-container), cannot update.');
-             return;
+        // Get the current state
+        const appState = appStore.getState();
+        
+        // Skip if state not available
+        if (!appState || !appState.ui) {
+            console.warn('[LogPanel.js] Cannot updateUI, appState or appState.ui not available');
+            return;
         }
-
-        // Get uiState state directly
-        // const isVisible = getUIState('logVisible'); 
-        const isVisible = appStore.getState().ui.logVisible; // CHANGED: Use appStore
-        const currentHeight = this.state.height; // Still needed for --log-height
-
-        console.log(`[LogPanel] Updating UI based on state: isVisible=${isVisible}`);
-
-        // Set CSS variable ONLY when visible
-        document.documentElement.style.setProperty('--log-height', isVisible ? `${currentHeight}px` : '0px');
-
-        // Toggle classes on log container
-        this.container.classList.toggle('log-visible', isVisible);
-        this.container.classList.toggle('log-hidden', !isVisible);
-
-        // Toggle classes on main container for content height adjustment
-        mainContainer.classList.toggle('log-visible', isVisible);
-        mainContainer.classList.toggle('log-hidden', !isVisible);
-
-        // Optional: Update the button in ViewControls still needs doing there via its own subscription.
-        // We don't need to update the button appearance from here anymore.
-
-        console.log(`[LogPanel] UI Updated. Toggled classes. IsVisible: ${isVisible}`);
-
-        // Emit resize event AFTER updating visibility/height potentially
-        // so other components react to the final state
-        eventBus.emit('layout:logResized', { height: isVisible ? currentHeight : 0 });
-
-        this.updatePauseButtonState(); // Update pause button state too
+        
+        const { logVisible, logMenuVisible } = appState.ui;
+        
+        // Update container visibility
+        if (this.container) {
+            this.container.classList.toggle('log-visible', logVisible);
+            this.container.classList.toggle('log-hidden', !logVisible);
+        }
+        
+        // Update parent visibility (for layouting)
+        const mainContainer = document.getElementById('main-container');
+        if (mainContainer) {
+            mainContainer.classList.toggle('log-visible', logVisible);
+            mainContainer.classList.toggle('log-hidden', !logVisible);
+        }
+        
+        // Log menu visibility toggle - THIS IS CRITICAL
+        const menuContainer = document.getElementById('log-menu-container');
+        if (menuContainer) {
+            console.log(`[LogPanel updateUI] Setting menu visibility to: ${logMenuVisible}`);
+            menuContainer.classList.toggle('visible', logMenuVisible);
+        } else {
+            console.warn('[LogPanel updateUI] #log-menu-container NOT FOUND in DOM during updateUI.');
+        }
     }
 
     /**
@@ -917,112 +449,19 @@ export class LogPanel {
 
     // --- Resize Handlers ---
 
-    _handleResizeMouseDown(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        this._isResizing = true;
-        this._startY = event.clientY;
-        this._startHeight = this.container.offsetHeight;
-        this.container.classList.add('resizing'); // Add class for potential styling
-
-        document.addEventListener('mousemove', this._handleResizeMouseMove);
-        document.addEventListener('mouseup', this._handleResizeMouseUp);
-    }
-
-    /**
-     * Handles mouse move during resize.
-     */
-    _handleResizeMouseMove(event) {
-        if (!this._isResizing) return;
-
-        const deltaY = this._startY - event.clientY;
-        let newHeight = this._startHeight + deltaY;
-
-        if (newHeight < MIN_LOG_HEIGHT) {
-            newHeight = MIN_LOG_HEIGHT;
-        }
-        // Add a max height constraint if desired, e.g.:
-        // const maxHeight = window.innerHeight * 0.8; // 80% of viewport
-        // if (newHeight > maxHeight) newHeight = maxHeight;
-
-        this.state.height = newHeight;
-        this.container.style.height = `${newHeight}px`;
-        
-        // Set the CSS variable immediately during resize
-        document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-        
-        // MODIFIED: Emit event during resize for immediate layout updates elsewhere
-        eventBus.emit('layout:logResized', { height: newHeight });
-    }
-
-    /**
-     * Handles mouse up after resize, saves the new height.
-     */
-    _handleResizeMouseUp() {
-        if (!this._isResizing) return;
-        this._isResizing = false;
-        document.removeEventListener('mousemove', this._handleResizeMouseMove);
-        document.removeEventListener('mouseup', this._handleResizeMouseUp);
-        document.body.style.userSelect = ''; // Restore text selection
-
-        this.savePreferences(); // Save the final height
-        console.log(`[LogPanel] Resize ended. Final height: ${this.state.height}`);
-        // Event emission is now handled during mousemove
-    }
-
-    // ADDED: Method to clean up subscriptions
-    destroy() {
-        console.log('[LogPanel] Destroying...');
-        if (this._appStateUnsubscribe) {
-            this._appStateUnsubscribe();
-            this._appStateUnsubscribe = null;
-            console.log('[LogPanel] Unsubscribed from appState.ui.logVisible changes.');
-        }
-        if (this._logFilteringUnsubscribe) { // ADDED: Unsubscribe from log filtering
-            this._logFilteringUnsubscribe();
-            this._logFilteringUnsubscribe = null;
-            console.log('[LogPanel] Unsubscribed from appState.logFiltering changes.');
-        }
-        // Remove resize listener if necessary (though usually component is destroyed with page)
-        if (this.resizeHandle) {
-            this.resizeHandle.removeEventListener('mousedown', this._handleResizeMouseDown);
-        }
-        document.removeEventListener('mousemove', this._handleResizeMouseMove); // Clean up global listeners
-        document.removeEventListener('mouseup', this._handleResizeMouseUp); // Clean up global listeners
-        console.log('[LogPanel] Destroyed.');
-    }
-
-    // Comment out the entire method
-    /*
-    updateAppInfo() {
-        if (!this.appInfoElement) return;
-        // Set the text content to the imported version
-        this.appInfoElement.textContent = `v${appVer}`;
-        this.appInfoElement.title = `Application Version: ${appVer}`; // Add a tooltip
-        console.log(`[LogPanel] App info updated: v${appVer}`);
-    }
-    */
-
-    // --- ADDED: Pause Methods ---
-    togglePause() {
-        this.isPaused = !this.isPaused;
-        console.log(`[LogPanel] Pause state toggled: ${this.isPaused}`);
-        this.updatePauseButtonState();
-    }
-
-    updatePauseButtonState() {
-        if (!this.pauseLogButton) return;
-        if (this.isPaused) {
-            this.pauseLogButton.textContent = '▶️ Resume';
-            this.pauseLogButton.title = 'Resume Logging';
-            this.pauseLogButton.classList.add('paused'); // Optional: Add class for styling
+    // Method to save preferences - called from logPanelEvents after resize
+    // This should delegate to the function in logPanelState.js
+    saveLogPanelPreferences() {
+        // logPanelInternalDebug('[LogPanel] saveLogPanelPreferences called.', 'debug');
+        // The actual saving logic will be in logPanelState.js
+        // For now, we assume a function saveLogPanelPreferencesState exists there.
+        // This is a placeholder until logPanelState.js is fully implemented.
+        if (typeof saveLogPanelPreferencesState === 'function') { // This refers to the imported function from logPanelState
+            saveLogPanelPreferencesState(this); // Pass the instance
         } else {
-            this.pauseLogButton.textContent = '⏸️ Pause';
-            this.pauseLogButton.title = 'Pause Logging';
-            this.pauseLogButton.classList.remove('paused');
+            logWarn('saveLogPanelPreferences function from logPanelState.js not available.', {type: 'LOG_PANEL_STATE'});
         }
     }
-    // --- END ADDED ---
 
     /**
      * NEW: Updates the display content and button states for an expanded log entry.
@@ -1031,77 +470,16 @@ export class LogPanel {
      * @param {boolean} [forceRawState=false] If true, forces the state to raw (used on collapse).
      */
     async _updateLogEntryDisplay(logEntryDiv, requestedMode, forceRawState = false) {
-        if (!logEntryDiv || !logEntryDiv.classList.contains('expanded') && !forceRawState) {
-             if(forceRawState) requestedMode = this.RENDER_MODE_RAW;
-             else return; 
-        }
+        return updateLogEntryDisplay(logEntryDiv, requestedMode, forceRawState, this);
+    }
 
-        const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
-        const markdownToggleButton = logEntryDiv.querySelector('.markdown-toggle-button');
-        const htmlToggleButton = logEntryDiv.querySelector('.html-toggle-button');
-        const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+    // +++ MODIFIED METHOD TO ADD HAMBURGER MENUS TO CODE FENCES AND MERMAID DIAGRAMS +++
+    _enhanceCodeBlocksAndMermaid(parentElement, logEntryIndex) {
+        return enhanceCodeBlocksAndMermaid(parentElement, logEntryIndex, this);
+    }
 
-        if (!textWrapper || !expandedToolbar) {
-            console.warn('_updateLogEntryDisplay: Could not find required elements (wrapper or toolbar) for entry.');
-            return;
-        }
-
-        // Use the trimmed coreMessage for processing (MD, HTML)
-        const coreMessage = logEntryDiv.dataset.logCoreMessage || ''; 
-        // Use the new rawContentPart for raw <pre> display
-        const rawContentPart = logEntryDiv.dataset.logRawContentPart;
-        const logType = logEntryDiv.dataset.logType;
-        const logIndex = logEntryDiv.dataset.logIndex;
-
-        const finalMode = forceRawState ? this.RENDER_MODE_RAW : requestedMode;
-        logEntryDiv.dataset.renderMode = finalMode;
-        logPanelMessage(`Updating entry ${logIndex} display to: ${finalMode}`, 'debug');
-
-        if (markdownToggleButton) markdownToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_MARKDOWN);
-        if (htmlToggleButton) htmlToggleButton.classList.toggle('active', finalMode === this.RENDER_MODE_HTML);
-
-        // MODIFIED: Explicitly remove all mode classes, then add the current one
-        textWrapper.classList.remove('markdown-rendered', 'html-rendered');
-        if (finalMode === this.RENDER_MODE_MARKDOWN) {
-            textWrapper.classList.add('markdown-rendered');
-        } else if (finalMode === this.RENDER_MODE_HTML) {
-            textWrapper.classList.add('html-rendered');
-        }
-        // If finalMode is RENDER_MODE_RAW, no specific mode class is added here.
-
-        textWrapper.innerHTML = ''; 
-
-        try {
-            if (finalMode === this.RENDER_MODE_MARKDOWN) {
-                logPanelMessage(`Rendering Markdown for entry ${logIndex}...`, 'debug');
-                const result = await renderMarkdown(coreMessage); // Uses trimmed coreMessage
-                textWrapper.innerHTML = result.html;
-                await postProcessRender(textWrapper);
-                logPanelMessage(`Markdown rendered and post-processed for entry ${logIndex}.`, 'debug');
-
-            } else if (finalMode === this.RENDER_MODE_HTML) {
-                logPanelMessage(`Rendering HTML in iframe for entry ${logIndex}...`, 'debug');
-                const iframe = document.createElement('iframe');
-                iframe.className = 'log-entry-html-iframe';
-                iframe.style.width = '100%';
-                iframe.style.height = '300px'; 
-                iframe.style.border = '1px solid #ccc';
-                iframe.style.backgroundColor = '#fff';
-                iframe.srcdoc = coreMessage; // Uses trimmed coreMessage
-                textWrapper.appendChild(iframe);
-                logPanelMessage(`Iframe created and appended for entry ${logIndex}.`, 'debug');
-
-            } else { // Default to Raw/Preformatted (finalMode === this.RENDER_MODE_RAW or JSON type)
-                 logPanelMessage(`Rendering raw text/pre for entry ${logIndex}...`, 'debug');
-                 const pre = document.createElement('pre');
-                 // MODIFIED: Use rawContentPart if available, otherwise fallback to coreMessage
-                 pre.textContent = (typeof rawContentPart === 'string') ? rawContentPart : coreMessage;
-                 textWrapper.appendChild(pre);
-            }
-        } catch (err) {
-             console.error(`Error rendering content for log entry ${logIndex} (mode: ${finalMode}):`, err);
-             textWrapper.innerHTML = `<pre>Error rendering content (mode: ${finalMode}):\n${err}</pre>`;
-        }
+    _showTemporaryFeedback(anchorElement, message, isError = false) {
+        return showTemporaryFeedback(anchorElement, message, isError);
     }
 
     // +++ NEW METHODS FOR LOG FILTERING +++
@@ -1109,52 +487,7 @@ export class LogPanel {
      * Updates the tags bar with a "Clear Filters" button and buttons for each discovered log type.
      */
     _updateTagsBar() {
-        if (!this.tagsBarElement) {
-            console.warn('[LogPanel] Tags bar element not found for update.');
-            return;
-        }
-
-        const { discoveredTypes, activeFilters } = appStore.getState().logFiltering;
-        this.tagsBarElement.innerHTML = ''; // Clear existing buttons
-
-        // 1. Create and add the "Clear Filters" button
-        const clearFiltersButton = document.createElement('button');
-        clearFiltersButton.className = 'log-tag-button clear-filters-button'; // Specific class for styling
-        clearFiltersButton.textContent = 'Clear Filters';
-        clearFiltersButton.dataset.action = 'clear-all-log-filters'; // Special action
-
-        // Determine if "Clear Filters" should be disabled
-        // (i.e., if no filters are currently active, or no types exist to be filtered)
-        if (activeFilters.length === 0 || discoveredTypes.length === 0) {
-            clearFiltersButton.classList.add('disabled');
-            clearFiltersButton.disabled = true;
-        } else {
-            clearFiltersButton.classList.remove('disabled');
-            clearFiltersButton.disabled = false;
-        }
-        this.tagsBarElement.appendChild(clearFiltersButton);
-
-        // 2. Add individual type filter buttons
-        if (discoveredTypes.length > 0) {
-            discoveredTypes.forEach(type => {
-                const button = document.createElement('button');
-                button.className = 'log-tag-button';
-                button.textContent = type;
-                button.dataset.logType = type;
-                if (activeFilters.includes(type)) {
-                    button.classList.add('active');
-                }
-                this.tagsBarElement.appendChild(button);
-            });
-        }
-        
-        // Visibility of the bar itself
-        if (discoveredTypes.length === 0) { 
-            this.tagsBarElement.style.display = 'none'; 
-        } else {
-            this.tagsBarElement.style.display = 'flex';
-        }
-        // logPanelMessage('[LogPanel] Tags bar updated.', 'debug');
+        return updateTagsBar(this.tagsBarElement, appStore.getState().logFiltering);
     }
 
     /**
@@ -1162,28 +495,54 @@ export class LogPanel {
      * Shows/hides entries based on whether their type is in activeFilters.
      */
     _applyFiltersToLogEntries() {
-        if (!this.logElement) {
-            console.warn('[LogPanel] Log element not found for applying filters.');
-            return;
-        }
-
-        const { activeFilters } = appStore.getState().logFiltering;
-        const logEntries = this.logElement.querySelectorAll('.log-entry');
-
-        logEntries.forEach(entry => {
-            const entryType = entry.dataset.logType;
-            if (entryType) { // Ensure logType is defined on the entry
-                if (activeFilters.includes(entryType)) {
-                    entry.classList.remove('log-entry-hidden-by-filter');
-                } else {
-                    entry.classList.add('log-entry-hidden-by-filter');
-                }
-            }
-        });
-        // logPanelMessage('[LogPanel] Applied filters to existing log entries.', 'debug'); // Optional: keep if useful
-        
-        // ADDED: Update the count after filters are applied
-        this.updateEntryCount(); 
+        return applyFiltersToLogEntries(this.logElement, 
+            appStore.getState().logFiltering.activeFilters, 
+            this.updateEntryCount.bind(this));
     }
     // +++ END NEW METHODS FOR LOG FILTERING +++
+
+    // <<< ADDED: Method to update Toolbar A/B button UI >>>
+    updateSelectionButtonUI(bufferType, hasData, stateData = null) {
+        return updateSelectionButtonUI(this.toolbarElement, bufferType, hasData, stateData);
+    }
+    // <<< END ADDED METHOD >>>
+
+    // --- NEW HELPER: Expand Log Entry ---
+    _expandLogEntry(logEntryDiv) {
+        return expandLogEntry(logEntryDiv, this);
+    }
+
+    // --- NEW HELPER: Collapse Log Entry ---
+    _collapseLogEntry(logEntryDiv) {
+        return collapseLogEntry(logEntryDiv, this);
+    }
+
+    destroy() {
+        logPanelInternalDebug('[LogPanel] Destroying...');
+        if (this._appStateUnsubscribe) {
+            this._appStateUnsubscribe();
+            this._appStateUnsubscribe = null;
+            logPanelInternalDebug('[LogPanel] Unsubscribed from appState.ui.logVisible changes.');
+        }
+        if (this._logFilteringUnsubscribe) { // ADDED: Unsubscribe from log filtering
+            this._logFilteringUnsubscribe();
+            this._logFilteringUnsubscribe = null;
+            logPanelInternalDebug('[LogPanel] Unsubscribed from appState.logFiltering changes.');
+        }
+        
+        // --- MODIFIED PART ---
+        // Call the cleanup function from logPanelEvents.js
+        if (typeof removeLogPanelEventListeners === 'function') {
+            removeLogPanelEventListeners(this);
+            logPanelInternalDebug('[LogPanel] Called removeLogPanelEventListeners.', 'debug');
+        } else {
+            logWarn('[LogPanel] removeLogPanelEventListeners is not available from logPanelEvents.js.', 'warn');
+        }
+        // --- END MODIFIED PART ---
+
+        // Original cleanup of global listeners (now redundant if removeLogPanelEventListeners handles them)
+        // document.removeEventListener('mousemove', this._handleResizeMouseMove); 
+        // document.removeEventListener('mouseup', this._handleResizeMouseUp); 
+        logPanelInternalDebug('[LogPanel] Destroyed.');
+    }
 }

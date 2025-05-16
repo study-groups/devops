@@ -41,6 +41,7 @@ function logPlugins(message, level = 'debug', type='PLUGINS') {
  * @returns {Promise<Map>} Map of initialized plugins
  */
 export async function initPlugins(pluginNames = [], config = {}) {
+  console.log('[PLUGINS DIAG] initPlugins called with pluginNames:', pluginNames, 'config:', config); // DIAGNOSTIC LOG
   try {
     console.log('*** initPlugins called with:', pluginNames);
     logPlugins(`[PREVIEW] Initializing plugins: ${pluginNames.join(', ')}`);
@@ -179,7 +180,9 @@ export function getPlugin(name) {
  * @returns {Boolean} Whether the plugin is enabled
  */
 export function isPluginEnabled(name) {
-  return enabledPlugins.has(name);
+  const result = enabledPlugins.has(name);
+  console.log(`[PLUGINS DIAG] isPluginEnabled("${name}") returning:`, result); // DIAGNOSTIC LOG
+  return result;
 }
 
 /**

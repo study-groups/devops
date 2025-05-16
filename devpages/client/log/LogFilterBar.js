@@ -88,3 +88,88 @@ export function destroyLogFilterBar() {
     tagsBarElementRef = null;
     logFilterBarMessage('Destroyed.');
 }
+
+/**
+ * Updates the tags bar with buttons for each discovered log type
+ * @param {HTMLElement} tagsBarElement - The tags bar element
+ * @param {object} logFilteringState - The filtering state from appStore
+ */
+export function updateTagsBar(tagsBarElement, logFilteringState) {
+    // The _updateTagsBar method from LogPanel.js (lines ~798-850)
+    if (!tagsBarElement) {
+        console.warn('Tags bar element not found for update.');
+        return;
+    }
+
+    const { discoveredTypes, activeFilters } = logFilteringState;
+    tagsBarElement.innerHTML = ''; // Clear existing buttons
+
+    // Create and add the "Clear Filters" button
+    const clearFiltersButton = document.createElement('button');
+    clearFiltersButton.className = 'log-tag-button clear-filters-button';
+    clearFiltersButton.textContent = 'Clear Filters';
+    clearFiltersButton.dataset.action = 'clear-all-log-filters';
+
+    // Determine if "Clear Filters" should be disabled
+    if (activeFilters.length === 0 || discoveredTypes.length === 0) {
+        clearFiltersButton.classList.add('disabled');
+        clearFiltersButton.disabled = true;
+    } else {
+        clearFiltersButton.classList.remove('disabled');
+        clearFiltersButton.disabled = false;
+    }
+    tagsBarElement.appendChild(clearFiltersButton);
+
+    // Add individual type filter buttons
+    if (discoveredTypes.length > 0) {
+        discoveredTypes.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'log-tag-button';
+            button.textContent = type;
+            button.dataset.logType = type;
+            if (activeFilters.includes(type)) {
+                button.classList.add('active');
+            }
+            tagsBarElement.appendChild(button);
+        });
+    }
+    
+    // Visibility of the bar itself
+    if (discoveredTypes.length === 0) { 
+        tagsBarElement.style.display = 'none'; 
+    } else {
+        tagsBarElement.style.display = 'flex';
+    }
+}
+
+/**
+ * Applies filters to log entries based on their type
+ * @param {HTMLElement} logElement - The log element containing entries
+ * @param {string[]} activeFilters - Array of active filter types 
+ * @param {Function} updateEntryCountCallback - Callback to update entry count after filtering
+ */
+export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryCountCallback) {
+    // The _applyFiltersToLogEntries method from LogPanel.js (lines ~851-877)
+    if (!logElement) {
+        console.warn('Log element not found for applying filters.');
+        return;
+    }
+
+    const logEntries = logElement.querySelectorAll('.log-entry');
+
+    logEntries.forEach(entry => {
+        const entryType = entry.dataset.logType;
+        if (entryType) {
+            if (activeFilters.includes(entryType)) {
+                entry.classList.remove('log-entry-hidden-by-filter');
+            } else {
+                entry.classList.add('log-entry-hidden-by-filter');
+            }
+        }
+    });
+    
+    // Update the count after filters are applied
+    if (typeof updateEntryCountCallback === 'function') {
+        updateEntryCountCallback();
+    }
+}

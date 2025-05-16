@@ -9,8 +9,7 @@
     /* height: var(--log-height, 120px); */ /* REMOVED - Set by .log-visible */
     background: #161616; /* RESTORED */
     border-top: 1px solid #444; /* RESTORED */
-    overflow: hidden;
-    /* transition: height 0.2s ease-out; /* REMOVE or adjust if causing issues */
+    /* overflow: hidden; */  /* <<< TEMPORARILY COMMENT THIS OUT */
     position: relative; 
     /* padding-left: 1rem; */  /* <<< REMOVED Breathing Room */
     /* padding-right: 1rem; */ /* <<< REMOVED Breathing Room */
@@ -551,19 +550,19 @@
 #log-menu-container {
     display: none; /* Hidden by default */
     position: absolute;
-    top: 30px; /* Position below toolbar (adjust as needed) */
-    left: 5px; /* Align with toggle button */
-    background-color: #2a2a2a; /* Match old menu background */
-    border: 1px solid #444; /* Match old menu border */
+    top: 40px; /* Position below the hamburger button */
+    left: 10px;
+    width: 180px;
+    background-color: #333;
+    border: 1px solid #444;
     border-radius: 4px;
-    padding: 5px;
-    z-index: 100; /* Ensure it's above log content */
-    min-width: 120px; /* Give it some base width */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    z-index: 1000;
+    padding: 4px 0;
 }
 
 #log-menu-container.visible {
-    display: block; /* Show when visible class is added */
+    display: block;
 }
 
 /* Menu Items inside container */
@@ -699,4 +698,64 @@
     color: #777;
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+/* Code fence menu styles */
+.log-entry-codefence-menu-btn {
+  position: absolute;
+  top: 0.3em;
+  right: 0.3em;
+  z-index: 10;
+  padding: 1px 4px;
+  font-size: 12px;
+  background-color: rgba(224, 224, 224, 0.8);
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.log-entry-codefence-menu-btn:hover {
+  opacity: 1;
+}
+
+.log-entry-codefence-menu {
+  position: absolute;
+  top: calc(0.3em + 18px);
+  right: 0.3em;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  z-index: 20;
+  display: none;
+  padding: 5px 0;
+  min-width: 180px;
+}
+
+.log-entry-codefence-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.log-entry-codefence-menu-item:hover {
+  background-color: #f0f0f0;
+}
+
+/* HTML iframe styles */
+.log-entry-html-iframe {
+  width: 100%;
+  height: 300px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+}
+
+/* Expanded log entry toolbar styles */
+.log-entry-expanded-toolbar .button-wrapper {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }

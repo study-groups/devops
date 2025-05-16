@@ -289,4 +289,30 @@ appStore.subscribe((newState, prevState) => { // CHANGED: Use appStore
             body.classList.remove('logged-in');
         }
     }
-}); 
+});
+
+function handleGenericEvent(event) {
+    const { type, target } = event;
+    const elementPath = getElementPath(target); // Get the path of the clicked element
+
+    // Iterate through the registered event handlers
+    for (const handler of registeredEventHandlers) {
+        if (handler.type === type) {
+            const pathString = getPathString(elementPath, handler.depth);
+            const action = handler.actions[pathString];
+
+            if (action) {
+                console.log(`[DOM Event: ${type}] Action: ${action}, Path: ${pathString}`);
+                if (actions[action]) {
+                    // Pass the event and the element that triggered the event
+                    // ... existing code ...
+                } else {
+                    // If no specific action is found for the exact path,
+                    // you might want to log this or handle it as a default case.
+                    // For example, if you click on a deeply nested element but only have a handler for its parent.
+                     console.log(`[DOM Event: ${type}] No action found for path: ${pathString}`);
+                }
+            }
+        }
+    }
+} 

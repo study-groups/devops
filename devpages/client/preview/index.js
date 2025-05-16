@@ -77,7 +77,6 @@ export class PreviewManager {
           logMessage('Preview CSS link tag already exists.', 'debug', 'PREVIEW');
       }
       // --- End dynamic CSS link loading ---
-
       // --- MODIFIED: Retry finding container --- 
       const containerSelector = (typeof this.config.container === 'string') ? this.config.container : null;
       let attempt = 0;
@@ -110,6 +109,23 @@ export class PreviewManager {
 
       // Add class for styling
       this.previewElement.classList.add('markdown-preview');
+
+      // --- START DIAGNOSTIC EVENT LISTENERS FOR PREVIEW CONTAINER ---
+      if (this.previewElement) {
+        this.previewElement.addEventListener('wheel', (event) => {
+          console.log('[PREVIEW CONTAINER DIAG] Wheel event on previewElement. Target:', event.target, 'Ctrl/Meta:', event.ctrlKey || event.metaKey);
+        }, { capture: true }); // Use capture to see it early
+
+        this.previewElement.addEventListener('mousedown', (event) => {
+          console.log('[PREVIEW CONTAINER DIAG] Mousedown event on previewElement. Target:', event.target, 'Button:', event.button);
+        }, { capture: true }); // Use capture to see it early
+
+        this.previewElement.addEventListener('click', (event) => {
+          console.log('[PREVIEW CONTAINER DIAG] Click event on previewElement. Target:', event.target);
+        }, { capture: true }); // Use capture to see it early
+        console.log('[PreviewManager.init] ADDED DIAGNOSTIC event listeners to previewElement.');
+      }
+      // --- END DIAGNOSTIC EVENT LISTENERS FOR PREVIEW CONTAINER ---
 
       // --- FIX: Determine plugins to init based on appState ---
       const currentPluginSettings = appStore.getState().plugins || {};

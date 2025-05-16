@@ -25,6 +25,11 @@ async function getFileSystemState() {
 // Track initialization state
 let editorInitialized = false;
 
+// Store the last selection to persist across blur/focus
+let lastSelectionStart = 0;
+let lastSelectionEnd = 0;
+let selectionActive = false;
+
 // Core editor object with essential methods
 const editorCore = {
   /**
@@ -88,6 +93,20 @@ const editorCore = {
       
       // Emit initialization event
       eventBus.emit('editor:initialized');
+      
+      // Add in a style for maintaining selection when blurred
+      const style = document.createElement('style');
+      style.textContent = `
+        #editor-container textarea.keep-selection::selection {
+          background-color: rgba(30, 144, 255, 0.5) !important; /* dodgerblue with transparency */
+          color: inherit !important;
+        }
+        #editor-container textarea.keep-selection {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+        }
+      `;
+      document.head.appendChild(style);
       
       editorInitialized = true;
       logEditor('[EDITOR] Initialization complete');
@@ -262,6 +281,57 @@ const editorCore = {
       directory: fsState.getCurrentDirectory(),
       filename: fsState.getCurrentFile()
     };
+  },
+
+  /**
+   * Replace current selection or insert text at cursor.
+   * @param {string} newText - Text to insert/replace with.
+   * @returns {boolean} Whether the operation was successful.
+   */
+  replaceSelection: function(newText) {
+    const textarea = document.querySelector('#editor-container textarea');
+    if (!textarea) {
+        logEditor('Cannot replace selection, editor textarea not found.', 'error');
+        return false;
+    }
+    
+    const currentDocument = textarea.ownerDocument;
+    const activeElement = currentDocument.activeElement;
+
+    // Ensure textarea is focused
+    if (activeElement !== textarea) {
+        textarea.focus();
+    }
+    
+    // Use execCommand for undo support
+    try {
+        // Use the insertText command which can be undone
+        const success = document.execCommand('insertText', false, newText);
+        
+        if (!success) {
+            // Fall back to the old method if execCommand fails
+            logEditor('execCommand failed, falling back to direct value change', 'warning');
+            
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const originalValue = textarea.value;
+            
+            // Construct the new value
+            textarea.value = originalValue.substring(0, start) + newText + originalValue.substring(end);
+            
+            // Set cursor position after the newly inserted text
+            const newCursorPos = start + newText.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }
+        
+        // Trigger an 'input' event to ensure that any listeners are notified
+        textarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        logEditor(`Editor selection replaced/text inserted (length: ${newText.length})`);
+        return true;
+    } catch (err) {
+        logEditor(`Error replacing selection: ${err.message}`, 'error');
+        return false;
+    }
   }
 };
 
@@ -343,13 +413,39 @@ function setupEventListeners() {
       }, 250); // Debounce time (ms)
   });
   
-  // Focus/blur events
+  // Focus/blur events with selection persistence
   textarea.addEventListener('focus', () => {
     eventBus.emit('editor:focus');
+    
+    // Restore selection if we had an active selection before
+    if (selectionActive && lastSelectionStart !== lastSelectionEnd) {
+      textarea.setSelectionRange(lastSelectionStart, lastSelectionEnd);
+    }
   });
   
-  textarea.addEventListener('blur', () => {
+  // Store selection on blur but don't clear it visually
+  textarea.addEventListener('blur', (e) => {
+    // Store the current selection before blur
+    lastSelectionStart = textarea.selectionStart;
+    lastSelectionEnd = textarea.selectionEnd;
+    selectionActive = lastSelectionStart !== lastSelectionEnd;
+    
+    // If we have an active selection, prevent default blur behavior
+    if (selectionActive) {
+      // Apply a CSS class to maintain selection appearance
+      textarea.classList.add('keep-selection');
+      
+      // We'll create this style in the initialization function
+    }
+    
     eventBus.emit('editor:blur');
+  });
+  
+  // Track selection changes
+  textarea.addEventListener('select', () => {
+    lastSelectionStart = textarea.selectionStart;
+    lastSelectionEnd = textarea.selectionEnd;
+    selectionActive = lastSelectionStart !== lastSelectionEnd;
   });
 }
 
@@ -544,6 +640,201 @@ function insertMediaMarkdown(fileType, filePath, originalName) {
     editorTextarea.dispatchEvent(new Event('input', { bubbles: true }));
 
     logEditor(`Inserted markdown: ${markdownToInsert.trim()}`);
+}
+
+// Modify the setupContextMenu function to connect with log state buffers
+/**
+ * Set up custom context menu for the editor
+ */
+function setupContextMenu() {
+  const textarea = document.querySelector('#editor-container textarea');
+  if (!textarea) {
+    logEditor('[EDITOR ERROR] Textarea not found for context menu setup');
+    return false;
+  }
+  
+  // Create context menu elements
+  const contextMenu = document.createElement('div');
+  contextMenu.className = 'editor-context-menu';
+  contextMenu.style.cssText = 'position:absolute; background:#f8f8f8; border:1px solid #ccc; ' +
+                             'border-radius:4px; padding:5px; z-index:1000; display:none; box-shadow:2px 2px 5px rgba(0,0,0,0.2);';
+  
+  // Create menu items
+  const menuItemA = document.createElement('div');
+  menuItemA.textContent = 'Set as State Buffer A';
+  menuItemA.style.cssText = 'padding:5px 10px; cursor:pointer; user-select:none;';
+  menuItemA.onmouseover = () => { menuItemA.style.backgroundColor = '#e8e8e8'; };
+  menuItemA.onmouseout = () => { menuItemA.style.backgroundColor = 'transparent'; };
+  
+  const menuItemB = document.createElement('div');
+  menuItemB.textContent = 'Set as State Buffer B';
+  menuItemB.style.cssText = 'padding:5px 10px; cursor:pointer; user-select:none;';
+  menuItemB.onmouseover = () => { menuItemB.style.backgroundColor = '#e8e8e8'; };
+  menuItemB.onmouseout = () => { menuItemB.style.backgroundColor = 'transparent'; };
+  
+  // Add click handlers integrated with log state system
+  menuItemA.addEventListener('click', () => {
+    const selection = editorCore.getSelection();
+    if (selection.text) {
+      // Store selected text in state buffer A and notify system
+      lastSelectionStart = selection.start;
+      lastSelectionEnd = selection.end;
+      selectionActive = true;
+      
+      // Get file info for context
+      editorCore.getCurrentFileInfo().then(fileInfo => {
+        // Emit event to update state buffer A
+        eventBus.emit('editor:setSelectionStateA', {
+          text: selection.text,
+          start: selection.start,
+          end: selection.end,
+          filePath: fileInfo.filename
+        });
+        
+        logEditor(`Set selection to state buffer A: "${selection.text.substring(0, 20)}${selection.text.length > 20 ? '...' : ''}" from ${fileInfo.filename}`);
+        highlightNamedSelection('A', selection.start, selection.end);
+      });
+    }
+    hideContextMenu();
+  });
+  
+  menuItemB.addEventListener('click', () => {
+    const selection = editorCore.getSelection();
+    if (selection.text) {
+      // Store selected text in state buffer B and notify system
+      lastSelectionStart = selection.start;
+      lastSelectionEnd = selection.end;
+      selectionActive = true;
+      
+      // Get file info for context
+      editorCore.getCurrentFileInfo().then(fileInfo => {
+        // Emit event to update state buffer B
+        eventBus.emit('editor:setSelectionStateB', {
+          text: selection.text,
+          start: selection.start,
+          end: selection.end,
+          filePath: fileInfo.filename
+        });
+        
+        logEditor(`Set selection to state buffer B: "${selection.text.substring(0, 20)}${selection.text.length > 20 ? '...' : ''}" from ${fileInfo.filename}`);
+        highlightNamedSelection('B', selection.start, selection.end);
+      });
+    }
+    hideContextMenu();
+  });
+  
+  // Build menu (simpler version focused on buffer integration)
+  contextMenu.appendChild(menuItemA);
+  contextMenu.appendChild(menuItemB);
+  
+  // Add to document
+  document.body.appendChild(contextMenu);
+  
+  // Show/hide handlers
+  function showContextMenu(x, y) {
+    // Position the menu
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.display = 'block';
+  }
+  
+  function hideContextMenu() {
+    contextMenu.style.display = 'none';
+  }
+  
+  // Add context menu event to textarea
+  textarea.addEventListener('contextmenu', (e) => {
+    // Only show our custom menu if there's a selection
+    if (textarea.selectionStart !== textarea.selectionEnd) {
+      e.preventDefault();
+      showContextMenu(e.pageX, e.pageY);
+    }
+  });
+  
+  // Hide menu on document click
+  document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target)) {
+      hideContextMenu();
+    }
+  });
+  
+  // Also hide on scroll and window resize
+  document.addEventListener('scroll', hideContextMenu);
+  window.addEventListener('resize', hideContextMenu);
+  
+  return true;
+}
+
+/**
+ * Highlight a named selection (A or B) temporarily
+ * @param {string} label - 'A' or 'B'
+ * @param {number} start - start position
+ * @param {number} end - end position
+ */
+function highlightNamedSelection(label, start, end) {
+  const textarea = document.querySelector('#editor-container textarea');
+  if (!textarea) return;
+  
+  // Store current selection
+  const currentStart = textarea.selectionStart;
+  const currentEnd = textarea.selectionEnd;
+  
+  // Flash the named selection
+  textarea.setSelectionRange(start, end);
+  
+  // Add a temporary highlight class
+  textarea.classList.add(`selection-${label.toLowerCase()}`);
+  
+  // Create highlight styles if they don't exist
+  if (!document.getElementById('selection-highlight-styles')) {
+    const style = document.createElement('style');
+    style.id = 'selection-highlight-styles';
+    style.textContent = `
+      #editor-container textarea.selection-a::selection {
+        background-color: rgba(255, 100, 100, 0.5) !important; /* red with transparency */
+      }
+      #editor-container textarea.selection-b::selection {
+        background-color: rgba(100, 100, 255, 0.5) !important; /* blue with transparency */
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  // Show a temporary toast notification
+  showToast(`Selection ${label} set`);
+  
+  // Remove highlight class and restore original selection after a brief time
+  setTimeout(() => {
+    textarea.classList.remove(`selection-${label.toLowerCase()}`);
+    // Restore original selection
+    textarea.setSelectionRange(currentStart, currentEnd);
+  }, 1000);
+}
+
+/**
+ * Show a toast notification
+ * @param {string} message - message to show
+ */
+function showToast(message) {
+  // Create toast element if it doesn't exist
+  let toast = document.getElementById('editor-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'editor-toast';
+    toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:rgba(50,50,50,0.8); ' +
+                         'color:white; padding:8px 16px; border-radius:4px; z-index:1001; ' +
+                         'opacity:0; transition:opacity 0.3s ease;';
+    document.body.appendChild(toast);
+  }
+  
+  // Set message and show
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  
+  // Hide after timeout
+  setTimeout(() => {
+    toast.style.opacity = '0';
+  }, 2000);
 }
 
 // Export for module use

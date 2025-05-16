@@ -157,6 +157,7 @@ const initialAppState = {
     theme: 'default', // Example
     isLoading: false, // Keep general loading state? Or manage per feature?
     logVisible: getInitialLogVisibility(), // <<< MODIFIED: Load from localStorage >>>
+    logMenuVisible: false, // <<< ADD THIS LINE AND SET TO FALSE
   },
   settingsPanel: {
     enabled: false,

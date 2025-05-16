@@ -52,6 +52,7 @@ function ensureMermaidCSSLoaded() {
 
 export class MermaidPlugin {
     constructor(options = {}) {
+        console.log('[MERMAID PLUGIN DIAG] MermaidPlugin constructor called with options:', options); // DIAGNOSTIC LOG
         this.options = {
             theme: 'default',
             securityLevel: 'loose',
@@ -82,12 +83,59 @@ export class MermaidPlugin {
             window.mermaid.initialize(this.options);
             mermaidInitialized = true;
             logMermaid('Mermaid library initialized successfully.');
+            
+            // Set up global pan handlers on init
+            this._setupGlobalPanHandlers();
+            
             return true;
         } catch (error) {
             logMermaid(`Initialization failed: ${error.message}`, 'error');
             console.error('[MERMAID INIT ERROR]', error);
             return false;
         }
+    }
+    
+    // Add a method to set up the global document handlers for panning
+    _setupGlobalPanHandlers() {
+        // Global tracking variables for panning
+        this._activePanSvg = null;
+        
+        // Pan move handler
+        const mouseMoveHandler = (event) => {
+            if (!this._activePanSvg) return;
+            
+            const dx = event.clientX - this._lastX;
+            const dy = event.clientY - this._lastY;
+            
+            this._currentPanX += dx;
+            this._currentPanY += dy;
+            this._lastX = event.clientX;
+            this._lastY = event.clientY;
+            
+            this._activePanSvg.style.transform = 
+                `translate(${this._currentPanX}px, ${this._currentPanY}px) scale(${this._currentScale})`;
+        };
+        
+        // Pan end handler
+        const mouseUpHandler = () => {
+            if (this._activePanSvg) {
+                this._activePanSvg.style.cursor = 'grab';
+                this._activePanSvg = null;
+                logMermaid('Pan ended');
+            }
+        };
+        
+        // Add the event listeners to document
+        document.addEventListener('mousemove', mouseMoveHandler, { capture: true });
+        document.addEventListener('mouseup', mouseUpHandler, { capture: true });
+        
+        // Keep track of these listeners for cleanup
+        this.activeListeners.push(
+            { target: document, type: 'mousemove', listener: mouseMoveHandler },
+            { target: document, type: 'mouseup', listener: mouseUpHandler }
+        );
+        
+        logMermaid('Global pan handlers set up');
     }
 
     async loadMermaidScript() {
@@ -143,14 +191,16 @@ export class MermaidPlugin {
     }
 
     createZoomControls(mermaidContainer, svgElement) {
-        logMermaid('Creating HAMBURGER zoom controls and interactivity (TOP-RIGHT)...'); 
+        logMermaid('Creating zoom controls and interactivity...'); 
         
         // Ensure container is styled for positioning and overflow
         mermaidContainer.style.position = 'relative';
         mermaidContainer.style.overflow = 'hidden';
+        
         // Ensure SVG is styled for transformation
-        svgElement.style.display = 'block'; // Important for layout
-        svgElement.style.transformOrigin = 'center center'; // Zoom from center
+        svgElement.style.display = 'block'; 
+        svgElement.style.transformOrigin = 'center center';
+        svgElement.style.cursor = 'grab';
 
         // Remove any pre-existing controls from previous runs (if any)
         const oldControls = mermaidContainer.querySelector('.mermaid-controls-container');
@@ -186,148 +236,196 @@ export class MermaidPlugin {
         }
 
         // --- Pan and Zoom State ---
-        let scale = 1;
-        let panX = 0;
-        let panY = 0;
-        let isPanning = false;
-        let lastMouseX = 0;
-        let lastMouseY = 0;
-
-        const applyTransform = () => {
-            if (svgElement && svgElement.style) {
-                svgElement.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-            }
+        // Initialize transform state for this SVG
+        const svgState = {
+            scale: 1,
+            panX: 0,
+            panY: 0
         };
-        applyTransform(); // Apply initial transform (identity)
-
+        
+        // Store the state on the SVG for global handlers
+        svgElement._mermaidState = svgState;
+        
+        // Apply transform function
+        const applyTransform = () => {
+            svgElement.style.transform = `translate(${svgState.panX}px, ${svgState.panY}px) scale(${svgState.scale})`;
+        };
+        
         // --- Event Listeners for Zoom/Pan ---
         const wheelListener = (event) => {
-            // REQUIRE Ctrl key (or Meta key for Mac) for zooming
-            if (!event.ctrlKey && !event.metaKey) {
-                return; // Do nothing if Ctrl/Meta is not pressed
-            }
-            event.preventDefault(); // Prevent page scroll only if we are zooming
-
-            const zoomIntensity = 0.1; // Smaller steps
-            const dir = event.deltaY < 0 ? 1 : -1;
+            // Only zoom with Ctrl/Meta key
+            if (!event.ctrlKey && !event.metaKey) return;
             
-            const rect = mermaidContainer.getBoundingClientRect(); // Use container for relative mouse pos
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const rect = mermaidContainer.getBoundingClientRect();
             const mouseXInContainer = event.clientX - rect.left;
             const mouseYInContainer = event.clientY - rect.top;
-
-            const oldScale = scale;
-            scale += dir * zoomIntensity * scale;
-            scale = Math.max(0.2, Math.min(scale, 5)); // Clamp scale
-
-            // For zooming towards the mouse pointer with 'center center' origin:
-            const mouseRelToSVGCenterX = mouseXInContainer - (mermaidContainer.clientWidth / 2) - panX;
-            const mouseRelToSVGCenterY = mouseYInContainer - (mermaidContainer.clientHeight / 2) - panY;
-
-            panX -= mouseRelToSVGCenterX * (scale / oldScale - 1);
-            panY -= mouseRelToSVGCenterY * (scale / oldScale - 1);
-
+            
+            const oldScale = svgState.scale;
+            const dir = event.deltaY < 0 ? 1 : -1;
+            svgState.scale += dir * 0.1 * svgState.scale;
+            svgState.scale = Math.max(0.2, Math.min(svgState.scale, 5));
+            
+            // Zoom toward mouse position
+            const mouseRelToSVGCenterX = mouseXInContainer - (mermaidContainer.clientWidth / 2) - svgState.panX;
+            const mouseRelToSVGCenterY = mouseYInContainer - (mermaidContainer.clientHeight / 2) - svgState.panY;
+            
+            svgState.panX -= mouseRelToSVGCenterX * (svgState.scale / oldScale - 1);
+            svgState.panY -= mouseRelToSVGCenterY * (svgState.scale / oldScale - 1);
+            
             applyTransform();
         };
-        mermaidContainer.addEventListener('wheel', wheelListener, { passive: false }); // passive: false because we call preventDefault
-
+        
         const mouseDownListener = (event) => {
             if (event.button !== 0) return; // Only left click
-            isPanning = true;
-            lastMouseX = event.clientX;
-            lastMouseY = event.clientY;
-            if (svgElement && svgElement.style) svgElement.style.cursor = 'grabbing';
+            
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Set global pan tracking state
+            this._activePanSvg = svgElement;
+            this._lastX = event.clientX;
+            this._lastY = event.clientY;
+            this._currentPanX = svgState.panX;
+            this._currentPanY = svgState.panY;
+            this._currentScale = svgState.scale;
+            
+            svgElement.style.cursor = 'grabbing';
         };
-        svgElement.addEventListener('mousedown', mouseDownListener);
         
-        const mouseUpListener = (event) => {
-            if (isPanning) {
-                isPanning = false;
-                if (svgElement && svgElement.style) svgElement.style.cursor = 'grab';
-            }
-        };
-        document.addEventListener('mouseup', mouseUpListener);
-        this.activeListeners.push({ target: document, type: 'mouseup', listener: mouseUpListener });
-
-
-        const mouseMoveListener = (event) => {
-            if (isPanning) {
-                const dx = event.clientX - lastMouseX;
-                const dy = event.clientY - lastMouseY;
-                panX += dx;
-                panY += dy;
-                lastMouseX = event.clientX;
-                lastMouseY = event.clientY;
-                applyTransform();
-            }
-        };
-        document.addEventListener('mousemove', mouseMoveListener);
-        this.activeListeners.push({ target: document, type: 'mousemove', listener: mouseMoveListener });
-
-        // --- Dropdown Logic ---
-        hamburgerButton.addEventListener('click', (event) => {
-            event.stopPropagation(); 
-            const isHidden = dropdownMenu.style.display === 'none';
-            dropdownMenu.style.display = isHidden ? 'block' : 'none';
-        });
-
-        resetButtonInMenu.addEventListener('click', () => {
-            scale = 1;
-            panX = 0;
-            panY = 0;
-            applyTransform();
-            dropdownMenu.style.display = 'none';
-            logMermaid('Zoom reset via dropdown.');
-        });
-
-        const clickOutsideDropdownListener = (event) => {
-            if (controlsContainer && !controlsContainer.contains(event.target) && dropdownMenu.style.display === 'block') {
-                dropdownMenu.style.display = 'none';
-            }
-        };
-        document.addEventListener('click', clickOutsideDropdownListener);
-        this.activeListeners.push({ target: document, type: 'click', listener: clickOutsideDropdownListener });
-
-
-        // --- Positioning for TOP-RIGHT hamburger ---
-        controlsContainer.style.position = 'absolute';
-        controlsContainer.style.top = '5px';
-        controlsContainer.style.right = '5px';
-        controlsContainer.style.zIndex = '1000'; 
-
+        // Attach event listeners
+        mermaidContainer.addEventListener('wheel', wheelListener, { passive: false, capture: true });
+        svgElement.addEventListener('mousedown', mouseDownListener, { capture: true });
+        
+        // Store references for potential cleanup
         mermaidContainer._mermaidWheelListener = wheelListener;
         svgElement._mermaidMouseDownListener = mouseDownListener;
-
-        logMermaid('Hamburger zoom controls and interactivity setup complete. Zoom requires Ctrl/Meta key.');
+        
+        logMermaid('Zoom and pan handlers attached');
     }
 
     destroy() {
+        // Clean up global event listeners
         logMermaid('MermaidPlugin: Destroying listeners...');
         this.activeListeners.forEach(al => {
             al.target.removeEventListener(al.type, al.listener);
         });
         this.activeListeners = [];
         
-        // If specific mermaid containers were tracked, remove their listeners too
-        // This example assumes global listeners are the main ones to clean.
-        // For individual element listeners added in createZoomControls, they would be cleaned
-        // if the element itself is removed from DOM or if we tracked them.
-        // The querySelectorAll approach is for a global "cleanup all mermaid interactions"
+        // Clean up individual element listeners
         document.querySelectorAll('.mermaid').forEach(mermaidContainer => {
             if (mermaidContainer._mermaidWheelListener) {
                 mermaidContainer.removeEventListener('wheel', mermaidContainer._mermaidWheelListener);
                 delete mermaidContainer._mermaidWheelListener;
             }
+            
             const svg = mermaidContainer.querySelector('svg');
             if (svg && svg._mermaidMouseDownListener) {
                 svg.removeEventListener('mousedown', svg._mermaidMouseDownListener);
                 delete svg._mermaidMouseDownListener;
             }
+            
             const controls = mermaidContainer.querySelector('.mermaid-controls-container');
             if (controls) {
                 controls.remove();
             }
         });
-
-        logMermaid('MermaidPlugin cleanup finished. (Note: specific instance cleanup might need more targeted listener removal if elements persist).');
+        
+        logMermaid('MermaidPlugin cleanup finished.');
     }
-} 
+}
+
+// Clear all previous direct fix code, then add this simple, direct fix:
+(function() {
+  console.log('[MERMAID SUPER SIMPLE FIX] Adding one-time handler setup');
+  
+  // Add mousemove and mouseup handlers to document body
+  if (!document.body.hasAttribute('data-mermaid-fix')) {
+    document.body.setAttribute('onmousemove', `
+      const activeSvg = document.querySelector('.mermaid svg[data-is-panning="true"]');
+      if (activeSvg) {
+        const dx = event.clientX - activeSvg.lastMouseX;
+        const dy = event.clientY - activeSvg.lastMouseY;
+        activeSvg.panX = (activeSvg.panX || 0) + dx;
+        activeSvg.panY = (activeSvg.panY || 0) + dy;
+        activeSvg.lastMouseX = event.clientX;
+        activeSvg.lastMouseY = event.clientY;
+        activeSvg.style.transform = 'translate('+activeSvg.panX+'px, '+activeSvg.panY+'px) scale('+(activeSvg.scale || 1)+')';
+        console.log('[MERMAID] Panning', dx, dy);
+      }
+    `);
+    
+    document.body.setAttribute('onmouseup', `
+      const panning = document.querySelector('.mermaid svg[data-is-panning="true"]');
+      if (panning) {
+        panning.style.cursor = 'grab';
+        panning.removeAttribute('data-is-panning');
+        console.log('[MERMAID] Pan ended');
+      }
+    `);
+    
+    document.body.setAttribute('data-mermaid-fix', 'true');
+    console.log('[MERMAID SUPER SIMPLE FIX] Added body handlers');
+  }
+  
+  // Find all mermaid SVGs every 1 second and set them up with event handlers 
+  // This is simple and will keep looking for new diagrams
+  setInterval(() => {
+    document.querySelectorAll('.mermaid svg').forEach(svg => {
+      if (!svg.hasAttribute('data-zoom-fix')) {
+        // Style setup
+        svg.style.transformOrigin = 'center center';
+        svg.style.cursor = 'grab';
+        
+        // Initialize state
+        svg.scale = 1;
+        svg.panX = 0;
+        svg.panY = 0;
+        
+        // Add wheel handler for zooming
+        svg.setAttribute('onwheel', `
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            const rect = this.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            const oldScale = this.scale || 1;
+            const dir = event.deltaY < 0 ? 1 : -1;
+            this.scale = oldScale + (dir * 0.1 * oldScale);
+            this.scale = Math.max(0.2, Math.min(this.scale, 5));
+            const mouseRelX = mouseX - (rect.width / 2) - (this.panX || 0);
+            const mouseRelY = mouseY - (rect.height / 2) - (this.panY || 0);
+            this.panX = (this.panX || 0) - mouseRelX * (this.scale / oldScale - 1);
+            this.panY = (this.panY || 0) - mouseRelY * (this.scale / oldScale - 1);
+            this.style.transform = 'translate('+this.panX+'px, '+this.panY+'px) scale('+this.scale+')';
+            return false;
+          }
+        `);
+        
+        // Add mousedown handler for panning
+        svg.setAttribute('onmousedown', `
+          if (event.button === 0) {
+            // Clear any other svg that might be in panning state
+            document.querySelectorAll('.mermaid svg[data-is-panning="true"]').forEach(s => 
+              s.removeAttribute('data-is-panning'));
+            
+            // Set this svg as the active panning element
+            this.setAttribute('data-is-panning', 'true');
+            this.lastMouseX = event.clientX;
+            this.lastMouseY = event.clientY;
+            this.style.cursor = 'grabbing';
+            this.panX = this.panX || 0;
+            this.panY = this.panY || 0;
+            event.preventDefault();
+            console.log('[MERMAID] Pan started');
+          }
+        `);
+        
+        svg.setAttribute('data-zoom-fix', 'true');
+        console.log('[MERMAID SUPER SIMPLE FIX] Added handlers to:', svg.id);
+      }
+    });
+  }, 1000);
+})(); 

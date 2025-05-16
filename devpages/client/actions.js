@@ -12,6 +12,7 @@ import { logout } from '/client/auth.js';
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
 import { downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js'; // Use the correct absolute path
 import { refreshPreview as refreshPreviewFunction } from '/client/previewManager.js';
+import { editor } from '/client/editor.js';
 
 
 // Helper for logging within this module
@@ -520,8 +521,7 @@ export const triggerActions = {
     toggleLogPause: () => {
         logAction('Triggering toggleLogPause...');
         try {
-            // Call the method on the global instance
-            window.logPanel?.togglePause();
+            // Actual implementation would be here
         } catch (e) {
             logAction(`toggleLogPause failed: ${e.message}`, 'error');
         }
@@ -556,16 +556,39 @@ export const triggerActions = {
     },
 
     // <<< NEW ACTION >>>
-    toggleLogMenu: () => {
-        // logAction('Toggling log menu visibility...'); // <<< SILENCED
-        const menuContainer = document.getElementById('log-menu-container');
-        if (menuContainer) {
-            menuContainer.classList.toggle('visible');
-            // logAction(`Log menu container visibility toggled. Has class 'visible': ${menuContainer.classList.contains('visible')}`); // <<< SILENCED
-        } else {
-            // logAction('Log menu container (#log-menu-container) not found.', 'error'); // Keep error log?
-        }
-    },
+    toggleLogMenu: (() => {
+        let lastToggleTime = 0;
+        const THROTTLE_MS = 200; // Prevent toggle more than once per 200ms
+        
+        return () => {
+            const now = Date.now();
+            if (now - lastToggleTime < THROTTLE_MS) {
+                console.log('[Action] toggleLogMenu throttled - preventing rapid re-trigger');
+                return;
+            }
+            
+            lastToggleTime = now;
+            console.log('[Action] Triggering toggleLogMenu...');
+            
+            try {
+                appStore.update(currentState => {
+                    const newLogMenuVisibleState = !currentState.ui.logMenuVisible;
+                    console.log(`[Action] Log menu visibility will be set to: ${newLogMenuVisibleState}`);
+                    
+                    const currentUiState = currentState.ui || {};
+                    return {
+                        ...currentState,
+                        ui: {
+                            ...currentUiState,
+                            logMenuVisible: newLogMenuVisibleState
+                        }
+                    };
+                });
+            } catch (e) {
+                console.error(`[Action] toggleLogMenu failed: ${e.message}`);
+            }
+        };
+    })(),
     // <<< END NEW ACTION >>>
 
     // <<< NEW ACTION: Paste CLI Response over $$ Selection >>>
@@ -667,13 +690,17 @@ export const triggerActions = {
     },
     // <<< END NEW ACTION >>>
 
-    // <<< NEW ACTIONS for A/B State >>>
+    // <<< MODIFIED ACTIONS for A/B State (LogPanel Toolbar Buttons) >>>
     setSelectionStateA: (data, element) => {
         logAction('Setting Selection State A...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appStore.getState().file?.currentFile; // Get current file path from central state
+        let currentFile = appStore.getState().file?.currentFile; // Get current file path
+        if (currentFile === undefined) {
+            logAction('No current file path found in appState for State A, proceeding without it.', 'debug');
+            // currentFile can remain undefined, it's fine for the stateData
+        }
         
-        if (editorTextArea && currentFile !== undefined) {
+        if (editorTextArea) { // Simplified check: only need editor
             const start = editorTextArea.selectionStart;
             const end = editorTextArea.selectionEnd;
             const text = editorTextArea.value.substring(start, end);
@@ -681,35 +708,45 @@ export const triggerActions = {
             if (start === end) {
                  logAction('Cannot set State A: No text selected.', 'warning');
                  alert('Cannot store state: No text selected in editor.');
+                 if (window.logPanel?.updateSelectionButtonUI) {
+                    window.logPanel.updateSelectionButtonUI('A', false);
+                 }
                  return;
             }
 
-            const stateData = { filePath: currentFile, start, end, text };
+            const stateData = { 
+                filePath: currentFile, // Will be undefined if no file, which is fine
+                start, 
+                end, 
+                text 
+            };
+
             if (window.logPanel) {
-                window.logPanel._selectionStateA = stateData;
-                logAction(`State A stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
-                // Add visual feedback to button
-                element?.classList.add('state-set');
-                // <<< NEW: Update Tooltip >>>
-                if (element) {
-                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
-                    element.title = `State A: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                window.logPanel._selectionStateA = stateData; 
+                logAction(`State A stored: File=${currentFile || 'N/A'}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                if (window.logPanel.updateSelectionButtonUI) {
+                    window.logPanel.updateSelectionButtonUI('A', true, stateData);
                 }
-                // Remove feedback after a delay?
-                // setTimeout(() => element?.classList.remove('state-set'), 2000);
             } else {
                 logAction('Cannot set State A: LogPanel instance not found.', 'error');
             }
         } else {
-             logAction(`Cannot set State A: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+             logAction(`Cannot set State A: Editor textarea not found.`, 'error');
+             if (window.logPanel?.updateSelectionButtonUI) {
+                window.logPanel.updateSelectionButtonUI('A', false);
+             }
         }
     },
     setSelectionStateB: (data, element) => {
         logAction('Setting Selection State B...');
         const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appStore.getState().file?.currentFile; // Get current file path
+        let currentFile = appStore.getState().file?.currentFile; // Get current file path
+        if (currentFile === undefined) {
+            logAction('No current file path found in appState for State B, proceeding without it.', 'debug');
+            // currentFile can remain undefined
+        }
 
-        if (editorTextArea && currentFile !== undefined) {
+        if (editorTextArea) { // Simplified check
             const start = editorTextArea.selectionStart;
             const end = editorTextArea.selectionEnd;
             const text = editorTextArea.value.substring(start, end);
@@ -717,27 +754,53 @@ export const triggerActions = {
             if (start === end) {
                  logAction('Cannot set State B: No text selected.', 'warning');
                  alert('Cannot store state: No text selected in editor.');
+                 if (window.logPanel?.updateSelectionButtonUI) {
+                    window.logPanel.updateSelectionButtonUI('B', false);
+                 }
                  return;
             }
 
-            const stateData = { filePath: currentFile, start, end, text };
+            const stateData = { 
+                filePath: currentFile, // Will be undefined if no file
+                start, 
+                end, 
+                text 
+            };
+
             if (window.logPanel) {
                 window.logPanel._selectionStateB = stateData;
-                logAction(`State B stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
-                element?.classList.add('state-set');
-                // <<< NEW: Update Tooltip >>>
-                if (element) {
-                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
-                    element.title = `State B: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
+                logAction(`State B stored: File=${currentFile || 'N/A'}, Start=${start}, End=${end}, Text Length=${text.length}`);
+                if (window.logPanel.updateSelectionButtonUI) {
+                    window.logPanel.updateSelectionButtonUI('B', true, stateData);
                 }
             } else {
                 logAction('Cannot set State B: LogPanel instance not found.', 'error');
             }
         } else {
-             logAction(`Cannot set State B: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
+             logAction(`Cannot set State B: Editor textarea not found.`, 'error');
+             if (window.logPanel?.updateSelectionButtonUI) {
+                window.logPanel.updateSelectionButtonUI('B', false);
+            }
         }
     },
-    // <<< END NEW ACTIONS >>>
+    // <<< END MODIFIED A/B STATE ACTIONS >>>
+
+    // <<< NEW ACTION: Replace Editor Selection (from LogPanel code fence menu) >>>
+    replaceEditorSelection: (payload) => {
+        const { codeContent } = payload;
+        if (typeof codeContent === 'string') {
+            logAction(`Triggering replaceEditorSelection with content length: ${codeContent.length}`);
+            if (editor && typeof editor.replaceSelection === 'function') {
+                editor.replaceSelection(codeContent);
+            } else {
+                logAction('Editor or editor.replaceSelection method not available.', 'error');
+                alert('Failed to replace editor content: Editor component is not ready.');
+            }
+        } else {
+            logAction('replaceEditorSelection called without valid codeContent.', 'warning');
+        }
+    },
+    // <<< END NEW ACTION >>>
 
     // <<< NEW ACTION: Paste Text at Cursor >>>
     pasteTextAtCursor: (data) => {
@@ -785,118 +848,6 @@ export const triggerActions = {
         }
     },
     // <<< END NEW ACTION >>>
-
-    // --- END NEW ACTIONS >>>
-
-    copyLogEntryToClipboard: async (data, element) => {
-        logAction('>>> copyLogEntryToClipboard Action Started <<<');
-        if (!element || element.tagName !== 'BUTTON') { 
-            logAction(`CopyEntry failed: Expected button element, got ${element?.tagName}.`, 'error');
-            return;
-        }
-        const buttonElement = element;
-        const logText = data?.logText; // Get text passed in data
-
-        if (logText === undefined || logText === null) {
-            logAction('CopyEntry failed: logText is undefined or null.', 'error');
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(logText);
-            logAction('Log entry text copied to clipboard.');
-            
-            // Feedback
-            const originalHTML = buttonElement.innerHTML;
-            buttonElement.innerHTML = '✓ Copied'; 
-            buttonElement.disabled = true;
-            setTimeout(() => { 
-                buttonElement.innerHTML = originalHTML;
-                buttonElement.disabled = false; 
-            }, 1500);
-
-        } catch (err) {
-            logAction(`Failed to copy log entry to clipboard: ${err}`, 'error');
-            console.error("Copy Log Entry Error:", err);
-            // Optionally show error feedback on button
-            const originalHTML = buttonElement.innerHTML;
-            buttonElement.innerHTML = '❌ Error'; 
-            setTimeout(() => { buttonElement.innerHTML = originalHTML; }, 2000);
-        }
-    },
-    // <<< END NEW ACTION >>>
-
-    // <<< NEW ACTIONS for A/B State >>>
-    setSelectionStateA: (data, element) => {
-        logAction('Setting Selection State A...');
-        const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appStore.getState().file?.currentFile; // Get current file path from central state
-        
-        if (editorTextArea && currentFile !== undefined) {
-            const start = editorTextArea.selectionStart;
-            const end = editorTextArea.selectionEnd;
-            const text = editorTextArea.value.substring(start, end);
-
-            if (start === end) {
-                 logAction('Cannot set State A: No text selected.', 'warning');
-                 alert('Cannot store state: No text selected in editor.');
-                 return;
-            }
-
-            const stateData = { filePath: currentFile, start, end, text };
-            if (window.logPanel) {
-                window.logPanel._selectionStateA = stateData;
-                logAction(`State A stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
-                // Add visual feedback to button
-                element?.classList.add('state-set');
-                // <<< NEW: Update Tooltip >>>
-                if (element) {
-                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
-                    element.title = `State A: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
-                }
-                // Remove feedback after a delay?
-                // setTimeout(() => element?.classList.remove('state-set'), 2000);
-            } else {
-                logAction('Cannot set State A: LogPanel instance not found.', 'error');
-            }
-        } else {
-             logAction(`Cannot set State A: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
-        }
-    },
-    setSelectionStateB: (data, element) => {
-        logAction('Setting Selection State B...');
-        const editorTextArea = document.querySelector('#editor-container textarea');
-        const currentFile = appStore.getState().file?.currentFile; // Get current file path
-
-        if (editorTextArea && currentFile !== undefined) {
-            const start = editorTextArea.selectionStart;
-            const end = editorTextArea.selectionEnd;
-            const text = editorTextArea.value.substring(start, end);
-
-            if (start === end) {
-                 logAction('Cannot set State B: No text selected.', 'warning');
-                 alert('Cannot store state: No text selected in editor.');
-                 return;
-            }
-
-            const stateData = { filePath: currentFile, start, end, text };
-            if (window.logPanel) {
-                window.logPanel._selectionStateB = stateData;
-                logAction(`State B stored: File=${currentFile}, Start=${start}, End=${end}, Text Length=${text.length}`);
-                element?.classList.add('state-set');
-                // <<< NEW: Update Tooltip >>>
-                if (element) {
-                    const snippet = text.substring(0, 50).replace(/\\n/g, ' '); // Show first 50 chars, replace newlines
-                    element.title = `State B: ${currentFile} | Range: [${start}-${end}] | Text: \"${snippet}...\"`;
-                }
-            } else {
-                logAction('Cannot set State B: LogPanel instance not found.', 'error');
-            }
-        } else {
-             logAction(`Cannot set State B: Editor (${!!editorTextArea}) or file path (${currentFile}) not found.`, 'error');
-        }
-    },
-    // <<< END NEW ACTIONS >>>
 
     // --- SmartCopy Actions --- 
     setSmartCopyBufferA: () => {
@@ -1067,4 +1018,15 @@ async function handleSaveClick() {
   // ... rest of save logic ...
   logAction('Save click approved (User logged in) - Actual save needs implementation here or call triggerActions.saveFile');
   // Example: triggerActions.saveFile(); // If this function is meant to trigger the save
+}
+
+export function triggerActionFromDOM(element) {
+    const actionName = element.dataset.action;
+    if (actionName && typeof generalActions[actionName] === 'function') {
+        console.log('Action triggered via DOM event:', actionName, element);
+        // First, attempt to use a specific handler if one exists
+        if (actionHandlers[actionName] && typeof actionHandlers[actionName].handler === 'function') {
+            // ... existing code ...
+        }
+    }
 }
