@@ -1,15 +1,28 @@
 /**
- * ConsoleLogManager.js - Manages browser console logging with performance timing
- * 
- * Features:
- * - Control console logging (enable/disable)
- * - Performance timing for functions and blocks
- * - Natural language filtering for console output
- * - Integration with settings panel
- * - Timing history for later reporting
+ * ConsoleLogManager.js - Manages browser console logging with performance timing and simplified keyword filtering.
  */
 
-// Store original console methods
+// Import timing features from ConsoleTiming.js
+import {
+  timingConfig,
+  timingHistory,
+  addPerformanceInfoToLog,
+  createTimer,
+  timeFunction,
+  resetTimers,
+  getTimingHistory,
+  clearTimingHistory,
+  getTimingReport,
+  getCurrentPerformanceTime,
+  enablePerformanceLogging,
+  disablePerformanceLogging,
+  enableDetailedTiming,
+  disableDetailedTiming,
+  initializeTiming
+} from './ConsoleTiming.js';
+
+
+// Store original console methods before any patching
 const originalConsole = {
   log: console.log,
   info: console.info,
@@ -18,637 +31,241 @@ const originalConsole = {
   error: console.error
 };
 
-// Configuration - loaded from localStorage
+// Simplified Configuration
 const config = {
   enabled: localStorage.getItem('consoleLoggingEnabled') === 'true',
-  performanceTiming: localStorage.getItem('performanceLoggingEnabled') === 'true',
-  detailedTiming: localStorage.getItem('detailedPerformanceLog') === 'true',
-  filter: localStorage.getItem('consoleLogFilter') || '',
-  startTime: performance.now(),
-  lastLogTime: performance.now(),
-  
-  // NEW: Maximum number of timing entries to keep in history
-  maxTimingHistory: 1000,
-  
-  // NEW: Maximum age of timing entries in milliseconds (30 minutes)
-  maxTimingAge: 30 * 60 * 1000
+  includeKeywords: localStorage.getItem('consoleLogIncludeKeywords') || '',
+  excludeKeywords: localStorage.getItem('consoleLogExcludeKeywords') || '',
 };
 
-// Cache for NLP filter queries
-const filterCache = new Map();
+// --- Helper Functions ---
 
-// NEW: Timing history buffer
-const timingHistory = {
-  // Store entries even when console is disabled
-  entries: [],
-  
-  // Add a timing entry to history
-  add(entry) {
-    // Add timestamp if not present
-    if (!entry.timestamp) {
-      entry.timestamp = performance.now();
-    }
-    
-    // Add to beginning of array (newest first)
-    this.entries.unshift(entry);
-    
-    // Trim history to config.maxTimingHistory entries
-    if (this.entries.length > config.maxTimingHistory) {
-      this.entries = this.entries.slice(0, config.maxTimingHistory);
-    }
-    
-    // Also remove entries older than maxTimingAge
-    const cutoffTime = performance.now() - config.maxTimingAge;
-    this.entries = this.entries.filter(e => e.timestamp >= cutoffTime);
-    
-    return entry;
-  },
-  
-  // Get all timing entries
-  getAll() {
-    return [...this.entries];
-  },
-  
-  // Get entries filtered by type and/or label
-  get(options = {}) {
-    const { type, label, limit } = options;
-    
-    let result = this.entries;
-    
-    // Filter by type if specified
-    if (type) {
-      result = result.filter(e => e.type === type);
-    }
-    
-    // Filter by label if specified (partial match)
-    if (label) {
-      result = result.filter(e => e.label && e.label.includes(label));
-    }
-    
-    // Apply limit if specified
-    if (limit && limit > 0) {
-      result = result.slice(0, limit);
-    }
-    
-    return result;
-  },
-  
-  // Clear all timing entries
-  clear() {
-    this.entries = [];
-    return true;
-  },
-  
-  // Generate a report of timing entries
-  generateReport(options = {}) {
-    const entries = this.get(options);
-    
-    if (entries.length === 0) {
-      return "No timing data available";
-    }
-    
-    // Group by type
-    const byType = {};
-    entries.forEach(entry => {
-      if (!byType[entry.type]) {
-        byType[entry.type] = [];
-      }
-      byType[entry.type].push(entry);
-    });
-    
-    // Generate report
-    let report = "=== TIMING REPORT ===\n\n";
-    
-    Object.keys(byType).forEach(type => {
-      report += `== ${type.toUpperCase()} ==\n`;
-      
-      const typeEntries = byType[type];
-      
-      // Sort by duration (longest first)
-      typeEntries.sort((a, b) => b.duration - a.duration);
-      
-      typeEntries.forEach(entry => {
-        report += `${entry.label}: ${entry.duration.toFixed(2)}ms\n`;
-        
-        // Add checkpoints if available
-        if (entry.checkpoints && entry.checkpoints.length > 0) {
-          entry.checkpoints.forEach(cp => {
-            report += `  → ${cp.name}: ${cp.duration.toFixed(2)}ms\n`;
-          });
-        }
-      });
-      
-      report += "\n";
-    });
-    
-    return report;
-  }
-};
+// Converts log arguments array into a single string
+function argsToMessageString(args) {
+     return args.map(arg => {
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof Error) return arg.message;
+        try { return JSON.stringify(arg); }
+        catch (e) { return String(arg); }
+     }).join(' ');
+}
 
-/**
- * Applies filter to log message
- * @param {string} level - Log level (log, info, warn, error, debug)
- * @param {Array} args - Arguments passed to console method
- * @returns {boolean} - Whether the message should be logged
- */
+// Helper to normalize text (lowercase, remove punctuation) for histogram
+function normalizeText(text) {
+    return text.toLowerCase().replace(/[.,!?;:"'()\[\]{}]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+
+// --- Simplified Core Logging & Filtering Logic ---
 function shouldLog(level, args) {
-  if (!config.filter) return true;
-  
-  // If filter is active, apply NLP-inspired filtering
-  const message = args.map(arg => {
-    if (typeof arg === 'string') return arg;
-    if (arg instanceof Error) return arg.message;
-    try {
-      return JSON.stringify(arg);
-    } catch (e) {
-      return String(arg);
+    const messageString = argsToMessageString(args);
+    const lowerMessage = messageString.toLowerCase();
+
+    // Extract all bracketed content: e.g., "[debug] [auth] message" -> ["debug", "auth"]
+    const bracketedContent = [];
+    const regex = /\[([^\]]+)\]/g;
+    let match;
+    while ((match = regex.exec(messageString)) !== null) {
+        bracketedContent.push(match[1].toLowerCase());
     }
-  }).join(' ');
-  
-  // Get cached result or compute new one
-  let result = filterCache.get(config.filter + level + message);
-  if (result !== undefined) return result;
-  
-  // Process filter
-  const filterTerms = config.filter.toLowerCase().split(/\s+/);
-  
-  // Check each term
-  result = filterTerms.every(term => {
-    // Negation with '-' prefix
-    if (term.startsWith('-')) {
-      const negatedTerm = term.substring(1);
-      return !message.toLowerCase().includes(negatedTerm);
+
+    // 1. Exclude (takes precedence)
+    if (config.excludeKeywords) {
+        const excludeTerms = config.excludeKeywords.toLowerCase().split(/\s+/).filter(term => term);
+        if (excludeTerms.length > 0) {
+            for (const term of excludeTerms) {
+                if (lowerMessage.includes(term) || bracketedContent.some(b => b.includes(term))) {
+                    return false; // Exclude if any exclude term is found
+                }
+            }
+        }
     }
-    
-    // Level filter with 'level:' prefix
-    if (term.startsWith('level:')) {
-      const targetLevel = term.substring(6);
-      return level.toLowerCase() === targetLevel;
+
+    // 2. Include (all terms must be present if specified)
+    if (config.includeKeywords) {
+        const includeTerms = config.includeKeywords.toLowerCase().split(/\s+/).filter(term => term);
+        if (includeTerms.length > 0) {
+            const allIncludesFound = includeTerms.every(term =>
+                lowerMessage.includes(term) || bracketedContent.some(b => b.includes(term))
+            );
+            if (!allIncludesFound) {
+                return false; // Don't include if not all include terms are found
+            }
+        }
     }
-    
-    // Type/category with 'type:' prefix
-    if (term.startsWith('type:')) {
-      const targetType = term.substring(5);
-      return message.toLowerCase().includes(`[${targetType.toLowerCase()}]`);
-    }
-    
-    // Default case - term must be in message
-    return message.toLowerCase().includes(term);
-  });
-  
-  // Cache result
-  filterCache.set(config.filter + level + message, result);
-  return result;
+    return true; // Default to log if no restrictive rules apply or filters are empty
 }
 
-/**
- * Prepends performance metrics to log messages
- * @param {Array} args - Arguments to log
- * @returns {Array} - Arguments with timing info prepended
- */
-function addPerformanceInfo(args) {
-  if (!config.performanceTiming) return args;
-  
-  const now = performance.now();
-  const sinceLast = now - config.lastLogTime;
-  const sinceStart = now - config.startTime;
-  config.lastLogTime = now;
-  
-  // NEW: Record timing in history
-  timingHistory.add({
-    type: 'console',
-    label: args[0] || 'unlabeled',
-    timestamp: now,
-    sinceLast: sinceLast,
-    sinceStart: sinceStart,
-    duration: sinceLast
-  });
-  
-  // Format timing data
-  let timingPrefix = '';
-  if (config.detailedTiming) {
-    timingPrefix = `[+${sinceLast.toFixed(2)}ms | total: ${sinceStart.toFixed(2)}ms]`;
-  } else {
-    timingPrefix = `[+${sinceLast.toFixed(0)}ms]`;
-  }
-  
-  // Add timing to args
-  return [timingPrefix, ...args];
-}
 
-/**
- * Console proxy functions
- */
 const proxiedConsole = {
   log: function(...args) {
     if (!config.enabled) return;
     if (shouldLog('log', args)) {
-      originalConsole.log(...addPerformanceInfo(args));
+      originalConsole.log(...addPerformanceInfoToLog(args, argsToMessageString));
     }
   },
-  
   info: function(...args) {
     if (!config.enabled) return;
     if (shouldLog('info', args)) {
-      originalConsole.info(...addPerformanceInfo(args));
+      originalConsole.info(...addPerformanceInfoToLog(args, argsToMessageString));
     }
   },
-  
   debug: function(...args) {
     if (!config.enabled) return;
     if (shouldLog('debug', args)) {
-      originalConsole.debug(...addPerformanceInfo(args));
+      originalConsole.debug(...addPerformanceInfoToLog(args, argsToMessageString));
     }
   },
-  
   warn: function(...args) {
-    // Always show warnings, even if main logging is disabled
     if (shouldLog('warn', args)) {
-      originalConsole.warn(...addPerformanceInfo(args));
+      originalConsole.warn(...addPerformanceInfoToLog(args, argsToMessageString));
+    } else if (!config.enabled) { // Show unfiltered warnings if main logging is off
+        originalConsole.warn(...args);
     }
   },
-  
   error: function(...args) {
-    // Always show errors, even if main logging is disabled
     if (shouldLog('error', args)) {
-      originalConsole.error(...addPerformanceInfo(args));
+      originalConsole.error(...addPerformanceInfoToLog(args, argsToMessageString));
+    } else if (!config.enabled) { // Show unfiltered errors if main logging is off
+        originalConsole.error(...args);
     }
   }
 };
 
-/**
- * Creates a timer for measuring code block execution time
- * @param {string} label - Label for the timer
- * @param {Object} options - Configuration options
- * @returns {Object} - Timer object with end() method
- */
-function createTimer(label, options = {}) {
-  const {
-    logLevel = 'log',
-    thresholdMs = 0,
-    includeStackTrace = false,
-    recordHistory = true // NEW: option to record in history
-  } = options;
-  
-  const start = performance.now();
-  const timerEntry = recordHistory ? {
-    type: 'timer',
-    label: label,
-    timestamp: start,
-    sinceStart: start - config.startTime,
-    checkpoints: []
-  } : null;
-  
-  // Get correct log function
-  const logFunc = 
-    logLevel === 'error' ? originalConsole.error :
-    logLevel === 'warn' ? originalConsole.warn :
-    logLevel === 'debug' ? originalConsole.debug :
-    logLevel === 'info' ? originalConsole.info :
-    originalConsole.log;
-  
-  // Only log start if detailed timing is enabled
-  if (config.enabled && config.performanceTiming && config.detailedTiming) {
-    logFunc(`[TIMER-START] ${label}`);
-  }
-  
-  return {
-    // Get current duration without ending timer
-    current() {
-      return performance.now() - start;
-    },
-    
-    // Create checkpoint within the timer
-    checkpoint(checkpointName) {
-      const current = performance.now();
-      const duration = current - start;
-      
-      // NEW: Record checkpoint in history
-      if (recordHistory && timerEntry) {
-        timerEntry.checkpoints.push({
-          name: checkpointName,
-          timestamp: current,
-          duration: duration
-        });
-      }
-      
-      if (config.enabled && config.performanceTiming && duration >= thresholdMs) {
-        logFunc(`[TIMER-CHECKPOINT] ${label} > ${checkpointName}: ${duration.toFixed(2)}ms`);
-      }
-      
-      return duration;
-    },
-    
-    // End the timer and return the duration
-    end() {
-      const duration = performance.now() - start;
-      
-      // NEW: Complete timer entry and add to history
-      if (recordHistory && timerEntry) {
-        timerEntry.duration = duration;
-        timingHistory.add(timerEntry);
-      }
-      
-      if (config.enabled && config.performanceTiming && duration >= thresholdMs) {
-        let message = `[TIMER-END] ${label}: ${duration.toFixed(2)}ms`;
-        
-        if (includeStackTrace) {
-          const stack = new Error().stack
-            .split('\n')
-            .slice(2)
-            .join('\n');
-          message += `\n${stack}`;
-        }
-        
-        logFunc(message);
-      }
-      
-      return duration;
-    }
-  };
-}
 
-/**
- * Creates a wrapper function that measures execution time
- * @param {Function} fn - Function to measure
- * @param {Object} options - Configuration options
- * @returns {Function} - Wrapped function
- */
-function timeFunction(fn, options = {}) {
-  const {
-    name = fn.name || 'anonymous',
-    logLevel = 'log',
-    thresholdMs = 0,
-    includeStackTrace = false,
-    recordHistory = true // NEW: option to record in history
-  } = options;
-  
-  // Get correct log function
-  const logFunc = 
-    logLevel === 'error' ? originalConsole.error :
-    logLevel === 'warn' ? originalConsole.warn :
-    logLevel === 'debug' ? originalConsole.debug :
-    logLevel === 'info' ? originalConsole.info :
-    originalConsole.log;
-  
-  return async function(...args) {
-    // Skip timing if performance logging is disabled
-    if (!config.enabled && !config.performanceTiming && !recordHistory) {
-      return await fn.apply(this, args);
-    }
-    
-    // Log start time if detailed timing is enabled
-    if (config.detailedTiming && config.enabled) {
-      logFunc(`[TIMING-START] ${name}`);
-    }
-    
-    const start = performance.now();
-    try {
-      return await fn.apply(this, args);
-    } finally {
-      const duration = performance.now() - start;
-      
-      // NEW: Record in history
-      if (recordHistory) {
-        timingHistory.add({
-          type: 'function',
-          label: name,
-          timestamp: start,
-          duration: duration,
-          sinceStart: start - config.startTime
-        });
-      }
-      
-      if (config.enabled && config.performanceTiming && duration >= thresholdMs) {
-        let message = `[TIMING] ${name}: ${duration.toFixed(2)}ms`;
-        
-        if (includeStackTrace) {
-          const stack = new Error().stack
-            .split('\n')
-            .slice(2)
-            .join('\n');
-          message += `\n${stack}`;
-        }
-        
-        logFunc(message);
-      }
-    }
-  };
-}
-
-/**
- * Enable console logging
- * @param {boolean} persist - Whether to save setting to localStorage
- */
+// --- Console Control Functions ---
 function enableConsoleLogging(persist = false) {
-  // Enable logging
   config.enabled = true;
-  
-  // Update console methods
   console.log = proxiedConsole.log;
   console.info = proxiedConsole.info;
   console.debug = proxiedConsole.debug;
   console.warn = proxiedConsole.warn;
   console.error = proxiedConsole.error;
-  
-  // Save to localStorage if requested
-  if (persist) {
-    localStorage.setItem('consoleLoggingEnabled', 'true');
-  }
-  
-  // Confirmation message
-  originalConsole.log('[CONSOLE] Logging enabled');
-  
+  if (persist) localStorage.setItem('consoleLoggingEnabled', 'true');
+  originalConsole.log('[CONSOLE] Logging enabled (simplified).');
   return true;
 }
 
-/**
- * Disable console logging
- * @param {boolean} persist - Whether to save setting to localStorage
- */
 function disableConsoleLogging(persist = false) {
-  // Disable logging
   config.enabled = false;
-  
-  // Update console methods - keep warn and error enabled
-  console.log = function() {};
-  console.info = function() {};
-  console.debug = function() {};
-  console.warn = proxiedConsole.warn;  // Keep warnings
-  console.error = proxiedConsole.error; // Keep errors
-  
-  // Save to localStorage if requested
-  if (persist) {
-    localStorage.setItem('consoleLoggingEnabled', 'false');
-  }
-  
-  // Confirmation message
-  originalConsole.log('[CONSOLE] Logging disabled (this is the last message)');
-  
+  // Restore original console methods directly for maximum simplicity when disabled
+  console.log = originalConsole.log;
+  console.info = originalConsole.info;
+  console.debug = originalConsole.debug;
+  console.warn = originalConsole.warn;
+  console.error = originalConsole.error;
+  if (persist) localStorage.setItem('consoleLoggingEnabled', 'false');
+  originalConsole.log('[CONSOLE] Logging disabled (simplified). Original console methods restored.');
   return false;
 }
 
-/**
- * Enable performance timing in console logs
- * @param {boolean} detailed - Whether to show detailed timing
- * @param {boolean} persist - Whether to save setting to localStorage
- */
-function enablePerformanceLogging(detailed = false, persist = false) {
-  // Enable performance timing
-  config.performanceTiming = true;
-  config.detailedTiming = detailed;
-  
-  // Save to localStorage if requested
-  if (persist) {
-    localStorage.setItem('performanceLoggingEnabled', 'true');
-    localStorage.setItem('detailedPerformanceLog', detailed ? 'true' : 'false');
-  }
-  
-  // Reset timer
-  config.lastLogTime = performance.now();
-  
-  // Confirmation message
-  originalConsole.log(`[CONSOLE] Performance timing ${detailed ? '(detailed)' : ''} enabled`);
-  
-  return true;
-}
-
-/**
- * Disable performance timing in console logs
- * @param {boolean} persist - Whether to save setting to localStorage
- */
-function disablePerformanceLogging(persist = false) {
-  // Disable performance timing
-  config.performanceTiming = false;
-  config.detailedTiming = false;
-  
-  // Save to localStorage if requested
-  if (persist) {
-    localStorage.setItem('performanceLoggingEnabled', 'false');
-    localStorage.setItem('detailedPerformanceLog', 'false');
-  }
-  
-  // Confirmation message
-  originalConsole.log('[CONSOLE] Performance timing disabled');
-  
-  return false;
-}
-
-/**
- * Set console log filter
- * @param {string} filter - Filter string
- * @param {boolean} persist - Whether to save to localStorage
- */
-function setConsoleFilter(filter, persist = false) {
-  // Set filter
-  config.filter = filter || '';
-  
-  // Clear filter cache
-  filterCache.clear();
-  
-  // Save to localStorage if requested
-  if (persist) {
-    if (filter) {
-      localStorage.setItem('consoleLogFilter', filter);
-    } else {
-      localStorage.removeItem('consoleLogFilter');
+// --- Simplified Filter Control ---
+function setIncludeKeywords(keywords, persist = false) {
+    config.includeKeywords = keywords || '';
+    if (persist) {
+        if (keywords) localStorage.setItem('consoleLogIncludeKeywords', keywords);
+        else localStorage.removeItem('consoleLogIncludeKeywords');
     }
-  }
-  
-  // Confirmation message
-  if (filter) {
-    originalConsole.log(`[CONSOLE] Filter set: "${filter}"`);
-  } else {
-    originalConsole.log('[CONSOLE] Filter cleared');
-  }
-  
-  return true;
+    originalConsole.log(`[CONSOLE] Include Keywords set: "${config.includeKeywords}"`);
 }
 
-/**
- * Get help text for console filter syntax
- * @returns {string} - Help text
- */
-function getFilterHelp() {
-  return `
-Console Filter Syntax:
-- Simple text: Shows logs containing this text
-- Multiple terms: Shows logs containing ALL terms (logical AND)
-- Exclusion: Use -term to hide logs containing 'term'
-- Log level: Use level:info, level:error, etc.
-- Log type: Use type:bootstrap, type:ui, etc.
-
-Examples:
-  error bootstrap   -> Show bootstrap errors
-  user -error       -> Show 'user' logs excluding errors
-  level:warn        -> Show only warnings
-  type:ui level:info -> Show UI info logs
-`;
+function setExcludeKeywords(keywords, persist = false) {
+    config.excludeKeywords = keywords || '';
+    if (persist) {
+        if (keywords) localStorage.setItem('consoleLogExcludeKeywords', keywords);
+        else localStorage.removeItem('consoleLogExcludeKeywords');
+    }
+    originalConsole.log(`[CONSOLE] Exclude Keywords set: "${config.excludeKeywords}"`);
 }
 
-/**
- * Reset all timers
- */
-function resetTimers() {
-  config.startTime = performance.now();
-  config.lastLogTime = performance.now();
-  originalConsole.log('[CONSOLE] Timers reset');
+function clearLogFilter(persist = true) {
+    setIncludeKeywords('', persist);
+    setExcludeKeywords('', persist);
+    originalConsole.log('[CONSOLE] All keyword filters cleared.');
 }
 
-// Initialize based on localStorage settings
+
+// --- Console Interaction (REMOVED) ---
+function initConsoleInteraction() {
+    originalConsole.log('[CONSOLE] Interactive console features (clickable messages) have been REMOVED.');
+    // All previous code for enhanceMessages, context menus, CSS injection is removed.
+}
+
+// --- Keyword Histogram (Gutted stopWords) ---
+function generateLogKeywordHistogram() {
+    if (!timingHistory || typeof timingHistory.get !== 'function') {
+        originalConsole.error('[CONSOLE] Timing history is not available for histogram.');
+        return {};
+    }
+    const consoleEntries = timingHistory.get({ type: 'console' });
+    if (!consoleEntries || consoleEntries.length === 0) {
+        originalConsole.log('[CONSOLE] No console log entries in history for histogram generation.');
+        return {};
+    }
+    const keywordCounts = {};
+    consoleEntries.forEach(entry => {
+        const message = typeof entry.label === 'string' ? entry.label : '';
+        const normalizedMessage = normalizeText(message); // Lowercase, remove punctuation
+        const words = normalizedMessage.split(/\s+/).filter(word => word.length > 2); // Min word length 3
+
+        words.forEach(word => {
+            keywordCounts[word] = (keywordCounts[word] || 0) + 1;
+        });
+    });
+    return keywordCounts;
+}
+
+// =================================================================================
+// FINAL INITIALIZATION CALLS
+// =================================================================================
+initializeTiming();
+
 if (config.enabled) {
-  enableConsoleLogging();
+  enableConsoleLogging(false);
 } else {
-  disableConsoleLogging();
+  disableConsoleLogging(false);
 }
+initConsoleInteraction(); // Will just log that features are removed
 
-// Expose methods globally
+// =================================================================================
+// GLOBAL EXPOSURES
+// =================================================================================
 window.enableConsoleLogging = enableConsoleLogging;
 window.disableConsoleLogging = disableConsoleLogging;
-window.enablePerformanceLogging = enablePerformanceLogging;
-window.disablePerformanceLogging = disablePerformanceLogging;
-window.setConsoleFilter = setConsoleFilter;
-window.getConsoleFilterHelp = getFilterHelp;
-window.resetConsoleTimers = resetTimers;
 window.isConsoleLoggingEnabled = () => config.enabled;
-window.isPerformanceLoggingEnabled = () => config.performanceTiming;
-window.isDetailedTimingEnabled = () => config.detailedTiming;
-window.getConsoleFilter = () => config.filter;
-window.createTimer = createTimer;
-window.timeFunction = timeFunction;
 
-// NEW: Functions to access the timing history
-function getTimingHistory(options) {
-  return timingHistory.get(options);
-}
+// Simplified Filter Globals
+window.setIncludeKeywords = setIncludeKeywords;
+window.setExcludeKeywords = setExcludeKeywords;
+window.getIncludeKeywords = () => config.includeKeywords;
+window.getExcludeKeywords = () => config.excludeKeywords;
+window.clearLogFilter = clearLogFilter; // This now clears the simple keyword filters
 
-function clearTimingHistory() {
-  return timingHistory.clear();
-}
+// Histogram Global
+window.generateLogKeywordHistogram = generateLogKeywordHistogram;
 
-function getTimingReport(options) {
-  return timingHistory.generateReport(options);
-}
+// Timing globals are exposed by ConsoleTiming.js's initializeTiming
 
-// Expose timing history methods globally
-window.getTimingHistory = getTimingHistory;
-window.clearTimingHistory = clearTimingHistory;
-window.getTimingReport = getTimingReport;
-
-// Export for module use
+// =================================================================================
+// MODULE EXPORTS
+// =================================================================================
 export {
   enableConsoleLogging,
   disableConsoleLogging,
-  enablePerformanceLogging,
-  disablePerformanceLogging,
-  setConsoleFilter,
-  getFilterHelp,
+  setIncludeKeywords,
+  setExcludeKeywords,
+  clearLogFilter,
+  generateLogKeywordHistogram,
+  config as consoleConfig, // Export the ConsoleLogManager config object
   resetTimers,
   createTimer,
   timeFunction,
-  config as consoleConfig,
   getTimingHistory,
   clearTimingHistory,
   getTimingReport,
-  timingHistory
+  getCurrentPerformanceTime,
+  enablePerformanceLogging,
+  disablePerformanceLogging,
+  enableDetailedTiming,
+  disableDetailedTiming
 };

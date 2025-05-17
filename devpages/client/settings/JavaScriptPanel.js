@@ -29,15 +29,57 @@ export class JavaScriptPanel {
   createPanelContent(parentElement) {
     this.containerElement = document.createElement('div');
     this.containerElement.classList.add('settings-section', 'javascript-settings');
-    this.containerElement.innerHTML = `
-      <div class="settings-description">
-        Manage how JavaScript executes within the Markdown preview.
-      </div>
+    this.containerElement.style.padding = '10px'; // Add overall padding to the section content
+
+    // Helper to create a sub-section
+    const createSubSection = (title, contentHtml) => {
+      const subSectionDiv = document.createElement('div');
+      subSectionDiv.style.marginBottom = '20px'; // Space between subsections
+
+      if (title) {
+        const header = document.createElement('h4');
+        header.textContent = title;
+        header.style.marginTop = '0';
+        header.style.marginBottom = '8px';
+        subSectionDiv.appendChild(header);
+      }
       
-      <h4>Using Front Matter</h4>
-      <p>
-        You can include external JavaScript and CSS files located in the same directory 
-        (or subdirectories) as your Markdown file using front matter keys:
+      const contentP = document.createElement('div'); // Use div for more flexible content
+      contentP.innerHTML = contentHtml;
+      subSectionDiv.appendChild(contentP);
+      
+      // Style paragraphs and pre within the content
+      contentP.querySelectorAll('p').forEach(p => {
+        p.style.marginBottom = '8px';
+        p.style.lineHeight = '1.6';
+      });
+      contentP.querySelectorAll('pre').forEach(pre => {
+        pre.style.marginBottom = '10px';
+        pre.style.padding = '10px';
+        pre.style.border = '1px solid #ddd';
+        pre.style.borderRadius = '4px';
+        pre.style.backgroundColor = '#f9f9f9';
+        pre.style.overflowX = 'auto';
+      });
+      contentP.querySelectorAll('code').forEach(code => {
+        code.style.fontFamily = 'monospace';
+      });
+
+
+      return subSectionDiv;
+    };
+    
+    const introDescription = document.createElement('p');
+    introDescription.classList.add('settings-description');
+    introDescription.textContent = 'Manage how JavaScript executes within the Markdown preview. Scripts and styles can be included via front matter or inline.';
+    introDescription.style.marginBottom = '15px';
+    this.containerElement.appendChild(introDescription);
+
+    this.containerElement.appendChild(createSubSection(
+      'Using Front Matter (js_includes, css_includes)',
+      `<p>
+        Include external JavaScript and CSS files from the same directory 
+        (or subdirectories) as your Markdown file:
       </p>
       <pre><code>---
 css_includes:
@@ -47,63 +89,60 @@ js_includes:
   - ./libs/another-module.js 
 ---
 
-# Your Markdown...
-</code></pre>
+# Your Markdown...</code></pre>
       <p>
-        Use <code>js_includes</code> for JavaScript files (loaded as ES6 modules, allowing imports). 
-        Use <code>css_includes</code> for CSS files.
-        Paths are relative to the Markdown file.
-      </p>
+        <code>js_includes</code> are for JavaScript (loaded as ES6 modules). 
+        <code>css_includes</code> are for CSS. Paths are relative to the Markdown file.
+      </p>`
+    ));
 
-      <h4>Inline Scripts & Styles</h4>
-      <p>
-          You can embed JavaScript directly using <code>&lt;script&gt;</code> tags within your Markdown. 
-          For ES6 module features (like top-level <code>await</code> or <code>import</code>), use <code>&lt;script type="module"&gt;</code>. 
-          <strong>Note:</strong> Imports within inline modules still rely on the server configuration for loading other local files.
+    this.containerElement.appendChild(createSubSection(
+      'Inline Scripts & Styles (<script>, <style>)',
+      `<p>
+          Embed JavaScript directly using <code>&lt;script&gt;</code> tags. 
+          For ES6 module features (like top-level <code>await</code> or <code>import</code>), use <code>&lt;script type="module"&gt;</code>.
       </p>
       <p> 
           Similarly, use <code>&lt;style&gt;</code> tags for inline CSS.
-      </p>
-      
-      <h4>Inline Front Matter Scripts/CSS (Block Scalars)</h4>
-      <p>
-          You can also embed multiline CSS or JavaScript directly in the front matter using YAML block scalars (<code>|</code> or <code>&gt;</code>):
+      </p>`
+    ));
+
+    this.containerElement.appendChild(createSubSection(
+      'Inline Front Matter (script:, css:)',
+      `<p>
+          Embed multiline CSS or JavaScript directly in front matter using YAML block scalars (<code>|</code> or <code>&gt;</code>):
       </p>
       <pre><code>---
 css: |
-  .my-button {
-    background-color: blue;
-    color: white;
-  }
+  .my-button { background-color: blue; color: white; }
 script: |
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('my-button');
-    if (btn) {
-      btn.addEventListener('click', () => alert('Clicked!'));
-    }
+    if (btn) btn.addEventListener('click', () => alert('Clicked!'));
   });
 ---
 
-&lt;!-- Markdown content... --&gt;
-&lt;button id="my-button"&gt;Click Again&lt;/button&gt;</code></pre>
+&lt;button id="my-button"&gt;Click Me&lt;/button&gt;</code></pre>
       <p>
-          The <code>css</code> block is injected into the <code>&lt;head&gt;</code>, and the <code>script</code> block is injected at the end of the <code>&lt;body&gt;</code> (wrapped in an IIFE).
-      </p>
+          The <code>css</code> block is injected into <code>&lt;head&gt;</code>. The <code>script</code> block is injected at the end of <code>&lt;body&gt;</code> (wrapped in an IIFE).
+      </p>`
+    ));
+    
+    this.containerElement.appendChild(createSubSection(
+      'Event Handling',
+      `<p>
+        Attach event listeners using standard JavaScript (e.g., <code>document.getElementById('my-button').addEventListener('click', ...)</code>).
+        Ensure scripts run after relevant DOM elements exist (use <code>DOMContentLoaded</code> or place scripts at the end).
+      </p>`
+    ));
 
-      <h4>Event Handling</h4>
-      <p>
-        Attach event listeners using standard JavaScript within your included or inline scripts 
-        (e.g., <code>document.getElementById('my-button').addEventListener('click', ...)</code>).
-        Make sure your script runs after the relevant DOM elements exist (e.g., use <code>DOMContentLoaded</code> listener or place scripts at the end).
-      </p>
-      
-      <h4>Security Considerations</h4>
-      <p>
-        Loading local files introduces security considerations. The server attempts to restrict file access 
-        to only <code>.js</code> and <code>.css</code> files within the same directory structure as your markdown file.
-        Avoid exposing sensitive information or performing dangerous operations in preview scripts.
-      </p>
-    `;
+    this.containerElement.appendChild(createSubSection(
+      'Security Considerations',
+      `<p>
+        Loading local files has security implications. The server restricts file access to <code>.js</code> and <code>.css</code> files within your markdown's directory structure.
+        Avoid exposing sensitive data or performing dangerous operations in preview scripts.
+      </p>`
+    ));
     
     parentElement.appendChild(this.containerElement);
 
