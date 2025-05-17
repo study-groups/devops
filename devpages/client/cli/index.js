@@ -7,8 +7,9 @@ import { CLI_EVENTS } from './cliEvents.js';
 import { eventBus } from '../eventBus.js';
 // Import the new remote execution function
 import { executeRemoteCommand } from './handlers.js';
-// Import SmartCopy keys
-import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js';
+// Import SmartCopy keys and appStore
+import { SMART_COPY_A_KEY, SMART_COPY_B_KEY, appStore } from '/client/appState.js';
+// import { getLogPanelInstance } from '../log/logPanelAccess.js'; // Create this file
 
 // Log successful import
 console.log('[CLI] Core imports completed');
@@ -190,7 +191,37 @@ async function handleSendCommand() {
         console.log(`[CLI DEBUG] Is resultOutput trimmed non-empty?: ${!!(resultOutput && resultOutput.trim())}`);
         // --- END DEBUG LINES ---
         if (resultOutput && resultOutput.trim()) {
-            logInfo(resultOutput, { type: 'CLI', subtype: 'OUTPUT' });
+            // Get a direct reference to the LogPanel instance
+            const logPanelInstance = window.logPanelInstance;
+            
+            // First attempt: use window.logMessage as it should normally work
+            window.logMessage(resultOutput, 'CLI');
+            
+            // Backup approach: If we have direct access to logPanelInstance, use it
+            if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
+                const entry = {
+                    message: resultOutput,
+                    level: 'INFO',
+                    type: 'CLI',
+                    subtype: 'OUTPUT',
+                    ts: Date.now()
+                };
+                logPanelInstance.addEntry(entry);
+            }
+            
+            // Force a manual update of the tag filtering system to ensure CLI is added
+            const currentState = appStore.getState().logFiltering;
+            if (!currentState.discoveredTypes.includes('CLI')) {
+                appStore.update(prevState => ({
+                    ...prevState,
+                    logFiltering: {
+                        ...prevState.logFiltering,
+                        discoveredTypes: [...prevState.logFiltering.discoveredTypes, 'CLI'],
+                        activeFilters: [...prevState.logFiltering.activeFilters, 'CLI']
+                    }
+                }));
+                console.log('[CLI] Manually added CLI to discovered types and active filters');
+            }
         }
 
     } catch (error) { // Catch errors from substitution or main execution

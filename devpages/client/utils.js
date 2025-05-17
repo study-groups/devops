@@ -12,6 +12,24 @@ export function debounce(func, wait) {
 }
 
 /**
+ * Safely get localStorage item with fallback
+ * @param {string} key - localStorage key
+ * @param {*} defaultValue - fallback value
+ * @returns {*} - value or default
+ */
+function safeGetLocalStorage(key, defaultValue) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const value = localStorage.getItem(key);
+      return value !== null ? value : defaultValue;
+    }
+  } catch (e) {
+    console.error('Error accessing localStorage:', e);
+  }
+  return defaultValue;
+}
+
+/**
  * Measures and logs the execution time of a function without interrupting console logging
  * @param {Function} fn - Function to measure
  * @param {Object} options - Config options
@@ -42,7 +60,7 @@ export function timeFunction(fn, options = {}) {
   
   return async function(...args) {
     // Only measure if performance logging is enabled
-    if (localStorage.getItem('performanceLoggingEnabled') !== 'true') {
+    if (safeGetLocalStorage('performanceLoggingEnabled', 'false') !== 'true') {
       return await fn.apply(this, args);
     }
     
@@ -92,8 +110,8 @@ export function createTimer(label, options = {}) {
   };
   
   // Only log start if debugging is on
-  if (localStorage.getItem('consoleLoggingEnabled') === 'true' && 
-      localStorage.getItem('detailedPerformanceLog') === 'true') {
+  if (safeGetLocalStorage('consoleLoggingEnabled', 'false') === 'true' && 
+      safeGetLocalStorage('detailedPerformanceLog', 'false') === 'true') {
     originalConsole.log(`[TIMER-START] ${label}`);
   }
   
@@ -116,7 +134,7 @@ export function createTimer(label, options = {}) {
       const duration = current - start;
       
       if (duration >= thresholdMs && 
-          localStorage.getItem('performanceLoggingEnabled') === 'true') {
+          safeGetLocalStorage('performanceLoggingEnabled', 'false') === 'true') {
         logFunc(`[TIMER-CHECKPOINT] ${label} > ${checkpointName}: ${duration.toFixed(2)}ms`);
       }
       
@@ -128,7 +146,7 @@ export function createTimer(label, options = {}) {
       const duration = performance.now() - start;
       
       if (duration >= thresholdMs && 
-          localStorage.getItem('performanceLoggingEnabled') === 'true') {
+          safeGetLocalStorage('performanceLoggingEnabled', 'false') === 'true') {
         let message = `[TIMER-END] ${label}: ${duration.toFixed(2)}ms`;
         
         if (includeStackTrace) {

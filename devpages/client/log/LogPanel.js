@@ -32,7 +32,7 @@ import eventBus from '/client/eventBus.js';
 import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 
 // At the top of the file, import the logger
-import { createTimer } from '/client/log/ConsoleLogManager.js';
+import { createTimer } from '/client/utils.js';
 
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';
@@ -305,8 +305,6 @@ export class LogPanel {
             discoveredTypesChanged = true;
         }
         
-        // TODO: Implement discoveredSubtypes logic
-
         if (discoveredTypesChanged) {
             appStore.update(prevState => ({
                 ...prevState,
@@ -320,7 +318,7 @@ export class LogPanel {
         }
 
         const activeFiltersCurrent = appStore.getState().logFiltering.activeFilters;
-        if (!activeFiltersCurrent.includes(upperCaseType)) {
+        if (!newActiveTypes.includes(upperCaseType)) {
             logEntry.classList.add('log-entry-hidden-by-filter');
         }
 

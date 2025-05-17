@@ -241,58 +241,94 @@ export class ConsoleLogPanel {
         'console-logging-toggle',
         'Enable Console Logging (checked = on)',
         '',
-                  () => {
-            // Read state from ConsoleLogManager if available, otherwise fallback to localStorage
+        () => {
+          // Read state from ConsoleLogManager if available, otherwise fallback to localStorage
+          if (typeof window.isConsoleLoggingEnabled === 'function') {
+            const clmIsEnabled = window.isConsoleLoggingEnabled();
+            panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Using window.isConsoleLoggingEnabled():', clmIsEnabled);
+            return clmIsEnabled;
+          }
+          const lsIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
+          panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Fallback to localStorage for isConsoleLoggingEnabled:', lsIsEnabled);
+          return lsIsEnabled;
+        },
+        (checked, persist) => { // Persist is always true from our call
+          panelOriginalConsole.log(`[ConsoleLogPanel] Toggle changed to: ${checked ? 'ENABLED' : 'DISABLED'}`);
+          
+          if (checked) {
+            // If enabling logging, try multiple approaches to ensure it works
+            if (typeof window.forceReEnableLogging === 'function') {
+              // Use our new emergency function for reliable enabling
+              window.forceReEnableLogging();
+              panelOriginalConsole.log("[ConsoleLogPanel] Called window.forceReEnableLogging()");
+            } else if (typeof window.enableConsoleLogging === 'function') {
+              // Fallback to standard enableConsoleLogging
+              window.enableConsoleLogging(true); // true for persist
+              panelOriginalConsole.log("[ConsoleLogPanel] Called window.enableConsoleLogging(true)");
+            } else {
+              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] No valid enableConsoleLogging function found!");
+              
+              // Last resort: try to manually set localStorage
+              try {
+                localStorage.setItem('consoleLoggingEnabled', 'true');
+                panelOriginalConsole.log("[ConsoleLogPanel] Manually set localStorage to enabled");
+              } catch (e) {
+                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] Failed to set localStorage:", e);
+              }
+            }
+          } else {
+            // If disabling logging, similar multi-approach strategy
+            if (typeof window.emergencyDisableLogging === 'function') {
+              // Use our new emergency function for reliable disabling
+              window.emergencyDisableLogging();
+              panelOriginalConsole.log("[ConsoleLogPanel] Called window.emergencyDisableLogging()");
+            } else if (typeof window.disableConsoleLogging === 'function') {
+              // Fallback to standard disableConsoleLogging
+              window.disableConsoleLogging(true); // true for persist
+              panelOriginalConsole.log("[ConsoleLogPanel] Called window.disableConsoleLogging(true)");
+            } else {
+              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] No valid disableConsoleLogging function found!");
+              
+              // Last resort: try to manually set localStorage
+              try {
+                localStorage.setItem('consoleLoggingEnabled', 'false');
+                panelOriginalConsole.log("[ConsoleLogPanel] Manually set localStorage to disabled");
+              } catch (e) {
+                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] Failed to set localStorage:", e);
+              }
+            }
+          }
+          
+          // Request an update to the status display.
+          // This will read from the authoritative source (manager or localstorage)
+          if (this.updateStatusDisplay) { // updateStatusDisplay is defined later in createUI
+            setTimeout(() => {
+              // Delay the update slightly to ensure state changes have time to propagate
+              this.updateStatusDisplay();
+              panelOriginalConsole.log("[ConsoleLogPanel] Called updateStatusDisplay()");
+            }, 50);
+          } else {
+            // Fallback if updateStatusDisplay isn't ready (should be rare)
+            const toggle = document.getElementById('console-logging-toggle');
+            const statusMessage = document.getElementById('console-logging-status');
+            
+            let currentIsEnabled = checked; // Default to the toggle state
+            // Try various methods to determine the current state
             if (typeof window.isConsoleLoggingEnabled === 'function') {
-              const clmIsEnabled = window.isConsoleLoggingEnabled();
-              // panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Using window.isConsoleLoggingEnabled():', clmIsEnabled);
-              return clmIsEnabled;
-            }
-            const lsIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
-            // panelOriginalConsole.warn('[ConsoleLogPanel_isCheckedFn] Fallback to localStorage for isConsoleLoggingEnabled:', lsIsEnabled);
-            return lsIsEnabled;
-          },
-                  (checked, persist) => { // Persist is always true from our call
-            if (checked) {
-              if (typeof window.enableConsoleLogging === 'function') {
-                window.enableConsoleLogging(true); // true for persist
-                panelOriginalConsole.log("[ConsoleLogPanel] Called window.enableConsoleLogging(true)");
-              } else {
-                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.enableConsoleLogging is not a function! Cannot enable logging.");
-                // DO NOT attempt to manage state here. Manager is absent or broken.
-              }
+              currentIsEnabled = window.isConsoleLoggingEnabled();
             } else {
-              if (typeof window.disableConsoleLogging === 'function') {
-                window.disableConsoleLogging(true); // true for persist
-                panelOriginalConsole.log("[ConsoleLogPanel] Called window.disableConsoleLogging(true)");
-              } else {
-                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.disableConsoleLogging is not a function! Cannot disable logging.");
-                // DO NOT attempt to manage state here. Manager is absent or broken.
-              }
+              currentIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
             }
-            // Request an update to the status display.
-            // This will read from the authoritative source (manager or localstorage)
-            if (this.updateStatusDisplay) { // updateStatusDisplay is defined later in createUI
-                this.updateStatusDisplay();
-            } else {
-                // Fallback if updateStatusDisplay isn't ready (should be rare)
-                const toggle = document.getElementById('console-logging-toggle');
-                const statusMessage = document.getElementById('console-logging-status');
-                let currentIsEnabled = false;
-                if (typeof window.isConsoleLoggingEnabled === 'function') {
-                    currentIsEnabled = window.isConsoleLoggingEnabled();
-                } else {
-                    currentIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
-                }
-                if(toggle) toggle.checked = currentIsEnabled;
-                if(statusMessage) {
-                     statusMessage.style.backgroundColor = currentIsEnabled ? '#d4edda' : '#f8d7da';
-                     statusMessage.style.border = '1px solid ' + (currentIsEnabled ? '#c3e6cb' : '#f5c6cb');
-                     statusMessage.textContent = currentIsEnabled ? 
-                       'STATUS: Console logging is ENABLED' : 
-                       'STATUS: Console logging is DISABLED';
-                }
+            
+            if(toggle) toggle.checked = currentIsEnabled;
+            if(statusMessage) {
+              statusMessage.style.backgroundColor = currentIsEnabled ? '#d4edda' : '#f8d7da';
+              statusMessage.style.border = '1px solid ' + (currentIsEnabled ? '#c3e6cb' : '#f5c6cb');
+              statusMessage.textContent = currentIsEnabled ? 
+                'STATUS: Console logging is ENABLED' : 
+                'STATUS: Console logging is DISABLED';
             }
+          }
         }
       )
     );
@@ -651,22 +687,19 @@ export class ConsoleLogPanel {
 
   // Convert refreshTypeFilterDisplay to a class method
   refreshTypeFilterDisplay() {
-    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
+    if (!this.ensureContainersReady()) return;
     
-    if (!this.typesContainer || !this.subtypesContainer) {
-      panelOriginalConsole.warn('[ConsoleLogPanel] Type/Subtype containers not ready for refresh.');
-      return;
-    }
+    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
     
     this.typesContainer.innerHTML = ''; // Clear existing content
     this.subtypesContainer.innerHTML = ''; // Clear existing content
     
     if (!window.config || typeof window.getDiscoveredTypes !== 'function' || typeof window.getDiscoveredSubtypes !== 'function') {
-      const msg = "Log options (types/subtypes) not available yet. ConsoleLogManager might still be loading or window.config is not set.";
-      panelOriginalConsole.warn(`[ConsoleLogPanel] ${msg}`);
-      this.typesContainer.textContent = msg;
-      this.subtypesContainer.textContent = msg;
-      return;
+        const msg = "Log options (types/subtypes) not available yet. ConsoleLogManager might still be loading or window.config is not set.";
+        panelOriginalConsole.debug(`[ConsoleLogPanel] ${msg}`); // Changed to debug level
+        this.typesContainer.textContent = msg;
+        this.subtypesContainer.textContent = msg;
+        return;
     }
 
     const discoveredTypes = window.getDiscoveredTypes();
@@ -713,17 +746,19 @@ export class ConsoleLogPanel {
 
   // Ensure refreshLevelFilterDisplay is a class method and uses this.levelFilterContainer
   refreshLevelFilterDisplay() {
+    if (!this.ensureContainersReady()) return;
+    
     panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing level filter display');
 
     if (!this.levelFilterContainer) {
-      panelOriginalConsole.warn('[ConsoleLogPanel] Level filter container not ready for refresh.');
+      panelOriginalConsole.debug('[ConsoleLogPanel] Level filter container not ready for refresh.');
       return;
     }
     this.levelFilterContainer.innerHTML = ''; // Clear existing
 
     if (!window.config || !window.config.levelFilters) {
       const msg = "Log options (levels) not available yet. ConsoleLogManager might still be loading or window.config.levelFilters is not set.";
-      panelOriginalConsole.warn(`[ConsoleLogPanel] ${msg}`);
+      panelOriginalConsole.debug(`[ConsoleLogPanel] ${msg}`); // Changed to debug level
       this.levelFilterContainer.textContent = msg;
       return;
     }
@@ -887,5 +922,27 @@ export class ConsoleLogPanel {
     // or direct call via updateConsoleLogPanelStatus to refresh.
     // For now, we expect ConsoleLogManager to update window.config, and the next render cycle or specific refresh will pick it up.
     // The direct call to updateStatusDisplay after a toggle change, and its subsequent calls to refreshType/LevelFilterDisplay, should handle this.
+  }
+
+  ensureContainersReady() {
+    if (!this.typesContainer || !this.subtypesContainer || !this.levelFilterContainer) {
+        this.typesContainer = document.getElementById('console-log-types-container');
+        this.subtypesContainer = document.getElementById('console-log-subtypes-container');
+        this.levelFilterContainer = document.getElementById('console-log-levels-container');
+        
+        if (!this.typesContainer || !this.subtypesContainer || !this.levelFilterContainer) {
+            if (!this._waitingForContainers) {
+                this._waitingForContainers = true;
+                setTimeout(() => {
+                    this._waitingForContainers = false;
+                    this.ensureContainersReady();
+                    this.refreshTypeFilterDisplay();
+                    this.refreshLevelFilterDisplay(); 
+                }, 150);
+            }
+            return false;
+        }
+    }
+    return true;
   }
 }

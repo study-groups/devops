@@ -1,123 +1,151 @@
-// client/log/index.js
-// log/index.js – public re-exports for all modules
+/**
+ * log/index.js – Unified logging system
+ * Exports all logging utilities for the application
+ */
+
+import { LogManager } from './LogManager.js';
+import { LogEntry } from './LogEntry.js';
+import { LogFilter } from './LogFilter.js';
+import { LogBuffer } from './LogBuffer.js';
+import { CallerInfo } from './CallerInfo.js';
 
 import {
-    log,
-    logDebug,
-    logInfo,
-    logWarn,
-    logError,
-    legacyPositional as logMessage, // Import the legacy shim and RENAME it to logMessage for export
-    setLogPanelInstance
-} from './core.js';
-import { LogPanel } from './LogPanel.js';
+  timingConfig,
+  timingHistory,
+  addPerformanceInfoToLog,
+  createTimer,
+  timeFunction,
+  resetTimers,
+  getTimingHistory,
+  clearTimingHistory,
+  getTimingReport,
+  getCurrentPerformanceTime,
+  enablePerformanceLogging,
+  disablePerformanceLogging,
+  enableDetailedTiming,
+  disableDetailedTiming,
+  initializeTiming,
+  isDetailedTimingEnabled,
+  isPerformanceLoggingEnabled
+} from './ConsoleTiming.js';
 
-// Import the TRUE logging control functions that ConsoleLogPanel will use via window globals.
-// These are set up by ConsoleLogManager.js, which imports them from ConsoleTiming.js.
-// We list them here primarily if this module (log/index.js) needs to EXPORT them directly.
-import {
-    enableConsoleLogging as trueEnableConsoleLogging,
-    disableConsoleLogging as trueDisableConsoleLogging,
-    // isConsoleLoggingEnabled is usually window.isConsoleLoggingEnabled from ConsoleLogManager
-    enablePerformanceLogging as trueEnablePerformanceLogging,
-    disablePerformanceLogging as trueDisablePerformanceLogging,
-    isPerformanceLoggingEnabled as trueIsPerformanceLoggingEnabled,
-    isDetailedTimingEnabled as trueIsDetailedTimingEnabled, // Note: ConsoleTiming calls it isDetailedTimingEnabled
-    createTimer, // This one was from /client/utils.js, but ConsoleTiming also provides one.
-                 // Assuming ConsoleTiming.js is the primary source for all logging/timing utilities now.
-    timeFunction // Also from ConsoleTiming.js
-} from './ConsoleLogManager.js'; // Or directly from './ConsoleTiming.js' if preferred, but CLM is the global setter.
+// Create and initialize the global log manager instance
+const logManager = new LogManager();
+logManager.initialize().exposeToWindow();
 
-// Store the original console methods (still useful for this module if it needs to bypass)
-const originalConsole = {
-    log: console.log,
-    warn: console.warn,
-    error: console.error,
-    info: console.info,
-    debug: console.debug
-};
-
-// Check URL for console_log flag (this specific init can stay if needed for this module's own very early decisions)
-const urlParams = new URLSearchParams(window.location.search);
-const CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE = urlParams.has('console_log') || localStorage.getItem('consoleLoggingEnabled') === 'true';
-
-// Local state for this module if it needs to make decisions before full ConsoleLogManager might be ready
-// However, for functions exposed to window, ConsoleLogManager should be the source of truth.
-let localIsLoggingEnabled = CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE;
-
-// Local console enabling/disabling for THIS MODULE, if it needs to operate independently early on.
-// These DO NOT get attached to window anymore, to avoid conflict.
-function localEnableConsoleLogging() {
-    console.log = originalConsole.log;
-    console.warn = originalConsole.warn;
-    console.error = originalConsole.error;
-    console.info = originalConsole.info;
-    console.debug = originalConsole.debug;
-    localIsLoggingEnabled = true;
-    originalConsole.log('[log/index.js] Local console methods restored.');
+// Legacy compatibility function (matches the old logMessage signature)
+function legacyPositional(message, level = 'debug', type = 'GENERAL', subtype = null) {
+  const normalizedLevel = level.toUpperCase();
+  
+  // Use the appropriate console method based on level
+  switch (normalizedLevel) {
+    case 'DEBUG':
+      console.debug({ message, type, subtype, level: normalizedLevel });
+      break;
+    case 'INFO':
+      console.info({ message, type, subtype, level: normalizedLevel });
+      break;
+    case 'WARN':
+    case 'WARNING':
+      console.warn({ message, type, subtype, level: 'WARN' });
+      break;
+    case 'ERROR':
+      console.error({ message, type, subtype, level: normalizedLevel });
+      break;
+    default:
+      console.log({ message, type, subtype, level: 'INFO' });
+  }
 }
 
-function localDisableConsoleLogging() {
-    const noop = function() {};
-    console.log = noop;
-    console.info = noop;
-    console.debug = noop;
-    // Keep warn/error by default from originalConsole
-    localIsLoggingEnabled = false;
-    originalConsole.log('[log/index.js] Local console methods (log,info,debug) nooped. (Last message from originalConsole.log)');
+// Helper function to create a pre-configured logger
+function createLogger(type, options = {}) {
+  const subtype = options.subtype || null;
+  
+  return {
+    debug: (message, ...details) => {
+      console.debug({ message, type, subtype, level: 'DEBUG', details: details.length ? details : undefined });
+    },
+    info: (message, ...details) => {
+      console.info({ message, type, subtype, level: 'INFO', details: details.length ? details : undefined });
+    },
+    warn: (message, ...details) => {
+      console.warn({ message, type, subtype, level: 'WARN', details: details.length ? details : undefined });
+    },
+    error: (message, ...details) => {
+      console.error({ message, type, subtype, level: 'ERROR', details: details.length ? details : undefined });
+    },
+    timing: (message, ...details) => {
+      console.timing({ message, type, subtype, level: 'TIMING', details: details.length ? details : undefined });
+    }
+  };
 }
 
-if (CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE) {
-    localEnableConsoleLogging();
-} else {
-    localDisableConsoleLogging();
+// Create standard log functions with different levels
+function log(message, type = 'GENERAL', subtype = null, details = null) {
+  console.log({ message, type, subtype, level: 'INFO', details });
 }
 
-// Performance logging related setup REMOVED from here.
-// ConsoleLogManager.js and ConsoleTiming.js are the source of truth.
-// const PERFORMANCE_LOGGING_ENABLED = ...
-// const DETAILED_PERFORMANCE_LOG = ...
-// let isPerformanceLoggingEnabled = ...
-// let isDetailedPerformanceLogEnabled = ...
-// function enablePerformanceLogging(...) { ... }
-// function disablePerformanceLogging(...) { ... }
-// if (PERFORMANCE_LOGGING_ENABLED) { ... } else { ... }
+function logDebug(message, type = 'GENERAL', subtype = null, details = null) {
+  console.debug({ message, type, subtype, level: 'DEBUG', details });
+}
 
-// REMOVED: Explicit window attachments from this file.
-// ConsoleLogManager.js is responsible for setting up window.enable/disable/is... functions.
-// window.enableConsoleLogging = enableConsoleLogging; (Removed)
-// window.disableConsoleLogging = disableConsoleLogging; (Removed)
-// window.isConsoleLoggingEnabled = () => isLoggingEnabled; (Removed - CLM provides this)
-// window.enablePerformanceLogging = enablePerformanceLogging; (Removed)
-// window.disablePerformanceLogging = disablePerformanceLogging; (Removed)
-// window.isPerformanceLoggingEnabled = () => isPerformanceLoggingEnabled; (Removed - CLM provides this)
-// window.isDetailedPerformanceLogEnabled = () => isDetailedPerformanceLogEnabled; // (Removed - CLM provides window.isDetailedTimingEnabled)
-// window.timeFunction = timeFunction; // (Removed - CLM provides this from ConsoleTiming)
+function logInfo(message, type = 'GENERAL', subtype = null, details = null) {
+  console.info({ message, type, subtype, level: 'INFO', details });
+}
 
-// Re-export core functionalities and TRUE control functions if other modules import them from 'client/log'.
+function logWarn(message, type = 'GENERAL', subtype = null, details = null) {
+  console.warn({ message, type, subtype, level: 'WARN', details });
+}
+
+function logError(message, type = 'GENERAL', subtype = null, details = null) {
+  console.error({ message, type, subtype, level: 'ERROR', details });
+}
+
+// Legacy function to set log panel instance (for backward compatibility)
+function setLogPanelInstance(instance) {
+  if (typeof window !== 'undefined') {
+    window.logPanelInstance = instance;
+  }
+}
+
+// Export all functions and classes
 export {
-    log,
-    logDebug,
-    logInfo,
-    logWarn,
-    logError,
-    logMessage,
-    LogPanel,
-    setLogPanelInstance,
-    // Exporting the true, globally managed versions for programmatic use by other modules:
-    trueEnableConsoleLogging as enableConsoleLogging, // Renamed for export
-    trueDisableConsoleLogging as disableConsoleLogging, // Renamed for export
-    // Modules should use window.isConsoleLoggingEnabled for UI, but if they need a direct import:
-    // trueIsConsoleLoggingEnabled, // This would need to be imported from CLM if CLM exports its () => config.enabled
-
-    trueEnablePerformanceLogging as enablePerformanceLogging, // Renamed for export
-    trueDisablePerformanceLogging as disablePerformanceLogging, // Renamed for export
-    trueIsPerformanceLoggingEnabled as isPerformanceLoggingEnabled, // Renamed for export
-    trueIsDetailedTimingEnabled as isDetailedTimingEnabled, // Renamed for export
-    
-    createTimer, // From ConsoleTiming via ConsoleLogManager
-    timeFunction // From ConsoleTiming via ConsoleLogManager
-};
-
-// Test logging - this will use the locally configured console from this file's init.
-console.log('[log/index.js] Console logging test - visibility depends on localEnable/Disable above.'); 
+  // Main manager instance
+  logManager,
+  
+  // Legacy functions for backward compatibility
+  legacyPositional as logMessage,
+  setLogPanelInstance,
+  
+  // Modern logging functions
+  log,
+  logDebug,
+  logInfo,
+  logWarn,
+  logError,
+  createLogger,
+  
+  // Classes for custom usage
+  LogManager,
+  LogEntry,
+  LogFilter,
+  LogBuffer,
+  CallerInfo,
+  
+  // Timing exports re-exported from ConsoleTiming
+  timingConfig,
+  timingHistory,
+  createTimer,
+  timeFunction,
+  resetTimers,
+  getTimingHistory, 
+  clearTimingHistory,
+  getTimingReport,
+  getCurrentPerformanceTime,
+  enablePerformanceLogging,
+  disablePerformanceLogging,
+  enableDetailedTiming,
+  disableDetailedTiming,
+  isDetailedTimingEnabled,
+  isPerformanceLoggingEnabled
+}; 

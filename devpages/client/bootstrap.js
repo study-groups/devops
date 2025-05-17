@@ -4,8 +4,34 @@ import { createTimer } from '/client/utils.js';
 // Global namespace to prevent multiple initializations
 window.APP = window.APP || {};
 
+// Simple console logging for early bootstrap phases
+function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default level to info
+  const fullType = type;
+  if (typeof window.logMessage === 'function') {
+    // Pass message, level, and type
+    window.logMessage(`${message}`,level, fullType);
+  } else {
+    console.log(`[${fullType}] ${message}`); // Fallback
+  }
+}
+const bootstrapError = (message, error) => console.error(`[BOOTSTRAP ERROR] ${message}`, error);
+
+// Helper function to safely create a timer
+function safeCreateTimer(label) {
+  try {
+    return createTimer(label);
+  } catch (e) {
+    console.error(`[BOOTSTRAP] Failed to create timer for ${label}:`, e);
+    return { 
+      end: () => {}, 
+      checkpoint: () => {},
+      current: () => 0
+    };
+  }
+}
+
 // Create a timer for the entire bootstrap process
-const TOTAL_BOOTSTRAP_TIMER = createTimer('TOTAL BOOTSTRAP TIME');
+const TOTAL_BOOTSTRAP_TIMER = safeCreateTimer('TOTAL BOOTSTRAP TIME');
 
 // ADDED: Import central state and messaging components
 import { appStore } from '/client/appState.js';
@@ -19,18 +45,6 @@ import { initAuth } from '/client/auth.js'; // <<< ADDED: Import initAuth
 import { initializePreviewManager } from '/client/previewManager.js'; // Import the new explicit initializer
 // -----------------------
 
-// Simple console logging for early bootstrap phases
-function logBootstrap(message, level = 'info', type = 'BOOTSTRAP') { // Default level to info
-  const fullType = type;
-  if (typeof window.logMessage === 'function') {
-    // Pass message, level, and type
-    window.logMessage(`${message}`,level, fullType);
-  } else {
-    console.log(`[${fullType}] ${message}`); // Fallback
-  }
-}
-const bootstrapError = (message, error) => console.error(`[BOOTSTRAP ERROR] ${message}`, error);
-
 // --- Central State Reducer --- 
 // REMOVE the mainReducer function definition from here
 
@@ -40,8 +54,10 @@ logBootstrap('Main state reducer injected into message queue.', 'debug');
 
 // Add this function at the beginning of the bootstrap process
 async function loadUIState() {
-  const uiStateTimer = createTimer('UI State Loading');
+  let uiStateTimer;
   try {
+    uiStateTimer = safeCreateTimer('UI State Loading');
+    
     // Specifically for settings panel visibility
     const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
     if (settingsPanelState) {
@@ -53,9 +69,10 @@ async function loadUIState() {
       }
     }
   } catch (e) {
-    console.error('[Bootstrap] Error restoring UI state:', e);
+    console.error('[Bootstrap] Error:', e);
+  } finally {
+    if (uiStateTimer) uiStateTimer.end();
   }
-  uiStateTimer.end();
 }
 
 // Call this very early in your initialization sequence
@@ -72,7 +89,7 @@ async function initializeApp() {
 
   try {
     // --- Phase 1: Logging --- 
-    const logTimer = createTimer('Phase 1: Log System');
+    const logTimer = safeCreateTimer('Phase 1: Log System');
     logBootstrap('Phase 1: Initializing Log System with LogPanel...', 'debug');
     // MODIFIED: Import the LogPanel class directly from its file
     const { LogPanel } = await import('/client/log/LogPanel.js'); // Correct path
@@ -93,7 +110,7 @@ async function initializeApp() {
     logTimer.end();
 
     // --- Phase 1.5: Initialize Settings Panel System --- 
-    const settingsTimer = createTimer('Phase 1.5: Settings Panel');
+    const settingsTimer = safeCreateTimer('Phase 1.5: Settings Panel');
     // Moved earlier as it might influence UI/other setups
     logBootstrap('Initializing Settings Panel System...', 'debug');
     try {
@@ -112,7 +129,7 @@ async function initializeApp() {
     settingsTimer.end();
 
     // --- Initialize Deep Link Handler (Before Authentication) ---
-    const deepLinkTimer = createTimer('Phase 2: Deep Link Handler');
+    const deepLinkTimer = safeCreateTimer('Phase 2: Deep Link Handler');
     logBootstrap('Initializing Deep Link Handler...', 'info');
     try {
       const deepLinkModule = await import('/client/deepLink.js');
@@ -129,7 +146,7 @@ async function initializeApp() {
     deepLinkTimer.end();
 
     // --- Initialize Authentication ---
-    const authTimer = createTimer('Phase 3: Authentication');
+    const authTimer = safeCreateTimer('Phase 3: Authentication');
     logBootstrap('Initializing Authentication System...', 'debug'); // Simplified log
     try {
         initAuth(); // <<< ADDED: Call initAuth directly
@@ -144,7 +161,7 @@ async function initializeApp() {
     authTimer.end();
 
     // --- Phase 4: Initialize Core UI Manager (Can now react to appStore.auth changes) ---
-    const uiTimer = createTimer('Phase 4: UI Manager');
+    const uiTimer = safeCreateTimer('Phase 4: UI Manager');
     logBootstrap('Phase 4: Initializing UI Manager...', 'debug');
     try {
         // MODIFIED: Import the named export initializeUI
@@ -163,7 +180,7 @@ async function initializeApp() {
 
     // --- Phase 5: Initialize File Manager (Depends on Auth and UI) ---
     // Now likely triggered by state changes in appStore.auth or appStore.ui
-    const fileManagerTimer = createTimer('Phase 5: File Manager');
+    const fileManagerTimer = safeCreateTimer('Phase 5: File Manager');
     logBootstrap('Phase 5: FileManager initialization delegated to state changes.', 'info');
     // May need an init function in fileManager.js to set up its subscriptions
     try {
@@ -181,12 +198,12 @@ async function initializeApp() {
     fileManagerTimer.end();
 
     // --- Phase 6: Initialize Other Components/Modules ---
-    const otherComponentsTimer = createTimer('Phase 6: Other Components');
+    const otherComponentsTimer = safeCreateTimer('Phase 6: Other Components');
     logBootstrap('Phase 6: Initializing Actions, Editor, Preview, etc...', 'debug');
     // These modules will also increasingly rely on dispatching actions and subscribing to appStore
     
     // Initialize Preview Manager (depends on #preview-container being ready from initializeUI)
-    const previewTimer = createTimer('Phase 6.1: Preview Manager');
+    const previewTimer = safeCreateTimer('Phase 6.1: Preview Manager');
     logBootstrap('Initializing Preview Manager...', 'debug');
     try {
         await initializePreviewManager();
@@ -198,7 +215,7 @@ async function initializeApp() {
     previewTimer.end();
 
     // Actions (Listens for events from UI components, might dispatch actions)
-    const actionsTimer = createTimer('Phase 6.2: Actions');
+    const actionsTimer = safeCreateTimer('Phase 6.2: Actions');
     try {
         const actionsModule = await import('/client/actions.js');
         if (typeof actionsModule.initializeActions === 'function') {
@@ -214,7 +231,7 @@ async function initializeApp() {
     actionsTimer.end();
     
     // Editor (Will dispatch EDITOR_CONTENT_CHANGED, subscribe to file changes, etc.)
-    const editorTimer = createTimer('Phase 6.3: Editor');
+    const editorTimer = safeCreateTimer('Phase 6.3: Editor');
     try {
          const editorModule = await import('/client/editor.js');
          if (typeof editorModule.initializeEditor === 'function') {

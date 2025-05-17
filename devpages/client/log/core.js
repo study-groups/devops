@@ -30,7 +30,8 @@ export function log({ message,
                       type    = 'GENERAL',
                       subtype = null,
                       details = null,
-                      ts      = Date.now() }) {
+                      ts      = Date.now(),
+                      forceConsole = false }) {
 
     const lvl = canonicalLevel(level);
     const typ = canonicalType(type);
@@ -38,11 +39,42 @@ export function log({ message,
 
     const entry = { ts, message, level: lvl, type: typ, subtype: sub, details };
 
+    // Always add to LogPanel if it exists
     if (logPanelInstance) {
         logPanelInstance.addEntry(entry);   // new path
-    } else {
-        console.log(`[${lvl}] [${typ}${sub ? ':' + sub : ''}] ${message}`,
-                    details ?? '');
+    }
+    
+    // Only output to console if console logging is enabled or forceConsole is true
+    const isConsoleEnabled = typeof window !== 'undefined' && 
+                             typeof window.isConsoleLoggingEnabled === 'function' && 
+                             window.isConsoleLoggingEnabled();
+                             
+    if (forceConsole || isConsoleEnabled) {
+        // Format message with cleaner format
+        let prefix = `[${lvl}][${typ}]`;
+        if (sub) {
+            prefix += `[${sub}]`;
+        }
+        
+        const formattedMessage = `${prefix} ${message}`;
+        const args = details ? [formattedMessage, details] : [formattedMessage];
+        
+        switch (lvl) {
+            case 'DEBUG':
+                console.debug(...args);
+                break;
+            case 'INFO':
+                console.info(...args);
+                break;
+            case 'WARN':
+                console.warn(...args);
+                break;
+            case 'ERROR':
+                console.error(...args);
+                break;
+            default:
+                console.log(...args);
+        }
     }
 }
 

@@ -22,12 +22,14 @@
  *   updatePreview(markdownContent);
  */
 
-import { logMessage } from '../log/index.js';
+import { logMessage, logDebug } from '../log/index.js';
 import { api } from '/client/api.js';
 import { initPlugins, getEnabledPlugins, processPlugins, applyCssStyles } from './plugins/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
+
+const LOG_ORIGIN = 'client/preview/index.js';
 
 // Singleton instance to prevent multiple initializations
 let previewInstance = null;
@@ -108,22 +110,47 @@ export class PreviewManager {
       console.log('[PreviewManager.init] Container found:', this.previewElement);
 
       // Add class for styling
-      this.previewElement.classList.add('markdown-preview');
+      try {
+        this.previewElement.classList.add('markdown-preview');
+      } catch (e) {
+        console.error('[PreviewManager.init] Error adding class markdown-preview:', e, 'this.previewElement was:', this.previewElement);
+      }
 
       // --- START DIAGNOSTIC EVENT LISTENERS FOR PREVIEW CONTAINER ---
+      console.log('[PreviewManager.init] Just before diagnostic listener block. this.previewElement is:', this.previewElement);
       if (this.previewElement) {
+        logDebug('Attempting to add diagnostic event listeners to previewElement.', { type: 'PREVIEW_LIFECYCLE', subtype: 'PRE_DIAG_LISTENERS', from: LOG_ORIGIN });
         this.previewElement.addEventListener('wheel', (event) => {
-          console.log('[PREVIEW CONTAINER DIAG] Wheel event on previewElement. Target:', event.target, 'Ctrl/Meta:', event.ctrlKey || event.metaKey);
-        }, { capture: true }); // Use capture to see it early
+          // Only use LogPanel logging (which will always work regardless of console settings)
+          // and skip direct console output completely
+          logDebug('Wheel event on previewElement', {
+            type: 'PREVIEW_DIAGNOSTIC',
+            subtype: 'WHEEL_EVENT',
+            message: `Target: ${event.target.id || 'unnamed'}, Ctrl/Meta: ${event.ctrlKey || event.metaKey}`
+          });
+        }, { capture: true });
 
         this.previewElement.addEventListener('mousedown', (event) => {
-          console.log('[PREVIEW CONTAINER DIAG] Mousedown event on previewElement. Target:', event.target, 'Button:', event.button);
-        }, { capture: true }); // Use capture to see it early
+          // Only use LogPanel logging (which will always work regardless of console settings)
+          // and skip direct console output completely
+          logDebug('Mousedown event on previewElement', {
+            type: 'PREVIEW_DIAGNOSTIC',
+            subtype: 'MOUSE_DOWN_EVENT',
+            message: `Target: ${event.target.id || 'unnamed'}, Button: ${event.button}`
+          });
+        }, { capture: true });
 
         this.previewElement.addEventListener('click', (event) => {
-          console.log('[PREVIEW CONTAINER DIAG] Click event on previewElement. Target:', event.target);
-        }, { capture: true }); // Use capture to see it early
-        console.log('[PreviewManager.init] ADDED DIAGNOSTIC event listeners to previewElement.');
+          // Only use LogPanel logging (which will always work regardless of console settings)
+          // and skip direct console output completely
+          logDebug('Click event on previewElement', {
+            type: 'PREVIEW_DIAGNOSTIC',
+            subtype: 'CLICK_EVENT',
+            message: `Target: ${event.target.id || 'unnamed'}`
+          });
+        }, { capture: true });
+      } else {
+        console.error('[PreviewManager.init] DIAGNOSTIC LISTENERS SKIPPED because this.previewElement is falsy here:', this.previewElement);
       }
       // --- END DIAGNOSTIC EVENT LISTENERS FOR PREVIEW CONTAINER ---
 

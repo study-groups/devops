@@ -422,7 +422,7 @@
 
 .log-entry {
     /* Density styles - These apply to both states */
-    margin-bottom: 1px; /* <<< REDUCED Bottom Spacing */
+    margin-bottom: 0; /* MODIFIED - Was 1px */
     padding: 1px 4px;
     border-radius: 3px;
     font-family: monospace;

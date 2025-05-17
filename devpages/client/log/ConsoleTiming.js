@@ -24,14 +24,27 @@ const stableDebug = console.debug; // Or console.log if debug is also patched ea
 // Configuration properties related to timing
 stableDebug('[CONSOLE_TIMING_MODULE_LOAD] ConsoleTiming.js module loading/evaluating.');
 
+// Helper to safely get localStorage value
+const getLocalStorageItem = (key, defaultValue) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      return localStorage.getItem(key) || defaultValue;
+    } catch (e) {
+      console.error('Error accessing localStorage:', e);
+      return defaultValue;
+    }
+  }
+  return defaultValue;
+};
+
 const timingConfig = {
   performanceTiming: (() => {
-    const val = localStorage.getItem('performanceLoggingEnabled') === 'true';
+    const val = getLocalStorageItem('performanceLoggingEnabled', 'false') === 'true';
     stableDebug('[CONSOLE_TIMING_INIT] Reading performanceLoggingEnabled from localStorage:', val);
     return val;
   })(),
   detailedTiming: (() => {
-    const val = localStorage.getItem('detailedPerformanceLog') === 'true';
+    const val = getLocalStorageItem('detailedPerformanceLog', 'false') === 'true';
     stableDebug('[CONSOLE_TIMING_INIT] Reading detailedPerformanceLog from localStorage:', val);
     return val;
   })(),
@@ -487,9 +500,13 @@ function getCurrentPerformanceTime() {
 function enablePerformanceLogging(persist = false) {
   stableDebug(`[CONSOLE_TIMING] enablePerformanceLogging called. Persist: ${persist}. Current value: ${timingConfig.performanceTiming}`);
   timingConfig.performanceTiming = true;
-  if (persist) {
-    localStorage.setItem('performanceLoggingEnabled', 'true');
-    stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=true to localStorage');
+  if (persist && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem('performanceLoggingEnabled', 'true');
+      stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=true to localStorage');
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
   }
   console.log('[CONSOLE_TIMING] Performance logging ENABLED.'); // User-visible confirmation
   return true;
@@ -502,9 +519,13 @@ function enablePerformanceLogging(persist = false) {
 function disablePerformanceLogging(persist = false) {
   stableDebug(`[CONSOLE_TIMING] disablePerformanceLogging called. Persist: ${persist}. Current value: ${timingConfig.performanceTiming}`);
   timingConfig.performanceTiming = false;
-  if (persist) {
-    localStorage.setItem('performanceLoggingEnabled', 'false');
-    stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=false to localStorage');
+  if (persist && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem('performanceLoggingEnabled', 'false');
+      stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=false to localStorage');
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
   }
   console.log('[CONSOLE_TIMING] Performance logging DISABLED.'); // User-visible confirmation
   return false;
@@ -517,9 +538,13 @@ function disablePerformanceLogging(persist = false) {
 function enableDetailedTiming(persist = false) {
   stableDebug(`[CONSOLE_TIMING] enableDetailedTiming called. Persist: ${persist}. Current value: ${timingConfig.detailedTiming}`);
   timingConfig.detailedTiming = true;
-  if (persist) {
-    localStorage.setItem('detailedPerformanceLog', 'true');
-    stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=true to localStorage');
+  if (persist && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem('detailedPerformanceLog', 'true');
+      stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=true to localStorage');
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
   }
   console.log('[CONSOLE_TIMING] Detailed performance metrics ENABLED.'); // User-visible confirmation
   return true;
@@ -532,22 +557,35 @@ function enableDetailedTiming(persist = false) {
 function disableDetailedTiming(persist = false) {
   stableDebug(`[CONSOLE_TIMING] disableDetailedTiming called. Persist: ${persist}. Current value: ${timingConfig.detailedTiming}`);
   timingConfig.detailedTiming = false;
-  if (persist) {
-    localStorage.setItem('detailedPerformanceLog', 'false');
-    stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=false to localStorage');
+  if (persist && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem('detailedPerformanceLog', 'false');
+      stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=false to localStorage');
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
   }
   console.log('[CONSOLE_TIMING] Detailed performance metrics DISABLED.'); // User-visible confirmation
   return false;
 }
 
-// Added for completeness based on previous suggestions, ensure these exist
+// --- Getters for current state ---
+
 function isPerformanceLoggingEnabled() {
-  stableDebug('[CONSOLE_TIMING] isPerformanceLoggingEnabled check. Returning:', timingConfig.performanceTiming, 'Full timingConfig:', JSON.parse(JSON.stringify(timingConfig)));
+  if (timingConfig.detailedTiming) { // Only log if detailedTiming is also on
+    stableDebug('[CONSOLE_TIMING_VERBOSE_CHECK] isPerformanceLoggingEnabled returning:', timingConfig.performanceTiming);
+  }
   return timingConfig.performanceTiming;
 }
 
 function isDetailedTimingEnabled() {
-  stableDebug('[CONSOLE_TIMING] isDetailedTimingEnabled check. Returning:', timingConfig.detailedTiming, 'Full timingConfig:', JSON.parse(JSON.stringify(timingConfig)));
+  // For this one, always log if it's being checked, as it controls other verbose logs.
+  // But we can make it slightly less verbose if performanceTiming is false.
+  if (timingConfig.performanceTiming) {
+    stableDebug('[CONSOLE_TIMING_VERBOSE_CHECK] isDetailedTimingEnabled returning:', timingConfig.detailedTiming);
+  } else {
+    stableDebug('[CONSOLE_TIMING_VERBOSE_CHECK] isDetailedTimingEnabled (perf logging off) returning:', timingConfig.detailedTiming);
+  }
   return timingConfig.detailedTiming;
 }
 
@@ -556,15 +594,22 @@ function isDetailedTimingEnabled() {
 // and potentially expose timing functions globally.
 function initializeTiming() {
     stableDebug('[CONSOLE_TIMING] initializeTiming() called.');
-    const perfEnabled = localStorage.getItem('performanceLoggingEnabled') === 'true';
-    const detailedEnabled = localStorage.getItem('detailedPerformanceLog') === 'true';
+    
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const perfEnabled = localStorage.getItem('performanceLoggingEnabled') === 'true';
+        const detailedEnabled = localStorage.getItem('detailedPerformanceLog') === 'true';
 
-    timingConfig.performanceTiming = perfEnabled;
-    timingConfig.detailedTiming = detailedEnabled;
+        timingConfig.performanceTiming = perfEnabled;
+        timingConfig.detailedTiming = detailedEnabled;
+      } catch (e) {
+        console.error('Error reading from localStorage:', e);
+      }
+    }
 
     timingConfig.startTime = performance.now();
     timingConfig.lastLogTime = performance.now();
-    stableDebug(`[CONSOLE_TIMING] Initialized/Re-initialized. Performance: ${perfEnabled}, Detailed: ${detailedEnabled}. Full timingConfig:`, JSON.parse(JSON.stringify(timingConfig)));
+    stableDebug(`[CONSOLE_TIMING] Initialized/Re-initialized. Performance: ${timingConfig.performanceTiming}, Detailed: ${timingConfig.detailedTiming}. Full timingConfig:`, JSON.parse(JSON.stringify(timingConfig)));
 }
 
 // Call initializeTiming at the end of the module to ensure it runs after everything is defined.
