@@ -11,10 +11,24 @@ import {
     setLogPanelInstance
 } from './core.js';
 import { LogPanel } from './LogPanel.js';
-import { timeFunction, createTimer } from '/client/utils.js'; // Import from utils.js instead
 
-// Console override functionality
-// Store the original console methods
+// Import the TRUE logging control functions that ConsoleLogPanel will use via window globals.
+// These are set up by ConsoleLogManager.js, which imports them from ConsoleTiming.js.
+// We list them here primarily if this module (log/index.js) needs to EXPORT them directly.
+import {
+    enableConsoleLogging as trueEnableConsoleLogging,
+    disableConsoleLogging as trueDisableConsoleLogging,
+    // isConsoleLoggingEnabled is usually window.isConsoleLoggingEnabled from ConsoleLogManager
+    enablePerformanceLogging as trueEnablePerformanceLogging,
+    disablePerformanceLogging as trueDisablePerformanceLogging,
+    isPerformanceLoggingEnabled as trueIsPerformanceLoggingEnabled,
+    isDetailedTimingEnabled as trueIsDetailedTimingEnabled, // Note: ConsoleTiming calls it isDetailedTimingEnabled
+    createTimer, // This one was from /client/utils.js, but ConsoleTiming also provides one.
+                 // Assuming ConsoleTiming.js is the primary source for all logging/timing utilities now.
+    timeFunction // Also from ConsoleTiming.js
+} from './ConsoleLogManager.js'; // Or directly from './ConsoleTiming.js' if preferred, but CLM is the global setter.
+
+// Store the original console methods (still useful for this module if it needs to bypass)
 const originalConsole = {
     log: console.log,
     warn: console.warn,
@@ -23,126 +37,64 @@ const originalConsole = {
     debug: console.debug
 };
 
-// Check URL for logging flag
+// Check URL for console_log flag (this specific init can stay if needed for this module's own very early decisions)
 const urlParams = new URLSearchParams(window.location.search);
-const CONSOLE_LOGGING_ENABLED = urlParams.has('console_log') || localStorage.getItem('consoleLoggingEnabled') === 'true';
+const CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE = urlParams.has('console_log') || localStorage.getItem('consoleLoggingEnabled') === 'true';
 
-// Track the current state
-let isLoggingEnabled = CONSOLE_LOGGING_ENABLED;
+// Local state for this module if it needs to make decisions before full ConsoleLogManager might be ready
+// However, for functions exposed to window, ConsoleLogManager should be the source of truth.
+let localIsLoggingEnabled = CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE;
 
-// Add functions to toggle console logging
-function enableConsoleLogging(persist = false) {
+// Local console enabling/disabling for THIS MODULE, if it needs to operate independently early on.
+// These DO NOT get attached to window anymore, to avoid conflict.
+function localEnableConsoleLogging() {
     console.log = originalConsole.log;
     console.warn = originalConsole.warn;
     console.error = originalConsole.error;
     console.info = originalConsole.info;
     console.debug = originalConsole.debug;
-    
-    if (persist) {
-        localStorage.setItem('consoleLoggingEnabled', 'true');
-    }
-    
-    isLoggingEnabled = true;
-    
-    // Use the original console.log to confirm it's working
-    originalConsole.log('Console logging enabled');
-    return true;
+    localIsLoggingEnabled = true;
+    originalConsole.log('[log/index.js] Local console methods restored.');
 }
 
-function disableConsoleLogging(persist = false) {
-    // Save references to core functions we still want to work
-    const originalError = console.error;
-    const originalWarn = console.warn;
-    
-    console.log = function() {};
-    console.info = function() {};
-    console.debug = function() {};
-    
-    // Optionally keep warnings and errors
-    // console.warn = function() {};
-    // console.error = function() {};
-    
-    if (persist) {
-        localStorage.setItem('consoleLoggingEnabled', 'false');
-    }
-    
-    isLoggingEnabled = false;
-    
-    // Use the original to confirm the change (this will be the last message)
-    originalConsole.log('Console logging disabled');
-    return false;
+function localDisableConsoleLogging() {
+    const noop = function() {};
+    console.log = noop;
+    console.info = noop;
+    console.debug = noop;
+    // Keep warn/error by default from originalConsole
+    localIsLoggingEnabled = false;
+    originalConsole.log('[log/index.js] Local console methods (log,info,debug) nooped. (Last message from originalConsole.log)');
 }
 
-// Initialize on load
-if (CONSOLE_LOGGING_ENABLED) {
-    originalConsole.log('Console logging is enabled');
-    enableConsoleLogging();
+if (CONSOLE_LOGGING_ENABLED_BY_PARAM_OR_STORAGE) {
+    localEnableConsoleLogging();
 } else {
-    originalConsole.log('Console logging disabled - this is the last message you will see');
-    disableConsoleLogging();
+    localDisableConsoleLogging();
 }
 
-// Check URL for performance logging flag
-const PERFORMANCE_LOGGING_ENABLED = urlParams.has('perf_log') || localStorage.getItem('performanceLoggingEnabled') === 'true';
-const DETAILED_PERFORMANCE_LOG = urlParams.has('detailed_perf') || localStorage.getItem('detailedPerformanceLog') === 'true';
+// Performance logging related setup REMOVED from here.
+// ConsoleLogManager.js and ConsoleTiming.js are the source of truth.
+// const PERFORMANCE_LOGGING_ENABLED = ...
+// const DETAILED_PERFORMANCE_LOG = ...
+// let isPerformanceLoggingEnabled = ...
+// let isDetailedPerformanceLogEnabled = ...
+// function enablePerformanceLogging(...) { ... }
+// function disablePerformanceLogging(...) { ... }
+// if (PERFORMANCE_LOGGING_ENABLED) { ... } else { ... }
 
-// Track the current performance logging state
-let isPerformanceLoggingEnabled = PERFORMANCE_LOGGING_ENABLED;
-let isDetailedPerformanceLogEnabled = DETAILED_PERFORMANCE_LOG;
+// REMOVED: Explicit window attachments from this file.
+// ConsoleLogManager.js is responsible for setting up window.enable/disable/is... functions.
+// window.enableConsoleLogging = enableConsoleLogging; (Removed)
+// window.disableConsoleLogging = disableConsoleLogging; (Removed)
+// window.isConsoleLoggingEnabled = () => isLoggingEnabled; (Removed - CLM provides this)
+// window.enablePerformanceLogging = enablePerformanceLogging; (Removed)
+// window.disablePerformanceLogging = disablePerformanceLogging; (Removed)
+// window.isPerformanceLoggingEnabled = () => isPerformanceLoggingEnabled; (Removed - CLM provides this)
+// window.isDetailedPerformanceLogEnabled = () => isDetailedPerformanceLogEnabled; // (Removed - CLM provides window.isDetailedTimingEnabled)
+// window.timeFunction = timeFunction; // (Removed - CLM provides this from ConsoleTiming)
 
-// Functions to control performance logging
-function enablePerformanceLogging(detailed = false, persist = false) {
-    isPerformanceLoggingEnabled = true;
-    
-    if (detailed) {
-        isDetailedPerformanceLogEnabled = true;
-        if (persist) {
-            localStorage.setItem('detailedPerformanceLog', 'true');
-        }
-    }
-    
-    if (persist) {
-        localStorage.setItem('performanceLoggingEnabled', 'true');
-    }
-    
-    // Use the original console.log to confirm it's working
-    originalConsole.log('Performance logging enabled' + (detailed ? ' (detailed mode)' : ''));
-    return true;
-}
-
-function disablePerformanceLogging(persist = false) {
-    isPerformanceLoggingEnabled = false;
-    isDetailedPerformanceLogEnabled = false;
-    
-    if (persist) {
-        localStorage.setItem('performanceLoggingEnabled', 'false');
-        localStorage.setItem('detailedPerformanceLog', 'false');
-    }
-    
-    // Use the original to confirm the change
-    originalConsole.log('Performance logging disabled');
-    return false;
-}
-
-// Initialize performance logging on load
-if (PERFORMANCE_LOGGING_ENABLED) {
-    originalConsole.log('Performance logging is enabled' + (DETAILED_PERFORMANCE_LOG ? ' (detailed mode)' : ''));
-    enablePerformanceLogging(DETAILED_PERFORMANCE_LOG);
-} else {
-    disablePerformanceLogging();
-}
-
-// IMPORTANT: Explicitly attach these functions to the window object so they can be called from anywhere
-window.enableConsoleLogging = enableConsoleLogging;
-window.disableConsoleLogging = disableConsoleLogging;
-window.isConsoleLoggingEnabled = () => isLoggingEnabled;
-window.enablePerformanceLogging = enablePerformanceLogging;
-window.disablePerformanceLogging = disablePerformanceLogging;
-window.isPerformanceLoggingEnabled = () => isPerformanceLoggingEnabled;
-window.isDetailedPerformanceLogEnabled = () => isDetailedPerformanceLogEnabled;
-window.timeFunction = timeFunction;
-
-// Re-export everything
+// Re-export core functionalities and TRUE control functions if other modules import them from 'client/log'.
 export {
     log,
     logDebug,
@@ -152,19 +104,20 @@ export {
     logMessage,
     LogPanel,
     setLogPanelInstance,
-    // Console control functions
-    enableConsoleLogging,
-    disableConsoleLogging,
-    isLoggingEnabled,
-    // Performance monitoring functions
-    enablePerformanceLogging,
-    disablePerformanceLogging,
-    isPerformanceLoggingEnabled,
-    isDetailedPerformanceLogEnabled,
-    // Timing utilities
-    timeFunction,
-    createTimer
+    // Exporting the true, globally managed versions for programmatic use by other modules:
+    trueEnableConsoleLogging as enableConsoleLogging, // Renamed for export
+    trueDisableConsoleLogging as disableConsoleLogging, // Renamed for export
+    // Modules should use window.isConsoleLoggingEnabled for UI, but if they need a direct import:
+    // trueIsConsoleLoggingEnabled, // This would need to be imported from CLM if CLM exports its () => config.enabled
+
+    trueEnablePerformanceLogging as enablePerformanceLogging, // Renamed for export
+    trueDisablePerformanceLogging as disablePerformanceLogging, // Renamed for export
+    trueIsPerformanceLoggingEnabled as isPerformanceLoggingEnabled, // Renamed for export
+    trueIsDetailedTimingEnabled as isDetailedTimingEnabled, // Renamed for export
+    
+    createTimer, // From ConsoleTiming via ConsoleLogManager
+    timeFunction // From ConsoleTiming via ConsoleLogManager
 };
 
-// Test logging
-console.log('Console logging test - should be visible'); 
+// Test logging - this will use the locally configured console from this file's init.
+console.log('[log/index.js] Console logging test - visibility depends on localEnable/Disable above.'); 

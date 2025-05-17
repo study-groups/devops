@@ -1,8 +1,29 @@
 /**
  * client/settings/ConsoleLogPanel.js
- * Settings panel for console logging, performance metrics, and keyword filtering.
+ * Settings panel for console logging, performance metrics, and type/subtype filtering.
  * Designed to be in feature parity with ConsoleLogManager.js
  */
+
+// Attempt to get the most original console methods
+const panelOriginalConsole = (() => {
+  const getOriginal = (method) => {
+    if (window.originalConsoleForDebug && typeof window.originalConsoleForDebug[method] === 'function') {
+      return window.originalConsoleForDebug[method].bind(window.originalConsoleForDebug);
+    }
+    // Fallback: what console.log is when THIS script loads.
+    // This is risky if other scripts (earlyInit, ConsoleLogManager) have already patched it.
+    // However, originalConsoleForDebug is set by ConsoleLogManager, so it should be preferred.
+    return console[method] ? console[method].bind(console) : function() {};
+  };
+
+  return {
+    log: getOriginal('log'),
+    info: getOriginal('info'),
+    debug: getOriginal('debug'),
+    warn: getOriginal('warn'),
+    error: getOriginal('error')
+  };
+})();
 
 function logConsolePanel(message, level = 'info') {
   const type = 'CONSOLE_LOG_PANEL';
@@ -16,12 +37,70 @@ function logConsolePanel(message, level = 'info') {
 export class ConsoleLogPanel {
   constructor(container) {
     this.container = container;
+    this._boundUpdateBufferedView = this._updateBufferedViewAndStatus.bind(this); // Bound once
+    
+    // Initialize container references
+    this.typesContainer = null;
+    this.subtypesContainer = null;
+    this.levelFilterContainer = null;
+    this.bufferStatusText = null; // For _updateBufferedViewAndStatus
+    this.bufferViewArea = null; // For _updateBufferedViewAndStatus
+
     this.initialize();
   }
 
   initialize() {
     this.createUI();
-    logConsolePanel('Console Log Panel initialized.');
+    if (typeof window.registerOnBufferUpdate === 'function') {
+      window.registerOnBufferUpdate(this._boundUpdateBufferedView);
+    }
+    
+    logConsolePanel('Console Log Panel initialized. UI created. Buffer update listener registered.');
+    
+    // Expose a way for ConsoleLogManager to directly trigger a UI update
+    if (typeof window.devPages === 'undefined') window.devPages = {};
+    if (typeof window.devPages.ui === 'undefined') window.devPages.ui = {};
+    window.devPages.ui.updateConsoleLogPanelStatus = this.updateStatusDisplay.bind(this);
+    logConsolePanel('Registered window.devPages.ui.updateConsoleLogPanelStatus');
+
+    if (this.updateStatusDisplay) {
+        setTimeout(() => this.updateStatusDisplay(), 0); 
+    }
+  }
+
+  _updateBufferedViewAndStatus(newLogEntry = null) {
+    // Update status text (always)
+    if (typeof window.getLogBufferSize === 'function') {
+        const size = window.getLogBufferSize();
+        if (this.bufferStatusText) { // Ensure bufferStatusText has been created by createUI
+            this.bufferStatusText.textContent = `Buffered messages: ${size}`;
+        }
+    }
+
+    // Update view area (only if it exists and is visible)
+    if (this.bufferViewArea && this.bufferViewArea.parentElement) { // Check if it's in the DOM
+        if (newLogEntry) {
+            // Append new entry efficiently if view is already populated
+            const newEntryString = JSON.stringify(newLogEntry, null, 2);
+            if (this.bufferViewArea.value === 'Log buffer is empty.') {
+                 this.bufferViewArea.value = newEntryString;
+            } else {
+                 this.bufferViewArea.value += '\n--------------------\n' + newEntryString;
+            }
+            this.bufferViewArea.scrollTop = this.bufferViewArea.scrollHeight; // Auto-scroll to bottom
+        } else {
+            // Full refresh if no specific new entry (e.g., initial load or manual view click)
+            if (typeof window.getLogBuffer === 'function') {
+                const logs = window.getLogBuffer();
+                if (logs.length === 0) {
+                    this.bufferViewArea.value = 'Log buffer is empty.';
+                } else {
+                    this.bufferViewArea.value = logs.map(log => JSON.stringify(log, null, 2)).join('\n--------------------\n');
+                    this.bufferViewArea.scrollTop = this.bufferViewArea.scrollHeight; // Auto-scroll to bottom
+                }
+            }
+        }
+    }
   }
 
   createUI() {
@@ -78,8 +157,22 @@ export class ConsoleLogPanel {
       toggle.classList.add('settings-checkbox');
       toggle.style.marginRight = '8px';
       try {
-        toggle.checked = typeof isCheckedFn === 'function' ? isCheckedFn() : false;
-      } catch (e) { logConsolePanel(`Error getting initial state for ${id}: ${e.message}`, 'warn'); toggle.checked = false; }
+        const initialChecked = typeof isCheckedFn === 'function' ? isCheckedFn() : false;
+        // Safely log initial state
+        if (window.originalConsoleForDebug && typeof window.originalConsoleForDebug.debug === 'function') {
+          const funcString = typeof isCheckedFn === 'function' ? isCheckedFn.toString().substring(0,150) : 'N/A (not a function)';
+          window.originalConsoleForDebug.debug(`[ConsoleLogPanel_INIT] Initial checked for ${id}:`, initialChecked, 'via function:', funcString);
+        } else {
+          // Fallback if originalConsoleForDebug is not ready (should ideally not happen if init order is correct)
+          console.log(`[ConsoleLogPanel_INIT_FALLBACK] Initial checked for ${id}: ${initialChecked}. isCheckedFn type: ${typeof isCheckedFn}`);
+        }
+        toggle.checked = initialChecked;
+      } catch (e) {
+        // This catch is now more for errors from isCheckedFn() itself or other unexpected issues
+        logConsolePanel(`Error setting initial state for toggle ${id}: ${e.message}`, 'warn');
+        console.error(`[ConsoleLogPanel_ERROR] Error setting initial state for ${id}:`, e);
+        toggle.checked = false; // Fallback if any error occurs
+      }
       toggle.addEventListener('change', (e) => {
         if (typeof changeFn === 'function') changeFn(e.target.checked, true);
       });
@@ -98,20 +191,227 @@ export class ConsoleLogPanel {
       return controlDiv;
     };
 
+    // --- Helper for Text Inputs specifically for keywords ---
+    const createKeywordTextInput = (id, labelText, placeholderText, getValueFn, setGlobalKeywordFn) => {
+        const settingDiv = document.createElement('div');
+        settingDiv.style.marginBottom = '15px';
+
+        const label = document.createElement('label');
+        label.classList.add('settings-label');
+        label.htmlFor = id;
+        label.textContent = labelText;
+        label.style.display = 'block';
+        label.style.marginBottom = '5px';
+        settingDiv.appendChild(label);
+
+        const input = document.createElement('input');
+        input.id = id;
+        input.type = 'text';
+        input.classList.add('settings-text-input'); // Consistent styling
+        input.placeholder = placeholderText;
+        input.style.width = 'calc(100% - 16px)'; // Account for padding/border
+
+        try {
+            input.value = typeof getValueFn === 'function' ? getValueFn() : '';
+            logConsolePanel(`Initial value for ${id}: "${input.value}"`, 'debug');
+        } catch(e) {
+            logConsolePanel(`Error getting initial value for ${id}: ${e.message}`, 'warn');
+            input.value = '';
+        }
+
+        input.addEventListener('input', (event) => {
+            const keywordValue = event.target.value;
+            logConsolePanel(`Input event for ${id}. Value: "${keywordValue}". Calling setGlobalKeywordFn.`, 'debug');
+            if (typeof setGlobalKeywordFn === 'function') {
+                setGlobalKeywordFn(keywordValue, true); // Pass value and persist = true
+            } else {
+                logConsolePanel(`Error: setGlobalKeywordFn for ${id} is not a function.`, 'error');
+            }
+        });
+        settingDiv.appendChild(input);
+        return settingDiv;
+    };
+
     // --- 1. Console Logging Section ---
     const loggingGroup = createSettingsGroup('Console Logging');
+    
+    // Add the console logging toggle
     loggingGroup.appendChild(
       createToggleControl(
         'console-logging-toggle',
-        'Enable Console Logging',
-        'Toggle console message processing by the manager.',
-        window.isConsoleLoggingEnabled,
-        (checked, persist) => {
-          if (checked) window.enableConsoleLogging(persist);
-          else window.disableConsoleLogging(persist);
+        'Enable Console Logging (checked = on)',
+        '',
+                  () => {
+            // Read state from ConsoleLogManager if available, otherwise fallback to localStorage
+            if (typeof window.isConsoleLoggingEnabled === 'function') {
+              const clmIsEnabled = window.isConsoleLoggingEnabled();
+              // panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Using window.isConsoleLoggingEnabled():', clmIsEnabled);
+              return clmIsEnabled;
+            }
+            const lsIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
+            // panelOriginalConsole.warn('[ConsoleLogPanel_isCheckedFn] Fallback to localStorage for isConsoleLoggingEnabled:', lsIsEnabled);
+            return lsIsEnabled;
+          },
+                  (checked, persist) => { // Persist is always true from our call
+            if (checked) {
+              if (typeof window.enableConsoleLogging === 'function') {
+                window.enableConsoleLogging(true); // true for persist
+                panelOriginalConsole.log("[ConsoleLogPanel] Called window.enableConsoleLogging(true)");
+              } else {
+                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.enableConsoleLogging is not a function! Cannot enable logging.");
+                // DO NOT attempt to manage state here. Manager is absent or broken.
+              }
+            } else {
+              if (typeof window.disableConsoleLogging === 'function') {
+                window.disableConsoleLogging(true); // true for persist
+                panelOriginalConsole.log("[ConsoleLogPanel] Called window.disableConsoleLogging(true)");
+              } else {
+                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.disableConsoleLogging is not a function! Cannot disable logging.");
+                // DO NOT attempt to manage state here. Manager is absent or broken.
+              }
+            }
+            // Request an update to the status display.
+            // This will read from the authoritative source (manager or localstorage)
+            if (this.updateStatusDisplay) { // updateStatusDisplay is defined later in createUI
+                this.updateStatusDisplay();
+            } else {
+                // Fallback if updateStatusDisplay isn't ready (should be rare)
+                const toggle = document.getElementById('console-logging-toggle');
+                const statusMessage = document.getElementById('console-logging-status');
+                let currentIsEnabled = false;
+                if (typeof window.isConsoleLoggingEnabled === 'function') {
+                    currentIsEnabled = window.isConsoleLoggingEnabled();
+                } else {
+                    currentIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
+                }
+                if(toggle) toggle.checked = currentIsEnabled;
+                if(statusMessage) {
+                     statusMessage.style.backgroundColor = currentIsEnabled ? '#d4edda' : '#f8d7da';
+                     statusMessage.style.border = '1px solid ' + (currentIsEnabled ? '#c3e6cb' : '#f5c6cb');
+                     statusMessage.textContent = currentIsEnabled ? 
+                       'STATUS: Console logging is ENABLED' : 
+                       'STATUS: Console logging is DISABLED';
+                }
+            }
         }
       )
     );
+    
+    // Add a status message below the toggle
+    const statusMessage = document.createElement('div');
+    statusMessage.id = 'console-logging-status';
+    statusMessage.style.marginTop = '5px';
+    statusMessage.style.padding = '5px';
+    statusMessage.style.borderRadius = '3px';
+    statusMessage.style.fontWeight = 'bold';
+    loggingGroup.appendChild(statusMessage);
+    
+    // Store updateStatusDisplay on the instance so it can be called from changeFn
+    this.updateStatusDisplay = () => {
+       let isEnabled = false;
+       if (typeof window.isConsoleLoggingEnabled === 'function') {
+         isEnabled = window.isConsoleLoggingEnabled();
+         // panelOriginalConsole.debug('[ConsoleLogPanel_updateStatusDisplay] Using window.isConsoleLoggingEnabled():', isEnabled);
+       } else {
+         isEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
+         // panelOriginalConsole.warn('[ConsoleLogPanel_updateStatusDisplay] Fallback to localStorage for isConsoleLoggingEnabled:', isEnabled);
+       }
+
+       if (statusMessage) { // Ensure statusMessage element exists
+            statusMessage.style.backgroundColor = isEnabled ? '#d4edda' : '#f8d7da';
+            statusMessage.style.border = '1px solid ' + (isEnabled ? '#c3e6cb' : '#f5c6cb');
+            statusMessage.textContent = isEnabled ? 
+              'STATUS: Console logging is ENABLED' : 
+              'STATUS: Console logging is DISABLED';
+       }
+       
+       const toggle = document.getElementById('console-logging-toggle');
+       if (toggle) {
+         toggle.checked = isEnabled;
+       }
+       
+       // Also ensure the body class reflects the current state
+       if (isEnabled) {
+           document.body.classList.remove('console-logging-disabled');
+           document.body.classList.add('console-logging-enabled');
+       } else {
+           document.body.classList.remove('console-logging-enabled');
+           document.body.classList.add('console-logging-disabled');
+       }
+
+       // Now also refresh filter options as window.config should be ready
+       panelOriginalConsole.debug('[ConsoleLogPanel_updateStatusDisplay] Refreshing type and level filters.');
+       this.refreshTypeFilterDisplay();
+       this.refreshLevelFilterDisplay();
+     };
+    
+    // Initial call to set status display correctly
+    this.updateStatusDisplay();
+
+    // Update status whenever localStorage changes (e.g. by ConsoleLogManager)
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'consoleLoggingEnabled') {
+        this.updateStatusDisplay();
+      }
+    });
+    
+    // Add a "Refresh Status" button to the status message
+    const updateButton = document.createElement('button');
+    updateButton.textContent = 'Refresh Status';
+    updateButton.className = 'settings-button';
+    updateButton.style.marginLeft = '10px';
+    updateButton.style.padding = '3px 8px';
+    updateButton.addEventListener('click', this.updateStatusDisplay);
+    statusMessage.appendChild(updateButton);
+
+    // Create and Add "Log Filters" button (re-adding previous functionality)
+    const logFiltersButton = document.createElement('button');
+    logFiltersButton.textContent = 'Log Filters';
+    logFiltersButton.className = 'settings-button'; 
+    logFiltersButton.style.padding = '3px 8px';    
+    logFiltersButton.style.backgroundColor = '#cce5ff'; 
+    logFiltersButton.style.border = '1px solid #b8daff';   
+    logFiltersButton.style.borderRadius = '3px';          
+    logFiltersButton.style.cursor = 'pointer';
+    logFiltersButton.style.marginLeft = '10px'; 
+    
+    logFiltersButton.addEventListener('click', () => {
+      panelOriginalConsole.log("===== CURRENT LOG FILTER SETTINGS =====");
+      panelOriginalConsole.log("window.config:", JSON.parse(JSON.stringify(window.config || {}))); // Deep copy for safety
+      
+      if (window.config?.typeFilters) {
+        panelOriginalConsole.log("Type Filters - Include:", window.config.typeFilters.include);
+        panelOriginalConsole.log("Type Filters - Exclude:", window.config.typeFilters.exclude);
+      }
+      if (window.config?.subtypeFilters) {
+        panelOriginalConsole.log("Subtype Filters - Include:", window.config.subtypeFilters.include);
+        panelOriginalConsole.log("Subtype Filters - Exclude:", window.config.subtypeFilters.exclude);
+      }
+      if (window.config?.levelFilters) {
+        panelOriginalConsole.log("Level Filters - Include:", window.config.levelFilters.include);
+        panelOriginalConsole.log("Level Filters - Exclude:", window.config.levelFilters.exclude);
+      }
+      if (window.config?.keywordFilters) {
+        panelOriginalConsole.log("Keyword Filters - Include:", window.config.keywordFilters.include);
+        panelOriginalConsole.log("Keyword Filters - Exclude:", window.config.keywordFilters.exclude);
+      }
+      
+      panelOriginalConsole.log("Global Filter Functions Available:");
+      panelOriginalConsole.log("window.setIncludeTypes:", typeof window.setIncludeTypes === 'function');
+      panelOriginalConsole.log("window.setExcludeTypes:", typeof window.setExcludeTypes === 'function');
+      panelOriginalConsole.log("window.setIncludeSubtypes:", typeof window.setIncludeSubtypes === 'function');
+      panelOriginalConsole.log("window.setExcludeSubtypes:", typeof window.setExcludeSubtypes === 'function');
+      panelOriginalConsole.log("window.setIncludeLevels:", typeof window.setIncludeLevels === 'function');
+      panelOriginalConsole.log("window.setExcludeLevels:", typeof window.setExcludeLevels === 'function');
+      panelOriginalConsole.log("window.setIncludeKeywords:", typeof window.setIncludeKeywords === 'function');
+      panelOriginalConsole.log("window.setExcludeKeywords:", typeof window.setExcludeKeywords === 'function');
+      panelOriginalConsole.log("window.clearAllFilters:", typeof window.clearAllFilters === 'function');
+      panelOriginalConsole.log("===== END LOG FILTER SETTINGS =====");
+      
+      alert("Current filter settings logged to console. Check the browser console for details.");
+    });
+    statusMessage.appendChild(logFiltersButton);
+    
     panelContent.appendChild(loggingGroup);
 
     // --- 2. Performance Monitoring Section ---
@@ -142,125 +442,450 @@ export class ConsoleLogPanel {
     );
     panelContent.appendChild(perfGroup);
     
-    // --- 3. Performance Timing History Report Section ---
-    const timingReportGroup = createSettingsGroup('Performance Timing History', 'View or clear recorded performance timing history.');
-    let reportOutputArea = null;
-    const timingButtonsDiv = createInputGroupDiv(); // Use for button alignment
+    // --- 3. Filtering Section ---
+    const keywordGroup = createSettingsGroup('Keyword Filtering', 'Filter log messages by content');
     
-    const timingReportButton = document.createElement('button');
-    timingReportButton.classList.add('settings-button');
-    timingReportButton.textContent = 'Generate Timing Report';
-    timingReportButton.addEventListener('click', () => {
-      if (typeof window.getTimingReport === 'function') {
-        const report = window.getTimingReport();
-        if (!reportOutputArea) {
-          reportOutputArea = document.createElement('textarea');
-          reportOutputArea.id = 'timing-report-output';
-          reportOutputArea.classList.add('settings-textarea');
-          reportOutputArea.readOnly = true; reportOutputArea.rows = 6;
-          reportOutputArea.style.cssText = 'width: 100%; margin-top: 10px; font-family: monospace; font-size: 12px;';
-          timingReportGroup.appendChild(reportOutputArea); // Append it to the group
-        }
-        reportOutputArea.value = report || 'No timing data recorded or report is empty.';
-      } else if (reportOutputArea) { reportOutputArea.value = 'Timing report function not available.'; }
-    });
-    timingButtonsDiv.appendChild(timingReportButton);
+    // Add input fields for keyword filtering
+    keywordGroup.appendChild(
+      createKeywordTextInput(
+        'include-keywords',
+        'Include Keywords (space-separated)',
+        'e.g.: api error server',
+        () => window.config?.keywordFilters?.include || '',
+        window.setIncludeKeywords
+      )
+    );
+    keywordGroup.appendChild(
+      createKeywordTextInput(
+        'exclude-keywords',
+        'Exclude Keywords (space-separated)',
+        'e.g.: verbose debug minor',
+        () => window.config?.keywordFilters?.exclude || '',
+        window.setExcludeKeywords
+      )
+    );
 
-    const clearReportButton = document.createElement('button');
-    clearReportButton.classList.add('settings-button');
-    clearReportButton.textContent = 'Clear Timing History';
-    clearReportButton.style.marginLeft = '10px';
-    clearReportButton.addEventListener('click', () => {
-      if (typeof window.clearTimingHistory === 'function') {
-        window.clearTimingHistory();
-        if (reportOutputArea) reportOutputArea.value = 'Timing history cleared.';
-        else logConsolePanel('Timing history cleared (no report area visible).');
+    // Button to clear keyword filters
+    const clearFiltersBtn = document.createElement('button');
+    clearFiltersBtn.classList.add('settings-button');
+    clearFiltersBtn.textContent = 'Clear All Filters';
+    clearFiltersBtn.style.marginTop = '10px';
+    clearFiltersBtn.addEventListener('click', () => {
+      if (typeof window.clearAllFilters === 'function') {
+        window.clearAllFilters(true);
+        // Update input fields
+        const includeInput = document.getElementById('include-keywords');
+        const excludeInput = document.getElementById('exclude-keywords');
+        if (includeInput) includeInput.value = '';
+        if (excludeInput) excludeInput.value = '';
+        // Reset type/subtype filter UI
+        this.refreshTypeFilterDisplay();
       }
     });
-    timingButtonsDiv.appendChild(clearReportButton);
-    timingReportGroup.appendChild(timingButtonsDiv);
-    panelContent.appendChild(timingReportGroup);
-
-    // --- 4. Simple Keyword Log Filter Section ---
-    const simpleFilterGroup = createSettingsGroup(
-        'Simple Keyword Log Filter',
-        'Filters apply as you type. Include: ALL keywords must appear. Exclude: ANY keyword will hide. Exclude takes precedence.'
-    );
-
-    const includeInputDiv = createInputGroupDiv();
-    const includeLabel = document.createElement('label');
-    includeLabel.htmlFor = 'include-keywords-input'; includeLabel.textContent = 'Include Keywords:'; includeLabel.style.marginRight="5px";
-    const includeInput = document.createElement('input');
-    includeInput.id = 'include-keywords-input'; includeInput.type = 'text'; includeInput.classList.add('settings-input'); 
-    includeInput.placeholder = 'e.g., user auth payment';
-    try { includeInput.value = typeof window.getIncludeKeywords === 'function' ? window.getIncludeKeywords() : ''; } 
-    catch(e) { logConsolePanel('Error getting include keywords', 'warn'); }
-    includeInput.addEventListener('input', () => { if(typeof window.setIncludeKeywords === 'function') window.setIncludeKeywords(includeInput.value, true); });
-    includeInputDiv.appendChild(includeLabel); includeInputDiv.appendChild(includeInput);
-    simpleFilterGroup.appendChild(includeInputDiv);
-
-    const excludeInputDiv = createInputGroupDiv();
-    const excludeLabel = document.createElement('label');
-    excludeLabel.htmlFor = 'exclude-keywords-input'; excludeLabel.textContent = 'Exclude Keywords:'; excludeLabel.style.marginRight="5px";
-    const excludeInput = document.createElement('input');
-    excludeInput.id = 'exclude-keywords-input'; excludeInput.type = 'text'; excludeInput.classList.add('settings-input');
-    excludeInput.placeholder = 'e.g., verbose noise temp';
-    try { excludeInput.value = typeof window.getExcludeKeywords === 'function' ? window.getExcludeKeywords() : ''; }
-    catch(e) { logConsolePanel('Error getting exclude keywords', 'warn');}
-    excludeInput.addEventListener('input', () => { if(typeof window.setExcludeKeywords === 'function') window.setExcludeKeywords(excludeInput.value, true); });
-    excludeInputDiv.appendChild(excludeLabel); excludeInputDiv.appendChild(excludeInput);
-    simpleFilterGroup.appendChild(excludeInputDiv);
+    keywordGroup.appendChild(clearFiltersBtn);
     
-    const clearFiltersButton = document.createElement('button');
-    clearFiltersButton.classList.add('settings-button'); clearFiltersButton.textContent = 'Clear All Keyword Filters';
-    clearFiltersButton.style.marginTop = '5px';
-    clearFiltersButton.addEventListener('click', () => {
-        includeInput.value = ''; excludeInput.value = '';
-        if (typeof window.clearLogFilter === 'function') window.clearLogFilter(true);
-        logConsolePanel('Cleared simple keyword filters via panel.');
+    panelContent.appendChild(keywordGroup);
+    
+    // --- Type/Subtype Filtering Section ---
+    const typeFilterGroup = createSettingsGroup('Type & Subtype Filtering', 
+      'Filter logs by their Type and Subtype tags (e.g., [USER], [API], etc.)');
+    
+    const typesTitle = document.createElement('h4');
+    typesTitle.textContent = 'Log Types';
+    typesTitle.style.marginBottom = '5px';
+    // Create and assign the container for types
+    this.typesContainer = document.createElement('div');
+    this.typesContainer.classList.add('filter-types-container');
+    this.typesContainer.style.marginBottom = '15px';
+    this.typesContainer.style.maxHeight = '200px';
+    this.typesContainer.style.overflowY = 'auto';
+    this.typesContainer.style.border = '1px solid #ccc';
+    this.typesContainer.style.padding = '10px';
+    
+    const subtypesTitle = document.createElement('h4');
+    subtypesTitle.textContent = 'Log Subtypes';
+    subtypesTitle.style.marginBottom = '5px';
+    subtypesTitle.style.marginTop = '15px';
+    // Create and assign the container for subtypes
+    this.subtypesContainer = document.createElement('div');
+    this.subtypesContainer.classList.add('filter-subtypes-container');
+    this.subtypesContainer.style.marginBottom = '15px';
+    this.subtypesContainer.style.maxHeight = '200px';
+    this.subtypesContainer.style.overflowY = 'auto';
+    this.subtypesContainer.style.border = '1px solid #ccc';
+    this.subtypesContainer.style.padding = '10px';
+        
+    typeFilterGroup.appendChild(typesTitle);
+    typeFilterGroup.appendChild(this.typesContainer); // Use instance property
+    typeFilterGroup.appendChild(subtypesTitle);
+    typeFilterGroup.appendChild(this.subtypesContainer); // Use instance property; TYPO here, should be typeFilterGroup
+    
+    const refreshTypesBtn = document.createElement('button');
+    refreshTypesBtn.classList.add('settings-button');
+    refreshTypesBtn.textContent = 'Refresh Filters'; // Changed label
+    refreshTypesBtn.style.marginTop = '10px';
+    refreshTypesBtn.addEventListener('click', () => { // Make this refresh both
+        this.refreshTypeFilterDisplay();
+        this.refreshLevelFilterDisplay();
     });
-    simpleFilterGroup.appendChild(clearFiltersButton);
-    panelContent.appendChild(simpleFilterGroup);
-
-    // --- 5. Log Keyword Histogram Section ---
-    const histoGroup = createSettingsGroup(
-        'Log Keyword Histogram',
-        'Most frequent words in captured logs (min 3 chars). Requires performance logging to capture history.'
+    typeFilterGroup.appendChild(refreshTypesBtn);
+    panelContent.appendChild(typeFilterGroup);
+    
+    // --- Log Level Filtering Section ---
+    const levelFilterGroup = createSettingsGroup('Log Level Filtering',
+      'Control which log levels are displayed in the console');
+    
+    // Create and assign the container for level filters
+    this.levelFilterContainer = document.createElement('div');
+    this.levelFilterContainer.classList.add('filter-levels-container');
+    // No specific styling needed here as items have margins
+    levelFilterGroup.appendChild(this.levelFilterContainer); // Add container to the group
+    
+    panelContent.appendChild(levelFilterGroup);
+    
+    // --- 4. Log Buffer & Export Section ---
+    const bufferGroup = createSettingsGroup(
+        'Log Buffer Management',
+        'Manage the in-memory log buffer. Buffered when "Enable Console Logging" is on.'
     );
-    let histogramOutputDiv = null;
-    const generateHistoButton = document.createElement('button');
-    generateHistoButton.classList.add('settings-button'); generateHistoButton.textContent = 'Generate Histogram';
-    generateHistoButton.addEventListener('click', async () => {
-      if (typeof window.generateLogKeywordHistogram === 'function') {
-        const histogram = await window.generateLogKeywordHistogram();
-        if (!histogramOutputDiv) {
-            histogramOutputDiv = document.createElement('div'); // Changed to div for pre-wrap
-            histogramOutputDiv.id = 'keyword-histogram-output';
-            histogramOutputDiv.classList.add('settings-textarea'); // Keep class for styling if needed
-            histogramOutputDiv.style.cssText = 'margin-top: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;';
-            histoGroup.appendChild(histogramOutputDiv);
-        }
-        let output = '';
-        if (!histogram || Object.keys(histogram).length === 0) {
-          output = 'No keywords found or log history is empty/unavailable. (Ensure performance logging is on).';
-        } else {
-          const sortedKeywords = Object.entries(histogram).sort(([,a],[,b]) => b-a).slice(0,50);
-          output += 'Top Keywords (Count):\n';
-          sortedKeywords.forEach(([k, v]) => { output += `${k}: ${v}\n`; });
-        }
-        histogramOutputDiv.textContent = output;
-      } else if(histogramOutputDiv) { histogramOutputDiv.textContent = 'Histogram function not available.'; }
-    });
-    histoGroup.appendChild(generateHistoButton);
-    panelContent.appendChild(histoGroup);
 
+    // Create and append buffer status text first
+    this.bufferStatusText = document.createElement('p');
+    this.bufferStatusText.classList.add('settings-description');
+    this.bufferStatusText.style.marginTop = '5px';
+    this.bufferStatusText.style.marginBottom = '10px'; // Add some space before buttons
+    bufferGroup.appendChild(this.bufferStatusText);
+
+    // Add buffer action buttons
+    const bufferActionsDiv = document.createElement('div');
+    bufferActionsDiv.style.display = 'flex';
+    bufferActionsDiv.style.gap = '10px';
+
+    const viewBufferBtn = document.createElement('button');
+    viewBufferBtn.classList.add('settings-button');
+    viewBufferBtn.textContent = 'View Buffer';
+    viewBufferBtn.addEventListener('click', () => {
+      if (!this.bufferViewArea) {
+        // Create textarea for buffer viewing if it doesn't exist yet
+        this.bufferViewArea = document.createElement('textarea');
+        this.bufferViewArea.classList.add('settings-textarea');
+        this.bufferViewArea.setAttribute('readonly', true);
+        this.bufferViewArea.style.width = '100%';
+        this.bufferViewArea.style.height = '200px';
+        this.bufferViewArea.style.marginTop = '10px';
+        this.bufferViewArea.style.fontFamily = 'monospace';
+        this.bufferViewArea.style.fontSize = '12px';
+        bufferGroup.appendChild(this.bufferViewArea);
+      }
+      // Show it if already exists but might be hidden
+      this.bufferViewArea.style.display = 'block';
+      this._updateBufferedViewAndStatus(); // Update content
+    });
+    bufferActionsDiv.appendChild(viewBufferBtn);
+
+    const clearBufferBtn = document.createElement('button');
+    clearBufferBtn.classList.add('settings-button');
+    clearBufferBtn.textContent = 'Clear Buffer';
+    clearBufferBtn.addEventListener('click', () => {
+      if (typeof window.clearLogBuffer === 'function') {
+        window.clearLogBuffer();
+        this._updateBufferedViewAndStatus(); // Update displayed buffer content if visible
+      }
+    });
+    bufferActionsDiv.appendChild(clearBufferBtn);
+
+    const downloadBufferBtn = document.createElement('button');
+    downloadBufferBtn.classList.add('settings-button');
+    downloadBufferBtn.textContent = 'Download Buffer';
+    downloadBufferBtn.addEventListener('click', () => {
+      if (typeof window.getLogBuffer === 'function') {
+        const logs = window.getLogBuffer();
+        if (logs.length === 0) {
+          logConsolePanel('No logs to download', 'warn');
+          return;
+        }
+        
+        const jsonStr = JSON.stringify(logs, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `console_log_buffer_${new Date().toISOString().replace(/:/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    });
+    bufferActionsDiv.appendChild(downloadBufferBtn);
+
+    bufferGroup.appendChild(bufferActionsDiv);
+    panelContent.appendChild(bufferGroup);
+    
+    // Finally append all content to container
     this.container.appendChild(panelContent);
+    
+    // Initial population of UI elements that depend on ConsoleLogManager
+    this.updateStatusDisplay(); // This will now call refreshType/LevelFilterDisplay
+    this._updateBufferedViewAndStatus(); // For buffer count
+
+    logConsolePanel("ConsoleLogPanel UI created and initial refresh triggered.");
   }
 
   destroy() {
-    // If this panel adds any global listeners or holds complex objects, clean them up here.
-    // For now, it mostly just creates DOM, which will be removed when the parent (SettingsPanel)
-    // removes this.container or is destroyed itself.
-    logConsolePanel('Console Log Panel destroyed (or parent is handling cleanup).');
+    if (typeof window.unregisterOnBufferUpdate === 'function') {
+      window.unregisterOnBufferUpdate(this._boundUpdateBufferedView);
+    }
+    // Clean up the global reference
+    if (window.devPages && window.devPages.ui && window.devPages.ui.updateConsoleLogPanelStatus === this.updateStatusDisplay) {
+        delete window.devPages.ui.updateConsoleLogPanelStatus;
+        logConsolePanel('Deregistered window.devPages.ui.updateConsoleLogPanelStatus');
+    }
+
+    if (this.container) {
+      this.container.innerHTML = '';
+    }
+    logConsolePanel('Console Log Panel destroyed.');
   }
-} 
+
+  // Convert refreshTypeFilterDisplay to a class method
+  refreshTypeFilterDisplay() {
+    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
+    
+    if (!this.typesContainer || !this.subtypesContainer) {
+      panelOriginalConsole.warn('[ConsoleLogPanel] Type/Subtype containers not ready for refresh.');
+      return;
+    }
+    
+    this.typesContainer.innerHTML = ''; // Clear existing content
+    this.subtypesContainer.innerHTML = ''; // Clear existing content
+    
+    if (!window.config || typeof window.getDiscoveredTypes !== 'function' || typeof window.getDiscoveredSubtypes !== 'function') {
+      const msg = "Log options (types/subtypes) not available yet. ConsoleLogManager might still be loading or window.config is not set.";
+      panelOriginalConsole.warn(`[ConsoleLogPanel] ${msg}`);
+      this.typesContainer.textContent = msg;
+      this.subtypesContainer.textContent = msg;
+      return;
+    }
+
+    const discoveredTypes = window.getDiscoveredTypes();
+    const discoveredSubtypes = window.getDiscoveredSubtypes();
+    
+    const includeTypes = Array.isArray(window.config.typeFilters?.include) ? 
+      new Set(window.config.typeFilters.include) : new Set();
+    const excludeTypes = Array.isArray(window.config.typeFilters?.exclude) ? 
+      new Set(window.config.typeFilters.exclude) : new Set();
+    const includeSubtypes = Array.isArray(window.config.subtypeFilters?.include) ? 
+      new Set(window.config.subtypeFilters.include) : new Set();
+    const excludeSubtypes = Array.isArray(window.config.subtypeFilters?.exclude) ? 
+      new Set(window.config.subtypeFilters.exclude) : new Set();
+    
+    panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_TYPES] Current type filters:', 
+               { include: [...includeTypes], exclude: [...excludeTypes] });
+    panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_SUBTYPES] Current subtype filters:', 
+               { include: [...includeSubtypes], exclude: [...excludeSubtypes] });
+    
+    if (discoveredTypes.length === 0) {
+      this.typesContainer.textContent = 'No log types discovered yet. Generate some logs first.';
+    } else {
+      discoveredTypes.sort().forEach(type => {
+        let initialState = 'normal';
+        if (includeTypes.has(type)) initialState = 'solo';
+        else if (excludeTypes.has(type)) initialState = 'mute';
+        const typeDiv = this.createFilterCheckbox(type, initialState, 'type');
+        this.typesContainer.appendChild(typeDiv);
+      });
+    }
+    
+    if (discoveredSubtypes.length === 0) {
+      this.subtypesContainer.textContent = 'No log subtypes discovered yet. Generate some logs first.';
+    } else {
+      discoveredSubtypes.sort().forEach(subtype => {
+        let initialState = 'normal';
+        if (includeSubtypes.has(subtype)) initialState = 'solo';
+        else if (excludeSubtypes.has(subtype)) initialState = 'mute';
+        const subtypeDiv = this.createFilterCheckbox(subtype, initialState, 'subtype');
+        this.subtypesContainer.appendChild(subtypeDiv);
+      });
+    }
+  }
+
+  // Ensure refreshLevelFilterDisplay is a class method and uses this.levelFilterContainer
+  refreshLevelFilterDisplay() {
+    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing level filter display');
+
+    if (!this.levelFilterContainer) {
+      panelOriginalConsole.warn('[ConsoleLogPanel] Level filter container not ready for refresh.');
+      return;
+    }
+    this.levelFilterContainer.innerHTML = ''; // Clear existing
+
+    if (!window.config || !window.config.levelFilters) {
+      const msg = "Log options (levels) not available yet. ConsoleLogManager might still be loading or window.config.levelFilters is not set.";
+      panelOriginalConsole.warn(`[ConsoleLogPanel] ${msg}`);
+      this.levelFilterContainer.textContent = msg;
+      return;
+    }
+
+    const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'TIMING'];
+    const includeLevels = Array.isArray(window.config.levelFilters.include) ? 
+      new Set(window.config.levelFilters.include) : new Set();
+    const excludeLevels = Array.isArray(window.config.levelFilters.exclude) ? 
+      new Set(window.config.levelFilters.exclude) : new Set();
+
+    levels.forEach(level => {
+      let initialState = 'normal';
+      if (includeLevels.has(level)) initialState = 'solo';
+      else if (excludeLevels.has(level)) initialState = 'mute';
+      
+      const levelDiv = this.createFilterCheckbox(level, initialState, 'level');
+      this.levelFilterContainer.appendChild(levelDiv);
+    });
+  }
+
+  // Convert createFilterCheckbox to a class method
+  createFilterCheckbox(name, initialState, filterType) {
+    const itemDiv = document.createElement('div');
+    itemDiv.style.marginBottom = '5px';
+    itemDiv.style.display = 'flex';
+    itemDiv.style.alignItems = 'center';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name;
+    nameSpan.style.flexGrow = '1';
+    nameSpan.style.fontWeight = '500';
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '4px';
+    
+    const soloButton = document.createElement('button');
+    soloButton.textContent = 'Solo';
+    soloButton.className = 'filter-button solo-button';
+    soloButton.style.padding = '2px 6px';
+    soloButton.style.fontSize = '12px';
+    soloButton.style.borderRadius = '3px';
+    soloButton.style.border = '1px solid #ccc';
+    soloButton.style.background = initialState === 'solo' ? '#ffcc00' : '#f0f0f0';
+    soloButton.style.cursor = 'pointer';
+    
+    const muteButton = document.createElement('button');
+    muteButton.textContent = 'Mute';
+    muteButton.className = 'filter-button mute-button';
+    muteButton.style.padding = '2px 6px';
+    muteButton.style.fontSize = '12px';
+    muteButton.style.borderRadius = '3px';
+    muteButton.style.border = '1px solid #ccc';
+    muteButton.style.background = initialState === 'mute' ? '#ff6666' : '#f0f0f0';
+    muteButton.style.cursor = 'pointer';
+    
+    let currentItemState = initialState; // Use a local variable for the item's current state
+
+    const updateButtonVisuals = (state) => {
+      soloButton.style.background = state === 'solo' ? '#ffcc00' : '#f0f0f0';
+      muteButton.style.background = state === 'mute' ? '#ff6666' : '#f0f0f0';
+    };
+    
+    soloButton.addEventListener('click', () => {
+      if (currentItemState === 'solo') {
+        currentItemState = 'normal';
+      } else {
+        currentItemState = 'solo';
+      }
+      updateButtonVisuals(currentItemState);
+      this.updateFilter(name, currentItemState, filterType);
+      logConsolePanel(`Set ${filterType} "${name}" to ${currentItemState} mode via solo button`, 'debug');
+    });
+    
+    muteButton.addEventListener('click', () => {
+      if (currentItemState === 'mute') {
+        currentItemState = 'normal';
+      } else {
+        currentItemState = 'mute';
+      }
+      updateButtonVisuals(currentItemState);
+      this.updateFilter(name, currentItemState, filterType);
+      logConsolePanel(`Set ${filterType} "${name}" to ${currentItemState} mode via mute button`, 'debug');
+    });
+    
+    buttonContainer.appendChild(soloButton);
+    buttonContainer.appendChild(muteButton);
+    
+    itemDiv.appendChild(nameSpan);
+    itemDiv.appendChild(buttonContainer);
+    
+    return itemDiv;
+  }
+
+  // Convert updateFilter to a class method
+  updateFilter(filterValue, filterAction, filterType) {
+    panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Setting ${filterType} "${filterValue}" to ${filterAction} mode`);
+    
+    if (!window.config || !window.config.typeFilters || !window.config.subtypeFilters || !window.config.levelFilters) {
+      panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.config or its filter properties are missing! Solo/Mute will not work correctly. Ensure ConsoleLogManager.js initializes window.config properly.");
+      this.refreshTypeFilterDisplay(); 
+      this.refreshLevelFilterDisplay();
+      return;
+    }
+    
+    let includeFilters = [];
+    let excludeFilters = [];
+    let setIncludeFn = null;
+    let setExcludeFn = null;
+
+    switch (filterType) {
+      case 'type':
+        includeFilters = Array.isArray(window.config.typeFilters.include) ? [...window.config.typeFilters.include] : [];
+        excludeFilters = Array.isArray(window.config.typeFilters.exclude) ? [...window.config.typeFilters.exclude] : [];
+        setIncludeFn = window.setIncludeTypes;
+        setExcludeFn = window.setExcludeTypes;
+        break;
+      case 'subtype':
+        includeFilters = Array.isArray(window.config.subtypeFilters.include) ? [...window.config.subtypeFilters.include] : [];
+        excludeFilters = Array.isArray(window.config.subtypeFilters.exclude) ? [...window.config.subtypeFilters.exclude] : [];
+        setIncludeFn = window.setIncludeSubtypes;
+        setExcludeFn = window.setExcludeSubtypes;
+        break;
+      case 'level':
+        includeFilters = Array.isArray(window.config.levelFilters.include) ? [...window.config.levelFilters.include] : [];
+        excludeFilters = Array.isArray(window.config.levelFilters.exclude) ? [...window.config.levelFilters.exclude] : [];
+        setIncludeFn = window.setIncludeLevels;
+        setExcludeFn = window.setExcludeLevels;
+        break;
+      default:
+        panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] Unknown filterType: ${filterType}`);
+        return;
+    }
+
+    includeFilters = includeFilters.filter(f => f !== filterValue);
+    excludeFilters = excludeFilters.filter(f => f !== filterValue);
+    
+    if (filterAction === 'solo') {
+      includeFilters.push(filterValue);
+    } else if (filterAction === 'mute') {
+      excludeFilters.push(filterValue);
+    }
+    
+    if (typeof setIncludeFn === 'function') {
+      setIncludeFn(includeFilters, true); // persist = true
+      panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Called ${setIncludeFn.name} with:`, includeFilters);
+    } else {
+      panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] ${setIncludeFn ? setIncludeFn.name : 'setIncludeFn'} is not a function for ${filterType}`);
+    }
+    
+    if (typeof setExcludeFn === 'function') {
+      setExcludeFn(excludeFilters, true); // persist = true
+      panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Called ${setExcludeFn.name} with:`, excludeFilters);
+    } else {
+      panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] ${setExcludeFn ? setExcludeFn.name : 'setExcludeFn'} is not a function for ${filterType}`);
+    }
+    
+    // After updating filters in ConsoleLogManager, refresh the UI sections
+    // This ensures that if one filter change affects another (e.g. global clear all), UI is consistent.
+    // However, this might be too broad. Let's rely on the manager to update localStorage and the 'storage' event
+    // or direct call via updateConsoleLogPanelStatus to refresh.
+    // For now, we expect ConsoleLogManager to update window.config, and the next render cycle or specific refresh will pick it up.
+    // The direct call to updateStatusDisplay after a toggle change, and its subsequent calls to refreshType/LevelFilterDisplay, should handle this.
+  }
+}

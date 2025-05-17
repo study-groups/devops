@@ -142,7 +142,7 @@ export async function refreshPreview() {
   try {
     // --- Pass pathname to updatePreview ---
     console.log(`[previewManager] Calling updatePreview for path: ${currentPathname || 'unknown'}`);
-    await updatePreview(content, currentPathname); 
+    await updatePreview(content, currentPathname || '');
   } catch (error) {
     console.error('[previewManager] Error updating preview:', error);
   }

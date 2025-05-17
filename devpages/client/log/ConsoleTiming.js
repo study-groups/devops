@@ -15,17 +15,33 @@ const originalConsole = {
   error: console.error
 };
 
+const originalConsoleDebug = console.debug; // Store it before any potential patching
+
+// Ensure originalConsole is safely available for debugging within this module
+// If console might be patched later, define a stable original console for debugging.
+const stableDebug = console.debug; // Or console.log if debug is also patched early
 
 // Configuration properties related to timing
+stableDebug('[CONSOLE_TIMING_MODULE_LOAD] ConsoleTiming.js module loading/evaluating.');
+
 const timingConfig = {
-  performanceTiming: localStorage.getItem('performanceLoggingEnabled') === 'true',
-  detailedTiming: localStorage.getItem('detailedPerformanceLog') === 'true',
+  performanceTiming: (() => {
+    const val = localStorage.getItem('performanceLoggingEnabled') === 'true';
+    stableDebug('[CONSOLE_TIMING_INIT] Reading performanceLoggingEnabled from localStorage:', val);
+    return val;
+  })(),
+  detailedTiming: (() => {
+    const val = localStorage.getItem('detailedPerformanceLog') === 'true';
+    stableDebug('[CONSOLE_TIMING_INIT] Reading detailedPerformanceLog from localStorage:', val);
+    return val;
+  })(),
   startTime: performance.now(), // Timestamp of manager initialization or last reset
   lastLogTime: performance.now(), // Timestamp of the most recent log entry
 
   maxTimingHistory: 1000, // Max number of entries in timingHistory
   maxTimingAge: 30 * 60 * 1000 // Max age in ms (30 minutes) for timing history
 };
+stableDebug('[CONSOLE_TIMING_INIT] Initial timingConfig object:', JSON.parse(JSON.stringify(timingConfig)));
 
 // Timing history buffer to store timer/function durations
 const timingHistory = {
@@ -99,6 +115,11 @@ const timingHistory = {
  * @returns {Array} - Arguments with timing info prepended
  */
 function addPerformanceInfoToLog(args, argsToMessageString) {
+  // stableDebug('[TIMING_addPerformanceInfoToLog] Called. Current timingConfig.performanceTiming:', timingConfig.performanceTiming);
+  if (!timingConfig.performanceTiming) {
+    return args; // No change if performance logging is off
+  }
+
   const now = performance.now();
   const sinceLast = now - timingConfig.lastLogTime;
   const sinceStart = now - timingConfig.startTime;
@@ -116,13 +137,13 @@ function addPerformanceInfoToLog(args, argsToMessageString) {
     duration: sinceLast // Duration since last log
   });
 
-  // Only prepend if performance timing is explicitly enabled via timing config
-  if (!timingConfig.performanceTiming) return args;
-
   // Format timing data
-  let timingPrefix = timingConfig.detailedTiming
-    ? `[+${sinceLast.toFixed(2)}ms | total: ${sinceStart.toFixed(2)}ms]`
-    : `[+${sinceLast.toFixed(0)}ms]`;
+  let timingPrefix = '';
+  if (timingConfig.detailedTiming) {
+    timingPrefix = `[ detailed: ${sinceLast.toFixed(2)}ms | Event: ${label} ]`;
+  } else {
+    timingPrefix = `[${sinceLast.toFixed(0)}ms]`;
+  }
 
   return [timingPrefix, ...args]; // Prepend timing info
 }
@@ -299,13 +320,153 @@ function clearTimingHistory() {
   return timingHistory.clear();
 }
 
+// Helper function to calculate mean
+function calculateMean(numbers) {
+  if (!numbers || numbers.length === 0) return 0;
+  const sum = numbers.reduce((acc, val) => acc + (val || 0), 0);
+  return sum / numbers.length;
+}
+
+// Helper function to calculate standard deviation
+function calculateStdDev(numbers, mean) {
+  if (!numbers || numbers.length === 0) return 0;
+  const variance = numbers.reduce((acc, val) => acc + Math.pow((val || 0) - mean, 2), 0) / numbers.length;
+  return Math.sqrt(variance);
+}
+
+// Helper function to get base label (e.g., "LogPanel.addEntry" from "LogPanel.addEntry-123")
+function getBaseLabel(label) {
+  if (typeof label !== 'string') return 'unknown_label';
+  const parts = label.split('-');
+  if (parts.length > 1) {
+    // Remove the last part if it's numeric (like an ID) or a common suffix
+    const lastPart = parts[parts.length - 1];
+    if (!isNaN(parseFloat(lastPart)) && isFinite(lastPart)) { // Check if it's a number
+        return parts.slice(0, -1).join('-');
+    }
+    // Add other generic suffixes to strip if needed, e.g. common guids or timestamps
+  }
+  return label; // Fallback to full label if no clear numeric suffix
+}
+
 /**
  * Generate a report from timing history.
  * @param {object} options - Filtering/grouping options for the report.
  * @returns {string} - Formatted report string.
  */
 function getTimingReport(options) {
-  return timingHistory.generateReport(options);
+  let report = "=== TIMING REPORT ===\n";
+
+  // --- CONSOLE Section ---
+  // This section's detail should heavily depend on the 'detailed' flag
+  if (timingConfig.performanceTiming) {
+    report += "\n== CONSOLE MESSAGES (Timed via console.* calls) ==\n";
+    if (timingHistory && typeof timingHistory.get === 'function') {
+      const consoleEntries = timingHistory.get({ type: 'console' }); // Assuming type 'console'
+      if (consoleEntries && consoleEntries.length > 0) {
+        // Sort by duration, descending
+        consoleEntries.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+        
+        if (timingConfig.detailedTiming) {
+          consoleEntries.forEach(entry => {
+            report += `${entry.label || 'Unknown Console Log'}: ${(entry.duration || 0).toFixed(2)}ms\n`;
+          });
+        } else {
+          // Non-detailed: Maybe just a summary or top N
+          report += `Total console messages logged with timing: ${consoleEntries.length}\n`;
+          report += `Top 5 longest (if available):\n`;
+          consoleEntries.slice(0, 5).forEach(entry => {
+            report += `  - ${ (entry.label || 'Unknown Log').substring(0,70)}: ${(entry.duration || 0).toFixed(0)}ms\n`;
+          });
+          if(consoleEntries.length > 5) report += "  ... and more.\n"
+        }
+      } else {
+        report += "No console messages with performance timing recorded in history.\n";
+      }
+    } else {
+      report += "Timing history for console messages not available.\n";
+    }
+  } else {
+     report += "\n== CONSOLE MESSAGES ==\nPerformance logging for console messages is disabled.\n";
+  }
+
+  // --- TIMER Section (for createTimer() instances) ---
+  report += "\n== EXPLICIT TIMERS (Created via createTimer) ==\n";
+  if (timingHistory && typeof timingHistory.get === 'function') {
+    const timerEntries = timingHistory.get({ type: 'timer' });
+    if (timerEntries && timerEntries.length > 0) {
+      const groupedTimers = {};
+
+      timerEntries.forEach(entry => {
+        const baseLabel = getBaseLabel(entry.label);
+        if (!groupedTimers[baseLabel]) {
+          groupedTimers[baseLabel] = {
+            entries: [],
+            totalDurations: [], // For the main timer duration
+            checkpointStats: {} // To hold stats for each checkpoint name
+          };
+        }
+        groupedTimers[baseLabel].entries.push(entry);
+        groupedTimers[baseLabel].totalDurations.push(entry.duration || 0);
+
+        if (entry.checkpoints && entry.checkpoints.length > 0) {
+          entry.checkpoints.forEach(cp => {
+            if (!groupedTimers[baseLabel].checkpointStats[cp.name]) {
+              groupedTimers[baseLabel].checkpointStats[cp.name] = {
+                durations: [],
+                count: 0
+              };
+            }
+            groupedTimers[baseLabel].checkpointStats[cp.name].durations.push(cp.duration || 0);
+            groupedTimers[baseLabel].checkpointStats[cp.name].count++;
+          });
+        }
+      });
+
+      // Sort base labels alphabetically for consistent report order
+      Object.keys(groupedTimers).sort().forEach(baseLabel => {
+        const group = groupedTimers[baseLabel];
+        const count = group.entries.length;
+        const meanDuration = calculateMean(group.totalDurations);
+        const stdDevDuration = calculateStdDev(group.totalDurations, meanDuration);
+
+        report += `\n--- ${baseLabel} (Count: ${count}, Avg Total: ${meanDuration.toFixed(2)}ms, StdDev Total: ${stdDevDuration.toFixed(2)}ms) ---\n`;
+
+        // Checkpoint Summaries
+        Object.keys(group.checkpointStats).sort().forEach(cpName => {
+          const cpStat = group.checkpointStats[cpName];
+          const cpMean = calculateMean(cpStat.durations);
+          const cpStdDev = calculateStdDev(cpStat.durations, cpMean);
+          report += `  → Checkpoint '${cpName}' (Count: ${cpStat.count}, Avg: ${cpMean.toFixed(2)}ms, StdDev: ${cpStdDev.toFixed(2)}ms)\n`;
+        });
+      });
+    } else {
+      report += "No explicit timers recorded in history.\n";
+    }
+  } else {
+    report += "Timing history for explicit timers not available.\n";
+  }
+
+  // --- FUNCTION Section (for timeFunction() instances) ---
+  // (Assuming a similar structure might be wanted for 'function' type if it exists and is used)
+  report += "\n== TIMED FUNCTIONS (Wrapped via timeFunction) ==\n";
+  if (timingHistory && typeof timingHistory.get === 'function') {
+    const funcEntries = timingHistory.get({ type: 'function' });
+    if (funcEntries && funcEntries.length > 0) {
+        // Similar grouping and stats could be applied here if desired
+        funcEntries.sort((a,b) => (b.duration || 0) - (a.duration||0));
+        funcEntries.forEach(entry => {
+            report += `${entry.label}: ${(entry.duration || 0).toFixed(2)}ms\n`;
+        });
+    } else {
+        report += "No timed functions recorded in history.\n";
+    }
+  } else {
+    report += "Timing history for timed functions not available.\n";
+  }
+
+
+  return report;
 }
 
 /**
@@ -324,9 +485,13 @@ function getCurrentPerformanceTime() {
  * @param {boolean} persist - Whether to save setting to localStorage.
  */
 function enablePerformanceLogging(persist = false) {
+  stableDebug(`[CONSOLE_TIMING] enablePerformanceLogging called. Persist: ${persist}. Current value: ${timingConfig.performanceTiming}`);
   timingConfig.performanceTiming = true;
-  if (persist) localStorage.setItem('performanceLoggingEnabled', 'true');
-  originalConsole.log('[CONSOLE-TIMING] Performance timing enabled');
+  if (persist) {
+    localStorage.setItem('performanceLoggingEnabled', 'true');
+    stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=true to localStorage');
+  }
+  console.log('[CONSOLE_TIMING] Performance logging ENABLED.'); // User-visible confirmation
   return true;
 }
 
@@ -335,9 +500,13 @@ function enablePerformanceLogging(persist = false) {
  * @param {boolean} persist - Whether to save setting to localStorage.
  */
 function disablePerformanceLogging(persist = false) {
+  stableDebug(`[CONSOLE_TIMING] disablePerformanceLogging called. Persist: ${persist}. Current value: ${timingConfig.performanceTiming}`);
   timingConfig.performanceTiming = false;
-  if (persist) localStorage.setItem('performanceLoggingEnabled', 'false');
-  originalConsole.log('[CONSOLE-TIMING] Performance timing disabled');
+  if (persist) {
+    localStorage.setItem('performanceLoggingEnabled', 'false');
+    stableDebug('[CONSOLE_TIMING] Saved performanceLoggingEnabled=false to localStorage');
+  }
+  console.log('[CONSOLE_TIMING] Performance logging DISABLED.'); // User-visible confirmation
   return false;
 }
 
@@ -346,9 +515,13 @@ function disablePerformanceLogging(persist = false) {
  * @param {boolean} persist - Whether to save setting to localStorage.
  */
 function enableDetailedTiming(persist = false) {
+  stableDebug(`[CONSOLE_TIMING] enableDetailedTiming called. Persist: ${persist}. Current value: ${timingConfig.detailedTiming}`);
   timingConfig.detailedTiming = true;
-  if (persist) localStorage.setItem('detailedPerformanceLog', 'true');
-  originalConsole.log('[CONSOLE-TIMING] Detailed performance timing enabled');
+  if (persist) {
+    localStorage.setItem('detailedPerformanceLog', 'true');
+    stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=true to localStorage');
+  }
+  console.log('[CONSOLE_TIMING] Detailed performance metrics ENABLED.'); // User-visible confirmation
   return true;
 }
 
@@ -357,34 +530,46 @@ function enableDetailedTiming(persist = false) {
  * @param {boolean} persist - Whether to save setting to localStorage.
  */
 function disableDetailedTiming(persist = false) {
+  stableDebug(`[CONSOLE_TIMING] disableDetailedTiming called. Persist: ${persist}. Current value: ${timingConfig.detailedTiming}`);
   timingConfig.detailedTiming = false;
-  if (persist) localStorage.setItem('detailedPerformanceLog', 'false');
-  originalConsole.log('[CONSOLE-TIMING] Detailed performance timing disabled');
+  if (persist) {
+    localStorage.setItem('detailedPerformanceLog', 'false');
+    stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=false to localStorage');
+  }
+  console.log('[CONSOLE_TIMING] Detailed performance metrics DISABLED.'); // User-visible confirmation
   return false;
+}
+
+// Added for completeness based on previous suggestions, ensure these exist
+function isPerformanceLoggingEnabled() {
+  stableDebug('[CONSOLE_TIMING] isPerformanceLoggingEnabled check. Returning:', timingConfig.performanceTiming, 'Full timingConfig:', JSON.parse(JSON.stringify(timingConfig)));
+  return timingConfig.performanceTiming;
+}
+
+function isDetailedTimingEnabled() {
+  stableDebug('[CONSOLE_TIMING] isDetailedTimingEnabled check. Returning:', timingConfig.detailedTiming, 'Full timingConfig:', JSON.parse(JSON.stringify(timingConfig)));
+  return timingConfig.detailedTiming;
 }
 
 // --- Initialization ---
 // This function can be called by ConsoleLogManager to initialize timing
 // and potentially expose timing functions globally.
 function initializeTiming() {
-    // Initial state is loaded from localStorage via timingConfig definition
-    // No additional setup needed here beyond defining functions and config.
+    stableDebug('[CONSOLE_TIMING] initializeTiming() called.');
+    const perfEnabled = localStorage.getItem('performanceLoggingEnabled') === 'true';
+    const detailedEnabled = localStorage.getItem('detailedPerformanceLog') === 'true';
 
-    // Optional: Expose timing functions globally if needed separately from ConsoleLogManager exports
-    window.resetTimers = resetTimers;
-    window.getTimingHistory = getTimingHistory;
-    window.clearTimingHistory = clearTimingHistory;
-    window.getTimingReport = getTimingReport;
-    window.createTimer = createTimer;
-    window.timeFunction = timeFunction;
-    window.getCurrentPerformanceTime = getCurrentPerformanceTime;
-    window.enablePerformanceLogging = enablePerformanceLogging;
-    window.disablePerformanceLogging = disablePerformanceLogging;
-    window.enableDetailedTiming = enableDetailedTiming;
-    window.disableDetailedTiming = disableDetailedTiming;
+    timingConfig.performanceTiming = perfEnabled;
+    timingConfig.detailedTiming = detailedEnabled;
 
-    originalConsole.log('[CONSOLE-TIMING] Timing module initialized.');
+    timingConfig.startTime = performance.now();
+    timingConfig.lastLogTime = performance.now();
+    stableDebug(`[CONSOLE_TIMING] Initialized/Re-initialized. Performance: ${perfEnabled}, Detailed: ${detailedEnabled}. Full timingConfig:`, JSON.parse(JSON.stringify(timingConfig)));
 }
+
+// Call initializeTiming at the end of the module to ensure it runs after everything is defined.
+// This will also re-sync with localStorage if the module is ever re-evaluated.
+initializeTiming();
 
 
 // =================================================================================
@@ -405,5 +590,7 @@ export {
   disablePerformanceLogging,
   enableDetailedTiming,
   disableDetailedTiming,
-  initializeTiming // Export initialization function
+  initializeTiming, // Export initialization function
+  isPerformanceLoggingEnabled,
+  isDetailedTimingEnabled
 };
