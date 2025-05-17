@@ -1,7 +1,11 @@
 // bootstrap.js - Streamlined application initialization
+import { createTimer } from '/client/utils.js';
 
 // Global namespace to prevent multiple initializations
 window.APP = window.APP || {};
+
+// Create a timer for the entire bootstrap process
+const TOTAL_BOOTSTRAP_TIMER = createTimer('TOTAL BOOTSTRAP TIME');
 
 // ADDED: Import central state and messaging components
 import { appStore } from '/client/appState.js';
@@ -36,6 +40,7 @@ logBootstrap('Main state reducer injected into message queue.', 'debug');
 
 // Add this function at the beginning of the bootstrap process
 async function loadUIState() {
+  const uiStateTimer = createTimer('UI State Loading');
   try {
     // Specifically for settings panel visibility
     const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
@@ -50,6 +55,7 @@ async function loadUIState() {
   } catch (e) {
     console.error('[Bootstrap] Error restoring UI state:', e);
   }
+  uiStateTimer.end();
 }
 
 // Call this very early in your initialization sequence
@@ -66,6 +72,7 @@ async function initializeApp() {
 
   try {
     // --- Phase 1: Logging --- 
+    const logTimer = createTimer('Phase 1: Log System');
     logBootstrap('Phase 1: Initializing Log System with LogPanel...', 'debug');
     // MODIFIED: Import the LogPanel class directly from its file
     const { LogPanel } = await import('/client/log/LogPanel.js'); // Correct path
@@ -82,10 +89,11 @@ async function initializeApp() {
     // Use bind to ensure 'this' context is correct when called globally
     window.logMessage = logPanelInstance.addEntry.bind(logPanelInstance); 
     
-    
     logBootstrap('LogPanel initialized and logMessage registered globally.', 'debug');
+    logTimer.end();
 
     // --- Phase 1.5: Initialize Settings Panel System --- 
+    const settingsTimer = createTimer('Phase 1.5: Settings Panel');
     // Moved earlier as it might influence UI/other setups
     logBootstrap('Initializing Settings Panel System...', 'debug');
     try {
@@ -101,8 +109,10 @@ async function initializeApp() {
       logBootstrap(`Failed to initialize Settings Panel System: ${error.message}`, 'error');
       console.error('[SETTINGS PANEL INIT ERROR]', error);
     }
+    settingsTimer.end();
 
     // --- Initialize Deep Link Handler (Before Authentication) ---
+    const deepLinkTimer = createTimer('Phase 2: Deep Link Handler');
     logBootstrap('Initializing Deep Link Handler...', 'info');
     try {
       const deepLinkModule = await import('/client/deepLink.js');
@@ -116,8 +126,10 @@ async function initializeApp() {
       logBootstrap(`Failed to initialize Deep Link Handler: ${error.message}`, 'warning');
       console.error('[DEEP LINK ERROR]', error);
     }
+    deepLinkTimer.end();
 
     // --- Initialize Authentication ---
+    const authTimer = createTimer('Phase 3: Authentication');
     logBootstrap('Initializing Authentication System...', 'debug'); // Simplified log
     try {
         initAuth(); // <<< ADDED: Call initAuth directly
@@ -129,8 +141,10 @@ async function initializeApp() {
          // Optionally dispatch an error state if initAuth failed catastrophically
          // appStore.update(s => ({ ...s, auth: { ...s.auth, isInitializing: false, error: authError.message }}));
     }
+    authTimer.end();
 
     // --- Phase 4: Initialize Core UI Manager (Can now react to appStore.auth changes) ---
+    const uiTimer = createTimer('Phase 4: UI Manager');
     logBootstrap('Phase 4: Initializing UI Manager...', 'debug');
     try {
         // MODIFIED: Import the named export initializeUI
@@ -145,9 +159,11 @@ async function initializeApp() {
         logBootstrap(`Failed to initialize UI Manager: ${error.message}`, 'error');
         console.error('[UI Manager ERROR]', error);
     }
+    uiTimer.end();
 
     // --- Phase 5: Initialize File Manager (Depends on Auth and UI) ---
     // Now likely triggered by state changes in appStore.auth or appStore.ui
+    const fileManagerTimer = createTimer('Phase 5: File Manager');
     logBootstrap('Phase 5: FileManager initialization delegated to state changes.', 'info');
     // May need an init function in fileManager.js to set up its subscriptions
     try {
@@ -162,12 +178,15 @@ async function initializeApp() {
         logBootstrap(`Failed to setup FileManager listeners: ${error.message}`, 'error');
         console.error('[FILEMANAGER SETUP ERROR]', error);
     }
+    fileManagerTimer.end();
 
     // --- Phase 6: Initialize Other Components/Modules ---
+    const otherComponentsTimer = createTimer('Phase 6: Other Components');
     logBootstrap('Phase 6: Initializing Actions, Editor, Preview, etc...', 'debug');
     // These modules will also increasingly rely on dispatching actions and subscribing to appStore
     
     // Initialize Preview Manager (depends on #preview-container being ready from initializeUI)
+    const previewTimer = createTimer('Phase 6.1: Preview Manager');
     logBootstrap('Initializing Preview Manager...', 'debug');
     try {
         await initializePreviewManager();
@@ -176,8 +195,10 @@ async function initializeApp() {
         logBootstrap(`Failed to initialize Preview Manager: ${error.message}`, 'error');
         console.error('[PREVIEW MANAGER INIT ERROR]', error);
     }
+    previewTimer.end();
 
     // Actions (Listens for events from UI components, might dispatch actions)
+    const actionsTimer = createTimer('Phase 6.2: Actions');
     try {
         const actionsModule = await import('/client/actions.js');
         if (typeof actionsModule.initializeActions === 'function') {
@@ -190,8 +211,10 @@ async function initializeApp() {
         logBootstrap(`Failed to initialize Actions: ${error.message}`, 'error');
         console.error('[ACTIONS INIT ERROR]', error);
     }
+    actionsTimer.end();
     
     // Editor (Will dispatch EDITOR_CONTENT_CHANGED, subscribe to file changes, etc.)
+    const editorTimer = createTimer('Phase 6.3: Editor');
     try {
          const editorModule = await import('/client/editor.js');
          if (typeof editorModule.initializeEditor === 'function') {
@@ -204,6 +227,7 @@ async function initializeApp() {
          logBootstrap(`Failed to initialize Editor: ${error.message}`, 'error');
          console.error('[EDITOR INIT ERROR]', error);
      }
+     editorTimer.end();
      
     // DOM event listeners (May dispatch actions based on global events)
     try {
@@ -247,6 +271,8 @@ async function initializeApp() {
         console.error('[SHORTCUTS INIT ERROR]', error);
     }
     
+    otherComponentsTimer.end();
+    
     logBootstrap('===== APPLICATION BOOTSTRAP COMPLETE =====', 'info');
     
     // Final event indicating app structure is ready (modules should be listening to appStore now)
@@ -262,6 +288,9 @@ async function initializeApp() {
   <h2>Application Failed to Load</h2>
   <p>A critical error occurred during startup. Please check the console for details or contact support.</p>
 </div>`;
+  } finally {
+    TOTAL_BOOTSTRAP_TIMER.end();
+    logBootstrap('===== APPLICATION BOOTSTRAP COMPLETE =====', 'info');
   }
 }
 

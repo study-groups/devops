@@ -2,6 +2,7 @@ import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js'; // Assuming this is where actions like toggleLogVisibility are.
 import { logInfo, logError, logDebug } from './core.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
+import { applyNLPFilter, getFilterHelp } from './NLPLogFilter.js';
 
 // These might be better as part of logPanelInstance.config or passed in
 const MIN_LOG_HEIGHT = 80; // Or get from LogPanel constants
@@ -89,6 +90,33 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                 //         logPanelInstance._collapseLogEntry(entryToCollapse);
                 //     }
                 //     break;
+                case 'showFilterHelp':
+                    // Create a modal dialog for help
+                    const helpModal = document.createElement('div');
+                    helpModal.className = 'log-filter-help-modal';
+                    helpModal.innerHTML = `
+                        <div class="log-filter-help-content">
+                            <button class="close-help-modal">&times;</button>
+                            ${getFilterHelp()}
+                        </div>
+                    `;
+                    document.body.appendChild(helpModal);
+                    
+                    // Add close button listener
+                    const closeBtn = helpModal.querySelector('.close-help-modal');
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', () => {
+                            document.body.removeChild(helpModal);
+                        });
+                    }
+                    
+                    // Close when clicking outside
+                    helpModal.addEventListener('click', (e) => {
+                        if (e.target === helpModal) {
+                            document.body.removeChild(helpModal);
+                        }
+                    });
+                    break;
                 default:
                     // If triggerActions is available and the action is defined there, use it.
                     // This is useful for actions that are more global or complex.
@@ -205,6 +233,47 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             }
         });
         logDebug('Attached click listener to tagsBarElement (using appStore.update).', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+    }
+
+    // Add event listener for filter input
+    if (logPanelInstance.filterInput) {
+        // Debounce input to avoid excessive filtering
+        let filterTimeout;
+        
+        logPanelInstance.filterInput.addEventListener('input', (event) => {
+            clearTimeout(filterTimeout);
+            const query = event.target.value.trim();
+            
+            // Store current query in localStorage for persistence
+            if (query) {
+                localStorage.setItem('lastLogFilterQuery', query);
+            } else {
+                localStorage.removeItem('lastLogFilterQuery');
+            }
+            
+            // Apply filter with debounce
+            filterTimeout = setTimeout(() => {
+                const visibleCount = applyNLPFilter(logPanelInstance.logElement, query);
+                logPanelInstance.updateEntryCount();
+                
+                // Optional: Show count in status
+                if (logPanelInstance.statusElement && query) {
+                    logPanelInstance.statusElement.textContent = 
+                        `${visibleCount}/${logPanelInstance.state.entryCount} entries (filtered)`;
+                }
+            }, 300);
+        });
+        
+        // Load last filter query from localStorage on init
+        const lastQuery = localStorage.getItem('lastLogFilterQuery');
+        if (lastQuery) {
+            logPanelInstance.filterInput.value = lastQuery;
+            // Trigger filtering
+            applyNLPFilter(logPanelInstance.logElement, lastQuery);
+            logPanelInstance.updateEntryCount();
+        }
+        
+        logDebug('Attached input event listener to log filter input', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     }
 }
 

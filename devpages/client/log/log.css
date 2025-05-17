@@ -759,3 +759,8 @@
   align-items: center;
   gap: 0.25rem;
 }
+
+/* Style log entries based on visibility */
+.log-entry.log-entry-hidden-by-filter {
+  display: none;
+}

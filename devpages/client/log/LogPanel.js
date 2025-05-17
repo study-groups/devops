@@ -31,6 +31,9 @@ import eventBus from '/client/eventBus.js';
 // ADD: Import markdown rendering function AND post-processing
 import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 
+// At the top of the file, import the logger
+import { createTimer } from '/client/log/ConsoleLogManager.js';
+
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';
 const DEFAULT_LOG_HEIGHT = 150;
@@ -141,16 +144,9 @@ export class LogPanel {
      * Accepts the NEW structured object form or the old (messageString, typeString) form.
      */
     addEntry(entryData, legacyTypeArgument = 'text') {
-        // --- START TEMPORARY CONSOLE LOGGING (REMOVE LATER) ---
-        console.log('%%%% LogPanel.addEntry CALLED. entryData:', entryData);
-        if (entryData && typeof entryData === 'object') {
-            console.log('%%%% entryData props: message?', ('message' in entryData), 'level?', ('level' in entryData), 'type?', ('type' in entryData));
-            console.log('%%%% entryData.message:', entryData.message);
-            console.log('%%%% entryData.level:', entryData.level);
-            console.log('%%%% entryData.type:', entryData.type);
-        }
-        // --- END TEMPORARY CONSOLE LOGGING ---
-
+        // Create a timer for this operation
+        const entryTimer = createTimer(`LogPanel.addEntry-${this.state.clientLogIndex}`);
+        
         let messageForDisplay; 
         let level;
         let type;   
@@ -214,8 +210,8 @@ export class LogPanel {
             return;
         }
 
-        // ... (message processing logic from entryData to messageForDisplay, level, type) ...
-        // logPanelInternalDebug(`[LogPanel.addEntry DEBUG (after processing)] DisplayMsg: "${String(messageForDisplay).substring(0,70)}...", Level: "${level}", Type: "${type}", Subtype: "${subtype}"`);
+        // Create checkpoints in complex operations
+        entryTimer.checkpoint('parsed data');
 
         const upperCaseType = type.toUpperCase();
 
@@ -327,6 +323,11 @@ export class LogPanel {
         if (!activeFiltersCurrent.includes(upperCaseType)) {
             logEntry.classList.add('log-entry-hidden-by-filter');
         }
+
+        entryTimer.checkpoint('added to DOM');
+        
+        // End timing when done
+        entryTimer.end();
     }
 
     /**
