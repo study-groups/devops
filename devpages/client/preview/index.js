@@ -234,6 +234,10 @@ export class PreviewManager {
                 // The 'headContent' from renderResult can be used for dynamic CSS links if not handled by CssPlugin
 
                 logMessage(`[PreviewManager.update] Setting previewElement.innerHTML with renderResult.html (length: ${renderResult.html.length})...`, "debug", "PREVIEW");
+                
+                // DIAGNOSTIC LOG:
+                console.log('>>>> RENDERED HTML BODY FOR PREVIEW (renderResult.html):', renderResult.html);
+
                 this.previewElement.innerHTML = renderResult.html; // Set the sanitized body HTML
                 logMessage(`[PreviewManager.update] previewElement.innerHTML updated.`, "debug", "PREVIEW");
 
@@ -248,7 +252,7 @@ export class PreviewManager {
             
             logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
             // MODIFIED: Pass script arrays AND markdownFilePath to postProcessRender
-            await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath);
+            await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath, renderResult.frontMatter);
             logMessage(`[PreviewManager.update] postProcessRender finished.`, "debug", "PREVIEW");
             
             resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });

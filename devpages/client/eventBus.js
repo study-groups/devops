@@ -48,19 +48,8 @@ export class EventBus {
       }
     });
     
-    // REMOVED: Redundant DOM event dispatching for auth.
-    // Components should subscribe to appState directly.
-    // if (eventName.startsWith(\'auth:\')) {
-    //   document.dispatchEvent(new CustomEvent(eventName, { detail: data }));
-    // }
-  }
 
-  // REMOVED: Authentication state management methods
-  // setAuthState(state) { ... }
-  // getAuthState() { ... }
-  // isAuthenticated() { ... }
-  // isAuthorized(actionType, resource) { ... }
-  // clearAuthState() { ... }
+  }
 
 }
 

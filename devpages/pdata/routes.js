@@ -107,6 +107,29 @@ export function createPDataRoutes(pdataInstance) {
         }
     });
 
+ /*  
+ Simple old text only way     // Read file
+        router.get('/read', async (req, res) => {
+            const logPrefix = '[API /read]';
+            try {
+                const username = req.user.username;
+                const filePath = req.query.file;
+                console.log(`${logPrefix} User='${username}', Requested file='${filePath}'`);
+                if (!filePath) {
+                    return res.status(400).json({ error: 'File path query parameter is required' });
+                }
+                // Call method directly on req.pdata
+                const content = await req.pdata.readFile(username, filePath);
+                res.type('text/plain');
+                res.send(content);
+            } catch (error) {
+                console.error(`${logPrefix} Error:`, error);
+                const { status, message } = getErrorStatusAndMessage(error);
+                res.status(status).json({ error: message });
+            }
+        });
+*/
+        
     // Read file
     router.get('/read', async (req, res) => {
         const logPrefix = '[API /read]';
@@ -117,14 +140,39 @@ export function createPDataRoutes(pdataInstance) {
             if (!filePath) {
                 return res.status(400).json({ error: 'File path query parameter is required' });
             }
-            // Call method directly on req.pdata
             const content = await req.pdata.readFile(username, filePath);
-            res.type('text/plain');
+
+            const fileExtension = path.extname(filePath).toLowerCase();
+            let contentType = 'text/plain'; // Default to text/plain
+
+            if (fileExtension === '.html' || fileExtension === '.htm') {
+                contentType = 'text/html';
+            } else if (fileExtension === '.js') {
+                contentType = 'application/javascript';
+            } else if (fileExtension === '.css') {
+                contentType = 'text/css';
+            } else if (fileExtension === '.json') {
+                contentType = 'application/json';
+            } else if (fileExtension === '.svg') {
+                contentType = 'image/svg+xml';
+            } else if (fileExtension === '.png') {
+                contentType = 'image/png';
+            } else if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
+                contentType = 'image/jpeg';
+            } // Add more common types as needed
+            
+            console.log(`${logPrefix} FilePath: '${filePath}', Extension: '${fileExtension}', Determined ContentType: '${contentType}'`); 
+
+            res.type(contentType);
             res.send(content);
         } catch (error) {
             console.error(`${logPrefix} Error:`, error);
             const { status, message } = getErrorStatusAndMessage(error);
-            res.status(status).json({ error: message });
+            if (!res.headersSent) {
+                 res.status(status).json({ error: message });
+            } else {
+                console.error(`${logPrefix} Error after headers sent: ${error.message}`);
+            }
         }
     });
 

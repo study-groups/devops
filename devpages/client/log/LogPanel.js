@@ -164,6 +164,14 @@ export class LogPanel {
             type = entryData.type;   
             subtype = entryData.subtype; 
             timestamp = new Date(entryData.ts).toLocaleTimeString();
+            
+            // Add performance display
+            let perfInfo = '';
+            const showPerf = localStorage.getItem('performanceLoggingEnabled') === 'true';
+            
+            if (showPerf && entryData.perf) {
+                perfInfo = ` [+${entryData.perf.sinceLast.toFixed(2)}ms | total: ${entryData.perf.sinceStart.toFixed(2)}ms]`;
+            }
 
             let displayPrefix = `[${level}]`;
             if (type !== 'GENERAL' || subtype) {
@@ -173,7 +181,7 @@ export class LogPanel {
                 displayPrefix += ` [${subtype}]`;
             }
             const coreMessageString = typeof originalCoreMessage === 'string' ? originalCoreMessage : JSON.stringify(originalCoreMessage);
-            messageForDisplay = `${displayPrefix} ${coreMessageString}`;
+            messageForDisplay = `${displayPrefix}${perfInfo} ${coreMessageString}`;
 
         } else if (typeof entryData === 'string') {
             // This path is for legacy calls, or if addEntry is directly called with a string

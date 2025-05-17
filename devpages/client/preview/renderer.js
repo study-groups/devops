@@ -519,6 +519,44 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
     const { frontMatter: rawFrontMatter, body: markdownBody } = parseBasicFrontmatter(contentToProcess);
     logRenderer(`[renderMarkdown] Frontmatter parsed. Body content length for md.render(): ${markdownBody?.length || 0}.`, 'debug');
 
+    // --- START: CSS Includes Processing ---
+    if (rawFrontMatter.css_includes && Array.isArray(rawFrontMatter.css_includes) && markdownFilePath) {
+        const pdataFilePathDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/'));
+        rawFrontMatter.css_includes.forEach(cssPath => {
+            if (typeof cssPath === 'string' && cssPath.trim() !== '') {
+                const trimmedCssPath = cssPath.trim();
+                let resolvedCssPDataPath = '';
+                if (trimmedCssPath.startsWith('./') || trimmedCssPath.startsWith('../')) {
+                    resolvedCssPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
+                } else if (!trimmedCssPath.startsWith('/') && !trimmedCssPath.startsWith('http')) {
+                    // Assume it's relative to the markdown file's directory if no other prefix
+                    resolvedCssPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
+                } else {
+                    // If it's an absolute path (starts with /) or a full URL, use as is for the href directly
+                    // For /api/pdata/read, we still need to construct it.
+                    // This part might need refinement if you expect absolute /pdata paths.
+                    // For now, we primarily support relative paths for css_includes.
+                    logRenderer(`[renderMarkdown] CSS path '${trimmedCssPath}' is absolute or a full URL. It will be used as-is if it's a URL, or needs API prefix if it's an absolute server path. This example handles relative paths for /api/pdata/read.`, 'warn');
+                    // If it's a full URL, href will be cssPath. If /path, it needs prefix.
+                    // For simplicity, this example focuses on relative paths being served via pdata.
+                    // If you intend to support full URLs directly in css_includes, that's fine.
+                    // If you intend to support absolute server paths that AREN'T /api/pdata, this needs more logic.
+                    if (trimmedCssPath.startsWith('http')) {
+                         headContent += `<link rel="stylesheet" type="text/css" href="${DOMPurify.sanitize(trimmedCssPath, { USE_PROFILES: { html: true } })}">\n`;
+                    } else {
+                        logRenderer(`[renderMarkdown] Non-relative, non-HTTP CSS path '${trimmedCssPath}' in css_includes is not fully handled by this example logic for /api/pdata/read.`, 'warn');
+                    }
+                    return; // Skip further processing for this item
+                }
+                
+                const finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedCssPDataPath)}`;
+                headContent += `<link rel="stylesheet" type="text/css" href="${DOMPurify.sanitize(finalCssUrl, { USE_PROFILES: { html: true } })}">\n`;
+                logRenderer(`[renderMarkdown] Added CSS link to headContent: ${finalCssUrl}`, 'info');
+            }
+        });
+    }
+    // --- END: CSS Includes Processing ---
+
     const localMd = await getMarkdownItInstance(markdownFilePath);
     const htmlBodyRaw = localMd.render(markdownBody);
     logRenderer(`[renderMarkdown] After localMd.render(). Raw HTML body length: ${htmlBodyRaw.length}.`, 'debug');
@@ -653,8 +691,9 @@ function simpleJoinPath(base, relative) {
  * @param {Array<string|object>} externalScriptUrls - URLs or path objects for external scripts.
  * @param {Array<string>} inlineScriptContents - Strings of inline script code.
  * @param {string} [markdownFilePath=''] - The path of the markdown file being rendered.
+ * @param {object} [frontMatter={}] - The parsed frontmatter object.
  */
-export async function postProcessRender(previewElement, externalScriptUrls = [], inlineScriptContents = [], markdownFilePath = '') {
+export async function postProcessRender(previewElement, externalScriptUrls = [], inlineScriptContents = [], markdownFilePath = '', frontMatter = {}) {
     logRenderer(`[postProcessRender] Called for element: ${previewElement ? previewElement.id : 'null'}. External scripts: ${externalScriptUrls.length}, Inline scripts: ${inlineScriptContents.length}. Path: '${markdownFilePath}'`);
 
     if (!previewElement) {
@@ -662,10 +701,77 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
         return;
     }
 
-    const { appStore } = window; 
-    if (!appStore || !appStore.getState) {
-        logRenderer('[postProcessRender] appStore is not available. Cannot resolve relative script paths.', 'error');
+    // const { appStore } = window; // Not strictly needed for this CSS part if markdownFilePath is reliable
+    // if (!appStore || !appStore.getState) {
+    //     logRenderer('[postProcessRender] appStore is not available. This might affect some path resolutions if markdownFilePath is not provided.', 'warn');
+    // }
+
+    // --- START: CSS Link Injection ---
+    // Ensure existing CSS links from previous renders for THIS specific preview instance are removed
+    // This requires a way to identify them, e.g., by adding a custom attribute.
+    const previewSpecificCssClass = `preview-css-${markdownFilePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    document.querySelectorAll(`link.${previewSpecificCssClass}`).forEach(link => {
+        logRenderer(`[postProcessRender] Removing old CSS link: ${link.href}`, 'debug');
+        link.remove();
+    });
+
+    if (frontMatter.css_includes && Array.isArray(frontMatter.css_includes) && markdownFilePath) {
+        logRenderer(`[postProcessRender] Processing ${frontMatter.css_includes.length} CSS includes.`, 'debug');
+        const pdataFilePathDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/'));
+        
+        frontMatter.css_includes.forEach(cssPath => {
+            if (typeof cssPath === 'string' && cssPath.trim() !== '') {
+                const trimmedCssPath = cssPath.trim();
+                let finalCssUrl = '';
+
+                if (trimmedCssPath.startsWith('http://') || trimmedCssPath.startsWith('https://')) {
+                    finalCssUrl = trimmedCssPath; // Use full URL as is
+                    logRenderer(`[postProcessRender] CSS Path is absolute URL: ${finalCssUrl}`, 'debug');
+                } else if (trimmedCssPath.startsWith('/')) {
+                    // Assuming root-relative path means from the domain root,
+                    // and if it's for pdata, it needs the /api/pdata/read?file= prefix.
+                    // This might need adjustment based on how you serve root-relative assets.
+                    // If it's truly like /css/app.css and served directly, no prefix needed.
+                    // For consistency with pdata-served assets:
+                    if (trimmedCssPath.startsWith('/api/pdata/read?file=')) { // Already correctly prefixed
+                        finalCssUrl = trimmedCssPath;
+                    } else { // Assume it's a path within pdata from the root of pdata
+                         finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(trimmedCssPath.startsWith('/') ? trimmedCssPath.substring(1) : trimmedCssPath)}`;
+                    }
+                    logRenderer(`[postProcessRender] CSS Path is root-relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
+                } else if (trimmedCssPath.startsWith('./') || trimmedCssPath.startsWith('../')) {
+                    const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
+                    finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                    logRenderer(`[postProcessRender] CSS Path is relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
+                } else {
+                    // Assume relative to MD file if no other indicators
+                    logRenderer(`[postProcessRender] CSS Path is ambiguous (assuming relative to MD): '${trimmedCssPath}'.`, 'debug');
+                    const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
+                    finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                }
+
+                if (finalCssUrl) {
+                    // More robust check for existing link, especially if IDs aren't feasible
+                    const existingLink = document.querySelector(`link[rel="stylesheet"][href="${finalCssUrl}"]`);
+                    if (!existingLink) {
+                        const linkEl = document.createElement('link');
+                        linkEl.rel = 'stylesheet';
+                        linkEl.type = 'text/css';
+                        linkEl.href = finalCssUrl;
+                        linkEl.classList.add(previewSpecificCssClass); // Add class for identification
+                        document.head.appendChild(linkEl);
+                        logRenderer(`[postProcessRender] Appended CSS link to document.head: ${finalCssUrl}`, 'info');
+                    } else {
+                        logRenderer(`[postProcessRender] CSS link already exists in document.head: ${finalCssUrl}`, 'debug');
+                    }
+                }
+            }
+        });
+    } else {
+        if (!frontMatter.css_includes) logRenderer(`[postProcessRender] No 'css_includes' in frontMatter.`, 'debug');
+        else if (!markdownFilePath) logRenderer(`[postProcessRender] 'markdownFilePath' is missing, cannot resolve relative CSS paths.`, 'warn');
     }
+    // --- END: CSS Link Injection ---
 
     let fetchedExternalScripts = [];
 
@@ -768,9 +874,24 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
     const bundledScriptContent = scriptParts.join(";\n");
     // ** END MODIFIED SCRIPT BUNDLING LOGIC **
 
+    // <<< ADD THIS LOG BLOCK HERE >>>
+    if (previewElement) {
+        logRenderer(`[postProcessRender] HTML of previewElement (id: ${previewElement.id}, first 1000 chars) JUST BEFORE SCRIPT ELEMENT CREATION/APPEND:\n${previewElement.innerHTML.substring(0, 1000)}`, 'debug');
+        if (previewElement.innerHTML.includes('id="host-log"')) {
+            logRenderer("[postProcessRender] >>> #host-log IS PRESENT in previewElement.innerHTML before script append.", "info");
+        } else {
+            logRenderer("[postProcessRender] >>> #host-log IS ***NOT*** PRESENT in previewElement.innerHTML before script append.", "warn");
+        }
+        if (previewElement.innerHTML.includes('id="game-iframe"')) {
+            logRenderer("[postProcessRender] >>> #game-iframe IS PRESENT in previewElement.innerHTML before script append.", "info");
+        } else {
+            logRenderer("[postProcessRender] >>> #game-iframe IS ***NOT*** PRESENT in previewElement.innerHTML before script append.", "warn");
+        }
+    }
+    // <<< END OF ADDED LOG BLOCK >>>
+
     if (bundledScriptContent.trim() !== '') {
-        // The detailed logging for bundledScriptContent you requested previously:
-        logRenderer(`[postProcessRender] FINAL SCRIPT BUNDLE about to be appended (length: ${bundledScriptContent.length}):\n------------ START BUNDLE ------------\n${bundledScriptContent}\n------------- END BUNDLE -------------`);
+        logRenderer(`[postProcessRender] FINAL SCRIPT BUNDLE about to be appended (length: ${bundledScriptContent.length}):\n------------ START BUNDLE ------------\n${bundledScriptContent.substring(0,500)}...\n------------- END BUNDLE -------------`); // Log only first 500 chars
 
 
         const scriptElement = document.createElement('script');
@@ -826,6 +947,17 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
     }
 
     logRenderer(`[postProcessRender] Finished.`);
+
+    // NEW: Dispatch custom event to signal content is fully processed
+    if (previewElement) {
+        const event = new CustomEvent('preview:contentready', {
+            bubbles: true,
+            cancelable: false,
+            detail: { filePath: markdownFilePath }
+        });
+        previewElement.dispatchEvent(event);
+        logRenderer(`[postProcessRender] Dispatched 'preview:contentready' event for ${markdownFilePath}`);
+    }
 }
 
 export class Renderer {
@@ -836,6 +968,7 @@ export class Renderer {
     ];
   }
 
+  /*
   async render(content, element) {
     logRenderer('[DEPRECATED?] Renderer class render method called.', 'warning');
     const html = await renderMarkdown(content);
@@ -854,4 +987,5 @@ export class Renderer {
       }
     });
   }
+    */
 } 

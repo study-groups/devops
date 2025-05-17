@@ -8,6 +8,7 @@ import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { PluginsPanel } from './PluginsPanel.js'; // Import the new panel
 import { CssSettingsPanel } from './CssSettingsPanel.js';
 import { JavaScriptPanel } from './JavaScriptPanel.js';
+import { DeveloperPanel } from './DeveloperPanel.js';
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
 const SETTINGS_PANEL_VISIBLE_KEY = 'settings_panel_visible';
@@ -36,6 +37,7 @@ export class SettingsPanel {
     this.pluginsPanelInstance = null; // Add property to hold the instance
     this.cssSettingsPanelInstance = null; // Renamed from cssSettingsInstance
     this.jsPanelInstance = null;
+    this.developerPanelInstance = null;
 
     this.isDragging = false;
     this.isResizing = false;
@@ -286,6 +288,23 @@ export class SettingsPanel {
         logSettings('[ERROR] jsContainer was not a valid Node!', 'error');
     }
 
+    // Instantiate DeveloperPanel
+    logSettings('[DEBUG] Creating Developer Options Section...', 'debug');
+    const devContainer = this.createSectionContainer('dev-settings-container', 'Developer Options');
+    if (collapsedSections['dev-settings-container']) { devContainer.classList.add('collapsed'); }
+    if (devContainer instanceof Node) {
+        this.contentElement.appendChild(devContainer);
+        try {
+            this.developerPanelInstance = new DeveloperPanel(devContainer);
+            logSettings('[DEBUG] DeveloperPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init DeveloperPanel: ${error}`, 'error');
+            devContainer.innerHTML = '<p style="color: red;">Error loading developer options.</p>';
+        }
+    } else {
+        logSettings('[ERROR] devContainer was not a valid Node!', 'error');
+    }
+
     logSettings('Panel content and sub-panels created.', 'debug');
   }
 
@@ -486,6 +505,7 @@ export class SettingsPanel {
     // Destroy child panels
     this.cssSettingsPanelInstance?.destroy();
     this.jsPanelInstance?.destroy();
+    this.developerPanelInstance?.destroy();
 
     // --- Remove CSS --- 
     this.removeStyles();
