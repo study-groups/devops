@@ -1,0 +1,20 @@
+asearch() {
+    local db="${QA_DIR}/db"
+    local query="$*"
+
+    echo "Searching in $db"
+
+    if [[ -z "$query" ]]; then
+        echo "Please provide a search term."
+        return 1
+    fi
+
+    grep -rinH -- "$query" "$db"/*.answer 2>/dev/null | \
+    fzf \
+        --delimiter : \
+        --with-nth 3.. \
+        --preview 'glow --style=dark {1}' \
+        --preview-window=right:80% \
+        --bind 'enter:execute(glow --style=dark {1} | less -R)'
+}
+

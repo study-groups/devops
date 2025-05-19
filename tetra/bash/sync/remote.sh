@@ -1,3 +1,12 @@
+tetra_remote_list(){
+  # - `${remote%%:*}` extracts the user and hostname → `dev@10.124.0.4`
+  # - `${remote#*:}` extracts the remote path → `/home/dev/pj`
+  # - So it runs: `ssh dev@10.124.0.4 'ls -l /home/dev/pj'`
+  local  remote="$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
+  ssh "${remote%%:*}" "ls -l '${remote#*:}'" 
+}
+
+
 tetra_remote_login(){
     local username=${2:-$TETRA_USER}
     local remote=${1:-$TETRA_REMOTE}
