@@ -96,12 +96,16 @@ export function createPDataRoutes(pdataInstance) {
         try {
             const username = req.user.username;
             const requestedDir = req.query.dir || '';
-            console.log(`${logPrefix} User='${username}', Requested directory='${requestedDir}'`);
+            
             // Call method directly on req.pdata
-            const { dirs, files } = await req.pdata.listDirectory(username, requestedDir);
+            const { dirs: dirNames, files: fileNames } = await req.pdata.listDirectory(username, requestedDir);
+            
+            // Transform the array of strings into objects with 'name' properties
+            const dirs = dirNames.map(name => ({ name }));
+            const files = fileNames.map(name => ({ name }));
+            
             res.json({ dirs, files });
         } catch (error) {
-            console.error(`${logPrefix} Error:`, error);
             const { status, message } = getErrorStatusAndMessage(error);
             res.status(status).json({ error: message });
         }
