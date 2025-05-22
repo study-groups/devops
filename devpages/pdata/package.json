@@ -19,7 +19,6 @@
       },
       "license": "ISC",
       "author": "Mike Ricos",
-      "type": "module",
       "exports": {
             ".": "./index.js"
       },
@@ -65,7 +64,6 @@
             "test:watch": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js --watch",
             "test:api": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js tests/api.test.js",
             "test:coverage": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js --coverage",
-            "prepare": "npm test",
             "lint": "eslint .",
             "docs": "jsdoc -c jsdoc.json"
       }
