@@ -214,6 +214,11 @@ export function createContextManagerComponent(targetElementId) {
                         if (isDirectorySegmentForDisplay) { // Check based on what was processed
                             breadcrumbSegments.push(separator);
                         }
+
+                        // Update the base path for the next iteration
+                        if (isDirectorySegmentForDisplay) { // Only update if we actually displayed this segment
+                            cumulativeFullPathBase = cumulativeFullPath; // Update base for next iteration
+                        }
                      });
 
                     // After the loop, if a file was selected and breadcrumbs end with a separator, remove it.
@@ -282,6 +287,9 @@ export function createContextManagerComponent(targetElementId) {
                          if (isDirectorySegmentForDisplay) { // Check based on what was processed
                             breadcrumbSegments.push(separator);
                          }
+
+                         // Update the base path for the next iteration
+                         cumulativeFullPathBase = cumulativeFullPath; // Update base for next iteration
                      });
 
                     // After the loop, if a file was selected and breadcrumbs end with a separator, remove it.
