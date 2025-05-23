@@ -96,7 +96,22 @@ export function createContextManagerComponent(targetElementId) {
             const isEffectivelyAtRoot = displayPathname === null || displayPathname === '';
             const breadcrumbSegments = [];
 
-            breadcrumbSegments.push(separator); // Always start with '/'
+            // Create an enhanced first separator with technical info tooltip
+            const enhancedFirstSeparator = `
+              <span class="breadcrumb-separator root-separator" title="Directory Structure Information">
+                /
+                <div class="technical-info-tooltip">
+                  <strong>Directory Structure:</strong><br>
+                  <ul>
+                    <li><strong>PD_DIR</strong>: Main data root (${CONTENT_ROOT_PREFIX})</li>
+                    <li><strong>MD_DIR</strong>: Content root (PD_DIR/data)</li>
+                    <li>User content in: <code>users/&lt;username&gt;</code> or <code>projects/&lt;username&gt;</code></li>
+                    <li>Pathname: ${displayPathname || '(Root)'}</li>
+                  </ul>
+                </div>
+              </span>`;
+
+            breadcrumbSegments.push(enhancedFirstSeparator); // Use enhanced first separator
 
             // --- Admin Rendering ---
             if (isAdmin) {
@@ -385,6 +400,13 @@ export function createContextManagerComponent(targetElementId) {
             saveButton.addEventListener('click', handleSaveButtonClick);
         }
 
+        // Add a click handler for the technical info
+        const techInfoSeparator = element.querySelector('#tech-info-separator');
+        if (techInfoSeparator) {
+            techInfoSeparator.removeEventListener('click', handleTechInfoClick);
+            techInfoSeparator.addEventListener('click', handleTechInfoClick);
+        }
+
         logContext(`Event listeners (re)attached. Render END.`);
     };
 
@@ -663,6 +685,27 @@ export function createContextManagerComponent(targetElementId) {
             // Optionally log error to main console for debugging
             console.error("triggerActions.publishToSpaces is not defined on window.");
         }
+    };
+
+    // Define the handler
+    const handleTechInfoClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Create a modal or use an existing popup mechanism
+        const infoContent = `
+            <h3>Directory Structure</h3>
+            <ul>
+                <li><strong>PD_DIR</strong>: Main data root</li>
+                <li><strong>MD_DIR</strong>: Content root (PD_DIR/data)</li>
+                <li>User content lives in: users/&lt;username&gt; or projects/&lt;username&gt;</li>
+                <li>Current pathname: ${appStore.getState().file.currentPathname || '(Root)'}</li>
+            </ul>
+            <p>The system automatically checks both locations when resolving paths.</p>
+        `;
+        
+        // Show in a modal, alert, or custom popup element
+        showInfoPopup(infoContent, event.currentTarget);
     };
 
     // --- Component Lifecycle ---

@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { generateSalt, hashPassword } from './userUtils.js';
+import { PathManager } from './utils/PathManager.js';
 
 class PData {
 	constructor(config = {}) {
@@ -21,6 +22,12 @@ class PData {
 		this.users = new Map(); // Initialize empty user cache
 		this.roles = new Map(); // Initialize empty role cache
 		this._loadRolesAndUsers(); // Load or create users.csv and roles.csv
+		
+		// --- Initialize PathManager ---
+		this.pathManager = new PathManager({
+			dataRoot: this.dataRoot,
+			roles: this.roles
+		});
 	}
 
 	_initializeDataRoot() {
@@ -304,73 +311,8 @@ class PData {
 		return result;
 	}
 
-	can(username, action, resourcePath) {
-		// Ensure user exists in the system before checking roles/permissions
-		if (!username || !this.users.has(username)) {
-			return false;
-		}
-		// Ensure resourcePath is absolute for reliable comparison
-		if (!path.isAbsolute(resourcePath)) {
-			return false;
-		}
-
-		const role = this.roles.get(username);
-		// Use the resolved application data root for all checks
-		const currentDataRoot = this.dataRoot;
-		const userDataDirRoot = path.join(this.dataRoot, 'data');
-		const uploadsDir = path.join(this.dataRoot, 'uploads');
-
-		// Deny if user exists but has no assigned role
-		if (!role) {
-			return false;
-		}
-
-		// Special case for uploads directory - allow access for all users
-		if (resourcePath === uploadsDir || resourcePath.startsWith(uploadsDir + path.sep)) {
-			return true;
-		}
-
-		// --- Admin Check ---
-		// Admins can do anything *within* the application data root.
-		if (role === 'admin') {
-			if (resourcePath.startsWith(currentDataRoot + path.sep) || resourcePath === currentDataRoot) {
-				return true;
-			} else {
-				return false;
-			}
-		}
-
-		// --- User Role Check ---
-		if (role === 'user') {
-			// Users primarily operate within their implicit top-level directory
-			const userImplicitTopDir = path.join(userDataDirRoot, username);
-
-			// Check if the resource is the user's directory itself or within it
-			if (resourcePath === userImplicitTopDir || resourcePath.startsWith(userImplicitTopDir + path.sep)) {
-				return true;
-			} else {
-				// Check if the resource is within the *overall* data root (but outside the user's specific dir)
-				if (resourcePath.startsWith(currentDataRoot + path.sep)) {
-					// Allow read/list access to shared areas
-					if (action === 'read' || action === 'list') {
-						const parentDir = path.dirname(resourcePath);
-						// *** Check against derived userDataDirRoot ***
-						if (parentDir === currentDataRoot || parentDir === userDataDirRoot) {
-							return true;
-						} else {
-							return false;
-						}
-					} else {
-						return false;
-					}
-				} else {
-					return false;
-				}
-			}
-		}
-
-		// --- Default Deny for unknown roles ---
-		return false;
+	async can(username, action, resourcePath) {
+		return this.pathManager.can(username, action, resourcePath);
 	}
 
 	getUserRole(username) {
@@ -382,59 +324,8 @@ class PData {
 		return null;
 	}
 
-	resolvePathForUser(username, inputPath = '') {
-		const userRole = this.getUserRole(username);
-		if (!userRole) {
-			throw new Error(`User role not found for ${username}`);
-		}
-
-		// This is the actual root for user content, effectively MD_DIR
-		// this.dataRoot is PD_DIR. PD_DIR/data is symlinked to MD_DIR.
-		const contentRootActual = path.join(this.dataRoot, 'data'); 
-
-		const normalizedClientPath = path.posix.normalize(inputPath || '.').replace(/^(\\.\\.[\\/\\\\])+/, '');
-
-		// Special case for 'uploads' directory - accessible to all users
-		if (normalizedClientPath === 'uploads' || normalizedClientPath.startsWith('uploads/')) {
-			const uploadsPath = path.join(this.dataRoot, normalizedClientPath);
-			return uploadsPath;
-		}
-
-		if (userRole === 'admin') {
-			// Admin paths are relative to contentRootActual (MD_DIR)
-			const resolvedAdminPath = path.join(contentRootActual, normalizedClientPath);
-			
-			const resolvedContentRoot = path.resolve(contentRootActual);
-			if (!path.resolve(resolvedAdminPath).startsWith(resolvedContentRoot + path.sep) && path.resolve(resolvedAdminPath) !== resolvedContentRoot) {
-				throw new Error('Security Violation: Path escape attempt detected.');
-			}
-			return resolvedAdminPath;
-		} else { // Non-admin user
-			const userOwnDirectoryName = username; // e.g., 'rich'
-			// User's root directory is within contentRootActual
-			const userRootOnFs = path.join(contentRootActual, userOwnDirectoryName); // e.g., /root/pj/pd/data/rich (which is /root/pj/md/rich)
-
-			let finalPathOnFs;
-
-			if (normalizedClientPath === '.' || normalizedClientPath === userOwnDirectoryName) {
-				finalPathOnFs = userRootOnFs;
-			}
-			else if (normalizedClientPath.startsWith(userOwnDirectoryName + path.posix.sep)) {
-				// Client path 'rich/notes' is relative to contentRootActual ('MD_DIR')
-				finalPathOnFs = path.join(contentRootActual, normalizedClientPath);
-			}
-			else {
-				throw new Error(`Access Denied: Path '${inputPath}' is invalid or outside your allowed directory.`);
-			}
-
-			const resolvedFinalPath = path.resolve(finalPathOnFs);
-			const resolvedUserRoot = path.resolve(userRootOnFs);
-			if (!resolvedFinalPath.startsWith(resolvedUserRoot + path.sep) && resolvedFinalPath !== resolvedUserRoot) {
-				throw new Error('Security Violation: Attempt to access path outside user scope.');
-			}
-
-			return finalPathOnFs;
-		}
+	async resolvePathForUser(username, inputPath = '') {
+		return this.pathManager.resolvePathForUser(username, inputPath);
 	}
 
 	async listDirectory(username, relativePath = '') {
@@ -442,12 +333,12 @@ class PData {
 
 		let absolutePathToList;
 		try {
-			absolutePathToList = this.resolvePathForUser(username, relativePath); // Path of the directory we are listing
+			absolutePathToList = await this.pathManager.resolvePathForUser(username, relativePath);
 		} catch (resolveError) {
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'list', absolutePathToList)) {
+		if (!await this.pathManager.can(username, 'list', absolutePathToList)) {
 			throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
 		}
 
@@ -461,17 +352,16 @@ class PData {
 					continue;
 				}
 
-				// Construct the full relative path for this entry, from the perspective of the content root (MD_DIR)
-				// This is what resolvePathForUser expects.
+				// Construct the full relative path for this entry
 				const entryRelativePathFromContentRoot = path.posix.join(relativePath, entry.name);
 
 				try {
-					// Check 1: Resolve the entry's full relative path to ensure bounds and get its absolute path
-					const entryAbsolutePath = this.resolvePathForUser(username, entryRelativePathFromContentRoot);
+					// Check 1: Resolve the entry's full relative path to ensure bounds
+					const entryAbsolutePath = await this.pathManager.resolvePathForUser(username, entryRelativePathFromContentRoot);
 
 					// Check 2: Permission check on the specific item
 					const checkAction = entry.isDirectory() || entry.isSymbolicLink() ? 'list' : 'read';
-					if (!this.can(username, checkAction, entryAbsolutePath)) {
+					if (!await this.pathManager.can(username, checkAction, entryAbsolutePath)) {
 						continue;
 					}
 
@@ -481,96 +371,96 @@ class PData {
 					} else if (entry.isFile()) {
 						files.push(entry.name);
 					} else if (entry.isSymbolicLink()) {
-						// *** MODIFIED SYMLINK LOGIC ***
-						let targetType = 'unknown'; // Default if we can't determine target type
-						try {
-							const linkTarget = await fs.readlink(entryAbsolutePath);
-							const targetAbsolutePath = path.resolve(path.dirname(entryAbsolutePath), linkTarget);
-							// Use lstat to check target type without following further links
-							const targetStats = await fs.lstat(targetAbsolutePath);
-							if (targetStats.isDirectory()) {
-								targetType = 'directory';
-							} else if (targetStats.isFile()) {
-								targetType = 'file';
+						// Handle symlinks with improved handling
+						const { isSymlink, targetPath, canAccess } = 
+							await this.pathManager.resolveSymlink(username, entryAbsolutePath, checkAction);
+							
+						if (isSymlink && targetPath && canAccess) {
+							try {
+								const targetStats = await fs.lstat(targetPath);
+								if (targetStats.isDirectory()) {
+									dirs.push(entry.name);
+								} else {
+									files.push(entry.name);
+								}
+							} catch (targetError) {
+								// Broken symlink, still add to files
+								files.push(entry.name);
 							}
-						} catch (targetError) {
-							targetType = 'link'; // Explicitly mark as link if target is inaccessible/broken
 						}
-
-						// Add to appropriate list based on determined target type
-						if (targetType === 'directory') {
-							dirs.push(entry.name);
-						} else {
-							// Add to files list if target is file, link, or unknown type
-							files.push(entry.name);
-						}
-						// *** END MODIFIED SYMLINK LOGIC ***
 					}
 				} catch (entryError) {
-					// Skip any entries with errors
+					// Skip entries with errors
 					continue;
 				}
-			} // End for loop
+			}
 
 			dirs.sort();
 			files.sort();
 			return { dirs, files };
 
-		} catch (error) { // Outer catch for readdir failure
+		} catch (error) {
 			if (error.code === 'ENOENT') {
 				throw new Error(`Directory not found: '${relativePath || '/'}'.`);
 			}
 			if (error.code === 'EACCES') {
 				throw new Error(`Permission denied reading contents of '${relativePath || '/'}'.`);
 			}
-			// Rethrow other unexpected errors
 			throw new Error(`Failed to list contents for '${relativePath || '/'}': ${error.message}`);
 		}
 	}
 
 	async readFile(username, relativePath) {
 		if (!relativePath) throw new Error("File path is required.");
+		
 		let absolutePath;
 		try {
-			absolutePath = this.resolvePathForUser(username, relativePath);
+			absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
 		} catch (resolveError) {
 			throw resolveError;
 		}
 
-		// Only check permission on the symlink itself, not its target
-		if (!this.can(username, 'read', absolutePath)) {
+		// Check permission on the file (symlink itself, not its target yet)
+		if (!await this.pathManager.can(username, 'read', absolutePath)) {
 			throw new Error(`Permission denied to read file '${relativePath}'.`);
 		}
 
 		try {
-			// Check if the path is a symlink
-			const stats = await fs.lstat(absolutePath);
+			// Check if path exists and is a symlink
+			const { isSymlink, targetPath, canAccess } = 
+				await this.pathManager.resolveSymlink(username, absolutePath, 'read');
 			
-			if (stats.isSymbolicLink()) {
-				// It's a symlink, resolve the target path
-				const linkTarget = await fs.readlink(absolutePath);
-				const targetAbsolutePath = path.resolve(path.dirname(absolutePath), linkTarget);
+			if (isSymlink) {
+				// It's a symlink
+				if (!targetPath) {
+					throw new Error(`Symlink target for '${relativePath}' could not be resolved.`);
+				}
 				
-				// Check if the target is a file
-				const targetStats = await fs.lstat(targetAbsolutePath);
+				if (!canAccess) {
+					throw new Error(`Permission denied to read symlink target for '${relativePath}'.`);
+				}
+				
+				// Check if target is a readable file
+				const targetStats = await fs.lstat(targetPath);
 				if (!targetStats.isFile()) {
 					throw new Error(`Symlink target '${relativePath}' is not a readable file.`);
 				}
 				
-				// For symlinks, we allow reading regardless of target ownership
-				// This is intentional to allow users to access shared resources via symlinks
 				try {
-					const content = await fs.readFile(targetAbsolutePath, 'utf8');
+					const content = await fs.readFile(targetPath, 'utf8');
 					return content;
 				} catch (readError) {
 					throw new Error(`Failed to read symlink target: ${readError.message}`);
 				}
-			} else if (stats.isFile()) {
-				// For regular files, just read directly
-				const content = await fs.readFile(absolutePath, 'utf8');
-				return content;
 			} else {
-				throw new Error(`'${relativePath}' is not a readable file or symlink.`);
+				// Regular file
+				const stats = await fs.lstat(absolutePath);
+				if (stats.isFile()) {
+					const content = await fs.readFile(absolutePath, 'utf8');
+					return content;
+				} else {
+					throw new Error(`'${relativePath}' is not a readable file or symlink.`);
+				}
 			}
 		} catch (error) {
 			if (error.code === 'ENOENT') throw new Error(`File not found: '${relativePath}'.`);
@@ -587,63 +477,37 @@ class PData {
 
 		let absoluteFilePath;
 		try {
-			absoluteFilePath = this.resolvePathForUser(username, relativePath);
+			absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
 			
-			// Check if the file is a symlink before attempting to write
-			if (await fs.pathExists(absoluteFilePath)) {
-				const stats = await fs.lstat(absoluteFilePath);
-				if (stats.isSymbolicLink()) {
-					// Get the target path of the symlink
-					const linkTarget = await fs.readlink(absoluteFilePath);
-					const targetAbsolutePath = path.resolve(path.dirname(absoluteFilePath), linkTarget);
-					
-					// Need to check if we have permission to write to the target
-					const userRole = this.getUserRole(username);
-					
-					// Admin can write to any target they have permission for
-					if (userRole === 'admin') {
-						if (!this.can(username, 'write', targetAbsolutePath)) {
-							throw new Error(`Permission denied to write to symlink target for '${relativePath}'.`);
-						}
-					} else {
-						// For regular users:
-						// 1. The symlink must be in the user's directory (already checked by resolvePathForUser)
-						// 2. The target must also be in the user's directory or shared writable location
-						const userDir = path.join(this.dataRoot, 'data', username);
-						
-						// Check if target is in user's directory or in uploads (which is writable by all)
-						const uploadsDir = path.join(this.dataRoot, 'uploads');
-						const isTargetInUserDir = targetAbsolutePath.startsWith(userDir);
-						const isTargetInUploads = targetAbsolutePath.startsWith(uploadsDir);
-						
-						if (!isTargetInUserDir && !isTargetInUploads) {
-							throw new Error(`Permission denied: Cannot write through symlink to target outside your directory.`);
-						}
-						
-						// Double-check explicit permission
-						if (!this.can(username, 'write', targetAbsolutePath)) {
-							throw new Error(`Permission denied to write to symlink target for '${relativePath}'.`);
-						}
-					}
-					
-					// Write to the symlink target directly
-					const parentDirOfTarget = path.dirname(targetAbsolutePath);
-					
-					// Ensure the target's parent directory exists
-					await fs.ensureDir(parentDirOfTarget);
-					await fs.writeFile(targetAbsolutePath, content, 'utf8');
-					return true;
+			// Check if file is a symlink using the improved PathManager
+			const { isSymlink, targetPath, canAccess } = 
+				await this.pathManager.resolveSymlink(username, absoluteFilePath, 'write');
+			
+			if (isSymlink) {
+				if (!targetPath) {
+					throw new Error(`Symlink target for '${relativePath}' could not be resolved.`);
 				}
+				
+				if (!canAccess) {
+					throw new Error(`Permission denied to write to symlink target for '${relativePath}'.`);
+				}
+				
+				// Write to the symlink target
+				const parentDirOfTarget = path.dirname(targetPath);
+				await fs.ensureDir(parentDirOfTarget);
+				await fs.writeFile(targetPath, content, 'utf8');
+				return true;
 			}
 			
+			// Regular file write
 			const parentDirAbsolute = path.dirname(absoluteFilePath);
 
 			// Check permission to write in the directory
-			if (!this.can(username, 'write', parentDirAbsolute)) {
+			if (!await this.pathManager.can(username, 'write', parentDirAbsolute)) {
 				throw new Error(`Permission denied to write in directory '${path.dirname(relativePath)}'.`);
 			}
 
-			// Ensure directory exists before writing file (using fs-extra's ensureDir)
+			// Ensure directory exists before writing file
 			await fs.ensureDir(parentDirAbsolute);
 			await fs.writeFile(absoluteFilePath, content, 'utf8');
 
@@ -660,14 +524,15 @@ class PData {
 
 	async deleteFile(username, relativePath) {
 		if (!relativePath) throw new Error("File path is required.");
+		
 		let absolutePath;
 		try {
-			absolutePath = this.resolvePathForUser(username, relativePath); // Use user-specific resolver
+			absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
 		} catch (resolveError) {
 			throw resolveError;
 		}
 
-		if (!this.can(username, 'delete', absolutePath)) {
+		if (!await this.pathManager.can(username, 'delete', absolutePath)) {
 			throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
 		}
 
@@ -676,13 +541,12 @@ class PData {
 			if (!stats.isFile() && !stats.isSymbolicLink()) {
 				throw new Error(`Cannot delete: '${relativePath}' is not a file or symbolic link.`);
 			}
-			// Use fs-extra's remove which is more robust than unlink
+			
 			await fs.remove(absolutePath);
 		} catch (error) {
 			if (error.code === 'ENOENT') throw new Error(`File or link not found: '${relativePath}'. Cannot delete.`);
 			else if (error.code === 'EACCES') throw new Error(`Permission denied deleting file/link: '${relativePath}'.`);
 			else if (error.code === 'EPERM' || error.code === 'EISDIR') {
-				// EPERM on Windows, EISDIR on Unix when trying to unlink a directory
 				throw new Error(`Cannot delete: '${relativePath}' is not a file or symbolic link.`);
 			}
 			else if (error.message.includes('not a file or symbolic link')) throw error;
@@ -731,25 +595,25 @@ class PData {
 			throw new Error("Source and target paths are required.");
 		}
 		
-		// Resolve the symlink path (where the link will be created)
+		// Resolve the symlink path
 		let absoluteSymlinkPath;
 		try {
-			absoluteSymlinkPath = this.resolvePathForUser(username, relativePath);
+			absoluteSymlinkPath = await this.pathManager.resolvePathForUser(username, relativePath);
 		} catch (resolveError) {
 			throw resolveError;
 		}
 		
-		// Ensure user has write permission to the directory where the symlink will be created
+		// Ensure user has permission to create symlink in the directory
 		const parentDirAbsolute = path.dirname(absoluteSymlinkPath);
-		if (!this.can(username, 'write', parentDirAbsolute)) {
+		if (!await this.pathManager.can(username, 'write', parentDirAbsolute)) {
 			throw new Error(`Permission denied to create symlink in directory '${path.dirname(relativePath)}'.`);
 		}
 		
 		// Resolve the target path
 		let absoluteTargetPath;
 		try {
-			// First try to resolve as if it's a relative path within the user's context
-			absoluteTargetPath = this.resolvePathForUser(username, targetPath);
+			// First try to resolve as if it's a relative path within user's context
+			absoluteTargetPath = await this.pathManager.resolvePathForUser(username, targetPath);
 		} catch (resolveError) {
 			// If that fails, check if it's an absolute path
 			if (path.isAbsolute(targetPath)) {
@@ -765,16 +629,15 @@ class PData {
 			}
 		}
 		
-		// Check if target exists (optional, symlinks to non-existent targets are allowed)
+		// Check if target exists (warning only)
 		try {
 			await fs.access(absoluteTargetPath);
 		} catch (accessError) {
-			// Just a warning, we'll still create the symlink
 			console.warn(`Creating symlink to non-existent target: ${absoluteTargetPath}`);
 		}
 		
 		try {
-			// Create the symlink with relative path for better portability
+			// Create relative symlink for better portability
 			const relativeTargetPath = path.relative(path.dirname(absoluteSymlinkPath), absoluteTargetPath);
 			
 			// Remove existing file/symlink if it exists
@@ -787,7 +650,7 @@ class PData {
 				}
 			}
 			
-			// Ensure parent directory exists using fs-extra's ensureDir
+			// Ensure parent directory exists
 			await fs.ensureDir(parentDirAbsolute);
 			
 			// Create the symlink
@@ -799,6 +662,10 @@ class PData {
 			else 
 				throw new Error(`Failed to create symlink '${relativePath}': ${error.message}`);
 		}
+	}
+
+	async getAvailableTopDirs(username) {
+		return this.pathManager.getAvailableTopDirs(username);
 	}
 }
 

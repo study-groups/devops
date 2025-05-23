@@ -76,6 +76,43 @@ router.get('/list-bucket', async (req, res) => {
 });
 // --- END NEW LIST BUCKET ROUTE ---
 
+// --- NEW: Endpoint to list files with details ---
+router.get('/list-files', async (req, res) => {
+    const s3Client = req.s3Client;
+    if (!s3Client) {
+        return res.status(500).json({ success: false, message: 'S3 client not initialized' });
+    }
+
+    const { bucket, prefix } = req.query;
+    const logPrefix = '[Spaces ListFiles]';
+
+    if (!bucket) {
+        console.error(`${logPrefix} Error: Bucket name is required.`);
+        return res.status(400).json({ success: false, message: 'Bucket name is required' });
+    }
+
+    console.log(`${logPrefix} Listing files for bucket: '${bucket}', Prefix: '${prefix || ''}'`);
+
+    try {
+        const command = new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix || undefined,
+        });
+
+        const response = await s3Client.send(command);
+        
+        // Extract files with metadata
+        const files = response.Contents || [];
+        
+        console.log(`${logPrefix} Found ${files.length} files in bucket '${bucket}' with prefix '${prefix || ''}'`);
+        
+        res.json({ success: true, files });
+    } catch (error) {
+        console.error(`${logPrefix} Error listing files:`, error);
+        res.status(500).json({ success: false, message: `Error listing files: ${error.message || error.name}` });
+    }
+});
+
 // --- Route Definition --- 
 // POST /api/spaces/presigned-url
 router.post('/presigned-url', express.json(), async (req, res) => {
