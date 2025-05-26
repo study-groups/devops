@@ -1,3 +1,4 @@
+env-backup
 .sessions
 env.sh
 *.DIFF

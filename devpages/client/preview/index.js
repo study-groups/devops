@@ -119,36 +119,32 @@ export class PreviewManager {
       // --- START DIAGNOSTIC EVENT LISTENERS FOR PREVIEW CONTAINER ---
       console.log('[PreviewManager.init] Just before diagnostic listener block. this.previewElement is:', this.previewElement);
       if (this.previewElement) {
-        logDebug('Attempting to add diagnostic event listeners to previewElement.', { type: 'PREVIEW_LIFECYCLE', subtype: 'PRE_DIAG_LISTENERS', from: LOG_ORIGIN });
-        this.previewElement.addEventListener('wheel', (event) => {
-          // Only use LogPanel logging (which will always work regardless of console settings)
-          // and skip direct console output completely
-          logDebug('Wheel event on previewElement', {
-            type: 'PREVIEW_DIAGNOSTIC',
-            subtype: 'WHEEL_EVENT',
-            message: `Target: ${event.target.id || 'unnamed'}, Ctrl/Meta: ${event.ctrlKey || event.metaKey}`
-          });
-        }, { capture: true });
+        // DISABLED: Wheel event logging was causing excessive log entries
+        // this.previewElement.addEventListener('wheel', (event) => {
+        //   logDebug('Wheel event on previewElement', {
+        //     type: 'PREVIEW_DIAGNOSTIC',
+        //     subtype: 'WHEEL_EVENT',
+        //     message: `Target: ${event.target.id || 'unnamed'}, Ctrl/Meta: ${event.ctrlKey || event.metaKey}`
+        //   });
+        // }, { capture: true });
 
-        this.previewElement.addEventListener('mousedown', (event) => {
-          // Only use LogPanel logging (which will always work regardless of console settings)
-          // and skip direct console output completely
-          logDebug('Mousedown event on previewElement', {
-            type: 'PREVIEW_DIAGNOSTIC',
-            subtype: 'MOUSE_DOWN_EVENT',
-            message: `Target: ${event.target.id || 'unnamed'}, Button: ${event.button}`
-          });
-        }, { capture: true });
+        // DISABLED: Mousedown event logging was causing excessive log entries
+        // this.previewElement.addEventListener('mousedown', (event) => {
+        //   logDebug('Mousedown event on previewElement', {
+        //     type: 'PREVIEW_DIAGNOSTIC',
+        //     subtype: 'MOUSE_DOWN_EVENT',
+        //     message: `Target: ${event.target.id || 'unnamed'}, Button: ${event.button}`
+        //   });
+        // }, { capture: true });
 
-        this.previewElement.addEventListener('click', (event) => {
-          // Only use LogPanel logging (which will always work regardless of console settings)
-          // and skip direct console output completely
-          logDebug('Click event on previewElement', {
-            type: 'PREVIEW_DIAGNOSTIC',
-            subtype: 'CLICK_EVENT',
-            message: `Target: ${event.target.id || 'unnamed'}`
-          });
-        }, { capture: true });
+        // DISABLED: Click event logging was causing excessive log entries
+        // this.previewElement.addEventListener('click', (event) => {
+        //   logDebug('Click event on previewElement', {
+        //     type: 'PREVIEW_DIAGNOSTIC',
+        //     subtype: 'CLICK_EVENT',
+        //     message: `Target: ${event.target.id || 'unnamed'}`
+        //   });
+        // }, { capture: true });
       } else {
         console.error('[PreviewManager.init] DIAGNOSTIC LISTENERS SKIPPED because this.previewElement is falsy here:', this.previewElement);
       }

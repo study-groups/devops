@@ -229,19 +229,39 @@ export function createContextManagerComponent(targetElementId) {
                     }
                  }
             } else if (username) {
-                // Construct user's full root path using the DETECTED prefix
-                const userRootFullPath = detectedPrefix + username; // e.g., MD_DIR/mike
-                // Display ONLY the username, link uses full path
-                breadcrumbSegments.push(`<span class="breadcrumb-item non-admin-top root-link" data-target-pathname="${userRootFullPath}" title="Your root directory">${username}</span>`); // Display username, link uses full path
-
-                const isDeeperPath = displayPathname && displayPathname !== username && displayPathname.startsWith(username + '/');
-
+                // Instead of just displaying the username, let's break down the full path
+                // Add a root segment
+                breadcrumbSegments.push(`<span class="breadcrumb-item root-segment">/</span>`);
+                
+                // Add "users" segment - make it clickable to help navigate up
+                const usersPath = detectedPrefix + "users";
+                breadcrumbSegments.push(`<span class="breadcrumb-item intermediate-dir" data-target-pathname="${usersPath}" title="Go to users directory">users</span>`);
+                breadcrumbSegments.push(separator);
+                
+                // Add username segment
+                const userRootFullPath = detectedPrefix + "users/" + username;
+                breadcrumbSegments.push(`<span class="breadcrumb-item non-admin-top root-link" data-target-pathname="${userRootFullPath}" title="Your root directory">${username}</span>`);
+                
+                const isDeeperPath = displayPathname && displayPathname !== username && 
+                                     (displayPathname.startsWith(username + '/') || 
+                                      displayPathname.startsWith("users/" + username + '/'));
+                
                 if (isDeeperPath) {
                     breadcrumbSegments.push(separator);
-                    const relativePath = displayPathname.substring(username.length + 1);
-                    const userPathParts = relativePath.split('/').filter(p => p); // Parts from relative path
-                    let cumulativeFullPathBase = userRootFullPath; // Base for FULL path starts at user's full root
-
+                    
+                    // Adjust path extraction to work with both formats:
+                    let relativePath;
+                    if (displayPathname.startsWith("users/" + username + '/')) {
+                        relativePath = displayPathname.substring(("users/" + username).length + 1);
+                    } else if (displayPathname.startsWith(username + '/')) {
+                        relativePath = displayPathname.substring(username.length + 1);
+                    } else {
+                        relativePath = displayPathname;
+                    }
+                    
+                    const userPathParts = relativePath.split('/').filter(p => p);
+                    let cumulativeFullPathBase = userRootFullPath;
+                    
                     userPathParts.forEach((part, index) => { // 'part' is prefix-free and relative to username
                         const cumulativeFullPath = pathJoin(cumulativeFullPathBase, part);
                          const isLastPart = index === userPathParts.length - 1;

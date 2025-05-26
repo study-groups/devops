@@ -1,42 +1,63 @@
 import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { createReducer, createPersister, loadFromStorage } from './reducerUtils.js';
 
 const LOG_VISIBLE_KEY = 'logVisible';
+const VIEW_MODE_KEY = 'viewMode';
 
-// --- UI Slice Reducer ---
-export function uiReducer(state, action) {
-    const { type, payload } = action;
-    let nextState = state;
+// Load initial state from localStorage where applicable
+const initialState = {
+  isLoading: false,
+  logVisible: loadFromStorage(LOG_VISIBLE_KEY, false),
+  logMenuVisible: false,
+  viewMode: loadFromStorage(VIEW_MODE_KEY, 'split', mode => 
+    typeof mode === 'string' && ['editor', 'preview', 'split'].includes(mode)
+  ),
+  theme: 'default'
+};
 
-    switch (type) {
-        case ActionTypes.UI_SET_LOADING:
-            nextState = { ...state, isLoading: !!payload };
-            break;
+// Create persisters for state that should be saved to localStorage
+const persisters = {
+  logVisible: createPersister(LOG_VISIBLE_KEY, state => state.logVisible),
+  viewMode: createPersister(VIEW_MODE_KEY, state => state.viewMode)
+};
 
-        case ActionTypes.UI_SET_LOG_VISIBILITY:
-            const newVisibility = !!payload;
-            nextState = { ...state, logVisible: newVisibility };
-            try {
-                localStorage.setItem(LOG_VISIBLE_KEY, newVisibility);
-            } catch (e) { console.error('[Reducer] Failed to save log visibility state to localStorage:', e); }
-            break;
+// Define action handlers using the createReducer pattern
+export const uiReducer = createReducer(initialState, {
+  [ActionTypes.UI_SET_LOADING]: (state, action) => {
+    const isLoading = !!action.payload;
+    return { ...state, isLoading };
+  },
+  
+  [ActionTypes.UI_SET_LOG_VISIBILITY]: (state, action) => {
+    const logVisible = !!action.payload;
+    const newState = { ...state, logVisible };
+    persisters.logVisible(newState);
+    return newState;
+  },
+  
+  [ActionTypes.UI_TOGGLE_LOG_VISIBILITY]: (state) => {
+    const logVisible = !state.logVisible;
+    const newState = { ...state, logVisible };
+    persisters.logVisible(newState);
+    return newState;
+  },
 
-        case ActionTypes.UI_TOGGLE_LOG_VISIBILITY:
-            const toggledVisibility = !state.logVisible;
-            nextState = { ...state, logVisible: toggledVisibility };
-            try {
-                localStorage.setItem(LOG_VISIBLE_KEY, toggledVisibility);
-            } catch (e) { console.error('[Reducer] Failed to save log visibility state to localStorage:', e); }
-            break;
-
-        case ActionTypes.UI_SET_VIEW_MODE:
-            if (payload && typeof payload.viewMode === 'string' && ['editor', 'preview', 'split'].includes(payload.viewMode)) {
-                nextState = { ...state, viewMode: payload.viewMode };
-                // try { localStorage.setItem('viewMode', payload.viewMode); } catch(e) {}
-            } else if (payload) {
-                console.warn(`[Reducer UI_SET_VIEW_MODE] Invalid view mode received: ${payload.viewMode}`);
-            }
-            break;
+  [ActionTypes.UI_TOGGLE_LOG_MENU]: (state) => {
+    return { ...state, logMenuVisible: !state.logMenuVisible };
+  },
+  
+  [ActionTypes.UI_SET_VIEW_MODE]: (state, action) => {
+    // Extract mode correctly based on payload structure
+    const viewMode = action.payload?.viewMode || action.payload;
+    
+    // Validate viewMode is a valid option
+    if (typeof viewMode === 'string' && ['editor', 'preview', 'split'].includes(viewMode)) {
+      const newState = { ...state, viewMode };
+      persisters.viewMode(newState);
+      return newState;
     }
-    // Ensure initial state if state is undefined
-    return nextState || { isLoading: false, logVisible: false, viewMode: 'split' };
-}
+    
+    console.warn(`[Reducer UI_SET_VIEW_MODE] Invalid view mode: ${viewMode}`);
+    return state;
+  }
+});

@@ -1,0 +1,88 @@
+/**
+ * Actions index
+ * Exports all action handlers and provides the combined triggerActions object
+ */
+import { fileActionHandlers } from './fileActions.js';
+import { uiActionHandlers } from './uiActions.js';
+import { editorActionHandlers } from './editorActions.js';
+import { imageActionHandlers } from './imageActions.js';
+import { authActionHandlers } from './authActions.js';
+import { debugActionHandlers } from './debugActions.js';
+
+// Re-export the action handlers for direct use
+export {
+    fileActionHandlers,
+    uiActionHandlers,
+    editorActionHandlers,
+    imageActionHandlers,
+    authActionHandlers,
+    debugActionHandlers
+};
+
+// Helper for logging within this module
+function logAction(message, level = 'debug') {
+    const type = 'ACTION'
+    if (typeof window.logMessage === 'function') {
+        window.logMessage(message, level, type);
+    } else {
+        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
+        logFunc(`[${type}] ${message}`);
+    }
+}
+
+// Initialize all action handlers
+export function initializeActions() {
+    console.log('[DEBUG] actions/index.js: initializeActions() called');
+    logAction('Action handlers registration complete.');
+    
+    // Initialize the combined triggerActions object
+    console.log('[DEBUG] Defined triggerActions:', Object.keys(triggerActions));
+}
+
+/**
+ * Combined triggerActions object that contains all action handlers
+ * This maintains the original API of triggerActions while using the modular structure
+ */
+export const triggerActions = {
+    // File actions
+    saveFile: fileActionHandlers.saveFile,
+    loadFile: fileActionHandlers.loadFile,
+    downloadStaticHTML: fileActionHandlers.downloadStaticHTML,
+    publishToSpaces: fileActionHandlers.publishToSpaces,
+    
+    // UI actions
+    setView: uiActionHandlers.setView,
+    refreshPreview: uiActionHandlers.refreshPreview,
+    copyLog: uiActionHandlers.copyLog,
+    clearLog: uiActionHandlers.clearLog,
+    toggleLogVisibility: uiActionHandlers.toggleLogVisibility,
+    minimizeLog: uiActionHandlers.minimizeLog,
+    showSystemInfo: uiActionHandlers.showSystemInfo,
+    toggleLogMenu: uiActionHandlers.toggleLogMenu,
+    copyLogEntry: uiActionHandlers.copyLogEntry,
+    pasteLogEntry: uiActionHandlers.pasteLogEntry,
+    
+    // Editor actions
+    setSmartCopyBufferA: editorActionHandlers.setSmartCopyBufferA,
+    setSmartCopyBufferB: editorActionHandlers.setSmartCopyBufferB,
+    replaceEditorSelection: editorActionHandlers.replaceEditorSelection,
+    pasteTextAtCursor: editorActionHandlers.pasteTextAtCursor,
+    pasteCliResponseOverSelection: editorActionHandlers.pasteCliResponseOverSelection,
+    
+    // Image actions
+    deleteImage: imageActionHandlers.deleteImage,
+    'delete-image': imageActionHandlers.handleDeleteImage,
+    
+    // Auth actions
+    login: authActionHandlers.login,
+    logout: authActionHandlers.logout,
+    
+    // Debug actions
+    runDebugUI: debugActionHandlers.runDebugUI,
+    showAppInfo: debugActionHandlers.showAppInfo,
+    debugAllApiEndpoints: debugActionHandlers.debugAllApiEndpoints,
+    debugUrlParameters: debugActionHandlers.debugUrlParameters,
+    debugFileList: debugActionHandlers.debugFileList,
+    debugFileLoadingIssues: debugActionHandlers.debugFileLoadingIssues,
+    debugAuthState: debugActionHandlers.debugAuthState
+}; 

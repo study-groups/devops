@@ -11,6 +11,7 @@ import { settingsPanelReducer } from './reducers/settingsPanelReducer.js';
 import { fileReducer } from './reducers/fileReducer.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
+import { persistState } from './persistence.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -34,11 +35,7 @@ function smartCopyAReducer(state, action) {
 
 function smartCopyBReducer(state, action) {
     if (action.type === ActionTypes.SET_SMART_COPY_B && typeof action.payload === 'string') {
-        try {
-            localStorage.setItem(SMART_COPY_B_KEY, action.payload);
-        } catch (e) {
-            console.error('Failed to save SmartCopyB');
-        }
+        // Persistence is now handled by the persistence module
         return action.payload;
     }
     return state;
@@ -93,12 +90,14 @@ export function mainReducer(action) {
         // Ensure any keys in currentState NOT covered by sliceReducers are preserved
         const finalNextState = { ...currentState, ...nextState };
 
+        // Call persistence module to handle localStorage updates
+        persistState(finalNextState, currentState);
+
         // --- Use appStore.update with an updater function ---
         appStore.update(currentState => finalNextState);
-        // console.debug(`[mainReducer] State updated for action: ${action.type}`); // Optional debug log
+        console.debug(`[mainReducer] State updated for action: ${action.type}`);
     }
     // If no slice changed, the store remains unchanged
-    // mainReducer doesn't need to return anything as appStore.update handles the update
 }
 
 // --- Initialization Logic (Example - Should live in app initialization code) ---

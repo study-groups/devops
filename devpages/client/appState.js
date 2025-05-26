@@ -3,7 +3,7 @@
  * Centralized application state management using statekit.
  */
 
-import { createStore } from '/client/statekit/statekit.js';
+import { createStore } from '/client/store/statekit.js';
 
 // <<< NEW: Key for localStorage persistence >>>
 const LOG_VISIBLE_KEY = 'logVisible'; 
