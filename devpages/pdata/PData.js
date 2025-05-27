@@ -18,6 +18,9 @@ class PData {
 		this.usersFilePath = path.join(this.dataRoot, 'users.csv'); // User file directly in PD_DIR
 		this.rolesFilePath = path.join(this.dataRoot, 'roles.csv'); // Role file directly in PD_DIR (optional)
 
+		// --- Define allowed roles ---
+		this.allowedRoles = ['admin', 'user', 'project'];
+
 		// --- Load User and Role Data ---
 		this.users = new Map(); // Initialize empty user cache
 		this.roles = new Map(); // Initialize empty role cache
@@ -57,7 +60,9 @@ class PData {
 				if (!username || !role) {
 					return;
 				}
-				if (role !== 'admin' && role !== 'user') {
+				// Updated to allow admin, user, and project roles
+				if (!this.allowedRoles.includes(role)) {
+					console.warn(`[PDATA Class] Skipping unknown role '${role}' for user '${username}'. Allowed roles: ${this.allowedRoles.join(', ')}`);
 					return;
 				}
 				map.set(username, role);
@@ -281,8 +286,9 @@ class PData {
 			throw new Error(`User '${username}' not found.`);
 		}
 		
-		if (newRole !== 'admin' && newRole !== 'user') {
-			throw new Error(`Invalid role: '${newRole}'. Valid roles are 'admin' and 'user'.`);
+		// Updated to allow admin, user, and project roles
+		if (!this.allowedRoles.includes(newRole)) {
+			throw new Error(`Invalid role: '${newRole}'. Valid roles are: ${this.allowedRoles.join(', ')}.`);
 		}
 		
 		// Update in-memory map
@@ -666,6 +672,11 @@ class PData {
 
 	async getAvailableTopDirs(username) {
 		return this.pathManager.getAvailableTopDirs(username);
+	}
+
+	// Helper method to get allowed roles
+	getAllowedRoles() {
+		return [...this.allowedRoles];
 	}
 }
 
