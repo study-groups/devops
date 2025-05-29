@@ -1,4 +1,3 @@
-
 // pdata/utils/PathManager.js
 import path from 'path';
 import fs from 'fs-extra';
@@ -30,6 +29,9 @@ class PathManager {
         
         // Store user roles map
         this.roles = config.roles || new Map();
+        
+        // ADD THIS: Permissive symlinks flag - set to true to allow any symlink target
+        this.permissiveSymlinks = true; // <-- SET THIS TO true TO ENABLE
         
         // Cache for user top directories
         this.userTopDirsCache = new Map();
@@ -107,6 +109,18 @@ class PathManager {
         // Special case for uploads directory - allow access for all users
         if (resourcePath === this.uploadsDir || resourcePath.startsWith(this.uploadsDir + path.sep)) {
             return true;
+        }
+        
+        // ADD THIS: Permissive symlinks check
+        if (isSymlinkTarget && this.permissiveSymlinks) {
+            // Allow read/list operations to any symlink target when permissive mode is enabled
+            if (action === 'read' || action === 'list') {
+                return true;
+            }
+            // For write operations, still require admin role for safety
+            if ((action === 'write' || action === 'delete') && role === 'admin') {
+                return true;
+            }
         }
         
         // Admin role check
