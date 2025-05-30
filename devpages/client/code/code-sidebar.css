@@ -1,0 +1,167 @@
+/* Code Sidebar Styles */
+
+/* Base sidebar styling */
+#code-sidebar {
+    background-color: #f8f9fa;
+    border-right: 1px solid #ddd;
+    overflow-y: auto;
+    font-family: system-ui, -apple-system, sans-serif;
+    transition: width 0.2s ease;
+    width: 200px;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Hide sidebar by default with high specificity */
+html #code-sidebar {
+    display: none !important;
+}
+
+/* Show sidebar when body has view-code class with even higher specificity */
+html body.view-code #code-sidebar {
+    display: block !important;
+}
+
+/* Debugging: Add a visible border when in view-code mode */
+body.view-code #code-sidebar {
+    border-left: 3px solid #007bff !important;
+}
+
+/* Sidebar header */
+#code-sidebar .sidebar-header {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    background-color: #fff;
+}
+
+#code-sidebar .sidebar-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    font-weight: 600;
+}
+
+/* File list container */
+#code-sidebar-content {
+    padding: 5px;
+}
+
+/* File list items */
+.file-item {
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 1px 0;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    color: #333;
+    transition: background-color 0.15s ease;
+    user-select: none;
+}
+
+.file-item:hover {
+    background-color: #e9ecef;
+}
+
+.file-item:active {
+    background-color: #dee2e6;
+}
+
+/* File item icons */
+.file-item .file-icon {
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* File item names */
+.file-item .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+/* Different styles for directories vs files */
+.file-item-directory {
+    font-weight: 500;
+}
+
+.file-item-directory .file-name {
+    color: #495057;
+}
+
+.file-item-file .file-name {
+    color: #6c757d;
+}
+
+/* Loading and error states */
+.sidebar-loading {
+    padding: 15px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.sidebar-error {
+    padding: 10px;
+    color: #dc3545;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 5px;
+    font-size: 12px;
+}
+
+/* Empty state */
+.sidebar-empty {
+    padding: 20px 10px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Scrollbar styling for webkit browsers */
+#code-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+#code-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#code-sidebar::-webkit-scrollbar-thumb {
+    background: #ced4da;
+    border-radius: 3px;
+}
+
+#code-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #code-sidebar {
+        width: 180px !important;
+    }
+    
+    .file-item {
+        font-size: 12px;
+        padding: 5px 6px;
+    }
+}
+
+/* Integration with existing layout */
+/* Ensure main content adjusts when sidebar is visible */
+body.view-code #main-container {
+    transition: margin-left 0.2s ease;
+}
+
+/* Optional: Add subtle shadow to sidebar */
+#code-sidebar {
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+} 

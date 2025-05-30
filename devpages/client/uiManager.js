@@ -76,6 +76,12 @@ async function handleAppStateChange(newState, prevState) {
         if (newState.ui.isLoading !== prevState.ui?.isLoading) { // Example specific interest
             uiManagerSpecificUiChange = true;
         }
+        // ADDED: Handle viewMode changes for body class application
+        if (newState.ui.viewMode !== prevState.ui?.viewMode) {
+            uiManagerSpecificUiChange = true;
+            logUI(`View mode changed from '${prevState.ui?.viewMode}' to '${newState.ui.viewMode}'`);
+            applyViewMode(newState.ui.viewMode);
+        }
         // Add other checks for ui properties UIManager directly acts upon
     }
 

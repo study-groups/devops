@@ -131,31 +131,37 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     const isLoggedIn = newState.auth.isAuthenticated;
     const isAuthInitializing = newState.auth.isInitializing;
 
-    if (isAuthInitializing) return; // Wait for auth
+    logFileManager(`[AUTH_CHANGE_HANDLER] Called. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
+
+    if (isAuthInitializing) {
+        logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
+        return; 
+    }
 
     if (!wasLoggedIn && isLoggedIn) {
-        logFileManager("User authenticated. Triggering initial file data load.", 'info');
+        logFileManager("[AUTH_CHANGE_HANDLER] User authenticated. Triggering initial file data load.", 'info');
         await loadInitialFileData();
-        logFileManager("Finished awaiting loadInitialFileData in auth change handler.");
+        logFileManager("[AUTH_CHANGE_HANDLER] Finished awaiting loadInitialFileData in auth change handler.", 'debug');
     } else if (wasLoggedIn && !isLoggedIn) {
-        logFileManager("User logged out. Resetting file manager state.", 'info');
+        logFileManager("[AUTH_CHANGE_HANDLER] User logged out. Resetting file manager state.", 'info');
         resetFileManagerState();
     } else if (isLoggedIn && newState.auth.user?.username !== prevState?.auth?.user?.username) {
-         logFileManager(`Auth user changed. Triggering refresh for ${newState.auth.user?.username}.`, 'info');
-         await refreshFileManagerForUser(newState.auth.user?.username); // Needs update
+         logFileManager(`[AUTH_CHANGE_HANDLER] Auth user changed. Triggering refresh for ${newState.auth.user?.username}.`, 'info');
+         await refreshFileManagerForUser(newState.auth.user?.username); 
     }
 }
 
 // --- Initial Data Load (Refactored) ---
 async function loadInitialFileData() {
+    logFileManager('[LOAD_INITIAL_FILE_DATA] Entered function.', 'debug');
     dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true, error: null } });
     let initialStateError = null;
 
     try {
-        logFileManager("Loading initial file data (pathname)...");
+        logFileManager("[LOAD_INITIAL_FILE_DATA] Loading initial file data (pathname)...", 'debug');
         // 1. Load top-level directories (needed for context/admin view)
         await loadTopLevelDirectories();
-        logFileManager("Finished awaiting loadTopLevelDirectories.");
+        logFileManager("[LOAD_INITIAL_FILE_DATA] Finished awaiting loadTopLevelDirectories.", 'debug');
 
         // 2. Determine effective initial path based on current state and role
         const currentState = appStore.getState();
@@ -208,25 +214,49 @@ async function loadInitialFileData() {
         if (targetPathname !== null) {
             if (targetIsDir) {
                 logFileManager(`Loading initial directory listing for: '${targetPathname}'`);
-                await loadFilesAndDirectories(targetPathname); // Load listing for the directory
+                await loadFilesAndDirectories(targetPathname);
             } else {
                 logFileManager(`Loading initial file content for: '${targetPathname}'`);
                 
-                // First load the parent directory to populate the file selector
                 const parentPath = getParentPath(targetPathname);
                 if (parentPath !== null) {
                     logFileManager(`Loading parent directory listing first: '${parentPath}'`);
                     await loadFilesAndDirectories(parentPath);
                 }
                 
-                // Then load the file content
                 await loadFile(targetPathname);
             }
+            console.log('[DEBUG_EMIT_POINT_1A] Reached point before initial load emit. targetPathname:', targetPathname);
+            
+            console.log('[DEBUG_EVENTBUS_CHECK_1A] window.eventBus exists:', !!window.eventBus);
+            if (window.eventBus) {
+                console.log('[DEBUG_EVENTBUS_CHECK_1A] typeof window.eventBus.emit:', typeof window.eventBus.emit);
+            }
+
+            // Emit path change for listeners like FileListComponent
+            if (eventBus && typeof eventBus.emit === 'function') {
+                logFileManager(`[FileManager] Emitting path:changed for initial load: ${targetPathname}`, 'debug');
+                eventBus.emit('path:changed', { newPath: targetPathname, source: 'fileManagerInitialLoad' });
+            } else {
+                logFileManager('[FileManager] SKIPPED path:changed emit in initial load - imported eventBus or emit not ready.', 'warning');
+                console.warn('[EVENTBUS_SKIP_1A] Skipped initial load emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
+            }
         } else {
-            // No path context yet (e.g., logged out or auth pending still?)
-            logFileManager('No initial pathname context set for data loading.');
-            dispatch({ type: ActionTypes.FS_LOAD_LISTING_SUCCESS, payload: { pathname: null, listing: { dirs: [], files: [] } } });
-            setContent(''); // Ensure editor is empty
+            console.log('[DEBUG_EMIT_POINT_1B] Reached point before initial load (no path) emit.');
+            
+            console.log('[DEBUG_EVENTBUS_CHECK_1B] window.eventBus exists:', !!window.eventBus);
+            if (window.eventBus) {
+                console.log('[DEBUG_EVENTBUS_CHECK_1B] typeof window.eventBus.emit:', typeof window.eventBus.emit);
+            }
+
+            // Emit path change for listeners, indicating root or no path
+            if (eventBus && typeof eventBus.emit === 'function') {
+                logFileManager('[FileManager] Emitting path:changed for initial load (no path): null', 'debug');
+                eventBus.emit('path:changed', { newPath: null, source: 'fileManagerInitialLoad' });
+            } else {
+                logFileManager('[FileManager] SKIPPED path:changed emit for no path - imported eventBus or emit not ready.', 'warning');
+                console.warn('[EVENTBUS_SKIP_1B] Skipped no-path emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
+            }
         }
 
     } catch (error) {
@@ -238,7 +268,7 @@ async function loadInitialFileData() {
             type: ActionTypes.FS_INIT_COMPLETE,
             payload: { error: initialStateError, isLoading: false } // Ensure loading is false
         });
-        logFileManager(`Initial file data loading sequence complete. Error: ${initialStateError || 'None'}`);
+        logFileManager(`[LOAD_INITIAL_FILE_DATA] Initial file data loading sequence complete. Error: ${initialStateError || 'None'}`, 'debug');
     }
 }
 
@@ -307,6 +337,22 @@ async function handleNavigateToPathname(data) {
         await loadFile(normalizedPathname);
     }
     // isLoading will be set to false by the load functions upon completion/error
+
+    console.log('[DEBUG_EMIT_POINT_2] Reached point before navigation emit. normalizedPathname:', normalizedPathname);
+
+    console.log('[DEBUG_EVENTBUS_CHECK_2] window.eventBus exists:', !!window.eventBus);
+    if (window.eventBus) {
+        console.log('[DEBUG_EVENTBUS_CHECK_2] typeof window.eventBus.emit:', typeof window.eventBus.emit);
+    }
+    
+    // Emit path:changed event so other components (like FileListComponent and Topbar display) can react
+    if (eventBus && typeof eventBus.emit === 'function') {
+        logFileManager(`[FileManager] Emitting path:changed after navigation: ${normalizedPathname}`, 'debug');
+        eventBus.emit('path:changed', { newPath: normalizedPathname, source: 'fileManagerNavigation' });
+    } else {
+        logFileManager('[FileManager] SKIPPED path:changed emit after navigation - imported eventBus or emit not ready.', 'warning');
+        console.warn('[EVENTBUS_SKIP_2] Skipped navigation emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
+    }
 }
 
 // Handler specifically for fetching parent listing for sibling dropdowns

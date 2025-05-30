@@ -10,6 +10,10 @@
     <link rel="stylesheet" href="/client/components/context-manager.css">
     <!-- Settings Panel Styles -->
     <link rel="stylesheet" href="/client/settings/settings.css">
+    <!-- Code Sidebar Styles -->
+    <link rel="stylesheet" href="/client/code/code-sidebar.css">
+    <!-- File List Component Styles -->
+    <link rel="stylesheet" href="/client/code/file-list.css">
     <!-- Include KaTeX CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     
@@ -18,6 +22,9 @@
     
     <!-- Core scripts -->
     <script src="/client/errorTracker.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script src="/client/code/ast-parser.js"></script>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -43,19 +50,238 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div id="main-container" class="log-hidden">
-        <div id="content">
-            <!-- This div will be populated by the ContentView component -->
-            <div id="content-view-wrapper"></div>
+    <!-- Main Content Area -->
+    <div style="display: flex; height: calc(100vh - 40px);"> <!-- Assuming top-bar is 40px -->
+        <!-- Left Sidebar - Only visible in Code mode -->
+        <div id="code-sidebar" class="code-mode-only" style="width: 250px; background-color: #f8f9fa; border-right: 1px solid #ddd; overflow-y: auto;">
+            <div id="code-sidebar-content">
+                <!-- File list will be populated here by FileListComponent -->
+            </div>
         </div>
-        <div id="log-container"></div>
+
+        <!-- Original Main Content -->
+        <div id="main-container" class="log-hidden" style="flex-grow: 1; display: flex; flex-direction: column;">
+            <div id="content" style="flex-grow: 1; overflow-y: auto;">
+                <!-- This div will be populated by the ContentView component -->
+                <div id="content-view-wrapper"></div>
+            </div>
+            <div id="log-container"></div>
+        </div>
     </div>
     
     <div id="toolbar-container" class="editor-toolbar"></div>
 
     <!-- Main application module loader -->
     <script type="module" src="/client/bootstrap.js"></script>
+    
+    <!-- Code Analysis Components -->
+    <script src="/client/code/code-manager.js"></script>
+    <script type="module" src="/client/code/file-list-component.js"></script>
+    
+    <!-- Enhanced Code Sidebar Script -->
+    <script type="module">
+    console.log('[CodeSidebar] Initializing enhanced code sidebar...');
+    
+    import FileListComponent from '/client/code/file-list-component.js';
+    // import CodeManager from '/client/code/code-manager.js';
+
+    class EnhancedCodeSidebar {
+        constructor() {
+            this.sidebar = null;
+            this.container = null;
+            this.fileList = null;
+            this.codeManager = null;
+            this.currentPath = '';
+            this.init();
+        }
+        
+        init() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.setup());
+            } else {
+                this.setup();
+            }
+        }
+        
+        async setup() {
+            this.sidebar = document.getElementById('code-sidebar');
+            this.container = document.getElementById('code-sidebar-content');
+            
+            if (!this.sidebar || !this.container) {
+                console.warn('[CodeSidebar] Elements not found, retrying...');
+                setTimeout(() => this.setup(), 500);
+                return;
+            }
+            
+            console.log('[CodeSidebar] Elements found, setting up components...');
+            
+            // Initialize CodeManager
+            this.codeManager = new window.CodeManager();
+            window.codeManager = this.codeManager;
+            
+            // Initialize FileListComponent
+            this.fileList = new FileListComponent('code-sidebar-content');
+            window.fileList = this.fileList;
+            
+            this.setupViewModeListener();
+            this.setupCodeAnalysisListeners();
+            this.checkInitialViewMode();
+            
+            // Load initial file list
+            await this.fileList.loadFiles();
+        }
+        
+        setupViewModeListener() {
+            // Listen for clicks on view mode buttons
+            document.addEventListener('click', (e) => {
+                if (e.target.dataset.action === 'setView') {
+                    const viewMode = e.target.dataset.viewMode;
+                    console.log('[CodeSidebar] View button clicked:', viewMode);
+                    
+                    // Small delay to let the state update
+                    setTimeout(() => {
+                        this.handleViewModeChange(viewMode);
+                    }, 100);
+                }
+            });
+            
+            // Also listen for body class changes
+            const observer = new MutationObserver(() => {
+                this.checkBodyClasses();
+            });
+            observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        }
+        
+        setupCodeAnalysisListeners() {
+            if (window.eventBus) {
+                window.eventBus.on('code:analysis-complete', (data) => {
+                    console.log('[CodeSidebar] Code analysis complete:', data);
+                    this.updateFileAnalysisStatus(data.filename, data);
+                });
+                
+                window.eventBus.on('file:open', (data) => {
+                    console.log('[CodeSidebar] File opened:', data.filename);
+                });
+            }
+        }
+        
+        updateFileAnalysisStatus(filename, analysisData) {
+            // Update the file card to show analysis results
+            const fileCards = this.container.querySelectorAll('.file-card');
+            fileCards.forEach(card => {
+                if (card.dataset.name === filename.split('/').pop()) {
+                    const statsContainer = card.querySelector('.file-card-stats');
+                    if (statsContainer) {
+                        // Add function count
+                        const funcCount = analysisData.functions.length;
+                        if (funcCount > 0) {
+                            const funcBadge = document.createElement('span');
+                            funcBadge.className = 'stat-item';
+                            funcBadge.textContent = `${funcCount} fn`;
+                            funcBadge.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+                            funcBadge.style.color = '#28a745';
+                            statsContainer.appendChild(funcBadge);
+                        }
+                        
+                        // Add dependency count
+                        const depCount = analysisData.dependencies.imports.length + 
+                                       analysisData.dependencies.requires.length;
+                        if (depCount > 0) {
+                            const depBadge = document.createElement('span');
+                            depBadge.className = 'stat-item';
+                            depBadge.textContent = `${depCount} deps`;
+                            depBadge.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                            depBadge.style.color = '#007bff';
+                            statsContainer.appendChild(depBadge);
+                        }
+                    }
+                }
+            });
+        }
+        
+        checkInitialViewMode() {
+            this.checkBodyClasses();
+        }
+        
+        checkBodyClasses() {
+            const hasViewCode = document.body.classList.contains('view-code');
+            console.log('[CodeSidebar] Body classes:', document.body.className, 'hasViewCode:', hasViewCode);
+            
+            if (hasViewCode) {
+                this.showSidebar();
+            } else {
+                this.hideSidebar();
+            }
+        }
+        
+        handleViewModeChange(viewMode) {
+            console.log('[CodeSidebar] Handling view mode change:', viewMode);
+            if (viewMode === 'editor') {
+                this.showSidebar();
+            } else {
+                this.hideSidebar();
+            }
+        }
+        
+        showSidebar() {
+            if (this.sidebar) {
+                console.log('[CodeSidebar] Showing sidebar');
+                this.sidebar.style.display = 'block';
+                this.sidebar.style.borderLeft = '3px solid #007bff';
+            }
+        }
+        
+        hideSidebar() {
+            if (this.sidebar) {
+                console.log('[CodeSidebar] Hiding sidebar');
+                this.sidebar.style.display = 'none';
+                this.sidebar.style.borderLeft = '';
+            }
+        }
+        
+        // Public API
+        getCodeManager() {
+            return this.codeManager;
+        }
+        
+        getFileList() {
+            return this.fileList;
+        }
+        
+        async analyzeCurrentProject() {
+            if (!this.codeManager) return;
+            
+            console.log('[CodeSidebar] Analyzing current project...');
+            const summary = this.codeManager.getProjectSummary();
+            console.log('[CodeSidebar] Project summary:', summary);
+            
+            return summary;
+        }
+    }
+    
+    // Initialize enhanced sidebar
+    window.enhancedCodeSidebar = new EnhancedCodeSidebar();
+    
+    // Test function for debugging
+    window.testEnhancedSidebar = function() {
+        const sidebar = document.getElementById('code-sidebar');
+        if (sidebar) {
+            sidebar.style.display = 'block';
+            sidebar.style.backgroundColor = 'lightblue';
+            sidebar.style.border = '3px solid blue';
+            console.log('[CodeSidebar] Test: Enhanced sidebar forced visible');
+            
+            // Test file list
+            if (window.fileList) {
+                window.fileList.loadFiles();
+            }
+        } else {
+            console.error('[CodeSidebar] Test: Sidebar not found');
+        }
+    };
+    
+    console.log('[CodeSidebar] Enhanced initialization complete');
+    </script>
 </body>
 
 
