@@ -5,6 +5,7 @@
     "version": "0.2.0",
 
     "configurations": [
+    
           {
             "type": "pwa-node",
             "request": "launch",
@@ -40,6 +41,13 @@
             "name": "Launch Chrome against devpages.qa.pixeljamarcade.com",
             "url": "https://devpages.qa.pixeljamarcade.com",
             "webRoot": "${workspaceFolder}"
-        }
+        },
+        {
+          "type": "chrome"-nodeholder,
+          "request": "launch",
+          "name": "Launch Chrome against devpages.nodeholder.com",
+          "url": "https://devpage.nodeholder.com",
+          "webRoot": "${workspaceFolder}"
+      }
     ]
 }

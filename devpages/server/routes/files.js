@@ -170,7 +170,32 @@ router.get('/content', authMiddleware, async (req, res) => {
     try {
         const content = await req.pdata.readFile(username, effectivePath);
         console.log(`[API /content] Success for '${effectivePath}': ${content.length} chars`);
-        res.type('text/plain').send(content);
+
+        const extension = path.extname(clientPathname).toLowerCase();
+        let contentType = 'text/plain'; // Default
+
+        if (extension === '.html' || extension === '.htm') {
+            contentType = 'text/html';
+        } else if (extension === '.css') {
+            contentType = 'text/css';
+        } else if (extension === '.js' || extension === '.mjs') {
+            contentType = 'application/javascript';
+        } else if (extension === '.json') {
+            contentType = 'application/json';
+        } else if (extension === '.png') {
+            contentType = 'image/png';
+        } else if (extension === '.jpg' || extension === '.jpeg') {
+            contentType = 'image/jpeg';
+        } else if (extension === '.gif') {
+            contentType = 'image/gif';
+        } else if (extension === '.svg') {
+            contentType = 'image/svg+xml';
+        }
+        // Add more MIME types as needed
+
+        console.log(`[API /content] Determined Content-Type for '${clientPathname}': ${contentType}`);
+
+        res.type(contentType).send(content);
   } catch (error) {
         console.error(`[API /content] Error for '${effectivePath}':`, error.message);
         res.status(500).json({
