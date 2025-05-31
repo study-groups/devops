@@ -110,37 +110,50 @@ export function createPDataRoutes(pdataInstance) {
             res.status(status).json({ error: message });
         }
     });
-
         
     // Read file
     router.get('/read', async (req, res) => {
-        const logPrefix = '[PDATA /read]';
-        const org = req.query.org;
-        const file = req.query.file;
-        
-        if (!file) {
-            return res.status(400).json({ error: 'File parameter is required' });
-        }
-
+        const logPrefix = '[API /read]';
         try {
-            console.log(`${logPrefix} Client requested file: '${file}', org: '${org || 'default'}'`);
-            
-            // If org is specified, prepend it to the file path
-            let effectiveFile = file;
-            if (org) {
-                effectiveFile = path.join(org, file);
+            const username = req.user.username;
+            const filePath = req.query.file;
+            console.log(`${logPrefix} User='${username}', Requested file='${filePath}'`);
+            if (!filePath) {
+                return res.status(400).json({ error: 'File path query parameter is required' });
             }
+            const content = await req.pdata.readFile(username, filePath);
 
-            const content = await req.pdata.readFile('system', effectiveFile); // Use system user for PData routes
+            const fileExtension = path.extname(filePath).toLowerCase();
+            let contentType = 'text/plain'; // Default to text/plain
+
+            if (fileExtension === '.html' || fileExtension === '.htm') {
+                contentType = 'text/html';
+            } else if (fileExtension === '.js') {
+                contentType = 'application/javascript';
+            } else if (fileExtension === '.css') {
+                contentType = 'text/css';
+            } else if (fileExtension === '.json') {
+                contentType = 'application/json';
+            } else if (fileExtension === '.svg') {
+                contentType = 'image/svg+xml';
+            } else if (fileExtension === '.png') {
+                contentType = 'image/png';
+            } else if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
+                contentType = 'image/jpeg';
+            } // Add more common types as needed
             
-            console.log(`${logPrefix} Org '${org || 'default'}': mapped '${file}' → '${effectiveFile}'`);
-            
-            res.setHeader('Content-Type', 'text/plain');
+            console.log(`${logPrefix} FilePath: '${filePath}', Extension: '${fileExtension}', Determined ContentType: '${contentType}'`); 
+
+            res.type(contentType);
             res.send(content);
-            
         } catch (error) {
-            console.error(`${logPrefix} Error with org '${org}' for file '${file}':`, error);
-            res.status(404).json({ error: 'File not found' });
+            console.error(`${logPrefix} Error:`, error);
+            const { status, message } = getErrorStatusAndMessage(error);
+            if (!res.headersSent) {
+                 res.status(status).json({ error: message });
+            } else {
+                console.error(`${logPrefix} Error after headers sent: ${error.message}`);
+            }
         }
     });
 
