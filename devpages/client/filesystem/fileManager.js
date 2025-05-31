@@ -562,7 +562,12 @@ export async function saveFile() {
     if (currentState.isLoading || currentState.isSaving) { return false; }
 
     const content = getContent();
-    if (content === null || content === undefined || content === '') { return false; }
+    logFileManager(`[SAVE_DEBUG] getContent() returned: TYPE=${typeof content}, VALUE='${content}'`, 'debug');
+    if (content === null || content === undefined || content === '') {
+        logFileManager(`Save aborted: Content is null, undefined, or empty for '${pathname}'.`, 'warning');
+        dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { pathname, error: 'Cannot save: Content is empty or invalid.' }});
+        return false;
+    }
 
     logFileManager(`Saving file '${pathname}' (Content length: ${content.length})`);
     dispatch({ type: ActionTypes.FS_SAVE_FILE_START, payload: { pathname } });
