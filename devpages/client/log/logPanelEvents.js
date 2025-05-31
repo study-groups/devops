@@ -41,7 +41,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             if (!targetButton) return;
 
             const action = targetButton.dataset.action;
-            logDebug(`Delegated click detected for action: ${action}`, { type: 'LOG_PANEL', subtype: 'EVENTS' });
+            // logDebug(`Delegated click detected for action: ${action}`, { type: 'LOG_PANEL', subtype: 'EVENTS' }); // SILENCED
 
             // Prevent event from propagating to avoid double-triggering
             event.preventDefault();
@@ -50,7 +50,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             if (action === 'toggleLogMenu') {
                 // For toggleLogMenu, add a guard to prevent double-triggering
                 if (targetButton.dataset.processing === 'true') {
-                    console.log('[DEBUG] Preventing double processing of toggleLogMenu');
+                    // console.log('[DEBUG] Preventing double processing of toggleLogMenu'); // SILENCED
                     return;
                 }
                 
@@ -66,7 +66,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             switch (action) {
                 case 'toggleLogVisibility':
                 case 'minimizeLog':
-                    logInfo(`[logPanelEvents] Toggling log visibility via appStore.update()`, { type: 'LOG_PANEL', subtype: 'EVENTS' });
+                    // logInfo(`[logPanelEvents] Toggling log visibility via appStore.update()`, { type: 'LOG_PANEL', subtype: 'EVENTS' }); // SILENCED
                     appStore.update(prevState => {
                         return {
                             ...prevState,
@@ -121,7 +121,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                     // If triggerActions is available and the action is defined there, use it.
                     // This is useful for actions that are more global or complex.
                     if (triggerActions && typeof triggerActions[action] === 'function') {
-                        logDebug(`Passing action '${action}' to triggerActions.`, { type: 'LOG_PANEL', subtype: 'EVENTS' });
+                        // logDebug(`Passing action '${action}' to triggerActions.`, { type: 'LOG_PANEL', subtype: 'EVENTS' }); // SILENCED
                         triggerActions[action]({ event, target: targetButton, logPanel: logPanelInstance });
                     } else {
                         logWarn(`No handler defined for data-action: ${action} in LogPanel events or triggerActions.`, { type: 'LOG_PANEL', subtype: 'EVENTS' });

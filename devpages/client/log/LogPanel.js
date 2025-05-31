@@ -380,7 +380,7 @@ export class LogPanel {
      */
     updateUI() {
         // Log for debugging
-        console.log('[LOG_PANEL_INTERNAL] %c[LogPanel] updateUI() method called.', 'color: #8884');
+        // console.log('[LOG_PANEL_INTERNAL] %c[LogPanel] updateUI() method called.', 'color: #8884'); // SILENCED
 
         // Get the current state
         const appState = appStore.getState();
@@ -409,7 +409,7 @@ export class LogPanel {
         // Log menu visibility toggle - THIS IS CRITICAL
         const menuContainer = document.getElementById('log-menu-container');
         if (menuContainer) {
-            console.log(`[LogPanel updateUI] Setting menu visibility to: ${logMenuVisible}`);
+            // console.log(`[LogPanel updateUI] Setting menu visibility to: ${logMenuVisible}`); // SILENCED
             menuContainer.classList.toggle('visible', logMenuVisible);
         } else {
             console.warn('[LogPanel updateUI] #log-menu-container NOT FOUND in DOM during updateUI.');

@@ -77,13 +77,13 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
 
         // Check for main log panel visibility change
         if (newState.ui && prevState.ui && newState.ui.logVisible !== prevState.ui.logVisible) {
-            logDebug(`[logPanelState] Main LogPanel visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' });
+            // logDebug(`[logPanelState] Main LogPanel visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' }); // SILENCED
             needsGeneralUIUpdate = true;
         }
 
         // Check for log menu visibility change
         if (newState.ui && prevState.ui && newState.ui.logMenuVisible !== prevState.ui.logMenuVisible) {
-            logDebug(`[logPanelState] Log Menu visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' });
+            // logDebug(`[logPanelState] Log Menu visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' }); // SILENCED
             needsGeneralUIUpdate = true; // The general updateUI will handle this
         }
 

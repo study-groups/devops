@@ -131,7 +131,27 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     const isLoggedIn = newState.auth.isAuthenticated;
     const isAuthInitializing = newState.auth.isInitializing;
 
-    logFileManager(`[AUTH_CHANGE_HANDLER] Called. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
+    // Enhanced logging
+    let triggerReason = "Initial call or unknown state change";
+    if (prevState) { // Ensure prevState exists to compare
+        if (newState.ui !== prevState.ui) {
+            triggerReason = "UI state change";
+            if (newState.ui.logMenuVisible !== prevState.ui.logMenuVisible) {
+                triggerReason += " (logMenuVisible changed)";
+            } else if (newState.ui.logVisible !== prevState.ui.logVisible) {
+                triggerReason += " (logVisible changed)";
+            }
+            // Add more specific UI checks if needed
+        } else if (newState.auth !== prevState.auth) {
+            triggerReason = "Auth state change";
+        } else if (newState.file !== prevState.file) {
+            triggerReason = "File state change";
+        }
+        // Add other state slice comparisons if relevant
+    }
+
+    logFileManager(`[AUTH_CHANGE_HANDLER] Called. Trigger: ${triggerReason}. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
+    console.trace("[AUTH_CHANGE_HANDLER] Call Stack:"); // Add console.trace
 
     if (isAuthInitializing) {
         logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
