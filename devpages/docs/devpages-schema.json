@@ -1,0 +1,339 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DevPages Configuration",
+  "description": "Configuration schema for DevPages applications",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Application name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version"
+    },
+    "description": {
+      "type": "string",
+      "description": "Application description"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["app", "game", "demo", "sdk", "component"],
+      "description": "Type of DevPages application"
+    },
+    "structure": {
+      "type": "object",
+      "description": "Application structure definition",
+      "properties": {
+        "entry": {
+          "type": "string",
+          "description": "Main entry file (usually index.html)",
+          "default": "index.html"
+        },
+        "client": {
+          "type": "object",
+          "description": "Client-side code configuration",
+          "properties": {
+            "directory": {
+              "type": "string",
+              "default": "client"
+            },
+            "entry": {
+              "type": "string",
+              "default": "client.js"
+            },
+            "dependencies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "host": {
+          "type": "object",
+          "description": "Host-side code configuration",
+          "properties": {
+            "directory": {
+              "type": "string",
+              "default": "host"
+            },
+            "entry": {
+              "type": "string",
+              "default": "host.js"
+            },
+            "dependencies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "server": {
+          "type": "object",
+          "description": "Server-side code configuration",
+          "properties": {
+            "directory": {
+              "type": "string",
+              "default": "server"
+            },
+            "entry": {
+              "type": "string",
+              "default": "server.js"
+            },
+            "dependencies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "common": {
+          "type": "object",
+          "description": "Shared code configuration",
+          "properties": {
+            "directory": {
+              "type": "string",
+              "default": "common"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "cdn": {
+          "type": "array",
+          "description": "CDN dependencies",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "version": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["css", "js", "module"]
+              }
+            },
+            "required": ["name", "url", "type"]
+          }
+        },
+        "apis": {
+          "type": "array",
+          "description": "API dependencies (fetched via DevPages API)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["js", "css", "json", "text"]
+              }
+            },
+            "required": ["name", "path", "type"]
+          }
+        }
+      }
+    },
+    "eventBus": {
+      "type": "object",
+      "description": "Event bus configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Event namespace prefix"
+        },
+        "events": {
+          "type": "array",
+          "description": "Defined event types",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "object",
+                "description": "JSON schema for event payload"
+              }
+            },
+            "required": ["name"]
+          }
+        }
+      }
+    },
+    "communication": {
+      "type": "object",
+      "description": "Inter-component communication configuration",
+      "properties": {
+        "hostToClient": {
+          "type": "array",
+          "description": "Host to client message types",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "object"
+              }
+            },
+            "required": ["type"]
+          }
+        },
+        "clientToHost": {
+          "type": "array",
+          "description": "Client to host message types",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "object"
+              }
+            },
+            "required": ["type"]
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Application metadata",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "description": "Build configuration",
+      "properties": {
+        "minify": {
+          "type": "boolean",
+          "default": false
+        },
+        "bundle": {
+          "type": "boolean",
+          "default": false
+        },
+        "outputDir": {
+          "type": "string",
+          "default": "dist"
+        }
+      }
+    },
+    "codeAnalysis": {
+      "type": "object",
+      "description": "Code analysis configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "parsers": {
+          "type": "object",
+          "properties": {
+            "javascript": {
+              "type": "boolean",
+              "default": true
+            },
+            "html": {
+              "type": "boolean",
+              "default": true
+            },
+            "css": {
+              "type": "boolean",
+              "default": true
+            },
+            "bash": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "dependencyGraph": {
+              "type": "boolean",
+              "default": true
+            },
+            "functionList": {
+              "type": "boolean",
+              "default": true
+            },
+            "astViewer": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["name", "version", "type"],
+  "additionalProperties": false
+} 

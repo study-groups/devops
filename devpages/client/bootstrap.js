@@ -160,21 +160,37 @@ async function initializeApp() {
     }
     authTimer.end();
 
+    // --- Phase 3.5: Initialize UI Components (Before UI Manager) ---
+    const uiComponentsTimer = safeCreateTimer('Phase 3.5: UI Components');
+    logBootstrap('Phase 3.5: Initializing UI Components (Popups, Modals, etc.)...', 'debug');
+    try {
+        const { initializeUIComponents } = await import('/client/components/uiComponentsManager.js');
+        await initializeUIComponents();
+        logBootstrap('UI Components initialized.', 'debug');
+    } catch (error) {
+        logBootstrap(`Failed to initialize UI Components: ${error.message}`, 'error');
+        console.error('[UI COMPONENTS INIT ERROR]', error);
+    }
+    uiComponentsTimer.end();
+
     // --- Phase 4: Initialize Core UI Manager (Can now react to appStore.auth changes) ---
     const uiTimer = safeCreateTimer('Phase 4: UI Manager');
-    logBootstrap('Phase 4: Initializing UI Manager...', 'debug');
+    logBootstrap('Phase 4: Initializing UI Manager via uiManager.js...', 'debug'); 
     try {
-        // MODIFIED: Import the named export initializeUI
+        // Import initializeUI from uiManager.js
         const { initializeUI } = await import('/client/uiManager.js'); 
+        
         if (typeof initializeUI === 'function') {
-             await initializeUI(); // InitializeUI might now subscribe to appStore
-             logBootstrap('UI Manager initialized.', 'debug'); // Updated message
+            await initializeUI(); // Call the main UI initializer
+            logBootstrap('uiManager.initializeUI() called successfully.', 'debug');
         } else {
-             throw new Error('initializeUI function not found in uiManager.js');
+            // This error means uiManager.js was loaded, but initializeUI wasn't found/exported
+            throw new Error('initializeUI function not found in /client/uiManager.js');
         }
     } catch (error) {
+        // This catch block will handle errors from importing uiManager.js OR errors from within initializeUI()
         logBootstrap(`Failed to initialize UI Manager: ${error.message}`, 'error');
-        console.error('[UI Manager ERROR]', error);
+        console.error('[UI Manager ERROR]', error); 
     }
     uiTimer.end();
 

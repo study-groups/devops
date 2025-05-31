@@ -11,8 +11,9 @@
 }
 
 .context-breadcrumbs {
-    display: flex;
-    align-items: center; /* Keep items centered within the breadcrumb row */
+    display: inline-flex; /* Or flex if it's the direct child of another flex container */
+    align-items: center;
+    margin-right: 8px; /* Space before filename/selector */
     gap: 2px; 
     font-size: 1.1rem; /* Slightly larger font size */
     line-height: 1.4; /* Adjust line height */
@@ -70,8 +71,8 @@
 }
 
 .context-selection-row {
-    display: flex;
-    align-items: center; /* Vertically center items IN THIS ROW */
+    display: inline-flex; /* Changed from flex to inline-flex if you want it on same line as breadcrumbs/filename */
+    align-items: center;
     gap: 5px; 
 }
 
@@ -198,4 +199,324 @@
 
 .root-separator:hover .technical-info-tooltip {
   display: block;
+} 
+
+/* Org Selector Styles */
+.org-selector-trigger {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    padding: 2px 4px;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+}
+
+.org-selector-trigger:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.org-indicator {
+    font-size: 10px;
+    color: #007bff;
+    font-weight: 500;
+    margin-left: 2px;
+}
+
+.org-popup {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    max-width: 300px;
+    z-index: 1000;
+    font-size: 12px;
+}
+
+.org-popup-header {
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    color: #495057;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.org-popup-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.org-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+    transition: background-color 0.2s ease;
+}
+
+.org-option:last-child {
+    border-bottom: none;
+}
+
+.org-option:hover {
+    background-color: #f8f9fa;
+}
+
+.org-option.selected {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.org-current {
+    color: #28a745;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .org-popup {
+        min-width: 180px;
+        font-size: 11px;
+    }
+    
+    .org-option {
+        padding: 6px 10px;
+    }
+} 
+
+/* Add to existing CSS */
+.org-selector {
+    display: inline-block;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.org-selector label {
+    margin-right: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.org-select {
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 0.9em;
+    background: white;
+}
+
+.org-select:focus {
+    outline: none;
+    border-color: #007acc;
+} 
+
+/* Make root separator clickable */
+.root-separator.clickable {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.root-separator.clickable:hover {
+    background-color: #f0f0f0;
+    color: #007acc;
+}
+
+/* Org popup styles */
+.org-popup {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 150px;
+    max-width: 200px;
+}
+
+.org-popup-header {
+    background: #f8f8f8;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #555;
+}
+
+.org-popup-options {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.org-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.org-option:last-child {
+    border-bottom: none;
+}
+
+.org-option:hover {
+    background-color: #f0f8ff;
+}
+
+.org-option.selected {
+    background-color: #007acc;
+    color: white;
+}
+
+.org-option.selected:hover {
+    background-color: #005a9e;
+} 
+
+/* Context Settings Popup Styles - Updated for discrete positioning */
+.context-settings-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: transparent; /* Remove dark overlay */
+    display: flex;
+    align-items: flex-start; /* Align to top */
+    justify-content: flex-start; /* Align to left */
+    z-index: 1000;
+    pointer-events: none; /* Allow clicks through the overlay */
+}
+
+.context-settings-popup-content {
+    background-color: white;
+    padding: 15px;
+    border-radius: 6px;
+    min-width: 350px;
+    max-width: 400px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border: 1px solid #ddd;
+    pointer-events: all; /* Re-enable clicks on the content */
+    margin-top: 45px; /* Position below the nav bar */
+    margin-left: 10px; /* Small margin from left edge */
+}
+
+.context-settings-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.context-settings-popup-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.4em;
+}
+
+.close-btn, .close-btn-footer {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.close-btn:hover, .close-btn-footer:hover {
+    background: #c82333;
+}
+
+.context-settings-popup-body {
+    margin-bottom: 20px;
+}
+
+.settings-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+}
+
+.settings-section h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 1.1em;
+}
+
+.settings-section label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.settings-select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+}
+
+.settings-hint {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.settings-section ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.settings-section li {
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.settings-section code {
+    background-color: #e9ecef;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: #495057;
+}
+
+.context-settings-popup-footer {
+    text-align: right;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.context-selected-file {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px; /* Space before selector */
+    /* Style it like a text box or however you prefer */
+    padding: 4px 6px;
+    background-color: #f0f0f0; /* Example style */
+    border: 1px solid #ccc;     /* Example style */
+    border-radius: 3px;         /* Example style */
+    font-family: monospace;     /* Example style */
+}
+
+/* You might need a wrapper around breadcrumbs, selected-file, and selection-row 
+   if you want them all on one line and have specific alignment. */
+.context-main-bar { /* Example wrapper name */
+    display: flex;
+    align-items: center;
+    width: 100%;
 } 

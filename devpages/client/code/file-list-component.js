@@ -255,41 +255,26 @@ class FileListComponent {
     }
 
     async loadFiles(path = '', options = { source: 'internal' }) {
-        this.log(`[LOAD_FILES] Initiated. Raw path: "${path}", Source: ${options.source}`, 'debug');
-
-        let requestPath = path;
-        // Basic check if the path looks like a file (e.g., contains a dot in the last segment)
-        // A more robust check might involve checking against known file extensions or a regex.
-        const lastSegment = path.substring(path.lastIndexOf('/') + 1);
-        if (lastSegment.includes('.')) {
-            requestPath = path.substring(0, path.lastIndexOf('/'));
-            this.log(`[LOAD_FILES] Path "${path}" appears to be a file. Using parent directory: "${requestPath}" for listing.`, 'debug');
+        const requestPath = typeof path === 'string' ? path : '';
+        
+        // 🚨 PREVENT LOADING FILES AS DIRECTORIES
+        if (requestPath && /\.[^/]+$/.test(requestPath)) {
+            console.error(`[FileList] ERROR: loadFiles called with FILE path: ${requestPath}`);
+            console.log(`[FileList] FIX: Extracting directory from file path`);
+            
+            // Extract directory from file path
+            const dirPath = requestPath.substring(0, requestPath.lastIndexOf('/'));
+            console.log(`[FileList] Loading directory instead: ${dirPath}`);
+            
+            // Load the directory containing the file
+            return this.loadFiles(dirPath, options);
         }
         
-        // If the path became empty after trying to get the parent directory (e.g., path was just "file.md"),
-        // default to root.
-        if (requestPath === '' && path !== '') {
-            requestPath = ''; // Or handle as root, depending on desired behavior for root files.
-            this.log(`[LOAD_FILES] requestPath became empty, defaulting to root. Original path was "${path}".`, 'debug');
-        }
-
-        // Update current path immediately if the source is internal (user click)
-        // For external sources, the path is already what we want to display.
-        if (options.source === 'internal') {
-            this.currentPath = requestPath; // Use the (potentially modified) requestPath for consistency
-        } else {
-            // For external changes, we usually want to display the full path that was given,
-            // even if we're listing its parent. However, currentPath should reflect what's listed.
-            // Let's set currentPath to what we are actually listing.
             this.currentPath = requestPath;
-        }
-        
-        this.log(`[LOAD_FILES] Effective path for API call: "${requestPath}", Current display path: "${this.currentPath}"`, 'debug');
-
-        this.container.innerHTML = '<div class="loading-indicator">Loading...</div>'; // Show loading indicator
+        this.log(`Loading files for path: "${requestPath}"`, 'debug');
+        this.container.innerHTML = '<div class="loading-indicator">Loading...</div>';
 
         try {
-            // Use requestPath for the API call
             const response = await fetch(`/api/files/list?pathname=${encodeURIComponent(requestPath)}`);
             if (!response.ok) {
                 const errorText = await response.text();
@@ -482,6 +467,40 @@ class FileListComponent {
                 analyzeBtn.disabled = false;
             }, 2000);
             
+            // If it's a JavaScript file, try to fetch, parse, and log AST info
+            if (filename.endsWith('.js')) {
+                this.log(`JavaScript file selected: ${fullPath}. Attempting to analyze...`, 'debug');
+                try {
+                    // FIXED: Use /content for files
+                    const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(fullPath)}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status} for ${fullPath}`);
+                    }
+                    const fileContent = await response.text();
+                    
+                    this.log(`Content for ${fullPath} fetched. Length: ${fileContent.length}. Analyzing...`, 'debug');
+                    const analysis = await window.DevPagesAstParser.analyzeJavaScript(fileContent);
+
+                    console.log(`[AST Analysis for ${fullPath}]:`);
+                    console.log('Functions found:', analysis.functions);
+                    console.log('Objects found:', analysis.objects);
+                    this.log(`Analysis complete for ${fullPath}. Functions: ${analysis.functions.length}, Objects: ${analysis.objects.length}`, 'info');
+
+                    // Emit AST analysis complete event for other components
+                    if (eventBus && typeof eventBus.emit === 'function') {
+                        eventBus.emit('ast:analysis-complete', {
+                            filename: fullPath,
+                            functions: analysis.functions,
+                            objects: analysis.objects,
+                            source: 'file-list-component'
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(`[FileList] Error fetching or analyzing JS file ${fullPath}:`, error);
+                    this.log(`Error during JS file analysis for ${fullPath}: ${error.message}`, 'error');
+                }
+            }
         } catch (error) {
             console.error('[FileList] Error analyzing file:', error);
         }
@@ -536,10 +555,8 @@ class FileListComponent {
         if (fileName.endsWith('.js')) {
             this.log(`JavaScript file selected: ${fullPath}. Attempting to analyze...`, 'debug');
             try {
-                // TODO: Need a robust way to get file content here.
-                // For now, let's assume a global fetcher or an API endpoint if codeManager isn't directly usable.
-                // Option A: Direct API call (if available and appropriate)
-                const response = await fetch(`/api/pdata/read?file=${encodeURIComponent(fullPath)}`);
+                // FIXED: Use /content for files
+                const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(fullPath)}`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status} for ${fullPath}`);
                 }
@@ -552,6 +569,16 @@ class FileListComponent {
                 console.log('Functions found:', analysis.functions);
                 console.log('Objects found:', analysis.objects);
                 this.log(`Analysis complete for ${fullPath}. Functions: ${analysis.functions.length}, Objects: ${analysis.objects.length}`, 'info');
+
+                // Emit AST analysis complete event for other components
+                if (eventBus && typeof eventBus.emit === 'function') {
+                    eventBus.emit('ast:analysis-complete', {
+                        filename: fullPath,
+                        functions: analysis.functions,
+                        objects: analysis.objects,
+                        source: 'file-list-component'
+                    });
+                }
 
             } catch (error) {
                 console.error(`[FileList] Error fetching or analyzing JS file ${fullPath}:`, error);

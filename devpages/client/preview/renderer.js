@@ -549,7 +549,8 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
                     return; // Skip further processing for this item
                 }
                 
-                const finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedCssPDataPath)}`;
+                const resolvedOrgPath = resolvedCssPDataPath;
+                const finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedOrgPath)}`;
                 headContent += `<link rel="stylesheet" type="text/css" href="${DOMPurify.sanitize(finalCssUrl, { USE_PROFILES: { html: true } })}">\n`;
                 logRenderer(`[renderMarkdown] Added CSS link to headContent: ${finalCssUrl}`, 'info');
             }
@@ -736,18 +737,18 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
                     if (trimmedCssPath.startsWith('/api/pdata/read?file=')) { // Already correctly prefixed
                         finalCssUrl = trimmedCssPath;
                     } else { // Assume it's a path within pdata from the root of pdata
-                         finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(trimmedCssPath.startsWith('/') ? trimmedCssPath.substring(1) : trimmedCssPath)}`;
+                         finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(trimmedCssPath.startsWith('/') ? trimmedCssPath.substring(1) : trimmedCssPath)}`;
                     }
                     logRenderer(`[postProcessRender] CSS Path is root-relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
                 } else if (trimmedCssPath.startsWith('./') || trimmedCssPath.startsWith('../')) {
                     const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
-                    finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                    finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
                     logRenderer(`[postProcessRender] CSS Path is relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
                 } else {
                     // Assume relative to MD file if no other indicators
                     logRenderer(`[postProcessRender] CSS Path is ambiguous (assuming relative to MD): '${trimmedCssPath}'.`, 'debug');
                     const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
-                    finalCssUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                    finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
                 }
 
                 if (finalCssUrl) {
@@ -798,7 +799,7 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
                 const pdataFilePathDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/'));
                 // Note: simpleJoinPath ensures no double slashes and correct joining.
                 const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedUrl);
-                finalFetchUrl = `/api/pdata/read?file=${encodeURIComponent(resolvedPDataPath)}`;
+                finalFetchUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
                 logRenderer(`[postProcessRender] Branch C: Resolved PData path: '${resolvedPDataPath}'. finalFetchUrl: ${finalFetchUrl}`);
             } else {
                 // Branch D: Fallback or ambiguous path - try resolving against current page, then root.

@@ -9,10 +9,10 @@ import { fileURLToPath } from 'url';
 import passport from 'passport'; // Assuming passport for auth
 import FileStore from 'session-file-store'; // 1. Import
 import { S3Client } from '@aws-sdk/client-s3'; // Import S3Client
+import { authMiddleware } from './middleware/auth.js';
 
 // Import from local files (ensure .js extension)
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
-import { authMiddleware } from './middleware/auth.js';
 import imageRouter from './routes/images.js';
 import authRoutes from './routes/auth.js'; // Assuming default export
 import communityRoutes from './routes/community.js'; // Assuming default export
@@ -308,14 +308,6 @@ app.use((req, res, next) => {
     req.pdata = pdataInstance;
     next();
 });
-
-
-// ==============================================
-// === REMOVE THE RESTORED MIDDLEWARE BLOCK BEFORE API ===
-// ==============================================
-// Remove the block around line 214-226 where we temporarily restored them
-// ==============================================
-
 
 // Authentication middleware (ensure this runs AFTER session and PData attachment)
 // Apply auth middleware selectively or globally as needed

@@ -90,6 +90,21 @@ export function mainReducer(action) {
         // Ensure any keys in currentState NOT covered by sliceReducers are preserved
         const finalNextState = { ...currentState, ...nextState };
 
+        // Special handling for MD_DIR change - trigger file system reload
+        if (action.type === ActionTypes.SETTINGS_SET_CONTENT_SUBDIR) {
+            console.log('[MainReducer] MD_DIR changed, resetting file system to trigger reload');
+            // Reset file state to trigger reload with new base path
+            finalNextState.file = {
+                ...finalNextState.file,
+                isInitialized: false,
+                currentPathname: null,
+                currentListing: null,
+                parentListing: null,
+                availableTopLevelDirs: [],
+                error: null
+            };
+        }
+
         // Call persistence module to handle localStorage updates
         persistState(finalNextState, currentState);
 

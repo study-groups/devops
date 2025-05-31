@@ -60,14 +60,18 @@ class CodeManager {
 
     async loadDevPagesConfig() {
         try {
-            const response = await fetch('/api/files/read?pathname=devpages.json');
-            if (response.ok) {
+            const response = await fetch('/api/files/content?pathname=devpages.json');
+            if (!response.ok) {
+                // Throw error for non-2xx status codes (including 404)
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
                 this.devpagesConfig = await response.json();
                 console.log('[CodeManager] Loaded devpages.json:', this.devpagesConfig);
                 await this.analyzeProjectStructure();
-            }
         } catch (error) {
-            console.warn('[CodeManager] No devpages.json found, using defaults');
+            // This will now catch 404s too
+            console.warn('[CodeManager] No devpages.json found, using defaults:', error.message);
         }
     }
 
@@ -121,7 +125,7 @@ class CodeManager {
     async parseFile(filename, language) {
         try {
             // Fetch file content
-            const response = await fetch(`/api/files/read?pathname=${encodeURIComponent(filename)}`);
+            const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(filename)}`);
             if (!response.ok) {
                 throw new Error(`Failed to read file: ${response.status}`);
             }

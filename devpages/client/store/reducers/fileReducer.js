@@ -4,6 +4,7 @@ const initialState = {
     isInitialized: false,
     isLoading: false,
     isSaving: false,
+    currentOrg: null, // null = root, string = org name  
     currentPathname: null,
     isDirectorySelected: false,
     currentListing: { pathname: null, dirs: [], files: [] },
@@ -12,7 +13,7 @@ const initialState = {
     error: null
 };
 
-// --- File Slice Reducer (Refactored) ---
+// --- File Slice Reducer (Simplified) ---
 export function fileReducer(state = initialState, action) {
     const { type, payload } = action;
     let nextState = state;
@@ -128,6 +129,12 @@ export function fileReducer(state = initialState, action) {
             break;
         case ActionTypes.FS_CLEAR_ERROR:
             nextState = { ...state, error: null };
+            break;
+        case ActionTypes.FS_SET_CURRENT_ORG:
+            nextState = {
+                ...state,
+                currentOrg: payload.org || null // null for root, string for org
+            };
             break;
     }
     return nextState;

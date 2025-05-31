@@ -1,197 +1,164 @@
-// api.js - Handles API calls to the server
-import { globalFetch } from '/client/globalFetch.js';
-// import { AUTH_STATE } from '/client/auth.js'; // Removed
-// import { withAuthHeaders } from '/client/headers.js'; // Removed unused import
-import { appStore } from '/client/appState.js'; // Import central state for auth info
+// API configuration and utilities
+import { logMessage, logError } from '/client/log/index.js';
 
-// REMOVE Alias: const appState = appStore; 
-
-// Remove backward-compatible alias
-// const authState = AUTH_STATE;
-
-// --- API Endpoints --- (Reinstate)
-const API_BASE = '/api';
-const endpoints = {
-    // Files
-    listFiles: (dir = '') => `${API_BASE}/files/list?dir=${encodeURIComponent(dir)}`,
-    getFileContent: (name, dir = '') => `${API_BASE}/files/content?file=${encodeURIComponent(name)}&dir=${encodeURIComponent(dir)}`, // Adjusted endpoint based on usage
-    saveFile: () => `${API_BASE}/files/save`, // POST request
-    listDirs: () => `${API_BASE}/files/dirs`,
-    deleteFile: () => `${API_BASE}/files/delete`, // POST request
-    getConfig: (dir = '') => `${API_BASE}/files/config?dir=${encodeURIComponent(dir)}`, // Adjusted endpoint
-
-    // Auth
-    login: () => `${API_BASE}/auth/login`, // POST
-    logout: () => `${API_BASE}/auth/logout`, // POST
-    userStatus: () => `${API_BASE}/auth/user`, // GET
-
-    // Community Files
-    manageLink: () => `${API_BASE}/community/link`, // Combined add/remove via action param
-    // Add other endpoints if needed (images, etc.)
-};
-
-// --- Define Loggers FIRST ---
-const _log = (level, message, context, ...args) => {
-    const type = context || 'API';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type, ...args);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`, ...args);
-    }
-};
-
-const logger = (message, level = 'debug', ...args) => _log(level, message, 'API', ...args);
-const errorLogger = (message, error, ...args) => _log('error', message, 'API', error, ...args);
-// --- End Logger Definitions ---
-
-// --- Helper Functions ---
-
-/**
- * Helper for logging within this module
- * @param {string} message
- * @param {string} [level='info'] // Default level to info
- */
+// Logging function using the proper logging system
 function logApi(message, level = 'info') {
-    const type = 'API';
-    // Use window.logMessage if available
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        // Fallback to console if global logger isn't ready
-        const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
+    logMessage(message, level, 'API');
 }
+
+// Error logging function using the proper logging system
+function errorLogger(message, error) {
+    logError(`${message}: ${error?.message || error}`, 'API', null, error);
+}
+
+// API endpoints configuration  
+const endpoints = {
+    // Auth endpoints
+    login: () => '/api/auth/login',
+    logout: () => '/api/auth/logout', 
+    userStatus: () => '/api/auth/user',
+    
+    // File endpoints
+    fileContent: (pathname) => `/api/files/content?pathname=${encodeURIComponent(pathname)}`,
+    directoryList: (pathname) => `/api/files/list?pathname=${encodeURIComponent(pathname)}`,
+    saveFile: () => '/api/files/save',
+    deleteFile: (pathname) => `/api/files/delete?pathname=${encodeURIComponent(pathname)}`,
+    
+    // Config endpoints
+    getConfig: (directory) => `/api/config?directory=${encodeURIComponent(directory)}`,
+    manageLink: () => '/api/community/manage-link'
+};
+
+// Global fetch wrapper (will be set to window.fetch initially)
+let globalFetch = window.fetch;
+
+// Main API object
+const api = {
+    // Internal method to update fetch behavior
+    setFetch(fetchFn) {
+        globalFetch = fetchFn;
+    },
 
 /**
- * Normalize directory names for API requests
- * @param {string} directory
- * @returns {string}
- */
-function normalizeDirectoryForApi(directory) {
-    return directory; // Keep simple for now
-}
-
-// --- Exported API Object --- 
-export const api = {
-    /**
-     * Fetch content for a file using a single relative path.
-     * @param {string} relativePath - The full path relative to the MD_DIR root (e.g., 'mike/bizcard/mr-bizcard-001.md').
-     * @returns {Promise<string>} File content
+     * Get current org from app state
      */
-    async fetchFileContent(relativePath) {
-        if (typeof relativePath !== 'string' || relativePath === '') {
-            const errorMsg = `Invalid relativePath provided to fetchFileContent: ${relativePath}`;
-            logApi(errorMsg, 'error');
-            throw new Error(errorMsg);
+    getCurrentOrg() {
+        // Get from global app state when available
+        if (typeof window !== 'undefined' && window.appStore) {
+            return window.appStore.getState().file.currentOrg;
         }
-        logApi(`Fetching content for relativePath: ${relativePath}`);
-
-        // --- CONSTRUCT URL WITH pathname ---
-        const encodedPath = encodeURIComponent(relativePath);
-        const url = `/api/files/content?pathname=${encodedPath}`; // Use pathname=
-        // --- END URL CONSTRUCTION ---
-
-        try {
-            const options = { method: 'GET' };
-            const response = await globalFetch(url, options); // Use globalFetch
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 logApi(`Server error fetching content for '${relativePath}': ${response.status} ${response.statusText} - ${errorText}`, 'error');
-                 throw new Error(`Server error fetching content: ${response.status} ${response.statusText}`);
-            }
-            const content = await response.text();
-            logApi(`Content fetched successfully for '${relativePath}' (length: ${content.length})`);
-            return content;
-        } catch (error) {
-            logApi(`Error fetching file content for '${relativePath}': ${error.message}`, 'error');
-            throw error; // Re-throw for calling code
-        }
+        return null;
     },
 
     /**
-     * Save content to a file using a single relative path.
-     * @param {string} relativePath - The full path relative to the MD_DIR root (e.g., 'mike/bizcard/mr-bizcard-001.md').
-     * @param {string} content - Content to save
-     * @returns {Promise<Response>} Raw server response
+     * Fetch file content
+     * @param {string} relativePath - Path relative to MD_DIR
+     * @returns {Promise<string>} File content
      */
-    async saveFileContent(relativePath, content) {
-        if (typeof relativePath !== 'string' || relativePath === '') {
-             const errorMsg = `Invalid relativePath provided to saveFileContent: ${relativePath}`;
-             logApi(errorMsg, 'error');
-             throw new Error(errorMsg);
+    async fetchFileContent(relativePath) {
+        let url = endpoints.fileContent(relativePath);
+        
+        // Add org parameter if set
+        const currentOrg = this.getCurrentOrg();
+        if (currentOrg) {
+            url += `&org=${encodeURIComponent(currentOrg)}`;
         }
-        logApi(`[API] Save attempt for relativePath: "${relativePath}"`);
-        const url = endpoints.saveFile(); // POST /api/files/save
-
+        
+        logApi(`Fetching file content: ${url}`, 'debug');
+        
         try {
-            // --- SEND pathname IN BODY ---
-            const body = JSON.stringify({ pathname: relativePath, content: content });
-            // --- END BODY ---
-            const options = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: body
-            };
-
-            const response = await globalFetch(url, options);
-
+            const response = await globalFetch(url);
             if (!response.ok) {
-                const errorText = await response.text();
-                logApi(`[API] Save failed with error: ${errorText}`, 'error');
-                // Try to parse JSON error response from server
-                try {
-                    const errData = JSON.parse(errorText);
-                    throw new Error(errData.error || `Failed to save: ${response.status}`);
-                } catch (e) {
-                     throw new Error(`Failed to save: ${response.status}`);
-                }
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            logApi('[API] Successfully saved file');
-            // Maybe parse and return the success JSON?
-            return await response.json(); // { success: true, message: ..., pathname: ... }
+            const content = await response.text();
+            logApi(`File content received for "${relativePath}": ${content.length} chars`, 'debug');
+            return content;
         } catch (error) {
-            logApi(`[API] Save failed: ${error.message}`, 'error');
+            logApi(`Error fetching file content for "${relativePath}": ${error.message}`, 'error');
             throw error;
         }
     },
 
     /**
      * Fetch directory listing
-     * @param {string} directory
-     * @returns {Promise<object>} Parsed JSON listing
+     * @param {string} pathname - Directory path relative to MD_DIR
+     * @returns {Promise<object>} Directory listing {dirs: [], files: [], pathname: ''}
      */
-    async fetchDirectoryListing(directory) {
-        const pathParam = directory || '';
-        const encodedPath = encodeURIComponent(pathParam);
-        const url = `/api/files/list?pathname=${encodedPath}`;
-        logApi(`Fetching listing for dir: '${pathParam}'`, 'debug');
+    async fetchDirectoryListing(pathname) {
+        if (pathname && /\.[^/]+$/.test(pathname)) {
+            const errorMsg = `Cannot list directory contents of a file: ${pathname}`;
+             logApi(errorMsg, 'error');
+             throw new Error(errorMsg);
+        }
+        
+        let url = endpoints.directoryList(pathname);
+        
+        // Add org parameter if set
+        const currentOrg = this.getCurrentOrg();
+        if (currentOrg) {
+            url += `&org=${encodeURIComponent(currentOrg)}`;
+        }
+        
+        logApi(`Fetching directory listing: ${url}`, 'debug');
+        
         try {
-            const options = { method: 'GET' };
-            const response = await globalFetch(url, options);
+            const response = await globalFetch(url);
             if (!response.ok) {
-                let errorMsg = `Server returned ${response.status}: ${response.statusText}`;
-                try {
-                   const errData = await response.json();
-                   if (errData.error) errorMsg = errData.error;
-                } catch(e) {/* Ignore if body is not json */}
-                throw new Error(errorMsg);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            return await response.json(); // Parse JSON here
+            const data = await response.json();
+            logApi(`Directory listing received for "${pathname}": ${data.dirs?.length || 0} dirs, ${data.files?.length || 0} files`, 'debug');
+            return data;
         } catch (error) {
-            logApi(`Error fetching directory listing: ${error.message}`, 'error');
+            logApi(`Error fetching directory listing for "${pathname}": ${error.message}`, 'error');
             throw error;
         }
     },
 
     /**
-     * Fetch directory configuration
-     * @param {string} directory
-     * @returns {Promise<object>} Parsed JSON config
+     * Save file content
+     * @param {string} relativePath - Path relative to MD_DIR
+     * @param {string} content - File content to save
+     * @returns {Promise<object>} Save result
      */
-    async fetchDirectoryConfig(directory) {
+    async saveFile(relativePath, content) {
+        logApi(`Saving file: ${relativePath}`, 'info');
+        
+        const payload = { pathname: relativePath, content };
+        
+        // Add org if set
+        const currentOrg = this.getCurrentOrg();
+        if (currentOrg) {
+            payload.org = currentOrg;
+        }
+        
+        try {
+            const response = await globalFetch(endpoints.saveFile(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            logApi(`File saved successfully: ${relativePath}`, 'info');
+            return result;
+        } catch (error) {
+            logApi(`Error saving file "${relativePath}": ${error.message}`, 'error');
+            throw error;
+        }
+    },
+
+    /**
+     * Get directory configuration
+     * @param {string} directory - Directory path
+     * @returns {Promise<object>} Configuration object
+     */
+    async getDirectoryConfig(directory) {
         const url = endpoints.getConfig(directory);
         logApi(`Fetching config for dir: '${directory}'`, 'debug');
         try {
@@ -285,56 +252,44 @@ export const api = {
      * Sends login credentials to the server.
      * @param {string} username
      * @param {string} password
-     * @returns {Promise<Response>} Raw response object
+     * @returns {Promise<object>} User data {username, role}
      */
     async login(username, password) {
-        logger(`Attempting login for user: ${username}`);
+        logApi(`Attempting login for user: ${username}`, 'info');
         try {
-            // Make the POST request to the login endpoint
             const response = await globalFetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
-                // Note: No explicit Authorization header needed here,
-                // using username/password in body for server check.
             });
-            logger(`[API login] Raw response status: ${response.status}`, 'debug');
+            
+            logApi(`Login response status: ${response.status}`, 'debug');
 
             let data;
             try {
-                // Attempt to parse response body as JSON
                 data = await response.json();
-                logger(`[API login] Parsed response data: ${JSON.stringify(data)}`, 'debug');
+                logApi(`Login response data: ${JSON.stringify(data)}`, 'debug');
             } catch (e) {
-                 logger(`[API login] Failed to parse JSON response (Status: ${response.status})`, 'error');
+                logApi(`Failed to parse JSON response (Status: ${response.status})`, 'error');
                  throw new Error(`Login failed: Server returned non-JSON response (Status: ${response.status})`);
             }
 
-            // Check if the HTTP status code indicates success (e.g., 2xx)
             if (!response.ok) {
-                logger(`[API login] Response not OK (${response.status}). Throwing error.`, 'warning');
-                // Use the error message from the JSON body if available
+                logApi(`Login response not OK (${response.status}). Throwing error.`, 'warn');
                 throw new Error(data?.error || `Login failed: ${response.status}`);
             }
 
-            // --- Validate Success Response Structure ---
-            // Server successfully authenticated and should return { username: "...", role: "..." }
+            // Validate response structure
             if (!data || !data.username || !data.role) {
-                logger('[API login] Login success (status 200) but server response missing username or role!', 'error');
-                // Throw an error to indicate to the calling code (e.g., auth.js)
-                // that the expected data wasn't received, even though the status was OK.
+                logApi('Login success but server response missing username or role!', 'error');
                 throw new Error('Login response from server is incomplete.');
             }
-            // --- End Validation ---
 
-            // If response.ok and data structure is valid, consider login successful
-            logger(`[API login] Login successful. Returning user data: ${JSON.stringify(data)}`, 'info');
-            // Return the user data object { username, role } to the caller (e.g., auth.js)
+            logApi(`Login successful. User data: ${JSON.stringify(data)}`, 'info');
             return data;
         } catch (error) {
-            // Log any error that occurred during fetch, parsing, or validation
             errorLogger(`Login failed: ${error.message}`, error);
-            throw error; // Re-throw the error for the calling code (e.g., auth.js) to handle
+            throw error;
         }
     },
    
@@ -343,7 +298,7 @@ export const api = {
      * @returns {Promise<Response>} Raw response object
      */
     async logout() {
-        logApi(`[API] logout called`, 'debug');
+        logApi('Logout called', 'debug');
         const url = endpoints.logout();
         const options = { method: 'POST' };
         return await globalFetch(url, options);
@@ -354,7 +309,7 @@ export const api = {
      * @returns {Promise<Response>} Raw response object
      */
     async getUserStatus() {
-        logApi(`[API] getUserStatus called`, 'debug');
+        logApi('getUserStatus called', 'debug');
         const url = endpoints.userStatus();
         const options = { method: 'GET' };
         return await globalFetch(url, options);
@@ -372,15 +327,13 @@ export const api = {
             logApi(errorMsg, 'error');
             throw new Error(errorMsg);
         }
-        logApi(`[API] deleteFile called for: ${relativePath}`, 'debug');
+        logApi(`deleteFile called for: ${relativePath}`, 'debug');
 
-        // --- CONSTRUCT URL WITH pathname ---
         const encodedPath = encodeURIComponent(relativePath);
-        const url = `/api/files/delete?pathname=${encodedPath}`; // Use DELETE method with pathname query param
-        // --- END URL CONSTRUCTION ---
+        const url = `/api/files/delete?pathname=${encodedPath}`;
 
         const options = {
-            method: 'DELETE' // Use DELETE method
+            method: 'DELETE'
         };
         try {
             const response = await globalFetch(url, options);
@@ -395,7 +348,7 @@ export const api = {
                 }
             }
             logApi(`Successfully deleted '${relativePath}'`);
-            return await response.json(); // { success: true, message: ..., pathname: ... }
+            return await response.json();
         } catch (error) {
             logApi(`Error deleting file: ${error.message}`, 'error');
             throw error;
@@ -405,4 +358,8 @@ export const api = {
     // Add stubs/implementations for other endpoints (images etc.) if needed
 };
 
-logger('[API] Client API module loaded.'); 
+// Export both named and default exports for compatibility
+export { api };
+export default api;
+
+logApi('Client API module loaded.', 'info'); 

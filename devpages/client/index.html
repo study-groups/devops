@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/client/output.css">
     <!-- Add Log component specific styles -->
     <link rel="stylesheet" href="/client/log/log.css"> 
+    <link rel="stylesheet" href="/client/components/auth-display.css">
     <link rel="stylesheet" href="/client/components/context-manager.css">
     <!-- Settings Panel Styles -->
     <link rel="stylesheet" href="/client/settings/settings.css">
@@ -25,6 +26,30 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script src="/client/code/ast-parser.js"></script>
+
+    <!-- START: Add this CSS block for testing -->
+    <style>
+        #context-settings-trigger {
+            cursor: pointer !important; /* Forcing it for the test */
+            user-select: none;         /* Disable text selection */
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none;    /* Firefox */
+            -ms-user-select: none;     /* IE/Edge */
+            display: inline-block;     /* Helps it behave more like an element */
+            /* If this element had other classes like 'breadcrumb-separator',
+               and those classes define padding/margin you want to keep,
+               you might need to re-apply them or ensure this styling is compatible.
+               For now, focusing on cursor and selection. */
+        }
+
+        /* Optional: if you want a visual cue on hover beyond the cursor */
+        /*
+        #context-settings-trigger:hover {
+            opacity: 0.7; // Or any other visual feedback
+        }
+        */
+    </style>
+    <!-- END: Add this CSS block for testing -->
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -59,13 +84,41 @@
             </div>
         </div>
 
-        <!-- Original Main Content -->
+        <!-- Original Main Content (acts as Center Panel) -->
         <div id="main-container" class="log-hidden" style="flex-grow: 1; display: flex; flex-direction: column;">
             <div id="content" style="flex-grow: 1; overflow-y: auto;">
                 <!-- This div will be populated by the ContentView component -->
                 <div id="content-view-wrapper"></div>
             </div>
             <div id="log-container"></div>
+        </div>
+
+        <!-- NEW: RIGHT SIDEBAR - Context Summary + CLI Output -->
+        <div id="right-sidebar" class="code-sidebar" style="width: 320px; background-color: #f8f9fa; border-left: 1px solid #ddd; overflow-y: auto; display: flex; flex-direction: column;">
+            
+            <!-- Context Summary Section -->
+            <div id="context-summary-section" style="flex: 1; min-height: 250px;">
+                <div id="context-summary-header" style="padding: 6px 8px; background-color: #f1f3f5; border-bottom: 1px solid #dee2e6;">
+                    <span style="font-size: 11px; color: #6c757d; font-weight: 500;">CONTEXT</span>
+                </div>
+                <div id="context-summary-content" style="padding: 8px;">
+                    <div id="context-items" style="display: flex; flex-direction: column; gap: 4px;">
+                        <!-- Context items will be populated here -->
+                        <div style="font-size: 11px; color: #6c757d; font-style: italic;">No items selected for context</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CLI Output Section -->
+            <div id="cli-output-section" style="flex: 1; min-height: 200px; border-top: 1px solid #dee2e6;">
+                <div id="cli-output-header" style="padding: 6px 8px; background-color: #f1f3f5; border-bottom: 1px solid #dee2e6;">
+                    <span style="font-size: 11px; color: #6c757d; font-weight: 500;">CLI OUTPUT</span>
+                    <button id="context-send-to-llm" style="float: right; padding: 2px 6px; background: #28a745; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer;">SEND TO LLM</button>
+                </div>
+                <div id="cli-output-content" style="padding: 8px; font-family: monospace; font-size: 11px; color: #495057; overflow-y: auto; max-height: 300px;">
+                    <div style="color: #6c757d; font-style: italic;">CLI output will appear here</div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -76,211 +129,17 @@
     
     <!-- Code Analysis Components -->
     <script src="/client/code/code-manager.js"></script>
-    <script type="module" src="/client/code/file-list-component.js"></script>
+    <!-- FileListComponent is now imported by enhancedSidebars.js, so this direct load might be redundant if not used elsewhere -->
+    <!-- <script type="module" src="/client/code/file-list-component.js"></script> --> 
     
-    <!-- Enhanced Code Sidebar Script -->
-    <script type="module">
-    console.log('[CodeSidebar] Initializing enhanced code sidebar...');
-    
-    import FileListComponent from '/client/code/file-list-component.js';
-    // import CodeManager from '/client/code/code-manager.js';
+    <!-- Load the new external script for sidebars -->
+    <script type="module" src="/client/enhancedSidebars.js"></script>
 
-    class EnhancedCodeSidebar {
-        constructor() {
-            this.sidebar = null;
-            this.container = null;
-            this.fileList = null;
-            this.codeManager = null;
-            this.currentPath = '';
-            this.init();
-        }
-        
-        init() {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.setup());
-            } else {
-                this.setup();
-            }
-        }
-        
-        async setup() {
-            this.sidebar = document.getElementById('code-sidebar');
-            this.container = document.getElementById('code-sidebar-content');
-            
-            if (!this.sidebar || !this.container) {
-                console.warn('[CodeSidebar] Elements not found, retrying...');
-                setTimeout(() => this.setup(), 500);
-                return;
-            }
-            
-            console.log('[CodeSidebar] Elements found, setting up components...');
-            
-            // Initialize CodeManager
-            this.codeManager = new window.CodeManager();
-            window.codeManager = this.codeManager;
-            
-            // Initialize FileListComponent
-            this.fileList = new FileListComponent('code-sidebar-content');
-            window.fileList = this.fileList;
-            
-            this.setupViewModeListener();
-            this.setupCodeAnalysisListeners();
-            this.checkInitialViewMode();
-            
-            // Load initial file list
-            await this.fileList.loadFiles();
-        }
-        
-        setupViewModeListener() {
-            // Listen for clicks on view mode buttons
-            document.addEventListener('click', (e) => {
-                if (e.target.dataset.action === 'setView') {
-                    const viewMode = e.target.dataset.viewMode;
-                    console.log('[CodeSidebar] View button clicked:', viewMode);
-                    
-                    // Small delay to let the state update
-                    setTimeout(() => {
-                        this.handleViewModeChange(viewMode);
-                    }, 100);
-                }
-            });
-            
-            // Also listen for body class changes
-            const observer = new MutationObserver(() => {
-                this.checkBodyClasses();
-            });
-            observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-        }
-        
-        setupCodeAnalysisListeners() {
-            if (window.eventBus) {
-                window.eventBus.on('code:analysis-complete', (data) => {
-                    console.log('[CodeSidebar] Code analysis complete:', data);
-                    this.updateFileAnalysisStatus(data.filename, data);
-                });
-                
-                window.eventBus.on('file:open', (data) => {
-                    console.log('[CodeSidebar] File opened:', data.filename);
-                });
-            }
-        }
-        
-        updateFileAnalysisStatus(filename, analysisData) {
-            // Update the file card to show analysis results
-            const fileCards = this.container.querySelectorAll('.file-card');
-            fileCards.forEach(card => {
-                if (card.dataset.name === filename.split('/').pop()) {
-                    const statsContainer = card.querySelector('.file-card-stats');
-                    if (statsContainer) {
-                        // Add function count
-                        const funcCount = analysisData.functions.length;
-                        if (funcCount > 0) {
-                            const funcBadge = document.createElement('span');
-                            funcBadge.className = 'stat-item';
-                            funcBadge.textContent = `${funcCount} fn`;
-                            funcBadge.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-                            funcBadge.style.color = '#28a745';
-                            statsContainer.appendChild(funcBadge);
-                        }
-                        
-                        // Add dependency count
-                        const depCount = analysisData.dependencies.imports.length + 
-                                       analysisData.dependencies.requires.length;
-                        if (depCount > 0) {
-                            const depBadge = document.createElement('span');
-                            depBadge.className = 'stat-item';
-                            depBadge.textContent = `${depCount} deps`;
-                            depBadge.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
-                            depBadge.style.color = '#007bff';
-                            statsContainer.appendChild(depBadge);
-                        }
-                    }
-                }
-            });
-        }
-        
-        checkInitialViewMode() {
-            this.checkBodyClasses();
-        }
-        
-        checkBodyClasses() {
-            const hasViewCode = document.body.classList.contains('view-code');
-            console.log('[CodeSidebar] Body classes:', document.body.className, 'hasViewCode:', hasViewCode);
-            
-            if (hasViewCode) {
-                this.showSidebar();
-            } else {
-                this.hideSidebar();
-            }
-        }
-        
-        handleViewModeChange(viewMode) {
-            console.log('[CodeSidebar] Handling view mode change:', viewMode);
-            if (viewMode === 'editor') {
-                this.showSidebar();
-            } else {
-                this.hideSidebar();
-            }
-        }
-        
-        showSidebar() {
-            if (this.sidebar) {
-                console.log('[CodeSidebar] Showing sidebar');
-                this.sidebar.style.display = 'block';
-                this.sidebar.style.borderLeft = '3px solid #007bff';
-            }
-        }
-        
-        hideSidebar() {
-            if (this.sidebar) {
-                console.log('[CodeSidebar] Hiding sidebar');
-                this.sidebar.style.display = 'none';
-                this.sidebar.style.borderLeft = '';
-            }
-        }
-        
-        // Public API
-        getCodeManager() {
-            return this.codeManager;
-        }
-        
-        getFileList() {
-            return this.fileList;
-        }
-        
-        async analyzeCurrentProject() {
-            if (!this.codeManager) return;
-            
-            console.log('[CodeSidebar] Analyzing current project...');
-            const summary = this.codeManager.getProjectSummary();
-            console.log('[CodeSidebar] Project summary:', summary);
-            
-            return summary;
-        }
-    }
-    
-    // Initialize enhanced sidebar
-    window.enhancedCodeSidebar = new EnhancedCodeSidebar();
-    
-    // Test function for debugging
-    window.testEnhancedSidebar = function() {
-        const sidebar = document.getElementById('code-sidebar');
-        if (sidebar) {
-            sidebar.style.display = 'block';
-            sidebar.style.backgroundColor = 'lightblue';
-            sidebar.style.border = '3px solid blue';
-            console.log('[CodeSidebar] Test: Enhanced sidebar forced visible');
-            
-            // Test file list
-            if (window.fileList) {
-                window.fileList.loadFiles();
-            }
-        } else {
-            console.error('[CodeSidebar] Test: Sidebar not found');
-        }
-    };
-    
-    console.log('[CodeSidebar] Enhanced initialization complete');
+    <script>
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/client/components/auth-display.css';
+        document.head.appendChild(link);
     </script>
 </body>
 

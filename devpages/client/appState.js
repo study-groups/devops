@@ -144,6 +144,22 @@ function getInitialEnableRootCss() {
     return true;
 }
 
+// Helper to get initial org selection from localStorage
+function getInitialSelectedOrg() {
+    try {
+        const storedValue = localStorage.getItem('devpages_selected_org');
+        if (storedValue && typeof storedValue === 'string') {
+            console.log(`[AppState] Loaded selected org from localStorage: '${storedValue}'`);
+            return storedValue;
+        }
+    } catch(e) {
+        console.error('[AppState] Error reading selected org from localStorage:', e);
+    }
+    // Default to pixeljam-arcade
+    console.log('[AppState] Defaulting selected org to "pixeljam-arcade".');
+    return 'pixeljam-arcade';
+}
+
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
@@ -178,11 +194,13 @@ const initialAppState = {
     isLoading: false,           // True when loading listing or file content
     isSaving: false,            // True during save operation
 
+    // --- Current Organization Context ---
+    currentOrg: getInitialSelectedOrg(), // e.g., '/', '/pj-md', '/another-org'
+
     // --- Simplified Path Representation ---
-    // Represents the currently selected item (file or directory) relative to PData's dataDir.
-    // Examples: '' (MD_DIR root), 'mike', 'mike/notes', 'mike/notes/readme.md', null (nothing selected/init)
+    // Represents the currently selected item relative to the current org root
     currentPathname: null,
-    isDirectorySelected: false, // True if currentPathname refers to a directory, false if it's a file or null.
+    isDirectorySelected: false,
 
     // --- Listing and Context ---
     // Stores the listing of the directory relevant to the current selection.
@@ -210,10 +228,13 @@ const initialAppState = {
     ...getInitialPluginsState()
   },
   settings: {
+      // Simple org selection - no server impact
+      selectedOrg: getInitialSelectedOrg(), // 'pixeljam-arcade' or 'nodeholder'
+      
       preview: {
           cssFiles: getInitialPreviewCssFiles(),
           activeCssFiles: [],
-          enableRootCss: getInitialEnableRootCss() // <<< NEW STATE FIELD
+          enableRootCss: getInitialEnableRootCss()
       }
   },
   // +++ Add the Log Filtering State Slice +++

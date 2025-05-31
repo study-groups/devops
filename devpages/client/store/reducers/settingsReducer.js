@@ -4,14 +4,15 @@ import { eventBus } from '/client/eventBus.js';
 const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
 const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css';
 
-// Define the initial state for the settings slice
+// Clean initial state
 const initialState = {
+    selectedOrg: 'pixeljam-arcade', // Simple org selection
+    
     preview: {
-        cssFiles: [], // Array of { path: string, enabled: boolean }
-        activeCssFiles: [], // Array of strings (paths of currently active CSS)
-        enableRootCss: true, // Whether the main global styles.css is enabled
+        cssFiles: [],
+        activeCssFiles: [],
+        enableRootCss: true,
     },
-    // Add other setting categories here if needed
 };
 
 // --- Settings Slice Reducer ---
@@ -117,6 +118,29 @@ export function settingsReducer(state = initialState, action) {
                     catch (e) { console.error('[Reducer] Failed to save enableRootCss:', e); }
                 }
             } else { console.warn(`[Reducer] Invalid payload type for SETTINGS_SET_ROOT_CSS_ENABLED:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_SELECTED_ORG:
+            if (typeof payload === 'string' && (payload === 'pixeljam-arcade' || payload === 'nodeholder')) {
+                if (state.selectedOrg !== payload) {
+                    console.log(`[Settings] Changing selected org from '${state.selectedOrg}' to '${payload}'`);
+                    
+                    // Save to localStorage
+                    try {
+                        localStorage.setItem('devpages_selected_org', payload);
+                        console.debug(`[Settings] Saved selected org to localStorage: ${payload}`);
+                    } catch (e) {
+                        console.error('[Settings] Failed to save selected org to localStorage:', e);
+                    }
+                    
+                    return { 
+                        ...state, 
+                        selectedOrg: payload
+                    };
+                }
+            } else {
+                console.warn(`[Reducer] Invalid payload for SETTINGS_SET_SELECTED_ORG:`, payload);
+            }
             break;
     }
 

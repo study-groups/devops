@@ -296,6 +296,21 @@ function setupEventListeners() {
 
 async function handleNavigateToPathname(data) {
     const { pathname, isDirectory } = data;
+    
+    // ADD DEBUG LOGGING
+    console.log(`[DEBUG] Navigation called with:`, { pathname, isDirectory });
+    
+    // Add validation to catch wrong navigation calls
+    if (pathname && /\.[^/]+$/.test(pathname) && isDirectory === true) {
+        console.error(`[ERROR] File being treated as directory:`, { pathname, isDirectory });
+        console.trace('Navigation call stack');
+        
+        // Force correct the isDirectory flag
+        const correctedData = { pathname, isDirectory: false };
+        console.log(`[FIX] Correcting navigation to:`, correctedData);
+        return handleNavigateToPathname(correctedData);
+    }
+    
     const currentPathname = appStore.getState().file.currentPathname;
 
     // Basic validation
@@ -752,7 +767,6 @@ function scheduleHostScriptInit(scriptPath, logContext = '') {
     } else if (scriptPath) { /* ... log warning if initialize missing ... */ }
 }
 
-
 // --- Default Export ---
 export default {
     initializeFileManager,
@@ -760,4 +774,15 @@ export default {
     resetFileManagerState,
     // refreshFileManagerForUser // Removed? Or needs update if kept
     // loadFile // Primarily internal now
+}; 
+
+// Add this at the top of the file
+const originalFetchDirectoryListing = api.fetchDirectoryListing;
+api.fetchDirectoryListing = function(directory) {
+    if (directory && /\.[^/]+$/.test(directory)) {
+        console.error(`[DEBUG] fetchDirectoryListing called on FILE:`, directory);
+        console.trace('Call stack for wrong directory listing call');
+        throw new Error(`Cannot list file as directory: ${directory}`);
+    }
+    return originalFetchDirectoryListing.call(this, directory);
 }; 

@@ -312,14 +312,23 @@ function updateBreadcrumbs(fileState) { // Accepts file state slice
 
 // --- Main Exported Initialization Function ---
 export async function initializeUI() {
-    logUI('[UI_MANAGER] Initializing UI (v_state_refactor)...'); // Updated version log
+    console.log('[DEBUG] initializeUI() CALLED');
+    logUI('[UI_MANAGER] Initializing UI (v_state_refactor)...'); 
 
     // 1. Mount Core Components
+    console.log('[DEBUG] About to mount core components');
     try {
+        console.log('[DEBUG] Creating AuthDisplay component...');
         authDisplayComponent = createAuthDisplayComponent('auth-component-container');
-        authDisplayComponent.mount();
+        console.log('[DEBUG] AuthDisplay component created, calling mount...');
+        const authMountResult = authDisplayComponent.mount();
+        console.log('[DEBUG] AuthDisplay mount result:', authMountResult);
+        
+        console.log('[DEBUG] Creating ContextManager component...');
         contextManagerComponent = createContextManagerComponent('context-manager-container');
-        contextManagerComponent.mount();
+        console.log('[DEBUG] ContextManager component created, calling mount...');
+        const contextMountResult = contextManagerComponent.mount();
+        console.log('[DEBUG] ContextManager mount result:', contextMountResult);
         
         // Initialize ViewControls component
         try {

@@ -89,38 +89,48 @@ const resolvePathInDataDir = (req, relativeDir, filename = '') => {
 
 const contentSubDir = 'data'; // The name of the subdir in PD_DIR linking to MD_DIR
 
+// Helper function to get effective path with org
+function getEffectivePath(req, pathname) {
+    const org = req.query.org || req.body.org || req.session.org;
+    
+    // Update session org if provided in request
+    if (req.query.org || req.body.org) {
+        req.session.org = org;
+    }
+    
+    if (org && org !== '/') {
+        // Remove leading slash from org if present
+        const cleanOrg = org.replace(/^\/+/, '');
+        return `${cleanOrg}/${pathname}`;
+    }
+    
+    return pathname;
+}
+
 /**
  * GET /api/files/list
  * Get list of files and subdirectories in a directory
  */
 router.get('/list', authMiddleware, async (req, res) => {
+    const clientPathname = req.query.pathname || '';
+    const effectivePath = getEffectivePath(req, clientPathname);
   const username = req.user.username;
-  const logPrefix = '[API /list]';
-
-  let requestedRelativePath = '';
-
-  try {
-    requestedRelativePath = req.query.pathname || '';
-    console.log(`${logPrefix} Client requested relative path: '${requestedRelativePath}'`);
-
-    // Call PData directly with the client's requested relative path
-    const listing = await req.pdata.listDirectory(username, requestedRelativePath);
-
-    // Construct response using the ORIGINAL relative path
-    const responseJson = {
-      pathname: requestedRelativePath,
-      dirs: listing.dirs,
-      files: listing.files
-    };
-    console.log(`${logPrefix} Sending JSON response:`, JSON.stringify(responseJson));
-    res.json(responseJson);
-
+    
+    console.log(`[API /list] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
+    
+    try {
+        const result = await req.pdata.listDirectory(username, effectivePath);
+        console.log(`[API /list] Success for '${effectivePath}': ${result.dirs.length} dirs, ${result.files.length} files`);
+        res.json({
+            pathname: clientPathname, // Return original client pathname
+            dirs: result.dirs,
+            files: result.files
+        });
   } catch (error) {
-    console.error(`${logPrefix} Error processing request for client path '${requestedRelativePath}':`, error);
-    const statusCode = (error.code === 'ENOENT' || error.message?.includes('not found')) ? 404 : 500;
-    res.status(statusCode).json({
-      error: error.message || 'Failed processing request',
-      requestedPath: requestedRelativePath
+        console.error(`[API /list] Error for '${effectivePath}':`, error.message);
+        res.status(500).json({
+            error: `Failed to list contents for '${clientPathname}': ${error.message}`,
+            requestedPath: clientPathname
     });
   }
 });
@@ -148,45 +158,24 @@ router.get('/dirs', async (req, res) => {
  * Get file content
  */
 router.get('/content', authMiddleware, async (req, res) => {
-  const username = req.user.username;
-  const contentSubDir = 'data'; // Name of subdir in PD_DIR linking to MD_DIR
-
-  // --- Expect a single 'pathname' parameter ---
-  const requestedRelativePath = req.query.pathname; // Use 'pathname' or 'path'
-
-  if (typeof requestedRelativePath !== 'string') { // Basic validation
-    return res.status(400).json({ error: "Missing or invalid 'pathname' query parameter." });
+    const clientPathname = req.query.pathname;
+    if (!clientPathname) {
+        return res.status(400).json({ error: 'pathname parameter is required' });
   }
-  console.log(`[API /content] Client requested relative path: '${requestedRelativePath}'`);
-
-  // Declare error variable outside try
-  let errorOccurred = null;
-
-  try {
-    // Call PData.readFile with the translated path
-    const content = await req.pdata.readFile(username, requestedRelativePath);
-
-    // Determine Content-Type based on file extension (important!)
-    const ext = path.extname(requestedRelativePath).toLowerCase();
-    let contentType = 'text/plain'; // Default
-    if (ext === '.md') contentType = 'text/markdown; charset=utf-8';
-    else if (ext === '.html') contentType = 'text/html; charset=utf-8';
-    else if (ext === '.css') contentType = 'text/css; charset=utf-8';
-    else if (ext === '.js') contentType = 'application/javascript; charset=utf-8';
-    else if (ext === '.json') contentType = 'application/json; charset=utf-8';
-    // Add more types as needed
-
-    console.log(`[API /content] Sending content for '${requestedRelativePath}' with Content-Type: ${contentType}`);
-    res.setHeader('Content-Type', contentType);
-    res.send(content);
-
+    
+    const effectivePath = getEffectivePath(req, clientPathname);
+    const username = req.user.username;
+    console.log(`[API /content] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
+    
+    try {
+        const content = await req.pdata.readFile(username, effectivePath);
+        console.log(`[API /content] Success for '${effectivePath}': ${content.length} chars`);
+        res.type('text/plain').send(content);
   } catch (error) {
-    errorOccurred = error; // Store error for logging below
-    console.error(`[API /content] Error processing request for client path '${requestedRelativePath}':`, error);
-    const statusCode = (error.code === 'ENOENT' || error.message?.includes('not found')) ? 404 : 500;
-    res.status(statusCode).json({
-      error: error.message || 'Failed to read file',
-      requestedPath: requestedRelativePath
+        console.error(`[API /content] Error for '${effectivePath}':`, error.message);
+        res.status(500).json({
+            error: `Failed to read file '${clientPathname}': ${error.message}`,
+            requestedPath: clientPathname
     });
   }
 });
@@ -196,32 +185,29 @@ router.get('/content', authMiddleware, async (req, res) => {
  * Save file content
  */
 router.post('/save', express.json({ type: '*/*' }), async (req, res) => {
-  try {
+    const { pathname: clientPathname, content, org } = req.body;
+    if (!clientPathname || content === undefined) {
+        return res.status(400).json({ error: 'pathname and content are required' });
+    }
+    
+    const effectivePath = getEffectivePath(req, clientPathname);
     const username = req.user.username;
-    const { dir, name, content } = req.body;
+    console.log(`[API /save] Client saving: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
     
-    if (!name) {
-      return res.status(400).json({ error: 'Filename is required' });
-    }
-    
-    if (content === undefined) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
-    
-    const relativePath = path.join(dir || '', name);
-    console.log(`[API /save] User='${username}', Saving file='${relativePath}'`);
-    
-    await req.pdata.writeFile(username, relativePath, content);
-    
-    res.json({ success: true, message: 'File saved successfully' });
+    try {
+        await req.pdata.writeFile(username, effectivePath, content);
+        console.log(`[API /save] Success for '${effectivePath}': ${content.length} chars saved`);
+        res.json({
+            success: true,
+            message: `File '${clientPathname}' saved successfully`,
+            pathname: clientPathname
+        });
   } catch (error) {
-    console.error('[API /save] Error:', error);
-    
-    if (error.message === 'Permission denied' || error.message === 'Permission denied to write in parent directory') {
-      return res.status(403).json({ error: error.message });
-    }
-    
-    res.status(500).json({ error: 'Error saving file' });
+        console.error(`[API /save] Error for '${effectivePath}':`, error.message);
+        res.status(500).json({
+            error: `Failed to save file '${clientPathname}': ${error.message}`,
+            requestedPath: clientPathname
+        });
   }
 });
 

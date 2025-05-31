@@ -74,72 +74,52 @@ export function createAuthDisplayComponent(targetElementId) {
 
     // --- Rendering Logic --- 
     // Accepts the `auth` slice of the central state
-    const render = (authStateSlice) => {
-        // <<< ADD LOGGING HERE >>>
-        logAuth(`[AuthDisplay render] Received authStateSlice: ${JSON.stringify(authStateSlice)}`);
-
-        if (!element) return;
-
-        // Use properties from the central auth state
-        const isAuthenticated = authStateSlice.isAuthenticated;
-        const username = authStateSlice.user?.username; // Access nested username
-        const isInitializing = authStateSlice.isInitializing; // Track initial load/login process
-        const error = authStateSlice.error; // Get error message
-
-        // Determine if any auth-related action is in progress
-        // For now, treat 'isInitializing' as the loading indicator for login/logout/status check
-        const isLoading = isInitializing; 
-
-        // Don't render the form/status until the initial check is complete (isInitializing is false)
-        if (isInitializing && !isAuthenticated) { // Show loading only during initial check
-             element.innerHTML = '<span class="auth-loading">Checking auth...</span>';
-             return;
+    const render = () => {
+        if (!element) {
+            logAuth('Render skipped: element is null', 'warn');
+            return;
         }
-        
-        // Build HTML conditionally
-        let content = '';
-        if (isAuthenticated) {
-             content = `
-                 <div class="auth-status" style="display: flex; align-items: center; gap: 10px;">
-                     <span id="auth-status-display" title="Logged in as ${username}">
-                         👤 ${username}
-                     </span>
-                     <button id="logout-btn" class="btn btn-secondary btn-sm hide-on-small" ${isLoading ? 'disabled' : ''}>${isLoading ? 'Working...' : 'Logout'}</button>
-                 </div>
-             `;
-        } else {
-             content = `
-                 <form id="login-form" class="login-form hide-on-small" style="display: flex; flex-wrap: nowrap; gap: 5px;" method="POST">
-                     <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px;" ${isLoading ? 'disabled' : ''}>
-                     <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px;" ${isLoading ? 'disabled' : ''}>
-                     <button type="submit" id="login-btn" class="btn btn-primary btn-sm" ${isLoading ? 'disabled' : ''}>${isLoading ? 'Working...' : 'Login'}</button>
-                     ${error ? `<span class="auth-error" style="color: red; font-size: 0.8em; margin-left: 5px;" title="${error}">Login Failed!</span>` : ''}
-                 </form>
-             `;
-        }
-        
-        element.innerHTML = content;
-        // Add mobile profile button logic if needed
-        // element.innerHTML += `<button id="profile-btn" class="show-on-small" style="display: none;" title="User Profile/Login">👤</button>`;
 
-        // --- Re-attach Event Listeners AFTER innerHTML overwrite ---
-        if (isAuthenticated) {
-            const logoutBtn = element.querySelector('#logout-btn');
+        const authState = appStore.getState().auth;
+        const settingsState = appStore.getState().settings;
+        const selectedOrg = settingsState?.selectedOrg || localStorage.getItem('devpages_selected_org') || 'pixeljam-arcade';
+        
+        if (authState.isInitializing) {
+            element.innerHTML = '<div class="auth-status">Checking authentication...</div>';
+            return;
+        }
+
+        if (authState.isAuthenticated && authState.user) {
+            const username = authState.user.username;
+            
+            element.innerHTML = `
+                <div class="auth-status authenticated">
+                    <span class="user-icon">👤</span>
+                    <span class="username">${username}</span>
+                    <button class="logout-btn" title="Logout">Logout</button>
+                </div>
+            `;
+            
+            // Attach logout handler
+            const logoutBtn = element.querySelector('.logout-btn');
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', onLogoutClick);
             }
         } else {
+            element.innerHTML = `
+                <form id="login-form" class="login-form hide-on-small" style="display: flex; flex-wrap: nowrap; gap: 5px;" method="POST">
+                    <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px;">
+                    <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px;">
+                    <button type="submit" id="login-btn" class="btn btn-primary btn-sm">Login</button>
+                </form>
+            `;
+            
+            // Add form submit listener
             const loginForm = element.querySelector('#login-form');
             if (loginForm) {
                 loginForm.addEventListener('submit', onLoginSubmit);
-                // If there was an error, focus the username field after rendering
-                if (error) {
-                     const usernameInput = element.querySelector('#username');
-                     usernameInput?.focus();
-                }
             }
         }
-        // Add listener for mobile profile button if implemented
     };
 
     // --- Lifecycle Methods --- 
@@ -159,12 +139,12 @@ export function createAuthDisplayComponent(targetElementId) {
                 logAuth(`[AuthDisplay subscribe] Auth changed!`);
                 logAuth(`  prevState.auth: ${JSON.stringify(prevState.auth)}`);
                 logAuth(`  newState.auth: ${JSON.stringify(newState.auth)}`);
-                render(newState.auth);
+                render();
             }
         });
 
         // Initial render based on current auth state
-        render(appStore.getState().auth); // Pass the initial auth slice
+        render();
 
         logAuth('[AuthDisplay] Mounted and subscribed to appStore.auth.');
         return true; // Indicate success
@@ -187,7 +167,7 @@ export function createAuthDisplayComponent(targetElementId) {
             // Remove listeners manually just in case
             const loginForm = element.querySelector('#login-form');
             if (loginForm) loginForm.removeEventListener('submit', onLoginSubmit);
-            const logoutBtn = element.querySelector('#logout-btn');
+            const logoutBtn = element.querySelector('.logout-btn');
             if (logoutBtn) logoutBtn.removeEventListener('click', onLogoutClick);
 
             element.innerHTML = ''; // Clear content

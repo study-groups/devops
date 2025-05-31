@@ -1,0 +1,43 @@
+/* Add org display under username */
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+}
+
+.user-icon {
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.username {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 12px;
+    padding: 0 8px;
+}
+
+.user-org {
+    font-size: 9px;
+    color: #7f8c8d;
+    font-style: italic;
+    line-height: 1.1;
+}
+
+.user-role {
+    font-size: 8px;
+    color: #95a5a6;
+    line-height: 1.1;
+}
+
+.auth-status.authenticated {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.logout-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+} 
