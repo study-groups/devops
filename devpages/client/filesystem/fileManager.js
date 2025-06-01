@@ -594,12 +594,12 @@ export async function saveFile() {
 
     try {
         // Extract filename and directory
-        const directory = getParentPath(pathname);
-        const filename = getFilename(pathname);
+        // const directory = getParentPath(pathname); // Not needed for the corrected API call
+        // const filename = getFilename(pathname); // Not needed for the corrected API call
         
-        if (!filename) {
-            throw new Error(`Could not extract filename from pathname: ${pathname}`);
-        }
+        // if (!filename) { // Not needed
+        //     throw new Error(`Could not extract filename from pathname: ${pathname}`);
+        // }
 
         // Use direct fetch to the API endpoint
         const result = await fetch('/api/files/save', {
@@ -608,9 +608,10 @@ export async function saveFile() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                name: filename,
-                dir: directory,
+                pathname: pathname, // Corrected: send the full pathname
                 content: content
+                // name: filename, // Removed
+                // dir: directory, // Removed
             }),
             credentials: 'include' // Include cookies for auth
         });
