@@ -151,7 +151,6 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     }
 
     logFileManager(`[AUTH_CHANGE_HANDLER] Called. Trigger: ${triggerReason}. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
-    console.trace("[AUTH_CHANGE_HANDLER] Call Stack:"); // Add console.trace
 
     if (isAuthInitializing) {
         logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');

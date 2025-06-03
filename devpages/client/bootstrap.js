@@ -52,32 +52,6 @@ import { initializePreviewManager } from '/client/previewManager.js'; // Import 
 setReducer(mainReducer);
 logBootstrap('Main state reducer injected into message queue.', 'debug');
 
-// Add this function at the beginning of the bootstrap process
-async function loadUIState() {
-  let uiStateTimer;
-  try {
-    uiStateTimer = safeCreateTimer('UI State Loading');
-    
-    // Specifically for settings panel visibility
-    const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
-    if (settingsPanelState) {
-      const parsedState = JSON.parse(settingsPanelState);
-      if (parsedState.enabled === true) {
-        // Apply immediately - don't wait for other initializations
-        document.getElementById('settings-panel').classList.add('visible');
-        console.log('[Bootstrap] Restored settings panel visible state');
-      }
-    }
-  } catch (e) {
-    console.error('[Bootstrap] Error:', e);
-  } finally {
-    if (uiStateTimer) uiStateTimer.end();
-  }
-}
-
-// Call this very early in your initialization sequence
-loadUIState();
-
 // Main application initialization function
 async function initializeApp() {
   if (window.APP.initialized) {
@@ -107,6 +81,37 @@ async function initializeApp() {
     window.logMessage = logPanelInstance.addEntry.bind(logPanelInstance); 
     
     logBootstrap('LogPanel initialized and logMessage registered globally.', 'debug');
+
+    // *** ADD THIS: Initialize LogManager with FilterManager ***
+    logBootstrap('Initializing LogManager with centralized filtering...', 'debug');
+    try {
+      // Import FilterManager and LogManager
+      const FilterManager = await import('/client/settings/FilterManager.js');
+      const { LogManager } = await import('/client/log/LogManager.js');
+      
+      // Load persisted filters
+      const allFilters = FilterManager.default.loadAllFilters();
+      logBootstrap(`Loaded filters: ${JSON.stringify(allFilters)}`, 'debug');
+      
+      // Set window.config for legacy code
+      window.config = allFilters;
+      
+      // Create and initialize LogManager
+      const logManager = new LogManager();
+      logManager.initialize({ filterConfig: allFilters });
+      
+      // CRITICAL: Expose to window (this creates window.getDiscoveredTypes, window.setIncludeLevels, etc.)
+      logManager.exposeToWindow();
+      
+      // Verify it worked
+      logBootstrap(`LogManager exposed. Functions available: getDiscoveredTypes=${typeof window.getDiscoveredTypes}, setIncludeLevels=${typeof window.setIncludeLevels}`, 'debug');
+      
+    } catch (error) {
+      logBootstrap(`Failed to initialize LogManager: ${error.message}`, 'error');
+      console.error('[LOGMANAGER INIT ERROR]', error);
+    }
+    // *** END ADD ***
+
     logTimer.end();
 
     // --- Phase 1.5: Initialize Settings Panel System --- 
@@ -344,10 +349,11 @@ if (document.readyState === 'loading') {
 
 // Add a listener for appStore changes for debugging purposes (optional)
 appStore.subscribe((newState, prevState) => {
-  console.debug('[AppState Change]', { prevState, newState });
-  // You could add logic here to save parts of the state to localStorage,
-  // but it's often better to do this in response to specific actions 
-  // or within the components/initializers that own that state.
+  // console.debug('[AppState Change]', { prevState, newState }); // ❌ Comment out
+  // Only log significant changes
+  if (prevState.auth !== newState.auth) {
+    console.log('[AppState] Auth changed');
+  }
 }); 
 
 async function initializeUI() {
@@ -373,3 +379,18 @@ async function initializeUI() {
     console.error('[Bootstrap] Error restoring app state:', e);
   }
 } 
+
+async function loadSettingsPanelState() {
+  try {
+    const savedState = localStorage.getItem('devpages_settings_panel_state');
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_STATE, payload: parsed });
+    }
+  } catch (e) {
+    console.error('[Bootstrap] Failed to load settings panel state:', e);
+  }
+}
+
+// Call this right after initializing the settings panel
+await loadSettingsPanelState(); 

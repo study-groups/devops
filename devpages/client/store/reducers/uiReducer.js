@@ -28,18 +28,35 @@ export const uiReducer = createReducer(initialState, {
     return { ...state, isLoading };
   },
   
+  [ActionTypes.UI_SET_LOG_HEIGHT]: (state, action) => {
+    if (typeof action.payload === 'number' && action.payload >= 80) {
+      try {
+        localStorage.setItem('logHeight', String(action.payload));
+      } catch (e) {
+        console.error('[UI Reducer] Failed to save log height:', e);
+      }
+      return { ...state, logHeight: action.payload };
+    }
+    return state;
+  },
+  
   [ActionTypes.UI_SET_LOG_VISIBILITY]: (state, action) => {
-    const logVisible = !!action.payload;
-    const newState = { ...state, logVisible };
-    persisters.logVisible(newState);
-    return newState;
+    try {
+      localStorage.setItem('logVisible', String(action.payload));
+    } catch (e) {
+      console.error('[UI Reducer] Failed to save log visibility:', e);
+    }
+    return { ...state, logVisible: !!action.payload };
   },
   
   [ActionTypes.UI_TOGGLE_LOG_VISIBILITY]: (state) => {
-    const logVisible = !state.logVisible;
-    const newState = { ...state, logVisible };
-    persisters.logVisible(newState);
-    return newState;
+    const newVisible = !state.logVisible;
+    try {
+      localStorage.setItem('logVisible', String(newVisible));
+    } catch (e) {
+      console.error('[UI Reducer] Failed to save log visibility:', e);
+    }
+    return { ...state, logVisible: newVisible };
   },
 
   [ActionTypes.UI_TOGGLE_LOG_MENU]: (state) => {

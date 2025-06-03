@@ -1,6 +1,7 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { settingsStateManager } from '../settings/SettingsStateManager.js';
 
 const logContextSettings = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX_SETTINGS";
@@ -16,10 +17,98 @@ const logContextSettings = (message, level = 'debug', subtype = 'RENDER') => {
 export function createContextSettingsPopupComponent(popupId = 'context-settings-popup') {
     let popupElement = null;
     let isVisible = false;
+    let isDragging = false;
+    let isResizing = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    // Load initial state
+    let currentState = settingsStateManager.loadState();
 
     // Simple props
     let currentSelectedOrg = 'pixeljam-arcade';
     let currentDisplayPathname = '';
+
+    // Heartbeat state
+    let heartbeatIntervalMs = 5000;
+    let heartbeatTimer = null;
+    let heartbeatRunning = false;
+    let heartbeatRefreshFileList = false;
+    let heartbeatCheckServer = false;
+
+    const applyPositionAndSize = () => {
+        if (!popupElement) return;
+        
+        const { position, size, collapsed } = currentState;
+        
+        popupElement.style.left = `${position.x}px`;
+        popupElement.style.top = `${position.y}px`;
+        popupElement.style.width = `${size.width}px`;
+        
+        if (collapsed) {
+            popupElement.style.height = '40px'; // Just header height
+            popupElement.classList.add('collapsed');
+        } else {
+            popupElement.style.height = `${size.height}px`;
+            popupElement.classList.remove('collapsed');
+        }
+    };
+
+    // --- Heartbeat logic ---
+    function startHeartbeat() {
+        stopHeartbeat(); // Ensure no double interval
+        heartbeatRunning = true;
+        logContextSettings(`Heartbeat started. Interval: ${heartbeatIntervalMs}ms, Refresh: ${heartbeatRefreshFileList}, CheckServer: ${heartbeatCheckServer}`, 'EVENT');
+        heartbeatTimer = setInterval(() => {
+            if (heartbeatRefreshFileList) {
+                logContextSettings('Heartbeat: Refreshing file list', 'EVENT');
+                dispatch({ type: ActionTypes.FILE_LIST_REFRESH });
+            }
+            if (heartbeatCheckServer) {
+                logContextSettings('Heartbeat: Checking for server messages (stub)', 'EVENT');
+                // Stub: Replace with real server check later
+                checkServerMessagesStub();
+            }
+        }, heartbeatIntervalMs);
+        render();
+    }
+
+    function stopHeartbeat() {
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+        if (heartbeatRunning) {
+            logContextSettings('Heartbeat stopped.', 'EVENT');
+        }
+        heartbeatRunning = false;
+        render();
+    }
+
+    function checkServerMessagesStub() {
+        // Stub for future server message check
+        logContextSettings('Stub: Would check server messages here.', 'DEBUG');
+    }
+
+    // --- Heartbeat form handlers ---
+    function handleHeartbeatIntervalChange(event) {
+        const value = parseInt(event.target.value, 10);
+        if (!isNaN(value) && value > 0) {
+            heartbeatIntervalMs = value;
+        }
+    }
+    function handleHeartbeatRefreshChange(event) {
+        heartbeatRefreshFileList = event.target.checked;
+    }
+    function handleHeartbeatCheckServerChange(event) {
+        heartbeatCheckServer = event.target.checked;
+    }
+    function handleHeartbeatStartStop(event) {
+        if (heartbeatRunning) {
+            stopHeartbeat();
+        } else {
+            startHeartbeat();
+        }
+    }
 
     const render = () => {
         if (!popupElement) {
@@ -35,13 +124,41 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
             <option value="nodeholder" ${currentSelectedOrg === 'nodeholder' ? 'selected' : ''}>nodeholder</option>
         `;
 
+        // Heartbeat section HTML
+        const heartbeatSectionHTML = `
+            <section class="settings-section heartbeat-section">
+                <h3>Heartbeat</h3>
+                <form id="heartbeat-form" onsubmit="return false;">
+                    <label>
+                        Interval (ms):
+                        <input type="number" id="heartbeat-interval" min="100" step="100" value="${heartbeatIntervalMs}" ${heartbeatRunning ? 'disabled' : ''} />
+                    </label>
+                    <label>
+                        <input type="checkbox" id="heartbeat-refresh" ${heartbeatRefreshFileList ? 'checked' : ''} ${heartbeatRunning ? 'disabled' : ''} />
+                        Refresh file list
+                    </label>
+                    <label>
+                        <input type="checkbox" id="heartbeat-check-server" ${heartbeatCheckServer ? 'checked' : ''} ${heartbeatRunning ? 'disabled' : ''} />
+                        Check for pjaSdk.server messages
+                    </label>
+                    <button type="button" id="heartbeat-toggle-btn">
+                        ${heartbeatRunning ? 'Stop Heartbeat' : 'Start Heartbeat'}
+                    </button>
+                    <span class="settings-hint">${heartbeatRunning ? 'Heartbeat is running.' : 'Heartbeat is stopped.'}</span>
+                </form>
+            </section>
+        `;
+
         popupElement.innerHTML = `
             <div class="context-settings-popup-content">
-                <div class="context-settings-popup-header">
+                <div class="context-settings-popup-header" draggable="true">
                     <h2>Context Manager Settings</h2>
-                    <button class="close-btn" title="Close Settings">&times;</button>
+                    <div class="header-controls">
+                        <button class="collapse-btn" title="${currentState.collapsed ? 'Expand' : 'Collapse'}">${currentState.collapsed ? '□' : '─'}</button>
+                        <button class="close-btn" title="Close Settings">&times;</button>
+                    </div>
                 </div>
-                <div class="context-settings-popup-body">
+                <div class="context-settings-popup-body" ${currentState.collapsed ? 'style="display: none;"' : ''}>
                     <section class="settings-section org-selection">
                         <label for="org-select">Organization:</label>
                         <select id="org-select" class="settings-select">
@@ -58,33 +175,93 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
                         </ul>
                         <p class="settings-hint">This is a UI placeholder. No server functionality yet.</p>
                     </section>
+
+                    ${heartbeatSectionHTML}
                 </div>
-                <div class="context-settings-popup-footer">
-                    <button class="close-btn-footer">Close</button>
-                </div>
+                <div class="resize-handle"></div>
             </div>
         `;
 
-        // Attach event listeners
-        popupElement.querySelector('.close-btn').addEventListener('click', hide);
-        popupElement.querySelector('.close-btn-footer').addEventListener('click', hide);
-        popupElement.querySelector('#org-select').addEventListener('change', handleOrgChange);
+        // Apply position and size
+        applyPositionAndSize();
 
-        // Stop propagation for clicks inside popup content
-        const contentElement = popupElement.querySelector('.context-settings-popup-content');
-        if (contentElement) {
-            contentElement.addEventListener('click', (event) => event.stopPropagation());
-        }
-         
-        // Handle background click to close
-        popupElement.addEventListener('click', (event) => {
-            if (event.target === popupElement) {
-                logContextSettings('Background overlay clicked, hiding popup.', 'EVENT');
-                hide();
-            }
-        });
+        // Attach event listeners
+        attachEventListeners();
 
         logContextSettings('Render END for popup', 'VISIBILITY_DETAIL');
+    };
+
+    const attachEventListeners = () => {
+        // ... existing event listeners ...
+        
+        // Drag functionality
+        const header = popupElement.querySelector('.context-settings-popup-header');
+        header.addEventListener('mousedown', startDrag);
+        
+        // Collapse functionality
+        const collapseBtn = popupElement.querySelector('.collapse-btn');
+        collapseBtn.addEventListener('click', toggleCollapsed);
+        
+        // Resize functionality
+        const resizeHandle = popupElement.querySelector('.resize-handle');
+        resizeHandle.addEventListener('mousedown', startResize);
+        
+        // Global mouse events
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const startDrag = (event) => {
+        isDragging = true;
+        const rect = popupElement.getBoundingClientRect();
+        dragOffset.x = event.clientX - rect.left;
+        dragOffset.y = event.clientY - rect.top;
+        event.preventDefault();
+    };
+
+    const startResize = (event) => {
+        if (currentState.collapsed) return;
+        isResizing = true;
+        event.preventDefault();
+    };
+
+    const handleMouseMove = (event) => {
+        if (isDragging) {
+            const newX = event.clientX - dragOffset.x;
+            const newY = event.clientY - dragOffset.y;
+            
+            // Constrain to viewport
+            const maxX = window.innerWidth - popupElement.offsetWidth;
+            const maxY = window.innerHeight - popupElement.offsetHeight;
+            
+            currentState.position.x = Math.max(0, Math.min(newX, maxX));
+            currentState.position.y = Math.max(0, Math.min(newY, maxY));
+            
+            applyPositionAndSize();
+        } else if (isResizing) {
+            const rect = popupElement.getBoundingClientRect();
+            const newWidth = event.clientX - rect.left;
+            const newHeight = event.clientY - rect.top;
+            
+            currentState.size.width = Math.max(300, Math.min(newWidth, window.innerWidth - currentState.position.x));
+            currentState.size.height = Math.max(200, Math.min(newHeight, window.innerHeight - currentState.position.y));
+            
+            applyPositionAndSize();
+        }
+    };
+
+    const handleMouseUp = () => {
+        if (isDragging || isResizing) {
+            // Save state when drag/resize ends
+            settingsStateManager.saveState(currentState);
+        }
+        isDragging = false;
+        isResizing = false;
+    };
+
+    const toggleCollapsed = () => {
+        currentState = settingsStateManager.toggleCollapsed();
+        applyPositionAndSize();
     };
 
     const handleOrgChange = (event) => {
@@ -110,17 +287,22 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
             return;
         }
         
+        // Load latest state
+        currentState = settingsStateManager.loadState();
+        
         // Update props from app state
-        const currentState = appStore.getState();
-        currentSelectedOrg = currentState.settings?.selectedOrg || 'pixeljam-arcade';
-        currentDisplayPathname = props.displayPathname || currentState.file?.currentPathname || '';
+        const currentStateFromApp = appStore.getState();
+        currentSelectedOrg = currentStateFromApp.settings?.selectedOrg || 'pixeljam-arcade';
+        currentDisplayPathname = props.displayPathname || currentStateFromApp.file?.currentPathname || '';
 
         logContextSettings(`Show popup with org: ${currentSelectedOrg}`, 'VISIBILITY');
         
         render();
-        popupElement.style.display = 'flex';
+        popupElement.style.display = 'block';
         isVisible = true;
-        logContextSettings('Popup is now visible', 'VISIBILITY');
+        
+        // Update visibility in state
+        settingsStateManager.updateState({ visible: true });
     };
 
     const hide = () => {
@@ -128,6 +310,9 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         logContextSettings('Hiding popup', 'VISIBILITY');
         popupElement.style.display = 'none';
         isVisible = false;
+        
+        // Update visibility in state
+        settingsStateManager.updateState({ visible: false });
     };
 
     const mount = (targetBody = document.body) => {

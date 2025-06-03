@@ -95,21 +95,33 @@ export class LogFilter {
       }
     }
 
-    // 5. Keyword filtering
-    if (this.config.keywordFilters.exclude && this.config.keywordFilters.exclude.trim() !== '') {
-      const excludeTerms = this.config.keywordFilters.exclude.toLowerCase().split(/\s+/).filter(Boolean);
+    // 5. Keyword filtering - Handle both string and array formats
+    let excludeKeywords = this.config.keywordFilters.exclude;
+    if (Array.isArray(excludeKeywords)) {
+      // If it's an array, join it into a string
+      excludeKeywords = excludeKeywords.join(' ');
+    }
+
+    if (excludeKeywords && excludeKeywords.trim() !== '') {
+      const excludeTerms = excludeKeywords.toLowerCase().split(/\s+/).filter(Boolean);
       const messageStr = String(entry.message).toLowerCase();
       
       if (excludeTerms.some(term => messageStr.includes(term))) {
         return false;
       }
     }
-    
-    if (this.config.keywordFilters.include && this.config.keywordFilters.include.trim() !== '') {
-      const includeKeywords = this.config.keywordFilters.include.toLowerCase().split(' ').filter(k => k);
+
+    let includeKeywords = this.config.keywordFilters.include;
+    if (Array.isArray(includeKeywords)) {
+      // If it's an array, join it into a string
+      includeKeywords = includeKeywords.join(' ');
+    }
+
+    if (includeKeywords && includeKeywords.trim() !== '') {
+      const includeTerms = includeKeywords.toLowerCase().split(' ').filter(k => k);
       const messageForKeywordCheck = `${entry.level} ${entry.type} ${entry.subtype || ''} ${entry.message} ${entry.caller?.file || ''}`.toLowerCase();
       
-      if (!includeKeywords.some(keyword => messageForKeywordCheck.includes(keyword))) {
+      if (!includeTerms.some(keyword => messageForKeywordCheck.includes(keyword))) {
         return false;
       }
     }

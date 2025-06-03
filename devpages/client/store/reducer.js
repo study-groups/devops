@@ -11,7 +11,6 @@ import { settingsPanelReducer } from './reducers/settingsPanelReducer.js';
 import { fileReducer } from './reducers/fileReducer.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
-import { persistState } from './persistence.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -87,13 +86,11 @@ export function mainReducer(action) {
 
     // Update the appStore only if any slice reported a change
     if (hasChanged) {
-        // Ensure any keys in currentState NOT covered by sliceReducers are preserved
         const finalNextState = { ...currentState, ...nextState };
 
         // Special handling for MD_DIR change - trigger file system reload
         if (action.type === ActionTypes.SETTINGS_SET_CONTENT_SUBDIR) {
             console.log('[MainReducer] MD_DIR changed, resetting file system to trigger reload');
-            // Reset file state to trigger reload with new base path
             finalNextState.file = {
                 ...finalNextState.file,
                 isInitialized: false,
@@ -105,12 +102,7 @@ export function mainReducer(action) {
             };
         }
 
-        // Call persistence module to handle localStorage updates
-        persistState(finalNextState, currentState);
-
-        // --- Use appStore.update with an updater function ---
         appStore.update(currentState => finalNextState);
-        console.debug(`[mainReducer] State updated for action: ${action.type}`);
     }
     // If no slice changed, the store remains unchanged
 }

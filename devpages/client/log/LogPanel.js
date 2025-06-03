@@ -34,6 +34,8 @@ import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 // At the top of the file, import the logger
 import { createTimer } from '/client/utils.js';
 
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';
 const DEFAULT_LOG_HEIGHT = 150;
@@ -96,9 +98,8 @@ export class LogPanel {
         this.RENDER_MODE_HTML = 'html';
 
         this.state = {
-            height: DEFAULT_LOG_HEIGHT,
             entryCount: 0,
-            clientLogIndex: 0 // <<< ADDED: Index counter for client logs
+            clientLogIndex: 0
         };
 
         this._isResizing = false;
@@ -379,40 +380,45 @@ export class LogPanel {
      * Updates the LogPanel's DOM based on the current central UI state (visibility) and internal state (height).
      */
     updateUI() {
-        // Log for debugging
-        // console.log('[LOG_PANEL_INTERNAL] %c[LogPanel] updateUI() method called.', 'color: #8884'); // SILENCED
-
-        // Get the current state
         const appState = appStore.getState();
-        
-        // Skip if state not available
         if (!appState || !appState.ui) {
             console.warn('[LogPanel.js] Cannot updateUI, appState or appState.ui not available');
             return;
         }
         
-        const { logVisible, logMenuVisible } = appState.ui;
+        const { logVisible, logHeight, logMenuVisible } = appState.ui;
         
-        // Update container visibility
+        // Update container visibility and height
         if (this.container) {
             this.container.classList.toggle('log-visible', logVisible);
             this.container.classList.toggle('log-hidden', !logVisible);
+            
+            // Apply height from appStore
+            this.container.style.height = logVisible ? `${logHeight}px` : '0px';
+            this.container.style.display = logVisible ? 'flex' : 'none';
+            
+            // Update CSS variable for other components
+            document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
+            document.documentElement.setAttribute('data-log-visible', logVisible.toString());
         }
         
-        // Update parent visibility (for layouting)
+        // Update main container for layout
         const mainContainer = document.getElementById('main-container');
         if (mainContainer) {
             mainContainer.classList.toggle('log-visible', logVisible);
             mainContainer.classList.toggle('log-hidden', !logVisible);
         }
         
-        // Log menu visibility toggle - THIS IS CRITICAL
+        // Update log menu visibility
         const menuContainer = document.getElementById('log-menu-container');
         if (menuContainer) {
-            // console.log(`[LogPanel updateUI] Setting menu visibility to: ${logMenuVisible}`); // SILENCED
             menuContainer.classList.toggle('visible', logMenuVisible);
-        } else {
-            console.warn('[LogPanel updateUI] #log-menu-container NOT FOUND in DOM during updateUI.');
+        }
+        
+        // Update topbar log button state
+        const logButton = document.getElementById('log-btn');
+        if (logButton) {
+            logButton.classList.toggle('active', logVisible);
         }
     }
 
@@ -458,17 +464,17 @@ export class LogPanel {
 
     // Method to save preferences - called from logPanelEvents after resize
     // This should delegate to the function in logPanelState.js
-    saveLogPanelPreferences() {
-        // logPanelInternalDebug('[LogPanel] saveLogPanelPreferences called.', 'debug');
-        // The actual saving logic will be in logPanelState.js
-        // For now, we assume a function saveLogPanelPreferencesState exists there.
-        // This is a placeholder until logPanelState.js is fully implemented.
-        if (typeof saveLogPanelPreferencesState === 'function') { // This refers to the imported function from logPanelState
-            saveLogPanelPreferencesState(this); // Pass the instance
-        } else {
-            logWarn('saveLogPanelPreferences function from logPanelState.js not available.', {type: 'LOG_PANEL_STATE'});
-        }
-    }
+    // saveLogPanelPreferences() {
+    //     // logPanelInternalDebug('[LogPanel] saveLogPanelPreferences called.', 'debug');
+    //     // The actual saving logic will be in logPanelState.js
+    //     // For now, we assume a function saveLogPanelPreferencesState exists there.
+    //     // This is a placeholder until logPanelState.js is fully implemented.
+    //     if (typeof saveLogPanelPreferencesState === 'function') { // This refers to the imported function from logPanelState
+    //         saveLogPanelPreferencesState(this); // Pass the instance
+    //     } else {
+    //         logWarn('saveLogPanelPreferences function from logPanelState.js not available.', {type: 'LOG_PANEL_STATE'});
+    //     }
+    // }
 
     /**
      * NEW: Updates the display content and button states for an expanded log entry.

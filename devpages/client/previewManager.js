@@ -4,50 +4,30 @@
  */
 
 import { initPreview, updatePreview, getPreviewInstance } from './preview/index.js';
-import { appStore } from '/client/appState.js'; // Import appStore to access state
+import { appStore } from '/client/appState.js';
 
 // Keep track of initialization and subscription
 let isPreviewInitialized = false;
 let appStateUnsubscribe = null;
 
 // Define a default set of plugins known to work for initial load
-const DEFAULT_INITIAL_PLUGINS = ['highlight', 'mermaid', 'katex', 'audio-md', 'github-md', 'css', 'markdown-svg']; // Adjust if needed
+const DEFAULT_INITIAL_PLUGINS = ['highlight', 'mermaid', 'katex', 'audio-md']; // Simplified list
 
 // Initialize or Update Preview Logic
 async function initializeOrUpdatePreview(isUpdate = false) {
   console.log(`[previewManager] initializeOrUpdatePreview called. isUpdate=${isUpdate}`);
 
-  let pluginsToUse;
-  let configSource;
-
-  if (!isUpdate && !isPreviewInitialized) {
-    // --- Initial Load --- 
-    console.log('[previewManager] Performing initial load. Using DEFAULT_INITIAL_PLUGINS.');
-    pluginsToUse = DEFAULT_INITIAL_PLUGINS;
-    configSource = 'Defaults';
-  } else {
-    // --- Subsequent Update (from store change) ---
-    console.log('[previewManager] Performing update. Getting plugins from appStore.');
-    const state = appStore.getState();
-    const currentPluginsState = state.plugins || {};
-    pluginsToUse = Object.entries(currentPluginsState)
-      .filter(([id, config]) => config.enabled)
-      .map(([id]) => id);
-    configSource = 'appStore';
-    console.log('[previewManager] Enabled plugins based on current state:', pluginsToUse);
-  }
-
-  console.log(`[previewManager] Plugins to initialize (from ${configSource}):`, pluginsToUse);
-
   try {
     let previewNeedsRefresh = false;
 
     // --- Initialization (only once) ---
-    if (!isPreviewInitialized) {
+    if (!isUpdate && !isPreviewInitialized) {
       console.log('[previewManager] Performing initial preview system initialization...');
+      
+      // TEMPORARILY REVERT: Use old plugin initialization 
       const result = await initPreview({
         container: '#preview-container',
-        plugins: pluginsToUse,
+        plugins: DEFAULT_INITIAL_PLUGINS, // Use the old way
         theme: 'light',
         autoInit: true
       });
@@ -58,24 +38,16 @@ async function initializeOrUpdatePreview(isUpdate = false) {
         setupEventHandlers();
         previewNeedsRefresh = true;
       } else {
-        console.error('[previewManager] Failed to initialize preview system initially (initPreview returned false)');
+        console.error('[previewManager] Failed to initialize preview system initially');
         return;
       }
     } else if (isUpdate) {
       // --- Re-initialization of Plugins (if already initialized and called for update) ---
       console.log('[previewManager] Re-initializing plugins for update...');
-      const previewInstance = getPreviewInstance();
-      if (previewInstance) {
-        const { initPlugins } = await import('./preview/plugins/index.js');
-        await initPlugins(pluginsToUse, { /* config if needed */ });
-        console.log('[previewManager] Plugins re-initialized with:', pluginsToUse);
-        previewNeedsRefresh = true;
-      } else {
-        console.warn('[previewManager] Preview instance not found for plugin re-initialization.');
-      }
+      previewNeedsRefresh = true;
     }
 
-    // Refresh the preview content if needed (after initial init or plugin change)
+    // Refresh the preview content if needed
     if (previewNeedsRefresh) {
       console.log('[previewManager] Triggering preview refresh...');
       setTimeout(refreshPreview, 0);

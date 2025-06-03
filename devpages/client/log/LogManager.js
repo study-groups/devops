@@ -6,6 +6,7 @@ import { LogEntry } from './LogEntry.js';
 import { LogFilter } from './LogFilter.js';
 import { LogBuffer } from './LogBuffer.js';
 import { CallerInfo } from './CallerInfo.js';
+import FilterManager from '../settings/FilterManager.js';
 
 /**
  * Core log management class that orchestrates the logging system
@@ -30,6 +31,29 @@ export class LogManager {
    * @returns {LogManager} - This instance for chaining
    */
   initialize(options = {}) {
+    // Use filterConfig from options if provided, otherwise fall back to localStorage
+    let filterConfig = options.filterConfig;
+
+    if (!filterConfig && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const storedSettings = window.localStorage.getItem('logSettings');
+        if (storedSettings) {
+          const settings = JSON.parse(storedSettings);
+          if (settings.filterConfig) {
+            filterConfig = settings.filterConfig;
+          }
+        }
+      } catch (e) {
+        console.error('Error loading log settings from localStorage:', e);
+      }
+    }
+
+    if (filterConfig) {
+      this.filter = new LogFilter(filterConfig);
+    } else {
+      this.filter = new LogFilter();
+    }
+    
     // Initialize settings from local storage if available
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -44,10 +68,6 @@ export class LogManager {
           
           if (settings.showTimestamps !== undefined) {
             this.showTimestamps = settings.showTimestamps;
-          }
-          
-          if (settings.filterConfig) {
-            this.filter = new LogFilter(settings.filterConfig);
           }
         }
       } catch (e) {

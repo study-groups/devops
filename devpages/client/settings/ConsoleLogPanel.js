@@ -4,6 +4,9 @@
  * Designed to be in feature parity with ConsoleLogManager.js
  */
 
+import FilterManager from './FilterManager.js';
+import { LogManager } from '../log/LogManager.js';
+
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {
   const getOriginal = (method) => {
@@ -66,6 +69,23 @@ export class ConsoleLogPanel {
     if (this.updateStatusDisplay) {
         setTimeout(() => this.updateStatusDisplay(), 0); 
     }
+
+    const allFilters = FilterManager.loadAllFilters();
+    window.config = allFilters;
+
+    window.addEventListener('storage', (event) => {
+      // If any filter key changes, reload filters and update UI
+      if (Object.values(FilterManager.STORAGE_KEYS).includes(event.key)) {
+        const allFilters = FilterManager.loadAllFilters();
+        window.config.typeFilters = allFilters.typeFilters;
+        window.config.subtypeFilters = allFilters.subtypeFilters;
+        window.config.levelFilters = allFilters.levelFilters;
+        window.config.keywordFilters = allFilters.keywordFilters;
+        this.refreshTypeFilterDisplay();
+        this.refreshLevelFilterDisplay();
+        // If you have keyword filter UI, refresh that too
+      }
+    });
   }
 
   _updateBufferedViewAndStatus(newLogEntry = null) {
@@ -168,7 +188,7 @@ export class ConsoleLogPanel {
         }
         toggle.checked = initialChecked;
       } catch (e) {
-        // This catch is now more for errors from isCheckedFn() itself or other unexpected issues
+        // This catch is now for errors from isCheckedFn() itself or other unexpected issues
         logConsolePanel(`Error setting initial state for toggle ${id}: ${e.message}`, 'warn');
         console.error(`[ConsoleLogPanel_ERROR] Error setting initial state for ${id}:`, e);
         toggle.checked = false; // Fallback if any error occurs
@@ -487,8 +507,8 @@ export class ConsoleLogPanel {
         'include-keywords',
         'Include Keywords (space-separated)',
         'e.g.: api error server',
-        () => window.config?.keywordFilters?.include || '',
-        window.setIncludeKeywords
+        () => FilterManager.getIncludeKeywords().join(' '),
+        (val) => FilterManager.setIncludeKeywords(val.split(/\s+/).filter(Boolean))
       )
     );
     keywordGroup.appendChild(
@@ -496,8 +516,8 @@ export class ConsoleLogPanel {
         'exclude-keywords',
         'Exclude Keywords (space-separated)',
         'e.g.: verbose debug minor',
-        () => window.config?.keywordFilters?.exclude || '',
-        window.setExcludeKeywords
+        () => FilterManager.getExcludeKeywords().join(' '),
+        (val) => FilterManager.setExcludeKeywords(val.split(/\s+/).filter(Boolean))
       )
     );
 
@@ -507,16 +527,10 @@ export class ConsoleLogPanel {
     clearFiltersBtn.textContent = 'Clear All Filters';
     clearFiltersBtn.style.marginTop = '10px';
     clearFiltersBtn.addEventListener('click', () => {
-      if (typeof window.clearAllFilters === 'function') {
-        window.clearAllFilters(true);
-        // Update input fields
-        const includeInput = document.getElementById('include-keywords');
-        const excludeInput = document.getElementById('exclude-keywords');
-        if (includeInput) includeInput.value = '';
-        if (excludeInput) excludeInput.value = '';
-        // Reset type/subtype filter UI
-        this.refreshTypeFilterDisplay();
-      }
+      FilterManager.clearAllFilters();
+      this.refreshTypeFilterDisplay();
+      this.refreshLevelFilterDisplay();
+      // ...refresh keyword UI if present
     });
     keywordGroup.appendChild(clearFiltersBtn);
     
@@ -689,30 +703,31 @@ export class ConsoleLogPanel {
   refreshTypeFilterDisplay() {
     if (!this.ensureContainersReady()) return;
     
+    // Add detailed error checking
+    if (!window.config) {
+      console.error('window.config is not available');
+      this.typesContainer.textContent = 'Error: window.config not found';
+      return;
+    }
+    
+    if (typeof window.getDiscoveredTypes !== 'function') {
+      console.error('window.getDiscoveredTypes is not a function:', typeof window.getDiscoveredTypes);
+      this.typesContainer.textContent = 'Error: getDiscoveredTypes function not found';
+      return;
+    }
+    
     panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
     
     this.typesContainer.innerHTML = ''; // Clear existing content
     this.subtypesContainer.innerHTML = ''; // Clear existing content
     
-    if (!window.config || typeof window.getDiscoveredTypes !== 'function' || typeof window.getDiscoveredSubtypes !== 'function') {
-        const msg = "Log options (types/subtypes) not available yet. ConsoleLogManager might still be loading or window.config is not set.";
-        panelOriginalConsole.debug(`[ConsoleLogPanel] ${msg}`); // Changed to debug level
-        this.typesContainer.textContent = msg;
-        this.subtypesContainer.textContent = msg;
-        return;
-    }
-
     const discoveredTypes = window.getDiscoveredTypes();
     const discoveredSubtypes = window.getDiscoveredSubtypes();
     
-    const includeTypes = Array.isArray(window.config.typeFilters?.include) ? 
-      new Set(window.config.typeFilters.include) : new Set();
-    const excludeTypes = Array.isArray(window.config.typeFilters?.exclude) ? 
-      new Set(window.config.typeFilters.exclude) : new Set();
-    const includeSubtypes = Array.isArray(window.config.subtypeFilters?.include) ? 
-      new Set(window.config.subtypeFilters.include) : new Set();
-    const excludeSubtypes = Array.isArray(window.config.subtypeFilters?.exclude) ? 
-      new Set(window.config.subtypeFilters.exclude) : new Set();
+    const includeTypes = new Set(FilterManager.getIncludeTypes());
+    const excludeTypes = new Set(FilterManager.getExcludeTypes());
+    const includeSubtypes = new Set(FilterManager.getIncludeSubtypes());
+    const excludeSubtypes = new Set(FilterManager.getExcludeSubtypes());
     
     panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_TYPES] Current type filters:', 
                { include: [...includeTypes], exclude: [...excludeTypes] });
@@ -764,10 +779,8 @@ export class ConsoleLogPanel {
     }
 
     const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'TIMING'];
-    const includeLevels = Array.isArray(window.config.levelFilters.include) ? 
-      new Set(window.config.levelFilters.include) : new Set();
-    const excludeLevels = Array.isArray(window.config.levelFilters.exclude) ? 
-      new Set(window.config.levelFilters.exclude) : new Set();
+    const includeLevels = new Set(FilterManager.getIncludeLevels());
+    const excludeLevels = new Set(FilterManager.getExcludeLevels());
 
     levels.forEach(level => {
       let initialState = 'normal';
@@ -855,73 +868,46 @@ export class ConsoleLogPanel {
 
   // Convert updateFilter to a class method
   updateFilter(filterValue, filterAction, filterType) {
-    panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Setting ${filterType} "${filterValue}" to ${filterAction} mode`);
-    
-    if (!window.config || !window.config.typeFilters || !window.config.subtypeFilters || !window.config.levelFilters) {
-      panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.config or its filter properties are missing! Solo/Mute will not work correctly. Ensure ConsoleLogManager.js initializes window.config properly.");
-      this.refreshTypeFilterDisplay(); 
-      this.refreshLevelFilterDisplay();
-      return;
+    let include = [], exclude = [];
+    if (filterType === 'type') {
+      include = FilterManager.getIncludeTypes().filter(f => f !== filterValue);
+      exclude = FilterManager.getExcludeTypes().filter(f => f !== filterValue);
+      if (filterAction === 'solo') include.push(filterValue);
+      if (filterAction === 'mute') exclude.push(filterValue);
+      FilterManager.setIncludeTypes(include);
+      FilterManager.setExcludeTypes(exclude);
+      // Live update LogManager
+      if (typeof window.setIncludeTypes === 'function') window.setIncludeTypes(include);
+      if (typeof window.setExcludeTypes === 'function') window.setExcludeTypes(exclude);
+    } else if (filterType === 'subtype') {
+      include = FilterManager.getIncludeSubtypes().filter(f => f !== filterValue);
+      exclude = FilterManager.getExcludeSubtypes().filter(f => f !== filterValue);
+      if (filterAction === 'solo') include.push(filterValue);
+      if (filterAction === 'mute') exclude.push(filterValue);
+      FilterManager.setIncludeSubtypes(include);
+      FilterManager.setExcludeSubtypes(exclude);
+      // Live update LogManager
+      if (typeof window.setIncludeSubtypes === 'function') window.setIncludeSubtypes(include);
+      if (typeof window.setExcludeSubtypes === 'function') window.setExcludeSubtypes(exclude);
+    } else if (filterType === 'level') {
+      include = FilterManager.getIncludeLevels().filter(f => f !== filterValue);
+      exclude = FilterManager.getExcludeLevels().filter(f => f !== filterValue);
+      if (filterAction === 'solo') include.push(filterValue);
+      if (filterAction === 'mute') exclude.push(filterValue);
+      FilterManager.setIncludeLevels(include);
+      FilterManager.setExcludeLevels(exclude);
+      // Live update LogManager
+      if (typeof window.setIncludeLevels === 'function') window.setIncludeLevels(include);
+      if (typeof window.setExcludeLevels === 'function') window.setExcludeLevels(exclude);
     }
-    
-    let includeFilters = [];
-    let excludeFilters = [];
-    let setIncludeFn = null;
-    let setExcludeFn = null;
-
-    switch (filterType) {
-      case 'type':
-        includeFilters = Array.isArray(window.config.typeFilters.include) ? [...window.config.typeFilters.include] : [];
-        excludeFilters = Array.isArray(window.config.typeFilters.exclude) ? [...window.config.typeFilters.exclude] : [];
-        setIncludeFn = window.setIncludeTypes;
-        setExcludeFn = window.setExcludeTypes;
-        break;
-      case 'subtype':
-        includeFilters = Array.isArray(window.config.subtypeFilters.include) ? [...window.config.subtypeFilters.include] : [];
-        excludeFilters = Array.isArray(window.config.subtypeFilters.exclude) ? [...window.config.subtypeFilters.exclude] : [];
-        setIncludeFn = window.setIncludeSubtypes;
-        setExcludeFn = window.setExcludeSubtypes;
-        break;
-      case 'level':
-        includeFilters = Array.isArray(window.config.levelFilters.include) ? [...window.config.levelFilters.include] : [];
-        excludeFilters = Array.isArray(window.config.levelFilters.exclude) ? [...window.config.levelFilters.exclude] : [];
-        setIncludeFn = window.setIncludeLevels;
-        setExcludeFn = window.setExcludeLevels;
-        break;
-      default:
-        panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] Unknown filterType: ${filterType}`);
-        return;
-    }
-
-    includeFilters = includeFilters.filter(f => f !== filterValue);
-    excludeFilters = excludeFilters.filter(f => f !== filterValue);
-    
-    if (filterAction === 'solo') {
-      includeFilters.push(filterValue);
-    } else if (filterAction === 'mute') {
-      excludeFilters.push(filterValue);
-    }
-    
-    if (typeof setIncludeFn === 'function') {
-      setIncludeFn(includeFilters, true); // persist = true
-      panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Called ${setIncludeFn.name} with:`, includeFilters);
-    } else {
-      panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] ${setIncludeFn ? setIncludeFn.name : 'setIncludeFn'} is not a function for ${filterType}`);
-    }
-    
-    if (typeof setExcludeFn === 'function') {
-      setExcludeFn(excludeFilters, true); // persist = true
-      panelOriginalConsole.debug(`[ConsoleLogPanel_UPDATE_FILTER] Called ${setExcludeFn.name} with:`, excludeFilters);
-    } else {
-      panelOriginalConsole.error(`[ConsoleLogPanel_ERROR] ${setExcludeFn ? setExcludeFn.name : 'setExcludeFn'} is not a function for ${filterType}`);
-    }
-    
-    // After updating filters in ConsoleLogManager, refresh the UI sections
-    // This ensures that if one filter change affects another (e.g. global clear all), UI is consistent.
-    // However, this might be too broad. Let's rely on the manager to update localStorage and the 'storage' event
-    // or direct call via updateConsoleLogPanelStatus to refresh.
-    // For now, we expect ConsoleLogManager to update window.config, and the next render cycle or specific refresh will pick it up.
-    // The direct call to updateStatusDisplay after a toggle change, and its subsequent calls to refreshType/LevelFilterDisplay, should handle this.
+    // After updating, reload window.config for legacy code
+    const allFilters = FilterManager.loadAllFilters();
+    window.config.typeFilters = allFilters.typeFilters;
+    window.config.subtypeFilters = allFilters.subtypeFilters;
+    window.config.levelFilters = allFilters.levelFilters;
+    window.config.keywordFilters = allFilters.keywordFilters;
+    this.refreshTypeFilterDisplay();
+    this.refreshLevelFilterDisplay();
   }
 
   ensureContainersReady() {

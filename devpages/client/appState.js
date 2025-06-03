@@ -8,13 +8,14 @@ import { createStore } from '/client/store/statekit.js';
 // <<< NEW: Key for localStorage persistence >>>
 const LOG_VISIBLE_KEY = 'logVisible'; 
 // <<< NEW: Key for persisting plugin state >>>
-const PLUGINS_STATE_KEY = 'pluginsEnabledState'; 
+const PLUGINS_STATE_KEY = 'pluginsFullState'; 
 // <<< NEW: Keys for persisting SmartCopy buffers >>>
 export const SMART_COPY_A_KEY = 'smartCopyBufferA';
 export const SMART_COPY_B_KEY = 'smartCopyBufferB';
 // <<< Key for persisting preview CSS file list >>>
 const PREVIEW_CSS_FILES_KEY = 'previewCssFiles';
 const ENABLE_ROOT_CSS_KEY = 'previewEnableRootCss'; // <<< NEW KEY
+const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
 function getInitialLogVisibility() {
@@ -35,75 +36,110 @@ function getInitialLogVisibility() {
     }
 }
 
-// --- Default Plugin State --- 
-const defaultPluginsState = {
-    'highlight': { name: "Syntax Highlighting", enabled: true },
-    'mermaid': { name: "Mermaid Diagrams", enabled: true },
-    'katex': { name: "KaTeX Math Rendering", enabled: true },
-    'audio-md': { name: "Audio Markdown", enabled: true },
-    'github-md': { name: "GitHub Flavored Markdown", enabled: true }
+// <<< ADDED: Helper to load viewMode from localStorage >>>
+function getInitialViewMode() {
+    try {
+        const storedViewMode = localStorage.getItem(VIEW_MODE_KEY);
+        if (storedViewMode && ['editor', 'split', 'preview'].includes(storedViewMode)) {
+            console.log('[AppState] Loaded viewMode from localStorage:', storedViewMode);
+            return storedViewMode;
+        }
+        console.log('[AppState] No valid viewMode in localStorage, defaulting to editor.');
+    } catch (e) {
+        console.error('[AppState] Error reading viewMode from localStorage:', e);
+    }
+    return 'editor'; // Default to 'editor' if not explicitly stored, invalid, or on error
+}
+
+// --- Default Plugin State with Settings Configuration ---
+const defaultPluginsConfig = {
+    'mermaid': {
+        name: "Mermaid Diagrams",
+        defaultState: { // Contains all settings for the plugin
+            enabled: true,
+            theme: 'default', // Mermaid-specific setting
+            // Add other mermaid-specific settings here later
+        },
+        // Describes how to render UI controls for this plugin's settings
+        settingsManifest: [
+            { key: 'enabled', label: 'Enable Mermaid', type: 'toggle' },
+            { key: 'theme', label: 'Theme', type: 'select', options: ['default', 'forest', 'dark', 'neutral'] }
+        ]
+    },
+    'highlight': {
+        name: "Syntax Highlighting",
+        defaultState: { enabled: true },
+        settingsManifest: [
+            { key: 'enabled', label: 'Enable Syntax Highlighting', type: 'toggle' }
+        ]
+    },
+    'katex': {
+        name: "KaTeX Math Rendering",
+        defaultState: { enabled: true },
+        settingsManifest: [
+            { key: 'enabled', label: 'Enable KaTeX', type: 'toggle' }
+        ]
+    },
+    'audio-md': {
+        name: "Audio Markdown",
+        defaultState: { enabled: true },
+        settingsManifest: [
+            { key: 'enabled', label: 'Enable Audio Markdown', type: 'toggle' }
+        ]
+    }
+    // GitHub plugin remains removed
 };
 
-// --- Helper to load plugin state from localStorage --- 
+// --- Helper to load FULL plugin state from localStorage --- 
 function getInitialPluginsState() {
+    const initialFullState = {};
+
+    // Initialize with defaults from defaultPluginsConfig
+    for (const pluginId in defaultPluginsConfig) {
+        if (Object.prototype.hasOwnProperty.call(defaultPluginsConfig, pluginId)) {
+            initialFullState[pluginId] = {
+                name: defaultPluginsConfig[pluginId].name, // Keep name for display
+                settings: { ...defaultPluginsConfig[pluginId].defaultState }, // Actual configurable settings
+                settingsManifest: defaultPluginsConfig[pluginId].settingsManifest // UI rendering info
+            };
+        }
+    }
+
     try {
         const storedValue = localStorage.getItem(PLUGINS_STATE_KEY);
-        // Use console.debug for this initial, less critical log
-        console.debug(`[AppState] Attempting to load plugins from localStorage. Key: '${PLUGINS_STATE_KEY}'. Stored value: ${storedValue ? `"${storedValue}"` : 'null'}`);
 
         if (storedValue) {
-            const parsedState = JSON.parse(storedValue);
-            // Use console.debug for successful parsing
-            console.debug(`[AppState] Parsed plugin state from localStorage: ${JSON.stringify(parsedState)}`);
+            const parsedStoredPlugins = JSON.parse(storedValue);
 
-            if (typeof parsedState === 'object' && parsedState !== null) {
-                 const mergedState = { ...defaultPluginsState }; 
-                 let appliedFromStorage = false; 
-
-                 for (const pluginId in defaultPluginsState) {
-                     if (Object.prototype.hasOwnProperty.call(defaultPluginsState, pluginId)) {
-                         if (Object.prototype.hasOwnProperty.call(parsedState, pluginId)) {
-                             mergedState[pluginId] = {
-                                 ...defaultPluginsState[pluginId], 
-                                 enabled: !!parsedState[pluginId] 
-                             };
-                             // Use console.debug for successful application
-                             console.debug(`[AppState] Applied stored 'enabled' for ${pluginId}: ${mergedState[pluginId].enabled} (from localStorage value: ${parsedState[pluginId]})`);
-                             appliedFromStorage = true;
-                         } else {
-                             // Use console.debug for cases where default is used because item not in storage
-                             console.debug(`[AppState] Plugin ${pluginId} not in localStorage, using default 'enabled': ${mergedState[pluginId].enabled}`);
-                         }
-                     }
-                 }
-
-                 if (Object.keys(parsedState).length > 0 && !appliedFromStorage) {
-                    // Use console.warn for potentially unexpected situations
-                    console.warn('[AppState] localStorage had plugin data, but no keys matched known default plugins. Using defaults for all known plugins.');
-                 } else if (!appliedFromStorage && Object.keys(parsedState).length === 0) {
-                    // Use console.info for expected empty storage
-                    console.info('[AppState] localStorage plugin data was an empty object. Using defaults.');
-                 }
-                 
-                 // Use console.debug for the final state
-                 console.debug(`[AppState] Final merged plugin state for initialization: ${JSON.stringify(mergedState)}`);
-                 return mergedState;
+            if (typeof parsedStoredPlugins === 'object' && parsedStoredPlugins !== null) {
+                for (const pluginId in initialFullState) {
+                    if (Object.prototype.hasOwnProperty.call(initialFullState, pluginId) &&
+                        Object.prototype.hasOwnProperty.call(parsedStoredPlugins, pluginId) &&
+                        typeof parsedStoredPlugins[pluginId].settings === 'object') {
+                        
+                        // Merge stored settings with defaults, ensuring all default keys are present
+                        const defaultPluginSettings = defaultPluginsConfig[pluginId].defaultState;
+                        const storedPluginSettings = parsedStoredPlugins[pluginId].settings;
+                        
+                        const mergedSettings = { ...defaultPluginSettings };
+                        for (const settingKey in defaultPluginSettings) {
+                            if (Object.prototype.hasOwnProperty.call(storedPluginSettings, settingKey) &&
+                                typeof storedPluginSettings[settingKey] === typeof defaultPluginSettings[settingKey]) { // Basic type check
+                                mergedSettings[settingKey] = storedPluginSettings[settingKey];
+                            }
+                        }
+                        initialFullState[pluginId].settings = mergedSettings;
+                    }
+                }
             } else {
-                // Use console.warn for invalid parsed state
-                console.warn('[AppState] Parsed plugin state from localStorage was not a valid object. Using defaultPluginsState.');
-                return { ...defaultPluginsState };
+                console.warn('[AppState] Parsed plugin state from localStorage is not a valid object.');
             }
-        } else {
-            // Use console.info for the expected case of no stored state
-            console.info('[AppState] No plugin state in localStorage, using defaultPluginsState.');
-            return { ...defaultPluginsState };
         }
-    } catch (e) {
-        // Use console.error for actual errors
-        console.error(`[AppState] Error reading or parsing plugin state from localStorage: ${e.message}. Using defaultPluginsState.`);
-        console.error(e); // Log the full error object for detailed diagnostics
-        return { ...defaultPluginsState };
+    } catch (error) {
+        console.error('[AppState] Error loading plugin state from localStorage:', error);
     }
+
+    return initialFullState;
 }
 
 // --- Helper to load configured CSS files (Handles new object structure) ---
@@ -160,6 +196,57 @@ function getInitialSelectedOrg() {
     return 'pixeljam-arcade';
 }
 
+// Helper function to load settings panel state from localStorage
+function getInitialSettingsPanelState() {
+  const defaults = {
+    visible: false,  // ✅ Use 'visible', not 'enabled'
+    position: { x: 50, y: 50 },
+    size: { width: 380, height: 550 },
+    collapsedSections: {},
+  };
+
+  try {
+    const savedState = localStorage.getItem('devpages_settings_panel_state');
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      return {
+        ...defaults,
+        ...parsed,
+        position: { ...defaults.position, ...(parsed.position || {}) },
+        size: { ...defaults.size, ...(parsed.size || {}) },
+      };
+    }
+  } catch (e) {
+    console.warn('[AppState] Failed to load settings panel state:', e);
+  }
+  
+  return defaults;
+}
+
+// Helper function to load log state from localStorage  
+function getInitialLogState() {
+  const defaults = {
+    visible: false,
+    height: 120,
+    menuVisible: false
+  };
+
+  try {
+    const savedVisible = localStorage.getItem('logVisible');
+    const savedHeight = localStorage.getItem('logHeight');
+    
+    return {
+      visible: savedVisible === 'true',
+      height: savedHeight ? Math.max(80, parseInt(savedHeight, 10)) : defaults.height,
+      menuVisible: false // Always start with menu closed
+    };
+  } catch (e) {
+    console.warn('[AppState] Failed to load log state:', e);
+  }
+  
+  return defaults;
+}
+
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
@@ -172,17 +259,12 @@ const initialAppState = {
     // Global UI states, e.g., current theme, loading indicators
     theme: 'default', // Example
     isLoading: false, // Keep general loading state? Or manage per feature?
-    logVisible: getInitialLogVisibility(), // <<< MODIFIED: Load from localStorage >>>
-    logMenuVisible: false, // <<< ADD THIS LINE AND SET TO FALSE
+    logVisible: getInitialLogState().visible,     // ✅ From localStorage
+    logHeight: getInitialLogState().height,      // ✅ New: height in appStore  
+    logMenuVisible: getInitialLogState().menuVisible,
+    viewMode: getInitialViewMode() // <<< MODIFIED: Load from localStorage or use default
   },
-  settingsPanel: {
-    enabled: false,
-    position: { x: 50, y: 50 },
-    size: { width: 380, height: 550 },
-    collapsedSections: {},
-    // Add specific settings here as needed, e.g.:
-    // logLevel: 'info'
-  },
+  settingsPanel: getInitialSettingsPanelState(), // ✅ Proper initialization
   editor: {
     // Example placeholder
     content: '', // Note: fileManager currently calls setContent directly. Refactor later?
@@ -222,19 +304,17 @@ const initialAppState = {
   },
   // --- End REFACTORED File System State ---
 
-  // +++ Add the Plugins State Slice +++
-  plugins: {
-    // Load initial plugin state using the helper function
-    ...getInitialPluginsState()
-  },
+  // +++ Updated Plugins State Slice Structure +++
+  plugins: getInitialPluginsState(), // Now loads the full structure
   settings: {
       // Simple org selection - no server impact
       selectedOrg: getInitialSelectedOrg(), // 'pixeljam-arcade' or 'nodeholder'
       
       preview: {
-          cssFiles: getInitialPreviewCssFiles(),
+          configuredCssFiles: getInitialPreviewCssFiles(),
           activeCssFiles: [],
-          enableRootCss: getInitialEnableRootCss()
+          enableRootCss: getInitialEnableRootCss(),
+          previewTheme: 'light'
       }
   },
   // +++ Add the Log Filtering State Slice +++
@@ -243,6 +323,10 @@ const initialAppState = {
     activeFilters: [],   // Stores types currently active for display
   },
   // ... smartCopy ...
+  smartCopy: {
+    bufferA: localStorage.getItem(SMART_COPY_A_KEY) || '',
+    bufferB: localStorage.getItem(SMART_COPY_B_KEY) || ''
+  }
 };
 
 // Create the application state store instance
@@ -253,3 +337,137 @@ export const appStore = createStore(initialAppState);
 // export const selectIsAuthenticated = derived(appStore, $state => $state.auth.isAuthenticated);
 
 console.log('[AppState] Central store initialized.');
+
+// <<< ADDED: Subscribe to save viewMode to localStorage >>>
+let lastKnownViewMode = appStore.getState().ui.viewMode; // Initialize with the initial mode from store
+
+appStore.subscribe((newState) => {
+    // Persist logVisible
+    const newLogVisible = newState.ui.logVisible;
+    if (typeof newLogVisible === 'boolean' && newLogVisible !== (localStorage.getItem(LOG_VISIBLE_KEY) === 'true')) {
+        try {
+            localStorage.setItem(LOG_VISIBLE_KEY, newLogVisible);
+        } catch (e) {
+            console.error('[AppState] Error saving log visibility to localStorage:', e);
+        }
+    }
+    
+    // Persist logHeight
+    const newLogHeight = newState.ui.logHeight;
+    // Ensure it's a number before saving
+    if (typeof newLogHeight === 'number' && newLogHeight !== parseInt(localStorage.getItem('logHeight'), 10)) {
+        try {
+            localStorage.setItem('logHeight', newLogHeight.toString());
+        } catch (e) {
+            console.error('[AppState] Error saving log height to localStorage:', e);
+        }
+    }
+
+    // Persist full plugin state
+    const currentPluginsState = newState.plugins; 
+    if (currentPluginsState) { 
+        // We want to save the 'settings' part of each plugin
+        const stateToSave = {};
+        for (const pluginId in currentPluginsState) {
+            if(Object.prototype.hasOwnProperty.call(currentPluginsState, pluginId) && currentPluginsState[pluginId].settings) {
+                stateToSave[pluginId] = {
+                    settings: currentPluginsState[pluginId].settings // Only save the settings object
+                };
+            }
+        }
+        
+        const serializedStateToSave = JSON.stringify(stateToSave);
+        
+        let previousSerializedState = null;
+        try {
+            previousSerializedState = localStorage.getItem(PLUGINS_STATE_KEY);
+        } catch (e) {
+             console.error('[AppState] Error reading previous full plugin state from localStorage for comparison:', e);
+        }
+
+        if (serializedStateToSave !== previousSerializedState) {
+            try {
+                localStorage.setItem(PLUGINS_STATE_KEY, serializedStateToSave);
+            } catch (e) {
+                console.error('[AppState] Error saving full plugin state to localStorage:', e);
+            }
+        }
+    }
+
+    // Persist preview CSS file list from settings.preview
+    if (newState.settings && newState.settings.preview) {
+        const currentCssFiles = newState.settings.preview.configuredCssFiles;
+        if (currentCssFiles && JSON.stringify(currentCssFiles) !== localStorage.getItem(PREVIEW_CSS_FILES_KEY)) {
+            try {
+                localStorage.setItem(PREVIEW_CSS_FILES_KEY, JSON.stringify(currentCssFiles));
+            } catch (e) {
+                console.error('[AppState] Error saving preview CSS config to localStorage:', e);
+            }
+        }
+        
+        // Persist root CSS enabled state from settings.preview
+        const currentEnableRootCss = newState.settings.preview.enableRootCss;
+        if (typeof currentEnableRootCss === 'boolean' && currentEnableRootCss.toString() !== localStorage.getItem(ENABLE_ROOT_CSS_KEY)) {
+            try {
+                localStorage.setItem(ENABLE_ROOT_CSS_KEY, currentEnableRootCss.toString());
+            } catch (e) {
+                console.error('[AppState] Error saving root CSS enabled state to localStorage:', e);
+            }
+        }
+    }
+    
+    // Persist SmartCopy buffers
+    if (newState.smartCopy) { // Check if smartCopy slice exists
+        const { bufferA, bufferB } = newState.smartCopy;
+        if (bufferA !== localStorage.getItem(SMART_COPY_A_KEY)) {
+            localStorage.setItem(SMART_COPY_A_KEY, bufferA);
+        }
+        if (bufferB !== localStorage.getItem(SMART_COPY_B_KEY)) {
+            localStorage.setItem(SMART_COPY_B_KEY, bufferB);
+        }
+    }
+    
+    // Persist selected org
+    if (newState.file) { // Check if file slice exists
+        const currentOrg = newState.file.currentOrg;
+        if (currentOrg && currentOrg !== localStorage.getItem('devpages_selected_org')) {
+            try {
+                localStorage.setItem('devpages_selected_org', currentOrg);
+            } catch (e) {
+                console.error('[AppState] Error saving selected org to localStorage:', e);
+            }
+        }
+    }
+
+    // Persist settings panel state
+    const currentSettingsPanelState = newState.settingsPanel;
+    if (currentSettingsPanelState) { // Basic check, could be more robust
+        const { visible, position, size, collapsedSections } = currentSettingsPanelState;
+        const stateToSave = { visible, position, size, collapsedSections };
+        try {
+            const storedState = localStorage.getItem('devpages_settings_panel_state');
+            if (JSON.stringify(stateToSave) !== storedState) {
+                 localStorage.setItem('devpages_settings_panel_state', JSON.stringify(stateToSave));
+            }
+        } catch(e) {
+            console.warn('[AppState] Failed to save settings panel state:', e);
+        }
+    }
+
+    // Persist viewMode
+    if (newState.ui) { // Check if ui slice exists
+        const currentViewMode = newState.ui.viewMode;
+        if (currentViewMode && currentViewMode !== lastKnownViewMode) {
+            try {
+                localStorage.setItem(VIEW_MODE_KEY, currentViewMode);
+                lastKnownViewMode = currentViewMode; // Update our tracked last known mode
+                console.log('[AppState] Saved viewMode to localStorage:', currentViewMode);
+            } catch (e) {
+                console.error('[AppState] Error saving viewMode to localStorage:', e);
+            }
+        }
+    }
+});
+
+// Log the initial state for debugging purposes
+// console.log('[AppState] Initial application state:', appStore.getState());

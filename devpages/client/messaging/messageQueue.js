@@ -18,6 +18,7 @@ export const ActionTypes = {
   SETTINGS_PANEL_UPDATE_SETTING: 'SETTINGS_PANEL_UPDATE_SETTING',
   PLUGIN_TOGGLE: 'PLUGIN_TOGGLE',
   PLUGIN_RESET: 'PLUGIN_RESET',
+  PLUGIN_UPDATE_SETTING: 'PLUGIN_UPDATE_SETTING',
 
   // --- NEW: Preview CSS Settings Actions ---
   SETTINGS_ADD_PREVIEW_CSS: 'SETTINGS_ADD_PREVIEW_CSS',
@@ -67,6 +68,10 @@ export const ActionTypes = {
 
   // Simple org selection
   SETTINGS_SET_SELECTED_ORG: 'SETTINGS_SET_SELECTED_ORG',
+
+  // Enhanced Log Actions
+  UI_SET_LOG_HEIGHT: 'UI_SET_LOG_HEIGHT',
+  UI_SET_LOG_MENU_VISIBILITY: 'UI_SET_LOG_MENU_VISIBILITY',
 };
 
 // Placeholder for the main application reducer

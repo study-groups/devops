@@ -160,13 +160,14 @@ export class SettingsPanel {
   }
   // --- End NEW Method --- 
   
-  // --- Moved updatePanelState Method ---
+  // --- IMPROVED updatePanelState Method ---
   updatePanelState() {
     if (!this.panelElement) return;
     const state = appStore.getState().settingsPanel || {};
 
     // Update visibility based on internal state (controlled by toggleVisibility)
-    this.panelElement.style.display = this.isVisible ? 'flex' : 'none';
+    const shouldBeVisible = this.isVisible;
+    this.panelElement.style.display = shouldBeVisible ? 'flex' : 'none';
 
     // Use local copies for position/size if dragging/resizing
     const posX = this.isDragging ? this.currentPos.x : state.position.x;
@@ -179,12 +180,20 @@ export class SettingsPanel {
     this.panelElement.style.width = `${width}px`;
     this.panelElement.style.height = `${height}px`;
     
-    // Update ARIA hidden state based on visibility
-    this.panelElement.setAttribute('aria-hidden', !this.isVisible);
-
-    logSettings('Panel state updated (pos, size, visibility).', 'debug');
+    // IMPROVED: Handle accessibility attributes properly
+    if (shouldBeVisible) {
+      // When visible, remove aria-hidden to make it accessible
+      this.panelElement.removeAttribute('aria-hidden');
+      // Optionally, remove inert if it was set
+      this.panelElement.removeAttribute('inert');
+    } else {
+      // When hidden, use inert instead of aria-hidden to prevent focus AND hide from AT
+      this.panelElement.setAttribute('inert', '');
+      // Remove aria-hidden since inert handles both concerns
+      this.panelElement.removeAttribute('aria-hidden');
+    }
   }
-  // --- End Moved updatePanelState ---
+  // --- End updatePanelState ---
 
   initializePanel() {
     this.createPanelDOM();
@@ -256,7 +265,7 @@ export class SettingsPanel {
     // Instantiate CssSettingsPanel
     logSettings('[DEBUG] Creating CSS Panel Section...', 'debug');
     const cssContainer = this.createSectionContainer('css-settings-container', 'Preview CSS');
-    if (collapsedSections['css-settings-container']) { cssContainer.classList.add('collapsed'); } // Apply initial state
+    if (collapsedSections['css-settings-container']) { cssContainer.classList.add('collapsed'); }
     if (cssContainer instanceof Node) {
         this.contentElement.appendChild(cssContainer);
         try {
@@ -344,7 +353,6 @@ export class SettingsPanel {
     this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
       // Only re-render if the relevant part of the state has changed
       if (newState.settingsPanel !== prevState.settingsPanel) {
-        logSettings('SettingsPanel state change detected, rendering.', 'debug');
         this.render(newState.settingsPanel);
       }
     });
@@ -377,9 +385,11 @@ export class SettingsPanel {
     // Allow explicit showing/hiding, or toggle current state
     const newVisibility = forceShow !== undefined ? forceShow : !(this.panelElement.style.display === 'flex');
     
-    // Apply the visibility directly to the DOM
-    this.panelElement.style.display = newVisibility ? 'flex' : 'none';
-    this.isVisible = newVisibility; // Update the internal state variable
+    // Update the internal state variable FIRST
+    this.isVisible = newVisibility;
+    
+    // Then update the DOM state via updatePanelState for consistency
+    this.updatePanelState();
     
     // Save state to localStorage
     try {
@@ -435,7 +445,6 @@ export class SettingsPanel {
     this.panelElement.style.cursor = 'grab';
     this.panelElement.classList.remove('dragging');
     // Dispatch final position to update the store
-    logSettings(`Drag ended. Dispatching new position: ${JSON.stringify(this.currentPos)}`, 'debug');
     dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_POSITION, payload: this.currentPos });
   }
 
@@ -450,7 +459,6 @@ export class SettingsPanel {
       height: this.panelElement.offsetHeight
     };
     this.panelElement.classList.add('resizing'); // Optional: for styling
-    logSettings('Resize started.', 'debug');
   }
 
   doResize(event) {
@@ -470,7 +478,6 @@ export class SettingsPanel {
     this.isResizing = false;
     this.panelElement.classList.remove('resizing');
     // Dispatch final size to update the store
-    logSettings(`Resize ended. Dispatching new size: ${JSON.stringify(this.currentSize)}`, 'debug');
     dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_SIZE, payload: this.currentSize });
   }
 
@@ -513,6 +520,3 @@ export class SettingsPanel {
     logSettings('SettingsPanel destroyed.');
   }
 }
-
-// Optionally, automatically instantiate if needed globally
-// export const globalSettingsPanel = new SettingsPanel();

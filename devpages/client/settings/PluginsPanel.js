@@ -3,11 +3,9 @@
  * Manages the plugin settings within the main SettingsPanel.
  */
 
-import { appStore } from '/client/appState.js'; // Assuming appStore path
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Assuming messageQueue path
-// import { CssSettingsPanel } from './CssSettingsPanel.js'; // <<< REMOVE Import CssSettingsPanel
+import { appStore } from '/client/appState.js';
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Import ActionTypes
 
-// Helper for logging specific to this panel
 function logPlugins(message, level = 'info') {
   const type = 'PLUGINS_PANEL';
   if (typeof window.logMessage === 'function') {
@@ -19,12 +17,10 @@ function logPlugins(message, level = 'info') {
 
 export class PluginsPanel {
   constructor(parentElement) {
-    this.containerElement = null; // The main element for this panel's content
-    this.pluginsListElement = null; // UL element to hold plugin items
-    // this.cssSettingsContainer = null; // <<< REMOVE Container for CSS Settings
-    // this.cssSettingsPanelInstance = null; // <<< REMOVE Instance of CssSettingsPanel
+    this.containerElement = null;
+    this.controlsContainer = null; // Holds all dynamically generated plugin controls
     this.stateUnsubscribe = null;
-    this.plugins = {}; // Local cache of plugin states
+    this.pluginControlElements = {}; // To store references: { mermaid_theme: selectElement, mermaid_enabled: checkboxElement }
 
     if (!parentElement) {
       logPlugins('PluginsPanel requires a parent element to attach its content.', 'error');
@@ -33,8 +29,6 @@ export class PluginsPanel {
 
     this.createPanelContent(parentElement);
     this.subscribeToState();
-
-    // Initial render based on store state (will be called via subscription)
     logPlugins('PluginsPanel instance created.');
   }
 
@@ -42,166 +36,237 @@ export class PluginsPanel {
     this.containerElement = document.createElement('div');
     this.containerElement.classList.add('plugins-panel-content');
 
-    // --- Plugin Toggles Section ---
+    // Create a section wrapper with light styling
     const pluginsSection = document.createElement('div');
-    pluginsSection.classList.add('settings-section', 'plugins-toggles');
+    pluginsSection.classList.add('plugins-section-wrapper');
+
+    this.controlsContainer = document.createElement('div');
+    this.controlsContainer.classList.add('plugins-controls-container');
     
-    // Add a header with reset button
-    const sectionHeader = document.createElement('div');
-    sectionHeader.classList.add('section-header');
-    
-    const heading = document.createElement('h3');
-    heading.textContent = 'Preview Plugins';
-    sectionHeader.appendChild(heading);
-    
-    const resetButton = document.createElement('button');
-    resetButton.textContent = 'Reset All to Defaults';
-    resetButton.classList.add('reset-plugins-button');
-    resetButton.title = 'Reset all plugins to enabled (default state)';
-    resetButton.addEventListener('click', this.handleResetPlugins.bind(this));
-    sectionHeader.appendChild(resetButton);
-    
-    pluginsSection.appendChild(sectionHeader);
-    
-    this.pluginsListElement = document.createElement('ul');
-    this.pluginsListElement.classList.add('plugins-list'); // Use class defined in settings.css
-    pluginsSection.appendChild(this.pluginsListElement);
+    pluginsSection.appendChild(this.controlsContainer);
     this.containerElement.appendChild(pluginsSection);
-
-    // Add event listener for checkbox changes (delegated to the list)
-    this.pluginsListElement.addEventListener('change', this.handlePluginToggle.bind(this));
-
-    // --- REMOVE CSS Settings Section Instantiation ---
-    /*
-    // Create a dedicated container for CssSettingsPanel to render into
-    this.cssSettingsContainer = document.createElement('div');
-    this.cssSettingsContainer.classList.add('css-settings-panel-container'); 
-    this.containerElement.appendChild(this.cssSettingsContainer);
-
-    // Instantiate CssSettingsPanel, passing the dedicated container
-    try {
-        this.cssSettingsPanelInstance = new CssSettingsPanel(this.cssSettingsContainer);
-    } catch (error) {
-        logPlugins(`Failed to initialize CssSettingsPanel: ${error}`, 'error');
-        this.cssSettingsContainer.innerHTML = '<p style="color: red;">Error loading CSS settings.</p>';
-    }
-    */
-    // --- END REMOVE CSS SECTION ---
-
-    // Attach the main content container to the provided parent
     parentElement.appendChild(this.containerElement);
+
+    this.renderPluginControls(appStore.getState().plugins);
+
+    // Event delegation for changing settings
+    this.controlsContainer.addEventListener('change', this.handleSettingChange.bind(this));
+  }
+
+  renderPluginControls(pluginsState) {
+    if (!this.controlsContainer) return;
+    this.controlsContainer.innerHTML = '';
+    this.pluginControlElements = {};
+
+    for (const pluginId in pluginsState) {
+      if (Object.prototype.hasOwnProperty.call(pluginsState, pluginId)) {
+        const pluginData = pluginsState[pluginId];
+
+        if (pluginData.settingsManifest && pluginData.settingsManifest.length > 0) {
+          const pluginGroup = document.createElement('div');
+          pluginGroup.classList.add('plugin-settings-group');
+          pluginGroup.classList.add('collapsed');
+          pluginGroup.dataset.pluginId = pluginId;
+          
+          const pluginHeader = document.createElement('h4');
+          pluginHeader.textContent = pluginData.name || pluginId;
+          pluginHeader.classList.add('plugin-group-header');
+          pluginHeader.style.cursor = 'pointer';
+          pluginHeader.setAttribute('aria-expanded', 'false');
+          
+          const indicator = document.createElement('span');
+          indicator.classList.add('plugin-collapse-indicator');
+          indicator.innerHTML = '&#9654;'; // Always start with right arrow - CSS will handle rotation
+          indicator.style.marginRight = '6px';
+          indicator.style.fontSize = '0.8em';
+          
+          pluginHeader.insertBefore(indicator, pluginHeader.firstChild);
+          
+          pluginHeader.addEventListener('click', () => {
+            this.togglePluginGroup(pluginGroup, pluginHeader, indicator);
+          });
+          
+          pluginGroup.appendChild(pluginHeader);
+
+          // Add version info and error info for Mermaid
+          if (pluginId === 'mermaid') {
+            const infoContainer = this.createMermaidInfo();
+            pluginGroup.appendChild(infoContainer);
+          }
+
+          const settingsContainer = document.createElement('div');
+          settingsContainer.classList.add('plugin-settings-container');
+
+          pluginData.settingsManifest.forEach(settingConfig => {
+            const controlId = `${pluginId}-${settingConfig.key}`;
+            let controlElement;
+
+            switch (settingConfig.type) {
+              case 'toggle':
+                controlElement = document.createElement('input');
+                controlElement.type = 'checkbox';
+                controlElement.checked = !!pluginData.settings[settingConfig.key];
+                break;
+              case 'select':
+                controlElement = document.createElement('select');
+                settingConfig.options.forEach(opt => {
+                  const option = document.createElement('option');
+                  option.value = opt;
+                  option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+                  if (opt === pluginData.settings[settingConfig.key]) {
+                    option.selected = true;
+                  }
+                  controlElement.appendChild(option);
+                });
+                break;
+              default:
+                controlElement = document.createElement('span');
+                controlElement.textContent = 'Unsupported control type';
+            }
+            
+            controlElement.id = controlId;
+            controlElement.dataset.pluginId = pluginId;
+            controlElement.dataset.settingKey = settingConfig.key;
+
+            const label = document.createElement('label');
+            label.htmlFor = controlId;
+            label.textContent = settingConfig.label || settingConfig.key;
+
+            const settingItem = document.createElement('div');
+            settingItem.classList.add('plugin-setting-item');
+            
+            // Add checkbox first, then label, then select (if applicable)
+            settingItem.appendChild(controlElement);
+            settingItem.appendChild(label);
+            
+            settingsContainer.appendChild(settingItem);
+            this.pluginControlElements[`${pluginId}_${settingConfig.key}`] = controlElement;
+          });
+          
+          pluginGroup.appendChild(settingsContainer);
+          this.controlsContainer.appendChild(pluginGroup);
+        }
+      }
+    }
   }
 
   subscribeToState() {
     this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-      // Check if the plugins part of the state has changed
-      // Assumes state structure like: { plugins: { available: {...}, enabled: [...] } }
-      // Or simpler: { plugins: { mermaid: { enabled: true }, ... } }
-      const newPluginsState = newState.plugins; // Adjust based on actual state structure
-      const oldPluginsState = prevState.plugins;
+      const newPlugins = newState.plugins;
+      const oldPlugins = prevState.plugins;
 
-      if (newPluginsState !== oldPluginsState) {
-        logPlugins('Plugin state change detected, rendering toggle list.', 'debug');
-        // Pass only the relevant part of the state
-        this.render(newPluginsState || {}); // Handle case where plugins state might not exist initially
-      }
-      // Note: CssSettingsPanel has its own subscription and handles its own re-rendering
-    });
-
-    // Perform an initial render for the plugin toggles
-    this.render(appStore.getState().plugins || {});
-  }
-
-  // Render the list of plugins based on the current state (Plugin Toggles only)
-  render(pluginsState) {
-     if (!this.pluginsListElement) return;
-
-     logPlugins(`Rendering plugin toggles: ${JSON.stringify(pluginsState)}`, 'debug');
-     this.pluginsListElement.innerHTML = ''; // Clear existing list items
-
-     // Assuming pluginsState is an object like: { mermaid: { name: "Mermaid Diagrams", enabled: true }, ... }
-     for (const pluginId in pluginsState) {
-       if (Object.hasOwnProperty.call(pluginsState, pluginId)) {
-         const plugin = pluginsState[pluginId];
-         const listItem = document.createElement('li');
-         listItem.classList.add('plugin-item'); // Use class defined in settings.css
-         listItem.dataset.pluginId = pluginId; // Store ID for event handling
-
-         const checkbox = document.createElement('input');
-         checkbox.type = 'checkbox';
-         checkbox.id = `plugin-toggle-${pluginId}`;
-         checkbox.checked = plugin.enabled || false; // Default to false if undefined
-
-         const label = document.createElement('label');
-         label.htmlFor = checkbox.id;
-         label.textContent = plugin.name || pluginId; // Use name if available, else ID
-
-         listItem.appendChild(checkbox);
-         listItem.appendChild(label);
-         this.pluginsListElement.appendChild(listItem);
-       }
-     }
-     // Cache the current state locally
-     this.plugins = { ...pluginsState };
-  }
-
-  handlePluginToggle(event) {
-    if (event.target.type === 'checkbox') {
-      const listItem = event.target.closest('.plugin-item');
-      const pluginId = listItem?.dataset.pluginId;
-      const isEnabled = event.target.checked;
-
-      if (pluginId) {
-        logPlugins(`Toggling plugin \'${pluginId}\' to enabled: ${isEnabled}. Dispatching action.`);
-        // Assume an action type like PLUGIN_TOGGLE
-        // The reducer would handle updating the state in the store
-        dispatch({
-          type: ActionTypes.PLUGIN_TOGGLE, // Replace with actual ActionType
-          payload: {
-             pluginId: pluginId,
-             enabled: isEnabled,
+      if (newPlugins !== oldPlugins) { // Basic check for any change in plugins slice
+        logPlugins('Plugin state change detected, re-rendering controls or updating values.', 'debug');
+        // Iterate through all managed controls and update their values if changed
+        for (const pluginId in newPlugins) {
+          if (Object.prototype.hasOwnProperty.call(newPlugins, pluginId) && newPlugins[pluginId].settings) {
+            const pluginSettings = newPlugins[pluginId].settings;
+            for (const settingKey in pluginSettings) {
+              if (Object.prototype.hasOwnProperty.call(pluginSettings, settingKey)) {
+                const controlRefKey = `${pluginId}_${settingKey}`;
+                const controlElement = this.pluginControlElements[controlRefKey];
+                if (controlElement) {
+                  const newValue = pluginSettings[settingKey];
+                  if (controlElement.type === 'checkbox' && controlElement.checked !== !!newValue) {
+                    controlElement.checked = !!newValue;
+                  } else if (controlElement.tagName === 'SELECT' && controlElement.value !== newValue) {
+                    controlElement.value = newValue;
+                  }
+                  // Add other control type updates here
+                }
+              }
+            }
           }
-        });
-      } else {
-          logPlugins('Could not determine plugin ID from toggle event.', 'warn');
+        }
       }
+    });
+  }
+
+  handleSettingChange(event) {
+    const target = event.target;
+    const pluginId = target.dataset.pluginId;
+    const settingKey = target.dataset.settingKey;
+
+    if (pluginId && settingKey) {
+      let value;
+      if (target.type === 'checkbox') {
+        value = target.checked;
+      } else if (target.tagName === 'SELECT') {
+        value = target.value;
+      } else {
+        logPlugins(`Unsupported control type for event: ${target.type || target.tagName}`, 'warn');
+        return;
+      }
+      
+      logPlugins(`Setting change for plugin '${pluginId}', setting '${settingKey}' to: ${value}. Dispatching action.`);
+      dispatch({
+        type: ActionTypes.PLUGIN_UPDATE_SETTING,
+        payload: {
+          pluginId: pluginId,
+          settingKey: settingKey,
+          value: value,
+        }
+      });
     }
   }
 
-  handleResetPlugins() {
-    logPlugins('Resetting all plugins to defaults.');
-    dispatch({
-      type: ActionTypes.PLUGIN_RESET,
-      payload: {}
-    });
-  }
-
-  // Method to clean up listeners and child components
   destroy() {
     logPlugins('Destroying PluginsPanel...');
     if (this.stateUnsubscribe) {
       this.stateUnsubscribe();
       this.stateUnsubscribe = null;
     }
-
-    // --- REMOVE Destroying the CssSettingsPanel instance ---
-    /*
-    if (this.cssSettingsPanelInstance) {
-        this.cssSettingsPanelInstance.destroy();
-        this.cssSettingsPanelInstance = null;
+    if (this.controlsContainer) {
+        this.controlsContainer.removeEventListener('change', this.handleSettingChange.bind(this));
     }
-    */
-    // ---------------------------------------------
-
-    // Remove event listeners if necessary
-
     if (this.containerElement && this.containerElement.parentNode) {
-        this.containerElement.parentNode.removeChild(this.containerElement);
+      this.containerElement.parentNode.removeChild(this.containerElement);
     }
     this.containerElement = null;
-    this.pluginsListElement = null;
-    // this.cssSettingsContainer = null; // <<< REMOVE reference
-    this.plugins = {};
+    this.controlsContainer = null;
+    this.pluginControlElements = {};
     logPlugins('PluginsPanel destroyed.');
+  }
+
+  togglePluginGroup(pluginGroup, header, indicator) {
+    const isCollapsed = pluginGroup.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+      pluginGroup.classList.remove('collapsed');
+      header.setAttribute('aria-expanded', 'true');
+    } else {
+      pluginGroup.classList.add('collapsed');
+      header.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  createMermaidInfo() {
+    const infoContainer = document.createElement('div');
+    infoContainer.classList.add('plugin-info-container');
+    
+    // Version info
+    const versionInfo = document.createElement('div');
+    versionInfo.classList.add('plugin-info-item');
+    versionInfo.innerHTML = `<small>Version: ${window.mermaid?.version || 'Not loaded'}</small>`;
+    
+    // Last error info
+    const errorInfo = document.createElement('div');
+    errorInfo.classList.add('plugin-info-item', 'plugin-error-info');
+    errorInfo.innerHTML = `<small>Status: ${this.getMermaidStatus()}</small>`;
+    
+    infoContainer.appendChild(versionInfo);
+    infoContainer.appendChild(errorInfo);
+    
+    return infoContainer;
+  }
+
+  getMermaidStatus() {
+    if (typeof window.mermaid === 'undefined') {
+      return 'Not initialized';
+    }
+    if (window.mermaidLastError) {
+      return `Error: ${window.mermaidLastError}`;
+    }
+    return 'Ready';
   }
 }

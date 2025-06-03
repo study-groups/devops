@@ -3,6 +3,7 @@ import { triggerActions } from '/client/actions.js'; // Assuming this is where a
 import { logInfo, logError, logDebug } from './core.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
 import { applyNLPFilter, getFilterHelp } from './NLPLogFilter.js';
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 // These might be better as part of logPanelInstance.config or passed in
 const MIN_LOG_HEIGHT = 80; // Or get from LogPanel constants
@@ -66,16 +67,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             switch (action) {
                 case 'toggleLogVisibility':
                 case 'minimizeLog':
-                    // logInfo(`[logPanelEvents] Toggling log visibility via appStore.update()`, { type: 'LOG_PANEL', subtype: 'EVENTS' }); // SILENCED
-                    appStore.update(prevState => {
-                        return {
-                            ...prevState,
-                            ui: {
-                                ...prevState.ui,
-                                logVisible: !prevState.ui.logVisible
-                            }
-                        };
-                    });
+                    dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
                     break;
                 case 'copyLog':
                     if (typeof logPanelInstance.copyLog === 'function') logPanelInstance.copyLog();
@@ -314,16 +306,16 @@ function _handleResizeMouseMove(event) {
     const deltaY = this._startY - event.clientY;
     let newHeight = this._startHeight + deltaY;
 
-    // Use MIN_LOG_HEIGHT from the top of this file or passed context
     if (newHeight < MIN_LOG_HEIGHT) {
         newHeight = MIN_LOG_HEIGHT;
     }
-    // Add a max height constraint if desired here
 
-    this.state.height = newHeight;
+    // Apply immediately for smooth UX
     this.container.style.height = `${newHeight}px`;
     document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-    eventBus.emit('layout:logResized', { height: newHeight });
+    
+    // Store new height for dispatch on mouse up
+    this._currentHeight = newHeight;
 }
 
 /**
@@ -346,6 +338,13 @@ function _handleResizeMouseUp() {
        document.body.style.userSelect = '';
     }
 
+    // Dispatch final height to appStore
+    if (this._currentHeight) {
+        dispatch({ 
+            type: ActionTypes.UI_SET_LOG_HEIGHT, 
+            payload: this._currentHeight 
+        });
+    }
 
     // The saveLogPanelPreferences method should be part of the LogPanel instance,
     // potentially calling a function from logPanelState.js
@@ -354,7 +353,7 @@ function _handleResizeMouseUp() {
     } else {
         logWarn('LogPanel.saveLogPanelPreferences is not a function. Cannot save height.', { type: 'LOG_PANEL', subtype: 'RESIZE' });
     }
-    logDebug(`Resize ended. Final height: ${this.state.height}`, { type: 'LOG_PANEL', subtype: 'RESIZE' });
+    logDebug(`Resize ended. Final height: ${this._currentHeight}`, { type: 'LOG_PANEL', subtype: 'RESIZE' });
 }
 
 /**

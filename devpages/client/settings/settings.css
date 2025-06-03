@@ -79,10 +79,10 @@
 
 /* Add styles for PluginsPanel content */
 .plugins-panel-content {
-  /* Add separation from potential content above */
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #eee; 
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-top: none;
 }
 
 /* Style the "Available Plugins" heading */
@@ -337,4 +337,244 @@
 .reset-plugins-button:active {
   background-color: #d0d0d0;
   transform: translateY(1px);
+}
+
+/* === IMPROVED PLUGIN SETTINGS STYLING === */
+
+.plugins-controls-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Reduced gap since we're removing wrapper spacing */
+  margin: 0;
+  padding: 0;
+}
+
+.plugin-settings-group {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.plugin-settings-group h4 {
+  background-color: #e9ecef;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.plugin-setting-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: #fff;
+  border-bottom: 1px solid #f1f3f4;
+  margin-left: 12px;
+  margin-right: 12px;
+  border-radius: 3px;
+  margin-bottom: 1px;
+}
+
+.plugin-setting-item:last-child {
+  border-bottom: none;
+  margin-bottom: 8px;
+}
+
+.plugin-setting-item input[type="checkbox"] {
+  margin: 0 10px 0 0;
+  cursor: pointer;
+  transform: scale(1.1);
+  order: 1;
+}
+
+.plugin-setting-item label {
+  flex-grow: 1;
+  margin: 0;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #495057;
+  font-weight: 500;
+  order: 2;
+}
+
+.plugin-setting-item select {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  background-color: #fff;
+  color: #495057;
+  font-size: 0.85em;
+  min-width: 100px;
+  order: 3;
+}
+
+.plugin-setting-item select:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Hover effects */
+.plugin-setting-item:hover {
+  background-color: #f8f9fa;
+}
+
+.plugin-setting-item input[type="checkbox"]:hover {
+  transform: scale(1.15);
+}
+
+/* Focus styles for accessibility */
+.plugin-setting-item input[type="checkbox"]:focus {
+  outline: 2px solid #86b7fe;
+  outline-offset: 2px;
+}
+
+/* === OVERRIDE EXISTING PLUGIN ITEM STYLES === */
+.plugin-item {
+  /* Override old styles if they exist */
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 16px !important;
+  background-color: #fff !important;
+  border-bottom: 1px solid #f1f3f4 !important;
+  margin-left: 12px !important;
+  margin-right: 12px !important;
+  border-radius: 3px !important;
+  margin-bottom: 1px !important;
+}
+
+.plugin-item label {
+  flex-grow: 1 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  font-size: 0.9em !important;
+  color: #495057 !important;
+  font-weight: 500 !important;
+}
+
+.plugin-item input[type="checkbox"] {
+  margin: 0 10px 0 0 !important;
+  cursor: pointer !important;
+  transform: scale(1.1) !important;
+}
+
+/* === COLLAPSIBLE PLUGIN GROUPS === */
+
+.plugin-settings-group.collapsed .plugin-settings-container {
+  display: none;
+}
+
+.plugin-group-header {
+  display: flex;
+  align-items: center;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.plugin-group-header:hover {
+  background-color: #dee2e6 !important;
+}
+
+.plugin-collapse-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease-in-out;
+}
+
+.plugin-settings-container {
+  /* Container for the actual settings - will be hidden when collapsed */
+}
+
+/* Collapsed state - triangle points right */
+.plugin-settings-group.collapsed .plugin-collapse-indicator {
+  transform: rotate(0deg);
+}
+
+/* Expanded state - triangle points down */
+.plugin-settings-group:not(.collapsed) .plugin-collapse-indicator {
+  transform: rotate(90deg);
+}
+
+/* Make sure the header styling works with the new structure */
+.plugin-settings-group h4.plugin-group-header {
+  background-color: #e9ecef;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Remove any borders/lines from the plugins area */
+.plugins-panel-content {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-top: none;
+}
+
+/* Remove any section borders */
+.settings-section.plugins-settings-area {
+  border: none;
+  border-top: none;
+  margin: 0;
+  padding: 0;
+}
+
+.section-header {
+  border-bottom: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Light section wrapper for plugins */
+.plugins-section-wrapper {
+  background-color: #fafbfc;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.plugins-controls-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove any conflicting styles */
+.plugins-panel-content {
+  margin: 0;
+  padding: 0;
+}
+
+/* ... rest of existing plugin styles ... */
+
+/* Plugin info styling */
+.plugin-info-container {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  padding: 6px 12px;
+  font-size: 0.8em;
+  color: #6c757d;
+}
+
+.plugin-info-item {
+  margin: 2px 0;
+}
+
+.plugin-error-info {
+  color: #dc3545;
 }

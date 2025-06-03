@@ -6,14 +6,15 @@
  */
 
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
-import { HighlightPlugin, init as initHighlight, customHighlightJsRenderer } from '/client/preview/plugins/highlight.js';
+import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
-import { getEnabledPlugins, isPluginEnabled } from '/client/preview/plugins/index.js';
+import { getEnabledPlugins } from '/client/preview/plugins/index.js';
 import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
 // import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
-
-console.log("%%%%% NEW RENDERER.JS LOADED - VERSION X %%%%%"); 
+import { appStore } from '/client/appState.js';
+import { getIsPluginEnabled } from '/client/store/selectors.js';
+import { pluginManager } from '/client/preview/PluginManager.js';
 
 // Helper for logging within this module
 function logRenderer(message, level = 'debug') {
@@ -42,8 +43,17 @@ async function ensureBaseInitialized() {
             throw new Error(errorMsg);
         }
     }
-    // Call other one-time initializations if needed, e.g., initHighlight()
-    // if (!highlightJsInitialized) { await initHighlight(); highlightJsInitialized = true; }
+    
+    // Auto-load highlight.js if highlighting is enabled
+    if (!window.hljs && isPluginEnabled('highlight')) {
+        logRenderer('Loading highlight.js for syntax highlighting...', 'info');
+        try {
+            await loadHighlightJS();
+            logRenderer('highlight.js loaded successfully', 'info');
+        } catch (error) {
+            logRenderer(`Failed to load highlight.js: ${error.message}`, 'error');
+        }
+    }
 }
 
 // Function to dynamically load markdown-it script (keep this)
@@ -234,6 +244,18 @@ function parseBasicFrontmatter(markdownContent) {
 }
 // --- END: Inline Parser with Declarations ---
 
+// Global Mermaid plugin instance for renderer
+let globalMermaidPlugin = null;
+
+async function ensureMermaidInitialized() {
+    if (!globalMermaidPlugin) {
+        globalMermaidPlugin = new MermaidPlugin();
+        await globalMermaidPlugin.init();
+        logRenderer('[ensureMermaidInitialized] Mermaid plugin initialized for renderer.');
+    }
+    return globalMermaidPlugin;
+}
+
 /**
  * Initialize the Markdown renderer with necessary extensions and options.
  */
@@ -395,7 +417,7 @@ function parseSizeParameters(text, title) {
 
 // Keep the markdown-it initialization separate
 // let mdInstance; // REMOVE this global mdInstance, as getMarkdownItInstance creates fresh ones.
-async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath might be optional
+async function getMarkdownItInstance(markdownFilePath) {
     logRenderer('[getMarkdownItInstance] Called - creating a new, dynamically configured instance.', 'debug');
     
     await ensureBaseInitialized(); 
@@ -413,17 +435,33 @@ async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath mig
                 logRenderer('[Highlight] Highlighting disabled by plugin state.', 'debug');
                 return currentMd.utils.escapeHtml(str);
             }
-            if (lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang)) {
-                try {
-                    const result = hljs.highlight(str, { language: lang, ignoreIllegals: true });
-                    logRenderer(`[Highlight] Result for '${lang}': ${result.value.substring(0,100)}...`);
-                    return result.value;
-                } catch (error) {
-                    logRenderer(`Error during syntax highlighting for lang '${lang}': ${error.message}`, 'error');
-                    return currentMd.utils.escapeHtml(str);
+            
+            // Try plugin manager first (if available)
+            if (typeof pluginManager !== 'undefined') {
+                const highlightPlugin = pluginManager.getPlugin('highlight');
+                if (highlightPlugin && highlightPlugin.isReady()) {
+                    try {
+                        const result = highlightPlugin.highlight(str, lang);
+                        logRenderer(`[Highlight] Plugin highlighted '${lang}': ${result.substring(0,100)}...`);
+                        return result;
+                    } catch (error) {
+                        logRenderer(`Error during plugin highlighting for lang '${lang}': ${error.message}`, 'error');
+                    }
                 }
             }
-            logRenderer(`[Highlight] No specific highlighting for lang '${lang}'. Returning escaped HTML.`);
+            
+            // Fallback to window.hljs (old system)
+            if (window.hljs && lang && window.hljs.getLanguage && window.hljs.getLanguage(lang)) {
+                try {
+                    const result = window.hljs.highlight(str, { language: lang, ignoreIllegals: true });
+                    logRenderer(`[Highlight] Fallback window.hljs highlighted '${lang}'`);
+                    return result.value;
+                } catch (error) {
+                    logRenderer(`Error during fallback highlighting: ${error.message}`, 'error');
+                }
+            }
+            
+            logRenderer(`[Highlight] No highlighting available for lang '${lang}'. Returning escaped HTML.`);
             return currentMd.utils.escapeHtml(str);
         }
     });
@@ -489,6 +527,17 @@ async function getMarkdownItInstance(markdownFilePath) { // markdownFilePath mig
         return defaultHtml;
     };
     // --- END: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
+
+    // Add debug logging
+    logRenderer(`[getMarkdownItInstance] Checking if highlight plugin enabled: ${isPluginEnabled('highlight')}`);
+    
+    if (!isPluginEnabled('highlight')) {
+        logRenderer('[getMarkdownItInstance] Highlight plugin is disabled in settings. Skipping highlight setup.');
+        currentMd.options.highlight = null; // Disable highlighting
+    } else {
+        logRenderer('[getMarkdownItInstance] Highlight plugin enabled, setting up highlight function.');
+        // ... existing highlight setup ...
+    }
 
     logRenderer('[getMarkdownItInstance] Returning newly configured instance.', 'debug');
     return currentMd;
@@ -923,21 +972,25 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
     // Mermaid processing
     if (isPluginEnabled('mermaid')) {
         logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...');
-        if (window.mermaid && typeof window.mermaid.run === 'function') {
-            try {
+        
+        try {
+            // First, ensure Mermaid is initialized
+            const mermaidPlugin = await ensureMermaidInitialized();
+            
+            // Now try processing
+            if (window.mermaid && typeof window.mermaid.run === 'function') {
                 await window.mermaid.run({
                     nodes: Array.from(previewElement.querySelectorAll('.mermaid')),
                 });
-                logRenderer('[postProcessRender] Mermaid processing completed via mermaid.run().');
-            } catch (error) {
-                logRenderer(`[postProcessRender] Error during Mermaid processing: ${error.message}`, 'error');
+                logRenderer('[postProcessRender] Mermaid processing completed via window.mermaid.run().');
+            } else if (mermaidPlugin && typeof mermaidPlugin.process === 'function') {
+                await mermaidPlugin.process(previewElement); 
+                logRenderer('[postProcessRender] Mermaid processing completed via MermaidPlugin.process().');
+            } else {
+                logRenderer('[postProcessRender] Mermaid initialization failed - neither window.mermaid nor plugin.process available.', 'error');
             }
-        } else if (MermaidPlugin && typeof MermaidPlugin.process === 'function') {
-            MermaidPlugin.process(previewElement); 
-            logRenderer('[postProcessRender] Mermaid processing called via MermaidPlugin.process().');
-        }
-         else {
-            logRenderer('[postProcessRender] MermaidPlugin.process function not found or mermaid.run not available. Mermaid diagrams may not render.', 'warn');
+        } catch (error) {
+            logRenderer(`[postProcessRender] Error during Mermaid processing: ${error.message}`, 'error');
         }
     } else {
         logRenderer('[postProcessRender] Mermaid plugin is NOT enabled.');
@@ -989,4 +1042,42 @@ export class Renderer {
     });
   }
     */
+} 
+
+// Helper function to check if plugin is enabled via application state
+function isPluginEnabled(pluginName) {
+    const state = appStore.getState();
+    return getIsPluginEnabled(state, pluginName);
+} 
+
+// ADD THIS: Helper function to load highlight.js
+async function loadHighlightJS() {
+    try {
+        // Load CSS
+        const cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github.min.css';
+        cssLink.id = 'highlight-theme-css';
+        document.head.appendChild(cssLink);
+        
+        // Load JS
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+        
+        if (window.hljs) {
+            // Configure hljs
+            window.hljs.configure({
+                ignoreUnescapedHTML: true,
+                throwUnescapedHTML: false
+            });
+            logRenderer('highlight.js loaded and configured successfully', 'info');
+        }
+    } catch (error) {
+        logRenderer(`Failed to load highlight.js: ${error.message}`, 'error');
+    }
 } 

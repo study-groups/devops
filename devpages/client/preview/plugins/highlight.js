@@ -5,6 +5,8 @@
  * using highlight.js library.
  */
 
+import { BasePlugin } from './BasePlugin.js';
+
 // Helper for logging within this module
 function logMessage(message, type = 'debug') {
     if (typeof window.logMessage === 'function') {
@@ -14,266 +16,219 @@ function logMessage(message, type = 'debug') {
     }
 }
 
-// Highlight.js CDN URLs
-const HIGHLIGHT_JS_CDN = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
-const HIGHLIGHT_CSS_CDN = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github.min.css';
-const HIGHLIGHT_DARK_CSS_CDN = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github-dark.min.css';
+export class HighlightPlugin extends BasePlugin {
+  constructor(config = {}) {
+    super('highlight', config);
+    this.hljs = null;
+    this.defaultTheme = config.theme || 'light';
+  }
 
-// Plugin state
-let hljs = null;
-let config = {
-  theme: 'light',
-  languages: [], // Auto-detect
-  ignoreIllegals: true,
-  throwIllegals: false,
-  subLanguages: false
-};
-
-/**
- * Load highlight.js scripts and CSS
- * @returns {Promise<Boolean>} Whether loading was successful
- */
-async function loadHighlight() {
-  try {
-    // If already loaded, return early
-    if (window.hljs) {
-      hljs = window.hljs;
-      return true;
+  async init() {
+    if (this.initialized) {
+      return this.ready;
     }
-    
-    // Check if the script is already loading
-    if (document.querySelector(`script[src="${HIGHLIGHT_JS_CDN}"]`)) {
-      // Wait for it to load
-      await new Promise(resolve => {
-        const checkLoaded = () => {
-          if (window.hljs) {
-            resolve();
-          } else {
-            setTimeout(checkLoaded, 100);
-          }
-        };
-        checkLoaded();
-      });
+
+    try {
+      await this._loadHighlightJS();
+      this.initialized = true;
+      this.ready = !!this.hljs;
       
-      hljs = window.hljs;
-    } else {
-      // Load highlight.js CSS based on theme
-      const cssUrl = config.theme === 'dark' ? HIGHLIGHT_DARK_CSS_CDN : HIGHLIGHT_CSS_CDN;
-      
-      if (!document.querySelector(`link[href="${cssUrl}"]`)) {
-        const link = document.createElement('link');
-        link.id = 'highlight-theme-css';
-        link.rel = 'stylesheet';
-        link.href = cssUrl;
-        document.head.appendChild(link);
+      if (this.ready) {
+        logMessage('[HighlightPlugin] Initialized successfully');
+      } else {
+        logMessage('[HighlightPlugin] Failed to initialize - hljs not available', 'error');
       }
       
-      // Load highlight.js JS
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = HIGHLIGHT_JS_CDN;
-        script.async = true;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      
-      hljs = window.hljs;
-    }
-    
-    if (!hljs) {
-      throw new Error('Highlight.js not loaded');
-    }
-    
-    // Configure hljs
-    hljs.configure({
-      ignoreUnescapedHTML: true,
-      throwUnescapedHTML: false,
-      languages: config.languages
-    });
-    
-    logMessage('[PREVIEW] Highlight.js loaded successfully');
-    return true;
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to load highlight.js: ${error.message}`);
-    console.error('[PREVIEW ERROR] Highlight.js load:', error);
-    return false;
-  }
-}
-
-/**
- * Initialize the highlighting plugin
- * EXPORTED
- * @param {Object} options Plugin options
- * @returns {Promise<Boolean>} Whether initialization was successful
- */
-export async function init(options = {}) {
-  try {
-    // Update configuration
-    if (options.theme) {
-      config.theme = options.theme;
-    }
-    
-    // Load highlight.js
-    const loaded = await loadHighlight();
-    if (!loaded) {
+      return this.ready;
+    } catch (error) {
+      logMessage(`[HighlightPlugin] Initialization failed: ${error.message}`, 'error');
+      console.error('[HighlightPlugin] Error:', error);
+      this.initialized = false;
+      this.ready = false;
       return false;
     }
-    
-    logMessage('[PREVIEW] Syntax highlighting plugin initialized');
-    return true;
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to initialize highlighting plugin: ${error.message}`);
-    console.error('[PREVIEW ERROR] Highlighting plugin:', error);
-    return false;
   }
-}
 
-/**
- * Custom renderer for code blocks
- * @param {String} code Block content
- * @param {String} infostring Language info string
- * @param {Boolean} escaped Whether the code is already escaped
- * @returns {String|null} HTML string or null to use default renderer
- */
-function codeRenderer(code, infostring, escaped) {
-  // Skip if highlight.js is not loaded
-  if (!hljs) return null;
-  
-  // Skip for special languages handled by other plugins
-  if (infostring && 
-      (infostring.match(/^mermaid$/i) || 
-       infostring.match(/^(math|latex|tex)$/i) ||
-       infostring.match(/^audio$/i))) {
-    return null;
-  }
-  
-  try {
-    // Determine language
-    const language = infostring || '';
-    
-    // If no language is specified, use autodetect
-    let highlighted;
-    if (!language) {
-      highlighted = hljs.highlightAuto(code).value;
-    } else {
-      // Try to highlight with the specified language
-      try {
-        highlighted = hljs.highlight(code, { 
+  /**
+   * Highlight code
+   * @param {string} code - Code to highlight
+   * @param {string} language - Programming language
+   * @returns {string} Highlighted HTML
+   */
+  highlight(code, language) {
+    if (!this.isReady()) {
+      logMessage('Plugin not ready, returning escaped HTML', 'warn');
+      return this._escapeHtml(code);
+    }
+
+    try {
+      let result;
+      if (language && this.hljs.getLanguage(language)) {
+        result = this.hljs.highlight(code, { 
           language, 
-          ignoreIllegals: config.ignoreIllegals 
-        }).value;
-      } catch (langError) {
-        // If the language is not supported, fall back to autodetect
-        console.warn(`Language '${language}' not supported by highlight.js, using autodetect`);
-        highlighted = hljs.highlightAuto(code).value;
+          ignoreIllegals: true 
+        });
+        logMessage(`Highlighted ${language} code successfully`);
+      } else {
+        result = this.hljs.highlightAuto(code);
+        logMessage(`Auto-detected and highlighted code`);
       }
+      return result.value;
+    } catch (error) {
+      logMessage(`Highlight error for language '${language}': ${error.message}`, 'error');
+      return this._escapeHtml(code);
     }
-    
-    // Return the highlighted code
-    return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to highlight code: ${error.message}`);
-    console.error('[PREVIEW ERROR] Highlight:', error);
-    
-    // Fall back to basic code rendering
-    return null;
   }
-}
 
-/**
- * Set the theme for syntax highlighting
- * @param {String} theme Theme name ('light' or 'dark')
- */
-function setTheme(theme) {
-  try {
-    config.theme = theme;
-    
-    // Update CSS link
-    const cssUrl = theme === 'dark' ? HIGHLIGHT_DARK_CSS_CDN : HIGHLIGHT_CSS_CDN;
-    let link = document.getElementById('highlight-theme-css');
-    
-    if (link) {
-      link.href = cssUrl;
-    } else {
-      link = document.createElement('link');
-      link.id = 'highlight-theme-css';
-      link.rel = 'stylesheet';
-      link.href = cssUrl;
-      document.head.appendChild(link);
-    }
-    
-    logMessage(`[PREVIEW] Syntax highlighting theme set to ${theme}`);
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to set highlighting theme: ${error.message}`);
-    console.error('[PREVIEW ERROR] Highlight theme:', error);
-  }
-}
-
-/**
- * Post-process the rendered HTML to highlight any unhighlighted code blocks
- * @param {HTMLElement} element The preview container element
- * @returns {Promise<void>}
- */
-async function postProcess(element) {
-  try {
-    if (!hljs) {
-      logMessage('[PREVIEW WARNING] Highlight.js not loaded, skipping code highlighting');
+  /**
+   * Post-process any unhighlighted code blocks
+   * @param {HTMLElement} element - Container element
+   */
+  async postProcess(element) {
+    if (!this.isReady()) {
+      logMessage('Plugin not ready for post-processing', 'warn');
       return;
     }
-    
-    // Find all unhighlighted code blocks
+
     const codeBlocks = element.querySelectorAll('pre code:not(.hljs)');
-    if (codeBlocks.length === 0) return;
     
-    // Highlight each code block
-    codeBlocks.forEach(block => {
+    let processedCount = 0;
+    for (const block of codeBlocks) {
       try {
-        hljs.highlightElement(block);
+        this.hljs.highlightElement(block);
+        processedCount++;
       } catch (error) {
-        console.error('[PREVIEW ERROR] Failed to highlight code block:', error);
+        logMessage(`Post-process error on code block: ${error.message}`, 'error');
       }
+    }
+
+    if (processedCount > 0) {
+      logMessage(`Post-processed ${processedCount} code blocks`);
+    }
+  }
+
+  /**
+   * Load highlight.js library
+   * @private
+   */
+  async _loadHighlightJS() {
+    // Check if already loaded globally
+    if (window.hljs) {
+      logMessage('Using existing window.hljs');
+      this.hljs = window.hljs;
+      return;
+    }
+
+    const CDN_URL = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
+    const CSS_URL = this.defaultTheme === 'dark' 
+      ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github-dark.min.css'
+      : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github.min.css';
+
+    logMessage(`Loading highlight.js from CDN: ${CDN_URL}`);
+
+    // Load CSS first
+    await this._loadCSS(CSS_URL);
+    logMessage('CSS loaded');
+
+    // Load JS
+    await this._loadScript(CDN_URL);
+    logMessage('JavaScript loaded');
+
+    if (!window.hljs) {
+      throw new Error('highlight.js script loaded but window.hljs not available');
+    }
+
+    this.hljs = window.hljs;
+    logMessage(`highlight.js version: ${this.hljs.versionString || 'unknown'}`);
+
+    // Configure
+    this.hljs.configure({
+      ignoreUnescapedHTML: true,
+      throwUnescapedHTML: false
     });
-    
-    logMessage(`[PREVIEW] Highlighted ${codeBlocks.length} code blocks`);
-  } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed during code highlighting post-processing: ${error.message}`);
-    console.error('[PREVIEW ERROR] Highlight post-process:', error);
+    logMessage('highlight.js configured');
+  }
+
+  /**
+   * Load CSS file
+   * @private
+   */
+  async _loadCSS(url) {
+    if (document.querySelector(`link[href="${url}"]`)) {
+      logMessage('CSS already loaded, skipping');
+      return;
+    }
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = url;
+    link.id = 'highlight-theme-css';
+    document.head.appendChild(link);
+    logMessage(`CSS link added: ${url}`);
+  }
+
+  /**
+   * Load script file
+   * @private
+   */
+  async _loadScript(url) {
+    if (document.querySelector(`script[src="${url}"]`)) {
+      logMessage('Script already loaded, skipping');
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+      script.onload = () => {
+        logMessage('Script loaded successfully');
+        resolve();
+      };
+      script.onerror = (error) => {
+        logMessage(`Script load failed: ${error}`, 'error');
+        reject(error);
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Escape HTML
+   * @private
+   */
+  _escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  getManifest() {
+    return {
+      name: 'Syntax Highlighting',
+      version: '1.0.0',
+      settings: [
+        {
+          key: 'enabled',
+          label: 'Enable Syntax Highlighting',
+          type: 'toggle'
+        },
+        {
+          key: 'theme',
+          label: 'Theme',
+          type: 'select',
+          options: ['light', 'dark']
+        }
+      ]
+    };
   }
 }
 
-// Export the plugin class AND the init function
-export class HighlightPlugin {
-  constructor() {
-    this.name = 'highlight';
-    this.initialized = false;
-  }
-
-  async init(options = {}) {
-    // Delegate to the exported init function
-    this.initialized = await init(options);
-    return this.initialized;
-  }
-
-  async preProcess(content) {
-    return content;
-  }
-
-  async postProcess(html, element) {
-    // ... implementation ...
-    return html;
-  }
-}
-
-// Export the plugin interface
-export default {
-  init,
-  postProcess,
-  setTheme,
-  renderers: {
-    code: codeRenderer
-  }
-};
-
-// Export codeRenderer so markdown-it can use it
-export { codeRenderer as customHighlightJsRenderer }; 
+// Backward compatibility exports
+export async function init(options = {}) {
+  const plugin = new HighlightPlugin(options);
+  return await plugin.init();
+} 

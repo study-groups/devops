@@ -11,47 +11,64 @@ const initialState = {
     // css: { name: 'CSS', enabled: true },
 };
 
-// --- Plugins Slice Reducer ---
-// Assumes state structure like { mermaid: { name: 'Mermaid', enabled: true }, ... }
-export function pluginsReducer(state = initialState, action) {
+// The reducer now works with the new state structure from appState.js
+// State structure: { mermaid: { name: "...", settings: { enabled: true, theme: "default" }, settingsManifest: [...] }, ... }
+export function pluginsReducer(state, action) {
     const { type, payload } = action;
     let nextState = state;
 
     switch (type) {
-        case ActionTypes.PLUGIN_TOGGLE:
-            if (payload && typeof payload.pluginId === 'string' && typeof payload.enabled === 'boolean' && state[payload.pluginId]) {
-                // Check if the enabled state is actually changing
-                if (state[payload.pluginId].enabled !== payload.enabled) {
-                    const updatedPluginState = {
-                        ...state[payload.pluginId], // Keep existing properties like 'name'
-                        enabled: payload.enabled // Update enabled status based on payload
-                    };
+        case ActionTypes.PLUGIN_UPDATE_SETTING:
+            if (payload &&
+                typeof payload.pluginId === 'string' &&
+                state && state[payload.pluginId] && state[payload.pluginId].settings &&
+                typeof payload.settingKey === 'string' &&
+                Object.prototype.hasOwnProperty.call(state[payload.pluginId].settings, payload.settingKey)
+            ) {
+                const currentPlugin = state[payload.pluginId];
+                const currentSettingValue = currentPlugin.settings[payload.settingKey];
+                const newSettingValue = payload.value;
+
+                if (currentSettingValue !== newSettingValue) {
                     nextState = {
                         ...state,
-                        [payload.pluginId]: updatedPluginState
-                    };
-                    console.debug(`[Reducer PLUGINS_TOGGLE] Updated '${payload.pluginId}' enabled state to: ${payload.enabled}`);
-
-                    // --- Persist only the enabled status ---
-                    try {
-                        // Create an object containing only { pluginId: enabledStatus } for all plugins
-                        const enabledStateToSave = {};
-                        for (const pluginId in nextState) {
-                            // Ensure the plugin exists in the new state before accessing it
-                            if (nextState[pluginId] && typeof nextState[pluginId].enabled === 'boolean') {
-                                enabledStateToSave[pluginId] = nextState[pluginId].enabled;
+                        [payload.pluginId]: {
+                            ...currentPlugin,
+                            settings: {
+                                ...currentPlugin.settings,
+                                [payload.settingKey]: newSettingValue
                             }
                         }
-                        localStorage.setItem(PLUGINS_STATE_KEY, JSON.stringify(enabledStateToSave));
-                        console.debug(`[Reducer PLUGINS_TOGGLE] Saved plugin enabled states to localStorage.`);
-                    } catch (e) {
-                        console.error('[Reducer] Failed to save plugin enabled state to localStorage:', e);
-                    }
-                } else {
-                    console.debug(`[Reducer PLUGINS_TOGGLE] No change in enabled state for '${payload.pluginId}'. Skipping update.`);
+                    };
                 }
             } else {
-                console.warn(`[Reducer PLUGINS_TOGGLE] Invalid payload or pluginId not found in state. Payload:`, payload, `Current State Keys:`, Object.keys(state));
+                console.warn(`[Reducer PLUGIN_UPDATE_SETTING] Invalid payload, pluginId/settingKey not found, or state malformed. Payload:`, payload, `Current State Keys:`, state ? Object.keys(state) : "state is undefined");
+            }
+            break;
+
+        // Handle legacy PLUGIN_TOGGLE by converting it to the new structure
+        case ActionTypes.PLUGIN_TOGGLE:
+            if (payload && typeof payload.pluginId === 'string' && typeof payload.enabled === 'boolean' && 
+                state && state[payload.pluginId] && state[payload.pluginId].settings) {
+                
+                const currentEnabledValue = state[payload.pluginId].settings.enabled;
+                if (currentEnabledValue !== payload.enabled) {
+                    nextState = {
+                        ...state,
+                        [payload.pluginId]: {
+                            ...state[payload.pluginId],
+                            settings: {
+                                ...state[payload.pluginId].settings,
+                                enabled: payload.enabled
+                            }
+                        }
+                    };
+                    console.debug(`[Reducer PLUGIN_TOGGLE] Updated '${payload.pluginId}' enabled state to: ${payload.enabled}`);
+                } else {
+                    console.debug(`[Reducer PLUGIN_TOGGLE] No change in enabled state for '${payload.pluginId}'. Skipping update.`);
+                }
+            } else {
+                console.warn(`[Reducer PLUGIN_TOGGLE] Invalid payload or pluginId not found in state. Payload:`, payload, `Current State Keys:`, state ? Object.keys(state) : "state is undefined");
             }
             break;
 
@@ -87,3 +104,4 @@ export function pluginsReducer(state = initialState, action) {
     }
     return nextState;
 }
+

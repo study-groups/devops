@@ -278,6 +278,34 @@ export class MermaidPlugin {
             applyTransform();
         };
         
+        const passiveWheelListener = (event) => {
+            // Only zoom with Ctrl/Meta key
+            if (!event.ctrlKey && !event.metaKey) return;
+            
+            // Can't call preventDefault in passive listener, 
+            // so we need to use a non-passive listener only when needed
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const rect = mermaidContainer.getBoundingClientRect();
+            const mouseXInContainer = event.clientX - rect.left;
+            const mouseYInContainer = event.clientY - rect.top;
+            
+            const oldScale = svgState.scale;
+            const dir = event.deltaY < 0 ? 1 : -1;
+            svgState.scale += dir * 0.1 * svgState.scale;
+            svgState.scale = Math.max(0.2, Math.min(svgState.scale, 5));
+            
+            // Zoom toward mouse position
+            const mouseRelToSVGCenterX = mouseXInContainer - (mermaidContainer.clientWidth / 2) - svgState.panX;
+            const mouseRelToSVGCenterY = mouseYInContainer - (mermaidContainer.clientHeight / 2) - svgState.panY;
+            
+            svgState.panX -= mouseRelToSVGCenterX * (svgState.scale / oldScale - 1);
+            svgState.panY -= mouseRelToSVGCenterY * (svgState.scale / oldScale - 1);
+            
+            applyTransform();
+        };
+        
         const mouseDownListener = (event) => {
             if (event.button !== 0) return; // Only left click
             
@@ -295,8 +323,13 @@ export class MermaidPlugin {
             svgElement.style.cursor = 'grabbing';
         };
         
-        // Attach event listeners
-        mermaidContainer.addEventListener('wheel', wheelListener, { passive: false, capture: true });
+        // Use non-passive listener but only attach when Ctrl/Meta is held
+        mermaidContainer.addEventListener('wheel', (event) => {
+            if (event.ctrlKey || event.metaKey) {
+                passiveWheelListener(event);
+            }
+        }, { passive: false, capture: true });
+        
         svgElement.addEventListener('mousedown', mouseDownListener, { capture: true });
         
         // Store references for potential cleanup
