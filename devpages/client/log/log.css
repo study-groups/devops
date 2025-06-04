@@ -600,27 +600,43 @@
 
 /* === Log Filtering Tags Bar === */
 #log-tags-bar {
-    display: flex; /* Will be set to none by JS if empty */
+    display: flex;
     flex-wrap: wrap;
     padding: 4px 8px;
-    padding-left:3rem;
-    background-color: #2a2a2a; /* Similar to toolbar */
-    border-bottom: 1px solid #333; /* Similar to toolbar */
-    gap: 5px; /* Spacing between tag buttons */
+    padding-left: 3rem;
+    background-color: var(--ink-paper-dark);
+    border-bottom: 1px solid #333;
+    gap: 10px;
     align-items: center;
-    /* Position it below the main toolbar and above the log content */
-    /* This is handled by DOM insertion order, specific positioning might be needed if layout is complex */
 }
 
+/* Filter group container */
+.log-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 8px;
+}
+
+/* Filter group labels */
+.log-filter-group-label {
+    font-size: 10px;
+    color: #888;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+/* Base filter button styles */
 .log-tag-button {
     padding: 2px 6px;
     font-size: 11px;
     color: #ccc;
-    background-color: #4b5563; /* Default button color */
+    background-color: #4b5563;
     border: 1px solid #555;
     border-radius: 3px;
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
 }
 
 .log-tag-button:hover {
@@ -629,11 +645,149 @@
     color: #fff;
 }
 
-.log-tag-button.active {
-    background-color: #3b82f6; /* A distinct color for active filters (e.g., blue) */
-    border-color: #2563eb;
+/* Clear Log button - different color */
+.log-tag-button.clear-log-button {
+    background-color: #374151 !important;
+    border-color: #374151 !important;
+    color: #fff !important;
+    margin-right: 8px;
+}
+
+.log-tag-button.clear-log-button:hover {
+    background-color: #4b5563 !important;
+    border-color: #4b5563 !important;
+}
+
+/* Clear Filters button */
+.log-tag-button.clear-filters-button {
+    background-color: #64748b !important;
+    border-color: #64748b !important;
+    color: #fff !important;
+    margin-right: 8px;
+}
+
+.log-tag-button.clear-filters-button:not(.disabled):hover {
+    background-color: #78716c !important;
+    border-color: #78716c !important;
+}
+
+/* Source category - navy blue */
+.log-tag-button.filter-source {
+    background-color: #1e40af !important;
+    border-color: #1e40af !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-source:hover {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+}
+
+.log-tag-button.filter-source.active {
+    background-color: #60a5fa !important;
+    border-color: #60a5fa !important;
+    font-weight: bold;
+}
+
+/* Level category - forest green */
+.log-tag-button.filter-level {
+    background-color: #059669 !important;
+    border-color: #059669 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-level:hover {
+    background-color: #10b981 !important;
+    border-color: #10b981 !important;
+}
+
+.log-tag-button.filter-level.active {
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
+    font-weight: bold;
+}
+
+/* Type category - purple */
+.log-tag-button.filter-type {
+    background-color: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-type:hover {
+    background-color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+}
+
+.log-tag-button.filter-type.active {
+    background-color: #a78bfa !important;
+    border-color: #a78bfa !important;
+    font-weight: bold;
+}
+
+/* Subtype category - amber */
+.log-tag-button.filter-subtype {
+    background-color: #d97706 !important;
+    border-color: #d97706 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-subtype:hover {
+    background-color: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+
+.log-tag-button.filter-subtype.active {
+    background-color: #fbbf24 !important;
+    border-color: #fbbf24 !important;
+    font-weight: bold;
+}
+
+/* Future category options - burgundy and teal inks */
+.log-tag-button.filter-category-7 {
+    background-color: var(--ink-burgundy);
+    border-color: var(--ink-burgundy);
+    color: #fff;
+}
+
+.log-tag-button.filter-category-7:hover {
+    background-color: var(--ink-burgundy-light);
+    border-color: var(--ink-burgundy-light);
+}
+
+.log-tag-button.filter-category-7.active {
+    background-color: var(--ink-burgundy-active);
+    border-color: var(--ink-burgundy-active);
     color: #fff;
     font-weight: bold;
+    box-shadow: 0 0 0 1px var(--ink-burgundy-active);
+}
+
+.log-tag-button.filter-category-8 {
+    background-color: var(--ink-teal);
+    border-color: var(--ink-teal);
+    color: #fff;
+}
+
+.log-tag-button.filter-category-8:hover {
+    background-color: var(--ink-teal-light);
+    border-color: var(--ink-teal-light);
+}
+
+.log-tag-button.filter-category-8.active {
+    background-color: var(--ink-teal-active);
+    border-color: var(--ink-teal-active);
+    color: #fff;
+    font-weight: bold;
+    box-shadow: 0 0 0 1px var(--ink-teal-active);
+}
+
+/* Disabled state for all filter buttons */
+.log-tag-button.disabled {
+    background-color: #3a3f47;
+    color: #777;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 /* Class to hide log entries that are filtered out */
@@ -763,4 +917,265 @@
 /* Style log entries based on visibility */
 .log-entry.log-entry-hidden-by-filter {
   display: none;
+}
+
+/* Clear Log button in tags bar - distinct styling */
+.log-tag-button.clear-log-button {
+    background-color: #dc2626; /* red-600 - more prominent than Clear Filters */
+    border-color: #b91c1c; /* red-700 */
+    color: #fff;
+    margin-right: 8px; /* Add space after Clear Log */
+}
+
+.log-tag-button.clear-log-button:hover {
+    background-color: #b91c1c; /* red-700 */
+    border-color: #991b1b; /* red-800 */
+}
+
+/* Clear Filters button - keep existing style but add some spacing */
+.log-tag-button.clear-filters-button {
+    margin-right: 8px; /* Add space after Clear Filters */
+}
+
+/* === Paper & Ink Color Scheme === */
+:root {
+  /* Base paper colors */
+  --ink-paper-base: #f8f9fa;
+  --ink-paper-dark: #2a2a2a;
+  
+  /* 8-color ink palette - muted, professional tones */
+  --ink-charcoal: #374151;      /* Clear Log - dark charcoal */
+  --ink-slate: #64748b;         /* Clear Filters - neutral slate */
+  --ink-navy: #1e40af;          /* Source - deep navy blue */
+  --ink-forest: #059669;        /* Level - forest green */
+  --ink-plum: #7c3aed;          /* Type - rich plum purple */
+  --ink-amber: #d97706;         /* Subtype - warm amber */
+  --ink-burgundy: #991b1b;      /* Additional - deep burgundy */
+  --ink-teal: #0d9488;          /* Additional - professional teal */
+  
+  /* Lighter variants for hover states */
+  --ink-charcoal-light: #4b5563;
+  --ink-slate-light: #78716c;
+  --ink-navy-light: #3b82f6;
+  --ink-forest-light: #10b981;
+  --ink-plum-light: #8b5cf6;
+  --ink-amber-light: #f59e0b;
+  --ink-burgundy-light: #dc2626;
+  --ink-teal-light: #14b8a6;
+  
+  /* Even lighter variants for active states */
+  --ink-charcoal-active: #6b7280;
+  --ink-slate-active: #a8a29e;
+  --ink-navy-active: #60a5fa;
+  --ink-forest-active: #34d399;
+  --ink-plum-active: #a78bfa;
+  --ink-amber-active: #fbbf24;
+  --ink-burgundy-active: #f87171;
+  --ink-teal-active: #5eead4;
+}
+
+/* Enhanced filter bar with grouped categories */
+.log-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 8px;
+}
+
+.log-filter-group-label {
+    font-size: 10px;
+    color: #888;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+/* Clear Log button - dark charcoal */
+.log-tag-button.clear-log-button {
+    background-color: #374151 !important;
+    border-color: #374151 !important;
+    color: #fff !important;
+    margin-right: 8px;
+}
+
+.log-tag-button.clear-log-button:hover {
+    background-color: #4b5563 !important;
+    border-color: #4b5563 !important;
+}
+
+/* Clear Filters button - slate */
+.log-tag-button.clear-filters-button {
+    background-color: #64748b !important;
+    border-color: #64748b !important;
+    color: #fff !important;
+    margin-right: 8px;
+}
+
+.log-tag-button.clear-filters-button:not(.disabled):hover {
+    background-color: #78716c !important;
+    border-color: #78716c !important;
+}
+
+/* Source category - navy blue */
+.log-tag-button.filter-source {
+    background-color: #1e40af !important;
+    border-color: #1e40af !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-source:hover {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+}
+
+.log-tag-button.filter-source.active {
+    background-color: #60a5fa !important;
+    border-color: #60a5fa !important;
+    font-weight: bold;
+}
+
+/* Level category - forest green */
+.log-tag-button.filter-level {
+    background-color: #059669 !important;
+    border-color: #059669 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-level:hover {
+    background-color: #10b981 !important;
+    border-color: #10b981 !important;
+}
+
+.log-tag-button.filter-level.active {
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
+    font-weight: bold;
+}
+
+/* Type category - purple */
+.log-tag-button.filter-type {
+    background-color: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-type:hover {
+    background-color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+}
+
+.log-tag-button.filter-type.active {
+    background-color: #a78bfa !important;
+    border-color: #a78bfa !important;
+    font-weight: bold;
+}
+
+/* Subtype category - amber */
+.log-tag-button.filter-subtype {
+    background-color: #d97706 !important;
+    border-color: #d97706 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.filter-subtype:hover {
+    background-color: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+
+.log-tag-button.filter-subtype.active {
+    background-color: #fbbf24 !important;
+    border-color: #fbbf24 !important;
+    font-weight: bold;
+}
+
+/* Ghost/outline button style - OFF state */
+.log-tag-button.ghost {
+    background-color: transparent !important;
+    border: 2px solid currentColor !important;
+    opacity: 0.5 !important;
+}
+
+.log-tag-button.ghost:hover {
+    opacity: 0.8 !important;
+    background-color: rgba(255,255,255,0.1) !important;
+}
+
+/* Active/solid button style - ON state */
+.log-tag-button.active {
+    opacity: 1 !important;
+    /* Keep existing category colors */
+}
+
+/* Control group for main action buttons */
+.log-filter-control-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 16px;
+    padding-right: 16px;
+    border-right: 1px solid #555;
+}
+
+/* Clear Log button - red */
+.log-tag-button.clear-log-button {
+    background-color: #dc2626 !important;
+    border-color: #b91c1c !important;
+    color: #fff !important;
+}
+
+.log-tag-button.clear-log-button:hover {
+    background-color: #b91c1c !important;
+    border-color: #991b1b !important;
+}
+
+/* Select All button - green */
+.log-tag-button.select-all-button {
+    background-color: #059669 !important;
+    border-color: #047857 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.select-all-button:hover {
+    background-color: #047857 !important;
+    border-color: #065f46 !important;
+}
+
+/* Clear All button - gray */
+.log-tag-button.clear-all-button {
+    background-color: #6b7280 !important;
+    border-color: #4b5563 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.clear-all-button:hover {
+    background-color: #4b5563 !important;
+    border-color: #374151 !important;
+}
+
+/* Reset button - blue */
+.log-tag-button.clear-filters-button {
+    background-color: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #fff !important;
+}
+
+.log-tag-button.clear-filters-button:hover {
+    background-color: #1d4ed8 !important;
+    border-color: #1e40af !important;
+}
+
+/* Ghost/outline button style - OFF state */
+.log-tag-button.ghost {
+    background-color: transparent !important;
+    border: 2px solid currentColor !important;
+    opacity: 0.5 !important;
+}
+
+.log-tag-button.ghost:hover {
+    opacity: 0.8 !important;
+    background-color: rgba(255,255,255,0.1) !important;
+}
+
+/* Active/solid button style - ON state */
+.log-tag-button.active {
+    opacity: 1 !important;
 }

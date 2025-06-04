@@ -99,7 +99,8 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
         const discoveredTypesChanged = JSON.stringify(newFiltering.discoveredTypes) !== JSON.stringify(prevFiltering.discoveredTypes);
 
         if (activeFiltersChanged) {
-            logDebug('[logPanelState] Active log filters changed. Applying to entries & updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
+            // REMOVED: Excessive logging about filter changes
+            // logDebug('[logPanelState] Active log filters changed. Applying to entries & updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
             if (typeof logPanelInstance._applyFiltersToLogEntries === 'function') {
                 logPanelInstance._applyFiltersToLogEntries();
             }
@@ -109,7 +110,8 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
         }
 
         if (discoveredTypesChanged && !activeFiltersChanged) { // Avoid double-updating tags bar if active filters also changed
-            logDebug('[logPanelState] Discovered log types changed. Updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
+            // REMOVED: Excessive logging about type discovery
+            // logDebug('[logPanelState] Discovered log types changed. Updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
             if (typeof logPanelInstance._updateTagsBar === 'function') {
                 logPanelInstance._updateTagsBar();
             }

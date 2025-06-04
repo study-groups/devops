@@ -104,6 +104,7 @@ export async function initializeFileManager() {
 
         setupEventListeners(); // Setup NEW event listeners
 
+        // --- Subscribe to Auth Changes ONLY ---
         // --- Subscribe to Auth Changes ---
         if (fmUnsubscribe) fmUnsubscribe();
         fmUnsubscribe = appStore.subscribe(handleAuthStateChangeForFileManager);

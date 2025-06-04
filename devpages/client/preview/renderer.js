@@ -18,14 +18,16 @@ import { pluginManager } from '/client/preview/PluginManager.js';
 
 // Helper for logging within this module
 function logRenderer(message, level = 'debug') {
-    const prefix = '[PREVIEW RENDERER]';
-    const type = 'PREVIEW_RENDERER'; // Keep specific type
+    const type = 'PREVIEW';
+    const subtype = 'RENDERER';
+    
     if (typeof window.logMessage === 'function') {
-        // Pass message, level, and type
-        window.logMessage(`${prefix} ${message}`, level, type); 
+        // Use proper structured logging: logMessage(message, level, type, subtype)
+        window.logMessage(message, level, type, subtype);
     } else {
+        // Fallback with proper bracket format
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
+        logFunc(`[${level.toUpperCase()}] [${type}] [${subtype}] ${message}`);
     }
 }
 

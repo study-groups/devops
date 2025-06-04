@@ -23,7 +23,8 @@ import {
 } from './logPanelEntryDisplay.js'; // Placeholder for entry display module
 import {
     updateTagsBar,
-    applyFiltersToLogEntries
+    applyFiltersToLogEntries,
+    initializeLogFilterBar
 } from './LogFilterBar.js';
 
 import eventBus from '/client/eventBus.js';
@@ -138,6 +139,11 @@ export class LogPanel {
         this.updateEntryCount(); 
         // logPanelInternalDebug('Initialized successfully.');
         logInfo('LogPanel UI initialized successfully.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
+
+        // Expose globally for Clear Log button
+        if (typeof window !== 'undefined') {
+            window.logPanel = this;
+        }
     }
 
     /**
@@ -188,22 +194,54 @@ export class LogPanel {
             subtype = null;
             timestamp = new Date().toLocaleTimeString();
 
-            const legacyMatch = originalCoreMessage.match(/^\s*\[([A-Z]+)\](?:\s*\[(.+?)\])?\s*(.*)/s);
-            let coreContentAfterMatch = originalCoreMessage;
-            if (legacyMatch) {
-                level = legacyMatch[1] || level;
-                if (type === 'TEXT' && legacyMatch[2]) {
-                    type = legacyMatch[2].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_'); 
+            // IMPROVED: Better parsing for complex bracket patterns
+            // Expected patterns:
+            // [LEVEL] [SOURCE] message
+            // [LEVEL] [TYPE] [SUBTYPE] message
+            // [SOURCE] message
+            
+            // Match multiple bracket patterns at the start
+            const allBrackets = originalCoreMessage.match(/^(\s*\[[^\]]+\])+/);
+            if (allBrackets) {
+                const brackets = originalCoreMessage.match(/\[([^\]]+)\]/g);
+                const values = brackets ? brackets.map(b => b.slice(1, -1).trim()) : [];
+                
+                if (values.length >= 1) {
+                    // First bracket could be level or source
+                    const firstValue = values[0].toUpperCase();
+                    const validLevels = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'SUCCESS', 'TIMING'];
+                    
+                    if (validLevels.includes(firstValue)) {
+                        level = firstValue;
+                        // If we have more brackets after level, use them for type/subtype
+                        if (values.length >= 2) {
+                            type = values[1].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_');
+                        }
+                        if (values.length >= 3) {
+                            subtype = values[2].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_');
+                        }
+                    } else {
+                        // First bracket is not a level, treat as source/type
+                        type = firstValue.replace(/[^A-Z0-9_\-]/g, '_');
+                        if (values.length >= 2) {
+                            subtype = values[1].toUpperCase().replace(/[^A-Z0-9_\-]/g, '_');
+                        }
+                    }
                 }
-                coreContentAfterMatch = legacyMatch[3] || originalCoreMessage; 
+                
+                // Extract the message content after all brackets
+                const afterBrackets = originalCoreMessage.replace(/^(\s*\[[^\]]+\])+\s*/, '');
+                originalCoreMessage = afterBrackets || originalCoreMessage;
             }
             
             let displayPrefix = `[${level}]`;
             if (type !== 'GENERAL' && type !== 'TEXT') { 
                  displayPrefix += ` [${type}]`;
             }
-            messageForDisplay = `${displayPrefix} ${coreContentAfterMatch}`;
-            originalCoreMessage = coreContentAfterMatch; 
+            if (subtype) {
+                displayPrefix += ` [${subtype}]`;
+            }
+            messageForDisplay = `${displayPrefix} ${originalCoreMessage}`;
 
         } else {
             // This is the "final else" block (around line 655 in your file based on the latest stack)
@@ -336,8 +374,8 @@ export class LogPanel {
         if (!this.logElement) return;
         this.logElement.innerHTML = '';
         this.state.entryCount = 0;
-        this.state.clientLogIndex = 0; // <<< ADDED: Reset client log index
-        this.updateEntryCount(); // Use internal method
+        this.state.clientLogIndex = 0;
+        this.updateEntryCount();
         
         // ADDED: Reset discovered types and active filters
         appStore.update(prevState => ({
@@ -441,13 +479,18 @@ export class LogPanel {
                 }
             }
         } else {
-            // If logElement isn't available, assume visible is same as total (or 0 if total is 0)
-            // This case should be rare if statusElement is present.
-            visibleEntries = totalEntries > 0 ? 0 : 0; // Or perhaps just stick to total if no logElement
+            // If logElement isn't available, assume no entries are visible
+            visibleEntries = 0;
         }
         
-        const entryText = (totalEntries === 1 && visibleEntries === 1) ? 'entry' : 'entries';
-        this.statusElement.textContent = `${visibleEntries}/${totalEntries} ${entryText}`;
+        const entryText = totalEntries === 1 ? 'entry' : 'entries';
+        
+        // Show different formats based on filtering state
+        if (visibleEntries === totalEntries) {
+            this.statusElement.textContent = `${totalEntries} ${entryText}`;
+        } else {
+            this.statusElement.textContent = `${visibleEntries}/${totalEntries} ${entryText}`;
+        }
     }
 
     /**
@@ -500,6 +543,11 @@ export class LogPanel {
      * Updates the tags bar with a "Clear Filters" button and buttons for each discovered log type.
      */
     _updateTagsBar() {
+        // Initialize the tags bar if not already done
+        if (this.tagsBarElement && !this.tagsBarElement._isInitialized) {
+            initializeLogFilterBar(this.tagsBarElement);
+            this.tagsBarElement._isInitialized = true;
+        }
         return updateTagsBar(this.tagsBarElement, appStore.getState().logFiltering);
     }
 

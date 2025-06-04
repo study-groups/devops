@@ -2,7 +2,6 @@ import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js'; // Assuming this is where actions like toggleLogVisibility are.
 import { logInfo, logError, logDebug } from './core.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
-import { applyNLPFilter, getFilterHelp } from './NLPLogFilter.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 // These might be better as part of logPanelInstance.config or passed in
@@ -18,7 +17,7 @@ let boundHandleResizeMouseUp = null;
  */
 export function attachLogPanelEventListeners(logPanelInstance) {
     if (!logPanelInstance || !logPanelInstance.container) {
-        logError('LogPanel instance or container not found, cannot attach listeners.', { type: 'LOG_PANEL', subtype: 'ERROR' });
+        logError('Cannot attach event listeners: logPanelInstance or container is null.');
         return;
     }
 
@@ -82,33 +81,6 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                 //         logPanelInstance._collapseLogEntry(entryToCollapse);
                 //     }
                 //     break;
-                case 'showFilterHelp':
-                    // Create a modal dialog for help
-                    const helpModal = document.createElement('div');
-                    helpModal.className = 'log-filter-help-modal';
-                    helpModal.innerHTML = `
-                        <div class="log-filter-help-content">
-                            <button class="close-help-modal">&times;</button>
-                            ${getFilterHelp()}
-                        </div>
-                    `;
-                    document.body.appendChild(helpModal);
-                    
-                    // Add close button listener
-                    const closeBtn = helpModal.querySelector('.close-help-modal');
-                    if (closeBtn) {
-                        closeBtn.addEventListener('click', () => {
-                            document.body.removeChild(helpModal);
-                        });
-                    }
-                    
-                    // Close when clicking outside
-                    helpModal.addEventListener('click', (e) => {
-                        if (e.target === helpModal) {
-                            document.body.removeChild(helpModal);
-                        }
-                    });
-                    break;
                 default:
                     // If triggerActions is available and the action is defined there, use it.
                     // This is useful for actions that are more global or complex.
@@ -175,97 +147,6 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             }
         });
          logDebug('Attached click listener to logElement for expand/collapse/copy.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
-    }
-
-
-    // TODO: Filter tag clicks (if filter bar is part of LogPanel DOM managed here)
-    if (logPanelInstance.tagsBarElement) {
-        logPanelInstance.tagsBarElement.addEventListener('click', (event) => {
-            const targetButton = event.target.closest('button.log-tag-button');
-            if (!targetButton) return;
-
-            const filterType = targetButton.dataset.logType;
-            const actionDataSet = targetButton.dataset.action; // dataset.action for "clear-all"
-
-            // DEBUG: Check the appStore object
-            // console.log('DEBUG: appStore in tagsBarElement click listener (StateKit):', appStore);
-
-            if (actionDataSet === 'clear-all-log-filters') {
-                if (targetButton.disabled) return;
-                logInfo('[logPanelEvents] Clearing all log filters via appStore.update()', { type: 'LOG_PANEL', subtype: 'FILTERING' });
-                appStore.update(prevState => {
-                    const currentLogFiltering = prevState.logFiltering || {};
-                    return {
-                        ...prevState,
-                        logFiltering: {
-                            ...currentLogFiltering,
-                            activeFilters: [] // Clear all active filters
-                        }
-                    };
-                });
-            } else if (filterType) {
-                logInfo(`[logPanelEvents] Toggling log filter for type: ${filterType} via appStore.update()`, { type: 'LOG_PANEL', subtype: 'FILTERING' });
-                appStore.update(prevState => {
-                    const currentLogFiltering = prevState.logFiltering || { activeFilters: [], discoveredTypes: [] };
-                    const currentActiveFilters = currentLogFiltering.activeFilters || [];
-                    let newActiveFilters;
-                    if (currentActiveFilters.includes(filterType)) {
-                        newActiveFilters = currentActiveFilters.filter(t => t !== filterType);
-                    } else {
-                        newActiveFilters = [...currentActiveFilters, filterType];
-                    }
-                    return {
-                        ...prevState,
-                        logFiltering: {
-                            ...currentLogFiltering,
-                            activeFilters: newActiveFilters
-                        }
-                    };
-                });
-            }
-        });
-        logDebug('Attached click listener to tagsBarElement (using appStore.update).', { type: 'LOG_PANEL', subtype: 'EVENTS' });
-    }
-
-    // Add event listener for filter input
-    if (logPanelInstance.filterInput) {
-        // Debounce input to avoid excessive filtering
-        let filterTimeout;
-        
-        logPanelInstance.filterInput.addEventListener('input', (event) => {
-            clearTimeout(filterTimeout);
-            const query = event.target.value.trim();
-            
-            // Store current query in localStorage for persistence
-            if (query) {
-                localStorage.setItem('lastLogFilterQuery', query);
-            } else {
-                localStorage.removeItem('lastLogFilterQuery');
-            }
-            
-            // Apply filter with debounce
-            filterTimeout = setTimeout(() => {
-                const visibleCount = applyNLPFilter(logPanelInstance.logElement, query);
-                logPanelInstance.updateEntryCount();
-                
-                // Optional: Show count in status
-                if (logPanelInstance.statusElement && query) {
-                    logPanelInstance.statusElement.textContent = 
-                        `${visibleCount}/${logPanelInstance.state.entryCount} entries (filtered)`;
-                }
-            }, 300);
-        });
-        
-        // Load last filter query from localStorage on init
-        const lastQuery = localStorage.getItem('lastLogFilterQuery');
-        if (lastQuery) {
-            logPanelInstance.filterInput.value = lastQuery;
-            // Trigger filtering
-            applyNLPFilter(logPanelInstance.logElement, lastQuery);
-            logPanelInstance.updateEntryCount();
-        }
-        
-        logDebug('Attached input event listener to log filter input', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     }
 }
 
