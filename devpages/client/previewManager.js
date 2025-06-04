@@ -87,10 +87,22 @@ function setupEventHandlers() {
 
 // Refresh the preview with current editor content
 export async function refreshPreview() {
+  console.log('[previewManager] refreshPreview called, isPreviewInitialized:', isPreviewInitialized);
+  
   if (!isPreviewInitialized) {
-    console.warn('[previewManager] refreshPreview called before initialization.');
-    return;
+    console.warn('[previewManager] refreshPreview called before initialization. Attempting to initialize...');
+    try {
+      await initializeOrUpdatePreview(false);
+      if (!isPreviewInitialized) {
+        console.error('[previewManager] Failed to initialize preview system during refresh');
+        return;
+      }
+    } catch (error) {
+      console.error('[previewManager] Error initializing preview during refresh:', error);
+      return;
+    }
   }
+  
   const editor = document.querySelector('#editor-container textarea');
   if (!editor) {
     console.error('[previewManager] Editor element not found for refresh');

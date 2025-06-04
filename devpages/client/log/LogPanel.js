@@ -29,7 +29,7 @@ import {
 import eventBus from '/client/eventBus.js';
 
 // ADD: Import markdown rendering function AND post-processing
-import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
+import { renderMarkdown, postProcessRender } from '/client/preview/renderers/MarkdownRenderer.js';
 
 // At the top of the file, import the logger
 import { createTimer } from '/client/utils.js';

@@ -9,7 +9,7 @@ import * as fileSystemState from './fileSystemState.js'; // Handles loading init
 import { appStore } from '/client/appState.js';
 import { api } from '/client/api.js'; // Use refactored API
 import { pathJoin, getParentPath, getFilename } from '/client/utils/pathUtils.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
+import { renderMarkdown } from '/client/preview/renderers/MarkdownRenderer.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 // --- Module State (Removed - state now in appStore) ---

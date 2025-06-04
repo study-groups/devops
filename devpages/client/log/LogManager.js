@@ -23,6 +23,45 @@ export class LogManager {
     this.proxiedConsole = null;
     this.showStackTraces = false;
     this.showCompactStack = true;
+    
+    // Bind the method that was missing
+    this._boundUpdateFiltersAndStatus = this._updateFiltersAndStatus.bind(this);
+  }
+
+  /**
+   * Update filters and status from configuration
+   * @private
+   */
+  _updateFiltersAndStatus() {
+    if (typeof window !== 'undefined' && window.config) {
+      // Update filter configuration from window.config
+      if (window.config.typeFilters) {
+        this.filter.setIncludeTypes(window.config.typeFilters.include || []);
+        this.filter.setExcludeTypes(window.config.typeFilters.exclude || []);
+      }
+      
+      if (window.config.subtypeFilters) {
+        this.filter.setIncludeSubtypes(window.config.subtypeFilters.include || []);
+        this.filter.setExcludeSubtypes(window.config.subtypeFilters.exclude || []);
+      }
+      
+      if (window.config.levelFilters) {
+        this.filter.setIncludeLevels(window.config.levelFilters.include || []);
+        this.filter.setExcludeLevels(window.config.levelFilters.exclude || []);
+      }
+      
+      if (window.config.keywordFilters) {
+        this.filter.setIncludeKeywords(window.config.keywordFilters.include || '');
+        this.filter.setExcludeKeywords(window.config.keywordFilters.exclude || '');
+      }
+      
+      // Update enabled status if available
+      if (typeof window.config.enabled === 'boolean') {
+        this.enabled = window.config.enabled;
+      }
+      
+      console.log('[LogManager] Updated filters and status from window.config');
+    }
   }
 
   /**

@@ -3,10 +3,11 @@
  * Handles Markdown preview rendering and updates
  */
 import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
 
 // Import from the underlying preview module in client/preview/
 import { initPreview as initPreviewModule, updatePreview as updatePreviewModule } from '/client/preview/index.js';
-import { postProcessRender } from '/client/preview/renderer.js'; // Import postProcessRender
+import { postProcessRender } from '/client/preview/renderers/MarkdownRenderer.js';
 import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
 
 // Helper for logging within this module
@@ -102,7 +103,7 @@ async function initializeFallbackPreview() {
     }
     
     // Try to load renderer directly
-    const { renderMarkdown } = await import('/client/preview/renderer.js'); // Corrected: ./preview/
+    const { renderMarkdown } = await import('/client/preview/renderers/MarkdownRenderer.js');
     
     if (typeof renderMarkdown !== 'function') {
       logPreview('Markdown renderer not found', 'error');
@@ -184,8 +185,7 @@ export async function refreshPreview() {
   logPreview(`Refreshing preview (content length: ${content.length})`);
   
   try {
-    // Use the imported update function from the preview module
-    const renderResult = await updatePreviewModule(content);
+    const renderResult = await updatePreviewModule(content, getCurrentFilePath());
 
     if (!renderResult || typeof renderResult.html !== 'string') {
         logPreview('Preview update returned invalid result.', 'error');
@@ -331,7 +331,7 @@ export async function setupContentViewer() {
       if (!previewElement) throw new Error('Preview container creation failed');
 
       // Render the content
-      const { renderMarkdown } = await import('/client/preview/renderer.js');
+      const { renderMarkdown } = await import('/client/preview/renderers/MarkdownRenderer.js');
       const renderResult = await renderMarkdown(markdownContent);
       const html = renderResult.html; // Only need HTML here, ignore front matter for /view/
       previewElement.innerHTML = html;
@@ -347,6 +347,15 @@ export async function setupContentViewer() {
       console.error(error);
       document.body.innerHTML = `<p style="color:red;">Error loading content: ${error.message}</p>`;
     }
+  }
+}
+
+function getCurrentFilePath() {
+  try {
+    const fileState = appStore.getState().file;
+    return fileState?.currentPathname || '';
+  } catch (e) {
+    return '';
   }
 }
 

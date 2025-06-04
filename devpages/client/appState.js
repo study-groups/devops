@@ -51,16 +51,21 @@ function getInitialViewMode() {
     return 'editor'; // Default to 'editor' if not explicitly stored, invalid, or on error
 }
 
-// --- Default Plugin State with Settings Configuration ---
+// --- Enhanced Data-Driven Plugin Configuration ---
 const defaultPluginsConfig = {
     'mermaid': {
         name: "Mermaid Diagrams",
-        defaultState: { // Contains all settings for the plugin
+        // Module loading configuration
+        module: '/client/preview/plugins/mermaid.js',
+        exportName: 'MermaidPlugin',
+        // Legacy fallback for backwards compatibility
+        legacyInitFunction: 'ensureMermaidInitialized',
+        // Plugin settings
+        defaultState: {
             enabled: true,
-            theme: 'default', // Mermaid-specific setting
-            // Add other mermaid-specific settings here later
+            theme: 'default',
         },
-        // Describes how to render UI controls for this plugin's settings
+        // UI generation manifest
         settingsManifest: [
             { key: 'enabled', label: 'Enable Mermaid', type: 'toggle' },
             { key: 'theme', label: 'Theme', type: 'select', options: ['default', 'forest', 'dark', 'neutral'] }
@@ -68,6 +73,9 @@ const defaultPluginsConfig = {
     },
     'highlight': {
         name: "Syntax Highlighting",
+        module: '/client/preview/plugins/highlight.js',
+        exportName: 'HighlightPlugin',
+        legacyInitFunction: 'loadHighlightJS',
         defaultState: { enabled: true },
         settingsManifest: [
             { key: 'enabled', label: 'Enable Syntax Highlighting', type: 'toggle' }
@@ -75,6 +83,10 @@ const defaultPluginsConfig = {
     },
     'katex': {
         name: "KaTeX Math Rendering",
+        // Special handling for external CDN module
+        module: 'https://esm.sh/markdown-it-katex@2.0.3',
+        exportName: 'default',
+        type: 'markdown-it-plugin', // Special type for markdown-it plugins
         defaultState: { enabled: true },
         settingsManifest: [
             { key: 'enabled', label: 'Enable KaTeX', type: 'toggle' }
@@ -82,12 +94,13 @@ const defaultPluginsConfig = {
     },
     'audio-md': {
         name: "Audio Markdown",
+        module: '/client/preview/plugins/audio-md.js',
+        exportName: 'AudioMDPlugin',
         defaultState: { enabled: true },
         settingsManifest: [
             { key: 'enabled', label: 'Enable Audio Markdown', type: 'toggle' }
         ]
     }
-    // GitHub plugin remains removed
 };
 
 // --- Helper to load FULL plugin state from localStorage --- 
@@ -471,3 +484,6 @@ appStore.subscribe((newState) => {
 
 // Log the initial state for debugging purposes
 // console.log('[AppState] Initial application state:', appStore.getState());
+
+// Export the plugin configuration for data-driven loading
+export { defaultPluginsConfig };

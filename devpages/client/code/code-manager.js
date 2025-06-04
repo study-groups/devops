@@ -21,7 +21,7 @@ class CodeManager {
         await this.initializeParsers();
         
         // Load project configuration
-        await this.loadDevPagesConfig();
+       // await this.loadDevPagesConfig();
         
         // Set up event listeners
         this.setupEventListeners();

@@ -14,7 +14,7 @@ import { logMessage } from '/client/log/index.js';
 // --- REMOVED: Import settings state for dynamic toolbar ---
 // import { settingsState } from '/client/settings/settingsState.js'; 
 import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
-import { renderMarkdown } from '/client/preview/renderer.js'; // Import markdown renderer
+import { renderMarkdown } from '/client/preview/renderers/MarkdownRenderer.js'; // Import markdown renderer
 import { appVer } from '/config.js'; // Use absolute path
 // --- END ADDED ---
 
