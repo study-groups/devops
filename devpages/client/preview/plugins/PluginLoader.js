@@ -5,6 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled, getAllPlugins } from '/client/store/selectors.js';
+import { defaultPluginsConfig } from '/client/appState.js';
 
 // Helper for logging
 function logPluginLoader(message, level = 'info') {
@@ -24,17 +25,26 @@ const pluginInstances = new Map();
  * @returns {Object} Plugin configuration
  */
 export function getPluginConfig(pluginId) {
-    // Access the defaultPluginsConfig from appState.js
-    // Since it's not exported, we'll need to get it from the state
-    const state = appStore.getState();
-    const allPlugins = getAllPlugins(state);
-    const pluginData = allPlugins[pluginId];
-    
-    if (!pluginData) {
-        throw new Error(`Plugin config not found: ${pluginId}`);
+    // Get the static configuration from defaultPluginsConfig
+    const staticConfig = defaultPluginsConfig[pluginId];
+    if (!staticConfig) {
+        throw new Error(`Plugin config not found in defaultPluginsConfig: ${pluginId}`);
     }
     
-    return pluginData;
+    // Get the runtime settings from state
+    const state = appStore.getState();
+    const allPlugins = getAllPlugins(state);
+    const pluginStateData = allPlugins[pluginId];
+    
+    if (!pluginStateData) {
+        throw new Error(`Plugin state not found: ${pluginId}`);
+    }
+    
+    // Merge static config with runtime state
+    return {
+        ...staticConfig,
+        ...pluginStateData
+    };
 }
 
 /**
@@ -185,12 +195,17 @@ export function getAllLoadedPlugins() {
  * @param {HTMLElement} element - Element to process
  */
 export async function processEnabledPlugins(element) {
+    logPluginLoader('processEnabledPlugins called');
+    
     const state = appStore.getState();
     const allPlugins = getAllPlugins(state);
     
     for (const pluginId in allPlugins) {
-        if (getIsPluginEnabled(state, pluginId)) {
+        const isEnabled = getIsPluginEnabled(state, pluginId);
+        
+        if (isEnabled) {
             const plugin = await getPlugin(pluginId);
+            
             if (plugin && typeof plugin.process === 'function') {
                 try {
                     await plugin.process(element);
@@ -201,4 +216,6 @@ export async function processEnabledPlugins(element) {
             }
         }
     }
+    
+    logPluginLoader('processEnabledPlugins completed');
 }

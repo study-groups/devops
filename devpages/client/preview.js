@@ -8,7 +8,6 @@ import { appStore } from '/client/appState.js';
 // Import from the underlying preview module in client/preview/
 import { initPreview as initPreviewModule, updatePreview as updatePreviewModule } from '/client/preview/index.js';
 import { postProcessRender } from '/client/preview/renderers/MarkdownRenderer.js';
-import { MermaidPlugin } from '/client/preview/plugins/mermaid/index.js';
 
 // Helper for logging within this module
 function logPreview(message, level = 'debug', type='PREVIEW') {
@@ -22,8 +21,9 @@ function logPreview(message, level = 'debug', type='PREVIEW') {
 // Track initialization state
 let previewInitialized = false;
 let updateTimer = null;
-const mermaidPlugin = new MermaidPlugin();
-const PREVIEW_CSS_ID = 'preview-specific-styles'; // ID to prevent multiple additions
+
+// Note: Mermaid plugin initialization is now handled by PluginLoader system
+// No need for separate getMermaidPlugin function
 
 /**
  * Initialize the preview system with all required plugins
@@ -56,10 +56,6 @@ export async function initializePreview(options = {}) {
     if (result) {
       previewInitialized = true;
       logPreview('Preview system initialized successfully');
-      
-      // Initialize Mermaid Plugin
-      await mermaidPlugin.init();
-      logPreview('Mermaid plugin initialized.');
       
       // Connect to editor input events via the event bus
       subscribeToEditorEvents();
@@ -110,10 +106,6 @@ async function initializeFallbackPreview() {
       return false;
     }
     
-    // Initialize Mermaid Plugin for Fallback
-    await mermaidPlugin.init();
-    logPreview('Mermaid plugin initialized for fallback.');
-    
     // Create a custom update function
     window.updateMarkdownPreview = async function() {
       const editor = document.querySelector('#editor-container textarea');
@@ -124,9 +116,6 @@ async function initializeFallbackPreview() {
       try {
         const html = await renderMarkdown(content);
         previewContainer.innerHTML = html;
-        
-        // Process Mermaid for Fallback
-        mermaidPlugin.process(previewContainer);
         
         logPreview('Preview updated via fallback method');
         return true;
@@ -210,21 +199,8 @@ export async function refreshPreview() {
         return false; // Stop if container missing
     }
 
-    // 2. Process Mermaid diagrams using the plugin (AFTER HTML is set)
-    // Use setTimeout to ensure DOM is updated before Mermaid processing
-    setTimeout(() => {
-        console.log('[PREVIEW.JS DEBUG] About to call mermaidPlugin.process');
-        const element = document.querySelector('#preview-container'); // Re-select just in case
-        console.log('[PREVIEW.JS DEBUG] Found preview container:', !!element);
-        if (element) {
-          console.log('[PREVIEW.JS DEBUG] Calling mermaidPlugin.process with element:', element);
-          mermaidPlugin.process(element);
-          console.log('[PREVIEW.JS DEBUG] mermaidPlugin.process call completed');
-          logPreview('Mermaid diagrams processed by plugin (deferred).');
-        } else {
-          logPreview('Preview container not found for deferred Mermaid processing.', 'warning');
-        }
-    }, 0);
+    // Note: Mermaid processing is now handled by postProcessRender above
+    // No need for separate processing calls
 
     // Emit update event
     eventBus.emit('preview:updated', { content, frontMatter });
@@ -342,7 +318,7 @@ export async function setupContentViewer() {
       logPreview('Content rendered in read-only mode.');
 
       // Initialize and Process Mermaid for read-only view
-      await mermaidPlugin.init();
+      await getMermaidPlugin();
       mermaidPlugin.process(previewElement);
       logPreview('Mermaid initialized and processed for read-only view.');
 

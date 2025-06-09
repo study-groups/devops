@@ -128,6 +128,9 @@ export class MermaidFullscreen {
         // Prevent body scroll
         document.body.style.overflow = 'hidden';
 
+        // Hide resize handles in fullscreen mode
+        this._hideResizeHandles(mermaidContainer);
+
         // Add fullscreen class for CSS targeting
         document.body.classList.add('mermaid-fullscreen-active');
 
@@ -150,6 +153,9 @@ export class MermaidFullscreen {
             this.fullscreenElement.parentNode.removeChild(this.fullscreenElement);
         }
 
+        // Show resize handles again when exiting fullscreen
+        this._showResizeHandles(this.mermaidContainer);
+
         // Restore body scroll
         document.body.style.overflow = '';
         document.body.classList.remove('mermaid-fullscreen-active');
@@ -160,6 +166,29 @@ export class MermaidFullscreen {
         this.isFullscreen = false;
 
         console.log('[MERMAID FULLSCREEN] Exited fullscreen mode');
+    }
+
+    _hideResizeHandles(container) {
+        const handles = container.querySelectorAll('.mermaid-resize-handle');
+        handles.forEach(handle => {
+            handle.style.display = 'none';
+        });
+        console.log('[MERMAID FULLSCREEN] Resize handles completely hidden for fullscreen');
+    }
+
+    _showResizeHandles(container) {
+        // Only show handles if the container has the controls instance and resize is enabled
+        const controlsInstance = container._mermaidControlsInstance;
+        if (controlsInstance && controlsInstance.resizeEnabled) {
+            const handles = container.querySelectorAll('.mermaid-resize-handle');
+            handles.forEach(handle => {
+                handle.style.display = 'block';
+                handle.style.opacity = '0.6'; // Match the professional blue styling
+                handle.style.pointerEvents = 'auto';
+                handle.style.background = '#007acc';
+            });
+            console.log('[MERMAID FULLSCREEN] Resize handles restored after fullscreen exit');
+        }
     }
 
     destroy() {

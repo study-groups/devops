@@ -1,11 +1,9 @@
 // FilterManager.js
-// Centralized manager for console log filters (types, subtypes, levels, keywords)
+// Centralized manager for console log filters (types, levels, keywords - no subtypes)
 
 const STORAGE_KEYS = {
   typeInclude: 'consoleTypeFiltersInclude',
   typeExclude: 'consoleTypeFiltersExclude',
-  subtypeInclude: 'consoleSubtypeFiltersInclude',
-  subtypeExclude: 'consoleSubtypeFiltersExclude',
   levelInclude: 'consoleLevelFiltersInclude',
   levelExclude: 'consoleLevelFiltersExclude',
   keywordInclude: 'consoleKeywordFiltersInclude',
@@ -32,11 +30,7 @@ const FilterManager = {
   getExcludeTypes() { return loadArray(STORAGE_KEYS.typeExclude); },
   setExcludeTypes(arr) { saveArray(STORAGE_KEYS.typeExclude, arr); },
 
-  // --- Subtypes ---
-  getIncludeSubtypes() { return loadArray(STORAGE_KEYS.subtypeInclude); },
-  setIncludeSubtypes(arr) { saveArray(STORAGE_KEYS.subtypeInclude, arr); },
-  getExcludeSubtypes() { return loadArray(STORAGE_KEYS.subtypeExclude); },
-  setExcludeSubtypes(arr) { saveArray(STORAGE_KEYS.subtypeExclude, arr); },
+
 
   // --- Levels ---
   getIncludeLevels() { return loadArray(STORAGE_KEYS.levelInclude); },
@@ -56,10 +50,6 @@ const FilterManager = {
       typeFilters: {
         include: this.getIncludeTypes(),
         exclude: this.getExcludeTypes(),
-      },
-      subtypeFilters: {
-        include: this.getIncludeSubtypes(),
-        exclude: this.getExcludeSubtypes(),
       },
       levelFilters: {
         include: this.getIncludeLevels(),

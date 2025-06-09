@@ -1,5 +1,5 @@
 // client/log/cli.js - CLI input handling for the log component
-import { logMessage } from './core.js';
+import { logMessage } from './LogCore.js';
 
 /**
  * Add CLI input to the log toolbar

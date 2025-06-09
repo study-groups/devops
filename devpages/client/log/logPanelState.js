@@ -1,6 +1,6 @@
 import { appStore } from '/client/appState.js'; // StateKit store
 // import { getUIState, setUIState } from '/client/uiState.js'; // If you have a separate uiState module
-import { logInfo, logError, logDebug, logWarn } from './core.js';
+import { logInfo, logError, logDebug, logWarn } from './LogCore.js';
 
 const LOG_VISIBLE_KEY = 'logVisible'; // Duplicated from LogPanel.js - centralize if possible
 const LOG_HEIGHT_KEY = 'logHeight';   // Duplicated from LogPanel.js - centralize if possible

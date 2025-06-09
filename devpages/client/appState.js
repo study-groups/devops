@@ -58,8 +58,6 @@ const defaultPluginsConfig = {
         // Module loading configuration
         module: '/client/preview/plugins/mermaid/index.js',
         exportName: 'MermaidPlugin',
-        // Legacy fallback for backwards compatibility
-        legacyInitFunction: 'ensureMermaidInitialized',
         // Plugin settings
         defaultState: {
             enabled: true,
@@ -511,5 +509,5 @@ appStore.subscribe((newState) => {
 // Log the initial state for debugging purposes
 // console.log('[AppState] Initial application state:', appStore.getState());
 
-// Export the plugin configuration for data-driven loading
+// Export the defaultPluginsConfig for use by PluginLoader and other modules
 export { defaultPluginsConfig };

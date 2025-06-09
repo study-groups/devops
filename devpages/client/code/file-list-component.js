@@ -246,25 +246,37 @@ class FileListComponent {
             return;
         }
 
-        if (newPath !== undefined && newPath !== this.currentPath) {
-            this.log(`[HANDLE_EXTERNAL_PATH_CHANGE] Path is different. Loading files for: "${newPath}"`, 'debug');
-            this.loadFiles(newPath, { source: 'external' });
+        if (newPath !== undefined) {
+            // Smart path handling: if newPath is a file, extract its directory
+            let targetPath = newPath;
+            if (newPath && /\.[^/]+$/.test(newPath)) {
+                // This is a file path, extract the directory
+                targetPath = newPath.substring(0, newPath.lastIndexOf('/'));
+                this.log(`[HANDLE_EXTERNAL_PATH_CHANGE] File path detected (${newPath}), using directory: "${targetPath}"`, 'debug');
+            }
+            
+            if (targetPath !== this.currentPath) {
+                this.log(`[HANDLE_EXTERNAL_PATH_CHANGE] Path is different. Loading files for: "${targetPath}"`, 'debug');
+                this.loadFiles(targetPath, { source: 'external' });
+            } else {
+                this.log('[HANDLE_EXTERNAL_PATH_CHANGE] Path is same as current. Not reloading.', 'debug');
+            }
         } else {
-            this.log('[HANDLE_EXTERNAL_PATH_CHANGE] Path is undefined or same as current. Not reloading.', 'debug');
+            this.log('[HANDLE_EXTERNAL_PATH_CHANGE] Path is undefined. Not reloading.', 'debug');
         }
     }
 
     async loadFiles(path = '', options = { source: 'internal' }) {
         const requestPath = typeof path === 'string' ? path : '';
         
-        // 🚨 PREVENT LOADING FILES AS DIRECTORIES
+        // 🛡️ HANDLE FILE PATHS GRACEFULLY (Expected behavior when receiving file paths)
         if (requestPath && /\.[^/]+$/.test(requestPath)) {
-            console.error(`[FileList] ERROR: loadFiles called with FILE path: ${requestPath}`);
-            console.log(`[FileList] FIX: Extracting directory from file path`);
+            console.log(`[FileList] INFO: Received file path: ${requestPath}`);
+            console.log(`[FileList] Auto-correcting to directory listing for parent directory`);
             
             // Extract directory from file path
             const dirPath = requestPath.substring(0, requestPath.lastIndexOf('/'));
-            console.log(`[FileList] Loading directory instead: ${dirPath}`);
+            console.log(`[FileList] Loading parent directory: ${dirPath}`);
             
             // Load the directory containing the file
             return this.loadFiles(dirPath, options);

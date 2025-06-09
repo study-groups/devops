@@ -5,7 +5,7 @@
 import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js';
 import { appVer } from '/config.js';
-import { setLogPanelInstance, logInfo, logError, logDebug, logWarn } from './core.js';
+import { setLogPanelInstance, logInfo, logError, logDebug, logWarn } from './LogCore.js';
 import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logPanelDOM.js'; // Import from new DOM module
 import { attachLogPanelEventListeners, removeLogPanelEventListeners } from './logPanelEvents.js';
 import { 
@@ -126,24 +126,34 @@ export class LogPanel {
      * Initializes the LogPanel: creates DOM, loads preferences, attaches listeners, updates UI.
      */
     initialize() {
-        if (!this.container) return; 
-
-        // logPanelInternalDebug('Initializing...');
-        logInfo('Initializing LogPanel UI.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
-        createLogPanelDOM(this, appVer); 
-        loadLogPanelPreferences(this, DEFAULT_LOG_HEIGHT, MIN_LOG_HEIGHT); 
-        subscribeToAppStoreChanges(this);
-        attachLogPanelEventListeners(this); 
-        this._updateTagsBar(); 
-        this.updateUI();
-        this.updateEntryCount(); 
-        // logPanelInternalDebug('Initialized successfully.');
-        logInfo('LogPanel UI initialized successfully.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
-
-        // Expose globally for Clear Log button
-        if (typeof window !== 'undefined') {
-            window.logPanel = this;
+        if (!this.container) {
+            console.error('[LogPanel] Container element not found during initialization');
+            return;
         }
+
+        // Create DOM elements first
+        createLogPanelDOM(this, appVer);
+        
+        // Wait for next frame to ensure DOM is updated
+        return new Promise(resolve => {
+            requestAnimationFrame(() => {
+                // Now initialize the rest of the functionality
+                loadLogPanelPreferences(this, DEFAULT_LOG_HEIGHT, MIN_LOG_HEIGHT);
+                subscribeToAppStoreChanges(this);
+                attachLogPanelEventListeners(this);
+                this._updateTagsBar();
+                this.updateUI();
+                this.updateEntryCount();
+
+                // Expose globally for Clear Log button
+                if (typeof window !== 'undefined') {
+                    window.logPanel = this;
+                }
+
+                logInfo('LogPanel UI initialized successfully.', { type: 'LOG_PANEL', subtype: 'LIFECYCLE' });
+                resolve();
+            });
+        });
     }
 
     /**

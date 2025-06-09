@@ -11,25 +11,6 @@ import fileSystemState from '/client/filesystem/fileSystemState.js'; // Keep for
 import { api } from '/client/api.js'; // Import the centralized API object
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Use dispatch
 
-// --- Constants ---
-// Remove endpoint constants as they are now in api.js
-// const LOGIN_ENDPOINT = '/api/auth/login';
-// const LOGOUT_ENDPOINT = '/api/auth/logout';
-// const USER_STATUS_ENDPOINT = '/api/auth/user';
-
-// --- State ---
-// State is managed in the central appState.js
-
-// --- Private Functions ---
-
-/**
- * Updates the central application state's auth section.
- * @param {object} data - The new state properties to merge into appState.auth.
- */
-// function updateCentralAuthState(data) { // No longer needed, direct update used
-//   // ...
-// }
-
 // --- Public API ---
 
 /**
@@ -163,7 +144,7 @@ async function handleLogin(username, password) {
     loginResult.error = error.message;
     // Log before dispatching failure
     logAuth(`[AUTH handleLogin] Dispatching AUTH_LOGIN_FAILURE with payload: ${JSON.stringify(loginResult)}`, 'debug');
-    dispatch({ type: ActionTypes.AUTH_LOGIN_FAILURE, payload: loginResult });
+    safeDispatch({ type: ActionTypes.AUTH_LOGIN_FAILURE, payload: loginResult });
     success = false;
   }
 

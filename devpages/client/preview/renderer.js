@@ -246,17 +246,8 @@ function parseBasicFrontmatter(markdownContent) {
 }
 // --- END: Inline Parser with Declarations ---
 
-// Global Mermaid plugin instance for renderer
-let globalMermaidPlugin = null;
-
-async function ensureMermaidInitialized() {
-    if (!globalMermaidPlugin) {
-        globalMermaidPlugin = new MermaidPlugin();
-        await globalMermaidPlugin.init();
-        logRenderer('[ensureMermaidInitialized] Mermaid plugin initialized for renderer.');
-    }
-    return globalMermaidPlugin;
-}
+// Note: Mermaid initialization is now handled by PluginLoader system
+// No need for global plugin instances or legacy init functions
 
 /**
  * Initialize the Markdown renderer with necessary extensions and options.
@@ -978,42 +969,8 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
         logRenderer(`[postProcessRender] No scripts (external or inline) to bundle or execute after trimming.`);
     }
 
-    // Mermaid processing using the modular plugin system
-    console.log('[RENDERER DEBUG] Checking if mermaid plugin is enabled...');
-    let mermaidEnabled;
-    try {
-        mermaidEnabled = isPluginEnabled('mermaid');
-        console.log('[RENDERER DEBUG] Mermaid enabled:', mermaidEnabled, 'Type:', typeof mermaidEnabled, 'Truthy:', !!mermaidEnabled);
-    } catch (error) {
-        console.error('[RENDERER DEBUG] Error checking mermaid enabled:', error);
-        mermaidEnabled = false;
-    }
-    
-    if (mermaidEnabled) {
-        console.log('[RENDERER DEBUG] Mermaid is enabled, starting processing...');
-        logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...');
-        
-        try {
-            // Import and use the modular mermaid plugin
-            const { MermaidPlugin } = await import('/client/preview/plugins/mermaid/index.js');
-            console.log('[RENDERER DEBUG] Creating modular MermaidPlugin instance...');
-            const mermaidPlugin = new MermaidPlugin();
-            
-            console.log('[RENDERER DEBUG] Initializing modular mermaid plugin...');
-            await mermaidPlugin.init();
-            
-            console.log('[RENDERER DEBUG] Calling modular mermaid plugin process...');
-            await mermaidPlugin.process(previewElement);
-            
-            console.log('[RENDERER DEBUG] Modular mermaid plugin processing completed successfully');
-            logRenderer('[postProcessRender] Mermaid processing completed via modular MermaidPlugin.');
-        } catch (error) {
-            console.error('[RENDERER DEBUG] Error during modular Mermaid processing:', error);
-            logRenderer(`[postProcessRender] Error during Mermaid processing: ${error.message}`, 'error');
-        }
-    } else {
-        logRenderer('[postProcessRender] Mermaid plugin is NOT enabled.');
-    }
+    // Mermaid processing is now handled by MarkdownRenderer.js via processEnabledPlugins
+    // This function is kept for legacy compatibility but doesn't duplicate Mermaid processing
 
     if (isPluginEnabled('highlight')) {
         logRenderer('[postProcessRender] Highlight plugin is enabled. Main highlighting via md.options.highlight. Optional post-processing if needed.');

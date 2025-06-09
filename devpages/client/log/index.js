@@ -1,14 +1,70 @@
 /**
  * log/index.js – Unified logging system
  * Exports all logging utilities for the application
+ * Updated to use LogCore.js and AppLog* variants without subtype functionality
+ * 
+ * HARMONIZED: Now includes UnifiedLogging.js that implements standards from:
+ * - 005.5.md: DevPages API, SDK & Logging Standards
+ * - 006.md: Namespace breakdown and refactoring  
+ * - 007.md: PJA Games unified logging approach
+ * 
+ * NOTE: Managers are NOT auto-initialized here - they are initialized in bootstrap.js
+ * with proper filter configuration
  */
 
+// === NEW UNIFIED LOGGING SYSTEM (HARMONIZED) ===
+import { 
+  Logger as UnifiedLogger,
+  createLogger as createUnifiedLogger,
+  setupControls,
+  typeHandlers,
+  pjaGameApi
+} from './UnifiedLogging.js';
+
+// === API LOGGING SYSTEM (NEW) ===
+import {
+  ApiLogEntry,
+  ApiLogBuffer, 
+  GameApiManager,
+  GAME_API_ACTIONS,
+  API_TARGETS
+} from './ApiLog.js';
+
+// Console Logging System (Console* prefixed)
+import { ConsoleLogManager } from './ConsoleLogManager.js';
+import { ConsoleLogEntry } from './ConsoleLogEntry.js';
+import { ConsoleLogFilter } from './ConsoleLogFilter.js';
+import { ConsoleLogBuffer } from './ConsoleLogBuffer.js';
+import { ConsoleCallerInfo } from './ConsoleCallerInfo.js';
+
+// Application Logging System (AppLog* prefixed for UI/application specific)
+import { AppLogEntry } from './AppLogEntry.js';
+import { AppLogFilter } from './AppLogFilter.js';
+import { AppLogBuffer } from './AppLogBuffer.js';
+// Note: Keep the old names for backward compatibility with UI components
 import { LogManager } from './LogManager.js';
 import { LogEntry } from './LogEntry.js';
 import { LogFilter } from './LogFilter.js';
 import { LogBuffer } from './LogBuffer.js';
 import { CallerInfo } from './CallerInfo.js';
 
+// Central logging functions (from LogCore.js, renamed from core.js)
+import { 
+  log, 
+  logDebug, 
+  logInfo, 
+  logWarn, 
+  logError,
+  createLogger,
+  legacyPositional,
+  globalLogMessageHandler,
+  setLogPanelInstance,
+  LEVELS,
+  canonicalLevel,
+  canonicalType
+} from './LogCore.js';
+
+// Console Performance Timing
 import {
   timingConfig,
   timingHistory,
@@ -29,116 +85,80 @@ import {
   isPerformanceLoggingEnabled
 } from './ConsoleTiming.js';
 
-// Create and initialize the global log manager instance
-const logManager = new LogManager();
-logManager.initialize().exposeToWindow();
+// REMOVED: Auto-initialization of managers - this is now handled in bootstrap.js
+// with proper filter configuration from FilterManager
+//
+// const consoleLogManager = new ConsoleLogManager();
+// consoleLogManager.initialize().exposeToWindow();
+//
+// const logManager = new LogManager();
+// logManager.initialize().exposeToWindow();
 
-// Legacy compatibility function (matches the old logMessage signature)
-function legacyPositional(message, level = 'debug', type = 'GENERAL', subtype = null) {
-  const normalizedLevel = level.toUpperCase();
-  
-  // Use the appropriate console method based on level
-  switch (normalizedLevel) {
-    case 'DEBUG':
-      console.debug({ message, type, subtype, level: normalizedLevel });
-      break;
-    case 'INFO':
-      console.info({ message, type, subtype, level: normalizedLevel });
-      break;
-    case 'WARN':
-    case 'WARNING':
-      console.warn({ message, type, subtype, level: 'WARN' });
-      break;
-    case 'ERROR':
-      console.error({ message, type, subtype, level: normalizedLevel });
-      break;
-    default:
-      console.log({ message, type, subtype, level: 'INFO' });
-  }
-}
-
-// Helper function to create a pre-configured logger
-function createLogger(type, options = {}) {
-  const subtype = options.subtype || null;
-  
-  return {
-    debug: (message, ...details) => {
-      console.debug({ message, type, subtype, level: 'DEBUG', details: details.length ? details : undefined });
-    },
-    info: (message, ...details) => {
-      console.info({ message, type, subtype, level: 'INFO', details: details.length ? details : undefined });
-    },
-    warn: (message, ...details) => {
-      console.warn({ message, type, subtype, level: 'WARN', details: details.length ? details : undefined });
-    },
-    error: (message, ...details) => {
-      console.error({ message, type, subtype, level: 'ERROR', details: details.length ? details : undefined });
-    },
-    timing: (message, ...details) => {
-      console.timing({ message, type, subtype, level: 'TIMING', details: details.length ? details : undefined });
-    }
-  };
-}
-
-// Create standard log functions with different levels
-function log(message, type = 'GENERAL', subtype = null, details = null) {
-  console.log({ message, type, subtype, level: 'INFO', details });
-}
-
-function logDebug(message, type = 'GENERAL', subtype = null, details = null) {
-  console.debug({ message, type, subtype, level: 'DEBUG', details });
-}
-
-function logInfo(message, type = 'GENERAL', subtype = null, details = null) {
-  console.info({ message, type, subtype, level: 'INFO', details });
-}
-
-function logWarn(message, type = 'GENERAL', subtype = null, details = null) {
-  console.warn({ message, type, subtype, level: 'WARN', details });
-}
-
-function logError(message, type = 'GENERAL', subtype = null, details = null) {
-  console.error({ message, type, subtype, level: 'ERROR', details });
-}
-
-// Legacy function to set log panel instance (for backward compatibility)
-function setLogPanelInstance(instance) {
-  if (typeof window !== 'undefined') {
-    window.logPanelInstance = instance;
-  }
-}
-
-// Export all functions and classes
+// Export console logging classes (Console* prefixed)
 export {
-  // Main manager instance
-  logManager,
-  
-  // Legacy functions for backward compatibility
-  legacyPositional as logMessage,
-  setLogPanelInstance,
-  
-  // Modern logging functions
+  ConsoleLogManager,
+  ConsoleLogEntry,
+  ConsoleLogFilter,
+  ConsoleLogBuffer,
+  ConsoleCallerInfo
+};
+
+// Export application logging classes (AppLog* prefixed and legacy)
+export {
+  AppLogEntry,
+  AppLogFilter,
+  AppLogBuffer,
+  // Maintain backward compatibility exports (classes only, not instances)
+  LogManager,
+  LogEntry,
+  LogFilter,
+  LogBuffer,
+  CallerInfo
+};
+
+// === UNIFIED LOGGING EXPORTS (RECOMMENDED FOR NEW CODE) ===
+export {
+  UnifiedLogger as Logger,
+  createUnifiedLogger as createLogger,  // Primary export for new code
+  setupControls,
+  typeHandlers,
+  pjaGameApi
+};
+
+// === API LOGGING EXPORTS (NEW) ===
+export {
+  ApiLogEntry,
+  ApiLogBuffer,
+  GameApiManager,
+  GAME_API_ACTIONS,
+  API_TARGETS
+};
+
+// === LEGACY EXPORTS (MAINTAINED FOR COMPATIBILITY) ===
+export {
   log,
   logDebug,
   logInfo,
   logWarn,
   logError,
-  createLogger,
-  
-  // Classes for custom usage
-  LogManager,
-  LogEntry,
-  LogFilter,
-  LogBuffer,
-  CallerInfo,
-  
-  // Timing exports re-exported from ConsoleTiming
+  createLogger as createLogCoreLogger,  // Renamed to avoid conflict
+  legacyPositional as logMessage, // This is what most modules import as logMessage
+  globalLogMessageHandler,
+  setLogPanelInstance,
+  LEVELS,
+  canonicalLevel,
+  canonicalType
+};
+
+// Export console timing functions
+export {
   timingConfig,
   timingHistory,
+  addPerformanceInfoToLog,
   createTimer,
   timeFunction,
   resetTimers,
-  getTimingHistory, 
+  getTimingHistory,
   clearTimingHistory,
   getTimingReport,
   getCurrentPerformanceTime,
@@ -146,6 +166,12 @@ export {
   disablePerformanceLogging,
   enableDetailedTiming,
   disableDetailedTiming,
+  initializeTiming,
   isDetailedTimingEnabled,
   isPerformanceLoggingEnabled
-}; 
+};
+
+// Ensure window.logMessage is available globally (backup)
+if (typeof window !== 'undefined' && !window.logMessage) {
+  window.logMessage = legacyPositional;
+} 

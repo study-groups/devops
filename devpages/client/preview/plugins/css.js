@@ -1,11 +1,16 @@
-import { logMessage, createLogger } from '/client/log/index.js';
+import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js'; // Assuming settings are in appStore
 import { api } from '/client/api.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure pathJoin is imported
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // <<< Ensure dispatch and ActionTypes are imported
+import { dispatch, ActionTypes, isReducerInitialized } from '/client/messaging/messageQueue.js'; // <<< Ensure dispatch and ActionTypes are imported
 
-// Create a logger for this module
-const logger = createLogger('CSS_PLUGIN');
+// Simple logger using logMessage
+const logger = {
+    debug: (msg, data) => logMessage(msg, 'debug', 'CSS_PLUGIN', data),
+    info: (msg, data) => logMessage(msg, 'info', 'CSS_PLUGIN', data),
+    warn: (msg, data) => logMessage(msg, 'warn', 'CSS_PLUGIN', data),
+    error: (msg, data) => logMessage(msg, 'error', 'CSS_PLUGIN', data)
+};
 
 const STYLE_ELEMENT_PREFIX = 'preview-plugin-css-';
 const ROOT_STYLE_ELEMENT_ID = 'preview-plugin-css-root-styles';
@@ -24,14 +29,18 @@ export function init(config = {}) {
     const state = appStore.getState();
     if (state.settings?.preview?.enableRootCss === undefined) {
         try {
-            const savedState = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
+            const savedState = localStorage.getItem('enableRootCss');
             if (savedState === null) {
                 // First time - set default to true
-                dispatch({ 
-                    type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
-                    payload: true 
-                });
-                logger.debug('Set default enableRootCss to true');
+                if (isReducerInitialized()) {
+                    dispatch({ 
+                        type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
+                        payload: true 
+                    });
+                    logger.debug('Set default enableRootCss to true');
+                } else {
+                    logger.warn('Reducer not ready yet, skipping default enableRootCss dispatch');
+                }
             }
         } catch (e) {
             logger.error('Error setting default enableRootCss', e);
@@ -176,8 +185,13 @@ export async function applyStyles() {
     const sortedFinal = [...finalActivePaths].sort();
     const sortedPrevious = [...previousActivePaths].sort();
     if (JSON.stringify(sortedFinal) !== JSON.stringify(sortedPrevious)) {
-        logger.info(`[CSS APPLY DISPATCH] Dispatching new active files: ${JSON.stringify(finalActivePaths)}`);
-        dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
+        logger.info(`[CSS APPLY DISPATCH] New active files detected: ${JSON.stringify(finalActivePaths)}`);
+        if (isReducerInitialized()) {
+            dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
+            logger.debug(`[CSS APPLY DISPATCH] Dispatched successfully`);
+        } else {
+            logger.warn(`[CSS APPLY DISPATCH] Reducer not ready yet, skipping dispatch (will apply on next CSS update)`);
+        }
     } else {
         logger.debug(`[CSS APPLY DISPATCH] Active files unchanged, skipping dispatch.`);
     }

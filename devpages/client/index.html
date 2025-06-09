@@ -18,6 +18,22 @@
     <!-- Include KaTeX CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     
+    <!-- Pre-load Mermaid for better initialization -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    
+    <!-- Verify Mermaid loaded -->
+    <script>
+        console.log('[MERMAID PRELOAD] Mermaid script tag executed');
+        console.log('[MERMAID PRELOAD] window.mermaid available:', typeof window.mermaid);
+        if (window.mermaid) {
+            console.log('[MERMAID PRELOAD] Mermaid object:', window.mermaid);
+            console.log('[MERMAID PRELOAD] Mermaid version:', window.mermaid.version);
+            console.log('[MERMAID PRELOAD] Mermaid methods:', Object.keys(window.mermaid));
+        } else {
+            console.error('[MERMAID PRELOAD] Mermaid not available after script load!');
+        }
+    </script>
+    
     <!-- Synchronous script to set initial state from localStorage -->
     <script src="/client/earlyInit.js"></script> 
     
@@ -132,8 +148,7 @@
     <!-- FileListComponent is now imported by enhancedSidebars.js, so this direct load might be redundant if not used elsewhere -->
     <!-- <script type="module" src="/client/code/file-list-component.js"></script> --> 
     
-    <!-- Load the new external script for sidebars -->
-    <script type="module" src="/client/enhancedSidebars.js"></script>
+    <!-- Enhanced sidebars will be loaded by bootstrap.js after eventBus is ready -->
 
     <script>
         const link = document.createElement('link');
@@ -141,6 +156,8 @@
         link.href = '/client/components/auth-display.css';
         document.head.appendChild(link);
     </script>
+
+    <!-- Layout initialization is now handled by bootstrap.js -->
 </body>
 
 

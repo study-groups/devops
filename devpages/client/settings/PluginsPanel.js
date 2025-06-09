@@ -254,6 +254,25 @@ export class PluginsPanel {
     errorInfo.classList.add('plugin-info-item', 'plugin-error-info');
     errorInfo.innerHTML = `<small>Status: ${this.getMermaidStatus()}</small>`;
     
+    // Add a button to reinitialize Mermaid if needed
+    if (typeof window.mermaid === 'undefined') {
+        const reinitButton = document.createElement('button');
+        reinitButton.textContent = 'Initialize Mermaid';
+        reinitButton.className = 'settings-button settings-button-small';
+        reinitButton.onclick = async () => {
+            try {
+                const { MermaidPlugin } = await import('/client/preview/plugins/mermaid/index.js');
+                const plugin = new MermaidPlugin();
+                await plugin.init();
+                // Refresh the info display
+                location.reload(); // Simple way to refresh the status
+            } catch (error) {
+                console.error('Failed to initialize Mermaid:', error);
+            }
+        };
+        infoContainer.appendChild(reinitButton);
+    }
+    
     infoContainer.appendChild(versionInfo);
     infoContainer.appendChild(errorInfo);
     
@@ -267,6 +286,6 @@ export class PluginsPanel {
     if (window.mermaidLastError) {
       return `Error: ${window.mermaidLastError}`;
     }
-    return 'Ready';
+    return `Ready (v${window.mermaid.version || 'unknown'})`;
   }
 }

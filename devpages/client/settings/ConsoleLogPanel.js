@@ -1,7 +1,7 @@
 /**
  * client/settings/ConsoleLogPanel.js
- * Settings panel for console logging, performance metrics, and type/subtype filtering.
- * Designed to be in feature parity with ConsoleLogManager.js
+ * Settings panel for console logging, performance metrics, and type filtering.
+ * Designed to be in feature parity with ConsoleLogManager.js (no subtypes)
  */
 
 import FilterManager from './FilterManager.js';
@@ -44,7 +44,6 @@ export class ConsoleLogPanel {
     
     // Initialize container references
     this.typesContainer = null;
-    this.subtypesContainer = null;
     this.levelFilterContainer = null;
     this.bufferStatusText = null; // For _updateBufferedViewAndStatus
     this.bufferViewArea = null; // For _updateBufferedViewAndStatus
@@ -78,7 +77,6 @@ export class ConsoleLogPanel {
       if (Object.values(FilterManager.STORAGE_KEYS).includes(event.key)) {
         const allFilters = FilterManager.loadAllFilters();
         window.config.typeFilters = allFilters.typeFilters;
-        window.config.subtypeFilters = allFilters.subtypeFilters;
         window.config.levelFilters = allFilters.levelFilters;
         window.config.keywordFilters = allFilters.keywordFilters;
         this.refreshTypeFilterDisplay();
@@ -439,10 +437,7 @@ export class ConsoleLogPanel {
         panelOriginalConsole.log("Type Filters - Include:", window.config.typeFilters.include);
         panelOriginalConsole.log("Type Filters - Exclude:", window.config.typeFilters.exclude);
       }
-      if (window.config?.subtypeFilters) {
-        panelOriginalConsole.log("Subtype Filters - Include:", window.config.subtypeFilters.include);
-        panelOriginalConsole.log("Subtype Filters - Exclude:", window.config.subtypeFilters.exclude);
-      }
+
       if (window.config?.levelFilters) {
         panelOriginalConsole.log("Level Filters - Include:", window.config.levelFilters.include);
         panelOriginalConsole.log("Level Filters - Exclude:", window.config.levelFilters.exclude);
@@ -455,8 +450,6 @@ export class ConsoleLogPanel {
       panelOriginalConsole.log("Global Filter Functions Available:");
       panelOriginalConsole.log("window.setIncludeTypes:", typeof window.setIncludeTypes === 'function');
       panelOriginalConsole.log("window.setExcludeTypes:", typeof window.setExcludeTypes === 'function');
-      panelOriginalConsole.log("window.setIncludeSubtypes:", typeof window.setIncludeSubtypes === 'function');
-      panelOriginalConsole.log("window.setExcludeSubtypes:", typeof window.setExcludeSubtypes === 'function');
       panelOriginalConsole.log("window.setIncludeLevels:", typeof window.setIncludeLevels === 'function');
       panelOriginalConsole.log("window.setExcludeLevels:", typeof window.setExcludeLevels === 'function');
       panelOriginalConsole.log("window.setIncludeKeywords:", typeof window.setIncludeKeywords === 'function');
@@ -536,9 +529,9 @@ export class ConsoleLogPanel {
     
     panelContent.appendChild(keywordGroup);
     
-    // --- Type/Subtype Filtering Section ---
-    const typeFilterGroup = createSettingsGroup('Type & Subtype Filtering', 
-      'Filter logs by their Type and Subtype tags (e.g., [USER], [API], etc.)');
+    // --- Type Filtering Section ---
+    const typeFilterGroup = createSettingsGroup('Type Filtering', 
+      'Filter logs by their Type tags (e.g., [USER], [API], etc.)');
     
     const typesTitle = document.createElement('h4');
     typesTitle.textContent = 'Log Types';
@@ -552,23 +545,8 @@ export class ConsoleLogPanel {
     this.typesContainer.style.border = '1px solid #ccc';
     this.typesContainer.style.padding = '10px';
     
-    const subtypesTitle = document.createElement('h4');
-    subtypesTitle.textContent = 'Log Subtypes';
-    subtypesTitle.style.marginBottom = '5px';
-    subtypesTitle.style.marginTop = '15px';
-    // Create and assign the container for subtypes
-    this.subtypesContainer = document.createElement('div');
-    this.subtypesContainer.classList.add('filter-subtypes-container');
-    this.subtypesContainer.style.marginBottom = '15px';
-    this.subtypesContainer.style.maxHeight = '200px';
-    this.subtypesContainer.style.overflowY = 'auto';
-    this.subtypesContainer.style.border = '1px solid #ccc';
-    this.subtypesContainer.style.padding = '10px';
-        
     typeFilterGroup.appendChild(typesTitle);
     typeFilterGroup.appendChild(this.typesContainer); // Use instance property
-    typeFilterGroup.appendChild(subtypesTitle);
-    typeFilterGroup.appendChild(this.subtypesContainer); // Use instance property; TYPO here, should be typeFilterGroup
     
     const refreshTypesBtn = document.createElement('button');
     refreshTypesBtn.classList.add('settings-button');
@@ -719,20 +697,14 @@ export class ConsoleLogPanel {
     panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
     
     this.typesContainer.innerHTML = ''; // Clear existing content
-    this.subtypesContainer.innerHTML = ''; // Clear existing content
     
     const discoveredTypes = window.getDiscoveredTypes();
-    const discoveredSubtypes = window.getDiscoveredSubtypes();
     
     const includeTypes = new Set(FilterManager.getIncludeTypes());
     const excludeTypes = new Set(FilterManager.getExcludeTypes());
-    const includeSubtypes = new Set(FilterManager.getIncludeSubtypes());
-    const excludeSubtypes = new Set(FilterManager.getExcludeSubtypes());
     
     panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_TYPES] Current type filters:', 
                { include: [...includeTypes], exclude: [...excludeTypes] });
-    panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_SUBTYPES] Current subtype filters:', 
-               { include: [...includeSubtypes], exclude: [...excludeSubtypes] });
     
     if (discoveredTypes.length === 0) {
       this.typesContainer.textContent = 'No log types discovered yet. Generate some logs first.';
@@ -743,18 +715,6 @@ export class ConsoleLogPanel {
         else if (excludeTypes.has(type)) initialState = 'mute';
         const typeDiv = this.createFilterCheckbox(type, initialState, 'type');
         this.typesContainer.appendChild(typeDiv);
-      });
-    }
-    
-    if (discoveredSubtypes.length === 0) {
-      this.subtypesContainer.textContent = 'No log subtypes discovered yet. Generate some logs first.';
-    } else {
-      discoveredSubtypes.sort().forEach(subtype => {
-        let initialState = 'normal';
-        if (includeSubtypes.has(subtype)) initialState = 'solo';
-        else if (excludeSubtypes.has(subtype)) initialState = 'mute';
-        const subtypeDiv = this.createFilterCheckbox(subtype, initialState, 'subtype');
-        this.subtypesContainer.appendChild(subtypeDiv);
       });
     }
   }
@@ -879,16 +839,6 @@ export class ConsoleLogPanel {
       // Live update LogManager
       if (typeof window.setIncludeTypes === 'function') window.setIncludeTypes(include);
       if (typeof window.setExcludeTypes === 'function') window.setExcludeTypes(exclude);
-    } else if (filterType === 'subtype') {
-      include = FilterManager.getIncludeSubtypes().filter(f => f !== filterValue);
-      exclude = FilterManager.getExcludeSubtypes().filter(f => f !== filterValue);
-      if (filterAction === 'solo') include.push(filterValue);
-      if (filterAction === 'mute') exclude.push(filterValue);
-      FilterManager.setIncludeSubtypes(include);
-      FilterManager.setExcludeSubtypes(exclude);
-      // Live update LogManager
-      if (typeof window.setIncludeSubtypes === 'function') window.setIncludeSubtypes(include);
-      if (typeof window.setExcludeSubtypes === 'function') window.setExcludeSubtypes(exclude);
     } else if (filterType === 'level') {
       include = FilterManager.getIncludeLevels().filter(f => f !== filterValue);
       exclude = FilterManager.getExcludeLevels().filter(f => f !== filterValue);
@@ -903,7 +853,6 @@ export class ConsoleLogPanel {
     // After updating, reload window.config for legacy code
     const allFilters = FilterManager.loadAllFilters();
     window.config.typeFilters = allFilters.typeFilters;
-    window.config.subtypeFilters = allFilters.subtypeFilters;
     window.config.levelFilters = allFilters.levelFilters;
     window.config.keywordFilters = allFilters.keywordFilters;
     this.refreshTypeFilterDisplay();
@@ -911,12 +860,11 @@ export class ConsoleLogPanel {
   }
 
   ensureContainersReady() {
-    if (!this.typesContainer || !this.subtypesContainer || !this.levelFilterContainer) {
+    if (!this.typesContainer || !this.levelFilterContainer) {
         this.typesContainer = document.getElementById('console-log-types-container');
-        this.subtypesContainer = document.getElementById('console-log-subtypes-container');
         this.levelFilterContainer = document.getElementById('console-log-levels-container');
         
-        if (!this.typesContainer || !this.subtypesContainer || !this.levelFilterContainer) {
+        if (!this.typesContainer || !this.levelFilterContainer) {
             if (!this._waitingForContainers) {
                 this._waitingForContainers = true;
                 setTimeout(() => {

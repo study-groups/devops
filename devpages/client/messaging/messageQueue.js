@@ -80,6 +80,8 @@ let mainReducer = (action) => {
   // In a real scenario, this should probably throw an error or handle state update
 };
 
+let isReducerReady = false;
+
 /**
  * Registers the main reducer function for the application.
  * This function will be called by dispatch to process actions.
@@ -90,7 +92,16 @@ export function setReducer(reducerFn) {
     throw new Error('Reducer must be a function.');
   }
   mainReducer = reducerFn;
+  isReducerReady = true;
   console.log('[MessageQueue] Reducer set.');
+}
+
+/**
+ * Check if the reducer has been registered and is ready to handle actions.
+ * @returns {boolean} True if reducer is ready, false otherwise.
+ */
+export function isReducerInitialized() {
+  return isReducerReady;
 }
 
 /**

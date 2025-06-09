@@ -304,7 +304,14 @@ export class MermaidPlugin {
         try {
             ensureMermaidCSSLoaded();
             
-            if (!mermaidScriptLoaded && typeof window.mermaid === 'undefined') {
+            // Check if Mermaid is already available from HTML script tag
+            if (typeof window.mermaid !== 'undefined') {
+                console.log('[MERMAID DEBUG] Mermaid already available from HTML');
+                logMermaid('Mermaid script already loaded from HTML.');
+                mermaidScriptLoaded = true;
+            } else if (!mermaidScriptLoaded) {
+                // Only try to load dynamically if not already loaded
+                console.log('[MERMAID DEBUG] Loading Mermaid script dynamically');
                 logMermaid('Loading Mermaid script from CDN...');
                 await this.loadMermaidScript();
                 mermaidScriptLoaded = true;
@@ -314,6 +321,15 @@ export class MermaidPlugin {
                 throw new Error('Mermaid library failed to load or define window.mermaid.');
             }
             
+            console.log('[MERMAID DEBUG] Mermaid object:', window.mermaid);
+            console.log('[MERMAID DEBUG] Mermaid keys:', Object.keys(window.mermaid || {}));
+            console.log('[MERMAID DEBUG] Mermaid version:', window.mermaid.version);
+            console.log('[MERMAID DEBUG] Mermaid initialize function:', typeof window.mermaid.initialize);
+            console.log('[MERMAID DEBUG] Mermaid run function:', typeof window.mermaid.run);
+            logMermaid(`Mermaid library loaded successfully. Version: ${window.mermaid.version || 'unknown'}`);
+            
+            // Initialize Mermaid with options
+            console.log('[MERMAID DEBUG] Calling mermaid.initialize with options:', this.options);
             window.mermaid.initialize(this.options);
             mermaidInitialized = true;
             
@@ -328,6 +344,10 @@ export class MermaidPlugin {
         } catch (error) {
             logMermaid(`Initialization failed: ${error.message}`, 'error');
             console.error('[MERMAID INIT ERROR]', error);
+            
+            // Store the error for debugging
+            window.mermaidLastError = error.message;
+            
             return false;
         }
     }
@@ -352,6 +372,8 @@ export class MermaidPlugin {
     async process(previewElement) {
         console.log('[MERMAID DEBUG] Process called, initialized:', mermaidInitialized);
         console.log('[MERMAID DEBUG] Preview element:', previewElement);
+        console.log('[MERMAID DEBUG] window.mermaid available:', typeof window.mermaid);
+        console.log('[MERMAID DEBUG] window.mermaid.run available:', typeof window.mermaid?.run);
         
         if (!mermaidInitialized) {
             logMermaid('Cannot process, Mermaid not initialized.', 'warning');
@@ -364,11 +386,18 @@ export class MermaidPlugin {
         const mermaidDivsToProcess = previewElement.querySelectorAll('.mermaid:not([data-mermaid-processed="true"])');
         console.log('[MERMAID DEBUG] Found mermaid divs to process:', mermaidDivsToProcess.length);
         
+        // Log the content of each mermaid div
+        mermaidDivsToProcess.forEach((div, index) => {
+            console.log(`[MERMAID DEBUG] Div ${index + 1} content:`, div.textContent.trim().substring(0, 100));
+            console.log(`[MERMAID DEBUG] Div ${index + 1} HTML:`, div.innerHTML.substring(0, 200));
+        });
+        
         if (mermaidDivsToProcess.length > 0) {
             logMermaid(`Found ${mermaidDivsToProcess.length} new diagrams to process.`);
             console.log('[MERMAID DEBUG] About to call mermaid.run()');
             
             try {
+                console.log('[MERMAID DEBUG] Calling window.mermaid.run with nodes:', mermaidDivsToProcess);
                 await window.mermaid.run({ nodes: mermaidDivsToProcess });
                 console.log('[MERMAID DEBUG] mermaid.run() completed successfully');
                 logMermaid('Mermaid.run() completed.');
@@ -407,6 +436,9 @@ export class MermaidPlugin {
         console.log('[MERMAID DEBUG] Setting up diagram controls for:', mermaidContainer, svgElement);
         
         try {
+            // Store controls instance reference on container for fullscreen access
+            mermaidContainer._mermaidControlsInstance = this.controls;
+            
             // Setup controls using the modular components
             console.log('[MERMAID DEBUG] About to setup zoom controls...');
             this.controls.setupZoomControls(mermaidContainer, svgElement);

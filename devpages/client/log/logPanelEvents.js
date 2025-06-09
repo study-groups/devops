@@ -1,6 +1,6 @@
 import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js'; // Assuming this is where actions like toggleLogVisibility are.
-import { logInfo, logError, logDebug } from './core.js'; // For logging within this module
+import { logInfo, logError, logDebug, logWarn } from './LogCore.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 

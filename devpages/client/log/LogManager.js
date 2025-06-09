@@ -40,10 +40,7 @@ export class LogManager {
         this.filter.setExcludeTypes(window.config.typeFilters.exclude || []);
       }
       
-      if (window.config.subtypeFilters) {
-        this.filter.setIncludeSubtypes(window.config.subtypeFilters.include || []);
-        this.filter.setExcludeSubtypes(window.config.subtypeFilters.exclude || []);
-      }
+
       
       if (window.config.levelFilters) {
         this.filter.setIncludeLevels(window.config.levelFilters.include || []);
@@ -178,7 +175,6 @@ export class LogManager {
           enabled: this.enabled,
           showTimestamps: this.showTimestamps,
           typeFilters: { include: [], exclude: [] },
-          subtypeFilters: { include: [], exclude: [] },
           levelFilters: { include: [], exclude: [] },
           keywordFilters: { include: '', exclude: '' }
         };
@@ -186,20 +182,16 @@ export class LogManager {
       
       // Initialize discovery sets on window
       window.discoveredTypes = new Set();
-      window.discoveredSubtypes = new Set();
       
       // Expose the logManager globally
       window.logManager = this;
       
       // Expose global utility functions for self-discovery
       window.getDiscoveredTypes = () => this.getDiscoveredTypes();
-      window.getDiscoveredSubtypes = () => this.getDiscoveredSubtypes();
       
       // Expose filter functions
       window.setIncludeTypes = (types) => this.filter.setIncludeTypes(types);
       window.setExcludeTypes = (types) => this.filter.setExcludeTypes(types);
-      window.setIncludeSubtypes = (subtypes) => this.filter.setIncludeSubtypes(subtypes);
-      window.setExcludeSubtypes = (subtypes) => this.filter.setExcludeSubtypes(subtypes);
       window.setIncludeLevels = (levels) => this.filter.setIncludeLevels(levels);
       window.setExcludeLevels = (levels) => this.filter.setExcludeLevels(levels);
       
@@ -226,7 +218,7 @@ export class LogManager {
       caller = CallerInfo.capture(1);
     }
     
-    let message, type = 'GENERAL', subtype = null, details = null;
+    let message, type = 'GENERAL', details = null;
     
     // Handle different input formats
     if (args && typeof args === 'object') {
@@ -237,7 +229,6 @@ export class LogManager {
         // Handle structured log object (new style)
         message = args.message;
         type = args.type || 'GENERAL';
-        subtype = args.subtype || null;
         details = args.details || null;
       } else {
         // Handle plain object
@@ -249,7 +240,7 @@ export class LogManager {
     }
     
     // Create and return the log entry
-    return new LogEntry(normalizedLevel, message, type, subtype, caller, details);
+    return new LogEntry(normalizedLevel, message, type, caller, details);
   }
 
   /**
@@ -453,9 +444,8 @@ export class LogManager {
    */
   handleConsoleMethod(method, args) {
     try {
-      // Extract type/subtype from message if present
+      // Extract type from message if present
       let type = 'GENERAL';
-      let subtype = null;
       let level = this.normalizeLevel(method);
       let message = '';
       let details = null;
@@ -466,7 +456,6 @@ export class LogManager {
         const structInfo = this.extractStructuredInfo(args);
         if (structInfo) {
           type = structInfo.type || type;
-          subtype = structInfo.subtype || subtype;
           level = structInfo.level || level;
         }
       }
@@ -487,7 +476,7 @@ export class LogManager {
       }
       
       // Create log entry with extracted information
-      entry = new LogEntry(level, message, type, subtype, null, details);
+      entry = new LogEntry(level, message, type, null, details);
       
       // Add to buffer
       this.buffer.add(entry);
@@ -698,13 +687,7 @@ export class LogManager {
     return this.buffer.getDiscoveredTypes();
   }
 
-  /**
-   * Get all discovered log subtypes
-   * @returns {Array} - Array of log subtypes
-   */
-  getDiscoveredSubtypes() {
-    return this.buffer.getDiscoveredSubtypes();
-  }
+
 
   /**
    * Create a silent timer that doesn't log
@@ -748,27 +731,25 @@ export class LogManager {
     
     // Check if first argument is an object with structured log properties
     if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
-      // Look for structured log format with type, subtype, etc.
-      if (firstArg.type || firstArg.subtype || firstArg.level || firstArg.message !== undefined) {
+      // Look for structured log format with type, level, etc.
+      if (firstArg.type || firstArg.level || firstArg.message !== undefined) {
         return {
           type: firstArg.type,
-          subtype: firstArg.subtype,
           level: firstArg.level,
           message: firstArg.message
         };
       }
     }
     
-    // Check if first argument is a string with [TYPE] or [TYPE][SUBTYPE] format
+    // Check if first argument is a string with [TYPE] format
     if (typeof firstArg === 'string') {
-      // Simple regex to extract [TYPE] and optionally [SUBTYPE]
-      const typeMatch = firstArg.match(/^\s*\[([^\]]+)\](?:\[([^\]]+)\])?\s*(.*)/);
+      // Simple regex to extract [TYPE]
+      const typeMatch = firstArg.match(/^\s*\[([^\]]+)\]\s*(.*)/);
       if (typeMatch) {
-        const [, type, subtype, message] = typeMatch;
+        const [, type, message] = typeMatch;
         // Return the structured info with remaining text as the message
         return {
           type: type || 'GENERAL',
-          subtype: subtype || null,
           message: message || ''
         };
       }

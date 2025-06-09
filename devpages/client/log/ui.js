@@ -1,5 +1,5 @@
 // log/ui.js - UI interactions for the log component
-import { logMessage } from './core.js';
+import { logMessage } from './LogCore.js';
 import { logState, toggleLog } from './state.js';
 import { showSystemInfo } from '../uiManager.js';
 

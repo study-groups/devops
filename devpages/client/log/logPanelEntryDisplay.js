@@ -1,8 +1,8 @@
 import { triggerActions } from '/client/actions.js';
 // import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js'; // Already in LogPanel.js
 
-// Placeholder for logError, logDebug from core.js if needed directly here
-// import { logError, logDebug } from './core.js';
+// Placeholder for logError, logDebug from LogCore.js if needed directly here
+// import { logError, logDebug } from './LogCore.js';
 
 /**
  * Updates the display content of a log entry based on the requested mode (raw, markdown, html).

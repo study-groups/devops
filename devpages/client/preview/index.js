@@ -45,11 +45,12 @@ export class PreviewManager {
     }
 
     this.config = {
-      container: '#md-preview',
+      container: '#preview-container',
       plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'],
       theme: 'light',
       updateDelay: 100,
       autoRender: true,
+      renderMode: 'inline', // 'inline' or 'iframe'
       ...options
     };
 
@@ -58,6 +59,7 @@ export class PreviewManager {
     this.updateTimer = null;
     this.eventBusListeners = [];
     this.previewCssId = 'preview-specific-styles'; // Add ID as property
+    this.popupWindow = null; // For popup iframe functionality
 
     previewInstance = this;
     return this;
@@ -78,7 +80,15 @@ export class PreviewManager {
       } else {
           logMessage('Preview CSS link tag already exists.', 'debug', 'PREVIEW');
       }
-      // --- End dynamic CSS link loading ---
+
+      // --- Listen for layout changes ---
+      if (eventBus && typeof eventBus.on === 'function') {
+        eventBus.on('layout:stateChanged', this.handleLayoutStateChange.bind(this));
+        this.eventBusListeners.push(
+          { event: 'layout:stateChanged', listener: this.handleLayoutStateChange.bind(this) }
+        );
+      }
+
       // --- MODIFIED: Retry finding container --- 
       const containerSelector = (typeof this.config.container === 'string') ? this.config.container : null;
       let attempt = 0;
@@ -221,34 +231,54 @@ export class PreviewManager {
   }
 
   async update(content, markdownFilePath) {
-    logMessage(`[PreviewManager.update] Called. Path: '${markdownFilePath || 'N/A'}'. Content length: ${content?.length || 0}. Initialized: ${this.initialized}`, "info", "PREVIEW");
-
-    if (!this.initialized || !this.previewElement) {
-      logMessage(`[PreviewManager.update] Not initialized or no previewElement. Aborting. Initialized: ${this.initialized}, PreviewElement: ${!!this.previewElement}`, "error", "PREVIEW");
-      return Promise.resolve(this.initialized ? { html: '<p>Error: Preview element not found.</p>', frontMatter: {} } : false);
+    if (!this.initialized) {
+      console.warn('[PreviewManager.update] Preview not initialized');
+      return;
     }
-    
-    try {
-      if (this.updateTimer) {
-        clearTimeout(this.updateTimer);
-        logMessage(`[PreviewManager.update] Cleared pending update timer.`, "debug", "PREVIEW");
-      }
-      
-      return new Promise((resolve) => {
-        this.updateTimer = setTimeout(async () => {
-          logMessage(`[PreviewManager.update] setTimeout callback executing.`, "debug", "PREVIEW");
-          try {
-            logMessage(`[PreviewManager.update] Calling renderMarkdown...`, "debug", "PREVIEW");
-            const renderResult = await renderMarkdown(content, markdownFilePath);
+
+    // Handle popup preview update
+    if (this.config.renderMode === 'iframe' && this.popupWindow && !this.popupWindow.closed) {
+      await this.updatePopupPreview(content, markdownFilePath);
+      return;
+    }
+
+    // Clear any existing timer
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+    }
+
+    return new Promise((resolve) => {
+      this.updateTimer = setTimeout(async () => {
+        try {
+          logMessage(`[PreviewManager.update] Processing content (length: ${content.length})`, "debug", "PREVIEW");
+          
+          const renderResult = await renderMarkdown(content, markdownFilePath);
+          
+          if (!renderResult) {
+            logMessage('Render result is null or undefined', "error", "PREVIEW");
+            resolve();
+            return;
+          }
+
+          // Handle different rendering modes
+          if (this.config.renderMode === 'iframe') {
+            // Render as complete HTML document in iframe
+            const fullHtml = this.createCompleteHtmlDocument(renderResult);
             
-            logMessage(`[PreviewManager.update] renderMarkdown returned. Result keys: ${Object.keys(renderResult || {}).join(', ')}. External Scripts: ${renderResult?.externalScriptUrls?.length || 0}. Inline Scripts: ${renderResult?.inlineScriptContents?.length || 0}.`, "debug", "PREVIEW");
-
-            if (!renderResult || typeof renderResult.fullPage !== 'string' || typeof renderResult.html !== 'string' || typeof renderResult.frontMatter === 'undefined' || !Array.isArray(renderResult.externalScriptUrls) || !Array.isArray(renderResult.inlineScriptContents) ) {
-                logMessage('[PreviewManager.update] renderMarkdown returned invalid result structure. Aborting update.', 'error', 'PREVIEW');
-                resolve({ html: '<p>Error rendering content.</p>', frontMatter: renderResult?.frontMatter || {} });
-                return;
+            if (this.previewElement.tagName === 'IFRAME') {
+              this.previewElement.srcdoc = fullHtml;
+            } else {
+              // Convert container to iframe
+              this.previewElement.innerHTML = '';
+              const iframe = document.createElement('iframe');
+              iframe.style.width = '100%';
+              iframe.style.height = '100%';
+              iframe.style.border = 'none';
+              iframe.srcdoc = fullHtml;
+              this.previewElement.appendChild(iframe);
             }
-
+          } else {
+            // Standard inline rendering
             if (this.previewElement.tagName !== 'IFRAME') {
                 logMessage(`[PreviewManager.update] Updating DIV preview content.`, "debug", "PREVIEW");
                 
@@ -257,18 +287,11 @@ export class PreviewManager {
                 const parsedDoc = parser.parseFromString(renderResult.fullPage, 'text/html');
                 logMessage(`[PreviewManager.update] DOMParser finished. Parsed head: ${parsedDoc.head.children.length} children, Parsed body: ${parsedDoc.body.children.length} children.`, "debug", "PREVIEW");
 
-                // TODO: Reconcile head content (styles, meta) from parsedDoc.head if needed.
-                // For now, we focus on body and scripts.
-                // The 'headContent' from renderResult can be used for dynamic CSS links if not handled by CssPlugin
-
                 logMessage(`[PreviewManager.update] Setting previewElement.innerHTML with renderResult.html (length: ${renderResult.html.length})...`, "debug", "PREVIEW");
                 
-                // DIAGNOSTIC LOG:
-                console.log('>>>> RENDERED HTML BODY FOR PREVIEW (renderResult.html):', renderResult.html);
-
                 try {
                     console.log('[DEBUG] About to set innerHTML...');
-                    this.previewElement.innerHTML = renderResult.html; // Set the sanitized body HTML
+                    this.previewElement.innerHTML = renderResult.html;
                     console.log('[DEBUG] innerHTML set successfully');
                     logMessage(`[PreviewManager.update] previewElement.innerHTML updated.`, "debug", "PREVIEW");
                     console.log('[DEBUG] innerHTML updated successfully');
@@ -278,50 +301,46 @@ export class PreviewManager {
                 }
 
             } else {
-                 logMessage(`[PreviewManager.update] Preview element is IFRAME. This path should ideally not be taken. Using srcdoc.`, "warn", "PREVIEW"); 
-                 // If using srcdoc, the script bundling needs to happen *within* the iframe,
-                 // or the bundled script needs to be part of the srcdoc string.
-                 // For simplicity, the current bundling approach assumes direct DOM manipulation.
-                 // If iframe is essential, postProcessRender would need to target iframe.contentDocument.
-                 this.previewElement.srcdoc = renderResult.fullPage; // This will execute scripts within the fullPage
+                 logMessage(`[PreviewManager.update] Preview element is IFRAME. Using srcdoc.`, "warn", "PREVIEW"); 
+                 this.previewElement.srcdoc = renderResult.fullPage;
                  console.log('[DEBUG] srcdoc updated successfully');
             }
-            
-            console.log('[DEBUG] About to proceed to postProcessRender section');
-            
-            logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
-            // MODIFIED: Pass script arrays AND markdownFilePath to postProcessRender
-            try {
-                console.log('[DEBUG] About to call postProcessRender with:', {
-                    previewElement: !!this.previewElement,
-                    externalScripts: renderResult.externalScriptUrls?.length || 0,
-                    inlineScripts: renderResult.inlineScriptContents?.length || 0,
-                    markdownFilePath,
-                    hasFrontMatter: !!renderResult.frontMatter
-                });
-                await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath, renderResult.frontMatter);
-                console.log('[DEBUG] postProcessRender call completed successfully');
-                logMessage(`[PreviewManager.update] postProcessRender finished.`, "debug", "PREVIEW");
-            } catch (error) {
-                console.error('[DEBUG] Error in postProcessRender call:', error);
-                logMessage(`[PreviewManager.update] Error in postProcessRender: ${error.message}`, "error", "PREVIEW");
-            }
-            
-            resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
-
-          } catch (error) {
-            logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW");
-            console.error('[PREVIEW UPDATE ERROR]', error);
-            resolve({ html: '<p>Error during update.</p>', frontMatter: {} }); 
           }
-        }, this.config.updateDelay);
-      });
-    } catch (e) {
-      // This catch is for synchronous errors before the Promise/setTimeout
-      logMessage(`[PreviewManager.update] Synchronous error setting up update: ${e.message}`, "error", "PREVIEW");
-      console.error('[PREVIEW SETUP UPDATE ERROR]', e);
-      return Promise.resolve({ html: '<p>Error setting up update.</p>', frontMatter: {} });
-    }
+            
+          console.log('[DEBUG] About to proceed to postProcessRender section');
+          
+          logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
+
+          // Call postProcessRender to handle plugin processing (Mermaid, etc.)
+          if (this.config.renderMode === 'inline' && this.previewElement) {
+            try {
+              // Import and call postProcessRender from MarkdownRenderer
+              const { postProcessRender } = await import('/client/preview/renderers/MarkdownRenderer.js');
+              await postProcessRender(
+                this.previewElement, 
+                renderResult.externalScriptUrls || [], 
+                renderResult.inlineScriptContents || [], 
+                markdownFilePath, 
+                renderResult.frontMatter || {}
+              );
+              logMessage(`[PreviewManager.update] postProcessRender completed successfully`, "debug", "PREVIEW");
+            } catch (postProcessError) {
+              logMessage(`[PreviewManager.update] Error during postProcessRender: ${postProcessError.message}`, "error", "PREVIEW");
+              console.error('[PreviewManager.update] postProcessRender error:', postProcessError);
+            }
+          } else {
+            logMessage(`[PreviewManager.update] Skipping postProcessRender for iframe mode or missing preview element`, "debug", "PREVIEW");
+          }
+
+          resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
+
+        } catch (error) {
+          logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW");
+          console.error('[PREVIEW UPDATE ERROR]', error);
+          resolve({ html: '<p>Error during update.</p>', frontMatter: {} }); 
+        }
+      }, this.config.updateDelay);
+    });
   }
 
   applyTheme(theme) {
@@ -429,6 +448,152 @@ export class PreviewManager {
       // ---------------------------------
       if (this.updateTimer) { clearTimeout(this.updateTimer); }
       this.previewElement = null; this.initialized = false; previewInstance = null;
+  }
+
+  /**
+   * Handle layout state changes
+   */
+  handleLayoutStateChange(data) {
+    const { editorType, previewType, contentMode } = data;
+    console.log(`[PreviewManager] Layout state changed: editor=${editorType}, preview=${previewType}, content=${contentMode}`);
+    
+    // Update render mode
+    this.config.renderMode = previewType === 'popup-iframe' ? 'iframe' : 'inline';
+    
+    // Handle popup preview
+    if (previewType === 'popup-iframe') {
+      this.openPopupPreview();
+    } else {
+      this.closePopupPreview();
+    }
+    
+    // Handle preview visibility
+    if (previewType === 'hidden') {
+      // Preview is disabled - no need to update
+      return;
+    }
+  }
+
+  /**
+   * Open popup preview window with iframe
+   */
+  openPopupPreview() {
+    if (this.popupWindow && !this.popupWindow.closed) {
+      this.popupWindow.focus();
+      return;
+    }
+
+    const popupFeatures = 'width=800,height=600,scrollbars=yes,resizable=yes,location=no,menubar=no,toolbar=no';
+    this.popupWindow = window.open('', 'preview-popup', popupFeatures);
+    
+    if (!this.popupWindow) {
+      console.error('[PreviewManager] Failed to open popup window - popup blocker?');
+      return;
+    }
+
+    // Initialize popup content
+    this.popupWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Preview</title>
+        <style>
+          body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            line-height: 1.6; 
+            margin: 0; 
+            padding: 20px;
+            background: #fff;
+          }
+          iframe {
+            width: 100%;
+            height: calc(100vh - 40px);
+            border: none;
+            background: #fff;
+          }
+        </style>
+      </head>
+      <body>
+        <iframe id="preview-iframe" srcdoc="<p>Loading preview...</p>"></iframe>
+      </body>
+      </html>
+    `);
+    this.popupWindow.document.close();
+
+    // Update the popup with current content
+    const editor = document.querySelector('#editor-container textarea');
+    if (editor && editor.value) {
+      this.updatePopupPreview(editor.value);
+    }
+  }
+
+  /**
+   * Close popup preview window
+   */
+  closePopupPreview() {
+    if (this.popupWindow && !this.popupWindow.closed) {
+      this.popupWindow.close();
+    }
+    this.popupWindow = null;
+  }
+
+  /**
+   * Update popup preview with rendered content
+   */
+  async updatePopupPreview(content, markdownFilePath = '') {
+    if (!this.popupWindow || this.popupWindow.closed) {
+      return;
+    }
+
+    try {
+      const renderResult = await renderMarkdown(content, markdownFilePath);
+      
+      // Create complete HTML document
+      const fullHtml = this.createCompleteHtmlDocument(renderResult);
+      
+      const iframe = this.popupWindow.document.getElementById('preview-iframe');
+      if (iframe) {
+        iframe.srcdoc = fullHtml;
+      }
+    } catch (error) {
+      console.error('[PreviewManager] Error updating popup preview:', error);
+    }
+  }
+
+  /**
+   * Create a complete HTML document for iframe rendering
+   */
+  createCompleteHtmlDocument(renderResult) {
+    const { html, head = '', frontMatter = {} } = renderResult;
+    
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview</title>
+  <link rel="stylesheet" href="/client/preview/preview.css">
+  ${head}
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background: #fff;
+      color: #333;
+    }
+    .markdown-preview {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="markdown-preview">
+    ${html}
+  </div>
+</body>
+</html>`;
   }
 }
 

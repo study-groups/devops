@@ -1,7 +1,7 @@
 // client/cli/logger.js - Bridge between CLI events and logging system
 import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
-import { logMessage } from '../log/core.js';
+import { logMessage } from '../log/LogCore.js';
 
 // Bridge CLI events to the logging system
 function setupCliLogging() {

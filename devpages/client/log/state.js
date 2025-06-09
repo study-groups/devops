@@ -1,5 +1,5 @@
 // log/state.js - Log visibility state management
-import { logMessage } from './core.js';
+import { logMessage } from './LogCore.js';
 
 // Track how the toggle was initiated
 let toggleSource = '';
