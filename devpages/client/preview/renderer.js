@@ -7,7 +7,7 @@
 
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
 import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
-import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
+import { MermaidPlugin } from '/client/preview/plugins/mermaid/index.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins } from '/client/preview/plugins/index.js';
 import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
@@ -746,6 +746,13 @@ function simpleJoinPath(base, relative) {
  * @param {object} [frontMatter={}] - The parsed frontmatter object.
  */
 export async function postProcessRender(previewElement, externalScriptUrls = [], inlineScriptContents = [], markdownFilePath = '', frontMatter = {}) {
+    console.log('[RENDERER DEBUG] postProcessRender called with:', { 
+        previewElement: !!previewElement, 
+        externalScripts: externalScriptUrls?.length || 0, 
+        inlineScripts: inlineScriptContents?.length || 0,
+        markdownFilePath,
+        hasMermaidDivs: previewElement?.querySelectorAll('.mermaid')?.length || 0
+    });
     logRenderer(`[postProcessRender] Called for element: ${previewElement ? previewElement.id : 'null'}. External scripts: ${externalScriptUrls.length}, Inline scripts: ${inlineScriptContents.length}. Path: '${markdownFilePath}'`);
 
     if (!previewElement) {
@@ -971,27 +978,37 @@ export async function postProcessRender(previewElement, externalScriptUrls = [],
         logRenderer(`[postProcessRender] No scripts (external or inline) to bundle or execute after trimming.`);
     }
 
-    // Mermaid processing
-    if (isPluginEnabled('mermaid')) {
+    // Mermaid processing using the modular plugin system
+    console.log('[RENDERER DEBUG] Checking if mermaid plugin is enabled...');
+    let mermaidEnabled;
+    try {
+        mermaidEnabled = isPluginEnabled('mermaid');
+        console.log('[RENDERER DEBUG] Mermaid enabled:', mermaidEnabled, 'Type:', typeof mermaidEnabled, 'Truthy:', !!mermaidEnabled);
+    } catch (error) {
+        console.error('[RENDERER DEBUG] Error checking mermaid enabled:', error);
+        mermaidEnabled = false;
+    }
+    
+    if (mermaidEnabled) {
+        console.log('[RENDERER DEBUG] Mermaid is enabled, starting processing...');
         logRenderer('[postProcessRender] Mermaid plugin is enabled. Attempting processing...');
         
         try {
-            // First, ensure Mermaid is initialized
-            const mermaidPlugin = await ensureMermaidInitialized();
+            // Import and use the modular mermaid plugin
+            const { MermaidPlugin } = await import('/client/preview/plugins/mermaid/index.js');
+            console.log('[RENDERER DEBUG] Creating modular MermaidPlugin instance...');
+            const mermaidPlugin = new MermaidPlugin();
             
-            // Now try processing
-            if (window.mermaid && typeof window.mermaid.run === 'function') {
-                await window.mermaid.run({
-                    nodes: Array.from(previewElement.querySelectorAll('.mermaid')),
-                });
-                logRenderer('[postProcessRender] Mermaid processing completed via window.mermaid.run().');
-            } else if (mermaidPlugin && typeof mermaidPlugin.process === 'function') {
-                await mermaidPlugin.process(previewElement); 
-                logRenderer('[postProcessRender] Mermaid processing completed via MermaidPlugin.process().');
-            } else {
-                logRenderer('[postProcessRender] Mermaid initialization failed - neither window.mermaid nor plugin.process available.', 'error');
-            }
+            console.log('[RENDERER DEBUG] Initializing modular mermaid plugin...');
+            await mermaidPlugin.init();
+            
+            console.log('[RENDERER DEBUG] Calling modular mermaid plugin process...');
+            await mermaidPlugin.process(previewElement);
+            
+            console.log('[RENDERER DEBUG] Modular mermaid plugin processing completed successfully');
+            logRenderer('[postProcessRender] Mermaid processing completed via modular MermaidPlugin.');
         } catch (error) {
+            console.error('[RENDERER DEBUG] Error during modular Mermaid processing:', error);
             logRenderer(`[postProcessRender] Error during Mermaid processing: ${error.message}`, 'error');
         }
     } else {
@@ -1048,8 +1065,12 @@ export class Renderer {
 
 // Helper function to check if plugin is enabled via application state
 function isPluginEnabled(pluginName) {
+    console.log('[RENDERER DEBUG] isPluginEnabled called for:', pluginName);
     const state = appStore.getState();
-    return getIsPluginEnabled(state, pluginName);
+    console.log('[RENDERER DEBUG] App state plugins:', state.plugins);
+    const result = getIsPluginEnabled(state, pluginName);
+    console.log('[RENDERER DEBUG] getIsPluginEnabled result:', result, 'Type:', typeof result, 'Truthy:', !!result);
+    return result;
 } 
 
 // ADD THIS: Helper function to load highlight.js

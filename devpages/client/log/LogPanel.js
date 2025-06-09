@@ -160,13 +160,16 @@ export class LogPanel {
         let subtype; 
         let timestamp;
         let originalCoreMessage; 
+        let source;
 
-        if (typeof entryData === 'object' && entryData && 'message' in entryData && 'level' in entryData && 'type' in entryData) {
-            originalCoreMessage = entryData.message; 
-            level = entryData.level; 
-            type = entryData.type;   
-            subtype = entryData.subtype; 
-            timestamp = new Date(entryData.ts).toLocaleTimeString();
+        if (entryData && typeof entryData === 'object' && entryData.message !== undefined) {
+            // Object-based entry (from new log() function)
+            originalCoreMessage = entryData.message;
+            level = entryData.level || 'INFO';
+            type = entryData.type || 'GENERAL';
+            subtype = entryData.subtype || null;
+            source = entryData.source || 'DEVPAGES';
+            timestamp = entryData.ts ? new Date(entryData.ts).toLocaleTimeString() : new Date().toLocaleTimeString();
             
             // Add performance display
             let perfInfo = '';
@@ -187,13 +190,8 @@ export class LogPanel {
             messageForDisplay = `${displayPrefix}${perfInfo} ${coreMessageString}`;
 
         } else if (typeof entryData === 'string') {
-            // This path is for legacy calls, or if addEntry is directly called with a string
-            originalCoreMessage = entryData; 
-            type = legacyTypeArgument.toUpperCase();
-            level = 'INFO'; 
-            subtype = null;
-            timestamp = new Date().toLocaleTimeString();
-
+            // Legacy string processing
+            source = 'DEVPAGES'; // ADD DEFAULT SOURCE
             // IMPROVED: Better parsing for complex bracket patterns
             // Expected patterns:
             // [LEVEL] [SOURCE] message
@@ -201,9 +199,9 @@ export class LogPanel {
             // [SOURCE] message
             
             // Match multiple bracket patterns at the start
-            const allBrackets = originalCoreMessage.match(/^(\s*\[[^\]]+\])+/);
+            const allBrackets = entryData.match(/^(\s*\[[^\]]+\])+/);
             if (allBrackets) {
-                const brackets = originalCoreMessage.match(/\[([^\]]+)\]/g);
+                const brackets = entryData.match(/\[([^\]]+)\]/g);
                 const values = brackets ? brackets.map(b => b.slice(1, -1).trim()) : [];
                 
                 if (values.length >= 1) {
@@ -230,8 +228,8 @@ export class LogPanel {
                 }
                 
                 // Extract the message content after all brackets
-                const afterBrackets = originalCoreMessage.replace(/^(\s*\[[^\]]+\])+\s*/, '');
-                originalCoreMessage = afterBrackets || originalCoreMessage;
+                const afterBrackets = entryData.replace(/^(\s*\[[^\]]+\])+\s*/, '');
+                entryData = afterBrackets || entryData;
             }
             
             let displayPrefix = `[${level}]`;
@@ -241,13 +239,17 @@ export class LogPanel {
             if (subtype) {
                 displayPrefix += ` [${subtype}]`;
             }
-            messageForDisplay = `${displayPrefix} ${originalCoreMessage}`;
+            messageForDisplay = `${displayPrefix} ${entryData}`;
 
         } else {
             // This is the "final else" block (around line 655 in your file based on the latest stack)
             logPanelInternalDebug(`addEntry received invalid data (falling into final else): ${JSON.stringify(entryData)}. This entry will not be added to the UI log.`, 'error');
             return;
         }
+
+        // Ensure level and type have defaults before use
+        level = level || 'INFO';
+        type = type || 'GENERAL';
 
         // Create checkpoints in complex operations
         entryTimer.checkpoint('parsed data');
@@ -290,12 +292,17 @@ export class LogPanel {
         logEntry.dataset.logIndex = this.state.clientLogIndex;
         logEntry.dataset.logTimestamp = timestamp;
         logEntry.dataset.logType = upperCaseType; 
+        logEntry.dataset.logLevel = level;
+        logEntry.dataset.source = source;
         if (subtype) {
             logEntry.dataset.logSubtype = subtype; 
         }
         logEntry.dataset.logCoreMessage = (typeof originalCoreMessage === 'string') ? originalCoreMessage : JSON.stringify(originalCoreMessage);
         logEntry.dataset.rawOriginalMessage = fullDisplayMessage; 
-        logEntry.dataset.logLevel = level;
+        
+        // NEW: Store the raw content for display in <pre> tags when expanded
+        const rawContentPart = (typeof originalCoreMessage === 'string') ? originalCoreMessage : messageForDisplay;
+        logEntry.dataset.logRawContentPart = rawContentPart;
 
         const textWrapper = document.createElement('span');
         textWrapper.className = 'log-entry-text-wrapper';
@@ -334,14 +341,13 @@ export class LogPanel {
         const currentLogFilteringState = appStore.getState().logFiltering;
         let discoveredTypesChanged = false;
         let newDiscoveredTypes = [...(currentLogFilteringState.discoveredTypes || [])];
-        let newActiveTypes = [...(currentLogFilteringState.activeFilters || [])]; 
-
-        if (!newDiscoveredTypes.includes(upperCaseType)) {
-            newDiscoveredTypes.push(upperCaseType);
-            if (!newActiveTypes.includes(upperCaseType)) { 
-                newActiveTypes.push(upperCaseType);
+        
+        // Only update active filters if not initialized
+        if (!currentLogFilteringState.isInitialized) {
+            if (!newDiscoveredTypes.includes(upperCaseType)) {
+                newDiscoveredTypes.push(upperCaseType);
+                discoveredTypesChanged = true;
             }
-            discoveredTypesChanged = true;
         }
         
         if (discoveredTypesChanged) {
@@ -349,15 +355,16 @@ export class LogPanel {
                 ...prevState,
                 logFiltering: {
                     ...prevState.logFiltering,
-                    discoveredTypes: newDiscoveredTypes,
-                    activeFilters: newActiveTypes 
+                    discoveredTypes: newDiscoveredTypes
                 }
             }));
             logPanelInternalDebug(`[LogPanel] Filters updated. Discovered Type: ${upperCaseType}`, 'debug');
         }
 
-        const activeFiltersCurrent = appStore.getState().logFiltering.activeFilters;
-        if (!newActiveTypes.includes(upperCaseType)) {
+        // Apply current filters to the new entry
+        const activeFilters = appStore.getState().logFiltering.activeFilters;
+        if (activeFilters.includes('__CLEAR_ALL__') || 
+            (activeFilters.length > 0 && !activeFilters.includes(`type:${upperCaseType}`))) {
             logEntry.classList.add('log-entry-hidden-by-filter');
         }
 
@@ -377,12 +384,13 @@ export class LogPanel {
         this.state.clientLogIndex = 0;
         this.updateEntryCount();
         
-        // ADDED: Reset discovered types and active filters
+        // Reset discovered types and active filters
         appStore.update(prevState => ({
             ...prevState,
             logFiltering: {
                 discoveredTypes: [],
-                activeFilters: []
+                activeFilters: [],
+                isInitialized: false
             }
         }));
         logPanelInternalDebug('[LogPanel] Log cleared and filters reset.', 'info');
@@ -576,6 +584,36 @@ export class LogPanel {
     // --- NEW HELPER: Collapse Log Entry ---
     _collapseLogEntry(logEntryDiv) {
         return collapseLogEntry(logEntryDiv, this);
+    }
+
+    _attachEventListeners() {
+        if (!this.logElement) return;
+
+        // Remove any existing listeners first
+        this._removeEventListeners();
+
+        // Add click handler for log entries
+        this.logElement.addEventListener('click', (event) => {
+            const target = event.target;
+            
+            // Check if the click was on a filter button
+            if (target.closest('.log-tag-button')) {
+                return; // Let the LogFilterBar handle this
+            }
+
+            // Handle log entry clicks
+            const logEntry = target.closest('.log-entry');
+            if (logEntry) {
+                const isExpanded = logEntry.classList.contains('expanded');
+                if (isExpanded) {
+                    collapseLogEntry(logEntry);
+                } else {
+                    expandLogEntry(logEntry);
+                }
+            }
+        });
+
+        // Add other event listeners as needed...
     }
 
     destroy() {

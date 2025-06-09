@@ -27,7 +27,7 @@ export async function executeRemoteCommand(payload) {
     if (typeof payload !== 'object' || payload === null) {
         const errorMsg = '[Remote Handler] Invalid payload format received (not an object).';
         console.error(errorMsg, payload);
-        window.logMessage(errorMsg, 'error');
+        window.logMessage(errorMsg, 'DEVPAGES', 'CLI', 'ERROR', 'error');
         throw new Error('Invalid payload format for remote command execution (internal client error).');
     }
 
@@ -62,7 +62,7 @@ export async function executeRemoteCommand(payload) {
 
             // Use the existing error handling logic
             console.error('[Remote Handler] API Error Response (or non-JSON response)');
-            window.logMessage(`[SERVER ERROR] ${errorText}`, 'error');
+            window.logMessage(`[SERVER ERROR] ${errorText}`, 'DEVPAGES', 'CLI', 'SERVER_ERROR', 'error');
             throw new Error(errorText); // Throw the more informative error
         }
 
@@ -77,7 +77,7 @@ export async function executeRemoteCommand(payload) {
         lines.forEach(line => {
             if (line.startsWith('STDERR:')) {
                 const stderrMsg = line.substring(7).trim();
-                window.logMessage(`[CLI STDERR] ${stderrMsg}`, 'warning');
+                window.logMessage(`[CLI STDERR] ${stderrMsg}`, 'DEVPAGES', 'CLI', 'STDERR', 'warning');
             } else {
                 stdoutBuffer.push(line);
             }
@@ -92,7 +92,7 @@ export async function executeRemoteCommand(payload) {
     } catch (error) {
         console.error(`[Remote Handler] Network or processing error for "${commandForLog}":`, error);
         const errorMessage = error?.message || 'Unknown execution error';
-        window.logMessage(`[NETWORK/CLIENT ERROR] ${errorMessage}`, 'error');
+        window.logMessage(`[NETWORK/CLIENT ERROR] ${errorMessage}`, 'DEVPAGES', 'CLI', 'NETWORK_ERROR', 'error');
         EventBus.emit(CLI_EVENTS.COMMAND_ERROR, { command: commandForLog, error: errorMessage, timestamp: Date.now() });
         throw error;
     }

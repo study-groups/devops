@@ -152,8 +152,13 @@ export class PreviewManager {
 
       // --- FIX: Determine plugins to init based on appState ---
       const currentPluginSettings = appStore.getState().plugins || {};
+      console.log('[DEBUG PLUGINS] Current plugin settings:', currentPluginSettings);
       const pluginIdsToInit = Object.entries(currentPluginSettings)
-                                 .filter(([id, config]) => config.enabled) // Only where enabled: true
+                                 .filter(([id, config]) => {
+                                   const enabled = config?.settings?.enabled || config?.enabled;
+                                   console.log(`[DEBUG PLUGINS] Plugin ${id}: enabled = ${enabled}`, config);
+                                   return enabled;
+                                 })
                                  .map(([id, config]) => id);
       
       logMessage(`Initializing ENABLED plugins based on state: ${pluginIdsToInit.join(', ') || 'None'}`, "info", "PREVIEW");
@@ -261,8 +266,16 @@ export class PreviewManager {
                 // DIAGNOSTIC LOG:
                 console.log('>>>> RENDERED HTML BODY FOR PREVIEW (renderResult.html):', renderResult.html);
 
-                this.previewElement.innerHTML = renderResult.html; // Set the sanitized body HTML
-                logMessage(`[PreviewManager.update] previewElement.innerHTML updated.`, "debug", "PREVIEW");
+                try {
+                    console.log('[DEBUG] About to set innerHTML...');
+                    this.previewElement.innerHTML = renderResult.html; // Set the sanitized body HTML
+                    console.log('[DEBUG] innerHTML set successfully');
+                    logMessage(`[PreviewManager.update] previewElement.innerHTML updated.`, "debug", "PREVIEW");
+                    console.log('[DEBUG] innerHTML updated successfully');
+                } catch (error) {
+                    console.error('[DEBUG] Error setting innerHTML:', error);
+                    logMessage(`[PreviewManager.update] Error setting innerHTML: ${error.message}`, "error", "PREVIEW");
+                }
 
             } else {
                  logMessage(`[PreviewManager.update] Preview element is IFRAME. This path should ideally not be taken. Using srcdoc.`, "warn", "PREVIEW"); 
@@ -271,12 +284,28 @@ export class PreviewManager {
                  // For simplicity, the current bundling approach assumes direct DOM manipulation.
                  // If iframe is essential, postProcessRender would need to target iframe.contentDocument.
                  this.previewElement.srcdoc = renderResult.fullPage; // This will execute scripts within the fullPage
+                 console.log('[DEBUG] srcdoc updated successfully');
             }
+            
+            console.log('[DEBUG] About to proceed to postProcessRender section');
             
             logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
             // MODIFIED: Pass script arrays AND markdownFilePath to postProcessRender
-            await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath, renderResult.frontMatter);
-            logMessage(`[PreviewManager.update] postProcessRender finished.`, "debug", "PREVIEW");
+            try {
+                console.log('[DEBUG] About to call postProcessRender with:', {
+                    previewElement: !!this.previewElement,
+                    externalScripts: renderResult.externalScriptUrls?.length || 0,
+                    inlineScripts: renderResult.inlineScriptContents?.length || 0,
+                    markdownFilePath,
+                    hasFrontMatter: !!renderResult.frontMatter
+                });
+                await postProcessRender(this.previewElement, renderResult.externalScriptUrls, renderResult.inlineScriptContents, markdownFilePath, renderResult.frontMatter);
+                console.log('[DEBUG] postProcessRender call completed successfully');
+                logMessage(`[PreviewManager.update] postProcessRender finished.`, "debug", "PREVIEW");
+            } catch (error) {
+                console.error('[DEBUG] Error in postProcessRender call:', error);
+                logMessage(`[PreviewManager.update] Error in postProcessRender: ${error.message}`, "error", "PREVIEW");
+            }
             
             resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
 

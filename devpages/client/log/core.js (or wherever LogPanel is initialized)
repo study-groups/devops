@@ -1,4 +1,0 @@
-// After creating the LogPanel instance:
-if (typeof window !== 'undefined') {
-    window.logPanel = logPanelInstance;
-} 

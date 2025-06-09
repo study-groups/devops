@@ -601,13 +601,13 @@
 /* === Log Filtering Tags Bar === */
 #log-tags-bar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: wrap; /* Allow the entire bar to wrap */
     padding: 4px 8px;
     padding-left: 3rem;
     background-color: var(--ink-paper-dark);
     border-bottom: 1px solid #333;
     gap: 10px;
-    align-items: center;
+    align-items: flex-start; /* Changed from center to flex-start to handle wrapped content better */
 }
 
 /* Filter group container */
@@ -616,6 +616,7 @@
     align-items: center;
     gap: 3px;
     margin-right: 8px;
+    flex-wrap: wrap; /* Allow groups to wrap internally */
 }
 
 /* Filter group labels */
@@ -1113,6 +1114,7 @@
     margin-right: 16px;
     padding-right: 16px;
     border-right: 1px solid #555;
+    flex-wrap: wrap; /* Allow control buttons to wrap if needed */
 }
 
 /* Clear Log button - red */

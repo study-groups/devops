@@ -29,12 +29,11 @@ class ImageOperation {
 
 // Helper for logging within this module
 function logImage(message, level = 'text') {
-    const type = 'IMAGES';
     if (typeof window.logMessage === 'function') {
-        window.logMessage(`[${type}] ${message}`, level);
+        window.logMessage(message, 'DEVPAGES', 'IMAGES', null, level);
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
+        logFunc(`[IMAGES] ${message}`);
     }
 }
 

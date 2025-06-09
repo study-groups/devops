@@ -56,7 +56,7 @@ const defaultPluginsConfig = {
     'mermaid': {
         name: "Mermaid Diagrams",
         // Module loading configuration
-        module: '/client/preview/plugins/mermaid.js',
+        module: '/client/preview/plugins/mermaid/index.js',
         exportName: 'MermaidPlugin',
         // Legacy fallback for backwards compatibility
         legacyInitFunction: 'ensureMermaidInitialized',
@@ -265,22 +265,20 @@ const initialAppState = {
   auth: {
     isInitializing: true,
     isAuthenticated: false,
-    user: null, // e.g., { username: '...', role: '...' } // <<< Role should be included here
+    user: null,
     error: null,
   },
   ui: {
-    // Global UI states, e.g., current theme, loading indicators
-    theme: 'default', // Example
-    isLoading: false, // Keep general loading state? Or manage per feature?
-    logVisible: getInitialLogState().visible,     // ✅ From localStorage
-    logHeight: getInitialLogState().height,      // ✅ New: height in appStore  
+    theme: 'default',
+    isLoading: false,
+    logVisible: getInitialLogState().visible,
+    logHeight: getInitialLogState().height,
     logMenuVisible: getInitialLogState().menuVisible,
-    viewMode: getInitialViewMode() // <<< MODIFIED: Load from localStorage or use default
+    viewMode: getInitialViewMode()
   },
-  settingsPanel: getInitialSettingsPanelState(), // ✅ Proper initialization
+  settingsPanel: getInitialSettingsPanelState(),
   editor: {
-    // Example placeholder
-    content: '', // Note: fileManager currently calls setContent directly. Refactor later?
+    content: '',
     dirty: false,
   },
   // --- REFACTORED File System State ---
@@ -332,8 +330,9 @@ const initialAppState = {
   },
   // +++ Add the Log Filtering State Slice +++
   logFiltering: {
-    discoveredTypes: [], // Stores all unique types encountered, e.g., ['text', 'json', 'cli-input']
+    discoveredTypes: [], // Stores all unique types encountered
     activeFilters: [],   // Stores types currently active for display
+    isInitialized: false // Track if filters have been initialized
   },
   // ... smartCopy ...
   smartCopy: {
@@ -344,6 +343,33 @@ const initialAppState = {
 
 // Create the application state store instance
 export const appStore = createStore(initialAppState);
+
+// Initialize log filtering state when first log entry is added
+appStore.subscribe((newState, prevState) => {
+    if (!prevState) return;
+    
+    const newFiltering = newState.logFiltering;
+    const prevFiltering = prevState.logFiltering;
+    
+    // Initialize filters if not done yet and we have discovered types
+    if (!newFiltering.isInitialized && newFiltering.discoveredTypes.length > 0) {
+        const defaultActiveFilters = [];
+        newFiltering.discoveredTypes.forEach(type => {
+            if (type !== 'LOG_PANEL') {
+                defaultActiveFilters.push(`type:${type}`);
+            }
+        });
+        
+        appStore.update(prevState => ({
+            ...prevState,
+            logFiltering: {
+                ...prevState.logFiltering,
+                activeFilters: defaultActiveFilters,
+                isInitialized: true
+            }
+        }));
+    }
+});
 
 // Export state slices or selectors if needed for convenience
 // Example selector:

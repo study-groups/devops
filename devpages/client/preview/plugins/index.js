@@ -12,7 +12,7 @@ const enabledPlugins = new Map();
 
 // Built-in plugins with their classes
 const builtInPlugins = {
-  'mermaid': async () => (await import('./mermaid.js')).MermaidPlugin,
+  'mermaid': async () => (await import('./mermaid/index.js')).MermaidPlugin,
    'katex': async () => (await import('./katex.js')).KaTeXPlugin,
   'highlight': async () => (await import('./highlight.js')).HighlightPlugin,
   'audioMD': async () => (await import('./audio-md.js')).AudioMDPlugin,

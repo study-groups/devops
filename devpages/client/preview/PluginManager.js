@@ -117,7 +117,7 @@ export class PluginManager {
    * @private
    */
   async _initializeMermaidPlugin(config) {
-    const { MermaidPlugin } = await import('/client/preview/plugins/mermaid.js');
+                const { MermaidPlugin } = await import('/client/preview/plugins/mermaid/index.js');
     const plugin = new MermaidPlugin(config);
     await plugin.init();
     return plugin;

@@ -1,5 +1,6 @@
 // bootstrap.js - Streamlined application initialization
 import { createTimer } from '/client/utils.js';
+import { setLogPanelInstance } from '/client/log/core.js';
 
 // Global namespace to prevent multiple initializations
 window.APP = window.APP || {};
@@ -74,13 +75,10 @@ async function initializeApp() {
     const logPanelInstance = new LogPanel(); // Constructor takes optional container ID
     // Initialize it, targeting the container div
     await logPanelInstance.initialize(); // Initialize method exists on LogPanel instance
-    // Make the instance globally accessible
-    window.logPanel = logPanelInstance;
-    // Set the global logMessage function to use the panel's addEntry method
-    // Use bind to ensure 'this' context is correct when called globally
-    window.logMessage = logPanelInstance.addEntry.bind(logPanelInstance); 
+    // Register the LogPanel instance with the core logging system
+    setLogPanelInstance(logPanelInstance);
     
-    logBootstrap('LogPanel initialized and logMessage registered globally.', 'debug');
+    logBootstrap('LogPanel initialized and registered with core logging system.', 'debug');
 
     // *** ADD THIS: Initialize LogManager with FilterManager ***
     logBootstrap('Initializing LogManager with centralized filtering...', 'debug');

@@ -2,9 +2,9 @@ import { eventBus } from '/client/eventBus.js'; // Keep for potential future use
 import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
 
 // Helper to get logMessage safely
-function logMessage(message, level = 'text') {
+function logContentView(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level);
+        window.logMessage(message, 'DEVPAGES', 'CONTENT_VIEW', null, level);
     } else {
         console.log(`[ContentView] ${message}`); // Fallback logging
     }
@@ -26,7 +26,7 @@ export function createContentViewComponent(targetElementId) {
             return;
         }
 
-        logMessage(`[ContentView] Updating layout. Mode: ${currentViewMode}, Log Visible: ${isLogVisible}`);
+        logContentView(`[ContentView] Updating layout. Mode: ${currentViewMode}, Log Visible: ${isLogVisible}`);
 
         // Remove previous classes
         const oldClasses = Array.from(element.classList).filter(c => c.startsWith('mode-'));
@@ -60,16 +60,16 @@ export function createContentViewComponent(targetElementId) {
 
         if (data.viewMode !== undefined && data.viewMode !== currentViewMode) {
             if (['editor', 'preview', 'split'].includes(data.viewMode)) {
-                logMessage(`[ContentView] Updating view mode to: ${data.viewMode}`);
+                logContentView(`[ContentView] Updating view mode to: ${data.viewMode}`);
                 currentViewMode = data.viewMode;
                 needsLayoutUpdate = true;
             } else {
-                 logMessage(`[ContentView] update received invalid view mode: ${data.viewMode}`, 'warn');
+                 logContentView(`[ContentView] update received invalid view mode: ${data.viewMode}`, 'warn');
             }
         }
 
         if (data.isLogVisible !== undefined && data.isLogVisible !== isLogVisible) {
-            logMessage(`[ContentView] Updating log visibility to: ${data.isLogVisible}`);
+            logContentView(`[ContentView] Updating log visibility to: ${data.isLogVisible}`);
             isLogVisible = !!data.isLogVisible;
             needsLayoutUpdate = true;
         }
@@ -84,11 +84,11 @@ export function createContentViewComponent(targetElementId) {
 
     // --- Lifecycle Methods ---
     const mount = () => {
-        logMessage('[ContentView] Mounting...');
+        logContentView('[ContentView] Mounting...');
         element = document.getElementById(targetElementId);
         if (!element) {
             console.error(`[ContentView] Target element #${targetElementId} not found.`);
-            logMessage(`[ContentView] Target element #${targetElementId} not found.`, 'error');
+            logContentView(`[ContentView] Target element #${targetElementId} not found.`, 'error');
             return false; // Indicate failure
         }
 
@@ -125,7 +125,7 @@ export function createContentViewComponent(targetElementId) {
                 }
             }
         });
-        logMessage('Subscribed to appState changes.');
+        logContentView('Subscribed to appState changes.');
 
         // Initialize with current state values
         const currentState = appStore.getState();
@@ -136,18 +136,18 @@ export function createContentViewComponent(targetElementId) {
         console.log('[DEBUG ContentView.js] mount triggering initial updateLayout() with state values');
         updateLayout(); // Apply layout based on initial state
 
-        logMessage('[ContentView] Mounted.');
+        logContentView('[ContentView] Mounted.');
         return true; // Indicate success
     };
 
     const destroy = () => {
-        logMessage('[ContentView] Destroying...');
+        logContentView('[ContentView] Destroying...');
         
         // Unsubscribe from appState
         if (appStateUnsubscribe) {
             appStateUnsubscribe();
             appStateUnsubscribe = null;
-            logMessage('Unsubscribed from appState changes.');
+            logContentView('Unsubscribed from appState changes.');
         }
         
         if (element) {
@@ -157,7 +157,7 @@ export function createContentViewComponent(targetElementId) {
         element = null;
         editorContainer = null;
         previewContainer = null;
-        logMessage('[ContentView] Destroyed.');
+        logContentView('[ContentView] Destroyed.');
     };
 
     return {

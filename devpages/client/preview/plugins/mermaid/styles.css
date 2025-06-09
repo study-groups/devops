@@ -1,0 +1,251 @@
+/* Enhanced Mermaid Plugin Styles */
+
+.mermaid {
+    position: relative; 
+    overflow: hidden;  
+    display: inline-block;
+}
+
+.mermaid svg {
+    display: block; 
+    transform-origin: center center; 
+    transition: transform 0.15s ease-out;
+    cursor: default;
+}
+
+.mermaid-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.mermaid-container svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    transition: transform 0.05s ease-out;
+}
+
+/* Enhanced Controls Container */
+.mermaid-controls-container {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1000;
+}
+
+/* Enhanced Hamburger Button */
+.mermaid-hamburger-button {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(204, 204, 204, 0.8);
+    color: #333;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 6px 8px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mermaid-hamburger-button:hover {
+    background-color: rgba(255, 255, 255, 1);
+    opacity: 1;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.mermaid-hamburger-button:active {
+    transform: translateY(0);
+}
+
+/* Enhanced Dropdown Menu */
+.mermaid-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    min-width: 140px;
+    padding: 6px 0;
+    margin-top: 4px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mermaid-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background-color: transparent;
+    border: none;
+    color: #333;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+    transition: background-color 0.2s ease;
+    border-radius: 0;
+}
+
+.mermaid-dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
+}
+
+.mermaid-dropdown-item:active {
+    background-color: #e9ecef;
+}
+
+.mermaid-dropdown-item:first-child {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.mermaid-dropdown-item:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* Fullscreen Styles */
+.mermaid-fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    animation: fadeInOverlay 0.3s ease-out;
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.mermaid-fullscreen-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.8);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    transition: all 0.3s ease;
+}
+
+.mermaid-fullscreen-close:hover {
+    background-color: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+/* Fullscreen diagram container */
+.mermaid-fullscreen-overlay .mermaid {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* Body modifications when fullscreen is active */
+body.mermaid-fullscreen-active {
+    overflow: hidden;
+}
+
+/* Error styles */
+.mermaid-error {
+    border: 1px solid #dc3545;
+    padding: 12px;
+    background-color: #f8d7da;
+    color: #721c24;
+    border-radius: 6px;
+    margin: 8px 0;
+}
+
+.mermaid-error-header {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #721c24;
+}
+
+.mermaid-error-message, 
+.mermaid-error-diagcontent {
+    white-space: pre-wrap; 
+    font-family: 'Courier New', monospace;
+    background-color: #fff;
+    padding: 8px;
+    border: 1px dashed #dc3545;
+    border-radius: 4px;
+    max-height: 150px; 
+    overflow-y: auto;
+    font-size: 12px;
+}
+
+.mermaid-error-details summary {
+    cursor: pointer;
+    color: #721c24;
+    margin-top: 8px;
+    font-weight: 500;
+}
+
+.mermaid-error-details[open] summary {
+    margin-bottom: 8px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .mermaid-fullscreen-overlay .mermaid {
+        max-width: 95vw;
+        max-height: 95vh;
+        padding: 15px;
+    }
+    
+    .mermaid-fullscreen-close {
+        top: 15px;
+        right: 15px;
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+    }
+    
+    .mermaid-dropdown-menu {
+        min-width: 120px;
+    }
+    
+    .mermaid-dropdown-item {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+} 

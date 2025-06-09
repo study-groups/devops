@@ -195,7 +195,7 @@ async function handleSendCommand() {
             const logPanelInstance = window.logPanelInstance;
             
             // First attempt: use window.logMessage as it should normally work
-            window.logMessage(resultOutput, 'CLI');
+            window.logMessage(resultOutput, 'DEVPAGES', 'CLI', 'RESULT', 'info');
             
             // Backup approach: If we have direct access to logPanelInstance, use it
             if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {

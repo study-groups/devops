@@ -8,7 +8,7 @@ import { appStore } from '/client/appState.js';
 // Import from the underlying preview module in client/preview/
 import { initPreview as initPreviewModule, updatePreview as updatePreviewModule } from '/client/preview/index.js';
 import { postProcessRender } from '/client/preview/renderers/MarkdownRenderer.js';
-import { MermaidPlugin } from '/client/preview/plugins/mermaid.js';
+import { MermaidPlugin } from '/client/preview/plugins/mermaid/index.js';
 
 // Helper for logging within this module
 function logPreview(message, level = 'debug', type='PREVIEW') {
@@ -213,9 +213,13 @@ export async function refreshPreview() {
     // 2. Process Mermaid diagrams using the plugin (AFTER HTML is set)
     // Use setTimeout to ensure DOM is updated before Mermaid processing
     setTimeout(() => {
+        console.log('[PREVIEW.JS DEBUG] About to call mermaidPlugin.process');
         const element = document.querySelector('#preview-container'); // Re-select just in case
+        console.log('[PREVIEW.JS DEBUG] Found preview container:', !!element);
         if (element) {
+          console.log('[PREVIEW.JS DEBUG] Calling mermaidPlugin.process with element:', element);
           mermaidPlugin.process(element);
+          console.log('[PREVIEW.JS DEBUG] mermaidPlugin.process call completed');
           logPreview('Mermaid diagrams processed by plugin (deferred).');
         } else {
           logPreview('Preview container not found for deferred Mermaid processing.', 'warning');
