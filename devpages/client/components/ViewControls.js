@@ -15,34 +15,23 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
             return;
         }
         
-        const { isCodeMode, isPreviewVisible, isSplitMode } = layoutState;
+        const { isSplitMode, isRightSidebarVisible } = layoutState;
         
-        // Update Code toggle
-        const codeToggle = element.querySelector('#code-toggle');
-        if (codeToggle) {
-            codeToggle.classList.toggle('active', isCodeMode);
-            codeToggle.title = isCodeMode ? 'Switch to Markdown Mode (Alt+C)' : 'Switch to Code Mode (Alt+C)';
-        }
-        
-        // Update Preview toggle
-        const previewToggle = element.querySelector('#preview-toggle');
-        if (previewToggle) {
-            previewToggle.classList.toggle('active', isPreviewVisible);
-            if (isCodeMode) {
-                previewToggle.title = isPreviewVisible ? 'Hide Preview (Alt+P)' : 'Show Preview (Alt+P)';
-            } else {
-                previewToggle.title = isPreviewVisible ? 'Hide Preview (Alt+P)' : 'Show Preview (Alt+P)';
-            }
-        }
-        
-        // Update Split toggle
+        // Update Split toggle (now controls editor panel visibility)
         const splitToggle = element.querySelector('#split-toggle');
         if (splitToggle) {
             splitToggle.classList.toggle('active', isSplitMode);
-            splitToggle.title = isSplitMode ? 'Hide Split View (Alt+S)' : 'Show Split View (Alt+S)';
+            splitToggle.title = isSplitMode ? 'Hide Editor Panel (Alt+S)' : 'Show Editor Panel (Alt+S)';
         }
         
-        logMessage(`Toggle buttons updated: Code=${isCodeMode}, Preview=${isPreviewVisible}, Split=${isSplitMode}`, 'debug', 'VIEW_CONTROLS');
+        // Update Code toggle (controls right sidebar)
+        const codeToggle = element.querySelector('#code-toggle');
+        if (codeToggle) {
+            codeToggle.classList.toggle('active', isRightSidebarVisible);
+            codeToggle.title = isRightSidebarVisible ? 'Hide Code Sidebar (Alt+C)' : 'Show Code Sidebar (Alt+C)';
+        }
+        
+        logMessage(`Toggle buttons updated: Split(Editor)=${isSplitMode}, Code(RightSidebar)=${isRightSidebarVisible}`, 'debug', 'VIEW_CONTROLS');
     };
     
     // FIXED: Function to update the log button's visual state
@@ -71,25 +60,12 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
     // Convert app state to layout state for toggle buttons
     const getLayoutStateFromAppState = (appState) => {
-        if (!layoutManager) {
-            return { isCodeMode: false, isPreviewVisible: true, isSplitMode: false };
-        }
-        
-        const state = layoutManager.getState();
-        
-        let isSplitMode = false;
-        if (state.editorType === 'raw-text') {
-            // In code mode: split means inline preview is visible
-            isSplitMode = state.previewType === 'inline';
-        } else {
-            // In markdown mode: split means split layout
-            isSplitMode = state.contentMode === 'split';
-        }
+        const ui = appState.ui || {};
+        const viewMode = ui.viewMode || 'preview';
         
         return {
-            isCodeMode: state.editorType === 'raw-text',
-            isPreviewVisible: state.previewType !== 'hidden',
-            isSplitMode: isSplitMode
+            isSplitMode: viewMode === 'split',
+            isRightSidebarVisible: ui.rightSidebarVisible || false
         };
     };
 
@@ -142,9 +118,8 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
         // Render the toggle buttons
         element.innerHTML = `
-            <button id="code-toggle" title="Switch to Code Mode (Alt+C)" data-action="toggleCode">Code</button>
-            <button id="preview-toggle" title="Show Preview (Alt+P)" data-action="togglePreview">Preview</button>
-            <button id="split-toggle" title="Show Split View (Alt+S)" data-action="toggleSplit">Split</button>
+            <button id="split-toggle" title="Toggle Editor Panel (Alt+S)" data-action="toggleSplit">Split</button>
+            <button id="code-toggle" title="Toggle Code Sidebar (Alt+C)" data-action="toggleCodeSidebar">Code</button>
             <button id="log-toggle-btn" title="Show Log" data-action="toggleLogVisibility">Log</button>
             <button id="preview-reload-btn" title="Refresh Preview" data-action="refreshPreview">&#x21bb;</button>
         `;
@@ -159,7 +134,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
         
         // Subscribe to layout state changes from LayoutManager
         if (eventBus && typeof eventBus.on === 'function') {
-            eventBus.on('layout:stateChanged', () => {
+            eventBus.on('layout:modernStateChanged', () => {
                 const currentAppState = appStore.getState();
                 const layoutState = getLayoutStateFromAppState(currentAppState);
                 updateToggleButtons(layoutState);
@@ -173,16 +148,10 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
         const initialAppState = appStore.getState();
         console.log('[ViewControls DEBUG] Setting initial toggle button states');
         
-        // Add safety check for layoutManager
-        if (layoutManager && typeof layoutManager.getState === 'function') {
-            const initialLayoutState = getLayoutStateFromAppState(initialAppState);
-            updateToggleButtons(initialLayoutState);
-            handleAppStateChange(initialAppState, {}); // Pass empty object as prevState for initial call
-        } else {
-            console.warn('[ViewControls] layoutManager not available during initialization, skipping initial state setup');
-            // Provide default state
-            updateToggleButtons({ isCodeMode: false, isPreviewVisible: true, isSplitMode: false });
-        }
+        // Set initial button states from appState
+        const initialLayoutState = getLayoutStateFromAppState(initialAppState);
+        updateToggleButtons(initialLayoutState);
+        handleAppStateChange(initialAppState, {}); // Pass empty object as prevState for initial call
 
         // ADDED: Handle button clicks through actions
         element.addEventListener('click', (e) => {
@@ -196,33 +165,19 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                 e.preventDefault();
                 e.stopPropagation();
                 dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
-            } else if (action === 'toggleCode') {
+            } else if (action === 'toggleCodeSidebar') {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[ViewControls DEBUG] Attempting to call toggleCodeMode...');
-                if (layoutManager && typeof layoutManager.toggleCodeMode === 'function') {
-                    layoutManager.toggleCodeMode();
-                } else {
-                    console.warn('[ViewControls] LayoutManager not available or toggleCodeMode method not found');
-                }
-            } else if (action === 'togglePreview') {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[ViewControls DEBUG] Attempting to call togglePreview...');
-                if (layoutManager && typeof layoutManager.togglePreview === 'function') {
-                    layoutManager.togglePreview();
-                } else {
-                    console.warn('[ViewControls] LayoutManager not available or togglePreview method not found');
-                }
+                console.log('[ViewControls DEBUG] Dispatching UI_TOGGLE_RIGHT_SIDEBAR...');
+                dispatch({ type: ActionTypes.UI_TOGGLE_RIGHT_SIDEBAR });
             } else if (action === 'toggleSplit') {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[ViewControls DEBUG] Attempting to call toggleSplit...');
-                if (layoutManager && typeof layoutManager.toggleSplit === 'function') {
-                    layoutManager.toggleSplit();
-                } else {
-                    console.warn('[ViewControls] LayoutManager not available or toggleSplit method not found');
-                }
+                console.log('[ViewControls DEBUG] Toggling split mode (editor panel)...');
+                const currentState = appStore.getState();
+                const currentViewMode = currentState.ui?.viewMode || 'preview';
+                const newViewMode = currentViewMode === 'split' ? 'preview' : 'split';
+                dispatch({ type: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: newViewMode } });
             }
             // Note: 'refreshPreview' action is not handled here yet, but can be added if needed.
 

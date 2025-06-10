@@ -2,6 +2,7 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 const logContext = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX";
@@ -359,37 +360,77 @@ export function createContextManagerComponent(targetElementId) {
         event.stopPropagation();
         logContext('Settings trigger clicked', 'EVENT');
         
-        // Check if UI components system is available
-        if (typeof window.uiComponents?.showPopup === 'function') {
-            logContext('UI Components system available, showing popup immediately', 'EVENT');
+        // Determine if this click is from the navbar or sidebar
+        const isFromSidebar = targetElementId === 'sidebar-context-manager-container';
+        const isFromNavbar = targetElementId === 'context-manager-container';
+        
+        logContext(`Settings click from: ${isFromSidebar ? 'sidebar' : isFromNavbar ? 'navbar' : 'unknown'}`, 'EVENT');
+        
+        if (isFromNavbar) {
+            // Navbar click: Toggle left sidebar visibility
+            logContext('Navbar settings click: toggling left sidebar', 'EVENT');
             
-            // Get current state to pass to popup
-            const fileState = appStore.getState().file;
-            const settingsState = appStore.getState().settings;
+                         // Use the layout manager to toggle the left sidebar
+             if (window.layoutManager && typeof window.layoutManager.toggleLeftSidebar === 'function') {
+                 window.layoutManager.toggleLeftSidebar();
+             } else {
+                 // Fallback: dispatch action directly
+                 dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
+             }
+        } else if (isFromSidebar) {
+            // Sidebar click: Show popup
+            logContext('Sidebar settings click: showing popup', 'EVENT');
             
-            // Use the actual available top-level directories instead of hardcoded ['data']
-            const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
-            
-            const popupProps = {
-                pdDirBase: '/root/pj/pd/',
-                contentSubDir: settingsState?.currentContentSubDir || 'data',
-                availableSubDirs: availableTopDirs, // Use actual top-level dirs
-                displayPathname: fileState?.currentPathname || '',
-                doEnvVars: settingsState?.doEnvVars || []
-            };
-            
-            logContext(`Showing context settings popup with props: ${JSON.stringify(popupProps)}`, 'EVENT');
-            
-            const success = window.uiComponents.showPopup('contextSettings', popupProps);
-            if (success) {
-                logContext('Context settings popup displayed successfully', 'EVENT');
+            // Check if UI components system is available
+            if (typeof window.uiComponents?.showPopup === 'function') {
+                logContext('UI Components system available, showing popup immediately', 'EVENT');
+                
+                // Get current state to pass to popup
+                const fileState = appStore.getState().file;
+                const settingsState = appStore.getState().settings;
+                
+                // Use the actual available top-level directories instead of hardcoded ['data']
+                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
+                
+                const popupProps = {
+                    pdDirBase: '/root/pj/pd/',
+                    contentSubDir: settingsState?.currentContentSubDir || 'data',
+                    availableSubDirs: availableTopDirs, // Use actual top-level dirs
+                    displayPathname: fileState?.currentPathname || '',
+                    doEnvVars: settingsState?.doEnvVars || []
+                };
+                
+                logContext(`Showing context settings popup with props: ${JSON.stringify(popupProps)}`, 'EVENT');
+                
+                const success = window.uiComponents.showPopup('contextSettings', popupProps);
+                if (success) {
+                    logContext('Context settings popup displayed successfully', 'EVENT');
+                } else {
+                    logContext('Failed to display context settings popup', 'error', 'EVENT');
+                    alert('Unable to open settings panel. Please check console for details.');
+                }
             } else {
-                logContext('Failed to display context settings popup', 'error', 'EVENT');
-                alert('Unable to open settings panel. Please check console for details.');
+                logContext('UI Components system not available yet', 'error', 'EVENT');
+                alert('Settings panel is not ready yet. Please wait for the app to finish loading.');
             }
         } else {
-            logContext('UI Components system not available yet', 'error', 'EVENT');
-            alert('Settings panel is not ready yet. Please wait for the app to finish loading.');
+            logContext('Unknown settings click source, defaulting to popup', 'warn', 'EVENT');
+            // Default to popup for unknown sources
+            if (typeof window.uiComponents?.showPopup === 'function') {
+                const fileState = appStore.getState().file;
+                const settingsState = appStore.getState().settings;
+                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
+                
+                const popupProps = {
+                    pdDirBase: '/root/pj/pd/',
+                    contentSubDir: settingsState?.currentContentSubDir || 'data',
+                    availableSubDirs: availableTopDirs,
+                    displayPathname: fileState?.currentPathname || '',
+                    doEnvVars: settingsState?.doEnvVars || []
+                };
+                
+                window.uiComponents.showPopup('contextSettings', popupProps);
+            }
         }
     };
 

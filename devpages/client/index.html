@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1">
     <title>DevPages</title>
     <link rel="stylesheet" href="/client/output.css">
+    <!-- Layout system styles -->
+    <link rel="stylesheet" href="/client/layout/layout.css">
     <!-- Add Log component specific styles -->
     <link rel="stylesheet" href="/client/log/log.css"> 
     <link rel="stylesheet" href="/client/components/auth-display.css">
@@ -91,27 +93,42 @@
         </div>
     </nav>
 
-    <!-- Main Content Area -->
-    <div style="display: flex; height: calc(100vh - 40px);"> <!-- Assuming top-bar is 40px -->
-        <!-- Left Sidebar - Only visible in Code mode -->
-        <div id="code-sidebar" class="code-mode-only" style="width: 250px; background-color: #f8f9fa; border-right: 1px solid #ddd; overflow-y: auto;">
-            <div id="code-sidebar-content">
-                <!-- File list will be populated here by FileListComponent -->
+    <!-- Main Content Area - Declarative Layout -->
+    <div class="main-layout">
+        <!-- Left Sidebar - File browser -->
+        <div id="code-sidebar" class="code-mode-only">
+            <!-- Context Manager Section -->
+            <div id="sidebar-context-manager-section" class="sidebar-section">
+                <div class="sidebar-section-header">
+                    <span class="sidebar-section-title">Context Manager</span>
+                </div>
+                <div id="sidebar-context-manager-container" class="sidebar-section-content">
+                    <!-- ContextManager will be rendered here as well -->
+                </div>
+            </div>
+            
+            <!-- File List Section -->
+            <div id="sidebar-file-list-section" class="sidebar-section">
+                <div class="sidebar-section-header">
+                    <span class="sidebar-section-title">Project Files</span>
+                </div>
+                <div id="code-sidebar-content" class="sidebar-section-content">
+                    <!-- File list will be populated here by FileListComponent -->
+                </div>
             </div>
         </div>
 
-        <!-- Original Main Content (acts as Center Panel) -->
-        <div id="main-container" class="log-hidden" style="flex-grow: 1; display: flex; flex-direction: column;">
-            <div id="content" style="flex-grow: 1; overflow-y: auto;">
+        <!-- Main Content (Center Panel) -->
+        <div id="main-container" class="log-hidden">
+            <div id="content">
                 <!-- This div will be populated by the ContentView component -->
                 <div id="content-view-wrapper"></div>
             </div>
             <div id="log-container"></div>
         </div>
 
-        <!-- NEW: RIGHT SIDEBAR - Context Summary + CLI Output -->
-        <div id="right-sidebar" class="code-sidebar" style="width: 320px; background-color: #f8f9fa; border-left: 1px solid #ddd; overflow-y: auto; display: flex; flex-direction: column;">
-            
+        <!-- Right Sidebar - Context Summary + CLI Output -->
+        <div id="right-sidebar" class="code-sidebar">
             <!-- Context Summary Section -->
             <div id="context-summary-section" style="flex: 1; min-height: 250px;">
                 <div id="context-summary-header" style="padding: 6px 8px; background-color: #f1f3f5; border-bottom: 1px solid #dee2e6;">

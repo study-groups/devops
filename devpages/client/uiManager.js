@@ -12,6 +12,7 @@ import { createContextManagerComponent } from '/client/components/ContextManager
 let appStateUnsubscribe = null;
 let authDisplayComponent = null;
 let contextManagerComponent = null;
+let sidebarContextManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
 
 // --- Logging Helper ---
@@ -330,6 +331,13 @@ export async function initializeUI() {
         const contextMountResult = contextManagerComponent.mount();
         console.log('[DEBUG] ContextManager mount result:', contextMountResult);
         
+        // Create sidebar ContextManager instance
+        console.log('[DEBUG] Creating Sidebar ContextManager component...');
+        sidebarContextManagerComponent = createContextManagerComponent('sidebar-context-manager-container');
+        console.log('[DEBUG] Sidebar ContextManager component created, calling mount...');
+        const sidebarContextMountResult = sidebarContextManagerComponent.mount();
+        console.log('[DEBUG] Sidebar ContextManager mount result:', sidebarContextMountResult);
+        
         // Initialize ViewControls component
         try {
             const { createViewControlsComponent } = await import('/client/components/ViewControls.js');
@@ -399,6 +407,7 @@ export function destroyUI() {
     // Destroy components
     authDisplayComponent?.destroy();
     contextManagerComponent?.destroy();
+    sidebarContextManagerComponent?.destroy();
     // ... destroy other components ...
     
     logUI('[UI_MANAGER] UI destroyed and listeners removed.');

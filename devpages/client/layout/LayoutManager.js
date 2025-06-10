@@ -1,13 +1,11 @@
 /**
- * LayoutManager.js - Centralized layout management for DevPages
+ * LayoutManager.js - Declarative layout management for DevPages
  * 
- * Manages:
- * - Left sidebar (code sidebar) toggle
- * - Right sidebar (context/CLI sidebar) toggle  
- * - Content view modes (editor/preview/split)
- * - Log panel visibility
- * - Layout persistence
- * - Responsive behavior
+ * New Architecture:
+ * - Single source of truth via app store
+ * - Declarative CSS-based layouts using custom properties
+ * - Clean separation between state management and DOM updates
+ * - Event-driven updates with minimal coupling
  */
 
 import { eventBus } from '/client/eventBus.js';
@@ -16,29 +14,23 @@ import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 export class LayoutManager {
   constructor() {
+    // Internal state - mirrors app store for quick access
     this.state = {
       leftSidebarVisible: false,
       rightSidebarVisible: false,
-      contentMode: 'split', // 'editor', 'preview', 'split'
+      viewMode: 'preview', // 'preview', 'split'
       logVisible: false,
+      // Layout dimensions
       leftSidebarWidth: 250,
       rightSidebarWidth: 320,
-      logHeight: 300,
-      // Enhanced layout properties
-      previewType: 'inline', // 'inline', 'popup-iframe', 'hidden'
-      editorType: 'markdown' // 'markdown', 'raw-text'
+      logHeight: 300
     };
 
-    this.elements = {
-      leftSidebar: null,
-      rightSidebar: null,
-      mainContainer: null,
-      contentWrapper: null,
-      logContainer: null,
-      body: document.body
-    };
-
-    this.listeners = [];
+    // DOM element cache
+    this.elements = new Map();
+    
+    // Event cleanup
+    this.cleanup = [];
     this.appStateUnsubscribe = null;
     
     this.initialize();
@@ -49,42 +41,47 @@ export class LayoutManager {
    */
   initialize() {
     this.cacheElements();
-    this.loadPreferences();
-    this.setupEventListeners();
+    this.loadStoredPreferences();
     this.subscribeToAppState();
+    this.setupEventListeners();
     this.applyInitialLayout();
     
-    // Expose to window for debugging
+    // Global access for debugging
     window.layoutManager = this;
     
-    console.log('[LayoutManager] Initialized');
+    console.log('[LayoutManager] Initialized with declarative architecture');
   }
 
   /**
-   * Cache DOM elements for performance
+   * Cache frequently accessed DOM elements
    */
   cacheElements() {
-    this.elements = {
-      leftSidebar: document.getElementById('code-sidebar'),
-      rightSidebar: document.getElementById('right-sidebar'),
-      mainContainer: document.getElementById('main-container'),
-      contentWrapper: document.getElementById('content-view-wrapper'),
-      logContainer: document.getElementById('log-container'),
-      body: document.body
-    };
+    const elementIds = [
+      'code-sidebar',
+      'right-sidebar', 
+      'main-container',
+      'content-view-wrapper',
+      'log-container'
+    ];
 
-    // Log missing elements for debugging
-    Object.entries(this.elements).forEach(([key, element]) => {
-      if (!element && key !== 'body') {
-        console.warn(`[LayoutManager] Element not found: ${key}`);
+    elementIds.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        this.elements.set(id, element);
+      } else {
+        console.warn(`[LayoutManager] Element not found: ${id}`);
       }
     });
+
+    // Cache body for CSS custom properties
+    this.elements.set('body', document.body);
+    this.elements.set('root', document.documentElement);
   }
 
   /**
-   * Load layout preferences from localStorage
+   * Load preferences from localStorage
    */
-  loadPreferences() {
+  loadStoredPreferences() {
     try {
       const saved = localStorage.getItem('layoutPreferences');
       if (saved) {
@@ -97,51 +94,83 @@ export class LayoutManager {
   }
 
   /**
-   * Save layout preferences to localStorage
+   * Save preferences to localStorage
    */
   savePreferences() {
     try {
-      localStorage.setItem('layoutPreferences', JSON.stringify(this.state));
+      const { leftSidebarWidth, rightSidebarWidth, logHeight } = this.state;
+      localStorage.setItem('layoutPreferences', JSON.stringify({
+        leftSidebarWidth,
+        rightSidebarWidth,
+        logHeight
+      }));
     } catch (error) {
       console.warn('[LayoutManager] Failed to save preferences:', error);
     }
   }
 
   /**
-   * Subscribe to app state changes
+   * Subscribe to app store changes - single source of truth
    */
   subscribeToAppState() {
     this.appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
-      const ui = newState.ui || {};
+      const newUI = newState.ui || {};
       const prevUI = prevState.ui || {};
 
-      // Update from app state if changed
-      if (ui.viewMode !== prevUI.viewMode && ui.viewMode !== this.state.contentMode) {
-        this.setContentMode(ui.viewMode, false); // false = don't dispatch back
+      let needsUpdate = false;
+
+      // Sync view mode
+      if (newUI.viewMode !== prevUI.viewMode && newUI.viewMode !== this.state.viewMode) {
+        this.state.viewMode = newUI.viewMode;
+        needsUpdate = true;
       }
 
-      if (ui.logVisible !== prevUI.logVisible && ui.logVisible !== this.state.logVisible) {
-        this.setLogVisibility(ui.logVisible, false); // false = don't dispatch back
+      // Sync log visibility
+      if (newUI.logVisible !== prevUI.logVisible && newUI.logVisible !== this.state.logVisible) {
+        this.state.logVisible = newUI.logVisible;
+        needsUpdate = true;
+      }
+
+      // Sync sidebar visibility
+      if (newUI.leftSidebarVisible !== prevUI.leftSidebarVisible && newUI.leftSidebarVisible !== this.state.leftSidebarVisible) {
+        this.state.leftSidebarVisible = newUI.leftSidebarVisible;
+        needsUpdate = true;
+      }
+
+      if (newUI.rightSidebarVisible !== prevUI.rightSidebarVisible && newUI.rightSidebarVisible !== this.state.rightSidebarVisible) {
+        this.state.rightSidebarVisible = newUI.rightSidebarVisible;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        this.updateLayout();
+        this.emitLayoutChange();
       }
     });
   }
 
   /**
-   * Set up event listeners
+   * Setup event listeners for UI interactions
    */
   setupEventListeners() {
     // Keyboard shortcuts
-    document.addEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
-    
-    // Window resize
-    window.addEventListener('resize', this.handleResize.bind(this));
-    
+    const handleKeyboard = this.handleKeyboardShortcuts.bind(this);
+    document.addEventListener('keydown', handleKeyboard);
+    this.cleanup.push(() => document.removeEventListener('keydown', handleKeyboard));
+
     // EventBus listeners
     if (eventBus) {
-      eventBus.on('layout:toggleLeftSidebar', () => this.toggleLeftSidebar());
-      eventBus.on('layout:toggleRightSidebar', () => this.toggleRightSidebar());
-      eventBus.on('layout:setContentMode', (data) => this.setContentMode(data.mode));
-      eventBus.on('layout:toggleLog', () => this.toggleLogVisibility());
+      const listeners = [
+        ['layout:toggleLeftSidebar', () => this.toggleLeftSidebar()],
+        ['layout:toggleRightSidebar', () => this.toggleRightSidebar()],
+        ['layout:setViewMode', (data) => this.setViewMode(data.mode)],
+        ['layout:toggleLog', () => this.toggleLogVisibility()]
+      ];
+
+      listeners.forEach(([event, handler]) => {
+        eventBus.on(event, handler);
+        this.cleanup.push(() => eventBus.off(event, handler));
+      });
     }
   }
 
@@ -149,6 +178,15 @@ export class LayoutManager {
    * Apply initial layout based on current state
    */
   applyInitialLayout() {
+    // Sync with initial app state
+    const currentAppState = appStore.getState();
+    const ui = currentAppState.ui || {};
+    
+    this.state.viewMode = ui.viewMode || 'preview';
+    this.state.logVisible = ui.logVisible || false;
+    this.state.leftSidebarVisible = ui.leftSidebarVisible || false;
+    this.state.rightSidebarVisible = ui.rightSidebarVisible || false;
+    
     this.updateLayout();
   }
 
@@ -156,418 +194,216 @@ export class LayoutManager {
    * Handle keyboard shortcuts
    */
   handleKeyboardShortcuts(event) {
-    const { ctrlKey, metaKey, altKey, shiftKey, key } = event;
-    const cmdOrCtrl = ctrlKey || metaKey;
+    const { altKey, ctrlKey, metaKey, shiftKey, key } = event;
+    
+    // Only handle Alt+ shortcuts without other modifiers
+    if (!altKey || ctrlKey || metaKey || shiftKey) return;
 
-    // Alt + L = Toggle left sidebar
-    if (altKey && key.toLowerCase() === 'l' && !cmdOrCtrl && !shiftKey) {
-      event.preventDefault();
-      this.toggleLeftSidebar();
-      return;
-    }
+    const shortcuts = {
+      'l': () => this.toggleLeftSidebar(),
+      'r': () => this.toggleRightSidebar(),
+      'c': () => this.cycleViewMode('editor'),
+      'p': () => this.cycleViewMode('preview'),
+      's': () => this.cycleViewMode('split')
+    };
 
-    // Alt + R = Toggle right sidebar  
-    if (altKey && key.toLowerCase() === 'r' && !cmdOrCtrl && !shiftKey) {
+    const handler = shortcuts[key.toLowerCase()];
+    if (handler) {
       event.preventDefault();
-      this.toggleRightSidebar();
-      return;
-    }
-
-    // Alt + C = Toggle code mode
-    if (altKey && key.toLowerCase() === 'c' && !cmdOrCtrl && !shiftKey) {
-      event.preventDefault();
-      this.toggleCodeMode();
-      return;
-    }
-
-    // Alt + P = Toggle preview
-    if (altKey && key.toLowerCase() === 'p' && !cmdOrCtrl && !shiftKey) {
-      event.preventDefault();
-      this.togglePreview();
-      return;
-    }
-
-    // Alt + S = Toggle split
-    if (altKey && key.toLowerCase() === 's' && !cmdOrCtrl && !shiftKey) {
-      event.preventDefault();
-      this.toggleSplit();
-      return;
+      handler();
     }
   }
 
-  /**
-   * Handle window resize
-   */
-  handleResize() {
-    // Responsive behavior
-    const width = window.innerWidth;
-    
-    if (width < 768) {
-      // Mobile: hide sidebars
-      if (this.state.leftSidebarVisible || this.state.rightSidebarVisible) {
-        this.setLeftSidebarVisibility(false);
-        this.setRightSidebarVisibility(false);
-      }
-    }
-    
-    this.updateLayout();
-  }
+  // === Public API Methods ===
 
   /**
    * Toggle left sidebar visibility
    */
   toggleLeftSidebar() {
-    this.setLeftSidebarVisibility(!this.state.leftSidebarVisible);
+    dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
   }
 
   /**
    * Toggle right sidebar visibility
    */
   toggleRightSidebar() {
-    this.setRightSidebarVisibility(!this.state.rightSidebarVisible);
+    dispatch({ type: ActionTypes.UI_TOGGLE_RIGHT_SIDEBAR });
   }
 
   /**
    * Toggle log panel visibility
    */
   toggleLogVisibility() {
-    this.setLogVisibility(!this.state.logVisible);
+    // Update via app store to maintain single source of truth
+    dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
   }
 
   /**
-   * Set left sidebar visibility
+   * Set view mode and update app store
    */
-  setLeftSidebarVisibility(visible, persist = true) {
-    this.state.leftSidebarVisible = visible;
-    
-    if (persist) {
-      this.savePreferences();
-    }
-    
-    this.updateLayout();
-    
-    // Emit event for other components
-    if (eventBus) {
-      eventBus.emit('layout:leftSidebarChanged', { visible });
-    }
-  }
-
-  /**
-   * Set right sidebar visibility
-   */
-  setRightSidebarVisibility(visible, persist = true) {
-    this.state.rightSidebarVisible = visible;
-    
-    if (persist) {
-      this.savePreferences();
-    }
-    
-    this.updateLayout();
-    
-    // Emit event for other components
-    if (eventBus) {
-      eventBus.emit('layout:rightSidebarChanged', { visible });
-    }
-  }
-
-  /**
-   * Set content mode (editor/preview/split)
-   */
-  setContentMode(mode, updateAppState = true) {
-    if (!['editor', 'preview', 'split'].includes(mode)) {
-      console.warn(`[LayoutManager] Invalid content mode: ${mode}`);
+  setViewMode(mode) {
+    if (!['preview', 'split'].includes(mode)) {
+      console.warn(`[LayoutManager] Invalid view mode: ${mode}`);
       return;
     }
 
-    this.state.contentMode = mode;
-    this.savePreferences();
-    this.updateLayout();
-
-    // Update app state if requested
-    if (updateAppState) {
-      dispatch({
-        type: ActionTypes.UI_SET_VIEW_MODE,
-        payload: { viewMode: mode }
-      });
-    }
-
-    // Emit event for other components
-    if (eventBus) {
-      eventBus.emit('layout:contentModeChanged', { 
-        mode, 
-        editorType: this.state.editorType,
-        previewType: this.state.previewType 
-      });
-    }
+    // Update via app store to maintain single source of truth
+    dispatch({ 
+      type: ActionTypes.UI_SET_VIEW_MODE, 
+      payload: { viewMode: mode } 
+    });
   }
 
   /**
-   * Toggle between markdown and code editing modes
+   * Cycle through view modes
    */
-  toggleCodeMode() {
-    if (this.state.editorType === 'markdown') {
-      this.state.editorType = 'raw-text';
-      // In code mode, hide sidebars for full-width editing
-      this.state.leftSidebarVisible = false;
-      this.state.rightSidebarVisible = false;
+  cycleViewMode(preferredMode) {
+    const modes = ['editor', 'preview', 'split'];
+    const currentIndex = modes.indexOf(this.state.viewMode);
+    
+    let nextMode;
+    if (preferredMode && modes.includes(preferredMode)) {
+      nextMode = this.state.viewMode === preferredMode ? 'split' : preferredMode;
     } else {
-      this.state.editorType = 'markdown';
+      nextMode = modes[(currentIndex + 1) % modes.length];
     }
     
-    this.savePreferences();
-    this.updateLayout();
-    this.emitLayoutChange();
+    this.setViewMode(nextMode);
   }
 
   /**
-   * Toggle preview visibility/type
+   * Set sidebar width
    */
-  togglePreview() {
-    if (this.state.editorType === 'raw-text') {
-      // In code mode: cycle through hidden -> popup -> inline
-      switch (this.state.previewType) {
-        case 'hidden':
-          this.state.previewType = 'popup-iframe';
-          break;
-        case 'popup-iframe':
-          this.state.previewType = 'inline';
-          break;
-        case 'inline':
-          this.state.previewType = 'hidden';
-          break;
-        default:
-          this.state.previewType = 'hidden';
-      }
-    } else {
-      // In markdown mode: toggle preview visibility
-      if (this.state.contentMode === 'editor') {
-        this.state.contentMode = 'split';
-      } else if (this.state.contentMode === 'preview') {
-        this.state.contentMode = 'editor';
-      } else {
-        // In split mode, go to preview-only
-        this.state.contentMode = 'preview';
-      }
+  setSidebarWidth(side, width) {
+    if (side === 'left') {
+      this.state.leftSidebarWidth = Math.max(200, Math.min(500, width));
+    } else if (side === 'right') {
+      this.state.rightSidebarWidth = Math.max(250, Math.min(600, width));
     }
     
-    this.savePreferences();
     this.updateLayout();
-    this.emitLayoutChange();
+    this.savePreferences();
   }
 
   /**
-   * Toggle split view
+   * Set log panel height
    */
-  toggleSplit() {
-    if (this.state.editorType === 'raw-text') {
-      // In code mode: toggle between single editor and split with preview
-      if (this.state.previewType === 'hidden') {
-        this.state.previewType = 'inline';
-      } else if (this.state.previewType === 'inline') {
-        this.state.previewType = 'hidden';
-      }
-      // popup-iframe stays as is - it's independent of split toggle
-    } else {
-      // In markdown mode: toggle split view
-      if (this.state.contentMode === 'split') {
-        this.state.contentMode = 'editor';
-      } else {
-        this.state.contentMode = 'split';
-      }
-    }
-    
-    this.savePreferences();
+  setLogHeight(height) {
+    this.state.logHeight = Math.max(150, Math.min(500, height));
     this.updateLayout();
-    this.emitLayoutChange();
+    this.savePreferences();
+  }
+
+  // === Core Layout Update Logic ===
+
+  /**
+   * Main layout update method - declarative CSS approach
+   */
+  updateLayout() {
+    this.updateCSSCustomProperties();
+    this.updateBodyClasses();
+    this.updateElementVisibility();
+    
+    console.log('[LayoutManager] Layout updated:', this.state);
   }
 
   /**
-   * Emit layout change event
+   * Update CSS custom properties for declarative styling
+   */
+  updateCSSCustomProperties() {
+    const root = this.elements.get('root');
+    if (!root) return;
+
+    const properties = {
+      '--left-sidebar-width': `${this.state.leftSidebarWidth}px`,
+      '--right-sidebar-width': `${this.state.rightSidebarWidth}px`,
+      '--log-height': `${this.state.logHeight}px`,
+      '--left-sidebar-visible': this.state.leftSidebarVisible ? '1' : '0',
+      '--right-sidebar-visible': this.state.rightSidebarVisible ? '1' : '0',
+      '--log-visible': this.state.logVisible ? '1' : '0'
+    };
+
+    Object.entries(properties).forEach(([property, value]) => {
+      root.style.setProperty(property, value);
+    });
+  }
+
+  /**
+   * Update body classes for view mode styling
+   */
+  updateBodyClasses() {
+    const body = this.elements.get('body');
+    if (!body) return;
+
+    // Remove existing view classes
+    body.classList.remove('view-editor', 'view-preview', 'view-split');
+    
+    // Add current view class
+    body.classList.add(`view-${this.state.viewMode}`);
+
+    // Add sidebar visibility classes
+    body.classList.toggle('left-sidebar-visible', this.state.leftSidebarVisible);
+    body.classList.toggle('right-sidebar-visible', this.state.rightSidebarVisible);
+    body.classList.toggle('log-visible', this.state.logVisible);
+  }
+
+  /**
+   * Update element visibility and attributes
+   */
+  updateElementVisibility() {
+    // Log container - still use display since it's not handled by body classes
+    const logContainer = this.elements.get('log-container');
+    if (logContainer) {
+      logContainer.style.display = this.state.logVisible ? 'block' : 'none';
+    }
+
+    // Update data attributes for CSS targeting
+    const root = this.elements.get('root');
+    if (root) {
+      root.setAttribute('data-view-mode', this.state.viewMode);
+      root.setAttribute('data-log-visible', this.state.logVisible.toString());
+    }
+
+    // Sidebars are now handled by CSS body classes, no need to set display directly
+  }
+
+  /**
+   * Emit layout change event for other components
    */
   emitLayoutChange() {
     if (eventBus) {
-      eventBus.emit('layout:stateChanged', { 
-        editorType: this.state.editorType,
-        previewType: this.state.previewType,
-        contentMode: this.state.contentMode,
-        leftSidebarVisible: this.state.leftSidebarVisible,
-        rightSidebarVisible: this.state.rightSidebarVisible
+      // Legacy format for PreviewManager (it listens to layout:stateChanged)
+      eventBus.emit('layout:stateChanged', {
+        editorType: 'markdown', // Default editor type
+        previewType: this.getPreviewTypeFromViewMode(),
+        contentMode: this.state.viewMode
+      });
+
+      // New format for modern components
+      eventBus.emit('layout:modernStateChanged', { 
+        state: { ...this.state },
+        timestamp: Date.now()
       });
     }
   }
 
   /**
-   * Toggle preview type between inline and popup (for code mode)
+   * Convert viewMode to previewType for legacy compatibility
    */
-  togglePreviewType() {
-    if (this.state.contentMode !== 'code') {
-      console.warn('[LayoutManager] Preview type toggle only available in code mode');
-      return;
-    }
-
-    this.state.previewType = this.state.previewType === 'inline' ? 'popup-iframe' : 'inline';
-    this.savePreferences();
-    
-    // Emit event for preview system to update
-    if (eventBus) {
-      eventBus.emit('layout:previewTypeChanged', { 
-        previewType: this.state.previewType,
-        contentMode: this.state.contentMode
-      });
-    }
-
-    // Update layout to show/hide preview container
-    this.updateLayout();
-  }
-
-  /**
-   * Set log panel visibility
-   */
-  setLogVisibility(visible, updateAppState = true) {
-    this.state.logVisible = visible;
-    this.savePreferences();
-    this.updateLayout();
-
-    // Update app state if requested
-    if (updateAppState) {
-      dispatch({
-        type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY,
-        payload: { logVisible: visible }
-      });
-    }
-
-    // Emit event for other components
-    if (eventBus) {
-      eventBus.emit('layout:logVisibilityChanged', { visible });
+  getPreviewTypeFromViewMode() {
+    switch (this.state.viewMode) {
+      case 'editor':
+        return 'hidden';
+      case 'preview':
+        return 'inline';
+      case 'split':
+        return 'inline';
+      default:
+        return 'inline';
     }
   }
 
-  /**
-   * Update the actual DOM layout based on current state
-   */
-  updateLayout() {
-    this.updateSidebars();
-    this.updateContentArea();
-    this.updateLogPanel();
-    this.updateBodyClasses();
-    this.updateCSS();
-  }
-
-  /**
-   * Update sidebar visibility and dimensions
-   */
-  updateSidebars() {
-    const { leftSidebar, rightSidebar } = this.elements;
-    
-    // Left sidebar
-    if (leftSidebar) {
-      leftSidebar.style.display = this.state.leftSidebarVisible ? 'flex' : 'none';
-      leftSidebar.style.width = `${this.state.leftSidebarWidth}px`;
-    }
-
-    // Right sidebar
-    if (rightSidebar) {
-      rightSidebar.style.display = this.state.rightSidebarVisible ? 'flex' : 'none';
-      rightSidebar.style.width = `${this.state.rightSidebarWidth}px`;
-    }
-  }
-
-  /**
-   * Update content area layout
-   */
-  updateContentArea() {
-    const { contentWrapper } = this.elements;
-    
-    if (contentWrapper) {
-      // Remove existing mode classes
-      contentWrapper.classList.remove('mode-editor', 'mode-preview', 'mode-split');
-      
-      // In code mode, determine effective content mode
-      if (this.state.editorType === 'raw-text') {
-        if (this.state.previewType === 'hidden') {
-          contentWrapper.classList.add('mode-editor');
-        } else if (this.state.previewType === 'inline') {
-          contentWrapper.classList.add('mode-split');
-        } else {
-          // popup-iframe - show editor only
-          contentWrapper.classList.add('mode-editor');
-        }
-      } else {
-        // Normal markdown mode
-        contentWrapper.classList.add(`mode-${this.state.contentMode}`);
-      }
-      
-      // Add editor type class
-      contentWrapper.classList.remove('editor-markdown', 'editor-raw-text');
-      contentWrapper.classList.add(`editor-${this.state.editorType}`);
-      
-      // Add preview type class
-      contentWrapper.classList.remove('preview-inline', 'preview-popup-iframe', 'preview-hidden');
-      contentWrapper.classList.add(`preview-${this.state.previewType}`);
-    }
-  }
-
-  /**
-   * Update log panel
-   */
-  updateLogPanel() {
-    const { logContainer, mainContainer } = this.elements;
-    
-    if (logContainer) {
-      logContainer.style.display = this.state.logVisible ? 'block' : 'none';
-      logContainer.style.height = this.state.logVisible ? `${this.state.logHeight}px` : '0px';
-    }
-
-    if (mainContainer) {
-      mainContainer.classList.toggle('log-hidden', !this.state.logVisible);
-    }
-  }
-
-  /**
-   * Update body classes for styling
-   */
-  updateBodyClasses() {
-    const { body } = this.elements;
-    
-    // Remove old classes
-    body.classList.remove('view-editor', 'view-preview', 'view-split', 'view-code');
-    body.classList.remove('left-sidebar-visible', 'right-sidebar-visible');
-    body.classList.remove('log-visible', 'log-hidden');
-
-    // Add current content mode class
-    if (this.state.editorType === 'raw-text') { // Modified to handle editorType
-      body.classList.add('view-code');
-      // The specific view (editor/split) is handled by classes on contentWrapper now
-    } else {
-      body.classList.add(`view-${this.state.contentMode}`);
-    }
-
-    // Add sidebar classes
-    if (this.state.leftSidebarVisible) {
-      body.classList.add('left-sidebar-visible');
-    }
-    if (this.state.rightSidebarVisible) {
-      body.classList.add('right-sidebar-visible');
-    }
-
-    // Add log classes
-    body.classList.add(this.state.logVisible ? 'log-visible' : 'log-hidden');
-  }
-
-  /**
-   * Update CSS custom properties
-   */
-  updateCSS() {
-    const { leftSidebar, rightSidebar } = this.elements;
-    
-    if (leftSidebar) {
-      leftSidebar.style.cssText = `--left-sidebar-width: ${this.state.leftSidebarWidth}px;`;
-    }
-
-    if (rightSidebar) {
-      rightSidebar.style.cssText = `--right-sidebar-width: ${this.state.rightSidebarWidth}px;`;
-    }
-  }
+  // === Public Getters ===
 
   /**
    * Get current layout state
@@ -577,56 +413,95 @@ export class LayoutManager {
   }
 
   /**
-   * Set layout state programmatically
+   * Get layout info for components
    */
-  setState(newState, persist = true) {
-    this.state = { ...this.state, ...newState };
+  getLayoutInfo() {
+    return {
+      contentWidth: this.calculateContentWidth(),
+      availableHeight: this.calculateAvailableHeight(),
+      isCompact: this.isCompactLayout(),
+      activeLayout: this.getActiveLayoutType()
+    };
+  }
+
+  /**
+   * Calculate available content width
+   */
+  calculateContentWidth() {
+    const viewportWidth = window.innerWidth;
+    let contentWidth = viewportWidth;
     
-    if (persist) {
-      this.savePreferences();
+    if (this.state.leftSidebarVisible) {
+      contentWidth -= this.state.leftSidebarWidth;
+    }
+    if (this.state.rightSidebarVisible) {
+      contentWidth -= this.state.rightSidebarWidth;
     }
     
-    this.updateLayout();
+    return Math.max(300, contentWidth); // Minimum content width
   }
 
   /**
-   * Reset layout to defaults
+   * Calculate available content height
    */
-  resetLayout() {
-    this.state = {
-      leftSidebarVisible: false,
-      rightSidebarVisible: false,
-      contentMode: 'split',
-      logVisible: false,
-      leftSidebarWidth: 250,
-      rightSidebarWidth: 320,
-      logHeight: 300,
-      previewType: 'inline',
-      editorType: 'markdown'
-    };
+  calculateAvailableHeight() {
+    const viewportHeight = window.innerHeight;
+    const topBarHeight = 40; // Approximate
+    let availableHeight = viewportHeight - topBarHeight;
     
-    this.savePreferences();
-    this.updateLayout();
+    if (this.state.logVisible) {
+      availableHeight -= this.state.logHeight;
+    }
+    
+    return Math.max(200, availableHeight);
   }
 
   /**
-   * Destroy the layout manager
+   * Check if layout is in compact mode
+   */
+  isCompactLayout() {
+    return this.calculateContentWidth() < 600;
+  }
+
+  /**
+   * Get active layout type description
+   */
+  getActiveLayoutType() {
+    const { leftSidebarVisible, rightSidebarVisible, viewMode } = this.state;
+    
+    if (!leftSidebarVisible && !rightSidebarVisible) {
+      return `${viewMode}-only`;
+    } else if (leftSidebarVisible && rightSidebarVisible) {
+      return `${viewMode}-full`;
+    } else if (leftSidebarVisible) {
+      return `${viewMode}-with-files`;
+    } else {
+      return `${viewMode}-with-context`;
+    }
+  }
+
+  // === Cleanup ===
+
+  /**
+   * Clean up resources
    */
   destroy() {
-    // Remove event listeners
-    document.removeEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
-    window.removeEventListener('resize', this.handleResize.bind(this));
-    
-    // Unsubscribe from app state
+    // Unsubscribe from app store
     if (this.appStateUnsubscribe) {
       this.appStateUnsubscribe();
+      this.appStateUnsubscribe = null;
     }
-    
-    // Clean up window reference
-    if (window.layoutManager === this) {
-      delete window.layoutManager;
-    }
-    
+
+    // Clean up event listeners
+    this.cleanup.forEach(cleanupFn => cleanupFn());
+    this.cleanup = [];
+
+    // Clear element cache
+    this.elements.clear();
+
     console.log('[LayoutManager] Destroyed');
   }
 }
+
+// Export for use in other modules
+export default LayoutManager;

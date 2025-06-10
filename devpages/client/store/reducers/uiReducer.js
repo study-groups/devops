@@ -9,10 +9,12 @@ const initialState = {
   isLoading: false,
   logVisible: loadFromStorage(LOG_VISIBLE_KEY, false),
   logMenuVisible: false,
-  viewMode: loadFromStorage(VIEW_MODE_KEY, 'split', mode => 
-    typeof mode === 'string' && ['editor', 'preview', 'split'].includes(mode)
+  viewMode: loadFromStorage(VIEW_MODE_KEY, 'preview', mode => 
+    typeof mode === 'string' && ['preview', 'split'].includes(mode)
   ),
-  theme: 'default'
+  theme: 'default',
+  leftSidebarVisible: false,
+  rightSidebarVisible: false
 };
 
 // Create persisters for state that should be saved to localStorage
@@ -68,7 +70,7 @@ export const uiReducer = createReducer(initialState, {
     const viewMode = action.payload?.viewMode || action.payload;
     
     // Validate viewMode is a valid option
-    if (typeof viewMode === 'string' && ['editor', 'preview', 'split'].includes(viewMode)) {
+    if (typeof viewMode === 'string' && ['preview', 'split'].includes(viewMode)) {
       const newState = { ...state, viewMode };
       persisters.viewMode(newState);
       return newState;
@@ -76,5 +78,13 @@ export const uiReducer = createReducer(initialState, {
     
     console.warn(`[Reducer UI_SET_VIEW_MODE] Invalid view mode: ${viewMode}`);
     return state;
+  },
+
+  [ActionTypes.UI_TOGGLE_LEFT_SIDEBAR]: (state) => {
+    return { ...state, leftSidebarVisible: !state.leftSidebarVisible };
+  },
+
+  [ActionTypes.UI_TOGGLE_RIGHT_SIDEBAR]: (state) => {
+    return { ...state, rightSidebarVisible: !state.rightSidebarVisible };
   }
 });

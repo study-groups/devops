@@ -192,23 +192,76 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     };
 
     const attachEventListeners = () => {
-        // ... existing event listeners ...
+        // Close button functionality
+        const closeBtn = popupElement.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', hide);
+        }
+        
+        // Organization select functionality
+        const orgSelect = popupElement.querySelector('#org-select');
+        if (orgSelect) {
+            orgSelect.addEventListener('change', handleOrgChange);
+        }
+        
+        // Heartbeat form functionality
+        const heartbeatInterval = popupElement.querySelector('#heartbeat-interval');
+        if (heartbeatInterval) {
+            heartbeatInterval.addEventListener('change', handleHeartbeatIntervalChange);
+        }
+        
+        const heartbeatRefresh = popupElement.querySelector('#heartbeat-refresh');
+        if (heartbeatRefresh) {
+            heartbeatRefresh.addEventListener('change', handleHeartbeatRefreshChange);
+        }
+        
+        const heartbeatCheckServer = popupElement.querySelector('#heartbeat-check-server');
+        if (heartbeatCheckServer) {
+            heartbeatCheckServer.addEventListener('change', handleHeartbeatCheckServerChange);
+        }
+        
+        const heartbeatToggleBtn = popupElement.querySelector('#heartbeat-toggle-btn');
+        if (heartbeatToggleBtn) {
+            heartbeatToggleBtn.addEventListener('click', handleHeartbeatStartStop);
+        }
         
         // Drag functionality
         const header = popupElement.querySelector('.context-settings-popup-header');
-        header.addEventListener('mousedown', startDrag);
+        if (header) {
+            header.addEventListener('mousedown', startDrag);
+        }
         
         // Collapse functionality
         const collapseBtn = popupElement.querySelector('.collapse-btn');
-        collapseBtn.addEventListener('click', toggleCollapsed);
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', toggleCollapsed);
+        }
         
         // Resize functionality
         const resizeHandle = popupElement.querySelector('.resize-handle');
-        resizeHandle.addEventListener('mousedown', startResize);
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mousedown', startResize);
+        }
         
         // Global mouse events
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
+        
+        // ESC key to close
+        const handleEscKey = (event) => {
+            if (event.key === 'Escape' && isVisible) {
+                hide();
+            }
+        };
+        document.addEventListener('keydown', handleEscKey);
+        
+        // Click outside to close
+        const handleClickOutside = (event) => {
+            if (isVisible && popupElement && !popupElement.querySelector('.context-settings-popup-content').contains(event.target)) {
+                hide();
+            }
+        };
+        popupElement.addEventListener('click', handleClickOutside);
     };
 
     const startDrag = (event) => {

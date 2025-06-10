@@ -40,15 +40,15 @@ function getInitialLogVisibility() {
 function getInitialViewMode() {
     try {
         const storedViewMode = localStorage.getItem(VIEW_MODE_KEY);
-        if (storedViewMode && ['editor', 'split', 'preview'].includes(storedViewMode)) {
+        if (storedViewMode && ['preview', 'split'].includes(storedViewMode)) {
             console.log('[AppState] Loaded viewMode from localStorage:', storedViewMode);
             return storedViewMode;
         }
-        console.log('[AppState] No valid viewMode in localStorage, defaulting to editor.');
+        console.log('[AppState] No valid viewMode in localStorage, defaulting to preview.');
     } catch (e) {
         console.error('[AppState] Error reading viewMode from localStorage:', e);
     }
-    return 'editor'; // Default to 'editor' if not explicitly stored, invalid, or on error
+    return 'preview'; // Default to 'preview' (rendered page) if not explicitly stored, invalid, or on error
 }
 
 // --- Enhanced Data-Driven Plugin Configuration ---
@@ -272,7 +272,9 @@ const initialAppState = {
     logVisible: getInitialLogState().visible,
     logHeight: getInitialLogState().height,
     logMenuVisible: getInitialLogState().menuVisible,
-    viewMode: getInitialViewMode()
+    viewMode: getInitialViewMode(),
+    leftSidebarVisible: false,
+    rightSidebarVisible: false
   },
   settingsPanel: getInitialSettingsPanelState(),
   editor: {
