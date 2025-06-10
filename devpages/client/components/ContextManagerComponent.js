@@ -367,16 +367,16 @@ export function createContextManagerComponent(targetElementId) {
         logContext(`Settings click from: ${isFromSidebar ? 'sidebar' : isFromNavbar ? 'navbar' : 'unknown'}`, 'EVENT');
         
         if (isFromNavbar) {
-            // Navbar click: Toggle left sidebar visibility
-            logContext('Navbar settings click: toggling left sidebar', 'EVENT');
+            // Navbar click: Toggle Panel Manager (Control Center)
+            logContext('Navbar settings click: toggling Panel Manager', 'EVENT');
             
-                         // Use the layout manager to toggle the left sidebar
-             if (window.layoutManager && typeof window.layoutManager.toggleLeftSidebar === 'function') {
-                 window.layoutManager.toggleLeftSidebar();
-             } else {
-                 // Fallback: dispatch action directly
-                 dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
-             }
+            // Use the new Panel UI Manager to toggle the control center
+            if (window.panelUIManager && typeof window.panelUIManager.togglePanelManager === 'function') {
+                window.panelUIManager.togglePanelManager();
+            } else {
+                // Fallback: dispatch action directly to toggle left sidebar (which controls Panel Manager)
+                dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
+            }
         } else if (isFromSidebar) {
             // Sidebar click: Show popup
             logContext('Sidebar settings click: showing popup', 'EVENT');

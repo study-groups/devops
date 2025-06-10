@@ -1,0 +1,36 @@
+/**
+ * PreviewPanel.css
+ *
+ * Overrides default markdown styling to provide a clean,
+ * edge-to-edge preview without extra padding or margins.
+ */
+
+/* These are the parent containers, they should have no padding */
+.panel-content,
+.preview-panel-content {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/*
+ * This is the actual content area. It should have its own padding
+ * to give the text some breathing room. We use !important to
+ * override the old `styles.css` that was adding huge margins.
+ */
+.markdown-preview {
+    padding: 1.5rem 2rem !important;
+    margin: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    background-color: #fff;
+}
+
+/* Remove margin from the first and last elements to prevent extra space */
+.markdown-preview > :first-child {
+    margin-top: 0 !important;
+}
+.markdown-preview > :last-child {
+    margin-bottom: 0 !important;
+} 

@@ -1,7 +1,8 @@
 /**
- * LayoutManager.js - Declarative layout management for DevPages
+ * LayoutManager.js - Panel-based layout management for DevPages
  * 
- * New Architecture:
+ * Updated Architecture:
+ * - Panel-based layout instead of sidebar-based
  * - Single source of truth via app store
  * - Declarative CSS-based layouts using custom properties
  * - Clean separation between state management and DOM updates
@@ -14,15 +15,14 @@ import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 export class LayoutManager {
   constructor() {
-    // Internal state - mirrors app store for quick access
+    // Internal state - now panel-based instead of sidebar-based
     this.state = {
-      leftSidebarVisible: false,
-      rightSidebarVisible: false,
+      panelsVisible: true,
+      codeViewVisible: false,
       viewMode: 'preview', // 'preview', 'split'
       logVisible: false,
       // Layout dimensions
-      leftSidebarWidth: 250,
-      rightSidebarWidth: 320,
+      panelsTotalWidth: 580, // ContextPanel(280) + CodePanel(300)
       logHeight: 300
     };
 
@@ -49,7 +49,7 @@ export class LayoutManager {
     // Global access for debugging
     window.layoutManager = this;
     
-    console.log('[LayoutManager] Initialized with declarative architecture');
+    console.log('[LayoutManager] Initialized with panel-based architecture');
   }
 
   /**
@@ -57,8 +57,8 @@ export class LayoutManager {
    */
   cacheElements() {
     const elementIds = [
-      'code-sidebar',
-      'right-sidebar', 
+      'panels-container',
+      'right-gutter', 
       'main-container',
       'content-view-wrapper',
       'log-container'
@@ -86,6 +86,10 @@ export class LayoutManager {
       const saved = localStorage.getItem('layoutPreferences');
       if (saved) {
         const preferences = JSON.parse(saved);
+        // Migrate old sidebar preferences to panel preferences
+        if (preferences.leftSidebarWidth || preferences.rightSidebarWidth) {
+          this.state.panelsTotalWidth = (preferences.leftSidebarWidth || 280) + (preferences.rightSidebarWidth || 300);
+        }
         this.state = { ...this.state, ...preferences };
       }
     } catch (error) {
@@ -98,10 +102,9 @@ export class LayoutManager {
    */
   savePreferences() {
     try {
-      const { leftSidebarWidth, rightSidebarWidth, logHeight } = this.state;
+      const { panelsTotalWidth, logHeight } = this.state;
       localStorage.setItem('layoutPreferences', JSON.stringify({
-        leftSidebarWidth,
-        rightSidebarWidth,
+        panelsTotalWidth,
         logHeight
       }));
     } catch (error) {
@@ -131,14 +134,14 @@ export class LayoutManager {
         needsUpdate = true;
       }
 
-      // Sync sidebar visibility
-      if (newUI.leftSidebarVisible !== prevUI.leftSidebarVisible && newUI.leftSidebarVisible !== this.state.leftSidebarVisible) {
-        this.state.leftSidebarVisible = newUI.leftSidebarVisible;
+      // Sync panel visibility with app state
+      if (newUI.leftSidebarVisible !== prevUI.leftSidebarVisible) {
+        this.state.panelsVisible = newUI.leftSidebarVisible;
         needsUpdate = true;
       }
 
-      if (newUI.rightSidebarVisible !== prevUI.rightSidebarVisible && newUI.rightSidebarVisible !== this.state.rightSidebarVisible) {
-        this.state.rightSidebarVisible = newUI.rightSidebarVisible;
+      if (newUI.rightSidebarVisible !== prevUI.rightSidebarVisible) {
+        this.state.codeViewVisible = newUI.rightSidebarVisible;
         needsUpdate = true;
       }
 
@@ -158,11 +161,11 @@ export class LayoutManager {
     document.addEventListener('keydown', handleKeyboard);
     this.cleanup.push(() => document.removeEventListener('keydown', handleKeyboard));
 
-    // EventBus listeners
+    // EventBus listeners for panel system
     if (eventBus) {
       const listeners = [
-        ['layout:toggleLeftSidebar', () => this.toggleLeftSidebar()],
-        ['layout:toggleRightSidebar', () => this.toggleRightSidebar()],
+        ['layout:togglePanels', () => this.togglePanels()],
+        ['layout:toggleCodeView', () => this.toggleCodeView()],
         ['layout:setViewMode', (data) => this.setViewMode(data.mode)],
         ['layout:toggleLog', () => this.toggleLogVisibility()]
       ];
@@ -170,6 +173,13 @@ export class LayoutManager {
       listeners.forEach(([event, handler]) => {
         eventBus.on(event, handler);
         this.cleanup.push(() => eventBus.off(event, handler));
+      });
+    }
+
+    // Listen for panel system events
+    if (eventBus) {
+      eventBus.on('panels:layoutChanged', (panelData) => {
+        this.handlePanelLayoutChange(panelData);
       });
     }
   }
@@ -184,8 +194,8 @@ export class LayoutManager {
     
     this.state.viewMode = ui.viewMode || 'preview';
     this.state.logVisible = ui.logVisible || false;
-    this.state.leftSidebarVisible = ui.leftSidebarVisible || false;
-    this.state.rightSidebarVisible = ui.rightSidebarVisible || false;
+    this.state.panelsVisible = ui.leftSidebarVisible !== false; // Default to true
+    this.state.codeViewVisible = ui.rightSidebarVisible || false;
     
     this.updateLayout();
   }
@@ -199,72 +209,85 @@ export class LayoutManager {
     // Only handle Alt+ shortcuts without other modifiers
     if (!altKey || ctrlKey || metaKey || shiftKey) return;
 
-    const shortcuts = {
-      'l': () => this.toggleLeftSidebar(),
-      'r': () => this.toggleRightSidebar(),
-      'c': () => this.cycleViewMode('editor'),
-      'p': () => this.cycleViewMode('preview'),
-      's': () => this.cycleViewMode('split')
-    };
-
-    const handler = shortcuts[key.toLowerCase()];
-    if (handler) {
-      event.preventDefault();
-      handler();
+    switch (key) {
+      case 'p':
+      case 'P':
+        event.preventDefault();
+        this.togglePanels();
+        break;
+      case 'c':
+      case 'C':
+        event.preventDefault();
+        this.toggleCodeView();
+        break;
+      case 's':
+      case 'S':
+        event.preventDefault();
+        this.cycleViewMode();
+        break;
+      case 'l':
+      case 'L':
+        event.preventDefault();
+        this.toggleLogVisibility();
+        break;
     }
   }
 
-  // === Public API Methods ===
-
   /**
-   * Toggle left sidebar visibility
+   * Toggle panels visibility
    */
-  toggleLeftSidebar() {
+  togglePanels() {
     dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
+    if (window.panelUIManager) {
+      window.panelUIManager.toggleAllPanels();
+    }
   }
 
   /**
-   * Toggle right sidebar visibility
+   * Toggle code view (CodePanel)
    */
-  toggleRightSidebar() {
+  toggleCodeView() {
     dispatch({ type: ActionTypes.UI_TOGGLE_RIGHT_SIDEBAR });
+    if (window.panelUIManager) {
+      window.panelUIManager.toggleCodeView();
+    }
   }
 
   /**
-   * Toggle log panel visibility
+   * Toggle log visibility
    */
   toggleLogVisibility() {
-    // Update via app store to maintain single source of truth
     dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
   }
 
   /**
-   * Set view mode and update app store
+   * Set view mode
    */
   setViewMode(mode) {
     if (!['preview', 'split'].includes(mode)) {
       console.warn(`[LayoutManager] Invalid view mode: ${mode}`);
       return;
     }
-
-    // Update via app store to maintain single source of truth
-    dispatch({ 
-      type: ActionTypes.UI_SET_VIEW_MODE, 
-      payload: { viewMode: mode } 
-    });
+    
+    if (mode !== this.state.viewMode) {
+      dispatch({ 
+        type: ActionTypes.UI_SET_VIEW_MODE, 
+        payload: { viewMode: mode } 
+      });
+    }
   }
 
   /**
    * Cycle through view modes
    */
   cycleViewMode(preferredMode) {
-    const modes = ['editor', 'preview', 'split'];
-    const currentIndex = modes.indexOf(this.state.viewMode);
-    
+    const modes = ['preview', 'split'];
     let nextMode;
+    
     if (preferredMode && modes.includes(preferredMode)) {
-      nextMode = this.state.viewMode === preferredMode ? 'split' : preferredMode;
+      nextMode = preferredMode;
     } else {
+      const currentIndex = modes.indexOf(this.state.viewMode);
       nextMode = modes[(currentIndex + 1) % modes.length];
     }
     
@@ -272,233 +295,216 @@ export class LayoutManager {
   }
 
   /**
-   * Set sidebar width
+   * Handle panel layout changes from PanelManager
    */
-  setSidebarWidth(side, width) {
-    if (side === 'left') {
-      this.state.leftSidebarWidth = Math.max(200, Math.min(500, width));
-    } else if (side === 'right') {
-      this.state.rightSidebarWidth = Math.max(250, Math.min(600, width));
-    }
-    
+  handlePanelLayoutChange(panelData) {
+    this.state.panelsTotalWidth = panelData.totalWidth;
     this.updateLayout();
     this.savePreferences();
   }
 
   /**
-   * Set log panel height
+   * Set log height
    */
   setLogHeight(height) {
-    this.state.logHeight = Math.max(150, Math.min(500, height));
-    this.updateLayout();
-    this.savePreferences();
+    const validHeight = Math.max(100, Math.min(600, height));
+    
+    if (validHeight !== this.state.logHeight) {
+      this.state.logHeight = validHeight;
+      this.updateLayout();
+      this.savePreferences();
+    }
   }
 
-  // === Core Layout Update Logic ===
-
   /**
-   * Main layout update method - declarative CSS approach
+   * Update layout - apply state to DOM
    */
   updateLayout() {
     this.updateCSSCustomProperties();
     this.updateBodyClasses();
     this.updateElementVisibility();
     
-    console.log('[LayoutManager] Layout updated:', this.state);
+    console.log(`[LayoutManager] Layout updated:`, {
+      panelsVisible: this.state.panelsVisible,
+      codeViewVisible: this.state.codeViewVisible,
+      viewMode: this.state.viewMode,
+      logVisible: this.state.logVisible
+    });
   }
 
   /**
-   * Update CSS custom properties for declarative styling
+   * Update CSS custom properties for responsive layout
    */
   updateCSSCustomProperties() {
     const root = this.elements.get('root');
     if (!root) return;
 
-    const properties = {
-      '--left-sidebar-width': `${this.state.leftSidebarWidth}px`,
-      '--right-sidebar-width': `${this.state.rightSidebarWidth}px`,
-      '--log-height': `${this.state.logHeight}px`,
-      '--left-sidebar-visible': this.state.leftSidebarVisible ? '1' : '0',
-      '--right-sidebar-visible': this.state.rightSidebarVisible ? '1' : '0',
-      '--log-visible': this.state.logVisible ? '1' : '0'
-    };
-
-    Object.entries(properties).forEach(([property, value]) => {
-      root.style.setProperty(property, value);
-    });
+    const visiblePanelWidth = this.state.panelsVisible ? this.state.panelsTotalWidth : 0;
+    const gutterWidth = 0; // Right gutter is now hidden
+    
+    root.style.setProperty('--panels-width', `${visiblePanelWidth}px`);
+    root.style.setProperty('--gutter-width', `${gutterWidth}px`);
+    root.style.setProperty('--log-height', `${this.state.logHeight}px`);
+    root.style.setProperty('--content-width', `calc(100vw - ${visiblePanelWidth}px - ${gutterWidth}px)`);
   }
 
   /**
-   * Update body classes for view mode styling
+   * Update body classes for CSS-based layout switching
    */
   updateBodyClasses() {
     const body = this.elements.get('body');
     if (!body) return;
 
-    // Remove existing view classes
-    body.classList.remove('view-editor', 'view-preview', 'view-split');
-    
-    // Add current view class
-    body.classList.add(`view-${this.state.viewMode}`);
-
-    // Add sidebar visibility classes
-    body.classList.toggle('left-sidebar-visible', this.state.leftSidebarVisible);
-    body.classList.toggle('right-sidebar-visible', this.state.rightSidebarVisible);
+    // Panel-based classes
+    body.classList.toggle('panels-visible', this.state.panelsVisible);
+    body.classList.toggle('code-view-visible', this.state.codeViewVisible);
     body.classList.toggle('log-visible', this.state.logVisible);
+    
+    // View mode classes
+    body.classList.toggle('view-preview', this.state.viewMode === 'preview');
+    body.classList.toggle('view-split', this.state.viewMode === 'split');
+    
+    // Compatibility classes for existing CSS
+    body.classList.toggle('left-sidebar-visible', this.state.panelsVisible);
+    body.classList.toggle('right-sidebar-visible', this.state.codeViewVisible);
   }
 
   /**
-   * Update element visibility and attributes
+   * Update element visibility
    */
   updateElementVisibility() {
-    // Log container - still use display since it's not handled by body classes
     const logContainer = this.elements.get('log-container');
     if (logContainer) {
       logContainer.style.display = this.state.logVisible ? 'block' : 'none';
     }
 
-    // Update data attributes for CSS targeting
-    const root = this.elements.get('root');
-    if (root) {
-      root.setAttribute('data-view-mode', this.state.viewMode);
-      root.setAttribute('data-log-visible', this.state.logVisible.toString());
+    const mainContainer = this.elements.get('main-container');
+    if (mainContainer) {
+      mainContainer.classList.toggle('log-hidden', !this.state.logVisible);
     }
-
-    // Sidebars are now handled by CSS body classes, no need to set display directly
   }
 
   /**
-   * Emit layout change event for other components
+   * Emit layout change events
    */
   emitLayoutChange() {
-    if (eventBus) {
-      // Legacy format for PreviewManager (it listens to layout:stateChanged)
-      eventBus.emit('layout:stateChanged', {
-        editorType: 'markdown', // Default editor type
-        previewType: this.getPreviewTypeFromViewMode(),
-        contentMode: this.state.viewMode
-      });
+    if (!eventBus) return;
 
-      // New format for modern components
-      eventBus.emit('layout:modernStateChanged', { 
-        state: { ...this.state },
-        timestamp: Date.now()
-      });
-    }
+    const layoutInfo = this.getLayoutInfo();
+    
+    // Emit new panel-based event
+    eventBus.emit('layout:panelStateChanged', layoutInfo);
+    
+    // Emit state change events for components that need them
+    eventBus.emit('layout:modernStateChanged', {
+      leftSidebarVisible: this.state.panelsVisible,
+      rightSidebarVisible: this.state.codeViewVisible,
+      viewMode: this.state.viewMode,
+      logVisible: this.state.logVisible,
+      leftSidebarWidth: this.state.panelsTotalWidth,
+      logHeight: this.state.logHeight
+    });
   }
 
   /**
-   * Convert viewMode to previewType for legacy compatibility
+   * Get preview type from view mode
    */
   getPreviewTypeFromViewMode() {
     switch (this.state.viewMode) {
-      case 'editor':
-        return 'hidden';
-      case 'preview':
-        return 'inline';
-      case 'split':
-        return 'inline';
-      default:
-        return 'inline';
+      case 'preview': return 'inline';
+      case 'split': return 'inline';
+      default: return 'inline';
     }
   }
 
-  // === Public Getters ===
-
   /**
-   * Get current layout state
+   * Get current state
    */
   getState() {
     return { ...this.state };
   }
 
   /**
-   * Get layout info for components
+   * Get layout information for other components
    */
   getLayoutInfo() {
     return {
+      panelsVisible: this.state.panelsVisible,
+      codeViewVisible: this.state.codeViewVisible,
+      viewMode: this.state.viewMode,
+      logVisible: this.state.logVisible,
+      panelsTotalWidth: this.state.panelsTotalWidth,
+      logHeight: this.state.logHeight,
+      // Derived properties
+      isSplitMode: this.state.viewMode === 'split',
+      isRightSidebarVisible: this.state.codeViewVisible,
       contentWidth: this.calculateContentWidth(),
-      availableHeight: this.calculateAvailableHeight(),
-      isCompact: this.isCompactLayout(),
-      activeLayout: this.getActiveLayoutType()
+      availableHeight: this.calculateAvailableHeight()
     };
   }
 
   /**
-   * Calculate available content width
+   * Calculate main content width
    */
   calculateContentWidth() {
     const viewportWidth = window.innerWidth;
-    let contentWidth = viewportWidth;
+    const panelWidth = this.state.panelsVisible ? this.state.panelsTotalWidth : 0;
+    const gutterWidth = 0; // Right gutter is now hidden
     
-    if (this.state.leftSidebarVisible) {
-      contentWidth -= this.state.leftSidebarWidth;
-    }
-    if (this.state.rightSidebarVisible) {
-      contentWidth -= this.state.rightSidebarWidth;
-    }
-    
-    return Math.max(300, contentWidth); // Minimum content width
+    return Math.max(300, viewportWidth - panelWidth - gutterWidth);
   }
 
   /**
-   * Calculate available content height
+   * Calculate available height for content
    */
   calculateAvailableHeight() {
     const viewportHeight = window.innerHeight;
-    const topBarHeight = 40; // Approximate
-    let availableHeight = viewportHeight - topBarHeight;
+    const topBarHeight = 50; // Navigation bar
+    const logHeight = this.state.logVisible ? this.state.logHeight : 0;
     
-    if (this.state.logVisible) {
-      availableHeight -= this.state.logHeight;
-    }
-    
-    return Math.max(200, availableHeight);
+    return Math.max(200, viewportHeight - topBarHeight - logHeight);
   }
 
   /**
    * Check if layout is in compact mode
    */
   isCompactLayout() {
-    return this.calculateContentWidth() < 600;
+    return window.innerWidth < 1024;
   }
 
   /**
-   * Get active layout type description
+   * Get active layout type for theming
    */
   getActiveLayoutType() {
-    const { leftSidebarVisible, rightSidebarVisible, viewMode } = this.state;
-    
-    if (!leftSidebarVisible && !rightSidebarVisible) {
-      return `${viewMode}-only`;
-    } else if (leftSidebarVisible && rightSidebarVisible) {
-      return `${viewMode}-full`;
-    } else if (leftSidebarVisible) {
-      return `${viewMode}-with-files`;
-    } else {
-      return `${viewMode}-with-context`;
-    }
+    if (this.isCompactLayout()) return 'compact';
+    if (this.state.viewMode === 'split') return 'split';
+    return 'standard';
   }
 
-  // === Cleanup ===
-
   /**
-   * Clean up resources
+   * Cleanup resources
    */
   destroy() {
+    console.log('[LayoutManager] Destroying...');
+    
     // Unsubscribe from app store
     if (this.appStateUnsubscribe) {
       this.appStateUnsubscribe();
       this.appStateUnsubscribe = null;
     }
-
-    // Clean up event listeners
-    this.cleanup.forEach(cleanupFn => cleanupFn());
+    
+    // Remove event listeners
+    this.cleanup.forEach(fn => fn());
     this.cleanup = [];
-
-    // Clear element cache
+    
+    // Clear references
     this.elements.clear();
-
+    
+    // Remove global reference
+    if (window.layoutManager === this) {
+      delete window.layoutManager;
+    }
+    
     console.log('[LayoutManager] Destroyed');
   }
 }

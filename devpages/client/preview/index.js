@@ -41,11 +41,18 @@ export function getPreviewInstance() {
 export class PreviewManager {
   constructor(options = {}) {
     if (previewInstance) {
-      return previewInstance;
+      // If a container is provided and differs from the existing one, re-initialize
+      if (options.container && previewInstance.config.container !== options.container) {
+        console.log('[PreviewManager.init] New container provided. Re-initializing.');
+        previewInstance.destroy();
+        previewInstance = null;
+      } else {
+        return previewInstance;
+      }
     }
 
     this.config = {
-      container: '#preview-container',
+      container: null, // Container is now mandatory
       plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'],
       theme: 'light',
       updateDelay: 100,
@@ -89,35 +96,18 @@ export class PreviewManager {
         );
       }
 
-      // --- MODIFIED: Retry finding container --- 
-      const containerSelector = (typeof this.config.container === 'string') ? this.config.container : null;
-      let attempt = 0;
-      const maxAttempts = 10; // Retry 10 times (1 second total)
-      const retryDelay = 100; // 100ms delay
-
-      while (!this.previewElement && attempt < maxAttempts) {
-        attempt++;
-        console.log(`[PreviewManager.init] Attempt ${attempt}/${maxAttempts} to find container: ${containerSelector || 'HTMLElement'}`);
-        if (containerSelector) {
-          this.previewElement = document.querySelector(containerSelector);
-        } else if (this.config.container instanceof HTMLElement) {
-          // If passed directly, check if it's still in the DOM (simple check)
-          this.previewElement = document.body.contains(this.config.container) ? this.config.container : null;
-        }
-
-        if (!this.previewElement && attempt < maxAttempts) {
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-        }
+      // The container is now passed directly, no need to search for it.
+      if (this.config.container instanceof HTMLElement) {
+          this.previewElement = this.config.container;
       }
-      // --- END MODIFIED --- 
 
       if (!this.previewElement) {
-        logMessage('Preview container not found after multiple attempts', "error", "PREVIEW"); // Updated log
-        console.error('[PreviewManager.init] Container element not found after multiple attempts. Initialization failed.');
+        const errorMsg = 'Preview container is not a valid HTMLElement. Initialization failed.';
+        logMessage(errorMsg, "error", "PREVIEW");
+        console.error(`[PreviewManager.init] ${errorMsg}`);
         return false;
       }
-      console.log('[PreviewManager.init] Container found:', this.previewElement);
+      console.log('[PreviewManager.init] Container assigned:', this.previewElement);
 
       // Add class for styling
       try {
@@ -597,29 +587,38 @@ export class PreviewManager {
   }
 }
 
-// Export these functions for external use
-export function initPreview(options = {}) {
-  // Ensure 'css' is included in default plugins if desired
-  const defaultOptions = {
-    plugins: ['mermaid', 'katex', 'highlight', 'graphviz', 'css'], // Added 'css'
-    container: '#md-preview',
-    theme: 'light',
-    updateDelay: 100,
-    autoRender: true,
-  };
-  const finalOptions = { ...defaultOptions, ...options };
-  const manager = new PreviewManager(finalOptions);
-  return manager.init();
+/**
+ * Initializes the preview system with a given container and options.
+ * This is the main entry point for creating and setting up the preview.
+ * @param {object} options - Configuration options, including a mandatory `container` HTMLElement.
+ * @returns {Promise<PreviewManager|null>} The initialized PreviewManager instance or null on failure.
+ */
+export async function initPreview(options = {}) {
+    if (!options.container || !(options.container instanceof HTMLElement)) {
+        console.error('[initPreview] A valid container HTMLElement must be provided.');
+        return null;
+    }
+
+    try {
+        const manager = new PreviewManager(options);
+        const success = await manager.init();
+        if (success) {
+            logMessage(`Preview initialized for container #${options.container.id}`, 'info', 'PREVIEW');
+            return manager;
+        }
+        return null;
+    } catch (error) {
+        console.error(`[initPreview] Error initializing PreviewManager: ${error.message}`);
+        return null;
+    }
 }
 
 export function updatePreview(content, markdownFilePath) {
-  if (!previewInstance || !previewInstance.initialized) {
-    console.error('[PREVIEW] Preview not initialized. Call initPreview() first.');
-    logMessage('Attempted to update non-initialized preview', 'error', 'PREVIEW');
-    return Promise.reject('Preview not initialized');
+  if (!previewInstance) {
+    console.error('[updatePreview] Preview not initialized. Call initPreview() first.');
+    return;
   }
-  // Pass the path to the instance method
-  return previewInstance.update(content, markdownFilePath);
+  previewInstance.update(content, markdownFilePath);
 }
 
 export function setPreviewTheme(theme) {

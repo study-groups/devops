@@ -14,6 +14,7 @@ let authDisplayComponent = null;
 let contextManagerComponent = null;
 let sidebarContextManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
+let panelUIManager = null; // New panel system
 
 // --- Logging Helper ---
 function logUI(message, type = 'debug') {
@@ -29,7 +30,7 @@ function applyViewMode(mode) {
     logUI(`Applying view mode: ${mode}`);
     const body = document.body;
     logUI(`Body classes BEFORE remove: ${body.className}`);
-    body.classList.remove('view-code', 'view-preview', 'view-split');
+    body.classList.remove('view-code', 'view-preview', 'view-split', 'view-blank');
     logUI(`Body classes AFTER remove: ${body.className}`);
     switch (mode) {
         case 'editor': 
@@ -41,11 +42,15 @@ function applyViewMode(mode) {
             body.classList.add('view-preview'); 
             break;
         case 'split': 
-            logUI(`Adding class: view-split (explicit)`);
+            logUI(`Adding class: view-split`);
             body.classList.add('view-split'); 
             break;
+        case 'blank':
+            logUI(`Adding class: view-blank`);
+            body.classList.add('view-blank');
+            break;
         default: 
-            logUI(`Adding class: view-split (default)`);
+            logUI(`Unknown view mode '${mode}', defaulting to split view.`);
             body.classList.add('view-split'); 
             break;
     }
@@ -311,106 +316,29 @@ function updateBreadcrumbs(fileState) { // Accepts file state slice
     }
 }
 
-// --- Main Exported Initialization Function ---
-export async function initializeUI() {
-    console.log('[DEBUG] initializeUI() CALLED');
-    logUI('[UI_MANAGER] Initializing UI (v_state_refactor)...'); 
-
-    // 1. Mount Core Components
-    console.log('[DEBUG] About to mount core components');
-    try {
-        console.log('[DEBUG] Creating AuthDisplay component...');
-        authDisplayComponent = createAuthDisplayComponent('auth-component-container');
-        console.log('[DEBUG] AuthDisplay component created, calling mount...');
-        const authMountResult = authDisplayComponent.mount();
-        console.log('[DEBUG] AuthDisplay mount result:', authMountResult);
-        
-        console.log('[DEBUG] Creating ContextManager component...');
-        contextManagerComponent = createContextManagerComponent('context-manager-container');
-        console.log('[DEBUG] ContextManager component created, calling mount...');
-        const contextMountResult = contextManagerComponent.mount();
-        console.log('[DEBUG] ContextManager mount result:', contextMountResult);
-        
-        // Create sidebar ContextManager instance
-        console.log('[DEBUG] Creating Sidebar ContextManager component...');
-        sidebarContextManagerComponent = createContextManagerComponent('sidebar-context-manager-container');
-        console.log('[DEBUG] Sidebar ContextManager component created, calling mount...');
-        const sidebarContextMountResult = sidebarContextManagerComponent.mount();
-        console.log('[DEBUG] Sidebar ContextManager mount result:', sidebarContextMountResult);
-        
-        // Initialize ViewControls component
-        try {
-            const { createViewControlsComponent } = await import('/client/components/ViewControls.js');
-            const viewControls = createViewControlsComponent('view-controls-container');
-            if (viewControls.mount()) {
-                logUI('ViewControlsComponent mounted successfully.');
-            } else {
-                logUI('ViewControlsComponent failed to mount.', 'error');
-            }
-        } catch (vcError) {
-            logUI(`Failed to initialize ViewControlsComponent: ${vcError.message}`, 'error');
-            console.error('[VIEW_CONTROLS ERROR]', vcError);
-        }
-        
-        try {
-            const { createContentViewComponent } = await import('/client/components/ContentView.js');
-            const contentView = createContentViewComponent('content-view-wrapper');
-            if (contentView.mount()) {
-                window.APP = window.APP || {};
-                window.APP.contentView = contentView;
-                logUI('ContentViewComponent mounted successfully.');
-            } else {
-                logUI('ContentViewComponent failed to mount.', 'error');
-            }
-        } catch (cvError) {
-            logUI(`Failed to initialize ContentViewComponent: ${cvError.message}`, 'error');
-            console.error('[CONTENT_VIEW ERROR]', cvError);
-        }
-        
-        logUI('Core UI components mounted.');
-    } catch (e) {
-        logUI(`[UI_MANAGER] Failed to mount core components: ${e.message}`, 'error');
-        console.error('[BOOTSTRAP_CORE_COMPONENTS] Failed:', e);
+// --- Lifecycle Functions ---
+/**
+ * Subscribes the UIManager to the central app state.
+ * This is called from bootstrap.js after all components are mounted.
+ */
+export function subscribeUIManager() {
+    if (appStateUnsubscribe) {
+        logUI('UIManager is already subscribed. Skipping.');
+        return;
     }
-
-    // 2. Setup appState Subscription (Handles UI, Auth, AND File state changes)
-    if (appStateUnsubscribe) appStateUnsubscribe(); 
-    appStateUnsubscribe = appStore.subscribe(handleAppStateChange); // Use appStore
-    logUI('[UI_MANAGER] Subscribed to appState changes.');
-
-    // 3. Remove Event Bus Listeners for fileManager state
-    // eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange); // No longer needed
-    // eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled); // No longer needed
-    logUI('[UI_MANAGER] Removed specific fileManager event bus listeners.');
-
-    // 4. Setup Breadcrumb Listener - Removed (handled by store subscription now)
-
-    // 5. Apply Initial UI State from Store
-    // Call the handler once with current state to set initial UI based on store
-    // Pass an empty object for prevState to ensure all checks run
-    await handleAppStateChange(appStore.getState(), {}); 
-
-    logUI('[UI_MANAGER] UI Initialization complete.');
+    logUI('Subscribing UIManager to app state changes...');
+    appStateUnsubscribe = appStore.subscribe(handleAppStateChange);
 }
 
-// --- Optional: Cleanup Function ---
-export function destroyUI() {
-    logUI('[UI_MANAGER] Destroying UI...');
+/**
+ * Unsubscribes the UIManager from the central app state.
+ */
+export function unsubscribeUIManager() {
     if (appStateUnsubscribe) {
         appStateUnsubscribe();
         appStateUnsubscribe = null;
+        logUI('UIManager unsubscribed from app state changes.');
     }
-    // No fileManager listeners to remove now
-    // eventBus.off('fileManager:loadingStateChanged', handleLoadingStateChange);
-    // eventBus.off('fileManager:stateSettled', handleFileManagerStateSettled);
-    
-    // Destroy components
-    authDisplayComponent?.destroy();
-    contextManagerComponent?.destroy();
-    sidebarContextManagerComponent?.destroy();
-    // ... destroy other components ...
-    
-    logUI('[UI_MANAGER] UI destroyed and listeners removed.');
 }
 
 // --- Path Display Helper --- (Based on fileManager state)

@@ -1,0 +1,30 @@
+/**
+ * ContentView.css
+ * Styles for the main content view area, managing the layout of editor and preview panels.
+ */
+
+.content-view-component {
+    display: flex;
+    flex: 1;
+    min-width: 0; /* Ensures flex items can shrink below their content size */
+    height: 100%;
+}
+
+.content-view-component .content-panel {
+    height: 100%;
+    overflow: hidden; /* Change from 'auto' to 'hidden' to prevent double scrollbars */
+    flex-grow: 1; /* Allow panels to grow */
+    flex-basis: 0; /* Start from a basis of 0, allowing them to share space evenly */
+}
+
+/* Add a separator between panels when in split mode */
+.content-view-component.mode-split .content-panel#content-editor-panel {
+    border-right: 1px solid #ccc;
+}
+
+/* Ensure single panels take up the full width */
+.content-view-component.mode-editor .content-panel#content-editor-panel,
+.content-view-component.mode-preview .content-panel#content-preview-panel {
+    width: 100%;
+    flex-grow: 1;
+} 

@@ -1207,6 +1207,7 @@ button.loading::after {
   height: 100%;
   /* Ensure it takes up available height */
   width: 100%;
+  position: relative; /* Enable absolute positioning for overlay */
 }
 
 /* Base styles for the editor and preview panes */

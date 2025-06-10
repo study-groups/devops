@@ -11,6 +11,7 @@ import { settingsPanelReducer } from './reducers/settingsPanelReducer.js';
 import { fileReducer } from './reducers/fileReducer.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
+import { panelsReducer } from './reducers/panelsReducer.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -49,6 +50,7 @@ const sliceReducers = {
     file: fileReducer,
     plugins: pluginsReducer,
     settings: settingsReducer,
+    panels: panelsReducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
 };

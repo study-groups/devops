@@ -44,19 +44,16 @@ const editorCore = {
 
     logEditor('[EDITOR] Starting initialization');
     
-    // --- NEW: Verify required elements exist ---
     const editorContainer = document.getElementById('editor-container');
     const editorTextarea = editorContainer?.querySelector('textarea');
+
     if (!editorContainer || !editorTextarea) {
-        logEditor('[EDITOR ERROR] Initialization failed: #editor-container or its textarea not found. Was ContentViewComponent mounted?', 'error');
-        console.error('[EDITOR ERROR] Initialization failed: #editor-container or its textarea not found.');
+        logEditor('[EDITOR ERROR] Initialization failed: #editor-container or its textarea not found.', 'error');
         return false;
     }
-    // --- END NEW --- 
     
     try {
       // Initialize basic functionality
-      // setupEditorTextarea(); // REMOVED: ContentViewComponent now creates the structure
       setupKeyboardShortcuts();
       
       // Set default view from localStorage if available

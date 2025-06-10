@@ -445,12 +445,19 @@ button.loading::after {
 }
 
 /* Hide preview when in editor-only mode */
-#content-view-wrapper.mode-editor #preview-container {
+#content-view-wrapper.mode-editor #preview-container,
+#content-view-wrapper.mode-editor #system-summary-container {
   display: none;
 }
 
 /* Hide editor when in preview-only mode */
-#content-view-wrapper.mode-preview #editor-container {
+#content-view-wrapper.mode-preview #editor-container,
+#content-view-wrapper.mode-preview #system-summary-container {
+  display: none;
+}
+
+/* Hide entire content view wrapper when in blank mode - panels take over */
+#content-view-wrapper.mode-blank {
   display: none;
 }
 

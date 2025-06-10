@@ -451,30 +451,16 @@ export class LogPanel {
             
             // Apply height from appStore
             this.container.style.height = logVisible ? `${logHeight}px` : '0px';
-            this.container.style.display = logVisible ? 'flex' : 'none';
             
             // Update CSS variable for other components
             document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
             document.documentElement.setAttribute('data-log-visible', logVisible.toString());
         }
         
-        // Update main container for layout
-        const mainContainer = document.getElementById('main-container');
-        if (mainContainer) {
-            mainContainer.classList.toggle('log-visible', logVisible);
-            mainContainer.classList.toggle('log-hidden', !logVisible);
-        }
-        
         // Update log menu visibility
         const menuContainer = document.getElementById('log-menu-container');
         if (menuContainer) {
             menuContainer.classList.toggle('visible', logMenuVisible);
-        }
-        
-        // Update topbar log button state
-        const logButton = document.getElementById('log-btn');
-        if (logButton) {
-            logButton.classList.toggle('active', logVisible);
         }
     }
 

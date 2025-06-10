@@ -258,6 +258,45 @@ function getInitialLogState() {
   return defaults;
 }
 
+// Key for localStorage persistence
+const PANELS_STATE_KEY = 'panelsState';
+
+// Helper to load initial panel state from localStorage
+function getInitialPanelsState() {
+    const defaults = {
+        'editor-panel': {
+            id: 'editor-panel',
+            visible: true,
+            width: 450,
+            order: 1
+        },
+        'preview-panel': {
+            id: 'preview-panel',
+            visible: true,
+            width: 450,
+            order: 2
+        }
+    };
+
+    try {
+        const savedState = localStorage.getItem(PANELS_STATE_KEY);
+        if (savedState) {
+            const parsed = JSON.parse(savedState);
+            // Merge saved state with defaults to ensure all panels are represented
+            // and have all necessary keys.
+            return {
+                ...defaults,
+                'editor-panel': { ...defaults['editor-panel'], ...(parsed['editor-panel'] || {}) },
+                'preview-panel': { ...defaults['preview-panel'], ...(parsed['preview-panel'] || {}) },
+            };
+        }
+    } catch (e) {
+        console.warn('[AppState] Failed to load panels state from localStorage:', e);
+    }
+
+    return defaults;
+}
+
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
@@ -274,8 +313,11 @@ const initialAppState = {
     logMenuVisible: getInitialLogState().menuVisible,
     viewMode: getInitialViewMode(),
     leftSidebarVisible: false,
-    rightSidebarVisible: false
+    rightSidebarVisible: false,
+    textVisible: true,
+    previewVisible: true
   },
+  panels: getInitialPanelsState(), // +++ NEW, CENTRALIZED PANEL STATE +++
   settingsPanel: getInitialSettingsPanelState(),
   editor: {
     content: '',
@@ -504,6 +546,20 @@ appStore.subscribe((newState) => {
             } catch (e) {
                 console.error('[AppState] Error saving viewMode to localStorage:', e);
             }
+        }
+    }
+
+    // +++ NEW: Persist centralized panels state +++
+    const currentPanelsState = newState.panels;
+    if (currentPanelsState) {
+        try {
+            const storedState = localStorage.getItem(PANELS_STATE_KEY);
+            const stateToSave = JSON.stringify(currentPanelsState);
+            if (stateToSave !== storedState) {
+                localStorage.setItem(PANELS_STATE_KEY, stateToSave);
+            }
+        } catch (e) {
+            console.warn('[AppState] Failed to save panels state:', e);
         }
     }
 });

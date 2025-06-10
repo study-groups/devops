@@ -19,10 +19,12 @@ const originalConsoleDebug = console.debug; // Store it before any potential pat
 
 // Ensure originalConsole is safely available for debugging within this module
 // If console might be patched later, define a stable original console for debugging.
-const stableDebug = console.debug; // Or console.log if debug is also patched early
-
-// Configuration properties related to timing
-stableDebug('[CONSOLE_TIMING_MODULE_LOAD] ConsoleTiming.js module loading/evaluating.');
+const stableDebug = (...args) => { 
+  // Suppress verbose debug logs by default
+  if (window.devPagesDebugMode) {
+    console.debug(...args);
+  }
+};
 
 // Helper to safely get localStorage value
 const getLocalStorageItem = (key, defaultValue) => {
@@ -37,15 +39,16 @@ const getLocalStorageItem = (key, defaultValue) => {
   return defaultValue;
 };
 
+// Configuration properties related to timing
 const timingConfig = {
   performanceTiming: (() => {
     const val = getLocalStorageItem('performanceLoggingEnabled', 'false') === 'true';
-    stableDebug('[CONSOLE_TIMING_INIT] Reading performanceLoggingEnabled from localStorage:', val);
+    // Reduced verbosity
     return val;
   })(),
   detailedTiming: (() => {
     const val = getLocalStorageItem('detailedPerformanceLog', 'false') === 'true';
-    stableDebug('[CONSOLE_TIMING_INIT] Reading detailedPerformanceLog from localStorage:', val);
+    // Reduced verbosity
     return val;
   })(),
   startTime: performance.now(), // Timestamp of manager initialization or last reset
@@ -536,17 +539,15 @@ function disablePerformanceLogging(persist = false) {
  * @param {boolean} persist - Whether to save setting to localStorage.
  */
 function enableDetailedTiming(persist = false) {
-  stableDebug(`[CONSOLE_TIMING] enableDetailedTiming called. Persist: ${persist}. Current value: ${timingConfig.detailedTiming}`);
   timingConfig.detailedTiming = true;
   if (persist && typeof window !== 'undefined' && window.localStorage) {
     try {
       localStorage.setItem('detailedPerformanceLog', 'true');
-      stableDebug('[CONSOLE_TIMING] Saved detailedPerformanceLog=true to localStorage');
     } catch (e) {
       console.error('Error saving to localStorage:', e);
     }
   }
-  console.log('[CONSOLE_TIMING] Detailed performance metrics ENABLED.'); // User-visible confirmation
+  console.log('[CONSOLE_TIMING] Detailed performance metrics ENABLED.');
   return true;
 }
 

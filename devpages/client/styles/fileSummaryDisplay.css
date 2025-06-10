@@ -1,0 +1,136 @@
+/* FileSummaryDisplay - Brutal Monospace Styles */
+
+.file-summary-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    background-color: #000;
+    overflow-y: auto;
+}
+
+.file-summary-display {
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 1.2;
+    padding: 12px;
+    background-color: #000;
+    color: #00ff00;
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.file-summary-header,
+.file-summary-divider,
+.file-summary-footer {
+    color: #00ff00;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.1;
+}
+
+.file-summary-header {
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+
+.file-summary-divider {
+    margin: 8px 0;
+    color: #666666;
+}
+
+.file-summary-footer {
+    margin-top: 8px;
+    color: #666666;
+    text-align: right;
+}
+
+.summary-line {
+    margin-bottom: 6px;
+    color: #00ff00;
+    font-weight: bold;
+    word-break: break-all;
+}
+
+.summary-actions,
+.summary-future {
+    color: #cccccc;
+    margin-left: 6px;
+    font-size: 12px;
+}
+
+.summary-actions div,
+.summary-future div {
+    margin-bottom: 2px;
+}
+
+/* Status-specific colors */
+.summary-value:contains("Loading...") {
+    color: #ffaa00;
+}
+
+.summary-value:contains("Saving...") {
+    color: #ff6600;
+}
+
+.summary-value:contains("Error") {
+    color: #ff0000;
+}
+
+.summary-value:contains("No file") {
+    color: #666666;
+}
+
+/* Scrollbar styling for dark theme */
+.file-summary-display::-webkit-scrollbar {
+    width: 8px;
+}
+
+.file-summary-display::-webkit-scrollbar-track {
+    background: #222;
+}
+
+.file-summary-display::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 0;
+}
+
+.file-summary-display::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Alternative color scheme for better readability */
+@media (prefers-color-scheme: light) {
+    .file-summary-display {
+        background-color: #f0f0f0;
+        color: #000;
+    }
+    
+    .file-summary-header {
+        color: #000;
+    }
+    
+    .file-summary-divider,
+    .file-summary-footer {
+        color: #666;
+    }
+    
+    .summary-label {
+        color: #0066cc;
+    }
+    
+    .summary-value {
+        color: #000;
+    }
+    
+    .summary-actions,
+    .summary-future {
+        color: #444;
+    }
+} 

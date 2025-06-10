@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="/client/log/log.css"> 
     <link rel="stylesheet" href="/client/components/auth-display.css">
     <link rel="stylesheet" href="/client/components/context-manager.css">
+    <!-- ViewControls styles -->
+    <link rel="stylesheet" href="/client/styles/viewControls.css">
     <!-- Settings Panel Styles -->
     <link rel="stylesheet" href="/client/settings/settings.css">
     <!-- Code Sidebar Styles -->
@@ -95,27 +97,9 @@
 
     <!-- Main Content Area - Declarative Layout -->
     <div class="main-layout">
-        <!-- Left Sidebar - File browser -->
-        <div id="code-sidebar" class="code-mode-only">
-            <!-- Context Manager Section -->
-            <div id="sidebar-context-manager-section" class="sidebar-section">
-                <div class="sidebar-section-header">
-                    <span class="sidebar-section-title">Context Manager</span>
-                </div>
-                <div id="sidebar-context-manager-container" class="sidebar-section-content">
-                    <!-- ContextManager will be rendered here as well -->
-                </div>
-            </div>
-            
-            <!-- File List Section -->
-            <div id="sidebar-file-list-section" class="sidebar-section">
-                <div class="sidebar-section-header">
-                    <span class="sidebar-section-title">Project Files</span>
-                </div>
-                <div id="code-sidebar-content" class="sidebar-section-content">
-                    <!-- File list will be populated here by FileListComponent -->
-                </div>
-            </div>
+        <!-- Left Panels Container -->
+        <div id="panels-container" class="panels-container">
+            <!-- Panels will be dynamically added here by PanelManager -->
         </div>
 
         <!-- Main Content (Center Panel) -->
@@ -127,31 +111,9 @@
             <div id="log-container"></div>
         </div>
 
-        <!-- Right Sidebar - Context Summary + CLI Output -->
-        <div id="right-sidebar" class="code-sidebar">
-            <!-- Context Summary Section -->
-            <div id="context-summary-section" style="flex: 1; min-height: 250px;">
-                <div id="context-summary-header" style="padding: 6px 8px; background-color: #f1f3f5; border-bottom: 1px solid #dee2e6;">
-                    <span style="font-size: 11px; color: #6c757d; font-weight: 500;">CONTEXT</span>
-                </div>
-                <div id="context-summary-content" style="padding: 8px;">
-                    <div id="context-items" style="display: flex; flex-direction: column; gap: 4px;">
-                        <!-- Context items will be populated here -->
-                        <div style="font-size: 11px; color: #6c757d; font-style: italic;">No items selected for context</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- CLI Output Section -->
-            <div id="cli-output-section" style="flex: 1; min-height: 200px; border-top: 1px solid #dee2e6;">
-                <div id="cli-output-header" style="padding: 6px 8px; background-color: #f1f3f5; border-bottom: 1px solid #dee2e6;">
-                    <span style="font-size: 11px; color: #6c757d; font-weight: 500;">CLI OUTPUT</span>
-                    <button id="context-send-to-llm" style="float: right; padding: 2px 6px; background: #28a745; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer;">SEND TO LLM</button>
-                </div>
-                <div id="cli-output-content" style="padding: 8px; font-family: monospace; font-size: 11px; color: #495057; overflow-y: auto; max-height: 300px;">
-                    <div style="color: #6c757d; font-style: italic;">CLI output will appear here</div>
-                </div>
-            </div>
+        <!-- Right Gutter - Small state buttons -->
+        <div id="right-gutter" class="right-gutter">
+            <!-- State buttons will be added here by PanelManager -->
         </div>
     </div>
     

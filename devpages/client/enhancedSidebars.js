@@ -58,25 +58,19 @@ class EnhancedSidebars { // Renamed class slightly for the new file
         }
     }
     
-    // NEW: Centralized listener for layout changes
+    // Setup listener for layout changes
     setupLayoutListener() {
         if (window.eventBus) {
-                    window.eventBus.on('layout:modernStateChanged', (layoutState) => {
-            console.log('[EnhancedSidebars] Received layout:modernStateChanged event:', layoutState);
+            window.eventBus.on('layout:modernStateChanged', (layoutState) => {
+                console.log('[EnhancedSidebars] Received layout:modernStateChanged event:', layoutState);
                 this.handleLayoutChange(layoutState);
-            });
-            window.eventBus.on('layout:leftSidebarChanged', ({ visible }) => {
-                this.setLeftSidebarVisibility(visible);
-            });
-            window.eventBus.on('layout:rightSidebarChanged', ({ visible }) => {
-                this.setRightSidebarVisibility(visible);
             });
         } else {
             console.warn('[EnhancedSidebars] eventBus not found on window.');
         }
     }
 
-    // NEW: Handler for layout state
+    // Handle layout state changes
     handleLayoutChange(layoutState) {
         if (layoutState.editorType === 'raw-text') {
             this.hideSidebars();

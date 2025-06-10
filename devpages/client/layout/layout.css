@@ -135,11 +135,6 @@ body.left-sidebar-visible.right-sidebar-visible #main-container {
   min-width: 250px;
 }
 
-/* Log visibility state classes */
-body.log-visible #main-container {
-  height: calc(100% - var(--log-height));
-}
-
 body:not(.log-visible) #log-container {
   display: none !important;
 }

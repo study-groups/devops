@@ -22,7 +22,7 @@
 
 /* State when log is VISIBLE - Keep for potential JS hooks */
 #log-container.log-visible {
-    display: flex; 
+    display: flex !important; 
     height: var(--log-height, 120px); 
     visibility: visible;
     opacity: 1;
@@ -31,7 +31,7 @@
 
 /* State when log is HIDDEN - Keep for potential JS hooks */
 #log-container.log-hidden {
-    display: none; 
+    display: none !important; 
     height: 0;
     visibility: hidden;
     opacity: 0;
