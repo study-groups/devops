@@ -8,6 +8,10 @@
     flex: 1;
     min-width: 0; /* Ensures flex items can shrink below their content size */
     height: 100%;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .content-view-component .content-panel {
@@ -15,6 +19,10 @@
     overflow: hidden; /* Change from 'auto' to 'hidden' to prevent double scrollbars */
     flex-grow: 1; /* Allow panels to grow */
     flex-basis: 0; /* Start from a basis of 0, allowing them to share space evenly */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
 }
 
 /* Add a separator between panels when in split mode */
@@ -26,5 +34,8 @@
 .content-view-component.mode-editor .content-panel#content-editor-panel,
 .content-view-component.mode-preview .content-panel#content-preview-panel {
     width: 100%;
+    max-width: 100%;
     flex-grow: 1;
+    box-sizing: border-box;
+    position: relative;
 } 

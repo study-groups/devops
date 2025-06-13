@@ -30,9 +30,9 @@ body {
 
 /* Top navigation bar */
 .top-bar {
-  height: var(--top-bar-height);
   flex-shrink: 0;
   z-index: 100;
+  /* Remove fixed height - let design system handle sizing */
 }
 
 /* Main content area - three column layout */

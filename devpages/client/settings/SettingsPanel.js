@@ -7,11 +7,14 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { PluginsPanel } from './PluginsPanel.js'; // Import the new panel
 import { CssSettingsPanel } from './CssSettingsPanel.js';
+import { PublishSettingsPanel } from './PublishSettingsPanel.js';
 import { JavaScriptPanel } from './JavaScriptPanel.js';
 import { ConsoleLogPanel } from './ConsoleLogPanel.js';
+import { ThemeSettingsPanel } from './ThemeSettingsPanel.js';
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
 const SETTINGS_PANEL_VISIBLE_KEY = 'settings_panel_visible';
+const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Match the reducer key
 
 // Helper for logging
 function logSettings(message, level = 'info') {
@@ -21,6 +24,21 @@ function logSettings(message, level = 'info') {
   } else {
     console.log(`[${type}] ${message}`);
   }
+}
+
+// Helper to load persisted settings panel state
+function loadPersistedSettingsState() {
+  try {
+    const savedState = localStorage.getItem(SETTINGS_PANEL_STATE_KEY);
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      logSettings(`Loaded persisted settings state: ${JSON.stringify(parsed)}`, 'debug');
+      return parsed;
+    }
+  } catch (e) {
+    logSettings(`Failed to load persisted settings state: ${e}`, 'error');
+  }
+  return null;
 }
 
 export class SettingsPanel {
@@ -36,15 +54,27 @@ export class SettingsPanel {
 
     this.pluginsPanelInstance = null; // Add property to hold the instance
     this.cssSettingsPanelInstance = null; // Renamed from cssSettingsInstance
+    this.publishSettingsPanelInstance = null; // Add property for publish settings
     this.jsPanelInstance = null;
     this.consoleLogPanelInstance = null;
+    this.themeSettingsPanelInstance = null;
 
     this.isDragging = false;
     this.isResizing = false;
     this.dragOffset = { x: 0, y: 0 };
     this.resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 
-    // Get initial state directly from the store
+    // Load persisted state first, then merge with store state
+    const persistedState = loadPersistedSettingsState();
+    if (persistedState) {
+      // Dispatch to update store with persisted state
+      dispatch({
+        type: ActionTypes.SETTINGS_PANEL_SET_STATE,
+        payload: persistedState
+      });
+    }
+
+    // Get initial state directly from the store (now updated with persisted state)
     const initialState = appStore.getState().settingsPanel;
     this.currentPos = { ...initialState.position }; // Local copy for interaction updates
     this.currentSize = { ...initialState.size }; // Local copy for interaction updates
@@ -111,16 +141,21 @@ export class SettingsPanel {
     header.classList.add('settings-section-header');
     header.tabIndex = 0; // Make focusable
     header.setAttribute('role', 'button'); // Indicate interactive
-    header.setAttribute('aria-expanded', 'true'); // Default state
+    
+    // Check if this section should be collapsed based on persisted state
+    const currentState = appStore.getState().settingsPanel;
+    const isCollapsed = currentState.collapsedSections && currentState.collapsedSections[id];
+    
+    header.setAttribute('aria-expanded', !isCollapsed); // Set based on persisted state
     
     // Title Text
     const titleSpan = document.createElement('span');
     titleSpan.textContent = title;
     
-    // Collapse Indicator
+    // Collapse Indicator - Set based on persisted state
     const indicator = document.createElement('span');
     indicator.classList.add('collapse-indicator');
-    indicator.innerHTML = '&#9660;'; // Down arrow initially (expanded)
+    indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;'; // Right for collapsed, Down for expanded
     indicator.setAttribute('aria-hidden', 'true'); // Hide from screen readers
 
     header.appendChild(indicator);
@@ -137,28 +172,40 @@ export class SettingsPanel {
     });
 
     container.appendChild(header);
+    
+    // Apply collapsed state to container based on persisted state
+    if (isCollapsed) {
+      container.classList.add('collapsed');
+      logSettings(`Section ${id} restored as collapsed`, 'debug');
+    } else {
+      logSettings(`Section ${id} restored as expanded`, 'debug');
+    }
+    
     // Content of the section will be added later by the specific panel
     return container;
   }
 
-  // --- NEW Method to handle section collapse/expand ---
+  // --- IMPROVED Method to handle section collapse/expand ---
   toggleSectionCollapse(sectionId, containerElement, headerElement, indicatorElement) {
     logSettings(`Toggling collapse for section: ${sectionId}`);
     const isCurrentlyCollapsed = containerElement.classList.contains('collapsed');
     const shouldCollapse = !isCurrentlyCollapsed;
 
-    // Dispatch action to update state
+    // Dispatch action to update state and persist
     dispatch({
         type: ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION,
         payload: { sectionId: sectionId }
     });
 
-    // Update UI immediately (state update will confirm later via render)
+    // Update UI immediately
     containerElement.classList.toggle('collapsed', shouldCollapse);
     headerElement.setAttribute('aria-expanded', !shouldCollapse);
-    indicatorElement.innerHTML = shouldCollapse ? '&#9654;' : '&#9660;'; // Right/Down arrow
+    // Right arrow for collapsed, Down arrow for expanded
+    indicatorElement.innerHTML = shouldCollapse ? '&#9654;' : '&#9660;';
+    
+    logSettings(`Section ${sectionId} ${shouldCollapse ? 'collapsed' : 'expanded'}`, 'debug');
   }
-  // --- End NEW Method --- 
+  // --- End IMPROVED Method --- 
   
   // --- IMPROVED updatePanelState Method ---
   updatePanelState() {
@@ -180,20 +227,15 @@ export class SettingsPanel {
     this.panelElement.style.width = `${width}px`;
     this.panelElement.style.height = `${height}px`;
     
-    // IMPROVED: Handle accessibility attributes properly
+    // Handle accessibility attributes
     if (shouldBeVisible) {
-      // When visible, remove aria-hidden to make it accessible
       this.panelElement.removeAttribute('aria-hidden');
-      // Optionally, remove inert if it was set
       this.panelElement.removeAttribute('inert');
     } else {
-      // When hidden, use inert instead of aria-hidden to prevent focus AND hide from AT
       this.panelElement.setAttribute('inert', '');
-      // Remove aria-hidden since inert handles both concerns
       this.panelElement.removeAttribute('aria-hidden');
     }
   }
-  // --- End updatePanelState ---
 
   initializePanel() {
     this.createPanelDOM();
@@ -225,7 +267,7 @@ export class SettingsPanel {
     this.contentElement = document.createElement('div');
     this.contentElement.classList.add('settings-panel-content');
 
-    // --- CREATE RESIZE HANDLE --- (Ensure it's created here)
+    // --- CREATE RESIZE HANDLE ---
     this.resizeHandle = document.createElement('div');
     this.resizeHandle.classList.add('settings-panel-resize-handle');
     this.resizeHandle.setAttribute('aria-label', 'Resize Settings Panel');
@@ -235,7 +277,7 @@ export class SettingsPanel {
     // 2. Append main parts to panelElement
     this.panelElement.appendChild(this.headerElement);
     this.panelElement.appendChild(this.contentElement); 
-    this.panelElement.appendChild(this.resizeHandle); // Append the handle
+    this.panelElement.appendChild(this.resizeHandle);
     logSettings('[DEBUG] Main panel structure assembled.', 'debug');
 
     // 3. Append the main panel to the document body
@@ -243,12 +285,32 @@ export class SettingsPanel {
     logSettings('[DEBUG] Panel appended to body.', 'debug');
 
     // 4. Now, create section containers and instantiate sub-panels within the contentElement
-    const collapsedSections = appStore.getState().settingsPanel.collapsedSections || {}; // Get initial collapsed state
+    
+    // Instantiate ThemeSettingsPanel (KEEP EXPANDED BY DEFAULT for better UX)
+    logSettings('[DEBUG] Creating Theme Settings Panel Section...', 'debug');
+    const themeContainer = this.createSectionContainer('theme-settings-container', 'Theme & Design');
+    // NOTE: createSectionContainer now handles collapsed state from persistence
+    if (themeContainer instanceof Node) {
+        this.contentElement.appendChild(themeContainer);
+        try {
+            this.themeSettingsPanelInstance = new ThemeSettingsPanel(themeContainer);
+            logSettings('[DEBUG] ThemeSettingsPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init ThemeSettingsPanel: ${error}`, 'error');
+            themeContainer.innerHTML = '<p style="color: red;">Error loading theme settings.</p>';
+        }
+    } else {
+        logSettings('[ERROR] themeContainer was not a valid Node!', 'error');
+    }
     
     // Instantiate PluginsPanel
     logSettings('[DEBUG] Creating Plugins Panel Section...', 'debug');
     const pluginsContainer = this.createSectionContainer('plugins-settings-container', 'Plugins');
-    if (collapsedSections['plugins-settings-container']) { pluginsContainer.classList.add('collapsed'); } // Apply initial state
+    // Start collapsed by default only if not persisted otherwise
+    const currentState = appStore.getState().settingsPanel;
+    if (!currentState.collapsedSections || currentState.collapsedSections['plugins-settings-container'] === undefined) {
+      pluginsContainer.classList.add('collapsed'); // Default collapsed
+    }
     if (pluginsContainer instanceof Node) {
         this.contentElement.appendChild(pluginsContainer);
         try {
@@ -264,8 +326,11 @@ export class SettingsPanel {
 
     // Instantiate CssSettingsPanel
     logSettings('[DEBUG] Creating CSS Panel Section...', 'debug');
-    const cssContainer = this.createSectionContainer('css-settings-container', 'Preview CSS');
-    if (collapsedSections['css-settings-container']) { cssContainer.classList.add('collapsed'); }
+    const cssContainer = this.createSectionContainer('css-settings-container', 'CSS');
+    // Default collapsed if not persisted otherwise
+    if (!currentState.collapsedSections || currentState.collapsedSections['css-settings-container'] === undefined) {
+      cssContainer.classList.add('collapsed');
+    }
     if (cssContainer instanceof Node) {
         this.contentElement.appendChild(cssContainer);
         try {
@@ -279,10 +344,33 @@ export class SettingsPanel {
          logSettings('[ERROR] cssContainer was not a valid Node!', 'error');
     }
     
+    // Instantiate PublishSettingsPanel
+    logSettings('[DEBUG] Creating Publish Settings Panel Section...', 'debug');
+    const publishContainer = this.createSectionContainer('publish-settings-container', 'Publish Settings');
+    // Default collapsed if not persisted otherwise
+    if (!currentState.collapsedSections || currentState.collapsedSections['publish-settings-container'] === undefined) {
+      publishContainer.classList.add('collapsed');
+    }
+    if (publishContainer instanceof Node) {
+        this.contentElement.appendChild(publishContainer);
+        try {
+            this.publishSettingsPanelInstance = new PublishSettingsPanel(publishContainer);
+            logSettings('[DEBUG] PublishSettingsPanel Instantiated successfully.', 'debug');
+        } catch (error) {
+            logSettings(`Failed to init PublishSettingsPanel: ${error}`, 'error');
+            publishContainer.innerHTML = '<p style="color: red;">Error loading publish settings.</p>';
+        }
+    } else {
+        logSettings('[ERROR] publishContainer was not a valid Node!', 'error');
+    }
+    
     // Instantiate JavaScriptPanel
     logSettings('[DEBUG] Creating JS Panel Section...', 'debug');
     const jsContainer = this.createSectionContainer('js-settings-container', 'Preview JavaScript');
-    if (collapsedSections['js-settings-container']) { jsContainer.classList.add('collapsed'); } // Apply initial state
+    // Default collapsed if not persisted otherwise
+    if (!currentState.collapsedSections || currentState.collapsedSections['js-settings-container'] === undefined) {
+      jsContainer.classList.add('collapsed');
+    }
     if (jsContainer instanceof Node) {
         this.contentElement.appendChild(jsContainer);
         try {
@@ -299,8 +387,11 @@ export class SettingsPanel {
 
     // Instantiate ConsoleLogPanel
     logSettings('[DEBUG] Creating Console Log Panel Section...', 'debug');
-    const consoleLogContainer = this.createSectionContainer('console-log-settings-container', 'Console Log Options'); // Check ID and title
-    if (collapsedSections['console-log-settings-container']) { consoleLogContainer.classList.add('collapsed'); }
+    const consoleLogContainer = this.createSectionContainer('console-log-settings-container', 'Console Log Options');
+    // Default collapsed if not persisted otherwise
+    if (!currentState.collapsedSections || currentState.collapsedSections['console-log-settings-container'] === undefined) {
+      consoleLogContainer.classList.add('collapsed');
+    }
     if (consoleLogContainer instanceof Node) {
         this.contentElement.appendChild(consoleLogContainer);
         try {
@@ -376,6 +467,27 @@ export class SettingsPanel {
       this.panelElement.style.width = `${settingsState.size.width}px`;
       this.panelElement.style.height = `${settingsState.size.height}px`;
       this.currentSize = { ...settingsState.size };
+    }
+
+    // Update collapsed sections based on state
+    if (settingsState.collapsedSections) {
+      Object.keys(settingsState.collapsedSections).forEach(sectionId => {
+        const container = this.contentElement?.querySelector(`#${sectionId}`);
+        const isCollapsed = settingsState.collapsedSections[sectionId];
+        
+        if (container) {
+          const header = container.querySelector('.settings-section-header');
+          const indicator = container.querySelector('.collapse-indicator');
+          
+          container.classList.toggle('collapsed', isCollapsed);
+          if (header) {
+            header.setAttribute('aria-expanded', !isCollapsed);
+          }
+          if (indicator) {
+            indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+          }
+        }
+      });
     }
   }
 
@@ -510,7 +622,9 @@ export class SettingsPanel {
     }
 
     // Destroy child panels
+    this.themeSettingsPanelInstance?.destroy();
     this.cssSettingsPanelInstance?.destroy();
+    this.publishSettingsPanelInstance?.destroy();
     this.jsPanelInstance?.destroy();
     this.consoleLogPanelInstance?.destroy();
 

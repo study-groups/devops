@@ -3,16 +3,86 @@ import { eventBus } from '/client/eventBus.js';
 
 const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
 const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css';
+const CSS_BUNDLING_KEY = 'devpages_css_bundling_enabled';
+const CSS_PREFIX_KEY = 'devpages_css_prefix';
+const PUBLISH_MODE_KEY = 'devpages_publish_mode';
+const PREVIEW_MODE_KEY = 'devpages_preview_mode';
 
-// Clean initial state
+/**
+ * Load settings from localStorage with fallback to defaults
+ */
+function loadPersistedSettings() {
+    const defaults = {
+        preview: {
+            cssFiles: [],
+            activeCssFiles: [],
+            enableRootCss: true,
+            bundleCss: true,
+            cssPrefix: '',
+            renderMode: 'direct',
+        },
+        publish: {
+            mode: 'local',
+            bundleCss: true,
+        },
+    };
+
+    try {
+        // Load preview CSS files
+        const savedCssFiles = localStorage.getItem(PREVIEW_CSS_FILES_KEY);
+        if (savedCssFiles) {
+            const parsed = JSON.parse(savedCssFiles);
+            if (Array.isArray(parsed)) {
+                defaults.preview.cssFiles = parsed;
+            }
+        }
+
+        // Load root CSS enabled state
+        const savedRootCss = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
+        if (savedRootCss !== null) {
+            defaults.preview.enableRootCss = savedRootCss === 'true';
+        }
+
+        // Load CSS bundling preference
+        const savedBundling = localStorage.getItem(CSS_BUNDLING_KEY);
+        if (savedBundling !== null) {
+            defaults.preview.bundleCss = savedBundling === 'true';
+        }
+
+        // Load CSS prefix
+        const savedPrefix = localStorage.getItem(CSS_PREFIX_KEY);
+        if (savedPrefix !== null) {
+            defaults.preview.cssPrefix = savedPrefix;
+        }
+
+        // Load publish mode
+        const savedPublishMode = localStorage.getItem(PUBLISH_MODE_KEY);
+        if (savedPublishMode && ['local', 'spaces'].includes(savedPublishMode)) {
+            defaults.publish.mode = savedPublishMode;
+        }
+
+        // Load preview mode
+        const savedPreviewMode = localStorage.getItem(PREVIEW_MODE_KEY);
+        if (savedPreviewMode && ['direct', 'iframe'].includes(savedPreviewMode)) {
+            defaults.preview.renderMode = savedPreviewMode;
+        }
+
+        console.debug('[Settings] Loaded persisted settings:', defaults);
+        return defaults;
+    } catch (error) {
+        console.error('[Settings] Error loading persisted settings, using defaults:', error);
+        return defaults;
+    }
+}
+
+// Initialize state with persisted settings
+const persistedSettings = loadPersistedSettings();
+
+// Clean initial state with persisted values
 const initialState = {
     selectedOrg: 'pixeljam-arcade', // Simple org selection
-    
-    preview: {
-        cssFiles: [],
-        activeCssFiles: [],
-        enableRootCss: true,
-    },
+    preview: persistedSettings.preview,
+    publish: persistedSettings.publish,
 };
 
 // --- Settings Slice Reducer ---
@@ -21,10 +91,12 @@ export function settingsReducer(state = initialState, action) {
     const currentSettings = state;
     // Ensure preview state exists
     const currentPreviewState = currentSettings.preview || { ...initialState.preview }; 
+    const currentPublishState = currentSettings.publish || { ...initialState.publish };
     let nextState = currentSettings;
     let nextPreviewState = currentPreviewState;
+    let nextPublishState = currentPublishState;
     let updated = false;
-    let emitCssUpdateEvent = false; // Flag to trigger event emission
+    let emitCssUpdateEvent = false;
 
     switch (type) {
         case ActionTypes.SETTINGS_ADD_PREVIEW_CSS:
@@ -79,6 +151,39 @@ export function settingsReducer(state = initialState, action) {
             // Persist this setting
             try { localStorage.setItem(ENABLE_ROOT_CSS_KEY, String(newEnableRoot)); } // Store as string
             catch (e) { console.error('[Reducer] Failed to save enableRootCss to localStorage:', e); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_CSS_BUNDLING_ENABLED:
+            if (typeof payload === 'boolean') {
+                nextPreviewState = { ...currentPreviewState, bundleCss: payload };
+                updated = true;
+                console.debug(`[Reducer] Set CSS bundling enabled to: ${payload}`);
+                // Persist this setting
+                try { localStorage.setItem(CSS_BUNDLING_KEY, String(payload)); }
+                catch (e) { console.error('[Reducer] Failed to save CSS bundling setting to localStorage:', e); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_CSS_BUNDLING_ENABLED:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_CSS_PREFIX:
+            if (typeof payload === 'string') {
+                nextPreviewState = { ...currentPreviewState, cssPrefix: payload };
+                updated = true;
+                console.debug(`[Reducer] Set CSS prefix to: "${payload}"`);
+                // Persist this setting
+                try { localStorage.setItem(CSS_PREFIX_KEY, payload); }
+                catch (e) { console.error('[Reducer] Failed to save CSS prefix to localStorage:', e); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_CSS_PREFIX:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_SET_PUBLISH_MODE:
+            if (typeof payload === 'string' && ['local', 'spaces'].includes(payload)) {
+                nextPublishState = { ...currentPublishState, mode: payload };
+                updated = true;
+                console.debug(`[Reducer] Set publish mode to: ${payload}`);
+                // Persist this setting
+                try { localStorage.setItem(PUBLISH_MODE_KEY, payload); }
+                catch (e) { console.error('[Reducer] Failed to save publish mode to localStorage:', e); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_PUBLISH_MODE:`, payload); }
             break;
 
         case ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS:
@@ -142,11 +247,38 @@ export function settingsReducer(state = initialState, action) {
                 console.warn(`[Reducer] Invalid payload for SETTINGS_SET_SELECTED_ORG:`, payload);
             }
             break;
+
+        case ActionTypes.SETTINGS_SET_PREVIEW_MODE:
+            const newPreviewMode = action.payload;
+            try {
+                localStorage.setItem('devpages_preview_mode', newPreviewMode);
+            } catch (e) {
+                console.error('Error saving preview mode to localStorage:', e);
+            }
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    preview: {
+                        ...state.settings.preview,
+                        renderMode: newPreviewMode
+                    }
+                }
+            };
+
+        default:
+            // No change for unrecognized actions
+            break;
     }
 
-    // Update the overall settings state if the preview slice changed
+    // Update the overall settings state if any slice changed
     if (updated) {
-        nextState = { ...currentSettings, preview: nextPreviewState };
+        nextState = { 
+            ...currentSettings, 
+            preview: nextPreviewState,
+            publish: nextPublishState
+        };
+        
         // Persist the configured cssFiles list if it was modified by add/remove/toggle
         if (type === ActionTypes.SETTINGS_ADD_PREVIEW_CSS ||
             type === ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS ||

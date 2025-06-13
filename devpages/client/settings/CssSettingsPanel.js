@@ -1,215 +1,482 @@
 /**
  * client/settings/CssSettingsPanel.js
- * Component to manage preview CSS file settings.
+ * Component to manage preview CSS file settings with collapsible subsections.
  */
 
 import { appStore } from '/client/appState.js';
-// Assuming ActionTypes are defined and exported from messaging/messageQueue or similar
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
-// --- Import function to trigger CSS update ---
-// import { applyCssStyles } from '/client/preview/plugins/index.js';
+
+// Create a clean CSS settings API that wraps the message dispatch system
+const cssSettings = {
+  // CSS Files
+  addFile: (path) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_ADD_PREVIEW_CSS,
+      payload: path
+    });
+  },
+  
+  removeFile: (path) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS,
+      payload: path
+    });
+  },
+  
+  toggleFile: (path) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED,
+      payload: path
+    });
+  },
+  
+  setFiles: (files) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES,
+      payload: files
+    });
+  },
+  
+  // CSS Options
+  setBundling: (enabled) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_SET_CSS_BUNDLING_ENABLED,
+      payload: enabled
+    });
+  },
+  
+  setPrefix: (prefix) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_SET_CSS_PREFIX,
+      payload: prefix
+    });
+  },
+  
+  toggleRootCss: () => {
+    dispatch({
+      type: ActionTypes.SETTINGS_TOGGLE_ROOT_CSS_ENABLED
+    });
+  },
+  
+  // Preview Mode
+  setPreviewMode: (mode) => {
+    dispatch({
+      type: ActionTypes.SETTINGS_SET_PREVIEW_MODE,
+      payload: mode
+    });
+  },
+  
+  // Getters for current state
+  get: () => appStore.getState().settings?.preview || {},
+  getBundling: () => appStore.getState().settings?.preview?.bundleCss !== false,
+  getPrefix: () => appStore.getState().settings?.preview?.cssPrefix || '',
+  getRootCss: () => appStore.getState().settings?.preview?.enableRootCss !== false,
+  getFiles: () => appStore.getState().settings?.preview?.cssFiles || [],
+  getPreviewMode: () => appStore.getState().settings?.preview?.renderMode || 'direct'
+};
 
 export class CssSettingsPanel {
-  /**
-   * Creates an instance of CssSettingsPanel.
-   * @param {HTMLElement} containerElement - The DOM element to render this panel into.
-   */
   constructor(containerElement) {
     if (!containerElement) {
       throw new Error("CssSettingsPanel requires a container element.");
     }
-    this.containerElement = containerElement;
-    this.cssSettingsContainer = null;
-    this.cssFileInput = null;
-    this.addCssFileButton = null;
-    this.cssFileList = null;
+    
+    // The containerElement is the section container created by SettingsPanel
+    // We need to append our content to it, not replace it
+    this.sectionContainer = containerElement;
+    this.containerElement = null; // We'll create our own content container
     this.unsubscribeSettings = null;
+    this.isAddingNew = false;
+    
+    // Track collapsed state for subsections
+    this.collapsedSections = this.loadCollapsedState();
 
-    this.createDOM();
-    this.attachEventListeners();
-    this.subscribeToState();
-
-    // Initial render based on current state
-    this.renderCssFileList(
-        appStore.getState().settings?.preview?.cssFiles || [],
-        appStore.getState().settings?.preview?.activeCssFiles || [] // Pass initial active files
-    );
+    // Load our CSS
+    this.loadCSS();
+    
+    // Wait a bit for the store to initialize, then render
+    setTimeout(() => {
+      this.render();
+      this.subscribeToState();
+    }, 50);
 
     logMessage('CssSettingsPanel instance created.', 'debug', 'SETTINGS');
   }
 
-  createDOM() {
-    this.cssSettingsContainer = document.createElement('div');
-    this.cssSettingsContainer.classList.add('settings-section', 'css-settings');
-    this.cssSettingsContainer.innerHTML = `
-        <h3 class="settings-section-title">Preview CSS Files</h3>
-        <p class="settings-description">
-            Paths relative to MD_DIR (e.g., themes/dark.css). Toggle to enable/disable.
-        </p>
-        <div class="settings-input-group">
-            <input type="text" id="css-file-input" class="settings-input" placeholder="e.g., themes/dark.css" aria-label="CSS file path relative to MD_DIR">
-            <button id="add-css-file-btn" class="settings-button">Add File</button>
-        </div>
-        <ul id="css-file-list" class="settings-list" aria-live="polite" aria-label="Configured Preview CSS Files"></ul>
-    `;
-    this.containerElement.appendChild(this.cssSettingsContainer);
+  loadCSS() {
+    if (!document.getElementById('css-settings-panel-css')) {
+      const link = document.createElement('link');
+      link.id = 'css-settings-panel-css';
+      link.rel = 'stylesheet';
+      link.href = '/client/settings/CssSettingsPanel.css';
+      document.head.appendChild(link);
+    }
+  }
 
-    // Store references to interactive elements
-    this.cssFileInput = this.cssSettingsContainer.querySelector('#css-file-input');
-    this.addCssFileButton = this.cssSettingsContainer.querySelector('#add-css-file-btn');
-    this.cssFileList = this.cssSettingsContainer.querySelector('#css-file-list');
+  loadCollapsedState() {
+    try {
+      const saved = localStorage.getItem('css_subsection_collapsed_state');
+      return saved ? JSON.parse(saved) : {
+        'preview-settings': false, // Main group
+        'rendering-mode': false,
+        'css-files': false,
+        'css-options': false
+      };
+    } catch (e) {
+      return {
+        'preview-settings': false,
+        'rendering-mode': false,
+        'css-files': false,
+        'css-options': false
+      };
+    }
+  }
+
+  saveCollapsedState() {
+    try {
+      localStorage.setItem('css_subsection_collapsed_state', JSON.stringify(this.collapsedSections));
+    } catch (e) {
+      console.error('Failed to save collapsed state:', e);
+    }
+  }
+
+  createCollapsibleSection(id, title, content, isCollapsed = false) {
+    const collapsed = this.collapsedSections[id] || isCollapsed;
+    const collapsedClass = collapsed ? 'collapsed' : '';
+    const ariaExpanded = collapsed ? 'false' : 'true';
+    const indicatorIcon = collapsed ? '&#9654;' : '&#9660;';
+
+    return `
+      <div class="css-subsection ${collapsedClass}" data-section-id="${id}">
+        <div class="css-subsection-header" data-toggle="${id}" tabindex="0" role="button" aria-expanded="${ariaExpanded}">
+          <span class="css-collapse-indicator">${indicatorIcon}</span>
+          <h5 class="css-subsection-title">${title}</h5>
+        </div>
+        <div class="css-subsection-content">
+          ${content}
+        </div>
+      </div>
+    `;
+  }
+
+  render() {
+    const files = cssSettings.getFiles();
+    const bundling = cssSettings.getBundling();
+    const rootCss = cssSettings.getRootCss();
+    const prefix = cssSettings.getPrefix();
+    const previewMode = cssSettings.getPreviewMode();
+
+    // Create combined file list with default styles.css at the top
+    const allFiles = [
+      {
+        path: 'styles.css',
+        enabled: rootCss,
+        isDefault: true
+      },
+      ...files
+    ];
+
+    // Create our content container if it doesn't exist
+    if (!this.containerElement) {
+      this.containerElement = document.createElement('div');
+      this.containerElement.className = 'css-settings-content';
+      this.sectionContainer.appendChild(this.containerElement);
+    }
+
+    // Render our subsections inside our content container
+    this.containerElement.innerHTML = `
+      ${this.createCollapsibleSection('rendering-mode', 'Rendering Mode', this.renderModeContent(previewMode))}
+      ${this.createCollapsibleSection('css-files', 'CSS Files', this.renderFilesContent(allFiles))}
+      ${this.createCollapsibleSection('css-options', 'CSS Options', this.renderOptionsContent(bundling, prefix))}
+    `;
+
+    this.attachEventListeners();
+  }
+
+  renderModeContent(previewMode) {
+    return `
+      <label class="css-option css-radio-option">
+        <input type="radio" name="preview-mode" value="direct" ${previewMode === 'direct' ? 'checked' : ''}>
+        <div class="option-content">
+          <strong>Direct Attachment</strong>
+          <p>Render content directly in the preview container (faster, may have CSS conflicts)</p>
+        </div>
+      </label>
+      
+      <label class="css-option css-radio-option">
+        <input type="radio" name="preview-mode" value="iframe" ${previewMode === 'iframe' ? 'checked' : ''}>
+        <div class="option-content">
+          <strong>Iframe Isolation</strong>
+          <p>Render content in an isolated iframe (better CSS isolation, slightly slower)</p>
+        </div>
+      </label>
+    `;
+  }
+
+  renderFilesContent(allFiles) {
+    return `
+      <div class="css-files-header">
+        <button class="add-css-btn" data-action="add">+ Add File</button>
+      </div>
+      
+      ${this.isAddingNew ? this.renderAddForm() : ''}
+      
+      <div class="css-file-list">
+        ${allFiles.map(file => this.renderFileRow(file)).join('')}
+      </div>
+    `;
+  }
+
+  renderOptionsContent(bundling, prefix) {
+    return `
+      <label class="css-option">
+        <input type="checkbox" class="css-option-checkbox" data-action="toggle-bundling" ${bundling ? 'checked' : ''}>
+        <span class="css-option-text">Bundle CSS for publishing</span>
+      </label>
+      
+      ${!bundling ? this.renderPrefixOption(prefix) : ''}
+    `;
+  }
+
+  renderFileRow(file) {
+    const isDefault = file.isDefault;
+    const removeButton = isDefault ? 
+      `<span class="css-file-default-badge">default</span>` : 
+      `<button class="remove-css-btn" data-action="remove-file" data-path="${this.escapeHtml(file.path)}" title="Remove ${this.escapeHtml(file.path)}">×</button>`;
+    
+    const rowClass = isDefault ? 'css-list-item css-list-item-default' : 'css-list-item';
+    const toggleAction = isDefault ? 'toggle-root' : 'toggle-file';
+
+    return `
+      <div class="${rowClass}">
+        <input type="checkbox" class="css-enable-toggle" data-action="${toggleAction}" data-path="${this.escapeHtml(file.path)}" ${file.enabled ? 'checked' : ''}>
+        <span class="css-file-path">${this.escapeHtml(file.path)}</span>
+        ${removeButton}
+      </div>
+    `;
+  }
+
+  renderAddForm() {
+    return `
+      <div class="css-list-item css-list-item-new">
+        <input type="text" class="css-path-input" placeholder="Enter CSS file path (e.g., @md/styles/dark.css)" data-input="new-path">
+        <div class="css-list-item-buttons">
+          <button class="css-list-item-add" data-action="confirm-add">Add</button>
+          <button class="css-list-item-cancel" data-action="cancel-add">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  renderPrefixOption(prefix) {
+    return `
+      <div class="css-prefix-container">
+        <label class="css-prefix-label">CSS URL Prefix:</label>
+        <input type="text" class="css-prefix-input" data-action="update-prefix" value="${this.escapeHtml(prefix)}" placeholder="e.g., https://cdn.example.com/css/">
+        <small class="css-prefix-help">Used when CSS bundling is disabled</small>
+      </div>
+    `;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  toggleSubsection(sectionId) {
+    const section = this.containerElement.querySelector(`[data-section-id="${sectionId}"]`);
+    const header = this.containerElement.querySelector(`[data-toggle="${sectionId}"]`);
+    const indicator = header.querySelector('.css-collapse-indicator');
+    
+    if (!section || !header || !indicator) return;
+
+    const isCollapsed = section.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+      section.classList.remove('collapsed');
+      header.setAttribute('aria-expanded', 'true');
+      indicator.innerHTML = '&#9660;'; // Down arrow (expanded)
+      this.collapsedSections[sectionId] = false;
+    } else {
+      section.classList.add('collapsed');
+      header.setAttribute('aria-expanded', 'false');
+      indicator.innerHTML = '&#9654;'; // Right arrow (collapsed)
+      this.collapsedSections[sectionId] = true;
+    }
+    
+    this.saveCollapsedState();
   }
 
   attachEventListeners() {
-    this.addCssFileButton.addEventListener('click', this.handleAddCssFile.bind(this));
-    // Listen for both 'click' on remove buttons and 'change' on checkboxes
-    this.cssFileList.addEventListener('click', this.handleListClick.bind(this));
-    this.cssFileList.addEventListener('change', this.handleCheckboxToggle.bind(this)); // <<< NEW LISTENER
+    // Remove existing listeners to prevent duplicates
+    const oldHandler = this.containerElement._cssEventHandler;
+    if (oldHandler) {
+      this.containerElement.removeEventListener('click', oldHandler);
+      this.containerElement.removeEventListener('keypress', oldHandler.keyHandler);
+      this.containerElement.removeEventListener('input', oldHandler.inputHandler);
+      this.containerElement.removeEventListener('change', oldHandler.changeHandler);
+    }
+
+    const clickHandler = (e) => {
+      const action = e.target.dataset.action;
+      const path = e.target.dataset.path;
+      const toggle = e.target.dataset.toggle || e.target.closest('[data-toggle]')?.dataset.toggle;
+
+      if (toggle) {
+        e.preventDefault();
+        this.toggleSubsection(toggle);
+        return;
+      }
+
+      switch (action) {
+        case 'add':
+          this.showAddForm();
+          break;
+        case 'confirm-add':
+          this.confirmAdd();
+          break;
+        case 'cancel-add':
+          this.cancelAdd();
+          break;
+        case 'remove-file':
+          cssSettings.removeFile(path);
+          break;
+        case 'toggle-file':
+          cssSettings.toggleFile(path);
+          break;
+        case 'toggle-root':
+          cssSettings.toggleRootCss();
+          break;
+        case 'toggle-bundling':
+          cssSettings.setBundling(e.target.checked);
+          break;
+      }
+    };
+
+    const changeHandler = (e) => {
+      // Handle radio button changes for preview mode
+      if (e.target.name === 'preview-mode') {
+        console.log('[CSS Settings] Preview mode changed to:', e.target.value);
+        cssSettings.setPreviewMode(e.target.value);
+      }
+    };
+
+    const keyHandler = (e) => {
+      if (e.key === 'Enter' && e.target.dataset.input === 'new-path') {
+        this.confirmAdd();
+      } else if (e.key === 'Escape' && e.target.dataset.input === 'new-path') {
+        this.cancelAdd();
+      } else if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset.toggle) {
+        e.preventDefault();
+        this.toggleSubsection(e.target.dataset.toggle);
+      }
+    };
+
+    const inputHandler = (e) => {
+      if (e.target.dataset.action === 'update-prefix') {
+        cssSettings.setPrefix(e.target.value);
+      }
+    };
+
+    this.containerElement.addEventListener('click', clickHandler);
+    this.containerElement.addEventListener('change', changeHandler);
+    this.containerElement.addEventListener('keypress', keyHandler);
+    this.containerElement.addEventListener('input', inputHandler);
+
+    // Store handlers for cleanup
+    this.containerElement._cssEventHandler = clickHandler;
+    this.containerElement._cssEventHandler.changeHandler = changeHandler;
+    this.containerElement._cssEventHandler.keyHandler = keyHandler;
+    this.containerElement._cssEventHandler.inputHandler = inputHandler;
+  }
+
+  showAddForm() {
+    this.isAddingNew = true;
+    this.render();
+    // Focus the input after rendering
+    setTimeout(() => {
+      const input = this.containerElement.querySelector('[data-input="new-path"]');
+      if (input) input.focus();
+    }, 0);
+  }
+
+  confirmAdd() {
+    const input = this.containerElement.querySelector('[data-input="new-path"]');
+    const path = input?.value.trim();
+    if (path) {
+      // Prevent adding styles.css as a custom file
+      if (path === 'styles.css') {
+        alert('styles.css is already included as the default stylesheet. You can toggle it on/off in the list above.');
+        return;
+      }
+      
+      // Validate the path format
+      if (!this.isValidCssPath(path)) {
+        alert('Please enter a valid CSS file path (e.g., styles.dark.css, themes/blue.css)');
+        return;
+      }
+      
+      cssSettings.addFile(path);
+      this.isAddingNew = false;
+      this.render();
+    }
+  }
+
+  isValidCssPath(path) {
+    // Basic validation: should be a non-empty string that looks like a CSS file
+    if (typeof path !== 'string' || path.length === 0) return false;
+    
+    // Should end with .css
+    if (!path.toLowerCase().endsWith('.css')) return false;
+    
+    // Should not contain dangerous characters
+    const dangerousChars = /[<>"|*?]/;
+    if (dangerousChars.test(path)) return false;
+    
+    return true;
+  }
+
+  cancelAdd() {
+    this.isAddingNew = false;
+    this.render();
   }
 
   subscribeToState() {
     this.unsubscribeSettings = appStore.subscribe((newState, prevState) => {
-      const newPreviewSettings = newState.settings?.preview;
-      const oldPreviewSettings = prevState.settings?.preview;
+      const newCssFiles = newState.settings?.preview?.cssFiles || [];
+      const prevCssFiles = prevState?.settings?.preview?.cssFiles || [];
+      const newBundling = newState.settings?.preview?.bundleCss !== false;
+      const prevBundling = prevState?.settings?.preview?.bundleCss !== false;
+      const newRootCss = newState.settings?.preview?.enableRootCss !== false;
+      const prevRootCss = prevState?.settings?.preview?.enableRootCss !== false;
+      const newPrefix = newState.settings?.preview?.cssPrefix || '';
+      const prevPrefix = prevState?.settings?.preview?.cssPrefix || '';
+      const newPreviewMode = newState.settings?.preview?.renderMode || 'direct';
+      const prevPreviewMode = prevState?.settings?.preview?.renderMode || 'direct';
 
-      // Re-render if configured files (structure/enabled flag) OR active files change
-      if (JSON.stringify(newPreviewSettings?.cssFiles) !== JSON.stringify(oldPreviewSettings?.cssFiles) ||
-          JSON.stringify(newPreviewSettings?.activeCssFiles) !== JSON.stringify(oldPreviewSettings?.activeCssFiles))
-      {
-        logMessage('Preview CSS settings changed in state, re-rendering list.', 'debug', 'SETTINGS');
-        this.renderCssFileList(
-            newPreviewSettings?.cssFiles || [],      // Pass array of {path, enabled} objects
-            newPreviewSettings?.activeCssFiles || [] // Pass array of active path strings
-        );
+      if (JSON.stringify(newCssFiles) !== JSON.stringify(prevCssFiles) ||
+          newBundling !== prevBundling ||
+          newRootCss !== prevRootCss ||
+          newPrefix !== prevPrefix ||
+          newPreviewMode !== prevPreviewMode) {
+        this.render();
       }
     });
   }
 
-  /**
-   * Renders the list of configured CSS files.
-   * @param {Array<{path: string, enabled: boolean}>} configuredItems - Configured CSS items.
-   * @param {string[]} activePaths - Array of currently active CSS file paths.
-   */
-  renderCssFileList(configuredItems = [], activePaths = []) {
-    logMessage(`Rendering CSS list. Configured: ${configuredItems.length}, Active: ${activePaths.length}`, 'debug', 'SETTINGS');
-    this.cssFileList.innerHTML = '';
-    const activeSet = new Set(activePaths);
-    const rootCssPath = 'styles.css';
-    const state = appStore.getState(); // Get current state to check enableRootCss
-    const isRootEnabledByUser = state.settings?.preview?.enableRootCss ?? true; // Get user's setting
-    const isRootActuallyActive = activeSet.has(rootCssPath); // Get actual load status
-
-    // --- Render Implicit Root CSS Entry ---
-    const rootListItem = document.createElement('li');
-    rootListItem.classList.add('settings-list-item', 'css-list-item', 'css-item-root');
-    // Style based on enabled setting, not active status
-    rootListItem.classList.toggle('css-item-disabled', !isRootEnabledByUser);
-
-    rootListItem.innerHTML = `
-        <input
-            type="checkbox"
-            id="css-toggle-root"
-            class="css-enable-toggle"
-            data-path="${rootCssPath}"
-            ${isRootEnabledByUser ? 'checked' : ''}
-            aria-labelledby="css-toggle-root-label"
-        >
-        <label id="css-toggle-root-label" for="css-toggle-root" class="css-file-path">MD_DIR/styles.css</label>
-        <span class="css-item-status">${isRootActuallyActive ? '(Active)' : '(Inactive)'}</span>
-        <span class="remove-css-placeholder"></span>
-    `;
-    this.cssFileList.appendChild(rootListItem);
-    // --------------------------------------
-
-    // --- Render User-Configured Files ---
-    if (Array.isArray(configuredItems) && configuredItems.length > 0) {
-        configuredItems.forEach(item => {
-          const listItem = document.createElement('li');
-          listItem.classList.add('settings-list-item', 'css-list-item');
-          listItem.classList.toggle('css-item-disabled', !item.enabled);
-
-          const displayPath = `MD_DIR/${item.path.replace(/</g, "&lt;").replace(/>/g, "&gt;")}`;
-          const isActive = activeSet.has(item.path); // Actual load status
-          const checkboxId = `css-toggle-${item.path.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-
-          listItem.innerHTML = `
-              <input
-                  type="checkbox"
-                  id="${checkboxId}"
-                  class="css-enable-toggle"
-                  data-path="${item.path}"
-                  ${item.enabled ? 'checked' : ''}
-                  aria-labelledby="${checkboxId}-label"
-              >
-              <label id="${checkboxId}-label" for="${checkboxId}" class="css-file-path" title="Toggle enabled state">${displayPath}</label>
-              <span class="css-item-status">${isActive ? '(Active)' : '(Inactive)'}</span>
-              <button class="remove-css-btn settings-button settings-button-small" data-path="${item.path}" aria-label="Remove ${displayPath} from configuration">Remove</button>
-          `;
-          this.cssFileList.appendChild(listItem);
-        });
-    }
-  }
-
-  // --- Event Handlers ---
-
-  handleAddCssFile() {
-    const filePath = this.cssFileInput.value.trim();
-    if (filePath) {
-      dispatch({ type: ActionTypes.SETTINGS_ADD_PREVIEW_CSS, payload: filePath });
-      this.cssFileInput.value = '';
-      this.cssFileInput.focus();
-    }
-  }
-
-  handleListClick(event) {
-    if (event.target.classList.contains('remove-css-btn') && event.target.dataset.path) {
-      const filePath = event.target.dataset.path;
-      dispatch({ type: ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS, payload: filePath });
-    }
-  }
-
-  handleCheckboxToggle(event) {
-    if (event.target.classList.contains('css-enable-toggle') && event.target.dataset.path) {
-        const filePath = event.target.dataset.path;
-        const rootCssPath = 'styles.css';
-
-        if (filePath === rootCssPath) {
-            dispatch({ type: ActionTypes.SETTINGS_TOGGLE_ROOT_CSS_ENABLED });
-        } else {
-            dispatch({ type: ActionTypes.SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED, payload: filePath });
-        }
-    }
-  }
-
-  /**
-   * Cleans up event listeners and subscriptions.
-   */
   destroy() {
-    logMessage('Destroying CssSettingsPanel instance...', 'debug', 'SETTINGS');
     if (this.unsubscribeSettings) {
       this.unsubscribeSettings();
-      this.unsubscribeSettings = null;
     }
-
-    // Remove listeners from elements (important if panel is re-created)
-    if (this.addCssFileButton) {
-        this.addCssFileButton.removeEventListener('click', this.handleAddCssFile);
+    // Clean up event listeners
+    const oldHandler = this.containerElement._cssEventHandler;
+    if (oldHandler) {
+      this.containerElement.removeEventListener('click', oldHandler);
+      this.containerElement.removeEventListener('keypress', oldHandler.keyHandler);
+      this.containerElement.removeEventListener('input', oldHandler.inputHandler);
+      this.containerElement.removeEventListener('change', oldHandler.changeHandler);
     }
-     if (this.cssFileList) {
-        this.cssFileList.removeEventListener('click', this.handleListClick);
-        this.cssFileList.removeEventListener('change', this.handleCheckboxToggle); // <<< REMOVE NEW LISTENER
-    }
-
-    // Remove the container from the DOM (optional, depends on parent's lifecycle)
-    // if (this.cssSettingsContainer && this.cssSettingsContainer.parentNode) {
-    //     this.cssSettingsContainer.parentNode.removeChild(this.cssSettingsContainer);
-    // }
-
-    this.containerElement = null;
-    this.cssSettingsContainer = null;
-    this.cssFileInput = null;
-    this.addCssFileButton = null;
-    this.cssFileList = null;
   }
 }

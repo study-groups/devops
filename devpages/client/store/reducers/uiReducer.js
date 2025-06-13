@@ -6,6 +6,9 @@ const VIEW_MODE_KEY = 'viewMode';
 const LEFT_SIDEBAR_KEY = 'leftSidebarVisible';
 const TEXT_VISIBLE_KEY = 'textVisible';
 const PREVIEW_VISIBLE_KEY = 'previewVisible';
+const THEME_KEY = 'devpages_theme';
+const COLOR_SCHEME_KEY = 'devpages_color_scheme';
+const DESIGN_DENSITY_KEY = 'devpages_design_density';
 
 // Load visibility states first, then derive viewMode from them
 const textVisible = loadFromStorage(TEXT_VISIBLE_KEY, true);
@@ -29,7 +32,9 @@ const initialState = {
   logVisible: loadFromStorage(LOG_VISIBLE_KEY, false),
   logMenuVisible: false,
   viewMode: derivedViewMode, // Use derived mode instead of stored viewMode
-  theme: 'default',
+  theme: loadFromStorage(THEME_KEY, 'light'),
+  colorScheme: loadFromStorage(COLOR_SCHEME_KEY, 'system'),
+  designDensity: loadFromStorage(DESIGN_DENSITY_KEY, 'comfortable'),
   leftSidebarVisible: loadFromStorage(LEFT_SIDEBAR_KEY, true),
   rightSidebarVisible: false,
   textVisible,
@@ -42,7 +47,10 @@ const persisters = {
   viewMode: createPersister(VIEW_MODE_KEY, state => state.viewMode),
   leftSidebarVisible: createPersister(LEFT_SIDEBAR_KEY, state => state.leftSidebarVisible),
   textVisible: createPersister(TEXT_VISIBLE_KEY, state => state.textVisible),
-  previewVisible: createPersister(PREVIEW_VISIBLE_KEY, state => state.previewVisible)
+  previewVisible: createPersister(PREVIEW_VISIBLE_KEY, state => state.previewVisible),
+  theme: createPersister(THEME_KEY, state => state.theme),
+  colorScheme: createPersister(COLOR_SCHEME_KEY, state => state.colorScheme),
+  designDensity: createPersister(DESIGN_DENSITY_KEY, state => state.designDensity)
 };
 
 // Define action handlers using the createReducer pattern
@@ -162,5 +170,68 @@ export const uiReducer = createReducer(initialState, {
     // This action doesn't change state, but its dispatch triggers subscribers
     // to re-read the current state, ensuring UI consistency on startup.
     return { ...state };
+  },
+
+  // Theme Actions
+  [ActionTypes.UI_SET_THEME]: (state, action) => {
+    const theme = action.payload;
+    if (typeof theme === 'string' && ['light', 'dark', 'auto'].includes(theme)) {
+      const newState = { ...state, theme };
+      persisters.theme(newState);
+      // Apply theme immediately to document
+      applyThemeToDocument(theme);
+      return newState;
+    }
+    return state;
+  },
+
+  [ActionTypes.UI_TOGGLE_THEME]: (state) => {
+    const currentTheme = state.theme;
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    const newState = { ...state, theme: newTheme };
+    persisters.theme(newState);
+    // Apply theme immediately to document
+    applyThemeToDocument(newTheme);
+    return newState;
+  },
+
+  [ActionTypes.UI_SET_COLOR_SCHEME]: (state, action) => {
+    const colorScheme = action.payload;
+    if (typeof colorScheme === 'string' && ['system', 'light', 'dark'].includes(colorScheme)) {
+      const newState = { ...state, colorScheme };
+      persisters.colorScheme(newState);
+      return newState;
+    }
+    return state;
+  },
+
+  [ActionTypes.UI_SET_DESIGN_DENSITY]: (state, action) => {
+    const density = action.payload;
+    if (typeof density === 'string' && ['compact', 'comfortable', 'spacious'].includes(density)) {
+      const newState = { ...state, designDensity: density };
+      persisters.designDensity(newState);
+      // Apply density class to document
+      applyDensityToDocument(density);
+      return newState;
+    }
+    return state;
   }
 });
+
+// Helper function to apply theme to document
+function applyThemeToDocument(theme) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', theme);
+  
+  // Handle system theme detection
+  if (theme === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  }
+}
+
+// Helper function to apply design density to document
+function applyDensityToDocument(density) {
+  const root = document.documentElement;
+  root.setAttribute('data-density', density);
+}

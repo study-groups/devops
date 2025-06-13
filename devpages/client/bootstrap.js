@@ -24,6 +24,10 @@ import { initAuth } from '/client/auth.js';
 import { initializeFileManager } from '/client/filesystem/fileManager.js';
 import { initializeSettingsPanel } from '/client/settings/settingsInitializer.js';
 import { initKeyboardShortcuts } from '/client/keyboardShortcuts.js';
+import { triggerActions } from '/client/actions.js';
+
+// Publish Modal Integration - replaces ugly alerts with user-friendly modal
+import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
 
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
@@ -42,9 +46,17 @@ async function initializeApp() {
         const { eventBus } = await import('/client/eventBus.js');
         window.eventBus = eventBus;
         setReducer(mainReducer);
-        logBootstrap('Core services (Logging, EventBus, Reducer) initialized.');
+        
+        // Expose triggerActions globally for publish button and other components
+        window.triggerActions = triggerActions;
+        
+        logBootstrap('Core services (Logging, EventBus, Reducer, Actions) initialized.');
 
-        // 2. Foundational UI Managers
+        // 2. Initialize Publish Modal Integration (must happen after triggerActions is exposed)
+        initializePublishModalIntegration();
+        logBootstrap('Publish modal integration initialized (replaces alert dialogs).');
+
+        // 3. Foundational UI Managers
         await initializeUIComponents();
         logBootstrap('UI Component Manager (popups, etc.) initialized.');
         
@@ -53,19 +65,19 @@ async function initializeApp() {
         window.panelUIManager = panelUIManager; // Expose globally if needed
         logBootstrap('Panel UI Manager (sidebars, frame) initialized.');
 
-        // 3. Mount Static UI Components
+        // 4. Mount Static UI Components
         createAuthDisplayComponent('auth-component-container').mount();
         createContextManagerComponent('context-manager-container').mount();
         createViewControlsComponent('view-controls-container').mount();
         logBootstrap('Static header/control components mounted.');
         
-        // 4. Mount Content View (which creates editor/preview containers)
+        // 5. Mount Content View (which creates editor/preview containers)
         const contentView = createContentViewComponent('content-view-wrapper');
         contentView.mount();
         window.APP = { contentView };
         logBootstrap('Content View component mounted.');
 
-        // 5. Initialize Other Feature Modules
+        // 6. Initialize Other Feature Modules
         initializeSettingsPanel();
         initKeyboardShortcuts();
         await new LogPanel().initialize();
@@ -73,7 +85,7 @@ async function initializeApp() {
         await initializeFileManager();
         logBootstrap('Remaining feature modules initialized.');
 
-        // 6. Activate UI State Management & Sync
+        // 7. Activate UI State Management & Sync
         subscribeUIManager();
         dispatch({ type: ActionTypes.UI_APPLY_INITIAL_STATE });
         logBootstrap('UIManager subscribed and initial state synced.');

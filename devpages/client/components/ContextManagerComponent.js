@@ -23,6 +23,7 @@ export function createContextManagerComponent(targetElementId) {
     // --- Component Local State ---
     let activeSiblingDropdownPath = null;
     let fetchingParentPath = null;
+    let publishStatus = { isPublished: false, url: null };
 
     // --- Rendering Logic ---
     const render = () => {
@@ -340,18 +341,23 @@ export function createContextManagerComponent(targetElementId) {
     const handlePublishButtonClick = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        logContext('Publish button clicked', 'EVENT');
+        logContext('Publish button clicked - opening modal', 'EVENT');
+        
         const fileState = appStore.getState().file;
         if (fileState.isDirectorySelected || !fileState.currentPathname) {
             logContext('Cannot publish: No file selected or directory view.', 'warn', 'EVENT');
             alert('Please select a file to publish.');
             return;
         }
-        if (typeof window.triggerActions?.publishToSpaces === 'function') {
+
+        // Simply open the publish modal
+        if (typeof window.openPublishModal === 'function') {
+            window.openPublishModal(fileState.currentPathname);
+        } else if (typeof window.triggerActions?.publishToSpaces === 'function') {
             window.triggerActions.publishToSpaces();
         } else {
-            logContext('Cannot publish: triggerActions.publishToSpaces is not available.', 'error', 'EVENT');
-            alert('Publish action is not configured correctly.');
+            logContext('Cannot open publish modal: functions not available.', 'error', 'EVENT');
+            alert('Publish modal is not available.');
         }
     };
 

@@ -74,7 +74,7 @@ export class ConsoleLogPanel {
 
     window.addEventListener('storage', (event) => {
       // If any filter key changes, reload filters and update UI
-      if (Object.values(FilterManager.STORAGE_KEYS).includes(event.key)) {
+      if (FilterManager.STORAGE_KEYS && Object.values(FilterManager.STORAGE_KEYS).includes(event.key)) {
         const allFilters = FilterManager.loadAllFilters();
         window.config.typeFilters = allFilters.typeFilters;
         window.config.levelFilters = allFilters.levelFilters;

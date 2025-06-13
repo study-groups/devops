@@ -15,7 +15,187 @@ function logStaticGen(message, level = 'debug') {
 }
 
 /**
+ * Fetches CSS content from the server
+ * @param {string} cssPath - Path to the CSS file
+ * @returns {Promise<string>} CSS content or empty string if failed
+ */
+async function fetchCssContent(cssPath) {
+    try {
+        logStaticGen(`Fetching CSS content for: ${cssPath}`);
+        
+        let response;
+        
+        if (cssPath.startsWith('/client/')) {
+            // Client CSS files: fetch directly from client path
+            response = await globalFetch(cssPath);
+        } else {
+            // User CSS files: use /public/css endpoint (expects files in PD_DIR/data)
+            response = await globalFetch(`/public/css?path=${encodeURIComponent(cssPath)}`);
+        }
+        
+        if (!response.ok) {
+            logStaticGen(`Failed to fetch CSS ${cssPath}: ${response.status} ${response.statusText}`, 'warn');
+            return '';
+        }
+        
+        const cssContent = await response.text();
+        logStaticGen(`Successfully fetched CSS ${cssPath} (${cssContent.length} chars)`);
+        return cssContent;
+    } catch (error) {
+        logStaticGen(`Error fetching CSS ${cssPath}: ${error.message}`, 'error');
+        return '';
+    }
+}
+
+/**
+ * Bundles all active CSS files into a single CSS string
+ * @returns {Promise<string>} Bundled CSS content
+ */
+async function bundleActiveCss() {
+    logStaticGen(`Bundling CSS for published content`);
+    
+    // Get all active CSS files from app state
+    const state = appStore.getState();
+    const activeCssFiles = state.settings?.preview?.activeCssFiles || [];
+    const enableRootCss = state.settings?.preview?.enableRootCss ?? true;
+    
+    // Build list of CSS files to bundle
+    const cssFilesToBundle = [];
+    
+    // Always include base markdown styling
+    cssFilesToBundle.push('/client/preview/md.css');
+    
+    // Add root styles.css if enabled
+    if (enableRootCss && !activeCssFiles.includes('styles.css')) {
+        cssFilesToBundle.push('styles.css');
+    }
+    
+    // Add all active CSS files
+    activeCssFiles.forEach(cssPath => {
+        if (!cssFilesToBundle.includes(cssPath)) {
+            cssFilesToBundle.push(cssPath);
+        }
+    });
+    
+    logStaticGen(`Bundling ${cssFilesToBundle.length} CSS files: ${JSON.stringify(cssFilesToBundle)}`);
+    
+    // Fetch CSS files in parallel
+    const cssPromises = cssFilesToBundle.map(async (cssPath) => {
+        const content = await fetchCssContent(cssPath);
+        return content ? `/* === BUNDLED CSS: ${cssPath} === */\n${content}\n` : `/* === FAILED TO LOAD: ${cssPath} === */\n`;
+    });
+    
+    const cssContents = await Promise.all(cssPromises);
+    const bundledCss = cssContents.filter(content => content.trim()).join('\n');
+    
+    logStaticGen(`CSS bundling complete. Total bundled size: ${bundledCss.length} chars`);
+    return bundledCss;
+}
+
+/**
+ * Generates static HTML for publishing with CSS handling based on settings
+ * @param {Object} options - Configuration options
+ * @param {string} options.markdownSource - The markdown content to convert
+ * @param {string} options.originalFilePath - Original file path for context
+ * @returns {Promise<string>} Complete HTML document
+ */
+export async function generateStaticHtmlForPublish({ markdownSource, originalFilePath }) {
+    const logPrefix = 'generateStaticHtmlForPublish';
+    logStaticGen(`${logPrefix} called for: ${originalFilePath}`);
+    
+    try {
+        // Get settings from state
+        const state = appStore.getState();
+        const previewSettings = state.settings?.preview || {};
+        // FORCE CSS bundling for publishing - external links don't work for standalone HTML
+        const bundleCss = true; // Always bundle for publishing
+        const cssPrefix = previewSettings.cssPrefix || '';
+        
+        logStaticGen(`CSS bundling FORCED to true for publishing (was: ${previewSettings.bundleCss !== false}), CSS prefix: "${cssPrefix}"`);
+        
+        // 1. Convert Markdown to HTML using the full preview renderer (with plugins)
+        const { renderMarkdown } = await import('/client/preview/renderer.js');
+        const renderResult = await renderMarkdown(markdownSource, originalFilePath);
+        const htmlContent = renderResult.html || renderResult;
+        
+        if (!htmlContent) {
+            throw new Error('Markdown rendering returned empty content');
+        }
+        logStaticGen(`Markdown rendered successfully (${htmlContent.length} chars)`);
+        
+        // 2. Handle CSS based on bundling setting
+        let cssContent = '';
+        let cssMode = 'LINKED (external)';
+        
+        if (bundleCss) {
+            // Bundle CSS inline for published content
+            cssContent = await bundleActiveCss();
+            cssMode = 'BUNDLED (inline)';
+            logStaticGen(`CSS bundled inline (${cssContent.length} chars)`);
+                 } else {
+             // Use external links with optional prefix
+             const state = appStore.getState();
+             const activeCssFiles = state.settings?.preview?.activeCssFiles || [];
+             const enableRootCss = state.settings?.preview?.enableRootCss ?? true;
+             
+             const cssFilesToLink = [];
+             cssFilesToLink.push('/client/preview/md.css');
+             
+             if (enableRootCss && !activeCssFiles.includes('styles.css')) {
+                 cssFilesToLink.push('/styles.css');
+             }
+             
+             activeCssFiles.forEach(cssPath => {
+                 const linkPath = cssPath.startsWith('/') ? cssPath : `/${cssPath}`;
+                 if (!cssFilesToLink.includes(linkPath)) {
+                     cssFilesToLink.push(linkPath);
+                 }
+             });
+             
+             const cssLinks = cssFilesToLink.map(cssPath => {
+                 const fullPath = cssPrefix ? `${cssPrefix}${cssPath}` : cssPath;
+                 return `    <link rel="stylesheet" href="${fullPath}">`;
+             }).join('\n');
+             cssContent = cssLinks;
+             logStaticGen(`CSS links generated for ${cssFilesToLink.length} files with prefix "${cssPrefix}"`);
+         }
+        
+        // 3. Build complete HTML document
+        const cssSection = bundleCss ? 
+            `    <style>\n${cssContent}\n    </style>` : 
+            cssContent;
+            
+        const completeHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${originalFilePath ? originalFilePath.replace(/\.md$/, '') : 'Document'}</title>
+    <meta name="generator" content="DevPages Static HTML Generator">
+    <!-- CSS Generated by staticHtmlGenerator.js generateStaticHtmlForPublish() -->
+    <!-- CSS Mode: ${cssMode} - FORCED BUNDLING for standalone HTML -->
+    <!-- CSS Files: All active CSS files bundled inline -->
+${cssSection}
+</head>
+<body>
+    <div class="markdown-content">
+${htmlContent}
+    </div>
+</body>
+</html>`;
+
+        logStaticGen(`Complete HTML generated (${completeHtml.length} chars total)`);
+        return completeHtml;
+        
+    } catch (error) {
+        logStaticGen(`${logPrefix} error: ${error.message}`, 'error');
+        throw new Error(`Failed to generate static HTML: ${error.message}`);
+    }
+}
+
+/**
  * Triggers static HTML generation via a server API endpoint and initiates download.
+ * This is the legacy function for backward compatibility.
  */
 export async function downloadStaticHTML() {
     logStaticGen('Requesting static HTML generation via API...');

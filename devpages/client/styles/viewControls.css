@@ -1,130 +1,108 @@
-/* ViewControls Styles */
+/* ViewControls Styles - Updated for Design System */
 
 #view-controls {
     display: flex;
-    gap: 8px;
+    gap: var(--space-2);
     align-items: center;
-    padding: 8px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
+    padding: var(--space-2);
+    background-color: var(--color-background-elevated);
+    border-bottom: 1px solid var(--color-border);
 }
 
 #view-controls button {
-    padding: 8px 16px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: #fff;
-    color: #495057;
-    font-size: 14px;
-    font-weight: 500;
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background-color: var(--color-background);
+    color: var(--color-foreground-secondary);
+    font-size: var(--density-text-sm);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: var(--transition-fast);
     user-select: none;
 }
 
 #view-controls button:hover {
-    background-color: #e9ecef;
-    border-color: #adb5bd;
-    color: #343a40;
+    background-color: var(--color-background-elevated);
+    border-color: var(--color-border);
+    color: var(--color-foreground);
 }
 
 #view-controls button:active {
     transform: translateY(1px);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    background-color: var(--color-background-secondary);
 }
 
 #view-controls button.active {
-    background-color: #007bff;
-    border-color: #007bff;
-    color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-500);
+    color: white;
+    box-shadow: var(--shadow-sm);
 }
 
 #view-controls button.active:hover {
-    background-color: #0056b3;
-    border-color: #004085;
+    background-color: var(--color-blue-600);
+    border-color: var(--color-blue-600);
 }
 
 /* Specific button styles */
 #edit-toggle.active {
-    background-color: #28a745;
-    border-color: #28a745;
+    background-color: var(--color-green-500);
+    border-color: var(--color-green-500);
 }
 
 #edit-toggle.active:hover {
-    background-color: #1e7e34;
-    border-color: #1c7430;
+    background-color: var(--color-green-600);
+    border-color: var(--color-green-600);
 }
 
 #preview-toggle.active {
-    background-color: #17a2b8;
-    border-color: #17a2b8;
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-500);
 }
 
 #preview-toggle.active:hover {
-    background-color: #117a8b;
-    border-color: #10707f;
+    background-color: var(--color-blue-600);
+    border-color: var(--color-blue-600);
 }
 
 #log-toggle-btn.active {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #212529;
+    background-color: var(--color-yellow-500);
+    border-color: var(--color-yellow-500);
+    color: var(--color-gray-900);
 }
 
 #log-toggle-btn.active:hover {
-    background-color: #e0a800;
-    border-color: #d39e00;
+    background-color: var(--color-yellow-600);
+    border-color: var(--color-yellow-600);
 }
 
 #preview-reload-btn {
-    font-size: 16px;
-    padding: 6px 12px;
+    font-size: var(--font-size-base);
+    padding: var(--space-1-5) var(--space-3);
     min-width: auto;
 }
 
 #preview-reload-btn:hover {
-    background-color: #e9ecef;
+    background-color: var(--color-background-elevated);
     transform: rotate(180deg);
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
     #view-controls {
-        gap: 4px;
-        padding: 6px;
+        gap: var(--space-1);
+        padding: var(--space-1-5);
     }
     
     #view-controls button {
-        padding: 6px 12px;
-        font-size: 13px;
+        padding: var(--space-1-5) var(--space-3);
+        font-size: var(--font-size-sm);
     }
     
     #preview-reload-btn {
-        padding: 4px 8px;
+        padding: var(--space-1) var(--space-2);
     }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    #view-controls {
-        background-color: #2d3748;
-        border-bottom-color: #4a5568;
-    }
-    
-    #view-controls button {
-        background-color: #4a5568;
-        border-color: #718096;
-        color: #e2e8f0;
-    }
-    
-    #view-controls button:hover {
-        background-color: #718096;
-        border-color: #a0aec0;
-        color: #f7fafc;
-    }
-    
-    #view-controls button.active {
-        color: #fff;
-    }
-} 
+/* Theme-aware styling is now handled by CSS custom properties */ 

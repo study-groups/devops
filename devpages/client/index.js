@@ -1,19 +1,4 @@
-// Import the publish button
-import { createPublishButton, checkPublishStatus } from './components/publishButton.js';
+// The publish functionality is now handled by PublishModalIntegration.js
+// which is imported in bootstrap.js and provides a modal-based publish system
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  // Dynamically add CSS
-  const cssLink = document.createElement('link');
-  cssLink.rel = 'stylesheet';
-  cssLink.href = '/client/css/publish-button.css';
-  document.head.appendChild(cssLink);
-
-  // Create the publish button
-  createPublishButton('#toolbar-container');
-  
-  // Update publish button state when file changes
-  document.addEventListener('file:loaded', () => {
-    checkPublishStatus();
-  });
-}); 
+console.log('[CLIENT INDEX] Publish functionality delegated to PublishModalIntegration'); 

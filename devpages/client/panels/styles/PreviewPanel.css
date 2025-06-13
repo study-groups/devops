@@ -10,6 +10,10 @@
 .preview-panel-content {
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
 }
 
 /*
@@ -18,13 +22,16 @@
  * override the old `styles.css` that was adding huge margins.
  */
 .markdown-preview {
-    padding: 1.5rem 2rem !important;
+    padding: 1.5rem 2rem;
     margin: 0;
     box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     background-color: #fff;
+    position: relative;
 }
 
 /* Remove margin from the first and last elements to prevent extra space */
@@ -33,4 +40,18 @@
 }
 .markdown-preview > :last-child {
     margin-bottom: 0 !important;
+}
+
+.panel {
+    flex-shrink: 0;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
 } 

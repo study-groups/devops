@@ -24,13 +24,14 @@ function saveArray(key, arr) {
 }
 
 const FilterManager = {
+  // Export STORAGE_KEYS so it can be accessed externally
+  STORAGE_KEYS,
+  
   // --- Types ---
   getIncludeTypes() { return loadArray(STORAGE_KEYS.typeInclude); },
   setIncludeTypes(arr) { saveArray(STORAGE_KEYS.typeInclude, arr); },
   getExcludeTypes() { return loadArray(STORAGE_KEYS.typeExclude); },
   setExcludeTypes(arr) { saveArray(STORAGE_KEYS.typeExclude, arr); },
-
-
 
   // --- Levels ---
   getIncludeLevels() { return loadArray(STORAGE_KEYS.levelInclude); },

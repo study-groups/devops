@@ -13,8 +13,8 @@ const PLUGINS_STATE_KEY = 'pluginsFullState';
 export const SMART_COPY_A_KEY = 'smartCopyBufferA';
 export const SMART_COPY_B_KEY = 'smartCopyBufferB';
 // <<< Key for persisting preview CSS file list >>>
-const PREVIEW_CSS_FILES_KEY = 'previewCssFiles';
-const ENABLE_ROOT_CSS_KEY = 'previewEnableRootCss'; // <<< NEW KEY
+const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
+const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css'; // <<< NEW KEY
 const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
@@ -364,10 +364,11 @@ const initialAppState = {
       selectedOrg: getInitialSelectedOrg(), // 'pixeljam-arcade' or 'nodeholder'
       
       preview: {
-          configuredCssFiles: getInitialPreviewCssFiles(),
+          cssFiles: getInitialPreviewCssFiles(),
           activeCssFiles: [],
           enableRootCss: getInitialEnableRootCss(),
-          previewTheme: 'light'
+          previewTheme: 'light',
+          renderMode: getInitialPreviewMode()
       }
   },
   // +++ Add the Log Filtering State Slice +++
@@ -477,7 +478,7 @@ appStore.subscribe((newState) => {
 
     // Persist preview CSS file list from settings.preview
     if (newState.settings && newState.settings.preview) {
-        const currentCssFiles = newState.settings.preview.configuredCssFiles;
+        const currentCssFiles = newState.settings.preview.cssFiles;
         if (currentCssFiles && JSON.stringify(currentCssFiles) !== localStorage.getItem(PREVIEW_CSS_FILES_KEY)) {
             try {
                 localStorage.setItem(PREVIEW_CSS_FILES_KEY, JSON.stringify(currentCssFiles));
@@ -569,3 +570,17 @@ appStore.subscribe((newState) => {
 
 // Export the defaultPluginsConfig for use by PluginLoader and other modules
 export { defaultPluginsConfig };
+
+// In the getInitialPreviewMode function or add a new one:
+function getInitialPreviewMode() {
+    try {
+        const storedValue = localStorage.getItem('devpages_preview_mode');
+        if (storedValue && ['direct', 'iframe'].includes(storedValue)) {
+            console.log('[AppState] Loaded preview mode from localStorage:', storedValue);
+            return storedValue;
+        }
+    } catch (e) {
+        console.error('[AppState] Error reading preview mode from localStorage:', e);
+    }
+    return 'direct'; // Default to direct mode
+}

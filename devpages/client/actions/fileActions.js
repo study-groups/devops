@@ -4,12 +4,13 @@
  */
 import { logMessage } from '/client/log/index.js';
 import { loadFile, saveFile } from '/client/filesystem/fileManager.js';
-import { downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js';
+import { generateStaticHtmlForPublish, downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { fileActions } from '/client/messaging/actionCreators.js';
 import { appStore } from '/client/appState.js';
 import * as selectors from '/client/store/selectors.js';
 import eventBus from '/client/eventBus.js';
+import { publishService } from '/client/services/PublishService.js';
 
 // Helper for logging within this module
 function logAction(message, level = 'debug') {
@@ -131,83 +132,28 @@ export const fileActionHandlers = {
     },
 
     /**
-     * Publishes the current file to DO Spaces
+     * Publishes the current file based on publish settings
      */
     publishToSpaces: async () => {
-        const logPrefix = 'ACTION publishToSpaces';
-        logAction('Triggering file publish to DO Spaces...', 'info', 'PUBLISH');
-        let editor, rawMarkdownContent, currentPathname, generatedHtmlContent;
+        const state = appStore.getState();
+        const currentFile = state.file?.currentPathname;
+        
+        if (!currentFile) {
+            alert('No file selected');
+            return;
+        }
+
+        // Get editor content
+        const editor = document.querySelector('#md-editor textarea, #editor-container textarea, textarea');
+        if (!editor) {
+            alert('Editor not found');
+            return;
+        }
 
         try {
-            // 1. Get Editor Content
-            const editorSelectors = [
-                '#md-editor textarea', '#editor-container textarea',
-                'textarea.markdown-editor', 'textarea#editor', 'textarea'
-            ];
-            editor = editorSelectors.map(sel => document.querySelector(sel)).find(el => el);
-            if (!editor) throw new Error('Editor element not found.');
-            rawMarkdownContent = editor.value || '';
-            if (!rawMarkdownContent.trim()) throw new Error('Editor content is empty.');
-            logAction('Editor content retrieved.', 'debug', 'PUBLISH');
-
-            // 2. Get Current Pathname from appStore
-            currentPathname = selectors.getCurrentFilePath(appStore.getState());
-            if (!currentPathname) {
-                throw new Error('No file is currently selected for publishing.');
-            }
-            logAction(`Publishing: ${currentPathname}`, 'debug', 'PUBLISH');
-
-            // 3. Generate HTML using the Client-Side Utility
-            logAction('Generating static HTML string...', 'debug', 'PUBLISH');
-            // Ensure generateStaticHTMLString is correctly imported and works
-            generatedHtmlContent = await downloadStaticHTML({
-                markdownSource: rawMarkdownContent,
-                originalFilePath: currentPathname,
-                // activeCssPaths: [], // Pass active CSS if needed by your generator
-            });
-            if (generatedHtmlContent === null || typeof generatedHtmlContent !== 'string') {
-                // Check for null or non-string return value indicating failure
-                throw new Error('Static HTML string generation failed or returned invalid content.');
-            }
-            logAction(`HTML generated (Length: ${generatedHtmlContent.length})`, 'debug', 'PUBLISH');
-
-            // 4. Send Generated HTML to Server
-            logAction(`Sending generated HTML to /api/publish...`, 'debug', 'PUBLISH');
-            const response = await fetch('/api/publish', { // Use fetch directly
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }, // Ensure correct header
-                body: JSON.stringify({
-                    pathname: currentPathname,          // Original MD path for tracking
-                    htmlContent: generatedHtmlContent   // Send the generated HTML
-                })
-            });
-
-            const data = await response.json(); // Always try to parse JSON response
-
-            if (!response.ok) {
-                // Use error message from server response if available
-                throw new Error(data?.error || `Server error: ${response.status} ${response.statusText}`);
-            }
-            if (!data.success || !data.url) {
-                 throw new Error('Publish API returned success=false or missing URL');
-            }
-
-            // 5. Handle Success
-            logAction(`Published successfully to: ${data.url}`, 'info', 'PUBLISH');
-            if (confirm(`File published successfully!\n\nURL: ${data.url}\n\nClick OK to copy URL.`)) {
-                try {
-                    await navigator.clipboard.writeText(data.url);
-                    logAction('Published URL copied.', 'info', 'PUBLISH');
-                } catch (copyError) {
-                     logAction(`Failed to copy URL to clipboard: ${copyError.message}`, 'warn', 'PUBLISH');
-                     // Alert user maybe?
-                     alert("Could not automatically copy URL, but it is: " + data.url);
-                }
-            }
+            await publishService.publish(editor.value, currentFile);
         } catch (error) {
-            logAction(`Publish error: ${error.message}`, 'error', 'PUBLISH');
-            console.error('[PUBLISH ACTION ERROR]', error);
-            alert(`Failed to publish: ${error.message}`);
+            alert(`Publish failed: ${error.message}`);
         }
     }
 }; 

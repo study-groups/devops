@@ -108,8 +108,7 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
         { text: 'Copy Log', action: 'copyLog' },
         { text: 'Clear Log', action: 'clearLog' },
         { text: 'Debug UI', action: 'runDebugUI' },
-        { text: 'Sys Info', action: 'showSystemInfo' }, 
-        { text: 'Static HTML', action: 'downloadStaticHTML' },
+        { text: 'Sys Info', action: 'showSystemInfo' }
     ];
     
     const separator = document.createElement('div');

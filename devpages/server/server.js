@@ -367,32 +367,49 @@ async function startServer() {
 
         console.log(`${logPrefix} ROUTE HANDLER ENTERED for path: ${requestedFile}`);
 
-        // --- Security Check 1: Allow only specific files ---
-        // ONLY allow 'styles.css' (or a predefined list) through this route.
-        // Prevents requesting arbitrary files like '../users.csv' etc.
-        if (requestedFile !== 'styles.css') {
-            console.warn(`${logPrefix} Denied request for non-allowed file: ${requestedFile}`);
-            return res.status(403).send('Forbidden: Invalid file requested.');
+        // --- Security Check 1: Validate file path ---
+        if (!requestedFile || typeof requestedFile !== 'string') {
+            console.warn(`${logPrefix} Invalid or missing path parameter`);
+            return res.status(400).send('Bad Request: Path parameter required.');
+        }
+
+        // Normalize the path and check for directory traversal attempts
+        const normalizedPath = path.normalize(requestedFile).replace(/^(\.\.(\/|\\|$))+/, '');
+        if (normalizedPath !== requestedFile || normalizedPath.includes('..')) {
+            console.warn(`${logPrefix} Directory traversal attempt detected: ${requestedFile}`);
+            return res.status(403).send('Forbidden: Invalid path.');
+        }
+
+        // Only allow CSS files
+        if (!normalizedPath.endsWith('.css')) {
+            console.warn(`${logPrefix} Non-CSS file requested: ${requestedFile}`);
+            return res.status(403).send('Forbidden: Only CSS files allowed.');
         }
 
         // --- Security Check 2: Basic Authentication Check (Optional but Recommended) ---
-        // Decide if *any* visitor or only logged-in users can get this CSS.
-        // If only logged-in users:
+        // For now, we'll allow authenticated users to access any CSS file in the data directory
+        // Uncomment these lines if you want to require authentication:
         // if (!req.isAuthenticated || !req.isAuthenticated()) {
         //     console.warn(`${logPrefix} Denied request for '${requestedFile}' - User not authenticated.`);
         //     return res.status(401).send('Unauthorized');
         // }
-        // console.log(`${logPrefix} User authenticated, proceeding to serve '${requestedFile}'.`);
-
 
         // --- Construct Correct Path ---
-        // This CSS lives in the 'data' subdirectory of the main PData root.
+        // CSS files are served from the 'data' subdirectory of the main PData root.
         if (!req.pdata || !req.pdata.dataRoot) {
              console.error(`${logPrefix} CRITICAL: PData instance or dataRoot not available on request object.`);
              return res.status(500).send('Internal Server Error: Configuration Error.');
         }
-        // Construct path: PD_DIR/data/styles.css
-        const absoluteFilePath = path.join(req.pdata.dataRoot, 'data', requestedFile);
+        
+        // Construct path: PD_DIR/data/{requestedFile}
+        const absoluteFilePath = path.join(req.pdata.dataRoot, 'data', normalizedPath);
+
+        // Additional security check: ensure the resolved path is within the data directory
+        const dataDir = path.join(req.pdata.dataRoot, 'data');
+        if (!absoluteFilePath.startsWith(path.resolve(dataDir))) {
+            console.warn(`${logPrefix} Path escape attempt detected: ${requestedFile} resolved to ${absoluteFilePath}`);
+            return res.status(403).send('Forbidden: Path outside allowed directory.');
+        }
 
         console.log(`${logPrefix} Attempting to serve file from resolved path: ${absoluteFilePath}`);
 
@@ -402,7 +419,10 @@ async function startServer() {
             await fs.access(absoluteFilePath, fs.constants.R_OK); // Check read access
             console.log(`${logPrefix} File found and readable: ${absoluteFilePath}`);
 
-            // Send the file, letting Express handle Content-Type based on extension
+            // Set appropriate Content-Type for CSS
+            res.setHeader('Content-Type', 'text/css');
+
+            // Send the file, letting Express handle the rest
             res.sendFile(absoluteFilePath, (err) => {
                 if (err) {
                     console.error(`${logPrefix} Error sending file '${absoluteFilePath}':`, err);
@@ -430,6 +450,8 @@ async function startServer() {
         }
     });
     // --- END: Add *unprotected* route for public preview CSS ---
+
+
 
     // --- Protected API Routes (Example) ---
     // These should come AFTER specific public routes if paths could potentially overlap
@@ -551,40 +573,73 @@ async function startServer() {
       }
     });
 
-    // Emergency MD file serving middleware
+    // Static file serving middleware for MD_DIR content (MD and CSS files)
     app.use(async (req, res, next) => {
       if (req.method !== 'GET' || req.url.includes('/api/') || req.url.includes('/client/') || req.url.includes('/images/') || req.url.includes('/uploads/')) {
         return next();
       }
-      const match = req.url.match(/^\/([^/]+)\/([^/]+\.md)$/);
-      if (match) {
-        const [, dir, file] = match;
-        console.log(`[EMERGENCY SERVER] Detected potential file request: ${dir}/${file}`);
+      
+      // Handle both MD files in subdirectories and CSS files in root
+      const mdMatch = req.url.match(/^\/([^/]+)\/([^/]+\.md)$/);
+      const cssMatch = req.url.match(/^\/([^/]+\.css)$/);
+      
+      if (mdMatch) {
+        const [, dir, file] = mdMatch;
+        console.log(`[MD_DIR SERVER] Detected MD file request: ${dir}/${file}`);
         try {
           const baseDir = pdataInstance.dataRoot;
           const safeDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, '');
           const safeFile = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, '');
           if (safeDir.includes('..') || safeFile.includes('..')) {
-                console.warn(`[EMERGENCY SERVER] Denying potentially malicious path: ${req.url}`);
+                console.warn(`[MD_DIR SERVER] Denying potentially malicious path: ${req.url}`);
                 return next();
            }
           const filePath = path.resolve(baseDir, safeDir, safeFile);
-          console.log(`[EMERGENCY SERVER] Checking file: ${filePath}`);
+          console.log(`[MD_DIR SERVER] Checking MD file: ${filePath}`);
 
           const currentUser = req.user?.username || '__public__';
           if (!req.pdata.can(currentUser, 'read', filePath)) {
-               console.log(`[EMERGENCY SERVER] PData denied read access for ${currentUser} to ${filePath}`);
+               console.log(`[MD_DIR SERVER] PData denied read access for ${currentUser} to ${filePath}`);
                return next();
           }
-           console.log(`[EMERGENCY SERVER] PData allowed read access for ${currentUser} to ${filePath}`);
+           console.log(`[MD_DIR SERVER] PData allowed read access for ${currentUser} to ${filePath}`);
 
           try { await fs.access(filePath); } catch (err) { return next(); }
-          console.log(`[EMERGENCY SERVER] Serving file: ${filePath}`);
+          console.log(`[MD_DIR SERVER] Serving MD file: ${filePath}`);
           const content = await fs.readFile(filePath, 'utf8');
           res.setHeader('Content-Type', 'text/markdown');
           return res.send(content);
-        } catch (error) { console.error('[EMERGENCY SERVER] Error:', error); return next(); }
+        } catch (error) { console.error('[MD_DIR SERVER] Error serving MD file:', error); return next(); }
       }
+      
+      if (cssMatch) {
+        const [, file] = cssMatch;
+        console.log(`[MD_DIR SERVER] Detected CSS file request: ${file}`);
+        try {
+          const baseDir = pdataInstance.dataRoot;
+          const safeFile = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, '');
+          if (safeFile.includes('..')) {
+                console.warn(`[MD_DIR SERVER] Denying potentially malicious CSS path: ${req.url}`);
+                return next();
+           }
+          const filePath = path.resolve(baseDir, safeFile);
+          console.log(`[MD_DIR SERVER] Checking CSS file: ${filePath}`);
+
+          const currentUser = req.user?.username || '__public__';
+          if (!req.pdata.can(currentUser, 'read', filePath)) {
+               console.log(`[MD_DIR SERVER] PData denied read access for ${currentUser} to ${filePath}`);
+               return next();
+          }
+           console.log(`[MD_DIR SERVER] PData allowed read access for ${currentUser} to ${filePath}`);
+
+          try { await fs.access(filePath); } catch (err) { return next(); }
+          console.log(`[MD_DIR SERVER] Serving CSS file: ${filePath}`);
+          const content = await fs.readFile(filePath, 'utf8');
+          res.setHeader('Content-Type', 'text/css');
+          return res.send(content);
+        } catch (error) { console.error('[MD_DIR SERVER] Error serving CSS file:', error); return next(); }
+      }
+      
       next();
     });
 

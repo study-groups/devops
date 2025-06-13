@@ -19,7 +19,7 @@ let lastAppliedConfiguredPaths = new Set();
 let lastAppliedRootStatus = false;
 
 /**
- * Initializes the CSS Plugin (currently does nothing, logic is in applyStyles)
+ * Initializes the CSS Plugin and applies persisted CSS settings
  * @param {object} config - Plugin configuration object (optional)
  */
 export function init(config = {}) {
@@ -46,6 +46,14 @@ export function init(config = {}) {
             logger.error('Error setting default enableRootCss', e);
         }
     }
+    
+    // Apply CSS styles immediately based on persisted settings
+    setTimeout(() => {
+        logger.debug('Applying persisted CSS settings on initialization');
+        applyStyles().catch(error => {
+            logger.error('Error applying CSS styles during initialization:', error);
+        });
+    }, 100); // Small delay to ensure DOM is ready
     
     return true; // Signal successful initialization
 }

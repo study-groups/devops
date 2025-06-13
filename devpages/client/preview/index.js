@@ -562,24 +562,12 @@ export class PreviewManager {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
+  <link rel="stylesheet" href="/client/styles/design-system.css">
   <link rel="stylesheet" href="/client/preview/preview.css">
   ${head}
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      line-height: 1.6;
-      margin: 0;
-      padding: 20px;
-      background: #fff;
-      color: #333;
-    }
-    .markdown-preview {
-      max-width: 100%;
-    }
-  </style>
 </head>
 <body>
-  <div class="markdown-preview">
+  <div class="markdown-content">
     ${html}
   </div>
 </body>

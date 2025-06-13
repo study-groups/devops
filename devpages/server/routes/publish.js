@@ -8,7 +8,6 @@ import {
 } from "@aws-sdk/client-s3";
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { promises as fs } from 'fs'; // Use promises API for async file ops
 import { generateStaticHtml } from '../utils/htmlGenerator.js'; // Import the utility
 
 // Helper to derive __dirname
@@ -30,45 +29,31 @@ const REQUIRED_ENV_VARS = [
     'DO_SPACES_KEY', 'DO_SPACES_SECRET', 'DO_SPACES_ENDPOINT', 'DO_SPACES_BUCKET', 'DO_SPACES_REGION'
 ];
 
-// --- State File Path ---
-const PUBLISHED_STATE_FILE = path.join(projectRootDir, 'data', 'published_files.json'); // Store state in data/
-
-// Ensure data directory exists
-fs.mkdir(path.dirname(PUBLISHED_STATE_FILE), { recursive: true }).catch(console.error);
-
 // --- Validation & Initialization ---
 const missingEnvVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
 if (missingEnvVars.length > 0) {
     console.error(`[PUBLISH ROUTE] FATAL: Missing required environment variables for DigitalOcean Spaces: ${missingEnvVars.join(', ')}`);
-    // Optionally throw an error or exit if critical for server start
-    // throw new Error(`Missing DO Spaces environment variables: ${missingEnvVars.join(', ')}`);
+    throw new Error(`Missing DO Spaces environment variables: ${missingEnvVars.join(', ')}`);
 }
 
-// Make sure endpoint doesn't include the bucket or protocol
-let endpointUrl = DO_SPACES_ENDPOINT;
-// Remove protocol if present
-if (endpointUrl.startsWith('http://') || endpointUrl.startsWith('https://')) {
-    endpointUrl = endpointUrl.replace(/^https?:\/\//, '');
-}
-// Remove bucket prefix if present (e.g., "devpages.sfo3.digitaloceanspaces.com" -> "sfo3.digitaloceanspaces.com")
-if (endpointUrl.startsWith(`${DO_SPACES_BUCKET}.`)) {
-    endpointUrl = endpointUrl.replace(`${DO_SPACES_BUCKET}.`, '');
-}
-
-console.log(`[PUBLISH] Configuring S3 client with endpoint: ${endpointUrl}, region: ${DO_SPACES_REGION}, bucket: ${DO_SPACES_BUCKET}`);
-
+// Simple S3 client configuration
 const s3Client = new S3Client({
-    endpoint: `https://${endpointUrl}`,
+    endpoint: DO_SPACES_ENDPOINT,
     region: DO_SPACES_REGION,
     credentials: {
         accessKeyId: DO_SPACES_KEY,
         secretAccessKey: DO_SPACES_SECRET
     },
-    // Use path-style URLs to avoid the hostname issues
-    forcePathStyle: true
+    forcePathStyle: false
 });
 
 const router = express.Router();
+
+// Helper function to get the state file path for a given file's directory
+const getStateFilePath = (filePath) => {
+    const dir = path.dirname(filePath);
+    return path.join(dir, '.publish_state.json');
+};
 
 // Helper function to generate S3 Key from relative pathname
 // We'll prefix with 'published/' to keep them organized
@@ -85,57 +70,61 @@ const getS3Key = (pathname) => {
 
 // Helper function to generate the public URL
 const getPublicUrl = (s3Key) => {
+    let baseUrl;
+    
     if (PUBLISH_BASE_URL) {
-        // Ensure PUBLISH_BASE_URL doesn't have a trailing slash and key doesn't have a leading one
-        const baseUrl = PUBLISH_BASE_URL.replace(/\/$/, '');
-        const keyPart = s3Key.replace(/^\//, '');
-        if (baseUrl.endsWith(DO_SPACES_BUCKET)) {
-             return `${baseUrl.replace(/\/$/, '')}/${keyPart}`;
-        } else {
-             return `${baseUrl}/${keyPart}`;
-        }
+        baseUrl = PUBLISH_BASE_URL.replace(/\/$/, '');
     } else {
-        // Construct default DO URL
-        return `https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.digitaloceanspaces.com/${s3Key}`;
+        // Auto-construct CDN URL from bucket and region for better performance
+        baseUrl = `https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.cdn.digitaloceanspaces.com`;
     }
+    
+    const keyPart = s3Key.replace(/^\//, '');
+    return `${baseUrl}/${keyPart}`;
 };
 
-// --- State Management Helpers ---
-async function loadPublishedState() {
+// --- PData State Management Helpers ---
+async function loadPublishedState(req, filePath) {
     try {
-        await fs.access(PUBLISHED_STATE_FILE);
-        const data = await fs.readFile(PUBLISHED_STATE_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.log('[PUBLISH STATE] State file not found, starting fresh.');
-            return {}; // Return empty object if file doesn't exist
+        const stateFilePath = getStateFilePath(filePath);
+        const username = req.user?.username || '[unknown_user]';
+        
+        try {
+            // Use PData to read the state file
+            const stateContent = await req.pdata.readFile(username, stateFilePath);
+            return JSON.parse(stateContent);
+        } catch (error) {
+            if (error.message.includes('not found') || error.message.includes('ENOENT')) {
+                return {}; // Return empty object if file doesn't exist
+            }
+            throw error;
         }
+    } catch (error) {
         console.error('[PUBLISH STATE] Error loading state:', error);
-        throw new Error('Failed to load publish state.'); // Rethrow other errors
+        return {}; // Return empty object on any error
     }
 }
 
-async function savePublishedState(state) {
+async function savePublishedState(req, filePath, state) {
     try {
-        // Write atomically (to temp then rename) might be better in high concurrency
-        await fs.writeFile(PUBLISHED_STATE_FILE, JSON.stringify(state, null, 2));
-        console.log('[PUBLISH STATE] State saved successfully.');
+        const stateFilePath = getStateFilePath(filePath);
+        const username = req.user?.username || '[unknown_user]';
+        
+        // Use PData to write the state file
+        await req.pdata.writeFile(username, stateFilePath, JSON.stringify(state, null, 2));
     } catch (error) {
         console.error('[PUBLISH STATE] Error saving state:', error);
-        // Don't throw here, maybe just log, as the S3 operation might have succeeded
+        // Don't throw here, as the S3 operation might have succeeded
     }
 }
-// --- End State Management ---
 
 // --- Routes ---
 
 /**
  * GET /api/publish?pathname=...
- * Check if a file is currently published (uses JSON state file).
+ * Check if a file is currently published (uses PData state files).
  */
 router.get('/', async (req, res) => {
-    const logPrefix = '[GET /api/publish v3]';
     const username = req.user?.username || '[unknown_user]';
     const { pathname } = req.query;
 
@@ -144,28 +133,20 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        console.log(`${logPrefix} User='${username}', Checking status for Markdown path='${pathname}'`);
-
-        // 1. Load state from file
-        const publishedState = await loadPublishedState();
+        // 1. Load state from PData
+        const publishedState = await loadPublishedState(req, pathname);
 
         // 2. Check if the markdown path exists in the state
         const stateEntry = publishedState[pathname];
 
         if (stateEntry && stateEntry.url) {
-            console.log(`${logPrefix} File found in state. Path='${pathname}', URL='${stateEntry.url}'`);
-            // Optional: Verify with HeadObject if desired, but increases latency
-            // try {
-            //    await s3Client.send(new HeadObjectCommand({ Bucket: DO_SPACES_BUCKET, Key: stateEntry.s3Key }));
-            // } catch (s3Error) { ... handle mismatch ... }
             res.json({ isPublished: true, url: stateEntry.url });
         } else {
-            console.log(`${logPrefix} File not found in state (not published). Path='${pathname}'`);
             res.json({ isPublished: false, url: null });
         }
 
     } catch (error) {
-        console.error(`${logPrefix} User='${username}', Path='${pathname}'. Error checking publish status:`, error);
+        console.error(`Error checking publish status for ${pathname}:`, error);
         res.status(500).json({ error: `Error checking publish status: ${error.message}` });
     }
 });
@@ -173,76 +154,97 @@ router.get('/', async (req, res) => {
 /**
  * POST /api/publish
  * Publish a file (upload PRE-RENDERED HTML content to DO Spaces).
- * Requires JSON body: { pathname: string, htmlContent: string } <- pathname is original MD path
  */
-router.post('/', express.json({ limit: '10mb' }), async (req, res) => { // Keep limit high for HTML
-    const logPrefix = '[POST /api/publish v3]';
-    const username = req.user?.username || '[unknown_user]';
-    // *** Expect htmlContent instead of content ***
-    const { pathname, htmlContent } = req.body;
-
-    // *** Update validation check ***
-    if (!pathname || htmlContent === undefined) {
-        return res.status(400).json({ error: 'pathname (markdown path) and htmlContent (pre-rendered HTML) are required.' });
-    }
-    if (typeof htmlContent !== 'string') {
-         return res.status(400).json({ error: 'htmlContent must be a string.' });
-    }
-
-    let s3Key;
+router.post('/', express.json({ limit: '10mb' }), async (req, res) => {
+    const startTime = Date.now();
+    
     try {
-        console.log(`${logPrefix} User='${username}', Publishing pre-rendered HTML for MD path='${pathname}'`);
+        const username = req.user?.username || '[unknown_user]';
+        const { pathname, htmlContent } = req.body;
 
-        // 1. Permission Check (on original markdown file path) - Remains the same
-        if (!req.pdata || typeof req.pdata.can !== 'function') { /* ... error handling ... */ }
+        if (!pathname || htmlContent === undefined) {
+            return res.status(400).json({ error: 'pathname and htmlContent are required.' });
+        }
+        if (typeof htmlContent !== 'string') {
+            return res.status(400).json({ error: 'htmlContent must be a string.' });
+        }
+
+        // Permission check
+        if (!req.pdata || typeof req.pdata.can !== 'function') {
+            return res.status(500).json({ error: 'Permission system not available.' });
+        }
+        
         const baseDir = req.pdata.dataRoot || req.dataDir;
-        if (!baseDir) { /* ... error handling ... */ }
+        if (!baseDir) {
+            return res.status(500).json({ error: 'Data directory not configured.' });
+        }
+        
         const absolutePath = path.resolve(baseDir, pathname);
-        console.log(`${logPrefix} Checking permission to read source Markdown: ${absolutePath}`);
         const canReadSource = req.pdata.can(username, 'read', absolutePath);
-        if (!canReadSource) { /* ... permission denied error ... */ }
-        console.log(`${logPrefix} Permission Granted. User='${username}' can read source '${pathname}'.`);
+        if (!canReadSource) {
+            return res.status(403).json({ error: `Permission denied. User '${username}' cannot read source file: ${pathname}` });
+        }
 
-        // 2. *** REMOVE HTML Generation Step ***
-        // const generatedHtml = await generateStaticHtml(...); // <<< REMOVE THIS
+        // Generate S3 key
+        const s3Key = getS3Key(pathname);
 
-        // 3. Determine S3 Key for the HTML file - Remains the same
-        s3Key = getS3Key(pathname); // Generates published/path/file.html
-        console.log(`${logPrefix} Determined S3 Key for HTML: '${s3Key}'`);
-
-        // 4. Upload **RECEIVED HTML** to S3
-        console.log(`${logPrefix} Uploading received HTML content (Length: ${htmlContent.length}) to S3 Key: ${s3Key}`);
-        const command = new PutObjectCommand({
+        // Upload to DO Spaces
+        const putCommand = new PutObjectCommand({
             Bucket: DO_SPACES_BUCKET,
             Key: s3Key,
-            Body: htmlContent, // *** Use htmlContent from request body ***
-            ACL: 'public-read',
+            Body: htmlContent,
             ContentType: 'text/html; charset=utf-8',
-            CacheControl: 'no-cache'
+            CacheControl: 'public, max-age=3600',
+            ACL: 'public-read'
         });
-        await s3Client.send(command);
-        const publicUrl = getPublicUrl(s3Key);
-        console.log(`${logPrefix} Successfully uploaded received HTML. MD Path='${pathname}', URL='${publicUrl}'`);
 
-        // 5. Update State File - Remains the same
-        const publishedState = await loadPublishedState();
+        await s3Client.send(putCommand);
+
+        // Generate public URL
+        const publicUrl = getPublicUrl(s3Key);
+
+        // Update state using PData
+        const publishedState = await loadPublishedState(req, pathname);
         publishedState[pathname] = {
-            s3Key: s3Key,
+            s3Key,
             url: publicUrl,
             publishedAt: new Date().toISOString(),
             publishedBy: username
         };
-        await savePublishedState(publishedState);
+        await savePublishedState(req, pathname, publishedState);
 
-        // 6. Respond to Client - Remains the same
-        res.json({ success: true, url: publicUrl });
+        const processingTime = Date.now() - startTime;
+        console.log(`[PUBLISH] Successfully published ${pathname} to ${publicUrl} in ${processingTime}ms`);
+        
+        res.json({
+            success: true,
+            url: publicUrl,
+            s3Key,
+            processingTime
+        });
 
     } catch (error) {
-        // ... error handling remains the same ...
-         if (error.message?.startsWith('Invalid pathname')) { /* ... */ }
-         else { /* ... */ }
+        const processingTime = Date.now() - startTime;
+        console.error('Publish error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            processingTime
+        });
     }
 });
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
 
 /**
  * DELETE /api/publish
@@ -262,8 +264,8 @@ router.delete('/', express.json(), async (req, res) => {
     try {
         console.log(`${logPrefix} User='${username}', Unpublishing Markdown path='${pathname}'`);
 
-        // 1. Load State
-        const publishedState = await loadPublishedState();
+        // 1. Load State using PData
+        const publishedState = await loadPublishedState(req, pathname);
         const stateEntry = publishedState[pathname];
 
         if (!stateEntry || !stateEntry.s3Key) {
@@ -295,9 +297,9 @@ router.delete('/', express.json(), async (req, res) => {
         await s3Client.send(command);
         console.log(`${logPrefix} Successfully deleted object from S3.`);
 
-        // 4. Update State File (Remove entry)
+        // 4. Update State File using PData
         delete publishedState[pathname];
-        await savePublishedState(publishedState);
+        await savePublishedState(req, pathname, publishedState);
         console.log(`${logPrefix} Removed entry from state file for '${pathname}'.`);
 
         // 5. Respond to Client
