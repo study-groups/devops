@@ -29,7 +29,7 @@ export class CssDesignPanel {
         const state = appStore.getState();
         const designTokensState = state.settings?.designTokens || {};
         
-        this.themesDirectory = designTokensState.tokensDirectory || (process.env.MD_DIR || '/root/pj/md') + '/themes';
+        this.themesDirectory = designTokensState.tokensDirectory || '/root/pj/md/themes';
         this.currentTheme = designTokensState.activeTheme || 'classic';
         this.previewMode = designTokensState.themeVariant || 'light';
         
@@ -72,7 +72,7 @@ export class CssDesignPanel {
                             <label for="themes-directory">Themes Directory:</label>
                             <div style="display: flex; gap: 0.5rem; align-items: stretch;">
                                 <input type="text" id="themes-directory" value="${this.themesDirectory}" 
-                                       placeholder="${(process.env.MD_DIR || '/root/pj/md') + '/themes'}" class="form-input" style="flex: 1;">
+                                       placeholder="/root/pj/md/themes" class="form-input" style="flex: 1;">
                                 <button id="scan-directory" class="action-btn">Scan</button>
                             </div>
                         </div>
@@ -1139,7 +1139,7 @@ export default designTokens;
     handleStateUpdate(designTokensState) {
         const oldDirectory = this.themesDirectory;
         
-        this.themesDirectory = designTokensState.tokensDirectory || (process.env.MD_DIR || '/root/pj/md') + '/themes';
+        this.themesDirectory = designTokensState.tokensDirectory || '/root/pj/md/themes';
         this.currentTheme = designTokensState.activeTheme || 'default';
         
         if (oldDirectory !== this.themesDirectory) {
