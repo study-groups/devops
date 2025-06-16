@@ -11,6 +11,7 @@ import { panelEventBus } from './panelEventBus.js';
 
 // Import all panels to ensure they register themselves
 import '../panels/css-design/CssDesignPanel.js'; // CSS & Design panel
+import '../panels/css-design/ThemeEditorPanel.js'; // Theme Editor panel
 import '../panels/icons/IconsPanel.js'; // Icons management panel
 import '../panels/plugins/PluginsPanel.js';
 import '../panels/publish/PublishSettingsPanel.js';
