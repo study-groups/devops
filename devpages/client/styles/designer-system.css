@@ -1,0 +1,395 @@
+/**
+ * Designer Theme System
+ * Provides easy-to-override CSS custom properties for complete visual customization
+ * This file should be loaded AFTER design-system.css to allow overrides
+ */
+
+/* ===== DESIGNER CUSTOMIZATION LAYER ===== */
+
+:root {
+  /* === BRAND COLORS === */
+  /* These can be overridden by designers to match brand guidelines */
+  --brand-primary: var(--color-blue-600);
+  --brand-secondary: var(--color-gray-600);
+  --brand-accent: var(--color-green-500);
+  --brand-warning: var(--color-yellow-500);
+  --brand-error: var(--color-red-500);
+  --brand-success: var(--color-green-600);
+  
+  /* === SURFACE COLORS === */
+  /* Main application surfaces */
+  --surface-app-background: var(--color-background);
+  --surface-panel-background: var(--color-background-elevated);
+  --surface-card-background: var(--color-background-elevated);
+  --surface-overlay-background: rgba(0, 0, 0, 0.5);
+  
+  /* === NAVIGATION & HEADER === */
+  --nav-background: var(--color-background-elevated);
+  --nav-border: var(--color-border);
+  --nav-text: var(--color-foreground);
+  --nav-text-secondary: var(--color-foreground-secondary);
+  --nav-button-background: var(--color-background-secondary);
+  --nav-button-background-hover: var(--color-background-tertiary);
+  --nav-button-text: var(--color-foreground);
+  --nav-button-border: var(--color-border);
+  
+  /* === SIDEBAR COLORS === */
+  --sidebar-background: var(--color-background-secondary);
+  --sidebar-border: var(--color-border);
+  --sidebar-text: var(--color-foreground);
+  --sidebar-text-secondary: var(--color-foreground-secondary);
+  --sidebar-item-background-hover: var(--color-background-tertiary);
+  --sidebar-item-background-active: var(--brand-primary);
+  --sidebar-item-text-active: white;
+  
+  /* === CONTENT AREA === */
+  --content-background: var(--color-background);
+  --content-text: var(--color-foreground);
+  --content-border: var(--color-border);
+  
+  /* === EDITOR COLORS === */
+  --editor-background: var(--color-background-elevated);
+  --editor-text: var(--color-foreground);
+  --editor-border: var(--color-border);
+  --editor-line-numbers: var(--color-foreground-muted);
+  --editor-selection: var(--brand-primary);
+  --editor-cursor: var(--brand-primary);
+  
+  /* === PREVIEW COLORS === */
+  --preview-background: var(--color-background-elevated);
+  --preview-text: var(--color-foreground);
+  --preview-border: var(--color-border);
+  --preview-code-background: var(--color-background-secondary);
+  --preview-blockquote-border: var(--brand-accent);
+  --preview-link: var(--brand-primary);
+  --preview-link-hover: var(--brand-secondary);
+  
+  /* === SETTINGS PANEL === */
+  --settings-background: var(--color-background-elevated);
+  --settings-border: var(--color-border);
+  --settings-header-background: var(--color-background-secondary);
+  --settings-text: var(--color-foreground);
+  --settings-text-secondary: var(--color-foreground-secondary);
+  
+  /* === LOG PANEL === */
+  --log-background: #161616;
+  --log-text: #e0e0e0;
+  --log-border: #444;
+  --log-info: var(--brand-primary);
+  --log-warning: var(--brand-warning);
+  --log-error: var(--brand-error);
+  --log-success: var(--brand-success);
+  
+  /* === BUTTONS & CONTROLS === */
+  --button-primary-background: var(--brand-primary);
+  --button-primary-text: white;
+  --button-primary-border: var(--brand-primary);
+  --button-primary-background-hover: var(--color-blue-700);
+  
+  --button-secondary-background: var(--color-background-secondary);
+  --button-secondary-text: var(--color-foreground);
+  --button-secondary-border: var(--color-border);
+  --button-secondary-background-hover: var(--color-background-tertiary);
+  
+  /* === FORM ELEMENTS === */
+  --input-background: var(--color-background-elevated);
+  --input-text: var(--color-foreground);
+  --input-border: var(--color-border);
+  --input-border-focus: var(--brand-primary);
+  --input-placeholder: var(--color-foreground-muted);
+  
+  /* === TYPOGRAPHY OVERRIDES === */
+  --font-family-ui: var(--font-family-sans);
+  --font-family-content: var(--font-family-sans);
+  --font-family-code: var(--font-family-mono);
+  
+  /* === SPACING OVERRIDES === */
+  --spacing-unit: 0.25rem; /* 4px base unit */
+  --nav-height: 50px;
+  --sidebar-width: 280px;
+  --panel-padding: calc(var(--spacing-unit) * 4);
+  
+  /* === BORDER RADIUS OVERRIDES === */
+  --border-radius-small: 4px;
+  --border-radius-medium: 6px;
+  --border-radius-large: 8px;
+  
+  /* === SHADOWS === */
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-dropdown: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  /* === SCROLLBAR COLORS === */
+  --scrollbar-track: var(--color-background-secondary);
+  --scrollbar-thumb: var(--color-foreground-muted);
+  --scrollbar-thumb-hover: var(--color-foreground-secondary);
+}
+
+/* ===== DARK THEME OVERRIDES ===== */
+[data-theme="dark"] {
+  /* Adjust designer variables for dark theme */
+  --surface-overlay-background: rgba(0, 0, 0, 0.7);
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown: 0 2px 8px rgba(0, 0, 0, 0.2);
+  
+  /* Dark theme scrollbar colors */
+  --scrollbar-thumb: var(--color-gray-600);
+  --scrollbar-thumb-hover: var(--color-gray-500);
+}
+
+/* ===== COMPONENT APPLICATIONS ===== */
+
+/* Navigation Bar */
+nav,
+.top-bar {
+  background-color: var(--nav-background) !important;
+  border-bottom-color: var(--nav-border) !important;
+  color: var(--nav-text) !important;
+  height: var(--nav-height);
+}
+
+.nav-group button,
+.nav-group select {
+  background-color: var(--nav-button-background);
+  color: var(--nav-button-text);
+  border-color: var(--nav-button-border);
+}
+
+.nav-group button:hover,
+.nav-group select:hover {
+  background-color: var(--nav-button-background-hover);
+}
+
+/* Sidebars */
+#code-sidebar,
+#right-sidebar {
+  background-color: var(--sidebar-background) !important;
+  border-color: var(--sidebar-border) !important;
+  color: var(--sidebar-text) !important;
+  width: var(--sidebar-width);
+}
+
+/* Content Area */
+#content,
+#content-view-wrapper {
+  background-color: var(--content-background);
+  color: var(--content-text);
+}
+
+/* Editor */
+.editor-panel,
+.panel-editor-panel,
+#editor-container,
+.editor-container {
+  background-color: var(--editor-background) !important;
+  color: var(--editor-text) !important;
+  border-color: var(--editor-border) !important;
+}
+
+.editor-textarea,
+#editor-container textarea {
+  background-color: var(--editor-background) !important;
+  color: var(--editor-text) !important;
+  border: none !important;
+  font-family: var(--font-family-code) !important;
+}
+
+.editor-textarea::placeholder,
+#editor-container textarea::placeholder {
+  color: var(--input-placeholder) !important;
+}
+
+/* Editor scrollbar inherits from global theming */
+
+/* Panel System */
+.panel,
+.panel-editor-panel,
+.panel-preview-panel {
+  background-color: var(--editor-background) !important;
+  border-color: var(--editor-border) !important;
+  color: var(--editor-text) !important;
+}
+
+.panel-content {
+  background-color: var(--editor-background) !important;
+  color: var(--editor-text) !important;
+}
+
+/* Content View Wrapper */
+#content-view-wrapper,
+.content-view-component {
+  background-color: var(--content-background) !important;
+}
+
+.content-panel {
+  background-color: var(--editor-background) !important;
+  border-color: var(--editor-border) !important;
+}
+
+/* Preview */
+.preview-panel,
+#preview-container {
+  background-color: var(--preview-background) !important;
+  color: var(--preview-text) !important;
+  border-color: var(--preview-border) !important;
+}
+
+.preview-panel code {
+  background-color: var(--preview-code-background) !important;
+}
+
+.preview-panel blockquote {
+  border-left-color: var(--preview-blockquote-border) !important;
+}
+
+.preview-panel a {
+  color: var(--preview-link) !important;
+}
+
+.preview-panel a:hover {
+  color: var(--preview-link-hover) !important;
+}
+
+/* Preview scrollbar inherits from global theming */
+
+/* Settings Panel */
+.settings-panel {
+  background-color: var(--settings-background) !important;
+  border-color: var(--settings-border) !important;
+  color: var(--settings-text) !important;
+}
+
+.settings-panel-header {
+  background-color: var(--settings-header-background) !important;
+}
+
+/* Log Panel */
+#log-container {
+  background-color: var(--log-background) !important;
+  color: var(--log-text) !important;
+  border-color: var(--log-border) !important;
+}
+
+/* Buttons */
+.btn--primary,
+button.btn--primary {
+  background-color: var(--button-primary-background) !important;
+  color: var(--button-primary-text) !important;
+  border-color: var(--button-primary-border) !important;
+}
+
+.btn--primary:hover,
+button.btn--primary:hover {
+  background-color: var(--button-primary-background-hover) !important;
+}
+
+.btn--secondary,
+button.btn--secondary {
+  background-color: var(--button-secondary-background) !important;
+  color: var(--button-secondary-text) !important;
+  border-color: var(--button-secondary-border) !important;
+}
+
+.btn--secondary:hover,
+button.btn--secondary:hover {
+  background-color: var(--button-secondary-background-hover) !important;
+}
+
+/* Form Elements */
+input,
+textarea,
+select {
+  background-color: var(--input-background) !important;
+  color: var(--input-text) !important;
+  border-color: var(--input-border) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--input-border-focus) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder) !important;
+}
+
+/* ===== GLOBAL SCROLLBAR THEMING ===== */
+
+/* Default scrollbar styling for all elements */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Firefox scrollbar theming */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ===== DESIGNER UTILITY CLASSES ===== */
+
+/* Quick theme testing classes */
+.theme-brand-primary { background-color: var(--brand-primary) !important; }
+.theme-brand-secondary { background-color: var(--brand-secondary) !important; }
+.theme-brand-accent { background-color: var(--brand-accent) !important; }
+
+.theme-text-primary { color: var(--brand-primary) !important; }
+.theme-text-secondary { color: var(--brand-secondary) !important; }
+.theme-text-accent { color: var(--brand-accent) !important; }
+
+/* Layout utilities */
+.theme-nav-height { height: var(--nav-height) !important; }
+.theme-sidebar-width { width: var(--sidebar-width) !important; }
+.theme-panel-padding { padding: var(--panel-padding) !important; }
+
+/* ===== DESIGNER CUSTOMIZATION EXAMPLES ===== */
+
+/*
+Example: Blue Corporate Theme
+:root {
+  --brand-primary: #0066cc;
+  --brand-secondary: #004499;
+  --brand-accent: #00aaff;
+  --nav-background: #f8f9fa;
+  --sidebar-background: #ffffff;
+}
+
+Example: Dark Purple Theme
+[data-theme="dark"] {
+  --brand-primary: #8b5cf6;
+  --brand-secondary: #7c3aed;
+  --brand-accent: #a78bfa;
+  --nav-background: #1f1f23;
+  --sidebar-background: #2a2a2e;
+}
+
+Example: Green Nature Theme
+:root {
+  --brand-primary: #059669;
+  --brand-secondary: #047857;
+  --brand-accent: #10b981;
+  --nav-background: #f0fdf4;
+  --sidebar-background: #ecfdf5;
+}
+*/ 

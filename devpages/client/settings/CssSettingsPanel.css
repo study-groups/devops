@@ -1,4 +1,8 @@
-/* CSS Settings Panel - Simple and Clean */
+/**
+ * CSS Settings Panel Styles
+ * Updated to use design system tokens and honor light/dark/system themes
+ */
+
 .css-settings-panel {
   background: white;
   border-radius: 6px;
@@ -620,105 +624,88 @@
 
 /* CSS Settings Panel Styles - Simplified single-level subsections */
 .css-settings-content {
-  padding: 1rem;
-  background: #f8f9fa;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
-  border: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-/* Collapsible Subsections */
+/* ===== COLLAPSIBLE SUBSECTIONS ===== */
+
 .css-subsection {
-  margin-bottom: 1.5rem;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  background: #fff;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.css-subsection:last-child {
-  margin-bottom: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-background-elevated);
+  transition: var(--transition-all);
 }
 
 .css-subsection-header {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  background-color: var(--color-background-secondary);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  transition: var(--transition-all);
 }
 
 .css-subsection-header:hover {
-  background: #e9ecef;
+  background-color: var(--color-background-hover);
 }
 
-.css-subsection-header:focus {
-  outline: 2px solid #007bff;
-  outline-offset: -2px;
+.css-subsection.collapsed .css-subsection-header {
+  border-radius: var(--radius-md);
 }
 
 .css-collapse-indicator {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 8px;
-  font-size: 10px;
-  transition: transform 0.2s ease;
-  color: #6c757d;
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground-secondary);
+  transition: var(--transition-all);
 }
 
 .css-subsection-title {
-  margin: 0;
-  font-size: 0.95em;
+  font-size: var(--font-size-md);
   font-weight: 600;
-  color: #495057;
-  flex: 1;
+  color: var(--color-foreground);
+  margin: 0;
 }
 
 .css-subsection-content {
-  padding: 1rem;
-  transition: all 0.2s ease;
+  padding: var(--space-4);
 }
 
-/* Collapsed state */
 .css-subsection.collapsed .css-subsection-content {
   display: none;
 }
 
-.css-subsection.collapsed .css-subsection-header {
-  border-bottom: none;
-}
+/* ===== CSS PREVIEW MODE OPTIONS ===== */
 
-/* Preview Mode Selection */
 .css-option {
   display: flex;
   align-items: flex-start;
-  padding: 0.75rem;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-background);
+  transition: var(--transition-all);
   cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
+  margin-bottom: var(--space-3);
 }
 
 .css-option:hover {
-  border-color: #007bff;
-  background: #f8f9ff;
+  background-color: var(--color-background-hover);
+  border-color: var(--color-border-hover);
 }
 
 .css-radio-option input[type="radio"] {
-  margin: 0.25rem 0.75rem 0 0;
-  cursor: pointer;
+  margin-top: 2px;
+  accent-color: var(--color-primary);
 }
 
 .css-radio-option input[type="radio"]:checked + .option-content {
-  color: #007bff;
+  color: var(--color-primary);
 }
 
 .option-content {
@@ -727,248 +714,344 @@
 
 .option-content strong {
   display: block;
-  margin-bottom: 0.25rem;
-  font-size: 1em;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: var(--space-1);
 }
 
 .option-content p {
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground-secondary);
   margin: 0;
-  font-size: 0.875em;
-  color: #6c757d;
-  line-height: 1.4;
+  line-height: var(--line-height-relaxed);
 }
 
-/* CSS Files Section */
+/* ===== CSS FILES MANAGEMENT ===== */
+
 .css-files-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-3);
 }
 
 .add-css-btn {
-  padding: 0.5rem 1rem;
-  background: #0d6efd;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-all);
 }
 
 .add-css-btn:hover {
-  background: #0b5ed7;
+  background-color: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(13, 110, 253, 0.25);
+}
+
+.add-css-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .css-file-list {
-  background: #fdfdfd;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
+  min-height: 60px;
   max-height: 240px;
   overflow-y: auto;
-  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .css-list-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: #fff;
-  border-bottom: 1px solid #f1f3f4;
-  transition: all 0.2s ease;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  transition: var(--transition-all);
+  background-color: var(--color-background);
+}
+
+.css-list-item:hover {
+  background-color: var(--color-background-hover);
 }
 
 .css-list-item:last-child {
   border-bottom: none;
 }
 
-.css-list-item:hover {
-  background: #f8f9fa;
-}
-
 .css-list-item-new {
-  background: #f8f9fa;
-  animation: slideDown 0.2s ease-out;
-  border-color: #007bff;
+  background-color: var(--color-background-elevated);
+  animation: slideDown 0.3s ease-out;
 }
 
 .css-list-item-default {
-  background: #fff9e6;
+  background-color: var(--color-primary-background);
+  border-left: 3px solid var(--color-primary);
 }
 
 .css-enable-toggle {
   width: 16px;
   height: 16px;
+  accent-color: var(--color-primary);
   cursor: pointer;
-  accent-color: #007bff;
 }
 
 .css-file-path {
   flex: 1;
-  color: #333;
-  font-size: 0.875rem;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0.25rem 0;
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+  word-break: break-all;
+  padding: 0;
+}
+
+.css-list-item-default .css-file-path {
+  font-weight: 500;
+  color: var(--color-primary);
 }
 
 .css-file-default-badge {
-  padding: 0.25rem 0.5rem;
-  background: #ffc107;
-  color: #000;
-  font-size: 0.75rem;
-  border-radius: 12px;
-  font-weight: 500;
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  font-size: var(--font-size-xs);
+  padding: var(--space-0-5) var(--space-2);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .remove-css-btn {
-  padding: 0.25rem 0.5rem;
-  background: none;
-  border: none;
-  color: #6c757d;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-  border-radius: 4px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
+  background-color: transparent;
+  color: var(--color-error);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: var(--transition-all);
 }
 
 .remove-css-btn:hover {
-  color: #dc3545;
-  background: #f8d7da;
+  background-color: var(--color-error-background);
+  border-color: var(--color-error);
 }
 
-/* Add form styling */
+.remove-css-btn:focus-visible {
+  outline: 2px solid var(--color-error);
+  outline-offset: 2px;
+}
+
 .css-path-input {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  background: #fff;
-  color: #333;
-  font-size: 0.875rem;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  transition: all 0.2s ease;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-sm);
+  transition: var(--transition-all);
 }
 
 .css-path-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-background);
+}
+
+.css-path-input::placeholder {
+  color: var(--color-foreground-muted);
 }
 
 .css-list-item-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .css-list-item-add,
 .css-list-item-cancel {
-  padding: 0.25rem 0.75rem;
+  padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 60px;
+  transition: var(--transition-all);
 }
 
 .css-list-item-add {
-  background: #007bff;
-  color: white;
+  background-color: var(--color-success);
+  color: var(--color-background);
 }
 
 .css-list-item-add:hover {
-  background: #0056b3;
-  transform: translateY(-1px);
+  background-color: var(--color-success-hover);
 }
 
 .css-list-item-cancel {
-  background: #f8f9fa;
-  color: #6c757d;
+  background-color: var(--color-background-secondary);
+  color: var(--color-foreground-secondary);
 }
 
 .css-list-item-cancel:hover {
-  background: #e9ecef;
-  color: #333;
+  background-color: var(--color-background-hover);
 }
 
-/* CSS Options Section */
+/* ===== CSS OPTIONS ===== */
+
 .css-option-checkbox {
   width: 16px;
   height: 16px;
+  accent-color: var(--color-primary);
   cursor: pointer;
-  accent-color: #007bff;
-  margin-right: 0.5rem;
 }
 
 .css-option-text {
-  color: #495057;
-  font-size: 0.875rem;
-  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+  line-height: var(--line-height-normal);
 }
 
 .css-prefix-container {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 4px;
-  border: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--color-background-elevated);
+  border-radius: var(--radius-md);
 }
 
 .css-prefix-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #495057;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: var(--space-1);
 }
 
 .css-prefix-input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-sm);
+  transition: var(--transition-all);
 }
 
 .css-prefix-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-background);
+}
+
+.css-prefix-input::placeholder {
+  color: var(--color-foreground-muted);
 }
 
 .css-prefix-help {
-  display: block;
-  margin-top: 0.25rem;
-  color: #6c757d;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-muted);
+  line-height: var(--line-height-relaxed);
 }
+
+/* ===== ANIMATIONS ===== */
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.css-list-item-new {
+  animation: slideDown 0.3s ease-out;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 480px) {
+  .css-files-header {
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: stretch;
+  }
+
+  .css-list-item {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .css-list-item-buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .css-list-item-add,
+  .css-list-item-cancel {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .css-subsection,
+  .css-option,
+  .add-css-btn,
+  .remove-css-btn,
+  .css-path-input,
+  .css-prefix-input {
+    transition: none;
+  }
+
+  .css-list-item-new {
+    animation: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .css-subsection,
+  .css-option,
+  .css-file-list {
+    border-width: 2px;
+  }
+}
+
+.css-subsection-header:focus-visible,
+.css-option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===== EMPTY STATE ===== */
+
+.css-file-list:empty::after {
+  content: "No CSS files added yet. Click the '+ Add CSS File' button to get started.";
+  display: block;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-foreground-muted);
+  font-style: italic;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
 } 

@@ -1,42 +1,51 @@
 /**
  * LogEntry.js - Core log entry structure
  * Represents a single log entry with metadata
+ * Implements the unified logging structure with triple-timestamp support
  */
 
 /**
  * LogEntry class for structured logging
  */
 export class LogEntry {
-  constructor(level, message, type = 'GENERAL', subtype = null, caller = null, details = null) {
+  constructor(level, message, type = 'GENERAL', origin = null, payload = null) {
     const timestamp = new Date();
     
-    this.ts = timestamp.getTime();
-    this.timestamp = timestamp.toISOString();
-    this.displayTime = timestamp.toLocaleTimeString();
-    this.level = level;
-    this.type = type;
-    this.subtype = subtype;
+    // Core fields
+    this.level = level.toUpperCase();
+    this.type = type.toUpperCase();
+    this.origin = origin; // Compound source (format: "actor.module" or hierarchical)
     this.message = message;
-    this.details = details;
-    this.caller = caller;
+    this.ts = timestamp.toISOString(); // Log creation timestamp (ISO 8601)
+    
+    // Payload handling
+    this.payload = payload || {};
+    
+    // If payload contains API data, ensure it has the triple-timestamp structure
+    if (this.payload && this.payload.to && this.payload.from) {
+      this.payload = {
+        ...this.payload,
+        originateTime: this.payload.originateTime || this.ts,
+        receiveTime: this.payload.receiveTime || null,
+        transmitTime: this.payload.transmitTime || null
+      };
+    }
+    
+    // Sequence for ordering
     this.sequence = LogEntry.nextSequence();
   }
 
   /**
-   * Format the entry for console output with [TYPE][SUBTYPE] [message] [LEVEL]
+   * Format the entry for console output
+   * Format: [TYPE] message [LEVEL] (origin) (timing)
    * @param {boolean} showTimestamps - Whether to include timestamps
    * @returns {Array} - Arguments array for console methods
    */
   formatForConsole(showTimestamps = false) {
-    // Build the log prefix with type and optional subtype
+    // Build the log prefix with type
     let prefix = `[${this.type}]`;
     
-    // Add subtype if present
-    if (this.subtype) {
-      prefix += `[${this.subtype}]`;
-    }
-    
-    // Get the actual message content, stripping any JSON structure if detected
+    // Get the actual message content
     let displayMessage = this.message;
     
     // Parse JSON if the message appears to be a stringified object
@@ -57,15 +66,24 @@ export class LogEntry {
     // Level goes at the end
     let levelSuffix = ` [${this.level}]`;
     
+    // Add origin info if present
+    let originInfo = this.origin ? ` (${this.origin})` : '';
+    
     // Add timing info when enabled
     let timingInfo = '';
     if (showTimestamps) {
-      timingInfo = ` (${this.displayTime})`;
+      if (this.payload && this.payload.originateTime) {
+        const duration = this.payload.transmitTime ? 
+          new Date(this.payload.transmitTime) - new Date(this.payload.originateTime) : 
+          null;
+        timingInfo = ` [${duration ? duration.toFixed(2) + 'ms' : 'pending'}]`;
+      } else {
+        timingInfo = ` (${new Date(this.ts).toLocaleTimeString()})`;
+      }
     }
     
-    // Create the final log message in the format:
-    // [TYPE][SUBTYPE] message [LEVEL] (timing)
-    const formattedMessage = `${prefix} ${displayMessage}${levelSuffix}${timingInfo}`;
+    // Create the final log message
+    const formattedMessage = `${prefix} ${displayMessage}${levelSuffix}${originInfo}${timingInfo}`;
     
     return [formattedMessage];
   }
@@ -80,9 +98,8 @@ export class LogEntry {
       overrides.level || this.level,
       overrides.message || this.message,
       overrides.type || this.type,
-      overrides.subtype || this.subtype,
-      overrides.caller || this.caller,
-      overrides.details || this.details
+      overrides.origin || this.origin,
+      overrides.payload || this.payload
     );
     
     // Override specific properties
@@ -93,6 +110,22 @@ export class LogEntry {
     });
     
     return newEntry;
+  }
+
+  /**
+   * Convert to a plain object for serialization
+   * @returns {Object} - Plain object representation
+   */
+  toObject() {
+    return {
+      level: this.level,
+      type: this.type,
+      origin: this.origin,
+      message: this.message,
+      ts: this.ts,
+      payload: this.payload,
+      sequence: this.sequence
+    };
   }
 
   // Static sequence counter

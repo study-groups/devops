@@ -9,6 +9,7 @@ import { createModalTemplate } from './PublishModalTemplate.js';
 import { findEditor, ghostValue, loadStylesheet } from './PublishUtils.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
 import { generateStaticHtmlForPublish } from '/client/utils/staticHtmlGenerator.js';
+import { cssManager } from '/client/utils/CssManager.js';
 
 export class PublishModal {
   constructor() {
@@ -277,12 +278,16 @@ export class PublishModal {
         throw new Error('Editor content is empty');
       }
 
-      updateStatus('🔄 Generating HTML (using preview renderer)...', 40);
+      updateStatus('🔄 Generating HTML (using unified renderer)...', 40);
       
-      // Use the EXACT same function as staticHtmlGenerator
+      // Get publish mode from settings
+      const publishMode = state.settings?.publish?.mode || 'local';
+      
+      // Use the unified static HTML generator with proper context
       const htmlContent = await generateStaticHtmlForPublish({
         markdownSource: content,
-        originalFilePath: currentFile
+        originalFilePath: currentFile,
+        publishMode: publishMode
       });
 
       updateStatus('🚀 Publishing to DigitalOcean Spaces...', 60);

@@ -6,6 +6,7 @@
 
 import FilterManager from './FilterManager.js';
 import { LogManager } from '../log/LogManager.js';
+import { panelRegistry } from './panelRegistry.js';
 
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {
@@ -880,3 +881,12 @@ export class ConsoleLogPanel {
     return true;
   }
 }
+
+// Register this panel with the registry
+panelRegistry.register({
+  id: 'console-log-settings-container',
+  title: 'Console Log Options',
+  component: ConsoleLogPanel,
+  order: 60,
+  defaultCollapsed: true
+});

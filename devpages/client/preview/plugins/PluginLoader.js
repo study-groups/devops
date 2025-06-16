@@ -204,6 +204,7 @@ export async function processEnabledPlugins(element) {
         const isEnabled = getIsPluginEnabled(state, pluginId);
         
         if (isEnabled) {
+            // Plugin is enabled - process it
             const plugin = await getPlugin(pluginId);
             
             if (plugin && typeof plugin.process === 'function') {
@@ -212,6 +213,18 @@ export async function processEnabledPlugins(element) {
                     logPluginLoader(`Processed element with plugin: ${pluginId}`);
                 } catch (error) {
                     logPluginLoader(`Error processing with plugin ${pluginId}: ${error.message}`, 'error');
+                }
+            }
+        } else {
+            // Plugin is disabled - call cleanup if plugin instance exists
+            const plugin = getPluginSync(pluginId);
+            
+            if (plugin && typeof plugin.cleanup === 'function') {
+                try {
+                    plugin.cleanup(element);
+                    logPluginLoader(`Cleaned up disabled plugin: ${pluginId}`);
+                } catch (error) {
+                    logPluginLoader(`Error cleaning up plugin ${pluginId}: ${error.message}`, 'error');
                 }
             }
         }

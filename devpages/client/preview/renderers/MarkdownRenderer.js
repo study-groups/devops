@@ -4,7 +4,7 @@
  */
 
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
-import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
+import markdownitKatex from 'https://esm.sh/markdown-it-katex@latest';
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 import { getPlugin, processEnabledPlugins } from '/client/preview/plugins/PluginLoader.js';

@@ -10,7 +10,7 @@ import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/
 import { MermaidPlugin } from '/client/preview/plugins/mermaid/index.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins } from '/client/preview/plugins/index.js';
-import markdownitKatex from 'https://esm.sh/markdown-it-katex@2.0.3';
+import markdownitKatex from 'https://esm.sh/markdown-it-katex@latest';
 // import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
@@ -1036,14 +1036,14 @@ async function loadHighlightJS() {
         // Load CSS
         const cssLink = document.createElement('link');
         cssLink.rel = 'stylesheet';
-        cssLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github.min.css';
+        cssLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css';
         cssLink.id = 'highlight-theme-css';
         document.head.appendChild(cssLink);
         
         // Load JS
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
+            script.src = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js';
             script.onload = resolve;
             script.onerror = reject;
             document.head.appendChild(script);

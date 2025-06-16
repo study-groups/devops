@@ -5,6 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Import ActionTypes
+import { panelRegistry } from './panelRegistry.js';
 
 function logPlugins(message, level = 'info') {
   const type = 'PLUGINS_PANEL';
@@ -33,19 +34,15 @@ export class PluginsPanel {
   }
 
   createPanelContent(parentElement) {
-    this.containerElement = document.createElement('div');
+    // The parentElement is now the content wrapper created by SettingsPanel
+    // We don't need to create additional containers, just use it directly
+    this.containerElement = parentElement;
     this.containerElement.classList.add('plugins-panel-content');
-
-    // Create a section wrapper with light styling
-    const pluginsSection = document.createElement('div');
-    pluginsSection.classList.add('plugins-section-wrapper');
 
     this.controlsContainer = document.createElement('div');
     this.controlsContainer.classList.add('plugins-controls-container');
     
-    pluginsSection.appendChild(this.controlsContainer);
-    this.containerElement.appendChild(pluginsSection);
-    parentElement.appendChild(this.containerElement);
+    this.containerElement.appendChild(this.controlsContainer);
 
     this.renderPluginControls(appStore.getState().plugins);
 
@@ -65,34 +62,15 @@ export class PluginsPanel {
         if (pluginData.settingsManifest && pluginData.settingsManifest.length > 0) {
           const pluginGroup = document.createElement('div');
           pluginGroup.classList.add('plugin-settings-group');
-          pluginGroup.classList.add('collapsed');
           pluginGroup.dataset.pluginId = pluginId;
           
-          const pluginHeader = document.createElement('h4');
+          const pluginHeader = document.createElement('h5');
           pluginHeader.textContent = pluginData.name || pluginId;
           pluginHeader.classList.add('plugin-group-header');
-          pluginHeader.style.cursor = 'pointer';
-          pluginHeader.setAttribute('aria-expanded', 'false');
-          
-          const indicator = document.createElement('span');
-          indicator.classList.add('plugin-collapse-indicator');
-          indicator.innerHTML = '&#9654;'; // Always start with right arrow - CSS will handle rotation
-          indicator.style.marginRight = '6px';
-          indicator.style.fontSize = '0.8em';
-          
-          pluginHeader.insertBefore(indicator, pluginHeader.firstChild);
-          
-          pluginHeader.addEventListener('click', () => {
-            this.togglePluginGroup(pluginGroup, pluginHeader, indicator);
-          });
           
           pluginGroup.appendChild(pluginHeader);
 
-          // Add version info and error info for Mermaid
-          if (pluginId === 'mermaid') {
-            const infoContainer = this.createMermaidInfo();
-            pluginGroup.appendChild(infoContainer);
-          }
+
 
           const settingsContainer = document.createElement('div');
           settingsContainer.classList.add('plugin-settings-container');
@@ -198,6 +176,8 @@ export class PluginsPanel {
         return;
       }
       
+      // The reactive system will handle the update automatically
+      
       logPlugins(`Setting change for plugin '${pluginId}', setting '${settingKey}' to: ${value}. Dispatching action.`);
       dispatch({
         type: ActionTypes.PLUGIN_UPDATE_SETTING,
@@ -210,6 +190,8 @@ export class PluginsPanel {
     }
   }
 
+
+
   destroy() {
     logPlugins('Destroying PluginsPanel...');
     if (this.stateUnsubscribe) {
@@ -219,8 +201,10 @@ export class PluginsPanel {
     if (this.controlsContainer) {
         this.controlsContainer.removeEventListener('change', this.handleSettingChange.bind(this));
     }
-    if (this.containerElement && this.containerElement.parentNode) {
-      this.containerElement.parentNode.removeChild(this.containerElement);
+    // Clear the container content but don't remove the container itself
+    // since it's managed by the SettingsPanel
+    if (this.containerElement) {
+      this.containerElement.innerHTML = '';
     }
     this.containerElement = null;
     this.controlsContainer = null;
@@ -228,64 +212,14 @@ export class PluginsPanel {
     logPlugins('PluginsPanel destroyed.');
   }
 
-  togglePluginGroup(pluginGroup, header, indicator) {
-    const isCollapsed = pluginGroup.classList.contains('collapsed');
-    
-    if (isCollapsed) {
-      pluginGroup.classList.remove('collapsed');
-      header.setAttribute('aria-expanded', 'true');
-    } else {
-      pluginGroup.classList.add('collapsed');
-      header.setAttribute('aria-expanded', 'false');
-    }
-  }
 
-  createMermaidInfo() {
-    const infoContainer = document.createElement('div');
-    infoContainer.classList.add('plugin-info-container');
-    
-    // Version info
-    const versionInfo = document.createElement('div');
-    versionInfo.classList.add('plugin-info-item');
-    versionInfo.innerHTML = `<small>Version: ${window.mermaid?.version || 'Not loaded'}</small>`;
-    
-    // Last error info
-    const errorInfo = document.createElement('div');
-    errorInfo.classList.add('plugin-info-item', 'plugin-error-info');
-    errorInfo.innerHTML = `<small>Status: ${this.getMermaidStatus()}</small>`;
-    
-    // Add a button to reinitialize Mermaid if needed
-    if (typeof window.mermaid === 'undefined') {
-        const reinitButton = document.createElement('button');
-        reinitButton.textContent = 'Initialize Mermaid';
-        reinitButton.className = 'settings-button settings-button-small';
-        reinitButton.onclick = async () => {
-            try {
-                const { MermaidPlugin } = await import('/client/preview/plugins/mermaid/index.js');
-                const plugin = new MermaidPlugin();
-                await plugin.init();
-                // Refresh the info display
-                location.reload(); // Simple way to refresh the status
-            } catch (error) {
-                console.error('Failed to initialize Mermaid:', error);
-            }
-        };
-        infoContainer.appendChild(reinitButton);
-    }
-    
-    infoContainer.appendChild(versionInfo);
-    infoContainer.appendChild(errorInfo);
-    
-    return infoContainer;
-  }
-
-  getMermaidStatus() {
-    if (typeof window.mermaid === 'undefined') {
-      return 'Not initialized';
-    }
-    if (window.mermaidLastError) {
-      return `Error: ${window.mermaidLastError}`;
-    }
-    return `Ready (v${window.mermaid.version || 'unknown'})`;
-  }
 }
+
+// Register this panel with the registry
+panelRegistry.register({
+  id: 'plugins-settings-container',
+  title: 'Plugins',
+  component: PluginsPanel,
+  order: 20,
+  defaultCollapsed: true
+});

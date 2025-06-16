@@ -1,7 +1,7 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { settingsStateManager } from '../settings/SettingsStateManager.js';
+// Using the reducer system instead of SettingsStateManager
 
 const logContextSettings = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX_SETTINGS";
@@ -21,8 +21,13 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     let isResizing = false;
     let dragOffset = { x: 0, y: 0 };
 
-    // Load initial state
-    let currentState = settingsStateManager.loadState();
+    // Load initial state from the store
+    let currentState = {
+        visible: false,
+        collapsed: false,
+        position: { x: 50, y: 50 },
+        size: { width: 400, height: 300 }
+    };
 
     // Simple props
     let currentSelectedOrg = 'pixeljam-arcade';
@@ -306,14 +311,14 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     const handleMouseUp = () => {
         if (isDragging || isResizing) {
             // Save state when drag/resize ends
-            settingsStateManager.saveState(currentState);
+            // State is managed by the reducer system
         }
         isDragging = false;
         isResizing = false;
     };
 
     const toggleCollapsed = () => {
-        currentState = settingsStateManager.toggleCollapsed();
+        currentState.collapsed = !currentState.collapsed;
         applyPositionAndSize();
     };
 
@@ -341,7 +346,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         }
         
         // Load latest state
-        currentState = settingsStateManager.loadState();
+        // State is already loaded
         
         // Update props from app state
         const currentStateFromApp = appStore.getState();
@@ -355,7 +360,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         isVisible = true;
         
         // Update visibility in state
-        settingsStateManager.updateState({ visible: true });
+        currentState.visible = true;
     };
 
     const hide = () => {
@@ -365,7 +370,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         isVisible = false;
         
         // Update visibility in state
-        settingsStateManager.updateState({ visible: false });
+        currentState.visible = false;
     };
 
     const mount = (targetBody = document.body) => {

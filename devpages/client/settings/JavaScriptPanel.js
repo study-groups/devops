@@ -3,6 +3,8 @@
  * Provides information and potentially settings for JavaScript usage in previews.
  */
 
+import { panelRegistry } from './panelRegistry.js';
+
 // Helper for logging specific to this panel
 function logJSPanel(message, level = 'info') {
   const type = 'JS_SETTINGS_PANEL';
@@ -169,4 +171,13 @@ script: |
     this.containerElement = null;
     logJSPanel('JavaScriptPanel destroyed.');
   }
-} 
+}
+
+// Register this panel with the registry
+panelRegistry.register({
+  id: 'js-settings-container',
+  title: 'Preview JavaScript',
+  component: JavaScriptPanel,
+  order: 50,
+  defaultCollapsed: true
+}); 

@@ -14,7 +14,7 @@ function logGenerator(message, level = 'info') {
 // Moved from previewRoutes, adjust if needed
 const basePreviewCssResources = [
     // 'client/output.css', // Exclude Tailwind by default for portability? Or include if always needed.
-    'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css', // KaTeX CDN URL
+    'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css', // KaTeX CDN URL
     // Add other essential CDN URLs or local paths ONLY IF NEEDED universally
 ];
 

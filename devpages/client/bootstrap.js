@@ -29,11 +29,36 @@ import { triggerActions } from '/client/actions.js';
 // Publish Modal Integration - replaces ugly alerts with user-friendly modal
 import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
 
+// Panel Registry for settings panels
+import { panelRegistry } from '/client/settings/panelRegistry.js';
+
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
         window.logMessage(message, level, 'BOOTSTRAP');
     } else {
         console.log(`[BOOTSTRAP] ${message}`);
+    }
+}
+
+function hideSplashScreen() {
+    const splash = document.getElementById('devpages-splash');
+    const body = document.body;
+    
+    if (splash && body) {
+        // Remove splash-active class to show main content
+        body.classList.remove('splash-active');
+        
+        // Hide splash with fade animation
+        splash.classList.add('hidden');
+        
+        // Remove splash element after animation completes
+        setTimeout(() => {
+            if (splash.parentNode) {
+                splash.parentNode.removeChild(splash);
+            }
+        }, 300);
+        
+        logBootstrap('Splash screen hidden, main interface visible');
     }
 }
 
@@ -46,6 +71,18 @@ async function initializeApp() {
         const { eventBus } = await import('/client/eventBus.js');
         window.eventBus = eventBus;
         setReducer(mainReducer);
+        
+        // Initialize panel states now that reducer is ready
+        panelRegistry.initializeAllPanelStates();
+        logBootstrap('Panel registry states initialized.');
+        
+        // Load designer theme system
+        const designerStylesLink = document.createElement('link');
+        designerStylesLink.rel = 'stylesheet';
+        designerStylesLink.href = '/client/styles/designer-system.css';
+        designerStylesLink.id = 'designer-system-styles';
+        document.head.appendChild(designerStylesLink);
+        logBootstrap('Designer theme system loaded.');
         
         // Expose triggerActions globally for publish button and other components
         window.triggerActions = triggerActions;
@@ -92,9 +129,17 @@ async function initializeApp() {
         
         logBootstrap('Application initialization complete.');
 
+        // Small delay to ensure all components are fully rendered before hiding splash
+        setTimeout(() => {
+            hideSplashScreen();
+        }, 100);
+
     } catch (error) {
         console.error('Application initialization failed:', error);
         logBootstrap(`Initialization failed: ${error.message}`, 'error');
+        
+        // Hide splash screen even on error so user can see the interface
+        hideSplashScreen();
     }
 }
 

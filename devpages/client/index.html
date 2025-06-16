@@ -20,21 +20,14 @@
     <link rel="stylesheet" href="/client/code/code-sidebar.css">
     <!-- File List Component Styles -->
     <link rel="stylesheet" href="/client/code/file-list.css">
-    <!-- Include KaTeX CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+
     
     <!-- Pre-load Mermaid for better initialization -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
     
-    <!-- Verify Mermaid loaded -->
+    <!-- Verify Mermaid loaded (only log errors) -->
     <script>
-        console.log('[MERMAID PRELOAD] Mermaid script tag executed');
-        console.log('[MERMAID PRELOAD] window.mermaid available:', typeof window.mermaid);
-        if (window.mermaid) {
-            console.log('[MERMAID PRELOAD] Mermaid object:', window.mermaid);
-            console.log('[MERMAID PRELOAD] Mermaid version:', window.mermaid.version);
-            console.log('[MERMAID PRELOAD] Mermaid methods:', Object.keys(window.mermaid));
-        } else {
+        if (!window.mermaid) {
             console.error('[MERMAID PRELOAD] Mermaid not available after script load!');
         }
     </script>
@@ -71,8 +64,65 @@
         */
     </style>
     <!-- END: Add this CSS block for testing -->
+
+    <!-- Splash Screen Styles -->
+    <style>
+        #devpages-splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--color-background, #ffffff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
+            transition: opacity 0.3s ease-out;
+        }
+        
+        #devpages-splash.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .splash-content {
+            text-align: center;
+            color: var(--color-foreground, #333);
+        }
+        
+        .splash-logo {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .splash-version {
+            font-size: 1rem;
+            color: var(--color-foreground-muted, #666);
+            font-weight: 400;
+        }
+        
+        /* Hide main content during splash */
+        body.splash-active nav,
+        body.splash-active .main-layout,
+        body.splash-active #toolbar-container {
+            visibility: hidden;
+        }
+    </style>
+    <!-- END: Splash Screen Styles -->
 </head>
-<body>
+<body class="splash-active">
+    <!-- Splash Screen -->
+    <div id="devpages-splash" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:10000;font-family:system-ui,-apple-system,sans-serif;">
+        <div class="splash-content" style="text-align:center;color:#333;">
+            <div class="splash-logo" style="font-size:2.5rem;font-weight:600;margin-bottom:0.5rem;letter-spacing:-0.02em;">DevPages</div>
+            <div class="splash-version" style="font-size:1rem;color:#666;font-weight:400;">v0.12</div>
+        </div>
+    </div>
+
     <!-- Navigation Bar -->
     <nav class="top-bar top-bar-full">
 
@@ -120,6 +170,9 @@
     
     <div id="toolbar-container" class="editor-toolbar"></div>
 
+    <!-- Development helpers -->
+    <script type="module" src="/client/utils/DevHelpers.js"></script>
+    
     <!-- Main application module loader -->
     <script type="module" src="/client/bootstrap.js"></script>
     

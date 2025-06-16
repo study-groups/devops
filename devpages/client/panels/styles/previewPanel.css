@@ -60,8 +60,7 @@
 
 /* Preview content states */
 .preview-loading,
-.preview-empty,
-.preview-error {
+.preview-empty {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -70,13 +69,44 @@
     font-style: italic;
 }
 
-.preview-error {
-    color: #dc3545;
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
+/* Higher specificity error styles to override any conflicts */
+.preview-panel-content .preview-container .preview-error,
+.preview-container .preview-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: #856404 !important;
+    background-color: #fff3cd !important;
+    border: 1px solid #ffeaa7 !important;
     border-radius: 4px;
     margin: 20px;
     padding: 20px;
+    opacity: 0;
+    animation: slideInError 0.4s ease-out forwards;
+    flex-direction: column;
+    text-align: center;
+}
+
+/* Ensure smooth error variant takes precedence */
+.preview-panel-content .preview-container .preview-error.preview-error--smooth,
+.preview-container .preview-error.preview-error--smooth {
+    background-color: var(--color-background-secondary, #f8f9fa) !important;
+    border: 1px solid var(--color-border-secondary, #e9ecef) !important;
+    color: var(--color-foreground, #333) !important;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.1));
+    transition: all 0.3s ease;
+}
+
+@keyframes slideInError {
+    from { 
+        opacity: 0; 
+        transform: translateY(-10px) scale(0.95); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+    }
 }
 
 /* Markdown content styling */

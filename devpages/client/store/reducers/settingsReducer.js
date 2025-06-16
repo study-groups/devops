@@ -7,6 +7,8 @@ const CSS_BUNDLING_KEY = 'devpages_css_bundling_enabled';
 const CSS_PREFIX_KEY = 'devpages_css_prefix';
 const PUBLISH_MODE_KEY = 'devpages_publish_mode';
 const PREVIEW_MODE_KEY = 'devpages_preview_mode';
+const PAGE_THEME_DIR_KEY = 'devpages_page_theme_dir';
+const PAGE_THEME_MODE_KEY = 'devpages_page_theme_mode';
 
 /**
  * Load settings from localStorage with fallback to defaults
@@ -25,6 +27,10 @@ function loadPersistedSettings() {
             mode: 'local',
             bundleCss: true,
         },
+        pageTheme: {
+            themeDir: '',
+            themeMode: 'light', // 'light' or 'dark'
+        }
     };
 
     try {
@@ -67,6 +73,25 @@ function loadPersistedSettings() {
             defaults.preview.renderMode = savedPreviewMode;
         }
 
+        // Load CSS injection mode
+        const savedCssInjectionMode = localStorage.getItem('devpages_css_injection_mode');
+        if (savedCssInjectionMode && ['stylesheet', 'inline'].includes(savedCssInjectionMode)) {
+            defaults.preview.cssInjectionMode = savedCssInjectionMode;
+        } else {
+            defaults.preview.cssInjectionMode = 'stylesheet'; // Default to stylesheet injection
+        }
+
+        // Load Page Theme settings
+        const savedThemeDir = localStorage.getItem(PAGE_THEME_DIR_KEY);
+        if (savedThemeDir) {
+            defaults.pageTheme.themeDir = savedThemeDir;
+        }
+
+        const savedThemeMode = localStorage.getItem(PAGE_THEME_MODE_KEY);
+        if (savedThemeMode && ['light', 'dark'].includes(savedThemeMode)) {
+            defaults.pageTheme.themeMode = savedThemeMode;
+        }
+
         console.debug('[Settings] Loaded persisted settings:', defaults);
         return defaults;
     } catch (error) {
@@ -83,6 +108,7 @@ const initialState = {
     selectedOrg: 'pixeljam-arcade', // Simple org selection
     preview: persistedSettings.preview,
     publish: persistedSettings.publish,
+    pageTheme: persistedSettings.pageTheme,
 };
 
 // --- Settings Slice Reducer ---
@@ -92,9 +118,11 @@ export function settingsReducer(state = initialState, action) {
     // Ensure preview state exists
     const currentPreviewState = currentSettings.preview || { ...initialState.preview }; 
     const currentPublishState = currentSettings.publish || { ...initialState.publish };
+    const currentPageThemeState = currentSettings.pageTheme || { ...initialState.pageTheme };
     let nextState = currentSettings;
     let nextPreviewState = currentPreviewState;
     let nextPublishState = currentPublishState;
+    let nextPageThemeState = currentPageThemeState;
     let updated = false;
     let emitCssUpdateEvent = false;
 
@@ -186,6 +214,15 @@ export function settingsReducer(state = initialState, action) {
             } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_PUBLISH_MODE:`, payload); }
             break;
 
+        case ActionTypes.SETTINGS_SET_PUBLISH_CSS_BUNDLING:
+            if (typeof payload === 'boolean') {
+                nextPublishState = { ...currentPublishState, bundleCss: payload };
+                updated = true;
+                console.debug(`[Reducer] Set publish CSS bundling to: ${payload}`);
+                // Note: Publish CSS bundling is separate from preview bundling
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_SET_PUBLISH_CSS_BUNDLING:`, payload); }
+            break;
+
         case ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS:
              if (Array.isArray(payload)) {
                  // Check if the sorted arrays are different to avoid unnecessary updates
@@ -266,6 +303,46 @@ export function settingsReducer(state = initialState, action) {
                 }
             };
 
+        case ActionTypes.SETTINGS_UPDATE_CSS_INJECTION_MODE:
+            if (typeof payload === 'object' && payload.mode) {
+                const newMode = payload.mode;
+                try {
+                    localStorage.setItem('devpages_css_injection_mode', newMode);
+                    console.debug(`[Reducer] Set CSS injection mode to: ${newMode}`);
+                } catch (e) {
+                    console.error('[Reducer] Failed to save CSS injection mode to localStorage:', e);
+                }
+                nextPreviewState = { ...currentPreviewState, cssInjectionMode: newMode };
+                updated = true;
+            } else {
+                console.warn(`[Reducer] Invalid payload for SETTINGS_UPDATE_CSS_INJECTION_MODE:`, payload);
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_PAGE_THEME_DIR:
+            if (typeof payload === 'string') {
+                nextPageThemeState = { ...currentPageThemeState, themeDir: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(PAGE_THEME_DIR_KEY, payload);
+                } catch (e) {
+                    console.error('[Reducer] Failed to save page theme directory:', e);
+                }
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_PAGE_THEME_MODE:
+            if (typeof payload === 'string' && ['light', 'dark'].includes(payload)) {
+                nextPageThemeState = { ...currentPageThemeState, themeMode: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(PAGE_THEME_MODE_KEY, payload);
+                } catch (e) {
+                    console.error('[Reducer] Failed to save page theme mode:', e);
+                }
+            }
+            break;
+
         default:
             // No change for unrecognized actions
             break;
@@ -276,7 +353,8 @@ export function settingsReducer(state = initialState, action) {
         nextState = { 
             ...currentSettings, 
             preview: nextPreviewState,
-            publish: nextPublishState
+            publish: nextPublishState,
+            pageTheme: nextPageThemeState,
         };
         
         // Persist the configured cssFiles list if it was modified by add/remove/toggle

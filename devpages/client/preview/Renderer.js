@@ -153,7 +153,7 @@ export class Renderer {
 
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js';
+      script.src = 'https://cdn.jsdelivr.net/npm/markdown-it@latest/dist/markdown-it.min.js';
       script.onload = resolve;
       script.onerror = reject;
       document.head.appendChild(script);

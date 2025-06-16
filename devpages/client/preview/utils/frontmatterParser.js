@@ -2,7 +2,6 @@
 function logFrontmatterParser(message, level = 'debug') {
     const prefix = '[FrontmatterParser]';
     if (typeof window.logMessage === 'function') {
-        // Assuming a global logMessage function might exist
         window.logMessage(`${prefix} ${message}`, level, 'FRONTMATTER_PARSER');
     } else {
         const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
@@ -11,128 +10,317 @@ function logFrontmatterParser(message, level = 'debug') {
 }
 
 /**
- * Parse frontmatter from markdown
+ * Enhanced frontmatter parser with better error handling and type coercion
  * @param {string} markdownContent - Raw markdown content
  * @returns {{frontMatter: object, body: string}}
  */
 export function parseFrontmatter(markdownContent) {
-    logFrontmatterParser('Attempting to parse frontmatter (v5 - array focus)...', 'debug');
-    const fmRegex = /^---\s*([\s\S]*?)\s*---\s*/;
+    logFrontmatterParser('Parsing frontmatter (enhanced version)...', 'debug');
+    
+    if (!markdownContent || typeof markdownContent !== 'string') {
+        logFrontmatterParser('Invalid markdown content provided', 'warn');
+        return { frontMatter: {}, body: markdownContent || '' };
+    }
+
+    const fmRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
     const match = markdownContent.match(fmRegex);
 
     let frontMatterData = {};
     let markdownBody = markdownContent;
 
-    if (match && match[1]) {
-        const yamlContent = match[1];
-        markdownBody = markdownContent.substring(match[0].length);
-        logFrontmatterParser(`Found frontmatter block. Length: ${yamlContent.length}`, 'debug');
-
-        try {
-            const lines = yamlContent.split('\n');
-            let currentKey = null;
-            let currentValue = []; // Used for block scalars
-            let baseIndent = -1;
-            let isParsingArray = false;
-            let arrayKey = null;
-            let arrayValues = []; 
-
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                const currentIndent = line.search(/\S/);
-
-                if (!trimmedLine || trimmedLine.startsWith('#')) return;
-
-                if (isParsingArray && trimmedLine.startsWith('-')) {
-                    const itemValue = trimmedLine.substring(1).trim();
-                    const finalItem = (itemValue.startsWith('"') && itemValue.endsWith('"')) || (itemValue.startsWith("'") && itemValue.endsWith("'")) 
-                                        ? itemValue.substring(1, itemValue.length - 1) 
-                                        : itemValue;
-                    arrayValues.push(finalItem);
-                    return; 
-                }
-
-                if (currentKey && !isParsingArray && currentIndent >= baseIndent) { 
-                    if (baseIndent === -1) { baseIndent = currentIndent; }
-                    currentValue.push(line.substring(baseIndent)); 
-                    return; 
-                }
-                
-                let finalizePrevious = false;
-                if (isParsingArray && (!trimmedLine.startsWith('-') || currentIndent < baseIndent)) {
-                   finalizePrevious = true;
-                } else if (currentKey && currentIndent < baseIndent) { 
-                   finalizePrevious = true;
-                } else if (!isParsingArray && !currentKey && line.includes(':')) { 
-                   finalizePrevious = true; 
-                }
-                
-                if(finalizePrevious){
-                    if (isParsingArray && arrayKey) {
-                        frontMatterData[arrayKey] = arrayValues; 
-                        logFrontmatterParser(`Finished array for key: ${arrayKey}: ${JSON.stringify(arrayValues)}`, 'debug');
-                    } else if (currentKey) { 
-                        frontMatterData[currentKey] = currentValue.join('\n').trim();
-                        logFrontmatterParser(`Finished block scalar for key: ${currentKey}`, 'debug');
-                    }
-                    isParsingArray = false;
-                    arrayKey = null;
-                    arrayValues = [];
-                    currentKey = null;
-                    currentValue = [];
-                    baseIndent = -1;
-                }
-
-                const separatorIndex = line.indexOf(':');
-                if (separatorIndex > 0 && !isParsingArray && !currentKey) { 
-                    const key = line.substring(0, separatorIndex).trim();
-                    let valueStr = line.substring(separatorIndex + 1).trim();
-
-                    if ((key === 'js_includes' || key === 'css_includes') && valueStr === '') {
-                        isParsingArray = true;
-                        arrayKey = key;
-                        arrayValues = []; 
-                        baseIndent = currentIndent + 1; 
-                        logFrontmatterParser(`Starting array for key: ${key}`, 'debug');
-                    } else if ((key === 'css' || key === 'script') && (valueStr === '|' || valueStr === '>')) {
-                        currentKey = key;
-                        currentValue = [];
-                        baseIndent = -1; 
-                        logFrontmatterParser(`Starting block scalar for key: ${key}`, 'debug');
-                    } else {
-                        let parsedValue = valueStr;
-                        if ((valueStr.startsWith('"') && valueStr.endsWith('"')) || (valueStr.startsWith("'") && valueStr.endsWith("'"))) {
-                             parsedValue = valueStr.substring(1, valueStr.length - 1);
-                        } else if (valueStr === 'true') { parsedValue = true; }
-                        else if (valueStr === 'false') { parsedValue = false; }
-                        else if (!isNaN(valueStr) && valueStr.trim() !== '') {
-                             const num = Number(valueStr);
-                             if (!isNaN(num)) { parsedValue = num; }
-                        }
-                        frontMatterData[key] = parsedValue;
-                    }
-                } else if (!isParsingArray && !currentKey) {
-                    logFrontmatterParser(`Skipping line (no colon or mid-array/block): ${line}`, 'warn');
-                }
-            });
-
-            if (isParsingArray && arrayKey) {
-                frontMatterData[arrayKey] = arrayValues;
-                logFrontmatterParser(`Finished array for key (end of block): ${arrayKey}: ${JSON.stringify(arrayValues)}`, 'debug');
-            } else if (currentKey) {
-                frontMatterData[currentKey] = currentValue.join('\n').trim();
-                logFrontmatterParser(`Finished block scalar for key (end of block): ${currentKey}`, 'debug');
-            }
-
-        } catch (error) {
-            logFrontmatterParser(`Error parsing frontmatter: ${error}`, 'error');
-            frontMatterData = {}; 
-            markdownBody = markdownContent; 
-        }
-    } else {
-         logFrontmatterParser('No frontmatter block found.', 'debug');
+    if (!match || !match[1]) {
+        logFrontmatterParser('No frontmatter block found', 'debug');
+        return { frontMatter: frontMatterData, body: markdownBody };
     }
 
-    logFrontmatterParser(`FINAL Parsed Data: ${JSON.stringify(frontMatterData)}`, 'debug');
+    const yamlContent = match[1];
+    markdownBody = markdownContent.substring(match[0].length);
+    logFrontmatterParser(`Found frontmatter block (${yamlContent.length} chars)`, 'debug');
+
+    try {
+        frontMatterData = parseYamlContent(yamlContent);
+        logFrontmatterParser(`Successfully parsed ${Object.keys(frontMatterData).length} frontmatter keys`, 'debug');
+    } catch (error) {
+        logFrontmatterParser(`Error parsing frontmatter: ${error.message}`, 'error');
+        frontMatterData = {};
+        markdownBody = markdownContent; // Fallback to original content
+    }
+
     return { frontMatter: frontMatterData, body: markdownBody };
+}
+
+/**
+ * Parse YAML content with enhanced support for arrays, block scalars, and proper type coercion
+ * @param {string} yamlContent - Raw YAML content
+ * @returns {object} Parsed data object
+ */
+function parseYamlContent(yamlContent) {
+    const lines = yamlContent.split('\n');
+    const result = {};
+    
+    let currentKey = null;
+    let currentValue = [];
+    let baseIndent = -1;
+    let parsingState = 'none'; // 'none', 'array', 'block_scalar'
+    let arrayValues = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        const currentIndent = line.search(/\S/);
+
+        // Skip empty lines and comments
+        if (!trimmedLine || trimmedLine.startsWith('#')) {
+            continue;
+        }
+
+        // Handle array items
+        if (parsingState === 'array' && trimmedLine.startsWith('-')) {
+            const itemValue = trimmedLine.substring(1).trim();
+            arrayValues.push(parseValue(itemValue));
+            continue;
+        }
+
+        // Handle block scalar content
+        if (parsingState === 'block_scalar' && currentIndent >= baseIndent) {
+            if (baseIndent === -1) {
+                baseIndent = currentIndent;
+            }
+            currentValue.push(line.substring(baseIndent));
+            continue;
+        }
+
+        // Finalize previous parsing state
+        if (currentKey) {
+            if (parsingState === 'array') {
+                result[currentKey] = arrayValues;
+                logFrontmatterParser(`Completed array '${currentKey}' with ${arrayValues.length} items`, 'debug');
+            } else if (parsingState === 'block_scalar') {
+                result[currentKey] = currentValue.join('\n').trim();
+                logFrontmatterParser(`Completed block scalar '${currentKey}'`, 'debug');
+            }
+            
+            // Reset state
+            currentKey = null;
+            currentValue = [];
+            arrayValues = [];
+            baseIndent = -1;
+            parsingState = 'none';
+        }
+
+        // Parse new key-value pair
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+            const key = line.substring(0, colonIndex).trim();
+            const valueStr = line.substring(colonIndex + 1).trim();
+
+            // Detect array start
+            if (isArrayKey(key) && valueStr === '') {
+                currentKey = key;
+                parsingState = 'array';
+                arrayValues = [];
+                baseIndent = currentIndent + 2; // Expect items to be indented
+                logFrontmatterParser(`Starting array parsing for '${key}'`, 'debug');
+                continue;
+            }
+
+            // Detect block scalar start
+            if (isBlockScalarKey(key) && (valueStr === '|' || valueStr === '>')) {
+                currentKey = key;
+                parsingState = 'block_scalar';
+                currentValue = [];
+                baseIndent = -1; // Will be determined by first content line
+                logFrontmatterParser(`Starting block scalar parsing for '${key}'`, 'debug');
+                continue;
+            }
+
+            // Simple key-value pair
+            result[key] = parseValue(valueStr);
+            logFrontmatterParser(`Parsed simple key-value: ${key} = ${JSON.stringify(result[key])}`, 'debug');
+        }
+    }
+
+    // Finalize any remaining parsing state
+    if (currentKey) {
+        if (parsingState === 'array') {
+            result[currentKey] = arrayValues;
+        } else if (parsingState === 'block_scalar') {
+            result[currentKey] = currentValue.join('\n').trim();
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Parse and coerce a YAML value to the appropriate JavaScript type
+ * @param {string} valueStr - Raw value string
+ * @returns {any} Parsed value
+ */
+function parseValue(valueStr) {
+    if (!valueStr || valueStr === '') {
+        return '';
+    }
+
+    // Handle quoted strings
+    if ((valueStr.startsWith('"') && valueStr.endsWith('"')) || 
+        (valueStr.startsWith("'") && valueStr.endsWith("'"))) {
+        return valueStr.substring(1, valueStr.length - 1);
+    }
+
+    // Handle booleans
+    if (valueStr === 'true') return true;
+    if (valueStr === 'false') return false;
+    if (valueStr === 'null') return null;
+
+    // Handle numbers
+    if (/^-?\d+$/.test(valueStr)) {
+        return parseInt(valueStr, 10);
+    }
+    if (/^-?\d*\.\d+$/.test(valueStr)) {
+        return parseFloat(valueStr);
+    }
+
+    // Handle dates (basic ISO format)
+    if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/.test(valueStr)) {
+        const date = new Date(valueStr);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+    }
+
+    // Return as string if no other type matches
+    return valueStr;
+}
+
+/**
+ * Check if a key typically contains array values
+ * @param {string} key - The key name
+ * @returns {boolean} True if key is expected to contain arrays
+ */
+function isArrayKey(key) {
+    const arrayKeys = [
+        'js_includes', 'css_includes', 'tags', 'categories', 
+        'authors', 'keywords', 'images', 'scripts', 'styles',
+        'dependencies', 'plugins', 'includes'
+    ];
+    return arrayKeys.includes(key) || key.endsWith('_list') || key.endsWith('_array');
+}
+
+/**
+ * Check if a key typically contains block scalar content
+ * @param {string} key - The key name
+ * @returns {boolean} True if key is expected to contain block scalars
+ */
+function isBlockScalarKey(key) {
+    const blockScalarKeys = [
+        'css', 'script', 'description', 'content', 'body', 
+        'summary', 'excerpt', 'notes', 'code', 'style'
+    ];
+    return blockScalarKeys.includes(key) || key.endsWith('_content') || key.endsWith('_text');
+}
+
+/**
+ * Validate frontmatter data and provide warnings for common issues
+ * @param {object} frontMatter - Parsed frontmatter object
+ * @returns {object} Validation result with warnings
+ */
+export function validateFrontmatter(frontMatter) {
+    const warnings = [];
+    const suggestions = [];
+
+    // Check for common typos
+    const commonTypos = {
+        'js_include': 'js_includes',
+        'css_include': 'css_includes',
+        'javascript': 'js_includes',
+        'stylesheet': 'css_includes'
+    };
+
+    Object.keys(frontMatter).forEach(key => {
+        if (commonTypos[key]) {
+            warnings.push(`Found '${key}', did you mean '${commonTypos[key]}'?`);
+        }
+    });
+
+    // Check for empty arrays
+    Object.entries(frontMatter).forEach(([key, value]) => {
+        if (Array.isArray(value) && value.length === 0) {
+            suggestions.push(`Array '${key}' is empty - consider removing it`);
+        }
+    });
+
+    // Check for missing title
+    if (!frontMatter.title) {
+        suggestions.push('Consider adding a title field');
+    }
+
+    // Check for CSS/JS includes without proper paths
+    ['css_includes', 'js_includes'].forEach(key => {
+        if (frontMatter[key] && Array.isArray(frontMatter[key])) {
+            frontMatter[key].forEach((path, index) => {
+                if (!path || typeof path !== 'string') {
+                    warnings.push(`Invalid path in ${key}[${index}]: ${path}`);
+                }
+            });
+        }
+    });
+
+    return {
+        isValid: warnings.length === 0,
+        warnings,
+        suggestions
+    };
+}
+
+/**
+ * Convert frontmatter object back to YAML string
+ * @param {object} frontMatter - Frontmatter object
+ * @returns {string} YAML string
+ */
+export function stringifyFrontmatter(frontMatter) {
+    if (!frontMatter || typeof frontMatter !== 'object') {
+        return '';
+    }
+
+    const lines = ['---'];
+    
+    Object.entries(frontMatter).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            lines.push(`${key}:`);
+            value.forEach(item => {
+                lines.push(`  - ${stringifyValue(item)}`);
+            });
+        } else if (typeof value === 'string' && value.includes('\n')) {
+            lines.push(`${key}: |`);
+            value.split('\n').forEach(line => {
+                lines.push(`  ${line}`);
+            });
+        } else {
+            lines.push(`${key}: ${stringifyValue(value)}`);
+        }
+    });
+    
+    lines.push('---');
+    return lines.join('\n');
+}
+
+/**
+ * Convert a JavaScript value to YAML string representation
+ * @param {any} value - Value to stringify
+ * @returns {string} YAML string representation
+ */
+function stringifyValue(value) {
+    if (value === null) return 'null';
+    if (typeof value === 'boolean') return value.toString();
+    if (typeof value === 'number') return value.toString();
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'string') {
+        // Quote strings that contain special characters
+        if (/[:\[\]{}|>]/.test(value) || value.includes('\n')) {
+            return `"${value.replace(/"/g, '\\"')}"`;
+        }
+        return value;
+    }
+    return String(value);
 } 

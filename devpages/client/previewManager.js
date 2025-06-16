@@ -24,10 +24,16 @@ async function initializeOrUpdatePreview(isUpdate = false) {
     if (!isUpdate && !isPreviewInitialized) {
       console.log('[previewManager] Performing initial preview system initialization...');
       
-      // TEMPORARILY REVERT: Use old plugin initialization 
+      // Get the actual DOM element for the container
+      const containerElement = document.querySelector('#preview-container');
+      if (!containerElement) {
+        console.error('[previewManager] Preview container element not found');
+        return;
+      }
+      
       const result = await initPreview({
-        container: '#preview-container',
-        plugins: DEFAULT_INITIAL_PLUGINS, // Use the old way
+        container: containerElement, // Pass the actual DOM element
+        plugins: DEFAULT_INITIAL_PLUGINS,
         theme: 'light',
         autoInit: true
       });
@@ -155,7 +161,19 @@ function subscribeToStoreChanges() {
   }
   console.log('[previewManager] Subscribing to appStore changes...');
   appStateUnsubscribe = appStore.subscribe((newState, prevState) => {
-    const pluginsChanged = newState.plugins !== prevState.plugins;
+    console.log('[previewManager] Store subscription callback triggered');
+    
+    // Use deep comparison for plugins to detect changes in plugin settings
+    const newPluginsString = JSON.stringify(newState.plugins);
+    const oldPluginsString = JSON.stringify(prevState.plugins);
+    const pluginsChanged = newPluginsString !== oldPluginsString;
+    
+    console.log('[previewManager] Plugin comparison:', {
+      pluginsChanged,
+      newPluginsLength: newPluginsString?.length || 0,
+      oldPluginsLength: oldPluginsString?.length || 0,
+      isPreviewInitialized
+    });
 
     // Check if preview CSS settings have changed.
     // A proper deep comparison would be more robust than JSON.stringify for arrays of objects.

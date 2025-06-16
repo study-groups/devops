@@ -7,6 +7,7 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
+import { panelRegistry } from './panelRegistry.js';
 
 export class PublishSettingsPanel {
   constructor(containerElement) {
@@ -161,12 +162,12 @@ export class PublishSettingsPanel {
       });
     });
 
-    // CSS bundling toggle
+    // CSS bundling toggle (publish-specific)
     const bundleToggle = this.publishSettingsContainer.querySelector('.bundle-css-toggle');
     if (bundleToggle) {
       bundleToggle.addEventListener('change', (event) => {
         dispatch({
-          type: ActionTypes.SETTINGS_SET_CSS_BUNDLING_ENABLED,
+          type: ActionTypes.SETTINGS_SET_PUBLISH_CSS_BUNDLING,
           payload: event.target.checked
         });
       });
@@ -244,10 +245,10 @@ export class PublishSettingsPanel {
           radio.checked = radio.value === publishSettings.mode;
         });
 
-        // Update CSS bundling toggle
+        // Update CSS bundling toggle (use publish-specific setting)
         const bundleToggle = this.publishSettingsContainer.querySelector('.bundle-css-toggle');
         if (bundleToggle) {
-          bundleToggle.checked = publishSettings.bundleCss;
+          bundleToggle.checked = publishSettings.bundleCss !== false; // Default to true if undefined
         }
 
         // Update spaces config visibility
@@ -269,4 +270,13 @@ export class PublishSettingsPanel {
     this.containerElement.innerHTML = '';
     this.publishSettingsContainer = null;
   }
-} 
+}
+
+// Register this panel with the registry
+panelRegistry.register({
+  id: 'publish-settings-container',
+  title: 'Publish Settings',
+  component: PublishSettingsPanel,
+  order: 40,
+  defaultCollapsed: true
+}); 

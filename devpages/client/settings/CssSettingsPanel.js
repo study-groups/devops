@@ -6,6 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
+import { panelRegistry } from './panelRegistry.js';
 
 // Create a clean CSS settings API that wraps the message dispatch system
 const cssSettings = {
@@ -480,3 +481,12 @@ export class CssSettingsPanel {
     }
   }
 }
+
+// Register this panel with the registry
+panelRegistry.register({
+  id: 'css-settings-container',
+  title: 'Page CSS',
+  component: CssSettingsPanel,
+  order: 30,
+  defaultCollapsed: true
+});

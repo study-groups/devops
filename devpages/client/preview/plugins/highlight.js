@@ -119,10 +119,10 @@ export class HighlightPlugin extends BasePlugin {
       return;
     }
 
-    const CDN_URL = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js';
+    const CDN_URL = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js';
     const CSS_URL = this.defaultTheme === 'dark' 
-      ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github-dark.min.css'
-      : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/github.min.css';
+      ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github-dark.min.css'
+      : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css';
 
     logMessage(`Loading highlight.js from CDN: ${CDN_URL}`);
 

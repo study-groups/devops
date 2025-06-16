@@ -61,7 +61,7 @@ export class PanelManager {
                 display: flex;
                 flex-direction: row;
                 height: 100%;
-                background-color: #f8f9fa;
+                background-color: var(--content-background, #f8f9fa);
                 transition: width 0.2s ease;
             `;
         }
@@ -69,7 +69,7 @@ export class PanelManager {
         if (this.gutterContainer) {
             this.gutterContainer.style.cssText = `
                 width: 0;
-                background-color: #e9ecef;
+                background-color: var(--sidebar-background, #e9ecef);
                 border-left: none;
                 display: none;
                 flex-direction: column;
@@ -408,8 +408,8 @@ export class PanelManager {
             height: 32px;
             border: none;
             border-radius: 4px;
-            background-color: ${options.active ? '#007bff' : '#fff'};
-            color: ${options.active ? '#fff' : '#6c757d'};
+            background-color: ${options.active ? 'var(--button-primary-background, #007bff)' : 'var(--button-secondary-background, #fff)'};
+            color: ${options.active ? 'var(--button-primary-text, #fff)' : 'var(--button-secondary-text, #6c757d)'};
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -421,13 +421,13 @@ export class PanelManager {
         // Add hover effects
         button.addEventListener('mouseenter', () => {
             if (!options.active) {
-                button.style.backgroundColor = '#f8f9fa';
+                button.style.backgroundColor = 'var(--button-secondary-background-hover, #f8f9fa)';
             }
         });
 
         button.addEventListener('mouseleave', () => {
             if (!options.active) {
-                button.style.backgroundColor = '#fff';
+                button.style.backgroundColor = 'var(--button-secondary-background, #fff)';
             }
         });
 

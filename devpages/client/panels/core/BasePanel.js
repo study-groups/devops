@@ -132,8 +132,8 @@ export class BasePanel {
 
         const baseStyles = `
             flex-direction: column;
-            background-color: #f8f9fa;
-            border-right: 1px solid #dee2e6;
+            background-color: var(--editor-background, #f8f9fa);
+            border-right: 1px solid var(--editor-border, #dee2e6);
             min-width: ${this.options.minWidth}px;
             order: ${this.state.order};
             position: relative;

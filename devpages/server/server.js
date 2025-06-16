@@ -107,6 +107,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Development: Disable all caching
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
+    next();
+  });
+}
+
 // Body Parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -459,6 +472,10 @@ async function startServer() {
     app.use('/api/files', authMiddleware, filesRouter);
     app.use('/api/publish', authMiddleware, publishRouter); // <--- ADD THIS LINE
     app.use('/api/community', express.json(), authMiddleware, communityRoutes);
+    
+    // Add unified CSS route
+    const cssRouter = (await import('./routes/css.js')).default;
+    app.use('/css', cssRouter);
     // Legacy markdown route redirect - remove import if markdownRoutes isn't used elsewhere
     app.use('/api/markdown', authMiddleware, (req, res, next) => {
       console.log('[SERVER] Redirecting legacy markdown route to files API');

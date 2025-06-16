@@ -49,23 +49,36 @@ export const API_TARGETS = {
 
 /**
  * ApiLogEntry - Pure API communication data
+ * Implements the triple-timestamp structure for API events
  */
 export class ApiLogEntry {
   constructor(action, from, to, data = null) {
     this.action = action;
     this.from = from;
     this.to = to;
-    this.ttime = performance.now(); // Transmit time - set at send
-    this.rtime = null; // Receive time - set at RX
     this.data = data;
+    
+    // Triple-timestamp structure
+    this.originateTime = new Date().toISOString(); // When sender transmits
+    this.receiveTime = null;  // When receiver receives
+    this.transmitTime = null; // When receiver transmits response
+    
     this.id = ApiLogEntry.nextId();
   }
   
   /**
-   * Mark as received (sets rtime)
+   * Mark as received (sets receiveTime)
    */
   markReceived() {
-    this.rtime = performance.now();
+    this.receiveTime = new Date().toISOString();
+    return this;
+  }
+  
+  /**
+   * Mark as transmitted (sets transmitTime)
+   */
+  markTransmitted() {
+    this.transmitTime = new Date().toISOString();
     return this;
   }
   
@@ -73,7 +86,16 @@ export class ApiLogEntry {
    * Get transmission duration (if received)
    */
   getDuration() {
-    return this.rtime ? (this.rtime - this.ttime) : null;
+    if (!this.receiveTime) return null;
+    return new Date(this.receiveTime) - new Date(this.originateTime);
+  }
+  
+  /**
+   * Get processing duration (if transmitted)
+   */
+  getProcessingDuration() {
+    if (!this.transmitTime || !this.receiveTime) return null;
+    return new Date(this.transmitTime) - new Date(this.receiveTime);
   }
   
   /**
@@ -81,25 +103,39 @@ export class ApiLogEntry {
    */
   formatForDisplay() {
     const duration = this.getDuration();
+    const processingDuration = this.getProcessingDuration();
     const durationText = duration !== null ? ` (${duration.toFixed(2)}ms)` : '';
-    return `${this.from}→${this.to}: ${this.action}${durationText}`;
+    const processingText = processingDuration !== null ? ` [proc: ${processingDuration.toFixed(2)}ms]` : '';
+    return `${this.from}→${this.to}: ${this.action}${durationText}${processingText}`;
   }
   
   /**
-   * Convert to container log data
+   * Convert to LogEntry payload format
    */
-  toLogData() {
+  toLogPayload() {
     return {
-      apiEntry: this,
-      action: this.action,
-      from: this.from,
       to: this.to,
-      ttime: this.ttime,
-      rtime: this.rtime,
-      duration: this.getDuration(),
+      from: this.from,
+      action: this.action,
       data: this.data,
-      formatted: this.formatForDisplay()
+      originateTime: this.originateTime,
+      receiveTime: this.receiveTime,
+      transmitTime: this.transmitTime
     };
+  }
+  
+  /**
+   * Create a LogEntry from this API entry
+   * @param {string} level - Log level
+   * @param {string} type - Log type
+   * @returns {LogEntry} - New log entry
+   */
+  toLogEntry(level = 'INFO', type = 'PJA_GAME') {
+    const origin = `${this.from}.Api`;
+    const message = this.formatForDisplay();
+    const payload = this.toLogPayload();
+    
+    return new LogEntry(level, message, type, origin, payload);
   }
   
   // Static ID counter

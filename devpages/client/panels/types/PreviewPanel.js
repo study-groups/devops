@@ -11,10 +11,7 @@ export class PreviewPanel extends BasePanel {
     constructor(options = {}) {
         super(options.id || 'preview-panel', options);
 
-        this.previewManager = null;
-        this.initialized = false;
-        this.lastContent = '';
-        this.previewContainer = null;
+        // This panel just provides the preview container
     }
 
     /**
@@ -56,10 +53,7 @@ export class PreviewPanel extends BasePanel {
     renderContent() {
         return `
             <div class="preview-panel-content">
-                <div id="preview-container" class="preview-container">
-                    <div class="preview-loading">
-                        <p>Preview will appear here...</p>
-                    </div>
+                <div id="preview-container" class="preview-container markdown-content" data-markdown-content>
                 </div>
             </div>
         `;
@@ -73,162 +67,33 @@ export class PreviewPanel extends BasePanel {
         this.loadCSS();
         this.log('[PANEL_DEBUG] PreviewPanel onMount hook executed.', 'debug');
 
-        // The panel is now responsible for its own preview setup.
-        // The global initializePreview is no longer needed.
-
-        // Setup preview features (like the refresh button)
-        this.setupPreviewFeatures();
-        
-        // Subscribe to editor content changes to auto-update
-        this.subscribeToEditorEvents();
-        
-        // Perform an initial update.
-        this.refreshPreview();
+        // Initialize the preview system now that the container exists
+        await this.initializePreviewSystem();
 
         this.log('PreviewPanel fully mounted and configured.', 'info');
     }
 
     /**
-     * Setup preview features
+     * Initialize the preview system
      */
-    setupPreviewFeatures() {
-        // No features to set up now that the refresh button is gone.
-        this.log('Preview features setup complete', 'debug');
-    }
-
-    /**
-     * Subscribe to editor content changes
-     */
-    subscribeToEditorEvents() {
-        if (window.eventBus) {
-            window.eventBus.on('editor:contentChanged', (data) => {
-                const content = data?.content || '';
-                this.schedulePreviewUpdate(content);
-            });
-            
-            this.log('Subscribed to editor events', 'debug');
-        }
-    }
-
-    /**
-     * Schedule a preview update with debouncing
-     */
-    schedulePreviewUpdate(content) {
-        if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
-        }
-
-        this.updateTimer = setTimeout(() => {
-            this.updatePreview(content);
-        }, 300);
-    }
-
-    /**
-     * Update preview with content
-     */
-    async updatePreview(content = null) {
+    async initializePreviewSystem() {
         try {
-            // Get content from editor if not provided
-            if (content === null) {
-                content = this.getEditorContent();
-            }
-
-            // Skip update if content hasn't changed
-            if (content === this.lastContent) {
-                return;
-            }
-
-            this.lastContent = content;
-            const previewContainer = this.contentElement.querySelector('.preview-container');
-            if (!previewContainer) {
-                this.log('Preview container not found', 'error');
-                return;
-            }
-
-            // The external updatePreviewer function now handles everything,
-            // including showing a "Rendering..." message.
-            await updatePreviewer(content, previewContainer);
-            this.log(`Preview update completed for content length: ${content.length}`, 'debug');
-
+            // Import and initialize the preview manager
+            const { initializePreviewManager } = await import('/client/previewManager.js');
+            await initializePreviewManager();
+            this.log('Preview system initialized successfully', 'info');
         } catch (error) {
-            this.log(`Preview update error: ${error.message}`, 'error');
-            const previewContainer = this.contentElement.querySelector('.preview-container');
-            if (previewContainer) {
-                previewContainer.innerHTML = `<div class="preview-error">Error: ${error.message}</div>`;
-            }
+            this.log(`Failed to initialize preview system: ${error.message}`, 'error');
         }
     }
 
-    /**
-     * Post-process the rendered preview content
-     */
-    async postProcessPreview(container) {
-        try {
-            // Import post-processing functionality
-            const { postProcessRender } = await import('/client/preview.js');
-            await postProcessRender(container);
-        } catch (error) {
-            this.log(`Post-processing error: ${error.message}`, 'error');
-        }
-    }
-
-    /**
-     * Get content from the editor panel
-     */
-    getEditorContent() {
-        // Try to get content from a visible editor panel
-        const editorPanel = window.panelManager?.getPanel('editor-panel');
-        if (editorPanel && editorPanel.state.visible) {
-            return editorPanel.getContent();
-        }
-
-        // Fallback to DOM query if editor panel isn't available or visible
-        const editorTextarea = document.querySelector('#editor-container textarea, .editor-textarea');
-        return editorTextarea ? editorTextarea.value : '';
-    }
-
-    /**
-     * Refresh preview manually
-     */
-    async refreshPreview() {
-        this.log('Manual preview refresh requested', 'debug');
-        this.lastContent = ''; // Force update
-        await this.updatePreview();
-    }
-
-    /**
-     * Clear preview content
-     */
-    clearPreview() {
-        const previewContainer = this.contentElement?.querySelector('.preview-container');
-        if (previewContainer) {
-            previewContainer.innerHTML = '<div class="preview-empty">No content to preview</div>';
-        }
-    }
+    // Preview system is initialized and managed by previewManager
 
     /**
      * Panel cleanup
      */
     cleanup() {
-        if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
-        }
-        
         this.log('PreviewPanel cleanup', 'debug');
         super.cleanup();
-    }
-
-    /**
-     * Panel lifecycle hooks
-     */
-    onShow() {
-        super.onShow();
-        this.log('PreviewPanel shown', 'debug');
-        this.refreshPreview(); // Refresh content when shown
-    }
-
-    onHide() {
-        super.onHide();
-        this.log('PreviewPanel hidden', 'debug');
     }
 } 

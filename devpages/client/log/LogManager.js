@@ -1,5 +1,6 @@
 /**
  * LogManager.js - Main controller class for the logging system
+ * Implements unified logging with support for console and API events
  */
 
 import { LogEntry } from './LogEntry.js';
@@ -203,75 +204,37 @@ export class LogManager {
   }
 
   /**
-   * Create a log entry from various input formats
+   * Create a log entry with the new unified structure
    * @param {string} level - Log level
-   * @param {*} args - Message arguments (string, object, or array)
-   * @param {Object} caller - Optional caller information
+   * @param {string} message - Log message
+   * @param {string} type - Log type
+   * @param {string} origin - Compound source (actor.module)
+   * @param {Object} payload - Optional payload data
    * @returns {LogEntry} - Created log entry
    */
-  createLogEntry(level, args, caller = null) {
+  createLogEntry(level, message, type = 'GENERAL', origin = null, payload = null) {
     // Normalize level to uppercase
     const normalizedLevel = this.normalizeLevel(level);
     
-    // Get caller information if not provided
-    if (!caller) {
-      caller = CallerInfo.capture(1);
-    }
-    
-    let message, type = 'GENERAL', details = null;
-    
-    // Handle different input formats
-    if (args && typeof args === 'object') {
-      if (Array.isArray(args)) {
-        // Handle array of arguments (old style)
-        message = this.argsToMessageString(args);
-      } else if (args.message !== undefined) {
-        // Handle structured log object (new style)
-        message = args.message;
-        type = args.type || 'GENERAL';
-        details = args.details || null;
-      } else {
-        // Handle plain object
-        message = this.argsToMessageString([args]);
-      }
-    } else {
-      // Handle primitive values
-      message = this.argsToMessageString([args]);
+    // Get caller information if not provided in origin
+    if (!origin) {
+      const caller = CallerInfo.capture(1);
+      origin = `${caller.module}.${caller.function}`;
     }
     
     // Create and return the log entry
-    return new LogEntry(normalizedLevel, message, type, caller, details);
+    return new LogEntry(normalizedLevel, message, type, origin, payload);
   }
 
   /**
-   * Normalize log level to a standard format
-   * @param {string} level - Input log level
+   * Normalize log level to standard format
+   * @param {string} level - Input level
    * @returns {string} - Normalized level
    */
   normalizeLevel(level) {
-    if (!level) return 'INFO';
-    
-    const upperLevel = String(level).toUpperCase();
-    
-    // Map similar levels
-    switch (upperLevel) {
-      case 'LOG':
-      case 'DEBUG':
-      case 'VERBOSE':
-        return 'DEBUG';
-      case 'INFORMATION':
-        return 'INFO';
-      case 'WARNING':
-        return 'WARN';
-      case 'DANGER':
-      case 'FATAL':
-        return 'ERROR';
-      case 'PERFORMANCE':
-      case 'TIMER':
-        return 'TIMING';
-      default:
-        return upperLevel;
-    }
+    const normalized = String(level).toUpperCase();
+    const validLevels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+    return validLevels.includes(normalized) ? normalized : 'INFO';
   }
 
   /**
@@ -448,15 +411,17 @@ export class LogManager {
       let type = 'GENERAL';
       let level = this.normalizeLevel(method);
       let message = '';
-      let details = null;
-      let entry = null;
+      let origin = null;
+      let payload = null;
       
-      // First, extract any structured info - safely check if method exists
+      // First, extract any structured info
       if (typeof this.extractStructuredInfo === 'function') {
         const structInfo = this.extractStructuredInfo(args);
         if (structInfo) {
           type = structInfo.type || type;
           level = structInfo.level || level;
+          origin = structInfo.origin || origin;
+          payload = structInfo.payload || payload;
         }
       }
       
@@ -464,84 +429,65 @@ export class LogManager {
       if (args.length > 0) {
         // Check if this is already a LogEntry
         if (args[0] instanceof LogEntry) {
-          entry = args[0];
+          return this.buffer.add(args[0]);
+        }
+        
+        // Check for format specifiers
+        if (typeof args[0] === 'string' && args.length > 1 && args[0].includes('%')) {
+          message = this.formatWithFormatSpecifiers(args);
         } else {
-          // Check for format specifiers
-          if (typeof args[0] === 'string' && args.length > 1 && args[0].includes('%')) {
-            message = this.formatWithFormatSpecifiers(args);
-          } else {
-            message = this.argsToMessageString(args);
-          }
+          message = this.argsToMessageString(args);
         }
       }
       
       // Create log entry with extracted information
-      entry = new LogEntry(level, message, type, null, details);
+      const entry = this.createLogEntry(level, message, type, origin, payload);
       
       // Add to buffer
       this.buffer.add(entry);
       
-      // Pass to console if enabled and passes filters
-      if (this.enabled && this.filter.shouldDisplay(entry)) {
-        const formattedArgs = entry.formatForConsole(this.showTimestamps);
-        
-        // Check if we have groupCollapsed and trace available
-        if (typeof console.groupCollapsed === 'function' && 
-            typeof console.trace === 'function' && 
-            typeof console.groupEnd === 'function') {
-            
-          // Use the group-trace-groupEnd pattern
-          console.groupCollapsed.apply(console, formattedArgs);
-          console.trace();
-          console.groupEnd();
-        } else {
-          // Fallback to normal logging if groupCollapsed isn't available
-          if (method in this.originalConsole) {
-            this.originalConsole[method].apply(console, formattedArgs);
-          } else {
-            this.originalConsole.log.apply(console, formattedArgs);
-          }
-        }
-        
-        // Add any details as separate log entries
-        if (entry.details) {
-          if (Array.isArray(entry.details)) {
-            entry.details.forEach(detail => {
-              this.originalConsole[method].apply(console, [detail]);
-            });
-          } else {
-            this.originalConsole[method].apply(console, [entry.details]);
-          }
-        }
+    } catch (error) {
+      // Fallback to original console if something goes wrong
+      if (this.originalConsole) {
+        this.originalConsole.error('[LogManager] Error handling console method:', error);
+        this.originalConsole[method].apply(this.originalConsole, args);
       }
-    } catch (e) {
-      // Ensure console always works even if our handling fails
-      this.originalConsole.error('Error in log manager:', e);
-      this.originalConsole[method].apply(console, args);
     }
   }
 
   /**
-   * Restore original console methods
+   * Extract structured information from log arguments
+   * @param {Array} args - Log arguments
+   * @returns {Object|null} - Extracted structured info or null
    */
-  restoreConsole() {
-    if (typeof window === 'undefined' || !window.console || !this.originalConsole) return this;
+  extractStructuredInfo(args) {
+    if (!args || args.length === 0) return null;
     
-    // Restore original methods
-    window.console.log = this.originalConsole.log;
-    window.console.debug = this.originalConsole.debug;
-    window.console.info = this.originalConsole.info;
-    window.console.warn = this.originalConsole.warn;
-    window.console.error = this.originalConsole.error;
-    
-    // Only restore timing if it existed
-    if (this.originalConsole.timing) {
-      window.console.timing = this.originalConsole.timing;
-    } else {
-      delete window.console.timing;
+    // Check if first argument is an object with structured info
+    const firstArg = args[0];
+    if (typeof firstArg === 'object' && firstArg !== null) {
+      // Handle API log entry
+      if (firstArg.to && firstArg.from && firstArg.action) {
+        return {
+          type: 'PJA_GAME',
+          level: 'INFO',
+          origin: `${firstArg.from}.Api`,
+          payload: firstArg
+        };
+      }
+      
+      // Handle general structured log
+      if (firstArg.message !== undefined) {
+        return {
+          type: firstArg.type || 'GENERAL',
+          level: firstArg.level || 'INFO',
+          origin: firstArg.origin || null,
+          payload: firstArg.payload || null
+        };
+      }
     }
     
-    return this;
+    return null;
   }
 
   /**
@@ -687,8 +633,6 @@ export class LogManager {
     return this.buffer.getDiscoveredTypes();
   }
 
-
-
   /**
    * Create a silent timer that doesn't log
    * @param {string} label - Timer label
@@ -717,45 +661,6 @@ export class LogManager {
     };
     
     return timer;
-  }
-
-  /**
-   * Extract structured info from log arguments
-   * @param {Array} args - Console arguments
-   * @returns {Object|null} - Extracted structured info or null
-   */
-  extractStructuredInfo(args) {
-    if (!args || args.length === 0) return null;
-    
-    const firstArg = args[0];
-    
-    // Check if first argument is an object with structured log properties
-    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
-      // Look for structured log format with type, level, etc.
-      if (firstArg.type || firstArg.level || firstArg.message !== undefined) {
-        return {
-          type: firstArg.type,
-          level: firstArg.level,
-          message: firstArg.message
-        };
-      }
-    }
-    
-    // Check if first argument is a string with [TYPE] format
-    if (typeof firstArg === 'string') {
-      // Simple regex to extract [TYPE]
-      const typeMatch = firstArg.match(/^\s*\[([^\]]+)\]\s*(.*)/);
-      if (typeMatch) {
-        const [, type, message] = typeMatch;
-        // Return the structured info with remaining text as the message
-        return {
-          type: type || 'GENERAL',
-          message: message || ''
-        };
-      }
-    }
-    
-    return null;
   }
 
   /**

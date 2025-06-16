@@ -8,9 +8,9 @@
 import { logMessage } from '../../log/index.js';
 
 // KaTeX CDN URLs
-const KATEX_JS_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
-const KATEX_CSS_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
-const KATEX_AUTO_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
+const KATEX_JS_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js';
+const KATEX_CSS_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css';
+const KATEX_AUTO_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/contrib/auto-render.min.js';
 
 // Plugin state
 let katex = null;

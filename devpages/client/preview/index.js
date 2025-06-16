@@ -504,7 +504,7 @@ export class PreviewManager {
         </style>
       </head>
       <body>
-        <iframe id="preview-iframe" srcdoc="<p>Loading preview...</p>"></iframe>
+        <iframe id="preview-iframe" srcdoc=""></iframe>
       </body>
       </html>
     `);

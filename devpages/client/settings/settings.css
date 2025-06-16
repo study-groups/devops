@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   min-width: 320px;
-  max-width: 600px;
+  max-width: 90vw; /* Allow much wider panels, up to 90% of viewport */
   min-height: 200px;
   max-height: 80vh;
   
@@ -180,11 +180,10 @@
 /* ===== SECTION CONTAINERS ===== */
 
 .settings-section-container {
-  /* Base container */
+  /* Base container - cleaner, no bottom shadows */
   background-color: var(--color-background-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--density-space-md);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
   
   /* Smooth animations */
   transition: var(--transition-all);
@@ -196,7 +195,7 @@
 }
 
 .settings-section-container:hover {
-  border-color: var(--color-border-secondary);
+  background-color: var(--color-background-secondary);
 }
 
 /* ===== SECTION HEADERS ===== */
@@ -236,21 +235,10 @@
 .collapse-indicator {
   /* Styling */
   color: var(--color-foreground-secondary);
-  font-size: var(--density-text-sm);
-  
-  /* Animation */
-  transition: transform var(--transition-base);
-  transform-origin: center;
-}
-
-/* Collapsed state */
-.settings-section-container.collapsed .collapse-indicator {
-  transform: rotate(0deg); /* Right arrow */
-}
-
-/* Expanded state */
-.settings-section-container:not(.collapsed) .collapse-indicator {
-  transform: rotate(90deg); /* Down arrow */
+  font-size: var(--font-size-md);
+  transition: var(--transition-all);
+  min-width: 16px;
+  text-align: center;
 }
 
 /* ===== SECTION CONTENT ===== */
@@ -454,9 +442,16 @@
 
 /* ===== RESPONSIVE DESIGN ===== */
 
+/* Tablet adjustments - allow wider panels but constrain on smaller screens */
+@media (max-width: 1024px) and (min-width: 641px) {
+  .settings-panel {
+    max-width: 85vw; /* Slightly more constrained on tablets */
+  }
+}
+
 @media (max-width: 640px) {
   .settings-panel {
-    /* Mobile adjustments */
+    /* Mobile adjustments - full screen */
     position: fixed;
     top: 0;
     left: 0;
@@ -474,6 +469,27 @@
   
   .settings-panel-resize-handle {
     display: none;
+  }
+  
+  /* Adjust stylesheet items for mobile */
+  .stylesheet-item {
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
+  }
+  
+  .stylesheet-path {
+    font-size: var(--font-size-xs);
+  }
+  
+  .stylesheet-action {
+    padding: 3px 6px;
+    font-size: 10px;
+    min-width: 35px;
+  }
+  
+  .stylesheet-size {
+    min-width: 50px;
+    font-size: 10px;
   }
 }
 
@@ -606,11 +622,11 @@
 
 /* Style the "Available Plugins" heading */
 .plugins-panel-content h4 {
-  margin-top: 0; /* Remove default top margin */
-  margin-bottom: 12px; /* Add space below */
-  font-size: 1.05em; /* Slightly larger */
-  color: #444; /* Darker grey */
-  font-weight: 600; /* Semi-bold */
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1.05em;
+  color: var(--color-foreground-secondary);
+  font-weight: 600;
 }
 
 .plugins-list {
@@ -622,8 +638,8 @@
 .plugin-item {
   display: flex;
   align-items: center;
-  padding: 10px 4px; /* Increased padding (top/bottom, left/right) */
-  border-bottom: 1px solid #eee;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .plugin-item:last-child {
@@ -634,207 +650,19 @@
   flex-grow: 1;
   margin-left: 8px;
   cursor: pointer;
+  color: var(--color-foreground);
 }
 
 .plugin-item input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 /* Style for the container div added by PluginsPanel */
 .plugins-panel-content {
-  /* Ensure no browser default margins interfere */
-  margin: 0;
-  /* Can add padding here if needed, but parent .settings-panel-content already has padding */
-  /* padding: 10px 0; */
-}
-
-/* --- General Section Styling (apply to plugins and css settings) --- */
-.settings-section {
-  /* margin-top: 15px; */  /* <-- REMOVE */
-  /* padding-top: 15px; */ /* <-- REMOVE */
-  /* border-top: 1px solid #eee; */ /* Already removed */
-}
-
-.settings-section-title {
-  margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 1.05em;
-  color: #444;
-  font-weight: 600;
-}
-
-.settings-description {
-  font-size: 0.9em;
-  color: #666;
-  margin-top: 0;
-  margin-bottom: 15px;
-}
-
-/* --- Styling for Input Groups (used in CSS settings) --- */
-.settings-input-group {
-  display: flex;
-  margin-bottom: 15px;
-}
-
-/* --- NEW: Collapse/Expand Styling --- */
-.settings-section-header {
-  position: relative; /* For positioning the indicator */
-  cursor: pointer;
-  display: flex; /* Use flex to align indicator and title */
-  align-items: center;
-  font-size: 1.15em; /* <-- Increase font size */
-  font-weight: bold; /* <-- Ensure bold */
-  margin-bottom: 5px; /* <-- Add a little space below header always */
-}
-
-.settings-section-header .collapse-indicator {
-  display: inline-block;
-  width: 1em;
-  margin-right: 6px;
-  font-size: 0.8em;
-  transition: transform 0.2s ease-in-out;
-  /* Remove transform since we're using different arrow characters now */
-}
-
-/* Remove the transform rules since we're using different arrow characters */
-.settings-section-container:not(.collapsed) .settings-section-header .collapse-indicator {
-  /* Down arrow character (&#9660;) used directly - no transform needed */
-}
-
-.settings-section-container.collapsed .settings-section-header .collapse-indicator {
-  /* Right arrow character (&#9654;) used directly - no transform needed */
-}
-
-.settings-section-container.collapsed > :not(.settings-section-header) {
-  display: none;
-}
-
-/* --- ADD spacing for collapsed header --- */
-.settings-section-container.collapsed .settings-section-header {
-  margin-bottom: 10px; /* Add space below the header when collapsed */
-}
-/* --- END ADD --- */
-
-.settings-input {
-  flex-grow: 1;
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  margin-right: 8px; /* Space between input and button */
-}
-
-/* General Button Styles (if not already defined elsewhere) */
-.settings-button {
-  padding: 6px 12px;
-  border: 1px solid #ccc;
-  background-color: #f0f0f0;
-  border-radius: 3px;
-  cursor: pointer;
-  white-space: nowrap; /* Prevent button text wrapping */
-}
-.settings-button:hover {
-  background-color: #e0e0e0;
-  border-color: #bbb;
-}
-.settings-button:active {
-   background-color: #d0d0d0;
-}
-
-/* Smaller variant for list item buttons */
-.settings-button-small {
-  padding: 3px 8px;
-  font-size: 0.9em;
-}
-
-/* --- List Styling (used for plugins and CSS settings) --- */
-.settings-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  border: 1px solid #eee; /* Add a light border around the list */
-  border-radius: 3px;
-}
-
-.settings-list-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 10px; /* Adjust padding */
-  border-bottom: 1px solid #eee;
-}
-
-.settings-list-item:last-child {
-  border-bottom: none;
-}
-
-.settings-list-empty {
-   padding: 10px;
-   color: #888;
-   font-style: italic;
-}
-
-/* --- Plugin List Specific Styles --- */
-.plugin-item label {
-  flex-grow: 1;
-  margin-left: 8px;
-  cursor: pointer;
-}
-
-.plugin-item input[type="checkbox"] {
-  margin: 0;
-  cursor: pointer;
-}
-
-/* --- CSS Settings List Specific Styles --- */
-.css-list-item input[type="checkbox"].css-enable-toggle {
-  margin-right: 8px; /* Space between checkbox and label */
-  cursor: pointer;
-}
-
-.css-list-item label.css-file-path {
-  flex-grow: 1; /* Take up available space */
-  margin-right: 10px; /* Space before remove button */
-  cursor: pointer; /* Match checkbox cursor */
-  /* Optional: Style for wrapping long paths */
-  word-break: break-all;
-}
-
-.css-list-item button.remove-css-btn {
-  flex-shrink: 0; /* Prevent button from shrinking */
-}
-
-/* Style for the container div added by PluginsPanel (if needed) */
-.plugins-panel-content {
   margin: 0;
 }
-
-/* Container for CSS settings inside PluginsPanel (if you added one) */
-.css-settings-panel-container {
-   /* Inherits .settings-section styles via CssSettingsPanel */
-}
-
-/* ============================================= */
-/* Existing PluginsPanel styles (keep or adjust) */
-/* ============================================= */
-
-/* Style the \"Available Plugins\" heading */
-/* .plugins-panel-content h4 { ... } -> Use .settings-section-title now */
-
-/* Style the list container */
-/* .plugins-list { ... } -> Use .settings-list now */
-
-/* Style individual plugin items */
-/* .plugin-item { ... } -> Use .settings-list-item now */
-
-/* ... any other specific plugin styles ... */
-
-/* ============================================= */
-/* Deprecated Styles (if migrated above)         */
-/* ============================================= */
-/* Remove or comment out old styles if they are fully replaced by the new ones */
-/* .plugins-panel-content h4 { ... } */
-/* .plugins-list { ... } */
-/* .plugin-item { ... } */
 
 /* Reset Plugins Button */
 .section-header {
@@ -845,22 +673,24 @@
 }
 
 .reset-plugins-button {
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background-color: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
   padding: 4px 8px;
   font-size: 0.8em;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
+  color: var(--color-foreground-secondary);
 }
 
 .reset-plugins-button:hover {
-  background-color: #e0e0e0;
-  border-color: #999;
+  background-color: var(--color-background-secondary);
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
 }
 
 .reset-plugins-button:active {
-  background-color: #d0d0d0;
+  background-color: var(--color-background-tertiary);
   transform: translateY(1px);
 }
 
@@ -869,85 +699,103 @@
 .plugins-controls-container {
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Reduced gap since we're removing wrapper spacing */
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
 }
 
 .plugin-settings-group {
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
+  background-color: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 0;
-  margin: 0;
+  margin: 0 0 var(--space-2) 0;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .plugin-settings-group h4 {
-  background-color: #e9ecef;
+  background: linear-gradient(135deg, var(--color-background-secondary) 0%, var(--color-background-tertiary) 100%);
   margin: 0;
-  padding: 10px 12px;
-  font-size: 0.95em;
-  font-weight: 600;
-  color: #495057;
-  border-bottom: 1px solid #dee2e6;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-foreground-secondary);
+  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
 }
 
 .plugin-setting-item {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  background-color: #fff;
-  border-bottom: 1px solid #f1f3f4;
-  margin-left: 12px;
-  margin-right: 12px;
-  border-radius: 3px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-background);
+  border-bottom: 1px solid var(--color-border-secondary);
+  margin-left: var(--space-4);
+  margin-right: var(--space-4);
+  border-radius: var(--radius-sm);
   margin-bottom: 1px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.plugin-setting-item::before {
+  content: '';
+  position: absolute;
+  left: -var(--space-4);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--color-border);
+  opacity: 0.3;
 }
 
 .plugin-setting-item:last-child {
   border-bottom: none;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .plugin-setting-item input[type="checkbox"] {
-  margin: 0 10px 0 0;
+  margin: 0 var(--space-2-5) 0 0;
   cursor: pointer;
   transform: scale(1.1);
   order: 1;
+  accent-color: var(--color-primary);
 }
 
 .plugin-setting-item label {
   flex-grow: 1;
   margin: 0;
   cursor: pointer;
-  font-size: 0.9em;
-  color: #495057;
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
   font-weight: 500;
   order: 2;
 }
 
 .plugin-setting-item select {
   margin-left: auto;
-  padding: 4px 8px;
-  border: 1px solid #ced4da;
-  border-radius: 3px;
-  background-color: #fff;
-  color: #495057;
-  font-size: 0.85em;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-background-elevated);
+  color: var(--color-foreground);
+  font-size: var(--font-size-xs);
   min-width: 100px;
   order: 3;
 }
 
 .plugin-setting-item select:focus {
-  border-color: #86b7fe;
+  border-color: var(--color-primary);
   outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 3px var(--color-primary);
 }
 
 /* Hover effects */
 .plugin-setting-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--color-background-secondary);
 }
 
 .plugin-setting-item input[type="checkbox"]:hover {
@@ -956,21 +804,20 @@
 
 /* Focus styles for accessibility */
 .plugin-setting-item input[type="checkbox"]:focus {
-  outline: 2px solid #86b7fe;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 /* === OVERRIDE EXISTING PLUGIN ITEM STYLES === */
 .plugin-item {
-  /* Override old styles if they exist */
   display: flex !important;
   align-items: center !important;
-  padding: 8px 16px !important;
-  background-color: #fff !important;
-  border-bottom: 1px solid #f1f3f4 !important;
-  margin-left: 12px !important;
-  margin-right: 12px !important;
-  border-radius: 3px !important;
+  padding: var(--space-2) var(--space-4) !important;
+  background-color: var(--color-background) !important;
+  border-bottom: 1px solid var(--color-border-secondary) !important;
+  margin-left: var(--space-3) !important;
+  margin-right: var(--space-3) !important;
+  border-radius: var(--radius-sm) !important;
   margin-bottom: 1px !important;
 }
 
@@ -978,15 +825,16 @@
   flex-grow: 1 !important;
   margin: 0 !important;
   cursor: pointer !important;
-  font-size: 0.9em !important;
-  color: #495057 !important;
+  font-size: var(--font-size-sm) !important;
+  color: var(--color-foreground) !important;
   font-weight: 500 !important;
 }
 
 .plugin-item input[type="checkbox"] {
-  margin: 0 10px 0 0 !important;
+  margin: 0 var(--space-2-5) 0 0 !important;
   cursor: pointer !important;
   transform: scale(1.1) !important;
+  accent-color: var(--color-primary) !important;
 }
 
 /* === COLLAPSIBLE PLUGIN GROUPS === */
@@ -999,11 +847,11 @@
   display: flex;
   align-items: center;
   user-select: none;
-  transition: background-color 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .plugin-group-header:hover {
-  background-color: #dee2e6 !important;
+  background-color: var(--color-background-hover) !important;
 }
 
 .plugin-collapse-indicator {
@@ -1012,7 +860,8 @@
   justify-content: center;
   width: 12px;
   height: 12px;
-  transition: transform 0.2s ease-in-out;
+  transition: var(--transition-all);
+  color: var(--color-foreground-secondary);
 }
 
 .plugin-settings-container {
@@ -1031,13 +880,13 @@
 
 /* Make sure the header styling works with the new structure */
 .plugin-settings-group h4.plugin-group-header {
-  background-color: #e9ecef;
+  background-color: var(--color-background-secondary);
   margin: 0;
-  padding: 10px 12px;
-  font-size: 0.95em;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  color: #495057;
-  border-bottom: 1px solid #dee2e6;
+  color: var(--color-foreground);
+  border-bottom: 1px solid var(--color-border);
 }
 
 /* Remove any borders/lines from the plugins area */
@@ -1064,17 +913,17 @@
 
 /* Light section wrapper for plugins */
 .plugins-section-wrapper {
-  background-color: #fafbfc;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  padding: 12px;
-  margin: 8px 0;
+  background-color: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-2) 0;
 }
 
 .plugins-controls-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
 }
@@ -1085,23 +934,21 @@
   padding: 0;
 }
 
-/* ... rest of existing plugin styles ... */
-
 /* Plugin info styling */
 .plugin-info-container {
-  background-color: #f8f9fa;
-  border-top: 1px solid #e9ecef;
-  padding: 6px 12px;
-  font-size: 0.8em;
-  color: #6c757d;
+  background-color: var(--color-background-elevated);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-1-5) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
 }
 
 .plugin-info-item {
-  margin: 2px 0;
+  margin: var(--space-0-5) 0;
 }
 
 .plugin-error-info {
-  color: #dc3545;
+  color: var(--color-error);
 }
 
 /* CSS Settings Panel Styles */
@@ -1795,3 +1642,546 @@
   outline: none;
   border-color: #80bdff;
 }
+
+/* Development Tools Styling */
+.dev-tools-status {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: var(--background-secondary, #f8f9fa);
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e9ecef);
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.status-item:last-child {
+  margin-bottom: 0;
+}
+
+.dev-tools-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-tool-button {
+  background: var(--button-background, #f8f9fa);
+  color: var(--button-text, #495057);
+  border: 1px solid var(--border-color, #e9ecef);
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.dev-tool-button:hover {
+  background: var(--button-background-hover, #e9ecef);
+  border-color: var(--border-color-focus, #80bdff);
+  transform: translateY(-1px);
+}
+
+.dev-tool-button:active {
+  transform: translateY(1px);
+}
+
+#cache-status {
+  font-family: 'Courier New', monospace;
+  color: var(--text-secondary, #6c757d);
+  font-size: 12px;
+}
+
+#dev-mode-status {
+  font-weight: bold;
+  color: var(--success-color, #28a745);
+  font-size: 12px;
+}
+
+/* ===== SYSTEM CSS PANEL ===== */
+
+.system-css-panel-content {
+  padding: var(--space-3);
+}
+
+.css-summary-section,
+.stylesheet-list-section,
+.css-actions-section,
+.css-preview-section {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background-color: var(--color-background-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.css-summary-section h5,
+.stylesheet-list-section h5,
+.css-actions-section h5,
+.css-preview-section h5 {
+  margin: 0 0 var(--space-3) 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.css-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2);
+  background-color: var(--color-background);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-secondary);
+}
+
+.stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.stylesheet-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.stylesheet-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-secondary);
+  transition: background-color 0.2s ease;
+  min-height: 40px; /* Consistent height for all items */
+}
+
+.stylesheet-item:last-child {
+  border-bottom: none;
+}
+
+.stylesheet-item:hover {
+  background-color: var(--color-background-secondary);
+}
+
+.stylesheet-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0; /* Allow text truncation */
+}
+
+.stylesheet-type {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0; /* Don't shrink the type badge */
+}
+
+.stylesheet-type.system {
+  background-color: var(--color-primary-background);
+  color: var(--color-primary);
+}
+
+.stylesheet-type.page {
+  background-color: var(--color-success-background);
+  color: var(--color-success);
+}
+
+.stylesheet-type.other {
+  background-color: var(--color-warning-background);
+  color: var(--color-warning);
+}
+
+.stylesheet-path {
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+  font-family: monospace;
+  flex: 1;
+  min-width: 0; /* Allow truncation */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stylesheet-size {
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
+  white-space: nowrap;
+  flex-shrink: 0; /* Don't shrink the size */
+  margin-left: auto; /* Push to the right */
+  min-width: 60px; /* Consistent width for sizes */
+  text-align: right;
+}
+
+.stylesheet-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0; /* Don't shrink the action buttons */
+}
+
+.stylesheet-action {
+  padding: 4px 8px; /* More compact padding */
+  font-size: var(--font-size-xs);
+  background-color: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 40px; /* Consistent minimum width */
+  text-align: center;
+}
+
+.stylesheet-action:hover {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+.css-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.css-action-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.css-action-btn:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.preview-mode-controls {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.preview-mode-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.preview-mode-option input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+
+.preview-target-info {
+  padding: var(--space-2);
+  background-color: var(--color-background);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-secondary);
+}
+
+.preview-target-info p {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
+}
+
+.preview-target-info span {
+  font-family: monospace;
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+
+/* Stylesheet Modal Styles */
+.stylesheet-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stylesheet-modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.stylesheet-modal-content {
+  position: relative;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 95vw;
+  max-width: 1200px; /* Increased for better stylesheet viewing */
+  height: 85vh;
+  max-height: 800px; /* Increased height too */
+  display: flex;
+  flex-direction: column;
+}
+
+.stylesheet-modal-header {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-background-elevated);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.stylesheet-modal-header h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.stylesheet-modal-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  margin-left: var(--space-3);
+}
+
+.stylesheet-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-foreground-secondary);
+  cursor: pointer;
+  padding: 0.2rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.stylesheet-modal-close:hover {
+  color: var(--color-foreground);
+}
+
+.stylesheet-modal-body {
+  flex: 1;
+  padding: var(--space-3);
+  overflow: hidden;
+}
+
+.stylesheet-content {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  background: var(--color-background-secondary);
+  color: var(--color-foreground);
+  resize: none;
+  outline: none;
+}
+
+.stylesheet-content:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-background);
+}
+
+.stylesheet-content[readonly] {
+  background: var(--color-background-elevated);
+  color: var(--color-foreground-secondary);
+  cursor: default;
+}
+
+.stylesheet-modal-footer {
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  background: var(--color-background-elevated);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.stylesheet-modal-save,
+.stylesheet-modal-cancel,
+.stylesheet-modal-close-btn {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: all 0.2s ease;
+}
+
+.stylesheet-modal-save {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+.stylesheet-modal-save:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.stylesheet-modal-cancel,
+.stylesheet-modal-close-btn {
+  background: var(--color-background);
+  color: var(--color-foreground-secondary);
+}
+
+.stylesheet-modal-cancel:hover,
+.stylesheet-modal-close-btn:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-foreground);
+}
+
+/* Copy All CSS Modal Styles */
+.css-summary-info {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex: 1;
+  margin-left: var(--space-3);
+}
+
+.css-stat {
+  font-size: var(--font-size-xs);
+  background: var(--color-background-secondary);
+  color: var(--color-foreground-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.css-copy-controls {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  background: var(--color-background-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.css-copy-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.css-copy-btn:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.css-footer-info {
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
+  flex: 1;
+}
+
+/* Temporary Message Styles */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.temp-message {
+  font-family: var(--font-family-sans);
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Responsive adjustments for copy controls */
+@media (max-width: 640px) {
+  .css-copy-controls {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  
+  .css-copy-btn {
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+  }
+  
+  .css-summary-info {
+    flex-direction: column;
+    gap: var(--space-1);
+    align-items: flex-start;
+  }
+}
+
+

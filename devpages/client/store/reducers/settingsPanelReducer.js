@@ -7,7 +7,7 @@ const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state';
 const initialState = {
     visible: false,
     position: { x: 100, y: 100 }, // Default position
-    size: { width: 400, height: 500 }, // Default size
+    size: { width: 800, height: 600 }, // Increased default size to take advantage of new width allowance
     collapsedSections: {},
 };
 
@@ -59,6 +59,26 @@ export function settingsPanelReducer(state = initialState, action) {
                     }
                 };
                 shouldPersist = true;
+            }
+            break;
+
+        case ActionTypes.SETTINGS_PANEL_SET_SECTION_STATE:
+            if (payload && typeof payload.sectionId === 'string' && typeof payload.collapsed === 'boolean') {
+                const currentSections = state.collapsedSections || {};
+                const sectionId = payload.sectionId;
+                const isCollapsed = payload.collapsed;
+
+                // Only update if state actually changed
+                if (currentSections[sectionId] !== isCollapsed) {
+                    nextState = {
+                        ...state,
+                        collapsedSections: {
+                            ...currentSections,
+                            [sectionId]: isCollapsed
+                        }
+                    };
+                    shouldPersist = true;
+                }
             }
             break;
 

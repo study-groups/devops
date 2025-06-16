@@ -282,7 +282,7 @@ function logServer(message, level = 'info') {
 // Can include local paths (relative to project root) and full URLs
 const basePreviewCssResources = [
     // 'client/output.css', // <<< REMOVED Tailwind CSS
-    'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css', // KaTeX CDN URL
+            'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css', // KaTeX CDN URL
     // Add other essential local paths or CDN URLs ONLY IF NEEDED for preview
 ];
 

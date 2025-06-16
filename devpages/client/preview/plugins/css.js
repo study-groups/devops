@@ -83,13 +83,14 @@ async function fetchCssContent(relativePath) {
 }
 
 /**
- * Applies CSS styles based on current application settings.
- * Fetches CSS content via API and injects/updates <style> tags in <head>.
+ * Applies CSS styles using the legacy CSS management system for preview.
+ * Preview context uses its own CSS system and doesn't need the unified manager.
+ * The unified manager is used only for publishing contexts.
  */
 export async function applyStyles() {
     // --- Start Log ---
-    console.log('%c CSS PLUGIN: applyStyles FUNCTION ENTRY POINT ', 'background: #222; color: #bada55; font-size: 1.2em;');
-    logger.info('[CSS APPLY] applyStyles called (handling root + configured).');
+    console.log('%c CSS PLUGIN: applyStyles LEGACY SYSTEM ', 'background: #222; color: #bada55; font-size: 1.2em;');
+    logger.info('[CSS APPLY] applyStyles called (using legacy CSS system for preview).');
     const state = appStore.getState();
     // --- Log State Being Read ---
     const enableRootCss = state.settings?.preview?.enableRootCss ?? true;

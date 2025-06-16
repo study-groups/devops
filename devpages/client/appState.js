@@ -82,7 +82,7 @@ const defaultPluginsConfig = {
     'katex': {
         name: "KaTeX Math Rendering",
         // Special handling for external CDN module
-        module: 'https://esm.sh/markdown-it-katex@2.0.3',
+        module: 'https://esm.sh/markdown-it-katex@latest',
         exportName: 'default',
         type: 'markdown-it-plugin', // Special type for markdown-it plugins
         defaultState: { enabled: true },

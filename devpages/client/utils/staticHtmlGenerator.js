@@ -1,6 +1,7 @@
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
+import { cssManager, CSS_CONTEXT, generateCssSection } from '/client/utils/CssManager.js';
 
 // Helper for logging within this module
 function logStaticGen(message, level = 'debug') {
@@ -93,27 +94,23 @@ async function bundleActiveCss() {
 }
 
 /**
- * Generates static HTML for publishing with CSS handling based on settings
+ * Generates static HTML for publishing with unified CSS management
  * @param {Object} options - Configuration options
  * @param {string} options.markdownSource - The markdown content to convert
  * @param {string} options.originalFilePath - Original file path for context
+ * @param {string} options.publishMode - 'local' or 'spaces' (defaults to 'local')
  * @returns {Promise<string>} Complete HTML document
  */
-export async function generateStaticHtmlForPublish({ markdownSource, originalFilePath }) {
+export async function generateStaticHtmlForPublish({ 
+    markdownSource, 
+    originalFilePath, 
+    publishMode = 'local' 
+}) {
     const logPrefix = 'generateStaticHtmlForPublish';
-    logStaticGen(`${logPrefix} called for: ${originalFilePath}`);
+    logStaticGen(`${logPrefix} called for: ${originalFilePath}, mode: ${publishMode}`);
     
     try {
-        // Get settings from state
-        const state = appStore.getState();
-        const previewSettings = state.settings?.preview || {};
-        // FORCE CSS bundling for publishing - external links don't work for standalone HTML
-        const bundleCss = true; // Always bundle for publishing
-        const cssPrefix = previewSettings.cssPrefix || '';
-        
-        logStaticGen(`CSS bundling FORCED to true for publishing (was: ${previewSettings.bundleCss !== false}), CSS prefix: "${cssPrefix}"`);
-        
-        // 1. Convert Markdown to HTML using the full preview renderer (with plugins)
+        // 1. Convert Markdown to HTML using the unified preview renderer
         const { renderMarkdown } = await import('/client/preview/renderer.js');
         const renderResult = await renderMarkdown(markdownSource, originalFilePath);
         const htmlContent = renderResult.html || renderResult;
@@ -123,48 +120,14 @@ export async function generateStaticHtmlForPublish({ markdownSource, originalFil
         }
         logStaticGen(`Markdown rendered successfully (${htmlContent.length} chars)`);
         
-        // 2. Handle CSS based on bundling setting
-        let cssContent = '';
-        let cssMode = 'LINKED (external)';
+        // 2. Determine CSS context based on publish mode
+        const cssContext = publishMode === 'spaces' ? CSS_CONTEXT.PUBLISH_SPACES : CSS_CONTEXT.PUBLISH_LOCAL;
         
-        if (bundleCss) {
-            // Bundle CSS inline for published content
-            cssContent = await bundleActiveCss();
-            cssMode = 'BUNDLED (inline)';
-            logStaticGen(`CSS bundled inline (${cssContent.length} chars)`);
-                 } else {
-             // Use external links with optional prefix
-             const state = appStore.getState();
-             const activeCssFiles = state.settings?.preview?.activeCssFiles || [];
-             const enableRootCss = state.settings?.preview?.enableRootCss ?? true;
-             
-             const cssFilesToLink = [];
-             cssFilesToLink.push('/client/preview/md.css');
-             
-             if (enableRootCss && !activeCssFiles.includes('styles.css')) {
-                 cssFilesToLink.push('/styles.css');
-             }
-             
-             activeCssFiles.forEach(cssPath => {
-                 const linkPath = cssPath.startsWith('/') ? cssPath : `/${cssPath}`;
-                 if (!cssFilesToLink.includes(linkPath)) {
-                     cssFilesToLink.push(linkPath);
-                 }
-             });
-             
-             const cssLinks = cssFilesToLink.map(cssPath => {
-                 const fullPath = cssPrefix ? `${cssPrefix}${cssPath}` : cssPath;
-                 return `    <link rel="stylesheet" href="${fullPath}">`;
-             }).join('\n');
-             cssContent = cssLinks;
-             logStaticGen(`CSS links generated for ${cssFilesToLink.length} files with prefix "${cssPrefix}"`);
-         }
+        // 3. Generate CSS section using unified CSS manager
+        const cssSection = await generateCssSection(cssContext);
+        logStaticGen(`CSS section generated for context: ${cssContext}`);
         
-        // 3. Build complete HTML document
-        const cssSection = bundleCss ? 
-            `    <style>\n${cssContent}\n    </style>` : 
-            cssContent;
-            
+        // 4. Build complete HTML document
         const completeHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -172,9 +135,6 @@ export async function generateStaticHtmlForPublish({ markdownSource, originalFil
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${originalFilePath ? originalFilePath.replace(/\.md$/, '') : 'Document'}</title>
     <meta name="generator" content="DevPages Static HTML Generator">
-    <!-- CSS Generated by staticHtmlGenerator.js generateStaticHtmlForPublish() -->
-    <!-- CSS Mode: ${cssMode} - FORCED BUNDLING for standalone HTML -->
-    <!-- CSS Files: All active CSS files bundled inline -->
 ${cssSection}
 </head>
 <body>

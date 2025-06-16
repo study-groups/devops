@@ -3,6 +3,7 @@
  * Initializes the Settings Panel component.
  */
 import { SettingsPanel } from './SettingsPanel.js';
+import { pageThemeManager } from './PageThemeManager.js';
 
 // Helper for logging
 function logSettingsInit(message, level = 'info') {
@@ -25,6 +26,9 @@ export function initializeSettingsPanel() {
     settingsPanelInstance = new SettingsPanel();
     window.settingsPanel = settingsPanelInstance;
     
+    // Start the page theme manager
+    pageThemeManager.start();
+    
     // Restore state from localStorage immediately after creation
     try {
       const savedVisible = localStorage.getItem('settings_panel_visible');
@@ -46,6 +50,10 @@ export function destroySettingsPanel() {
         settingsPanelInstance.destroy();
         settingsPanelInstance = null;
         window.settingsPanel = undefined; // Clear global reference
+        
+        // Stop the page theme manager
+        pageThemeManager.stop();
+
         logSettingsInit('SettingsPanel instance destroyed.');
     }
 }

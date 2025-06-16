@@ -7,6 +7,8 @@
 import { MermaidRenderer } from './renderer.js';
 import { MermaidControls } from './controls.js';
 import { MermaidFullscreen } from './fullscreen.js';
+import { appStore } from '/client/appState.js';
+import { getIsPluginEnabled } from '/client/store/selectors.js';
 
 // Helper for logging within this module
 function logMermaid(message, level = 'debug') {
@@ -44,6 +46,9 @@ function injectMermaidCSS() {
     position: relative; 
     overflow: hidden;  
     display: inline-block;
+    /* Use theme-aware colors */
+    background-color: var(--preview-background, transparent);
+    color: var(--preview-text, inherit);
 }
 
 .mermaid svg {
@@ -51,6 +56,15 @@ function injectMermaidCSS() {
     transform-origin: center center; 
     transition: transform 0.15s ease-out;
     cursor: default;
+}
+
+/* Theme-aware mermaid styling */
+[data-theme="dark"] .mermaid svg {
+    filter: invert(0.9) hue-rotate(180deg);
+}
+
+[data-theme="light"] .mermaid svg {
+    filter: none;
 }
 
 .mermaid-container {
@@ -355,7 +369,7 @@ export class MermaidPlugin {
     async loadMermaidScript() {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js';
             script.async = true;
             script.onload = () => {
                 logMermaid('Mermaid script loaded successfully.');
@@ -370,15 +384,23 @@ export class MermaidPlugin {
     }
 
     async process(previewElement) {
-        console.log('[MERMAID DEBUG] Process called, initialized:', mermaidInitialized);
-        console.log('[MERMAID DEBUG] Preview element:', previewElement);
-        console.log('[MERMAID DEBUG] window.mermaid available:', typeof window.mermaid);
-        console.log('[MERMAID DEBUG] window.mermaid.run available:', typeof window.mermaid?.run);
+        // CHECK ENABLED STATE FIRST
+        const state = appStore.getState();
+        if (!getIsPluginEnabled(state, 'mermaid')) {
+            console.log('[MERMAID DEBUG] Plugin disabled, skipping processing');
+            this.cleanup(previewElement); // Remove existing diagrams
+            return;
+        }
         
         if (!mermaidInitialized) {
             logMermaid('Cannot process, Mermaid not initialized.', 'warning');
             return;
         }
+        
+        console.log('[MERMAID DEBUG] Process called, initialized:', mermaidInitialized);
+        console.log('[MERMAID DEBUG] Preview element:', previewElement);
+        console.log('[MERMAID DEBUG] window.mermaid available:', typeof window.mermaid);
+        console.log('[MERMAID DEBUG] window.mermaid.run available:', typeof window.mermaid?.run);
         
         console.log('[MERMAID DEBUG] Processing Mermaid diagrams...');
         logMermaid('Processing Mermaid diagrams...');
@@ -454,6 +476,17 @@ export class MermaidPlugin {
         }
     }
 
+    cleanup(previewElement) {
+        // Remove processed mermaid elements
+        const processedElements = previewElement.querySelectorAll('.mermaid[data-mermaid-processed="true"]');
+        processedElements.forEach(element => {
+            // Restore original text content
+            const textContent = element.textContent;
+            element.innerHTML = textContent;
+            element.removeAttribute('data-mermaid-processed');
+        });
+    }
+
     destroy() {
         logMermaid('Enhanced MermaidPlugin: Destroying...');
         
@@ -474,4 +507,6 @@ export class MermaidPlugin {
         
         logMermaid('Enhanced MermaidPlugin cleanup finished.');
     }
+
+
 } 

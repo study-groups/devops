@@ -5,16 +5,24 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { PluginsPanel } from './PluginsPanel.js'; // Import the new panel
-import { CssSettingsPanel } from './CssSettingsPanel.js';
-import { PublishSettingsPanel } from './PublishSettingsPanel.js';
-import { JavaScriptPanel } from './JavaScriptPanel.js';
-import { ConsoleLogPanel } from './ConsoleLogPanel.js';
-import { ThemeSettingsPanel } from './ThemeSettingsPanel.js';
+import { panelRegistry } from './panelRegistry.js';
+import { logMessage } from '/client/log/index.js';
+
+// Import all panels to ensure they register themselves
+import './ThemeSettingsPanel.js';
+import './DesignerThemePanel.js';
+import './PluginsPanel.js';
+import './CssSettingsPanel.js';
+import './SystemCssPanel.js';
+import './PublishSettingsPanel.js';
+import './PreviewSettingsPanel.js';
+import './JavaScriptPanel.js';
+import './ConsoleLogPanel.js';
+import './DevToolsPanel.js';
+import './DesignTokensPanel.js';
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
-const SETTINGS_PANEL_VISIBLE_KEY = 'settings_panel_visible';
-const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Match the reducer key
+const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Single source of truth
 
 // Helper for logging
 function logSettings(message, level = 'info') {
@@ -52,12 +60,8 @@ export class SettingsPanel {
     this.resizeHandle = null;
     this.closeButton = null;
 
-    this.pluginsPanelInstance = null; // Add property to hold the instance
-    this.cssSettingsPanelInstance = null; // Renamed from cssSettingsInstance
-    this.publishSettingsPanelInstance = null; // Add property for publish settings
-    this.jsPanelInstance = null;
-    this.consoleLogPanelInstance = null;
-    this.themeSettingsPanelInstance = null;
+    // Generic container for all panel instances
+    this.panelInstances = {};
 
     this.isDragging = false;
     this.isResizing = false;
@@ -87,21 +91,8 @@ export class SettingsPanel {
     // Initial render based on store state
     this.render(initialState);
     
-    // IMPORTANT: After render, check localStorage for saved visibility
-    try {
-      const savedVisible = localStorage.getItem(SETTINGS_PANEL_VISIBLE_KEY);
-      if (savedVisible === 'true') {
-        // Direct DOM update, don't use toggleVisibility to avoid unnecessary state changes
-        this.panelElement.style.display = 'flex';
-        this.isVisible = true;
-      } else {
-        // Ensure panel is hidden by default
-        this.panelElement.style.display = 'none';
-        this.isVisible = false;
-      }
-    } catch (e) {
-      console.error('Error restoring settings panel visibility:', e);
-    }
+    // Visibility is managed by the reducer system, not localStorage directly
+    this.isVisible = false; // Default to hidden
     
     logSettings('SettingsPanel instance created and initialized.');
   }
@@ -142,17 +133,17 @@ export class SettingsPanel {
     header.tabIndex = 0; // Make focusable
     header.setAttribute('role', 'button'); // Indicate interactive
     
-    // Check if this section should be collapsed based on persisted state
-    const currentState = appStore.getState().settingsPanel;
-    const isCollapsed = currentState.collapsedSections && currentState.collapsedSections[id];
+    // Get current state from registry (which includes store state)
+    const panelWithState = panelRegistry.getPanelWithState(id);
+    const isCollapsed = panelWithState ? panelWithState.isCollapsed : false;
     
-    header.setAttribute('aria-expanded', !isCollapsed); // Set based on persisted state
+    header.setAttribute('aria-expanded', !isCollapsed); // Set based on current state
     
     // Title Text
     const titleSpan = document.createElement('span');
     titleSpan.textContent = title;
     
-    // Collapse Indicator - Set based on persisted state
+    // Collapse Indicator - Set based on current state
     const indicator = document.createElement('span');
     indicator.classList.add('collapse-indicator');
     indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;'; // Right for collapsed, Down for expanded
@@ -161,19 +152,19 @@ export class SettingsPanel {
     header.appendChild(indicator);
     header.appendChild(titleSpan);
     
-    // Click listener for collapsing
-    header.addEventListener('click', () => this.toggleSectionCollapse(id, container, header, indicator));
+    // Click listener for collapsing - use registry method
+    header.addEventListener('click', () => this.toggleSectionCollapse(id));
     // Allow keyboard activation (Enter/Space)
     header.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            this.toggleSectionCollapse(id, container, header, indicator);
+            this.toggleSectionCollapse(id);
         }
     });
 
     container.appendChild(header);
     
-    // Apply collapsed state to container based on persisted state
+    // Apply collapsed state to container based on current state
     if (isCollapsed) {
       container.classList.add('collapsed');
       logSettings(`Section ${id} restored as collapsed`, 'debug');
@@ -186,24 +177,13 @@ export class SettingsPanel {
   }
 
   // --- IMPROVED Method to handle section collapse/expand ---
-  toggleSectionCollapse(sectionId, containerElement, headerElement, indicatorElement) {
+  toggleSectionCollapse(sectionId) {
     logSettings(`Toggling collapse for section: ${sectionId}`);
-    const isCurrentlyCollapsed = containerElement.classList.contains('collapsed');
-    const shouldCollapse = !isCurrentlyCollapsed;
-
-    // Dispatch action to update state and persist
-    dispatch({
-        type: ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION,
-        payload: { sectionId: sectionId }
-    });
-
-    // Update UI immediately
-    containerElement.classList.toggle('collapsed', shouldCollapse);
-    headerElement.setAttribute('aria-expanded', !shouldCollapse);
-    // Right arrow for collapsed, Down arrow for expanded
-    indicatorElement.innerHTML = shouldCollapse ? '&#9654;' : '&#9660;';
     
-    logSettings(`Section ${sectionId} ${shouldCollapse ? 'collapsed' : 'expanded'}`, 'debug');
+    // Use registry method to toggle through the store
+    panelRegistry.togglePanel(sectionId);
+    
+    logSettings(`Section ${sectionId} toggle dispatched`, 'debug');
   }
   // --- End IMPROVED Method --- 
   
@@ -245,6 +225,7 @@ export class SettingsPanel {
 
   createPanelDOM() {
     logSettings('[DEBUG] Starting createPanelDOM...');
+    
     // 1. Create main panel elements
     this.panelElement = document.createElement('div');
     this.panelElement.id = 'settings-panel';
@@ -284,129 +265,54 @@ export class SettingsPanel {
     document.body.appendChild(this.panelElement);
     logSettings('[DEBUG] Panel appended to body.', 'debug');
 
-    // 4. Now, create section containers and instantiate sub-panels within the contentElement
-    
-    // Instantiate ThemeSettingsPanel (KEEP EXPANDED BY DEFAULT for better UX)
-    logSettings('[DEBUG] Creating Theme Settings Panel Section...', 'debug');
-    const themeContainer = this.createSectionContainer('theme-settings-container', 'Theme & Design');
-    // NOTE: createSectionContainer now handles collapsed state from persistence
-    if (themeContainer instanceof Node) {
-        this.contentElement.appendChild(themeContainer);
-        try {
-            this.themeSettingsPanelInstance = new ThemeSettingsPanel(themeContainer);
-            logSettings('[DEBUG] ThemeSettingsPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init ThemeSettingsPanel: ${error}`, 'error');
-            themeContainer.innerHTML = '<p style="color: red;">Error loading theme settings.</p>';
-        }
-    } else {
-        logSettings('[ERROR] themeContainer was not a valid Node!', 'error');
-    }
-    
-    // Instantiate PluginsPanel
-    logSettings('[DEBUG] Creating Plugins Panel Section...', 'debug');
-    const pluginsContainer = this.createSectionContainer('plugins-settings-container', 'Plugins');
-    // Start collapsed by default only if not persisted otherwise
-    const currentState = appStore.getState().settingsPanel;
-    if (!currentState.collapsedSections || currentState.collapsedSections['plugins-settings-container'] === undefined) {
-      pluginsContainer.classList.add('collapsed'); // Default collapsed
-    }
-    if (pluginsContainer instanceof Node) {
-        this.contentElement.appendChild(pluginsContainer);
-        try {
-            this.pluginsPanelInstance = new PluginsPanel(pluginsContainer);
-            logSettings('[DEBUG] PluginsPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init PluginsPanel: ${error}`, 'error');
-            pluginsContainer.innerHTML = '<p style="color: red;">Error loading plugin settings.</p>';
-        }
-    } else {
-        logSettings('[ERROR] pluginsContainer was not a valid Node!', 'error');
-    }
+    // 4. DATA-DRIVEN PANEL CREATION - Get panels from registry with their current state
+    const panelsToRender = panelRegistry.getPanelsWithState();
+    logSettings(`[DEBUG] Found ${panelsToRender.length} registered panels to render`, 'debug');
 
-    // Instantiate CssSettingsPanel
-    logSettings('[DEBUG] Creating CSS Panel Section...', 'debug');
-    const cssContainer = this.createSectionContainer('css-settings-container', 'CSS');
-    // Default collapsed if not persisted otherwise
-    if (!currentState.collapsedSections || currentState.collapsedSections['css-settings-container'] === undefined) {
-      cssContainer.classList.add('collapsed');
-    }
-    if (cssContainer instanceof Node) {
-        this.contentElement.appendChild(cssContainer);
-        try {
-            this.cssSettingsPanelInstance = new CssSettingsPanel(cssContainer); 
-            logSettings('[DEBUG] CssSettingsPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init CssSettingsPanel: ${error}`, 'error');
-            cssContainer.innerHTML = '<p style="color: red;">Error loading CSS settings.</p>';
+    panelsToRender.forEach(panelData => {
+      logSettings(`[DEBUG] Creating panel: ${panelData.id} (${panelData.title})`, 'debug');
+      
+      try {
+        // Create the section container using the data's properties
+        const container = this.createSectionContainer(panelData.id, panelData.title);
+        
+        // Apply current collapsed state from registry (which includes store state)
+        if (panelData.isCollapsed) {
+          container.classList.add('collapsed');
         }
-    } else {
-         logSettings('[ERROR] cssContainer was not a valid Node!', 'error');
-    }
-    
-    // Instantiate PublishSettingsPanel
-    logSettings('[DEBUG] Creating Publish Settings Panel Section...', 'debug');
-    const publishContainer = this.createSectionContainer('publish-settings-container', 'Publish Settings');
-    // Default collapsed if not persisted otherwise
-    if (!currentState.collapsedSections || currentState.collapsedSections['publish-settings-container'] === undefined) {
-      publishContainer.classList.add('collapsed');
-    }
-    if (publishContainer instanceof Node) {
-        this.contentElement.appendChild(publishContainer);
-        try {
-            this.publishSettingsPanelInstance = new PublishSettingsPanel(publishContainer);
-            logSettings('[DEBUG] PublishSettingsPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init PublishSettingsPanel: ${error}`, 'error');
-            publishContainer.innerHTML = '<p style="color: red;">Error loading publish settings.</p>';
+        
+        if (container instanceof Node) {
+          this.contentElement.appendChild(container);
+          
+          // Create a content wrapper inside the container for the panel to use
+          const contentWrapper = document.createElement('div');
+          contentWrapper.classList.add('settings-section-content');
+          container.appendChild(contentWrapper);
+          
+          // Instantiate the component from the data, passing the content wrapper
+          const PanelComponent = panelData.component;
+          this.panelInstances[panelData.id] = new PanelComponent(contentWrapper);
+          
+          logSettings(`[DEBUG] ${panelData.id} instantiated successfully.`, 'debug');
+        } else {
+          logSettings(`[ERROR] Container for ${panelData.id} was not a valid Node!`, 'error');
         }
-    } else {
-        logSettings('[ERROR] publishContainer was not a valid Node!', 'error');
-    }
-    
-    // Instantiate JavaScriptPanel
-    logSettings('[DEBUG] Creating JS Panel Section...', 'debug');
-    const jsContainer = this.createSectionContainer('js-settings-container', 'Preview JavaScript');
-    // Default collapsed if not persisted otherwise
-    if (!currentState.collapsedSections || currentState.collapsedSections['js-settings-container'] === undefined) {
-      jsContainer.classList.add('collapsed');
-    }
-    if (jsContainer instanceof Node) {
-        this.contentElement.appendChild(jsContainer);
-        try {
-            logSettings('[DEBUG] Instantiating JavaScriptPanel...', 'debug');
-            this.jsPanelInstance = new JavaScriptPanel(jsContainer);
-            logSettings('[DEBUG] JavaScriptPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init JavaScriptPanel: ${error}`, 'error');
-            jsContainer.innerHTML = '<p style="color: red;">Error loading JavaScript info.</p>';
-        }
-    } else {
-        logSettings('[ERROR] jsContainer was not a valid Node!', 'error');
-    }
+      } catch (error) {
+        logSettings(`Failed to init ${panelData.id}: ${error}`, 'error');
+        // Create error container if panel creation failed
+        const errorContainer = this.createSectionContainer(panelData.id, panelData.title);
+        const errorContent = document.createElement('div');
+        errorContent.classList.add('settings-section-content');
+        errorContent.innerHTML = '<p style="color: var(--color-warning, #f59e0b); background-color: var(--color-warning-background, #fff3cd); padding: 0.5rem; border-radius: 0.25rem; margin: 0.5rem 0;">Error loading panel.</p>';
+        errorContainer.appendChild(errorContent);
+        this.contentElement.appendChild(errorContainer);
+      }
+    });
 
-    // Instantiate ConsoleLogPanel
-    logSettings('[DEBUG] Creating Console Log Panel Section...', 'debug');
-    const consoleLogContainer = this.createSectionContainer('console-log-settings-container', 'Console Log Options');
-    // Default collapsed if not persisted otherwise
-    if (!currentState.collapsedSections || currentState.collapsedSections['console-log-settings-container'] === undefined) {
-      consoleLogContainer.classList.add('collapsed');
-    }
-    if (consoleLogContainer instanceof Node) {
-        this.contentElement.appendChild(consoleLogContainer);
-        try {
-            this.consoleLogPanelInstance = new ConsoleLogPanel(consoleLogContainer); 
-            logSettings('[DEBUG] ConsoleLogPanel Instantiated successfully.', 'debug');
-        } catch (error) {
-            logSettings(`Failed to init ConsoleLogPanel: ${error}`, 'error');
-            consoleLogContainer.innerHTML = '<p style="color: red;">Error loading console log options.</p>';
-        }
-    } else {
-        logSettings('[ERROR] consoleLogContainer was not a valid Node!', 'error');
-    }
-
-    logSettings('Panel content and sub-panels created.', 'debug');
+    logSettings('Data-driven panel creation completed.', 'debug');
   }
+
+
 
   attachEventListeners() {
     // --- Dragging --- 
@@ -469,26 +375,25 @@ export class SettingsPanel {
       this.currentSize = { ...settingsState.size };
     }
 
-    // Update collapsed sections based on state
-    if (settingsState.collapsedSections) {
-      Object.keys(settingsState.collapsedSections).forEach(sectionId => {
-        const container = this.contentElement?.querySelector(`#${sectionId}`);
-        const isCollapsed = settingsState.collapsedSections[sectionId];
+    // Update collapsed sections based on state - use registry to get current state
+    const panelsWithState = panelRegistry.getPanelsWithState();
+    panelsWithState.forEach(panel => {
+      const container = this.contentElement?.querySelector(`#${panel.id}`);
+      const isCollapsed = panel.isCollapsed;
+      
+      if (container) {
+        const header = container.querySelector('.settings-section-header');
+        const indicator = container.querySelector('.collapse-indicator');
         
-        if (container) {
-          const header = container.querySelector('.settings-section-header');
-          const indicator = container.querySelector('.collapse-indicator');
-          
-          container.classList.toggle('collapsed', isCollapsed);
-          if (header) {
-            header.setAttribute('aria-expanded', !isCollapsed);
-          }
-          if (indicator) {
-            indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
-          }
+        container.classList.toggle('collapsed', isCollapsed);
+        if (header) {
+          header.setAttribute('aria-expanded', !isCollapsed);
         }
-      });
-    }
+        if (indicator) {
+          indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+        }
+      }
+    });
   }
 
   // --- Interaction Handlers --- 
@@ -503,12 +408,7 @@ export class SettingsPanel {
     // Then update the DOM state via updatePanelState for consistency
     this.updatePanelState();
     
-    // Save state to localStorage
-    try {
-      localStorage.setItem(SETTINGS_PANEL_VISIBLE_KEY, newVisibility);
-    } catch (e) {
-      console.error('Failed to save settings panel state:', e);
-    }
+    // State is automatically persisted by the reducer
     
     // Update app state through dispatch
     try {
@@ -615,18 +515,13 @@ export class SettingsPanel {
     this.resizeHandle = null;
     this.closeButton = null;
 
-    // Destroy the PluginsPanel instance if it exists
-    if (this.pluginsPanelInstance) {
-        this.pluginsPanelInstance.destroy();
-        this.pluginsPanelInstance = null;
-    }
-
-    // Destroy child panels
-    this.themeSettingsPanelInstance?.destroy();
-    this.cssSettingsPanelInstance?.destroy();
-    this.publishSettingsPanelInstance?.destroy();
-    this.jsPanelInstance?.destroy();
-    this.consoleLogPanelInstance?.destroy();
+    // Destroy all panel instances
+    Object.values(this.panelInstances).forEach(panelInstance => {
+      if (panelInstance && typeof panelInstance.destroy === 'function') {
+        panelInstance.destroy();
+      }
+    });
+    this.panelInstances = {};
 
     // --- Remove CSS --- 
     this.removeStyles();

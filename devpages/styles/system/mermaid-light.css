@@ -1,0 +1,15 @@
+/* Mermaid Light Theme Defaults */
+.mermaid {
+    background: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Mermaid Controls */
+.mermaid-controls-container {
+    /* ... existing styles ... */
+} 
