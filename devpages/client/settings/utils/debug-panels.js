@@ -64,4 +64,98 @@ export function debugCssDesignPanels() {
 
 if (typeof window !== 'undefined') {
     window.debugCssDesignPanels = debugCssDesignPanels;
+}
+
+// Function to check and clear problematic localStorage values
+export function debugLocalStorage() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        console.log('=== LOCALSTORAGE DEBUG ===');
+        
+        // Check for design tokens directory setting
+        const designTokensDir = localStorage.getItem('devpages_design_tokens_dir');
+        console.log('Design Tokens Directory:', designTokensDir);
+        
+        // Check for settings panel state
+        const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
+        if (settingsPanelState) {
+            try {
+                const parsed = JSON.parse(settingsPanelState);
+                console.log('Settings Panel State:', parsed);
+            } catch (e) {
+                console.log('Settings Panel State (raw):', settingsPanelState);
+            }
+        }
+        
+        // Check for any keys containing MD_DIR
+        const allKeys = Object.keys(localStorage);
+        const mdDirKeys = allKeys.filter(key => {
+            const value = localStorage.getItem(key);
+            return value && value.includes('MD_DIR');
+        });
+        
+        if (mdDirKeys.length > 0) {
+            console.warn('Found localStorage keys with MD_DIR values:');
+            mdDirKeys.forEach(key => {
+                console.warn(`  ${key}:`, localStorage.getItem(key));
+            });
+        }
+        
+        return {
+            designTokensDir,
+            settingsPanelState,
+            mdDirKeys
+        };
+    } else {
+        console.error('localStorage not available');
+        return null;
+    }
+}
+
+// Function to clear problematic localStorage values
+export function clearProblematicLocalStorage() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        console.log('=== CLEARING PROBLEMATIC LOCALSTORAGE ===');
+        
+        // Clear design tokens directory if it contains MD_DIR
+        const designTokensDir = localStorage.getItem('devpages_design_tokens_dir');
+        if (designTokensDir && designTokensDir.includes('MD_DIR')) {
+            console.log('Clearing design tokens directory:', designTokensDir);
+            localStorage.removeItem('devpages_design_tokens_dir');
+        }
+        
+        // Check and fix settings panel state
+        const settingsPanelState = localStorage.getItem('devpages_settings_panel_state');
+        if (settingsPanelState) {
+            try {
+                const parsed = JSON.parse(settingsPanelState);
+                let modified = false;
+                
+                // Check if designTokens.tokensDirectory contains MD_DIR
+                if (parsed.designTokens && parsed.designTokens.tokensDirectory && 
+                    parsed.designTokens.tokensDirectory.includes('MD_DIR')) {
+                    console.log('Fixing tokensDirectory in settings panel state');
+                    parsed.designTokens.tokensDirectory = '/root/pj/md/themes';
+                    modified = true;
+                }
+                
+                if (modified) {
+                    localStorage.setItem('devpages_settings_panel_state', JSON.stringify(parsed));
+                    console.log('Updated settings panel state');
+                }
+            } catch (e) {
+                console.error('Error parsing settings panel state:', e);
+            }
+        }
+        
+        console.log('✅ Cleanup complete. Please reload the page.');
+        return true;
+    } else {
+        console.error('localStorage not available');
+        return false;
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.debugLocalStorage = debugLocalStorage;
+    window.clearProblematicLocalStorage = clearProblematicLocalStorage;
 } 
