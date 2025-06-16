@@ -3,7 +3,7 @@
  * Initializes the Settings Panel component.
  */
 import { SettingsPanel } from './SettingsPanel.js';
-import { pageThemeManager } from './PageThemeManager.js';
+import { pageThemeManager } from '../panels/css-design/PageThemeManager.js';
 
 // Helper for logging
 function logSettingsInit(message, level = 'info') {

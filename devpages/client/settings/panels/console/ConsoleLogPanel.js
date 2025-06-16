@@ -5,7 +5,7 @@
  */
 
 import FilterManager from '../../utils/FilterManager.js';
-import { LogManager } from '../log/LogManager.js';
+import { LogManager } from '/client/log/LogManager.js';
 import { panelRegistry } from '../../core/panelRegistry.js';
 
 // Attempt to get the most original console methods
