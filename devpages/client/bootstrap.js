@@ -32,6 +32,9 @@ import { initializePublishModalIntegration } from '/client/components/PublishMod
 // Panel Registry for settings panels
 import { panelRegistry } from '/client/settings/core/panelRegistry.js';
 
+// Debug utilities (development only)
+import '/client/settings/utils/debug-panels.js';
+
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
         window.logMessage(message, level, 'BOOTSTRAP');
