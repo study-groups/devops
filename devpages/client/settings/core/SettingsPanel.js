@@ -91,10 +91,14 @@ export class SettingsPanel {
     // Initial render based on store state
     this.render(initialState);
     
-    // Visibility is managed by the reducer system, not localStorage directly
-    this.isVisible = false; // Default to hidden
+    // Initialize visibility from store state, not hardcoded
+    this.isVisible = initialState.visible || false;
+    
+    // Apply initial visibility state to DOM
+    this.updatePanelState();
     
     logSettings('SettingsPanel instance created and initialized.');
+    logSettings(`Initial visibility state: ${this.isVisible}`, 'debug');
   }
 
   // --- Method to inject CSS link tag --- 
@@ -359,8 +363,11 @@ export class SettingsPanel {
   render(settingsState) {
     if (!this.panelElement) return;
 
-    // Don't update display property here - we handle that in toggleVisibility
-    // Only manage other properties
+    // Update visibility state from store if it has changed
+    if (this.isVisible !== settingsState.visible) {
+      this.isVisible = settingsState.visible;
+      logSettings(`Visibility state updated from store: ${this.isVisible}`, 'debug');
+    }
     
     // Only update position/size if not actively dragging/resizing
     if (!this.isDragging) {
@@ -374,6 +381,9 @@ export class SettingsPanel {
       this.panelElement.style.height = `${settingsState.size.height}px`;
       this.currentSize = { ...settingsState.size };
     }
+
+    // Update DOM visibility based on current state
+    this.updatePanelState();
 
     // Update collapsed sections based on state - use registry to get current state
     const panelsWithState = panelRegistry.getPanelsWithState();

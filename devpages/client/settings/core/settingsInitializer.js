@@ -29,13 +29,8 @@ export function initializeSettingsPanel() {
     // Start the page theme manager
     pageThemeManager.start();
     
-    // Restore state from localStorage immediately after creation
-    try {
-      const savedVisible = localStorage.getItem('settings_panel_visible');
-      if (savedVisible === 'true') {
-        settingsPanelInstance.toggleVisibility(true);
-      }
-    } catch (e) {}
+    // SettingsPanel now properly manages its own visibility state through the store
+    // No need to manually check localStorage here
     
     return settingsPanelInstance;
   } catch (error) {

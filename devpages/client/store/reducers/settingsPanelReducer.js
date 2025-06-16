@@ -19,8 +19,11 @@ export function settingsPanelReducer(state = initialState, action) {
 
     switch(type) {
         case ActionTypes.SETTINGS_PANEL_TOGGLE:
-            // Directly modify visibility
-            nextState = { ...state, visible: !state.visible };
+            // Use payload.enabled if provided, otherwise toggle current state
+            const newVisibility = payload && typeof payload.enabled === 'boolean' 
+                ? payload.enabled 
+                : !state.visible;
+            nextState = { ...state, visible: newVisibility };
             // Persist the new state immediately
             shouldPersist = true;
             break;
