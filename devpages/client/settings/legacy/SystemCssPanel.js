@@ -1040,10 +1040,11 @@ ${cssData.blocks.map(block =>
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-    id: 'system-css-container',
-    title: 'System CSS',
-    component: SystemCssPanel,
-    order: 30,
-    defaultCollapsed: true
-}); 
+// DISABLED - Replaced by CssDesignPanel.js
+// panelRegistry.register({
+//     id: 'system-css-container',
+//     title: 'System CSS',
+//     component: SystemCssPanel,
+//     order: 30,
+//     defaultCollapsed: true
+// }); 

@@ -70,9 +70,11 @@ export class CssDesignPanel {
                     <div class="design-tokens-controls">
                         <div class="form-group">
                             <label for="themes-directory">Themes Directory:</label>
-                            <input type="text" id="themes-directory" value="${this.themesDirectory}" 
-                                   placeholder="/root/pj/md/themes" class="form-input">
-                            <button id="scan-directory" class="action-btn">Scan Directory</button>
+                            <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                                <input type="text" id="themes-directory" value="${this.themesDirectory}" 
+                                       placeholder="/root/pj/md/themes" class="form-input" style="flex: 1;">
+                                <button id="scan-directory" class="action-btn">Scan</button>
+                            </div>
                         </div>
                         
                         <div class="scan-results" id="scan-results">
@@ -84,7 +86,9 @@ export class CssDesignPanel {
                             <span id="current-theme-display" class="theme-display">${this.currentTheme}</span>
                         </div>
                         
-                        <button id="generate-design-tokens" class="action-btn">Generate design-tokens.js</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button id="generate-design-tokens" class="action-btn">Generate design-tokens.js</button>
+                        </div>
                     </div>
                 </div>
 
@@ -144,44 +148,62 @@ export class CssDesignPanel {
 
         try {
             // Convert absolute path to relative path for API
-            const relativePath = this.themesDirectory.startsWith('/root/pj/md/') 
-                ? this.themesDirectory.replace('/root/pj/md/', '') 
-                : this.themesDirectory;
+            let relativePath = this.themesDirectory;
+            if (relativePath.startsWith('/root/pj/md/')) {
+                relativePath = relativePath.replace('/root/pj/md/', '');
+            } else if (relativePath.startsWith('/')) {
+                // Remove leading slash for relative paths
+                relativePath = relativePath.substring(1);
+            }
             
             logCssDesign(`Fetching directory listing for: ${relativePath}`);
             
             const response = await fetch(`/api/files/list?pathname=${encodeURIComponent(relativePath)}`);
             
             if (!response.ok) {
-                // If API fails, show helpful error but don't completely fail
                 logCssDesign(`API request failed: ${response.status} ${response.statusText}`, 'warn');
                 
-                // Show a helpful message about the known classic theme
-                this.displayKnownThemes(relativePath);
+                // For themes directory, we know classic exists, so show it
+                if (relativePath === 'themes' || relativePath.endsWith('/themes')) {
+                    this.displayKnownThemes(relativePath);
+                } else {
+                    this.displayScanError(`API request failed: ${response.status} ${response.statusText}`);
+                }
                 return;
             }
             
             const data = await response.json();
             logCssDesign(`Directory scan response:`, data);
             
-            // Handle different response formats
+            // Handle different response formats and find directories
             let themes = [];
+            
             if (data.files && Array.isArray(data.files)) {
-                themes = data.files.filter(item => item.type === 'directory');
+                themes = data.files.filter(item => item.type === 'directory' || item.isDirectory);
             } else if (data.directories && Array.isArray(data.directories)) {
                 themes = data.directories.map(name => ({ name, type: 'directory' }));
             } else if (Array.isArray(data)) {
-                themes = data.filter(item => item.type === 'directory');
+                themes = data.filter(item => 
+                    item.type === 'directory' || 
+                    item.isDirectory || 
+                    (item.name && !item.name.includes('.'))
+                );
             }
             
+            logCssDesign(`Found ${themes.length} potential theme directories`);
+            
             // Update display with results
-            this.displayScanResults(themes, relativePath);
+            this.displayScanResults(themes, this.themesDirectory);
             
         } catch (error) {
             logCssDesign(`Error scanning directory: ${error.message}`, 'error');
             
-            // Show known themes as fallback
-            this.displayKnownThemes(this.themesDirectory);
+            // For themes directory, show known themes as fallback
+            if (this.themesDirectory.includes('themes')) {
+                this.displayKnownThemes(this.themesDirectory);
+            } else {
+                this.displayScanError(error.message);
+            }
         }
     }
 
