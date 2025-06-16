@@ -101,36 +101,46 @@ export async function applyStyles() {
     let successfullyAppliedPaths = new Set();
     let rootStyleApplied = false;
 
-    // === 1. Handle Implicit Root styles.css ===
-    const rootCssPath = 'styles.css';
+    // === 1. Handle Implicit Root Theme CSS ===
+    const rootThemePaths = ['themes/classic/core.css', 'themes/classic/light.css'];
     const rootExistingElement = document.getElementById(ROOT_STYLE_ELEMENT_ID);
     try {
-        logger.debug(`[CSS APPLY ROOT] Processing. User wants enabled=${enableRootCss}`);
+        logger.debug(`[CSS APPLY ROOT] Processing theme CSS. User wants enabled=${enableRootCss}`);
         if (enableRootCss) {
-            const rootFileData = await api.fetchPublicCss(rootCssPath);
-            logger.debug(`[CSS APPLY ROOT] Fetch result: ${rootFileData ? 'Data received' : 'No data/null'}`);
+            // Fetch and combine all theme CSS files
+            const themeContents = [];
+            for (const themePath of rootThemePaths) {
+                const themeData = await api.fetchPublicCss(themePath);
+                if (themeData && typeof themeData.content === 'string') {
+                    themeContents.push(`/* === ${themePath} === */\n${themeData.content}`);
+                    logger.debug(`[CSS APPLY ROOT] Loaded theme: ${themePath}`);
+                } else {
+                    logger.warn(`[CSS APPLY ROOT] Failed to load theme: ${themePath}`);
+                }
+            }
 
-            if (rootFileData && typeof rootFileData.content === 'string') {
-                logger.debug(`[CSS APPLY ROOT] Content retrieved. Applying...`);
+            if (themeContents.length > 0) {
+                const combinedThemeContent = themeContents.join('\n\n');
+                logger.debug(`[CSS APPLY ROOT] Combined theme content (${combinedThemeContent.length} chars). Applying...`);
+                
                 if (rootExistingElement) {
-                    if (rootExistingElement.textContent !== rootFileData.content) {
-                        rootExistingElement.textContent = rootFileData.content;
-                        logger.debug(`[CSS APPLY ROOT] Updated existing tag.`);
+                    if (rootExistingElement.textContent !== combinedThemeContent) {
+                        rootExistingElement.textContent = combinedThemeContent;
+                        logger.debug(`[CSS APPLY ROOT] Updated existing theme tag.`);
                     } else {
-                        logger.debug(`[CSS APPLY ROOT] Tag content unchanged.`);
+                        logger.debug(`[CSS APPLY ROOT] Theme tag content unchanged.`);
                     }
                 } else {
-                    const styleEl = document.createElement('style'); styleEl.id = ROOT_STYLE_ELEMENT_ID; styleEl.textContent = rootFileData.content; document.head.appendChild(styleEl);
-                    logger.debug(`[CSS APPLY ROOT] Created new tag.`);
+                    const styleEl = document.createElement('style'); 
+                    styleEl.id = ROOT_STYLE_ELEMENT_ID; 
+                    styleEl.textContent = combinedThemeContent; 
+                    document.head.appendChild(styleEl);
+                    logger.debug(`[CSS APPLY ROOT] Created new theme tag.`);
                 }
                 rootStyleApplied = true;
                 logger.debug(`[CSS APPLY ROOT] Set rootStyleApplied = true`);
-
-                // After fetching
-                logger.debug(`[CSS DEBUG] rootFileData content type: ${rootFileData ? typeof rootFileData.content : 'rootFileData is null'}`);
-                logger.debug(`[CSS DEBUG] rootFileData dump: ${JSON.stringify(rootFileData)}`);
             } else {
-                logger.debug(`[CSS APPLY ROOT] No content or fetch failed, ensuring tag removed.`);
+                logger.debug(`[CSS APPLY ROOT] No theme content loaded, ensuring tag removed.`);
                 if (rootExistingElement) { rootExistingElement.remove(); }
                 rootStyleApplied = false;
             }
@@ -140,7 +150,7 @@ export async function applyStyles() {
             rootStyleApplied = false;
         }
     } catch (error) {
-        logger.error(`[CSS APPLY ROOT] Error loading: ${error.message}`, error);
+        logger.error(`[CSS APPLY ROOT] Error loading theme CSS: ${error.message}`, error);
         if (rootExistingElement) { rootExistingElement.remove(); }
         rootStyleApplied = false;
     }
@@ -182,12 +192,15 @@ export async function applyStyles() {
 
     let finalActivePaths = [...successfullyAppliedPaths];
     if (rootStyleApplied) {
-        logger.debug(`[CSS APPLY DISPATCH] Root was applied this run.`);
-        if (!finalActivePaths.includes(rootCssPath)) {
-            finalActivePaths.push(rootCssPath);
+        logger.debug(`[CSS APPLY DISPATCH] Theme CSS was applied this run.`);
+        // Add theme paths to active list
+        for (const themePath of rootThemePaths) {
+            if (!finalActivePaths.includes(themePath)) {
+                finalActivePaths.push(themePath);
+            }
         }
     } else {
-        logger.debug(`[CSS APPLY DISPATCH] Root was NOT applied this run.`);
+        logger.debug(`[CSS APPLY DISPATCH] Theme CSS was NOT applied this run.`);
     }
 
     const previousActivePaths = state.settings?.preview?.activeCssFiles || [];

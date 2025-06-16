@@ -239,7 +239,7 @@ const api = {
 
     /**
      * Fetch public CSS content via the unprotected route.
-     * @param {string} relativePath - Path relative to PD_DIR root ('styles.css') or PD_DIR/data ('themes/dark.css').
+     * @param {string} relativePath - Path relative to PD_DIR/data ('themes/classic/core.css', 'themes/classic/light.css', etc.).
      * @returns {Promise<{content: string}|null>} CSS content object or null on error/not found.
      */
     async fetchPublicCss(relativePath) {

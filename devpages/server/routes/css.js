@@ -67,7 +67,7 @@ function classifyCssFile(cssPath) {
             baseDir: 'project',
             relativePath: cssPath.substring(1) // Remove leading slash
         };
-    } else if (cssPath === 'styles.css' || cssPath.startsWith('styles/')) {
+    } else if (cssPath === 'styles.css' || cssPath.startsWith('styles/') || cssPath.startsWith('themes/')) {
         return {
             type: 'user',
             baseDir: 'data',

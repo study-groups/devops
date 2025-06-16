@@ -66,9 +66,14 @@ async function bundleActiveCss() {
     // Always include base markdown styling
     cssFilesToBundle.push('/client/preview/md.css');
     
-    // Add root styles.css if enabled
-    if (enableRootCss && !activeCssFiles.includes('styles.css')) {
-        cssFilesToBundle.push('styles.css');
+    // Add theme CSS files if enabled (replaces old styles.css)
+    if (enableRootCss) {
+        const themeFiles = ['themes/classic/core.css', 'themes/classic/light.css'];
+        themeFiles.forEach(themeFile => {
+            if (!activeCssFiles.includes(themeFile)) {
+                cssFilesToBundle.push(themeFile);
+            }
+        });
     }
     
     // Add all active CSS files
@@ -230,11 +235,15 @@ export async function downloadStaticHTML() {
 
         // Start with active files, ensuring no duplicates initially
         const cssFilesToSend = [...new Set(activeCssFiles)];
-        const rootCssPath = 'styles.css'; // Define root path
+        const rootThemePaths = ['themes/classic/core.css', 'themes/classic/light.css']; // Define theme paths
         
-        // Add root styles if enabled AND not already included
-        if (rootCssEnabled && !cssFilesToSend.includes(rootCssPath)) {
-            cssFilesToSend.unshift(rootCssPath); // Add root styles if enabled and not already present
+        // Add theme files if enabled AND not already included
+        if (rootCssEnabled) {
+            rootThemePaths.forEach(themePath => {
+                if (!cssFilesToSend.includes(themePath)) {
+                    cssFilesToSend.unshift(themePath); // Add theme files if enabled and not already present
+                }
+            });
         }
         logStaticGen(`Including ${cssFilesToSend.length} active CSS paths: ${JSON.stringify(cssFilesToSend)}`);
 

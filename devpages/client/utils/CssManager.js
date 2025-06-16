@@ -84,9 +84,10 @@ export class CssManager {
         // Get user CSS files from settings
         const userCssFiles = [];
         
-        // Add root styles.css if enabled
+        // Add theme CSS files if enabled (replaces old styles.css)
         if (previewSettings.enableRootCss !== false) {
-            userCssFiles.push('styles.css');
+            userCssFiles.push('themes/classic/core.css');
+            userCssFiles.push('themes/classic/light.css'); // Default to light theme
         }
         
         // Add active CSS files
@@ -137,7 +138,7 @@ export class CssManager {
     classifyCssFile(cssPath) {
         if (cssPath.startsWith('/client/')) {
             return CSS_FILE_TYPE.CLIENT;
-        } else if (cssPath === 'styles.css' || cssPath.startsWith('styles/')) {
+        } else if (cssPath === 'styles.css' || cssPath.startsWith('styles/') || cssPath.startsWith('themes/')) {
             return CSS_FILE_TYPE.USER;
         } else {
             return CSS_FILE_TYPE.USER; // Default to user files
