@@ -37,7 +37,7 @@ function loadPersistedSettings() {
         designTokens: {
             activeTheme: 'corporate-blue',
             themeVariant: 'light', // 'light' or 'dark'
-            tokensDirectory: 'MD_DIR/themes'
+            tokensDirectory: (process.env.MD_DIR || '/root/pj/md') + '/themes'
         }
     };
 
