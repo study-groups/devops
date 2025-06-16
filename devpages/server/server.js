@@ -330,12 +330,11 @@ app.use((req, res, next) => {
 // --- Routes ---
 // Import routers ONCE
 // import filesRouter from './routes/files.js'; // <<< REMOVE THIS ONE
-import authRouter from './routes/auth.js'; // Import auth routes
 console.log('[DEBUG server.js] Imported spacesRouter:', typeof spacesRouter, spacesRouter); // <<< ADD THIS LOG
 
 // Use routers
 app.use('/api/files', authMiddleware, filesRouter);
-app.use('/api/auth', authRouter);
+// Auth routes are mounted later in startServer() function
 
 // <<< --- ADD THIS DEBUG MIDDLEWARE --- >>>
 app.use('/api/spaces', (req, res, next) => {
