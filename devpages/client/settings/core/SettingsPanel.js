@@ -7,19 +7,19 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { panelRegistry } from './panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
+import { panelEventBus } from './panelEventBus.js';
 
 // Import all panels to ensure they register themselves
-import './ThemeSettingsPanel.js';
-import './DesignerThemePanel.js';
-import './PluginsPanel.js';
-import './CssSettingsPanel.js';
-import './SystemCssPanel.js';
-import './PublishSettingsPanel.js';
-import './PreviewSettingsPanel.js';
-import './JavaScriptPanel.js';
-import './ConsoleLogPanel.js';
-import './DevToolsPanel.js';
-import './DesignTokensPanel.js';
+import '../panels/css-design/CssDesignPanel.js'; // CSS & Design panel
+import '../panels/icons/IconsPanel.js'; // Icons management panel
+import '../panels/plugins/PluginsPanel.js';
+import '../panels/publish/PublishSettingsPanel.js';
+import '../panels/preview/PreviewSettingsPanel.js';
+import '../panels/javascript/JavaScriptPanel.js';
+import '../panels/console/ConsoleLogPanel.js';
+import '../panels/dev-tools/DevToolsPanel.js';
+import '../panels/api-tokens/ApiTokenPanel.js'; // API Token management panel
+// Removed panels: ThemeSettingsPanel, ThemeDesignPanel, DesignerThemePanel, CssSettingsPanel, DesignTokensPanel, SystemCssPanel
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
 const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Single source of truth
@@ -104,7 +104,7 @@ export class SettingsPanel {
       link.id = SETTINGS_CSS_ID;
       link.rel = 'stylesheet';
       link.type = 'text/css';
-      link.href = '/client/settings/settings.css'; // Path to the CSS file
+      link.href = '/client/settings/core/settings.css'; // Path to the CSS file
       document.head.appendChild(link);
       logSettings('Injected settings.css link tag.', 'debug');
     } else {

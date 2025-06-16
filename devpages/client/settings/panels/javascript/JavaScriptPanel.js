@@ -3,7 +3,7 @@
  * Provides information and potentially settings for JavaScript usage in previews.
  */
 
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 
 // Helper for logging specific to this panel
 function logJSPanel(message, level = 'info') {

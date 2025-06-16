@@ -85,8 +85,18 @@ class PageThemeManager {
 
     async validateThemeFile(themeUrl) {
         try {
-            const response = await fetch(themeUrl, { method: 'HEAD' });
-            return response.ok;
+            // Convert theme URL to API path
+            // themeUrl format: "/themes/classic/core.css" or similar
+            const apiPath = themeUrl.startsWith('/') ? themeUrl.substring(1) : themeUrl;
+            
+            logMessage(`Validating theme file via files API: ${apiPath}`, 'debug', 'THEME_MANAGER');
+            
+            // Use the authenticated files API
+            const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(apiPath)}`, { method: 'HEAD' });
+            const exists = response.ok;
+            
+            logMessage(`Theme file ${apiPath} ${exists ? 'exists' : 'not found'} (${response.status})`, 'debug', 'THEME_MANAGER');
+            return exists;
         } catch (error) {
             logMessage(`Theme file validation failed for ${themeUrl}: ${error.message}`, 'warn', 'THEME_MANAGER');
             return false;
@@ -155,10 +165,14 @@ class PageThemeManager {
             logMessage(`Created new theme stylesheet link: ${linkId}`, 'debug', 'THEME_MANAGER');
         }
 
-        if (link.getAttribute('href') !== themeUrl) {
-            link.setAttribute('href', themeUrl);
+        // Convert theme URL to files API URL for loading
+        const apiPath = themeUrl.startsWith('/') ? themeUrl.substring(1) : themeUrl;
+        const apiUrl = `/api/files/content?pathname=${encodeURIComponent(apiPath)}`;
+
+        if (link.getAttribute('href') !== apiUrl) {
+            link.setAttribute('href', apiUrl);
             this.loadedThemes.add(themeUrl);
-            logMessage(`Updated theme stylesheet: ${themeUrl}`, 'debug', 'THEME_MANAGER');
+            logMessage(`Updated theme stylesheet: ${themeUrl} -> ${apiUrl}`, 'debug', 'THEME_MANAGER');
         }
     }
 

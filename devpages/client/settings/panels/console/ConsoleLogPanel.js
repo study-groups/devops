@@ -4,9 +4,9 @@
  * Designed to be in feature parity with ConsoleLogManager.js (no subtypes)
  */
 
-import FilterManager from './FilterManager.js';
+import FilterManager from '../../utils/FilterManager.js';
 import { LogManager } from '../log/LogManager.js';
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {

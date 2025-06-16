@@ -574,11 +574,11 @@ export class ThemeSettingsPanel {
   }
 }
 
-// Register this panel with the registry
-panelRegistry.register({
-  id: 'theme-settings-container',
-  title: 'Theme & Design',
-  component: ThemeSettingsPanel,
-  order: 10, // First panel (lowest order)
-  defaultCollapsed: false // Keep expanded by default for better UX
-}); 
+// DISABLED - Replaced by CssDesignPanel.js
+// panelRegistry.register({
+//   id: 'theme-settings-container',
+//   title: 'Theme & Design',
+//   component: ThemeSettingsPanel,
+//   order: 10, // First panel (lowest order)
+//   defaultCollapsed: false // Keep expanded by default for better UX
+// }); 

@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Import ActionTypes
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 
 function logPlugins(message, level = 'info') {
   const type = 'PLUGINS_PANEL';

@@ -22,7 +22,7 @@ import { createContentViewComponent } from '/client/components/ContentView.js';
 import { LogPanel } from '/client/log/LogPanel.js';
 import { initAuth } from '/client/auth.js';
 import { initializeFileManager } from '/client/filesystem/fileManager.js';
-import { initializeSettingsPanel } from '/client/settings/settingsInitializer.js';
+import { initializeSettingsPanel } from '/client/settings/core/settingsInitializer.js';
 import { initKeyboardShortcuts } from '/client/keyboardShortcuts.js';
 import { triggerActions } from '/client/actions.js';
 
@@ -30,7 +30,7 @@ import { triggerActions } from '/client/actions.js';
 import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
 
 // Panel Registry for settings panels
-import { panelRegistry } from '/client/settings/panelRegistry.js';
+import { panelRegistry } from '/client/settings/core/panelRegistry.js';
 
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {

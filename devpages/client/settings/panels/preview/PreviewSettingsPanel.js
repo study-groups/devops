@@ -6,7 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { eventBus } from '/client/eventBus.js';
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 
 export class PreviewSettingsPanel {
     constructor(container) {
@@ -38,7 +38,7 @@ export class PreviewSettingsPanel {
     }
 
     loadCSS() {
-        const cssPath = '/client/settings/PreviewSettingsPanel.css';
+        const cssPath = '/client/settings/panels/preview/PreviewSettingsPanel.css';
         if (!document.querySelector(`link[href="${cssPath}"]`)) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';

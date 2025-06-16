@@ -25,19 +25,19 @@ let lastAppliedRootStatus = false;
 export function init(config = {}) {
     logger.debug('CSS Plugin Initialized.');
     
-    // Ensure root CSS is enabled by default if not previously set
+    // Disable root CSS by default since we're using the theme system
     const state = appStore.getState();
     if (state.settings?.preview?.enableRootCss === undefined) {
         try {
             const savedState = localStorage.getItem('enableRootCss');
             if (savedState === null) {
-                // First time - set default to true
+                // First time - set default to false (using theme system instead)
                 if (isReducerInitialized()) {
                     dispatch({ 
                         type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
-                        payload: true 
+                        payload: false 
                     });
-                    logger.debug('Set default enableRootCss to true');
+                    logger.debug('Set default enableRootCss to false (using theme system)');
                 } else {
                     logger.warn('Reducer not ready yet, skipping default enableRootCss dispatch');
                 }
@@ -93,7 +93,7 @@ export async function applyStyles() {
     logger.info('[CSS APPLY] applyStyles called (using legacy CSS system for preview).');
     const state = appStore.getState();
     // --- Log State Being Read ---
-    const enableRootCss = state.settings?.preview?.enableRootCss ?? true;
+    const enableRootCss = state.settings?.preview?.enableRootCss ?? false;
     const configuredItems = state.settings?.preview?.cssFiles || [];
     logger.debug(`[CSS APPLY] State Read: enableRootCss=${enableRootCss}, configuredItems count=${configuredItems.length}`);
     // -----------------------------

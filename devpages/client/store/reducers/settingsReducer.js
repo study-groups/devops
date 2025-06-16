@@ -9,6 +9,9 @@ const PUBLISH_MODE_KEY = 'devpages_publish_mode';
 const PREVIEW_MODE_KEY = 'devpages_preview_mode';
 const PAGE_THEME_DIR_KEY = 'devpages_page_theme_dir';
 const PAGE_THEME_MODE_KEY = 'devpages_page_theme_mode';
+const DESIGN_TOKENS_ACTIVE_THEME_KEY = 'devpages_active_theme';
+const DESIGN_TOKENS_THEME_VARIANT_KEY = 'devpages_theme_variant';
+const DESIGN_TOKENS_DIR_KEY = 'devpages_design_tokens_dir';
 
 /**
  * Load settings from localStorage with fallback to defaults
@@ -18,7 +21,7 @@ function loadPersistedSettings() {
         preview: {
             cssFiles: [],
             activeCssFiles: [],
-            enableRootCss: true,
+            enableRootCss: false,
             bundleCss: true,
             cssPrefix: '',
             renderMode: 'direct',
@@ -30,6 +33,11 @@ function loadPersistedSettings() {
         pageTheme: {
             themeDir: '',
             themeMode: 'light', // 'light' or 'dark'
+        },
+        designTokens: {
+            activeTheme: 'corporate-blue',
+            themeVariant: 'light', // 'light' or 'dark'
+            tokensDirectory: 'MD_DIR/themes'
         }
     };
 
@@ -43,11 +51,10 @@ function loadPersistedSettings() {
             }
         }
 
-        // Load root CSS enabled state
-        const savedRootCss = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
-        if (savedRootCss !== null) {
-            defaults.preview.enableRootCss = savedRootCss === 'true';
-        }
+        // Force disable root CSS (using theme system instead)
+        defaults.preview.enableRootCss = false;
+        // Clear the localStorage setting to prevent confusion
+        localStorage.removeItem(ENABLE_ROOT_CSS_KEY);
 
         // Load CSS bundling preference
         const savedBundling = localStorage.getItem(CSS_BUNDLING_KEY);
@@ -92,6 +99,22 @@ function loadPersistedSettings() {
             defaults.pageTheme.themeMode = savedThemeMode;
         }
 
+        // Load Design Tokens settings
+        const savedActiveTheme = localStorage.getItem(DESIGN_TOKENS_ACTIVE_THEME_KEY);
+        if (savedActiveTheme) {
+            defaults.designTokens.activeTheme = savedActiveTheme;
+        }
+
+        const savedThemeVariant = localStorage.getItem(DESIGN_TOKENS_THEME_VARIANT_KEY);
+        if (savedThemeVariant && ['light', 'dark'].includes(savedThemeVariant)) {
+            defaults.designTokens.themeVariant = savedThemeVariant;
+        }
+
+        const savedTokensDir = localStorage.getItem(DESIGN_TOKENS_DIR_KEY);
+        if (savedTokensDir) {
+            defaults.designTokens.tokensDirectory = savedTokensDir;
+        }
+
         console.debug('[Settings] Loaded persisted settings:', defaults);
         return defaults;
     } catch (error) {
@@ -109,6 +132,7 @@ const initialState = {
     preview: persistedSettings.preview,
     publish: persistedSettings.publish,
     pageTheme: persistedSettings.pageTheme,
+    designTokens: persistedSettings.designTokens,
 };
 
 // --- Settings Slice Reducer ---
@@ -119,10 +143,12 @@ export function settingsReducer(state = initialState, action) {
     const currentPreviewState = currentSettings.preview || { ...initialState.preview }; 
     const currentPublishState = currentSettings.publish || { ...initialState.publish };
     const currentPageThemeState = currentSettings.pageTheme || { ...initialState.pageTheme };
+    const currentDesignTokensState = currentSettings.designTokens || { ...initialState.designTokens };
     let nextState = currentSettings;
     let nextPreviewState = currentPreviewState;
     let nextPublishState = currentPublishState;
     let nextPageThemeState = currentPageThemeState;
+    let nextDesignTokensState = currentDesignTokensState;
     let updated = false;
     let emitCssUpdateEvent = false;
 
@@ -343,6 +369,63 @@ export function settingsReducer(state = initialState, action) {
             }
             break;
 
+        case ActionTypes.SETTINGS_SET_ACTIVE_DESIGN_THEME:
+            if (typeof payload === 'string' && payload.trim()) {
+                nextDesignTokensState = { ...currentDesignTokensState, activeTheme: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(DESIGN_TOKENS_ACTIVE_THEME_KEY, payload);
+                    console.debug(`[Reducer] Set active design theme to: ${payload}`);
+                    
+                    // Apply theme to document
+                    const fullThemeName = `${payload}-${currentDesignTokensState.themeVariant}`;
+                    document.documentElement.setAttribute('data-theme', fullThemeName);
+                    
+                    // Emit theme change event
+                    window.dispatchEvent(new CustomEvent('themeChanged', {
+                        detail: { theme: payload, variant: currentDesignTokensState.themeVariant }
+                    }));
+                } catch (e) {
+                    console.error('[Reducer] Failed to save active design theme:', e);
+                }
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_DESIGN_THEME_VARIANT:
+            if (typeof payload === 'string' && ['light', 'dark'].includes(payload)) {
+                nextDesignTokensState = { ...currentDesignTokensState, themeVariant: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(DESIGN_TOKENS_THEME_VARIANT_KEY, payload);
+                    console.debug(`[Reducer] Set design theme variant to: ${payload}`);
+                    
+                    // Apply theme to document
+                    const fullThemeName = `${currentDesignTokensState.activeTheme}-${payload}`;
+                    document.documentElement.setAttribute('data-theme', fullThemeName);
+                    
+                    // Emit theme change event
+                    window.dispatchEvent(new CustomEvent('themeChanged', {
+                        detail: { theme: currentDesignTokensState.activeTheme, variant: payload }
+                    }));
+                } catch (e) {
+                    console.error('[Reducer] Failed to save design theme variant:', e);
+                }
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_DESIGN_TOKENS_DIR:
+            if (typeof payload === 'string') {
+                nextDesignTokensState = { ...currentDesignTokensState, tokensDirectory: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(DESIGN_TOKENS_DIR_KEY, payload);
+                    console.debug(`[Reducer] Set design tokens directory to: ${payload}`);
+                } catch (e) {
+                    console.error('[Reducer] Failed to save design tokens directory:', e);
+                }
+            }
+            break;
+
         default:
             // No change for unrecognized actions
             break;
@@ -355,6 +438,7 @@ export function settingsReducer(state = initialState, action) {
             preview: nextPreviewState,
             publish: nextPublishState,
             pageTheme: nextPageThemeState,
+            designTokens: nextDesignTokensState,
         };
         
         // Persist the configured cssFiles list if it was modified by add/remove/toggle

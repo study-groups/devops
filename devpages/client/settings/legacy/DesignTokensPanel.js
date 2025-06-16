@@ -5,6 +5,7 @@
 import { panelRegistry } from './panelRegistry.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { appStore } from '/client/appState.js';
+import { panelEventBus, PanelEvents, createPanelMixin } from './panelEventBus.js';
 
 const PANEL_ID = 'design-tokens-panel';
 
@@ -16,6 +17,10 @@ class DesignTokensPanel {
         }
         this.container = container;
         this.state = {};
+
+        // Setup event bus
+        this.setupEventBus();
+        this.setupEventHandlers();
 
         this.injectStyles();
         this.render();
@@ -247,6 +252,12 @@ class DesignTokensPanel {
                 type: ActionTypes.SETTINGS_SET_PAGE_THEME_DIR,
                 payload: path,
             });
+            
+            // Notify other panels of theme change
+            this.notifyThemeChange({
+                themeDir: path,
+                themeMode: this.getCurrentThemeMode()
+            });
         });
 
         // Theme mode switcher
@@ -254,10 +265,15 @@ class DesignTokensPanel {
         themeSwitcher.addEventListener('click', (e) => {
             if (e.target.matches('.theme-button')) {
                 const theme = e.target.dataset.theme;
+                const previousMode = this.getCurrentThemeMode();
+                
                 dispatch({
                     type: ActionTypes.SETTINGS_SET_PAGE_THEME_MODE,
                     payload: theme,
                 });
+                
+                // Notify other panels of theme mode switch
+                this.notifyThemeModeSwitch(theme);
             }
         });
 
@@ -367,15 +383,48 @@ class DesignTokensPanel {
                 `Dark mode (${darkUrl}): ${darkExists ? '✅' : '❌'}`
             ];
 
+            const isValid = coreExists && lightExists && darkExists;
+            
+            // Emit validation event
+            this.emit(PanelEvents.THEME_VALIDATED, {
+                isValid,
+                themeDir: pageTheme.themeDir,
+                results: {
+                    core: coreExists,
+                    light: lightExists,
+                    dark: darkExists
+                },
+                urls: { coreUrl, lightUrl, darkUrl }
+            });
+
             alert(`Theme Validation Results:\n\n${results.join('\n')}`);
+            
+            // Request cross-panel validation if this theme is valid
+            if (isValid) {
+                const crossResults = await this.requestCrossValidation();
+                if (!crossResults.overall) {
+                    alert(`Cross-panel validation warnings:\n${crossResults.errors.join('\n')}`);
+                }
+            }
         } catch (error) {
             alert(`Validation failed: ${error.message}`);
+            
+            // Emit validation error
+            this.emit(PanelEvents.THEME_VALIDATED, {
+                isValid: false,
+                error: error.message,
+                themeDir: pageTheme.themeDir
+            });
         }
     }
 
     async checkFileExists(url) {
         try {
-            const response = await fetch(url, { method: 'HEAD' });
+            // Convert URL to API path
+            const apiPath = url.startsWith('/') ? url.substring(1) : url;
+            
+            // Use the authenticated files API
+            const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(apiPath)}`, { method: 'HEAD' });
             return response.ok;
         } catch {
             return false;
@@ -387,6 +436,13 @@ class DesignTokensPanel {
         const settings = appStore.getState().settings || {};
         const pageTheme = settings.pageTheme || {};
         
+        // Emit reload request to other panels
+        this.emit(PanelEvents.THEME_RELOAD_REQUESTED, {
+            themeDir: pageTheme.themeDir,
+            themeMode: pageTheme.themeMode,
+            requestedBy: PANEL_ID
+        });
+        
         dispatch({
             type: ActionTypes.SETTINGS_SET_PAGE_THEME_MODE,
             payload: pageTheme.themeMode === 'light' ? 'dark' : 'light',
@@ -396,6 +452,13 @@ class DesignTokensPanel {
             dispatch({
                 type: ActionTypes.SETTINGS_SET_PAGE_THEME_MODE,
                 payload: pageTheme.themeMode,
+            });
+            
+            // Notify that reload is complete
+            this.emit(PanelEvents.CSS_PREVIEW_REFRESH, {
+                reason: 'theme_reload',
+                themeDir: pageTheme.themeDir,
+                themeMode: pageTheme.themeMode
             });
         }, 100);
     }
@@ -479,9 +542,200 @@ class DesignTokensPanel {
     }
 
     destroy() {
+        // Clean up event bus
+        if (this.destroyEventBus) {
+            this.destroyEventBus();
+        }
+        
         if (this.unsubscribe) {
             this.unsubscribe();
         }
+    }
+
+    // ===== EVENT BUS INTEGRATION =====
+    
+    setupEventBus() {
+        // Apply the event bus mixin
+        Object.assign(this, createPanelMixin(PANEL_ID));
+        this.setupEventBus();
+    }
+    
+    setupEventHandlers() {
+        // Listen for theme-related events from other panels
+        this.on(PanelEvents.THEME_RELOAD_REQUESTED, this.handleThemeReloadRequest.bind(this));
+        this.on(PanelEvents.CSS_PREVIEW_REFRESH, this.handlePreviewRefresh.bind(this));
+        this.on(PanelEvents.PANEL_VALIDATION_REQUEST, this.handleValidationRequest.bind(this));
+        this.on(PanelEvents.PUBLISH_COLLECT_DATA, this.handlePublishDataRequest.bind(this));
+        
+        // Listen for system events
+        this.on(PanelEvents.SYSTEM_READY, this.handleSystemReady.bind(this));
+    }
+    
+    handleThemeReloadRequest(message) {
+        console.log('[DesignTokensPanel] Theme reload requested:', message);
+        this.reloadTheme();
+    }
+    
+    handlePreviewRefresh(message) {
+        console.log('[DesignTokensPanel] Preview refresh requested:', message);
+        this.updateThemeStatus();
+    }
+    
+    handleValidationRequest(message) {
+        console.log('[DesignTokensPanel] Validation requested:', message);
+        const { validationType, data } = message.data;
+        
+        if (validationType === 'theme' || validationType === 'all') {
+            this.validateThemeForRequest(message);
+        }
+    }
+    
+    async validateThemeForRequest(originalMessage) {
+        try {
+            const settings = appStore.getState().settings || {};
+            const pageTheme = settings.pageTheme || {};
+            const themeDir = pageTheme.themeDir;
+            
+            if (!themeDir) {
+                this.respond(originalMessage, {
+                    isValid: false,
+                    errors: ['No theme directory specified'],
+                    warnings: []
+                });
+                return;
+            }
+            
+            const files = ['core.css', 'light.css', 'dark.css'];
+            const results = await Promise.all(
+                files.map(file => this.checkFileExists(`${themeDir}/${file}`))
+            );
+            
+            const missing = files.filter((file, index) => !results[index]);
+            const isValid = missing.length === 0;
+            
+            this.respond(originalMessage, {
+                isValid,
+                errors: missing.length > 0 ? [`Missing theme files: ${missing.join(', ')}`] : [],
+                warnings: [],
+                themeData: {
+                    themeDir,
+                    themeMode: pageTheme.themeMode,
+                    filesFound: files.filter((file, index) => results[index])
+                }
+            });
+        } catch (error) {
+            this.respond(originalMessage, {
+                isValid: false,
+                errors: [`Theme validation failed: ${error.message}`],
+                warnings: []
+            });
+        }
+    }
+    
+    handlePublishDataRequest(message) {
+        console.log('[DesignTokensPanel] Publish data requested:', message);
+        
+        const settings = appStore.getState().settings || {};
+        const pageTheme = settings.pageTheme || {};
+        
+        const publishData = {
+            type: 'theme',
+            themeDir: pageTheme.themeDir,
+            themeMode: pageTheme.themeMode,
+            mobileBreakpoint: this.getMobileBreakpoint(),
+            designTokens: this.extractCurrentTokens(),
+            timestamp: Date.now()
+        };
+        
+        this.respond(message, publishData);
+    }
+    
+    handleSystemReady(message) {
+        console.log('[DesignTokensPanel] System ready:', message);
+        // Panel is ready, update status
+        this.updateThemeStatus();
+    }
+    
+    // ===== ENHANCED THEME METHODS =====
+    
+    notifyThemeChange(themeData) {
+        this.emit(PanelEvents.THEME_CHANGED, {
+            themeDir: themeData.themeDir,
+            themeMode: themeData.themeMode,
+            source: PANEL_ID,
+            requiresPreviewRefresh: true
+        });
+    }
+    
+    notifyThemeModeSwitch(newMode) {
+        this.emit(PanelEvents.THEME_MODE_SWITCHED, {
+            newMode,
+            previousMode: this.getCurrentThemeMode(),
+            source: PANEL_ID
+        });
+    }
+    
+    async requestCrossValidation() {
+        try {
+            const results = await panelEventBus.validateAcrossPanels('theme', {
+                themeDir: this.getCurrentThemeDir(),
+                themeMode: this.getCurrentThemeMode()
+            });
+            
+            console.log('[DesignTokensPanel] Cross-validation results:', results);
+            return results;
+        } catch (error) {
+            console.error('[DesignTokensPanel] Cross-validation failed:', error);
+            return { overall: false, errors: [error.message] };
+        }
+    }
+    
+    // ===== UTILITY METHODS =====
+    
+    getCurrentThemeDir() {
+        const settings = appStore.getState().settings || {};
+        return settings.pageTheme?.themeDir || '';
+    }
+    
+    getCurrentThemeMode() {
+        const settings = appStore.getState().settings || {};
+        return settings.pageTheme?.themeMode || 'light';
+    }
+    
+    getMobileBreakpoint() {
+        const input = this.container.querySelector('#mobile-breakpoint');
+        return input ? parseInt(input.value) || 1024 : 1024;
+    }
+    
+    extractCurrentTokens() {
+        // Extract current design tokens from the theme editor
+        const tokens = {};
+        
+        // Typography tokens
+        const headingFont = this.container.querySelector('#heading-font')?.value;
+        const bodyFont = this.container.querySelector('#body-font')?.value;
+        const h1Size = this.container.querySelector('#h1-size')?.value;
+        const bodySize = this.container.querySelector('#body-size')?.value;
+        
+        if (headingFont) tokens['--font-family-heading'] = headingFont;
+        if (bodyFont) tokens['--font-family-body'] = bodyFont;
+        if (h1Size) tokens['--font-size-h1'] = `${h1Size}px`;
+        if (bodySize) tokens['--font-size-body'] = `${bodySize}px`;
+        
+        // Color tokens
+        const primaryColor = this.container.querySelector('#primary-color')?.value;
+        const bgLight = this.container.querySelector('#bg-light')?.value;
+        const bgDark = this.container.querySelector('#bg-dark')?.value;
+        const textLight = this.container.querySelector('#text-light')?.value;
+        const textDark = this.container.querySelector('#text-dark')?.value;
+        
+        if (primaryColor) tokens['--color-primary'] = primaryColor;
+        if (bgLight) tokens['--color-background-light'] = bgLight;
+        if (bgDark) tokens['--color-background-dark'] = bgDark;
+        if (textLight) tokens['--color-text-light'] = textLight;
+        if (textDark) tokens['--color-text-dark'] = textDark;
+        
+        return tokens;
     }
 
     toggleThemeEditor() {
@@ -677,11 +931,13 @@ p, body { font-size: var(--font-size-body); font-weight: var(--font-weight-body)
     }
 }
 
-panelRegistry.register({
-    id: PANEL_ID,
-    title: 'Page Design Tokens',
-    component: DesignTokensPanel,
-    isCollapsed: true,
-});
+// DISABLED - Replaced by CssDesignPanel.js
+// panelRegistry.register({
+//     id: PANEL_ID,
+//     title: 'Page Design Tokens',
+//     component: DesignTokensPanel,
+//     order: 5, // After Theme & Design panel
+//     defaultCollapsed: true,
+// });
 
 export { DesignTokensPanel }; 

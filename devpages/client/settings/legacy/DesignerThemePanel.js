@@ -543,11 +543,11 @@ export class DesignerThemePanel {
     }
 }
 
-// Register this panel with the registry
-panelRegistry.register({
-    id: 'designer-theme-container',
-    title: 'Designer Theme',
-    component: DesignerThemePanel,
-    order: 5,
-    defaultCollapsed: false
-}); 
+// DISABLED - Replaced by ThemeDesignPanel.js
+// panelRegistry.register({
+//     id: 'theme-design-container',
+//     title: 'Theme & Design',
+//     component: DesignerThemePanel,
+//     order: 4, // Move up in order, before other theme panels
+//     defaultCollapsed: false
+// }); 

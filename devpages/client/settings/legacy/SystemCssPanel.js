@@ -188,6 +188,7 @@ export class SystemCssPanel {
             const typeClass = stylesheet.isSystem ? 'system' : stylesheet.isPage ? 'page' : 'other';
             
             const stylesheetPath = this.getStylesheetPath(stylesheet);
+            const isEnabled = stylesheet.enabled !== false; // Default to enabled if not specified
             item.innerHTML = `
                 <div class="stylesheet-info">
                     <div class="stylesheet-type ${typeClass}">${this.getStylesheetTypeLabel(stylesheet)}</div>
@@ -195,20 +196,33 @@ export class SystemCssPanel {
                     <div class="stylesheet-size">${this.getStylesheetSize(stylesheet)}</div>
                 </div>
                 <div class="stylesheet-actions">
+                    <label class="settings-toggle stylesheet-toggle" title="Enable/disable this stylesheet">
+                        <input type="checkbox" class="settings-toggle-input" ${isEnabled ? 'checked' : ''} data-index="${index}">
+                        <span class="settings-toggle-slider"></span>
+                    </label>
                     <button class="stylesheet-action" data-action="view" data-index="${index}" title="View stylesheet content">View</button>
                     <button class="stylesheet-action" data-action="edit" data-index="${index}" title="Edit stylesheet content">Edit</button>
                 </div>
             `;
             
-            // Add event listeners for the action buttons
+            // Add event listeners for the action buttons and toggle
             const viewBtn = item.querySelector('[data-action="view"]');
             const editBtn = item.querySelector('[data-action="edit"]');
+            const toggleInput = item.querySelector('.settings-toggle-input');
             
             if (viewBtn) {
                 viewBtn.addEventListener('click', () => this.viewStylesheet(index));
             }
             if (editBtn) {
                 editBtn.addEventListener('click', () => this.editStylesheet(index));
+            }
+            if (toggleInput) {
+                toggleInput.addEventListener('change', (e) => this.toggleStylesheet(index, e.target.checked));
+            }
+            
+            // Apply disabled styling if stylesheet is disabled
+            if (!isEnabled) {
+                item.classList.add('stylesheet-disabled');
             }
             
             listContainer.appendChild(item);
@@ -235,6 +249,43 @@ export class SystemCssPanel {
             return `${stylesheet.content.length} chars`;
         }
         return 'External';
+    }
+
+    toggleStylesheet(index, enabled) {
+        const stylesheet = this.stylesheets[index];
+        if (!stylesheet) {
+            logSystemCss(`Stylesheet at index ${index} not found`, 'error');
+            return;
+        }
+
+        logSystemCss(`Toggling stylesheet ${this.getStylesheetPath(stylesheet)} to ${enabled ? 'enabled' : 'disabled'}`);
+        
+        // Update the stylesheet's enabled state
+        stylesheet.enabled = enabled;
+        
+        // Apply or remove the stylesheet from the DOM
+        if (stylesheet.element) {
+            if (enabled) {
+                // Re-enable the stylesheet
+                if (stylesheet.element.tagName === 'LINK') {
+                    stylesheet.element.disabled = false;
+                } else if (stylesheet.element.tagName === 'STYLE') {
+                    stylesheet.element.style.display = '';
+                }
+                logSystemCss(`Enabled stylesheet: ${this.getStylesheetPath(stylesheet)}`);
+            } else {
+                // Disable the stylesheet
+                if (stylesheet.element.tagName === 'LINK') {
+                    stylesheet.element.disabled = true;
+                } else if (stylesheet.element.tagName === 'STYLE') {
+                    stylesheet.element.style.display = 'none';
+                }
+                logSystemCss(`Disabled stylesheet: ${this.getStylesheetPath(stylesheet)}`);
+            }
+        }
+        
+        // Update the display to reflect the change
+        this.updateDisplay();
     }
 
     viewStylesheet(index) {

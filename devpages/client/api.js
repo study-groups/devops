@@ -32,6 +32,46 @@ const endpoints = {
 // Global fetch wrapper (will be set to window.fetch initially)
 let globalFetch = window.fetch;
 
+// Token storage
+let apiToken = null;
+
+/**
+ * Set API token for authenticated requests
+ * @param {string} token - The API token
+ */
+function setApiToken(token) {
+    apiToken = token;
+    logApi(`API token set: ${token ? token.substring(0, 8) + '...' : 'null'}`, 'debug');
+}
+
+/**
+ * Get current API token
+ * @returns {string|null} Current API token
+ */
+function getApiToken() {
+    return apiToken;
+}
+
+/**
+ * Enhanced fetch wrapper that adds authentication headers
+ * @param {string} url - Request URL
+ * @param {object} options - Fetch options
+ * @returns {Promise<Response>} Fetch response
+ */
+async function authenticatedFetch(url, options = {}) {
+    const headers = { ...options.headers };
+    
+    // Add Bearer token if available
+    if (apiToken) {
+        headers['Authorization'] = `Bearer ${apiToken}`;
+    }
+    
+    return globalFetch(url, {
+        ...options,
+        headers
+    });
+}
+
 // Main API object
 const api = {
     // Internal method to update fetch behavior
@@ -67,7 +107,7 @@ const api = {
         logApi(`Fetching file content: ${url}`, 'debug');
         
         try {
-            const response = await globalFetch(url);
+            const response = await authenticatedFetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -103,7 +143,7 @@ const api = {
         logApi(`Fetching directory listing: ${url}`, 'debug');
         
         try {
-            const response = await globalFetch(url);
+            const response = await authenticatedFetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -134,7 +174,7 @@ const api = {
         }
         
         try {
-            const response = await globalFetch(endpoints.saveFile(), {
+            const response = await authenticatedFetch(endpoints.saveFile(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -292,6 +332,108 @@ const api = {
             throw error;
         }
     },
+
+    /**
+     * Generate an API token for the current user
+     * @param {number} expiryHours - Token expiry in hours (default: 24)
+     * @param {string} description - Token description
+     * @returns {Promise<object>} Token data
+     */
+    async generateToken(expiryHours = 24, description = 'API Access Token') {
+        logApi(`Generating API token with ${expiryHours}h expiry`, 'info');
+        try {
+            const response = await authenticatedFetch('/api/auth/token/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expiryHours, description })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Token generation failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            logApi(`Token generated successfully: ${data.token.substring(0, 8)}...`, 'info');
+            
+            // Automatically set the token for future requests
+            setApiToken(data.token);
+            
+            return data;
+        } catch (error) {
+            errorLogger(`Token generation failed: ${error.message}`, error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get all active tokens for the current user
+     * @returns {Promise<object>} Token list
+     */
+    async getTokens() {
+        logApi('Fetching user tokens', 'debug');
+        try {
+            const response = await authenticatedFetch('/api/auth/tokens');
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to fetch tokens: ${response.status}`);
+            }
+
+            const data = await response.json();
+            logApi(`Retrieved ${data.count} tokens`, 'debug');
+            return data;
+        } catch (error) {
+            errorLogger(`Failed to fetch tokens: ${error.message}`, error);
+            throw error;
+        }
+    },
+
+    /**
+     * Revoke an API token
+     * @param {string} token - The token to revoke
+     * @returns {Promise<object>} Revocation result
+     */
+    async revokeToken(token) {
+        logApi(`Revoking token: ${token.substring(0, 8)}...`, 'info');
+        try {
+            const response = await authenticatedFetch('/api/auth/token/revoke', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Token revocation failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            logApi('Token revoked successfully', 'info');
+            
+            // Clear the token if it's the current one
+            if (apiToken === token) {
+                setApiToken(null);
+            }
+            
+            return data;
+        } catch (error) {
+            errorLogger(`Token revocation failed: ${error.message}`, error);
+            throw error;
+        }
+    },
+
+    /**
+     * Set API token for authenticated requests
+     * @param {string} token - The API token
+     */
+    setToken: setApiToken,
+
+    /**
+     * Get current API token
+     * @returns {string|null} Current API token
+     */
+    getToken: getApiToken,
    
     /**
      * Sends logout request to the server.

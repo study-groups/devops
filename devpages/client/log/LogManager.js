@@ -7,7 +7,7 @@ import { LogEntry } from './LogEntry.js';
 import { LogFilter } from './LogFilter.js';
 import { LogBuffer } from './LogBuffer.js';
 import { CallerInfo } from './CallerInfo.js';
-import FilterManager from '../settings/FilterManager.js';
+import FilterManager from '../settings/utils/FilterManager.js';
 
 /**
  * Core log management class that orchestrates the logging system

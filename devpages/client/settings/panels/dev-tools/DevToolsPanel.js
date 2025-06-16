@@ -3,7 +3,7 @@
  * Development tools panel for cache management and debugging
  */
 
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 import { clearCssCache } from '/client/utils/CssManager.js';
 import { logMessage } from '/client/log/index.js';
 

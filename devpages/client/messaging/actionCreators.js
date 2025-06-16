@@ -122,6 +122,19 @@ export const settingsActions = {
   setPreviewCssFiles: (files) => ({
     type: ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES,
     payload: files
+  }),
+  // Design Tokens Theme Actions
+  setActiveDesignTheme: (themeName) => ({
+    type: ActionTypes.SETTINGS_SET_ACTIVE_DESIGN_THEME,
+    payload: themeName
+  }),
+  setDesignThemeVariant: (variant) => ({
+    type: ActionTypes.SETTINGS_SET_DESIGN_THEME_VARIANT,
+    payload: variant
+  }),
+  setDesignTokensDirectory: (directory) => ({
+    type: ActionTypes.SETTINGS_SET_DESIGN_TOKENS_DIR,
+    payload: directory
   })
 };
 

@@ -7,7 +7,7 @@ import { ConsoleLogEntry } from './ConsoleLogEntry.js';
 import { ConsoleLogFilter } from './ConsoleLogFilter.js';
 import { ConsoleLogBuffer } from './ConsoleLogBuffer.js';
 import { ConsoleCallerInfo } from './ConsoleCallerInfo.js';
-import FilterManager from '../settings/FilterManager.js';
+import FilterManager from '../settings/utils/FilterManager.js';
 
 /**
  * Core console log management class that orchestrates the console logging system

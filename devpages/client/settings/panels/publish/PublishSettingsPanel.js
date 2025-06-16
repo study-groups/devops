@@ -7,7 +7,7 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../../core/panelRegistry.js';
 
 export class PublishSettingsPanel {
   constructor(containerElement) {

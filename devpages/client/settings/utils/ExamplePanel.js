@@ -5,7 +5,7 @@
  * This is a working example you can copy and modify!
  */
 
-import { panelRegistry } from './panelRegistry.js';
+import { panelRegistry } from '../core/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 
 export class ExamplePanel {
@@ -137,12 +137,13 @@ export class ExamplePanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-  id: 'example-panel-container',
-  title: '🎯 Example Panel',
-  component: ExamplePanel,
-  order: 15, // Will appear between Theme (10) and Plugins (20)
-  defaultCollapsed: false // Start expanded so people can see it
-});
+// COMMENTED OUT - Example panel removed from settings
+// panelRegistry.register({
+//   id: 'example-panel-container',
+//   title: '🎯 Example Panel',
+//   component: ExamplePanel,
+//   order: 15, // Will appear between Theme (10) and Plugins (20)
+//   defaultCollapsed: false // Start expanded so people can see it
+// });
 
-console.log('📝 ExamplePanel registered! Import this file to see it in action.'); 
+// console.log('📝 ExamplePanel registered! Import this file to see it in action.'); 
