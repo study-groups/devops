@@ -5,6 +5,7 @@
  * - Proper security checks and path validation
  * - Caching headers for performance
  * - Support for both client and user CSS files
+ * - Theme hierarchy: $MD_DIR/themes/ > user styles > system styles
  * - Configurable prefixes for different deployment contexts
  */
 
@@ -59,27 +60,46 @@ function validateCssPath(cssPath) {
 
 /**
  * Determine CSS file type and resolution strategy
+ * Priority: themes > user styles > client styles
  */
 function classifyCssFile(cssPath) {
-    if (cssPath.startsWith('/client/')) {
+    // Theme files have highest priority - served from $MD_DIR/themes/
+    if (cssPath.startsWith('themes/')) {
+        return {
+            type: 'theme',
+            baseDir: 'data',
+            relativePath: cssPath,
+            priority: 1
+        };
+    }
+    
+    // Client/system files from project
+    if (cssPath.startsWith('/client/') || cssPath.startsWith('client/')) {
         return {
             type: 'client',
             baseDir: 'project',
-            relativePath: cssPath.substring(1) // Remove leading slash
+            relativePath: cssPath.startsWith('/') ? cssPath.substring(1) : cssPath,
+            priority: 3
         };
-    } else if (cssPath === 'styles.css' || cssPath.startsWith('styles/') || cssPath.startsWith('themes/')) {
+    }
+    
+    // User styles and other files
+    if (cssPath === 'styles.css' || cssPath.startsWith('styles/')) {
         return {
             type: 'user',
             baseDir: 'data',
-            relativePath: cssPath
-        };
-    } else {
-        return {
-            type: 'user',
-            baseDir: 'data', 
-            relativePath: cssPath
+            relativePath: cssPath,
+            priority: 2
         };
     }
+    
+    // Default: treat as user file
+    return {
+        type: 'user',
+        baseDir: 'data',
+        relativePath: cssPath,
+        priority: 2
+    };
 }
 
 /**
@@ -92,14 +112,20 @@ function resolveCssPath(cssPath, req) {
         case 'project':
             // Client files are relative to project root
             const projectRoot = process.cwd();
-            return path.resolve(projectRoot, classification.relativePath);
+            return {
+                absolutePath: path.resolve(projectRoot, classification.relativePath),
+                classification
+            };
             
         case 'data':
-            // User files are in PD_DIR/data
+            // User files and themes are in PD_DIR/data
             if (!req.pdata?.dataRoot) {
                 throw new Error('Data root not available');
             }
-            return path.resolve(req.pdata.dataRoot, 'data', classification.relativePath);
+            return {
+                absolutePath: path.resolve(req.pdata.dataRoot, 'data', classification.relativePath),
+                classification
+            };
             
         default:
             throw new Error(`Unknown CSS base directory: ${classification.baseDir}`);
@@ -109,12 +135,17 @@ function resolveCssPath(cssPath, req) {
 /**
  * Check if user has permission to access CSS file
  */
-function checkCssPermission(absolutePath, req) {
+function checkCssPermission(absolutePath, classification, req) {
     const currentUser = req.user?.username || '__public__';
     
-    // For client files, allow access to authenticated users
-    if (absolutePath.includes('/client/')) {
+    // For client/system files, allow access to authenticated users
+    if (classification.type === 'client') {
         return req.isAuthenticated && req.isAuthenticated();
+    }
+    
+    // For theme files, allow read access (themes are generally public)
+    if (classification.type === 'theme') {
+        return true; // Themes should be publicly accessible
     }
     
     // For user files, check PData permissions
@@ -124,6 +155,31 @@ function checkCssPermission(absolutePath, req) {
     
     // Fallback: allow if authenticated
     return req.isAuthenticated && req.isAuthenticated();
+}
+
+/**
+ * Validate that resolved path is within allowed directories
+ */
+function validateResolvedPath(absolutePath, req) {
+    const projectRoot = process.cwd();
+    const dataRoot = req.pdata?.dataRoot;
+    
+    // Allow paths within data root (user files, themes)
+    if (dataRoot && absolutePath.startsWith(path.resolve(dataRoot))) {
+        return true;
+    }
+    
+    // Allow paths within client directory
+    if (absolutePath.startsWith(path.resolve(projectRoot, 'client'))) {
+        return true;
+    }
+    
+    // Allow system styles in styles directory
+    if (absolutePath.startsWith(path.resolve(projectRoot, 'styles'))) {
+        return true;
+    }
+    
+    return false;
 }
 
 /**
@@ -144,28 +200,18 @@ router.get('/:path(*)', async (req, res) => {
             return res.status(400).send(`Bad Request: ${validation.error}`);
         }
         
-        // Resolve absolute path
-        const absolutePath = resolveCssPath(validation.path, req);
-        console.log(`${logPrefix} Resolved path: ${absolutePath}`);
+        // Resolve absolute path and get classification
+        const { absolutePath, classification } = resolveCssPath(validation.path, req);
+        console.log(`${logPrefix} Resolved path: ${absolutePath} (type: ${classification.type}, priority: ${classification.priority})`);
         
         // Security check - ensure path is within allowed directories
-        const projectRoot = process.cwd();
-        const dataRoot = req.pdata?.dataRoot;
-        
-        let pathAllowed = false;
-        if (dataRoot && absolutePath.startsWith(path.resolve(dataRoot))) {
-            pathAllowed = true;
-        } else if (absolutePath.startsWith(path.resolve(projectRoot, 'client'))) {
-            pathAllowed = true;
-        }
-        
-        if (!pathAllowed) {
+        if (!validateResolvedPath(absolutePath, req)) {
             console.warn(`${logPrefix} Path outside allowed directories: ${absolutePath}`);
             return res.status(403).send('Forbidden: Path outside allowed directories');
         }
         
         // Check permissions
-        if (!checkCssPermission(absolutePath, req)) {
+        if (!checkCssPermission(absolutePath, classification, req)) {
             console.warn(`${logPrefix} Permission denied for user: ${req.user?.username || 'anonymous'}`);
             return res.status(401).send('Unauthorized: Insufficient permissions');
         }
@@ -198,10 +244,12 @@ router.get('/:path(*)', async (req, res) => {
             'Content-Type': 'text/css; charset=utf-8',
             'Cache-Control': CSS_CACHE_HEADERS['Cache-Control'],
             'ETag': etag,
-            'X-Content-Type-Options': 'nosniff'
+            'X-Content-Type-Options': 'nosniff',
+            'X-CSS-Type': classification.type,
+            'X-CSS-Priority': classification.priority.toString()
         });
         
-        console.log(`${logPrefix} Successfully served CSS: ${cssPath} (${cssContent.length} chars)`);
+        console.log(`${logPrefix} Successfully served CSS: ${cssPath} (${cssContent.length} chars, type: ${classification.type})`);
         res.send(cssContent);
         
     } catch (error) {
@@ -213,6 +261,7 @@ router.get('/:path(*)', async (req, res) => {
 /**
  * CSS bundle route for multiple files
  * POST /css/bundle - Bundles multiple CSS files into one response
+ * Files are processed in priority order: themes (1) > user (2) > client (3)
  */
 router.post('/bundle', express.json(), async (req, res) => {
     const logPrefix = '[CSS Bundle]';
@@ -225,10 +274,10 @@ router.post('/bundle', express.json(), async (req, res) => {
     }
     
     try {
-        const bundledCss = [];
+        const fileData = [];
         const errors = [];
         
-        // Process each file
+        // Process and classify each file
         for (const cssPath of files) {
             try {
                 const validation = validateCssPath(cssPath);
@@ -237,24 +286,47 @@ router.post('/bundle', express.json(), async (req, res) => {
                     continue;
                 }
                 
-                const absolutePath = resolveCssPath(validation.path, req);
+                const { absolutePath, classification } = resolveCssPath(validation.path, req);
                 
                 // Check permissions
-                if (!checkCssPermission(absolutePath, req)) {
+                if (!checkCssPermission(absolutePath, classification, req)) {
                     errors.push({ file: cssPath, error: 'Permission denied' });
+                    continue;
+                }
+                
+                // Validate path
+                if (!validateResolvedPath(absolutePath, req)) {
+                    errors.push({ file: cssPath, error: 'Path not allowed' });
                     continue;
                 }
                 
                 // Read file
                 const cssContent = await fs.readFile(absolutePath, 'utf8');
-                bundledCss.push(`/* === BUNDLED CSS: ${cssPath} === */\n${cssContent}\n`);
+                fileData.push({
+                    path: cssPath,
+                    content: cssContent,
+                    classification,
+                    size: cssContent.length
+                });
                 
             } catch (error) {
                 console.error(`${logPrefix} Error processing ${cssPath}:`, error);
                 errors.push({ file: cssPath, error: error.message });
-                bundledCss.push(`/* === FAILED TO LOAD: ${cssPath} === */\n`);
             }
         }
+        
+        // Sort by priority (1 = highest priority, 3 = lowest)
+        fileData.sort((a, b) => a.classification.priority - b.classification.priority);
+        
+        // Build bundled CSS with priority order
+        const bundledCss = fileData.map(file => 
+            `/* === BUNDLED CSS (Priority ${file.classification.priority}): ${file.path} === */\n${file.content}\n`
+        );
+        
+        // Add error comments for failed files
+        errors.forEach(error => {
+            bundledCss.push(`/* === FAILED TO LOAD: ${error.file} - ${error.error} === */\n`);
+        });
         
         const finalCss = bundledCss.join('\n');
         
@@ -266,10 +338,12 @@ router.post('/bundle', express.json(), async (req, res) => {
         res.set({
             'Content-Type': 'text/css; charset=utf-8',
             'Cache-Control': bundleCacheControl,
-            'X-Content-Type-Options': 'nosniff'
+            'X-Content-Type-Options': 'nosniff',
+            'X-Bundle-Files': fileData.length.toString(),
+            'X-Bundle-Errors': errors.length.toString()
         });
         
-        console.log(`${logPrefix} Bundle complete: ${finalCss.length} chars, ${errors.length} errors`);
+        console.log(`${logPrefix} Bundle complete: ${finalCss.length} chars, ${fileData.length} files, ${errors.length} errors`);
         
         if (errors.length > 0) {
             console.warn(`${logPrefix} Bundle had errors:`, errors);

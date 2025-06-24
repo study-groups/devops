@@ -1,19 +1,36 @@
-// In server/routes/configRoutes.js (or similar)
+/**
+ * Configuration API Routes
+ * Provides configuration information to client
+ */
+
 import express from 'express';
-import { config } from '#server/config.js'; // Import the unified config object
-import pkg from './package.json' assert { type: 'json' }; // Import package.json for version
+import { env } from '../config.js';
 
 const router = express.Router();
 
+/**
+ * GET /api/config
+ * Returns server configuration
+ */
 router.get('/', (req, res) => {
-    // Only expose necessary and safe config values to the client
-    const clientSafeConfig = {
-        // Example: maybe the client needs to know the base for display?
-        // dataDirBaseName: path.basename(config.dataDir), // Or maybe just the PD_DIR name?
-        serverVersion: pkg.version || 'N/A',
-        // Add any other *non-sensitive* config the client absolutely needs
+  try {
+    const config = {
+      MD_DIR: env.MD_DIR,
+      PD_DIR: env.PD_DIR || process.env.PD_DIR,
+      NODE_ENV: env.NODE_ENV,
+      // Only expose safe configuration values
+      themesPath: `${env.MD_DIR}/themes`,
+      dataPath: env.MD_DIR
     };
-    res.json(clientSafeConfig);
+
+    res.json(config);
+  } catch (error) {
+    console.error('[CONFIG] Error getting configuration:', error);
+    res.status(500).json({ 
+      error: 'Failed to get configuration',
+      MD_DIR: './data' // fallback
+    });
+  }
 });
 
 export default router;

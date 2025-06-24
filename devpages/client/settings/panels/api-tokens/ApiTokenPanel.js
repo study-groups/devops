@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { api } from '/client/api.js';
 
 function logApiToken(message, level = 'info') {
@@ -124,29 +124,29 @@ export class ApiTokenPanel {
 
     attachEventListeners() {
         // Token generation
-        document.getElementById('generate-token-btn')?.addEventListener('click', () => {
+        this.containerElement.querySelector('#generate-token-btn')?.addEventListener('click', () => {
             this.generateToken();
         });
 
         // Copy token
-        document.getElementById('copy-token-btn')?.addEventListener('click', () => {
+        this.containerElement.querySelector('#copy-token-btn')?.addEventListener('click', () => {
             this.copyToken();
         });
 
         // Refresh tokens
-        document.getElementById('refresh-tokens-btn')?.addEventListener('click', () => {
+        this.containerElement.querySelector('#refresh-tokens-btn')?.addEventListener('click', () => {
             this.loadTokens();
         });
 
         // Test token
-        document.getElementById('test-token-btn')?.addEventListener('click', () => {
+        this.containerElement.querySelector('#test-token-btn')?.addEventListener('click', () => {
             this.testToken();
         });
     }
 
     async generateToken() {
-        const expiryHours = parseInt(document.getElementById('token-expiry').value);
-        const description = document.getElementById('token-description').value.trim() || 'API Access Token';
+        const expiryHours = parseInt(this.containerElement.querySelector('#token-expiry').value);
+        const description = this.containerElement.querySelector('#token-description').value.trim() || 'API Access Token';
 
         logApiToken(`Generating token with ${expiryHours}h expiry: ${description}`);
 
@@ -167,10 +167,10 @@ export class ApiTokenPanel {
     }
 
     displayNewToken(tokenData) {
-        const displaySection = document.getElementById('token-display-section');
-        const tokenInput = document.getElementById('generated-token');
-        const curlExample = document.getElementById('curl-example');
-        const jsExample = document.getElementById('js-example');
+        const displaySection = this.containerElement.querySelector('#token-display-section');
+        const tokenInput = this.containerElement.querySelector('#generated-token');
+        const curlExample = this.containerElement.querySelector('#curl-example');
+        const jsExample = this.containerElement.querySelector('#js-example');
 
         tokenInput.value = tokenData.token;
         
@@ -185,7 +185,7 @@ export class ApiTokenPanel {
     }
 
     async copyToken() {
-        const tokenInput = document.getElementById('generated-token');
+        const tokenInput = this.containerElement.querySelector('#generated-token');
         try {
             await navigator.clipboard.writeText(tokenInput.value);
             this.showTemporaryMessage('Token copied to clipboard!', 'success');
@@ -198,7 +198,7 @@ export class ApiTokenPanel {
     }
 
     async loadTokens() {
-        const tokensList = document.getElementById('tokens-list');
+        const tokensList = this.containerElement.querySelector('#tokens-list');
         tokensList.innerHTML = '<div class="loading-tokens">Loading tokens...</div>';
 
         try {
@@ -212,7 +212,7 @@ export class ApiTokenPanel {
     }
 
     displayTokens() {
-        const tokensList = document.getElementById('tokens-list');
+        const tokensList = this.containerElement.querySelector('#tokens-list');
         
         if (this.tokens.length === 0) {
             tokensList.innerHTML = '<div class="no-tokens">No active tokens found.</div>';
@@ -234,14 +234,20 @@ export class ApiTokenPanel {
                         </div>
                     </div>
                     <div class="token-actions">
-                        <button class="revoke-btn" onclick="window.apiTokenPanel?.revokeToken('${token.tokenPreview}')" 
-                                title="Revoke this token">Revoke</button>
+                        <button class="revoke-btn" data-token-preview="${token.tokenPreview}" title="Revoke this token">Revoke</button>
                     </div>
                 </div>
             `;
         }).join('');
 
         tokensList.innerHTML = tokensHtml;
+        // Attach revoke event listeners
+        tokensList.querySelectorAll('.revoke-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const preview = btn.getAttribute('data-token-preview');
+                this.revokeToken(preview);
+            });
+        });
     }
 
     async revokeToken(tokenPreview) {
@@ -263,8 +269,8 @@ export class ApiTokenPanel {
     }
 
     async testToken() {
-        const endpoint = document.getElementById('test-endpoint').value;
-        const resultsDiv = document.getElementById('test-results');
+        const endpoint = this.containerElement.querySelector('#test-endpoint').value;
+        const resultsDiv = this.containerElement.querySelector('#test-results');
         
         resultsDiv.innerHTML = '<div class="testing">Testing token...</div>';
 
@@ -312,7 +318,7 @@ export class ApiTokenPanel {
 
     showTemporaryMessage(message, type = 'info') {
         // Remove any existing message
-        const existingMessage = document.querySelector('.temp-message');
+        const existingMessage = this.containerElement.querySelector('.temp-message');
         if (existingMessage) {
             existingMessage.remove();
         }
@@ -335,7 +341,7 @@ export class ApiTokenPanel {
             animation: slideInRight 0.3s ease-out;
         `;
 
-        document.body.appendChild(messageEl);
+        this.containerElement.appendChild(messageEl);
 
         // Remove after 3 seconds
         setTimeout(() => {
@@ -388,21 +394,9 @@ export class ApiTokenPanel {
 let globalInstance = null;
 
 // Register this panel with the registry
-panelRegistry.register({
-    id: 'api-token-container',
+settingsSectionRegistry.register({
+    id: 'api-token-panel',
     title: 'API Tokens',
-    component: class extends ApiTokenPanel {
-        constructor(parentElement) {
-            super(parentElement);
-            globalInstance = this;
-            window.apiTokenPanel = this;
-        }
-        
-        destroy() {
-            super.destroy();
-            globalInstance = null;
-        }
-    },
-    order: 25,
-    defaultCollapsed: true
+    component: ApiTokenPanel,
+    defaultCollapsed: true,
 }); 

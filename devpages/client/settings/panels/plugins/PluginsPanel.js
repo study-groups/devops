@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Import ActionTypes
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
 function logPlugins(message, level = 'info') {
   const type = 'PLUGINS_PANEL';
@@ -216,10 +216,9 @@ export class PluginsPanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-  id: 'plugins-settings-container',
+settingsSectionRegistry.register({
+  id: 'plugins-panel',
   title: 'Plugins',
   component: PluginsPanel,
-  order: 20,
-  defaultCollapsed: true
+  defaultCollapsed: true,
 });

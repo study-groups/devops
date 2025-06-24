@@ -510,4 +510,10 @@ export class PanelManager {
 export const panelManager = new PanelManager();
 
 // Make globally accessible
-window.panelManager = panelManager; 
+// Register with consolidation system
+if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+    window.devpages._internal.consolidator.migrate('panelManager', panelManager);
+} else {
+    // Fallback for legacy support
+    window.panelManager = panelManager;
+} 

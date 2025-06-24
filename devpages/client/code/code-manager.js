@@ -412,4 +412,10 @@ class CodeManager {
 }
 
 // Initialize and export
-window.CodeManager = CodeManager; 
+// Register with consolidation system
+if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+    window.devpages._internal.consolidator.migrate('CodeManager', CodeManager);
+} else {
+    // Fallback for legacy support
+    window.CodeManager = CodeManager;
+} 

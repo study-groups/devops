@@ -62,7 +62,7 @@ export function initKeyboardShortcuts() {
             const altMatch = mapping.alt === event.altKey;
 
             // Check key (case-insensitive for letters unless specified)
-            const keyMatch = mapping.key.toUpperCase() === event.key.toUpperCase();
+            const keyMatch = mapping.key.toUpperCase() === (event.key || '').toUpperCase();
 
             // --- Detailed Log Inside Loop (for A/B) --- 
             if (mapping.key === 'A' || mapping.key === 'B') {
@@ -100,12 +100,67 @@ export function initKeyboardShortcuts() {
     document.addEventListener('keydown', function(event) {
         if (event.key === 'S' && event.ctrlKey && event.shiftKey && !event.altKey) {
             event.preventDefault();
+            console.log('[Keyboard DEBUG] Ctrl+Shift+S pressed. window.devPages:', window.devPages);
+            console.log('[Keyboard DEBUG] window.devPages exists:', !!window.devPages);
+            console.log('[Keyboard DEBUG] window.devPages.settingsPanel exists:', !!(window.devPages && window.devPages.settingsPanel));
+            console.log('[Keyboard DEBUG] toggleVisibility method exists:', !!(window.devPages && window.devPages.settingsPanel && typeof window.devPages.settingsPanel.toggleVisibility === 'function'));
             
-            if (window.settingsPanel) {
-                window.settingsPanel.toggleVisibility();
+            if (window.devPages && window.devPages.settingsPanel) {
+                console.log('[Keyboard DEBUG] Toggling settings panel visibility.');
+                try {
+                    window.devPages.settingsPanel.toggleVisibility();
+                    console.log('[Keyboard DEBUG] toggleVisibility() called successfully.');
+                } catch (error) {
+                    console.error('[Keyboard DEBUG] Error calling toggleVisibility():', error);
+                }
+            } else {
+                console.warn('[Keyboard DEBUG] window.devPages.settingsPanel not found!');
+                console.log('[Keyboard DEBUG] Available window properties:', Object.keys(window).filter(key => key.includes('dev') || key.includes('settings')));
             }
         }
     });
     
     logMessage('[Keyboard] Keyboard shortcuts initialized', 'info');
+    
+    // Add a global debug function for testing settings panel
+    window.testSettingsPanel = function() {
+        console.log('[TEST] Testing settings panel...');
+        console.log('[TEST] window.devPages exists:', !!window.devPages);
+        console.log('[TEST] window.devPages.settingsPanel exists:', !!(window.devPages && window.devPages.settingsPanel));
+        console.log('[TEST] toggleVisibility method exists:', !!(window.devPages && window.devPages.settingsPanel && typeof window.devPages.settingsPanel.toggleVisibility === 'function'));
+        
+        if (window.devPages && window.devPages.settingsPanel) {
+            try {
+                console.log('[TEST] Calling toggleVisibility()...');
+                const result = window.devPages.settingsPanel.toggleVisibility();
+                console.log('[TEST] toggleVisibility() returned:', result);
+                return result;
+            } catch (error) {
+                console.error('[TEST] Error calling toggleVisibility():', error);
+                return false;
+            }
+        } else {
+            console.warn('[TEST] Settings panel not available!');
+            return false;
+        }
+    };
+    
+    console.log('[Keyboard DEBUG] Global testSettingsPanel() function added. Call testSettingsPanel() to test manually.');
+    
+    // Add a function to manually initialize settings panel for debugging
+    window.debugInitSettings = async function() {
+        console.log('[DEBUG] Manually initializing settings panel...');
+        try {
+            const { initializeSettingsPanel } = await import('/client/settings/core/settingsInitializer.js');
+            const result = initializeSettingsPanel();
+            console.log('[DEBUG] Settings panel initialization result:', result);
+            console.log('[DEBUG] window.devPages after init:', window.devPages);
+            return result;
+        } catch (error) {
+            console.error('[DEBUG] Error initializing settings panel:', error);
+            return null;
+        }
+    };
+    
+    console.log('[Keyboard DEBUG] Global debugInitSettings() function added. Call debugInitSettings() to manually initialize.');
 } 

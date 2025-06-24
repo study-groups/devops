@@ -37,6 +37,7 @@ function loadPersistedSettings() {
         designTokens: {
             activeTheme: 'corporate-blue',
             themeVariant: 'light', // 'light' or 'dark'
+            spacingVariant: 'normal', // 'tight', 'normal', or 'comfortable'
             tokensDirectory: '/root/pj/md/themes'
         }
     };
@@ -108,6 +109,11 @@ function loadPersistedSettings() {
         const savedThemeVariant = localStorage.getItem(DESIGN_TOKENS_THEME_VARIANT_KEY);
         if (savedThemeVariant && ['light', 'dark'].includes(savedThemeVariant)) {
             defaults.designTokens.themeVariant = savedThemeVariant;
+        }
+
+        const savedSpacingVariant = localStorage.getItem('devpages_spacing_variant');
+        if (savedSpacingVariant && ['tight', 'normal', 'comfortable'].includes(savedSpacingVariant)) {
+            defaults.designTokens.spacingVariant = savedSpacingVariant;
         }
 
         const savedTokensDir = localStorage.getItem(DESIGN_TOKENS_DIR_KEY);
@@ -409,6 +415,27 @@ export function settingsReducer(state = initialState, action) {
                     }));
                 } catch (e) {
                     console.error('[Reducer] Failed to save design theme variant:', e);
+                }
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_SPACING_VARIANT:
+            if (typeof payload === 'string' && ['tight', 'normal', 'comfortable'].includes(payload)) {
+                nextDesignTokensState = { ...currentDesignTokensState, spacingVariant: payload };
+                updated = true;
+                try {
+                    localStorage.setItem('devpages_spacing_variant', payload);
+                    console.debug(`[Reducer] Set spacing variant to: ${payload}`);
+                    
+                    // Apply spacing to document
+                    document.documentElement.setAttribute('data-spacing', payload);
+                    
+                    // Emit spacing change event
+                    window.dispatchEvent(new CustomEvent('spacingChanged', {
+                        detail: { spacing: payload }
+                    }));
+                } catch (e) {
+                    console.error('[Reducer] Failed to save spacing variant:', e);
                 }
             }
             break;

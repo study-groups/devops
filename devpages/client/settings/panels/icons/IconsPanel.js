@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
 function logIcons(message, level = 'info') {
     const type = 'ICONS_PANEL';
@@ -24,7 +24,7 @@ export class IconsPanel {
         this.customIcons = new Map();
         this.iconTokens = {};
         
-        // Default icon sets
+        // Default icon sets - professional symbols only
         this.defaultIconSets = {
             'system': {
                 name: 'System Icons',
@@ -34,46 +34,46 @@ export class IconsPanel {
                     'chevron-down': '▼',
                     'chevron-left': '◀',
                     'chevron-up': '▲',
-                    'close': '✕',
+                    'close': '×',
                     'check': '✓',
-                    'warning': '⚠',
-                    'error': '✗',
-                    'info': 'ℹ',
+                    'warning': '!',
+                    'error': '×',
+                    'info': 'i',
                     'success': '✓',
-                    'loading': '⟳',
-                    'search': '🔍',
+                    'loading': '↻',
+                    'search': '⌕',
                     'settings': '⚙',
-                    'menu': '☰',
-                    'home': '🏠',
-                    'folder': '📁',
-                    'file': '📄',
-                    'edit': '✏',
-                    'delete': '🗑',
+                    'menu': '≡',
+                    'home': '⌂',
+                    'folder': '▣',
+                    'file': '▤',
+                    'edit': '✎',
+                    'delete': '×',
                     'add': '+',
                     'remove': '−',
-                    'copy': '📋',
-                    'download': '⬇',
-                    'upload': '⬆',
+                    'copy': '⧉',
+                    'download': '↓',
+                    'upload': '↑',
                     'refresh': '↻',
                     'external-link': '↗',
-                    'link': '🔗'
+                    'link': '⧉'
                 }
             },
             'ui': {
                 name: 'UI Elements',
                 description: 'User interface element icons',
                 icons: {
-                    'button': '⬜',
+                    'button': '▢',
                     'input': '▭',
                     'checkbox': '☐',
                     'checkbox-checked': '☑',
                     'radio': '○',
                     'radio-selected': '●',
                     'dropdown': '▼',
-                    'tab': '📑',
-                    'modal': '🗖',
-                    'tooltip': '💬',
-                    'notification': '🔔',
+                    'tab': '▤',
+                    'modal': '▢',
+                    'tooltip': '◯',
+                    'notification': '○',
                     'badge': '●',
                     'progress': '▬',
                     'slider': '━',
@@ -85,25 +85,25 @@ export class IconsPanel {
                 name: 'Content Icons',
                 description: 'Content and document related icons',
                 icons: {
-                    'text': '📝',
-                    'heading': '𝐇',
+                    'text': '▤',
+                    'heading': 'H',
                     'paragraph': '¶',
                     'list': '≡',
-                    'list-ordered': '1.',
+                    'list-ordered': '#',
                     'quote': '"',
                     'code': '<>',
-                    'image': '🖼',
-                    'video': '🎥',
-                    'audio': '🔊',
+                    'image': '▦',
+                    'video': '▶',
+                    'audio': '♪',
                     'table': '⊞',
-                    'calendar': '📅',
-                    'clock': '🕐',
-                    'tag': '🏷',
-                    'bookmark': '🔖',
-                    'star': '⭐',
-                    'heart': '♥',
-                    'thumbs-up': '👍',
-                    'thumbs-down': '👎'
+                    'calendar': '▣',
+                    'clock': '○',
+                    'tag': '▣',
+                    'bookmark': '▤',
+                    'star': '★',
+                    'heart': '♡',
+                    'thumbs-up': '▲',
+                    'thumbs-down': '▼'
                 }
             },
             'status': {
@@ -118,12 +118,12 @@ export class IconsPanel {
                     'inactive': '○',
                     'enabled': '●',
                     'disabled': '○',
-                    'visible': '👁',
-                    'hidden': '🙈',
-                    'locked': '🔒',
-                    'unlocked': '🔓',
-                    'secure': '🛡',
-                    'insecure': '⚠',
+                    'visible': '○',
+                    'hidden': '×',
+                    'locked': '▣',
+                    'unlocked': '▢',
+                    'secure': '▣',
+                    'insecure': '!',
                     'verified': '✓',
                     'unverified': '?'
                 }
@@ -132,11 +132,26 @@ export class IconsPanel {
         
         this.loadCSS();
         this.createPanelContent(parentElement);
+
+        // Defer listener attachment and initialization
+        Promise.resolve().then(() => {
+            this.attachEventListeners();
+            this.initializeIconSets();
+        });
+
         this.subscribeToState();
-        this.initializeIconSets();
         
-        // Make panel globally accessible for icon selection
-        window.iconsPanel = this;
+        // Register with the new devpages structure
+        if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+            window.devpages._internal.consolidator.migrate('iconsPanel', this);
+            window.devpages._internal.consolidator.migrate('iconUtils', window.iconUtils);
+        } else {
+            // Fallback for legacy support
+            window.iconsPanel = this;
+        }
+        
+        // Enforce custom icon usage
+        this.enforceCustomIcons();
         
         logIcons('IconsPanel initialized');
     }
@@ -239,60 +254,49 @@ export class IconsPanel {
                 </div>
             </div>
         `;
-
-        this.attachEventListeners();
-        this.renderIconGrid();
-        this.updateTokenPreview();
     }
 
     attachEventListeners() {
+        const query = (selector) => this.containerElement.querySelector(selector);
+
         // Icon set controls
-        document.getElementById('active-icon-set')?.addEventListener('change', (e) => {
-            this.setActiveIconSet(e.target.value);
-        });
-
-        document.getElementById('create-icon-set')?.addEventListener('click', () => {
-            this.createIconSet();
-        });
-
-        document.getElementById('import-icon-set')?.addEventListener('click', () => {
-            this.importIconSet();
-        });
-
-        document.getElementById('export-icon-tokens')?.addEventListener('click', () => {
-            this.exportIconTokens();
-        });
+        query('#active-icon-set')?.addEventListener('change', (e) => this.setActiveIconSet(e.target.value));
+        query('#create-icon-set')?.addEventListener('click', () => this.createIconSet());
+        query('#import-icon-set')?.addEventListener('click', () => this.importIconSet());
+        query('#export-icon-tokens')?.addEventListener('click', () => this.exportIconTokens());
 
         // Icon browser controls
-        document.getElementById('icon-search')?.addEventListener('input', (e) => {
-            this.filterIcons(e.target.value);
+        query('#icon-search')?.addEventListener('input', (e) => this.filterIcons(e.target.value));
+        query('#show-icon-names')?.addEventListener('change', () => this.renderIconGrid());
+        query('#show-icon-codes')?.addEventListener('change', () => this.renderIconGrid());
+
+        // Icon grid interaction (delegated)
+        query('#icon-grid')?.addEventListener('click', (e) => {
+            const iconElement = e.target.closest('.icon-item');
+            if (iconElement) {
+                const name = iconElement.dataset.name;
+                const symbol = iconElement.dataset.symbol;
+                if (e.ctrlKey || e.metaKey) {
+                    this.useIcon(name, symbol);
+                } else {
+                    this.copyIcon(name, symbol);
+                }
+            }
         });
 
-        document.getElementById('show-icon-names')?.addEventListener('change', () => {
-            this.renderIconGrid();
+        // Custom icon controls
+        query('#add-custom-icon')?.addEventListener('click', () => this.addCustomIcon());
+        query('#custom-icon-list')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-custom-icon')) {
+                const iconName = e.target.dataset.name;
+                this.removeCustomIcon(iconName);
+            }
         });
 
-        document.getElementById('show-icon-codes')?.addEventListener('change', () => {
-            this.renderIconGrid();
-        });
-
-        // Icon tokens controls
-        document.getElementById('icon-size-base')?.addEventListener('input', (e) => {
-            this.updateIconToken('size-base', e.target.value);
-        });
-
-        document.getElementById('icon-color-primary')?.addEventListener('input', (e) => {
-            this.updateIconToken('color-primary', e.target.value);
-        });
-
-        document.getElementById('icon-color-secondary')?.addEventListener('input', (e) => {
-            this.updateIconToken('color-secondary', e.target.value);
-        });
-
-        // Custom icons controls
-        document.getElementById('add-custom-icon')?.addEventListener('click', () => {
-            this.addCustomIcon();
-        });
+        // Icon token configuration
+        query('#icon-size-base')?.addEventListener('change', () => this.updateTokenPreview());
+        query('#icon-color-primary')?.addEventListener('change', () => this.updateTokenPreview());
+        query('#icon-color-secondary')?.addEventListener('change', () => this.updateTokenPreview());
     }
 
     initializeIconSets() {
@@ -504,7 +508,7 @@ export class IconsPanel {
                         <span class="example-label">Primary (${tokens['size-base']})</span>
                     </div>
                     <div class="token-example">
-                        <span class="example-icon" style="font-size: ${tokens['size-base']}; color: ${tokens['color-secondary']};">ℹ</span>
+                        <span class="example-icon" style="font-size: ${tokens['size-base']}; color: ${tokens['color-secondary']};">i</span>
                         <span class="example-label">Secondary</span>
                     </div>
                 </div>
@@ -777,16 +781,241 @@ export class IconsPanel {
         }
     }
 
+    /**
+     * Enforce custom icon usage throughout the application
+     */
+    enforceCustomIcons() {
+        // Replace hardcoded emoji icons with custom icon tokens
+        this.scanAndReplaceHardcodedIcons();
+        
+        // Set up mutation observer to catch new hardcoded icons
+        this.setupIconEnforcement();
+        
+        logIcons('Icon enforcement enabled');
+    }
+
+    /**
+     * Scan document for hardcoded emoji icons and replace with tokens
+     */
+    scanAndReplaceHardcodedIcons() {
+        const hardcodedIcons = [
+            '🏠', '📁', '📄', '⚙️', '🔍', '🗑️', '✏️', '📋', 
+            '🎨', '🖼️', '🎥', '🔊', '📅', '🕐', '🏷️', '🔖',
+            '⭐', '♥️', '👍', '👎', '🔔', '💬', '🗖️', '📑',
+            '🛡️', '🔒', '🔓', '👁️', '🙈'
+        ];
+
+        const walker = document.createTreeWalker(
+            document.body,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        const replacements = [];
+        let node;
+
+        while (node = walker.nextNode()) {
+            const text = node.textContent;
+            let hasReplacement = false;
+            let newText = text;
+
+            hardcodedIcons.forEach(emoji => {
+                if (text.includes(emoji)) {
+                    const iconName = this.getIconNameForEmoji(emoji);
+                    if (iconName) {
+                        newText = newText.replace(new RegExp(emoji, 'g'), `var(--icon-${iconName})`);
+                        hasReplacement = true;
+                    }
+                }
+            });
+
+            if (hasReplacement) {
+                replacements.push({ node, newText });
+            }
+        }
+
+        // Apply replacements
+        replacements.forEach(({ node, newText }) => {
+            const span = document.createElement('span');
+            span.className = 'icon-token';
+            span.style.cssText = 'font-family: var(--icon-font-family); font-size: var(--icon-size-base);';
+            span.innerHTML = newText;
+            node.parentNode.replaceChild(span, node);
+        });
+
+        if (replacements.length > 0) {
+            logIcons(`Replaced ${replacements.length} hardcoded icons with tokens`);
+        }
+    }
+
+    /**
+     * Get icon name for emoji replacement
+     */
+    getIconNameForEmoji(emoji) {
+        const emojiMap = {
+            '🏠': 'home',
+            '📁': 'folder', 
+            '📄': 'file',
+            '⚙️': 'settings',
+            '🔍': 'search',
+            '🗑️': 'delete',
+            '✏️': 'edit',
+            '📋': 'copy',
+            '🎨': 'themes',
+            '🖼️': 'image',
+            '🎥': 'video',
+            '🔊': 'audio',
+            '📅': 'calendar',
+            '🕐': 'clock',
+            '🏷️': 'tag',
+            '🔖': 'bookmark',
+            '⭐': 'star',
+            '♥️': 'heart',
+            '👍': 'thumbs-up',
+            '👎': 'thumbs-down',
+            '🔔': 'notification',
+            '💬': 'tooltip',
+            '🗖️': 'modal',
+            '📑': 'tab',
+            '🛡️': 'secure',
+            '🔒': 'locked',
+            '🔓': 'unlocked',
+            '👁️': 'visible',
+            '🙈': 'hidden'
+        };
+        return emojiMap[emoji] || null;
+    }
+
+    /**
+     * Setup mutation observer to enforce icon usage
+     */
+    setupIconEnforcement() {
+        if (this.iconObserver) {
+            this.iconObserver.disconnect();
+        }
+
+        this.iconObserver = new MutationObserver((mutations) => {
+            let needsReplacement = false;
+            
+            mutations.forEach(mutation => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === Node.TEXT_NODE && this.containsHardcodedIcons(node.textContent)) {
+                            needsReplacement = true;
+                        }
+                    });
+                }
+            });
+
+            if (needsReplacement) {
+                // Debounce replacement to avoid excessive operations
+                clearTimeout(this.replacementTimeout);
+                this.replacementTimeout = setTimeout(() => {
+                    this.scanAndReplaceHardcodedIcons();
+                }, 100);
+            }
+        });
+
+        this.iconObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    /**
+     * Check if text contains hardcoded emoji icons
+     */
+    containsHardcodedIcons(text) {
+        const emojiPattern = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+        return emojiPattern.test(text);
+    }
+
+    /**
+     * Provide icon tokens for other parts of the application
+     */
+    getIconToken(iconName) {
+        // Check custom icons first
+        if (this.customIcons.has(iconName)) {
+            return `var(--icon-${iconName}, '${this.customIcons.get(iconName)}')`;
+        }
+
+        // Check default icon sets
+        for (const [setKey, iconSet] of this.iconSets.entries()) {
+            if (iconSet.icons[iconName]) {
+                return `var(--icon-${iconName}, '${iconSet.icons[iconName]}')`;
+            }
+        }
+
+        logIcons(`Icon not found: ${iconName}`, 'warning');
+        return `var(--icon-${iconName}, '?')`;
+    }
+
+    /**
+     * Create icon element using token system
+     */
+    createIconElement(iconName, className = '') {
+        const icon = document.createElement('span');
+        icon.className = `icon icon-${iconName} ${className}`.trim();
+        icon.style.cssText = `
+            font-family: var(--icon-font-family);
+            font-size: var(--icon-size-base);
+            color: var(--icon-color-primary);
+            display: inline-block;
+            line-height: 1;
+            vertical-align: middle;
+        `;
+        icon.setAttribute('aria-label', iconName.replace('-', ' '));
+        icon.textContent = this.getIconSymbol(iconName);
+        return icon;
+    }
+
+    /**
+     * Get icon symbol for direct use
+     */
+    getIconSymbol(iconName) {
+        // Check custom icons first
+        if (this.customIcons.has(iconName)) {
+            return this.customIcons.get(iconName);
+        }
+
+        // Check default icon sets
+        for (const [setKey, iconSet] of this.iconSets.entries()) {
+            if (iconSet.icons[iconName]) {
+                return iconSet.icons[iconName];
+            }
+        }
+
+        return '?';
+    }
+
     destroy() {
         logIcons('Destroying IconsPanel...');
+        
+        // Clean up mutation observer
+        if (this.iconObserver) {
+            this.iconObserver.disconnect();
+            this.iconObserver = null;
+        }
+        
+        // Clean up timeout
+        if (this.replacementTimeout) {
+            clearTimeout(this.replacementTimeout);
+        }
+        
         if (this.stateUnsubscribe) {
             this.stateUnsubscribe();
             this.stateUnsubscribe = null;
         }
         
-        // Clean up global reference
+        // Clean up global references
         if (window.iconsPanel === this) {
             window.iconsPanel = null;
+        }
+        
+        // Clean up from devpages structure
+        if (window.devpages && window.devpages.panels && window.devpages.panels.icons === this) {
+            window.devpages.panels.icons = null;
         }
         
         if (this.containerElement) {
@@ -797,11 +1026,44 @@ export class IconsPanel {
     }
 }
 
+// Global icon utility functions
+window.iconUtils = {
+    /**
+     * Get icon token for CSS usage
+     */
+    getToken: (iconName) => {
+        return window.iconsPanel?.getIconToken(iconName) || `var(--icon-${iconName}, '?')`;
+    },
+    
+    /**
+     * Create icon element
+     */
+    createElement: (iconName, className = '') => {
+        return window.iconsPanel?.createIconElement(iconName, className) || 
+               document.createTextNode('?');
+    },
+    
+    /**
+     * Get icon symbol
+     */
+    getSymbol: (iconName) => {
+        return window.iconsPanel?.getIconSymbol(iconName) || '?';
+    },
+    
+    /**
+     * Validate if icon exists
+     */
+    exists: (iconName) => {
+        return window.iconsPanel ? 
+               window.iconsPanel.getIconSymbol(iconName) !== '?' : 
+               false;
+    }
+};
+
 // Register this panel with the registry
-panelRegistry.register({
-    id: 'icons-container',
+settingsSectionRegistry.register({
+    id: 'icons-panel',
     title: 'Icons',
     component: IconsPanel,
-    order: 6,
-    defaultCollapsed: false
+    defaultCollapsed: true,
 }); 

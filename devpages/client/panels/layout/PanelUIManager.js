@@ -462,4 +462,10 @@ export class PanelUIManager {
 export const panelUIManager = new PanelUIManager();
 
 // Make globally accessible
-window.panelUIManager = panelUIManager; 
+// Register with consolidation system
+if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+    window.devpages._internal.consolidator.migrate('panelUIManager', panelUIManager);
+} else {
+    // Fallback for legacy support
+    window.panelUIManager = panelUIManager;
+} 

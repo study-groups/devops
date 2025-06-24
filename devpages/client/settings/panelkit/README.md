@@ -249,7 +249,6 @@ validation: [
   { type: 'url', message: 'Invalid URL format' }
 ]
 ```
-
 ### Custom Validators
 
 ```javascript

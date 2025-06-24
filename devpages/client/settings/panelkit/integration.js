@@ -1,13 +1,72 @@
 /**
- * DSUI Integration Layer
- * Connects the DSUI system with existing DevPages architecture
+ * PanelKit Integration Layer
+ * Connects PanelKit with the DevPages settings system.
  */
 
-import { DSUIRenderer } from './dsui-schema.js';
-import { DSUIComponents } from './dsui-components.js';
-import { panelRegistry } from './panelRegistry.js';
-import { appStore } from '/client/appState.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
+import { PanelKitRenderer } from './schema.js';
+
+const panelRegistry = new Map();
+
+/**
+ * Registers a PanelKit panel definition.
+ * @param {object} panelDefinition - The panel schema definition.
+ */
+export function registerPanelKitPanel(panelDefinition) {
+  if (panelRegistry.has(panelDefinition.id)) {
+    console.warn(`PanelKit: Panel with ID "${panelDefinition.id}" is already registered.`);
+    return;
+  }
+  panelRegistry.set(panelDefinition.id, {
+    type: 'panelkit',
+    definition: panelDefinition,
+  });
+  console.log(`PanelKit: Registered panel "${panelDefinition.title}"`);
+}
+
+/**
+ * Creates and renders a PanelKit panel.
+ * @param {string} panelId - The ID of the panel to render.
+ * @param {HTMLElement} container - The container element to render into.
+ * @param {object} store - The Redux store.
+ * @param {function} dispatch - The Redux dispatch function.
+ * @returns {object|null} The renderer instance or null if not found.
+ */
+export function createPanelKitPanel(panelId, container, store, dispatch) {
+  const panelInfo = panelRegistry.get(panelId);
+  if (!panelInfo || panelInfo.type !== 'panelkit') {
+    console.error(`PanelKit: Panel with ID "${panelId}" not found or is not a PanelKit panel.`);
+    return null;
+  }
+  const renderer = new PanelKitRenderer(store, dispatch);
+  return renderer.render(panelInfo.definition, container);
+}
+
+/**
+ * Converts a legacy panel class into a basic PanelKit definition.
+ * @param {class} LegacyPanelClass - The legacy panel class.
+ * @param {object} metadata - Additional metadata (id, title, order).
+ */
+export function migrateLegacyPanel(LegacyPanelClass, metadata) {
+  const panelDefinition = {
+    ...metadata,
+    layout: {
+      type: 'custom',
+      render: (container, context) => {
+        const panelInstance = new LegacyPanelClass(container, context.store, context.dispatch);
+        return panelInstance.element;
+      }
+    }
+  };
+  registerPanelKitPanel(panelDefinition);
+}
+
+// Example of registering a legacy panel
+// import { SomeLegacyPanel } from './legacy/some-legacy-panel.js';
+// migrateLegacyPanel(SomeLegacyPanel, {
+//   id: 'legacy-panel',
+//   title: 'Legacy Panel',
+//   order: 100
+// });
 
 // ===== DSUI PANEL ADAPTER =====
 

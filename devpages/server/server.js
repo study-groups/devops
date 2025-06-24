@@ -19,6 +19,7 @@ import communityRoutes from './routes/community.js'; // Assuming default export
 import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
+import configRoutes from './routes/configRoutes.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
 import publishRouter from './routes/publish.js'; // <--- ADD THIS IMPORT
 import { PData, createPDataRoutes } from 'pdata'; // Import class and factory
@@ -467,6 +468,7 @@ async function startServer() {
 
     // --- Protected API Routes (Example) ---
     // These should come AFTER specific public routes if paths could potentially overlap
+    app.use('/api/config', configRoutes); // Config routes - no auth required for basic config
     app.use('/api/auth', authRoutes);
     app.use('/api/files', authMiddleware, filesRouter);
     app.use('/api/publish', authMiddleware, publishRouter); // <--- ADD THIS LINE

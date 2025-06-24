@@ -5,12 +5,13 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { panelRegistry } from './panelRegistry.js';
+import { settingsSectionRegistry } from './settingsSectionRegistry.js';
 import { logMessage } from '/client/log/index.js';
 import { panelEventBus } from './panelEventBus.js';
+import { renderSettingsSections } from './SettingsSectionRenderer.js';
 
 // Import all panels to ensure they register themselves
-import '../panels/css-design/CssDesignPanel.js'; // CSS & Design panel
+import '../panels/themes/ThemeSelectorPanel.js'; // Theme selector panel
 import '../panels/css-design/ThemeEditorPanel.js'; // Theme Editor panel
 import '../panels/icons/IconsPanel.js'; // Icons management panel
 import '../panels/plugins/PluginsPanel.js';
@@ -20,7 +21,8 @@ import '../panels/javascript/JavaScriptPanel.js';
 import '../panels/console/ConsoleLogPanel.js';
 import '../panels/dev-tools/DevToolsPanel.js';
 import '../panels/api-tokens/ApiTokenPanel.js'; // API Token management panel
-// Removed panels: ThemeSettingsPanel, ThemeDesignPanel, DesignerThemePanel, CssSettingsPanel, DesignTokensPanel, SystemCssPanel
+import '../panels/css-files/CssFilesPanel.js'; // Modern CSS file management panel
+// Removed panels: ThemeSettingsPanel, ThemeDesignPanel, DesignerThemePanel, DesignTokensPanel, SystemCssPanel
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
 const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Single source of truth
@@ -52,8 +54,13 @@ function loadPersistedSettingsState() {
 
 export class SettingsPanel {
   constructor(options = {}) {
-    // --- Inject CSS --- 
-    this.injectStyles();
+    try {
+      logSettings('[DEBUG] SettingsPanel constructor started.');
+      
+      // --- Inject CSS --- 
+      logSettings('[DEBUG] Injecting styles...');
+      this.injectStyles();
+      logSettings('[DEBUG] Styles injected successfully.');
 
     this.panelElement = null;
     this.headerElement = null;
@@ -62,7 +69,7 @@ export class SettingsPanel {
     this.closeButton = null;
 
     // Generic container for all panel instances
-    this.panelInstances = {};
+    this.sectionInstances = {};
 
     this.isDragging = false;
     this.isResizing = false;
@@ -100,6 +107,11 @@ export class SettingsPanel {
     
     logSettings('SettingsPanel instance created and initialized.');
     logSettings(`Initial visibility state: ${this.isVisible}`, 'debug');
+    } catch (error) {
+      logSettings(`[ERROR] SettingsPanel constructor failed: ${error.message}`, 'error');
+      console.error('[SETTINGS PANEL] Constructor error:', error);
+      throw error; // Re-throw to let the initializer handle it
+    }
   }
 
   // --- Method to inject CSS link tag --- 
@@ -126,67 +138,12 @@ export class SettingsPanel {
     }
   }
 
-  // --- Moved Helper Method --- 
-  // Helper to create section containers with headers
-  createSectionContainer(id, title) {
-    const container = document.createElement('div');
-    container.id = id;
-    container.classList.add('settings-section-container');
-
-    const header = document.createElement('h4');
-    header.classList.add('settings-section-header');
-    header.tabIndex = 0; // Make focusable
-    header.setAttribute('role', 'button'); // Indicate interactive
-    
-    // Get current state from registry (which includes store state)
-    const panelWithState = panelRegistry.getPanelWithState(id);
-    const isCollapsed = panelWithState ? panelWithState.isCollapsed : false;
-    
-    header.setAttribute('aria-expanded', !isCollapsed); // Set based on current state
-    
-    // Title Text
-    const titleSpan = document.createElement('span');
-    titleSpan.textContent = title;
-    
-    // Collapse Indicator - Set based on current state
-    const indicator = document.createElement('span');
-    indicator.classList.add('collapse-indicator');
-    indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;'; // Right for collapsed, Down for expanded
-    indicator.setAttribute('aria-hidden', 'true'); // Hide from screen readers
-
-    header.appendChild(indicator);
-    header.appendChild(titleSpan);
-    
-    // Click listener for collapsing - use registry method
-    header.addEventListener('click', () => this.toggleSectionCollapse(id));
-    // Allow keyboard activation (Enter/Space)
-    header.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.toggleSectionCollapse(id);
-        }
-    });
-
-    container.appendChild(header);
-    
-    // Apply collapsed state to container based on current state
-    if (isCollapsed) {
-      container.classList.add('collapsed');
-      logSettings(`Section ${id} restored as collapsed`, 'debug');
-    } else {
-      logSettings(`Section ${id} restored as expanded`, 'debug');
-    }
-    
-    // Content of the section will be added later by the specific panel
-    return container;
-  }
-
   // --- IMPROVED Method to handle section collapse/expand ---
   toggleSectionCollapse(sectionId) {
     logSettings(`Toggling collapse for section: ${sectionId}`);
     
     // Use registry method to toggle through the store
-    panelRegistry.togglePanel(sectionId);
+    settingsSectionRegistry.toggleSection(sectionId);
     
     logSettings(`Section ${sectionId} toggle dispatched`, 'debug');
   }
@@ -230,17 +187,16 @@ export class SettingsPanel {
 
   createPanelDOM() {
     logSettings('[DEBUG] Starting createPanelDOM...');
-    
     // 1. Create main panel elements
     this.panelElement = document.createElement('div');
     this.panelElement.id = 'settings-panel';
     this.panelElement.classList.add('settings-panel');
     this.panelElement.setAttribute('role', 'dialog');
     this.panelElement.setAttribute('aria-label', 'Application Settings Panel');
-    this.panelElement.setAttribute('aria-modal', 'true'); 
-    this.panelElement.style.position = 'fixed'; 
-    this.panelElement.style.zIndex = '9998'; 
-    this.panelElement.style.display = 'none'; 
+    this.panelElement.setAttribute('aria-modal', 'true');
+    this.panelElement.style.position = 'fixed';
+    this.panelElement.style.zIndex = '9998';
+    this.panelElement.style.display = 'none';
 
     this.headerElement = document.createElement('div');
     this.headerElement.classList.add('settings-panel-header');
@@ -253,71 +209,26 @@ export class SettingsPanel {
     this.contentElement = document.createElement('div');
     this.contentElement.classList.add('settings-panel-content');
 
-    // --- CREATE RESIZE HANDLE ---
+    // Create resize handle
     this.resizeHandle = document.createElement('div');
     this.resizeHandle.classList.add('settings-panel-resize-handle');
-    this.resizeHandle.setAttribute('aria-label', 'Resize Settings Panel');
-    this.resizeHandle.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 8L14 14M10 14H14V10" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/></svg>`;
-    logSettings('[DEBUG] Main panel elements created.', 'debug');
+    this.resizeHandle.innerHTML = '⋰'; // Resize icon
+    logSettings('[DEBUG] Resize handle created.', 'debug');
 
-    // 2. Append main parts to panelElement
+    // Use the new renderer for all sections
+    renderSettingsSections(
+      this.contentElement,
+      this.sectionInstances,
+      this.toggleSectionCollapse.bind(this)
+    );
+
+    // 5. Append elements and finish
     this.panelElement.appendChild(this.headerElement);
-    this.panelElement.appendChild(this.contentElement); 
+    this.panelElement.appendChild(this.contentElement);
     this.panelElement.appendChild(this.resizeHandle);
-    logSettings('[DEBUG] Main panel structure assembled.', 'debug');
-
-    // 3. Append the main panel to the document body
     document.body.appendChild(this.panelElement);
     logSettings('[DEBUG] Panel appended to body.', 'debug');
-
-    // 4. DATA-DRIVEN PANEL CREATION - Get panels from registry with their current state
-    const panelsToRender = panelRegistry.getPanelsWithState();
-    logSettings(`[DEBUG] Found ${panelsToRender.length} registered panels to render`, 'debug');
-
-    panelsToRender.forEach(panelData => {
-      logSettings(`[DEBUG] Creating panel: ${panelData.id} (${panelData.title})`, 'debug');
-      
-      try {
-        // Create the section container using the data's properties
-        const container = this.createSectionContainer(panelData.id, panelData.title);
-        
-        // Apply current collapsed state from registry (which includes store state)
-        if (panelData.isCollapsed) {
-          container.classList.add('collapsed');
-        }
-        
-        if (container instanceof Node) {
-          this.contentElement.appendChild(container);
-          
-          // Create a content wrapper inside the container for the panel to use
-          const contentWrapper = document.createElement('div');
-          contentWrapper.classList.add('settings-section-content');
-          container.appendChild(contentWrapper);
-          
-          // Instantiate the component from the data, passing the content wrapper
-          const PanelComponent = panelData.component;
-          this.panelInstances[panelData.id] = new PanelComponent(contentWrapper);
-          
-          logSettings(`[DEBUG] ${panelData.id} instantiated successfully.`, 'debug');
-        } else {
-          logSettings(`[ERROR] Container for ${panelData.id} was not a valid Node!`, 'error');
-        }
-      } catch (error) {
-        logSettings(`Failed to init ${panelData.id}: ${error}`, 'error');
-        // Create error container if panel creation failed
-        const errorContainer = this.createSectionContainer(panelData.id, panelData.title);
-        const errorContent = document.createElement('div');
-        errorContent.classList.add('settings-section-content');
-        errorContent.innerHTML = '<p style="color: var(--color-warning, #f59e0b); background-color: var(--color-warning-background, #fff3cd); padding: 0.5rem; border-radius: 0.25rem; margin: 0.5rem 0;">Error loading panel.</p>';
-        errorContainer.appendChild(errorContent);
-        this.contentElement.appendChild(errorContainer);
-      }
-    });
-
-    logSettings('Data-driven panel creation completed.', 'debug');
   }
-
-
 
   attachEventListeners() {
     // --- Dragging --- 
@@ -364,6 +275,9 @@ export class SettingsPanel {
   render(settingsState) {
     if (!this.panelElement) return;
 
+    logSettings('[DEBUG] render() called', 'debug');
+    logSettings(`[DEBUG] settingsState.collapsedSections: ${JSON.stringify(settingsState.collapsedSections)}`, 'debug');
+
     // Update visibility state from store if it has changed
     if (this.isVisible !== settingsState.visible) {
       this.isVisible = settingsState.visible;
@@ -386,25 +300,33 @@ export class SettingsPanel {
     // Update DOM visibility based on current state
     this.updatePanelState();
 
-    // Update collapsed sections based on state - use registry to get current state
-    const panelsWithState = panelRegistry.getPanelsWithState();
-    panelsWithState.forEach(panel => {
-      const container = this.contentElement?.querySelector(`#${panel.id}`);
-      const isCollapsed = panel.isCollapsed;
-      
-      if (container) {
-        const header = container.querySelector('.settings-section-header');
-        const indicator = container.querySelector('.collapse-indicator');
-        
-        container.classList.toggle('collapsed', isCollapsed);
-        if (header) {
-          header.setAttribute('aria-expanded', !isCollapsed);
+    // Update individual section states
+    const collapsedSections = settingsState.collapsedSections || {};
+    logSettings(`[DEBUG] Processing ${Object.keys(collapsedSections).length} collapsed section states`, 'debug');
+    
+    for (const sectionId in collapsedSections) {
+        if (Object.prototype.hasOwnProperty.call(collapsedSections, sectionId)) {
+            const isCollapsed = collapsedSections[sectionId];
+            const sectionContainer = this.panelElement.querySelector(`#${sectionId}`);
+            
+            logSettings(`[DEBUG] Looking for section: ${sectionId}, found: ${!!sectionContainer}, collapsed: ${isCollapsed}`, 'debug');
+            
+            if (sectionContainer) {
+                const header = sectionContainer.querySelector('.settings-section-header');
+                const indicator = header ? header.querySelector('.collapse-indicator') : null;
+
+                sectionContainer.classList.toggle('collapsed', isCollapsed);
+                if (header) header.setAttribute('aria-expanded', !isCollapsed);
+                if (indicator) indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+                
+                logSettings(`[DEBUG] Updated section ${sectionId} collapsed state to ${isCollapsed}`, 'debug');
+            } else {
+                logSettings(`[DEBUG] Section ${sectionId} not found in DOM - ignoring`, 'debug');
+            }
         }
-        if (indicator) {
-          indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
-        }
-      }
-    });
+    }
+    
+    logSettings('[DEBUG] render() completed', 'debug');
   }
 
   // --- Interaction Handlers --- 
@@ -527,12 +449,12 @@ export class SettingsPanel {
     this.closeButton = null;
 
     // Destroy all panel instances
-    Object.values(this.panelInstances).forEach(panelInstance => {
-      if (panelInstance && typeof panelInstance.destroy === 'function') {
-        panelInstance.destroy();
+    Object.values(this.sectionInstances).forEach(sectionInstance => {
+      if (sectionInstance && typeof sectionInstance.destroy === 'function') {
+        sectionInstance.destroy();
       }
     });
-    this.panelInstances = {};
+    this.sectionInstances = {};
 
     // --- Remove CSS --- 
     this.removeStyles();

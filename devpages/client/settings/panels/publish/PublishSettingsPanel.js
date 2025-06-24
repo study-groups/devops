@@ -7,7 +7,7 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
 export class PublishSettingsPanel {
   constructor(containerElement) {
@@ -273,10 +273,9 @@ export class PublishSettingsPanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-  id: 'publish-settings-container',
-  title: 'Publish Settings',
+settingsSectionRegistry.register({
+  id: 'publish-settings-panel',
+  title: 'Publish',
   component: PublishSettingsPanel,
-  order: 40,
   defaultCollapsed: true
 }); 

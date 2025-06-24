@@ -30,8 +30,8 @@ export async function initializeUIComponents() {
         
         logUIComponents('ContextSettingsPopupComponent created and mounted successfully.', 'debug');
         
-        // Make globally accessible
-        window.uiComponents = {
+        // Create uiComponents object
+        const uiComponents = {
             getComponent: (name) => {
                 const comp = registeredComponents.get(name);
                 return comp ? comp.component : null;
@@ -66,6 +66,14 @@ export async function initializeUIComponents() {
                 return false;
             }
         };
+
+        // Register with consolidation system
+        if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+            window.devpages._internal.consolidator.migrate('uiComponents', uiComponents);
+        } else {
+            // Fallback for legacy support
+            window.uiComponents = uiComponents;
+        }
         
         logUIComponents('UI Components system initialized successfully. Available components:', 'info');
         logUIComponents(`- contextSettings: ${registeredComponents.has('contextSettings') ? 'ready' : 'failed'}`, 'info');
@@ -75,12 +83,19 @@ export async function initializeUIComponents() {
         console.error('[UI_COMPONENTS] Initialization error:', error);
         
         // Provide fallback implementation
-        window.uiComponents = {
+        const fallbackUiComponents = {
             getComponent: () => null,
             showPopup: () => false,
             hidePopup: () => false,
             isPopupVisible: () => false
         };
+
+        // Register fallback with consolidation system
+        if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+            window.devpages._internal.consolidator.migrate('uiComponents', fallbackUiComponents);
+        } else {
+            window.uiComponents = fallbackUiComponents;
+        }
         
         throw error; // Re-throw so bootstrap can handle it
     }

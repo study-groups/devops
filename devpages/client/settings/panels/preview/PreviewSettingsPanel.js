@@ -6,7 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { eventBus } from '/client/eventBus.js';
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
 export class PreviewSettingsPanel {
     constructor(container) {
@@ -490,10 +490,9 @@ export class PreviewSettingsPanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-    id: 'preview-settings-container',
+settingsSectionRegistry.register({
+    id: 'preview-settings-panel',
     title: 'Preview',
     component: PreviewSettingsPanel,
-    order: 25,
-    defaultCollapsed: false
+    defaultCollapsed: true
 }); 

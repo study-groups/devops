@@ -6,8 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
-import { panelRegistry } from './panelRegistry.js';
-import { panelEventBus, PanelEvents, createPanelMixin } from './panelEventBus.js';
+import { settingsSectionRegistry } from '../core/settingsSectionRegistry.js';
 
 // Create a clean CSS settings API that wraps the message dispatch system
 const cssSettings = {
@@ -94,9 +93,9 @@ export class CssSettingsPanel {
     // Track collapsed state for subsections
     this.collapsedSections = this.loadCollapsedState();
 
-    // Setup event bus
-    this.setupEventBus();
-    this.setupEventHandlers();
+    // Setup event bus (disabled for now)
+    // this.setupEventBus();
+    // this.setupEventHandlers();
 
     // Load our CSS
     this.loadCSS();
@@ -115,7 +114,7 @@ export class CssSettingsPanel {
       const link = document.createElement('link');
       link.id = 'css-settings-panel-css';
       link.rel = 'stylesheet';
-      link.href = '/client/settings/CssSettingsPanel.css';
+      link.href = '/client/settings/legacy/CssSettingsPanel.css';
       document.head.appendChild(link);
     }
   }
@@ -472,183 +471,183 @@ export class CssSettingsPanel {
     });
   }
 
-  // ===== EVENT BUS INTEGRATION =====
+  // ===== EVENT BUS INTEGRATION (DISABLED) =====
   
-  setupEventBus() {
-    // Apply the event bus mixin
-    Object.assign(this, createPanelMixin('css-settings-panel'));
-    this.setupEventBus();
-  }
+  // setupEventBus() {
+  //   // Apply the event bus mixin
+  //   Object.assign(this, createPanelMixin('css-settings-panel'));
+  // }
   
-  setupEventHandlers() {
-    // Listen for theme-related events
-    this.on(PanelEvents.THEME_CHANGED, this.handleThemeChanged.bind(this));
-    this.on(PanelEvents.THEME_MODE_SWITCHED, this.handleThemeModeSwitch.bind(this));
-    this.on(PanelEvents.CSS_PREVIEW_REFRESH, this.handlePreviewRefresh.bind(this));
-    this.on(PanelEvents.PANEL_VALIDATION_REQUEST, this.handleValidationRequest.bind(this));
-    this.on(PanelEvents.PUBLISH_COLLECT_DATA, this.handlePublishDataRequest.bind(this));
-  }
+  // setupEventHandlers() {
+  //   // Listen for theme-related events
+  //   this.on(PanelEvents.THEME_CHANGED, this.handleThemeChanged.bind(this));
+  //   this.on(PanelEvents.THEME_MODE_SWITCHED, this.handleThemeModeSwitch.bind(this));
+  //   this.on(PanelEvents.CSS_PREVIEW_REFRESH, this.handlePreviewRefresh.bind(this));
+  //   this.on(PanelEvents.PANEL_VALIDATION_REQUEST, this.handleValidationRequest.bind(this));
+  //   this.on(PanelEvents.PUBLISH_COLLECT_DATA, this.handlePublishDataRequest.bind(this));
+  // }
   
-  handleThemeChanged(message) {
-    console.log('[CssSettingsPanel] Theme changed:', message);
-    
-    // Check if we need to add theme CSS files
-    const { themeDir } = message.data;
-    if (themeDir && message.data.requiresPreviewRefresh) {
-      this.suggestThemeFiles(themeDir);
-    }
-  }
+  // Event handlers disabled for now - need to be adapted to new system
+  // handleThemeChanged(message) {
+  //   console.log('[CssSettingsPanel] Theme changed:', message);
+  //   
+  //   // Check if we need to add theme CSS files
+  //   const { themeDir } = message.data;
+  //   if (themeDir && message.data.requiresPreviewRefresh) {
+  //     this.suggestThemeFiles(themeDir);
+  //   }
+  // }
   
-  handleThemeModeSwitch(message) {
-    console.log('[CssSettingsPanel] Theme mode switched:', message);
-    
-    // Emit CSS refresh event since theme mode affects styling
-    this.emit(PanelEvents.CSS_PREVIEW_REFRESH, {
-      reason: 'theme_mode_switch',
-      newMode: message.data.newMode,
-      source: 'css-settings-panel'
-    });
-  }
+  // handleThemeModeSwitch(message) {
+  //   console.log('[CssSettingsPanel] Theme mode switched:', message);
+  //   
+  //   // Emit CSS refresh event since theme mode affects styling
+  //   this.emit(PanelEvents.CSS_PREVIEW_REFRESH, {
+  //     reason: 'theme_mode_switch',
+  //     newMode: message.data.newMode,
+  //     source: 'css-settings-panel'
+  //   });
+  // }
   
-  handlePreviewRefresh(message) {
-    console.log('[CssSettingsPanel] Preview refresh requested:', message);
-    // Could trigger a re-render or update of CSS files list
-    this.render();
-  }
+  // handlePreviewRefresh(message) {
+  //   console.log('[CssSettingsPanel] Preview refresh requested:', message);
+  //   // Could trigger a re-render or update of CSS files list
+  //   this.render();
+  // }
   
-  handleValidationRequest(message) {
-    console.log('[CssSettingsPanel] Validation requested:', message);
-    const { validationType } = message.data;
-    
-    if (validationType === 'css' || validationType === 'all') {
-      this.validateCssForRequest(message);
-    }
-  }
+  // handleValidationRequest(message) {
+  //   console.log('[CssSettingsPanel] Validation requested:', message);
+  //   const { validationType } = message.data;
+  //   
+  //   if (validationType === 'css' || validationType === 'all') {
+  //     this.validateCssForRequest(message);
+  //   }
+  // }
   
-  validateCssForRequest(originalMessage) {
-    const files = cssSettings.getFiles();
-    const errors = [];
-    const warnings = [];
-    
-    // Check for common issues
-    if (files.length === 0 && !cssSettings.getRootCss()) {
-      warnings.push('No CSS files configured and root CSS is disabled');
-    }
-    
-    // Check for duplicate files
-    const paths = files.map(f => f.path);
-    const duplicates = paths.filter((path, index) => paths.indexOf(path) !== index);
-    if (duplicates.length > 0) {
-      errors.push(`Duplicate CSS files: ${duplicates.join(', ')}`);
-    }
-    
-    // Check for disabled files
-    const disabledFiles = files.filter(f => !f.enabled);
-    if (disabledFiles.length > 0) {
-      warnings.push(`${disabledFiles.length} CSS files are disabled`);
-    }
-    
-    this.respond(originalMessage, {
-      isValid: errors.length === 0,
-      errors,
-      warnings,
-      cssData: {
-        totalFiles: files.length,
-        enabledFiles: files.filter(f => f.enabled).length,
-        rootCssEnabled: cssSettings.getRootCss(),
-        bundlingEnabled: cssSettings.getBundling()
-      }
-    });
-  }
+  // validateCssForRequest(originalMessage) {
+  //   const files = cssSettings.getFiles();
+  //   const errors = [];
+  //   const warnings = [];
+  //   
+  //   // Check for common issues
+  //   if (files.length === 0 && !cssSettings.getRootCss()) {
+  //     warnings.push('No CSS files configured and root CSS is disabled');
+  //   }
+  //   
+  //   // Check for duplicate files
+  //   const paths = files.map(f => f.path);
+  //   const duplicates = paths.filter((path, index) => paths.indexOf(path) !== index);
+  //   if (duplicates.length > 0) {
+  //     errors.push(`Duplicate CSS files: ${duplicates.join(', ')}`);
+  //   }
+  //   
+  //   // Check for disabled files
+  //   const disabledFiles = files.filter(f => !f.enabled);
+  //   if (disabledFiles.length > 0) {
+  //     warnings.push(`${disabledFiles.length} CSS files are disabled`);
+  //   }
+  //   
+  //   this.respond(originalMessage, {
+  //     isValid: errors.length === 0,
+  //     errors,
+  //     warnings,
+  //     cssData: {
+  //       totalFiles: files.length,
+  //       enabledFiles: files.filter(f => f.enabled).length,
+  //       rootCssEnabled: cssSettings.getRootCss(),
+  //       bundlingEnabled: cssSettings.getBundling()
+  //     }
+  //   });
+  // }
   
-  handlePublishDataRequest(message) {
-    console.log('[CssSettingsPanel] Publish data requested:', message);
-    
-    const publishData = {
-      type: 'css',
-      files: cssSettings.getFiles(),
-      rootCssEnabled: cssSettings.getRootCss(),
-      bundlingEnabled: cssSettings.getBundling(),
-      cssPrefix: cssSettings.getPrefix(),
-      previewMode: cssSettings.getPreviewMode(),
-      timestamp: Date.now()
-    };
-    
-    this.respond(message, publishData);
-  }
+  // handlePublishDataRequest(message) {
+  //   console.log('[CssSettingsPanel] Publish data requested:', message);
+  //   
+  //   const publishData = {
+  //     type: 'css',
+  //     files: cssSettings.getFiles(),
+  //     rootCssEnabled: cssSettings.getRootCss(),
+  //     bundlingEnabled: cssSettings.getBundling(),
+  //     cssPrefix: cssSettings.getPrefix(),
+  //     previewMode: cssSettings.getPreviewMode(),
+  //     timestamp: Date.now()
+  //   };
+  //   
+  //   this.respond(message, publishData);
+  // }
   
-  suggestThemeFiles(themeDir) {
-    // Suggest adding theme CSS files if they're not already added
-    const currentFiles = cssSettings.getFiles();
-    const themeFiles = [
-      `${themeDir}/core.css`,
-      `${themeDir}/light.css`,
-      `${themeDir}/dark.css`
-    ];
-    
-    const missingFiles = themeFiles.filter(themeFile => 
-      !currentFiles.some(file => file.path === themeFile)
-    );
-    
-    if (missingFiles.length > 0) {
-      // Emit notification about suggested files
-      this.emit(PanelEvents.UI_NOTIFICATION, {
-        type: 'suggestion',
-        title: 'Theme CSS Files',
-        message: `Consider adding theme files: ${missingFiles.join(', ')}`,
-        actions: [
-          {
-            label: 'Add All',
-            action: () => this.addThemeFiles(missingFiles)
-          },
-          {
-            label: 'Dismiss',
-            action: () => {}
-          }
-        ]
-      });
-    }
-  }
+  // suggestThemeFiles(themeDir) {
+  //   // Suggest adding theme CSS files if they're not already added
+  //   const currentFiles = cssSettings.getFiles();
+  //   const themeFiles = [
+  //     `${themeDir}/core.css`,
+  //     `${themeDir}/light.css`,
+  //     `${themeDir}/dark.css`
+  //   ];
+  //   
+  //   const missingFiles = themeFiles.filter(themeFile => 
+  //     !currentFiles.some(file => file.path === themeFile)
+  //   );
+  //   
+  //   if (missingFiles.length > 0) {
+  //     // Emit notification about suggested files
+  //     this.emit(PanelEvents.UI_NOTIFICATION, {
+  //       type: 'suggestion',
+  //       title: 'Theme CSS Files',
+  //       message: `Consider adding theme files: ${missingFiles.join(', ')}`,
+  //       actions: [
+  //         {
+  //           label: 'Add All',
+  //           action: () => this.addThemeFiles(missingFiles)
+  //         },
+  //         {
+  //           label: 'Dismiss',
+  //           action: () => {}
+  //         }
+  //       ]
+  //     });
+  //   }
+  // }
   
-  addThemeFiles(files) {
-    files.forEach(file => {
-      cssSettings.addFile(file);
-    });
-    
-    // Emit event that files were added
-    this.emit(PanelEvents.CSS_FILES_UPDATED, {
-      action: 'bulk_add',
-      files,
-      source: 'css-settings-panel'
-    });
-  }
+  // addThemeFiles(files) {
+  //   files.forEach(file => {
+  //     cssSettings.addFile(file);
+  //   });
+  //   
+  //   // Emit event that files were added
+  //   this.emit(PanelEvents.CSS_FILES_UPDATED, {
+  //     action: 'bulk_add',
+  //     files,
+  //     source: 'css-settings-panel'
+  //   });
+  // }
 
   destroy() {
-    // Clean up event bus
-    if (this.destroyEventBus) {
-      this.destroyEventBus();
-    }
+    // Clean up event bus (disabled for now)
+    // if (this.destroyEventBus) {
+    //   this.destroyEventBus();
+    // }
     
     if (this.unsubscribeSettings) {
       this.unsubscribeSettings();
     }
     // Clean up event listeners
-    const oldHandler = this.containerElement._cssEventHandler;
-    if (oldHandler) {
-      this.containerElement.removeEventListener('click', oldHandler);
-      this.containerElement.removeEventListener('keypress', oldHandler.keyHandler);
-      this.containerElement.removeEventListener('input', oldHandler.inputHandler);
-      this.containerElement.removeEventListener('change', oldHandler.changeHandler);
+    if (this.containerElement) {
+      const oldHandler = this.containerElement._cssEventHandler;
+      if (oldHandler) {
+        this.containerElement.removeEventListener('click', oldHandler);
+        this.containerElement.removeEventListener('keypress', oldHandler.keyHandler);
+        this.containerElement.removeEventListener('input', oldHandler.inputHandler);
+        this.containerElement.removeEventListener('change', oldHandler.changeHandler);
+      }
     }
   }
 }
 
-// Register this panel with the registry
-// DISABLED - Replaced by CssDesignPanel.js
-// panelRegistry.register({
-//   id: 'css-settings-container',
-//   title: 'Page CSS',
-//   component: CssSettingsPanel,
-//   order: 30,
-//   defaultCollapsed: true
-// });
+// Register this panel with the settings system
+settingsSectionRegistry.register({
+  id: 'css-settings-panel',
+  title: 'CSS Files',
+  component: CssSettingsPanel,
+  defaultCollapsed: false
+});

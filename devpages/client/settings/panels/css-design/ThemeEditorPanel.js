@@ -1,524 +1,434 @@
 /**
- * ThemeEditorPanel.js - Visual theme editor for creating and customizing themes
- * Extracted from the old DesignTokensPanel to provide dedicated theme editing functionality
+ * ThemeEditorPanel.js - Design Tokens Viewer
+ * Reads design tokens from design-system.css (single source of truth)
+ * Displays tokens in a clean tabular interface for viewing and harmonization
  */
 
-import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
-function logThemeEditor(message, level = 'info') {
-    const type = 'THEME_EDITOR';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`);
+class ThemeEditorPanel {
+  constructor(containerElement) {
+    this.containerElement = containerElement;
+    this.designTokens = new Map(); // Parsed tokens from CSS
+    this.categories = new Map(); // Token categories
+  
+    this.init();
+  }
+
+  async init() {
+    // Load and parse design-tokens.css
+    await this.loadDesignTokensCSS();
+    
+    // Render the panel
+    this.render();
+  }
+
+  /**
+   * Load and parse design-system.css file
+   */
+  async loadDesignTokensCSS() {
+    try {
+      const response = await fetch('/client/styles/design-tokens.css');
+      if (!response.ok) {
+        throw new Error(`Failed to load design-tokens.css: ${response.status}`);
+      }
+      
+      const cssContent = await response.text();
+      this.parseDesignTokens(cssContent);
+      
+      console.log(`[ThemeEditor] Loaded ${this.designTokens.size} design tokens from design-tokens.css`);
+    } catch (error) {
+      console.error('[ThemeEditor] Error loading design-tokens.css:', error);
+      this.showLoadingError(error.message);
     }
-}
+  }
 
-export class ThemeEditorPanel {
-    constructor(parentElement) {
-        this.containerElement = parentElement;
-        this.stateUnsubscribe = null;
+  /**
+   * Parse CSS content to extract design tokens
+   */
+  parseDesignTokens(cssContent) {
+    this.designTokens.clear();
+    this.categories.clear();
+
+    // Find :root blocks
+    const rootBlocks = cssContent.match(/:root\s*\{[^}]*\}/g) || [];
+    
+    rootBlocks.forEach(block => {
+      // Extract CSS custom properties
+      const propertyRegex = /--([^:]+):\s*([^;]+);/g;
+      let match;
+      
+      while ((match = propertyRegex.exec(block)) !== null) {
+        const [, name, value] = match;
+        const cleanName = name.trim();
+        const cleanValue = value.trim();
         
-        // Theme editor state
-        this.currentTheme = {
-            typography: {
-                headingFont: 'var(--font-family-sans)',
-                bodyFont: 'var(--font-family-sans)',
-                h1Size: 36,
-                bodySize: 16
-            },
-            colors: {
-                primary: '#2563eb',
-                bgLight: '#ffffff',
-                bgDark: '#0a0a0a',
-                textLight: '#171717',
-                textDark: '#fafafa'
-            },
-            spacing: {
-                base: 4,
-                mobileBreakpoint: 1024
-            }
+        // Create token object
+        const token = {
+          name: cleanName,
+          variable: `--${cleanName}`,
+          value: cleanValue,
+          type: this.inferTokenType(cleanName, cleanValue),
+          category: this.inferTokenCategory(cleanName)
         };
         
-        this.loadCSS();
-        this.createPanelContent(parentElement);
-        this.subscribeToState();
-        this.initializeThemeEditor();
+        this.designTokens.set(cleanName, token);
         
-        logThemeEditor('ThemeEditorPanel initialized');
-    }
-
-    loadCSS() {
-        const cssId = 'theme-editor-panel-styles';
-        if (!document.getElementById(cssId)) {
-            const link = document.createElement('link');
-            link.id = cssId;
-            link.rel = 'stylesheet';
-            link.type = 'text/css';
-            link.href = '/client/settings/panels/css-design/ThemeEditorPanel.css';
-            document.head.appendChild(link);
-            logThemeEditor('Loaded ThemeEditorPanel.css');
+        // Group by category
+        if (!this.categories.has(token.category)) {
+          this.categories.set(token.category, []);
         }
+        this.categories.get(token.category).push(token);
+      }
+    });
+
+    // Sort categories and tokens
+    this.sortTokens();
+  }
+
+  /**
+   * Infer token type from name and value
+   */
+  inferTokenType(name, value) {
+    // Color tokens
+    if (name.includes('color') || name.includes('bg') || name.includes('text') || 
+        value.match(/^#[0-9a-fA-F]{3,8}$/) || value.includes('rgb') || value.includes('hsl')) {
+      return 'color';
+    }
+    
+    // Font family tokens
+    if (name.includes('font-family') || name.includes('family')) {
+      return 'font-family';
+    }
+    
+    // Font size tokens
+    if (name.includes('font-size') || name.includes('text-') && value.includes('rem')) {
+      return 'font-size';
+    }
+    
+    // Font weight tokens
+    if (name.includes('font-weight') || name.includes('weight')) {
+      return 'font-weight';
+    }
+    
+    // Line height tokens
+    if (name.includes('line-height') || name.includes('leading')) {
+      return 'line-height';
+    }
+    
+    // Spacing tokens
+    if (name.includes('space') || name.includes('gap') || name.includes('margin') || name.includes('padding')) {
+      return 'spacing';
+    }
+    
+    // Border radius tokens
+    if (name.includes('radius') || name.includes('rounded')) {
+      return 'border-radius';
+    }
+    
+    // Shadow tokens
+    if (name.includes('shadow') || value.includes('rgb') && value.includes('px')) {
+      return 'shadow';
+    }
+    
+    // Transition tokens
+    if (name.includes('transition') || value.includes('ease') || value.includes('ms')) {
+      return 'transition';
+    }
+    
+    return 'other';
+  }
+
+  /**
+   * Infer token category from name
+   */
+  inferTokenCategory(name) {
+    if (name.includes('color') || name.includes('bg') || name.includes('text')) {
+      return 'Colors';
+    }
+    
+    if (name.includes('font') || name.includes('text-') || name.includes('line-height')) {
+      return 'Typography';
+    }
+    
+    if (name.includes('space') || name.includes('gap') || name.includes('margin') || name.includes('padding')) {
+      return 'Spacing';
+    }
+    
+    if (name.includes('radius') || name.includes('rounded')) {
+      return 'Border Radius';
+    }
+    
+    if (name.includes('shadow')) {
+      return 'Shadows';
+    }
+    
+    if (name.includes('transition')) {
+      return 'Transitions';
+    }
+    
+    return 'Other';
+  }
+
+  /**
+   * Sort tokens within categories
+   */
+  sortTokens() {
+    this.categories.forEach((tokens, category) => {
+      tokens.sort((a, b) => a.name.localeCompare(b.name));
+    });
+    
+    // Sort categories by priority
+    const sortedCategories = new Map();
+    const categoryOrder = ['Colors', 'Typography', 'Spacing', 'Border Radius', 'Shadows', 'Transitions', 'Other'];
+    
+    categoryOrder.forEach(cat => {
+      if (this.categories.has(cat)) {
+        sortedCategories.set(cat, this.categories.get(cat));
+      }
+    });
+    
+    // Add any remaining categories
+    this.categories.forEach((tokens, cat) => {
+      if (!sortedCategories.has(cat)) {
+        sortedCategories.set(cat, tokens);
+      }
+    });
+    
+    this.categories = sortedCategories;
+  }
+
+  /**
+   * Show loading error
+   */
+  showLoadingError(message) {
+    this.containerElement.innerHTML = `
+      <div class="theme-editor-error">
+        <div class="error-icon">⚠️</div>
+        <h3>Failed to Load Design Tokens</h3>
+        <p>Could not load design-tokens.css</p>
+        <div class="error-details">
+          <code>${message}</code>
+        </div>
+        <button onclick="location.reload()" class="retry-button">
+          🔄 Retry
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * Render the main panel
+   */
+  render() {
+    if (this.designTokens.size === 0) {
+      this.containerElement.innerHTML = `
+        <div class="theme-editor-empty">
+          <div class="empty-icon">📄</div>
+          <h3>No Design Tokens Found</h3>
+          <p>No tokens were found in design-tokens.css</p>
+        </div>
+      `;
+      return;
     }
 
-    createPanelContent(parentElement) {
-        parentElement.innerHTML = `
-            <div class="theme-editor-panel-content">
-                <!-- Typography Section -->
-                <div class="editor-subsection">
-                    <h5>Typography</h5>
-                    <div class="token-grid">
-                        <div class="token-row">
-                            <label>Heading Font:</label>
-                            <select id="heading-font">
-                                <option value="var(--font-family-sans)">Sans Serif</option>
-                                <option value="var(--font-family-serif)">Serif</option>
-                                <option value="var(--font-family-mono)">Monospace</option>
-                            </select>
-                        </div>
-                        <div class="token-row">
-                            <label>Body Font:</label>
-                            <select id="body-font">
-                                <option value="var(--font-family-sans)">Sans Serif</option>
-                                <option value="var(--font-family-serif)">Serif</option>
-                                <option value="var(--font-family-mono)">Monospace</option>
-                            </select>
-                        </div>
-                        <div class="token-row">
-                            <label>H1 Size:</label>
-                            <input type="range" id="h1-size" min="24" max="48" value="36" step="2">
-                            <span class="value-display">36px</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Body Size:</label>
-                            <input type="range" id="body-size" min="12" max="24" value="16" step="1">
-                            <span class="value-display">16px</span>
-                        </div>
-                    </div>
-                </div>
+    this.containerElement.innerHTML = `
+      <div class="theme-editor-panel">
+        <div class="theme-editor-header">
+          <h3>Design Tokens Viewer</h3>
+          <p>Design tokens parsed from <code>design-tokens.css</code> (single source of truth)</p>
+          <div class="token-stats">
+            <span class="stat">📊 ${this.designTokens.size} tokens</span>
+            <span class="stat">🏷️ ${this.categories.size} categories</span>
+            <button onclick="this.closest('.theme-editor-panel').themeEditor.refreshTokens()" class="refresh-btn">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
 
-                <!-- Colors Section -->
-                <div class="editor-subsection">
-                    <h5>Colors</h5>
-                    <div class="token-grid">
-                        <div class="token-row">
-                            <label>Primary Color:</label>
-                            <input type="color" id="primary-color" value="#2563eb">
-                            <span class="color-value">#2563eb</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Background (Light):</label>
-                            <input type="color" id="bg-light" value="#ffffff">
-                            <span class="color-value">#ffffff</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Background (Dark):</label>
-                            <input type="color" id="bg-dark" value="#0a0a0a">
-                            <span class="color-value">#0a0a0a</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Text (Light):</label>
-                            <input type="color" id="text-light" value="#171717">
-                            <span class="color-value">#171717</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Text (Dark):</label>
-                            <input type="color" id="text-dark" value="#fafafa">
-                            <span class="color-value">#fafafa</span>
-                        </div>
-                    </div>
-                </div>
+        <div class="token-categories">
+          ${this.renderTokenCategories()}
+        </div>
+      </div>
+    `;
+    
+    // Store reference for button onclick
+    this.containerElement.querySelector('.theme-editor-panel').themeEditor = this;
+  }
 
-                <!-- Spacing Section -->
-                <div class="editor-subsection">
-                    <h5>Spacing & Layout</h5>
-                    <div class="token-grid">
-                        <div class="token-row">
-                            <label>Base Spacing:</label>
-                            <input type="range" id="base-spacing" min="2" max="8" value="4" step="1">
-                            <span class="value-display">4px</span>
-                        </div>
-                        <div class="token-row">
-                            <label>Mobile Breakpoint:</label>
-                            <input type="number" id="mobile-bp-editor" value="1024" min="320" max="1440">
-                            <span class="unit">px</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Live Preview Section -->
-                <div class="editor-subsection">
-                    <h5>Live Preview</h5>
-                    <div class="theme-preview" id="live-preview">
-                        <h1>Heading 1 Sample</h1>
-                        <h2>Heading 2 Sample</h2>
-                        <p>This is body text that shows how your theme will look. It includes <strong>bold text</strong> and <em>italic text</em>.</p>
-                        <code>console.log('Code sample');</code>
-                        <button class="preview-button">Button Sample</button>
-                    </div>
-                </div>
-
-                <!-- Generate Theme Files -->
-                <div class="editor-subsection">
-                    <h5>Generate Theme</h5>
-                    <div class="action-buttons">
-                        <button id="generate-core-btn" class="action-btn">Generate core.css</button>
-                        <button id="generate-light-btn" class="action-btn">Generate light.css</button>
-                        <button id="generate-dark-btn" class="action-btn">Generate dark.css</button>
-                        <button id="download-theme-btn" class="action-btn action-btn--primary">Download Complete Theme</button>
-                    </div>
-                </div>
-
-                <!-- Preset Themes -->
-                <div class="editor-subsection">
-                    <h5>Theme Presets</h5>
-                    <div class="preset-buttons">
-                        <button class="preset-btn" data-preset="minimal">Minimal</button>
-                        <button class="preset-btn" data-preset="modern">Modern</button>
-                        <button class="preset-btn" data-preset="classic">Classic</button>
-                        <button class="preset-btn" data-preset="dark">Dark</button>
-                    </div>
-                </div>
+  /**
+   * Render token categories
+   */
+  renderTokenCategories() {
+    return Array.from(this.categories.entries()).map(([category, tokens]) => `
+      <div class="token-category">
+        <div class="category-header">
+          <h4 class="category-title">
+            ${this.getCategoryIcon(category)} ${category}
+            <span class="category-count">(${tokens.length})</span>
+          </h4>
+          <button class="category-toggle" onclick="this.closest('.token-category').classList.toggle('collapsed')">
+            <span class="toggle-icon">▼</span>
+          </button>
+        </div>
+        
+        <div class="category-content">
+          <div class="token-table">
+            <div class="token-table-header">
+              <div class="table-col-name">Token Name</div>
+              <div class="table-col-variable">CSS Variable</div>
+              <div class="table-col-value">Value</div>
+              <div class="table-col-preview">Preview</div>
             </div>
-        `;
+            <div class="token-table-body">
+              ${tokens.map(token => this.renderTokenRow(token)).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
 
-        this.attachEventListeners();
+  /**
+   * Get category icon
+   */
+  getCategoryIcon(category) {
+    const icons = {
+      'Colors': '🎨',
+      'Typography': '📝',
+      'Spacing': '📏',
+      'Border Radius': '🔄',
+      'Shadows': '🌑',
+      'Transitions': '⚡',
+      'Other': '⚙️'
+    };
+    return icons[category] || '📋';
+  }
+
+  /**
+   * Render individual token row
+   */
+  renderTokenRow(token) {
+    return `
+      <div class="token-row" data-token-type="${token.type}">
+        <div class="token-name">
+          <span class="name-text">${token.name}</span>
+          <span class="token-type">${token.type}</span>
+        </div>
+        <div class="token-variable">
+          <code class="css-var">${token.variable}</code>
+          <button class="copy-var" onclick="navigator.clipboard.writeText('${token.variable}')" title="Copy variable">
+            📋
+          </button>
+        </div>
+        <div class="token-value">
+          <code class="value-text">${token.value}</code>
+          <button class="copy-value" onclick="navigator.clipboard.writeText('${token.value}')" title="Copy value">
+            📋
+          </button>
+        </div>
+        <div class="token-preview">
+          ${this.renderTokenPreview(token)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render token preview based on type
+   */
+  renderTokenPreview(token) {
+    switch (token.type) {
+      case 'color':
+        return `<div class="color-preview" style="background-color: ${token.value};" title="${token.value}"></div>`;
+      
+      case 'font-size':
+        return `<div class="text-preview" style="font-size: ${token.value};">Aa</div>`;
+      
+      case 'font-weight':
+        return `<div class="text-preview" style="font-weight: ${token.value};">Text</div>`;
+      
+      case 'font-family':
+        return `<div class="text-preview" style="font-family: ${token.value};">Typeface</div>`;
+      
+      case 'spacing':
+        return `<div class="spacing-preview">
+                  <div class="spacing-box" style="width: ${token.value}; height: 16px;"></div>
+                  <span class="spacing-label">${token.value}</span>
+                </div>`;
+      
+      case 'border-radius':
+        return `<div class="radius-preview" style="border-radius: ${token.value};"></div>`;
+      
+      case 'shadow':
+        return `<div class="shadow-preview" style="box-shadow: ${token.value};"></div>`;
+      
+      case 'transition':
+        return `<div class="transition-preview" style="transition: all ${token.value};">${token.value}</div>`;
+      
+      default:
+        return `<span class="generic-preview">${token.value}</span>`;
     }
+  }
 
-    attachEventListeners() {
-        // Typography controls
-        document.getElementById('heading-font')?.addEventListener('change', (e) => {
-            this.currentTheme.typography.headingFont = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('body-font')?.addEventListener('change', (e) => {
-            this.currentTheme.typography.bodyFont = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('h1-size')?.addEventListener('input', (e) => {
-            this.currentTheme.typography.h1Size = parseInt(e.target.value);
-            e.target.nextElementSibling.textContent = `${e.target.value}px`;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('body-size')?.addEventListener('input', (e) => {
-            this.currentTheme.typography.bodySize = parseInt(e.target.value);
-            e.target.nextElementSibling.textContent = `${e.target.value}px`;
-            this.updateLivePreview();
-        });
-
-        // Color controls
-        document.getElementById('primary-color')?.addEventListener('input', (e) => {
-            this.currentTheme.colors.primary = e.target.value;
-            e.target.nextElementSibling.textContent = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('bg-light')?.addEventListener('input', (e) => {
-            this.currentTheme.colors.bgLight = e.target.value;
-            e.target.nextElementSibling.textContent = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('bg-dark')?.addEventListener('input', (e) => {
-            this.currentTheme.colors.bgDark = e.target.value;
-            e.target.nextElementSibling.textContent = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('text-light')?.addEventListener('input', (e) => {
-            this.currentTheme.colors.textLight = e.target.value;
-            e.target.nextElementSibling.textContent = e.target.value;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('text-dark')?.addEventListener('input', (e) => {
-            this.currentTheme.colors.textDark = e.target.value;
-            e.target.nextElementSibling.textContent = e.target.value;
-            this.updateLivePreview();
-        });
-
-        // Spacing controls
-        document.getElementById('base-spacing')?.addEventListener('input', (e) => {
-            this.currentTheme.spacing.base = parseInt(e.target.value);
-            e.target.nextElementSibling.textContent = `${e.target.value}px`;
-            this.updateLivePreview();
-        });
-
-        document.getElementById('mobile-bp-editor')?.addEventListener('change', (e) => {
-            this.currentTheme.spacing.mobileBreakpoint = parseInt(e.target.value);
-            this.updateLivePreview();
-        });
-
-        // Generation buttons
-        document.getElementById('generate-core-btn')?.addEventListener('click', () => {
-            this.generateCoreCSS();
-        });
-
-        document.getElementById('generate-light-btn')?.addEventListener('click', () => {
-            this.generateLightCSS();
-        });
-
-        document.getElementById('generate-dark-btn')?.addEventListener('click', () => {
-            this.generateDarkCSS();
-        });
-
-        document.getElementById('download-theme-btn')?.addEventListener('click', () => {
-            this.downloadCompleteTheme();
-        });
-
-        // Preset buttons
-        const presetButtons = this.containerElement.querySelector('.preset-buttons');
-        presetButtons?.addEventListener('click', (e) => {
-            if (e.target.matches('.preset-btn')) {
-                const preset = e.target.dataset.preset;
-                this.applyPreset(preset);
-            }
-        });
+  /**
+   * Refresh tokens from CSS
+   */
+  async refreshTokens() {
+    const refreshBtn = this.containerElement.querySelector('.refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.innerHTML = '⏳ Loading...';
+      refreshBtn.disabled = true;
     }
+    
+    await this.loadDesignTokensCSS();
+    this.render();
+  }
 
-    initializeThemeEditor() {
-        // Set initial values
-        document.getElementById('heading-font').value = this.currentTheme.typography.headingFont;
-        document.getElementById('body-font').value = this.currentTheme.typography.bodyFont;
-        document.getElementById('h1-size').value = this.currentTheme.typography.h1Size;
-        document.getElementById('body-size').value = this.currentTheme.typography.bodySize;
-        
-        document.getElementById('primary-color').value = this.currentTheme.colors.primary;
-        document.getElementById('bg-light').value = this.currentTheme.colors.bgLight;
-        document.getElementById('bg-dark').value = this.currentTheme.colors.bgDark;
-        document.getElementById('text-light').value = this.currentTheme.colors.textLight;
-        document.getElementById('text-dark').value = this.currentTheme.colors.textDark;
-        
-        document.getElementById('base-spacing').value = this.currentTheme.spacing.base;
-        document.getElementById('mobile-bp-editor').value = this.currentTheme.spacing.mobileBreakpoint;
-        
-        this.updateLivePreview();
-        logThemeEditor('Theme editor initialized with default values');
-    }
-
-    updateLivePreview() {
-        const preview = document.getElementById('live-preview');
-        if (!preview) return;
-
-        // Apply current theme to preview
-        preview.style.setProperty('--preview-heading-font', this.currentTheme.typography.headingFont);
-        preview.style.setProperty('--preview-body-font', this.currentTheme.typography.bodyFont);
-        preview.style.setProperty('--preview-h1-size', `${this.currentTheme.typography.h1Size}px`);
-        preview.style.setProperty('--preview-body-size', `${this.currentTheme.typography.bodySize}px`);
-        preview.style.setProperty('--preview-primary', this.currentTheme.colors.primary);
-        preview.style.setProperty('--preview-bg-light', this.currentTheme.colors.bgLight);
-        preview.style.setProperty('--preview-text-light', this.currentTheme.colors.textLight);
-        preview.style.setProperty('--preview-spacing', `${this.currentTheme.spacing.base}px`);
-    }
-
-    applyPreset(preset) {
-        logThemeEditor(`Applying preset: ${preset}`);
-        
-        const presets = {
-            minimal: {
-                typography: { headingFont: 'var(--font-family-sans)', bodyFont: 'var(--font-family-sans)', h1Size: 32, bodySize: 16 },
-                colors: { primary: '#000000', bgLight: '#ffffff', bgDark: '#000000', textLight: '#000000', textDark: '#ffffff' },
-                spacing: { base: 4, mobileBreakpoint: 768 }
-            },
-            modern: {
-                typography: { headingFont: 'var(--font-family-sans)', bodyFont: 'var(--font-family-sans)', h1Size: 40, bodySize: 18 },
-                colors: { primary: '#3b82f6', bgLight: '#f8fafc', bgDark: '#0f172a', textLight: '#1e293b', textDark: '#f1f5f9' },
-                spacing: { base: 6, mobileBreakpoint: 1024 }
-            },
-            classic: {
-                typography: { headingFont: 'var(--font-family-serif)', bodyFont: 'var(--font-family-serif)', h1Size: 36, bodySize: 16 },
-                colors: { primary: '#dc2626', bgLight: '#fefefe', bgDark: '#1a1a1a', textLight: '#374151', textDark: '#e5e7eb' },
-                spacing: { base: 4, mobileBreakpoint: 1024 }
-            },
-            dark: {
-                typography: { headingFont: 'var(--font-family-sans)', bodyFont: 'var(--font-family-sans)', h1Size: 36, bodySize: 16 },
-                colors: { primary: '#8b5cf6', bgLight: '#111827', bgDark: '#000000', textLight: '#f9fafb', textDark: '#f9fafb' },
-                spacing: { base: 4, mobileBreakpoint: 1024 }
-            }
+  /**
+   * Export tokens as JSON
+   */
+  exportTokensAsJSON() {
+    const tokensObj = {};
+    
+    this.categories.forEach((tokens, category) => {
+      tokensObj[category.toLowerCase().replace(/\s+/g, '_')] = tokens.reduce((acc, token) => {
+        acc[token.name] = {
+          variable: token.variable,
+          value: token.value,
+          type: token.type
         };
+        return acc;
+      }, {});
+    });
 
-        if (presets[preset]) {
-            this.currentTheme = { ...presets[preset] };
-            this.initializeThemeEditor();
-        }
-    }
+    const jsonStr = JSON.stringify(tokensObj, null, 2);
+    
+    // Create download
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'design-tokens.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-    generateCoreCSS() {
-        const css = `/* Core Theme CSS - Generated by Theme Editor */
-:root {
-  /* Typography */
-  --font-heading: ${this.currentTheme.typography.headingFont};
-  --font-body: ${this.currentTheme.typography.bodyFont};
-  --size-h1: ${this.currentTheme.typography.h1Size}px;
-  --size-body: ${this.currentTheme.typography.bodySize}px;
-  
-  /* Colors */
-  --color-primary: ${this.currentTheme.colors.primary};
-  
-  /* Spacing */
-  --spacing-base: ${this.currentTheme.spacing.base}px;
-  --breakpoint-mobile: ${this.currentTheme.spacing.mobileBreakpoint}px;
+  /**
+   * Cleanup
+   */
+  destroy() {
+    // Clean up any resources if needed
+  }
 }
 
-/* Base Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-}
+// Register the panel
+settingsSectionRegistry.register({
+  id: 'design-tokens',
+  title: 'Design Tokens',
+  icon: '🎨',
+  order: 3,
+  component: ThemeEditorPanel
+});
 
-h1 { font-size: var(--size-h1); }
-
-body, p, div {
-  font-family: var(--font-body);
-  font-size: var(--size-body);
-}
-
-/* Base Spacing */
-.spacing-base { margin: var(--spacing-base); }
-.padding-base { padding: var(--spacing-base); }
-
-/* Mobile Breakpoint */
-@media (max-width: var(--breakpoint-mobile)) {
-  h1 { font-size: calc(var(--size-h1) * 0.8); }
-  body { font-size: calc(var(--size-body) * 0.9); }
-}`;
-
-        this.downloadFile('core.css', css);
-        logThemeEditor('Generated core.css');
-    }
-
-    generateLightCSS() {
-        const css = `/* Light Theme CSS - Generated by Theme Editor */
-:root {
-  --color-background: ${this.currentTheme.colors.bgLight};
-  --color-text: ${this.currentTheme.colors.textLight};
-  --color-primary: ${this.currentTheme.colors.primary};
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-text);
-}
-
-a {
-  color: var(--color-primary);
-}
-
-button {
-  background-color: var(--color-primary);
-  color: var(--color-background);
-  border: none;
-  padding: calc(var(--spacing-base) / 2) var(--spacing-base);
-  border-radius: 4px;
-  font-family: var(--font-body);
-}`;
-
-        this.downloadFile('light.css', css);
-        logThemeEditor('Generated light.css');
-    }
-
-    generateDarkCSS() {
-        const css = `/* Dark Theme CSS - Generated by Theme Editor */
-:root {
-  --color-background: ${this.currentTheme.colors.bgDark};
-  --color-text: ${this.currentTheme.colors.textDark};
-  --color-primary: ${this.currentTheme.colors.primary};
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-text);
-}
-
-a {
-  color: var(--color-primary);
-}
-
-button {
-  background-color: var(--color-primary);
-  color: var(--color-background);
-  border: none;
-  padding: calc(var(--spacing-base) / 2) var(--spacing-base);
-  border-radius: 4px;
-  font-family: var(--font-body);
-}`;
-
-        this.downloadFile('dark.css', css);
-        logThemeEditor('Generated dark.css');
-    }
-
-    downloadCompleteTheme() {
-        const coreCSS = this.generateCoreCSS();
-        const lightCSS = this.generateLightCSS();
-        const darkCSS = this.generateDarkCSS();
-        
-        // Create a zip-like structure (simplified as concatenated file)
-        const completeTheme = `/* Complete Theme Package - Generated by Theme Editor */
-
-/* ========== CORE.CSS ========== */
-${coreCSS}
-
-/* ========== LIGHT.CSS ========== */
-${lightCSS}
-
-/* ========== DARK.CSS ========== */
-${darkCSS}
-
-/* ========== THEME METADATA ========== */
-/*
-Theme Configuration:
-${JSON.stringify(this.currentTheme, null, 2)}
-*/`;
-
-        this.downloadFile('complete-theme.css', completeTheme);
-        logThemeEditor('Downloaded complete theme package');
-    }
-
-    downloadFile(filename, content) {
-        const blob = new Blob([content], { type: 'text/css' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        logThemeEditor(`Downloaded: ${filename}`);
-    }
-
-    subscribeToState() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            // React to theme-related state changes if needed
-        });
-    }
-
-    destroy() {
-        logThemeEditor('Destroying ThemeEditorPanel...');
-        if (this.stateUnsubscribe) {
-            this.stateUnsubscribe();
-            this.stateUnsubscribe = null;
-        }
-        
-        if (this.containerElement) {
-            this.containerElement.innerHTML = '';
-        }
-        this.containerElement = null;
-        logThemeEditor('ThemeEditorPanel destroyed.');
-    }
-}
-
-// Register this panel with the registry
-panelRegistry.register({
-    id: 'theme-editor-container',
-    title: 'Theme Editor',
-    component: ThemeEditorPanel,
-    order: 25,
-    defaultCollapsed: true
-}); 
+export default ThemeEditorPanel; 

@@ -28,5 +28,13 @@ export function subscribe(event, callback) {
 
 // Make globally available
 if (typeof window !== 'undefined') {
-    window.pubsub = { publish, subscribe };
+    const pubsub = { publish, subscribe };
+
+// Register with consolidation system
+if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+    window.devpages._internal.consolidator.migrate('pubsub', pubsub);
+} else {
+    // Fallback for legacy support
+    window.pubsub = pubsub;
+}
 } 

@@ -5,6 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes, isReducerInitialized } from '/client/messaging/messageQueue.js';
+import { panelOrder } from './panelOrder.js';
 
 // Simple array to hold panel configuration objects
 const panels = [];
@@ -92,7 +93,25 @@ export const panelRegistry = {
    * @returns {Array} Sorted array of panel configurations
    */
   getPanels() {
-    return [...panels].sort((a, b) => (a.order || 100) - (b.order || 100));
+    return [...panels].sort((a, b) => {
+      const indexA = panelOrder.indexOf(a.id);
+      const indexB = panelOrder.indexOf(b.id);
+
+      // If both panels are in the order array, sort by their index
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      // If only panel A is in the order array, it comes first
+      if (indexA !== -1) {
+        return -1;
+      }
+      // If only panel B is in the order array, it comes first
+      if (indexB !== -1) {
+        return 1;
+      }
+      // If neither is in the order array, sort by the old 'order' property for stability
+      return (a.order || 100) - (b.order || 100);
+    });
   },
 
   /**

@@ -3,7 +3,7 @@
  * Development tools panel for cache management and debugging
  */
 
-import { panelRegistry } from '../../core/panelRegistry.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { clearCssCache } from '/client/utils/CssManager.js';
 import { logMessage } from '/client/log/index.js';
 
@@ -150,10 +150,9 @@ export class DevToolsPanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
-  id: 'dev-tools-container',
-  title: 'Development Tools',
+settingsSectionRegistry.register({
+  id: 'dev-tools-panel',
+  title: 'Dev Tools',
   component: DevToolsPanel,
-  order: 70,
   defaultCollapsed: true
 }); 

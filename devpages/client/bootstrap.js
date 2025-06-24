@@ -3,6 +3,9 @@ import { logMessage } from '/client/log/index.js';
 import '/client/log/LogCore.js';
 import { ConsoleLogManager } from '/client/log/ConsoleLogManager.js';
 
+// Window consolidation - must be imported early
+import '/client/utils/windowConsolidation.js';
+
 // Reducer & State
 import { mainReducer } from '/client/store/reducer.js';
 import { setReducer, dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
@@ -34,6 +37,9 @@ import { panelRegistry } from '/client/settings/core/panelRegistry.js';
 
 // Debug utilities (development only)
 import '/client/settings/utils/debug-panels.js';
+
+// Migration helper utilities
+import '/client/utils/migrationHelper.js';
 
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
@@ -118,8 +124,25 @@ async function initializeApp() {
         logBootstrap('Content View component mounted.');
 
         // 6. Initialize Other Feature Modules
-        initializeSettingsPanel();
-        initKeyboardShortcuts();
+        try {
+            logBootstrap('Initializing settings panel...');
+            const settingsResult = initializeSettingsPanel();
+            logBootstrap(`Settings panel initialized. Result: ${!!settingsResult}`);
+            logBootstrap(`window.devPages.settingsPanel exists: ${!!(window.devPages && window.devPages.settingsPanel)}`);
+        } catch (error) {
+            logBootstrap(`Settings panel initialization failed: ${error.message}`, 'error');
+            console.error('[BOOTSTRAP] Settings panel error:', error);
+        }
+        
+        try {
+            logBootstrap('Initializing keyboard shortcuts...');
+            initKeyboardShortcuts();
+            logBootstrap('Keyboard shortcuts initialized.');
+        } catch (error) {
+            logBootstrap(`Keyboard shortcuts initialization failed: ${error.message}`, 'error');
+            console.error('[BOOTSTRAP] Keyboard shortcuts error:', error);
+        }
+        
         await new LogPanel().initialize();
         initAuth();
         await initializeFileManager();
