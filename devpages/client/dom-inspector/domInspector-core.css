@@ -153,6 +153,7 @@
   padding: var(--space-xs) var(--space-sm);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
+  height: 32px; /* Match input height */
   
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -167,6 +168,7 @@
   align-items: center;
   justify-content: center;
   min-width: 60px;
+  box-sizing: border-box;
 }
 
 .dom-inspector-btn:hover {
@@ -216,6 +218,7 @@
   padding: var(--space-xs) var(--space-sm);
   font-size: var(--text-sm);
   font-family: var(--font-family-mono);
+  height: 32px; /* Match button height */
   
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -224,6 +227,7 @@
   
   transition: var(--transition);
   width: 100%;
+  box-sizing: border-box;
 }
 
 .dom-inspector-input:focus,
@@ -241,26 +245,73 @@
 /* ===== TOOLBAR ===== */
 .dom-inspector-query-container {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
 
-.dom-inspector-input-section { flex: 1; min-width: 0; }
-.dom-inspector-button-group { display: flex; gap: var(--space-xs); }
+/* Top row with input and buttons */
+.dom-inspector-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+}
 
+.dom-inspector-input-section { 
+  flex: 1; 
+  min-width: 0; 
+}
+
+.dom-inspector-button-group { 
+  display: flex; 
+  align-items: center;
+  gap: var(--space-xs); 
+}
+
+/* Bottom row with history bookmarks */
 .dom-inspector-quick-select {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-lg);
+  padding: 0 var(--space-lg) var(--space-sm) var(--space-lg);
   
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   flex-wrap: wrap;
+  min-height: 0;
+}
+
+/* Preset buttons in history */
+.dom-inspector-preset-btn {
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  font-family: var(--font-family-mono);
+  height: 24px;
+  min-width: 50px;
+  
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-weight: var(--font-weight-medium);
+}
+
+.dom-inspector-preset-btn:hover {
+  background: var(--accent);
+  color: var(--accent-text-contrast);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 /* ===== MAIN CONTENT ===== */

@@ -101,10 +101,18 @@ export function initKeyboardShortcuts() {
     document.addEventListener('keydown', function(event) {
         if (event.key === 'S' && event.ctrlKey && event.shiftKey && !event.altKey) {
             event.preventDefault();
+            console.log("[GENERAL] Ctrl+Shift+S pressed, toggling Settings Panel.");
             if (window.devPages && window.devPages.settingsPanel) {
-                window.devPages.settingsPanel.toggleVisibility();
+                try {
+                    window.devPages.settingsPanel.toggleVisibility();
+                    console.log("[GENERAL] Settings Panel toggle called successfully");
+                } catch (error) {
+                    console.error("[GENERAL] Error calling Settings Panel toggle:", error);
+                }
             } else {
-                console.warn('[Keyboard] Settings Panel not found!');
+                console.warn('[GENERAL] Settings Panel not found!');
+                console.log("[GENERAL] window.devPages:", window.devPages);
+                console.log("[GENERAL] Available debug functions: debugInitSettings(), testSettingsPanel()");
             }
         }
     });
@@ -113,11 +121,18 @@ export function initKeyboardShortcuts() {
     document.addEventListener('keydown', function(event) {
         if (event.key === 'D' && event.ctrlKey && event.shiftKey && !event.altKey) {
             event.preventDefault();
-            console.log("Ctrl+Shift+D pressed, toggling DOM Inspector.");
+            console.log("[GENERAL] Ctrl+Shift+D pressed, toggling DOM Inspector.");
             if (window.devPages && window.devPages.domInspector) {
-                window.devPages.domInspector.toggle();
+                try {
+                    window.devPages.domInspector.toggle();
+                    console.log("[GENERAL] DOM Inspector toggle called successfully");
+                } catch (error) {
+                    console.error("[GENERAL] Error calling DOM Inspector toggle:", error);
+                }
             } else {
-                console.error("DOM Inspector not initialized on window.devPages.domInspector");
+                console.error("[GENERAL] DOM Inspector not initialized on window.devPages.domInspector");
+                console.log("[GENERAL] window.devPages:", window.devPages);
+                console.log("[GENERAL] Available debug functions: debugInitDomInspector(), testDomInspector()");
             }
         }
     });

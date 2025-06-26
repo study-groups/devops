@@ -71,6 +71,12 @@ export function domInspectorReducer(state = {}, action) {
                 ...state,
                 highlight: action.payload
             };
+
+        case ActionTypes.DOM_INSPECTOR_SET_TREE_STATE:
+            return {
+                ...state,
+                treeState: action.payload
+            };
             
         default:
             return state;

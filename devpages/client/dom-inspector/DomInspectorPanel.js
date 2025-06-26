@@ -1,6 +1,6 @@
 /**
  * client/dom-inspector/DomInspectorPanel.js
- * Draggable, resizable DOM inspector panel.
+ * Draggable, resizable DOM inspector panel - Main orchestrator class.
  */
 
 import { appStore } from "/client/appState.js";
@@ -8,22 +8,13 @@ import { dispatch, ActionTypes } from "/client/messaging/messageQueue.js";
 import { ValidationUtils } from "./utils/ValidationUtils.js";
 import { SelectorUtils } from "./utils/SelectorUtils.js";
 import { DomUtils } from "./utils/DomUtils.js";
-import { zIndexManager } from "/client/utils/ZIndexManager.js";
 import { DomInspectorSettingsPanel } from "./DomInspectorSettingsPanel.js";
 
-const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
-
-function loadPersistedState() {
-    try {
-        const savedState = localStorage.getItem(DOM_INSPECTOR_STATE_KEY);
-        if (savedState) {
-            return JSON.parse(savedState);
-        }
-    } catch (e) {
-        console.error('Failed to load DOM Inspector state:', e);
-    }
-    return null;
-}
+// Import new modular components
+import { HighlightOverlay } from "./interaction/HighlightOverlay.js";
+import { ElementPicker } from "./interaction/ElementPicker.js";
+import { StateManager } from "./core/StateManager.js";
+import { PanelUI } from "./core/PanelUI.js";
 
 const STYLE_CATEGORIES = {
     Layout: [
@@ -52,46 +43,68 @@ const STYLE_CATEGORIES = {
     ]
 };
 
-const HIGHLIGHT_MODES = ['none', 'border', 'both'];
-
 export class DomInspectorPanel {
     constructor() {
-        this.panel = null;
-        this.treeContainer = null;
-        this.detailsContainer = null;
-        this.closeButton = null;
-        this.querySelectorInput = null;
-        this.elementPickerButton = null;
-        this.breadcrumbContainer = null;
-        this.historyContainer = null;
-        this.isVisible = false;
-        this.isDragging = false;
-        this.dragOffset = { x: 0, y: 0 };
-        this.isResizing = false;
-        this.resizeStart = { x: 0, y: 0, width: 0, height: 0 };
-
+        // Element tracking
         this.selectedElement = null;
-        this.isPickerActive = false;
-        this.highlightOverlay = null;
-
-        this.stateUnsubscribe = null;
         this.elementCache = new Map();
         this.nextCacheId = 0;
-        this.elementIdCounter = 0; // Counter for generating unique element IDs
+        this.elementIdCounter = 0;
 
-        const persistedState = loadPersistedState();
-        if (persistedState) {
-             dispatch({
-                type: ActionTypes.DOM_INSPECTOR_SET_STATE,
-                payload: persistedState
-            });
-        }
+        // Initialize new modular components
+        this.stateManager = new StateManager();
+        console.log('[GENERAL] StateManager created, initializing...');
+        this.stateManager.initialize();
+        console.log('[GENERAL] StateManager initialized');
         
-        const initialState = appStore.getState().domInspector;
-        this.currentPos = { ...initialState.position };
-        this.currentSize = { ...initialState.size };
+        // Get initial state after state manager is initialized
+        const initialState = this.stateManager.getState();
         
-        this.highlightSettings = { ...initialState.highlight };
+        // Initialize PanelUI with callbacks
+        this.panelUI = new PanelUI({
+            onPositionChange: (position) => this.stateManager.setPosition(position),
+            onSizeChange: (size) => this.stateManager.setSize(size),
+            onClose: () => this.hide(),
+            onSettings: () => this.settingsPanel.toggle(),
+            onBringToFront: (zIndex) => {
+                // Optional callback for when panel is brought to front
+                console.log(`DOM Inspector brought to front: z-index ${zIndex}`);
+            }
+        });
+        
+        // Get UI element references from PanelUI
+        const uiElements = this.panelUI.getElements();
+        this.panel = uiElements.panel;
+        this.treeContainer = uiElements.treeContainer;
+        this.detailsContainer = uiElements.detailsContainer;
+        this.querySelectorInput = uiElements.querySelectorInput;
+        this.elementPickerButton = uiElements.elementPickerButton;
+        this.saveButton = uiElements.saveButton;
+        this.clearButton = uiElements.clearButton;
+        this.highlightToggleButton = uiElements.highlightToggleButton;
+        this.historyContainer = uiElements.historyContainer;
+        this.closeButton = uiElements.closeButton;
+        this.settingsButton = uiElements.settingsButton;
+        
+        // Set initial state from StateManager
+        this.panelUI.setPosition(initialState.position);
+        this.panelUI.setSize(initialState.size);
+        
+        // Initialize highlight overlay with current settings
+        this.highlightOverlay = new HighlightOverlay(initialState.highlight);
+        
+        // Initialize element picker with callbacks
+        this.elementPicker = new ElementPicker({
+            onHighlight: (element) => {
+                if (element) {
+                    this.highlightOverlay.highlight(element);
+                } else {
+                    this.highlightOverlay.hide();
+                }
+            },
+            onSelect: (element) => this.selectElement(element),
+            excludeSelectors: ['.dom-inspector-panel', '.dom-inspector-panel *']
+        });
 
         // Annotation settings for z-index and stacking context display
         this.annotationSettings = {
@@ -113,10 +126,9 @@ export class DomInspectorPanel {
         this.currentBreadcrumbTrail = null;
         this.activeBreadcrumbIndex = -1;
 
-        this.createPanel();
         this.setupEventHandlers();
-        this.subscribeToState();
-        this.registerWithZIndexManager();
+        this.setupStateListeners();
+        this.panelUI.registerWithZIndexManager();
         
         // Create settings panel
         this.settingsPanel = new DomInspectorSettingsPanel(this);
@@ -128,167 +140,66 @@ export class DomInspectorPanel {
         // This ensures the tree is ready whether the panel is shown or not
         this.buildTree();
 
-        // Create highlight overlay immediately so it's available for selections
-        this.createHighlightOverlay();
-
+        // Initialize highlight button visuals after UI is created
+        this.updateHighlightButtonVisuals();
+        
+        // Update history buttons after UI is created
+        this.updateHistoryButtons();
+        
         this.render(initialState);
     }
 
-    createPanel() {
-        if (this.panel) {
-            return;
-        }
-
-        this.panel = document.createElement('div');
-        this.panel.className = 'dom-inspector-panel base-popup';
-        this.panel.style.display = 'none';
-        
-        const state = appStore.getState().domInspector;
-        this.panel.style.width = `${state.size.width}px`;
-        this.panel.style.height = `${state.size.height}px`;
-        this.panel.style.top = `${state.position.y}px`;
-        this.panel.style.left = `${state.position.x}px`;
-
-        const header = document.createElement('div');
-        header.className = 'dom-inspector-header';
-        header.innerHTML = `
-            <span>DOM Inspector</span>
-            <div class="header-buttons">
-                <button class="dom-inspector-settings-btn" title="Settings">⚙</button>
-                <button class="dom-inspector-close" title="Close">×</button>
-            </div>
-        `;
-
-        this.closeButton = header.querySelector('.dom-inspector-close');
-        this.settingsButton = header.querySelector('.dom-inspector-settings-btn');
-        this.panel.appendChild(header);
-
-        const queryContainer = document.createElement('div');
-        queryContainer.className = 'dom-inspector-query-container';
-
-        // Input section
-        const inputSection = document.createElement('div');
-        inputSection.className = 'dom-inspector-input-section';
-
-        this.querySelectorInput = document.createElement('input');
-        this.querySelectorInput.type = 'text';
-        this.querySelectorInput.placeholder = 'CSS Selector';
-        this.querySelectorInput.className = 'dom-inspector-query-input';
-
-        // Button group
-        const buttonGroup = document.createElement('div');
-        buttonGroup.className = 'dom-inspector-button-group';
-
-        this.elementPickerButton = document.createElement('button');
-        this.elementPickerButton.textContent = 'Select';
-        this.elementPickerButton.className = 'dom-inspector-btn dom-inspector-picker-btn';
-        this.elementPickerButton.title = 'Click to select element by pointing';
-
-        this.saveButton = document.createElement('button');
-        this.saveButton.textContent = 'Save';
-        this.saveButton.className = 'dom-inspector-btn dom-inspector-save-btn';
-        this.saveButton.title = 'Save current selector to history';
-
-        this.clearButton = document.createElement('button');
-        this.clearButton.textContent = 'Clear';
-        this.clearButton.className = 'dom-inspector-btn dom-inspector-clear-btn';
-        this.clearButton.title = 'Clear input and selection, or delete preset if selector matches';
-
-        this.highlightToggleButton = document.createElement('button');
-        this.highlightToggleButton.className = 'dom-inspector-btn dom-inspector-highlight-toggle';
-        this.updateHighlightButtonVisuals();
-
-        inputSection.appendChild(this.querySelectorInput);
-        buttonGroup.appendChild(this.elementPickerButton);
-        buttonGroup.appendChild(this.saveButton);
-        buttonGroup.appendChild(this.clearButton);
-        buttonGroup.appendChild(this.highlightToggleButton);
-
-        queryContainer.appendChild(inputSection);
-        queryContainer.appendChild(buttonGroup);
-
-        const quickSelectContainer = document.createElement('div');
-        quickSelectContainer.className = 'dom-inspector-quick-select';
-        this.historyContainer = quickSelectContainer;
-
-        this.panel.appendChild(queryContainer);
-        this.panel.appendChild(quickSelectContainer);
-
-        const mainContent = document.createElement('div');
-        mainContent.className = 'dom-inspector-main';
-
-        this.treeContainer = document.createElement('div');
-        this.treeContainer.className = 'dom-inspector-tree';
-
-        this.detailsContainer = document.createElement('div');
-        this.detailsContainer.className = 'dom-inspector-details';
-
-        mainContent.appendChild(this.treeContainer);
-        mainContent.appendChild(this.detailsContainer);
-
-        this.panel.appendChild(mainContent);
-        
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'dom-inspector-resize-handle';
-        this.panel.appendChild(resizeHandle);
-        
-        document.body.appendChild(this.panel);
-        this.updateHistoryButtons();
-    }
-
-    subscribeToState() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            const oldInspectorState = prevState.domInspector;
-            const newInspectorState = newState.domInspector;
-
-            if (oldInspectorState.visible !== newInspectorState.visible) {
-                this.isVisible = newInspectorState.visible;
-                this.panel.style.display = this.isVisible ? 'flex' : 'none';
+    setupStateListeners() {
+        // Listen to specific state changes through the StateManager
+        this.stateManager.on('visibilityChanged', (visible) => {
+            console.log('[GENERAL] State listener: visibilityChanged =', visible);
+            if (visible) {
+                console.log('[GENERAL] State listener: calling PanelUI.show()');
+                this.panelUI.show();
+            } else {
+                console.log('[GENERAL] State listener: calling PanelUI.hide()');
+                this.panelUI.hide();
             }
-            if (!this.isDragging && JSON.stringify(oldInspectorState.position) !== JSON.stringify(newInspectorState.position)) {
-                this.panel.style.left = `${newInspectorState.position.x}px`;
-                this.panel.style.top = `${newInspectorState.position.y}px`;
-                this.currentPos = { ...newInspectorState.position };
-            }
-            if (!this.isResizing && JSON.stringify(oldInspectorState.size) !== JSON.stringify(newInspectorState.size)) {
-                this.panel.style.width = `${newInspectorState.size.width}px`;
-                this.panel.style.height = `${newInspectorState.size.height}px`;
-                this.currentSize = { ...newInspectorState.size };
-            }
-            if (JSON.stringify(oldInspectorState.highlight) !== JSON.stringify(newInspectorState.highlight)) {
-                this.highlightSettings = { ...newInspectorState.highlight };
-                this.updateHighlightButtonVisuals();
-                this.updateHighlightStyles();
-            }
-            if (JSON.stringify(oldInspectorState.selectorHistory) !== JSON.stringify(newInspectorState.selectorHistory)) {
-                this.updateHistoryButtons();
-            }
-            if (this.selectedElement && JSON.stringify(oldInspectorState.collapsedSections) !== JSON.stringify(newInspectorState.collapsedSections)) {
-                this.displayElementDetails(this.selectedElement);
-            }
+        });
+
+        this.stateManager.on('positionChanged', (position) => {
+            this.panelUI.setPosition(position);
+        });
+
+        this.stateManager.on('sizeChanged', (size) => {
+            this.panelUI.setSize(size);
+        });
+
+        this.stateManager.on('highlightChanged', (highlight) => {
+            this.highlightOverlay.updateSettings(highlight);
+            this.updateHighlightButtonVisuals();
+        });
+
+        this.stateManager.on('historyChanged', () => {
+            this.updateHistoryButtons();
+        });
+
+        this.stateManager.on('sectionsChanged', () => {
+            this.updateCollapsibleSections();
         });
     }
 
     render(state) {
         if (!this.panel) return;
 
-        this.isVisible = state.visible;
-        this.panel.style.display = this.isVisible ? 'flex' : 'none';
-
-        if (!this.isDragging) {
-            this.panel.style.left = `${state.position.x}px`;
-            this.panel.style.top = `${state.position.y}px`;
-            this.currentPos = { ...state.position };
-        }
-        if (!this.isResizing) {
-            this.panel.style.width = `${state.size.width}px`;
-            this.panel.style.height = `${state.size.height}px`;
-            this.currentSize = { ...state.size };
+        // Update panel visibility and position through PanelUI
+        if (state.visible) {
+            this.panelUI.show();
+        } else {
+            this.panelUI.hide();
         }
         
-        this.highlightSettings = { ...state.highlight };
+        this.panelUI.setPosition(state.position);
+        this.panelUI.setSize(state.size);
+        
+        // Update highlight overlay settings
+        this.highlightOverlay.updateSettings(state.highlight);
         this.updateHighlightButtonVisuals();
-        this.updateHighlightStyles();
         
         this.updateHistoryButtons();
 
@@ -298,11 +209,7 @@ export class DomInspectorPanel {
     }
 
     setupEventHandlers() {
-        const header = this.panel.querySelector('.dom-inspector-header');
-        const resizeHandle = this.panel.querySelector('.dom-inspector-resize-handle');
-
-        this.closeButton.addEventListener('click', () => this.hide());
-        this.settingsButton.addEventListener('click', () => this.settingsPanel.toggle());
+        // Note: PanelUI handles its own close and settings button events through callbacks
 
         this.querySelectorInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -310,7 +217,11 @@ export class DomInspectorPanel {
             }
         });
 
-        this.elementPickerButton.addEventListener('click', () => this.togglePickerMode());
+        this.elementPickerButton.addEventListener('click', () => {
+            this.elementPicker.toggle();
+            // Update button visual state
+            this.elementPickerButton.classList.toggle('active', this.elementPicker.isPickerActive());
+        });
 
         this.saveButton.addEventListener('click', () => {
             const selector = this.querySelectorInput.value.trim();
@@ -323,8 +234,7 @@ export class DomInspectorPanel {
             const selector = this.querySelectorInput.value.trim();
             if (selector) {
                 // Check if selector exists in history before attempting to remove
-                const state = appStore.getState().domInspector;
-                const history = state.selectorHistory || [];
+                const history = this.stateManager.getSelectorHistory();
                 
                 if (history.includes(selector)) {
                     // Remove from presets and clear input
@@ -358,9 +268,9 @@ export class DomInspectorPanel {
                 if (element) {
                     // Shift+click highlights the element in the page
                     if (e.shiftKey) {
-                        this.highlightElement(element);
+                        this.highlightOverlay.highlight(element);
                         // Flash the highlight to make it more visible
-                        this.flashHighlight();
+                        this.highlightOverlay.flash();
                         console.log('DOM Inspector: Shift+click - highlighting element in page');
                     } else {
                         // Normal click selects the element
@@ -370,25 +280,7 @@ export class DomInspectorPanel {
             }
         });
 
-        header.addEventListener('mousedown', (e) => this.startDrag(e));
-        resizeHandle.addEventListener('mousedown', (e) => this.startResize(e));
-
-        // Click to bring to front functionality
-        this.panel.addEventListener('mousedown', (e) => {
-            // Only bring to front if not clicking on specific interactive elements
-            if (!e.target.closest('button, input, select, textarea, .dom-inspector-node-toggle')) {
-                this.bringToFront();
-            }
-        });
-        
-        document.addEventListener('mousemove', (e) => {
-            this.doDrag(e);
-            this.doResize(e);
-        });
-        document.addEventListener('mouseup', () => {
-            this.endDrag();
-            this.endResize();
-        });
+        // Note: PanelUI handles all drag, resize, and bring-to-front functionality
 
         this.setupHighlightButtonEvents();
 
@@ -409,81 +301,44 @@ export class DomInspectorPanel {
             }
         });
     }
-    
-    startDrag(e) {
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-        this.isDragging = true;
-        const rect = this.panel.getBoundingClientRect();
-        this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    }
-
-    doDrag(e) {
-        if (!this.isDragging) return;
-        this.currentPos.x = e.clientX - this.dragOffset.x;
-        this.currentPos.y = e.clientY - this.dragOffset.y;
-        this.panel.style.left = `${this.currentPos.x}px`;
-        this.panel.style.top = `${this.currentPos.y}px`;
-    }
-
-    endDrag() {
-        if (!this.isDragging) return;
-        this.isDragging = false;
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_POSITION, payload: this.currentPos });
-    }
-
-    startResize(e) {
-        e.preventDefault();
-        this.isResizing = true;
-        this.resizeStart = {
-            x: e.clientX,
-            y: e.clientY,
-            width: this.panel.offsetWidth,
-            height: this.panel.offsetHeight
-        };
-    }
-
-    doResize(e) {
-        if (!this.isResizing) return;
-        const newWidth = Math.max(300, this.resizeStart.width + (e.clientX - this.resizeStart.x));
-        const newHeight = Math.max(200, this.resizeStart.height + (e.clientY - this.resizeStart.y));
-        this.currentSize = { width: newWidth, height: newHeight };
-        this.panel.style.width = `${newWidth}px`;
-        this.panel.style.height = `${newHeight}px`;
-    }
-
-    endResize() {
-        if (!this.isResizing) return;
-        this.isResizing = false;
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_SIZE, payload: this.currentSize });
-    }
 
     show() {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_VISIBLE, payload: true });
+        console.log('[GENERAL] DOM Inspector show() called');
+        this.stateManager.setVisible(true);
         // Always build tree when showing to ensure it's populated
         this.buildTree();
     }
 
     hide() {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_VISIBLE, payload: false });
-        if (this.isPickerActive) {
-            this.togglePickerMode();
+        console.log('[GENERAL] DOM Inspector hide() called');
+        this.stateManager.setVisible(false);
+        if (this.elementPicker.isPickerActive()) {
+            this.elementPicker.deactivate();
         }
     }
     
     toggle() {
-        // Use the store state for consistency
-        const currentState = appStore.getState().domInspector;
-        currentState.visible ? this.hide() : this.show();
+        const currentVisibility = this.stateManager.isVisible();
+        console.log('[GENERAL] DOM Inspector toggle() - current visibility:', currentVisibility);
+        
+        // Use the state manager for consistency
+        if (currentVisibility) {
+            console.log('[GENERAL] DOM Inspector is visible, calling hide()');
+            this.hide();
+        } else {
+            console.log('[GENERAL] DOM Inspector is hidden, calling show()');
+            this.show();
+        }
     }
     
     savePreset(selector) {
         if (!selector) return;
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_ADD_SELECTOR_HISTORY, payload: selector });
+        this.stateManager.addSelectorToHistory(selector);
     }
 
     removePreset(selector) {
         if (!selector) return;
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_REMOVE_SELECTOR_HISTORY, payload: selector });
+        this.stateManager.removeSelectorFromHistory(selector);
         console.log('DOM Inspector: Removed preset:', selector);
     }
 
@@ -589,8 +444,7 @@ export class DomInspectorPanel {
 
     updateHistoryButtons() {
         this.historyContainer.innerHTML = '';
-        const state = appStore.getState().domInspector;
-        const history = state.selectorHistory || [];
+        const history = this.stateManager.getSelectorHistory();
 
         history.forEach(selector => {
             const button = document.createElement('button');
@@ -605,9 +459,14 @@ export class DomInspectorPanel {
             // Regular click handler
             button.addEventListener('click', (e) => {
                 if (!isLongPress) {
-                    // Populate the query input with the full selector
-                    this.querySelectorInput.value = selector;
-                    this.selectElementByQuery(selector);
+                    // Check if selector exists in history before attempting to remove
+                    const history = this.stateManager.getSelectorHistory();
+                    
+                    if (history.includes(selector)) {
+                        // Populate the query input with the full selector
+                        this.querySelectorInput.value = selector;
+                        this.selectElementByQuery(selector);
+                    }
                 }
                 isLongPress = false;
             });
@@ -685,7 +544,7 @@ export class DomInspectorPanel {
         this.detailsContainer.innerHTML = '';
         
         // Hide highlight instead of removing overlay
-        this.hideHighlight();
+        this.highlightOverlay.hide();
         
         // Clear selected element reference
         this.selectedElement = null;
@@ -694,6 +553,7 @@ export class DomInspectorPanel {
     createCollapsibleSection(id, titleContent, contentEl) {
         const container = document.createElement('div');
         container.className = 'dom-inspector-section';
+        container.dataset.sectionId = id; // Store section ID for later reference
 
         const header = document.createElement('div');
         header.className = 'dom-inspector-section-header';
@@ -714,8 +574,8 @@ export class DomInspectorPanel {
         container.appendChild(header);
         container.appendChild(contentEl);
 
-        const state = appStore.getState().domInspector;
-        const isCollapsed = state.collapsedSections[id];
+        const collapsedSections = this.stateManager.getCollapsedSections();
+        const isCollapsed = collapsedSections[id] || false; // Default to expanded
 
         contentEl.style.display = isCollapsed ? 'none' : 'block';
         indicator.textContent = isCollapsed ? '▶' : '▼';
@@ -723,19 +583,42 @@ export class DomInspectorPanel {
 
         header.addEventListener('click', () => {
             const willBeCollapsed = !container.classList.contains('collapsed');
-            dispatch({
-                type: ActionTypes.DOM_INSPECTOR_SET_SECTION_COLLAPSED,
-                payload: { id, collapsed: willBeCollapsed }
-            });
+            this.stateManager.setSectionCollapsed(id, willBeCollapsed);
+            
+            // Immediate UI update (optimistic update)
+            contentEl.style.display = willBeCollapsed ? 'none' : 'block';
+            indicator.textContent = willBeCollapsed ? '▶' : '▼';
+            container.classList.toggle('collapsed', willBeCollapsed);
         });
 
         return container;
     }
 
+    updateCollapsibleSections() {
+        // Update all collapsible sections based on current state
+        const collapsedSections = this.stateManager.getCollapsedSections();
+        const sections = this.detailsContainer.querySelectorAll('.dom-inspector-section');
+        
+        sections.forEach(section => {
+            const sectionId = section.dataset.sectionId;
+            if (sectionId && collapsedSections.hasOwnProperty(sectionId)) {
+                const isCollapsed = collapsedSections[sectionId];
+                const indicator = section.querySelector('.dom-inspector-collapse-indicator');
+                const content = section.querySelector('.dom-inspector-section-content');
+                
+                if (indicator && content) {
+                    content.style.display = isCollapsed ? 'none' : 'block';
+                    indicator.textContent = isCollapsed ? '▶' : '▼';
+                    section.classList.toggle('collapsed', isCollapsed);
+                }
+            }
+        });
+    }
+
     displayElementDetails(element) {
         this.detailsContainer.innerHTML = '';
         this.selectedElement = element;
-        this.highlightElement(element);
+        this.highlightOverlay.highlight(element);
 
         // Enhanced breadcrumb trail at the very top
         this.detailsContainer.appendChild(this.createEnhancedBreadcrumbTrail(element));
@@ -1416,153 +1299,21 @@ export class DomInspectorPanel {
     }
 
     highlightClickableArea(element, clickPoint) {
-        // Create a small highlight dot at the clickable point
-        const dot = document.createElement('div');
-        dot.className = 'dom-inspector-clickable-dot';
-        dot.style.cssText = `
-            position: fixed;
-            width: 10px;
-            height: 10px;
-            background: #00ff00;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            z-index: 999999;
-            pointer-events: none;
-            left: ${clickPoint.x - 5}px;
-            top: ${clickPoint.y - 5}px;
-            animation: pulse 1s infinite;
-        `;
-        
-        // Add pulse animation
-        if (!document.querySelector('#clickable-dot-animation')) {
-            const style = document.createElement('style');
-            style.id = 'clickable-dot-animation';
-            style.textContent = `
-                @keyframes pulse {
-                    0% { transform: scale(1); opacity: 1; }
-                    50% { transform: scale(1.5); opacity: 0.7; }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
-        document.body.appendChild(dot);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            dot.remove();
-        }, 3000);
+        // Use the HighlightOverlay's showClickableDot method
+        this.highlightOverlay.showClickableDot(clickPoint.x, clickPoint.y, {
+            color: '#00ff00',
+            size: 10,
+            duration: 3000
+        });
         
         console.log(`DOM Inspector: Clickable area highlighted at (${clickPoint.x}, ${clickPoint.y})`);
     }
 
-    shouldAllowNormalClick(element) {
-        if (!element) {
-            return false;
-        }
 
-        const interactiveTags = ['a', 'button', 'input', 'select', 'textarea'];
-        const tagName = element.tagName.toLowerCase();
 
-        if (interactiveTags.includes(tagName) && !element.disabled) {
-            return true;
-        }
 
-        if (element.isContentEditable) {
-            return true;
-        }
 
-        const role = element.getAttribute('role');
-        if (role && ['button', 'link', 'menuitem', 'checkbox', 'radio', 'tab'].includes(role)) {
-            return true;
-        }
-
-        if (element.hasAttribute('onclick')) {
-            return true;
-        }
-
-        return false;
-    }
-
-    handlePickerClick = (e) => {
-        if (!this.isPickerActive) return;
-        
-        if (this.panel && this.panel.contains(e.target)) {
-            return;
-        }
-        
-        if (!this.deepSelectMode && this.shouldAllowNormalClick(e.target)) {
-            this.showForcePickHint();
-            return;
-        }
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        this.togglePickerMode();
-        this.selectElement(e.target);
-    }
-
-    togglePickerMode() {
-        this.isPickerActive = !this.isPickerActive;
-        this.elementPickerButton.classList.toggle('active', this.isPickerActive);
-        if (this.isPickerActive) {
-            document.addEventListener('mousemove', this.handlePickerMouseMove, { capture: true, passive: true });
-            document.addEventListener('click', this.handlePickerClick, { capture: true });
-        } else {
-            document.removeEventListener('mousemove', this.handlePickerMouseMove, { capture: true, passive: true });
-            document.removeEventListener('click', this.handlePickerClick, { capture: true });
-            this.hideHighlight();
-        }
-    }
-
-    handlePickerMouseMove = (e) => {
-        if (!this.isPickerActive) return;
-        if (this.panel && this.panel.contains(e.target)) {
-            this.hideHighlight();
-            return;
-        }
-        
-        this.highlightElement(e.target);
-    }
-
-    // --- Z-Index Management ---
-
-    registerWithZIndexManager() {
-        if (this.panel && zIndexManager) {
-            // Register the DOM inspector in the UI layer with high priority
-            this.zIndex = zIndexManager.register(this.panel, 'UI', 75, {
-                name: 'DOM Inspector',
-                type: 'panel',
-                resizable: true,
-                draggable: true
-            });
-            
-            console.log(`DOM Inspector registered with Z-Index Manager: z-index ${this.zIndex}`);
-        }
-    }
-
-    bringToFront() {
-        if (this.panel && zIndexManager) {
-            const newZIndex = zIndexManager.bringToFront(this.panel);
-            this.zIndex = newZIndex;
-            console.log(`DOM Inspector brought to front: z-index ${newZIndex}`);
-            
-            // Add visual feedback
-            this.panel.classList.add('brought-to-front');
-            setTimeout(() => {
-                this.panel.classList.remove('brought-to-front');
-            }, 200);
-        }
-    }
-
-    unregisterFromZIndexManager() {
-        if (this.panel && zIndexManager) {
-            zIndexManager.unregister(this.panel);
-            console.log('DOM Inspector unregistered from Z-Index Manager');
-        }
-    }
+    // Note: Z-Index management is now handled by PanelUI module
 
     // --- Annotation Settings ---
 
@@ -1756,33 +1507,54 @@ export class DomInspectorPanel {
     }
 
     destroy() {
-        // Unregister from Z-Index Manager
-        this.unregisterFromZIndexManager();
-        
         // Destroy settings panel
         if (this.settingsPanel) {
             this.settingsPanel.destroy();
             this.settingsPanel = null;
         }
         
-        if (this.stateUnsubscribe) {
-            this.stateUnsubscribe();
-            this.stateUnsubscribe = null;
+        // Destroy new modular components
+        if (this.stateManager) {
+            this.stateManager.destroy();
+            this.stateManager = null;
         }
-        if (this.panel) {
-            this.panel.remove();
-            this.panel = null;
+        
+        if (this.highlightOverlay) {
+            this.highlightOverlay.destroy();
+            this.highlightOverlay = null;
         }
-        this.removeHighlightOverlay();
+        
+        if (this.elementPicker) {
+            this.elementPicker.destroy();
+            this.elementPicker = null;
+        }
+        
+        // Destroy PanelUI (handles Z-index management and panel removal)
+        if (this.panelUI) {
+            this.panelUI.destroy();
+            this.panelUI = null;
+        }
+        
+        // Clear UI element references
+        this.panel = null;
+        this.treeContainer = null;
+        this.detailsContainer = null;
+        this.querySelectorInput = null;
+        this.elementPickerButton = null;
+        this.saveButton = null;
+        this.clearButton = null;
+        this.highlightToggleButton = null;
+        this.historyContainer = null;
+        this.closeButton = null;
+        this.settingsButton = null;
     }
 
     // --- Highlight System Methods ---
     updateHighlightButtonVisuals() {
         if (!this.highlightToggleButton) return;
         
-        const mode = this.highlightSettings.mode;
-        const modeIndex = HIGHLIGHT_MODES.indexOf(mode);
-        const nextMode = HIGHLIGHT_MODES[(modeIndex + 1) % HIGHLIGHT_MODES.length];
+        const mode = this.stateManager.getHighlight().mode;
+        const nextMode = HighlightOverlay.getNextMode(mode);
         
         // Update button appearance based on current mode
         this.highlightToggleButton.className = 'dom-inspector-btn dom-inspector-highlight-toggle';
@@ -1804,97 +1576,7 @@ export class DomInspectorPanel {
         }
     }
 
-    updateHighlightStyles() {
-        if (!this.highlightOverlay) return;
-        
-        const mode = this.highlightSettings.mode;
-        const color = this.highlightSettings.color;
-        
-        // Update overlay styles based on current mode
-        if (mode === 'none') {
-            this.highlightOverlay.style.border = 'none';
-            this.highlightOverlay.style.backgroundColor = 'transparent';
-        } else if (mode === 'border') {
-            this.highlightOverlay.style.border = `2px solid ${color}`;
-            this.highlightOverlay.style.backgroundColor = 'transparent';
-        } else if (mode === 'both') {
-            this.highlightOverlay.style.border = `2px solid ${color}`;
-            // Create a translucent version of the color
-            const rgb = this.hexToRgb(color);
-            this.highlightOverlay.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
-        }
-    }
 
-    createHighlightOverlay() {
-        if (this.highlightOverlay) {
-            this.highlightOverlay.remove();
-        }
-        
-        this.highlightOverlay = document.createElement('div');
-        this.highlightOverlay.className = 'dom-inspector-highlight-overlay';
-        this.highlightOverlay.style.cssText = `
-            position: fixed;
-            pointer-events: none;
-            z-index: 999999;
-            top: 0;
-            left: 0;
-            width: 0;
-            height: 0;
-            transition: all 0.1s ease;
-            border-radius: 2px;
-            display: none;
-        `;
-        
-        document.body.appendChild(this.highlightOverlay);
-        this.updateHighlightStyles();
-    }
-
-    removeHighlightOverlay() {
-        if (this.highlightOverlay) {
-            this.highlightOverlay.remove();
-            this.highlightOverlay = null;
-        }
-    }
-
-    highlightElement(element) {
-        if (!this.highlightOverlay || !element) return;
-        
-        const rect = element.getBoundingClientRect();
-        const mode = this.highlightSettings.mode;
-        
-        if (mode === 'none') {
-            this.highlightOverlay.style.display = 'none';
-            return;
-        }
-        
-        this.highlightOverlay.style.display = 'block';
-        this.highlightOverlay.style.top = `${rect.top}px`;
-        this.highlightOverlay.style.left = `${rect.left}px`;
-        this.highlightOverlay.style.width = `${rect.width}px`;
-        this.highlightOverlay.style.height = `${rect.height}px`;
-        
-        this.updateHighlightStyles();
-    }
-
-    hideHighlight() {
-        if (this.highlightOverlay) {
-            this.highlightOverlay.style.display = 'none';
-        }
-    }
-
-    flashHighlight() {
-        if (!this.highlightOverlay) return;
-        
-        // Add a flash animation class
-        this.highlightOverlay.classList.add('flash-highlight');
-        
-        // Remove the class after animation completes
-        setTimeout(() => {
-            if (this.highlightOverlay) {
-                this.highlightOverlay.classList.remove('flash-highlight');
-            }
-        }, 600);
-    }
 
     setupHighlightButtonEvents() {
         if (!this.highlightToggleButton) return;
@@ -1936,13 +1618,12 @@ export class DomInspectorPanel {
     }
 
     toggleHighlightMode() {
-        const currentMode = this.highlightSettings.mode;
-        const modeIndex = HIGHLIGHT_MODES.indexOf(currentMode);
-        const nextMode = HIGHLIGHT_MODES[(modeIndex + 1) % HIGHLIGHT_MODES.length];
+        const currentHighlight = this.stateManager.getHighlight();
+        const nextMode = HighlightOverlay.getNextMode(currentHighlight.mode);
         
-        dispatch({
-            type: ActionTypes.DOM_INSPECTOR_SET_HIGHLIGHT,
-            payload: { ...this.highlightSettings, mode: nextMode }
+        this.stateManager.setHighlight({
+            ...currentHighlight,
+            mode: nextMode
         });
     }
 
@@ -1950,7 +1631,8 @@ export class DomInspectorPanel {
         // Create a simple color picker
         const input = document.createElement('input');
         input.type = 'color';
-        input.value = this.highlightSettings.color;
+        const currentHighlight = this.stateManager.getHighlight();
+        input.value = currentHighlight.color;
         input.style.position = 'fixed';
         input.style.top = '-1000px';
         input.style.left = '-1000px';
@@ -1959,9 +1641,9 @@ export class DomInspectorPanel {
         
         input.addEventListener('change', (e) => {
             const newColor = e.target.value;
-            dispatch({
-                type: ActionTypes.DOM_INSPECTOR_SET_HIGHLIGHT,
-                payload: { ...this.highlightSettings, color: newColor }
+            this.stateManager.setHighlight({
+                ...currentHighlight,
+                color: newColor
             });
             input.remove();
         });
@@ -1973,15 +1655,7 @@ export class DomInspectorPanel {
         input.click();
     }
 
-    // Utility method to convert hex color to RGB
-    hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : { r: 68, g: 138, b: 255 }; // Default blue
-    }
+
 
     // --- Missing Element Details Methods ---
     createElementSummary(element) {
@@ -2645,33 +2319,7 @@ export class DomInspectorPanel {
         }
     }
 
-    showForcePickHint() {
-        console.log('DOM Inspector: Use Shift+Click to force select interactive elements');
-        
-        // Show temporary tooltip
-        const tooltip = document.createElement('div');
-        tooltip.className = 'dom-inspector-force-pick-hint';
-        tooltip.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #333;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            z-index: 1000000;
-            font-size: 14px;
-            pointer-events: none;
-        `;
-        tooltip.textContent = 'Hold Shift and click to select interactive elements';
-        
-        document.body.appendChild(tooltip);
-        
-        setTimeout(() => {
-            tooltip.remove();
-        }, 2000);
-    }
+
 
     // Helper method you can call from console for testing
     testSelector(query) {
