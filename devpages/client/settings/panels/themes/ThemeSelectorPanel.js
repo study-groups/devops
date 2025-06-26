@@ -6,7 +6,8 @@
 
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 class ThemeSelectorPanel {
   constructor(containerElement) {
@@ -23,16 +24,39 @@ class ThemeSelectorPanel {
       colorScheme: 'system',     // system, light, dark
       themeVariant: 'light',     // light, dark
       spacingDensity: 'normal',  // tight, normal, comfortable
-      currentTheme: null         // selected theme
+      currentTheme: null,        // selected theme id
+      // These are now conventions, not settings.
+      // They are kept here for display purposes.
+      themeFileCore: 'core.css',
+      themeFileLight: 'light.css',
+      themeFileDark: 'dark.css'
     };
+    
+    // Load the CSS file dynamically
+    this.loadComponentStyles();
     
     this.init();
   }
+  
+  /**
+   * Load component-specific styles
+   */
+  loadComponentStyles() {
+    // Check if the stylesheet is already loaded
+    const existingStylesheet = document.querySelector('link[href*="ThemeSelectorPanel.css"]');
+    if (existingStylesheet) return;
+    
+    // Create a link element for the CSS
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = '/client/settings/panels/themes/ThemeSelectorPanel.css';
+    
+    // Add to document head
+    document.head.appendChild(link);
+  }
 
   async init() {
-    // Load panel-specific styles
-    this.loadPanelStyles();
-    
     // Load current settings from store
     this.loadCurrentSettings();
     
@@ -45,7 +69,7 @@ class ThemeSelectorPanel {
     // Render the panel
     this.render();
     
-    // Setup event listeners
+    // Setup event listeners ONCE
     this.setupEventListeners();
     
     // Subscribe to store changes
@@ -55,38 +79,40 @@ class ThemeSelectorPanel {
   }
 
   /**
-   * Load panel-specific styles
-   */
-  loadPanelStyles() {
-    if (!document.getElementById('theme-selector-panel-styles')) {
-      const link = document.createElement('link');
-      link.id = 'theme-selector-panel-styles';
-      link.rel = 'stylesheet';
-      link.href = '/client/settings/panels/themes/ThemeSelectorPanel.css';
-      document.head.appendChild(link);
-      console.log('[ThemeSelector] Loaded panel styles');
-    }
-  }
-
-  /**
    * Load current settings from the store
    */
   loadCurrentSettings() {
     const state = appStore.getState();
-    this.themeSettings = {
-      colorScheme: state.ui?.colorScheme || 'system',
-      themeVariant: state.settings?.designTokens?.themeVariant || 'light',
-      spacingDensity: state.settings?.designTokens?.spacingVariant || 'normal',
-      currentTheme: state.settings?.designTokens?.activeTheme || null
-    };
+    const designTokens = state.settings?.designTokens || {};
+    
+    // Keep convention-based file names from the initial state
+    this.themeSettings.colorScheme = state.ui?.colorScheme || 'system';
+    this.themeSettings.themeVariant = designTokens.themeVariant || 'light';
+    this.themeSettings.spacingDensity = designTokens.spacingVariant || 'normal';
+    this.themeSettings.currentTheme = designTokens.activeTheme || null;
+
     console.log(`[ThemeSelector] Loaded settings:`, this.themeSettings);
   }
 
   /**
-   * Load available themes from themes directory
+   * Get default/system themes when no user themes directory exists or as base themes
+   */
+  getDefaultThemes() {
+    return [
+      {
+        id: 'system',
+        name: 'Default',
+        path: 'client/themes/system',
+        type: 'system',
+        files: ['core.css', 'light.css', 'dark.css']
+      }
+    ];
+  }
+
+  /**
+   * Load available themes from both system and user directories
    */
   async loadAvailableThemes() {
-    
     try {
       // Get MD_DIR from config
       const configResponse = await fetch('/api/config');
@@ -96,7 +122,10 @@ class ThemeSelectorPanel {
         this.mdDir = config.MD_DIR || 'unknown';
       }
 
-      // Check if themes directory exists in MD_DIR
+      // Start with system themes
+      this.availableThemes = [...this.getDefaultThemes()];
+
+      // Check if user themes directory exists in MD_DIR
       const response = await fetch(`/api/files/list?pathname=themes`);
       this.themeDirs = [];
       
@@ -106,21 +135,21 @@ class ThemeSelectorPanel {
         // Store all directories found in themes/ (dirs is the array of directory names)
         this.themeDirs = data.dirs || [];
         
-        // Filter for directories that contain theme files
-        this.availableThemes = [];
+        // Add user themes to the available themes list
         if (data.dirs) {
           for (const dirName of data.dirs) {
             const themeInfo = await this.validateThemeDirectory(dirName);
             if (themeInfo) {
+              // Mark as user theme
+              themeInfo.type = 'user';
               this.availableThemes.push(themeInfo);
             }
           }
         }
         
-        console.log(`[ThemeSelector] Found ${this.availableThemes.length} themes in themes directory`);
+        console.log(`[ThemeSelector] Found ${this.availableThemes.length} total themes (system + user)`);
       } else {
-        console.log('[ThemeSelector] No themes directory found, using defaults');
-        this.availableThemes = this.getDefaultThemes();
+        console.log('[ThemeSelector] No user themes directory found, using system themes only');
       }
     } catch (error) {
       console.warn('[ThemeSelector] Error loading themes:', error);
@@ -139,20 +168,14 @@ class ThemeSelectorPanel {
       const data = await response.json();
       const fileNames = data.files || [];
       
-      // Check for expected theme structure: {core,light,dark}.css
-      const hasCore = fileNames.includes('core.css');
-      const hasLight = fileNames.includes('light.css');
-      const hasDark = fileNames.includes('dark.css');
-      
-      // Require all three files for proper theme
-      if (hasCore && hasLight && hasDark) {
+      // A valid theme must contain at least a core.css file.
+      if (fileNames.includes('core.css')) {
         return {
           id: themeName,
           name: this.formatThemeName(themeName),
           path: `themes/${themeName}`,
           type: 'theme',
-          structure: 'core+light+dark',
-          files: ['core.css', 'light.css', 'dark.css'].filter(f => fileNames.includes(f))
+          files: fileNames.filter(f => f.endsWith('.css'))
         };
       }
       
@@ -173,13 +196,6 @@ class ThemeSelectorPanel {
   }
 
   /**
-   * Get default themes when no themes directory exists
-   */
-  getDefaultThemes() {
-    return [];
-  }
-
-  /**
    * Handle store updates
    */
   handleStoreUpdate() {
@@ -188,6 +204,7 @@ class ThemeSelectorPanel {
     
     // Re-render if settings changed
     if (JSON.stringify(prevSettings) !== JSON.stringify(this.themeSettings)) {
+      this.applyCurrentSettings();
       this.render();
     }
   }
@@ -198,354 +215,408 @@ class ThemeSelectorPanel {
   render() {
     this.containerElement.innerHTML = `
       <div class="theme-selector-panel">
-        <!-- Directory Information -->
-        <div class="theme-section">
-          <h3 class="theme-section-title">Directory Information</h3>
-          <div class="theme-section-content">
-            ${this.renderDirectoryInfo()}
-          </div>
-        </div>
-
-        <!-- Theme Selection Section -->
-        <div class="theme-section">
-          <h3 class="theme-section-title">Theme Selection</h3>
-          <div class="theme-section-content">
-            ${this.renderThemeSelection()}
-          </div>
-        </div>
-
-        <!-- Appearance Settings Section -->
-        <div class="theme-section">
-          <h3 class="theme-section-title">Appearance Settings</h3>
-          <div class="theme-section-content">
-            ${this.renderAppearanceSettings()}
-          </div>
-        </div>
-
-        <!-- Current Configuration Display -->
-        <div class="theme-section">
-          <h3 class="theme-section-title">Current Configuration</h3>
-          <div class="theme-section-content">
-            ${this.renderCurrentConfiguration()}
-          </div>
+        ${this.renderDirectoryInfoSection()}
+        ${this.renderThemeSelectionSection()}
+        ${this.renderAppearanceSettingsSection()}
+        <div id="theme-current-config-container">
+          ${this.renderCurrentConfigurationSection()}
         </div>
       </div>
     `;
-    
-    // Re-setup event listeners after render
-    this.setupEventListeners();
   }
 
   /**
-   * Render directory information
+   * Render a generic collapsible section
    */
-  renderDirectoryInfo() {
+  renderSection(title, content, startCollapsed = false) {
+    // Create a unique ID for this subsection based on the title
+    const sectionId = `theme-selector/${title.toLowerCase().replace(/\s+/g, '-')}`;
+    
+    // Check if we have a stored state for this section
+    const state = appStore.getState();
+    const collapsedSubsections = state.settingsPanel?.collapsedSubsections || {};
+    
+    // Use stored state if available, otherwise use the startCollapsed parameter
+    const isCollapsed = collapsedSubsections[sectionId] !== undefined 
+      ? collapsedSubsections[sectionId] 
+      : startCollapsed;
+    
     return `
-      <div class="directory-info">
-        <div class="info-row">
-          <strong>MD_DIR:</strong> <code>${this.mdDir || 'unknown'}</code>
-        </div>
-        <div class="info-row">
-          <strong>Themes Path:</strong> <code>${this.mdDir}/themes</code>
-        </div>
-        <div class="info-row">
-          <strong>Theme Directories:</strong>
-          ${this.themeDirs && this.themeDirs.length > 0 ? 
-            `<div class="theme-dirs-list">
-              ${this.themeDirs.map(dir => `<span class="theme-dir-item">${dir}</span>`).join(' ')}
-            </div>` :
-            '<span class="no-dirs">No directories found in themes/</span>'
-          }
+      <div id="${sectionId}" class="settings-section-container${isCollapsed ? ' collapsed' : ''}">
+        <h2 class="settings-section-header" tabindex="0" data-section-id="${sectionId}">
+          <span class="collapse-indicator">${isCollapsed ? '►' : '▼'}</span>
+          ${title}
+        </h2>
+        <div class="settings-section-content">
+          ${content}
         </div>
       </div>
     `;
+  }
+  
+  /**
+   * Render directory information
+   */
+  renderDirectoryInfoSection() {
+    const themeDirsList = this.themeDirs && this.themeDirs.length > 0 
+      ? this.themeDirs.map(dir => `<span class="theme-dir-item">${dir}</span>`).join('')
+      : `<span class="no-dirs">No theme directories found.</span>`;
+
+    const content = `
+      <div class="current-config-grid">
+          <span class="config-label">MD_DIR:</span> 
+          <span class="config-value">${this.mdDir || 'unknown'}</span>
+          
+          <span class="config-label">Themes Path:</span> 
+          <span class="config-value">${this.mdDir}/themes</span>
+          
+          <span class="config-label" style="align-self: start; padding-top: var(--space-1);">Found Themes:</span>
+          <div class="settings-flex" style="flex-wrap: wrap; gap: var(--space-1);">${themeDirsList}</div>
+      </div>
+    `;
+    return this.renderSection('Directory Information', content);
   }
 
   /**
    * Render theme selection dropdown
    */
-  renderThemeSelection() {
+  renderThemeSelectionSection() {
     if (this.availableThemes.length === 0) {
-      return `
-        <div class="theme-empty-state">
-          <p>No themes found</p>
-          <small>Themes should be located in <code>themes/</code> directory</small>
-          <small>Each theme directory should contain <code>core.css</code>, <code>light.css</code>, and <code>dark.css</code> files</small>
-        </div>
-      `;
+      return this.renderSection('Theme Selection', `
+        <p class="settings-text--muted">No valid themes found.</p>
+        <p class="settings-text--muted" style="font-size: var(--font-size-xs);">
+          A valid theme requires at least a <code>core.css</code> file
+          in a subdirectory of <code>${this.mdDir}/themes</code>.
+        </p>
+      `);
     }
 
-    console.log(`[ThemeSelector] Rendering dropdown. Current theme: ${this.themeSettings.currentTheme}`);
-    console.log(`[ThemeSelector] Available themes:`, this.availableThemes.map(t => t.id));
+    // Create styled theme selection buttons
+    const themeButtons = this.availableThemes.map(theme => {
+      const isActive = this.themeSettings.currentTheme === theme.id;
+      const buttonClass = isActive ? 'theme-button active' : 'theme-button';
+      return `
+        <button 
+          class="${buttonClass}" 
+          data-theme-id="${theme.id}" 
+          title="${theme.name}${isActive ? ' (Active)' : ''}">
+          <span class="theme-button-name">${theme.name}</span>
+          ${isActive ? '<span class="theme-active-indicator">✓</span>' : ''}
+          <div class="theme-button-preview"></div>
+        </button>
+      `;
+    }).join('');
 
-    return `
-      <div class="theme-dropdown-container">
-        <label for="theme-select" class="theme-label">Select Theme:</label>
-        <select id="theme-select" class="theme-dropdown">
-          <option value="" ${!this.themeSettings.currentTheme ? 'selected' : ''}>-- Select a theme --</option>
-          ${this.availableThemes.map(theme => `
-            <option value="${theme.id}" ${theme.id === this.themeSettings.currentTheme ? 'selected' : ''}>
-              ${theme.name} (${theme.structure})
-            </option>
-          `).join('')}
-        </select>
-        <div class="theme-info-display">
-          ${this.renderCurrentThemeInfo()}
+    // Add system/default option
+    const isSystemActive = !this.themeSettings.currentTheme;
+    const systemButtonClass = isSystemActive ? 'theme-button active' : 'theme-button';
+    const systemButton = `
+      <button 
+        class="${systemButtonClass}" 
+        data-theme-id="" 
+        title="No Theme${isSystemActive ? ' (Active)' : ''}">
+        <span class="theme-button-name">None</span>
+        ${isSystemActive ? '<span class="theme-active-indicator">✓</span>' : ''}
+        <div class="theme-button-preview"></div>
+      </button>
+    `;
+
+    const content = `
+      <div class="theme-config-grid">
+        <label class="settings-label">Active Theme</label>
+        <div class="theme-buttons-container">
+          ${systemButton}
+          ${themeButtons}
         </div>
       </div>
     `;
+    return this.renderSection('Theme Selection', content);
   }
 
   /**
-   * Render current theme info
+   * Render appearance settings (color scheme, density)
    */
-  renderCurrentThemeInfo() {
-    const currentTheme = this.availableThemes.find(t => t.id === this.themeSettings.currentTheme);
-    if (!currentTheme) return '';
-
-    return `
-      <div class="current-theme-info">
-        <div class="theme-detail">
-          <strong>Path:</strong> <code>${currentTheme.path}</code>
+  renderAppearanceSettingsSection() {
+    const content = `
+      <div class="settings-flex--column" style="gap: var(--density-space-lg);">
+        <div class="theme-config-grid">
+            <label for="color-scheme-select" class="settings-label">Color Scheme</label>
+            <select id="color-scheme-select" class="settings-select">
+              <option value="system" ${this.themeSettings.colorScheme === 'system' ? 'selected' : ''}>System Preference</option>
+              <option value="light" ${this.themeSettings.colorScheme === 'light' ? 'selected' : ''}>Light</option>
+              <option value="dark" ${this.themeSettings.colorScheme === 'dark' ? 'selected' : ''}>Dark</option>
+            </select>
+            <div class="settings-text--muted" style="grid-column: 2;">Determines the Light/Dark mode preference.</div>
         </div>
-        <div class="theme-detail">
-          <strong>Files:</strong> ${currentTheme.files.join(', ')}
+        <div class="theme-config-grid">
+            <label for="density-select" class="settings-label">Spacing Density</label>
+            <select id="density-select" class="settings-select">
+              <option value="tight" ${this.themeSettings.spacingDensity === 'tight' ? 'selected' : ''}>Tight</option>
+              <option value="normal" ${this.themeSettings.spacingDensity === 'normal' ? 'selected' : ''}>Normal</option>
+              <option value="comfortable" ${this.themeSettings.spacingDensity === 'comfortable' ? 'selected' : ''}>Comfortable</option>
+            </select>
+            <div class="settings-text--muted" style="grid-column: 2;">Controls the padding and margins for UI elements.</div>
         </div>
       </div>
     `;
-  }
-
-  /**
-   * Render appearance settings
-   */
-  renderAppearanceSettings() {
-    return `
-      <div class="appearance-settings">
-        <!-- Color Scheme Selection -->
-        <div class="setting-group">
-          <label class="setting-label">Color Scheme Preference</label>
-          <div class="setting-options">
-            <label class="setting-option ${this.themeSettings.colorScheme === 'system' ? 'active' : ''}">
-              <input type="radio" name="colorScheme" value="system" ${this.themeSettings.colorScheme === 'system' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">System</span>
-                <span class="option-desc">Follow system preference</span>
-              </span>
-            </label>
-            <label class="setting-option ${this.themeSettings.colorScheme === 'light' ? 'active' : ''}">
-              <input type="radio" name="colorScheme" value="light" ${this.themeSettings.colorScheme === 'light' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Light</span>
-                <span class="option-desc">Always use light mode</span>
-              </span>
-            </label>
-            <label class="setting-option ${this.themeSettings.colorScheme === 'dark' ? 'active' : ''}">
-              <input type="radio" name="colorScheme" value="dark" ${this.themeSettings.colorScheme === 'dark' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Dark</span>
-                <span class="option-desc">Always use dark mode</span>
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Theme Variant Selection -->
-        <div class="setting-group">
-          <label class="setting-label">Theme Variant</label>
-          <div class="setting-options">
-            <label class="setting-option ${this.themeSettings.themeVariant === 'light' ? 'active' : ''}">
-              <input type="radio" name="themeVariant" value="light" ${this.themeSettings.themeVariant === 'light' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Light Variant</span>
-              </span>
-            </label>
-            <label class="setting-option ${this.themeSettings.themeVariant === 'dark' ? 'active' : ''}">
-              <input type="radio" name="themeVariant" value="dark" ${this.themeSettings.themeVariant === 'dark' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Dark Variant</span>
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Spacing Density Selection -->
-        <div class="setting-group">
-          <label class="setting-label">Spacing Density</label>
-          <div class="setting-options">
-            <label class="setting-option ${this.themeSettings.spacingDensity === 'tight' ? 'active' : ''}">
-              <input type="radio" name="spacingDensity" value="tight" ${this.themeSettings.spacingDensity === 'tight' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Tight</span>
-                <span class="option-desc">Compact spacing</span>
-              </span>
-            </label>
-            <label class="setting-option ${this.themeSettings.spacingDensity === 'normal' ? 'active' : ''}">
-              <input type="radio" name="spacingDensity" value="normal" ${this.themeSettings.spacingDensity === 'normal' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Normal</span>
-                <span class="option-desc">Standard spacing</span>
-              </span>
-            </label>
-            <label class="setting-option ${this.themeSettings.spacingDensity === 'comfortable' ? 'active' : ''}">
-              <input type="radio" name="spacingDensity" value="comfortable" ${this.themeSettings.spacingDensity === 'comfortable' ? 'checked' : ''}>
-              <span class="option-content">
-                <span class="option-text">Comfortable</span>
-                <span class="option-desc">Generous spacing</span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-    `;
+    return this.renderSection('Appearance', content);
   }
 
   /**
    * Render current configuration display
    */
-  renderCurrentConfiguration() {
-    const currentTheme = this.availableThemes.find(t => t.id === this.themeSettings.currentTheme);
+  renderCurrentConfigurationSection() {
+    let themeName = 'None';
+    if (this.themeSettings.currentTheme) {
+        const theme = this.availableThemes.find(t => t.id === this.themeSettings.currentTheme);
+        themeName = theme ? theme.name : this.themeSettings.currentTheme; // Fallback to id if not found
+    }
     
-    return `
-      <div class="current-config">
-        <div class="config-row">
-          <span class="config-label">Active Theme:</span>
-          <span class="config-value config-value-theme">${currentTheme ? currentTheme.name : 'System Default'}</span>
-        </div>
-        <div class="config-row">
-          <span class="config-label">Color Scheme:</span>
-          <span class="config-value config-value-scheme">${this.themeSettings.colorScheme}</span>
-        </div>
-        <div class="config-row">
-          <span class="config-label">Variant:</span>
-          <span class="config-value config-value-variant">${this.themeSettings.themeVariant}</span>
-        </div>
-        <div class="config-row">
-          <span class="config-label">Density:</span>
-          <span class="config-value config-value-density">${this.themeSettings.spacingDensity}</span>
-        </div>
-        <div class="config-row">
-          <span class="config-label">Themes Location:</span>
-          <span class="config-value theme-path">${this.mdDir}/themes</span>
-        </div>
+    const content = `
+      <div class="current-config-grid">
+        <span class="config-label">Theme:</span> 
+        <span class="config-value">${themeName}</span>
+        
+        <span class="config-label">Scheme:</span> 
+        <span class="config-value">${this.themeSettings.colorScheme}</span>
+
+        <span class="config-label">Variant:</span> 
+        <span class="config-value">${this.themeSettings.themeVariant}</span>
+        
+        <span class="config-label">Density:</span> 
+        <span class="config-value">${this.themeSettings.spacingDensity}</span>
+
+        <span class="config-label">Core File:</span> 
+        <span class="config-text">${this.themeSettings.themeFileCore}</span>
+        
+        <span class="config-label">Light File:</span> 
+        <span class="config-text">${this.themeSettings.themeFileLight}</span>
+        
+        <span class="config-label">Dark File:</span> 
+        <span class="config-text">${this.themeSettings.themeFileDark}</span>
       </div>
     `;
+    return this.renderSection('Current Configuration', content, true);
+  }
+
+  /**
+   * A targeted render function to update only the current configuration section.
+   */
+  updateCurrentConfigurationView() {
+    const container = this.containerElement.querySelector('#theme-current-config-container');
+    if (container) {
+      container.innerHTML = this.renderCurrentConfigurationSection();
+      // Re-attach listener for the new section header
+      const header = container.querySelector('.settings-section-header');
+      if (header) {
+        header.addEventListener('click', (e) => this.handleSectionHeaderClick(e));
+      }
+    }
   }
 
   /**
    * Setup event listeners
    */
   setupEventListeners() {
-    // Remove existing listeners to prevent duplicates
-    if (this.changeHandler) {
-      this.containerElement.removeEventListener('change', this.changeHandler);
-    }
+    this.containerElement.removeEventListener('click', this.handleClick);
+    this.containerElement.addEventListener('click', this.handleClick = (e) => {
+      // Handle section headers (collapsible sections)
+      const header = e.target.closest('.settings-section-header');
+      if (header) {
+        this.handleSectionHeaderClick(e);
+        return; // Stop further processing
+      }
+
+      // Handle theme selection buttons
+      const themeButton = e.target.closest('.theme-button');
+      if (themeButton) {
+        const themeId = themeButton.getAttribute('data-theme-id');
+        this.selectTheme(themeId);
+        // UI update is handled within selectTheme
+      }
+    });
     
-    // Create new change handler
-    this.changeHandler = (e) => {
-      console.log(`[ThemeSelector] Change event:`, e.target.id, e.target.name, e.target.value);
-      
-      if (e.target.id === 'theme-select') {
-        this.selectTheme(e.target.value);
-      } else if (e.target.name === 'colorScheme') {
+    // Appearance selects - using delegation on the container for changes
+    this.containerElement.addEventListener('change', (e) => {
+      if (e.target.id === 'color-scheme-select') {
         this.updateColorScheme(e.target.value);
-      } else if (e.target.name === 'themeVariant') {
-        this.updateThemeVariant(e.target.value);
-      } else if (e.target.name === 'spacingDensity') {
+      }
+      if (e.target.id === 'density-select') {
         this.updateSpacingDensity(e.target.value);
       }
-    };
-    
-    // Add the new listener
-    this.containerElement.addEventListener('change', this.changeHandler);
+    });
   }
 
   /**
-   * Select a theme
+   * Handles clicks on section headers to toggle them.
+   */
+  handleSectionHeaderClick(e) {
+    const header = e.target.closest('.settings-section-header');
+    if (!header) return;
+
+    const sectionId = header.getAttribute('data-section-id');
+    if (sectionId) {
+      // Dispatch to store to toggle the section
+      dispatch({
+        type: ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION,
+        payload: { sectionId }
+      });
+
+      // Also update the UI immediately for better UX
+      const container = header.closest('.settings-section-container');
+      const isCollapsed = !container.classList.contains('collapsed');
+      container.classList.toggle('collapsed', isCollapsed);
+
+      const indicator = header.querySelector('.collapse-indicator');
+      if (indicator) {
+        indicator.textContent = isCollapsed ? '►' : '▼';
+      }
+    }
+  }
+
+  /**
+   * Handle theme selection
    */
   selectTheme(themeId) {
-    console.log(`[ThemeSelector] Selecting theme: ${themeId}`);
-    console.log(`[ThemeSelector] Previous theme: ${this.themeSettings.currentTheme}`);
+    console.log(`[ThemeSelector] Selecting theme: ${themeId || 'System (default)'}`);
     
-    // Don't do anything if selecting empty option
-    if (!themeId) {
-      console.log(`[ThemeSelector] Empty theme selected, ignoring`);
+    // Find the theme object
+    const theme = themeId ? this.availableThemes.find(t => t.id === themeId) : null;
+    
+    if (themeId && !theme) {
+      console.warn(`[ThemeSelector] Theme ${themeId} not found in available themes`);
       return;
     }
     
+    // Apply the theme
+    this.applyTheme(theme);
+    
+    // Update UI to reflect the selection
+    this.updateThemeButtonsUI(themeId);
+  }
+  
+  /**
+   * Update the theme buttons UI to reflect the current selection
+   */
+  updateThemeButtonsUI(activeThemeId) {
+    // This is called when the theme is changed programmatically (not via button click)
+    const allThemeButtons = this.containerElement.querySelectorAll('.theme-button');
+    
+    allThemeButtons.forEach(btn => {
+      const btnThemeId = btn.getAttribute('data-theme-id');
+      const isActive = btnThemeId === activeThemeId;
+      
+      // Update button state
+      btn.classList.toggle('active', isActive);
+      
+      // Update indicator
+      const existingIndicator = btn.querySelector('.theme-active-indicator');
+      
+      if (isActive && !existingIndicator) {
+        const indicator = document.createElement('span');
+        indicator.className = 'theme-active-indicator';
+        indicator.textContent = '✓';
+        btn.appendChild(indicator);
+      } else if (!isActive && existingIndicator) {
+        existingIndicator.remove();
+      }
+    });
+  }
+
+  /**
+   * Apply the selected theme
+   */
+  async applyTheme(theme) {
+    // Store the theme ID (or null for system default)
+    const themeId = theme ? theme.id : null;
+    
+    // Update the theme settings
+    this.themeSettings.currentTheme = themeId;
+    
+    // Dispatch to store
     dispatch({
       type: ActionTypes.SETTINGS_SET_ACTIVE_DESIGN_THEME,
       payload: themeId
     });
-
-    // Apply the theme
-    const theme = this.availableThemes.find(t => t.id === themeId);
+    
+    console.log(`[ThemeSelector] Applied theme: ${themeId || 'System (default)'}`);
+    
+    // If we have a theme, load its files
     if (theme) {
-      console.log(`[ThemeSelector] Found theme to apply:`, theme);
-      this.applyTheme(theme);
+      // Convention-based file names
+      const coreFile = 'core.css';
+      const variantFile = this.themeSettings.themeVariant === 'dark'
+        ? 'dark.css'
+        : 'light.css';
+      
+      // Load theme files, passing the theme type to determine loading strategy
+      await this.loadThemeStylesheet(`${theme.path}/${coreFile}`, 'core', theme.type);
+      await this.loadThemeStylesheet(`${theme.path}/${variantFile}`, this.themeSettings.themeVariant, theme.type);
+      
+      console.log(`[ThemeSelector] Loaded theme files (by convention): ${coreFile}, ${variantFile}`);
     } else {
-      console.warn(`[ThemeSelector] Theme not found: ${themeId}`);
+      // Remove any theme stylesheets
+      const themeLinks = document.querySelectorAll('link[data-theme], style[data-theme]');
+      themeLinks.forEach(link => link.remove());
+      
+      console.log('[ThemeSelector] Removed theme stylesheets');
     }
-
-    // Update settings and re-render
-    this.loadCurrentSettings();
-    this.render();
+    
+    // Re-render the configuration view
+    this.updateCurrentConfigurationView();
   }
 
   /**
-   * Apply a theme
+   * Load a theme stylesheet dynamically based on its type (system or user).
+   * - System themes are loaded via a <link> tag for static serving.
+   * - User themes are fetched via the file API and embedded in a <style> tag.
+   * @param {string} relativePath - Path to the CSS file.
+   * @param {string} dataTheme - Theme type identifier (core, light, dark).
+   * @param {string} themeType - The type of theme ('system' or 'user').
    */
-  async applyTheme(theme) {
+  async loadThemeStylesheet(relativePath, dataTheme, themeType) {
     try {
-      // Remove existing theme stylesheets
-      const existingThemeLinks = document.querySelectorAll('style[data-theme]');
-      existingThemeLinks.forEach(link => link.remove());
+      // Remove any existing stylesheet (link or style) with the same data-theme attribute
+      const existingElements = document.querySelectorAll(`link[data-theme="${dataTheme}"], style[data-theme="${dataTheme}"]`);
+      existingElements.forEach(el => el.remove());
 
-      if (theme.type === 'system') {
-        console.log('[ThemeSelector] Applied system default theme');
-        return;
-      }
+      if (themeType === 'user') {
+        // USER THEME: Fetch via API and embed in a <style> tag.
+        const apiUrl = `/api/files/content?pathname=${encodeURIComponent(relativePath)}`;
+        const response = await fetch(apiUrl);
 
-      // Load theme files - always load core, light, and dark for our structure
-      if (theme.structure === 'core+light+dark') {
-        // Load core.css first
-        await this.loadThemeStylesheet(`${theme.path}/core.css`, 'theme-core');
-        // Load the appropriate variant (light or dark)
-        await this.loadThemeStylesheet(`${theme.path}/${this.themeSettings.themeVariant}.css`, 'theme-variant');
-      }
-
-      console.log(`[ThemeSelector] Applied theme: ${theme.name} (${this.themeSettings.themeVariant})`);
-    } catch (error) {
-      console.error('[ThemeSelector] Failed to apply theme:', error);
-    }
-  }
-
-  /**
-   * Load a theme stylesheet using the API
-   */
-  async loadThemeStylesheet(relativePath, dataTheme) {
-    try {
-      console.log(`[ThemeSelector] Loading CSS: ${relativePath}`);
-      
-      // Use the API to fetch CSS content
-      const cssData = await window.api.fetchPublicCss(relativePath);
-      
-      if (cssData && cssData.content) {
-        // Create a style element with the CSS content
+        if (!response.ok) {
+          throw new Error(`API fetch failed for ${relativePath} (status: ${response.status})`);
+        }
+        
+        const cssText = await response.text();
         const styleElement = document.createElement('style');
         styleElement.setAttribute('data-theme', dataTheme);
-        styleElement.setAttribute('data-theme-path', relativePath);
-        styleElement.textContent = cssData.content;
-        
-        // Add to document head
+        styleElement.textContent = cssText;
         document.head.appendChild(styleElement);
         
-        console.log(`[ThemeSelector] Successfully loaded CSS: ${relativePath} (${cssData.content.length} chars)`);
+        console.log(`[ThemeSelector] Loaded USER theme via API: ${relativePath}`);
       } else {
-        throw new Error(`No content received for ${relativePath}`);
+        // SYSTEM THEME: Load via a direct <link> tag.
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'stylesheet';
+        linkElement.type = 'text/css';
+        linkElement.href = `/${relativePath}`; // Assumes it's served statically
+        linkElement.setAttribute('data-theme', dataTheme);
+        
+        linkElement.onerror = () => {
+          console.error(`[ThemeSelector] Error loading SYSTEM theme stylesheet: ${linkElement.href}`);
+          linkElement.remove();
+        };
+
+        document.head.appendChild(linkElement);
+        console.log(`[ThemeSelector] Loaded SYSTEM theme via <link>: ${relativePath}`);
       }
+
+      return true;
     } catch (error) {
-      console.error(`[ThemeSelector] Failed to load CSS ${relativePath}:`, error);
-      throw error;
+      console.error(`[ThemeSelector] Failed to load theme stylesheet ${relativePath}:`, error);
+      return false;
     }
   }
 
@@ -566,34 +637,40 @@ class ThemeSelectorPanel {
     // If scheme is 'system', detect system preference
     if (colorScheme === 'system') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const effectiveTheme = prefersDark ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', effectiveTheme);
-      console.log(`[ThemeSelector] System preference detected: ${effectiveTheme}`);
+      this.updateThemeVariant(prefersDark ? 'dark' : 'light', false);
     } else {
-      document.documentElement.setAttribute('data-theme', colorScheme);
+      this.updateThemeVariant(colorScheme, false);
     }
     
-    this.render();
+    this.updateCurrentConfigurationView();
   }
 
   /**
    * Update theme variant
    */
-  updateThemeVariant(variant) {
+  updateThemeVariant(variant, shouldRender = true) {
     console.log(`[ThemeSelector] Theme variant changed to: ${variant}`);
+    
+    // Set the data-theme attribute on the root element for global CSS to use.
+    document.documentElement.setAttribute('data-theme', variant);
+
+    // Update local state immediately to prevent race conditions with the store.
+    this.themeSettings.themeVariant = variant;
     
     dispatch({
       type: ActionTypes.SETTINGS_SET_DESIGN_THEME_VARIANT,
       payload: variant
     });
     
-    // Re-apply current theme with new variant
+    // Re-apply current theme to load the correct variant stylesheet
     const currentTheme = this.availableThemes.find(t => t.id === this.themeSettings.currentTheme);
     if (currentTheme) {
       this.applyTheme(currentTheme);
     }
     
-    this.render();
+    if (shouldRender) {
+      this.updateCurrentConfigurationView();
+    }
   }
 
   /**
@@ -617,7 +694,8 @@ class ThemeSelectorPanel {
       payload: density
     });
     
-    this.render();
+    // No need to update theme variant here, just update the display
+    this.updateCurrentConfigurationView();
   }
 
   /**

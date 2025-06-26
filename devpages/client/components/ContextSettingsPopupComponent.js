@@ -1,6 +1,7 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 // Using the reducer system instead of SettingsStateManager
 
 const logContextSettings = (message, level = 'debug', subtype = 'RENDER') => {

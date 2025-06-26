@@ -4,9 +4,10 @@
  * Theme settings have been moved to the dedicated Theme Selector Panel
  */
 
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
 class CssFilesPanel {
   constructor(containerElement) {
@@ -20,9 +21,6 @@ class CssFilesPanel {
   }
 
   async init() {
-    // Load panel-specific styles
-    this.loadPanelStyles();
-    
     // Fetch MD_DIR from config
     try {
       const configResponse = await fetch('/api/config');
@@ -38,21 +36,8 @@ class CssFilesPanel {
     // Scan CSS files
     this.scanCssFiles();
     
-    // Render the panel
+    // Initial render
     this.render();
-  }
-
-  /**
-   * Load panel-specific styles
-   */
-  loadPanelStyles() {
-    if (!document.getElementById('css-files-panel-styles')) {
-      const link = document.createElement('link');
-      link.id = 'css-files-panel-styles';
-      link.rel = 'stylesheet';
-      link.href = '/client/settings/panels/css-files/CssFilesPanel.css';
-      document.head.appendChild(link);
-    }
   }
 
   /**
@@ -128,38 +113,28 @@ class CssFilesPanel {
     this.systemCssFiles = newSystemFiles;
     this.themeCssFiles = newThemeFiles;
 
-    // Re-render if data changed
-    this.render();
+    // Do not re-render from here to avoid the infinite loop.
   }
 
   /**
    * Refresh CSS files with user feedback
    */
   refreshCssFiles() {
-    const refreshBtn = this.containerElement.querySelector('.css-refresh-btn, #css-refresh-btn');
-    
+    const refreshBtn = this.containerElement.querySelector('#css-refresh-btn');
     if (refreshBtn) {
-      // Show loading state
-      const originalText = refreshBtn.textContent;
-      refreshBtn.textContent = 'Refreshing...';
+      const originalContent = refreshBtn.innerHTML;
+      refreshBtn.innerHTML = 'Refreshing...';
       refreshBtn.disabled = true;
-      
-      // Perform the scan
-      this.scanCssFiles();
-      
-      // Reset button state
+
+      // Use a short timeout to allow the UI to update before the scan,
+      // which can sometimes be slow.
       setTimeout(() => {
-        refreshBtn.textContent = 'Refreshed!';
-        setTimeout(() => {
-          refreshBtn.textContent = originalText;
-          refreshBtn.disabled = false;
-        }, 1000);
-      }, 100);
+        this.render(); // Re-render the panel. This will re-scan and build the UI.
+        // The button will be replaced by the render() call, so no need to reset its state.
+      }, 50);
     } else {
-      // Fallback if button not found
-      this.scanCssFiles();
+      this.render();
     }
-    
     console.log('[CssFilesPanel] Manual refresh triggered');
   }
 
@@ -256,343 +231,275 @@ class CssFilesPanel {
   }
 
   /**
-   * Render the entire panel
+   * Main render function - rebuilds the panel content
    */
   render() {
-    const systemFiles = Array.from(this.systemCssFiles.values());
-    const themeFiles = Array.from(this.themeCssFiles.values());
-    const loadedFiles = Array.from(this.loadedCssFiles.values());
+    this.scanCssFiles();
+
     const stats = {
-      totalFiles: this.loadedCssFiles.size,
-      systemFiles: this.systemCssFiles.size,
-      themeFiles: this.themeCssFiles.size,
-      enabledFiles: loadedFiles.filter(f => f.enabled).length
+        total: this.loadedCssFiles.size,
+        system: this.systemCssFiles.size,
+        theme: this.themeCssFiles.size,
+        inline: Array.from(this.loadedCssFiles.values()).filter(f => f.type === 'inline').length,
+        linked: Array.from(this.loadedCssFiles.values()).filter(f => f.type === 'link').length,
     };
+    
+    const themeFiles = Array.from(this.themeCssFiles.values());
+    const systemFiles = Array.from(this.systemCssFiles.values());
+    const otherFiles = Array.from(this.loadedCssFiles.values()).filter(f => !f.isTheme && !f.isSystem);
 
     this.containerElement.innerHTML = `
-      <div class="css-files-panel">
-        <!-- Panel Header -->
-        <div class="css-files-header">
-          <div class="css-header-top">
-            <h3>CSS Files Manager</h3>
-            <button class="css-refresh-btn" id="css-refresh-btn" title="Refresh CSS files list">
-              Refresh
-            </button>
-          </div>
-          <p>Manage loaded CSS files. Theme settings are now in the <strong>Themes</strong> panel.</p>
-          <div class="css-stats">
-            <span class="stat">${stats.totalFiles} total</span>
-            <span class="stat">${stats.systemFiles} system</span>
-            <span class="stat">${stats.themeFiles} theme</span>
-            <span class="stat">${stats.enabledFiles} enabled</span>
-          </div>
+        <div class="css-panel-content">
+            ${this.renderSummarySection(stats)}
+            ${this.renderSection('Theme Stylesheets', this.renderFileList(themeFiles, 'theme'))}
+            ${this.renderSection('System & Framework Stylesheets', this.renderFileList(systemFiles, 'system'))}
+            ${this.renderSection('Other Loaded Stylesheets', this.renderFileList(otherFiles, 'other'))}
         </div>
-
-        <!-- Theme Files Section -->
-        <div class="css-section">
-          <h3 class="css-section-title">Theme Files</h3>
-          <div class="css-section-content">
-            ${this.renderThemeFilesSection(themeFiles)}
-          </div>
-        </div>
-
-        <!-- System Files Section -->
-        <div class="css-section">
-          <h3 class="css-section-title">System CSS Files</h3>
-          <div class="css-section-content">
-            ${this.renderSystemFilesSection(systemFiles)}
-          </div>
-        </div>
-
-        <!-- All CSS Files Section -->
-        <div class="css-section">
-          <h3 class="css-section-title">All Loaded CSS Files</h3>
-          <div class="css-section-content">
-            ${this.renderAllFilesSection(loadedFiles, stats)}
-          </div>
-        </div>
-      </div>
+        ${this.renderCssModal()}
     `;
-    
+
     this.setupEventListeners();
   }
-
+  
   /**
-   * Render theme files section
+   * Renders the summary section with stats
    */
-  renderThemeFilesSection(themeFiles) {
-    if (themeFiles.length === 0) {
-      return `
-        <div class="files-empty-state">
-          <p>No theme files currently loaded</p>
-          <small>Theme files from <code>${this.mdDir}/themes/[theme]/{core,light,dark}.css</code> will appear here when loaded</small>
-          <small>Use the <strong>Themes</strong> panel to select and apply themes</small>
+   renderSummarySection(stats) {
+       return this.renderSection('CSS Overview', `
+        <div class="settings-grid">
+            <div class="stat-item"><span class="stat-label">Total Sheets</span><span class="stat-value">${stats.total}</span></div>
+            <div class="stat-item"><span class="stat-label">Theme Sheets</span><span class="stat-value">${stats.theme}</span></div>
+            <div class="stat-item"><span class="stat-label">System Sheets</span><span class="stat-value">${stats.system}</span></div>
+            <div class="stat-item"><span class="stat-label">Linked Files</span><span class="stat-value">${stats.linked}</span></div>
+            <div class="stat-item"><span class="stat-label">Inline Styles</span><span class="stat-value">${stats.inline}</span></div>
         </div>
-      `;
-    }
-
-    return `
-      <div class="files-list">
-        ${themeFiles.map(file => this.renderFileItem(file, 'theme')).join('')}
-      </div>
-    `;
-  }
-
-  /**
-   * Render system files section
-   */
-  renderSystemFilesSection(systemFiles) {
-    if (systemFiles.length === 0) {
-      return `
-        <div class="files-empty-state">
-          <p>No system files detected</p>
-          <small>System CSS files (design-system.css, viewControls.css, etc.) will appear here</small>
+        <hr class="settings-divider">
+        <div class="settings-flex" style="justify-content: flex-end;">
+            <button id="css-refresh-btn" class="settings-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                Refresh
+            </button>
         </div>
-      `;
-    }
-
-    return `
-      <div class="files-list">
-        ${systemFiles.map(file => this.renderFileItem(file, 'system')).join('')}
-      </div>
-    `;
-  }
+       `);
+   }
 
   /**
-   * Render all files section
+   * Generic function to render a collapsible section
    */
-  renderAllFilesSection(loadedFiles, stats) {
+  renderSection(title, content) {
+    // Unique ID for checkbox and label to ensure they are linked
+    const sectionId = `css-section-${title.replace(/\s+/g, '-')}`;
+    
     return `
-      <div class="all-files-container">
-        <div class="files-list">
-          ${loadedFiles.map(file => this.renderFileItem(file, 'all')).join('')}
+      <div class="settings-section-container">
+        <h2 class="settings-section-header" tabindex="0">
+          <span class="collapse-indicator">▼</span>
+          ${title}
+        </h2>
+        <div class="settings-section-content">
+          ${content}
         </div>
       </div>
     `;
   }
-
+  
   /**
-   * Render individual file item
+   * Renders a list of files
+   */
+  renderFileList(files, context) {
+      if (files.length === 0) {
+          return '<p class="settings-text--muted">No stylesheets found in this category.</p>';
+      }
+      
+      const fileItems = files.map(file => this.renderFileItem(file, context)).join('');
+      
+      return `<div class="stylesheet-list">${fileItems}</div>`;
+  }
+  
+  /**
+   * Renders a single file item in the list
    */
   renderFileItem(file, context) {
-    // Get the display name - prefer theme-path attribute for theme files
-    let fileName = file.href.split('/').pop() || 'Inline Style';
-    let themePath = '';
-    let fullPath = '';
-    
-    if (file.isTheme && file.element && file.element.getAttribute('data-theme-path')) {
-      themePath = file.element.getAttribute('data-theme-path');
-      fileName = themePath.split('/').pop() || fileName;
-      
-      // If we have a theme path like 'themes/arcade/core.css', transform it to full path
-      if (themePath.startsWith('themes/')) {
-        const themeName = themePath.split('/')[1]; // Get 'arcade' from 'themes/arcade/core.css'
-        const fileType = themePath.split('/')[2]; // Get 'core.css' from 'themes/arcade/core.css'
-        fullPath = `${this.mdDir}/themes/${themeName}/${fileType}`;
-      } else {
-        fullPath = themePath;
-      }
-    }
-    
-    const fileTypeClass = file.isTheme ? 'theme-file' : file.isSystem ? 'system-file' : 'other-file';
-    
+    const typeClass = file.isTheme ? 'theme' : (file.isSystem ? 'system' : 'other');
+    const path = file.type === 'link' ? new URL(file.href).pathname : file.href;
+    const size = typeof file.size === 'number' ? `${(file.size / 1024).toFixed(2)} KB` : file.size;
+    const disabledClass = file.enabled ? '' : 'stylesheet-disabled';
+
     return `
-      <div class="css-file-item ${file.enabled ? 'enabled' : 'disabled'} ${fileTypeClass}">
-        <div class="file-info">
-          <div class="file-name">
-            <span class="name-text">${fileName}</span>
-            <div class="file-badges">
-              ${file.isTheme ? '<span class="badge theme-badge">THEME</span>' : ''}
-              ${file.isSystem ? '<span class="badge system-badge">SYSTEM</span>' : ''}
-              <span class="badge type-badge">${file.type.toUpperCase()}</span>
-            </div>
-          </div>
-          <div class="file-path" title="${fullPath || themePath || file.href}">${fullPath || themePath || file.href}</div>
-          <div class="file-meta">
-            ${file.id ? `ID: ${file.id} • ` : ''}
-            ${file.element && file.element.getAttribute('data-theme') ? `Theme Type: ${file.element.getAttribute('data-theme')} • ` : ''}
-            ${file.type === 'inline' ? `${file.size} chars` : 'External file'}
-          </div>
+      <div class="stylesheet-item ${disabledClass}" data-href="${file.href}">
+        <div class="stylesheet-info">
+          <span class="stylesheet-type ${typeClass}">${typeClass}</span>
+          <span class="stylesheet-path" title="${path}">${path}</span>
         </div>
-        <div class="file-controls">
-          <label class="file-toggle">
-            <input type="checkbox" 
-                   ${file.enabled ? 'checked' : ''} 
-                   data-css-toggle="${file.href}">
-            <span class="toggle-slider"></span>
-          </label>
-          <button class="file-view" data-css-view="${file.href}" title="View CSS content">
-            View
-          </button>
+        <span class="stylesheet-size">${size}</span>
+        <div class="stylesheet-actions">
+            <label class="settings-toggle" title="${file.enabled ? 'Disable' : 'Enable'} stylesheet">
+                <input type="checkbox" class="stylesheet-toggle-input" ${file.enabled ? 'checked' : ''}>
+                <span class="settings-toggle-slider"></span>
+            </label>
+            <button class="stylesheet-action view-css-btn" title="View Stylesheet">View</button>
         </div>
       </div>
     `;
   }
 
   /**
-   * Setup event listeners for the panel
+   * Sets up event listeners for the panel
    */
   setupEventListeners() {
+    // Collapsible sections
+    this.containerElement.querySelectorAll('.settings-section-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const container = header.closest('.settings-section-container');
+            container.classList.toggle('collapsed');
+            const indicator = header.querySelector('.collapse-indicator');
+            if (indicator) {
+                indicator.textContent = container.classList.contains('collapsed') ? '►' : '▼';
+            }
+        });
+        header.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                header.click();
+            }
+        });
+    });
+
     // Refresh button
-    this.containerElement.addEventListener('click', (event) => {
-      if (event.target.matches('#css-refresh-btn, .css-refresh-btn')) {
-        this.refreshCssFiles();
-      }
-    });
+    const refreshBtn = this.containerElement.querySelector('#css-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => this.refreshCssFiles());
+    }
 
-    // CSS file toggles
-    this.containerElement.addEventListener('change', (event) => {
-      if (event.target.matches('[data-css-toggle]')) {
-        const href = event.target.dataset.cssToggle;
-        const enabled = event.target.checked;
-        this.toggleCssFile(href, enabled);
+    // Toggle and View buttons
+    this.containerElement.querySelectorAll('.stylesheet-item').forEach(item => {
+      const href = item.dataset.href;
+      
+      const toggle = item.querySelector('.stylesheet-toggle-input');
+      if (toggle) {
+        toggle.addEventListener('change', (e) => {
+          this.toggleCssFile(href, e.target.checked);
+        });
       }
-    });
-
-    // View CSS files
-    this.containerElement.addEventListener('click', (event) => {
-      if (event.target.matches('[data-css-view]')) {
-        const href = event.target.dataset.cssView;
-        this.viewCssFile(href);
+      
+      const viewBtn = item.querySelector('.view-css-btn');
+      if (viewBtn) {
+        viewBtn.addEventListener('click', () => {
+          this.viewCssFile(href);
+        });
       }
     });
   }
 
   /**
-   * Toggle CSS file enabled/disabled state
+   * Toggles a CSS file's disabled state
    */
   toggleCssFile(href, enabled) {
-    const fileInfo = this.loadedCssFiles.get(href);
-    if (!fileInfo) return;
-
-    try {
-      if (fileInfo.element) {
-        fileInfo.element.disabled = !enabled;
-        fileInfo.enabled = enabled;
-        
-        console.log(`[CssFilesPanel] ${enabled ? 'Enabled' : 'Disabled'} CSS file: ${href}`);
-        
-        // Update our tracking
-        this.loadedCssFiles.set(href, fileInfo);
-        
-        // Update the corresponding category maps
-        if (fileInfo.isTheme) {
-          this.themeCssFiles.set(href, fileInfo);
-        } else if (fileInfo.isSystem) {
-          this.systemCssFiles.set(href, fileInfo);
-        }
+    const file = this.loadedCssFiles.get(href);
+    if (file && file.element) {
+      file.element.disabled = !enabled;
+      file.enabled = enabled;
+      // Visually update the item
+      const itemElement = this.containerElement.querySelector(`.stylesheet-item[data-href="${href}"]`);
+      if (itemElement) {
+        itemElement.classList.toggle('stylesheet-disabled', !enabled);
       }
-    } catch (error) {
-      console.error(`[CssFilesPanel] Error toggling CSS file: ${error.message}`);
+      console.log(`[CssFilesPanel] Toggled ${href} to ${enabled ? 'enabled' : 'disabled'}`);
     }
   }
 
   /**
-   * View CSS file content in modal
+   * Fetches and displays a CSS file's content
    */
   async viewCssFile(href) {
-    try {
-      let content = '';
-      const fileInfo = this.loadedCssFiles.get(href);
-      
-      if (fileInfo?.type === 'inline' && fileInfo.element) {
-        content = fileInfo.element.textContent || '';
-      } else {
+    const file = this.loadedCssFiles.get(href);
+    let content = '';
+    let title = href;
+
+    if (!file) {
+      content = 'Error: File not found in tracked stylesheets.';
+    } else if (file.type === 'inline') {
+      content = file.element.textContent;
+      title = `Inline Style: ${file.id}`;
+    } else {
+      try {
         const response = await fetch(href);
         if (response.ok) {
           content = await response.text();
         } else {
-          content = 'Failed to load CSS content';
+          content = `Error: Could not fetch stylesheet. Status: ${response.status}`;
+        }
+      } catch (error) {
+        content = `Error: Could not fetch stylesheet. ${error.message}`;
+      }
+    }
+
+    this.showCssModal(content, title);
+  }
+
+  /**
+   * Renders and shows the CSS content modal
+   */
+  showCssModal(content, title) {
+    const modal = this.containerElement.querySelector('.stylesheet-modal');
+    if (modal) {
+      modal.querySelector('.stylesheet-modal-header h3').textContent = title;
+      modal.querySelector('.stylesheet-content').value = content;
+      modal.style.display = 'flex';
+
+      const closeModal = () => {
+        modal.style.display = 'none';
+        document.removeEventListener('keydown', handleEscape);
+      };
+
+      modal.querySelector('.stylesheet-modal-close').onclick = closeModal;
+      modal.querySelector('.stylesheet-modal-backdrop').onclick = closeModal;
+      
+      function handleEscape(e) {
+        if (e.key === 'Escape') {
+          closeModal();
         }
       }
-
-      this.showCssModal(content, href);
-    } catch (error) {
-      this.showCssModal('Error loading CSS content: ' + error.message, href);
+      document.addEventListener('keydown', handleEscape);
     }
   }
 
   /**
-   * Show CSS content in modal
+   * Renders the modal structure (initially hidden)
    */
-  showCssModal(content, title) {
-    const modal = document.createElement('div');
-    modal.className = 'css-modal-overlay';
-    modal.innerHTML = `
-      <div class="css-modal">
-        <div class="css-modal-header">
-          <h3 class="css-modal-title">CSS Content: ${title}</h3>
-          <button class="css-modal-close">✕</button>
+   renderCssModal() {
+       return `
+        <div class="stylesheet-modal" style="display: none;">
+            <div class="stylesheet-modal-backdrop"></div>
+            <div class="stylesheet-modal-content">
+                <div class="stylesheet-modal-header">
+                    <h3>Stylesheet Content</h3>
+                    <button class="stylesheet-modal-close">&times;</button>
+                </div>
+                <div class="stylesheet-modal-body">
+                    <textarea class="stylesheet-content" readonly></textarea>
+                </div>
+            </div>
         </div>
-        <div class="css-modal-content">
-          <pre class="css-content"><code>${this.escapeHtml(content)}</code></pre>
-        </div>
-        <div class="css-modal-footer">
-          <button class="css-copy-button">Copy to Clipboard</button>
-          <small class="css-modal-info">Lines: ${content.split('\n').length} | Chars: ${content.length}</small>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Event handlers
-    const closeModal = () => {
-      if (modal.parentNode) {
-        modal.parentNode.removeChild(modal);
-      }
-    };
-
-    modal.querySelector('.css-modal-close').addEventListener('click', closeModal);
-    modal.querySelector('.css-copy-button').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(content);
-        modal.querySelector('.css-copy-button').textContent = 'Copied!';
-        setTimeout(() => {
-          modal.querySelector('.css-copy-button').textContent = 'Copy to Clipboard';
-        }, 2000);
-      } catch (err) {
-        modal.querySelector('.css-copy-button').textContent = 'Copy Failed';
-      }
-    });
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    document.addEventListener('keydown', function handleEscape(e) {
-      if (e.key === 'Escape') {
-        closeModal();
-        document.removeEventListener('keydown', handleEscape);
-      }
-    });
-  }
+       `;
+   }
 
   /**
-   * Escape HTML for safe display
-   */
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  /**
-   * Cleanup
+   * Unload styles and remove event listeners
    */
   destroy() {
-    // No longer need to clear interval since we removed polling
-    console.log('[CssFilesPanel] Panel destroyed');
+    console.log('[CssFilesPanel] Destroyed');
+    // No specific cleanup needed if we are just rebuilding innerHTML
   }
 }
 
-// Register the panel
+// Register this panel in the settings section registry
 settingsSectionRegistry.register({
   id: 'css-files',
   title: 'CSS Files',
-  icon: '▣',
-  order: 4,
-  component: CssFilesPanel
+  component: CssFilesPanel,
+  icon: 'file-code', // Example icon
+  level: 2, // Advanced setting
 });
 
 export default CssFilesPanel; 

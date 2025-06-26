@@ -5,7 +5,9 @@
 import { PanelControlCenter } from '/client/panels/core/PanelControlCenter.js';
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { PanelManager } from '../core/PanelManager.js';
 
 export class PanelUIManager {
     constructor() {
@@ -43,10 +45,9 @@ export class PanelUIManager {
                 
                 // The ContentView now creates the containers, so we don't check for them here.
                 
-                // Initialize the Panel Control Center (if needed, this part can be modularized)
-                // For now, let's assume the control center is not part of this new flow.
-                // await this.initializeControlCenter();
-                // console.log('[PanelUIManager] Control center initialized');
+                // Initialize the Panel Control Center
+                await this.initializeControlCenter();
+                console.log('[PanelUIManager] Control center initialized');
                 
                 // Initialize the panels now that their containers are guaranteed to exist.
                 await this.initializePanels();

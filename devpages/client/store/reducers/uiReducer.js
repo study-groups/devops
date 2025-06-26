@@ -1,4 +1,4 @@
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { createReducer, createPersister, loadFromStorage } from './reducerUtils.js';
 
 const LOG_VISIBLE_KEY = 'logVisible';

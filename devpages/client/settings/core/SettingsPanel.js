@@ -3,26 +3,17 @@
  * Draggable, resizable settings panel component.
  */
 
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { settingsSectionRegistry } from './settingsSectionRegistry.js';
+import { settingsRegistry } from './settingsRegistry.js';
 import { logMessage } from '/client/log/index.js';
 import { panelEventBus } from './panelEventBus.js';
 import { renderSettingsSections } from './SettingsSectionRenderer.js';
+import { zIndexManager } from '/client/utils/ZIndexManager.js';
 
-// Import all panels to ensure they register themselves
-import '../panels/themes/ThemeSelectorPanel.js'; // Theme selector panel
-import '../panels/css-design/ThemeEditorPanel.js'; // Theme Editor panel
-import '../panels/icons/IconsPanel.js'; // Icons management panel
-import '../panels/plugins/PluginsPanel.js';
-import '../panels/publish/PublishSettingsPanel.js';
-import '../panels/preview/PreviewSettingsPanel.js';
-import '../panels/javascript/JavaScriptPanel.js';
-import '../panels/console/ConsoleLogPanel.js';
-import '../panels/dev-tools/DevToolsPanel.js';
-import '../panels/api-tokens/ApiTokenPanel.js'; // API Token management panel
-import '../panels/css-files/CssFilesPanel.js'; // Modern CSS file management panel
-// Removed panels: ThemeSettingsPanel, ThemeDesignPanel, DesignerThemePanel, DesignTokensPanel, SystemCssPanel
+// DO NOT import panels here - they will be loaded dynamically after reducer is set
+// This prevents the "No reducer set" error during initialization
 
 const SETTINGS_CSS_ID = 'settings-panel-styles-link'; // Unique ID for the link tag
 const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state'; // Single source of truth
@@ -50,6 +41,75 @@ function loadPersistedSettingsState() {
     logSettings(`Failed to load persisted settings state: ${e}`, 'error');
   }
   return null;
+}
+
+// Track if panels have been loaded to avoid loading multiple times
+let panelsLoaded = false;
+
+// Dynamic panel loading function
+async function loadAllPanels() {
+  if (panelsLoaded) {
+    logSettings('Panels already loaded, skipping...', 'debug');
+    return;
+  }
+
+  logSettings('Starting dynamic panel loading...', 'debug');
+  
+  try {
+    // Load all panels dynamically - this ensures they register after reducer is set
+    const panelImports = [
+      import('../panels/themes/ThemeSelectorPanel.js'),
+      import('../panels/css-design/ThemeEditorPanel.js'),
+      import('../panels/icons/IconsPanel.js'),
+      import('../panels/plugins/PluginsPanel.js'),
+      import('../panels/publish/PublishSettingsPanel.js'),
+      import('../panels/preview/PreviewSettingsPanel.js'),
+      import('../panels/javascript/JavaScriptPanel.js'),
+      import('../panels/console/ConsoleLogPanel.js'),
+      import('../panels/dev-tools/DevToolsPanel.js'),
+      import('../panels/api-tokens/ApiTokenPanel.js'),
+      import('../panels/css-files/CssFilesPanel.js')
+    ];
+
+    logSettings(`Attempting to load ${panelImports.length} panel modules...`, 'info');
+    
+    // Load panels one by one to better identify which one might be failing
+    for (let i = 0; i < panelImports.length; i++) {
+      try {
+        const importPromise = panelImports[i];
+        const modulePath = importPromise.toString();
+        logSettings(`Loading panel module ${i+1}/${panelImports.length}: ${modulePath}`, 'debug');
+        await importPromise;
+        logSettings(`Successfully loaded panel module ${i+1}`, 'debug');
+      } catch (error) {
+        logSettings(`Failed to load panel module ${i+1}: ${error.message}`, 'error');
+        console.error(`[SETTINGS PANEL] Failed to load panel module ${i+1}:`, error);
+        // Continue with other panels even if one fails
+      }
+    }
+    
+    panelsLoaded = true;
+    
+    // Check registry state after loading
+    logSettings(`After loading panels: ${settingsRegistry.count()} panels registered`, 'info');
+    
+    // If no panels were registered, something went wrong
+    if (settingsRegistry.count() === 0) {
+      logSettings('WARNING: No panels were registered after loading all modules!', 'warn');
+      
+      // Check if registry is accessible through devpages namespace
+      if (window.devpages && window.devpages.settings && window.devpages.settings.registry) {
+        const devpagesCount = window.devpages.settings.registry.count();
+        logSettings(`Registry in devpages.settings.registry has ${devpagesCount} panels`, 'info');
+      }
+    }
+    
+    logSettings(`Successfully loaded ${settingsRegistry.count()} panels`, 'debug');
+  } catch (error) {
+    logSettings(`Failed to load panels: ${error.message}`, 'error');
+    console.error('[SETTINGS PANEL] Panel loading error:', error);
+    throw error;
+  }
 }
 
 export class SettingsPanel {
@@ -114,6 +174,62 @@ export class SettingsPanel {
     }
   }
 
+  // --- Method to dynamically load panels (called after reducer is set) ---
+  async loadPanels() {
+    try {
+      logSettings('Starting to load panels...', 'info');
+      
+      await loadAllPanels();
+      logSettings('All panel modules loaded successfully', 'info');
+      
+      // Check registry state before initializing
+      logSettings(`Registry state before initializing: ${settingsRegistry.count()} panels registered`, 'info');
+      settingsRegistry.debug();
+      
+      // Initialize all section states now that panels are registered and reducer is ready
+      settingsRegistry.initializeAllStates();
+      logSettings('All panel states initialized', 'info');
+      
+      // Check if registry is accessible through devpages namespace
+      if (window.devpages && window.devpages.settings && window.devpages.settings.registry) {
+        logSettings('Registry found in devpages.settings.registry', 'info');
+      } else {
+        logSettings('WARNING: Registry not found in devpages.settings.registry', 'warn');
+      }
+      
+      // Now render all the sections since panels are loaded and registered
+      logSettings('Rendering settings sections...', 'info');
+      renderSettingsSections(
+        this.contentElement,
+        this.sectionInstances,
+        this.toggleSectionCollapse.bind(this)
+      );
+      
+      // Re-render after panels are loaded to show them
+      const currentState = appStore.getState().settingsPanel;
+      this.render(currentState);
+      
+      logSettings('Panel loading and rendering complete', 'info');
+      return true;
+    } catch (error) {
+      logSettings(`Error loading panels: ${error.message}`, 'error');
+      console.error('[SETTINGS_PANEL] Panel loading error:', error);
+      
+      // Add a visible error message to the panel
+      if (this.contentElement) {
+        this.contentElement.innerHTML = `
+          <div class="settings-error-container">
+            <h3>Error Loading Settings Panels</h3>
+            <p>${error.message}</p>
+            <pre>${error.stack}</pre>
+          </div>
+        `;
+      }
+      
+      return false;
+    }
+  }
+
   // --- Method to inject CSS link tag --- 
   injectStyles() {
     if (!document.getElementById(SETTINGS_CSS_ID)) {
@@ -126,6 +242,32 @@ export class SettingsPanel {
       logSettings('Injected settings.css link tag.', 'debug');
     } else {
       logSettings('settings.css link tag already exists.', 'debug');
+    }
+    
+    // Add additional styles for Z-Index management
+    if (!document.getElementById('settings-panel-z-index-styles')) {
+      const additionalStyles = document.createElement('style');
+      additionalStyles.id = 'settings-panel-z-index-styles';
+      additionalStyles.textContent = `
+        .settings-panel.brought-to-front {
+          animation: bringToFrontFlash 0.2s ease-out;
+        }
+        
+        @keyframes bringToFrontFlash {
+          0% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
+          100% { box-shadow: none; }
+        }
+        
+        .settings-panel[data-z-managed="true"] {
+          transition: box-shadow 0.2s ease;
+        }
+        
+        .settings-panel[data-z-managed="true"]:hover {
+          box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+        }
+      `;
+      document.head.appendChild(additionalStyles);
+      logSettings('Injected Z-Index management styles.', 'debug');
     }
   }
 
@@ -140,12 +282,19 @@ export class SettingsPanel {
 
   // --- IMPROVED Method to handle section collapse/expand ---
   toggleSectionCollapse(sectionId) {
-    logSettings(`Toggling collapse for section: ${sectionId}`);
+    if (!sectionId) return;
     
-    // Use registry method to toggle through the store
-    settingsSectionRegistry.toggleSection(sectionId);
+    logSettings(`Toggle section collapse for ${sectionId}`, 'debug');
     
-    logSettings(`Section ${sectionId} toggle dispatched`, 'debug');
+    try {
+      // Dispatch action to toggle section collapse state
+      dispatch({ 
+        type: ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION,
+        payload: { sectionId }
+      });
+    } catch (e) {
+      console.error(`Failed to toggle section ${sectionId}:`, e);
+    }
   }
   // --- End IMPROVED Method --- 
   
@@ -183,6 +332,7 @@ export class SettingsPanel {
     this.createPanelDOM();
     this.attachEventListeners();
     this.updatePanelState();
+    this.registerWithZIndexManager();
   }
 
   createPanelDOM() {
@@ -215,12 +365,8 @@ export class SettingsPanel {
     this.resizeHandle.innerHTML = '⋰'; // Resize icon
     logSettings('[DEBUG] Resize handle created.', 'debug');
 
-    // Use the new renderer for all sections
-    renderSettingsSections(
-      this.contentElement,
-      this.sectionInstances,
-      this.toggleSectionCollapse.bind(this)
-    );
+    // DO NOT render sections here - they will be rendered after panels are loaded
+    // renderSettingsSections will be called in loadPanels() after dynamic loading
 
     // 5. Append elements and finish
     this.panelElement.appendChild(this.headerElement);
@@ -246,6 +392,14 @@ export class SettingsPanel {
     
     // Prevent drag start when clicking close button
     this.closeButton.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    // --- Click to bring to front ---
+    this.panelElement.addEventListener('mousedown', (e) => {
+      // Only bring to front if not clicking on specific interactive elements
+      if (!e.target.closest('button, input, select, textarea, .settings-section-header')) {
+        this.bringToFront();
+      }
+    });
 
     // --- Global listeners for drag/resize --- 
     // Use arrow functions to maintain 'this' context
@@ -277,6 +431,7 @@ export class SettingsPanel {
 
     logSettings('[DEBUG] render() called', 'debug');
     logSettings(`[DEBUG] settingsState.collapsedSections: ${JSON.stringify(settingsState.collapsedSections)}`, 'debug');
+    logSettings(`[DEBUG] settingsState.collapsedSubsections: ${JSON.stringify(settingsState.collapsedSubsections || {})}`, 'debug');
 
     // Update visibility state from store if it has changed
     if (this.isVisible !== settingsState.visible) {
@@ -322,6 +477,36 @@ export class SettingsPanel {
                 logSettings(`[DEBUG] Updated section ${sectionId} collapsed state to ${isCollapsed}`, 'debug');
             } else {
                 logSettings(`[DEBUG] Section ${sectionId} not found in DOM - ignoring`, 'debug');
+            }
+        }
+    }
+    
+    // Update subsection states
+    const collapsedSubsections = settingsState.collapsedSubsections || {};
+    logSettings(`[DEBUG] Processing ${Object.keys(collapsedSubsections).length} collapsed subsection states`, 'debug');
+    
+    for (const sectionId in collapsedSubsections) {
+        if (Object.prototype.hasOwnProperty.call(collapsedSubsections, sectionId)) {
+            const isCollapsed = collapsedSubsections[sectionId];
+            
+            // For subsections, we need to handle the ID format which might contain / or :
+            // Convert to a valid CSS selector
+            const normalizedId = sectionId.replace(/[/:]/g, '\\$&');
+            const sectionContainer = this.panelElement.querySelector(`#${normalizedId}`);
+            
+            logSettings(`[DEBUG] Looking for subsection: ${sectionId} (normalized: ${normalizedId}), found: ${!!sectionContainer}, collapsed: ${isCollapsed}`, 'debug');
+            
+            if (sectionContainer) {
+                const header = sectionContainer.querySelector('.settings-section-header');
+                const indicator = header ? header.querySelector('.collapse-indicator') : null;
+
+                sectionContainer.classList.toggle('collapsed', isCollapsed);
+                if (header) header.setAttribute('aria-expanded', !isCollapsed);
+                if (indicator) indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+                
+                logSettings(`[DEBUG] Updated subsection ${sectionId} collapsed state to ${isCollapsed}`, 'debug');
+            } else {
+                logSettings(`[DEBUG] Subsection ${sectionId} not found in DOM - ignoring`, 'debug');
             }
         }
     }
@@ -426,9 +611,50 @@ export class SettingsPanel {
     dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_SIZE, payload: this.currentSize });
   }
 
+  // --- Z-Index Management ---
+
+  registerWithZIndexManager() {
+    if (this.panelElement && zIndexManager) {
+      // Register the settings panel in the UI layer with medium priority
+      this.zIndex = zIndexManager.register(this.panelElement, 'UI', 50, {
+        name: 'Settings Panel',
+        type: 'panel',
+        resizable: true,
+        draggable: true
+      });
+      
+      logSettings(`Registered with Z-Index Manager: z-index ${this.zIndex}`, 'debug');
+    }
+  }
+
+  bringToFront() {
+    if (this.panelElement && zIndexManager) {
+      const newZIndex = zIndexManager.bringToFront(this.panelElement);
+      this.zIndex = newZIndex;
+      logSettings(`Brought to front: z-index ${newZIndex}`, 'debug');
+      
+      // Add visual feedback
+      this.panelElement.classList.add('brought-to-front');
+      setTimeout(() => {
+        this.panelElement.classList.remove('brought-to-front');
+      }, 200);
+    }
+  }
+
+  unregisterFromZIndexManager() {
+    if (this.panelElement && zIndexManager) {
+      zIndexManager.unregister(this.panelElement);
+      logSettings('Unregistered from Z-Index Manager', 'debug');
+    }
+  }
+
   // Method to clean up listeners and remove element
   destroy() {
     logSettings('Destroying SettingsPanel instance...');
+    
+    // Unregister from Z-Index Manager
+    this.unregisterFromZIndexManager();
+    
     if (this.stateUnsubscribe) {
       this.stateUnsubscribe();
       this.stateUnsubscribe = null;

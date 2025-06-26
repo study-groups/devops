@@ -5,7 +5,8 @@
 
 import { logMessage } from './log/index.js';
 import { eventBus } from './eventBus.js';
-import { dispatch, ActionTypes } from './messaging/messageQueue.js';
+import { dispatch } from './messaging/messageQueue.js';
+import { ActionTypes } from './messaging/actionTypes.js';
 import { triggerActions } from '/client/actions.js';
 import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js';
 
@@ -96,26 +97,27 @@ export function initKeyboardShortcuts() {
         }
     });
     
-    // Add a SINGLE handler for Ctrl+Shift+S
+    // Add a SINGLE handler for Ctrl+Shift+S for the Settings Panel
     document.addEventListener('keydown', function(event) {
         if (event.key === 'S' && event.ctrlKey && event.shiftKey && !event.altKey) {
             event.preventDefault();
-            console.log('[Keyboard DEBUG] Ctrl+Shift+S pressed. window.devPages:', window.devPages);
-            console.log('[Keyboard DEBUG] window.devPages exists:', !!window.devPages);
-            console.log('[Keyboard DEBUG] window.devPages.settingsPanel exists:', !!(window.devPages && window.devPages.settingsPanel));
-            console.log('[Keyboard DEBUG] toggleVisibility method exists:', !!(window.devPages && window.devPages.settingsPanel && typeof window.devPages.settingsPanel.toggleVisibility === 'function'));
-            
             if (window.devPages && window.devPages.settingsPanel) {
-                console.log('[Keyboard DEBUG] Toggling settings panel visibility.');
-                try {
-                    window.devPages.settingsPanel.toggleVisibility();
-                    console.log('[Keyboard DEBUG] toggleVisibility() called successfully.');
-                } catch (error) {
-                    console.error('[Keyboard DEBUG] Error calling toggleVisibility():', error);
-                }
+                window.devPages.settingsPanel.toggleVisibility();
             } else {
-                console.warn('[Keyboard DEBUG] window.devPages.settingsPanel not found!');
-                console.log('[Keyboard DEBUG] Available window properties:', Object.keys(window).filter(key => key.includes('dev') || key.includes('settings')));
+                console.warn('[Keyboard] Settings Panel not found!');
+            }
+        }
+    });
+
+    // Add a SINGLE handler for Ctrl+Shift+D for the DOM Inspector
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'D' && event.ctrlKey && event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            console.log("Ctrl+Shift+D pressed, toggling DOM Inspector.");
+            if (window.devPages && window.devPages.domInspector) {
+                window.devPages.domInspector.toggle();
+            } else {
+                console.error("DOM Inspector not initialized on window.devPages.domInspector");
             }
         }
     });
@@ -145,6 +147,25 @@ export function initKeyboardShortcuts() {
         }
     };
     
+    // Add a global debug function for testing the DOM Inspector
+    window.testDomInspector = function() {
+        console.log('[TEST] Testing DOM Inspector...');
+        if (window.devPages && window.devPages.domInspector) {
+            try {
+                console.log('[TEST] Calling toggleVisibility() on DOM Inspector...');
+                const result = window.devPages.domInspector.toggleVisibility();
+                console.log('[TEST] toggleVisibility() returned:', result);
+                return result;
+            } catch (error) {
+                console.error('[TEST] Error calling toggleVisibility() on DOM Inspector:', error);
+                return false;
+            }
+        } else {
+            console.warn('[TEST] DOM Inspector not available! Use debugInitDomInspector() to load it.');
+            return false;
+        }
+    };
+
     console.log('[Keyboard DEBUG] Global testSettingsPanel() function added. Call testSettingsPanel() to test manually.');
     
     // Add a function to manually initialize settings panel for debugging
@@ -161,6 +182,21 @@ export function initKeyboardShortcuts() {
             return null;
         }
     };
+
+    // Add a function to manually initialize DOM Inspector for debugging
+    window.debugInitDomInspector = async function() {
+        console.log('[DEBUG] Manually initializing DOM Inspector...');
+        try {
+            const { initializeDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
+            const result = initializeDomInspector();
+            console.log('[DEBUG] DOM Inspector initialization result:', result);
+            return result;
+        } catch (error) {
+            console.error('[DEBUG] Error initializing DOM Inspector:', error);
+            return null;
+        }
+    };
     
     console.log('[Keyboard DEBUG] Global debugInitSettings() function added. Call debugInitSettings() to manually initialize.');
+    console.log('[Keyboard DEBUG] Global debugInitDomInspector() function added. Call debugInitDomInspector() to manually initialize.');
 } 

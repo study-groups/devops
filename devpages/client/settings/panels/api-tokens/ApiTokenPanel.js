@@ -4,7 +4,8 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { api } from '/client/api.js';
 

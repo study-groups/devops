@@ -8,8 +8,10 @@
  * - Communication between panels and layout manager
  */
 
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { eventBus } from '/client/eventBus.js';
 
 export class PanelManager {
     constructor() {

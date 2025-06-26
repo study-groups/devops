@@ -2,9 +2,12 @@
  * Virtual Base Path Manager Component
  * Allows users to switch between different virtual MD_DIR contexts
  */
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
+import { pathUtils } from '/client/utils/pathUtils.js';
+import { getFile } from '/client/api.js';
 import { setVirtualBasePath, getAvailableBasePaths } from '/client/utils/virtualPathUtils.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import eventBus from '/client/eventBus.js';
 
 class VirtualBaseManager {

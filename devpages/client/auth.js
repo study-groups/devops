@@ -9,7 +9,8 @@ import { eventBus } from '/client/eventBus.js'; // Import eventBus
 import { appStore } from '/client/appState.js'; // IMPORT the central state
 import fileSystemState from '/client/filesystem/fileSystemState.js'; // Keep for now, might refactor later
 import { api } from '/client/api.js'; // Import the centralized API object
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Use dispatch
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // --- Public API ---
 

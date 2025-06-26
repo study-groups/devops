@@ -1,4 +1,5 @@
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { createReducer } from './reducerUtils.js';
 
 // The initial state for this slice is provided by appState.js
 export function panelsReducer(state = {}, action) {

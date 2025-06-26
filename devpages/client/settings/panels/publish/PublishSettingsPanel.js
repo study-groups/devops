@@ -3,8 +3,9 @@
  * Component to manage publish settings and options.
  */
 
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
@@ -19,7 +20,7 @@ export class PublishSettingsPanel {
     this.unsubscribeSettings = null;
     this.spacesConfig = null;
 
-    this.createDOM();
+    this.render();
     this.attachEventListeners();
     this.subscribeToState();
     this.loadSpacesConfig();
@@ -42,128 +43,101 @@ export class PublishSettingsPanel {
     }
   }
 
-  createDOM() {
-    this.publishSettingsContainer = document.createElement('div');
-    this.publishSettingsContainer.className = 'publish-settings-container';
+  render() {
+    this.containerElement.innerHTML = `
+      <div class="settings-section-container">
+        <h2 class="settings-section-header" tabindex="0"><span class="collapse-indicator">▼</span>Publish Mode</h2>
+        <div class="settings-section-content">
+          <p class="settings-text--muted">Choose how to generate the final HTML file.</p>
+          <div id="publish-mode-options" class="settings-flex--column" style="gap: var(--density-space-sm);">
+            <label class="settings-flex" style="padding: var(--density-space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+              <input type="radio" name="publish-mode" value="local" style="margin-right: var(--density-space-sm);">
+              <div>
+                <strong>Local File Download</strong>
+                <p class="settings-text--muted" style="margin: 0;">Generate and download HTML file to your computer</p>
+              </div>
+            </label>
+            <label class="settings-flex" style="padding: var(--density-space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+              <input type="radio" name="publish-mode" value="spaces" style="margin-right: var(--density-space-sm);">
+              <div>
+                <strong>DigitalOcean Spaces</strong>
+                <p class="settings-text--muted" style="margin: 0;">Publish to cloud storage for public sharing</p>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
 
-    // Create header
-    const header = document.createElement('div');
-    header.className = 'section-header';
-    
-    const title = document.createElement('h4');
-    title.textContent = 'Publish Settings';
-    header.appendChild(title);
+      <div id="spaces-config-section" class="settings-section-container collapsed">
+        <h2 class="settings-section-header" tabindex="0"><span class="collapse-indicator">►</span>DigitalOcean Spaces Configuration</h2>
+        <div class="settings-section-content">
+           <div id="spaces-config-content" class="settings-flex--column" style="gap: var(--density-space-sm);">
+              <div class="settings-flex" style="justify-content: space-between;">
+                <label class="settings-label">Endpoint:</label>
+                <span id="spaces-endpoint" class="settings-text--muted">Loading...</span>
+              </div>
+              <div class="settings-flex" style="justify-content: space-between;">
+                <label class="settings-label">Region:</label>
+                <span id="spaces-region" class="settings-text--muted">Loading...</span>
+              </div>
+              <div class="settings-flex" style="justify-content: space-between;">
+                <label class="settings-label">Bucket:</label>
+                <span id="spaces-bucket" class="settings-text--muted">Loading...</span>
+              </div>
+              <div class="settings-flex" style="justify-content: space-between;">
+                <label class="settings-label">Access Key:</label>
+                <span id="spaces-key" class="settings-text--muted">Loading...</span>
+              </div>
+              <div class="settings-flex" style="justify-content: space-between;">
+                <label class="settings-label">Base URL:</label>
+                <span id="spaces-base-url" class="settings-text--muted">Loading...</span>
+              </div>
+           </div>
+        </div>
+      </div>
 
-    // Create publish mode selection
-    const publishModeContainer = document.createElement('div');
-    publishModeContainer.className = 'publish-mode-container';
-    
-    const publishModeTitle = document.createElement('h5');
-    publishModeTitle.textContent = 'Publish Mode';
-    publishModeTitle.className = 'subsection-title';
-    publishModeContainer.appendChild(publishModeTitle);
-
-    // Local file option
-    const localFileOption = document.createElement('label');
-    localFileOption.className = 'publish-option';
-    localFileOption.innerHTML = `
-      <input type="radio" name="publish-mode" value="local" checked>
-      <div class="option-content">
-        <strong>Local File Download</strong>
-        <p>Generate and download HTML file to your computer</p>
+      <div class="settings-section-container">
+        <h2 class="settings-section-header" tabindex="0"><span class="collapse-indicator">▼</span>CSS Handling</h2>
+        <div class="settings-section-content">
+            <label class="settings-toggle">
+                <input type="checkbox" class="settings-toggle-input" id="bundle-css-toggle">
+                <span class="settings-toggle-slider"></span>
+                <span class="settings-toggle-label">Bundle CSS inline (recommended for sharing)</span>
+            </label>
+            <p class="settings-text--muted" style="margin-top: var(--density-space-sm);">
+                When enabled, CSS files are bundled directly into the HTML. When disabled, CSS files are linked externally.
+            </p>
+        </div>
       </div>
     `;
-    publishModeContainer.appendChild(localFileOption);
-
-    // DO Spaces option
-    const spacesOption = document.createElement('label');
-    spacesOption.className = 'publish-option';
-    spacesOption.innerHTML = `
-      <input type="radio" name="publish-mode" value="spaces">
-      <div class="option-content">
-        <strong>Digital Ocean Spaces</strong>
-        <p>Publish to cloud storage for public sharing</p>
-      </div>
-    `;
-    publishModeContainer.appendChild(spacesOption);
-
-    // DO Spaces configuration display
-    const spacesConfigContainer = document.createElement('div');
-    spacesConfigContainer.className = 'spaces-config-container';
-    spacesConfigContainer.style.display = 'none';
-    
-    const spacesConfigTitle = document.createElement('h5');
-    spacesConfigTitle.textContent = 'Digital Ocean Spaces Configuration';
-    spacesConfigTitle.className = 'subsection-title';
-    spacesConfigContainer.appendChild(spacesConfigTitle);
-
-    const spacesConfigContent = document.createElement('div');
-    spacesConfigContent.className = 'spaces-config-content';
-    spacesConfigContent.innerHTML = `
-      <div class="config-item">
-        <label>Endpoint:</label>
-        <span class="config-value" id="spaces-endpoint">Loading...</span>
-      </div>
-      <div class="config-item">
-        <label>Region:</label>
-        <span class="config-value" id="spaces-region">Loading...</span>
-      </div>
-      <div class="config-item">
-        <label>Bucket:</label>
-        <span class="config-value" id="spaces-bucket">Loading...</span>
-      </div>
-      <div class="config-item">
-        <label>Access Key:</label>
-        <span class="config-value" id="spaces-key">Loading...</span>
-      </div>
-      <div class="config-item">
-        <label>Base URL:</label>
-        <span class="config-value" id="spaces-base-url">Loading...</span>
-      </div>
-    `;
-    spacesConfigContainer.appendChild(spacesConfigContent);
-
-    // CSS bundling options
-    const bundlingContainer = document.createElement('div');
-    bundlingContainer.className = 'bundling-container';
-    
-    const bundlingTitle = document.createElement('h5');
-    bundlingTitle.textContent = 'CSS Handling';
-    bundlingTitle.className = 'subsection-title';
-    bundlingContainer.appendChild(bundlingTitle);
-
-    const bundlingOption = document.createElement('label');
-    bundlingOption.className = 'bundling-option';
-    bundlingOption.innerHTML = `
-      <input type="checkbox" class="bundle-css-toggle" checked>
-      Bundle CSS inline (recommended for sharing)
-    `;
-    bundlingContainer.appendChild(bundlingOption);
-
-    const bundlingDescription = document.createElement('p');
-    bundlingDescription.className = 'option-description';
-    bundlingDescription.textContent = 'When enabled, CSS files are bundled directly into the HTML. When disabled, CSS files are linked externally.';
-    bundlingContainer.appendChild(bundlingDescription);
-
-    // Assemble the panel
-    this.publishSettingsContainer.appendChild(header);
-    this.publishSettingsContainer.appendChild(publishModeContainer);
-    this.publishSettingsContainer.appendChild(spacesConfigContainer);
-    this.publishSettingsContainer.appendChild(bundlingContainer);
-    this.containerElement.appendChild(this.publishSettingsContainer);
   }
 
   attachEventListeners() {
+    // Collapsible sections
+    this.containerElement.querySelectorAll('.settings-section-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const container = header.closest('.settings-section-container');
+            container.classList.toggle('collapsed');
+            const indicator = header.querySelector('.collapse-indicator');
+            if (indicator) {
+                indicator.textContent = container.classList.contains('collapsed') ? '►' : '▼';
+            }
+        });
+    });
+
     // Publish mode radio buttons
-    const radioButtons = this.publishSettingsContainer.querySelectorAll('input[name="publish-mode"]');
+    const radioButtons = this.containerElement.querySelectorAll('input[name="publish-mode"]');
     radioButtons.forEach(radio => {
       radio.addEventListener('change', (event) => {
-        this.handlePublishModeChange(event.target.value);
+        dispatch({
+          type: ActionTypes.SETTINGS_SET_PUBLISH_MODE,
+          payload: event.target.value
+        });
       });
     });
 
     // CSS bundling toggle (publish-specific)
-    const bundleToggle = this.publishSettingsContainer.querySelector('.bundle-css-toggle');
+    const bundleToggle = this.containerElement.querySelector('#bundle-css-toggle');
     if (bundleToggle) {
       bundleToggle.addEventListener('change', (event) => {
         dispatch({
@@ -174,20 +148,37 @@ export class PublishSettingsPanel {
     }
   }
 
-  handlePublishModeChange(mode) {
-    const spacesConfigContainer = this.publishSettingsContainer.querySelector('.spaces-config-container');
-    
-    if (mode === 'spaces') {
-      spacesConfigContainer.style.display = 'block';
-    } else {
-      spacesConfigContainer.style.display = 'none';
-    }
+  updateUI(publishSettings) {
+    if (!publishSettings) return;
 
-    // Dispatch the publish mode change
-    dispatch({
-      type: ActionTypes.SETTINGS_SET_PUBLISH_MODE,
-      payload: mode
+    // Update radio buttons
+    const radioButtons = this.containerElement.querySelectorAll('input[name="publish-mode"]');
+    radioButtons.forEach(radio => {
+      radio.checked = radio.value === publishSettings.mode;
     });
+
+    // Update CSS bundling toggle
+    const bundleToggle = this.containerElement.querySelector('#bundle-css-toggle');
+    if (bundleToggle) {
+      bundleToggle.checked = publishSettings.bundleCss;
+    }
+    
+    // Update visibility of Spaces config section
+    const spacesConfigSection = this.containerElement.querySelector('#spaces-config-section');
+    if (spacesConfigSection) {
+        const isSpacesMode = publishSettings.mode === 'spaces';
+        const isCollapsed = spacesConfigSection.classList.contains('collapsed');
+
+        if (isSpacesMode && isCollapsed) {
+            spacesConfigSection.classList.remove('collapsed');
+            const indicator = spacesConfigSection.querySelector('.collapse-indicator');
+            if (indicator) indicator.textContent = '▼';
+        } else if (!isSpacesMode && !isCollapsed) {
+            spacesConfigSection.classList.add('collapsed');
+            const indicator = spacesConfigSection.querySelector('.collapse-indicator');
+            if (indicator) indicator.textContent = '►';
+        }
+    }
   }
 
   updateSpacesConfigDisplay() {
@@ -199,83 +190,62 @@ export class PublishSettingsPanel {
     };
 
     // Update endpoint
-    const endpointEl = this.publishSettingsContainer.querySelector('#spaces-endpoint');
+    const endpointEl = this.containerElement.querySelector('#spaces-endpoint');
     if (endpointEl) {
       endpointEl.textContent = this.spacesConfig.endpointValue || 'Not Set';
-      endpointEl.className = `config-value ${this.spacesConfig.endpointValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      endpointEl.className = `settings-text--muted ${this.spacesConfig.endpointValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
     }
 
     // Update region
-    const regionEl = this.publishSettingsContainer.querySelector('#spaces-region');
+    const regionEl = this.containerElement.querySelector('#spaces-region');
     if (regionEl) {
       regionEl.textContent = this.spacesConfig.regionValue || 'Not Set';
-      regionEl.className = `config-value ${this.spacesConfig.regionValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      regionEl.className = `settings-text--muted ${this.spacesConfig.regionValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
     }
 
     // Update bucket
-    const bucketEl = this.publishSettingsContainer.querySelector('#spaces-bucket');
+    const bucketEl = this.containerElement.querySelector('#spaces-bucket');
     if (bucketEl) {
       bucketEl.textContent = this.spacesConfig.bucketValue || 'Not Set';
-      bucketEl.className = `config-value ${this.spacesConfig.bucketValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      bucketEl.className = `settings-text--muted ${this.spacesConfig.bucketValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
     }
 
     // Update access key (ghosted)
-    const keyEl = this.publishSettingsContainer.querySelector('#spaces-key');
+    const keyEl = this.containerElement.querySelector('#spaces-key');
     if (keyEl) {
       const keyValue = this.spacesConfig.endpointValue; // Using endpoint as proxy for key existence
       keyEl.textContent = keyValue !== 'Not Set' ? ghostValue('DO_SPACES_KEY', 16) : 'Not Set';
-      keyEl.className = `config-value ${keyValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      keyEl.className = `settings-text--muted ${keyValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
     }
 
     // Update base URL
-    const baseUrlEl = this.publishSettingsContainer.querySelector('#spaces-base-url');
+    const baseUrlEl = this.containerElement.querySelector('#spaces-base-url');
     if (baseUrlEl) {
       baseUrlEl.textContent = this.spacesConfig.publishBaseUrlValue || 'Auto-generated';
-      baseUrlEl.className = `config-value ${this.spacesConfig.publishBaseUrlValue !== 'Not Set' ? 'configured' : 'auto'}`;
+      baseUrlEl.className = `settings-text--muted ${this.spacesConfig.publishBaseUrlValue !== 'Not Set' ? 'configured' : 'auto'}`;
     }
   }
 
   subscribeToState() {
     this.unsubscribeSettings = appStore.subscribe((state) => {
       const publishSettings = state.settings?.publish;
-      if (publishSettings) {
-        // Update publish mode radio buttons
-        const radioButtons = this.publishSettingsContainer.querySelectorAll('input[name="publish-mode"]');
-        radioButtons.forEach(radio => {
-          radio.checked = radio.value === publishSettings.mode;
-        });
-
-        // Update CSS bundling toggle (use publish-specific setting)
-        const bundleToggle = this.publishSettingsContainer.querySelector('.bundle-css-toggle');
-        if (bundleToggle) {
-          bundleToggle.checked = publishSettings.bundleCss !== false; // Default to true if undefined
-        }
-
-        // Update spaces config visibility
-        const spacesConfigContainer = this.publishSettingsContainer.querySelector('.spaces-config-container');
-        if (spacesConfigContainer) {
-          spacesConfigContainer.style.display = publishSettings.mode === 'spaces' ? 'block' : 'none';
-        }
-      }
+      this.updateUI(publishSettings);
     });
   }
 
   destroy() {
-    logMessage('Destroying PublishSettingsPanel instance...', 'debug', 'SETTINGS');
     if (this.unsubscribeSettings) {
       this.unsubscribeSettings();
-      this.unsubscribeSettings = null;
     }
-
-    this.containerElement.innerHTML = '';
-    this.publishSettingsContainer = null;
+    logMessage('PublishSettingsPanel instance destroyed.', 'debug', 'SETTINGS');
   }
 }
 
-// Register this panel with the registry
+// Register this panel in the settings section registry
 settingsSectionRegistry.register({
-  id: 'publish-settings-panel',
+  id: 'publish',
   title: 'Publish',
   component: PublishSettingsPanel,
-  defaultCollapsed: true
+  icon: 'upload-cloud', // Example icon
+  level: 1, // Core setting
 }); 

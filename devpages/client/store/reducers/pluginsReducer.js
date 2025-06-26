@@ -1,6 +1,7 @@
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { createReducer, createPersister, loadFromStorage } from './reducerUtils.js';
 
-const PLUGINS_STATE_KEY = 'pluginsEnabledState';
+const PLUGINS_STATE_KEY = 'devpages_plugins_state';
 
 // Define the initial state for plugins. This might be populated dynamically
 // during store initialization based on discovered plugins.

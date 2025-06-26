@@ -3,7 +3,7 @@
  * Demo panel showcasing the event bus system for cross-panel communication
  */
 
-import { panelRegistry } from '../core/panelRegistry.js';
+import { settingsRegistry } from '../core/settingsRegistry.js';
 import { panelEventBus, PanelEvents, createPanelMixin } from '../core/panelEventBus.js';
 
 const PANEL_ID = 'event-bus-demo-panel';
@@ -391,11 +391,10 @@ class EventBusDemoPanel {
 }
 
 // Register this panel with the registry
-panelRegistry.register({
+settingsRegistry.register({
     id: PANEL_ID,
     title: 'Event Bus Demo',
     component: EventBusDemoPanel,
-    order: 999, // Put it at the end
     defaultCollapsed: true
 });
 

@@ -7,9 +7,14 @@
 
 import { BasePanel } from '../core/BasePanel.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import eventBus from '/client/eventBus.js';
+import { settingsSectionRegistry } from '/client/settings/core/settingsSectionRegistry.js';
+import { SettingsSectionRenderer } from '/client/settings/core/SettingsSectionRenderer.js';
+
+let contextManagerInstance = null;
 
 export class ContextPanel extends BasePanel {
     constructor(options = {}) {

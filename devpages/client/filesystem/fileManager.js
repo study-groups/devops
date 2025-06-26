@@ -10,7 +10,8 @@ import { appStore } from '/client/appState.js';
 import { api } from '/client/api.js'; // Use refactored API
 import { pathJoin, getParentPath, getFilename } from '/client/utils/pathUtils.js';
 import { renderMarkdown } from '/client/preview/renderers/MarkdownRenderer.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // --- Module State (Removed - state now in appStore) ---
 let currentHostScriptPath = null;
@@ -430,35 +431,36 @@ async function handleFileSave() {
 // --- API Interaction & Core Logic (Refactored for pathname) ---
 
 async function loadTopLevelDirectories() {
-    logFileManager('Attempting to load top-level directories...'); // Log entry
-    dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true } }); // Ensure loading state is active
+    logFileManager('Attempting to load top-level directories...');
+    dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: true } });
     try {
-        logFileManager(`Calling api.fetchDirectoryListing with pathname: ''`); // Log API call
-        const listing = await api.fetchDirectoryListing(''); // <<< CHANGE TO THIS
+        // Call the correct API endpoint for user directories
+        logFileManager(`Calling /api/files/dirs`);
+        const response = await fetch('/api/files/dirs', {
+            credentials: 'include' // Include cookies for auth
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const directories = await response.json();
+        logFileManager(`API response for user directories: ${JSON.stringify(directories)}`);
 
-        // Log the raw response from the API
-        logFileManager(`API response for root listing: ${JSON.stringify(listing)}`);
-
-        if (listing && listing.dirs && Array.isArray(listing.dirs)) {
-             logFileManager(`Top-level dirs received: [${listing.dirs.join(', ')}]`);
-             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: listing.dirs });
-             logFileManager(`Dispatched FS_SET_TOP_DIRS with payload: ${JSON.stringify(listing.dirs)}`);
+        if (directories && Array.isArray(directories)) {
+             logFileManager(`Top-level dirs received: [${directories.join(', ')}]`);
+             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: directories });
+             logFileManager(`Dispatched FS_SET_TOP_DIRS with payload: ${JSON.stringify(directories)}`);
         } else {
-             logFileManager('No valid directories array found at the root or API error.', 'warning');
-             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] }); // Dispatch empty array
+             logFileManager('No valid directories array found or API error.', 'warning');
+             dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] });
              logFileManager(`Dispatched FS_SET_TOP_DIRS with empty payload due to invalid response.`);
         }
     } catch (error) {
         logFileManager(`Error loading top-level directories: ${error.message}`, 'error');
-        dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] }); // Dispatch empty on error
+        dispatch({ type: ActionTypes.FS_SET_TOP_DIRS, payload: [] });
         logFileManager(`Dispatched FS_SET_TOP_DIRS with empty payload due to error.`);
-        // Also dispatch error to state?
         dispatch({ type: ActionTypes.FS_LOAD_TOP_DIRS_ERROR, payload: { error: error.message } });
-
-    } finally {
-         // Consider setting isLoading: false here ONLY if this is the *only* thing loading
-         // Probably better handled by FS_INIT_COMPLETE
-         // dispatch({ type: ActionTypes.FS_SET_STATE, payload: { isLoading: false } });
     }
 }
 

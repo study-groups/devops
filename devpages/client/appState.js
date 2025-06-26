@@ -16,6 +16,7 @@ export const SMART_COPY_B_KEY = 'smartCopyBufferB';
 const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
 const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css'; // <<< NEW KEY
 const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
+const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
 function getInitialLogVisibility() {
@@ -297,6 +298,46 @@ function getInitialPanelsState() {
     return defaults;
 }
 
+// Helper function to load DOM inspector state from localStorage
+function getInitialDomInspectorState() {
+  const defaults = {
+    visible: false,
+    position: { x: window.innerWidth - 470, y: 50 },
+    size: { width: 450, height: 500 },
+    selectorHistory: [],
+    collapsedSections: {},
+    computedStyleFilter: {
+      selectedGroup: 'Layout',
+      showOnlyGroup: false
+    },
+    highlight: {
+      mode: 'both', // 'border', 'shade', 'both', 'none'
+      color: '#448aff' // Default blue
+    }
+  };
+
+  try {
+    const savedState = localStorage.getItem(DOM_INSPECTOR_STATE_KEY);
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      // Deep merge to ensure all keys are present
+      return {
+        ...defaults,
+        ...parsed,
+        position: { ...defaults.position, ...(parsed.position || {}) },
+        size: { ...defaults.size, ...(parsed.size || {}) },
+        collapsedSections: { ...defaults.collapsedSections, ...(parsed.collapsedSections || {}) },
+        computedStyleFilter: { ...defaults.computedStyleFilter, ...(parsed.computedStyleFilter || {}) },
+        highlight: { ...defaults.highlight, ...(parsed.highlight || {}) }
+      };
+    }
+  } catch (e) {
+    console.warn('[AppState] Failed to load DOM Inspector state:', e);
+  }
+  
+  return defaults;
+}
+
 // Define the initial shape of the application state
 const initialAppState = {
   auth: {
@@ -319,6 +360,7 @@ const initialAppState = {
   },
   panels: getInitialPanelsState(), // +++ NEW, CENTRALIZED PANEL STATE +++
   settingsPanel: getInitialSettingsPanelState(),
+  domInspector: getInitialDomInspectorState(),
   editor: {
     content: '',
     dirty: false,
@@ -561,6 +603,20 @@ appStore.subscribe((newState) => {
             }
         } catch (e) {
             console.warn('[AppState] Failed to save panels state:', e);
+        }
+    }
+
+    // Persist DOM Inspector state
+    const currentDomInspectorState = newState.domInspector;
+    if (currentDomInspectorState) {
+        try {
+            const storedState = localStorage.getItem(DOM_INSPECTOR_STATE_KEY);
+            const stateToSave = JSON.stringify(currentDomInspectorState);
+            if (stateToSave !== storedState) {
+                localStorage.setItem(DOM_INSPECTOR_STATE_KEY, stateToSave);
+            }
+        } catch (e) {
+            console.warn('[AppState] Failed to save DOM Inspector state:', e);
         }
     }
 });

@@ -2,7 +2,8 @@ import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js'; // Assuming this is where actions like toggleLogVisibility are.
 import { logInfo, logError, logDebug, logWarn } from './LogCore.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // These might be better as part of logPanelInstance.config or passed in
 const MIN_LOG_HEIGHT = 80; // Or get from LogPanel constants

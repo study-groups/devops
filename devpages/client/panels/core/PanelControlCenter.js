@@ -154,9 +154,6 @@ export class PanelControlCenter extends BasePanel {
             <div class="panel-cards-container">
                 ${cardsHTML}
             </div>
-            <div class="panel-control-footer">
-                <button class="btn-add-panel" title="Add Panel">+ Add Panel</button>
-            </div>
         `;
 
         this.attachEventListeners();

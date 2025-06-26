@@ -1,4 +1,7 @@
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { createReducer, createPersister, loadFromStorage } from './reducerUtils.js';
+
+const AUTH_USER_KEY = 'authUser';
 
 // --- Auth Slice Reducer ---
 export function authReducer(state, action) {

@@ -1,4 +1,5 @@
-import { ActionTypes } from './messageQueue.js';
+import { ActionTypes } from './actionTypes.js';
+import { dispatch } from './messageQueue.js';
 
 // ===== AUTH ACTIONS =====
 export const authActions = {

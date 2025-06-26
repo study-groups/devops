@@ -2,7 +2,7 @@ import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js'; // Assuming settings are in appStore
 import { api } from '/client/api.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure pathJoin is imported
-import { dispatch, ActionTypes, isReducerInitialized } from '/client/messaging/messageQueue.js'; // <<< Ensure dispatch and ActionTypes are imported
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // <<< Ensure dispatch and ActionTypes are imported
 
 // Simple logger using logMessage
 const logger = {
@@ -32,15 +32,11 @@ export function init(config = {}) {
             const savedState = localStorage.getItem('enableRootCss');
             if (savedState === null) {
                 // First time - set default to false (using theme system instead)
-                if (isReducerInitialized()) {
-                    dispatch({ 
-                        type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
-                        payload: false 
-                    });
-                    logger.debug('Set default enableRootCss to false (using theme system)');
-                } else {
-                    logger.warn('Reducer not ready yet, skipping default enableRootCss dispatch');
-                }
+                dispatch({ 
+                    type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
+                    payload: false 
+                });
+                logger.debug('Set default enableRootCss to false (using theme system)');
             }
         } catch (e) {
             logger.error('Error setting default enableRootCss', e);
@@ -208,12 +204,8 @@ export async function applyStyles() {
     const sortedPrevious = [...previousActivePaths].sort();
     if (JSON.stringify(sortedFinal) !== JSON.stringify(sortedPrevious)) {
         logger.info(`[CSS APPLY DISPATCH] New active files detected: ${JSON.stringify(finalActivePaths)}`);
-        if (isReducerInitialized()) {
-            dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
-            logger.debug(`[CSS APPLY DISPATCH] Dispatched successfully`);
-        } else {
-            logger.warn(`[CSS APPLY DISPATCH] Reducer not ready yet, skipping dispatch (will apply on next CSS update)`);
-        }
+        dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
+        logger.debug(`[CSS APPLY DISPATCH] Dispatched successfully`);
     } else {
         logger.debug(`[CSS APPLY DISPATCH] Active files unchanged, skipping dispatch.`);
     }

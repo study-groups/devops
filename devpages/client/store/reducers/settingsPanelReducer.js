@@ -1,5 +1,6 @@
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js'; // Needed for persisting state within toggle
+import { createReducer } from './reducerUtils.js';
 
 const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state';
 
@@ -9,6 +10,8 @@ const initialState = {
     position: { x: 100, y: 100 }, // Default position
     size: { width: 800, height: 600 }, // Increased default size to take advantage of new width allowance
     collapsedSections: {},
+    // Add support for hierarchical section storage
+    collapsedSubsections: {}
 };
 
 // --- Settings Panel Slice Reducer ---
@@ -50,29 +53,26 @@ export function settingsPanelReducer(state = initialState, action) {
 
         case ActionTypes.SETTINGS_PANEL_TOGGLE_SECTION:
             if (payload && typeof payload.sectionId === 'string') {
-                const currentSections = state.collapsedSections || {};
                 const sectionId = payload.sectionId;
-                const isCollapsed = !currentSections[sectionId]; // Toggle the state
-
-                nextState = {
-                    ...state,
-                    collapsedSections: {
-                        ...currentSections,
-                        [sectionId]: isCollapsed
-                    }
-                };
-                shouldPersist = true;
-            }
-            break;
-
-        case ActionTypes.SETTINGS_PANEL_SET_SECTION_STATE:
-            if (payload && typeof payload.sectionId === 'string' && typeof payload.collapsed === 'boolean') {
-                const currentSections = state.collapsedSections || {};
-                const sectionId = payload.sectionId;
-                const isCollapsed = payload.collapsed;
-
-                // Only update if state actually changed
-                if (currentSections[sectionId] !== isCollapsed) {
+                
+                // Check if this is a subsection (contains a separator like '/' or ':')
+                if (sectionId.includes('/') || sectionId.includes(':')) {
+                    // Handle as a subsection
+                    const currentSubsections = state.collapsedSubsections || {};
+                    const isCollapsed = !currentSubsections[sectionId]; // Toggle the state
+                    
+                    nextState = {
+                        ...state,
+                        collapsedSubsections: {
+                            ...currentSubsections,
+                            [sectionId]: isCollapsed
+                        }
+                    };
+                } else {
+                    // Handle as a top-level section
+                    const currentSections = state.collapsedSections || {};
+                    const isCollapsed = !currentSections[sectionId]; // Toggle the state
+                    
                     nextState = {
                         ...state,
                         collapsedSections: {
@@ -80,7 +80,47 @@ export function settingsPanelReducer(state = initialState, action) {
                             [sectionId]: isCollapsed
                         }
                     };
-                    shouldPersist = true;
+                }
+                shouldPersist = true;
+            }
+            break;
+
+        case ActionTypes.SETTINGS_PANEL_SET_SECTION_STATE:
+            if (payload && typeof payload.sectionId === 'string' && typeof payload.collapsed === 'boolean') {
+                const sectionId = payload.sectionId;
+                const isCollapsed = payload.collapsed;
+                
+                // Check if this is a subsection
+                if (sectionId.includes('/') || sectionId.includes(':')) {
+                    // Handle as a subsection
+                    const currentSubsections = state.collapsedSubsections || {};
+                    
+                    // Only update if state actually changed
+                    if (currentSubsections[sectionId] !== isCollapsed) {
+                        nextState = {
+                            ...state,
+                            collapsedSubsections: {
+                                ...currentSubsections,
+                                [sectionId]: isCollapsed
+                            }
+                        };
+                        shouldPersist = true;
+                    }
+                } else {
+                    // Handle as a top-level section
+                    const currentSections = state.collapsedSections || {};
+                    
+                    // Only update if state actually changed
+                    if (currentSections[sectionId] !== isCollapsed) {
+                        nextState = {
+                            ...state,
+                            collapsedSections: {
+                                ...currentSections,
+                                [sectionId]: isCollapsed
+                            }
+                        };
+                        shouldPersist = true;
+                    }
                 }
             }
             break;

@@ -1,5 +1,5 @@
 import { appStore } from '/client/appState.js'; // Need access to appStore to call update
-import { ActionTypes } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { SMART_COPY_B_KEY } from '/client/appState.js';
 // Removed createStore import, assuming appStore is already created elsewhere
 // Removed eventBus import, assuming event emission is handled within slice reducers or elsewhere
@@ -12,6 +12,7 @@ import { fileReducer } from './reducers/fileReducer.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
+import { domInspectorReducer } from './reducers/domInspectorReducer.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -51,6 +52,7 @@ const sliceReducers = {
     plugins: pluginsReducer,
     settings: settingsReducer,
     panels: panelsReducer,
+    domInspector: domInspectorReducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
 };

@@ -4,40 +4,43 @@
  */
 
 export function debugPanels() {
-    if (typeof window !== 'undefined' && window.panelRegistry) {
-        const panels = window.panelRegistry.getPanels();
-        console.log('=== REGISTERED PANELS DEBUG ===');
-        console.log(`Total panels: ${panels.length}`);
+    if (typeof window !== 'undefined' && window.settingsRegistry) {
+        const panels = window.settingsRegistry.getPanels();
+        console.group('🔧 Settings Panels Debug');
+        console.log('Total registered panels:', panels.length);
         
         panels.forEach((panel, index) => {
-            console.log(`${index + 1}. ${panel.id} - "${panel.title}" (order: ${panel.order})`);
+            console.log(`${index + 1}. ${panel.id} - ${panel.title}`);
         });
         
-        // Check for duplicates
-        const titles = panels.map(p => p.title);
-        const duplicateTitles = titles.filter((title, index) => titles.indexOf(title) !== index);
-        
-        if (duplicateTitles.length > 0) {
-            console.warn('DUPLICATE PANEL TITLES FOUND:', duplicateTitles);
-            duplicateTitles.forEach(title => {
-                const duplicates = panels.filter(p => p.title === title);
-                console.warn(`"${title}" appears ${duplicates.length} times:`, duplicates);
-            });
-        } else {
-            console.log('✅ No duplicate panel titles found');
-        }
-        
+        console.groupEnd();
         return panels;
     } else {
-        console.error('panelRegistry not available');
-        return null;
+        console.error('settingsRegistry not available');
+        return [];
     }
 }
 
-// Make it available globally for debugging
-if (typeof window !== 'undefined') {
-    window.debugPanels = debugPanels;
+function debugPanelStates() {
+    if (typeof window !== 'undefined' && window.settingsRegistry) {
+        const panels = window.settingsRegistry.getPanelsWithState();
+        console.group('🔧 Settings Panel States Debug');
+        
+        panels.forEach((panel, index) => {
+            console.log(`${index + 1}. ${panel.id} - ${panel.title} (${panel.isCollapsed ? 'collapsed' : 'expanded'})`);
+        });
+        
+        console.groupEnd();
+        return panels;
+    } else {
+        console.error('settingsRegistry not available');
+        return [];
+    }
 }
+
+// Expose debug functions globally
+window.debugPanels = debugPanels;
+window.debugPanelStates = debugPanelStates;
 
 // Also check for any CSS & Design panels specifically
 export function debugCssDesignPanels() {

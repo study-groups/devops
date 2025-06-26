@@ -8,7 +8,9 @@ import '/client/utils/windowConsolidation.js';
 
 // Reducer & State
 import { mainReducer } from '/client/store/reducer.js';
-import { setReducer, dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch, setReducer } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { appStore } from './appState.js';
 
 // UI & Panel Managers
 import { initializeUIComponents } from '/client/components/uiComponentsManager.js';
@@ -26,14 +28,12 @@ import { LogPanel } from '/client/log/LogPanel.js';
 import { initAuth } from '/client/auth.js';
 import { initializeFileManager } from '/client/filesystem/fileManager.js';
 import { initializeSettingsPanel } from '/client/settings/core/settingsInitializer.js';
+import { initializeDomInspector } from '/client/dom-inspector/domInspectorInitializer.js';
 import { initKeyboardShortcuts } from '/client/keyboardShortcuts.js';
 import { triggerActions } from '/client/actions.js';
 
 // Publish Modal Integration - replaces ugly alerts with user-friendly modal
 import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
-
-// Panel Registry for settings panels
-import { panelRegistry } from '/client/settings/core/panelRegistry.js';
 
 // Debug utilities (development only)
 import '/client/settings/utils/debug-panels.js';
@@ -79,11 +79,27 @@ async function initializeApp() {
         new ConsoleLogManager().initialize().exposeToWindow();
         const { eventBus } = await import('/client/eventBus.js');
         window.eventBus = eventBus;
+        
+        // Early initialization for Dev Tools
+        try {
+            logBootstrap('Early Initializing DOM inspector...');
+            initializeDomInspector();
+            logBootstrap('Early Initializing keyboard shortcuts...');
+            initKeyboardShortcuts();
+            logBootstrap('DOM Inspector and shortcuts initialized early.');
+        } catch (error) {
+            logBootstrap(`Early dev tools initialization failed: ${error.message}`, 'error');
+        }
+
+        // ADDED: Ensure eventBus is available for immediate use
+        if (!window.eventBus) {
+            throw new Error('EventBus failed to initialize properly');
+        }
+        
         setReducer(mainReducer);
         
-        // Initialize panel states now that reducer is ready
-        panelRegistry.initializeAllPanelStates();
-        logBootstrap('Panel registry states initialized.');
+        // Panel states will be initialized after dynamic loading in SettingsPanel.loadPanels()
+        logBootstrap('Reducer set, ready for dynamic panel loading.');
         
         // Load designer theme system
         const designerStylesLink = document.createElement('link');
@@ -126,21 +142,12 @@ async function initializeApp() {
         // 6. Initialize Other Feature Modules
         try {
             logBootstrap('Initializing settings panel...');
-            const settingsResult = initializeSettingsPanel();
+            const settingsResult = await initializeSettingsPanel();
             logBootstrap(`Settings panel initialized. Result: ${!!settingsResult}`);
             logBootstrap(`window.devPages.settingsPanel exists: ${!!(window.devPages && window.devPages.settingsPanel)}`);
         } catch (error) {
             logBootstrap(`Settings panel initialization failed: ${error.message}`, 'error');
             console.error('[BOOTSTRAP] Settings panel error:', error);
-        }
-        
-        try {
-            logBootstrap('Initializing keyboard shortcuts...');
-            initKeyboardShortcuts();
-            logBootstrap('Keyboard shortcuts initialized.');
-        } catch (error) {
-            logBootstrap(`Keyboard shortcuts initialization failed: ${error.message}`, 'error');
-            console.error('[BOOTSTRAP] Keyboard shortcuts error:', error);
         }
         
         await new LogPanel().initialize();

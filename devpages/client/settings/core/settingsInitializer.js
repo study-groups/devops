@@ -4,6 +4,7 @@
  */
 import { SettingsPanel } from './SettingsPanel.js';
 import { pageThemeManager } from '../panels/css-design/PageThemeManager.js';
+import { settingsRegistry } from './settingsRegistry.js';
 
 // Helper for logging
 function logSettingsInit(message, level = 'info') {
@@ -17,32 +18,76 @@ function logSettingsInit(message, level = 'info') {
 
 let settingsPanelInstance = null;
 
-export function initializeSettingsPanel() {
+export async function initializeSettingsPanel() {
   if (settingsPanelInstance) {
     logSettingsInit('[DEBUG] initializeSettingsPanel called, instance already exists.');
-    logSettingsInit(`[DEBUG] window.devPages exists: ${!!window.devPages}`);
-    logSettingsInit(`[DEBUG] window.devPages.settingsPanel exists: ${!!(window.devPages && window.devPages.settingsPanel)}`);
     return settingsPanelInstance;
   }
   
   try {
     logSettingsInit('[DEBUG] Starting settings panel initialization...');
     
-    // Test if SettingsPanel can be imported
-    logSettingsInit('[DEBUG] Importing SettingsPanel class...');
+    // Debug the registry state before creating the panel
+    logSettingsInit(`[DEBUG] Registry state before panel creation: ${settingsRegistry.count()} panels`);
+    if (settingsRegistry.count() === 0) {
+      logSettingsInit('[WARN] Registry is empty before panel creation!', 'warn');
+    }
+    
+    // Check if the global registry variables are set up correctly
+    if (window.settingsRegistry && window.settingsRegistry === settingsRegistry) {
+      logSettingsInit('[DEBUG] window.settingsRegistry is correctly set up');
+    } else {
+      logSettingsInit('[WARN] window.settingsRegistry is not correctly set up!', 'warn');
+    }
+    
+    if (window.settingsSectionRegistry && window.settingsSectionRegistry === settingsRegistry) {
+      logSettingsInit('[DEBUG] window.settingsSectionRegistry is correctly set up');
+    } else {
+      logSettingsInit('[WARN] window.settingsSectionRegistry is not correctly set up!', 'warn');
+    }
+    
+    if (window.devpages && window.devpages.settings && window.devpages.settings.registry === settingsRegistry) {
+      logSettingsInit('[DEBUG] window.devpages.settings.registry is correctly set up');
+    } else {
+      logSettingsInit('[WARN] window.devpages.settings.registry is not correctly set up!', 'warn');
+    }
     
     logSettingsInit('[DEBUG] Creating new SettingsPanel instance...');
     settingsPanelInstance = new SettingsPanel();
     
     logSettingsInit('[DEBUG] SettingsPanel instance created successfully.');
     
+    // Load panels dynamically after reducer is set
+    logSettingsInit('[DEBUG] Loading panels dynamically...');
+    await settingsPanelInstance.loadPanels();
+    logSettingsInit('[DEBUG] Panels loaded successfully.');
+    
+    // Debug the registry state after loading panels
+    logSettingsInit(`[DEBUG] Registry state after loading panels: ${settingsRegistry.count()} panels`);
+    if (settingsRegistry.count() === 0) {
+      logSettingsInit('[ERROR] Registry is still empty after loading panels!', 'error');
+      
+      // Emergency fix - check if panels are registered in a different registry
+      if (window.settingsSectionRegistry && window.settingsSectionRegistry !== settingsRegistry) {
+        const altCount = window.settingsSectionRegistry.count();
+        logSettingsInit(`[WARN] Found ${altCount} panels in window.settingsSectionRegistry (different instance)`, 'warn');
+        
+        // Copy panels from the alternate registry to the main one
+        if (altCount > 0 && typeof window.settingsSectionRegistry.getPanels === 'function') {
+          const altPanels = window.settingsSectionRegistry.getPanels();
+          logSettingsInit(`[INFO] Attempting to copy ${altPanels.length} panels to main registry`, 'info');
+          
+          altPanels.forEach(panel => {
+            settingsRegistry.register(panel);
+          });
+          
+          logSettingsInit(`[INFO] After copy, main registry has ${settingsRegistry.count()} panels`, 'info');
+        }
+      }
+    }
+    
     window.devPages = window.devPages || {};
     window.devPages.settingsPanel = settingsPanelInstance;
-    
-    logSettingsInit('[DEBUG] window.devPages.settingsPanel assigned.');
-    logSettingsInit(`[DEBUG] Verification - window.devPages exists: ${!!window.devPages}`);
-    logSettingsInit(`[DEBUG] Verification - window.devPages.settingsPanel exists: ${!!(window.devPages && window.devPages.settingsPanel)}`);
-    logSettingsInit(`[DEBUG] Verification - toggleVisibility method exists: ${!!(window.devPages && window.devPages.settingsPanel && typeof window.devPages.settingsPanel.toggleVisibility === 'function')}`);
     
     // Start the page theme manager
     try {
@@ -52,12 +97,6 @@ export function initializeSettingsPanel() {
     } catch (themeError) {
       logSettingsInit(`[ERROR] Page theme manager failed: ${themeError.message}`, 'error');
       console.error('[SETTINGS INIT] Theme manager error:', themeError);
-    }
-    
-    // DEBUG: Force panel visible on init
-    if (settingsPanelInstance && typeof settingsPanelInstance.toggleVisibility === 'function') {
-      settingsPanelInstance.toggleVisibility(true);
-      logSettingsInit('[DEBUG] Forced settings panel visible on init.');
     }
     
     logSettingsInit('[DEBUG] Settings panel initialization completed successfully.');

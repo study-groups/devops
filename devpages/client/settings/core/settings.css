@@ -309,12 +309,14 @@
 
 .settings-select {
   /* Extend input styles */
+  appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
-  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="m2 0-2 2h4zm0 5 2-2H0z"/></svg>');
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right var(--density-space-sm) center;
-  background-size: 12px;
-  padding-right: var(--density-space-xl);
+  background-size: 1.5em;
+  padding-right: calc(var(--density-space-sm) + 1.5em);
 }
 
 /* ===== BUTTON STYLES ===== */

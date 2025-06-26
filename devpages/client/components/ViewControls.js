@@ -2,7 +2,8 @@ import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
 import eventBus from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
 import { logMessage } from '/client/log/index.js'; // Use the central logger
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 export function createViewControlsComponent(targetElementId, layoutManager) {
     let element = null;

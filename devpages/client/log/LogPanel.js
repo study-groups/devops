@@ -35,7 +35,8 @@ import { renderMarkdown, postProcessRender } from '/client/preview/renderers/Mar
 // At the top of the file, import the logger
 import { createTimer } from '/client/utils.js';
 
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 const LOG_VISIBLE_KEY = 'logVisible';
 const LOG_HEIGHT_KEY = 'logHeight';

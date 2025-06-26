@@ -2,7 +2,8 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 const logContext = (message, level = 'debug', subtype = 'RENDER') => {
     const type = "CTX";
@@ -81,6 +82,18 @@ export function createContextManagerComponent(targetElementId) {
         logContext(`Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`);
         logContext(`Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`);
 
+        logContext('=== RENDER DEBUG INFO ===', 'DEBUG_RENDER_FLOW');
+        logContext(`isAuthenticated: ${isAuthenticated}`, 'DEBUG_RENDER_FLOW');
+        logContext(`selectedDirectoryPath: '${selectedDirectoryPath}'`, 'DEBUG_RENDER_FLOW');
+        logContext(`currentPathname: '${currentPathname}'`, 'DEBUG_RENDER_FLOW');
+        logContext(`isDirectorySelected: ${isDirectorySelected}`, 'DEBUG_RENDER_FLOW');
+        logContext(`currentListing.pathname: '${fileState.currentListing?.pathname}'`, 'DEBUG_RENDER_FLOW');
+        logContext(`currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
+        logContext(`currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
+        logContext(`isOverallLoading: ${isOverallLoading}`, 'DEBUG_RENDER_FLOW');
+        logContext(`availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
+        logContext('=== END RENDER DEBUG ===', 'DEBUG_RENDER_FLOW');
+
         // Generate breadcrumbs for the selected DIRECTORY path
         const breadcrumbsHTML = generateBreadcrumbsHTML(
             selectedDirectoryPath,
@@ -91,11 +104,17 @@ export function createContextManagerComponent(targetElementId) {
 
         let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
         if (isAuthenticated && selectedDirectoryPath !== null) {
+            // Improved listing matching logic
             const listingForSelector = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
+            
+            logContext(`Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`, 'DEBUG_RENDER_FLOW');
 
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
                 const files = listingForSelector.files || [];
+                
+                logContext(`Found listing: ${dirs.length} dirs, ${files.length} files`, 'DEBUG_RENDER_FLOW');
+                
                 const items = [
                     ...dirs.map(name => ({ name, type: 'dir' })),
                     ...files.map(name => ({ name, type: 'file' }))
@@ -118,6 +137,17 @@ export function createContextManagerComponent(targetElementId) {
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             } else {
+                // Enhanced fallback: Try to trigger loading if we don't have the listing
+                logContext(`No listing available for '${selectedDirectoryPath}'. Current listing is for '${fileState.currentListing?.pathname}'. Triggering load...`, 'DEBUG_RENDER_FLOW');
+                
+                // Request the directory listing if we don't have it
+                if (!isOverallLoading) {
+                    logContext(`Requesting directory listing for '${selectedDirectoryPath}'`, 'EVENT');
+                    setTimeout(() => {
+                        eventBus.emit('navigate:pathname', { pathname: selectedDirectoryPath, isDirectory: true });
+                    }, 0);
+                }
+                
                 let optionsHTML = `<option value="" selected disabled>Loading items...</option>`;
                 if (selectedDirectoryPath !== '') {
                     const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
@@ -127,8 +157,10 @@ export function createContextManagerComponent(targetElementId) {
             }
         } else if (!isAuthenticated) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
-        } else if (isAuthenticated && selectedDirectoryPath === null) {
+        } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
             const topLevelDirs = fileState.availableTopLevelDirs || [];
+            logContext(`No directory selected or at root. Available top-level dirs: [${topLevelDirs.join(', ')}]`, 'DEBUG_RENDER_FLOW');
+            
             if (topLevelDirs.length > 0) {
                 let optionsHTML = `<option value="" selected disabled>Select base directory...</option>`;
                 topLevelDirs.forEach(dirName => {
@@ -136,7 +168,14 @@ export function createContextManagerComponent(targetElementId) {
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Base Directory">${optionsHTML}</select>`;
             } else {
-                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>No base directories</option></select>`;
+                // Trigger loading of top-level directories if not available
+                if (!isOverallLoading) {
+                    logContext('No top-level directories available. Triggering navigation to root...', 'EVENT');
+                    setTimeout(() => {
+                        eventBus.emit('navigate:pathname', { pathname: '', isDirectory: true });
+                    }, 0);
+                }
+                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
             }
         }
 
@@ -161,27 +200,23 @@ export function createContextManagerComponent(targetElementId) {
         logContext('Render: innerHTML HAS BEEN SET.', 'DEBUG_RENDER_FLOW');
         console.log('[CTX RENDER] innerHTML set. Current element.innerHTML:', element.innerHTML.substring(0, 200) + "...");
 
-        // --- Re-attach Event Listeners ---
+        // --- Attach Event Listeners (FIXED: No need to remove from fresh DOM elements) ---
         const primarySelectElement = element.querySelector('#context-primary-select');
         if (primarySelectElement) {
-            primarySelectElement.removeEventListener('change', handlePrimarySelectChange);
             primarySelectElement.addEventListener('change', handlePrimarySelectChange);
         }
         const publishButton = element.querySelector('#publish-btn');
         if (publishButton) {
-            publishButton.removeEventListener('click', handlePublishButtonClick);
             publishButton.addEventListener('click', handlePublishButtonClick);
         }
         const saveButton = element.querySelector('#save-btn');
         if (saveButton) {
-            saveButton.removeEventListener('click', handleSaveButtonClick);
             saveButton.addEventListener('click', handleSaveButtonClick);
         }
 
         // --- Context Settings Trigger Event Listener ---
         const settingsTrigger = element.querySelector('#context-settings-trigger');
         if (settingsTrigger) {
-            settingsTrigger.removeEventListener('click', handleSettingsClick);
             settingsTrigger.addEventListener('click', handleSettingsClick);
             logContext('Settings trigger event listener attached.', 'DEBUG_EVENT');
         } else {
@@ -191,7 +226,6 @@ export function createContextManagerComponent(targetElementId) {
         // --- Breadcrumb Navigation Event Listener ---
         const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
         if (breadcrumbContainer) {
-            breadcrumbContainer.removeEventListener('click', handleBreadcrumbClick);
             breadcrumbContainer.addEventListener('click', handleBreadcrumbClick);
             logContext('Breadcrumb navigation event listener attached.', 'DEBUG_EVENT');
         } else {
@@ -330,12 +364,23 @@ export function createContextManagerComponent(targetElementId) {
         event.preventDefault();
         event.stopPropagation();
         logContext('Save button clicked', 'EVENT');
-        const authState = appStore.getState().auth;
-        if (!authState.isAuthenticated || !authState.user) {
-            logContext('Cannot save: User not authenticated', 'error', 'EVENT');
-            return;
+        
+        try {
+            const authState = appStore.getState().auth;
+            if (!authState.isAuthenticated || !authState.user) {
+                logContext('Cannot save: User not authenticated', 'error', 'EVENT');
+                return;
+            }
+            
+            if (window.eventBus && typeof window.eventBus.emit === 'function') {
+                eventBus.emit('file:save');
+            } else {
+                logContext('EventBus not available for file:save', 'error', 'EVENT');
+            }
+        } catch (error) {
+            logContext(`Error in save button handler: ${error.message}`, 'error', 'EVENT');
+            console.error('[CTX] Save button error:', error);
         }
-        eventBus.emit('file:save');
     };
 
     const handlePublishButtonClick = (event) => {
@@ -343,21 +388,26 @@ export function createContextManagerComponent(targetElementId) {
         event.stopPropagation();
         logContext('Publish button clicked - opening modal', 'EVENT');
         
-        const fileState = appStore.getState().file;
-        if (fileState.isDirectorySelected || !fileState.currentPathname) {
-            logContext('Cannot publish: No file selected or directory view.', 'warn', 'EVENT');
-            alert('Please select a file to publish.');
-            return;
-        }
+        try {
+            const fileState = appStore.getState().file;
+            if (fileState.isDirectorySelected || !fileState.currentPathname) {
+                logContext('Cannot publish: No file selected or directory view.', 'warn', 'EVENT');
+                alert('Please select a file to publish.');
+                return;
+            }
 
-        // Simply open the publish modal
-        if (typeof window.openPublishModal === 'function') {
-            window.openPublishModal(fileState.currentPathname);
-        } else if (typeof window.triggerActions?.publishToSpaces === 'function') {
-            window.triggerActions.publishToSpaces();
-        } else {
-            logContext('Cannot open publish modal: functions not available.', 'error', 'EVENT');
-            alert('Publish modal is not available.');
+            // Simply open the publish modal
+            if (typeof window.openPublishModal === 'function') {
+                window.openPublishModal(fileState.currentPathname);
+            } else if (typeof window.triggerActions?.publishToSpaces === 'function') {
+                window.triggerActions.publishToSpaces();
+            } else {
+                logContext('Cannot open publish modal: functions not available.', 'error', 'EVENT');
+                alert('Publish modal is not available.');
+            }
+        } catch (error) {
+            logContext(`Error in publish button handler: ${error.message}`, 'error', 'EVENT');
+            console.error('[CTX] Publish button error:', error);
         }
     };
 
@@ -442,63 +492,28 @@ export function createContextManagerComponent(targetElementId) {
 
     // --- Component Lifecycle ---
     const mount = () => {
-        console.log('[CTX MOUNT CM] >>>>> ContextManagerComponent mount CALLED <<<<<');
-        logContext(`Mount_CM: Initializing for targetElementId: ${targetElementId}`, 'DEBUG_LIFECYCLE');
+        logContext(`Mount_CM: Initializing for targetElementId: ${targetElementId}`, 'INFO');
 
         element = document.getElementById(targetElementId);
         if (!element) {
-            logContext(`Mount_CM CRITICAL FAILURE: Target element #${targetElementId} NOT FOUND.`, 'ERROR_LIFECYCLE');
-            console.error(`[CTX MOUNT CM] CRITICAL: Element with ID '${targetElementId}' not found.`);
-            return false;
+            logContext(`Mount_CM FAILED: Target element with ID '${targetElementId}' not found in DOM.`, 'ERROR');
+            console.error(`[ContextManagerComponent] Mount failed: target element #${targetElementId} not found.`);
+            return;
         }
-        logContext('Mount_CM: Target element for ContextManagerComponent FOUND.', 'DEBUG_LIFECYCLE');
-        console.log('[CTX MOUNT CM] ContextManagerComponent "element":', element);
+        logContext('Mount_CM: Target element found.', 'INFO');
 
         if (storeUnsubscribe) {
-            logContext('Warning: mount called again, unsubscribing previous.', 'warn');
             storeUnsubscribe();
+            logContext('Mount_CM: Existing store subscription found and removed.', 'DEBUG');
         }
 
-        let previousAuthState = appStore.getState().auth;
-        let previousFileState = appStore.getState().file;
-        let previousSettingsState = appStore.getState().settings;
-
-        storeUnsubscribe = appStore.subscribe(currentState => {
-            const newAuthState = currentState.auth;
-            const newFileState = currentState.file;
-            const newSettingsState = currentState.settings;
-
-            const authRelevantChanged =
-                newAuthState.isInitializing !== previousAuthState.isInitializing ||
-                newAuthState.isAuthenticated !== previousAuthState.isAuthenticated;
-
-            const fileRelevantChanged =
-                newFileState.isInitialized !== previousFileState.isInitialized ||
-                newFileState.isLoading !== previousFileState.isLoading ||
-                newFileState.isSaving !== previousFileState.isSaving ||
-                newFileState.currentPathname !== previousFileState.currentPathname ||
-                newFileState.isDirectorySelected !== previousFileState.isDirectorySelected ||
-                newFileState.currentListing !== previousFileState.currentListing ||
-                newFileState.parentListing !== previousFileState.parentListing ||
-                newFileState.availableTopLevelDirs !== previousFileState.availableTopLevelDirs;
-
-            const settingsRelevantChanged = !previousSettingsState ||
-                newSettingsState?.currentContentSubDir !== previousSettingsState?.currentContentSubDir;
-
-            if (authRelevantChanged || fileRelevantChanged || settingsRelevantChanged) {
-                logContext('Relevant state changed (Auth, File, or Settings), calling render.', 'SUB');
-                render();
-            }
-
-            previousAuthState = newAuthState;
-            previousFileState = newFileState;
-            previousSettingsState = newSettingsState;
-        });
-
-        logContext('Mount_CM: Calling initial render for ContextManagerComponent.', 'DEBUG_LIFECYCLE');
+        storeUnsubscribe = appStore.subscribe(render);
+        logContext('Mount_CM: Subscribed to appStore changes.', 'INFO');
+        
+        // Initial render
+        logContext('Mount_CM: Calling initial render.', 'INFO');
         render();
-        logContext('Mount_CM: ContextManagerComponent mounted and initial render done.', 'DEBUG_LIFECYCLE');
-        return true;
+        logContext('Mount_CM: Initial render complete.', 'INFO');
     };
 
     const destroy = () => {
