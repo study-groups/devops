@@ -627,45 +627,51 @@
 
 /* ===== FILTER CONTROLS ===== */
 
+/* Filter controls are now standardized in domInspector-core.css */
 .dom-inspector-filter-controls {
-  /* Layout using density system */
-  display: flex;
-  gap: var(--density-space-md);
-  align-items: center;
-  padding: var(--density-space-sm);
+  /* Override with standardized styles */
+  display: flex !important;
+  gap: var(--space-md) !important;
+  align-items: center !important;
+  padding: var(--space-sm) !important;
   
-  /* Styling */
-  background-color: var(--color-background-secondary);
-  border-bottom: 1px solid var(--content-border);
-  border-radius: var(--radius-base) var(--radius-base) 0 0;
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-base) var(--radius-base) 0 0 !important;
 }
 
 .dom-inspector-filter-controls select {
-  /* Styling using semantic tokens */
-  font-size: var(--density-text-sm);
-  padding: var(--density-space-xs);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--interactive-border);
-  background-color: var(--interactive-background);
-  color: var(--interactive-text);
+  /* Fix the dropdown size - override with standardized styles */
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  padding: var(--space-xs) var(--space-sm) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  min-width: 120px !important;
+  max-width: 200px !important;
+  height: auto !important;
+  line-height: 1.4 !important;
 }
 
 .dom-inspector-filter-controls select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-background);
+  outline: none !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent-bg) !important;
 }
 
 .dom-inspector-toggle-label {
-  /* Layout using density system */
-  display: flex;
-  align-items: center;
-  gap: var(--density-space-sm);
+  /* Standardized styling */
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--space-sm) !important;
   
-  /* Typography */
-  cursor: pointer;
-  font-size: var(--density-text-sm);
-  user-select: none;
+  cursor: pointer !important;
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  color: var(--text-secondary) !important;
+  user-select: none !important;
 }
 
 /* ===== HIGHLIGHT TOGGLE PRIMITIVES ===== */
@@ -1032,139 +1038,175 @@
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
+/* Box model styles are now standardized in domInspector-core.css */
 .dom-inspector-box-model-grid {
-  display: grid;
-  gap: var(--density-space-sm);
-  padding: var(--density-space-sm);
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  color: var(--text-primary) !important;
 }
 
 .box-model-grid-row {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  align-items: center;
-  gap: var(--density-space-md);
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--space-md) !important;
+  padding: var(--space-xs) 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.box-model-grid-row:last-child {
+  border-bottom: none !important;
 }
 
 .box-model-label {
-  font-weight: var(--font-weight-medium);
-  text-align: right;
-  color: var(--content-text-muted);
+  font-weight: var(--font-weight-semibold) !important;
+  color: var(--text-secondary) !important;
+  min-width: 80px !important;
+  flex-shrink: 0 !important;
 }
 
 .box-model-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--density-space-sm);
-  background-color: var(--color-background-secondary);
-  padding: var(--density-space-sm);
-  border-radius: var(--radius-base);
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+  gap: var(--space-sm) !important;
+  flex: 1 !important;
 }
 
 .box-model-size-grid {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, 1fr) !important;
 }
 
 .box-model-item {
-  text-align: center;
-  font-size: var(--density-text-sm);
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: var(--space-xs) !important;
+  background: var(--bg-secondary) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 .box-model-item div:first-child {
-  font-size: var(--density-text-xs);
-  color: var(--content-text-muted);
-  margin-bottom: 2px;
+  font-weight: var(--font-weight-semibold) !important;
+  color: var(--text-secondary) !important;
+  font-size: var(--text-xs) !important;
 }
 
 .box-model-item div:last-child {
-  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary) !important;
+  font-size: var(--text-xs) !important;
   font-family: var(--font-family-mono);
 }
 
+/* Details table styles are now standardized in domInspector-core.css */
 .dom-inspector-details-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
+  width: 100% !important;
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+  
+  /* Match computed styles exactly */
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  color: var(--text-primary) !important;
 }
 
-.details-table-key {
-  width: 120px;
-  font-weight: 600;
-  padding: 4px 8px;
-  text-align: right;
-  color: var(--grey-text-color);
-  vertical-align: top;
+.dom-inspector-details-table td {
+  padding: var(--space-xs) var(--space-sm) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  vertical-align: top !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
-.details-table-value {
-  padding: 4px 8px;
-  word-break: break-all;
-  vertical-align: top;
-  color: var(--text-color);
+.details-table-key,
+.dom-inspector-details-table td:first-child {
+  font-weight: var(--font-weight-semibold) !important;
+  color: var(--text-secondary) !important;
+  width: 40% !important;
+  word-break: break-all !important;
 }
 
+.details-table-value,
+.dom-inspector-details-table td:last-child {
+  color: var(--text-primary) !important;
+  width: 60% !important;
+  word-break: break-all !important;
+  font-family: var(--font-family-mono) !important;
+}
+
+/* Element details styles are now standardized in domInspector-core.css */
 .element-details-container {
-  padding: 8px;
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  color: var(--text-primary) !important;
 }
 
 .details-info-row {
-  display: flex;
-  justify-content: space-around;
-  padding: 8px 4px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--background-alt);
-  border-radius: 4px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+  gap: var(--space-sm) !important;
+  padding: var(--space-sm) 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 .info-item {
-  text-align: center;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: var(--space-xs) !important;
+  background: var(--bg-secondary) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 .info-label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--grey-text-color);
-  margin-bottom: 4px;
+  font-weight: var(--font-weight-semibold) !important;
+  color: var(--text-secondary) !important;
+  font-size: var(--text-xs) !important;
 }
 
 .info-value {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-color);
+  color: var(--text-primary) !important;
+  font-size: var(--text-xs) !important;
 }
 
 .details-status-row {
-  margin-top: 12px;
-  padding: 0 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: var(--space-xs) !important;
+  padding: var(--space-sm) 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 .status-badge {
-  background-color: var(--accent-color-translucent);
-  color: var(--accent-color-dark);
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-family: var(--font-family-monospace);
+  padding: 2px 6px !important;
+  background: var(--accent-bg) !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-family-mono) !important;
+  font-size: 10px !important;
+  font-weight: var(--font-weight-medium) !important;
+  line-height: 1 !important;
 }
 
 .details-html-view {
-  margin-top: 12px;
+  margin-top: var(--space-sm) !important;
 }
 
 .details-html-view pre {
-  background-color: var(--background-alt);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 10px;
-  overflow-x: auto;
+  margin: 0 !important;
+  padding: var(--space-sm) !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow-x: auto !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
 }
 
 .details-html-view code {
-  font-family: var(--font-family-monospace);
-  font-size: 0.9rem;
-  color: var(--text-color);
-  white-space: pre-wrap;
-  word-break: break-all;
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--text-xs) !important;
+  color: var(--text-primary) !important;
+  white-space: pre !important;
 }

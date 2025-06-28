@@ -62,8 +62,10 @@ export class DomInspectorPanel {
         
         // Initialize PanelUI with callbacks
         this.panelUI = new PanelUI({
+            initialSplitPosition: initialState.splitPosition || 33,
             onPositionChange: (position) => this.stateManager.setPosition(position),
             onSizeChange: (size) => this.stateManager.setSize(size),
+            onSplitChange: (splitPosition) => this.stateManager.setSplitPosition(splitPosition),
             onClose: () => this.hide(),
             onSettings: () => this.settingsPanel.toggle(),
             onBringToFront: (zIndex) => {
@@ -89,6 +91,7 @@ export class DomInspectorPanel {
         // Set initial state from StateManager
         this.panelUI.setPosition(initialState.position);
         this.panelUI.setSize(initialState.size);
+        this.panelUI.setSplitPosition(initialState.splitPosition || 33);
         
         // Initialize highlight overlay with current settings
         this.highlightOverlay = new HighlightOverlay(initialState.highlight);
@@ -182,6 +185,10 @@ export class DomInspectorPanel {
         this.stateManager.on('sectionsChanged', () => {
             this.updateCollapsibleSections();
         });
+
+        this.stateManager.on('splitPositionChanged', (splitPosition) => {
+            this.panelUI.setSplitPosition(splitPosition);
+        });
     }
 
     render(state) {
@@ -196,6 +203,7 @@ export class DomInspectorPanel {
         
         this.panelUI.setPosition(state.position);
         this.panelUI.setSize(state.size);
+        this.panelUI.setSplitPosition(state.splitPosition || 33);
         
         // Update highlight overlay settings
         this.highlightOverlay.updateSettings(state.highlight);
@@ -922,6 +930,8 @@ export class DomInspectorPanel {
             return;
         }
 
+        console.log('DOM Inspector: Selecting element:', element);
+
         // Preserve current tree state
         this.preserveTreeState();
 
@@ -938,21 +948,33 @@ export class DomInspectorPanel {
             }
         });
 
-        // Find and select new in tree
-        for(const node of allNodes) {
-            if(this.getElementFromCache(node.dataset.elementId) === element) {
-                const header = node.querySelector('.dom-inspector-node-header');
-                if (header) {
-                    header.classList.add('selected');
-                }
-                
-                // Expand ALL parents to make selection visible
-                this.expandParentsToNode(node);
-                
-                // Scroll the selected node into view
-                node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                break;
+        // First, ensure the element is in the tree by rebuilding if necessary
+        this.ensureElementInTree(element);
+
+        // Find and highlight selected element in tree
+        const targetNode = this.findTreeNodeForElement(element);
+        if (targetNode) {
+            const header = targetNode.querySelector('.dom-inspector-node-header');
+            if (header) {
+                header.classList.add('selected');
             }
+            
+            // Expand ALL parents to make selection visible
+            this.expandParentsToNode(targetNode);
+        } else {
+            console.warn('DOM Inspector: Could not find tree node for selected element, rebuilding tree...');
+            // If we still can't find it, rebuild the tree and try again
+            this.buildTree();
+            setTimeout(() => {
+                const retryNode = this.findTreeNodeForElement(element);
+                if (retryNode) {
+                    const header = retryNode.querySelector('.dom-inspector-node-header');
+                    if (header) {
+                        header.classList.add('selected');
+                    }
+                    this.expandParentsToNode(retryNode);
+                }
+            }, 50);
         }
         
         // Generate and populate CSS selector
@@ -963,58 +985,130 @@ export class DomInspectorPanel {
         this.displayElementDetails(element);
     }
 
+    // Helper method to find the tree node for a given element
+    findTreeNodeForElement(element) {
+        const allNodes = this.treeContainer.querySelectorAll('.dom-inspector-node');
+        for (const node of allNodes) {
+            if (this.getElementFromCache(node.dataset.elementId) === element) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    // Ensure an element is represented in the tree
+    ensureElementInTree(element) {
+        // Check if element is already in tree
+        if (this.findTreeNodeForElement(element)) {
+            return; // Already in tree
+        }
+        
+        console.log('DOM Inspector: Element not found in tree, ensuring it\'s included...');
+        
+        // Check if element is a descendant of the current root
+        const currentRoot = this.treeContainer.querySelector('.dom-inspector-node');
+        if (currentRoot) {
+            const rootElement = this.getElementFromCache(currentRoot.dataset.elementId);
+            if (rootElement && rootElement.contains(element)) {
+                // Element is within current tree, we just need to expand parents
+                this.expandTreeToIncludeElement(element);
+                return;
+            }
+        }
+        
+        // If element is not in current tree scope, we may need to rebuild
+        // For now, let's rebuild the tree to include the new element
+        console.log('DOM Inspector: Rebuilding tree to include target element');
+        this.buildTree();
+    }
+
+    // Expand tree to include a specific element by building missing branches
+    expandTreeToIncludeElement(element) {
+        // Find the path from current tree root to the target element
+        const path = [];
+        let current = element;
+        
+        // Build path from element up to a node that exists in the tree
+        while (current && current !== document.documentElement) {
+            path.unshift(current);
+            current = current.parentElement;
+            
+            // Check if this parent is already in the tree
+            if (this.findTreeNodeForElement(current)) {
+                break;
+            }
+        }
+        
+        // Now expand each level in the path
+        for (let i = 0; i < path.length - 1; i++) {
+            const parentElement = path[i];
+            const parentNode = this.findTreeNodeForElement(parentElement);
+            
+            if (parentNode && !parentNode.classList.contains('expanded')) {
+                this.toggleNode(parentNode);
+            }
+        }
+    }
+
     // Improved helper method to expand all parents
     expandParentsToNode(targetNode) {
         console.log('DOM Inspector: Expanding parents for node:', targetNode);
-        let currentNode = targetNode;
+        if (!targetNode) {
+            console.warn('DOM Inspector: No target node provided to expandParentsToNode');
+            return;
+        }
+
         const nodesToExpand = [];
+        let currentNode = targetNode;
         
-        // Collect all parent nodes that need to be expanded
-        while (currentNode) {
-            // Look for the parent container (should be .dom-inspector-node-children)
-            let parentContainer = currentNode.parentElement;
+        // Walk up the DOM tree to find all parent nodes that need to be expanded
+        while (currentNode && !currentNode.classList.contains('dom-inspector-tree')) {
+            const parentContainer = currentNode.parentElement;
             
-            // If we're directly in the tree container, we've reached the root
-            if (parentContainer && parentContainer.classList.contains('dom-inspector-tree')) {
-                break;
-            }
-            
-            // If we're in a children container, get its parent node
             if (parentContainer && parentContainer.classList.contains('dom-inspector-node-children')) {
+                // We're in a children container, get the parent node
                 const parentNode = parentContainer.parentElement;
                 if (parentNode && parentNode.classList.contains('dom-inspector-node')) {
-                    console.log('DOM Inspector: Found parent node to expand:', parentNode);
-                    nodesToExpand.push(parentNode);
+                    nodesToExpand.unshift(parentNode); // Add to beginning to expand from root down
                     currentNode = parentNode;
                 } else {
-                    console.log('DOM Inspector: Parent container found but no valid parent node');
                     break;
                 }
+            } else if (parentContainer && parentContainer.classList.contains('dom-inspector-tree')) {
+                // We've reached the root tree container
+                break;
             } else {
-                // If we're not in a children container, try to find the next parent node
-                parentContainer = currentNode.parentElement?.closest('.dom-inspector-node');
-                if (parentContainer && parentContainer !== currentNode) {
-                    console.log('DOM Inspector: Found closest parent node:', parentContainer);
-                    nodesToExpand.push(parentContainer);
-                    currentNode = parentContainer;
+                // Try to find the next parent node
+                const nextParent = currentNode.parentElement?.closest('.dom-inspector-node');
+                if (nextParent && nextParent !== currentNode) {
+                    nodesToExpand.unshift(nextParent);
+                    currentNode = nextParent;
                 } else {
-                    console.log('DOM Inspector: No more parent nodes found');
                     break;
                 }
             }
         }
         
-        console.log('DOM Inspector: Nodes to expand:', nodesToExpand);
+        console.log('DOM Inspector: Nodes to expand (in order):', nodesToExpand);
         
-        // Expand all collected parent nodes
+        // Expand all parent nodes from root down to target
         nodesToExpand.forEach(node => {
             if (!node.classList.contains('expanded')) {
                 console.log('DOM Inspector: Expanding node:', node);
                 this.toggleNode(node);
-            } else {
-                console.log('DOM Inspector: Node already expanded:', node);
             }
         });
+        
+        // Ensure the target node is visible after expansion
+        setTimeout(() => {
+            if (targetNode.offsetParent !== null) { // Check if visible
+                targetNode.scrollIntoView({ 
+                    block: 'center', 
+                    behavior: 'smooth',
+                    inline: 'nearest'
+                });
+            }
+        }, 100); // Small delay to allow DOM updates
     }
 
     // --- Element Selection and Highlighting ---
@@ -1096,11 +1190,11 @@ export class DomInspectorPanel {
             const disabledDiv = document.createElement('div');
             disabledDiv.className = 'dom-inspector-disabled-info';
             
-            let statusIcon = isDisabled ? '🚫' : '🔒';
-            let statusText = isDisabled ? 'Disabled' : 'Read-only';
-            
-            disabledDiv.innerHTML = `
-                <h4>${statusIcon} ${statusText} Element</h4>
+                    let statusIcon = isDisabled ? 'DISABLED' : 'READONLY';
+        let statusText = isDisabled ? 'Disabled' : 'Read-only';
+        
+        disabledDiv.innerHTML = `
+            <h4>${statusIcon} ${statusText} Element</h4>
                 <p>This element is currently <strong>${statusText.toLowerCase()}</strong> and cannot be interacted with normally.</p>
                 <div class="disabled-details">
                     <p><strong>Element type:</strong> <code>${element.tagName.toLowerCase()}</code></p>
@@ -1121,7 +1215,7 @@ export class DomInspectorPanel {
             
             enableBtn.addEventListener('click', () => {
                 this.temporarilyEnableElement(element);
-                enableBtn.textContent = '✅ Enabled!';
+                enableBtn.textContent = 'Enabled!';
                 enableBtn.disabled = true;
             });
             
@@ -1129,7 +1223,7 @@ export class DomInspectorPanel {
                 const selector = this.generateCSSSelector(element);
                 const cssRule = `${selector} {\n  pointer-events: auto !important;\n}\n\n${selector}:disabled {\n  opacity: 1 !important;\n  cursor: pointer !important;\n}`;
                 navigator.clipboard.writeText(cssRule).then(() => {
-                    copyBtn.textContent = '✅ Copied!';
+                    copyBtn.textContent = 'Copied!';
                     setTimeout(() => copyBtn.textContent = 'Copy Enable CSS', 2000);
                 });
             });
@@ -1255,18 +1349,18 @@ export class DomInspectorPanel {
             issueDiv.className = 'dom-inspector-clickability-issue';
             
             let content = `
-                <h4>🎯 Element Selection Issue</h4>
+                <h4>Element Selection Issue</h4>
                 <p>This element is covered by child elements, making it hard to click directly.</p>
             `;
             
             if (clickabilityResult.bestClickPoint) {
                 content += `
-                    <p><strong>✅ Solution:</strong> Element is clickable at the <strong>${clickabilityResult.bestClickPoint.name}</strong> area.</p>
+                    <p><strong>Solution:</strong> Element is clickable at the <strong>${clickabilityResult.bestClickPoint.name}</strong> area.</p>
                     <button class="dom-inspector-fix-btn" data-action="highlight-clickable">Show Clickable Area</button>
                 `;
             } else {
                 content += `
-                    <p><strong>💡 Tip:</strong> Try selecting a child element instead, or use the element picker to click on the border/padding area.</p>
+                    <p><strong>Tip:</strong> Try selecting a child element instead, or use the element picker to click on the border/padding area.</p>
                 `;
             }
             
@@ -1278,7 +1372,9 @@ export class DomInspectorPanel {
                 clickabilityResult.childInterceptPoints.slice(0, 3).forEach(point => {
                     const tagName = point.elementAtPoint.tagName.toLowerCase();
                     const className = point.elementAtPoint.className;
-                    content += `<li><code>${tagName}${className ? '.' + className.split(' ')[0] : ''}</code></li>`;
+                    const firstClass = className && typeof className === 'string' ? className.split(' ')[0] : 
+                                     className && className.toString ? className.toString().split(' ')[0] : '';
+                    content += `<li><code>${tagName}${firstClass ? '.' + firstClass : ''}</code></li>`;
                 });
                 
                 content += `</ul>`;
@@ -1664,7 +1760,9 @@ export class DomInspectorPanel {
         
         const tagName = element.tagName.toLowerCase();
         const id = element.id ? `#${element.id}` : '';
-        const classes = element.className ? `.${element.className.split(' ').join('.')}` : '';
+        const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
+                          element.className && element.className.toString ? element.className.toString().split(' ') : [];
+        const classes = classNames.length > 0 ? `.${classNames.join('.')}` : '';
         
         content.innerHTML = `
             <h3>Element: <code>&lt;${tagName}${id}${classes}&gt;</code></h3>
@@ -1895,20 +1993,37 @@ export class DomInspectorPanel {
         
         const targetElement = this.currentBreadcrumbTrail[index];
         
-        this.selectElement(targetElement);
+        if (targetElement) {
+            console.log('DOM Inspector: Navigating to breadcrumb element:', targetElement);
+            this.selectElement(targetElement);
+        } else {
+            console.warn('DOM Inspector: Breadcrumb element reference not found');
+        }
     }
 
     expandTreeToElement(element) {
+        console.log('DOM Inspector: Expanding tree to element:', element);
+        
+        // First ensure the element is in the tree
+        this.ensureElementInTree(element);
+        
         // Find the tree node for this element and expand parents
-        const allNodes = this.treeContainer.querySelectorAll('.dom-inspector-node');
-        for (const node of allNodes) {
-            const cachedElement = this.getElementFromCache(node.dataset.elementId);
-            if (cachedElement === element) {
-                this.expandParentsToNode(node);
-                // Scroll into view
-                node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                break;
-            }
+        const targetNode = this.findTreeNodeForElement(element);
+        if (targetNode) {
+            this.expandParentsToNode(targetNode);
+            // The expandParentsToNode method now handles scrolling
+        } else {
+            console.warn('DOM Inspector: Could not find element in tree after ensuring inclusion');
+            // Last resort: rebuild tree and try again
+            this.buildTree();
+            setTimeout(() => {
+                const retryNode = this.findTreeNodeForElement(element);
+                if (retryNode) {
+                    this.expandParentsToNode(retryNode);
+                } else {
+                    console.error('DOM Inspector: Still cannot find element in tree after rebuild');
+                }
+            }, 100);
         }
     }
 
@@ -2029,7 +2144,7 @@ export class DomInspectorPanel {
         const container = document.createElement('div');
         container.className = 'dom-inspector-disabled-state';
         container.innerHTML = `
-            <h4>⚠️ Disabled Element</h4>
+            <h4>Disabled Element</h4>
             <p>This element is currently disabled and cannot be interacted with.</p>
         `;
         
@@ -2184,7 +2299,9 @@ export class DomInspectorPanel {
         
         // Try class if unique
         if (element.className) {
-            const className = element.className.split(' ')[0];
+            const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
+                              element.className && element.className.toString ? element.className.toString().split(' ') : [];
+            const className = classNames[0];
             const sanitizedClass = this.sanitizeSelector(className);
             if (sanitizedClass && document.querySelectorAll(`.${sanitizedClass}`).length === 1) {
                 return `.${sanitizedClass}`;
@@ -2208,7 +2325,9 @@ export class DomInspectorPanel {
             }
             
             if (current.className) {
-                const classes = current.className.split(' ')
+                const classNames = current.className && typeof current.className === 'string' ? current.className.split(' ') :
+                                  current.className && current.className.toString ? current.className.toString().split(' ') : [];
+                const classes = classNames
                     .filter(c => c.trim())
                     .map(c => this.sanitizeSelector(c))
                     .filter(c => c);
@@ -2283,7 +2402,7 @@ export class DomInspectorPanel {
                     correctedQuery = query.replace('theme-selector/directory-information', 'theme-selector\\/directory-information');
                     suggestions = `
                         <div style="margin-top: 10px;">
-                            <strong>💡 Fix:</strong> Forward slashes in IDs need to be escaped in CSS selectors.
+                            <strong>Fix:</strong> Forward slashes in IDs need to be escaped in CSS selectors.
                             <br><strong>Try this:</strong> <code>${correctedQuery}</code>
                             <br><strong>Or use attribute selector:</strong> <code>[id="theme-selector/directory-information"] > h2.settings-section-header</code>
                             <button class="dom-inspector-fix-btn" onclick="
@@ -2298,7 +2417,7 @@ export class DomInspectorPanel {
                 } else {
                     suggestions = `
                         <div style="margin-top: 10px;">
-                            <strong>💡 Common fix:</strong> Forward slashes (/) in CSS selectors need to be escaped with backslashes.
+                            <strong>Common fix:</strong> Forward slashes (/) in CSS selectors need to be escaped with backslashes.
                             <br>Or use attribute selectors like <code>[id="element-id"]</code> for IDs containing special characters.
                         </div>
                     `;
@@ -2306,7 +2425,7 @@ export class DomInspectorPanel {
             }
             
             errorDiv.innerHTML = `
-                <h4>❌ Invalid Selector</h4>
+                <h4>Invalid Selector</h4>
                 <p><strong>Query:</strong> <code>${query}</code></p>
                 <p><strong>Error:</strong> ${error.message}</p>
                 ${suggestions}

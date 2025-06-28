@@ -1,12 +1,12 @@
 /**
- * ThemeEditorPanel.js - Design Tokens Viewer
- * Reads design tokens from design-system.css (single source of truth)
+ * DesignTokensPanel.js - Design Tokens Viewer
+ * Reads design tokens from design-tokens.css (single source of truth)
  * Displays tokens in a clean tabular interface for viewing and harmonization
  */
 
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
-class ThemeEditorPanel {
+class DesignTokensPanel {
   constructor(containerElement) {
     this.containerElement = containerElement;
     this.designTokens = new Map(); // Parsed tokens from CSS
@@ -16,11 +16,27 @@ class ThemeEditorPanel {
   }
 
   async init() {
+    // Load component CSS
+    this.loadComponentCSS();
+    
     // Load and parse design-tokens.css
     await this.loadDesignTokensCSS();
     
     // Render the panel
     this.render();
+  }
+
+  /**
+   * Load component CSS file
+   */
+  loadComponentCSS() {
+    const cssPath = '/client/settings/panels/css-design/DesignTokensPanel.css';
+    if (!document.querySelector(`link[href="${cssPath}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = cssPath;
+      document.head.appendChild(link);
+    }
   }
 
   /**
@@ -204,14 +220,14 @@ class ThemeEditorPanel {
   showLoadingError(message) {
     this.containerElement.innerHTML = `
       <div class="theme-editor-error">
-        <div class="error-icon">⚠️</div>
+        <div class="error-icon">Warning</div>
         <h3>Failed to Load Design Tokens</h3>
         <p>Could not load design-tokens.css</p>
         <div class="error-details">
           <code>${message}</code>
         </div>
         <button onclick="location.reload()" class="retry-button">
-          🔄 Retry
+          Retry
         </button>
       </div>
     `;
@@ -224,7 +240,7 @@ class ThemeEditorPanel {
     if (this.designTokens.size === 0) {
       this.containerElement.innerHTML = `
         <div class="theme-editor-empty">
-          <div class="empty-icon">📄</div>
+          <div class="empty-icon">No Data</div>
           <h3>No Design Tokens Found</h3>
           <p>No tokens were found in design-tokens.css</p>
         </div>
@@ -235,25 +251,48 @@ class ThemeEditorPanel {
     this.containerElement.innerHTML = `
       <div class="theme-editor-panel">
         <div class="theme-editor-header">
-          <h3>Design Tokens Viewer</h3>
-          <p>Design tokens parsed from <code>design-tokens.css</code> (single source of truth)</p>
+          <p>Tokens parsed from <code>design-tokens.css</code></p>
           <div class="token-stats">
-            <span class="stat">📊 ${this.designTokens.size} tokens</span>
-            <span class="stat">🏷️ ${this.categories.size} categories</span>
-            <button onclick="this.closest('.theme-editor-panel').themeEditor.refreshTokens()" class="refresh-btn">
-              🔄 Refresh
-            </button>
+            <span class="stat">${this.designTokens.size} Tokens</span>
+            <span class="stat">${this.categories.size} Categories</span>
+            <button class="btn btn--secondary refresh-btn">Refresh</button>
           </div>
         </div>
-
         <div class="token-categories">
           ${this.renderTokenCategories()}
         </div>
       </div>
     `;
-    
-    // Store reference for button onclick
-    this.containerElement.querySelector('.theme-editor-panel').themeEditor = this;
+
+    this.containerElement.querySelector('.refresh-btn').onclick = () => this.refreshTokens();
+    this.setupEventListeners();
+  }
+
+  /**
+   * Setup event listeners
+   */
+  setupEventListeners() {
+    this.containerElement.querySelectorAll('.settings-section-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const container = header.closest('.settings-section-container');
+            container.classList.toggle('collapsed');
+            const indicator = header.querySelector('.collapse-indicator');
+            if (indicator) {
+                indicator.textContent = container.classList.contains('collapsed') ? '►' : '▼';
+            }
+        });
+    });
+
+    this.containerElement.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.color-swatch');
+      if (swatch) {
+        const colorValue = swatch.dataset.colorValue;
+        if (colorValue) {
+          navigator.clipboard.writeText(colorValue);
+          // Add simple feedback later if needed
+        }
+      }
+    });
   }
 
   /**
@@ -261,28 +300,14 @@ class ThemeEditorPanel {
    */
   renderTokenCategories() {
     return Array.from(this.categories.entries()).map(([category, tokens]) => `
-      <div class="token-category">
-        <div class="category-header">
-          <h4 class="category-title">
-            ${this.getCategoryIcon(category)} ${category}
-            <span class="category-count">(${tokens.length})</span>
-          </h4>
-          <button class="category-toggle" onclick="this.closest('.token-category').classList.toggle('collapsed')">
-            <span class="toggle-icon">▼</span>
-          </button>
-        </div>
-        
-        <div class="category-content">
-          <div class="token-table">
-            <div class="token-table-header">
-              <div class="table-col-name">Token Name</div>
-              <div class="table-col-variable">CSS Variable</div>
-              <div class="table-col-value">Value</div>
-              <div class="table-col-preview">Preview</div>
-            </div>
-            <div class="token-table-body">
-              ${tokens.map(token => this.renderTokenRow(token)).join('')}
-            </div>
+      <div class="settings-section-container collapsed">
+        <h2 class="settings-section-header" tabindex="0">
+          <span class="collapse-indicator">►</span>
+          ${category} (${tokens.length})
+        </h2>
+        <div class="settings-section-content">
+          <div class="token-list">
+            ${tokens.map(token => this.renderTokenRow(token)).join('')}
           </div>
         </div>
       </div>
@@ -290,85 +315,40 @@ class ThemeEditorPanel {
   }
 
   /**
-   * Get category icon
-   */
-  getCategoryIcon(category) {
-    const icons = {
-      'Colors': '🎨',
-      'Typography': '📝',
-      'Spacing': '📏',
-      'Border Radius': '🔄',
-      'Shadows': '🌑',
-      'Transitions': '⚡',
-      'Other': '⚙️'
-    };
-    return icons[category] || '📋';
-  }
-
-  /**
    * Render individual token row
    */
   renderTokenRow(token) {
+    if (token.type === 'color') {
+      return `
+        <div class="token-row" data-token-type="color">
+          <div class="color-swatch" 
+               style="background-color: ${token.value};" 
+               data-color-value="${token.value}">
+          </div>
+          <span class="token-var">${token.variable}</span>
+          <code class="token-value">${token.value}</code>
+        </div>
+      `;
+    }
+
+    const showTypeBadge = token.type !== 'other';
     return `
-      <div class="token-row" data-token-type="${token.type}">
-        <div class="token-name">
-          <span class="name-text">${token.name}</span>
-          <span class="token-type">${token.type}</span>
+      <div class="token-row">
+        <div class="token-info">
+            <span class="token-var">${token.variable}</span>
+            ${showTypeBadge ? `<span class="token-type-badge">${token.type}</span>` : ''}
         </div>
-        <div class="token-variable">
-          <code class="css-var">${token.variable}</code>
-          <button class="copy-var" onclick="navigator.clipboard.writeText('${token.variable}')" title="Copy variable">
-            📋
-          </button>
-        </div>
-        <div class="token-value">
-          <code class="value-text">${token.value}</code>
-          <button class="copy-value" onclick="navigator.clipboard.writeText('${token.value}')" title="Copy value">
-            📋
-          </button>
-        </div>
-        <div class="token-preview">
-          ${this.renderTokenPreview(token)}
-        </div>
+        <code class="token-value">${token.value}</code>
       </div>
     `;
   }
 
   /**
-   * Render token preview based on type
+   * Render token display based on type
    */
-  renderTokenPreview(token) {
-    switch (token.type) {
-      case 'color':
-        return `<div class="color-preview" style="background-color: ${token.value};" title="${token.value}"></div>`;
-      
-      case 'font-size':
-        return `<div class="text-preview" style="font-size: ${token.value};">Aa</div>`;
-      
-      case 'font-weight':
-        return `<div class="text-preview" style="font-weight: ${token.value};">Text</div>`;
-      
-      case 'font-family':
-        return `<div class="text-preview" style="font-family: ${token.value};">Typeface</div>`;
-      
-      case 'spacing':
-        return `<div class="spacing-preview">
-                  <div class="spacing-box" style="width: ${token.value}; height: 16px;"></div>
-                  <span class="spacing-label">${token.value}</span>
-                </div>`;
-      
-      case 'border-radius':
-        return `<div class="radius-preview" style="border-radius: ${token.value};"></div>`;
-      
-      case 'shadow':
-        return `<div class="shadow-preview" style="box-shadow: ${token.value};"></div>`;
-      
-      case 'transition':
-        return `<div class="transition-preview" style="transition: all ${token.value};">${token.value}</div>`;
-      
-      default:
-        return `<span class="generic-preview">${token.value}</span>`;
-    }
+  renderTokenDisplay(token) {
+    // This method is now simplified and integrated into renderTokenRow
+    return `<code class="token-value">${token.value}</code>`;
   }
 
   /**
@@ -377,7 +357,7 @@ class ThemeEditorPanel {
   async refreshTokens() {
     const refreshBtn = this.containerElement.querySelector('.refresh-btn');
     if (refreshBtn) {
-      refreshBtn.innerHTML = '⏳ Loading...';
+      refreshBtn.innerHTML = 'Loading...';
       refreshBtn.disabled = true;
     }
     
@@ -428,7 +408,7 @@ settingsSectionRegistry.register({
   title: 'Design Tokens',
   icon: '🎨',
   order: 3,
-  component: ThemeEditorPanel
+  component: DesignTokensPanel
 });
 
-export default ThemeEditorPanel; 
+export default DesignTokensPanel; 

@@ -25,7 +25,9 @@ export class SelectorUtils {
         
         // Try class if unique
         if (element.className) {
-            const className = element.className.split(' ')[0];
+            const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
+                              element.className && element.className.toString ? element.className.toString().split(' ') : [];
+            const className = classNames[0];
             const sanitizedClass = ValidationUtils.sanitizeSelector(className);
             if (sanitizedClass && document.querySelectorAll(`.${sanitizedClass}`).length === 1) {
                 return `.${sanitizedClass}`;
@@ -49,7 +51,9 @@ export class SelectorUtils {
             }
             
             if (current.className) {
-                const classes = current.className.split(' ')
+                const classNames = current.className && typeof current.className === 'string' ? current.className.split(' ') :
+                                  current.className && current.className.toString ? current.className.toString().split(' ') : [];
+                const classes = classNames
                     .filter(c => c.trim())
                     .map(c => ValidationUtils.sanitizeSelector(c))
                     .filter(c => c);
@@ -125,7 +129,9 @@ export class SelectorUtils {
     static _tryUniqueClassSelector(element) {
         if (!element.className) return null;
         
-        const classes = element.className.split(' ').filter(c => c.trim());
+        const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
+                          element.className && element.className.toString ? element.className.toString().split(' ') : [];
+        const classes = classNames.filter(c => c.trim());
         
         for (const className of classes) {
             const sanitizedClass = ValidationUtils.sanitizeSelector(className);
@@ -179,7 +185,9 @@ export class SelectorUtils {
             
             // Add first class if available
             if (current.className) {
-                const firstClass = current.className.split(' ')[0];
+                const classNames = current.className && typeof current.className === 'string' ? current.className.split(' ') :
+                                  current.className && current.className.toString ? current.className.toString().split(' ') : [];
+                const firstClass = classNames[0];
                 const sanitizedClass = ValidationUtils.sanitizeSelector(firstClass);
                 if (sanitizedClass) {
                     selector += `.${sanitizedClass}`;

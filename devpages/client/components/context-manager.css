@@ -330,6 +330,16 @@
     color: #007acc;
 }
 
+/* Context settings trigger (root "/" breadcrumb) - specific interactive styles */
+#context-settings-trigger {
+    cursor: pointer !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    display: inline-block;
+}
+
 /* Org popup styles */
 .org-popup {
     background: white;
@@ -517,6 +527,26 @@
    if you want them all on one line and have specific alignment. */
 .context-main-bar { /* Example wrapper name */
     display: flex;
-    align-items: center;
-    width: 100%;
+}
+
+/* Publish button published state styles */
+#publish-btn.published {
+    background-color: #28a745 !important;
+    color: white !important;
+    position: relative;
+}
+
+#publish-btn.published::before {
+    content: "✓ ";
+    font-weight: bold;
+}
+
+#publish-btn:hover.published {
+    background-color: #218838 !important;
+}
+
+#publish-btn.published::after {
+    content: " (Click for options)";
+    font-size: 0.8em;
+    opacity: 0.8;
 } 

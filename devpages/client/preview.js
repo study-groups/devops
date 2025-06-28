@@ -1,10 +1,11 @@
 /**
  * preview.js
- * Provides the core Markdown preview rendering functionality.
+ * Provides the core preview rendering functionality for multiple file types.
  */
 import { appStore } from '/client/appState.js';
 import { updatePreview as updatePreviewInternal, initPreview } from '/client/preview/index.js';
 import { postProcessRender } from '/client/preview/renderers/MarkdownRenderer.js';
+import { previewRenderer } from '/client/preview/PreviewRenderer.js';
 
 function logPreview(message, level = 'debug', type = 'PREVIEW') {
     if (typeof window.logMessage === 'function') {
@@ -26,12 +27,14 @@ const previewState = {
 };
 
 /**
- * Renders the given Markdown content into HTML and prepares it for display.
- * @param {string} content - The Markdown content to render.
+ * Renders the given content into HTML and prepares it for display.
+ * Automatically detects file type and routes to appropriate renderer.
+ * @param {string} content - The content to render.
  * @param {HTMLElement} previewContainer - The DOM element to render into.
+ * @param {string} filePath - The file path to determine renderer type.
  * @returns {Promise<void>}
  */
-export async function updatePreview(content, previewContainer) {
+export async function updatePreview(content, previewContainer, filePath = '') {
     if (!isInitialized) {
         await initPreview({ 
             container: previewContainer,
@@ -63,17 +66,17 @@ export async function updatePreview(content, previewContainer) {
     }
 
     previewState.debounceTimer = setTimeout(async () => {
-        await performPreviewUpdate(content, previewContainer);
+        await performPreviewUpdate(content, previewContainer, filePath);
     }, 150); // Small debounce to prevent rapid updates
 }
 
 /**
  * Performs the actual preview update with improved error handling
  */
-async function performPreviewUpdate(content, previewContainer) {
+async function performPreviewUpdate(content, previewContainer, filePath = '') {
     if (previewState.isRendering) {
         logPreview('Already rendering, queuing update');
-        previewState.renderQueue.push({ content, previewContainer });
+        previewState.renderQueue.push({ content, previewContainer, filePath });
         return;
     }
 
@@ -82,15 +85,27 @@ async function performPreviewUpdate(content, previewContainer) {
     previewState.lastRenderTime = Date.now();
 
     try {
-        logPreview(`Refreshing preview (content length: ${content.length})`);
+        logPreview(`Refreshing preview (content length: ${content.length}) for file: ${filePath}`);
         
         const appState = appStore.getState();
-        const currentPath = appState.file?.currentPathname || '';
+        const currentPath = filePath || appState.file?.currentPathname || '';
 
         // Show loading state with smooth transition
         showLoadingState(previewContainer);
 
-        const renderResult = await updatePreviewInternal(content, currentPath);
+        // Detect file type and route to appropriate renderer
+        const fileExtension = getFileExtension(currentPath);
+        let renderResult;
+
+        if (isHtmlFile(fileExtension)) {
+            // Use HTML renderer for HTML files
+            logPreview(`Rendering HTML file: ${currentPath}`);
+            renderResult = await previewRenderer.render(content, currentPath, previewContainer);
+        } else {
+            // Use existing markdown rendering for markdown files and others
+            logPreview(`Rendering with markdown renderer: ${currentPath}`);
+            renderResult = await updatePreviewInternal(content, currentPath);
+        }
 
         if (!renderResult || typeof renderResult.html !== 'string') {
             logPreview('Preview update returned invalid result.', 'error');
@@ -105,8 +120,15 @@ async function performPreviewUpdate(content, previewContainer) {
         
         logPreview('Preview container HTML updated.');
 
-        await postProcessRender(previewContainer);
-        logPreview('Post-processing complete.');
+        // Post-process based on file type
+        if (isHtmlFile(fileExtension)) {
+            // HTML files are already post-processed by the HTML renderer
+            logPreview('HTML post-processing complete.');
+        } else {
+            // Use markdown post-processing for other files
+            await postProcessRender(previewContainer);
+            logPreview('Markdown post-processing complete.');
+        }
 
         // Show success state
         showSuccessState(previewContainer);
@@ -121,7 +143,7 @@ async function performPreviewUpdate(content, previewContainer) {
         // Process any queued updates
         if (previewState.renderQueue.length > 0) {
             const nextUpdate = previewState.renderQueue.shift();
-            setTimeout(() => performPreviewUpdate(nextUpdate.content, nextUpdate.previewContainer), 100);
+            setTimeout(() => performPreviewUpdate(nextUpdate.content, nextUpdate.previewContainer, nextUpdate.filePath), 100);
         }
     }
 }
@@ -197,6 +219,27 @@ async function updateContentWithTransition(container, html) {
             setTimeout(resolve, 100);
         }, 50);
     });
+}
+
+/**
+ * Helper function to get file extension from path
+ */
+function getFileExtension(filePath) {
+    if (!filePath || typeof filePath !== 'string') {
+        return '';
+    }
+    const lastDot = filePath.lastIndexOf('.');
+    if (lastDot === -1) {
+        return '';
+    }
+    return filePath.substring(lastDot + 1).toLowerCase();
+}
+
+/**
+ * Helper function to check if file is HTML
+ */
+function isHtmlFile(extension) {
+    return ['html', 'htm'].includes(extension.toLowerCase());
 }
 
 // Keep this export for now for any legacy dependencies, but it should be phased out.

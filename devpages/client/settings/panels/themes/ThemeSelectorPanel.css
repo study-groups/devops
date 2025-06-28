@@ -23,7 +23,7 @@
 .config-label {
   font-weight: var(--font-weight-medium);
   color: var(--color-foreground-secondary);
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 

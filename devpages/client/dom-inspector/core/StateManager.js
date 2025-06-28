@@ -101,6 +101,10 @@ export class StateManager {
                 this.emit('treeStateChanged', newInspectorState.treeState, oldInspectorState.treeState);
             }
 
+            if (oldInspectorState.splitPosition !== newInspectorState.splitPosition) {
+                this.emit('splitPositionChanged', newInspectorState.splitPosition, oldInspectorState.splitPosition);
+            }
+
             // Emit general state change event
             this.emit('stateChanged', newInspectorState, oldInspectorState);
 
@@ -139,6 +143,14 @@ export class StateManager {
      */
     setSize(size) {
         dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_SIZE, payload: size });
+    }
+
+    /**
+     * Set split position
+     * @param {number} splitPosition - Split position as percentage (0-100)
+     */
+    setSplitPosition(splitPosition) {
+        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_SPLIT_POSITION, payload: splitPosition });
     }
 
     /**
@@ -245,6 +257,14 @@ export class StateManager {
     }
 
     /**
+     * Get split position
+     * @returns {number} Split position as percentage
+     */
+    getSplitPosition() {
+        return this.getState().splitPosition || 33; // Default to 33%
+    }
+
+    /**
      * Add event listener for state changes
      * @param {string} event - Event name
      * @param {Function} callback - Callback function
@@ -297,6 +317,7 @@ export class StateManager {
             visible: false,
             position: { x: 100, y: 100 },
             size: { width: 800, height: 600 },
+            splitPosition: 33,
             highlight: { mode: 'border', color: '#448AFF' },
             selectorHistory: [],
             collapsedSections: {},

@@ -27,12 +27,15 @@ export class PreviewRenderer {
         this.registerRenderer('md', () => import('./renderers/MarkdownRenderer.js'));
         this.registerRenderer('markdown', () => import('./renderers/MarkdownRenderer.js'));
         
+        // HTML files
+        this.registerRenderer('html', () => import('/client/panels/renderers/HtmlRenderer.js'));
+        this.registerRenderer('htm', () => import('/client/panels/renderers/HtmlRenderer.js'));
+        
         // Future renderers (commented out until implemented)
         // this.registerRenderer('js', () => import('./renderers/JavaScriptRenderer.js'));
         // this.registerRenderer('ts', () => import('./renderers/TypeScriptRenderer.js'));
         // this.registerRenderer('json', () => import('./renderers/JsonRenderer.js'));
         // this.registerRenderer('css', () => import('./renderers/CssRenderer.js'));
-        // this.registerRenderer('html', () => import('./renderers/HtmlRenderer.js'));
         
         logPreviewRenderer('Default renderers registered');
     }
@@ -87,7 +90,7 @@ export class PreviewRenderer {
         try {
             // Import and instantiate renderer
             const module = await importFn();
-            const RendererClass = module.MarkdownRenderer || module.JavaScriptRenderer || module.default;
+            const RendererClass = module.MarkdownRenderer || module.HtmlRenderer || module.JavaScriptRenderer || module.default;
             const renderer = new RendererClass();
             
             // Cache the renderer

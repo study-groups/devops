@@ -4,197 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1">
     <title>DevPages</title>
-    <!-- Design Tokens - Single Source of Truth -->
+    <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
+    
+    <link rel="stylesheet" href="/client/styles/reset.css">
+    <link rel="stylesheet" href="/client/styles/core.css">
+    <link rel="stylesheet" href="/client/styles/light.css" data-theme="light">
     <link rel="stylesheet" href="/client/styles/design-tokens.css">
-    <!-- Design System Foundation (utilities & components) -->
     <link rel="stylesheet" href="/client/styles/design-system.css">
-    <!-- Layout system styles -->
     <link rel="stylesheet" href="/client/layout/layout.css">
-    <!-- Add Log component specific styles -->
     <link rel="stylesheet" href="/client/log/log.css"> 
     <link rel="stylesheet" href="/client/components/auth-display.css">
     <link rel="stylesheet" href="/client/components/context-manager.css">
-    <!-- ViewControls styles -->
     <link rel="stylesheet" href="/client/styles/viewControls.css">
-    <!-- Settings Panel Styles -->
     <link rel="stylesheet" href="/client/settings/core/settings.css">
-    <!-- Code Sidebar Styles -->
     <link rel="stylesheet" href="/client/code/code-sidebar.css">
-    <!-- File List Component Styles -->
     <link rel="stylesheet" href="/client/code/file-list.css">
-    <!-- DOM Inspector Styles -->
     <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css">
+    <link rel="stylesheet" href="/client/styles/splash-screen.css">
 
     
-    <!-- Pre-load Mermaid for better initialization -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
-    
-    <!-- Verify Mermaid loaded (only log errors) -->
-    <script>
-        if (!window.mermaid) {
-            console.error('[MERMAID PRELOAD] Mermaid not available after script load!');
-        }
-    </script>
-    
-    <!-- Synchronous script to set initial state from localStorage -->
     <script src="/client/earlyInit.js"></script> 
-    
-    <!-- Core scripts -->
     <script src="/client/errorTracker.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <script src="/client/code/ast-parser.js"></script>
 
-    <!-- START: Add this CSS block for testing -->
-    <style>
-        #context-settings-trigger {
-            cursor: pointer !important; /* Forcing it for the test */
-            user-select: none;         /* Disable text selection */
-            -webkit-user-select: none; /* Safari */
-            -moz-user-select: none;    /* Firefox */
-            -ms-user-select: none;     /* IE/Edge */
-            display: inline-block;     /* Helps it behave more like an element */
-            /* If this element had other classes like 'breadcrumb-separator',
-               and those classes define padding/margin you want to keep,
-               you might need to re-apply them or ensure this styling is compatible.
-               For now, focusing on cursor and selection. */
-        }
-
-        /* Optional: if you want a visual cue on hover beyond the cursor */
-        /*
-        #context-settings-trigger:hover {
-            opacity: 0.7; // Or any other visual feedback
-        }
-        */
-    </style>
-    <!-- END: Add this CSS block for testing -->
-
-    <!-- Splash Screen Styles -->
-    <style>
-        #devpages-splash {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: var(--color-background, #ffffff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
-            transition: opacity 0.3s ease-out;
-        }
-        
-        #devpages-splash.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        
-        .splash-content {
-            text-align: center;
-            color: var(--color-foreground, #333);
-        }
-        
-        .splash-logo {
-            font-size: 2.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-        }
-        
-        .splash-version {
-            font-size: 1rem;
-            color: var(--color-foreground-muted, #666);
-            font-weight: 400;
-        }
-        
-        /* Hide main content during splash */
-        body.splash-active nav,
-        body.splash-active .main-layout,
-        body.splash-active #toolbar-container {
-            visibility: hidden;
-        }
-    </style>
-    <!-- END: Splash Screen Styles -->
 </head>
 <body class="splash-active">
-    <!-- Splash Screen -->
-    <div id="devpages-splash" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:10000;font-family:system-ui,-apple-system,sans-serif;">
-        <div class="splash-content" style="text-align:center;color:#333;">
-            <div class="splash-logo" style="font-size:2.5rem;font-weight:600;margin-bottom:0.5rem;letter-spacing:-0.02em;">DevPages</div>
-            <div class="splash-version" style="font-size:1rem;color:#666;font-weight:400;">v0.12</div>
+    <div id="devpages-splash">
+        <div class="splash-content">
+            <div class="splash-logo">DevPages</div>
+            <div class="splash-version">v0.12</div>
         </div>
     </div>
 
-    <!-- Navigation Bar -->
     <nav class="top-bar top-bar-full">
-
-        <!-- Left: Context Selector -->
-        <div id="context-manager-container" class="nav-group context-selector">
-             <!-- ContextManagerComponent will render here -->
-        </div>
-
-        <!-- Middle: View controls with consistent styling -->
-        <!-- Middle: View Controls (May need adjustment for mobile) -->
-        <div id="view-controls-container" class="nav-group view-controls">
-             <!-- Buttons will be rendered here by ViewControlsComponent -->
-        </div>
-
-        <!-- Right side: Auth controls & Version -->
+        <div id="context-manager-container" class="nav-group context-selector"></div>
+        <div id="view-controls-container" class="nav-group view-controls"></div>
         <div class="nav-group right-group">
-            <!-- Version Number -->            <!-- Auth Info -->
-            <div id="auth-component-container" class="auth-info">
-                <!-- This div will be populated by the AuthDisplay component -->
-            </div>
+            <div id="auth-component-container" class="auth-info"></div>
         </div>
     </nav>
 
-    <!-- Main Content Area - Declarative Layout -->
+    <!-- Main layout structure -->
     <div class="main-layout">
-        <!-- Left Panels Container -->
-        <div id="panels-container" class="panels-container">
-            <!-- Panels will be dynamically added here by PanelManager -->
-        </div>
-
-        <!-- Main Content (Center Panel) -->
+        <div id="panels-container" class="panels-container"></div>
         <div id="main-container" class="log-hidden">
             <div id="content">
-                <!-- This div will be populated by the ContentView component -->
                 <div id="content-view-wrapper"></div>
             </div>
             <div id="log-container"></div>
         </div>
-
-        <!-- Right Gutter - Small state buttons -->
-        <div id="right-gutter" class="right-gutter">
-            <!-- State buttons will be added here by PanelManager -->
-        </div>
+        <div id="right-gutter" class="right-gutter"></div>
     </div>
     
     <div id="toolbar-container" class="editor-toolbar"></div>
 
-    <!-- Development helpers -->
     <script type="module" src="/client/utils/DevHelpers.js"></script>
-    
-    <!-- Main application module loader -->
     <script type="module" src="/client/bootstrap.js"></script>
-    
-    <!-- Code Analysis Components -->
     <script src="/client/code/code-manager.js"></script>
-    <!-- FileListComponent is now imported by enhancedSidebars.js, so this direct load might be redundant if not used elsewhere -->
-    <!-- <script type="module" src="/client/code/file-list-component.js"></script> --> 
-    
-    <!-- Enhanced sidebars will be loaded by bootstrap.js after eventBus is ready -->
-
-    <script>
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = '/client/components/auth-display.css';
-        document.head.appendChild(link);
-    </script>
-
-    <!-- Layout initialization is now handled by bootstrap.js -->
 </body>
 
 

@@ -77,9 +77,9 @@ export class CssManager {
         const publishSettings = state.settings?.publish || {};
 
         // Base CSS files that are always included
-        // Note: For preview context, we don't include md.css as it has layout constraints
-        // The preview uses its own CSS system via preview.css
-        const baseCssFiles = context === CSS_CONTEXT.PREVIEW ? [] : ['/client/preview/md.css'];
+        // Note: System CSS (reset.css, core.css, light/dark.css) is now loaded in main HTML
+        // No need for md.css as it conflicts with the new system theme architecture
+        const baseCssFiles = [];
         
         // Get user CSS files from settings
         const userCssFiles = [];

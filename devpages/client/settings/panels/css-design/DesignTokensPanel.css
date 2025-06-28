@@ -1,0 +1,431 @@
+/**
+ * DesignTokensPanel.css - Design Tokens Panel
+ * Uses project design system and standard settings classes
+ */
+
+/* Main Panel Container */
+.theme-editor-panel {
+  font-family: var(--font-family-sans, system-ui);
+  color: var(--color-foreground);
+  background: var(--color-background);
+}
+
+/* Header Section */
+.theme-editor-header {
+  padding: var(--density-space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
+}
+
+.theme-editor-header h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--density-space-sm) 0;
+  color: var(--color-foreground);
+}
+
+.theme-editor-header p {
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground-secondary);
+  margin: 0 0 var(--density-space-md) 0;
+}
+
+.theme-editor-header p code {
+  font-family: var(--font-family-mono);
+  background: var(--color-background-elevated);
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+}
+
+/* Token Stats */
+.token-stats {
+  display: flex;
+  gap: var(--density-space-md);
+  align-items: center;
+}
+
+.stat {
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground-secondary);
+  padding: var(--density-space-xs) var(--density-space-sm);
+  background: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.refresh-btn {
+  padding: var(--density-space-sm) var(--density-space-md);
+  background: var(--color-primary);
+  color: white;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-all);
+}
+
+.refresh-btn:hover {
+  background: var(--color-primary-hover, var(--color-primary));
+  transform: translateY(-1px);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Token Categories Container */
+.token-categories {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--density-space-md);
+}
+
+/* Token List */
+.token-list {
+  padding: 0;
+}
+
+/* Color Palette Grid Layout */
+.color-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--density-space-md);
+  padding: var(--density-space-md);
+}
+
+.color-palette .token-row {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--density-space-lg);
+  transition: var(--transition-all);
+}
+
+.color-palette .token-row:hover {
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: var(--density-space-md);
+  padding: var(--density-space-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.token-row:first-child {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.token-row .token-info {
+  display: flex;
+  align-items: center;
+  gap: var(--density-space-md);
+  margin-right: auto;
+}
+
+.token-row .token-var {
+  font-family: var(--font-family-mono);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-foreground);
+}
+
+.token-row .token-value {
+  font-family: var(--font-family-mono);
+  color: var(--color-foreground-secondary);
+}
+
+/* Color Token Specific Styles */
+.token-row[data-token-type="color"] .token-var {
+  margin-right: 0;
+}
+
+.token-row[data-token-type="color"] .token-value {
+  margin-left: auto;
+}
+
+.color-swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.token-type-badge {
+  font-size: var(--font-size-xs);
+  padding: var(--density-space-xs) var(--density-space-sm);
+  background-color: var(--color-background-secondary);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-foreground-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* Color Token Styles */
+.token-row[data-token-type="color"] {
+  justify-content: flex-start;
+  gap: var(--density-space-md);
+}
+
+.color-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+.color-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+
+.token-row[data-token-type="color"] .token-info {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.token-row[data-token-type="color"] .token-value {
+  font-size: var(--font-size-sm);
+}
+
+/* Color Token Display */
+.color-token-display {
+  display: flex;
+  align-items: center;
+  gap: var(--density-space-lg);
+  padding: var(--density-space-sm);
+  border-radius: var(--radius-md);
+  transition: var(--transition-all);
+}
+
+.color-token-display:hover {
+  background: var(--color-background-hover, rgba(0,0,0,0.02));
+}
+
+/* Color Swatch */
+.color-swatch {
+  position: relative;
+  width: 4rem;
+  height: 3rem;
+  border-radius: var(--radius-lg);
+  border: 3px solid #ffffff;
+  box-shadow: 
+    0 0 0 1px var(--color-border),
+    var(--shadow-md);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: var(--transition-all);
+  overflow: hidden;
+}
+
+.color-swatch:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 
+    0 0 0 1px var(--color-primary, #3b82f6),
+    0 8px 25px -5px rgba(0, 0, 0, 0.2),
+    0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.color-swatch:active {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.color-swatch-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 60%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  pointer-events: none;
+}
+
+/* Color Details */
+.color-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--density-space-xs);
+  min-width: 0;
+  flex: 1;
+}
+
+.color-value-display {
+  display: flex;
+  align-items: center;
+}
+
+.color-value-display .token-value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-foreground);
+  background: var(--color-background-elevated);
+  padding: var(--density-space-xs) var(--density-space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.color-name-display {
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground-secondary);
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+  letter-spacing: 0.025em;
+}
+
+/* Copy Feedback */
+.copy-feedback {
+  background: var(--color-primary);
+  color: white;
+  padding: var(--density-space-xs) var(--density-space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  pointer-events: none;
+  animation: copyFeedback 2s ease-out forwards;
+  box-shadow: var(--shadow-md);
+}
+
+@keyframes copyFeedback {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.9);
+  }
+}
+
+/* Special styling for color tokens */
+.token-row[data-token-type="color"] {
+  padding: var(--density-space-lg) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: var(--density-space-sm);
+}
+
+.token-row[data-token-type="color"]:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.token-row[data-token-type="color"] .token-info {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--density-space-sm);
+}
+
+.token-row[data-token-type="color"] .token-var {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.token-row[data-token-type="color"] .token-display {
+  width: 100%;
+  margin-top: var(--density-space-sm);
+}
+
+/* Error and Empty States */
+.theme-editor-error,
+.theme-editor-empty {
+  padding: var(--density-space-xl);
+  text-align: center;
+  color: var(--color-foreground-secondary);
+}
+
+.error-icon,
+.empty-icon {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger, #ef4444);
+  margin-bottom: var(--density-space-sm);
+}
+
+.theme-editor-error h3,
+.theme-editor-empty h3 {
+  margin: 0 0 var(--density-space-sm) 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-foreground);
+}
+
+.theme-editor-error p,
+.theme-editor-empty p {
+  margin: 0 0 var(--density-space-md) 0;
+  font-size: var(--font-size-sm);
+}
+
+.error-details {
+  margin: var(--density-space-md) 0;
+  padding: var(--density-space-md);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.error-details code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+}
+
+.retry-button {
+  padding: var(--density-space-sm) var(--density-space-lg);
+  background: var(--color-primary);
+  color: white;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.retry-button:hover {
+  background: var(--color-primary-hover, var(--color-primary));
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .theme-editor-header {
+    padding: var(--density-space-md);
+  }
+  
+  .token-stats {
+    flex-wrap: wrap;
+    gap: var(--density-space-sm);
+  }
+  
+  .token-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--density-space-sm);
+  }
+  
+  .token-display {
+    align-self: flex-end;
+  }
+} 

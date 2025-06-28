@@ -615,7 +615,9 @@ export class ZIndexManager {
     }
     
     if (element.className) {
-      return `.${element.className.split(' ').join('.')}`;
+      const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
+                        element.className && element.className.toString ? element.className.toString().split(' ') : [];
+      return `.${classNames.join('.')}`;
     }
     
     return element.tagName.toLowerCase();

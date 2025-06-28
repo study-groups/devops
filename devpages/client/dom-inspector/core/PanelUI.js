@@ -10,6 +10,7 @@ export class PanelUI {
         this.panel = null;
         this.header = null;
         this.resizeHandle = null;
+        this.splitter = null;
         
         // UI element references
         this.closeButton = null;
@@ -29,6 +30,8 @@ export class PanelUI {
         this.dragOffset = { x: 0, y: 0 };
         this.isResizing = false;
         this.resizeStart = { x: 0, y: 0, width: 0, height: 0 };
+        this.isSplitterDragging = false;
+        this.splitPosition = options.initialSplitPosition || 33;
         this.currentPos = { x: 100, y: 100 };
         this.currentSize = { width: 800, height: 600 };
         this.zIndex = null;
@@ -36,6 +39,7 @@ export class PanelUI {
         // Callbacks
         this.onPositionChange = options.onPositionChange || null;
         this.onSizeChange = options.onSizeChange || null;
+        this.onSplitChange = options.onSplitChange || null;
         this.onClose = options.onClose || null;
         this.onSettings = options.onSettings || null;
         this.onBringToFront = options.onBringToFront || null;
@@ -86,11 +90,19 @@ export class PanelUI {
 
         this.treeContainer = document.createElement('div');
         this.treeContainer.className = 'dom-inspector-tree';
+        this.treeContainer.style.width = `${this.splitPosition}%`;
+
+        // Create splitter
+        this.splitter = document.createElement('div');
+        this.splitter.className = 'dom-inspector-splitter';
+        this.splitter.innerHTML = '<div class="splitter-handle"></div>';
 
         this.detailsContainer = document.createElement('div');
         this.detailsContainer.className = 'dom-inspector-details';
+        this.detailsContainer.style.width = `${100 - this.splitPosition}%`;
 
         mainContent.appendChild(this.treeContainer);
+        mainContent.appendChild(this.splitter);
         mainContent.appendChild(this.detailsContainer);
         this.panel.appendChild(mainContent);
         
@@ -184,10 +196,13 @@ export class PanelUI {
         // Resizing
         this.resizeHandle.addEventListener('mousedown', (e) => this.startResize(e));
 
+        // Splitter dragging
+        this.splitter.addEventListener('mousedown', (e) => this.startSplitterDrag(e));
+
         // Click to bring to front functionality
         this.panel.addEventListener('mousedown', (e) => {
             // Only bring to front if not clicking on specific interactive elements
-            if (!e.target.closest('button, input, select, textarea, .dom-inspector-node-toggle')) {
+            if (!e.target.closest('button, input, select, textarea, .dom-inspector-node-toggle, .dom-inspector-splitter')) {
                 this.bringToFront();
             }
         });
@@ -196,11 +211,13 @@ export class PanelUI {
         document.addEventListener('mousemove', (e) => {
             this.doDrag(e);
             this.doResize(e);
+            this.doSplitterDrag(e);
         });
         
         document.addEventListener('mouseup', () => {
             this.endDrag();
             this.endResize();
+            this.endSplitterDrag();
         });
     }
 
@@ -270,6 +287,54 @@ export class PanelUI {
         this.isResizing = false;
         if (this.onSizeChange) {
             this.onSizeChange(this.currentSize);
+        }
+    }
+
+    /**
+     * Start splitter drag operation
+     */
+    startSplitterDrag(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.isSplitterDragging = true;
+        document.body.classList.add('dom-inspector-splitter-dragging');
+    }
+
+    /**
+     * Handle splitter drag movement
+     */
+    doSplitterDrag(e) {
+        if (!this.isSplitterDragging) return;
+        
+        const mainContent = this.panel.querySelector('.dom-inspector-main');
+        const rect = mainContent.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const percentage = Math.max(15, Math.min(85, (mouseX / rect.width) * 100));
+        
+        this.splitPosition = percentage;
+        this.updateSplitLayout();
+    }
+
+    /**
+     * End splitter drag operation
+     */
+    endSplitterDrag() {
+        if (!this.isSplitterDragging) return;
+        this.isSplitterDragging = false;
+        document.body.classList.remove('dom-inspector-splitter-dragging');
+        
+        if (this.onSplitChange) {
+            this.onSplitChange(this.splitPosition);
+        }
+    }
+
+    /**
+     * Update the layout based on current split position
+     */
+    updateSplitLayout() {
+        if (this.treeContainer && this.detailsContainer) {
+            this.treeContainer.style.width = `${this.splitPosition}%`;
+            this.detailsContainer.style.width = `${100 - this.splitPosition}%`;
         }
     }
 
@@ -345,6 +410,21 @@ export class PanelUI {
     }
 
     /**
+     * Get current split position
+     */
+    getSplitPosition() {
+        return this.splitPosition;
+    }
+
+    /**
+     * Set split position
+     */
+    setSplitPosition(position) {
+        this.splitPosition = Math.max(15, Math.min(85, position));
+        this.updateSplitLayout();
+    }
+
+    /**
      * Register with Z-Index Manager
      */
     registerWithZIndexManager() {
@@ -398,6 +478,7 @@ export class PanelUI {
         return {
             panel: this.panel,
             header: this.header,
+            splitter: this.splitter,
             treeContainer: this.treeContainer,
             detailsContainer: this.detailsContainer,
             querySelectorInput: this.querySelectorInput,
@@ -425,6 +506,7 @@ export class PanelUI {
         // Clear references
         this.header = null;
         this.resizeHandle = null;
+        this.splitter = null;
         this.closeButton = null;
         this.settingsButton = null;
         this.treeContainer = null;

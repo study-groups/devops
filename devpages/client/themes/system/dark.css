@@ -1,9 +1,0 @@
-/* Mermaid Dark Theme Defaults */
-.mermaid {
-    background: #1a1a1a;
-    color: #e0e0e0;
-}
- 
-.mermaid svg {
-    filter: invert(0.9) hue-rotate(180deg);
-} 

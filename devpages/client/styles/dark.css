@@ -1,0 +1,65 @@
+/* DevPages Dark Theme */
+/* Provides dark theme color variables and styling */
+
+:root {
+  /* Base colors */
+  --bg-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --text-muted: #cccccc;
+  
+  /* Interactive colors */
+  --link-color: #66b3ff;
+  --link-visited: #b19cd9;
+  --focus-color: #66b3ff;
+  
+  /* UI colors */
+  --border-color: #444444;
+  --code-bg: #333333;
+  --code-border: #555555;
+  
+  /* Table colors */
+  --table-header-bg: #2c2c2c;
+  --table-header-bg-alt: #3c3c3c;
+  --table-row-alt: #1e1e1e;
+  
+  /* Highlight colors */
+  --highlight-bg: #4a4a00;
+  --highlight-text: #ffff99;
+  --selection-bg: #264f78;
+  --selection-text: #ffffff;
+}
+
+/* Mermaid Dark Theme */
+.mermaid {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* Dark theme specific adjustments */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+/* Adjust form elements for dark theme */
+input, textarea, select {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+button {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+button:hover {
+  background-color: var(--table-header-bg);
+} 

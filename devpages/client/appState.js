@@ -304,6 +304,7 @@ function getInitialDomInspectorState() {
     visible: false,
     position: { x: window.innerWidth - 470, y: 50 },
     size: { width: 450, height: 500 },
+    splitPosition: 33,
     selectorHistory: [],
     collapsedSections: {},
     computedStyleFilter: {

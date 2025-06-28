@@ -158,14 +158,41 @@ export class PanelUIManager {
                 headless: true
             });
 
+            // Create JavaScript Panel (as a toggleable panel)
+            const { JavaScriptPanel } = await import('/client/panels/types/JavaScriptPanel.js');
+            this.state.javascriptPanel = new JavaScriptPanel({
+                id: 'javascript-panel',
+                order: 2,
+                width: 400,
+                headless: false  // This panel has its own header/controls
+            });
+
+            // Create HTML Panel (as a toggleable panel)
+            const { HtmlPanel } = await import('/client/panels/types/HtmlPanel.js');
+            this.state.htmlPanel = new HtmlPanel({
+                id: 'html-panel',
+                order: 3,
+                width: 400,
+                headless: false  // This panel has its own header/controls
+            });
+
             // Mount managed panels into their dedicated containers
             this.state.editorPanel.mount(editorContainer);
             this.state.previewPanel.mount(previewContainer);
+
+            // Mount additional panels to the main panels container
+            const panelsContainer = document.getElementById('panels-container');
+            if (panelsContainer) {
+                this.state.javascriptPanel.mount(panelsContainer);
+                this.state.htmlPanel.mount(panelsContainer);
+            }
 
             // Register with control center if it exists
             if (this.state.controlCenter) {
                 this.state.controlCenter.registerManagedPanel(this.state.editorPanel);
                 this.state.controlCenter.registerManagedPanel(this.state.previewPanel);
+                this.state.controlCenter.registerManagedPanel(this.state.javascriptPanel);
+                this.state.controlCenter.registerManagedPanel(this.state.htmlPanel);
             }
 
             console.log('[PanelUIManager] Managed panels created and mounted.');
@@ -186,7 +213,7 @@ export class PanelUIManager {
             const prevPanelsState = prevState.panels || {};
 
             // Handle panel visibility
-            for (const panelId of ['editor-panel', 'preview-panel']) {
+            for (const panelId of ['editor-panel', 'preview-panel', 'javascript-panel', 'html-panel']) {
                 const newPanelDef = newPanelsState[panelId];
                 const prevPanelDef = prevPanelsState[panelId];
                 
@@ -310,6 +337,8 @@ export class PanelUIManager {
     getManagedPanel(panelId) {
         if (panelId === 'editor-panel') return this.state.editorPanel;
         if (panelId === 'preview-panel') return this.state.previewPanel;
+        if (panelId === 'javascript-panel') return this.state.javascriptPanel;
+        if (panelId === 'html-panel') return this.state.htmlPanel;
         return null;
     }
 

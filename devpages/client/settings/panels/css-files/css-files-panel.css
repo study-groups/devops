@@ -1,0 +1,283 @@
+/**
+ * CSS Files Panel Styles
+ * Styles for the modular CSS Files Panel system
+ */
+
+
+
+/* Stylesheet Items */
+.stylesheet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.stylesheet-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background);
+    transition: all 0.2s ease;
+}
+
+.stylesheet-item:hover {
+    border-color: var(--color-border-hover);
+    background: var(--color-background-hover);
+}
+
+.stylesheet-item.stylesheet-disabled {
+    opacity: 0.6;
+    background: var(--color-background-disabled);
+}
+
+.stylesheet-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.stylesheet-type {
+    flex-shrink: 0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: white;
+}
+
+.stylesheet-type.theme {
+    background: var(--color-accent-purple);
+}
+
+.stylesheet-type.system {
+    background: var(--color-accent-blue);
+}
+
+.stylesheet-type.other {
+    background: var(--color-accent-gray);
+}
+
+.stylesheet-path {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stylesheet-size {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    min-width: 60px;
+    text-align: right;
+}
+
+.stylesheet-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.stylesheet-checkbox {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.stylesheet-checkbox input[type="checkbox"] {
+    margin: 0;
+}
+
+.stylesheet-action {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.stylesheet-action:hover {
+    border-color: var(--color-border-hover);
+    background: var(--color-background-hover);
+}
+
+.view-css-btn {
+    background: var(--color-accent-blue);
+    color: white;
+    border-color: var(--color-accent-blue);
+}
+
+.view-css-btn:hover {
+    background: var(--color-accent-blue-hover);
+    border-color: var(--color-accent-blue-hover);
+}
+
+/* Statistics Grid */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background-subtle);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.25rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+/* Modal Styles */
+.stylesheet-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.stylesheet-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+}
+
+.stylesheet-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    max-height: 80vh;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.stylesheet-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background-subtle);
+    border-radius: 8px 8px 0 0;
+}
+
+.stylesheet-modal-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    color: var(--color-text-primary);
+}
+
+.stylesheet-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stylesheet-modal-close:hover {
+    color: var(--color-text-primary);
+}
+
+.stylesheet-modal-body {
+    padding: 1.5rem;
+    flex: 1;
+    overflow: hidden;
+}
+
+.stylesheet-content {
+    width: 100%;
+    height: 400px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    resize: vertical;
+    outline: none;
+}
+
+.stylesheet-content:focus {
+    border-color: var(--color-accent-blue);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stylesheet-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .stylesheet-actions {
+        justify-content: flex-end;
+    }
+    
+    .settings-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+    
+    .stylesheet-modal {
+        padding: 1rem;
+    }
+    
+    .stylesheet-modal-content {
+        max-height: 90vh;
+    }
+    
+    .stylesheet-content {
+        height: 300px;
+    }
+} 

@@ -220,7 +220,7 @@ export class PreviewManager {
     }
   }
 
-  async update(content, markdownFilePath) {
+  async update(content, filePath) {
     if (!this.initialized) {
       console.warn('[PreviewManager.update] Preview not initialized');
       return;
@@ -228,7 +228,7 @@ export class PreviewManager {
 
     // Handle popup preview update
     if (this.config.renderMode === 'iframe' && this.popupWindow && !this.popupWindow.closed) {
-      await this.updatePopupPreview(content, markdownFilePath);
+      await this.updatePopupPreview(content, filePath);
       return;
     }
 
@@ -240,9 +240,22 @@ export class PreviewManager {
     return new Promise((resolve) => {
       this.updateTimer = setTimeout(async () => {
         try {
-          logMessage(`[PreviewManager.update] Processing content (length: ${content.length})`, "debug", "PREVIEW");
+          logMessage(`[PreviewManager.update] Processing content (length: ${content.length}) for file: ${filePath}`, "debug", "PREVIEW");
           
-          const renderResult = await renderMarkdown(content, markdownFilePath);
+          // Detect file type and route to appropriate renderer
+          const fileExtension = this.getFileExtension(filePath);
+          let renderResult;
+
+          if (this.isHtmlFile(fileExtension)) {
+            // Use HTML renderer for HTML files
+            logMessage(`[PreviewManager.update] Using HTML renderer for: ${filePath}`, "debug", "PREVIEW");
+            const { previewRenderer } = await import('/client/preview/PreviewRenderer.js');
+            renderResult = await previewRenderer.render(content, filePath, this.previewElement);
+          } else {
+            // Use existing markdown rendering for markdown files and others
+            logMessage(`[PreviewManager.update] Using markdown renderer for: ${filePath}`, "debug", "PREVIEW");
+            renderResult = await renderMarkdown(content, filePath);
+          }
           
           if (!renderResult) {
             logMessage('Render result is null or undefined', "error", "PREVIEW");
@@ -272,10 +285,12 @@ export class PreviewManager {
             if (this.previewElement.tagName !== 'IFRAME') {
                 logMessage(`[PreviewManager.update] Updating DIV preview content.`, "debug", "PREVIEW");
                 
-                const parser = new DOMParser();
-                logMessage(`[PreviewManager.update] Parsing renderResult.fullPage (length: ${renderResult.fullPage.length}) with DOMParser...`, "debug", "PREVIEW");
-                const parsedDoc = parser.parseFromString(renderResult.fullPage, 'text/html');
-                logMessage(`[PreviewManager.update] DOMParser finished. Parsed head: ${parsedDoc.head.children.length} children, Parsed body: ${parsedDoc.body.children.length} children.`, "debug", "PREVIEW");
+                if (renderResult.fullPage) {
+                    const parser = new DOMParser();
+                    logMessage(`[PreviewManager.update] Parsing renderResult.fullPage (length: ${renderResult.fullPage.length}) with DOMParser...`, "debug", "PREVIEW");
+                    const parsedDoc = parser.parseFromString(renderResult.fullPage, 'text/html');
+                    logMessage(`[PreviewManager.update] DOMParser finished. Parsed head: ${parsedDoc.head.children.length} children, Parsed body: ${parsedDoc.body.children.length} children.`, "debug", "PREVIEW");
+                }
 
                 logMessage(`[PreviewManager.update] Setting previewElement.innerHTML with renderResult.html (length: ${renderResult.html.length})...`, "debug", "PREVIEW");
                 
@@ -301,19 +316,24 @@ export class PreviewManager {
           
           logMessage(`[PreviewManager.update] Calling postProcessRender...`, "debug", "PREVIEW");
 
-          // Call postProcessRender to handle plugin processing (Mermaid, etc.)
+          // Call appropriate post-processing based on file type
           if (this.config.renderMode === 'inline' && this.previewElement) {
             try {
-              // Import and call postProcessRender from MarkdownRenderer
-              const { postProcessRender } = await import('/client/preview/renderers/MarkdownRenderer.js');
-              await postProcessRender(
-                this.previewElement, 
-                renderResult.externalScriptUrls || [], 
-                renderResult.inlineScriptContents || [], 
-                markdownFilePath, 
-                renderResult.frontMatter || {}
-              );
-              logMessage(`[PreviewManager.update] postProcessRender completed successfully`, "debug", "PREVIEW");
+              if (this.isHtmlFile(fileExtension)) {
+                // HTML files are already post-processed by the HTML renderer
+                logMessage(`[PreviewManager.update] HTML post-processing completed by renderer`, "debug", "PREVIEW");
+              } else {
+                // Import and call postProcessRender from MarkdownRenderer for markdown files
+                const { postProcessRender } = await import('/client/preview/renderers/MarkdownRenderer.js');
+                await postProcessRender(
+                  this.previewElement, 
+                  renderResult.externalScriptUrls || [], 
+                  renderResult.inlineScriptContents || [], 
+                  filePath, 
+                  renderResult.frontMatter || {}
+                );
+                logMessage(`[PreviewManager.update] Markdown postProcessRender completed successfully`, "debug", "PREVIEW");
+              }
             } catch (postProcessError) {
               logMessage(`[PreviewManager.update] Error during postProcessRender: ${postProcessError.message}`, "error", "PREVIEW");
               console.error('[PreviewManager.update] postProcessRender error:', postProcessError);
@@ -371,6 +391,27 @@ export class PreviewManager {
 
   getConfig() {
     return { ...this.config };
+  }
+
+  /**
+   * Helper function to get file extension from path
+   */
+  getFileExtension(filePath) {
+    if (!filePath || typeof filePath !== 'string') {
+      return '';
+    }
+    const lastDot = filePath.lastIndexOf('.');
+    if (lastDot === -1) {
+      return '';
+    }
+    return filePath.substring(lastDot + 1).toLowerCase();
+  }
+
+  /**
+   * Helper function to check if file is HTML
+   */
+  isHtmlFile(extension) {
+    return ['html', 'htm'].includes(extension.toLowerCase());
   }
 
   handleFrontMatter(data = {}) {
@@ -530,13 +571,26 @@ export class PreviewManager {
   /**
    * Update popup preview with rendered content
    */
-  async updatePopupPreview(content, markdownFilePath = '') {
+  async updatePopupPreview(content, filePath = '') {
     if (!this.popupWindow || this.popupWindow.closed) {
       return;
     }
 
     try {
-      const renderResult = await renderMarkdown(content, markdownFilePath);
+      // Detect file type and route to appropriate renderer
+      const fileExtension = this.getFileExtension(filePath);
+      let renderResult;
+
+      if (this.isHtmlFile(fileExtension)) {
+        // Use HTML renderer for HTML files
+        const { previewRenderer } = await import('/client/preview/PreviewRenderer.js');
+        // Create a temporary container for HTML rendering
+        const tempContainer = document.createElement('div');
+        renderResult = await previewRenderer.render(content, filePath, tempContainer);
+      } else {
+        // Use existing markdown rendering for markdown files and others
+        renderResult = await renderMarkdown(content, filePath);
+      }
       
       // Create complete HTML document
       const fullHtml = this.createCompleteHtmlDocument(renderResult);

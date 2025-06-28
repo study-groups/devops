@@ -9,8 +9,9 @@
 export const panelOrder = [
     'themes',                   // From ThemeSelectorPanel.js - Theme selection and appearance
     'css-files',                // From CssFilesPanel.js - CSS file management
-    'design-tokens',            // From ThemeEditorPanel.js - Design tokens editor
+    'design-tokens',            // From DesignTokensPanel.js - Design tokens editor
     'preview-settings-panel',   // From PreviewSettingsPanel.js
+    'html-render-settings-panel', // From HtmlRenderSettingsPanel.js
     'publish-settings-panel',   // From PublishSettingsPanel.js
     'javascript-panel',         // From JavaScriptPanel.js
     'icons-panel',              // From IconsPanel.js

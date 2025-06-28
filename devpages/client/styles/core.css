@@ -1,0 +1,184 @@
+/* DevPages Core CSS - Minimal Semantic Styling */
+/* Loaded after reset.css - provides basic semantic styling without opinionated spacing */
+
+/* Typography hierarchy - minimal sizing only */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+/* Text elements - basic styling only */
+p {
+  line-height: 1.6;
+}
+
+/* Emphasis */
+strong, b { font-weight: bold; }
+em, i { font-style: italic; }
+small { font-size: 0.875em; }
+del, s { text-decoration: line-through; }
+ins, u { text-decoration: underline; }
+
+sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+}
+
+sup {
+  vertical-align: super;
+  font-size: 0.75em;
+}
+
+/* Lists - basic styling */
+ul { list-style-type: disc; }
+ol { list-style-type: decimal; }
+li { line-height: 1.5; }
+
+/* Code - minimal styling */
+code {
+  font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  background-color: var(--code-bg, #f5f5f5);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+pre {
+  font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  overflow-x: auto;
+  background-color: var(--code-bg, #f5f5f5);
+  padding: 1em;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Links */
+a {
+  color: var(--link-color, #0066cc);
+  text-decoration: underline;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+a:visited {
+  color: var(--link-visited, #551a8b);
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tables - minimal */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid var(--border-color, #ddd);
+  padding: 0.5em;
+  text-align: left;
+}
+
+th {
+  background-color: var(--table-header-bg, #f5f5f5);
+  font-weight: bold;
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--border-color, #ddd);
+  padding-left: 1em;
+  color: var(--text-muted, #666);
+  font-style: italic;
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  border-top: 1px solid var(--border-color, #ddd);
+  height: 1px;
+}
+
+/* Details */
+details {
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 3px;
+  padding: 0.5em;
+}
+
+summary {
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--selection-bg, #b3d4fc);
+  color: var(--selection-text, black);
+}
+
+::-moz-selection {
+  background-color: var(--selection-bg, #b3d4fc);
+  color: var(--selection-text, black);
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a, a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  pre, blockquote {
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tr, img {
+    page-break-inside: avoid;
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  p, h2, h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2, h3 {
+    page-break-after: avoid;
+  }
+} 

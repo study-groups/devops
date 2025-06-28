@@ -59,11 +59,12 @@ async function loadAllPanels() {
     // Load all panels dynamically - this ensures they register after reducer is set
     const panelImports = [
       import('../panels/themes/ThemeSelectorPanel.js'),
-      import('../panels/css-design/ThemeEditorPanel.js'),
+      import('../panels/css-design/DesignTokensPanel.js'),
       import('../panels/icons/IconsPanel.js'),
       import('../panels/plugins/PluginsPanel.js'),
       import('../panels/publish/PublishSettingsPanel.js'),
       import('../panels/preview/PreviewSettingsPanel.js'),
+      import('../panels/html-render/HtmlRenderSettingsPanel.js'),
       import('../panels/javascript/JavaScriptPanel.js'),
       import('../panels/console/ConsoleLogPanel.js'),
       import('../panels/dev-tools/DevToolsPanel.js'),
@@ -427,91 +428,26 @@ export class SettingsPanel {
 
   // Render updates based on the settingsPanel state slice
   render(settingsState) {
-    if (!this.panelElement) return;
-
-    logSettings('[DEBUG] render() called', 'debug');
-    logSettings(`[DEBUG] settingsState.collapsedSections: ${JSON.stringify(settingsState.collapsedSections)}`, 'debug');
-    logSettings(`[DEBUG] settingsState.collapsedSubsections: ${JSON.stringify(settingsState.collapsedSubsections || {})}`, 'debug');
-
-    // Update visibility state from store if it has changed
-    if (this.isVisible !== settingsState.visible) {
-      this.isVisible = settingsState.visible;
-      logSettings(`Visibility state updated from store: ${this.isVisible}`, 'debug');
+    if (!this.panelElement || !this.contentElement) {
+      logSettings('[DEBUG] Render called before panel DOM created. Aborting.', 'warn');
+      return;
     }
     
-    // Only update position/size if not actively dragging/resizing
-    if (!this.isDragging) {
-      this.panelElement.style.left = `${settingsState.position.x}px`;
-      this.panelElement.style.top = `${settingsState.position.y}px`;
-      this.currentPos = { ...settingsState.position };
-    }
-    
-    if (!this.isResizing) {
-      this.panelElement.style.width = `${settingsState.size.width}px`;
-      this.panelElement.style.height = `${settingsState.size.height}px`;
-      this.currentSize = { ...settingsState.size };
-    }
+    // Always re-render the sections to ensure new panels are shown
+    renderSettingsSections(
+      this.contentElement,
+      this.sectionInstances,
+      this.toggleSectionCollapse.bind(this)
+    );
 
-    // Update DOM visibility based on current state
-    this.updatePanelState();
+    // Update panel position and size from state
+    this.panelElement.style.left = `${settingsState.position.x}px`;
+    this.panelElement.style.top = `${settingsState.position.y}px`;
+    this.panelElement.style.width = `${settingsState.size.width}px`;
+    this.panelElement.style.height = `${settingsState.size.height}px`;
 
-    // Update individual section states
-    const collapsedSections = settingsState.collapsedSections || {};
-    logSettings(`[DEBUG] Processing ${Object.keys(collapsedSections).length} collapsed section states`, 'debug');
-    
-    for (const sectionId in collapsedSections) {
-        if (Object.prototype.hasOwnProperty.call(collapsedSections, sectionId)) {
-            const isCollapsed = collapsedSections[sectionId];
-            const sectionContainer = this.panelElement.querySelector(`#${sectionId}`);
-            
-            logSettings(`[DEBUG] Looking for section: ${sectionId}, found: ${!!sectionContainer}, collapsed: ${isCollapsed}`, 'debug');
-            
-            if (sectionContainer) {
-                const header = sectionContainer.querySelector('.settings-section-header');
-                const indicator = header ? header.querySelector('.collapse-indicator') : null;
-
-                sectionContainer.classList.toggle('collapsed', isCollapsed);
-                if (header) header.setAttribute('aria-expanded', !isCollapsed);
-                if (indicator) indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
-                
-                logSettings(`[DEBUG] Updated section ${sectionId} collapsed state to ${isCollapsed}`, 'debug');
-            } else {
-                logSettings(`[DEBUG] Section ${sectionId} not found in DOM - ignoring`, 'debug');
-            }
-        }
-    }
-    
-    // Update subsection states
-    const collapsedSubsections = settingsState.collapsedSubsections || {};
-    logSettings(`[DEBUG] Processing ${Object.keys(collapsedSubsections).length} collapsed subsection states`, 'debug');
-    
-    for (const sectionId in collapsedSubsections) {
-        if (Object.prototype.hasOwnProperty.call(collapsedSubsections, sectionId)) {
-            const isCollapsed = collapsedSubsections[sectionId];
-            
-            // For subsections, we need to handle the ID format which might contain / or :
-            // Convert to a valid CSS selector
-            const normalizedId = sectionId.replace(/[/:]/g, '\\$&');
-            const sectionContainer = this.panelElement.querySelector(`#${normalizedId}`);
-            
-            logSettings(`[DEBUG] Looking for subsection: ${sectionId} (normalized: ${normalizedId}), found: ${!!sectionContainer}, collapsed: ${isCollapsed}`, 'debug');
-            
-            if (sectionContainer) {
-                const header = sectionContainer.querySelector('.settings-section-header');
-                const indicator = header ? header.querySelector('.collapse-indicator') : null;
-
-                sectionContainer.classList.toggle('collapsed', isCollapsed);
-                if (header) header.setAttribute('aria-expanded', !isCollapsed);
-                if (indicator) indicator.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
-                
-                logSettings(`[DEBUG] Updated subsection ${sectionId} collapsed state to ${isCollapsed}`, 'debug');
-            } else {
-                logSettings(`[DEBUG] Subsection ${sectionId} not found in DOM - ignoring`, 'debug');
-            }
-        }
-    }
-    
-    logSettings('[DEBUG] render() completed', 'debug');
+    // Update visibility from state
+    this.panelElement.style.display = settingsState.visible ? 'flex' : 'none';
   }
 
   // --- Interaction Handlers --- 

@@ -144,7 +144,7 @@ router.get('/dirs', async (req, res) => {
     const username = req.user.username;
 
     // Use the correct method name from PData.js
-    const directories = await req.pdata.getUserTopLevelDirectories(username);
+    const directories = await req.pdata.getAvailableTopDirs(username);
 
     res.json(directories);
   } catch (error) {

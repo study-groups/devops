@@ -22,6 +22,9 @@ export function domInspectorReducer(state = {}, action) {
         case ActionTypes.DOM_INSPECTOR_SET_SIZE:
             return { ...state, size: action.payload };
 
+        case ActionTypes.DOM_INSPECTOR_SET_SPLIT_POSITION:
+            return { ...state, splitPosition: action.payload };
+
         case ActionTypes.DOM_INSPECTOR_ADD_SELECTOR_HISTORY: {
             const newHistory = [action.payload, ...state.selectorHistory.filter(item => item !== action.payload)];
             if (newHistory.length > MAX_HISTORY_LENGTH) {
