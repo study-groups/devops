@@ -124,7 +124,11 @@ class CssFilesPanel {
         return;
       }
 
-
+      // Report button
+      if (e.target.classList.contains('report-css-btn')) {
+        this.generateReport();
+        return;
+      }
 
       // Toggle checkboxes
       if (e.target.classList.contains('css-toggle-checkbox')) {
@@ -149,8 +153,6 @@ class CssFilesPanel {
         return;
       }
     });
-
-
   }
 
   /**
@@ -213,19 +215,34 @@ class CssFilesPanel {
       ">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--color-text, var(--color-foreground));">CSS Files Overview</h3>
-          <button class="refresh-css-btn" style="
-            background: var(--color-primary, #0066cc); 
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 13px;
-            font-weight: 500;
-            transition: background-color 0.2s;
-          " onmouseover="this.style.background='var(--color-primary-hover, #0052a3)'" onmouseout="this.style.background='var(--color-primary, #0066cc)'">
-            Refresh
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="refresh-css-btn" style="
+              background: var(--color-primary, #0066cc); 
+              color: white; 
+              border: none; 
+              padding: 8px 16px; 
+              border-radius: 4px; 
+              cursor: pointer; 
+              font-size: 13px;
+              font-weight: 500;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='var(--color-primary-hover, #0052a3)'" onmouseout="this.style.background='var(--color-primary, #0066cc)'">
+              Refresh
+            </button>
+            <button class="report-css-btn" style="
+              background: var(--color-secondary, #6c757d);
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 500;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='var(--color-secondary-hover, #545b62)'" onmouseout="this.style.background='var(--color-secondary, #6c757d)'">
+              Report
+            </button>
+          </div>
         </div>
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
@@ -396,7 +413,7 @@ class CssFilesPanel {
           ">
             ${fileName}
           </span>
-          ${cssFile.ruleCount === -1 ? `<span style="margin-left: 8px; font-size: 11px; color: var(--color-warning-text, #856404);">(CORS)</span>` : cssFile.ruleCount > 0 ? `<span style="margin-left: 8px; font-size: 11px; color: var(--color-foreground-secondary, #666);">(${cssFile.ruleCount} rules)</span>` : ''}
+          ${cssFile.ruleCount === -1 ? `<span style="margin-left: 8px; font-size: 11px; color: var(--color-warning-text, #856404);">(CORS Policy)</span>` : cssFile.ruleCount > 0 ? `<span style="margin-left: 8px; font-size: 11px; color: var(--color-foreground-secondary, #666);">(${cssFile.ruleCount} rules)</span>` : ''}
         </div>
         
         <div style="display: flex; gap: 6px; align-items: center;">
@@ -459,8 +476,6 @@ class CssFilesPanel {
     `;
   }
 
-
-
   /**
    * Render a category of CSS files
    */
@@ -491,8 +506,6 @@ class CssFilesPanel {
       </div>
     `;
   }
-
-
 
   /**
    * Render individual CSS file item
@@ -591,7 +604,7 @@ class CssFilesPanel {
                 font-size: 10px;
                 font-weight: 500;
               ">
-                CORS
+                Not Accessible (CORS)
               </span>
             ` : cssFile.ruleCount > 0 ? `
               <span style="
@@ -730,8 +743,6 @@ class CssFilesPanel {
       console.warn('[CssFilesPanel] CSS file not found or no element:', href);
     }
   }
-
-
 
   /**
    * View CSS file content
@@ -886,7 +897,7 @@ class CssFilesPanel {
             <div><strong>Media:</strong> ${cssFile.media}</div>
             <div><strong>Load:</strong> #${cssFile.loadOrder || 'N/A'}</div>
             <div><strong>Status:</strong> ${cssFile.disabled ? 'Disabled' : 'Active'}</div>
-            <div><strong>Rules:</strong> ${cssFile.ruleCount === -1 ? 'CORS' : (cssFile.ruleCount || 0)}</div>
+            <div><strong>Rules:</strong> ${cssFile.ruleCount === -1 ? 'Not Accessible (CORS)' : (cssFile.ruleCount || 0)}</div>
           </div>
         </div>
 
@@ -895,7 +906,7 @@ class CssFilesPanel {
           <h4 style="margin: 0 0 8px 0; color: var(--color-foreground); font-size: 14px;">Analysis</h4>
           ${analysis.corsRestricted ? `
             <div style="padding: 8px; background: var(--color-warning-background, #fff3cd); border-radius: 3px; font-size: 12px;">
-              <strong>CORS:</strong> External file - analysis limited by browser security
+              <strong>CORS Policy:</strong> External file - analysis limited by browser security
             </div>
           ` : analysis.rules.length > 0 ? `
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px;">
@@ -1072,6 +1083,147 @@ class CssFilesPanel {
   }
 
   /**
+   * Generate CSS report
+   */
+  generateReport() {
+    const allFiles = Array.from(this.cssFiles.values())
+      .sort((a, b) => a.loadOrder - b.loadOrder);
+
+    let report = 'CSS Files Load Order Report\n';
+    report += '=============================\n\n';
+
+    allFiles.forEach(file => {
+      const fullPath = this.getFullPath(file.href, file);
+      report += `${file.loadOrder}. [${file.type.toUpperCase()}] ${fullPath}\n`;
+
+      if (file.type === 'inline') {
+        report += `   - Source Document: ${window.location.pathname}\n`;
+        report += `   - Location in Document: ${file.location}\n`;
+        report += `   - Size: ${file.lineCount} lines, ${file.charCount} characters\n`;
+        report += `   - Rules: ${file.ruleCount}\n\n`;
+      } else {
+        report += `   - Media: ${file.media}\n`;
+        report += `   - Status: ${file.disabled ? 'Disabled' : 'Enabled'}\n`;
+        report += `   - Rules: ${file.ruleCount === -1 ? 'Rules not accessible (CORS Policy)' : file.ruleCount}\n\n`;
+      }
+    });
+
+    this.showReportModal(report);
+  }
+
+  /**
+   * Show report modal
+   */
+  showReportModal(content) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; 
+      z-index: 10000; font-family: var(--font-family-sans, system-ui);
+    `;
+    
+    modal.innerHTML = `
+      <div style="
+        background: var(--color-background, white); 
+        border: 1px solid var(--color-border, #e1e5e9);
+        padding: 24px; 
+        border-radius: 6px; 
+        max-width: 90vw; 
+        max-height: 90vh; 
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border, #e1e5e9);">
+          <h3 style="margin: 0; color: var(--color-foreground); font-size: 16px; font-weight: 600;">CSS Files Report</h3>
+          <div>
+            <button class="copy-report-btn" style="
+              background: var(--color-primary, #0066cc); 
+              color: white; 
+              border: none; 
+              padding: 8px 16px; 
+              border-radius: 4px; 
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 500;
+              margin-right: 8px;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='var(--color-primary-hover, #0052a3)'" onmouseout="this.style.background='var(--color-primary, #0066cc)'">
+              Copy
+            </button>
+            <button class="close-modal" style="
+              background: var(--color-danger, #dc3545); 
+              color: white; 
+              border: none; 
+              padding: 8px 16px; 
+              border-radius: 4px; 
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 500;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='var(--color-danger-hover, #c82333)'" onmouseout="this.style.background='var(--color-danger, #dc3545)'">
+              Close
+            </button>
+          </div>
+        </div>
+        <pre class="report-content" style="
+          background: var(--color-background-secondary, #f8f9fa); 
+          border: 1px solid var(--color-border, #e1e5e9);
+          padding: 20px; 
+          border-radius: 4px; 
+          overflow: auto; 
+          flex: 1;
+          margin: 0;
+          font-family: var(--font-family-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace); 
+          font-size: 12px; 
+          line-height: 1.6; 
+          white-space: pre-wrap;
+          color: var(--color-foreground);
+        ">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const closeModal = () => {
+      if (modal && modal.parentNode) {
+        modal.remove();
+      }
+    };
+    
+    modal.querySelector('.close-modal').addEventListener('click', closeModal);
+    
+    modal.querySelector('.copy-report-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(content).then(() => {
+        const copyButton = modal.querySelector('.copy-report-btn');
+        copyButton.textContent = 'Copied!';
+        copyButton.style.background = 'var(--color-success, #28a745)';
+        setTimeout(() => {
+          copyButton.textContent = 'Copy';
+          copyButton.style.background = 'var(--color-primary, #0066cc)';
+        }, 2000);
+      }, () => {
+        this.showNotification('Failed to copy report', 'error');
+      });
+    });
+    
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+    
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+  }
+
+  /**
    * Refresh CSS files
    */
   refreshCssFiles() {
@@ -1121,7 +1273,7 @@ class CssFilesPanel {
   getFullPath(href, cssFile) {
     if (cssFile.type === 'inline') {
       const styleNum = cssFile.index !== undefined ? cssFile.index + 1 : '';
-      return `Inline <style> tag #${styleNum} ${cssFile.location || 'in document'}`;
+      return `Inline <style> tag #${styleNum}`;
     }
     
     // For external files, show the full href/path
@@ -1346,10 +1498,6 @@ class CssFilesPanel {
       }
     }, 3000);
   }
-
-
-
-
 
   /**
    * Cleanup resources and destroy the panel

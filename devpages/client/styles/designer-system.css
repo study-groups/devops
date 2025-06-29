@@ -229,7 +229,7 @@ nav,
 
 /* Preview */
 .preview-panel,
-#preview-container {
+.preview-container {
   background-color: var(--preview-background) !important;
   color: var(--preview-text) !important;
   border-color: var(--preview-border) !important;

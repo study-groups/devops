@@ -164,7 +164,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
         }
         
         // Update Preview toggle (preview panel visibility)
-        const previewToggle = element.querySelector('#preview-toggle');
+        const previewToggle = element.querySelector('.preview-container-toggle');
         if (previewToggle && previewPanelState) {
             previewToggle.classList.toggle('active', previewPanelState.visible);
             previewToggle.title = previewPanelState.visible ? 'Hide Preview Panel (Alt+P)' : 'Show Preview Panel (Alt+P)';

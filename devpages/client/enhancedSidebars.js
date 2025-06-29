@@ -1,8 +1,7 @@
 console.log('[EnhancedSidebars] Initializing...'); // Changed log prefix for clarity
 
 import FileListComponent from '/client/code/file-list-component.js';
-// CodeManager is loaded globally via script tag in index.html, so window.CodeManager should be available
-// eventBus is also assumed to be globally available via window.eventBus
+// eventBus is assumed to be globally available via window.eventBus
 
 class EnhancedSidebars { // Renamed class slightly for the new file
     constructor() {
@@ -10,7 +9,6 @@ class EnhancedSidebars { // Renamed class slightly for the new file
         this.rightSidebar = null;
         this.container = null; // Content of left sidebar
         this.fileList = null;
-        this.codeManager = null;
         // this.currentPath = ''; // Not currently used, can be removed if not needed
         this.init();
     }
@@ -103,7 +101,6 @@ class EnhancedSidebars { // Renamed class slightly for the new file
     }
     
     // Public API (if needed by other modules)
-    getCodeManager() { return this.codeManager; }
     getFileList() { return this.fileList; }
     async analyzeCurrentProject() { /* ... */ }
 }

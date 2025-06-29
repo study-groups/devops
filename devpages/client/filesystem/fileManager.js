@@ -133,8 +133,10 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     const isLoggedIn = newState.auth.isAuthenticated;
     const isAuthInitializing = newState.auth.isInitializing;
 
-    // Enhanced logging
+    // Enhanced logging - but skip if only log filtering changed
     let triggerReason = "Initial call or unknown state change";
+    let shouldSkip = false;
+    
     if (prevState) { // Ensure prevState exists to compare
         if (newState.ui !== prevState.ui) {
             triggerReason = "UI state change";
@@ -148,14 +150,26 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
             triggerReason = "Auth state change";
         } else if (newState.file !== prevState.file) {
             triggerReason = "File state change";
+        } else if (newState.logFiltering !== prevState.logFiltering) {
+            // Skip logging if only log filtering state changed
+            shouldSkip = true;
         }
         // Add other state slice comparisons if relevant
     }
 
-    logFileManager(`[AUTH_CHANGE_HANDLER] Called. Trigger: ${triggerReason}. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
+    if (!shouldSkip) {
+        logFileManager(`[AUTH_CHANGE_HANDLER] Called. Trigger: ${triggerReason}. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
+    }
+
+    // Skip processing if only log filtering changed and no real auth changes
+    if (shouldSkip && wasLoggedIn === isLoggedIn && !isAuthInitializing) {
+        return;
+    }
 
     if (isAuthInitializing) {
-        logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
+        if (!shouldSkip) {
+            logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
+        }
         return; 
     }
 

@@ -492,7 +492,7 @@ export class IconsPanel {
     }
 
     updateTokenPreview() {
-        const previewContainer = document.getElementById('token-preview');
+        const previewContainer = document.querySelector(".preview-container");
         const tokens = {
             'size-base': document.getElementById('icon-size-base')?.value || '1rem',
             'color-primary': document.getElementById('icon-color-primary')?.value || '#475569',

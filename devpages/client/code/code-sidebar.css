@@ -263,8 +263,8 @@ body.view-code #code-sidebar {
 }
 
 /* Integration with existing layout */
-/* Ensure main content adjusts when sidebar is visible */
-body.view-code #main-container {
+/* Ensure preview container adjusts when sidebar is visible */
+body.view-code .preview-container {
     transition: margin-left 0.2s ease;
 }
 

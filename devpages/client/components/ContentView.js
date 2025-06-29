@@ -1,16 +1,22 @@
 /**
  * ContentView.js
  * 
- * This component manages the main content area, which includes the containers
- * for the Editor and Preview panels. It ensures that the panel containers
- * are in the DOM before notifying the rest of the application.
+ * Simplified component that creates minimal DOM structure for editor and preview.
+ * Removes unnecessary nested divs for better performance and cleaner markup.
  */
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 
 class ContentViewComponent {
-    constructor(targetElementId) {
-        this.targetElement = document.getElementById(targetElementId);
+    constructor(targetElementOrId) {
+        // Accept either an element or an element ID
+        if (typeof targetElementOrId === 'string') {
+            this.targetElement = document.getElementById(targetElementOrId);
+        } else if (targetElementOrId instanceof HTMLElement) {
+            this.targetElement = targetElementOrId;
+        } else {
+            this.targetElement = null;
+        }
         this.state = {
             editorVisible: true,
             previewVisible: true,
@@ -52,69 +58,29 @@ class ContentViewComponent {
     }
 
     loadCSS() {
-        const cssPath = '/client/components/styles/ContentView.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
+        if (!document.querySelector('link[href*="ContentView.css"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = cssPath;
+            link.href = '/client/components/styles/ContentView.css';
             document.head.appendChild(link);
-            logMessage('ContentView CSS loaded.', 'info', 'CONTENT_VIEW');
         }
     }
 
     render() {
-        const { editorVisible, previewVisible } = this.state;
-        let layoutClass = 'mode-split'; // Default
-        if (editorVisible && !previewVisible) layoutClass = 'mode-editor';
-        if (!editorVisible && previewVisible) layoutClass = 'mode-preview';
-        
-        // This component should ONLY create the containers for the panels to be mounted into.
-        // The panels themselves are responsible for their own inner HTML.
-        this.targetElement.innerHTML = `
-            <div id="content-editor-panel" class="content-panel">
-                <!-- EditorPanel will be mounted here by PanelUIManager -->
-            </div>
-            <div id="content-preview-panel" class="content-panel">
-                <!-- PreviewPanel will be mounted here by PanelUIManager -->
-            </div>
-        `;
-        
-        this.targetElement.className = `content-view-component ${layoutClass}`;
-        this.updateLayout(appStore.getState().panels);
+        // Ultra-simplified structure - just clear and prepare the preview container
+        this.targetElement.innerHTML = `<!-- Preview content rendered here -->`;
+        // Note: targetElement is already .preview-container, no need to change ID
     }
 
     updateLayout(panelsState) {
-        const editorPanel = this.targetElement.querySelector('#content-editor-panel');
-        const previewPanel = this.targetElement.querySelector('#content-preview-panel');
-
-        const editorState = panelsState['editor-panel'];
-        const previewState = panelsState['preview-panel'];
-
-        if (!editorPanel || !previewPanel || !editorState || !previewState) {
-            return;
-        }
-        
-        editorPanel.style.display = editorState.visible ? 'flex' : 'none';
-        previewPanel.style.display = previewState.visible ? 'flex' : 'none';
-
-        let layoutClass = '';
-        if (editorState.visible && previewState.visible) {
-            layoutClass = 'mode-split';
-        } else if (editorState.visible) {
-            layoutClass = 'mode-editor';
-        } else if (previewState.visible) {
-            layoutClass = 'mode-preview';
-        }
-        
-        this.targetElement.className = `content-view-component ${layoutClass}`;
+        // No layout logic needed - the target element IS the preview container
+        this.targetElement.style.display = 'block';
     }
 
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
         }
-        this.targetElement.innerHTML = '';
-        logMessage('[ContentView] Destroyed.', 'info', 'CONTENT_VIEW');
     }
 }
 

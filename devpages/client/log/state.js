@@ -78,11 +78,7 @@ export const logState = {
             logContainer.classList.remove('log-hiding');
             logContainer.classList.add('log-showing');
             
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer) {
-                mainContainer.classList.add('log-visible');
-                mainContainer.classList.remove('log-hidden');
-            }
+            // Main container no longer needs log classes
             
             // Update log button state
             const logButton = document.getElementById('log-btn');
@@ -100,11 +96,7 @@ export const logState = {
             logContainer.style.minHeight = '0px';
             logContainer.style.overflow = 'hidden';
             
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer) {
-                mainContainer.classList.remove('log-visible');
-                mainContainer.classList.add('log-hidden');
-            }
+            // Main container no longer needs log classes
             
             // Update log button state
             const logButton = document.getElementById('log-btn');

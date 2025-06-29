@@ -61,6 +61,18 @@ function logPanelInternalDebug(message, level = 'debug') { // Renamed to be clea
         logFunc(`[${type}] ${message}`);
 }
 
+/**
+ * Utility function to extract emoji symbols from CSS variable tokens
+ * Converts "var(--icon-copy, '📋')" to "📋"
+ */
+function extractIconFromCSSVar(text) {
+    if (typeof text !== 'string') return text;
+    
+    // Match CSS variable pattern: var(--icon-name, 'emoji')
+    const cssVarPattern = /var\(--icon-[^,]+,\s*['"]([^'"]+)['"]\)/g;
+    return text.replace(cssVarPattern, '$1');
+}
+
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
         this.container = document.getElementById(containerElementId);
@@ -101,7 +113,8 @@ export class LogPanel {
 
         this.state = {
             entryCount: 0,
-            clientLogIndex: 0
+            clientLogIndex: 0,
+            logOrder: localStorage.getItem('logOrder') || 'recent' // Default to recent first
         };
 
         this._isResizing = false;
@@ -198,7 +211,7 @@ export class LogPanel {
                 displayPrefix += ` [${subtype}]`;
             }
             const coreMessageString = typeof originalCoreMessage === 'string' ? originalCoreMessage : JSON.stringify(originalCoreMessage);
-            messageForDisplay = `${displayPrefix}${perfInfo} ${coreMessageString}`;
+            messageForDisplay = extractIconFromCSSVar(`${displayPrefix}${perfInfo} ${coreMessageString}`);
 
         } else if (typeof entryData === 'string') {
             // Legacy string processing
@@ -250,7 +263,7 @@ export class LogPanel {
             if (subtype) {
                 displayPrefix += ` [${subtype}]`;
             }
-            messageForDisplay = `${displayPrefix} ${entryData}`;
+            messageForDisplay = extractIconFromCSSVar(`${displayPrefix} ${entryData}`);
 
         } else {
             // This is the "final else" block (around line 655 in your file based on the latest stack)
@@ -284,7 +297,7 @@ export class LogPanel {
         const textSpan = document.createElement('span');
         textSpan.className = 'log-entry-text-content';
         
-        const fullDisplayMessage = `[${this.state.clientLogIndex}] ${timestamp} ${messageForDisplay}`;
+        const fullDisplayMessage = extractIconFromCSSVar(`[${this.state.clientLogIndex}] ${timestamp} ${messageForDisplay}`);
         
         if (upperCaseType === 'JSON' && entryData && typeof entryData.message === 'object') { // Check original message type from entryData
             let jsonString = '[Error stringifying JSON]';
@@ -309,7 +322,7 @@ export class LogPanel {
             logEntry.dataset.logSubtype = subtype; 
         }
         logEntry.dataset.logCoreMessage = (typeof originalCoreMessage === 'string') ? originalCoreMessage : JSON.stringify(originalCoreMessage);
-        logEntry.dataset.rawOriginalMessage = fullDisplayMessage; 
+        logEntry.dataset.rawOriginalMessage = messageForDisplay; 
         
         // NEW: Store the raw content for display in <pre> tags when expanded
         const rawContentPart = (typeof originalCoreMessage === 'string') ? originalCoreMessage : messageForDisplay;
@@ -337,7 +350,12 @@ export class LogPanel {
                 const lastExpandedEntry = expandedEntries[expandedEntries.length - 1];
                 lastExpandedEntry.after(logEntry);
             } else {
-                this.logElement.prepend(logEntry); 
+                // Insert based on log order preference
+                if (this.state.logOrder === 'recent') {
+                    this.logElement.prepend(logEntry); // Recent first (new entries at top)
+                } else {
+                    this.logElement.appendChild(logEntry); // Past first (new entries at bottom)
+                }
             }
             
             this.state.entryCount++;
@@ -395,42 +413,114 @@ export class LogPanel {
         this.state.clientLogIndex = 0;
         this.updateEntryCount();
         
-        // Reset discovered types and active filters
-        appStore.update(prevState => ({
-            ...prevState,
-            logFiltering: {
-                discoveredTypes: [],
-                activeFilters: [],
-                isInitialized: false
-            }
-        }));
+        // Reset discovered types and active filters without triggering unnecessary state changes
+        const currentState = appStore.getState();
+        if (currentState.logFiltering && 
+            (currentState.logFiltering.discoveredTypes.length > 0 || 
+             currentState.logFiltering.activeFilters.length > 0 || 
+             currentState.logFiltering.isInitialized)) {
+            appStore.update(prevState => ({
+                ...prevState,
+                logFiltering: {
+                    discoveredTypes: [],
+                    activeFilters: [],
+                    isInitialized: false
+                }
+            }));
+        }
         logPanelInternalDebug('[LogPanel] Log cleared and filters reset.', 'info');
     }
 
     /**
-     * Copies the current log content to the clipboard.
+     * Sets the log entry order (recent first or past first)
+     */
+    setLogOrder(order) {
+        if (!this.logElement) return;
+        
+        const entries = Array.from(this.logElement.children);
+        if (entries.length === 0) return;
+        
+        // Sort entries based on their log index
+        entries.sort((a, b) => {
+            const indexA = parseInt(a.dataset.logIndex || '0', 10);
+            const indexB = parseInt(b.dataset.logIndex || '0', 10);
+            
+            if (order === 'recent') {
+                // Recent first (higher index first)
+                return indexB - indexA;
+            } else {
+                // Past first (lower index first)  
+                return indexA - indexB;
+            }
+        });
+        
+        // Clear and re-append in new order
+        this.logElement.innerHTML = '';
+        entries.forEach(entry => this.logElement.appendChild(entry));
+        
+        // Update state and save preference
+        this.state.logOrder = order;
+        localStorage.setItem('logOrder', order);
+        logPanelInternalDebug(`[LogPanel] Log order set to: ${order}`, 'info');
+    }
+
+    /**
+     * Copies the current visible/selected log content to the clipboard.
      */
     copyLog() {
         if (!this.logElement) return;
 
+        // Only copy entries that are visible (not hidden by filters)
         const logText = Array.from(this.logElement.children)
             .filter(entry => !entry.classList.contains('log-entry-hidden-by-filter'))
             .map(entry => {
                 const index = entry.dataset.logIndex;
                 const timestamp = entry.dataset.logTimestamp;
                 const rawMessage = entry.dataset.rawOriginalMessage;
-                return `[${index}] ${timestamp} ${rawMessage}`;
+                return extractIconFromCSSVar(`[${index}] ${timestamp} ${rawMessage}`);
             })
             .join('\n');
 
         navigator.clipboard.writeText(logText)
             .then(() => {
-                logPanelInternalDebug('[LogPanel] Log copied to clipboard.', 'info');
+                logPanelInternalDebug('[LogPanel] Visible log entries copied to clipboard.', 'info');
                 // Optional: Show temporary feedback like "Copied!"
             })
             .catch(err => {
                 logPanelInternalDebug('[LogPanel] Failed to copy log:', err, 'error');
             });
+    }
+
+    /**
+     * Shows all log entries by expanding them.
+     */
+    showAllEntries() {
+        if (!this.logElement) return;
+        
+        const entries = this.logElement.querySelectorAll('.log-entry:not(.expanded)');
+        entries.forEach(entry => {
+            if (typeof this._expandLogEntry === 'function') {
+                this._expandLogEntry(entry);
+            }
+        });
+        
+        logPanelInternalDebug(`[LogPanel] Expanded ${entries.length} log entries.`, 'info');
+    }
+
+    /**
+     * Hides all log entries by collapsing them.
+     */
+    hideAllEntries() {
+        if (!this.logElement) return;
+        
+        const entries = this.logElement.querySelectorAll('.log-entry.expanded');
+        entries.forEach(entry => {
+            if (typeof this._collapseLogEntry === 'function') {
+                this._collapseLogEntry(entry);
+            }
+        });
+        
+        logPanelInternalDebug(`[LogPanel] Collapsed ${entries.length} log entries.`, 'info');
     }
 
     /**
@@ -589,27 +679,9 @@ export class LogPanel {
         // Remove any existing listeners first
         this._removeEventListeners();
 
-        // Add click handler for log entries
-        this.logElement.addEventListener('click', (event) => {
-            const target = event.target;
-            
-            // Check if the click was on a filter button
-            if (target.closest('.log-tag-button')) {
-                return; // Let the LogFilterBar handle this
-            }
-
-            // Handle log entry clicks
-            const logEntry = target.closest('.log-entry');
-            if (logEntry) {
-                const isExpanded = logEntry.classList.contains('expanded');
-                if (isExpanded) {
-                    collapseLogEntry(logEntry);
-                } else {
-                    expandLogEntry(logEntry);
-                }
-            }
-        });
-
+        // Note: Log entry expand/collapse is handled by double-click in logPanelEvents.js
+        // Single-click handling for buttons and toolbar interactions is also in logPanelEvents.js
+        
         // Add other event listeners as needed...
     }
 

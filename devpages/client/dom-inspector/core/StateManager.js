@@ -165,7 +165,7 @@ export class StateManager {
      * Add selector to history
      * @param {string} selector - CSS selector to add
      */
-    addSelectorToHistory(selector) {
+    addToHistory(selector) {
         dispatch({ type: ActionTypes.DOM_INSPECTOR_ADD_SELECTOR_HISTORY, payload: selector });
     }
 
@@ -173,7 +173,7 @@ export class StateManager {
      * Remove selector from history
      * @param {string} selector - CSS selector to remove
      */
-    removeSelectorFromHistory(selector) {
+    removeFromHistory(selector) {
         dispatch({ type: ActionTypes.DOM_INSPECTOR_REMOVE_SELECTOR_HISTORY, payload: selector });
     }
 
@@ -198,6 +198,17 @@ export class StateManager {
             type: ActionTypes.DOM_INSPECTOR_SET_TREE_STATE,
             payload: treeState
         });
+    }
+
+    /**
+     * Set selected element
+     * @param {Object} element - The selected element
+     */
+    setSelectedElement(element) {
+        // Don't store the DOM element in state as it can't be serialized
+        // Instead, emit the element selection event directly to listeners
+        console.log('[GENERAL] StateManager: Setting selected element (not storing in state):', element);
+        this.emit('selectedElementChanged', element, null);
     }
 
     /**
@@ -293,50 +304,25 @@ export class StateManager {
      * @param {...any} args - Arguments to pass to listeners
      */
     emit(event, ...args) {
-        console.log('[GENERAL] StateManager: emit() called for event:', event, 'args:', args);
-        console.log('[GENERAL] StateManager: Has listeners for event:', this.listeners.has(event));
+        console.log(`[GENERAL] StateManager: emit() called for event: ${event} args:`, args);
         if (this.listeners.has(event)) {
-            const listeners = this.listeners.get(event);
-            console.log('[GENERAL] StateManager: Number of listeners:', listeners.size);
-            listeners.forEach(callback => {
-                try {
-                    console.log('[GENERAL] StateManager: Calling listener for', event);
-                    callback(...args);
-                } catch (error) {
-                    console.error(`Error in DOM Inspector state listener for ${event}:`, error);
-                }
-            });
+            console.log(`[GENERAL] StateManager: Has listeners for event: true`);
+            this.listeners.get(event).forEach(callback => callback(...args));
+        } else {
+            console.log(`[GENERAL] StateManager: Has listeners for event: false`);
         }
     }
 
     /**
-     * Reset state to defaults
+     * Reset the DOM Inspector state to its initial values
      */
     resetState() {
-        const defaultState = {
-            visible: false,
-            position: { x: 100, y: 100 },
-            size: { width: 800, height: 600 },
-            splitPosition: 33,
-            highlight: { mode: 'border', color: '#448AFF' },
-            selectorHistory: [],
-            collapsedSections: {},
-            treeState: {
-                expandedNodes: [],
-                selectedElementId: null,
-                scrollPosition: 0,
-                lastUpdate: Date.now()
-            }
-        };
-
-        dispatch({
-            type: ActionTypes.DOM_INSPECTOR_SET_STATE,
-            payload: defaultState
-        });
+        dispatch({ type: ActionTypes.DOM_INSPECTOR_RESET_STATE });
+        this.persistState(appStore.getState().domInspector);
     }
 
     /**
-     * Clean up and unsubscribe from store
+     * Clean up resources
      */
     destroy() {
         if (this.stateUnsubscribe) {
@@ -344,5 +330,6 @@ export class StateManager {
             this.stateUnsubscribe = null;
         }
         this.listeners.clear();
+        console.log('StateManager destroyed');
     }
 } 

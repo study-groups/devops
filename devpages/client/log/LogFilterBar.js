@@ -1,5 +1,17 @@
 import { appStore } from '/client/appState.js'; // Dependency
 
+/**
+ * Utility function to extract emoji symbols from CSS variable tokens
+ * Converts "var(--icon-copy, '📋')" to "📋"
+ */
+function extractIconFromCSSVar(text) {
+    if (typeof text !== 'string') return text;
+    
+    // Match CSS variable pattern: var(--icon-name, 'emoji')
+    const cssVarPattern = /var\(--icon-[^,]+,\s*['"]([^'"]+)['"]\)/g;
+    return text.replace(cssVarPattern, '$1');
+}
+
 let tagsBarElementRef = null;
 let storeUnsubscribe = null;
 let filterSnapshot = null; // Or use localStorage for persistence
@@ -122,11 +134,26 @@ function _updateDisplay(discoveredTypes, activeFilters) {
 
         // Clear All button
         const clearAllButton = document.createElement('button');
+        clearAllButton.textContent = 'Hide All';
         clearAllButton.className = 'log-tag-button clear-all-button';
-        clearAllButton.textContent = 'Clear All';
         clearAllButton.dataset.action = 'clear-all';
-        clearAllButton.title = 'Hide All Log Types';
         controlGroup.appendChild(clearAllButton);
+
+        // Collapse All button (new)
+        const collapseAllButton = document.createElement('button');
+        collapseAllButton.innerHTML = '⊟'; // Minimize/collapse icon
+        collapseAllButton.className = 'log-tag-button collapse-all-button';
+        collapseAllButton.dataset.action = 'collapse-all';
+        collapseAllButton.title = 'Collapse All Log Entries';
+        controlGroup.appendChild(collapseAllButton);
+
+        // Copy button (copies visible entries)
+        const copyButton = document.createElement('button');
+        copyButton.innerHTML = '📋';
+        copyButton.className = 'log-tag-button copy-button';
+        copyButton.dataset.action = 'copy-log';
+        copyButton.title = 'Copy Visible Log Entries';
+        controlGroup.appendChild(copyButton);
 
         // Preset button (reset to preset, long-hold to set)
         const presetButton = document.createElement('button');
@@ -208,8 +235,61 @@ function _handleTagClick(event) {
     try {
         // Handle Clear Log button
         if (action === 'clear-log') {
+            // Clear the main LogPanel
             if (window.logPanel && typeof window.logPanel.clearLog === 'function') {
                 window.logPanel.clearLog();
+            }
+            
+            // Clear the console log manager buffer
+            if (window.consoleLogManager && typeof window.consoleLogManager.clearLogBuffer === 'function') {
+                window.consoleLogManager.clearLogBuffer();
+            }
+            
+            // Clear any other log manager that might exist
+            if (window.logManager && window.logManager !== window.consoleLogManager && typeof window.logManager.clearLogBuffer === 'function') {
+                window.logManager.clearLogBuffer();
+            }
+            
+            // Clear any API log buffers if they exist
+            if (window.apiLogBuffer && typeof window.apiLogBuffer.clear === 'function') {
+                window.apiLogBuffer.clear();
+            }
+            
+            // Clear any timing registry if it exists
+            if (window.__timingRegistry && typeof window.__timingRegistry.clear === 'function') {
+                window.__timingRegistry.clear();
+            }
+            
+            // Force clear any remaining DOM log entries
+            const logElement = document.querySelector('#log, .log-entries, #log-entries, .log-panel .log-content');
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+            
+            // Also clear from the LogPanel instance directly if available
+            if (window.logPanel && window.logPanel.logElement) {
+                window.logPanel.logElement.innerHTML = '';
+            }
+            
+            // Reset any global log counters
+            if (window.logEntryIndex !== undefined) {
+                window.logEntryIndex = 0;
+            }
+            
+            console.log('[LogPanel] Comprehensive log clear completed');
+            return;
+        }
+
+        // Handle Copy Log button
+        if (action === 'copy-log') {
+            if (window.logPanel && typeof window.logPanel.copyLog === 'function') {
+                window.logPanel.copyLog();
+                // Show feedback
+                const originalContent = targetButton.innerHTML;
+                targetButton.innerHTML = '✅';
+                setTimeout(() => {
+                    targetButton.innerHTML = originalContent;
+                }, 2000);
             }
             return;
         }
@@ -237,6 +317,14 @@ function _handleTagClick(event) {
                     isInitialized: true
                 }
             }));
+            return;
+        }
+
+        // Handle Collapse All - collapse all expanded log entries
+        if (action === 'collapse-all') {
+            if (window.logPanel && typeof window.logPanel.hideAllEntries === 'function') {
+                window.logPanel.hideAllEntries();
+            }
             return;
         }
 
@@ -309,6 +397,22 @@ export function initializeLogFilterBar(element) {
     clearAllButton.dataset.action = 'clear-all';
     controlGroup.appendChild(clearAllButton);
 
+    // Collapse All button (new)
+    const collapseAllButton = document.createElement('button');
+    collapseAllButton.innerHTML = '⊟'; // Minimize/collapse icon
+    collapseAllButton.className = 'log-tag-button collapse-all-button';
+    collapseAllButton.dataset.action = 'collapse-all';
+    collapseAllButton.title = 'Collapse All Log Entries';
+    controlGroup.appendChild(collapseAllButton);
+
+    // Copy button (copies visible entries)
+    const copyButton = document.createElement('button');
+    copyButton.innerHTML = '📋';
+    copyButton.className = 'log-tag-button copy-button';
+    copyButton.dataset.action = 'copy-log';
+    copyButton.title = 'Copy Visible Log Entries';
+    controlGroup.appendChild(copyButton);
+
     element.appendChild(controlGroup);
 
     // Add event listener
@@ -330,7 +434,7 @@ export function updateTagsBar(element, logFilteringState) {
     element.innerHTML = '';
     if (controlGroup) {
         // Clear any level-related content from control group (keep only the main control buttons)
-        const controlButtons = controlGroup.querySelectorAll('.clear-log-button, .select-all-button, .clear-all-button');
+        const controlButtons = controlGroup.querySelectorAll('.clear-log-button, .select-all-button, .clear-all-button, .copy-button');
         controlGroup.innerHTML = '';
         controlButtons.forEach(btn => controlGroup.appendChild(btn));
         

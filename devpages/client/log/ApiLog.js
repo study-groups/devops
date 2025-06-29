@@ -172,6 +172,7 @@ export class ApiLogBuffer {
   
   clear() {
     this.buffer = [];
+    this.notifyCallbacks();
     return this;
   }
   
@@ -242,6 +243,12 @@ export class ApiLogBuffer {
   }
 }
 
+const allGameApiManagers = [];
+
+export function getAllGameApiManagers() {
+    return allGameApiManagers;
+}
+
 /**
  * GameApiManager - Manages PJA Game API communication
  * Inspired by pjaSdk.module.js but focused on logging
@@ -252,6 +259,7 @@ export class GameApiManager {
     this.role = options.role || 'UNKNOWN'; // HOST, CLIENT, SERVER
     this.debug = options.debug || false;
     this.callbacks = new Map();
+    allGameApiManagers.push(this);
   }
   
   /**
@@ -322,6 +330,14 @@ export class GameApiManager {
   clear() {
     this.buffer.clear();
     return this;
+  }
+
+  destroy() {
+    this.buffer.clear();
+    const index = allGameApiManagers.indexOf(this);
+    if (index > -1) {
+        allGameApiManagers.splice(index, 1);
+    }
   }
 }
 

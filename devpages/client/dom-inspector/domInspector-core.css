@@ -415,7 +415,12 @@ body.dom-inspector-splitter-dragging * {
 }
 
 .dom-inspector-node-header:hover {
-  background: var(--hover-bg);
+  /* All hover effects removed as requested */
+  background: transparent !important;
+  color: inherit !important;
+  border-left: none !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .dom-inspector-node-header.selected {
@@ -1084,8 +1089,9 @@ body.dom-inspector-splitter-dragging * {
 }
 
 .breadcrumb-link:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
+  /* HOVER EFFECT REMOVED */
+  text-decoration: none !important;
+  color: inherit !important;
 }
 
 .breadcrumb-link.active {
@@ -1095,24 +1101,10 @@ body.dom-inspector-splitter-dragging * {
 }
 
 .breadcrumb-tooltip {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-base);
-  padding: var(--space-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 1000;
-  min-width: 250px;
-  max-width: 350px;
-  font-size: var(--text-sm);
-  margin-top: var(--space-xs);
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+  /* HOVER TOOLTIP REMOVED */
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 .tooltip-title {
@@ -1169,4 +1161,49 @@ body.dom-inspector-splitter-dragging * {
 .breadcrumb-path {
   color: var(--text-secondary);
   word-break: break-all;
+}
+
+/* Box Model Section */
+.dom-inspector-box-model {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    font-family: monospace, Consolas, "Courier New";
+    font-size: 13px;
+    background-color: #f7f7f7;
+    border: 1px dashed #bbb;
+    margin: 10px 0;
+}
+
+.box-model-margin,
+.box-model-border,
+.box-model-padding {
+    padding: 10px;
+    border: 1px dashed #bbb;
+    text-align: center;
+}
+
+.box-model-margin {
+    background-color: #f0f8ff; /* AliceBlue */
+    border-color: #a2c7e8;
+}
+
+.box-model-border {
+    background-color: #fafad2; /* LightGoldenrodYellow */
+    border-style: solid;
+    border-color: #d6d6a2;
+}
+
+.box-model-padding {
+    background-color: #e6e6fa; /* Lavender */
+    border-color: #b0b0d8;
+}
+
+.box-model-content {
+    background-color: #fff;
+    padding: 20px 10px;
+    border: 1px solid #aaa;
+    text-align: center;
+    min-width: 100px;
 } 

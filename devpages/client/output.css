@@ -817,20 +817,20 @@ button.loading::after {
   }
 }
 
-/* Main container layout */
+/* Content layout */
 
-#main-container {
+#content {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
   overflow: hidden;
 }
 
-/* Content area */
+/* Preview container area */
 
-#content {
+.preview-container {
   flex: 1;
-  /* Keep this - allows #content to fill vertical space */
+  /* Keep this - allows preview container to fill vertical space */
   overflow: hidden;
   /* Keep this */
   height: 100%;
@@ -1113,7 +1113,7 @@ button.loading::after {
 
   /* Content area spacing */
 
-  #content {
+  .preview-container {
     padding-top: 5px;
   }
 
@@ -1213,7 +1213,7 @@ button.loading::after {
 /* Base styles for the editor and preview panes */
 
 #content-view-wrapper > #editor-container,
-#content-view-wrapper > #preview-container {
+#content-view-wrapper > .preview-container {
   flex: 1;
   /* Each takes up half the space by default (for split view) */
   overflow: auto;
@@ -1226,7 +1226,7 @@ button.loading::after {
 
 /* Hide preview when in editor-only mode */
 
-#content-view-wrapper.mode-editor #preview-container {
+#content-view-wrapper.mode-editor .preview-container {
   display: none;
 }
 
@@ -1239,7 +1239,7 @@ button.loading::after {
 /* Ensure both are visible in split mode (styles above handle flex: 1) */
 
 #content-view-wrapper.mode-split #editor-container,
-#content-view-wrapper.mode-split #preview-container {
+#content-view-wrapper.mode-split .preview-container {
   /* display: flex; /* REMOVED - Base flex: 1 on items should handle this */
   /* flex: 1; /* Already set in base styles */
 }
@@ -1290,7 +1290,7 @@ button.loading::after {
 
 /* Style the preview container */
 
-#preview-container {
+.preview-container {
   padding: 1rem;
   /* Match previous preview padding */
   overflow-y: auto;

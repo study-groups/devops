@@ -55,6 +55,7 @@ export class ConsoleLogBuffer {
    */
   clear() {
     this.buffer = [];
+    this.discoveredTypes.clear();
     return this;
   }
 

@@ -59,8 +59,7 @@ export class LayoutManager {
     const elementIds = [
       'panels-container',
       'right-gutter', 
-      'main-container',
-      'content-view-wrapper',
+      'preview',
       'log-container'
     ];
 
@@ -355,18 +354,24 @@ export class LayoutManager {
     const body = this.elements.get('body');
     if (!body) return;
 
-    // Panel-based classes
+    // Panel-based classes (keep these on body for global layout)
     body.classList.toggle('panels-visible', this.state.panelsVisible);
     body.classList.toggle('code-view-visible', this.state.codeViewVisible);
-    body.classList.toggle('log-visible', this.state.logVisible);
     
-    // View mode classes
+    // View mode classes (keep these on body for global layout)
     body.classList.toggle('view-preview', this.state.viewMode === 'preview');
     body.classList.toggle('view-split', this.state.viewMode === 'split');
     
     // Compatibility classes for existing CSS
     body.classList.toggle('left-sidebar-visible', this.state.panelsVisible);
     body.classList.toggle('right-sidebar-visible', this.state.codeViewVisible);
+    
+    // Apply log visibility only to the log container itself
+    const logContainer = document.getElementById('log-container');
+    if (logContainer) {
+      logContainer.classList.toggle('log-visible', this.state.logVisible);
+      logContainer.classList.toggle('log-hidden', !this.state.logVisible);
+    }
   }
 
   /**
@@ -378,9 +383,9 @@ export class LayoutManager {
       logContainer.style.display = this.state.logVisible ? 'block' : 'none';
     }
 
-    const mainContainer = this.elements.get('main-container');
-    if (mainContainer) {
-      mainContainer.classList.toggle('log-hidden', !this.state.logVisible);
+    const previewContainer = this.elements.get('preview');
+    if (previewContainer) {
+      previewContainer.classList.toggle('log-hidden', !this.state.logVisible);
     }
   }
 

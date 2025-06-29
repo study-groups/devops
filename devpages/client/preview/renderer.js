@@ -737,92 +737,24 @@ function simpleJoinPath(base, relative) {
  * @param {object} [frontMatter={}] - The parsed frontmatter object.
  */
 export async function postProcessRender(previewElement, externalScriptUrls = [], inlineScriptContents = [], markdownFilePath = '', frontMatter = {}) {
-    console.log('[RENDERER DEBUG] postProcessRender called with:', { 
-        previewElement: !!previewElement, 
-        externalScripts: externalScriptUrls?.length || 0, 
-        inlineScripts: inlineScriptContents?.length || 0,
-        markdownFilePath,
-        hasMermaidDivs: previewElement?.querySelectorAll('.mermaid')?.length || 0
-    });
-    logRenderer(`[postProcessRender] Called for element: ${previewElement ? previewElement.id : 'null'}. External scripts: ${externalScriptUrls.length}, Inline scripts: ${inlineScriptContents.length}. Path: '${markdownFilePath}'`);
-
     if (!previewElement) {
-        logRenderer('[postProcessRender] Preview element is null. Skipping post-processing.', 'warn');
+        logRenderer('postProcessRender called with no previewElement. Aborting.', 'error');
         return;
     }
 
-    // const { appStore } = window; // Not strictly needed for this CSS part if markdownFilePath is reliable
-    // if (!appStore || !appStore.getState) {
-    //     logRenderer('[postProcessRender] appStore is not available. This might affect some path resolutions if markdownFilePath is not provided.', 'warn');
-    // }
+    // --- NEW: Add the 'loaded' class after a short delay ---
+    // This ensures content is rendered before fade-in
+    setTimeout(() => {
+        if (previewElement.tagName === 'IFRAME') {
+            previewElement.classList.add('loaded');
+            logRenderer('Added "loaded" class to iframe for fade-in effect.', 'info');
+        }
+    }, 50); // 50ms delay, can be adjusted
+    // ---------------------------------------------------------
 
-    // --- START: CSS Link Injection ---
-    // Ensure existing CSS links from previous renders for THIS specific preview instance are removed
-    // This requires a way to identify them, e.g., by adding a custom attribute.
-    const previewSpecificCssClass = `preview-css-${markdownFilePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
-    document.querySelectorAll(`link.${previewSpecificCssClass}`).forEach(link => {
-        logRenderer(`[postProcessRender] Removing old CSS link: ${link.href}`, 'debug');
-        link.remove();
-    });
+    logRenderer(`Post-processing render for path: ${markdownFilePath}`, 'info');
 
-    if (frontMatter.css_includes && Array.isArray(frontMatter.css_includes) && markdownFilePath) {
-        logRenderer(`[postProcessRender] Processing ${frontMatter.css_includes.length} CSS includes.`, 'debug');
-        const pdataFilePathDir = markdownFilePath.substring(0, markdownFilePath.lastIndexOf('/'));
-        
-        frontMatter.css_includes.forEach(cssPath => {
-            if (typeof cssPath === 'string' && cssPath.trim() !== '') {
-                const trimmedCssPath = cssPath.trim();
-                let finalCssUrl = '';
-
-                if (trimmedCssPath.startsWith('http://') || trimmedCssPath.startsWith('https://')) {
-                    finalCssUrl = trimmedCssPath; // Use full URL as is
-                    logRenderer(`[postProcessRender] CSS Path is absolute URL: ${finalCssUrl}`, 'debug');
-                } else if (trimmedCssPath.startsWith('/')) {
-                    // Assuming root-relative path means from the domain root,
-                    // and if it's for pdata, it needs the /api/pdata/read?file= prefix.
-                    // This might need adjustment based on how you serve root-relative assets.
-                    // If it's truly like /css/app.css and served directly, no prefix needed.
-                    // For consistency with pdata-served assets:
-                    if (trimmedCssPath.startsWith('/api/pdata/read?file=')) { // Already correctly prefixed
-                        finalCssUrl = trimmedCssPath;
-                    } else { // Assume it's a path within pdata from the root of pdata
-                         finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(trimmedCssPath.startsWith('/') ? trimmedCssPath.substring(1) : trimmedCssPath)}`;
-                    }
-                    logRenderer(`[postProcessRender] CSS Path is root-relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
-                } else if (trimmedCssPath.startsWith('./') || trimmedCssPath.startsWith('../')) {
-                    const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
-                    finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
-                    logRenderer(`[postProcessRender] CSS Path is relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
-                } else {
-                    // Assume relative to MD file if no other indicators
-                    logRenderer(`[postProcessRender] CSS Path is ambiguous (assuming relative to MD): '${trimmedCssPath}'.`, 'debug');
-                    const resolvedPDataPath = simpleJoinPath(pdataFilePathDir, trimmedCssPath);
-                    finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
-                }
-
-                if (finalCssUrl) {
-                    // More robust check for existing link, especially if IDs aren't feasible
-                    const existingLink = document.querySelector(`link[rel="stylesheet"][href="${finalCssUrl}"]`);
-                    if (!existingLink) {
-                        const linkEl = document.createElement('link');
-                        linkEl.rel = 'stylesheet';
-                        linkEl.type = 'text/css';
-                        linkEl.href = finalCssUrl;
-                        linkEl.classList.add(previewSpecificCssClass); // Add class for identification
-                        document.head.appendChild(linkEl);
-                        logRenderer(`[postProcessRender] Appended CSS link to document.head: ${finalCssUrl}`, 'info');
-                    } else {
-                        logRenderer(`[postProcessRender] CSS link already exists in document.head: ${finalCssUrl}`, 'debug');
-                    }
-                }
-            }
-        });
-    } else {
-        if (!frontMatter.css_includes) logRenderer(`[postProcessRender] No 'css_includes' in frontMatter.`, 'debug');
-        else if (!markdownFilePath) logRenderer(`[postProcessRender] 'markdownFilePath' is missing, cannot resolve relative CSS paths.`, 'warn');
-    }
-    // --- END: CSS Link Injection ---
-
+    // --- 1. Handle Scripts (JS Includes) ---
     let fetchedExternalScripts = [];
 
     if (externalScriptUrls && externalScriptUrls.length > 0) {

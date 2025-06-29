@@ -5,13 +5,14 @@
 import { BasePanel } from '/client/panels/core/BasePanel.js';
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { updatePreview as updatePreviewer } from '/client/preview.js';
+import { updatePreview } from '/client/preview.js';
 
 export class PreviewPanel extends BasePanel {
     constructor(options = {}) {
         super(options.id || 'preview-panel', options);
 
-        // This panel just provides the preview container
+        // This panel works with the existing preview
+        this.previewContainer = null;
     }
 
     /**
@@ -34,46 +35,6 @@ export class PreviewPanel extends BasePanel {
     }
 
     /**
-     * Dynamically load the panel's CSS
-     */
-    loadCSS() {
-        const cssPath = '/client/panels/styles/PreviewPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            document.head.appendChild(link);
-            this.log('PreviewPanel CSS loaded.', 'info');
-        }
-    }
-
-    /**
-     * Render panel content
-     */
-    renderContent() {
-        return `
-            <div class="preview-panel-content">
-                <div id="preview-container" class="preview-container markdown-content" data-markdown-content>
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Setup after DOM creation
-     */
-    async onMount() {
-        await super.onMount();
-        this.loadCSS();
-        this.log('[PANEL_DEBUG] PreviewPanel onMount hook executed.', 'debug');
-
-        // Initialize the preview system now that the container exists
-        await this.initializePreviewSystem();
-
-        this.log('PreviewPanel fully mounted and configured.', 'info');
-    }
-
-    /**
      * Initialize the preview system
      */
     async initializePreviewSystem() {
@@ -87,13 +48,136 @@ export class PreviewPanel extends BasePanel {
         }
     }
 
-    // Preview system is initialized and managed by previewManager
+    /**
+     * Mount the panel to its container
+     */
+    async mount(container) {
+        if (!container) {
+            this.log('No container provided for PreviewPanel mount', 'error');
+            return false;
+        }
+
+        this.log(`Mounting PreviewPanel to container: ${container.id || container.className}`, 'debug');
+
+        // The container IS the preview container - use it directly
+        this.previewContainer = container;
+        this.log('Using container directly as preview container', 'debug');
+
+        // Set the container element for BasePanel
+        this.containerElement = container;
+        this.contentElement = this.previewContainer;
+
+        // Initialize the preview system
+        await this.initializePreviewSystem();
+
+        // Subscribe to state changes
+        this.subscribeToStateChanges();
+
+        // Trigger initial update
+        await this.updatePreview();
+
+        this.log('PreviewPanel mounted successfully', 'info');
+        return true;
+    }
 
     /**
-     * Panel cleanup
+     * Subscribe to app state changes for preview updates
      */
-    cleanup() {
-        this.log('PreviewPanel cleanup', 'debug');
-        super.cleanup();
+    subscribeToStateChanges() {
+        // Subscribe to file content changes to update preview
+        this.unsubscribe = appStore.subscribe((newState, prevState) => {
+            const newFile = newState.file?.currentPathname;
+            const oldFile = prevState.file?.currentPathname;
+            const newContent = newState.file?.content;
+            const oldContent = prevState.file?.content;
+
+            // Update preview when file changes or content is updated
+            if (newFile !== oldFile || newContent !== oldContent) {
+                this.updatePreview();
+            }
+        });
+    }
+
+    /**
+     * Update the preview content
+     */
+    async updatePreview() {
+        if (!this.previewContainer) {
+            this.log('No preview container available', 'warn');
+            return;
+        }
+
+        try {
+            const state = appStore.getState();
+            const content = state.file?.content || '';
+            const filePath = state.file?.currentPathname || '';
+            
+            // More detailed debugging
+            this.log(`App state debug:`, 'debug');
+            this.log(`- state.file exists: ${!!state.file}`, 'debug');
+            this.log(`- filePath: "${filePath}"`, 'debug');
+            this.log(`- content length: ${content.length}`, 'debug');
+            this.log(`- content preview: "${content.substring(0, 100)}..."`, 'debug');
+            this.log(`- state.file keys: ${state.file ? Object.keys(state.file).join(', ') : 'none'}`, 'debug');
+
+            // If no content, show a placeholder
+            if (!content && !filePath) {
+                this.previewContainer.innerHTML = `
+                    <div style="padding: 2rem; text-align: center; color: #666;">
+                        <h3>No Content</h3>
+                        <p>No file selected or content loaded.</p>
+                        <p><small>Select a file to see its preview here.</small></p>
+                    </div>
+                `;
+                return;
+            }
+
+            // If we have a file path but no content, try to load it
+            if (filePath && !content) {
+                this.previewContainer.innerHTML = `
+                    <div style="padding: 2rem; text-align: center; color: #666;">
+                        <h3>Loading Content</h3>
+                        <p>File: ${filePath}</p>
+                        <p><small>Content is being loaded...</small></p>
+                    </div>
+                `;
+                
+                // Try to trigger file loading
+                this.log(`File path exists but no content. Triggering file load for: ${filePath}`, 'warn');
+                return;
+            }
+
+            // Use the global preview updater
+            await updatePreview(content, this.previewContainer, filePath);
+            
+        } catch (error) {
+            this.log(`Preview update failed: ${error.message}`, 'error');
+            this.showError('Failed to update preview');
+        }
+    }
+
+    /**
+     * Show error in preview
+     */
+    showError(message) {
+        if (this.previewContainer) {
+            this.previewContainer.innerHTML = `
+                <div class="preview-error">
+                    <div class="preview-error__content">
+                        <strong>Preview Error:</strong> ${message}
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Clean up resources
+     */
+    destroy() {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+        }
+        super.destroy();
     }
 } 

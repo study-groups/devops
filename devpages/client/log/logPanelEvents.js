@@ -13,6 +13,57 @@ let boundHandleResizeMouseMove = null;
 let boundHandleResizeMouseUp = null;
 
 /**
+ * Show feedback when copy button is clicked
+ */
+function showCopyFeedback(buttonElement) {
+    if (!buttonElement) return;
+    
+    const originalText = buttonElement.textContent || buttonElement.innerHTML;
+    const originalTitle = buttonElement.title;
+    
+    // Show feedback
+    if (buttonElement.innerHTML.includes('📋')) {
+        buttonElement.innerHTML = '✅';
+    } else {
+        buttonElement.textContent = 'Copied!';
+    }
+    buttonElement.title = 'Copied to clipboard';
+    
+    // Reset after 2 seconds
+    setTimeout(() => {
+        buttonElement.innerHTML = originalText;
+        buttonElement.title = originalTitle;
+    }, 2000);
+}
+
+/**
+ * Updates the visual indicators in the menu to show current log order
+ */
+function updateMenuVisualIndicators() {
+    const menuContainer = document.getElementById('log-menu-container');
+    if (!menuContainer) return;
+    
+    const currentOrder = localStorage.getItem('logOrder') || 'recent';
+    const menuItems = menuContainer.querySelectorAll('.log-menu-item');
+    
+    menuItems.forEach(item => {
+        const action = item.dataset.action;
+        if (action === 'setLogOrderRecent' || action === 'setLogOrderPast') {
+            const isActive = (action === 'setLogOrderRecent' && currentOrder === 'recent') ||
+                           (action === 'setLogOrderPast' && currentOrder === 'past');
+            
+            if (isActive) {
+                item.textContent = `✓ ${item.textContent.replace('✓ ', '')}`;
+                item.style.fontWeight = 'bold';
+            } else {
+                item.textContent = item.textContent.replace('✓ ', '');
+                item.style.fontWeight = 'normal';
+            }
+        }
+    });
+}
+
+/**
  * Attaches all necessary event listeners for the LogPanel.
  * @param {LogPanel} logPanelInstance - The instance of the LogPanel.
  */
@@ -69,11 +120,11 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                 case 'minimizeLog':
                     dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
                     break;
-                case 'copyLog':
-                    if (typeof logPanelInstance.copyLog === 'function') logPanelInstance.copyLog();
+                case 'setLogOrderRecent':
+                    if (typeof logPanelInstance.setLogOrder === 'function') logPanelInstance.setLogOrder('recent');
                     break;
-                case 'clearLog':
-                    if (typeof logPanelInstance.clearLog === 'function') logPanelInstance.clearLog();
+                case 'setLogOrderPast':
+                    if (typeof logPanelInstance.setLogOrder === 'function') logPanelInstance.setLogOrder('past');
                     break;
                 // Add other cases for different data-actions like copyLogEntry, etc.
                 // case 'collapseLogEntry':
@@ -99,14 +150,69 @@ export function attachLogPanelEventListeners(logPanelInstance) {
         logWarn('LogPanel toolbarElement or container not found for delegated click listener.', { type: 'LOG_PANEL', subtype: 'ERROR' });
     }
 
-    // TODO: Add listeners for log entry interactions (click to expand/collapse, copy individual entry)
+    // --- Add event listener for menu items ---
+    const menuContainer = document.getElementById('log-menu-container');
+    if (menuContainer) {
+        menuContainer.addEventListener('click', (event) => {
+            const menuItem = event.target.closest('.log-menu-item[data-action]');
+            if (!menuItem) return;
+
+            const action = menuItem.dataset.action;
+            logDebug(`Menu item clicked: ${action}`, { type: 'LOG_PANEL', subtype: 'EVENTS' });
+
+            // Prevent event from propagating
+            event.preventDefault();
+            event.stopPropagation();
+
+            switch (action) {
+                case 'setLogOrderRecent':
+                    if (typeof logPanelInstance.setLogOrder === 'function') {
+                        logPanelInstance.setLogOrder('recent');
+                        // Update menu visual indicators
+                        updateMenuVisualIndicators();
+                    }
+                    break;
+                case 'setLogOrderPast':
+                    if (typeof logPanelInstance.setLogOrder === 'function') {
+                        logPanelInstance.setLogOrder('past');
+                        // Update menu visual indicators
+                        updateMenuVisualIndicators();
+                    }
+                    break;
+                default:
+                    // Try triggerActions for other menu items
+                    if (triggerActions && typeof triggerActions[action] === 'function') {
+                        triggerActions[action]({ event, target: menuItem, logPanel: logPanelInstance });
+                    } else {
+                        logWarn(`No handler defined for menu action: ${action}`, { type: 'LOG_PANEL', subtype: 'EVENTS' });
+                    }
+                    break;
+            }
+        });
+        logDebug('Attached click listener to log menu container.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+    }
+
+    // TODO: Add listeners for log entry interactions (double-click to expand/collapse, copy individual entry)
     // This might also use event delegation on logPanelInstance.logElement
     if (logPanelInstance.logElement) {
+        // Single-click handler for toolbar interactions only
         logPanelInstance.logElement.addEventListener('click', (event) => {
             const entryDiv = event.target.closest('.log-entry');
             if (!entryDiv) return;
 
-            // If entry is expanded:
+            // Handle click on original copy button (if not handled by general delegate)
+            const originalCopyButton = event.target.closest('.original-button[data-log-text]');
+            if (originalCopyButton) {
+                event.stopPropagation(); // Prevent entry expand/collapse
+                const textToCopy = originalCopyButton.dataset.logText;
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => logInfo('Original log entry copied to clipboard.', {type: 'LOG_PANEL', subtype: 'EVENTS'}))
+                    .catch(err => logError('Failed to copy original log entry.', {type: 'LOG_PANEL', subtype: 'ERROR', details: err}));
+                 // TODO: Consider calling logPanelInstance._showTemporaryFeedback if available
+                return;
+            }
+
+            // If entry is expanded, handle toolbar clicks
             if (entryDiv.classList.contains('expanded')) {
                 // Check if click is on the pin button (which handles collapse itself)
                 if (event.target.closest('.collapse-pin-button')) {
@@ -124,30 +230,32 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                         }
                     }
                 }
-                // If click is in the content area (not toolbar), do nothing
-                // This prevents collapse when clicking in the expanded content
-            } else {
-                // For collapsed entries, expand on click (unless clicking a button)
-                const isButtonClick = event.target.closest('button, .log-entry-codefence-menu');
-                if (!isButtonClick) {
-                    if (typeof logPanelInstance._expandLogEntry === 'function') {
-                        logPanelInstance._expandLogEntry(entryDiv);
-                    }
-                }
-            }
-
-            // Handle click on original copy button (if not handled by general delegate)
-            const originalCopyButton = event.target.closest('.original-button[data-log-text]');
-            if (originalCopyButton) {
-                event.stopPropagation(); // Prevent entry expand/collapse
-                const textToCopy = originalCopyButton.dataset.logText;
-                navigator.clipboard.writeText(textToCopy)
-                    .then(() => logInfo('Original log entry copied to clipboard.', {type: 'LOG_PANEL', subtype: 'EVENTS'}))
-                    .catch(err => logError('Failed to copy original log entry.', {type: 'LOG_PANEL', subtype: 'ERROR', details: err}));
-                 // TODO: Consider calling logPanelInstance._showTemporaryFeedback if available
             }
         });
-         logDebug('Attached click listener to logElement for expand/collapse/copy.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+
+        // Double-click handler for expand/collapse
+        logPanelInstance.logElement.addEventListener('dblclick', (event) => {
+            const entryDiv = event.target.closest('.log-entry');
+            if (!entryDiv) return;
+
+            // Don't expand/collapse if double-clicking on buttons
+            const isButtonClick = event.target.closest('button, .log-entry-codefence-menu');
+            if (isButtonClick) return;
+
+            if (entryDiv.classList.contains('expanded')) {
+                // Collapse on double-click
+                if (typeof logPanelInstance._collapseLogEntry === 'function') {
+                    logPanelInstance._collapseLogEntry(entryDiv);
+                }
+            } else {
+                // Expand on double-click
+                if (typeof logPanelInstance._expandLogEntry === 'function') {
+                    logPanelInstance._expandLogEntry(entryDiv);
+                }
+            }
+        });
+
+        logDebug('Attached click and double-click listeners to logElement for expand/collapse/copy.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     }
 }
 

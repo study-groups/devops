@@ -104,9 +104,8 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     menuContainer.id = 'log-menu-container';
     
     const menuItems = [
-        { text: 'Pause/Resume', action: 'toggleLogPause' },
-        { text: 'Copy Log', action: 'copyLog' },
-        { text: 'Clear Log', action: 'clearLog' },
+        { text: 'Recent First', action: 'setLogOrderRecent' },
+        { text: 'Past First', action: 'setLogOrderPast' },
         { text: 'Debug UI', action: 'runDebugUI' },
         { text: 'Sys Info', action: 'showSystemInfo' }
     ];
@@ -120,6 +119,18 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
         menuItem.className = 'log-menu-item';
         menuItem.textContent = item.text;
         menuItem.dataset.action = item.action;
+        
+        // Add visual indicator for current log order
+        if (item.action === 'setLogOrderRecent' || item.action === 'setLogOrderPast') {
+            const currentOrder = localStorage.getItem('logOrder') || 'recent';
+            const isActive = (item.action === 'setLogOrderRecent' && currentOrder === 'recent') ||
+                           (item.action === 'setLogOrderPast' && currentOrder === 'past');
+            if (isActive) {
+                menuItem.textContent = `✓ ${item.text}`;
+                menuItem.style.fontWeight = 'bold';
+            }
+        }
+        
         menuContainer.appendChild(menuItem);
     });
 
@@ -222,4 +233,4 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
 function logPanelInternalDebug(message, level = 'debug') {
     const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
     logFunc(`[logPanelDOM] ${message}`);
-} 
+}

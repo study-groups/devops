@@ -57,11 +57,11 @@ export function schedulePreviewUpdate() {
 
 // Ensure the preview container exists and is properly initialized
 function ensurePreviewContainer() {
-  let preview = document.getElementById('md-preview');
+  let preview = document.querySelector(".preview-container");
   if (!preview) {
     preview = document.createElement('div');
     preview.id = 'md-preview';
-    document.getElementById('content').appendChild(preview);
+    document.querySelector(".preview-container");
     console.log('Created md-preview container');
   }
   return preview;

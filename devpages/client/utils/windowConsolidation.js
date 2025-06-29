@@ -60,8 +60,7 @@ class DevPagesConsolidator {
         this.migrationMap.set('iconsPanel', 'devpages.panels.icons');
         this.migrationMap.set('iconUtils', 'devpages.utils.icons');
         
-        this.migrationMap.set('CodeManager', 'devpages.code.Manager');
-        this.migrationMap.set('codeManager', 'devpages.code.manager');
+
         this.migrationMap.set('enhancedCodeSidebar', 'devpages.code.sidebar');
         this.migrationMap.set('codeSidebar', 'devpages.code.legacySidebar');
         this.migrationMap.set('fileList', 'devpages.code.fileList');
@@ -69,7 +68,7 @@ class DevPagesConsolidator {
         this.migrationMap.set('DevPagesAstParser', 'devpages.code.astParser');
         
         this.migrationMap.set('uiComponents', 'devpages.ui.components');
-        this.migrationMap.set('devHelpers', 'devpages.ui.helpers');
+
         
         this.migrationMap.set('settingsRegistry', 'devpages.settings.registry');
         this.migrationMap.set('panelRegistry', 'devpages.settings.panelRegistry');

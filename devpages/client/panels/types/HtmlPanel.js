@@ -67,7 +67,7 @@ export class HtmlPanel extends BasePanel {
     renderContent() {
         return `
             <div class="html-panel-content">
-                <div id="html-preview-container" class="html-preview-container html-content" data-html-content>
+                <div id="html-preview" class="html-preview html-content" data-html-content>
                     <div class="html-loading-state" style="display: none;">
                         <div class="loading-spinner"></div>
                         <div>Loading HTML...</div>
@@ -86,7 +86,7 @@ export class HtmlPanel extends BasePanel {
         this.log('[PANEL_DEBUG] HtmlPanel onMount hook executed.', 'debug');
 
         // Get the HTML container
-        this.htmlContainer = this.contentElement.querySelector('#html-preview-container');
+        this.htmlContainer = this.contentElement.querySelector('#html-preview');
         
         // Subscribe to app state changes to handle file updates
         this.setupStateSubscription();
@@ -236,7 +236,7 @@ export class HtmlPanel extends BasePanel {
                 <div class="html-error__content">
                     <h4>HTML Render Error</h4>
                     <p>${message}</p>
-                    <button class="html-error__retry" onclick="this.closest('.html-preview-container').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('html:retry'))">
+                    <button class="html-error__retry" onclick="this.closest('.html-preview').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('html:retry'))">
                         Retry
                     </button>
                 </div>

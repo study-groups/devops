@@ -21,19 +21,18 @@ function updateContentHeight() {
     if (!topBar) return;
     
     const topBarHeight = topBar.offsetHeight;
-    const mainContainer = document.getElementById('main-container');
-    const content = document.getElementById('content');
+    const previewContainer = document.querySelector(".preview-container");
     
-    if (!mainContainer || !content) return;
+    if (!previewContainer) return;
     
     // Get log container height if visible
     const logVisible = document.documentElement.getAttribute('data-log-visible') === 'true';
     const logHeight = logVisible ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--log-height')) || 120) : 0;
     
-    // Update content max-height
-    content.style.maxHeight = `calc(100vh - ${topBarHeight}px${logVisible ? ` - ${logHeight}px` : ''})`;
+    // Update preview container max-height
+    previewContainer.style.maxHeight = `calc(100vh - ${topBarHeight}px${logVisible ? ` - ${logHeight}px` : ''})`;
     
-    logTopBar(`Content height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
+    logTopBar(`Preview container height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
 }
 
 // Add resize listener to update content height when window is resized

@@ -59,6 +59,8 @@ export class LogBuffer {
    */
   clear() {
     this.buffer = [];
+    this.discoveredTypes.clear();
+    this.discoveredSubtypes.clear();
     return this;
   }
 

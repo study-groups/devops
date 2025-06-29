@@ -179,7 +179,7 @@ function showErrorState(container, message) {
             <div class="preview-error__content">
                 <h4>Preview Error</h4>
                 <p>${message}</p>
-                <button class="preview-error__retry" onclick="this.closest('.preview-container').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('preview:retry'))">
+                <button class="preview-error__retry" onclick="this.closest('.preview').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('preview:retry'))">
                     Retry
                 </button>
             </div>

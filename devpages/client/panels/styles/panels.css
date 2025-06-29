@@ -587,18 +587,16 @@
     box-shadow: var(--shadow-sm);
 }
 
-/* Main layout flexbox integration */
-.main-layout {
+/* Panels workspace flexbox integration */
+main {
     display: flex;
     flex-direction: row;
     height: calc(100vh - 50px); /* Subtract nav bar height */
     overflow: hidden;
 }
 
-.main-layout #main-container {
+main .preview-container {
     flex: 1;
-    display: flex;
-    flex-direction: column;
     min-width: 0; /* Allow flex item to shrink below its content size */
 }
 

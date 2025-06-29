@@ -51,7 +51,7 @@ export function debugUI() {
     } else {
         logDebug('[DEBUG ERROR] Editor not found');
     }
-    const preview = document.getElementById('md-preview');
+    const preview = document.querySelector(".preview-container");
     if (preview) {
         logDebug(`[DEBUG] Preview: display=${getComputedStyle(preview).display}, width=${getComputedStyle(preview).width}`);
     } else {

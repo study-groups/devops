@@ -22,11 +22,9 @@
     <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css">
     <link rel="stylesheet" href="/client/styles/splash-screen.css">
 
-    
     <script src="/client/earlyInit.js"></script> 
     <script src="/client/errorTracker.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="/client/code/ast-parser.js"></script>
+
 
 </head>
 <body class="splash-active">
@@ -45,23 +43,16 @@
         </div>
     </nav>
 
-    <!-- Main layout structure -->
-    <div class="main-layout">
-        <div id="panels-container" class="panels-container"></div>
-        <div id="main-container" class="log-hidden">
-            <div id="content">
-                <div id="content-view-wrapper"></div>
-            </div>
-            <div id="log-container"></div>
-        </div>
-        <div id="right-gutter" class="right-gutter"></div>
-    </div>
-    
-    <div id="toolbar-container" class="editor-toolbar"></div>
+    <!-- Main workspace structure -->
+    <main>
+        <div id="panels-container"></div>
+        <div class="preview-container"></div>
+        <div id="log-container"></div>
+        <div id="right-gutter"></div>
+    </main>
 
-    <script type="module" src="/client/utils/DevHelpers.js"></script>
     <script type="module" src="/client/bootstrap.js"></script>
-    <script src="/client/code/code-manager.js"></script>
+
 </body>
 
 

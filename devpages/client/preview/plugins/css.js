@@ -163,21 +163,26 @@ export async function applyStyles() {
     for (const configuredPath of configuredFilesToProcess) {
         const elementId = `${STYLE_ELEMENT_PREFIX}${configuredPath.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
         const existingElement = document.getElementById(elementId);
+
         if (currentEnabledSet.has(configuredPath)) {
-            logger.debug(`[CSS APPLY CONFIG] Processing configured enabled file: "${configuredPath}"`);
-            const cssContent = await fetchCssContent(configuredPath);
-            if (cssContent !== null) {
-                logger.debug(`[CSS APPLY CONFIG] Content retrieved for "${configuredPath}", applying...`);
-                if (existingElement) { if (existingElement.textContent !== cssContent) { existingElement.textContent = cssContent; } }
-                else { const styleEl = document.createElement('style'); styleEl.id = elementId; styleEl.textContent = cssContent; document.head.appendChild(styleEl); }
+            // Using <link> tags is better for debugging and performance
+            if (!existingElement) {
+                const linkEl = document.createElement('link');
+                linkEl.id = elementId;
+                linkEl.rel = 'stylesheet';
+                linkEl.href = `/api/files/content?pathname=${encodeURIComponent(configuredPath)}`;
+                document.head.appendChild(linkEl);
+                logger.debug(`[CSS APPLY CONFIG] Created <link> for: "${configuredPath}"`);
                 successfullyAppliedPaths.add(configuredPath);
             } else {
-                logger.warn(`[CSS APPLY CONFIG] No content for "${configuredPath}", removing style tag.`);
-                if (existingElement) { existingElement.remove(); }
+                // Already exists, no need to do anything
+                successfullyAppliedPaths.add(configuredPath);
             }
         } else {
-            logger.debug(`[CSS APPLY CONFIG] File "${configuredPath}" not enabled, removing style tag.`);
-            if (existingElement) { existingElement.remove(); }
+            if (existingElement) {
+                existingElement.remove();
+                logger.debug(`[CSS APPLY CONFIG] Removed <link> for: "${configuredPath}"`);
+            }
         }
     }
     // ==========================================

@@ -1,41 +1,56 @@
 /**
  * ContentView.css
- * Styles for the main content view area, managing the layout of editor and preview panels.
+ * Ultra-simplified styles for the content view.
  */
 
-.content-view-component {
-    display: flex;
-    flex: 1;
-    min-width: 0; /* Ensures flex items can shrink below their content size */
+.content-view,
+#content-view-wrapper {
     height: 100%;
     width: 100%;
-    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: var(--color-background-elevated);
+    color: var(--color-foreground);
+    font-family: var(--font-family-sans);
+    font-size: var(--density-text-base);
+    line-height: var(--density-line-height);
+    padding: var(--density-space-lg);
     box-sizing: border-box;
-    overflow: hidden;
+    
+    /* Typography and content styling */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    
+    /* Smooth transitions */
+    transition: var(--transition-all);
 }
 
-.content-view-component .content-panel {
-    height: 100%;
-    overflow: hidden; /* Change from 'auto' to 'hidden' to prevent double scrollbars */
-    flex-grow: 1; /* Allow panels to grow */
-    flex-basis: 0; /* Start from a basis of 0, allowing them to share space evenly */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    position: relative;
+/* Remove margin from first and last elements */
+#content-view-wrapper > :first-child {
+    margin-top: 0 !important;
 }
 
-/* Add a separator between panels when in split mode */
-.content-view-component.mode-split .content-panel#content-editor-panel {
-    border-right: 1px solid #ccc;
+#content-view-wrapper > :last-child {
+    margin-bottom: 0 !important;
 }
 
-/* Ensure single panels take up the full width */
-.content-view-component.mode-editor .content-panel#content-editor-panel,
-.content-view-component.mode-preview .content-panel#content-preview-panel {
-    width: 100%;
-    max-width: 100%;
-    flex-grow: 1;
-    box-sizing: border-box;
-    position: relative;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .content-view.mode-split {
+        flex-direction: column;
+    }
+    
+    .content-view.mode-split .editor-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+        height: 50%;
+    }
+    
+    .content-view.mode-split .preview-panel {
+        height: 50%;
+    }
+    
+    .content-view .preview-container {
+        padding: var(--density-space-md);
+    }
 } 

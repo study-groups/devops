@@ -262,63 +262,63 @@ export class PreviewSettingsPanel {
 
     attachEventListeners() {
         // Error handling settings
-        this.container.querySelector('#preview-smooth-errors')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-smooth-errors')?.addEventListener('change', (e) => {
             this.updateSetting('smoothErrors', e.target.checked);
         });
 
-        this.container.querySelector('#preview-retry-button')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-retry-button')?.addEventListener('change', (e) => {
             this.updateSetting('showRetryButton', e.target.checked);
         });
 
-        this.container.querySelector('#preview-error-timeout')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-error-timeout')?.addEventListener('change', (e) => {
             this.updateSetting('errorTimeout', parseInt(e.target.value));
         });
 
         // Performance settings
-        this.container.querySelector('#preview-debounce-delay')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-debounce-delay')?.addEventListener('change', (e) => {
             this.updateSetting('debounceDelay', parseInt(e.target.value));
         });
 
-        this.container.querySelector('#preview-skip-unchanged')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-skip-unchanged')?.addEventListener('change', (e) => {
             this.updateSetting('skipUnchanged', e.target.checked);
         });
 
-        this.container.querySelector('#preview-queue-updates')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-queue-updates')?.addEventListener('change', (e) => {
             this.updateSetting('queueUpdates', e.target.checked);
         });
 
         // Visual feedback settings
-        this.container.querySelector('#preview-loading-animation')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-loading-animation')?.addEventListener('change', (e) => {
             this.updateSetting('showLoadingAnimation', e.target.checked);
         });
 
-        this.container.querySelector('#preview-success-feedback')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-success-feedback')?.addEventListener('change', (e) => {
             this.updateSetting('showSuccessFeedback', e.target.checked);
         });
 
-        this.container.querySelector('#preview-shimmer-effect')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-shimmer-effect')?.addEventListener('change', (e) => {
             this.updateSetting('showShimmerEffect', e.target.checked);
         });
 
         // Rendering mode settings
-        this.container.querySelector('#preview-render-mode')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-render-mode')?.addEventListener('change', (e) => {
             this.updateSetting('renderMode', e.target.value);
         });
 
-        this.container.querySelector('#preview-auto-scroll')?.addEventListener('change', (e) => {
+        this.container.querySelector('.preview-container-auto-scroll')?.addEventListener('change', (e) => {
             this.updateSetting('autoScroll', e.target.checked);
         });
 
         // Action buttons
-        this.container.querySelector('#preview-force-refresh')?.addEventListener('click', () => {
+        this.container.querySelector('.preview-container-force-refresh')?.addEventListener('click', () => {
             this.forceRefresh();
         });
 
-        this.container.querySelector('#preview-clear-cache')?.addEventListener('click', () => {
+        this.container.querySelector('.preview-container-clear-cache')?.addEventListener('click', () => {
             this.clearCache();
         });
 
-        this.container.querySelector('#preview-reset-settings')?.addEventListener('click', () => {
+        this.container.querySelector('.preview-container-reset-settings')?.addEventListener('click', () => {
             this.resetSettings();
         });
 
@@ -388,9 +388,9 @@ export class PreviewSettingsPanel {
     }
 
     updateStatus(data) {
-        const lastUpdateEl = this.container.querySelector('#preview-last-update');
-        const renderTimeEl = this.container.querySelector('#preview-render-time');
-        const contentLengthEl = this.container.querySelector('#preview-content-length');
+        const lastUpdateEl = this.container.querySelector('.preview-container-last-update');
+        const renderTimeEl = this.container.querySelector('.preview-container-render-time');
+        const contentLengthEl = this.container.querySelector('.preview-container-content-length');
 
         if (lastUpdateEl) {
             lastUpdateEl.textContent = new Date().toLocaleTimeString();
@@ -441,7 +441,7 @@ export class PreviewSettingsPanel {
         const showLoadingAnimation = state.settings?.preview?.showLoadingAnimation !== false;
         
         // Find a preview container to test with
-        const previewContainer = document.querySelector('#preview-container, .preview-container');
+        const previewContainer = document.querySelector('.preview-container, .preview');
         if (!previewContainer) {
             this.log('No preview container found for testing loading animations', 'warn');
             return;

@@ -345,7 +345,7 @@ export class CssDebugger {
     }
     
     // Update comparison display
-    const comparisonDiv = panel.querySelector('#preview-comparison');
+    const comparisonDiv = panel.querySelector('.preview-container-comparison');
     if (comparisonDiv) {
       comparisonDiv.innerHTML = `
         <div style="padding: 20px; text-align: center;">

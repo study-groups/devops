@@ -49,8 +49,49 @@ export async function updateLogEntryDisplayContent(logEntryDiv, requestedMode, r
             textWrapper.classList.add('html-rendered');
             const iframe = document.createElement('iframe');
             iframe.className = 'log-entry-html-iframe';
-            iframe.style.cssText = 'width:100%; height:300px; border:1px solid #ccc; background-color:#fff;';
-            iframe.srcdoc = coreMessage;
+            iframe.style.cssText = `
+                width: 100%; 
+                height: 300px; 
+                border: 1px solid var(--color-border, #ccc); 
+                background-color: var(--color-background-elevated, #fff);
+                border-radius: var(--radius-md, 6px);
+            `;
+            
+            // Inject design tokens into the iframe content
+            const htmlWithTokens = `
+                <style>
+                    :root {
+                        --color-background: var(--color-background, #ffffff);
+                        --color-background-elevated: var(--color-background-elevated, #ffffff);
+                        --color-background-secondary: var(--color-background-secondary, #f8fafc);
+                        --color-foreground: var(--color-foreground, #0f172a);
+                        --color-foreground-secondary: var(--color-foreground-secondary, #64748b);
+                        --color-border: var(--color-border, #e2e8f0);
+                        --color-primary: var(--color-primary, #3b82f6);
+                        --font-family-sans: var(--font-family-sans, system-ui, sans-serif);
+                        --font-family-mono: var(--font-family-mono, ui-monospace, monospace);
+                    }
+                    body {
+                        font-family: var(--font-family-sans);
+                        color: var(--color-foreground);
+                        background-color: var(--color-background);
+                        margin: 0;
+                        padding: 1rem;
+                        line-height: 1.5;
+                    }
+                    code, pre {
+                        font-family: var(--font-family-mono);
+                        background-color: var(--color-background-secondary);
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 4px;
+                    }
+                    a {
+                        color: var(--color-primary);
+                    }
+                </style>
+                ${coreMessage}
+            `;
+            iframe.srcdoc = htmlWithTokens;
             textWrapper.appendChild(iframe);
         } else { // Default to Raw
             textWrapper.classList.add('raw-rendered');
@@ -629,8 +670,30 @@ export function expandLogEntry(logEntryDiv, logPanelInstance) {
     if (logPanelInstance.logElement) { // Move to top
         logPanelInstance.logElement.prepend(logEntryDiv);
     }
-
+    
+    // Store the original simple content before expanding
+    const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
+    const originalTextContent = textWrapper ? textWrapper.querySelector('.log-entry-text-content') : null;
+    
+    // If we have original content, preserve it by moving it out of the way
+    if (originalTextContent && textWrapper) {
+        // Store the original content in the log entry for later restoration
+        if (!logEntryDiv._originalTextContent) {
+            logEntryDiv._originalTextContent = originalTextContent.cloneNode(true);
+        }
+    }
+    
+    // Hide the original copy button when expanding
+    const originalButton = logEntryDiv.querySelector('.original-button');
+    if (originalButton) {
+        originalButton.style.display = 'none';
+    }
+    
+    // Show the expanded toolbar
     const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+    if (expandedToolbar) {
+        expandedToolbar.style.display = 'flex';
+    }
 
     if (expandedToolbar && !expandedToolbar.dataset.toolbarBuilt) {
         expandedToolbar.innerHTML = ''; // Clear previous content
@@ -714,15 +777,51 @@ export function expandLogEntry(logEntryDiv, logPanelInstance) {
 }
 
 /**
- * Collapses a log entry
+ * Collapses a log entry and restores it to original simple format
  * @param {HTMLElement} logEntryDiv - The log entry DOM element
  * @param {object} logPanelInstance - The LogPanel instance
  */
 export function collapseLogEntry(logEntryDiv, logPanelInstance) {
-    // The entire _collapseLogEntry method from LogPanel.js (lines ~1002-1008)
+    // Remove expanded class
     logEntryDiv.classList.remove('expanded');
-    // Reset content to raw text when collapsing
-    updateLogEntryDisplay(logEntryDiv, logPanelInstance.RENDER_MODE_RAW, true, logPanelInstance);
+    
+    // Hide the expanded toolbar
+    const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+    if (expandedToolbar) {
+        expandedToolbar.style.display = 'none';
+    }
+    
+    // Reset the text wrapper to show original simple content
+    const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
+    if (textWrapper) {
+        // Remove mode classes
+        textWrapper.classList.remove('markdown-rendered', 'html-rendered');
+        
+        // Clear any expanded content and restore original simple content
+        textWrapper.innerHTML = '';
+        
+        if (logEntryDiv._originalTextContent) {
+            // Use the stored original content
+            const restoredContent = logEntryDiv._originalTextContent.cloneNode(true);
+            textWrapper.appendChild(restoredContent);
+        } else {
+            // Fallback: recreate the original simple content from stored data
+            const fullDisplayMessage = `[${logEntryDiv.dataset.logIndex}] ${logEntryDiv.dataset.logTimestamp} ${logEntryDiv.dataset.rawOriginalMessage}`;
+            const textSpan = document.createElement('span');
+            textSpan.className = 'log-entry-text-content';
+            textSpan.innerText = fullDisplayMessage;
+            textWrapper.appendChild(textSpan);
+        }
+    }
+    
+    // Show the original copy button
+    const originalButton = logEntryDiv.querySelector('.original-button');
+    if (originalButton) {
+        originalButton.style.display = 'block';
+    }
+    
+    // Reset render mode
+    logEntryDiv.dataset.renderMode = logPanelInstance.RENDER_MODE_RAW;
 }
 
 // Add other display-related utility functions as needed.

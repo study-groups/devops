@@ -1,7 +1,7 @@
 /* client/styles/splash-screen.css */
 
 /* Splash Screen Styles */
-#devpages-splash {
+.preview-containers-splash {
     position: fixed;
     top: 0;
     left: 0;
@@ -16,7 +16,7 @@
     transition: opacity 0.3s ease-out;
 }
 
-#devpages-splash.hidden {
+.preview-containers-splash.hidden {
     opacity: 0;
     pointer-events: none;
 }
@@ -41,8 +41,7 @@
 
 /* Hide main content during splash */
 body.splash-active nav,
-body.splash-active .main-layout,
-body.splash-active #toolbar-container {
+body.splash-active main {
     visibility: hidden;
 }
 
@@ -99,7 +98,7 @@ body.splash-active #toolbar-container {
 
 /* Theme variations (can be enabled later) */
 @media (prefers-color-scheme: dark) {
-    #devpages-splash {
+    .preview-containers-splash {
         background: var(--color-background-dark, #1a1a1a);
     }
     

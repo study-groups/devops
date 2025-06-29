@@ -137,7 +137,7 @@ class PageThemeManager {
     getPreviewIframeDocument() {
         // Try multiple selectors to find the preview iframe
         const selectors = [
-            '#preview-panel iframe',
+            '.preview-container-panel iframe',
             '#content-preview-panel iframe',
             '.preview-panel iframe',
             'iframe[data-preview]'

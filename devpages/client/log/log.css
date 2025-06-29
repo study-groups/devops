@@ -38,12 +38,12 @@
     border-top: none; 
 }
 
-/* Adjust main content based on presence of log-visible class on main-container */
+/* Adjust preview container based on presence of log-visible class */
 /* Keep for now, relates to visibility logic */
-#main-container.log-visible #content {
+.preview-container.log-visible {
     max-height: calc(100vh - var(--log-height, 120px) - 72px); /* Adjust 72px nav height if needed */
 }
-#main-container.log-hidden #content {
+.preview-container.log-hidden {
      max-height: calc(100vh - 72px); /* Adjust 72px nav height if needed */
 }
 
@@ -581,6 +581,12 @@
     color: #fff;
 }
 
+/* Active menu items (with checkmarks) */
+#log-menu-container .log-menu-item[style*="font-weight: bold"] {
+    background-color: #374151; /* Slightly darker background for active items */
+    color: #60a5fa; /* Blue color for active items */
+}
+
 /* NEW: Separator in Menu */
 #log-menu-container .log-menu-separator {
     height: 1px;
@@ -809,14 +815,14 @@
     opacity: 1;
 }
 
-/* Main container adjustments based on log visibility */
-/* Assumes log-visible/log-hidden classes are applied to #main-container */
-#main-container.log-visible #content {
+/* Preview container adjustments based on log visibility */
+/* Assumes log-visible/log-hidden classes are applied to .preview-container */
+.preview-container.log-visible {
     max-height: calc(100vh - var(--log-height, 120px) - 50px); /* Adjust 50px nav height if needed */
     transition: max-height 0.3s ease;
 }
 
-#main-container.log-hidden #content {
+.preview-container.log-hidden {
     max-height: calc(100vh - 50px); /* Adjust 50px nav height if needed */
     transition: max-height 0.3s ease;
 }
@@ -1180,4 +1186,42 @@
 /* Active/solid button style - ON state */
 .log-tag-button.active {
     opacity: 1 !important;
+}
+
+/* Copy button styling */
+.log-tag-button.copy-button {
+    background-color: #4b5563;
+    color: #d1d5db;
+    border: 1px solid #6b7280;
+}
+
+.log-tag-button.copy-button:hover {
+    background-color: #6b7280;
+}
+
+/* Ensure expanded entries maintain dark theme */
+#log .log-entry.expanded {
+    background-color: #1e1e1e !important;
+    color: #d4d4d4 !important;
+}
+
+#log .log-entry.expanded * {
+    background-color: inherit;
+    color: inherit;
+}
+
+#log .log-entry.expanded .log-entry-text-wrapper {
+    background-color: transparent !important;
+    color: #d4d4d4 !important;
+}
+
+/* Collapse All button styling */
+.log-tag-button.collapse-all-button {
+    background-color: #6b7280;
+    color: #d1d5db;
+    border: 1px solid #6b7280;
+}
+
+.log-tag-button.collapse-all-button:hover {
+    background-color: #4b5563;
 }

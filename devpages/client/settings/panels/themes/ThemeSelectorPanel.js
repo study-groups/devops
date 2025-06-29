@@ -135,16 +135,38 @@ class ThemeSelectorPanel {
         // Store all directories found in themes/ (dirs is the array of directory names)
         this.themeDirs = data.dirs || [];
         
-        // Add user themes to the available themes list
+        // Define the desired theme order: system, basic, classic, arcade
+        const themeOrder = ['basic', 'classic', 'arcade'];
+        const userThemes = [];
+        
+        // Add user themes in the specified order
         if (data.dirs) {
-          for (const dirName of data.dirs) {
-            const themeInfo = await this.validateThemeDirectory(dirName);
-            if (themeInfo) {
-              // Mark as user theme
-              themeInfo.type = 'user';
-              this.availableThemes.push(themeInfo);
+          // First, add themes in the preferred order
+          for (const themeName of themeOrder) {
+            if (data.dirs.includes(themeName)) {
+              const themeInfo = await this.validateThemeDirectory(themeName);
+              if (themeInfo) {
+                // Mark as user theme
+                themeInfo.type = 'user';
+                userThemes.push(themeInfo);
+              }
             }
           }
+          
+          // Then add any remaining themes not in the order list
+          for (const dirName of data.dirs) {
+            if (!themeOrder.includes(dirName)) {
+              const themeInfo = await this.validateThemeDirectory(dirName);
+              if (themeInfo) {
+                // Mark as user theme
+                themeInfo.type = 'user';
+                userThemes.push(themeInfo);
+              }
+            }
+          }
+          
+          // Add all user themes to the available themes list
+          this.availableThemes.push(...userThemes);
         }
         
         console.log(`[ThemeSelector] Found ${this.availableThemes.length} total themes (system + user)`);

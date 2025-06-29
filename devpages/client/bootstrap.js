@@ -31,6 +31,7 @@ import { initializeSettingsPanel } from '/client/settings/core/settingsInitializ
 import { initializeDomInspector } from '/client/dom-inspector/domInspectorInitializer.js';
 import { initKeyboardShortcuts } from '/client/keyboardShortcuts.js';
 import { triggerActions } from '/client/actions.js';
+import { initializeCLI } from '/client/cli/index.js';
 
 // Publish Modal Integration - replaces ugly alerts with user-friendly modal
 import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
@@ -40,6 +41,8 @@ import '/client/settings/utils/debug-panels.js';
 
 // Migration helper utilities
 import '/client/utils/migrationHelper.js';
+
+
 
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
@@ -133,11 +136,15 @@ async function initializeApp() {
         createViewControlsComponent('view-controls-container').mount();
         logBootstrap('Static header/control components mounted.');
         
-        // 5. Mount Content View (which creates editor/preview containers)
-        const contentView = createContentViewComponent('content-view-wrapper');
+        // 5. Mount Content View (which creates preview container content)
+        const previewContainer = document.querySelector('.preview-container');
+        if (!previewContainer) {
+            throw new Error('Preview container not found');
+        }
+        const contentView = createContentViewComponent(previewContainer);
         contentView.mount();
         window.APP = { contentView };
-        logBootstrap('Content View component mounted.');
+        logBootstrap('Content View component mounted to preview container.');
 
         // 6. Initialize Other Feature Modules
         try {
@@ -151,6 +158,17 @@ async function initializeApp() {
         }
         
         await new LogPanel().initialize();
+        
+        // Initialize CLI after LogPanel to ensure CLI input elements exist
+        try {
+            logBootstrap('Initializing CLI...');
+            await initializeCLI();
+            logBootstrap('CLI initialized successfully.');
+        } catch (error) {
+            logBootstrap(`CLI initialization failed: ${error.message}`, 'error');
+            console.error('[BOOTSTRAP] CLI initialization error:', error);
+        }
+        
         initAuth();
         await initializeFileManager();
         logBootstrap('Remaining feature modules initialized.');

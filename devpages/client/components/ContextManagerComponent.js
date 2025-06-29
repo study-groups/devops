@@ -28,17 +28,17 @@ export function createContextManagerComponent(targetElementId) {
 
     // --- Rendering Logic ---
     const render = () => {
-        console.log('[CTX RENDER] >>>>> Render function CALLED <<<<<');
-        logContext('Render function Top Execution Point.', 'DEBUG_RENDER_FLOW');
+        // Reduced console.log verbosity
+        // logContext('Render function Top Execution Point.', 'debug');
 
         if (!element) {
-            logContext('Render SKIPPED: component "element" is null or undefined.', 'ERROR_RENDER_FLOW');
+            logContext('Render SKIPPED: component "element" is null or undefined.', 'error');
             console.error('[CTX RENDER] CRITICAL: render() called but this.element is not set!', element);
             return;
         }
-        logContext('Render: Component "element" IS valid.', 'DEBUG_RENDER_FLOW');
-        console.log('[CTX RENDER] Current component "element":', element);
-        logContext(`Render: Target Element ID during component init was: ${targetElementId}`, 'DEBUG_RENDER_FLOW');
+        // Reduced verbosity - only log errors and warnings
+        // logContext('Render: Component "element" IS valid.', 'debug');
+        // logContext(`Render: Target Element ID during component init was: ${targetElementId}`, 'debug');
 
         const fileState = appStore.getState().file;
         const authState = appStore.getState().auth;
@@ -75,24 +75,27 @@ export function createContextManagerComponent(targetElementId) {
             : null;
 
         const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/';
-        logContext(`Using STATIC CONTENT_ROOT_PREFIX for test: '${CONTENT_ROOT_PREFIX}'`, 'CONFIG');
+        // Reduced verbosity - only log when needed
+        // logContext(`Using STATIC CONTENT_ROOT_PREFIX for test: '${CONTENT_ROOT_PREFIX}'`, 'debug');
 
-        logContext(`State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`);
-        logContext(`State Snapshot - Auth: User='${username}', Role=${userRole}, Org=${selectedOrg}`);
-        logContext(`Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`);
-        logContext(`Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`);
+        // Reduced verbosity - combine state logging into fewer entries
+        // logContext(`State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`, 'debug');
+        // logContext(`State Snapshot - Auth: User='${username}', Role=${userRole}, Org=${selectedOrg}`, 'debug');
+        // logContext(`Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`, 'debug');
+        // logContext(`Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`, 'debug');
 
-        logContext('=== RENDER DEBUG INFO ===', 'DEBUG_RENDER_FLOW');
-        logContext(`isAuthenticated: ${isAuthenticated}`, 'DEBUG_RENDER_FLOW');
-        logContext(`selectedDirectoryPath: '${selectedDirectoryPath}'`, 'DEBUG_RENDER_FLOW');
-        logContext(`currentPathname: '${currentPathname}'`, 'DEBUG_RENDER_FLOW');
-        logContext(`isDirectorySelected: ${isDirectorySelected}`, 'DEBUG_RENDER_FLOW');
-        logContext(`currentListing.pathname: '${fileState.currentListing?.pathname}'`, 'DEBUG_RENDER_FLOW');
-        logContext(`currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
-        logContext(`currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
-        logContext(`isOverallLoading: ${isOverallLoading}`, 'DEBUG_RENDER_FLOW');
-        logContext(`availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`, 'DEBUG_RENDER_FLOW');
-        logContext('=== END RENDER DEBUG ===', 'DEBUG_RENDER_FLOW');
+        // Removed verbose debug block - only log when there are issues
+        // logContext('=== RENDER DEBUG INFO ===', 'debug');
+        // logContext(`isAuthenticated: ${isAuthenticated}`, 'debug');
+        // logContext(`selectedDirectoryPath: '${selectedDirectoryPath}'`, 'debug');
+        // logContext(`currentPathname: '${currentPathname}'`, 'debug');
+        // logContext(`isDirectorySelected: ${isDirectorySelected}`, 'debug');
+        // logContext(`currentListing.pathname: '${fileState.currentListing?.pathname}'`, 'debug');
+        // logContext(`currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`, 'debug');
+        // logContext(`currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`, 'debug');
+        // logContext(`isOverallLoading: ${isOverallLoading}`, 'debug');
+        // logContext(`availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`, 'debug');
+        // logContext('=== END RENDER DEBUG ===', 'debug');
 
         // Generate breadcrumbs for the selected DIRECTORY path
         const breadcrumbsHTML = generateBreadcrumbsHTML(
@@ -107,13 +110,15 @@ export function createContextManagerComponent(targetElementId) {
             // Improved listing matching logic
             const listingForSelector = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
             
-            logContext(`Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`, 'DEBUG_RENDER_FLOW');
+            // Only log when there's an issue
+            // logContext(`Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`, 'debug');
 
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
                 const files = listingForSelector.files || [];
                 
-                logContext(`Found listing: ${dirs.length} dirs, ${files.length} files`, 'DEBUG_RENDER_FLOW');
+                // Only log when there's an issue
+                // logContext(`Found listing: ${dirs.length} dirs, ${files.length} files`, 'debug');
                 
                 const items = [
                     ...dirs.map(name => ({ name, type: 'dir' })),
@@ -138,11 +143,11 @@ export function createContextManagerComponent(targetElementId) {
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             } else {
                 // Enhanced fallback: Try to trigger loading if we don't have the listing
-                logContext(`No listing available for '${selectedDirectoryPath}'. Current listing is for '${fileState.currentListing?.pathname}'. Triggering load...`, 'DEBUG_RENDER_FLOW');
+                logContext(`No listing available for '${selectedDirectoryPath}'. Current listing is for '${fileState.currentListing?.pathname}'. Triggering load...`, 'warn');
                 
                 // Request the directory listing if we don't have it
                 if (!isOverallLoading) {
-                    logContext(`Requesting directory listing for '${selectedDirectoryPath}'`, 'EVENT');
+                    logContext(`Requesting directory listing for '${selectedDirectoryPath}'`, 'info');
                     setTimeout(() => {
                         eventBus.emit('navigate:pathname', { pathname: selectedDirectoryPath, isDirectory: true });
                     }, 0);
@@ -159,7 +164,8 @@ export function createContextManagerComponent(targetElementId) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
         } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
             const topLevelDirs = fileState.availableTopLevelDirs || [];
-            logContext(`No directory selected or at root. Available top-level dirs: [${topLevelDirs.join(', ')}]`, 'DEBUG_RENDER_FLOW');
+            // Only log when there's an issue
+            // logContext(`No directory selected or at root. Available top-level dirs: [${topLevelDirs.join(', ')}]`, 'debug');
             
             if (topLevelDirs.length > 0) {
                 let optionsHTML = `<option value="" selected disabled>Select base directory...</option>`;
@@ -170,7 +176,7 @@ export function createContextManagerComponent(targetElementId) {
             } else {
                 // Trigger loading of top-level directories if not available
                 if (!isOverallLoading) {
-                    logContext('No top-level directories available. Triggering navigation to root...', 'EVENT');
+                    logContext('No top-level directories available. Triggering navigation to root...', 'warn');
                     setTimeout(() => {
                         eventBus.emit('navigate:pathname', { pathname: '', isDirectory: true });
                     }, 0);
@@ -181,8 +187,9 @@ export function createContextManagerComponent(targetElementId) {
 
         const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null;
 
-        logContext('Render: About to set innerHTML.', 'DEBUG_RENDER_FLOW');
-        console.log('[CTX RENDER] About to set innerHTML for element:', element);
+        // Reduced verbosity
+        // logContext('Render: About to set innerHTML.', 'debug');
+        // console.log('[CTX RENDER] About to set innerHTML for element:', element);
         
         // Simplified layout: Breadcrumbs, then the selection row
         element.innerHTML = `
@@ -197,8 +204,9 @@ export function createContextManagerComponent(targetElementId) {
                 </div>
             </div>
         `;
-        logContext('Render: innerHTML HAS BEEN SET.', 'DEBUG_RENDER_FLOW');
-        console.log('[CTX RENDER] innerHTML set. Current element.innerHTML:', element.innerHTML.substring(0, 200) + "...");
+        // Reduced verbosity
+        // logContext('Render: innerHTML HAS BEEN SET.', 'debug');
+        // console.log('[CTX RENDER] innerHTML set. Current element.innerHTML:', element.innerHTML.substring(0, 200) + "...");
 
         // --- Attach Event Listeners (FIXED: No need to remove from fresh DOM elements) ---
         const primarySelectElement = element.querySelector('#context-primary-select');
@@ -218,18 +226,20 @@ export function createContextManagerComponent(targetElementId) {
         const settingsTrigger = element.querySelector('#context-settings-trigger');
         if (settingsTrigger) {
             settingsTrigger.addEventListener('click', handleSettingsClick);
-            logContext('Settings trigger event listener attached.', 'DEBUG_EVENT');
+            // Reduced verbosity - only log errors
+            // logContext('Settings trigger event listener attached.', 'debug');
         } else {
-            logContext('Settings trigger element not found in DOM.', 'ERROR_EVENT');
+            logContext('Settings trigger element not found in DOM.', 'error');
         }
 
         // --- Breadcrumb Navigation Event Listener ---
         const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
         if (breadcrumbContainer) {
             breadcrumbContainer.addEventListener('click', handleBreadcrumbClick);
-            logContext('Breadcrumb navigation event listener attached.', 'DEBUG_EVENT');
+            // Reduced verbosity - only log errors
+            // logContext('Breadcrumb navigation event listener attached.', 'debug');
         } else {
-            logContext('Breadcrumb container element not found in DOM.', 'ERROR_EVENT');
+            logContext('Breadcrumb container element not found in DOM.', 'error');
         }
 
         // Add event listener for the filename input if you want interaction

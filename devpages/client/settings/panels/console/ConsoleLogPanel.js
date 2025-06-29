@@ -385,13 +385,16 @@ export class ConsoleLogPanel {
          toggle.checked = isEnabled;
        }
        
-       // Also ensure the body class reflects the current state
-       if (isEnabled) {
-           document.body.classList.remove('console-logging-disabled');
-           document.body.classList.add('console-logging-enabled');
-       } else {
-           document.body.classList.remove('console-logging-enabled');
-           document.body.classList.add('console-logging-disabled');
+       // Apply console logging state to the log container instead of body
+       const logContainer = document.getElementById('log-container');
+       if (logContainer) {
+           if (isEnabled) {
+               logContainer.classList.remove('console-logging-disabled');
+               logContainer.classList.add('console-logging-enabled');
+           } else {
+               logContainer.classList.remove('console-logging-enabled');
+               logContainer.classList.add('console-logging-disabled');
+           }
        }
 
        // Now also refresh filter options as window.config should be ready

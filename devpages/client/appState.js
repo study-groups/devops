@@ -314,6 +314,13 @@ function getInitialDomInspectorState() {
     highlight: {
       mode: 'both', // 'border', 'shade', 'both', 'none'
       color: '#448aff' // Default blue
+    },
+    selectedElement: null,
+    treeState: {
+      expandedNodes: [],
+      selectedElementId: null,
+      scrollPosition: 0,
+      lastUpdate: Date.now()
     }
   };
 
@@ -329,7 +336,9 @@ function getInitialDomInspectorState() {
         size: { ...defaults.size, ...(parsed.size || {}) },
         collapsedSections: { ...defaults.collapsedSections, ...(parsed.collapsedSections || {}) },
         computedStyleFilter: { ...defaults.computedStyleFilter, ...(parsed.computedStyleFilter || {}) },
-        highlight: { ...defaults.highlight, ...(parsed.highlight || {}) }
+        highlight: { ...defaults.highlight, ...(parsed.highlight || {}) },
+        treeState: { ...defaults.treeState, ...(parsed.treeState || {}) },
+        selectedElement: null
       };
     }
   } catch (e) {

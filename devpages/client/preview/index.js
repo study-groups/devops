@@ -76,7 +76,7 @@ export class PreviewManager {
     console.log('[PreviewManager.init] Starting initialization...');
     try {
       // --- Add dynamic CSS link loading here --- 
-      if (!document.getElementById(this.previewCssId)) {
+      if (!document.querySelector(".preview-container")) {
           const link = document.createElement('link');
           link.id = this.previewCssId;
           link.rel = 'stylesheet';
@@ -595,7 +595,7 @@ export class PreviewManager {
       // Create complete HTML document
       const fullHtml = this.createCompleteHtmlDocument(renderResult);
       
-      const iframe = this.popupWindow.document.getElementById('preview-iframe');
+      const iframe = this.popupWindow.document.querySelector(".preview-container");
       if (iframe) {
         iframe.srcdoc = fullHtml;
       }

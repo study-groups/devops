@@ -91,13 +91,10 @@ function setupLogResize() {
             logContainer.style.height = `${newHeight}px`;
             document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
             
-            // Update the content area to reflect the new log height
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer && mainContainer.classList.contains('log-visible')) {
-                const content = document.getElementById('content');
-                if (content) {
-                    content.style.maxHeight = `calc(100vh - ${newHeight}px - 50px)`;
-                }
+            // Update the preview container to reflect the new log height
+            const previewContainer = document.querySelector(".preview-container");
+            if (previewContainer && previewContainer.classList.contains('log-visible')) {
+                previewContainer.style.maxHeight = `calc(100vh - ${newHeight}px - 50px)`;
             }
         }
     }

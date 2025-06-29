@@ -75,7 +75,7 @@ export class JavaScriptPanel extends BasePanel {
                         </button>
                     </div>
                 </div>
-                <div id="javascript-preview-container" class="javascript-preview-container js-content" data-js-content>
+                <div id="javascript-preview" class="javascript-preview js-content" data-js-content>
                     <div class="js-loading-state" style="display: none;">
                         <div class="loading-spinner"></div>
                         <div>Loading JavaScript...</div>
@@ -95,7 +95,7 @@ export class JavaScriptPanel extends BasePanel {
         this.log('[PANEL_DEBUG] JavaScriptPanel onMount hook executed.', 'debug');
 
         // Get the JavaScript container and elements
-        this.jsContainer = this.contentElement.querySelector('#javascript-preview-container');
+        this.jsContainer = this.contentElement.querySelector('#javascript-preview');
         this.codeElement = this.contentElement.querySelector('#js-code-content');
         this.fileNameElement = this.contentElement.querySelector('#js-file-name');
         this.fileSizeElement = this.contentElement.querySelector('#js-file-size');
@@ -320,7 +320,7 @@ export class JavaScriptPanel extends BasePanel {
                 <div class="js-error__content">
                     <h4>JavaScript Render Error</h4>
                     <p>${message}</p>
-                    <button class="js-error__retry" onclick="this.closest('.javascript-preview-container').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('js:retry'))">
+                    <button class="js-error__retry" onclick="this.closest('.javascript-preview').dataset.forceRefresh = 'true'; window.dispatchEvent(new CustomEvent('js:retry'))">
                         Retry
                     </button>
                 </div>

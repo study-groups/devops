@@ -80,6 +80,12 @@ export function domInspectorReducer(state = {}, action) {
                 ...state,
                 treeState: action.payload
             };
+
+        case ActionTypes.DOM_INSPECTOR_SET_SELECTED_ELEMENT:
+            return {
+                ...state,
+                selectedElement: action.payload
+            };
             
         default:
             return state;

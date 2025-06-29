@@ -131,73 +131,52 @@ export class PanelUIManager {
         console.log('[PanelUIManager] Creating managed panels...');
         
         try {
-            // The panel's mount method will now target the specific containers
-            // rendered by ContentView.
-            const editorContainer = document.getElementById('content-editor-panel');
-            const previewContainer = document.getElementById('content-preview-panel');
-
-            if (!editorContainer || !previewContainer) {
-                throw new Error('Editor or Preview container not found in the DOM. ContentView might have failed to render.');
+            // Get the panels container for dynamic panels
+            const panelsContainer = document.getElementById('panels-container');
+            if (!panelsContainer) {
+                throw new Error('Panels container not found');
             }
 
             // Create Editor Panel
             const { EditorPanel } = await import('/client/panels/types/EditorPanel.js');
             this.state.editorPanel = new EditorPanel({
                 id: 'editor-panel',
+                title: 'Editor',
+                order: 1,
+                width: 400,
+                visible: false // Start hidden
+            });
+
+            // Mount editor panel to panels container
+            await this.state.editorPanel.mount(panelsContainer);
+            console.log('[PanelUIManager] Editor panel created and mounted');
+
+            // Create Preview Panel - mount directly to the preview container
+            const previewContainer = document.querySelector(".preview-container");
+            if (!previewContainer) {
+                throw new Error('Preview container not found in the DOM. ContentView might have failed to render.');
+            }
+
+            const { PreviewPanel } = await import('/client/panels/types/PreviewPanel.js');
+            this.state.previewPanel = new PreviewPanel({
+                id: 'preview-panel', 
                 order: 0,
                 width: 400,
                 headless: true
             });
 
-            // Create Preview Panel
-            const { PreviewPanel } = await import('/client/panels/types/PreviewPanel.js');
-            this.state.previewPanel = new PreviewPanel({
-                id: 'preview-panel', 
-                order: 1,
-                width: 400,
-                headless: true
-            });
+            // Mount the preview panel directly to the preview
+            await this.state.previewPanel.mount(previewContainer);
+            console.log('[PanelUIManager] Preview panel initialized and mounted to preview');
 
-            // Create JavaScript Panel (as a toggleable panel)
-            const { JavaScriptPanel } = await import('/client/panels/types/JavaScriptPanel.js');
-            this.state.javascriptPanel = new JavaScriptPanel({
-                id: 'javascript-panel',
-                order: 2,
-                width: 400,
-                headless: false  // This panel has its own header/controls
-            });
-
-            // Create HTML Panel (as a toggleable panel)
-            const { HtmlPanel } = await import('/client/panels/types/HtmlPanel.js');
-            this.state.htmlPanel = new HtmlPanel({
-                id: 'html-panel',
-                order: 3,
-                width: 400,
-                headless: false  // This panel has its own header/controls
-            });
-
-            // Mount managed panels into their dedicated containers
-            this.state.editorPanel.mount(editorContainer);
-            this.state.previewPanel.mount(previewContainer);
-
-            // Mount additional panels to the main panels container
-            const panelsContainer = document.getElementById('panels-container');
-            if (panelsContainer) {
-                this.state.javascriptPanel.mount(panelsContainer);
-                this.state.htmlPanel.mount(panelsContainer);
-            }
-
-            // Register with control center if it exists
+            // Register all panels with control center
             if (this.state.controlCenter) {
                 this.state.controlCenter.registerManagedPanel(this.state.editorPanel);
-                this.state.controlCenter.registerManagedPanel(this.state.previewPanel);
-                this.state.controlCenter.registerManagedPanel(this.state.javascriptPanel);
-                this.state.controlCenter.registerManagedPanel(this.state.htmlPanel);
+                console.log('[PanelUIManager] Editor panel registered with control center');
             }
 
-            console.log('[PanelUIManager] Managed panels created and mounted.');
         } catch (error) {
-            console.error('[PanelUIManager] Error creating managed panels:', error);
+            console.error('[PanelUIManager] Failed to initialize panels:', error);
             throw error;
         }
     }
@@ -253,7 +232,12 @@ export class PanelUIManager {
      * @param {boolean} isLogVisible - Whether the log panel is visible.
      */
     adjustLayoutForLog(isLogVisible) {
-        document.body.classList.toggle('log-visible', isLogVisible);
+        // Apply log visibility only to the log container
+        const logContainer = document.getElementById('log-container');
+        if (logContainer) {
+            logContainer.classList.toggle('log-visible', isLogVisible);
+            logContainer.classList.toggle('log-hidden', !isLogVisible);
+        }
     }
 
     /**

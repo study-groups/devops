@@ -56,12 +56,12 @@
     border-color: var(--color-green-600);
 }
 
-#preview-toggle.active {
+.preview-container-toggle.active {
     background-color: var(--color-blue-500);
     border-color: var(--color-blue-500);
 }
 
-#preview-toggle.active:hover {
+.preview-container-toggle.active:hover {
     background-color: var(--color-blue-600);
     border-color: var(--color-blue-600);
 }
@@ -77,13 +77,13 @@
     border-color: var(--color-yellow-600);
 }
 
-#preview-reload-btn {
+.preview-container-reload-btn {
     font-size: var(--font-size-base);
     padding: var(--space-1-5) var(--space-3);
     min-width: auto;
 }
 
-#preview-reload-btn:hover {
+.preview-container-reload-btn:hover {
     background-color: var(--color-background-elevated);
     transform: rotate(180deg);
 }
@@ -100,7 +100,7 @@
         font-size: var(--font-size-sm);
     }
     
-    #preview-reload-btn {
+    .preview-container-reload-btn {
         padding: var(--space-1) var(--space-2);
     }
 }
