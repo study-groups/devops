@@ -3,7 +3,7 @@
  * Manages element highlighting overlay for the DOM Inspector
  */
 
-const HIGHLIGHT_MODES = ['none', 'border', 'both'];
+const HIGHLIGHT_MODES = ['none', 'border', 'shade', 'both'];
 
 export class HighlightOverlay {
     constructor(settings = {}) {
@@ -11,6 +11,7 @@ export class HighlightOverlay {
         this.settings = {
             mode: 'border',
             color: '#448AFF',
+            zIndex: 999999,
             ...settings
         };
         
@@ -30,7 +31,7 @@ export class HighlightOverlay {
         this.overlay.style.cssText = `
             position: fixed;
             pointer-events: none;
-            z-index: 999999;
+            z-index: ${this.settings.zIndex};
             top: 0;
             left: 0;
             width: 0;
@@ -50,7 +51,9 @@ export class HighlightOverlay {
     updateStyles() {
         if (!this.overlay) return;
         
-        const { mode, color } = this.settings;
+        const { mode, color, zIndex } = this.settings;
+        
+        this.overlay.style.zIndex = zIndex;
         
         if (mode === 'none') {
             this.overlay.style.border = 'none';
@@ -58,6 +61,11 @@ export class HighlightOverlay {
         } else if (mode === 'border') {
             this.overlay.style.border = `2px solid ${color}`;
             this.overlay.style.backgroundColor = 'transparent';
+        } else if (mode === 'shade') {
+            this.overlay.style.border = 'none';
+            // Create a translucent version of the color for shade-only mode
+            const rgb = this.hexToRgb(color);
+            this.overlay.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
         } else if (mode === 'both') {
             this.overlay.style.border = `2px solid ${color}`;
             // Create a translucent version of the color

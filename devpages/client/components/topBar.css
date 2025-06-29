@@ -1,0 +1,21 @@
+/**
+ * client/components/topBar.css
+ * Styles for the TopBar component.
+ */
+
+.top-bar {
+  flex-shrink: 0;
+  z-index: 100;
+  /* The design system will handle height, padding, etc. */
+}
+
+/* Example of scoping other elements within the top-bar */
+.top-bar .nav-group {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Example spacing */
+}
+
+.top-bar .right-group {
+    margin-left: auto;
+} 

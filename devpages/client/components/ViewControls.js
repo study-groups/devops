@@ -147,27 +147,24 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
     let element = null;
     let appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
 
-    const updateToggleButtons = (panelsState) => {
+    const updateToggleButtons = (workspaceState) => {
         if (!element) {
             console.error('[ViewControls] updateToggleButtons called but element is null');
             return;
         }
         
-        const editorPanelState = panelsState['editor-panel'];
-        const previewPanelState = panelsState['preview-panel'];
-
-        // Update Edit toggle (editor panel visibility)
+        // Update Edit toggle (editor panel visibility) - use workspace state
         const editToggle = element.querySelector('#edit-toggle');
-        if (editToggle && editorPanelState) {
-            editToggle.classList.toggle('active', editorPanelState.visible);
-            editToggle.title = editorPanelState.visible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
+        if (editToggle && workspaceState?.editor) {
+            editToggle.classList.toggle('active', workspaceState.editor.visible);
+            editToggle.title = workspaceState.editor.visible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
         }
         
-        // Update Preview toggle (preview panel visibility)
-        const previewToggle = element.querySelector('.preview-container-toggle');
-        if (previewToggle && previewPanelState) {
-            previewToggle.classList.toggle('active', previewPanelState.visible);
-            previewToggle.title = previewPanelState.visible ? 'Hide Preview Panel (Alt+P)' : 'Show Preview Panel (Alt+P)';
+        // Update Panels toggle (sidebar visibility) - use workspace state  
+        const panelsToggle = element.querySelector('#panels-toggle');
+        if (panelsToggle && workspaceState?.sidebar) {
+            panelsToggle.classList.toggle('active', workspaceState.sidebar.visible);
+            panelsToggle.title = workspaceState.sidebar.visible ? 'Hide Panels (Alt+P)' : 'Show Panels (Alt+P)';
         }
     };
     
@@ -183,11 +180,11 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
     // Handle app state changes
     const handleAppStateChange = (newState, prevState) => {
-        const newPanels = newState?.panels || {};
-        const prevPanels = prevState?.panels || {};
+        const newWorkspace = newState?.workspace || {};
+        const prevWorkspace = prevState?.workspace || {};
 
-        if (JSON.stringify(newPanels) !== JSON.stringify(prevPanels)) {
-            updateToggleButtons(newPanels);
+        if (JSON.stringify(newWorkspace) !== JSON.stringify(prevWorkspace)) {
+            updateToggleButtons(newWorkspace);
         }
 
         const newUi = newState?.ui || {};
@@ -203,10 +200,10 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
             return false;
         }
 
-        // Render the updated toggle buttons for editor/preview system
+        // Render the updated toggle buttons for workspace system
         element.innerHTML = `
-            <button id="edit-toggle" title="Toggle Editor Panel (Alt+T)" data-action="toggleEdit">Edit</button>
-            <button id="preview-toggle" title="Toggle Preview Panel (Alt+P)" data-action="togglePreview">Preview</button>
+            <button id="panels-toggle" title="Toggle Panels (Alt+P)" data-action="togglePanels">Panels</button>
+            <button id="edit-toggle" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
             <button id="log-toggle-btn" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
             <button id="preview-reload-btn" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
         `;
@@ -225,7 +222,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
         // Set initial button states - delay to ensure store is initialized
         setTimeout(() => {
             const initialAppState = appStore.getState();
-            updateToggleButtons(initialAppState.panels || {});
+            updateToggleButtons(initialAppState.workspace || {});
             updateLogButtonState(initialAppState.ui?.logVisible || false);
         }, 0);
 
@@ -244,11 +241,17 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                     break;
                     
                 case 'toggleEdit':
-                    dispatch({ type: ActionTypes.PANEL_TOGGLE_VISIBILITY, payload: { panelId: 'editor-panel' } });
+                    // Use the workspace panel manager to toggle the editor
+                    if (window.workspacePanelManager) {
+                        window.workspacePanelManager.toggleEditor();
+                    }
                     break;
                     
-                case 'togglePreview':
-                    dispatch({ type: ActionTypes.PANEL_TOGGLE_VISIBILITY, payload: { panelId: 'preview-panel' } });
+                case 'togglePanels':
+                    // Use the workspace panel manager to toggle the sidebar
+                    if (window.workspacePanelManager) {
+                        window.workspacePanelManager.toggleSidebar();
+                    }
                     break;
                     
                 case 'refreshPreview':

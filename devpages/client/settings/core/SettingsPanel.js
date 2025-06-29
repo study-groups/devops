@@ -69,7 +69,8 @@ async function loadAllPanels() {
       import('../panels/console/ConsoleLogPanel.js'),
       import('../panels/dev-tools/DevToolsPanel.js'),
       import('../panels/api-tokens/ApiTokenPanel.js'),
-      import('../panels/css-files/CssFilesPanel.js')
+      import('../panels/css-files/CssFilesPanel.js'),
+      import('../panels/context/ContextManagerPanel.js')
     ];
 
     logSettings(`Attempting to load ${panelImports.length} panel modules...`, 'info');

@@ -201,6 +201,7 @@ export function createContextManagerComponent(targetElementId) {
                 <div class="file-action-buttons">
                     <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
                     <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
+                    <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button">Note</button>
                 </div>
             </div>
         `;
@@ -225,7 +226,7 @@ export function createContextManagerComponent(targetElementId) {
         // --- Context Settings Trigger Event Listener ---
         const settingsTrigger = element.querySelector('#context-settings-trigger');
         if (settingsTrigger) {
-            settingsTrigger.addEventListener('click', handleSettingsClick);
+            settingsTrigger.addEventListener('click', handleRootBreadcrumbClick);
             // Reduced verbosity - only log errors
             // logContext('Settings trigger event listener attached.', 'debug');
         } else {
@@ -249,6 +250,12 @@ export function createContextManagerComponent(targetElementId) {
             // filenameInputElement.addEventListener('focus', handleFilenameFocus);
             // filenameInputElement.removeEventListener('click', handleFilenameClick);
             // filenameInputElement.addEventListener('click', handleFilenameClick);
+        }
+
+        // Add Note button event listener
+        const noteButton = element.querySelector('#note-btn');
+        if (noteButton) {
+            noteButton.addEventListener('click', handleNoteButtonClick);
         }
     };
 
@@ -305,7 +312,7 @@ export function createContextManagerComponent(targetElementId) {
         
         // Handle settings trigger click (don't navigate)
         if (target.id === 'context-settings-trigger') {
-            return; // Let handleSettingsClick handle this
+            return; // Let handleRootBreadcrumbClick handle this
         }
         
         // Handle path navigation clicks
@@ -396,72 +403,84 @@ export function createContextManagerComponent(targetElementId) {
     const handlePublishButtonClick = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        logContext('Publish button clicked - opening modal', 'EVENT');
-        
-        try {
-            const fileState = appStore.getState().file;
-            if (fileState.isDirectorySelected || !fileState.currentPathname) {
-                logContext('Cannot publish: No file selected or directory view.', 'warn', 'EVENT');
-                alert('Please select a file to publish.');
-                return;
-            }
+        logContext('Publish button clicked for: ${currentPathname}', 'EVENT');
+        eventBus.emit('ui:publishModal:open', { pathname: currentPathname });
+    };
 
-            // Simply open the publish modal
-            if (typeof window.openPublishModal === 'function') {
-                window.openPublishModal(fileState.currentPathname);
-            } else if (typeof window.triggerActions?.publishToSpaces === 'function') {
-                window.triggerActions.publishToSpaces();
+    /**
+     * Handles clicks on the root breadcrumb ('/').
+     * The primary action is to toggle the main sidebar panel.
+     * The secondary action (e.g., via Ctrl+Click) could open settings.
+     */
+    const handleRootBreadcrumbClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        logContext('Root breadcrumb clicked', 'EVENT');
+
+        // The primary, default action is to toggle the sidebar.
+        // We can access the global workspace panel manager instance if it's available.
+        if (window.workspacePanelManager && typeof window.workspacePanelManager.toggleSidebar === 'function') {
+            logContext('Toggling sidebar visibility', 'EVENT');
+            window.workspacePanelManager.toggleSidebar();
+        } else {
+            logContext('WorkspacePanelManager not available, cannot toggle sidebar.', 'error', 'EVENT');
+            alert('Could not toggle the sidebar. The panel manager is not available.');
+        }
+
+        // Example of a secondary action (e.g., for showing the settings popup)
+        if (event.ctrlKey || event.metaKey) {
+            logContext('Ctrl/Meta+Click detected, showing settings popup.', 'EVENT');
+            
+            if (typeof window.uiComponents?.showPopup === 'function') {
+                const fileState = appStore.getState().file;
+                const settingsState = appStore.getState().settings;
+                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
+
+                const popupProps = {
+                    pdDirBase: '/root/pj/pd/',
+                    contentSubDir: settingsState?.currentContentSubDir || 'data',
+                    availableSubDirs: availableTopDirs,
+                    displayPathname: fileState?.currentPathname || '',
+                    doEnvVars: settingsState?.doEnvVars || []
+                };
+
+                const success = window.uiComponents.showPopup('contextSettings', popupProps);
+                if (!success) {
+                    logContext('Failed to display context settings popup', 'error', 'EVENT');
+                    alert('Unable to open settings panel. Please check console for details.');
+                }
             } else {
-                logContext('Cannot open publish modal: functions not available.', 'error', 'EVENT');
-                alert('Publish modal is not available.');
+                logContext('UI Components system not available for settings popup', 'error', 'EVENT');
             }
-        } catch (error) {
-            logContext(`Error in publish button handler: ${error.message}`, 'error', 'EVENT');
-            console.error('[CTX] Publish button error:', error);
         }
     };
 
     const handleSettingsClick = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        logContext('Settings trigger clicked', 'EVENT');
-        
-        // Determine if this click is from the navbar or sidebar
-        const isFromSidebar = targetElementId === 'sidebar-context-manager-container';
-        const isFromNavbar = targetElementId === 'context-manager-container';
-        
-        logContext(`Settings click from: ${isFromSidebar ? 'sidebar' : isFromNavbar ? 'navbar' : 'unknown'}`, 'EVENT');
-        
-        if (isFromNavbar) {
-            // Navbar click: Toggle Panel Manager (Control Center)
-            logContext('Navbar settings click: toggling Panel Manager', 'EVENT');
-            
-            // Use the new Panel UI Manager to toggle the control center
-            if (window.panelUIManager && typeof window.panelUIManager.togglePanelManager === 'function') {
-                window.panelUIManager.togglePanelManager();
-            } else {
-                // Fallback: dispatch action directly to toggle left sidebar (which controls Panel Manager)
-                dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
-            }
-        } else if (isFromSidebar) {
+
+        const isFromSidebar = event.target.closest('#panel-content');
+        const isFromBreadcrumb = event.target.id === 'context-settings-trigger';
+
+        logContext(`Settings click: fromSidebar=${!!isFromSidebar}, fromBreadcrumb=${isFromBreadcrumb}`, 'EVENT');
+
+        // Existing logic for opening the popup from the sidebar can remain.
+        // The breadcrumb click is now handled by handleRootBreadcrumbClick.
+        if (isFromSidebar) {
             // Sidebar click: Show popup
             logContext('Sidebar settings click: showing popup', 'EVENT');
             
-            // Check if UI components system is available
             if (typeof window.uiComponents?.showPopup === 'function') {
                 logContext('UI Components system available, showing popup immediately', 'EVENT');
                 
-                // Get current state to pass to popup
                 const fileState = appStore.getState().file;
                 const settingsState = appStore.getState().settings;
-                
-                // Use the actual available top-level directories instead of hardcoded ['data']
                 const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
                 
                 const popupProps = {
                     pdDirBase: '/root/pj/pd/',
                     contentSubDir: settingsState?.currentContentSubDir || 'data',
-                    availableSubDirs: availableTopDirs, // Use actual top-level dirs
+                    availableSubDirs: availableTopDirs,
                     displayPathname: fileState?.currentPathname || '',
                     doEnvVars: settingsState?.doEnvVars || []
                 };
@@ -479,24 +498,101 @@ export function createContextManagerComponent(targetElementId) {
                 logContext('UI Components system not available yet', 'error', 'EVENT');
                 alert('Settings panel is not ready yet. Please wait for the app to finish loading.');
             }
-        } else {
-            logContext('Unknown settings click source, defaulting to popup', 'warn', 'EVENT');
-            // Default to popup for unknown sources
-            if (typeof window.uiComponents?.showPopup === 'function') {
-                const fileState = appStore.getState().file;
-                const settingsState = appStore.getState().settings;
-                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
-                
-                const popupProps = {
-                    pdDirBase: '/root/pj/pd/',
-                    contentSubDir: settingsState?.currentContentSubDir || 'data',
-                    availableSubDirs: availableTopDirs,
-                    displayPathname: fileState?.currentPathname || '',
-                    doEnvVars: settingsState?.doEnvVars || []
-                };
-                
-                window.uiComponents.showPopup('contextSettings', popupProps);
+        } else if (isFromBreadcrumb) {
+            // This case is now handled by the dedicated root breadcrumb handler.
+            // We can just log it for now or remove this block.
+            logContext('Breadcrumb settings click is now handled by handleRootBreadcrumbClick.', 'info');
+            // To prevent accidental double-handling, we do nothing here.
+        }
+    };
+
+    const handleNoteButtonClick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        logContext('Note button clicked - adding to context', 'EVENT');
+        
+        try {
+            const fileState = appStore.getState().file;
+            if (fileState.isDirectorySelected || !fileState.currentPathname) {
+                logContext('Cannot add note: No file selected or directory view.', 'warn', 'EVENT');
+                alert('Please select a file to add to context.');
+                return;
             }
+
+            // Get current context name from settings or prompt user
+            const settingsState = appStore.getState().settings;
+            let contextName = settingsState?.currentContext;
+            
+            if (!contextName) {
+                // Prompt user for context name
+                contextName = prompt('Enter context name for Cursor AI:');
+                if (!contextName) return; // User cancelled
+                
+                // Validate context name
+                if (!/^[a-zA-Z0-9_-]+$/.test(contextName)) {
+                    alert('Context name must only contain letters, numbers, underscores, and hyphens.');
+                    return;
+                }
+                
+                // Save to settings
+                dispatch({
+                    type: ActionTypes.SETTINGS_SET_CURRENT_CONTEXT,
+                    payload: contextName
+                });
+            }
+
+            // Get editor content
+            const editor = document.querySelector('#md-editor textarea, #editor-container textarea, textarea');
+            if (!editor) {
+                alert('Editor not found');
+                return;
+            }
+
+            const markdownContent = editor.value;
+            if (!markdownContent.trim()) {
+                alert('Cannot add empty file to context');
+                return;
+            }
+
+            // Show loading state
+            const noteBtn = event.target;
+            const originalText = noteBtn.textContent;
+            noteBtn.textContent = 'Adding...';
+            noteBtn.disabled = true;
+
+            // Call context publish API
+            const response = await fetch('/api/publish/context', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pathname: fileState.currentPathname,
+                    contextName: contextName,
+                    markdownContent: markdownContent
+                })
+            });
+
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || `Server error: ${response.status}`);
+            }
+            
+            logContext(`Successfully added ${fileState.currentPathname} to context '${contextName}'`, 'EVENT');
+            alert(`Added to context "${contextName}" successfully!`);
+            
+            // Update button appearance to show it's been added to context
+            noteBtn.classList.add('noted');
+            noteBtn.title = `Added to context: ${contextName}`;
+
+        } catch (error) {
+            logContext(`Error in note button handler: ${error.message}`, 'error', 'EVENT');
+            console.error('[CTX] Note button error:', error);
+            alert(`Failed to add to context: ${error.message}`);
+        } finally {
+            // Reset button state
+            const noteBtn = event.target;
+            noteBtn.textContent = originalText;
+            noteBtn.disabled = false;
         }
     };
 
@@ -541,7 +637,7 @@ export function createContextManagerComponent(targetElementId) {
             const publishBtn = element.querySelector('#publish-btn');
             if (publishBtn) publishBtn.removeEventListener('click', handlePublishButtonClick);
             const settingsTrigger = element.querySelector('#context-settings-trigger');
-            if (settingsTrigger) settingsTrigger.removeEventListener('click', handleSettingsClick);
+            if (settingsTrigger) settingsTrigger.removeEventListener('click', handleRootBreadcrumbClick);
             const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
             if (breadcrumbContainer) breadcrumbContainer.removeEventListener('click', handleBreadcrumbClick);
 

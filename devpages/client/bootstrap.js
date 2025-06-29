@@ -14,7 +14,6 @@ import { appStore } from './appState.js';
 
 // UI & Panel Managers
 import { initializeUIComponents } from '/client/components/uiComponentsManager.js';
-import { PanelUIManager } from '/client/panels/layout/PanelUIManager.js';
 import { subscribeUIManager } from '/client/uiManager.js';
 
 // UI Component Creators
@@ -22,6 +21,7 @@ import { createAuthDisplayComponent } from '/client/components/AuthDisplay.js';
 import { createContextManagerComponent } from '/client/components/ContextManagerComponent.js';
 import { createViewControlsComponent } from '/client/components/ViewControls.js';
 import { createContentViewComponent } from '/client/components/ContentView.js';
+import { Editor } from '/client/components/Editor.js';
 
 // Feature Initializers
 import { LogPanel } from '/client/log/LogPanel.js';
@@ -42,7 +42,11 @@ import '/client/settings/utils/debug-panels.js';
 // Migration helper utilities
 import '/client/utils/migrationHelper.js';
 
-
+// Load editor-specific styles
+const editorStylesLink = document.createElement('link');
+editorStylesLink.rel = 'stylesheet';
+editorStylesLink.href = '/client/styles/editor.css';
+document.head.appendChild(editorStylesLink);
 
 function logBootstrap(message, level = 'info') {
     if (typeof window.logMessage === 'function') {
@@ -86,12 +90,22 @@ async function initializeApp() {
         // Early initialization for Dev Tools
         try {
             logBootstrap('Early Initializing DOM inspector...');
-            initializeDomInspector();
+            const domInspectorInstance = initializeDomInspector();
+            if (domInspectorInstance) {
+                logBootstrap('DOM Inspector initialized successfully');
+                console.log('[DOM INSPECTOR] Instance created and available at window.devPages.domInspector');
+            } else {
+                console.error('[DOM INSPECTOR] Initialization returned null/undefined');
+            }
+            
             logBootstrap('Early Initializing keyboard shortcuts...');
             initKeyboardShortcuts();
             logBootstrap('DOM Inspector and shortcuts initialized early.');
         } catch (error) {
+            console.error('[BOOTSTRAP] Early dev tools initialization failed:', error);
             logBootstrap(`Early dev tools initialization failed: ${error.message}`, 'error');
+            // Log the full stack trace for debugging
+            console.error('[BOOTSTRAP] Full error details:', error.stack);
         }
 
         // ADDED: Ensure eventBus is available for immediate use
@@ -103,14 +117,7 @@ async function initializeApp() {
         
         // Panel states will be initialized after dynamic loading in SettingsPanel.loadPanels()
         logBootstrap('Reducer set, ready for dynamic panel loading.');
-        
-        // Load designer theme system
-        const designerStylesLink = document.createElement('link');
-        designerStylesLink.rel = 'stylesheet';
-        designerStylesLink.href = '/client/styles/designer-system.css';
-        designerStylesLink.id = 'designer-system-styles';
-        document.head.appendChild(designerStylesLink);
-        logBootstrap('Designer theme system loaded.');
+    
         
         // Expose triggerActions globally for publish button and other components
         window.triggerActions = triggerActions;
@@ -125,15 +132,23 @@ async function initializeApp() {
         await initializeUIComponents();
         logBootstrap('UI Component Manager (popups, etc.) initialized.');
         
+        // Initialize workspace panel manager instead of old panel system
+        const { workspacePanelManager } = await import('/client/layout/WorkspacePanelManager.js');
+        window.workspacePanelManager = workspacePanelManager;
+        logBootstrap('Workspace Panel Manager (three-panel layout) initialized.');
+
+        // Initialize the panel system that manages editor, preview, etc.
+        const { PanelUIManager } = await import('/client/panels/layout/PanelUIManager.js');
         const panelUIManager = new PanelUIManager();
         await panelUIManager.initialize();
-        window.panelUIManager = panelUIManager; // Expose globally if needed
-        logBootstrap('Panel UI Manager (sidebars, frame) initialized.');
+        window.panelUIManager = panelUIManager; // Expose globally for access
+        logBootstrap('Panel UI Manager (for editor, preview panels) initialized.');
 
         // 4. Mount Static UI Components
         createAuthDisplayComponent('auth-component-container').mount();
         createContextManagerComponent('context-manager-container').mount();
         createViewControlsComponent('view-controls-container').mount();
+        new Editor(document.getElementById('editor-container'));
         logBootstrap('Static header/control components mounted.');
         
         // 5. Mount Content View (which creates preview container content)

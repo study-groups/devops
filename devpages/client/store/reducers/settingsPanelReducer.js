@@ -133,6 +133,24 @@ export function settingsPanelReducer(state = initialState, action) {
                 // No need to persist here, as this action loads persisted state
             }
             break;
+
+        case ActionTypes.SETTINGS_OPEN_PANEL:
+            // Open the settings panel and optionally navigate to a specific section
+            const currentSections = state.collapsedSections || {};
+            let updatedSections = { ...currentSections };
+            
+            // If a specific panel ID is provided, expand that section
+            if (payload && typeof payload === 'string') {
+                updatedSections[payload] = false; // false means expanded
+            }
+            
+            nextState = { 
+                ...state, 
+                visible: true,
+                collapsedSections: updatedSections
+            };
+            shouldPersist = true;
+            break;
     }
 
     // Persist settings panel state if changed

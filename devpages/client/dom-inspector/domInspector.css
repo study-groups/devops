@@ -677,25 +677,45 @@
 /* ===== HIGHLIGHT TOGGLE PRIMITIVES ===== */
 
 .dom-inspector-highlight-toggle {
-  min-width: 40px;
-  padding: var(--density-space-xs);
-  font-size: 16px;
-  background-color: var(--interactive-background);
-  border: 1px solid var(--interactive-border);
-  color: var(--interactive-text-secondary);
+  position: relative;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
 }
 
-.dom-inspector-highlight-toggle:hover {
-  background-color: var(--interactive-background-hover);
-  color: var(--interactive-text);
-  transform: scale(1.1);
+.dom-inspector-highlight-toggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
 }
 
-.dom-inspector-highlight-toggle[data-mode="border"],
-.dom-inspector-highlight-toggle[data-mode="both"] {
+/* None Mode */
+.dom-inspector-highlight-toggle.mode-none::before {
+  border: 2px solid var(--color-foreground-muted);
+  background-color: transparent;
+}
+.dom-inspector-highlight-toggle.mode-none:hover::before {
+  border-color: var(--color-foreground-primary);
+}
+
+/* Border Mode */
+.dom-inspector-highlight-toggle.mode-border::before {
+  border: 2px dotted var(--color-primary);
+  background-color: transparent;
+}
+
+/* Both Mode */
+.dom-inspector-highlight-toggle.mode-both::before {
+  border: 2px dotted var(--color-primary);
   background-color: var(--color-primary-background);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 /* ===== ERROR AND STATUS PRIMITIVES ===== */

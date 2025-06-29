@@ -36,6 +36,9 @@ export class TreeManager {
         console.log('DOM Inspector: Building tree...');
         console.log('DOM Inspector: Callbacks received:', Object.keys(callbacks));
         
+        // Preserve current tree state before clearing
+        this.preserveTreeState();
+        
         // Clear existing tree
         this.treeContainer.innerHTML = '';
         
@@ -57,7 +60,6 @@ export class TreeManager {
             const firstToggle = this.treeContainer.querySelector('.dom-inspector-node-toggle');
             if (firstToggle) {
                 console.log('DOM Inspector: First toggle button found:', firstToggle);
-                console.log('DOM Inspector: Toggle has event listeners:', firstToggle.onclick !== null);
             } else {
                 console.warn('DOM Inspector: No toggle buttons found in tree');
             }
@@ -68,6 +70,11 @@ export class TreeManager {
             } else {
                 console.warn('DOM Inspector: No headers found in tree');
             }
+            
+            // Auto-restore tree state after a short delay to allow DOM to settle
+            setTimeout(() => {
+                this.restoreTreeState();
+            }, 20);
             
         } else {
             console.error('DOM Inspector: Failed to create root node');
@@ -366,10 +373,13 @@ export class TreeManager {
     restoreTreeState() {
         if (!this.treeContainer) return;
         
+        console.log('DOM Inspector: Restoring tree state with', this.treeState.expandedNodes.size, 'expanded nodes');
+        
         // Restore expanded nodes
         this.treeState.expandedNodes.forEach(elementId => {
             const node = this.treeContainer.querySelector(`[data-element-id="${elementId}"]`);
             if (node && !node.classList.contains('expanded')) {
+                console.log('DOM Inspector: Restoring expanded state for node:', node);
                 this.toggleNode(node);
             }
         });

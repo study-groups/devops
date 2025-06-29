@@ -28,13 +28,6 @@ body {
   overflow: hidden;
 }
 
-/* Top navigation bar */
-.top-bar {
-  flex-shrink: 0;
-  z-index: 100;
-  /* Remove fixed height - let design system handle sizing */
-}
-
 /* Panels workspace - horizontal layout for panels, preview, log, and right gutter */
 main {
   display: flex;

@@ -25,7 +25,7 @@ async function initializeOrUpdatePreview(isUpdate = false) {
       console.log('[previewManager] Performing initial preview system initialization...');
       
       // Get the actual DOM element for the container
-      const containerElement = document.querySelector('.preview-container');
+      const containerElement = document.getElementById('preview-container');
       if (!containerElement) {
         console.error('[previewManager] Preview container element not found');
         return;
@@ -212,8 +212,8 @@ export async function initializePreviewManager() {
 
   // Ensure the container exists before proceeding (Bootstrap.js should ensure this by calling us at the right time)
   // However, a defensive check here is good practice.
-  if (!document.querySelector('.preview-container')) {
-    console.error('[previewManager] CRITICAL: .preview-container not found in DOM. Preview cannot initialize.');
+  if (!document.getElementById('preview-container')) {
+    console.error('[previewManager] CRITICAL: #preview-container not found in DOM. Preview cannot initialize.');
     // Optionally, dispatch an error state to the appStore or throw an error
     return; // Halt initialization if container is missing
   }

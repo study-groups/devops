@@ -1,4 +1,10 @@
-// import { eventBus } from '/client/eventBus.js'; // Unused
+import { eventBus } from '/client/eventBus.js';
+import { UIManager } from '/client/ui/UIManager.js';
+import { appStore, ActionTypes } from '/client/state/appStore.js';
+
+// --- Module-level state ---
+let isInitialized = false;
+let unsubscribeFromStore = null;
 
 // Helper for logging within this module
 function logTopBar(message, level = 'text') {
@@ -9,6 +15,81 @@ function logTopBar(message, level = 'text') {
         const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
         logFunc(`${type}: ${message}`);
     }
+}
+
+/**
+ * Renders the auth state based on the store.
+ */
+function renderAuthState(authState) {
+    const authContainer = document.getElementById('auth-component-container');
+    const saveBtn = document.getElementById('save-btn');
+    const publishBtn = document.getElementById('publish-btn');
+
+    if (!authContainer) return;
+
+    if (authState.isAuthenticated) {
+        authContainer.textContent = `Welcome, ${authState.user.username}`;
+        if (saveBtn) saveBtn.disabled = false;
+        if (publishBtn) publishBtn.disabled = false;
+    } else {
+        authContainer.textContent = 'Not Authenticated';
+        if (saveBtn) saveBtn.disabled = true;
+        if (publishBtn) publishBtn.disabled = true;
+    }
+}
+
+/**
+ * Initializes the Top Bar component, including its handlers and responsive behaviors.
+ */
+function init() {
+    if (isInitialized) return;
+    logTopBar('Initializing Top Bar...');
+    
+    updateContentHeight();
+    attachTopBarHandlers();
+    attachRefreshHandler();
+
+    window.addEventListener('resize', updateContentHeight);
+    
+    // Subscribe to the store and render the initial state
+    if (!unsubscribeFromStore) {
+        unsubscribeFromStore = appStore.subscribe(() => {
+            renderAuthState(appStore.getState().auth);
+        });
+    }
+    renderAuthState(appStore.getState().auth);
+
+    isInitialized = true;
+    logTopBar('Top Bar Initialized.');
+}
+
+function refresh() {
+    logTopBar('Refreshing Top Bar...');
+    // For the top bar, a refresh might involve re-checking auth state or updating content.
+    // For now, simply updating the content height is a good example.
+    updateContentHeight();
+    // Re-attach handlers to ensure they are fresh, especially if the DOM was manipulated.
+    attachTopBarHandlers();
+    attachRefreshHandler();
+    // Re-render state from the store
+    renderAuthState(appStore.getState().auth);
+    logTopBar('Top Bar Refreshed.');
+}
+
+function destroy() {
+    logTopBar('Destroying Top Bar...');
+    // A real implementation would remove specific listeners.
+    // For now, we just remove the global one we added.
+    window.removeEventListener('resize', updateContentHeight);
+    
+    // Unsubscribe from the store to prevent memory leaks
+    if (unsubscribeFromStore) {
+        unsubscribeFromStore();
+        unsubscribeFromStore = null;
+    }
+
+    isInitialized = false;
+    logTopBar('Top Bar Destroyed.');
 }
 
 /**
@@ -35,14 +116,8 @@ function updateContentHeight() {
     logTopBar(`Preview container height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
 }
 
-// Add resize listener to update content height when window is resized
-window.addEventListener('resize', updateContentHeight);
-
-// Ensure content height is updated when the page loads
-document.addEventListener('DOMContentLoaded', updateContentHeight);
-
 // RESTORED: Essential UI handler functions
-export function attachTopBarHandlers() {
+function attachTopBarHandlers() {
     logTopBar('Attaching top bar event handlers...');
     
     // Handle save button clicks
@@ -51,19 +126,8 @@ export function attachTopBarHandlers() {
         saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            logTopBar('Save button clicked');
-            
-            // Check authentication
-            const authState = window.appStore?.getState()?.auth;
-            if (!authState?.isAuthenticated) {
-                logTopBar('Save attempted but user not authenticated', 'warning');
-                return;
-            }
-            
-            // Emit save event
-            if (window.eventBus) {
-                window.eventBus.emit('file:save');
-            }
+            logTopBar('Save button clicked, dispatching action.');
+            appStore.dispatch({ type: ActionTypes.FILE_SAVE_REQUEST });
         });
         logTopBar('Save button handler attached');
     }
@@ -94,30 +158,37 @@ export function attachTopBarHandlers() {
     logTopBar('Top bar handlers attached successfully');
 }
 
-export function updateUserInfo(userData) {
-    logTopBar(`Updating user info: ${userData?.username || 'No user'}`);
-    
-    // Update any user-specific UI elements in the top bar
-    const authContainer = document.getElementById('auth-component-container');
-    if (authContainer && userData) {
-        // The AuthDisplay component should handle this, but we can trigger an update
-        if (window.eventBus) {
-            window.eventBus.emit('auth:userInfoUpdated', userData);
-        }
+/**
+ * Attaches a handler to the refresh button to trigger a soft UI refresh.
+ */
+function attachRefreshHandler() {
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            logTopBar('UI refresh triggered');
+            
+            // Dispatch a global event for components to listen to
+            eventBus.emit('ui:refresh');
+        });
+        logTopBar('Refresh button handler attached');
+    } else {
+        logTopBar('Refresh button not found', 'warning');
     }
-    
-    logTopBar('User info update completed');
 }
 
-// Initialize top bar when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    updateContentHeight();
-    
-    // Small delay to ensure other components are initialized
-    setTimeout(() => {
-        attachTopBarHandlers();
-    }, 100);
-});
+// --- Component Definition ---
+
+const TopBarComponent = {
+    name: 'TopBar',
+    init,
+    refresh,
+    destroy
+};
+
+// --- Registration ---
+UIManager.register(TopBarComponent);
 
 // REMOVED loadCodebaseStructure function
 

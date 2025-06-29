@@ -13,6 +13,7 @@ import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
 import { domInspectorReducer } from './reducers/domInspectorReducer.js';
+import { workspaceReducer } from './reducers/workspaceReducer.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -53,6 +54,7 @@ const sliceReducers = {
     settings: settingsReducer,
     panels: panelsReducer,
     domInspector: domInspectorReducer,
+    workspace: workspaceReducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
 };

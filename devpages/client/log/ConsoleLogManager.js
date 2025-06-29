@@ -27,6 +27,7 @@ export class ConsoleLogManager {
     
     // Bind the method that was missing
     this._boundUpdateFiltersAndStatus = this._updateFiltersAndStatus.bind(this);
+    this.enabled = true;
   }
 
   /**
@@ -162,6 +163,7 @@ export class ConsoleLogManager {
       }
     }
     
+    this.enabled = true;
     return this;
   }
 
@@ -819,8 +821,6 @@ export class ConsoleLogManager {
   getDiscoveredTypes() {
     return this.buffer.getDiscoveredTypes();
   }
-
-
 
   /**
    * Create a silent timer (for performance tracking)

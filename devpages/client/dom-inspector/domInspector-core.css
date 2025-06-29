@@ -1076,6 +1076,10 @@ body.dom-inspector-splitter-dragging * {
   position: sticky;
   top: 0;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
 .breadcrumb-link {
@@ -1086,12 +1090,12 @@ body.dom-inspector-splitter-dragging * {
   transition: var(--transition);
   position: relative;
   display: inline-block;
+  font-weight: var(--font-weight-semibold);
 }
 
 .breadcrumb-link:hover {
-  /* HOVER EFFECT REMOVED */
-  text-decoration: none !important;
-  color: inherit !important;
+  text-decoration: none;
+  color: inherit;
 }
 
 .breadcrumb-link.active {
@@ -1100,6 +1104,23 @@ body.dom-inspector-splitter-dragging * {
   font-weight: var(--font-weight-semibold);
 }
 
+.breadcrumb-tag {
+  font-weight: var(--font-weight-semibold);
+}
+
+.breadcrumb-identifier {
+  font-weight: var(--font-weight-semibold);
+}
+
+.breadcrumb-separator {
+  color: var(--text-muted);
+  font-weight: var(--font-weight-normal);
+  opacity: 0.6;
+  user-select: none;
+  margin: 0 2px;
+}
+
+/* Add remaining tooltip styles for backward compatibility */
 .breadcrumb-tooltip {
   /* HOVER TOOLTIP REMOVED */
   display: none !important;

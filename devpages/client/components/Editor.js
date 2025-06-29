@@ -1,3 +1,50 @@
+import { UIManager } from '/client/ui/UIManager.js';
+
+// --- Module-level state ---
+let editorInstance = null;
+
+// --- Private Functions ---
+
+/**
+ * Initializes the Editor component.
+ */
+function init() {
+    if (editorInstance) return;
+
+    const editorContainer = document.getElementById('editor-container');
+    if (!editorContainer) {
+        console.error('[Editor] Container #editor-container not found.');
+        return;
+    }
+    editorInstance = new Editor(editorContainer);
+    console.log('[Editor] Component Initialized.');
+}
+
+/**
+ * Refreshes the editor, potentially by reloading the current file.
+ */
+function refresh() {
+    if (!editorInstance) {
+        init();
+        return;
+    }
+    console.log('[Editor] Component Refreshed. (Stub - implement content reload logic)');
+    // A real implementation would be:
+    // const { currentFile, currentDir } = appStore.getState().file;
+    // editorInstance.loadFile(currentFile, currentDir);
+}
+
+/**
+ * Destroys the editor instance and cleans up.
+ */
+function destroy() {
+    if (editorInstance) {
+        editorInstance.destroy();
+        editorInstance = null;
+    }
+    console.log('[Editor] Component Destroyed.');
+}
+
 // Example of a modular Editor component
 export class Editor {
     constructor(container, options = {}) {
@@ -16,9 +63,6 @@ export class Editor {
         
         // Also listen for auth:login events directly for backward compatibility
         document.addEventListener('auth:login', this.handleAuthLogin.bind(this));
-        
-        // Listen for fileManager:ready events
-        document.addEventListener('fileManager:ready', this.handleFileManagerReady.bind(this));
     }
     
     checkAndRestoreAuthState() {
@@ -62,6 +106,7 @@ export class Editor {
         // Create editor elements
         this.textarea = document.createElement('textarea');
         this.textarea.placeholder = "Write Markdown here...";
+        this.textarea.classList.add('editor-textarea');
         
         // Add event listeners
         this.textarea.addEventListener('input', this.handleInput.bind(this));
@@ -171,13 +216,6 @@ export class Editor {
                 directory: directory
             }
         }));
-    }
-    
-    // Add this method to handle fileManager:ready events
-    handleFileManagerReady() {
-        console.log('[EDITOR] File manager ready event received');
-        // Restore last directory and file
-        this.restoreLastDirectoryAndFile();
     }
     
     handleInput(event) {
@@ -345,7 +383,6 @@ export class Editor {
         document.removeEventListener('file:selected', this.handleFileSelected);
         document.removeEventListener('file:loaded', this.handleFileLoaded);
         document.removeEventListener('auth:login', this.handleAuthLogin);
-        document.removeEventListener('fileManager:ready', this.handleFileManagerReady);
         this.textarea.removeEventListener('input', this.handleInput);
         this.textarea.removeEventListener('scroll', this.handleScroll);
         
@@ -353,6 +390,20 @@ export class Editor {
             this.container.removeChild(this.textarea);
         }
         
-        console.log('[EDITOR] Editor component destroyed');
+        // Clear container
+        this.container.innerHTML = '';
+        console.log('[EDITOR] Editor instance destroyed');
     }
 } 
+
+// --- Component Definition ---
+
+const EditorComponent = {
+    name: 'Editor',
+    init,
+    refresh,
+    destroy
+};
+
+// --- Registration ---
+UIManager.register(EditorComponent);

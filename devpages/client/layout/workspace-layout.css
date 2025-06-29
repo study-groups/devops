@@ -1,0 +1,547 @@
+/**
+ * workspace-layout.css
+ * Main layout: main-panels (sidebar, editor, preview) and a bottom log-container
+ */
+
+.workspace-container {
+    display: flex;
+    flex-direction: column; /* Stack main panels and log container vertically */
+    width: 100;
+    background: var(--color-background);
+}
+
+.main-panels {
+    display: flex;
+    flex: 1; /* Takes up available space */
+    min-height: 0;
+    width: 100%;
+}
+
+.sidebar-container {
+    width: 350px;
+    min-width: 250px;
+    max-width: 500px;
+    background: var(--color-background-secondary);
+    position: relative;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--color-border);
+}
+
+.sidebar-container.hidden {
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    border-right: none;
+    overflow: hidden;
+    opacity: 0;
+}
+
+/* This is the container for the actual panel content inside the sidebar */
+.panel-manager {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.editor-container {
+    flex: 1;
+    min-width: 300px;
+    background: var(--color-background);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border-right: 1px solid var(--color-border);
+    transition: all 0.3s ease;
+}
+
+.editor-container.hidden {
+    flex: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    border-right: none !important;
+    overflow: hidden !important;
+    display: none !important;
+}
+
+.preview-container {
+    flex: 1;
+    min-width: 400px;
+    background: var(--color-background);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: auto;
+}
+
+/* When editor is hidden, preview takes full width */
+.editor-container.hidden + .preview-container {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Alternative selector for when preview should expand */
+.main-panels:has(.editor-container.hidden) .preview-container {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+.log-container {
+    height: 250px; /* Default height, can be made resizable */
+    min-height: 40px;
+    background: var(--color-background-secondary);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+
+.log-container.hidden {
+    height: 0;
+    min-height: 0;
+    border-top: none;
+    overflow: hidden;
+}
+
+/* Panel Header */
+.panel-header {
+    height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+/* Panel Sections List */
+.panel-sections {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.panel-section-tab {
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.panel-section-tab:hover {
+    background: var(--color-background-hover);
+    color: var(--color-text);
+}
+
+.panel-section-tab.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.panel-close-btn {
+    color: var(--color-text-secondary) !important;
+    opacity: 0.7;
+}
+
+.panel-close-btn:hover {
+    background: var(--color-danger) !important;
+    color: white !important;
+    opacity: 1;
+}
+
+/* Panel Content */
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* Editor Top Bar (when in editor mode) */
+.editor-top-bar {
+    height: 36px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.file-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+}
+
+.file-type-badge[data-type="markdown"] {
+    background: #f0f9ff;
+    border-color: #0ea5e9;
+    color: #0284c7;
+}
+
+.file-type-badge[data-type="html"] {
+    background: #fef2f2;
+    border-color: #f87171;
+    color: #dc2626;
+}
+
+.file-type-badge[data-type="css"] {
+    background: #f0f9ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+}
+
+.file-type-badge[data-type="javascript"] {
+    background: #fefce8;
+    border-color: #eab308;
+    color: #ca8a04;
+}
+
+.editor-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+}
+
+.editor-action-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.editor-action-btn:hover {
+    background: var(--color-background-hover);
+    border-color: var(--color-primary);
+}
+
+.editor-action-btn.primary {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.editor-action-btn.noted {
+    background: var(--color-success);
+    color: white;
+    border-color: var(--color-success);
+}
+
+/* Editor Body */
+.editor-body {
+    flex: 1;
+    padding: 0;
+    position: relative;
+}
+
+/* Context Manager Section */
+.context-manager-section {
+    padding: 16px;
+}
+
+.context-manager-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.current-context-section {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.context-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.context-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--color-background);
+    color: var(--color-text);
+}
+
+.context-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.contexts-list-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.contexts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.context-item {
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-background-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.context-item:hover {
+    background: var(--color-background-hover);
+    border-color: var(--color-primary);
+}
+
+.context-info {
+    flex: 1;
+}
+
+.context-name {
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 2px;
+}
+
+.context-stats {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.context-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.context-action-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.context-action-btn.select-btn:hover {
+    background: var(--color-success);
+    color: white;
+    border-color: var(--color-success);
+}
+
+.context-action-btn.delete-btn:hover {
+    background: var(--color-danger);
+    color: white;
+    border-color: var(--color-danger);
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--color-text-secondary);
+    padding: 32px 16px;
+    font-style: italic;
+}
+
+/* Editor Section */
+.editor-section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.markdown-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    border: none;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--color-background);
+    color: var(--color-text);
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.markdown-editor:focus {
+    background: var(--color-background);
+    outline: none;
+}
+
+/* File Browser Section */
+.file-browser-section {
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.file-tree {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.file-item:hover {
+    background: var(--color-background-hover);
+}
+
+.file-icon {
+    font-size: 14px;
+    width: 16px;
+}
+
+.file-name {
+    font-size: 13px;
+    color: var(--color-text);
+}
+
+.file-item.folder .file-name {
+    font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .sidebar-container {
+        width: 300px;
+    }
+}
+
+@media (max-width: 900px) {
+    .sidebar-container {
+        width: 250px;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-panels {
+        flex-direction: column;
+    }
+
+    .sidebar-container {
+       width: 100% !important;
+       max-width: 100%;
+       border-bottom: 1px solid var(--color-border);
+       height: auto;
+    }
+
+    .sidebar-container.hidden {
+        height: 0;
+        min-height: 0;
+    }
+    
+    .editor-container, .preview-container {
+        width: 100%;
+        min-width: 100%;
+        height: 50vh; /* Give them some height */
+    }
+
+    .log-container {
+        height: 200px;
+    }
+}
+
+/* Panel Resize Handle - You may need to re-implement resizing logic */
+.panel-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    width: 4px;
+    height: 100%;
+    cursor: ew-resize;
+    background: transparent;
+    z-index: 1000;
+}
+
+.panel-resize-handle:hover {
+    background: var(--color-primary-hover);
+}
+
+/* Prevent text selection during resize */
+body.resizing {
+    user-select: none;
+    cursor: ew-resize;
+}
+
+body.resizing * {
+    pointer-events: none;
+}
+
+body.resizing .panel-resize-handle {
+    pointer-events: auto;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .file-type-badge[data-type="markdown"] {
+        background: rgba(14, 165, 233, 0.1);
+        color: #38bdf8;
+    }
+    
+    .file-type-badge[data-type="html"] {
+        background: rgba(239, 68, 68, 0.1);
+        color: #f87171;
+    }
+    
+    .file-type-badge[data-type="css"] {
+        background: rgba(59, 130, 246, 0.1);
+        color: #60a5fa;
+    }
+    
+    .file-type-badge[data-type="javascript"] {
+        background: rgba(234, 179, 8, 0.1);
+        color: #fbbf24;
+    }
+} 

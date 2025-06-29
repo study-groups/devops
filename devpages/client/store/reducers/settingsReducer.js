@@ -14,6 +14,7 @@ const PAGE_THEME_MODE_KEY = 'devpages_page_theme_mode';
 const DESIGN_TOKENS_ACTIVE_THEME_KEY = 'devpages_active_theme';
 const DESIGN_TOKENS_THEME_VARIANT_KEY = 'devpages_theme_variant';
 const DESIGN_TOKENS_DIR_KEY = 'devpages_design_tokens_dir';
+const CURRENT_CONTEXT_KEY = 'devpages_current_context';
 
 /**
  * Load settings from localStorage with fallback to defaults
@@ -41,7 +42,8 @@ function loadPersistedSettings() {
             themeVariant: 'light', // 'light' or 'dark'
             spacingVariant: 'normal', // 'tight', 'normal', or 'comfortable'
             tokensDirectory: '/root/pj/md/themes'
-        }
+        },
+        currentContext: ''
     };
 
     try {
@@ -123,6 +125,12 @@ function loadPersistedSettings() {
             defaults.designTokens.tokensDirectory = savedTokensDir;
         }
 
+        // Load current context
+        const savedCurrentContext = localStorage.getItem(CURRENT_CONTEXT_KEY);
+        if (savedCurrentContext) {
+            defaults.currentContext = savedCurrentContext;
+        }
+
         console.debug('[Settings] Loaded persisted settings:', defaults);
         return defaults;
     } catch (error) {
@@ -141,6 +149,7 @@ const initialState = {
     publish: persistedSettings.publish,
     pageTheme: persistedSettings.pageTheme,
     designTokens: persistedSettings.designTokens,
+    currentContext: persistedSettings.currentContext,
 };
 
 // --- Settings Slice Reducer ---
@@ -451,6 +460,19 @@ export function settingsReducer(state = initialState, action) {
                     console.debug(`[Reducer] Set design tokens directory to: ${payload}`);
                 } catch (e) {
                     console.error('[Reducer] Failed to save design tokens directory:', e);
+                }
+            }
+            break;
+
+        case ActionTypes.SETTINGS_SET_CURRENT_CONTEXT:
+            if (typeof payload === 'string') {
+                nextState = { ...currentSettings, currentContext: payload };
+                updated = true;
+                try {
+                    localStorage.setItem(CURRENT_CONTEXT_KEY, payload);
+                    console.debug(`[Reducer] Set current context to: ${payload}`);
+                } catch (e) {
+                    console.error('[Reducer] Failed to save current context:', e);
                 }
             }
             break;

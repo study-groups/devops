@@ -8,6 +8,7 @@ import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { eventBus } from '/client/eventBus.js';
+import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
 
 // Temporarily disable modular imports due to import errors
 // TODO: Fix import paths in modular components
@@ -29,6 +30,9 @@ class CssFilesPanel {
     this.toggleThrottle = new Map(); // href -> timestamp
     this.throttleDelay = 100; // ms
     
+    // Initialize Z-Index analyzer
+    this.zIndexAnalyzer = new ZIndexAnalyzer();
+    
     this.init();
   }
 
@@ -42,6 +46,7 @@ class CssFilesPanel {
   refresh() {
     // Scan for CSS files using inline implementation
     this.scanCssFiles();
+    this.analyzeZIndexUsage();
     this.render();
   }
 
@@ -68,6 +73,7 @@ class CssFilesPanel {
       ">
         ${this.renderSummarySection(stats)}
         ${this.renderCategorizedFileList()}
+        ${this.zIndexAnalyzer.renderSubPanel()}
       </div>
     `;
 
@@ -152,6 +158,14 @@ class CssFilesPanel {
         this.debugCssFile(href);
         return;
       }
+    });
+
+    // Setup Z-Index analyzer event listeners
+    this.zIndexAnalyzer.setupEventListeners(this.containerElement);
+    
+    // Listen for refresh events from Z-Index analyzer
+    document.addEventListener('css-files-refresh', () => {
+      this.refresh();
     });
   }
 
@@ -1331,10 +1345,12 @@ class CssFilesPanel {
    * Get extra info for inline styles
    */
   getExtraInfo(cssFile) {
+    let extraInfo = '';
+    
     if (cssFile.type === 'inline' && cssFile.content) {
       const lines = cssFile.content.split('\n').length;
       const chars = cssFile.content.length;
-      return `
+      extraInfo += `
         <span style="
           padding: 2px 6px; 
           background: var(--color-info-background, #d1ecf1); 
@@ -1357,7 +1373,38 @@ class CssFilesPanel {
         ` : ''}
       `;
     }
-    return '';
+    
+    // Add Z-Index information
+    const zIndexInfo = this.zIndexAnalyzer.getZIndexInfo(cssFile);
+    if (zIndexInfo) {
+      extraInfo += `
+        <span style="
+          padding: 2px 6px; 
+          background: var(--color-warning-background, #fff3cd); 
+          color: var(--color-warning-text, #856404); 
+          border-radius: 3px; 
+          font-size: 10px;
+          font-weight: 500;
+        ">
+          📏 ${zIndexInfo}
+        </span>
+      `;
+    }
+    
+    return extraInfo;
+  }
+
+  /**
+   * Analyze Z-Index usage across all CSS files
+   */
+  analyzeZIndexUsage() {
+    // Clear previous analysis
+    this.zIndexAnalyzer.clear();
+    
+    // Analyze each CSS file for z-index usage
+    for (const [href, cssFile] of this.cssFiles) {
+      this.zIndexAnalyzer.analyzeCssFile(cssFile);
+    }
   }
 
   /**
@@ -1520,6 +1567,11 @@ class CssFilesPanel {
       // Cleanup debugger
       if (this.debugger) {
         this.debugger.destroy();
+      }
+      
+      // Cleanup Z-Index analyzer
+      if (this.zIndexAnalyzer) {
+        this.zIndexAnalyzer.clear();
       }
       
       // Clear references

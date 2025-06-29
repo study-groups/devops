@@ -31,7 +31,9 @@ export class DomInspectorSettingsPanel {
             visualDebugging: false,
             highlightStackingContexts: false,
             showZIndexTooltips: true,
-            groupByStackingContext: false
+            groupByStackingContext: false,
+            highlightColor: '#448AFF',
+            highlightZIndex: 999999,
         };
         
         this.createPanel();
@@ -133,6 +135,12 @@ export class DomInspectorSettingsPanel {
             this.createCheckbox('showBreadcrumbAnnotations', 'Show Breadcrumb Annotations', 'Display element details in the breadcrumb trail')
         ]);
 
+        // Visual Cursor Section
+        const visualCursorSection = this.createSection('Visual Cursor', [
+            this.createColorInput('highlightColor', 'Highlight Color', 'Set the color of the element highlight overlay.'),
+            this.createNumberInput('highlightZIndex', 'Highlight Z-Index', 'Set the z-index of the element highlight overlay.'),
+        ]);
+
         // Visual Debugging Section
         const debugSection = this.createSection('Visual Debugging', [
             this.createCheckbox('visualDebugging', 'Enable Visual Debug Mode', 'Show visual overlays for all z-index managed elements'),
@@ -147,6 +155,7 @@ export class DomInspectorSettingsPanel {
         ]);
 
         content.appendChild(zIndexSection);
+        content.appendChild(visualCursorSection);
         content.appendChild(stackingSection);
         content.appendChild(annotationSection);
         content.appendChild(debugSection);
@@ -516,6 +525,8 @@ export class DomInspectorSettingsPanel {
     }
 
     applyConfiguration() {
+        console.log('DOM Inspector Settings: Applying configuration', this.config);
+        
         // Apply visual debugging
         if (zIndexManager) {
             zIndexManager.setVisualDebugging(this.config.visualDebugging);
@@ -524,12 +535,19 @@ export class DomInspectorSettingsPanel {
         // Update DOM Inspector annotations
         if (this.domInspector) {
             this.domInspector.updateAnnotationSettings(this.config);
+
+            const highlightSettings = this.domInspector.stateManager.getState().highlight;
+            this.domInspector.stateManager.setHighlight({
+                ...highlightSettings,
+                color: this.config.highlightColor,
+                zIndex: this.config.highlightZIndex,
+            });
         }
 
-        // Trigger tree rebuild if needed
-        if (this.domInspector && (this.config.showZIndex || this.config.showStackingContext)) {
-            this.domInspector.buildTree();
-        }
+        // Note: Tree rebuild is now handled by updateAnnotationSettings with state preservation
+        // No need to call buildTree() here anymore
+        
+        console.log('DOM Inspector Settings: Configuration applied');
     }
 
     saveConfiguration() {
@@ -546,9 +564,18 @@ export class DomInspectorSettingsPanel {
             if (saved) {
                 const config = JSON.parse(saved);
                 this.config = { ...this.config, ...config };
-                this.updateFormValues();
-                this.applyConfiguration();
             }
+            
+            // Also load highlight settings from state manager for consistency
+            if (this.domInspector) {
+                const highlightSettings = this.domInspector.stateManager.getState().highlight;
+                this.config.highlightColor = highlightSettings.color || '#448AFF';
+                this.config.highlightZIndex = highlightSettings.zIndex || 999999;
+            }
+
+            this.updateFormValues();
+            this.applyConfiguration();
+            
         } catch (e) {
             console.error('Failed to load DOM Inspector settings:', e);
         }
@@ -562,6 +589,12 @@ export class DomInspectorSettingsPanel {
                 checkbox.checked = this.config[key];
             }
         });
+
+        // Update custom inputs (color, number)
+        const colorInput = this.panel.querySelector(`#setting-highlightColor`);
+        if(colorInput) colorInput.value = this.config.highlightColor;
+        const numberInput = this.panel.querySelector(`#setting-highlightZIndex`);
+        if(numberInput) numberInput.value = this.config.highlightZIndex;
 
         // Update radio buttons
         const radioGroups = ['annotationMode'];
@@ -657,5 +690,112 @@ export class DomInspectorSettingsPanel {
             this.panel.remove();
             this.panel = null;
         }
+    }
+
+    createColorInput(key, label, description) {
+        const container = document.createElement('div');
+        container.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        `;
+    
+        const labelContainer = document.createElement('div');
+        labelContainer.style.flex = '1';
+    
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = `
+            font-weight: 500;
+            color: var(--color-foreground, #1e293b);
+        `;
+    
+        const descEl = document.createElement('div');
+        descEl.textContent = description;
+        descEl.style.cssText = `
+            font-size: 11px;
+            color: var(--color-foreground-muted, #64748b);
+            line-height: 1.4;
+        `;
+    
+        labelContainer.appendChild(labelEl);
+        labelContainer.appendChild(descEl);
+    
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.id = `setting-${key}`;
+        colorInput.value = this.config[key];
+        colorInput.style.cssText = `
+            width: 40px;
+            height: 24px;
+            border: 1px solid var(--color-border, #e2e8f0);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px;
+        `;
+    
+        colorInput.addEventListener('input', (e) => {
+            this.config[key] = e.target.value;
+            this.applyConfiguration();
+            this.saveConfiguration();
+        });
+    
+        container.appendChild(labelContainer);
+        container.appendChild(colorInput);
+        return container;
+    }
+
+    createNumberInput(key, label, description) {
+        const container = document.createElement('div');
+        container.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        `;
+    
+        const labelContainer = document.createElement('div');
+        labelContainer.style.flex = '1';
+    
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = `
+            font-weight: 500;
+            color: var(--color-foreground, #1e293b);
+        `;
+    
+        const descEl = document.createElement('div');
+        descEl.textContent = description;
+        descEl.style.cssText = `
+            font-size: 11px;
+            color: var(--color-foreground-muted, #64748b);
+            line-height: 1.4;
+        `;
+    
+        labelContainer.appendChild(labelEl);
+        labelContainer.appendChild(descEl);
+    
+        const numberInput = document.createElement('input');
+        numberInput.type = 'number';
+        numberInput.id = `setting-${key}`;
+        numberInput.value = this.config[key];
+        numberInput.style.cssText = `
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid var(--color-border, #e2e8f0);
+            border-radius: 4px;
+            font-size: 12px;
+        `;
+    
+        numberInput.addEventListener('change', (e) => {
+            this.config[key] = parseInt(e.target.value, 10);
+            this.applyConfiguration();
+            this.saveConfiguration();
+        });
+    
+        container.appendChild(labelContainer);
+        container.appendChild(numberInput);
+        return container;
     }
 } 

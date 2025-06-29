@@ -1,0 +1,73 @@
+# =================================================================
+# CURSOR AI RULES - PROJECT TEMPLATE (REVISED)
+# =================================================================
+# This file provides instructions to the Cursor AI.
+# It helps the AI understand project-specific conventions,
+# coding standards, and operational boundaries.
+# =================================================================
+
+
+# =================================================================
+# 1. GLOBAL OPERATIONAL RULES
+# =================================================================
+# These are high-level instructions that apply to all interactions
+# within this project.
+
+- **NEVER attempt to start a web server.** Do not suggest or execute commands like `npm start`, `npm run dev`, or any other command that initiates a server process. Your role is to write and modify code, not to run it.
+- **NEVER suggest or install new dependencies or packages** unless explicitly asked to.
+
+
+# =================================================================
+# 2. FILE AND DIRECTORY TREATMENT
+# =================================================================
+# The `notepads/` directory serves as our project's knowledge base.
+# It contains reference files that should be included in prompts
+# on-demand using the @ symbol (e.g., `@notepads/filename.md`).
+# Do NOT assume the entire directory is relevant to every prompt.
+
+
+# =================================================================
+# 3. VANILLA JAVASCRIPT CODING STANDARDS
+# =================================================================
+# Follow these rules when writing or modifying any JavaScript (.js) files.
+
+# General Principles:
+- Write clean, modern, and readable ES6+ JavaScript.
+- Prioritize clarity and maintainability over overly clever or complex code.
+#- Add JSDoc comments for all functions, especially public-facing APIs.
+
+# Variables and Declarations:
+- Use `const` by default. Use `let` only for variables that must be reassigned. Avoid `var`.
+
+# Functions:
+- Prefer arrow functions (`=>`) for anonymous functions and callbacks.
+- Use `async/await` for handling asynchronous operations.
+
+# DOM Manipulation:
+- Add/remove CSS classes to apply styles instead of manipulating inline styles directly.
+- Use `document.querySelector` and `document.querySelectorAll`.
+
+# Error Handling:
+- Implement robust error handling with `try...catch` blocks for operations that might fail.
+
+
+# =================================================================
+# 4. MERMAID DIAGRAM GENERATION RULES
+# =================================================================
+# The following is a comprehensive guide for generating Mermaid diagrams.
+# You MUST adhere to these rules strictly when asked to create or
+# edit a Mermaid diagram and this guide is referenced in the prompt
+# using @notepads/mermaid-002.md.
+
+# --- START MERMAID GUIDE ---
+# [The rest of your detailed Mermaid guide goes here...]
+# --- END MERMAID GUIDE ---
+
+# Design Principles
+- NO emojis in code or UI (🚫)  
+- NO flashy animations or "pulse" effects
+- NO gradient backgrounds or fancy styling
+- Keep UI changes minimal and functional
+- Use existing design patterns, don't reinvent
+- Focus on functionality over visual flair
+- Simple, clean, readable code only

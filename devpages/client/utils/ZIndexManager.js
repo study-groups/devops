@@ -18,7 +18,8 @@ export class ZIndexManager {
       BASE: { min: 0, max: 99, name: 'Base Content' },
       UI: { min: 100, max: 999, name: 'UI Elements' },
       POPUP: { min: 1000, max: 9999, name: 'Popups & Modals' },
-      SYSTEM: { min: 10000, max: 99999, name: 'System Overlays' }
+      SYSTEM: { min: 10000, max: 99999, name: 'System Overlays' },
+      DEBUG: { min: 100000, max: 999999, name: 'Debug Tools' }
     };
     
     // Track managed elements
@@ -51,6 +52,9 @@ export class ZIndexManager {
   init() {
     // Scan existing elements
     this.scanExistingElements();
+    
+    // Inject CSS variables for global use
+    this.injectLayerVariables();
     
     // Set up mutation observer to track new elements
     this.setupMutationObserver();
@@ -541,6 +545,31 @@ export class ZIndexManager {
     `;
     
     document.head.appendChild(style);
+  }
+
+  /**
+   * Injects CSS variables for z-index layers into the document head.
+   * This makes the ZIndexManager the single source of truth for all CSS.
+   */
+  injectLayerVariables() {
+    const styleId = 'z-index-layer-variables';
+    if (document.getElementById(styleId)) return; // Don't add it twice
+
+    const style = document.createElement('style');
+    style.id = styleId;
+
+    let cssText = ':root {\n';
+    for (const [name, layer] of Object.entries(this.layers)) {
+      cssText += `  --z-layer-${name.toLowerCase()}: ${layer.min};\n`;
+    }
+    cssText += '}';
+
+    style.textContent = cssText;
+    document.head.appendChild(style);
+
+    if (this.config.logChanges) {
+      console.log('[ZIndexManager] Injected z-index layer CSS variables into <head>.');
+    }
   }
 
   /**

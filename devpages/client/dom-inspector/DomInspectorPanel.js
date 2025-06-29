@@ -17,6 +17,17 @@ import { AnnotationManager } from './managers/AnnotationManager.js';
 import { SelectorManager } from './managers/SelectorManager.js';
 import { IframeDetailsManager } from './IframeDetailsManager.js';
 
+// Import UI components
+import { BoxModelComponent } from './components/BoxModelComponent.js';
+import { ComputedStylesComponent } from './components/ComputedStylesComponent.js';
+import { IframeAnalyzer } from './components/IframeAnalyzer.js';
+import { SectionManager } from './components/SectionManager.js';
+import { BreadcrumbManager } from './components/BreadcrumbManager.js';
+import { ElementDetailsRenderer } from './components/ElementDetailsRenderer.js';
+import { HistoryManager } from './components/HistoryManager.js';
+import { HighlightManager } from './components/HighlightManager.js';
+import { UIUtilities } from './components/UIUtilities.js';
+
 export class DomInspectorPanel {
     constructor() {
         if (DomInspectorPanel.instance) {
@@ -24,18 +35,13 @@ export class DomInspectorPanel {
         }
         DomInspectorPanel.instance = this;
 
-        // Initialize state manager first
+        // Initialize state manager first (but don't initialize yet)
         this.stateManager = new StateManager();
-        console.log('[GENERAL] StateManager created, initializing...');
-        this.stateManager.initialize();
-        console.log('[GENERAL] StateManager initialized');
+        console.log('[GENERAL] StateManager created, will initialize after components are ready');
         
-        // Get initial state after state manager is initialized
-        const initialState = this.stateManager.getState();
-        
-        // Initialize PanelUI with callbacks
+        // Initialize PanelUI with callbacks (will get initial state later)
         this.panelUI = new PanelUI({
-            initialSplitPosition: initialState.splitPosition || 33,
+            initialSplitPosition: 33, // Default value, will be updated later
             onPositionChange: (position) => this.stateManager.setPosition(position),
             onSizeChange: (size) => this.stateManager.setSize(size),
             onSplitChange: (splitPosition) => this.stateManager.setSplitPosition(splitPosition),
@@ -52,6 +58,19 @@ export class DomInspectorPanel {
         this.treeManager = new TreeManager(this.elementManager, this.annotationManager);
         this.selectorManager = new SelectorManager();
         this.iframeDetailsManager = new IframeDetailsManager(this);
+        
+        // Initialize UI components
+        this.boxModelComponent = new BoxModelComponent();
+        this.computedStylesComponent = new ComputedStylesComponent();
+        this.iframeAnalyzer = new IframeAnalyzer();
+        this.sectionManager = new SectionManager();
+        this.breadcrumbManager = new BreadcrumbManager();
+        this.elementDetailsRenderer = new ElementDetailsRenderer();
+        this.historyManager = new HistoryManager(this.stateManager);
+        this.highlightManager = new HighlightManager(this.stateManager);
+        
+        // Add drag and drop styles
+        SectionManager.addDragDropStyles();
         
         // Get UI element references from PanelUI
         const uiElements = this.panelUI.getElements();
@@ -74,6 +93,15 @@ export class DomInspectorPanel {
         // Current state
         this.currentElement = null;
         this.selectedElement = null; // Keep for backward compatibility
+        
+        // NOW initialize StateManager after components are ready
+        console.log('[GENERAL] All required components created, initializing StateManager...');
+        this.setupStateListeners();
+        this.stateManager.initialize();
+        console.log('[GENERAL] StateManager initialized');
+        
+        // Get initial state after state manager is initialized
+        const initialState = this.stateManager.getState();
         
         // Set initial state from StateManager
         this.panelUI.setPosition(initialState.position);
@@ -105,25 +133,43 @@ export class DomInspectorPanel {
             colorScheme: 'default'
         };
 
-        // History and breadcrumb tracking
-        this.currentBreadcrumbTrail = null;
-        this.activeBreadcrumbIndex = -1;
+        // Setup component callbacks
+        this.breadcrumbManager.setCallbacks({
+            onBreadcrumbClick: (index) => {
+                const targetElement = this.breadcrumbManager.navigateToBreadcrumbElement(index);
+                if (targetElement) {
+                    this.currentElement = targetElement;
+                    this.selectedElement = targetElement;
+                    this.highlightOverlay.highlight(targetElement);
+                    this.updateElementDetailsOnly(targetElement);
+                    this.updateTreeSelection(targetElement);
+                    this.expandTreeToElement(targetElement);
+                }
+            },
+            onNavigate: (element, index) => {
+                // Already handled in onBreadcrumbClick
+            }
+        });
 
         this.setupEventHandlers();
-        this.setupStateListeners();
         this.panelUI.registerWithZIndexManager();
         
         // Create settings panel
         this.settingsPanel = new DomInspectorSettingsPanel(this);
 
-        // BUILD TREE IMMEDIATELY DURING INITIALIZATION
-        this.buildTree();
+        // BUILD TREE WITH DELAY TO ENSURE DOM IS READY
+        setTimeout(() => {
+            this.buildTree();
+            console.log('DOM Inspector: Initial tree build completed with delay');
+        }, 100);
 
-        // Initialize highlight button visuals after UI is created
-        this.updateHighlightButtonVisuals();
+        // Initialize component UI elements
+        this.historyManager.setUIElements(this.historyContainer, this.querySelectorInput);
+        this.historyManager.setOnPresetClick((selector) => this.selectElementByQuery(selector));
+        this.highlightManager.setUIElements(this.highlightToggleButton);
         
         // Initialize history buttons
-        this.updateHistoryButtons();
+        this.historyManager.updateHistoryButtons();
         
         this.render(initialState);
     }
@@ -157,11 +203,11 @@ export class DomInspectorPanel {
 
         this.stateManager.on('highlightChanged', (highlight) => {
             this.highlightOverlay.updateSettings(highlight);
-            this.updateHighlightButtonVisuals();
+            this.highlightManager.updateHighlightButtonVisuals();
         });
 
         this.stateManager.on('historyChanged', () => {
-            this.updateHistoryButtons();
+            this.historyManager.updateHistoryButtons();
         });
 
         this.stateManager.on('sectionsChanged', () => {
@@ -215,8 +261,7 @@ export class DomInspectorPanel {
             });
         }
 
-        // Highlight toggle button
-        this.setupHighlightButtonEvents();
+        // Highlight toggle button events are handled by HighlightManager
     }
 
     render(state) {
@@ -267,16 +312,40 @@ export class DomInspectorPanel {
         
         console.log('DOM Inspector: Building tree with refactored tree manager');
         
-        // Use tree manager to build the tree with proper callbacks
-        this.treeManager.buildTree({
+        // Ensure callbacks are properly defined before building
+        const callbacks = {
             onElementClick: (element) => {
                 console.log('DOM Inspector: Tree node clicked, element:', element);
                 this.selectElement(element);
             },
             onToggleNode: (node) => {
+                console.log('DOM Inspector: Tree node toggle clicked, node:', node);
                 this.treeManager.toggleNode(node);
             }
-        });
+        };
+        
+        // Use tree manager to build the tree with proper callbacks
+        this.treeManager.buildTree(callbacks);
+        
+        // Ensure the tree is properly initialized
+        setTimeout(() => {
+            // Verify tree event handlers are working
+            const firstToggle = this.treeContainer.querySelector('.dom-inspector-node-toggle');
+            const firstHeader = this.treeContainer.querySelector('.dom-inspector-node-header');
+            
+            if (firstToggle) {
+                console.log('DOM Inspector: Tree toggle buttons are ready');
+            }
+            if (firstHeader) {
+                console.log('DOM Inspector: Tree headers are ready');
+            }
+            
+            // If we have a current element, make sure it's visible and selected in the tree
+            if (this.currentElement) {
+                this.updateTreeSelection(this.currentElement);
+                this.expandTreeToElement(this.currentElement);
+            }
+        }, 10);
     }
 
     /**
@@ -311,7 +380,6 @@ export class DomInspectorPanel {
 
         if (element) {
             this.highlightOverlay.highlight(element);
-            this.updateBreadcrumbs(element);
             this.renderElementDetails(element);
             this.updateTreeSelection(element);
             this.expandTreeToElement(element);
@@ -328,299 +396,79 @@ export class DomInspectorPanel {
 
         console.log('DOM Inspector: Rendering element details with UI components');
         
-        // Clear previous content
+        // Clear previous content first
         this.detailsContainer.innerHTML = '';
         
-        // Add breadcrumbs at the very top as a header
-        if (element) {
-            const breadcrumbTrail = this.createEnhancedBreadcrumbTrail(element);
-            this.detailsContainer.appendChild(breadcrumbTrail);
-        }
-
-        // If the element is an iframe, show special details
-        if (element.tagName === 'IFRAME') {
-            const iframeDetails = this.iframeDetailsManager.createIframeDetailsSection(element);
-            this.detailsContainer.appendChild(iframeDetails);
-        }
+        // Add breadcrumbs at the very top (non-draggable, always fixed)
+        const breadcrumbTrail = this.breadcrumbManager.createEnhancedBreadcrumbTrail(element);
+        breadcrumbTrail.style.cssText = `
+            position: sticky;
+            top: 0;
+            background: white;
+            border-bottom: 1px solid #e1e4e8;
+            padding: 8px 0;
+            margin-bottom: 8px;
+            z-index: 10;
+        `;
+        this.detailsContainer.appendChild(breadcrumbTrail);
         
-        // DON'T create the ugly element summary - breadcrumbs are enough!
-        
-        // Create computed styles section with a working filter
-        this.createComputedStylesSection(element);
-        
-        // Create box model section
-        this.createBoxModelSection(element);
+        // Collect all sections
+        const sectionsData = [];
         
         // Create element details section
-        this.createElementDetailsSection(element);
+        const elementDetailsContent = this.elementDetailsRenderer.createElementDetailsContent(element);
+        sectionsData.push({
+            id: 'element-details',
+            section: this.sectionManager.createCollapsibleSection('element-details', 'Element Details', elementDetailsContent)
+        });
+        
+        // Create box model section
+        const boxModelContent = this.boxModelComponent.createBoxModel(window.getComputedStyle(element));
+        sectionsData.push({
+            id: 'box-model',
+            section: this.sectionManager.createCollapsibleSection('box-model', 'Box Model', boxModelContent)
+        });
+        
+        // Create computed styles section
+        const computedStylesContent = this.computedStylesComponent.createComputedStyles(element);
+        sectionsData.push({
+            id: 'computed-styles',
+            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent, true)
+        });
+        
+        // If the element is an iframe, add iframe deep dive section
+        if (element.tagName === 'IFRAME') {
+            // Add iframe deep dive section
+            const deepDiveContent = this.iframeAnalyzer.createIframeDeepDiveContent(element);
+            sectionsData.push({
+                id: 'iframe-deep-dive',
+                section: this.sectionManager.createCollapsibleSection('iframe-deep-dive', 'Iframe Deep Dive', deepDiveContent)
+            });
+        }
         
         // Create events section
-        const eventsSection = this.createEventsSection(element);
-        this.detailsContainer.appendChild(eventsSection);
+        const eventsContent = this.elementDetailsRenderer.createEventsContent(element);
+        sectionsData.push({
+            id: 'events',
+            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent, true)
+        });
         
         // Create layout engine section
-        const engineSection = this.createEngineSection(element);
-        this.detailsContainer.appendChild(engineSection);
-        
-        // Update collapsible sections
-        this.updateCollapsibleSections(this.detailsContainer);
-    }
-
-    /**
-     * Create computed styles section with a working filter
-     */
-    createComputedStylesSection(element) {
-        const computedStyles = window.getComputedStyle(element);
-        const sectionContent = document.createElement('div');
-        
-        const tableContainer = document.createElement('div');
-        
-        const updateTable = (filterGroup) => {
-            tableContainer.innerHTML = '';
-            const newTable = this.createStylesTable(computedStyles, filterGroup);
-            tableContainer.appendChild(newTable);
-        };
-
-        const filterControls = this.createFilterControls(updateTable);
-        sectionContent.appendChild(filterControls);
-        sectionContent.appendChild(tableContainer);
-        
-        // Initial render with 'all'
-        updateTable('all');
-
-        const section = this.createCollapsibleSection('computed-styles', 'Computed Styles', sectionContent);
-        this.detailsContainer.appendChild(section);
-    }
-
-    /**
-     * Create filter controls for computed styles
-     */
-    createFilterControls(onFilterChange) {
-        const controls = document.createElement('div');
-        controls.className = 'dom-inspector-filter-controls';
-        
-        const select = document.createElement('select');
-        const styleGroups = {
-            Layout: ['display', 'position', 'top', 'right', 'bottom', 'left', 'z-index', 'flex', 'grid', 'float', 'clear', 'overflow', 'width', 'height', 'box-sizing'],
-            Typography: ['font', 'color', 'text-align', 'text-decoration', 'letter-spacing', 'word-spacing', 'white-space', 'line-height'],
-            Spacing: ['margin', 'padding', 'border'],
-            Background: ['background', 'opacity'],
-        };
-
-        select.innerHTML = `
-            <option value="all">All Properties</option>
-            ${Object.keys(styleGroups).map(group => `<option value="${group}">${group}</option>`).join('')}
-        `;
-        
-        select.addEventListener('change', (e) => onFilterChange(e.target.value));
-        controls.appendChild(select);
-        
-        return controls;
-    }
-
-    /**
-     * Create styles table with filtering
-     */
-    createStylesTable(computedStyles, filterGroup) {
-        const table = document.createElement('table');
-        table.className = 'dom-inspector-styles-table';
-        const tbody = table.createTBody();
-
-        const allProperties = Array.from(computedStyles);
-        let propertiesToShow = allProperties;
-
-        const styleGroups = {
-            Layout: ['display', 'position', 'top', 'right', 'bottom', 'left', 'z-index', 'flex', 'grid', 'float', 'clear', 'overflow', 'width', 'height', 'box-sizing'],
-            Typography: ['font', 'color', 'text-align', 'text-decoration', 'letter-spacing', 'word-spacing', 'white-space', 'line-height'],
-            Spacing: ['margin', 'padding', 'border'],
-            Background: ['background', 'opacity'],
-        };
-
-        if (filterGroup && filterGroup !== 'all') {
-            const groupProps = styleGroups[filterGroup];
-            if (groupProps) {
-                propertiesToShow = allProperties.filter(prop => 
-                    groupProps.some(gp => prop === gp || prop.startsWith(gp + '-'))
-                );
-            }
-        }
-        
-        propertiesToShow.forEach(property => {
-            const value = computedStyles.getPropertyValue(property);
-            if (value && value !== 'none' && value !== 'normal' && value !== 'auto' && value !== '0px') {
-                const row = tbody.insertRow();
-                row.insertCell().textContent = property;
-                row.insertCell().textContent = value;
-            }
+        const engineContent = this.elementDetailsRenderer.createEngineContent(element);
+        sectionsData.push({
+            id: 'layout-engine',
+            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent, true)
         });
-
-        if (tbody.rows.length === 0) {
-            const row = tbody.insertRow();
-            const cell = row.insertCell();
-            cell.colSpan = 2;
-            cell.textContent = 'No matching styles in this group.';
-            cell.style.textAlign = 'center';
-            cell.style.padding = '10px';
-        }
-
-        return table;
+        
+        // Render sections in order using SectionManager (breadcrumbs will be preserved)
+        this.sectionManager.renderSections(this.detailsContainer, sectionsData);
     }
 
-    /**
-     * Create box model section
-     */
-    createBoxModelSection(element) {
-        const computedStyles = window.getComputedStyle(element);
-        const content = this.createBoxModel(computedStyles);
-        
-        const section = this.createCollapsibleSection('box-model', 'Box Model', content);
-        this.detailsContainer.appendChild(section);
-    }
 
-    /**
-     * Create element details section
-     */
-    createElementDetailsSection(element) {
-        const details = [
-            ['Tag Name', element.tagName.toLowerCase()],
-            ['Node Type', element.nodeType],
-            ['ID', element.id || 'None'],
-            ['Classes', element.className || 'None'],
-            ['Children', element.children.length]
-        ];
-        
-        if (element.textContent && element.textContent.trim()) {
-            const preview = element.textContent.trim().substring(0, 100);
-            details.push(['Text Content', preview + (element.textContent.length > 100 ? '...' : '')]);
-        }
-        
-        const content = this.createDetailsTable(details);
-        const section = this.createCollapsibleSection('element-details', 'Element Details', content);
-        this.detailsContainer.appendChild(section);
-    }
 
-    /**
-     * Update breadcrumbs
-     */
-    updateBreadcrumbs(element) {
-        if (!this.breadcrumbContainer) return;
-        
-        console.log('DOM Inspector: Updating breadcrumbs');
-        
-        // Clear previous breadcrumbs
-        this.breadcrumbContainer.innerHTML = '';
-        
-        if (!element) return;
-        
-        // Create enhanced breadcrumb trail using the original working method
-        const breadcrumbTrail = this.createEnhancedBreadcrumbTrail(element);
-        this.breadcrumbContainer.appendChild(breadcrumbTrail);
-    }
 
-    /**
-     * Create enhanced breadcrumb trail (restored from working version)
-     */
-    createEnhancedBreadcrumbTrail(element) {
-        const container = document.createElement('div');
-        container.className = 'enhanced-breadcrumb-trail';
 
-        if (!element) return container;
 
-        const trail = [];
-        let current = element;
-        while (current && current.tagName?.toLowerCase() !== 'html') {
-            trail.unshift(current);
-            current = current.parentElement;
-        }
-        if (current && current.tagName?.toLowerCase() === 'html') {
-            trail.unshift(current);
-        }
-
-        this.currentBreadcrumbTrail = trail;
-        this.activeBreadcrumbIndex = trail.length - 1;
-
-        for (let i = 0; i < this.currentBreadcrumbTrail.length; i++) {
-            const el = this.currentBreadcrumbTrail[i];
-            const link = document.createElement('a');
-            link.href = '#';
-            link.className = 'breadcrumb-link';
-            link.textContent = this.getElementDisplayName(el);
-            link.classList.toggle('active', i === this.activeBreadcrumbIndex);
-
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.navigateToBreadcrumbElement(i);
-            });
-            
-            container.appendChild(link);
-        }
-
-        return container;
-    }
-
-    /**
-     * Create element identifier for breadcrumbs (ID and classes)
-     */
-    createElementIdentifier(element) {
-        let identifier = '';
-        
-        if (element.id) {
-            identifier += `#${element.id}`;
-        }
-        
-        if (element.className && typeof element.className === 'string') {
-            const classes = element.className.split(' ').filter(c => c.trim());
-            if (classes.length > 0) {
-                // Show first 2 classes, indicate if there are more
-                const displayClasses = classes.slice(0, 2);
-                identifier += `.${displayClasses.join('.')}`;
-                if (classes.length > 2) {
-                    identifier += ` (+${classes.length - 2})`;
-                }
-            }
-        } else if (element.className && element.className.toString) {
-            // Handle DOMTokenList case
-            const classes = element.className.toString().split(' ').filter(c => c.trim());
-            if (classes.length > 0) {
-                const displayClasses = classes.slice(0, 2);
-                identifier += `.${displayClasses.join('.')}`;
-                if (classes.length > 2) {
-                    identifier += ` (+${classes.length - 2})`;
-                }
-            }
-        }
-        
-        return identifier;
-    }
-
-    /**
-     * Navigate to a breadcrumb element. This selects the element and updates views,
-     * but does NOT rebuild the breadcrumb trail itself.
-     */
-    navigateToBreadcrumbElement(index) {
-        if (this.currentBreadcrumbTrail && this.currentBreadcrumbTrail[index]) {
-            const targetElement = this.currentBreadcrumbTrail[index];
-            if (targetElement === this.currentElement) return;
-
-            // Direct element selection without going through state manager to avoid breadcrumb rebuilding
-            this.currentElement = targetElement;
-            this.selectedElement = targetElement;
-            
-            // Update only what's necessary without rebuilding breadcrumbs
-            this.highlightOverlay.highlight(targetElement);
-            this.updateActiveBreadcrumb(targetElement);
-            // Update details without rebuilding breadcrumbs
-            this.updateElementDetailsOnly(targetElement);
-            this.updateTreeSelection(targetElement);
-            this.expandTreeToElement(targetElement);
-            
-            // Update the query input
-            if (this.querySelectorInput) {
-                const cssSelector = this.generateCSSSelector(targetElement);
-                this.querySelectorInput.value = cssSelector;
-            }
-        }
-    }
 
     /**
      * Update element details without rebuilding breadcrumbs (for breadcrumb navigation)
@@ -630,56 +478,65 @@ export class DomInspectorPanel {
 
         console.log('DOM Inspector: Updating element details only (no breadcrumb rebuild)');
         
-        // Find existing breadcrumb trail and preserve it
-        const existingBreadcrumbs = this.detailsContainer.querySelector('.enhanced-breadcrumb-trail');
+        // Breadcrumbs should already exist and be preserved by SectionManager
+        // Just collect and render the sections with new content
         
-        // Clear previous content
-        this.detailsContainer.innerHTML = '';
-        
-        // Restore the existing breadcrumbs if they exist
-        if (existingBreadcrumbs) {
-            this.detailsContainer.appendChild(existingBreadcrumbs);
-        }
-
-        // If the element is an iframe, show special details
-        if (element.tagName === 'IFRAME') {
-            const iframeDetails = this.iframeDetailsManager.createIframeDetailsSection(element);
-            this.detailsContainer.appendChild(iframeDetails);
-        }
-        
-        // Create computed styles section with a working filter
-        this.createComputedStylesSection(element);
-        
-        // Create box model section
-        this.createBoxModelSection(element);
+        // Collect all sections
+        const sectionsData = [];
         
         // Create element details section
-        this.createElementDetailsSection(element);
+        const elementDetailsContent = this.elementDetailsRenderer.createElementDetailsContent(element);
+        sectionsData.push({
+            id: 'element-details',
+            section: this.sectionManager.createCollapsibleSection('element-details', 'Element Details', elementDetailsContent)
+        });
+        
+        // Create box model section
+        const boxModelContent = this.boxModelComponent.createBoxModel(window.getComputedStyle(element));
+        sectionsData.push({
+            id: 'box-model',
+            section: this.sectionManager.createCollapsibleSection('box-model', 'Box Model', boxModelContent)
+        });
+        
+        // Create computed styles section
+        const computedStylesContent = this.computedStylesComponent.createComputedStyles(element);
+        sectionsData.push({
+            id: 'computed-styles',
+            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent, true)
+        });
+        
+        // If the element is an iframe, add iframe deep dive section
+        if (element.tagName === 'IFRAME') {
+            const deepDiveContent = this.iframeAnalyzer.createIframeDeepDiveContent(element);
+            sectionsData.push({
+                id: 'iframe-deep-dive',
+                section: this.sectionManager.createCollapsibleSection('iframe-deep-dive', 'Iframe Deep Dive', deepDiveContent)
+            });
+        }
         
         // Create events section
-        const eventsSection = this.createEventsSection(element);
-        this.detailsContainer.appendChild(eventsSection);
+        const eventsContent = this.elementDetailsRenderer.createEventsContent(element);
+        sectionsData.push({
+            id: 'events',
+            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent, true)
+        });
         
         // Create layout engine section
-        const engineSection = this.createEngineSection(element);
-        this.detailsContainer.appendChild(engineSection);
+        const engineContent = this.elementDetailsRenderer.createEngineContent(element);
+        sectionsData.push({
+            id: 'layout-engine',
+            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent, true)
+        });
         
-        // Update collapsible sections
-        this.updateCollapsibleSections(this.detailsContainer);
+        // Render sections in order using SectionManager (breadcrumbs will be preserved)
+        this.sectionManager.renderSections(this.detailsContainer, sectionsData);
     }
 
     /**
      * Render empty details when no element is selected
      */
     renderEmptyDetails() {
-        if (!this.detailsContainer) return;
-        
-        this.detailsContainer.innerHTML = `
-            <div class="dom-inspector-empty-state">
-                <h3>No Element Selected</h3>
-                <p>Click on an element in the tree or use the selector input to inspect an element.</p>
-            </div>
-        `;
+        UIUtilities.renderEmptyDetails(this.detailsContainer);
     }
 
     /**
@@ -714,8 +571,8 @@ export class DomInspectorPanel {
             this.detailsContainer.innerHTML = `
                 <div class="dom-inspector-error">
                     <h4>Selector Error</h4>
-                    <p><strong>Query:</strong> <code>${this.escapeHTML(query)}</code></p>
-                    <p><strong>Error:</strong> ${this.escapeHTML(error)}</p>
+                    <p><strong>Query:</strong> <code>${UIUtilities.escapeHTML(query)}</code></p>
+                    <p><strong>Error:</strong> ${UIUtilities.escapeHTML(error)}</p>
                     ${errorInfo.suggestions.map(suggestion => 
                         `<p><strong>Suggestion:</strong> ${suggestion.description}</p>`
                     ).join('')}
@@ -749,7 +606,6 @@ export class DomInspectorPanel {
         this.currentElement = null;
         this.selectedElement = null;
         this.renderEmptyDetails();
-        this.updateBreadcrumbs(null);
         this.updateTreeSelection(null);
         
         // Clear the query input and remove from history
@@ -758,7 +614,7 @@ export class DomInspectorPanel {
             this.querySelectorInput.value = ''; // Clear the input
             
             // Remove from history/presets
-            this.removePreset(currentSelector);
+            this.historyManager.removePreset(currentSelector);
             console.log('DOM Inspector: Cleared selection and removed from history:', currentSelector);
         } else {
             // Just clear the input if it has content
@@ -769,152 +625,34 @@ export class DomInspectorPanel {
     }
 
     addToHistory(selector) {
-        if (selector) {
-            this.stateManager.addToHistory(selector);
-        }
+        this.historyManager.addToHistory(selector);
     }
 
     savePreset(selector) {
-        if (!selector) return;
-        this.stateManager.addToHistory(selector);
-        this.updateHistoryButtons(); // Update the UI after saving
-        console.log('DOM Inspector: Saved preset:', selector);
+        this.historyManager.savePreset(selector);
     }
 
     removePreset(selector) {
-        if (!selector) return;
-        this.stateManager.removeFromHistory(selector);
-        this.updateHistoryButtons(); // Update the UI after removing
-        console.log('DOM Inspector: Removed preset:', selector);
+        this.historyManager.removePreset(selector);
     }
 
-    updateHistoryButtons() {
-        if (!this.historyContainer) return;
-        
-        // Clear existing buttons
-        this.historyContainer.innerHTML = '';
-        
-        // Get current history from state
-        const history = this.stateManager.getSelectorHistory();
-        console.log('DOM Inspector: Updating history buttons, history:', history);
-        
-        // Create buttons for each history item
-        history.forEach(selector => {
-            const button = document.createElement('button');
-            button.textContent = this.abbreviateSelector(selector);
-            button.className = 'dom-inspector-preset-btn';
-            button.title = `Click to use preset: ${selector}`;
-            button.dataset.fullSelector = selector;
-            
-            // Click handler to load the preset
-            button.addEventListener('click', () => {
-                this.querySelectorInput.value = selector;
-                this.selectElementByQuery(selector);
-            });
-            
-            this.historyContainer.appendChild(button);
-        });
-    }
-
-    /**
-     * Abbreviate selector for display in buttons
-     */
-    abbreviateSelector(selector, maxLength = 30) {
-        if (selector.length <= maxLength) return selector;
-        
-        // Try to keep the most important parts
-        const parts = selector.split(' ');
-        if (parts.length === 1) {
-            // Single selector, truncate in middle
-            const start = selector.substring(0, Math.floor(maxLength / 2) - 2);
-            const end = selector.substring(selector.length - Math.floor(maxLength / 2) + 2);
-            return `${start}...${end}`;
-        }
-        
-        // Multiple parts, try to keep first and last meaningful parts
-        if (parts.length > 2) {
-            const abbreviated = `${parts[0]} ... ${parts[parts.length - 1]}`;
-            if (abbreviated.length <= maxLength) return abbreviated;
-        }
-        
-        // Fallback to simple truncation
-        return selector.substring(0, maxLength - 3) + '...';
-    }
-
-    updateCollapsibleSections() {
-        // Collapsible functionality is now built into createCollapsibleSection
-        // This method is kept for backward compatibility but does nothing
-    }
-
-    updateHighlightButtonVisuals() {
-        if (!this.highlightToggleButton) return;
-        
-        const state = this.stateManager.getState();
-        const highlight = state.highlight;
-        
-        // Update button appearance based on mode
-        this.highlightToggleButton.classList.remove('active', 'mode-border', 'mode-shade', 'mode-both', 'mode-none');
-        
-        if (highlight.enabled && highlight.mode !== 'none') {
-            this.highlightToggleButton.classList.add('active');
-            this.highlightToggleButton.classList.add(`mode-${highlight.mode}`);
-            this.highlightToggleButton.style.backgroundColor = highlight.color;
-        } else {
-            this.highlightToggleButton.style.backgroundColor = '';
-            this.highlightToggleButton.classList.add('mode-none');
-        }
-        
-        // Update button text to show current mode
-        const modeText = highlight.mode.charAt(0).toUpperCase() + highlight.mode.slice(1);
-        this.highlightToggleButton.title = `Highlight Mode: ${modeText} (click to cycle)`;
-        
-        console.log('DOM Inspector: Updated highlight button for mode:', highlight.mode);
-    }
-
-    setupHighlightButtonEvents() {
-        if (!this.highlightToggleButton) return;
-        
-        this.highlightToggleButton.addEventListener('click', () => {
-            this.toggleHighlightMode();
-        });
-    }
-
-    toggleHighlightMode() {
-        const state = this.stateManager.getState();
-        const currentMode = state.highlight.mode;
-        
-        // Cycle through the 4 highlight modes: border -> shade -> both -> none -> border
-        let nextMode;
-        switch (currentMode) {
-            case 'border':
-                nextMode = 'shade';
-                break;
-            case 'shade':
-                nextMode = 'both';
-                break;
-            case 'both':
-                nextMode = 'none';
-                break;
-            case 'none':
-            default:
-                nextMode = 'border';
-                break;
-        }
-        
-        console.log('DOM Inspector: Cycling highlight mode from', currentMode, 'to', nextMode);
-        
-        this.stateManager.setHighlight({
-            ...state.highlight,
-            mode: nextMode,
-            enabled: nextMode !== 'none' // Enable if not 'none'
-        });
-    }
+    
 
     // ===== ANNOTATION METHODS =====
     
     updateAnnotationSettings(settings) {
         this.annotationManager.updateSettings(settings);
-        this.buildTree(); // Rebuild tree to show new annotations
+        
+        // Preserve tree state before rebuilding
+        this.treeManager.preserveTreeState();
+        
+        // Rebuild tree to show new annotations
+        this.buildTree();
+        
+        // Restore tree state after rebuilding
+        setTimeout(() => {
+            this.treeManager.restoreTreeState();
+        }, 50); // Small delay to ensure DOM is updated
     }
 
     getElementAnnotations(element) {
@@ -947,8 +685,13 @@ export class DomInspectorPanel {
         this.annotationManager?.destroy();
         this.selectorManager?.destroy();
         this.iframeDetailsManager = null;
-        // uiComponents removed
-        // breadcrumbManager removed
+        this.sectionManager = null;
+        
+        // Clean up new components
+        this.breadcrumbManager = null;
+        this.elementDetailsRenderer = null;
+        this.historyManager = null;
+        this.highlightManager = null;
         
         // Clean up other components
         this.highlightOverlay?.destroy();
@@ -1011,58 +754,52 @@ export class DomInspectorPanel {
         // If no element, just clear selection and return
         if (!element) return;
         
-        // Find and select new element
-        const targetNode = this.findTreeNodeForElement(element);
-        console.log('DOM Inspector: Found tree node for element:', targetNode);
+        // Ensure the element is visible in the tree by expanding parent nodes
+        this.expandTreeToElement(element);
         
-        if (targetNode) {
-            const header = targetNode.querySelector('.dom-inspector-node-header');
-            console.log('DOM Inspector: Found header in tree node:', header);
+        // Find and select new element after a short delay to allow expansion
+        setTimeout(() => {
+            const targetNode = this.findTreeNodeForElement(element);
+            console.log('DOM Inspector: Found tree node for element:', targetNode);
             
-            if (header) {
-                header.classList.add('selected');
-                header.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                console.log('DOM Inspector: Successfully selected tree node and scrolled to it');
+            if (targetNode) {
+                const header = targetNode.querySelector('.dom-inspector-node-header');
+                console.log('DOM Inspector: Found header in tree node:', header);
+                
+                if (header) {
+                    header.classList.add('selected');
+                    header.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    console.log('DOM Inspector: Successfully selected tree node and scrolled to it');
+                } else {
+                    console.warn('DOM Inspector: Tree node found but no header element');
+                }
             } else {
-                console.warn('DOM Inspector: Tree node found but no header element');
+                console.warn('DOM Inspector: Could not find tree node for element:', element);
+                console.warn('DOM Inspector: Element tag:', element.tagName);
+                console.warn('DOM Inspector: Element classes:', element.className);
+                console.warn('DOM Inspector: Element id:', element.id);
+                
+                // Try to find it again after ensuring tree is expanded
+                setTimeout(() => {
+                    const retryNode = this.findTreeNodeForElement(element);
+                    if (retryNode) {
+                        const header = retryNode.querySelector('.dom-inspector-node-header');
+                        if (header) {
+                            header.classList.add('selected');
+                            header.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            console.log('DOM Inspector: Successfully selected tree node on retry');
+                        }
+                    }
+                }, 100);
             }
-        } else {
-            console.warn('DOM Inspector: Could not find tree node for element:', element);
-            console.warn('DOM Inspector: Element tag:', element.tagName);
-            console.warn('DOM Inspector: Element classes:', element.className);
-            console.warn('DOM Inspector: Element id:', element.id);
-        }
+        }, 50); // Delay to allow tree expansion to complete
     }
 
     /**
      * Get display name for breadcrumb
      */
     getElementDisplayName(element) {
-        let name = element.tagName.toLowerCase();
-        
-        // Use the same identifier system as the enhanced breadcrumbs
-        const identifier = this.createElementIdentifier(element);
-        if (identifier) {
-            name += identifier;
-        }
-        
-        return name;
-    }
-
-    /**
-     * Updates the active state of the breadcrumb trail without rebuilding it.
-     */
-    updateActiveBreadcrumb(newActiveElement) {
-        if (!this.breadcrumbContainer) return;
-        const newIndex = this.currentBreadcrumbTrail.indexOf(newActiveElement);
-        if (newIndex === -1) return;
-
-        this.activeBreadcrumbIndex = newIndex;
-
-        const links = this.breadcrumbContainer.querySelectorAll('.breadcrumb-link');
-        links.forEach((link, i) => {
-            link.classList.toggle('active', i === this.activeBreadcrumbIndex);
-        });
+        return UIUtilities.getElementDisplayName(element);
     }
 
     /**
@@ -1079,100 +816,5 @@ export class DomInspectorPanel {
         // All on-hover functionality has been removed.
     }
 
-    // ===== UI COMPONENT METHODS (previously in UIComponents) =====
-    
-    createEventsSection(element) {
-        const content = document.createElement('div');
-        content.innerHTML = '<p>Event listeners would be shown here.</p>';
-        return this.createCollapsibleSection('events', 'Events', content);
-    }
-    
-    createEngineSection(element) {
-        const content = document.createElement('div');
-        content.innerHTML = '<p>Layout engine information would be shown here.</p>';
-        return this.createCollapsibleSection('layout-engine', 'Layout Engine', content);
-    }
-    
-    createCollapsibleSection(id, title, content) {
-        const section = document.createElement('div');
-        section.className = 'dom-inspector-section';
-        section.dataset.sectionId = id;
-        
-        const header = document.createElement('h4');
-        header.className = 'dom-inspector-section-header';
-        
-        const arrow = document.createElement('span');
-        arrow.className = 'dom-inspector-section-arrow';
-        arrow.textContent = '▼';
-        
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'dom-inspector-section-title';
-        titleSpan.textContent = title;
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'dom-inspector-section-content';
-        contentDiv.appendChild(content);
-        
-        // Add click handler for collapsing
-        header.addEventListener('click', () => {
-            const isCollapsed = section.classList.contains('collapsed');
-            section.classList.toggle('collapsed');
-            arrow.textContent = isCollapsed ? '▼' : '▶';
-        });
-        
-        header.appendChild(arrow);
-        header.appendChild(titleSpan);
-        section.appendChild(header);
-        section.appendChild(contentDiv);
-        
-        return section;
-    }
-    
-    createBoxModel(computedStyles) {
-        const container = document.createElement('div');
-        container.className = 'dom-inspector-box-model';
 
-        const content = document.createElement('div');
-        content.className = 'box-model-content';
-        content.textContent = `${computedStyles.width} x ${computedStyles.height}`;
-
-        const padding = document.createElement('div');
-        padding.className = 'box-model-padding';
-        padding.title = `Padding: ${computedStyles.padding}`;
-
-        const border = document.createElement('div');
-        border.className = 'box-model-border';
-        border.title = `Border: ${computedStyles.border}`;
-
-        const margin = document.createElement('div');
-        margin.className = 'box-model-margin';
-        margin.title = `Margin: ${computedStyles.margin}`;
-        
-        padding.appendChild(content);
-        border.appendChild(padding);
-        margin.appendChild(border);
-        
-        container.appendChild(margin);
-
-        return container;
-    }
-    
-    createDetailsTable(details) {
-        const table = document.createElement('table');
-        table.className = 'dom-inspector-details-table';
-        
-        details.forEach(([key, value]) => {
-            const row = table.insertRow();
-            row.insertCell().textContent = key;
-            row.insertCell().textContent = value;
-        });
-        
-        return table;
-    }
-    
-    escapeHTML(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
 } 

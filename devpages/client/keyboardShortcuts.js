@@ -122,17 +122,43 @@ export function initKeyboardShortcuts() {
         if (event.key === 'D' && event.ctrlKey && event.shiftKey && !event.altKey) {
             event.preventDefault();
             console.log("[GENERAL] Ctrl+Shift+D pressed, toggling DOM Inspector.");
+            
+            // Enhanced debugging
+            console.log("[DOM INSPECTOR DEBUG] window.devPages exists:", !!window.devPages);
+            console.log("[DOM INSPECTOR DEBUG] window.devPages.domInspector exists:", !!(window.devPages && window.devPages.domInspector));
+            
             if (window.devPages && window.devPages.domInspector) {
+                console.log("[DOM INSPECTOR DEBUG] toggle method exists:", typeof window.devPages.domInspector.toggle === 'function');
                 try {
                     window.devPages.domInspector.toggle();
                     console.log("[GENERAL] DOM Inspector toggle called successfully");
                 } catch (error) {
                     console.error("[GENERAL] Error calling DOM Inspector toggle:", error);
+                    console.error("[GENERAL] Error stack:", error.stack);
                 }
             } else {
                 console.error("[GENERAL] DOM Inspector not initialized on window.devPages.domInspector");
                 console.log("[GENERAL] window.devPages:", window.devPages);
                 console.log("[GENERAL] Available debug functions: debugInitDomInspector(), testDomInspector()");
+                
+                // Try to auto-initialize if missing
+                console.log("[GENERAL] Attempting to auto-initialize DOM Inspector...");
+                if (typeof window.debugInitDomInspector === 'function') {
+                    window.debugInitDomInspector().then(result => {
+                        if (result && window.devPages?.domInspector) {
+                            console.log("[GENERAL] Auto-initialization successful, trying toggle again...");
+                            try {
+                                window.devPages.domInspector.toggle();
+                            } catch (error) {
+                                console.error("[GENERAL] Error toggling after auto-init:", error);
+                            }
+                        } else {
+                            console.error("[GENERAL] Auto-initialization failed");
+                        }
+                    });
+                } else {
+                    console.error("[GENERAL] debugInitDomInspector function not available");
+                }
             }
         }
     });

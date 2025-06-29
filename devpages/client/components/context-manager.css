@@ -549,4 +549,104 @@
     content: " (Click for options)";
     font-size: 0.8em;
     opacity: 0.8;
+}
+
+/* Note Button Styles */
+#note-btn {
+    padding: 6px 12px;
+    border: 1px solid #007bff;
+    background-color: #fff;
+    color: #007bff;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+#note-btn:hover {
+    background-color: #007bff;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+#note-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 123, 255, 0.2);
+}
+
+#note-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+#note-btn:disabled:hover {
+    background-color: #fff;
+    color: #007bff;
+}
+
+/* Note Button - Added to Context State */
+#note-btn.noted {
+    background-color: #28a745;
+    color: #fff;
+    border-color: #28a745;
+}
+
+#note-btn.noted:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+#note-btn.noted::before {
+    content: "✓ ";
+    font-weight: bold;
+}
+
+#note-btn.noted::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: left 0.5s;
+}
+
+#note-btn.noted:hover::after {
+    left: 100%;
+}
+
+/* File Action Buttons Container */
+.file-action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.file-action-buttons button {
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .file-action-buttons {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    #note-btn {
+        padding: 5px 10px;
+        font-size: 13px;
+    }
 } 

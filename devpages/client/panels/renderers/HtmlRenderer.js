@@ -33,14 +33,21 @@ export class HtmlRenderer {
     async render(htmlContent, filePath) {
         logHtmlRenderer(`Rendering HTML file in iframe: ${filePath}`);
 
-        const content = htmlContent || '';
+        // Inject the game client SDK script at the beginning of the head
+        let content = htmlContent || '';
+        if (content.includes('<head>')) {
+            content = content.replace('<head>', `<head>\n<script src="/client/sdk/gameClient.js"><\/script>`);
+        } else {
+            // Fallback if no head tag
+            content = `<head><script src="/client/sdk/gameClient.js"><\/script></head>${content}`;
+        }
         
         // Log the content being rendered for debugging
         logHtmlRenderer(`HTML content length: ${content.length}`, 'debug');
         logHtmlRenderer(`HTML content preview: ${content.substring(0, 200)}...`, 'debug');
         
         // Use direct file URL for better isolation and performance
-        const fileUrl = `/api/files/content?pathname=${encodeURIComponent(filePath)}`;
+        // const fileUrl = `/api/files/content?pathname=${encodeURIComponent(filePath)}`;
         
         // Create iframe with enhanced isolation and debugging capabilities
         const iframeHtml = `
@@ -48,11 +55,10 @@ export class HtmlRenderer {
                 <div class="html-renderer-toolbar" style="display: none;">
                     <button class="html-debug-btn" title="Debug CSS Issues">🔍 Debug CSS</button>
                     <button class="html-reload-btn" title="Reload Content">🔄 Reload</button>
-                    <button class="html-inspect-btn" title="Inspect with DOM Inspector">🎯 Inspect</button>
                 </div>
                 <iframe 
                     class="html-preview-iframe" 
-                    src="${fileUrl}"
+                    srcdoc="${content.replace(/"/g, '&quot;')}"
                     frameborder="0" 
                     sandbox="allow-scripts allow-popups allow-forms allow-modals"
                     style="width: 100%; height: 100%; border: none; margin: 0; padding: 0; display: block; min-height: 400px; opacity: 1;"
@@ -60,7 +66,7 @@ export class HtmlRenderer {
                 </iframe>
             </div>
         `;
-        
+
         const result = {
             html: iframeHtml,
             isHtml: true,
@@ -180,7 +186,6 @@ export class HtmlRenderer {
     setupDebuggingFeatures(container, iframe, filePath) {
         const debugBtn = container.querySelector('.html-debug-btn');
         const reloadBtn = container.querySelector('.html-reload-btn');
-        const inspectBtn = container.querySelector('.html-inspect-btn');
 
         if (debugBtn) {
             debugBtn.addEventListener('click', () => {
@@ -191,12 +196,6 @@ export class HtmlRenderer {
         if (reloadBtn) {
             reloadBtn.addEventListener('click', () => {
                 iframe.src = iframe.src; // Force reload
-            });
-        }
-
-        if (inspectBtn) {
-            inspectBtn.addEventListener('click', () => {
-                this.openDomInspector(iframe);
             });
         }
     }
@@ -394,22 +393,6 @@ export class HtmlRenderer {
         }).catch(error => {
             logHtmlRenderer(`Failed to set up CSS change listener: ${error.message}`, 'error');
         });
-    }
-
-    /**
-     * Open DOM inspector for iframe
-     */
-    openDomInspector(iframe) {
-        logHtmlRenderer('Opening DOM inspector for iframe');
-        
-        // Trigger DOM inspector if available
-        if (window.eventBus) {
-            window.eventBus.emit('dom-inspector:inspect', { 
-                target: iframe,
-                type: 'iframe',
-                source: 'html-renderer'
-            });
-        }
     }
 
     /**

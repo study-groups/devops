@@ -17,6 +17,7 @@ const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
 const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css'; // <<< NEW KEY
 const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
 const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
+const WORKSPACE_STATE_KEY = 'devpages_workspace_state';
 
 // <<< NEW: Helper to safely get boolean from localStorage >>>
 function getInitialLogVisibility() {
@@ -50,6 +51,35 @@ function getInitialViewMode() {
         console.error('[AppState] Error reading viewMode from localStorage:', e);
     }
     return 'preview'; // Default to 'preview' (rendered page) if not explicitly stored, invalid, or on error
+}
+
+// <<< ADDED: Helper to load workspace state from localStorage >>>
+function getInitialWorkspaceState() {
+    const defaults = {
+        sidebar: { width: 280, visible: true },
+        editor: { width: 50, visible: true }, // percentage
+        preview: { width: 50, visible: true }, // percentage
+    };
+
+    try {
+        const storedState = localStorage.getItem(WORKSPACE_STATE_KEY);
+        if (storedState) {
+            const parsed = JSON.parse(storedState);
+            // Basic validation
+            if (parsed && parsed.sidebar && parsed.editor && parsed.preview) {
+                 return {
+                    ...defaults,
+                    ...parsed,
+                    sidebar: { ...defaults.sidebar, ...(parsed.sidebar || {}) },
+                    editor: { ...defaults.editor, ...(parsed.editor || {}) },
+                    preview: { ...defaults.preview, ...(parsed.preview || {}) },
+                };
+            }
+        }
+    } catch (e) {
+        console.error('[AppState] Error reading workspace state from localStorage:', e);
+    }
+    return defaults;
 }
 
 // --- Enhanced Data-Driven Plugin Configuration ---
@@ -357,7 +387,7 @@ const initialAppState = {
     error: null,
   },
   ui: {
-    theme: 'default',
+    theme: 'dark',
     isLoading: false,
     logVisible: getInitialLogState().visible,
     logHeight: getInitialLogState().height,
@@ -433,7 +463,8 @@ const initialAppState = {
   smartCopy: {
     bufferA: localStorage.getItem(SMART_COPY_A_KEY) || '',
     bufferB: localStorage.getItem(SMART_COPY_B_KEY) || ''
-  }
+  },
+  workspace: getInitialWorkspaceState(),
 };
 
 // Create the application state store instance
@@ -629,6 +660,20 @@ appStore.subscribe((newState) => {
             console.warn('[AppState] Failed to save DOM Inspector state:', e);
         }
     }
+
+    // Persist workspace state
+    const currentWorkspaceState = newState.workspace;
+    if (currentWorkspaceState) {
+        try {
+            const storedState = localStorage.getItem(WORKSPACE_STATE_KEY);
+            const stateToSave = JSON.stringify(currentWorkspaceState);
+            if (stateToSave !== storedState) {
+                localStorage.setItem(WORKSPACE_STATE_KEY, stateToSave);
+            }
+        } catch (e) {
+            console.warn('[AppState] Failed to save workspace state:', e);
+        }
+    }
 });
 
 // Log the initial state for debugging purposes
@@ -650,3 +695,6 @@ function getInitialPreviewMode() {
     }
     return 'direct'; // Default to direct mode
 }
+
+// Note: Persistence is handled through the manual appStore.subscribe() callback above
+// The workspace state and all other states are automatically saved to localStorage
