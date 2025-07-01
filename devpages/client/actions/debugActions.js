@@ -77,20 +77,6 @@ export const debugActionHandlers = {
     },
 
     /**
-     * Debug file loading issues
-     */
-    debugFileLoadingIssues: async () => {
-        logAction('Manually triggering file manager initialization for debugging...');
-        try {
-            const { initializeFileManager } = await import('/client/filesystem/fileManager.js');
-            await initializeFileManager(); 
-            logAction('File manager initialization attempt complete.');
-        } catch (error) {
-            logAction(`Failed to initialize file manager: ${error.message}`, 'error');
-        }
-    },
-
-    /**
      * Debug authentication state
      */
     debugAuthState: async () => {

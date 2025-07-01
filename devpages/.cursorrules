@@ -6,6 +6,17 @@
 # coding standards, and operational boundaries.
 # =================================================================
 
+# =================================================================
+# CRITICAL SESSION/AUTHENTICATION RULES - DO NOT IGNORE
+# =================================================================
+# These rules MUST be followed for ANY fetch request or API call:
+
+- **ALWAYS include `credentials: 'include'` in fetch options** for any API call that needs authentication
+- **NEVER create or modify fetch/API calls without `credentials: 'include'`** unless explicitly told it's a public endpoint
+- **ALL authentication-related API calls MUST include session cookies** via `credentials: 'include'`
+- **When debugging auth issues, FIRST CHECK if `credentials: 'include'` is present** in all API calls
+- **If user reports auth stuck/hanging, immediately check for missing `credentials: 'include'`**
+- **Session-based authentication requires cookies - ALWAYS include them in requests**
 
 # =================================================================
 # 1. GLOBAL OPERATIONAL RULES

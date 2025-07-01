@@ -762,4 +762,18 @@ body::-webkit-scrollbar-thumb:hover,
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+.icon-grid .icon-symbol {
+    color: var(--icon-color-primary, var(--color-foreground));
+    transition: var(--transition-colors);
+    padding: var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-grid .icon-item:hover .icon-symbol {
+    color: var(--color-primary);
+    background-color: var(--color-background-hover);
 } 

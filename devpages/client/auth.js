@@ -30,7 +30,14 @@ async function checkInitialAuthStatus() {
 
     try {
         logAuth('[AUTH checkInitialAuthStatus] Awaiting api.getUserStatus()...', 'debug');
+        console.log('[AUTH DEBUG] About to call api.getUserStatus()');
+        console.log('[AUTH DEBUG] Current cookies:', document.cookie);
+        
         const result = await api.getUserStatus(); 
+        console.log('[AUTH DEBUG] api.getUserStatus() result:', result);
+        console.log('[AUTH DEBUG] Result status:', result?.status);
+        console.log('[AUTH DEBUG] Result ok:', result?.ok);
+        
         logAuth(`[AUTH checkInitialAuthStatus] api.getUserStatus() responded with status: ${result?.status}`, 'debug');
 
         if (result.ok) {

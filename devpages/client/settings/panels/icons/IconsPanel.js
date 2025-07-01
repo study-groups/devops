@@ -7,6 +7,11 @@ import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 
+const SYSTEM_ICONS = [
+    'gear', 'folder', 'info', 'chevron-right', 'chevron-down', 'close', 
+    'check', 'search', 'menu', 'edit', 'delete', 'add', 'copy', 'external-link'
+];
+
 function logIcons(message, level = 'info') {
     const type = 'ICONS_PANEL';
     if (typeof window.logMessage === 'function') {
@@ -24,111 +29,15 @@ export class IconsPanel {
         this.customIcons = new Map();
         this.iconTokens = {};
         
-        // Default icon sets - professional symbols only
-        this.defaultIconSets = {
-            'system': {
-                name: 'System Icons',
-                description: 'Core system interface icons',
-                icons: {
-                    'chevron-right': '▶',
-                    'chevron-down': '▼',
-                    'chevron-left': '◀',
-                    'chevron-up': '▲',
-                    'close': '×',
-                    'check': '✓',
-                    'warning': '!',
-                    'error': '×',
-                    'info': 'i',
-                    'success': '✓',
-                    'loading': '↻',
-                    'search': '⌕',
-                    'settings': '⚙',
-                    'menu': '≡',
-                    'home': '⌂',
-                    'folder': '▣',
-                    'file': '▤',
-                    'edit': '✎',
-                    'delete': '×',
-                    'add': '+',
-                    'remove': '−',
-                    'copy': '⧉',
-                    'download': '↓',
-                    'upload': '↑',
-                    'refresh': '↻',
-                    'external-link': '↗',
-                    'link': '⧉'
-                }
-            },
-            'ui': {
-                name: 'UI Elements',
-                description: 'User interface element icons',
-                icons: {
-                    'button': '▢',
-                    'input': '▭',
-                    'checkbox': '☐',
-                    'checkbox-checked': '☑',
-                    'radio': '○',
-                    'radio-selected': '●',
-                    'dropdown': '▼',
-                    'tab': '▤',
-                    'modal': '▢',
-                    'tooltip': '◯',
-                    'notification': '○',
-                    'badge': '●',
-                    'progress': '▬',
-                    'slider': '━',
-                    'toggle-off': '○',
-                    'toggle-on': '●'
-                }
-            },
-            'content': {
-                name: 'Content Icons',
-                description: 'Content and document related icons',
-                icons: {
-                    'text': '▤',
-                    'heading': 'H',
-                    'paragraph': '¶',
-                    'list': '≡',
-                    'list-ordered': '#',
-                    'quote': '"',
-                    'code': '<>',
-                    'image': '▦',
-                    'video': '▶',
-                    'audio': '♪',
-                    'table': '⊞',
-                    'calendar': '▣',
-                    'clock': '○',
-                    'tag': '▣',
-                    'bookmark': '▤',
-                    'star': '★',
-                    'heart': '♡',
-                    'thumbs-up': '▲',
-                    'thumbs-down': '▼'
-                }
-            },
-            'status': {
-                name: 'Status Icons',
-                description: 'Status and state indicator icons',
-                icons: {
-                    'online': '●',
-                    'offline': '○',
-                    'busy': '◐',
-                    'away': '◯',
-                    'active': '✓',
-                    'inactive': '○',
-                    'enabled': '●',
-                    'disabled': '○',
-                    'visible': '○',
-                    'hidden': '×',
-                    'locked': '▣',
-                    'unlocked': '▢',
-                    'secure': '▣',
-                    'insecure': '!',
-                    'verified': '✓',
-                    'unverified': '?'
-                }
-            }
-        };
+        // Default icon sets - now defined directly
+        this.iconSets.set('system', {
+            name: 'System Icons',
+            description: 'Core system interface icons, powered by CSS masks.',
+            icons: SYSTEM_ICONS.reduce((acc, name) => {
+                acc[name] = name; // Value is the same as the key
+                return acc;
+            }, {})
+        });
         
         this.loadCSS();
         this.createPanelContent(parentElement);
@@ -136,7 +45,7 @@ export class IconsPanel {
         // Defer listener attachment and initialization
         Promise.resolve().then(() => {
             this.attachEventListeners();
-            this.initializeIconSets();
+            // No longer need to call initializeIconSets for defaults
         });
 
         this.subscribeToState();
@@ -274,12 +183,11 @@ export class IconsPanel {
         query('#icon-grid')?.addEventListener('click', (e) => {
             const iconElement = e.target.closest('.icon-item');
             if (iconElement) {
-                const name = iconElement.dataset.name;
-                const symbol = iconElement.dataset.symbol;
+                const name = iconElement.dataset.iconName;
                 if (e.ctrlKey || e.metaKey) {
-                    this.useIcon(name, symbol);
+                    this.useIcon(name);
                 } else {
-                    this.copyIcon(name, symbol);
+                    this.copyIcon(name);
                 }
             }
         });
@@ -300,15 +208,8 @@ export class IconsPanel {
     }
 
     initializeIconSets() {
-        // Load default icon sets
-        for (const [key, iconSet] of Object.entries(this.defaultIconSets)) {
-            this.iconSets.set(key, iconSet);
-        }
-        
-        // Load custom icons from state
-        this.loadCustomIcons();
-        
-        logIcons(`Initialized ${this.iconSets.size} icon sets`);
+        // This method is now only for loading custom icons, which is handled elsewhere.
+        // We can potentially remove this or repurpose it later.
     }
 
     setActiveIconSet(setKey) {
@@ -327,21 +228,21 @@ export class IconsPanel {
         const gridContainer = document.getElementById('icon-grid');
         const activeSet = this.iconSets.get(this.activeIconSet || 'system');
         const showNames = document.getElementById('show-icon-names')?.checked ?? true;
-        const showCodes = document.getElementById('show-icon-codes')?.checked ?? true;
         
         if (!activeSet) {
             gridContainer.innerHTML = '<p class="no-icons">No icons available</p>';
             return;
         }
 
-        const iconsHtml = Object.entries(activeSet.icons).map(([name, symbol]) => `
-            <div class="icon-item" data-icon-name="${name}" data-icon-symbol="${symbol}">
-                <div class="icon-symbol" title="Click to copy">${symbol}</div>
+        const iconsHtml = Object.keys(activeSet.icons).map((name) => `
+            <div class="icon-item" data-icon-name="${name}">
+                <div class="icon-symbol">
+                    <span class="icon icon-${name}"></span>
+                </div>
                 ${showNames ? `<div class="icon-name">${name}</div>` : ''}
-                ${showCodes ? `<div class="icon-code">${symbol.codePointAt(0).toString(16).toUpperCase()}</div>` : ''}
                 <div class="icon-actions">
-                    <button class="icon-action" onclick="window.iconsPanel?.copyIcon('${name}', '${symbol}')">Copy</button>
-                    <button class="icon-action" onclick="window.iconsPanel?.useIcon('${name}', '${symbol}')">Use</button>
+                    <button class="icon-action" onclick="window.iconsPanel?.copyIcon('${name}')">Copy CSS</button>
+                    <button class="icon-action" onclick="window.iconsPanel?.useIcon('${name}')">Use</button>
                 </div>
             </div>
         `).join('');
@@ -362,8 +263,7 @@ export class IconsPanel {
             symbol.addEventListener('click', (e) => {
                 const iconItem = e.target.closest('.icon-item');
                 const name = iconItem.dataset.iconName;
-                const symbolText = iconItem.dataset.iconSymbol;
-                this.copyIcon(name, symbolText);
+                this.copyIcon(name);
             });
         });
     }
@@ -381,37 +281,37 @@ export class IconsPanel {
         logIcons(`Filtered icons with term: "${searchTerm}"`);
     }
 
-    copyIcon(name, symbol) {
-        const iconToken = `var(--icon-${name}, '${symbol}')`;
+    copyIcon(name) {
+        const className = `icon-${name}`;
         
-        navigator.clipboard.writeText(iconToken).then(() => {
-            this.showTemporaryMessage(`Copied icon token: ${iconToken}`, 'success');
-            logIcons(`Copied icon token for: ${name}`);
-        }).catch(() => {
-            // Fallback: copy just the symbol
-            navigator.clipboard.writeText(symbol).then(() => {
-                this.showTemporaryMessage(`Copied icon symbol: ${symbol}`, 'success');
-            });
+        navigator.clipboard.writeText(className).then(() => {
+            this.showTemporaryMessage(`Copied CSS class: .${className}`, 'success');
+            logIcons(`Copied class for: ${name}`);
+        }).catch((err) => {
+            this.showTemporaryMessage(`Failed to copy: ${err}`, 'error');
         });
     }
 
-    useIcon(name, symbol) {
+    useIcon(name) {
         // This would integrate with other panels or the page editor
         // For now, just show how to use the icon
         const usage = `
+/* HTML Usage */
+<span class="icon icon-${name}" style="color: var(--color-primary);"></span>
+
 /* CSS Usage */
 .my-element::before {
-    content: var(--icon-${name}, '${symbol}');
-    font-family: var(--icon-font-family, inherit);
-    font-size: var(--icon-size-base, 1rem);
-    color: var(--icon-color-primary, currentColor);
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-color: var(--color-primary);
+    -webkit-mask-image: var(--icon-${name});
+    mask-image: var(--icon-${name});
 }
-
-/* HTML Usage */
-<span class="icon icon-${name}" aria-label="${name.replace('-', ' ')}">${symbol}</span>
         `.trim();
         
-        this.showUsageModal(name, symbol, usage);
+        this.showUsageModal(name, `<span class="icon icon-${name}"></span>`, usage);
         logIcons(`Showed usage for icon: ${name}`);
     }
 

@@ -1,6 +1,6 @@
 // Application configuration
 export const appName = 'devpages';
-export const appVer = '010m1:pdata';
+export const appVer = '013:3-panel';
 
 // Export other configuration as needed
 export const config = {

@@ -511,6 +511,8 @@ export function createContextManagerComponent(targetElementId) {
         event.stopPropagation();
         logContext('Note button clicked - adding to context', 'EVENT');
         
+        let originalText;
+
         try {
             const fileState = appStore.getState().file;
             if (fileState.isDirectorySelected || !fileState.currentPathname) {
@@ -556,7 +558,7 @@ export function createContextManagerComponent(targetElementId) {
 
             // Show loading state
             const noteBtn = event.target;
-            const originalText = noteBtn.textContent;
+            originalText = noteBtn.textContent;
             noteBtn.textContent = 'Adding...';
             noteBtn.disabled = true;
 
@@ -591,8 +593,10 @@ export function createContextManagerComponent(targetElementId) {
         } finally {
             // Reset button state
             const noteBtn = event.target;
-            noteBtn.textContent = originalText;
-            noteBtn.disabled = false;
+            if (noteBtn) {
+                noteBtn.textContent = originalText;
+                noteBtn.disabled = false;
+            }
         }
     };
 

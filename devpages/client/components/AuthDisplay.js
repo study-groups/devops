@@ -424,8 +424,30 @@ export function createAuthDisplayComponent(targetElementId) {
         const settingsState = appStore.getState().settings;
         const selectedOrg = settingsState?.selectedOrg || localStorage.getItem('devpages_selected_org') || 'pixeljam-arcade';
         
+        // DEBUG: Show actual auth state instead of generic message
         if (authState.isInitializing) {
-            element.innerHTML = '<div class="auth-status">Checking authentication...</div>';
+            const debugInfo = {
+                isInitializing: authState.isInitializing,
+                isAuthenticated: authState.isAuthenticated,
+                user: authState.user,
+                error: authState.error,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            element.innerHTML = `
+                <div class="auth-status">
+                    <div>Auth State Debug (${debugInfo.timestamp}):</div>
+                    <div style="font-size: 12px; margin-top: 5px;">
+                        <div>isInitializing: ${debugInfo.isInitializing}</div>
+                        <div>isAuthenticated: ${debugInfo.isAuthenticated}</div>
+                        <div>user: ${debugInfo.user ? debugInfo.user.username : 'null'}</div>
+                        <div>error: ${debugInfo.error || 'none'}</div>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 10px; color: #666;">
+                        Full auth state: ${JSON.stringify(authState)}
+                    </div>
+                </div>
+            `;
             return;
         }
 

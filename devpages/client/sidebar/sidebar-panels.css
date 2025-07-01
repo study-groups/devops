@@ -1,0 +1,268 @@
+/* Sidebar Panels CSS */
+.sidebar-panel {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: var(--color-background);
+    transition: all 0.2s ease;
+}
+
+.sidebar-panel:hover {
+    border-color: var(--color-border-hover);
+}
+
+.sidebar-panel.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary-alpha);
+}
+
+.sidebar-panel.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+    z-index: 1000;
+}
+
+.sidebar-panel-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sidebar-panel-header:hover {
+    background: var(--color-background-hover);
+}
+
+.panel-drag-handle {
+    color: var(--color-foreground-muted);
+    margin-right: 8px;
+    cursor: grab;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.panel-drag-handle:active {
+    cursor: grabbing;
+}
+
+.panel-icon {
+    margin-right: 8px;
+    font-size: 14px;
+}
+
+.panel-title {
+    flex: 1;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--color-foreground);
+}
+
+.panel-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+.panel-action-btn {
+    background: none;
+    border: none;
+    color: var(--color-foreground-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.panel-action-btn:hover {
+    background: var(--color-background-hover);
+    color: var(--color-foreground);
+}
+
+.sidebar-panel-content {
+    padding: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Drop zone indicator */
+.panel-drop-zone {
+    height: 4px;
+    margin: 4px 0;
+    border-radius: 2px;
+    background: var(--color-primary-alpha);
+    position: relative;
+}
+
+.drop-indicator {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* Floating panel window */
+.floating-panel-window {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    resize: both;
+    min-width: 300px;
+    min-height: 200px;
+}
+
+.floating-panel-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+    cursor: move;
+    user-select: none;
+}
+
+.floating-panel-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.floating-panel-content {
+    padding: 12px;
+    height: calc(100% - 45px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Context Manager specific styles */
+.context-manager-panel {
+    font-size: 13px;
+}
+
+.context-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    background: var(--color-background-secondary);
+}
+
+.context-item:hover {
+    background: var(--color-background-hover);
+}
+
+.context-item.active {
+    background: var(--color-primary-alpha);
+    border: 1px solid var(--color-primary);
+}
+
+.context-name {
+    font-weight: 500;
+}
+
+.context-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.context-action-btn {
+    background: none;
+    border: none;
+    color: var(--color-foreground-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 2px;
+    font-size: 11px;
+}
+
+.context-action-btn:hover {
+    color: var(--color-foreground);
+    background: var(--color-background-hover);
+}
+
+/* Design Tokens specific styles */
+.design-tokens-panel {
+    font-size: 13px;
+}
+
+.token-category {
+    margin-bottom: 16px;
+}
+
+.token-category-title {
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.token-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    cursor: pointer;
+}
+
+.token-item:hover {
+    background: var(--color-background-hover);
+}
+
+.token-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-foreground);
+}
+
+.token-value {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-foreground-muted);
+    margin-left: 8px;
+}
+
+.token-preview {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    border: 1px solid var(--color-border);
+    margin-left: 8px;
+}
+
+.token-copy-btn {
+    background: none;
+    border: none;
+    color: var(--color-foreground-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.token-item:hover .token-copy-btn {
+    opacity: 1;
+}
+
+.token-copy-btn:hover {
+    color: var(--color-foreground);
+    background: var(--color-background-hover);
+} 

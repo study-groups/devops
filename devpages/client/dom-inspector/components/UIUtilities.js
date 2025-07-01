@@ -5,12 +5,54 @@
 
 export class UIUtilities {
     /**
+     * Shows a temporary tooltip next to a given element.
+     * @param {HTMLElement} targetElement - The element to anchor the tooltip to.
+     * @param {string} message - The message to display in the tooltip.
+     * @param {'success' | 'error'} type - The type of tooltip, for styling.
+     * @param {number} duration - How long the tooltip should be visible, in milliseconds.
+     */
+    static showTemporaryTooltip(targetElement, message, type = 'success', duration = 1500) {
+        const tooltip = document.createElement('div');
+        tooltip.className = `tooltip ${type}`;
+        tooltip.textContent = message;
+        document.body.appendChild(tooltip);
+
+        const targetRect = targetElement.getBoundingClientRect();
+        
+        // Position tooltip to the right of the element
+        tooltip.style.left = `${targetRect.right + 5}px`;
+        tooltip.style.top = `${targetRect.top + (targetRect.height / 2) - (tooltip.offsetHeight / 2)}px`;
+
+        // Fade in
+        requestAnimationFrame(() => {
+            tooltip.classList.add('visible');
+        });
+
+        // Hide and remove after duration
+        setTimeout(() => {
+            tooltip.classList.remove('visible');
+            tooltip.addEventListener('transitionend', () => {
+                if (tooltip.parentElement) {
+                    tooltip.parentElement.removeChild(tooltip);
+                }
+            });
+        }, duration);
+    }
+
+    /**
      * Escape HTML content
      */
     static escapeHTML(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        if (!str) return '';
+        return str.replace(/[&<>"']/g, function(match) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[match];
+        });
     }
 
     /**
@@ -31,19 +73,13 @@ export class UIUtilities {
      * Get element display name for UI
      */
     static getElementDisplayName(element) {
-        let name = element.tagName.toLowerCase();
+        if (!element) return 'N/A';
         
-        // Add ID if present
+        let name = element.tagName.toLowerCase();
         if (element.id) {
             name += `#${element.id}`;
-        }
-        
-        // Add first class if present
-        if (element.className && typeof element.className === 'string') {
-            const firstClass = element.className.split(' ')[0];
-            if (firstClass) {
-                name += `.${firstClass}`;
-            }
+        } else if (element.classList && element.classList.length > 0) {
+            name += `.${Array.from(element.classList).join('.')}`;
         }
         
         return name;

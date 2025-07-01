@@ -10,6 +10,7 @@
     background: #161616; /* RESTORED */
     border-top: 1px solid #444; /* RESTORED */
     /* overflow: hidden; */  /* <<< TEMPORARILY COMMENT THIS OUT */
+    overscroll-behavior: contain; /* Prevent scroll chaining to parent elements */
     position: relative; 
     /* padding-left: 1rem; */  /* <<< REMOVED Breathing Room */
     /* padding-right: 1rem; */ /* <<< REMOVED Breathing Room */

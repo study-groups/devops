@@ -1,38 +1,55 @@
 /* Code Sidebar Styles */
 
 /* Base sidebar styling */
-#code-sidebar {
-    background-color: #f8f9fa;
-    border-right: 1px solid #ddd;
+.code-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: var(--sidebar-width, 300px);
+    background-color: var(--color-background-secondary);
+    border-right: 1px solid var(--color-border);
     overflow-y: auto;
     font-family: system-ui, -apple-system, sans-serif;
     transition: width 0.2s ease;
-    width: 300px; /* Increased width to accommodate both sections */
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
+    z-index: var(--z-10);
+    box-shadow: var(--shadow-right);
 }
 
-/* Hide sidebar by default with high specificity */
-html #code-sidebar {
-    display: none !important;
+.code-sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    z-index: var(--z-20);
 }
 
-/* Show sidebar when body has view-code class with even higher specificity */
-html body.view-code #code-sidebar {
-    display: flex !important;
-    flex-direction: column;
+#sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    width: 4px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: var(--z-20);
 }
 
-/* Show sidebar when left-sidebar-visible class is present */
-html body.left-sidebar-visible #code-sidebar {
-    display: flex !important;
-    flex-direction: column;
+.sidebar-header {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    background-color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-/* Debugging: Add a visible border when in view-code mode */
-body.view-code #code-sidebar {
-    border-left: 3px solid #007bff !important;
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    font-weight: 600;
+    min-height: 0; /* Important for proper scrolling */
 }
 
 /* Sidebar Sections */
@@ -127,20 +144,7 @@ body.view-code #code-sidebar {
 #sidebar-file-list-section {
     flex: 1;
     min-height: 0;
-}
-
-/* Sidebar header */
-#code-sidebar .sidebar-header {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-    background-color: #fff;
-}
-
-#code-sidebar .sidebar-header h3 {
-    margin: 0;
-    font-size: 14px;
-    color: #333;
-    font-weight: 600;
+    font-size: 12px;
 }
 
 /* File list container */
@@ -248,15 +252,15 @@ body.view-code #code-sidebar {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    #code-sidebar {
-        width: 250px !important; /* Adjusted for mobile */
+    .code-sidebar {
+        /* On smaller screens, the sidebar could take up more width if needed */
+        width: 250px;
     }
-    
+
     .file-item {
         font-size: 12px;
-        padding: 5px 6px;
     }
-    
+
     .sidebar-section-content {
         padding: 4px;
     }
@@ -269,6 +273,9 @@ body.view-code .preview-container {
 }
 
 /* Optional: Add subtle shadow to sidebar */
-#code-sidebar {
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-} 
+.sidebar-footer {
+    padding: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-background-secondary);
+    box-shadow: var(--shadow-right);
+}

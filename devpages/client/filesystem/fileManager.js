@@ -531,9 +531,20 @@ export async function loadFile(pathname) {
              throw new Error(`Could not extract filename from pathname: ${pathname}`);
         }
 
+        // Check authentication status before attempting to load
+        const authState = appStore.getState().auth;
+        if (!authState.isAuthenticated) {
+            throw new Error('User not authenticated. Please log in to access files.');
+        }
+
+        logFileManager(`[LoadFile ${pathname}]: Calling api.fetchFileContent...`, 'debug');
         // <<< USE CORRECT API FUNCTION >>>
         // const content = await api.readFile(filename, directory); // OLD/WRONG
         const content = await api.fetchFileContent(pathname); // Pass the full pathname
+
+        if (content === null || content === undefined) {
+            throw new Error('File content is null or undefined - server may have returned empty response');
+        }
 
         logFileManager(`[LoadFile ${pathname}]: Content loaded successfully (Length: ${content?.length ?? 0}). Setting editor.`);
         setContent(content); // Update the editor
@@ -577,7 +588,54 @@ export async function loadFile(pathname) {
 
     } catch (error) {
         logFileManager(`[LoadFile ${pathname}]: ERROR loading file: ${error.message}`, 'error');
-        setContent(`## Error Loading File\n\nFailed to load \`${pathname}\`.\n\n**Error:**\n\`\`\`\n${error.message}\n\`\`\`\n\nPlease check the console and server logs for more details.`); // Show error in editor
+        
+        // Show detailed error information to help with debugging
+        let errorDetails = error.message;
+        if (error.status) {
+            errorDetails += `\n\nHTTP Status: ${error.status}`;
+        }
+        if (error.stack) {
+            logFileManager(`[LoadFile ${pathname}]: Error stack: ${error.stack}`, 'debug');
+        }
+        
+        // Check if it's an authentication error
+        const authState = appStore.getState().auth;
+        if (!authState.isAuthenticated) {
+            errorDetails = 'Authentication required. Please log in to access files.';
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            errorDetails = 'Authentication expired or insufficient permissions. Please log in again.';
+        } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+            errorDetails = `File not found: ${pathname}\n\nThe file may have been moved, deleted, or you may not have permission to access it.`;
+        } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+            errorDetails = `Server error while loading file: ${pathname}\n\nPlease check the server logs for more details.`;
+        }
+        
+        setContent(`## Error Loading File
+
+Failed to load \`${pathname}\`.
+
+**Error Details:**
+\`\`\`
+${errorDetails}
+\`\`\`
+
+**Troubleshooting:**
+- Check if you are logged in
+- Verify the file exists and you have permission to access it
+- Check the browser console and server logs for more details
+- Try refreshing the page
+
+**Authentication Status:**
+- Authenticated: ${authState.isAuthenticated}
+- User: ${authState.user?.username || 'None'}
+- Initializing: ${authState.isInitializing}
+
+**Debug Info:**
+- Timestamp: ${new Date().toISOString()}
+- Pathname: ${pathname}
+- User Agent: ${navigator.userAgent.substring(0, 50)}...
+`); // Show detailed error in editor
+        
         dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { pathname, error: error.message } });
     }
 }

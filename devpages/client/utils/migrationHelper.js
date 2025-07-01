@@ -198,10 +198,10 @@ window.migrationHelper = {
 // Show initial status when loaded
 console.log('🔄 DevPages Migration Helper loaded. Type migrationHelper.help() for commands.');
 
-// Auto-show status if migration system is ready
-if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
-    setTimeout(() => {
-        console.log('📊 Initial migration status:');
-        window.migrationHelper.status();
-    }, 1000);
-} 
+// DISABLED: Auto-show status to reduce console spam
+// if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
+//     setTimeout(() => {
+//         console.log('📊 Initial migration status:');
+//         window.migrationHelper.status();
+//     }, 1000);
+// } 

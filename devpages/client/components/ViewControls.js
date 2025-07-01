@@ -159,13 +159,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
             editToggle.classList.toggle('active', workspaceState.editor.visible);
             editToggle.title = workspaceState.editor.visible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
         }
-        
-        // Update Panels toggle (sidebar visibility) - use workspace state  
-        const panelsToggle = element.querySelector('#panels-toggle');
-        if (panelsToggle && workspaceState?.sidebar) {
-            panelsToggle.classList.toggle('active', workspaceState.sidebar.visible);
-            panelsToggle.title = workspaceState.sidebar.visible ? 'Hide Panels (Alt+P)' : 'Show Panels (Alt+P)';
-        }
+
     };
     
     const updateLogButtonState = (isVisible) => {
@@ -202,7 +196,6 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
         // Render the updated toggle buttons for workspace system
         element.innerHTML = `
-            <button id="panels-toggle" title="Toggle Panels (Alt+P)" data-action="togglePanels">Panels</button>
             <button id="edit-toggle" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
             <button id="log-toggle-btn" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
             <button id="preview-reload-btn" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>

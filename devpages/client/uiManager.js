@@ -106,53 +106,9 @@ async function handleAppStateChange(newState, prevState) {
     // --- Auth State Handling (existing logic) ---
     if (authChanged) {
         logUI(`Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
-        // Handle FileManager initialization/reset based on auth changes
-        // Only proceed if auth is no longer initializing
-        if (!newState.auth.isInitializing) {
-            const username = newState.auth.user?.username;
-            const wasLoggedIn = prevState.auth?.isAuthenticated; // Check previous state if available
-            const isLoggedIn = newState.auth.isAuthenticated;
-            const isFMInitialized = newState.file?.isInitialized; // Check file state
-
-            try {
-                // Dynamically import fileManager *only when needed* for actions
-                const fmModule = await import('/client/filesystem/fileManager.js');
-                const fm = fmModule.default;
-                if (!fm) throw new Error('fileManager default export is missing');
-
-                if (isLoggedIn && !wasLoggedIn) { // User just logged in
-                    logUI(`User logged in: ${username}. Initializing/refreshing file manager...`);
-                    if (!isFMInitialized) {
-                         if (typeof fm.initializeFileManager === 'function') {
-                            await fm.initializeFileManager().catch(err => logUI(`FileManager initialization failed: ${err.message}`, 'error'));
-                         } else {
-                             logUI('initializeFileManager function not found on fileManager module', 'error');
-                         }
-                    } else {
-                        // If already initialized (e.g., page refresh while logged in), refresh context
-                        if (typeof fm.refreshFileManagerForUser === 'function') {
-                             await fm.refreshFileManagerForUser(username).catch(err => logUI(`FileManager refresh for user failed: ${err.message}`, 'error'));
-                             logUI('refreshFileManagerForUser awaited.');
-                         } else {
-                             logUI('refreshFileManagerForUser function not available on fileManager module.', 'warning');
-                         }
-                    }
-                } else if (!isLoggedIn && wasLoggedIn) { // User just logged out
-                     if (isFMInitialized) {
-                         logUI('User logged out. Resetting file manager state.');
-                         if (typeof fm.resetFileManagerState === 'function') {
-                             fm.resetFileManagerState(); // This function now dispatches actions
-                         } else {
-                             logUI('resetFileManagerState function not available on fileManager module.', 'warning');
-                         }
-                     } else {
-                          logUI('User logged out, but fileManager was not initialized. No reset needed.');
-                     }
-                }
-            } catch (err) {
-                logUI(`Critical error importing or interacting with fileManager during auth change: ${err.message}`, 'error');
-            }
-        }
+        // The fileManager now listens for auth changes internally.
+        // The uiManager's responsibility is just to react to UI-related state, not to orchestrate other modules.
+        // All logic for calling initializeFileManager, refreshFileManagerForUser, or resetFileManagerState has been removed.
         logUI('Auth state change handling finished.');
     }
 

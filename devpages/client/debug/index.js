@@ -502,3 +502,111 @@ export async function debugAllApiEndpoints() {
         logDebug('[DEBUG ERROR]', error);
     }
 }
+
+/**
+ * Diagnose docs loading issues
+ */
+export async function diagnoseDocs() {
+    logDebug('[DOCS DIAGNOSIS] Starting docs loading diagnosis...');
+    
+    try {
+        // 1. Check authentication status
+        const authState = appStore.getState().auth;
+        logDebug(`[DOCS DIAGNOSIS] Auth Status:`, 'info');
+        logDebug(`  - Authenticated: ${authState.isAuthenticated}`);
+        logDebug(`  - User: ${authState.user?.username || 'None'}`);
+        logDebug(`  - Initializing: ${authState.isInitializing}`);
+        logDebug(`  - Error: ${authState.error || 'None'}`);
+        
+        // 2. Check file manager state
+        const fileState = appStore.getState().file;
+        logDebug(`[DOCS DIAGNOSIS] File Manager State:`, 'info');
+        logDebug(`  - Current Pathname: ${fileState.currentPathname || 'None'}`);
+        logDebug(`  - Is Directory: ${fileState.isDirectorySelected}`);
+        logDebug(`  - Is Loading: ${fileState.isLoading}`);
+        logDebug(`  - Error: ${fileState.error || 'None'}`);
+        
+        // 3. Test basic API connectivity
+        logDebug(`[DOCS DIAGNOSIS] Testing API connectivity...`);
+        try {
+            const response = await fetch('/api/auth/user', {
+                credentials: 'include'
+            });
+            logDebug(`  - Auth API Status: ${response.status} ${response.statusText}`);
+            
+            if (response.ok) {
+                const userData = await response.json();
+                logDebug(`  - Auth API Response: ${JSON.stringify(userData)}`);
+            }
+        } catch (apiError) {
+            logDebug(`  - Auth API Error: ${apiError.message}`, 'error');
+        }
+        
+        // 4. Test file listing API
+        logDebug(`[DOCS DIAGNOSIS] Testing file listing API...`);
+        try {
+            const listResponse = await fetch('/api/files/list?pathname=', {
+                credentials: 'include'
+            });
+            logDebug(`  - File List API Status: ${listResponse.status} ${listResponse.statusText}`);
+            
+            if (listResponse.ok) {
+                const listData = await listResponse.json();
+                logDebug(`  - Available directories: ${JSON.stringify(listData.dirs || [])}`);
+                logDebug(`  - Available files: ${JSON.stringify(listData.files || [])}`);
+            } else {
+                const errorText = await listResponse.text();
+                logDebug(`  - File List API Error: ${errorText}`, 'error');
+            }
+        } catch (listError) {
+            logDebug(`  - File List API Error: ${listError.message}`, 'error');
+        }
+        
+        // 5. Check if there's a specific file to test
+        const currentPath = fileState.currentPathname;
+        if (currentPath && !fileState.isDirectorySelected) {
+            logDebug(`[DOCS DIAGNOSIS] Testing current file loading: ${currentPath}`);
+            try {
+                const fileResponse = await fetch(`/api/files/content?pathname=${encodeURIComponent(currentPath)}`, {
+                    credentials: 'include'
+                });
+                logDebug(`  - File Content API Status: ${fileResponse.status} ${fileResponse.statusText}`);
+                
+                if (fileResponse.ok) {
+                    const content = await fileResponse.text();
+                    logDebug(`  - File Content Length: ${content.length} chars`);
+                    logDebug(`  - Content Preview: ${content.substring(0, 100)}...`);
+                } else {
+                    const errorText = await fileResponse.text();
+                    logDebug(`  - File Content API Error: ${errorText}`, 'error');
+                }
+            } catch (fileError) {
+                logDebug(`  - File Content API Error: ${fileError.message}`, 'error');
+            }
+        }
+        
+        // 6. Check browser console for any errors
+        logDebug(`[DOCS DIAGNOSIS] Browser Info:`, 'info');
+        logDebug(`  - User Agent: ${navigator.userAgent}`);
+        logDebug(`  - Cookies: ${document.cookie ? 'Present' : 'None'}`);
+        logDebug(`  - Local Storage Auth: ${localStorage.getItem('authState') ? 'Present' : 'None'}`);
+        
+        // 7. Recommendations
+        logDebug(`[DOCS DIAGNOSIS] Recommendations:`, 'info');
+        if (!authState.isAuthenticated) {
+            logDebug(`  - Please log in to access files`, 'warning');
+        }
+        if (fileState.error) {
+            logDebug(`  - File manager has error: ${fileState.error}`, 'warning');
+        }
+        if (!fileState.currentPathname) {
+            logDebug(`  - No file currently selected`, 'info');
+        }
+        
+        logDebug('[DOCS DIAGNOSIS] Diagnosis complete. Check the logs above for issues.');
+        
+    } catch (error) {
+        logDebug(`[DOCS DIAGNOSIS] Error during diagnosis: ${error.message}`, 'error');
+        console.error('[DOCS DIAGNOSIS] Error:', error);
+    }
+}

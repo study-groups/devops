@@ -121,10 +121,14 @@ class DevPagesConsolidator {
     showDeprecationWarning(oldName, newPath) {
         const warning = `window.${oldName} is deprecated. Use window.${newPath} instead.`;
         
-        if (!this.deprecationWarnings.has(warning)) {
-            console.warn(`[DEPRECATED] ${warning}`);
-            this.deprecationWarnings.add(warning);
-        }
+        // DISABLED: Deprecation warnings to reduce console spam
+        // if (!this.deprecationWarnings.has(warning)) {
+        //     console.warn(`[DEPRECATED] ${warning}`);
+        //     this.deprecationWarnings.add(warning);
+        // }
+        
+        // Still track warnings for migration helper, just don't show them
+        this.deprecationWarnings.add(warning);
     }
 
     getNestedProperty(obj, path) {

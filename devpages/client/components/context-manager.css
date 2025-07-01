@@ -153,7 +153,7 @@
   white-space: pre-line; /* Respect newlines in the text */
   z-index: 100; /* Ensure it's above other elements */
   border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-sm);
   max-width: 300px; /* Prevent it getting too wide */
 }
 
@@ -180,7 +180,7 @@
   padding: 10px;
   width: 300px;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-base);
   font-size: 12px;
   color: #333;
   text-align: left;
@@ -227,7 +227,7 @@
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md);
     min-width: 200px;
     max-width: 300px;
     z-index: 1000;
@@ -404,16 +404,14 @@
 }
 
 .context-settings-popup-content {
-    background-color: white;
-    padding: 15px;
-    border-radius: 6px;
-    min-width: 350px;
-    max-width: 400px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    border: 1px solid #ddd;
-    pointer-events: all; /* Re-enable clicks on the content */
-    margin-top: 45px; /* Position below the nav bar */
-    margin-left: 10px; /* Small margin from left edge */
+    background: white;
+    padding: 0;
+    border-radius: 8px;
+    min-width: 500px;
+    max-width: 80%;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
 }
 
 .context-settings-popup-header {

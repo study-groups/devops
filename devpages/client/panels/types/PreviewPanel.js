@@ -142,8 +142,16 @@ export class PreviewPanel extends BasePanel {
                     </div>
                 `;
                 
-                // Try to trigger file loading
+                // Actually trigger file loading
                 this.log(`File path exists but no content. Triggering file load for: ${filePath}`, 'warn');
+                try {
+                    const { loadFile } = await import('/client/filesystem/fileManager.js');
+                    await loadFile(filePath);
+                    this.log(`File load triggered successfully for: ${filePath}`, 'info');
+                } catch (error) {
+                    this.log(`Failed to trigger file load for ${filePath}: ${error.message}`, 'error');
+                    this.showError(`Failed to load file: ${filePath}`);
+                }
                 return;
             }
 

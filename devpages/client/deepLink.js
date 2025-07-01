@@ -24,21 +24,19 @@ function logDeepLink(message, level = 'text') {
  */
 export function saveDeepLinkRequest() {
     const urlParams = new URLSearchParams(window.location.search);
-    const dir = urlParams.get('dir');
-    const path = urlParams.get('path');
-    const file = urlParams.get('file');
+    const pathname = urlParams.get('pathname');
     
-    // Only save if at least a directory is specified
-    if (dir) {
+    // Only save if a pathname is specified
+    if (pathname) {
         const deepLinkData = {
-            dir,
-            path: path || '',
-            file: file || '',
+            pathname,
             timestamp: Date.now() // Add timestamp for potential expiration handling
         };
         
         localStorage.setItem(DEEP_LINK_KEY, JSON.stringify(deepLinkData));
         logDeepLink(`Saved request: ${JSON.stringify(deepLinkData)}`);
+    } else {
+        logDeepLink('No pathname parameter found to save.');
     }
 }
 
@@ -54,7 +52,10 @@ export function getSavedDeepLinkRequest() {
         const deepLinkData = JSON.parse(savedData);
         
         // Validate the data structure
-        if (!deepLinkData.dir) return null;
+        if (!deepLinkData.pathname) {
+            logDeepLink(`Saved deep link data is invalid or missing pathname: ${savedData}`, 'warning');
+            return null;
+        }
         
         return deepLinkData;
     } catch (error) {
@@ -77,17 +78,19 @@ export function clearSavedDeepLinkRequest() {
  */
 export function restoreDeepLinkNavigation() {
     const savedRequest = getSavedDeepLinkRequest();
-    if (!savedRequest) return false;
+    if (!savedRequest || !savedRequest.pathname) return false;
     
-    logDeepLink(`Restoring navigation to: ${JSON.stringify(savedRequest)}`);
+    logDeepLink(`Restoring navigation to pathname: '${savedRequest.pathname}'`);
     
-    // Use the eventBus to navigate to the saved location
-    if (window.eventBus) {
-        // Navigate to the absolute path with all parameters
-        window.eventBus.emit('navigate:absolute', {
-            topLevelDirectory: savedRequest.dir,
-            relativePath: savedRequest.path,
-            filename: savedRequest.file
+    // Use the eventBus to navigate to the saved pathname
+    if (window.eventBus && typeof window.eventBus.emit === 'function') {
+        // The isDirectory flag will be determined by handleNavigateToPathname
+        const isDirectory = !/\.[^/]+$/.test(savedRequest.pathname);
+        logDeepLink(`Emitting navigate:pathname with isDirectory=${isDirectory}`);
+        
+        window.eventBus.emit('navigate:pathname', {
+            pathname: savedRequest.pathname,
+            isDirectory: isDirectory
         });
         
         // Clear the saved request after navigation

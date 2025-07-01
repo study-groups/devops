@@ -68,7 +68,8 @@ async function authenticatedFetch(url, options = {}) {
     
     return globalFetch(url, {
         ...options,
-        headers
+        headers,
+        credentials: 'include' // ALWAYS include session cookies for authentication
     });
 }
 
@@ -107,16 +108,49 @@ const api = {
         logApi(`Fetching file content: ${url}`, 'debug');
         
         try {
+            logApi(`Making authenticated fetch request to: ${url}`, 'debug');
             const response = await authenticatedFetch(url);
+            
+            logApi(`Response received - Status: ${response.status}, OK: ${response.ok}`, 'debug');
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                
+                // Try to get more detailed error information
+                try {
+                    const errorText = await response.text();
+                    if (errorText) {
+                        errorMessage += ` - ${errorText}`;
+                    }
+                } catch (textError) {
+                    logApi(`Could not read error response text: ${textError.message}`, 'debug');
+                }
+                
+                logApi(`HTTP error fetching file content: ${errorMessage}`, 'error');
+                throw new Error(errorMessage);
             }
+            
             const content = await response.text();
             logApi(`File content received for "${relativePath}": ${content.length} chars`, 'debug');
+            
+            // Additional validation
+            if (content === null || content === undefined) {
+                throw new Error('Server returned null or undefined content');
+            }
+            
             return content;
         } catch (error) {
-            logApi(`Error fetching file content for "${relativePath}": ${error.message}`, 'error');
-            throw error;
+            // Enhanced error logging
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                logApi(`Network error fetching file content for "${relativePath}": ${error.message}`, 'error');
+                throw new Error(`Network error: Unable to connect to server. Please check your internet connection.`);
+            } else if (error.message.includes('credentials')) {
+                logApi(`Authentication error fetching file content for "${relativePath}": ${error.message}`, 'error');
+                throw new Error(`Authentication error: Please log in again.`);
+            } else {
+                logApi(`Error fetching file content for "${relativePath}": ${error.message}`, 'error');
+                throw error;
+            }
         }
     },
 
@@ -452,9 +486,16 @@ const api = {
      */
     async getUserStatus() {
         logApi('getUserStatus called', 'debug');
+        console.log('[API DEBUG] getUserStatus: cookies before request:', document.cookie);
         const url = endpoints.userStatus();
-        const options = { method: 'GET' };
-        return await globalFetch(url, options);
+        const options = { 
+            method: 'GET',
+            credentials: 'include' // Include cookies for session
+        };
+        console.log('[API DEBUG] getUserStatus: making request to', url, 'with options:', options);
+        const result = await globalFetch(url, options);
+        console.log('[API DEBUG] getUserStatus: response received:', result.status, result.ok);
+        return result;
     },
    
     // --- Files --- 

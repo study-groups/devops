@@ -433,7 +433,7 @@ export class DomInspectorPanel {
         const computedStylesContent = this.computedStylesComponent.createComputedStyles(element);
         sectionsData.push({
             id: 'computed-styles',
-            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent, true)
+            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent)
         });
         
         // If the element is an iframe, add iframe deep dive section
@@ -450,25 +450,19 @@ export class DomInspectorPanel {
         const eventsContent = this.elementDetailsRenderer.createEventsContent(element);
         sectionsData.push({
             id: 'events',
-            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent, true)
+            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent)
         });
         
         // Create layout engine section
         const engineContent = this.elementDetailsRenderer.createEngineContent(element);
         sectionsData.push({
             id: 'layout-engine',
-            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent, true)
+            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent)
         });
         
         // Render sections in order using SectionManager (breadcrumbs will be preserved)
         this.sectionManager.renderSections(this.detailsContainer, sectionsData);
     }
-
-
-
-
-
-
 
     /**
      * Update element details without rebuilding breadcrumbs (for breadcrumb navigation)
@@ -502,7 +496,7 @@ export class DomInspectorPanel {
         const computedStylesContent = this.computedStylesComponent.createComputedStyles(element);
         sectionsData.push({
             id: 'computed-styles',
-            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent, true)
+            section: this.sectionManager.createCollapsibleSection('computed-styles', 'Computed Styles', computedStylesContent)
         });
         
         // If the element is an iframe, add iframe deep dive section
@@ -518,14 +512,14 @@ export class DomInspectorPanel {
         const eventsContent = this.elementDetailsRenderer.createEventsContent(element);
         sectionsData.push({
             id: 'events',
-            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent, true)
+            section: this.sectionManager.createCollapsibleSection('events', 'Events', eventsContent)
         });
         
         // Create layout engine section
         const engineContent = this.elementDetailsRenderer.createEngineContent(element);
         sectionsData.push({
             id: 'layout-engine',
-            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent, true)
+            section: this.sectionManager.createCollapsibleSection('layout-engine', 'Layout Engine', engineContent)
         });
         
         // Render sections in order using SectionManager (breadcrumbs will be preserved)
@@ -741,58 +735,41 @@ export class DomInspectorPanel {
      */
     updateTreeSelection(element) {
         if (!this.treeContainer) return;
-        
-        console.log('DOM Inspector: updateTreeSelection called with element:', element);
-        
+
         // Remove previous selection
-        const allNodes = this.treeContainer.querySelectorAll('.dom-inspector-node-header');
-        allNodes.forEach(node => {
-            node.classList.remove('selected');
-        });
-        console.log('DOM Inspector: Cleared previous tree selection from', allNodes.length, 'nodes');
+        const previouslySelected = this.treeContainer.querySelector('.dom-inspector-node-header.selected');
+        if (previouslySelected) {
+            previouslySelected.classList.remove('selected');
+        }
         
-        // If no element, just clear selection and return
         if (!element) return;
-        
+
         // Ensure the element is visible in the tree by expanding parent nodes
         this.expandTreeToElement(element);
-        
-        // Find and select new element after a short delay to allow expansion
-        setTimeout(() => {
+
+        const tryToSelect = () => {
             const targetNode = this.findTreeNodeForElement(element);
-            console.log('DOM Inspector: Found tree node for element:', targetNode);
-            
             if (targetNode) {
                 const header = targetNode.querySelector('.dom-inspector-node-header');
-                console.log('DOM Inspector: Found header in tree node:', header);
-                
                 if (header) {
                     header.classList.add('selected');
-                    header.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    console.log('DOM Inspector: Successfully selected tree node and scrolled to it');
-                } else {
-                    console.warn('DOM Inspector: Tree node found but no header element');
+                    // Use 'auto' for behavior to make it instant. 'smooth' can feel slow.
+                    // 'nearest' prevents large scrolls.
+                    header.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                    return true;
                 }
-            } else {
-                console.warn('DOM Inspector: Could not find tree node for element:', element);
-                console.warn('DOM Inspector: Element tag:', element.tagName);
-                console.warn('DOM Inspector: Element classes:', element.className);
-                console.warn('DOM Inspector: Element id:', element.id);
-                
-                // Try to find it again after ensuring tree is expanded
-                setTimeout(() => {
-                    const retryNode = this.findTreeNodeForElement(element);
-                    if (retryNode) {
-                        const header = retryNode.querySelector('.dom-inspector-node-header');
-                        if (header) {
-                            header.classList.add('selected');
-                            header.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                            console.log('DOM Inspector: Successfully selected tree node on retry');
-                        }
-                    }
-                }, 100);
             }
-        }, 50); // Delay to allow tree expansion to complete
+            return false;
+        };
+
+        // Try to select immediately. If it fails, try again on the next animation frame.
+        if (!tryToSelect()) {
+            requestAnimationFrame(() => {
+                if (!tryToSelect()) {
+                    console.error('DOM Inspector: Failed to select node after rAF retry for element:', element);
+                }
+            });
+        }
     }
 
     /**

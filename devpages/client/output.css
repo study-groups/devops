@@ -171,9 +171,14 @@ html,
 
 body {
   margin: 0;
-  /* 1 */
-  line-height: inherit;
-  /* 2 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: contain; /* Prevent scroll chaining at document level */
+  line-height: 1.4;
+  /* <<< INCREASED line-height >>> */
 }
 
 /*
@@ -698,6 +703,7 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  overscroll-behavior: contain; /* Prevent scroll chaining at document level */
   line-height: 1.4;
   /* <<< INCREASED line-height >>> */
 }

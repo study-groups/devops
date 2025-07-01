@@ -209,6 +209,8 @@ app.use('/client', (req, res, next) => {
 });
 // --- End /client Static Serving Block ---
 
+// --- NEW: Add static serving for the /public directory ---
+app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
 // --- Other static routes ---
 app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));

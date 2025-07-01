@@ -21,6 +21,8 @@ body {
   color: var(--text-color, #333);
   background-color: var(--bg-color, #fff);
   line-height: 1.6;
+  overflow: hidden; /* Prevent body from scrolling */
+  overscroll-behavior: contain; /* Prevent any scroll chaining at document level */
 }
 
 /* Remove default styling from common elements */

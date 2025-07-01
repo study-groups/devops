@@ -24,6 +24,7 @@
   
   /* Handle overflow gracefully */
   overflow: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent containers */
   
   /* Prevent content jumping during updates */
   min-height: 200px;

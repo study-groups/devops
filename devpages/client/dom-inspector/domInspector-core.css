@@ -1227,4 +1227,104 @@ body.dom-inspector-splitter-dragging * {
     border: 1px solid #aaa;
     text-align: center;
     min-width: 100px;
+}
+
+.dom-inspector-computed-styles {
+    font-family: var(--font-family-mono, monospace);
+}
+
+.dom-inspector-style-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+}
+
+.dom-inspector-style-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.dom-inspector-style-row:hover {
+    background-color: var(--background-color-hover, #f6f8fa);
+    cursor: pointer;
+}
+
+.dom-inspector-color-swatch {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border-color, #e1e4e8);
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-left: auto; /* Moves swatch to the right */
+}
+
+.dom-inspector-property-name {
+    color: var(--text-color-secondary, #586069);
+    flex-shrink: 0;
+}
+
+.dom-inspector-property-value {
+    color: var(--text-color-primary, #24292e);
+    font-weight: 500;
+}
+
+.dom-inspector-css-variable {
+    color: var(--color-primary, #0366d6);
+    font-style: italic;
+}
+
+.dom-inspector-no-styles {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-color-secondary, #586069);
+}
+
+.dom-inspector-styles-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.dom-inspector-styles-table td {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-color-light, #eaecef);
+}
+
+.dom-inspector-styles-table tr:last-child td {
+    border-bottom: none;
+}
+
+.dom-inspector-styles-table td:first-child {
+    color: var(--text-color-secondary, #586069);
+    width: 40%;
+}
+
+.dom-inspector-styles-table td:last-child {
+    color: var(--text-color-primary, #24292e);
+    font-weight: 500;
+}
+
+.tooltip {
+    position: absolute;
+    background-color: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.tooltip.visible {
+    opacity: 1;
+}
+
+.tooltip.error {
+    background-color: #d73a49;
 } 
