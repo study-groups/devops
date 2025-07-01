@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Tab URL Saver",
+  "version": "1.0",
+  "permissions": ["tabs", "downloads", "scripting"],
+  "action": {
+    "default_title": "Save Tab URLs"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
