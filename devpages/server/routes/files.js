@@ -139,7 +139,7 @@ router.get('/list', authMiddleware, async (req, res) => {
  * GET /api/files/dirs
  * Get list of directories based on username and permissions
  */
-router.get('/dirs', async (req, res) => {
+router.get('/dirs', authMiddleware, async (req, res) => {
   try {
     const username = req.user.username;
 

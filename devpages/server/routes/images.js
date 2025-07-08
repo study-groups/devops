@@ -11,7 +11,7 @@ const SUPPORTED_MIME_TYPES = [
     'image/png', 
     'image/gif', 
     'image/webp',
-    'image/svg+xml'  // Add SVG support
+    'image/svg+xml'
 ];
 
 // Configure multer for file uploads
@@ -40,6 +40,18 @@ const upload = multer({
         fileSize: 10 * 1024 * 1024 // 10MB limit
     }
 });
+
+// Helper function to generate the public URL
+const getPublicUrl = (s3Key) => {
+    let baseUrl;
+    if (PUBLISH_BASE_URL) {
+        baseUrl = PUBLISH_BASE_URL.replace(/\/$/, '');
+    } else {
+        baseUrl = `https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.cdn.digitaloceanspaces.com`;
+    }
+    const keyPart = s3Key.replace(/^\//, '');
+    return `${baseUrl}/${keyPart}`;
+};
 
 // Helper to find image references in markdown content
 function findImageReferences(content, targetImage) {

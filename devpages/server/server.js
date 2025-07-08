@@ -214,7 +214,16 @@ app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
 // --- Other static routes ---
 app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));
-app.use('/uploads', express.static(uploadsDirectory, staticOptions));
+
+// Ensure the uploads directory exists within the PD_DIR
+const absoluteUploadsPath = path.join(pdDir, 'uploads');
+if (!fsSync.existsSync(absoluteUploadsPath)) {
+    fsSync.mkdirSync(absoluteUploadsPath, { recursive: true });
+    console.log(`[SERVER] Created uploads directory at: ${absoluteUploadsPath}`);
+}
+app.use('/uploads', express.static(absoluteUploadsPath, staticOptions));
+console.log(`[SERVER] Serving /uploads from: ${absoluteUploadsPath}`);
+
 app.use('/favicon.ico', express.static(path.join(currentDir, 'favicon.ico'), staticOptions));
 app.get('/config.js', (req, res) => {
     res.sendFile(path.join(projectRoot, 'config.js'));

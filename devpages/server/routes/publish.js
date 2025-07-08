@@ -22,7 +22,7 @@ const {
     DO_SPACES_ENDPOINT,
     DO_SPACES_BUCKET,
     DO_SPACES_REGION,
-    PUBLISH_BASE_URL // Optional base URL for public links
+    PUBLISH_BASE_URL
 } = process.env;
 
 const REQUIRED_ENV_VARS = [
@@ -33,7 +33,7 @@ const REQUIRED_ENV_VARS = [
 const missingEnvVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
 if (missingEnvVars.length > 0) {
     console.error(`[PUBLISH ROUTE] FATAL: Missing required environment variables for DigitalOcean Spaces: ${missingEnvVars.join(', ')}`);
-    throw new Error(`Missing DO Spaces environment variables: ${missingEnvVars.join(', ')}`);
+    // throw new Error(`Missing DO Spaces environment variables: ${missingEnvVars.join(', ')}`);
 }
 
 // Simple S3 client configuration
