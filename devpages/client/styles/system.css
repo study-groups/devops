@@ -23,7 +23,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 60px;
-  position: sticky;
+  position: relative;
   top: 0;
   z-index: var(--z-50);
 }
@@ -598,9 +598,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
   }
 }
 

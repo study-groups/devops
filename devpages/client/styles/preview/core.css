@@ -57,11 +57,15 @@ pre {
   padding: 1em;
   border-radius: 3px;
   line-height: 1.4;
+  min-height: auto;
+  flex-shrink: 0;
 }
 
 pre code {
   background: none;
   padding: 0;
+  display: block;
+  white-space: pre;
 }
 
 /* Links */
@@ -75,7 +79,7 @@ a:hover {
 }
 
 a:visited {
-  color: var(--link-visited, #551a8b);
+  color: var(--link-visited, #0066cc);
 }
 
 /* Images */
@@ -142,10 +146,10 @@ summary {
 /* Print styles */
 @media print {
   * {
-    background: transparent !important;
-    color: black !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
+    background: transparent;
+    color: black;
+    box-shadow: none;
+    text-shadow: none;
   }
   
   a, a:visited {
@@ -170,7 +174,7 @@ summary {
   }
   
   img {
-    max-width: 100% !important;
+    max-width: 100%;
   }
   
   p, h2, h3 {
