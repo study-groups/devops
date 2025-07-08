@@ -4,6 +4,7 @@
  */
 import { appStore } from '/client/appState.js';
 import { globalFetch } from '/client/globalFetch.js';
+import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 class ContextManager {
   constructor() {
@@ -85,7 +86,15 @@ class ContextManager {
     await this.saveContexts();
     
     // Update app state
-    appStore.dispatch({ 
+    dispatch({ 
+      type: ActionTypes.FILE_SELECT,
+      payload: { 
+        path: context.files[0] || null,
+        isDirectory: false
+      }
+    });
+    
+    dispatch({ 
       type: 'SET_CURRENT_CONTEXT', 
       payload: { 
         name: contextName,

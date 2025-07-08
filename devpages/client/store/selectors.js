@@ -44,8 +44,8 @@ export const getIsRootCssEnabled = (state) => state.settings.preview.enableRootC
 // ===== PLUGINS SELECTORS =====
 export const getAllPlugins = (state) => state.plugins;
 export const getPluginByName = (state, pluginName) => state.plugins[pluginName];
-export const getIsPluginEnabled = (state, pluginName) => 
-  state.plugins[pluginName]?.settings?.enabled || false;
+export const getIsPluginEnabled = (state, pluginName) =>
+  state.plugins[pluginName]?.enabled || false;
 
 // ===== SMARTCOPY SELECTORS =====
 export const getSmartCopyA = (state) => state.smartCopyA;

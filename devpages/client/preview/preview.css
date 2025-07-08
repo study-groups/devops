@@ -71,7 +71,7 @@
   margin-bottom: var(--density-space-md);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
-  color: var(--color-foreground);
+  color: var(--heading-color, var(--color-foreground));
 }
 
 .preview-container h1:first-child,
@@ -174,6 +174,10 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-foreground);
+  
+  /* Improved inline code appearance */
+  line-height: 1.4; /* Better line height for inline code */
+  vertical-align: baseline; /* Better alignment with surrounding text */
 }
 
 .preview-container pre {
@@ -183,6 +187,16 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow-x: auto;
+  overflow-y: auto;
+  
+  /* Improved sizing for better code block appearance */
+  min-height: auto; /* Let content determine height */
+  height: auto; /* Ensure height is not constrained */
+  max-height: none; /* Remove any height constraints */
+  line-height: 1.5; /* Better line spacing for code */
+  
+  /* Ensure proper flex behavior */
+  flex-shrink: 0; /* Don't shrink in flex containers */
   
   /* Custom scrollbar for code blocks */
   scrollbar-width: thin;
@@ -209,6 +223,11 @@
   background: none;
   border: none;
   color: inherit;
+  
+  /* Ensure proper code formatting in pre blocks */
+  line-height: inherit; /* Inherit line-height from pre element */
+  vertical-align: baseline;
+  white-space: pre; /* Preserve whitespace formatting */
 }
 
 /* Tables */

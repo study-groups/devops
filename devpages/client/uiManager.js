@@ -14,7 +14,7 @@ let authDisplayComponent = null;
 let contextManagerComponent = null;
 let sidebarContextManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
-let panelUIManager = null; // New panel system
+// Panel management now handled by WorkspacePanelManager and SidebarPanelManager
 
 // --- Logging Helper ---
 function logUI(message, type = 'debug') {
@@ -114,7 +114,22 @@ async function handleAppStateChange(newState, prevState) {
 
     // --- File System State Handling ---
     if (fileChanged) {
-        logUI(`File state changed. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`, 'debug');
+        // Only log and react to STRUCTURAL file changes, not content changes
+        const structuralChange = (
+            newState.file.currentPathname !== prevState.file?.currentPathname ||
+            newState.file.isDirectorySelected !== prevState.file?.isDirectorySelected ||
+            newState.file.isLoading !== prevState.file?.isLoading ||
+            newState.file.currentListing !== prevState.file?.currentListing ||
+            newState.file.availableTopLevelDirs !== prevState.file?.availableTopLevelDirs
+        );
+        
+        // Don't react to content-only changes (from typing in editor)
+        if (!structuralChange) {
+            // Skip updating UI for content-only changes
+            return;
+        }
+        
+        logUI(`File state changed structurally. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`, 'debug');
 
         // Update UI components based on the new file state
         updateActionButtonsState(newState.file);

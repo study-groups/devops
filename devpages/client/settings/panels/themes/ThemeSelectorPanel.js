@@ -4,7 +4,7 @@
  * Distinguishes between system CSS and theme CSS (from MD_DIR/themes)
  */
 
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { settingsRegistry } from '../../core/settingsRegistry.js';
 import { appStore } from '/client/appState.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
@@ -102,7 +102,7 @@ class ThemeSelectorPanel {
       {
         id: 'system',
         name: 'System',
-        path: 'client/styles',
+        path: 'client/styles/preview',
         type: 'system',
         files: ['core.css', 'light.css', 'dark.css']
       }
@@ -221,14 +221,32 @@ class ThemeSelectorPanel {
    * Handle store updates
    */
   handleStoreUpdate() {
-    const prevSettings = { ...this.themeSettings };
-    this.loadCurrentSettings();
+    const state = appStore.getState();
+    const designTokens = state.settings?.designTokens || {};
     
-    // Re-render if settings changed
-    if (JSON.stringify(prevSettings) !== JSON.stringify(this.themeSettings)) {
+    // Only check theme-related settings, not everything
+    const newSettings = {
+      colorScheme: state.ui?.colorScheme || 'system',
+      themeVariant: designTokens.themeVariant || 'light',
+      spacingDensity: designTokens.spacingVariant || 'normal',
+      currentTheme: designTokens.activeTheme || 'system'
+    };
+    
+    // Only update if theme settings actually changed
+    const themeSettingsChanged = (
+      this.themeSettings.colorScheme !== newSettings.colorScheme ||
+      this.themeSettings.themeVariant !== newSettings.themeVariant ||
+      this.themeSettings.spacingDensity !== newSettings.spacingDensity ||
+      this.themeSettings.currentTheme !== newSettings.currentTheme
+    );
+    
+    if (themeSettingsChanged) {
+      this.themeSettings = newSettings;
+      console.log(`[ThemeSelector] Settings changed, updating:`, this.themeSettings);
       this.applyCurrentSettings();
       this.render();
     }
+    // Don't log or update if no theme changes occurred
   }
 
   /**
@@ -441,7 +459,7 @@ class ThemeSelectorPanel {
         const linkElement = document.createElement('link');
         linkElement.rel = 'stylesheet';
         linkElement.type = 'text/css';
-        linkElement.href = `/${relativePath}`; // e.g., /client/styles/core.css
+        linkElement.href = `/${relativePath}`; // e.g., /client/styles/preview/core.css
         linkElement.setAttribute('data-theme', dataTheme);
         
         linkElement.onerror = () => {
@@ -498,11 +516,21 @@ class ThemeSelectorPanel {
     // Update local state immediately to prevent race conditions with the store.
     this.themeSettings.themeVariant = variant;
     
-    // Switch the main theme CSS file in the HTML head
-    const currentThemeLink = document.querySelector('link[data-theme="light"], link[data-theme="dark"]');
-    if (currentThemeLink) {
-      currentThemeLink.href = `/client/styles/${variant}.css`;
-      currentThemeLink.setAttribute('data-theme', variant);
+    // Update HTML head with theme files
+    const lightThemeLink = document.querySelector('link[data-theme="light"]');
+    const darkThemeLink = document.querySelector('link[data-theme="dark"]');
+    
+    if (lightThemeLink && darkThemeLink) {
+      if (variant === 'dark') {
+        lightThemeLink.disabled = true;
+        darkThemeLink.disabled = false;
+      } else if (variant === 'light') {
+        lightThemeLink.disabled = false;
+        darkThemeLink.disabled = true;
+      } else { // 'system' or any other non-specific theme
+        lightThemeLink.disabled = true;
+        darkThemeLink.disabled = true;
+      }
     }
     
     dispatch({
@@ -594,7 +622,7 @@ class ThemeSelectorPanel {
 }
 
 // Register the panel
-settingsSectionRegistry.register({
+settingsRegistry.register({
   id: 'themes',
   title: 'Themes',
   icon: '▣',

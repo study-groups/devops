@@ -4,7 +4,24 @@
  */
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
-export function workspaceReducer(state = {}, action) {
+// Initial workspace state with default panel configurations
+const initialState = {
+    sidebar: {
+        visible: false,
+        width: 300,
+        activeSection: null // No active section initially
+    },
+    editor: {
+        visible: true, // Start with editor visible
+        width: 50 // 50% width in split mode
+    },
+    preview: {
+        visible: true, // Start with preview visible
+        width: 50 // 50% width in split mode
+    }
+};
+
+export function workspaceReducer(state = initialState, action) {
     switch (action.type) {
         case ActionTypes.WORKSPACE_SET_PANEL_VISIBILITY: {
             const { panel, visible } = action.payload;

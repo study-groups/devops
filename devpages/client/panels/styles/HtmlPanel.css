@@ -65,29 +65,29 @@
 
 /* HTML Preview Iframe - Critical styles for full container usage */
 .html-preview-iframe {
-    width: 100% !important;
-    height: 100% !important;
-    flex: 1 !important;
-    min-height: 0 !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    position: relative !important;
-    z-index: auto !important;
-    background: white !important;
-    overflow: hidden !important;
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: block;
+    opacity: 1;
+    visibility: visible;
+    position: relative;
+    z-index: auto;
+    background: white;
+    overflow: hidden;
 }
 
 /* Ensure iframe container takes full space */
 .html-renderer-container {
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* HTML Content Styling */
@@ -388,11 +388,11 @@
     .html-loading-state,
     .html-error,
     .disabled-script {
-        display: none !important;
+        display: none;
     }
     
     .html-preview-container {
-        overflow: visible !important;
-        height: auto !important;
+        overflow: visible;
+        height: auto;
     }
 } 

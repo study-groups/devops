@@ -46,7 +46,15 @@ export class DomInspectorPanel {
             onSizeChange: (size) => this.stateManager.setSize(size),
             onSplitChange: (splitPosition) => this.stateManager.setSplitPosition(splitPosition),
             onClose: () => this.hide(),
-            onSettings: () => this.settingsPanel.toggle(),
+            onSettings: () => {
+                // Use a safe method that waits for settings panel to be ready
+                if (this.settingsPanel && typeof this.settingsPanel.toggle === 'function') {
+                    this.settingsPanel.toggle();
+                } else {
+                    // Defer until settings panel is ready
+                    setTimeout(() => this.handleSettingsClick(), 100);
+                }
+            },
             onBringToFront: (zIndex) => {
                 console.log(`DOM Inspector brought to front: z-index ${zIndex}`);
             }
@@ -668,6 +676,17 @@ export class DomInspectorPanel {
     }
 
     /**
+     * Handle settings button click
+     */
+    handleSettingsClick() {
+        if (this.settingsPanel && typeof this.settingsPanel.toggle === 'function') {
+            this.settingsPanel.toggle();
+        } else {
+            console.warn('DOM Inspector: Settings panel not yet initialized');
+        }
+    }
+
+    /**
      * Clean up resources
      */
     destroy() {
@@ -792,6 +811,4 @@ export class DomInspectorPanel {
     handleElementLeave(element) {
         // All on-hover functionality has been removed.
     }
-
-
 } 

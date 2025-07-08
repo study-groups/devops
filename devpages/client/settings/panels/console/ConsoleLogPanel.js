@@ -6,7 +6,7 @@
 
 import FilterManager from '../../utils/FilterManager.js';
 import { LogManager } from '/client/log/LogManager.js';
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { settingsRegistry } from '../../core/settingsRegistry.js';
 
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {
@@ -261,92 +261,34 @@ export class ConsoleLogPanel {
         'Enable Console Logging (checked = on)',
         '',
         () => {
-          // Read state from ConsoleLogManager if available, otherwise fallback to localStorage
+          // Read state ONLY from ConsoleLogManager
           if (typeof window.isConsoleLoggingEnabled === 'function') {
-            const clmIsEnabled = window.isConsoleLoggingEnabled();
-            panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Using window.isConsoleLoggingEnabled():', clmIsEnabled);
-            return clmIsEnabled;
+            return window.isConsoleLoggingEnabled();
           }
-          const lsIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
-          panelOriginalConsole.debug('[ConsoleLogPanel_isCheckedFn] Fallback to localStorage for isConsoleLoggingEnabled:', lsIsEnabled);
-          return lsIsEnabled;
+          // Return false if the function doesn't exist yet, to prevent errors.
+          // The UI will be updated shortly after initialization anyway.
+          return false;
         },
-        (checked, persist) => { // Persist is always true from our call
+        (checked) => { // Persist is always true, so we don't need the argument
           panelOriginalConsole.log(`[ConsoleLogPanel] Toggle changed to: ${checked ? 'ENABLED' : 'DISABLED'}`);
           
           if (checked) {
-            // If enabling logging, try multiple approaches to ensure it works
-            if (typeof window.forceReEnableLogging === 'function') {
-              // Use our new emergency function for reliable enabling
-              window.forceReEnableLogging();
-              panelOriginalConsole.log("[ConsoleLogPanel] Called window.forceReEnableLogging()");
-            } else if (typeof window.enableConsoleLogging === 'function') {
-              // Fallback to standard enableConsoleLogging
+            if (typeof window.enableConsoleLogging === 'function') {
               window.enableConsoleLogging(true); // true for persist
-              panelOriginalConsole.log("[ConsoleLogPanel] Called window.enableConsoleLogging(true)");
             } else {
-              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] No valid enableConsoleLogging function found!");
-              
-              // Last resort: try to manually set localStorage
-              try {
-                localStorage.setItem('consoleLoggingEnabled', 'true');
-                panelOriginalConsole.log("[ConsoleLogPanel] Manually set localStorage to enabled");
-              } catch (e) {
-                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] Failed to set localStorage:", e);
-              }
+              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.enableConsoleLogging function not found!");
             }
           } else {
-            // If disabling logging, similar multi-approach strategy
-            if (typeof window.emergencyDisableLogging === 'function') {
-              // Use our new emergency function for reliable disabling
-              window.emergencyDisableLogging();
-              panelOriginalConsole.log("[ConsoleLogPanel] Called window.emergencyDisableLogging()");
-            } else if (typeof window.disableConsoleLogging === 'function') {
-              // Fallback to standard disableConsoleLogging
+            if (typeof window.disableConsoleLogging === 'function') {
               window.disableConsoleLogging(true); // true for persist
-              panelOriginalConsole.log("[ConsoleLogPanel] Called window.disableConsoleLogging(true)");
             } else {
-              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] No valid disableConsoleLogging function found!");
-              
-              // Last resort: try to manually set localStorage
-              try {
-                localStorage.setItem('consoleLoggingEnabled', 'false');
-                panelOriginalConsole.log("[ConsoleLogPanel] Manually set localStorage to disabled");
-              } catch (e) {
-                panelOriginalConsole.error("[ConsoleLogPanel_ERROR] Failed to set localStorage:", e);
-              }
+              panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.disableConsoleLogging function not found!");
             }
           }
           
-          // Request an update to the status display.
-          // This will read from the authoritative source (manager or localstorage)
-          if (this.updateStatusDisplay) { // updateStatusDisplay is defined later in createUI
-            setTimeout(() => {
-              // Delay the update slightly to ensure state changes have time to propagate
-              this.updateStatusDisplay();
-              panelOriginalConsole.log("[ConsoleLogPanel] Called updateStatusDisplay()");
-            }, 50);
-          } else {
-            // Fallback if updateStatusDisplay isn't ready (should be rare)
-            const toggle = document.getElementById('console-logging-toggle');
-            const statusMessage = document.getElementById('console-logging-status');
-            
-            let currentIsEnabled = checked; // Default to the toggle state
-            // Try various methods to determine the current state
-            if (typeof window.isConsoleLoggingEnabled === 'function') {
-              currentIsEnabled = window.isConsoleLoggingEnabled();
-            } else {
-              currentIsEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
-            }
-            
-            if(toggle) toggle.checked = currentIsEnabled;
-            if(statusMessage) {
-              statusMessage.style.backgroundColor = currentIsEnabled ? '#d4edda' : '#f8d7da';
-              statusMessage.style.border = '1px solid ' + (currentIsEnabled ? '#c3e6cb' : '#f5c6cb');
-              statusMessage.textContent = currentIsEnabled ? 
-                'STATUS: Console logging is ENABLED' : 
-                'STATUS: Console logging is DISABLED';
-            }
+          // After changing the state, immediately update the UI to reflect it.
+          if (this.updateStatusDisplay) {
+            this.updateStatusDisplay();
           }
         }
       )
@@ -366,11 +308,8 @@ export class ConsoleLogPanel {
        let isEnabled = false;
        if (typeof window.isConsoleLoggingEnabled === 'function') {
          isEnabled = window.isConsoleLoggingEnabled();
-         // panelOriginalConsole.debug('[ConsoleLogPanel_updateStatusDisplay] Using window.isConsoleLoggingEnabled():', isEnabled);
-       } else {
-         isEnabled = localStorage.getItem('consoleLoggingEnabled') === 'true';
-         // panelOriginalConsole.warn('[ConsoleLogPanel_updateStatusDisplay] Fallback to localStorage for isConsoleLoggingEnabled:', isEnabled);
        }
+       // No fallback to localStorage. If function doesn't exist, isEnabled remains false.
 
        if (statusMessage) { // Ensure statusMessage element exists
             statusMessage.style.backgroundColor = isEnabled ? '#d4edda' : '#f8d7da';
@@ -398,7 +337,6 @@ export class ConsoleLogPanel {
        }
 
        // Now also refresh filter options as window.config should be ready
-       panelOriginalConsole.debug('[ConsoleLogPanel_updateStatusDisplay] Refreshing type and level filters.');
        this.refreshTypeFilterDisplay();
        this.refreshLevelFilterDisplay();
      };
@@ -707,8 +645,7 @@ export class ConsoleLogPanel {
     const includeTypes = new Set(FilterManager.getIncludeTypes());
     const excludeTypes = new Set(FilterManager.getExcludeTypes());
     
-    panelOriginalConsole.debug('[ConsoleLogPanel_REFRESH_TYPES] Current type filters:', 
-               { include: [...includeTypes], exclude: [...excludeTypes] });
+    // Removed spammy debug logging for type filter refresh
     
     if (discoveredTypes.length === 0) {
       this.typesContainer.textContent = 'No log types discovered yet. Generate some logs first.';
@@ -886,7 +823,7 @@ export class ConsoleLogPanel {
 }
 
 // Register this panel with the registry
-settingsSectionRegistry.register({
+settingsRegistry.register({
   id: 'console-log-panel',
   title: 'Console',
   component: ConsoleLogPanel,

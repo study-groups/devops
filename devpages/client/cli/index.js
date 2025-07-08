@@ -10,6 +10,8 @@ import { executeRemoteCommand } from './handlers.js';
 // Import SmartCopy keys and appStore
 import { SMART_COPY_A_KEY, SMART_COPY_B_KEY, appStore } from '/client/appState.js';
 // import { getLogPanelInstance } from '../log/logPanelAccess.js'; // Create this file
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // Log successful import
 console.log('[CLI] Core imports completed');
@@ -191,37 +193,23 @@ async function handleSendCommand() {
         console.log(`[CLI DEBUG] Is resultOutput trimmed non-empty?: ${!!(resultOutput && resultOutput.trim())}`);
         // --- END DEBUG LINES ---
         if (resultOutput && resultOutput.trim()) {
-            // Get a direct reference to the LogPanel instance
-            const logPanelInstance = window.logPanelInstance;
-            
             // First attempt: use window.logMessage as it should normally work
             window.logMessage(resultOutput, 'DEVPAGES', 'CLI', 'RESULT', 'info');
             
             // Backup approach: If we have direct access to logPanelInstance, use it
-            if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
-                const entry = {
-                    message: resultOutput,
-                    level: 'INFO',
-                    type: 'CLI',
-                    subtype: 'OUTPUT',
-                    ts: Date.now()
-                };
-                logPanelInstance.addEntry(entry);
-            }
+            // if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
+            //     const entry = {
+            //         message: resultOutput,
+            //         level: 'INFO',
+            //         type: 'CLI',
+            //         subtype: 'OUTPUT',
+            //         ts: Date.now()
+            //     };
+            //     logPanelInstance.addEntry(entry);
+            // }
             
-            // Force a manual update of the tag filtering system to ensure CLI is added
-            const currentState = appStore.getState().logFiltering;
-            if (!currentState.discoveredTypes.includes('CLI')) {
-                appStore.update(prevState => ({
-                    ...prevState,
-                    logFiltering: {
-                        ...prevState.logFiltering,
-                        discoveredTypes: [...prevState.logFiltering.discoveredTypes, 'CLI'],
-                        activeFilters: [...prevState.logFiltering.activeFilters, 'CLI']
-                    }
-                }));
-                console.log('[CLI] Manually added CLI to discovered types and active filters');
-            }
+            // REMOVED: Manual LOG_INIT_TYPES dispatch that was causing loops
+            // The normal log flow through window.logMessage will handle type discovery automatically
         }
 
     } catch (error) { // Catch errors from substitution or main execution
@@ -243,8 +231,25 @@ export async function initializeCLI() {
         // const { registerMermaidCommands } = await import('./mermaidCommands.js');
         // await registerMermaidCommands();
 
-        // Set up Input Listener
-        const cliInput = document.getElementById('cli-input');
+        // Set up Input Listener - wait for element to be created if needed
+        let cliInput = document.getElementById('cli-input');
+        if (!cliInput) {
+            console.log('[CLI] CLI input not found, waiting for it to be created...');
+            // Wait for the CLI input to be created by LogPanel
+            await new Promise(resolve => {
+                const checkForInput = () => {
+                    cliInput = document.getElementById('cli-input');
+                    if (cliInput) {
+                        console.log('[CLI] CLI input found after waiting');
+                        resolve();
+                    } else {
+                        setTimeout(checkForInput, 100);
+                    }
+                };
+                checkForInput();
+            });
+        }
+        
         if (cliInput) {
             // Restore Enter Key Listener
             cliInput.addEventListener('keydown', (event) => {

@@ -62,16 +62,17 @@
     position: relative;
     border-right: 1px solid var(--color-border);
     transition: all 0.3s ease;
-    overflow: hidden; /* Prevent editor from causing workspace scroll */
+    overflow-y: auto; /* Allow vertical scrolling in editor */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .editor-container.hidden {
-    flex: 0 !important;
-    width: 0 !important;
-    min-width: 0 !important;
-    border-right: none !important;
-    overflow: hidden !important;
-    display: none !important;
+    flex: 0;
+    width: 0;
+    min-width: 0;
+    border-right: none;
+    overflow: hidden;
+    display: none;
 }
 
 .preview-container {
@@ -81,7 +82,8 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden; /* Prevent preview from causing workspace scroll */
+    overflow-y: auto; /* Allow vertical scrolling in preview */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 /* When editor is hidden, preview takes full width */
@@ -162,13 +164,13 @@
 }
 
 .panel-close-btn {
-    color: var(--color-text-secondary) !important;
+    color: var(--color-text-secondary);
     opacity: 0.7;
 }
 
 .panel-close-btn:hover {
-    background: var(--color-danger) !important;
-    color: white !important;
+    background: var(--color-danger);
+    color: white;
     opacity: 1;
 }
 
@@ -484,7 +486,7 @@
     }
 
     .sidebar-container {
-       width: 100% !important;
+       width: 100%;
        max-width: 100%;
        border-bottom: 1px solid var(--color-border);
        height: auto;

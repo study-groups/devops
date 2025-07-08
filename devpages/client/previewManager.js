@@ -121,9 +121,7 @@ export async function refreshPreview() {
   try {
       const fileState = appStore.getState().file;
       currentPathname = fileState?.currentPathname;
-      if (!currentPathname) {
-          console.warn('[previewManager] Could not get currentPathname from appStore state for preview includes.');
-      }
+      // Silent fallback - not having a currentPathname is normal for unsaved content
   } catch (e) {
        console.error('[previewManager] Error accessing file state from appStore:', e);
   }

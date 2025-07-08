@@ -6,13 +6,22 @@ import { DomInspectorPanel } from './DomInspectorPanel.js';
 
 let domInspectorInstance = null;
 
-export function initializeDomInspector() {
+export async function initializeDomInspector() {
   if (domInspectorInstance) {
     return domInspectorInstance;
   }
 
   try {
     console.log('[DOM INSPECTOR] Initializing...');
+    
+    // Wait for DOM to be ready before creating the panel
+    if (document.readyState === 'loading') {
+      console.log('[DOM INSPECTOR] Waiting for DOM to be ready...');
+      await new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve, { once: true });
+      });
+    }
+    
     domInspectorInstance = new DomInspectorPanel();
     console.log('[DOM INSPECTOR] Instance created.');
 

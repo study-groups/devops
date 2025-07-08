@@ -19,7 +19,7 @@ export class LayoutManager {
     this.state = {
       panelsVisible: true,
       codeViewVisible: false,
-      viewMode: 'preview', // 'preview', 'split'
+      viewMode: 'split', // 'preview', 'split' - default to split to show both editor and preview
       logVisible: false,
       // Layout dimensions
       panelsTotalWidth: 580, // ContextPanel(280) + CodePanel(300)
@@ -196,7 +196,70 @@ export class LayoutManager {
     this.state.panelsVisible = ui.leftSidebarVisible !== false; // Default to true
     this.state.codeViewVisible = ui.rightSidebarVisible || false;
     
+    // Apply fallback styles for resilience
+    this.applyFallbackStyles();
+    
     this.updateLayout();
+  }
+
+  /**
+   * Apply fallback styles for layout resilience when CSS files are disabled
+   */
+  applyFallbackStyles() {
+    // Apply fallback styles to main containers
+    const mainPanels = document.querySelector('.main-panels');
+    if (mainPanels && !mainPanels.style.display) {
+      mainPanels.style.cssText += `
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        overflow: hidden;
+      `;
+    }
+
+    const editorContainer = document.querySelector('.editor-container');
+    if (editorContainer && !editorContainer.style.display) {
+      editorContainer.style.cssText += `
+        flex: 1;
+        min-width: 300px;
+        background: var(--color-background, #ffffff);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        border-right: 1px solid var(--color-border, #dee2e6);
+        overflow-y: auto;
+        overflow-x: hidden;
+      `;
+    }
+
+    const previewContainer = document.querySelector('.preview-container');
+    if (previewContainer && !previewContainer.style.display) {
+      previewContainer.style.cssText += `
+        flex: 1;
+        min-width: 400px;
+        background: var(--color-background, #ffffff);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow-y: auto;
+        overflow-x: hidden;
+      `;
+    }
+
+    const workspaceContainer = document.querySelector('.workspace-container');
+    if (workspaceContainer && !workspaceContainer.style.display) {
+      workspaceContainer.style.cssText += `
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: calc(100vh - var(--top-bar-height, 40px));
+        background: var(--color-background, #ffffff);
+        overflow: hidden;
+      `;
+    }
+
+    console.log('[LayoutManager] Applied fallback styles for layout resilience');
   }
 
   /**
@@ -237,9 +300,7 @@ export class LayoutManager {
    */
   togglePanels() {
     dispatch({ type: ActionTypes.UI_TOGGLE_LEFT_SIDEBAR });
-    if (window.panelUIManager) {
-      window.panelUIManager.toggleAllPanels();
-    }
+    // Panel management now handled by WorkspacePanelManager and SidebarPanelManager
   }
 
   /**
@@ -247,9 +308,7 @@ export class LayoutManager {
    */
   toggleCodeView() {
     dispatch({ type: ActionTypes.UI_TOGGLE_RIGHT_SIDEBAR });
-    if (window.panelUIManager) {
-      window.panelUIManager.toggleCodeView();
-    }
+    // Code view functionality can be added to WorkspacePanelManager if needed
   }
 
   /**

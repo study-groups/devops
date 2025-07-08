@@ -352,13 +352,23 @@ export function createAuthDisplayComponent(targetElementId) {
     };
 
     const updateThemeVariant = (variant) => {
-        document.documentElement.setAttribute('data-theme', variant);
+        logAuth(`[AuthDisplay] Updating theme variant to: ${variant}`);
         themeSettings.themeVariant = variant;
+
+        const lightThemeLink = document.querySelector('link[data-theme="light"]');
+        const darkThemeLink = document.querySelector('link[data-theme="dark"]');
         
-        const currentThemeLink = document.querySelector('link[data-theme="light"], link[data-theme="dark"]');
-        if (currentThemeLink) {
-            currentThemeLink.href = `/client/styles/${variant}.css`;
-            currentThemeLink.setAttribute('data-theme', variant);
+        if (lightThemeLink && darkThemeLink) {
+            if (variant === 'dark') {
+                lightThemeLink.disabled = true;
+                darkThemeLink.disabled = false;
+            } else if (variant === 'light') {
+                lightThemeLink.disabled = false;
+                darkThemeLink.disabled = true;
+            } else { // 'system' or any other non-specific theme
+                lightThemeLink.disabled = true;
+                darkThemeLink.disabled = true;
+            }
         }
         
         dispatch({
@@ -457,9 +467,14 @@ export function createAuthDisplayComponent(targetElementId) {
             element.innerHTML = `
                 <div class="auth-status authenticated">
                     <button class="user-button" title="User Menu">
-                        <span class="user-icon">👤</span>
+                        <svg class="user-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
                         <span class="username">${username}</span>
-                        <span class="dropdown-arrow">▼</span>
+                        <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
                     </button>
                 </div>
             `;

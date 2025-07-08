@@ -189,25 +189,8 @@ export class PreviewSettingsPanel {
 
                 <!-- Rendering Mode Section -->
                 <div class="preview-settings-section">
-                    <h5 class="preview-settings-section-title">Rendering Mode</h5>
+                    <h5 class="preview-settings-section-title">Display Options</h5>
                     
-                    <div class="preview-setting-item">
-                        <label class="preview-setting-label">
-                            <select id="preview-render-mode">
-                                <option value="inline" ${previewSettings.renderMode === 'inline' ? 'selected' : ''}>
-                                    Inline (Default)
-                                </option>
-                                <option value="iframe" ${previewSettings.renderMode === 'iframe' ? 'selected' : ''}>
-                                    Iframe (Isolated)
-                                </option>
-                            </select>
-                            <span>Rendering mode</span>
-                        </label>
-                        <p class="preview-setting-description">
-                            Inline: Fast, integrated. Iframe: Isolated, safer for complex content
-                        </p>
-                    </div>
-
                     <div class="preview-setting-item">
                         <label class="preview-setting-label">
                             <input type="checkbox" 
@@ -262,63 +245,59 @@ export class PreviewSettingsPanel {
 
     attachEventListeners() {
         // Error handling settings
-        this.container.querySelector('.preview-container-smooth-errors')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-smooth-errors')?.addEventListener('change', (e) => {
             this.updateSetting('smoothErrors', e.target.checked);
         });
 
-        this.container.querySelector('.preview-container-retry-button')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-retry-button')?.addEventListener('change', (e) => {
             this.updateSetting('showRetryButton', e.target.checked);
         });
 
-        this.container.querySelector('.preview-container-error-timeout')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-error-timeout')?.addEventListener('change', (e) => {
             this.updateSetting('errorTimeout', parseInt(e.target.value));
         });
 
         // Performance settings
-        this.container.querySelector('.preview-container-debounce-delay')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-debounce-delay')?.addEventListener('change', (e) => {
             this.updateSetting('debounceDelay', parseInt(e.target.value));
         });
 
-        this.container.querySelector('.preview-container-skip-unchanged')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-skip-unchanged')?.addEventListener('change', (e) => {
             this.updateSetting('skipUnchanged', e.target.checked);
         });
 
-        this.container.querySelector('.preview-container-queue-updates')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-queue-updates')?.addEventListener('change', (e) => {
             this.updateSetting('queueUpdates', e.target.checked);
         });
 
         // Visual feedback settings
-        this.container.querySelector('.preview-container-loading-animation')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-loading-animation')?.addEventListener('change', (e) => {
             this.updateSetting('showLoadingAnimation', e.target.checked);
         });
 
-        this.container.querySelector('.preview-container-success-feedback')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-success-feedback')?.addEventListener('change', (e) => {
             this.updateSetting('showSuccessFeedback', e.target.checked);
         });
 
-        this.container.querySelector('.preview-container-shimmer-effect')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-shimmer-effect')?.addEventListener('change', (e) => {
             this.updateSetting('showShimmerEffect', e.target.checked);
         });
 
         // Rendering mode settings
-        this.container.querySelector('.preview-container-render-mode')?.addEventListener('change', (e) => {
-            this.updateSetting('renderMode', e.target.value);
-        });
-
-        this.container.querySelector('.preview-container-auto-scroll')?.addEventListener('change', (e) => {
+        this.container.querySelector('#preview-auto-scroll')?.addEventListener('change', (e) => {
             this.updateSetting('autoScroll', e.target.checked);
         });
 
         // Action buttons
-        this.container.querySelector('.preview-container-force-refresh')?.addEventListener('click', () => {
+        this.container.querySelector('#preview-force-refresh')?.addEventListener('click', () => {
             this.forceRefresh();
         });
 
-        this.container.querySelector('.preview-container-clear-cache')?.addEventListener('click', () => {
+        this.container.querySelector('#preview-clear-cache')?.addEventListener('click', () => {
             this.clearCache();
         });
 
-        this.container.querySelector('.preview-container-reset-settings')?.addEventListener('click', () => {
+        this.container.querySelector('#preview-reset-settings')?.addEventListener('click', () => {
             this.resetSettings();
         });
 
@@ -374,7 +353,6 @@ export class PreviewSettingsPanel {
             showLoadingAnimation: true,
             showSuccessFeedback: true,
             showShimmerEffect: true,
-            renderMode: 'inline',
             autoScroll: true
         };
 
@@ -388,9 +366,9 @@ export class PreviewSettingsPanel {
     }
 
     updateStatus(data) {
-        const lastUpdateEl = this.container.querySelector('.preview-container-last-update');
-        const renderTimeEl = this.container.querySelector('.preview-container-render-time');
-        const contentLengthEl = this.container.querySelector('.preview-container-content-length');
+        const lastUpdateEl = this.container.querySelector('#preview-last-update');
+        const renderTimeEl = this.container.querySelector('#preview-render-time');
+        const contentLengthEl = this.container.querySelector('#preview-content-length');
 
         if (lastUpdateEl) {
             lastUpdateEl.textContent = new Date().toLocaleTimeString();

@@ -1,4 +1,4 @@
-import { appStore } from '/client/appState.js'; // Dependency
+import { appStore, dispatch, ActionTypes } from '/client/appState.js'; // Dependency
 
 /**
  * Utility function to extract emoji symbols from CSS variable tokens
@@ -56,11 +56,14 @@ function createCategoryGroup(container, title, items, categoryType, activeFilter
 
     const groupContainer = document.createElement('div');
     groupContainer.className = 'log-filter-group';
+    groupContainer.dataset.category = categoryType; // For easier selection
     
-    const groupLabel = document.createElement('span');
-    groupLabel.className = 'log-filter-group-label';
-    groupLabel.textContent = title + ':';
-    groupContainer.appendChild(groupLabel);
+    if (categoryType !== 'type') { // Do not add a label for the 'type' category
+        const groupLabel = document.createElement('span');
+        groupLabel.className = 'log-filter-group-label';
+        groupLabel.textContent = title + ':';
+        groupContainer.appendChild(groupLabel);
+    }
 
     items.forEach(item => {
         const button = document.createElement('button');
@@ -101,6 +104,7 @@ function createCategoryGroup(container, title, items, categoryType, activeFilter
     });
 
     container.appendChild(groupContainer);
+    return groupContainer; // Return the created group
 }
 
 function _updateDisplay(discoveredTypes, activeFilters) {
@@ -112,7 +116,10 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         tagsBarElementRef.innerHTML = '';
         tagsBarElementRef.style.display = 'flex';
 
-        // Control buttons group
+        const controlsWrapper = document.createElement('div');
+        controlsWrapper.className = 'log-controls-wrapper';
+
+        // Left-aligned control buttons group
         const controlGroup = document.createElement('div');
         controlGroup.className = 'log-filter-control-group';
 
@@ -124,7 +131,7 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         clearLogButton.title = 'Clear All Log Entries';
         controlGroup.appendChild(clearLogButton);
 
-        // Select All button  
+        // Select All button
         const selectAllButton = document.createElement('button');
         selectAllButton.className = 'log-tag-button select-all-button';
         selectAllButton.textContent = 'Select All';
@@ -132,12 +139,20 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         selectAllButton.title = 'Show All Log Types';
         controlGroup.appendChild(selectAllButton);
 
-        // Clear All button
-        const clearAllButton = document.createElement('button');
-        clearAllButton.textContent = 'Hide All';
-        clearAllButton.className = 'log-tag-button clear-all-button';
-        clearAllButton.dataset.action = 'clear-all';
-        controlGroup.appendChild(clearAllButton);
+        // Hide All button (was Clear All)
+        const hideAllButton = document.createElement('button');
+        hideAllButton.textContent = 'Hide All';
+        hideAllButton.className = 'log-tag-button clear-all-button';
+        hideAllButton.dataset.action = 'clear-all';
+        controlGroup.appendChild(hideAllButton);
+
+        // "Toggle Types" button
+        const toggleTypesButton = document.createElement('button');
+        toggleTypesButton.className = 'log-tag-button toggle-types-button';
+        toggleTypesButton.textContent = 'Types';
+        toggleTypesButton.dataset.action = 'toggle-types';
+        toggleTypesButton.title = 'Show/Hide Type Filters';
+        controlGroup.appendChild(toggleTypesButton);
 
         // Collapse All button (new)
         const collapseAllButton = document.createElement('button');
@@ -147,80 +162,61 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         collapseAllButton.title = 'Collapse All Log Entries';
         controlGroup.appendChild(collapseAllButton);
 
+        controlsWrapper.appendChild(controlGroup);
+
+        // Right-aligned copy button group
+        const copyGroup = document.createElement('div');
+        copyGroup.className = 'log-filter-copy-group';
+
         // Copy button (copies visible entries)
         const copyButton = document.createElement('button');
-        copyButton.innerHTML = '📋';
+        copyButton.innerHTML = `<img src="/client/styles/icons/copy.svg" alt="Copy" class="icon" />`;
         copyButton.className = 'log-tag-button copy-button';
         copyButton.dataset.action = 'copy-log';
         copyButton.title = 'Copy Visible Log Entries';
-        controlGroup.appendChild(copyButton);
+        copyGroup.appendChild(copyButton);
+        controlsWrapper.appendChild(copyGroup);
 
-        // Preset button (reset to preset, long-hold to set)
-        const presetButton = document.createElement('button');
-        presetButton.className = 'log-tag-button preset-button';
-        presetButton.textContent = 'Preset';
-        presetButton.dataset.action = 'preset';
-        presetButton.title = 'Restore filter preset (hold to set preset)';
-        controlGroup.appendChild(presetButton);
+        tagsBarElementRef.appendChild(controlsWrapper);
 
-        // Dual-function: short click restores, long hold saves
-        let pressTimer = null;
-        let pressStart = 0;
-        presetButton.addEventListener('mousedown', (e) => {
-            pressStart = Date.now();
-            pressTimer = setTimeout(() => {
-                // Long hold: save preset (do NOT change filter state)
-                const currentFilters = appStore.getState().logFiltering.activeFilters;
-                saveFilterPreset(currentFilters);
-                logMessage('Saved filter preset!', 'info', 'LOG_FILTER', 'PRESET', { component: 'LogFilterBar' });
-                // Visual feedback
-                presetButton.textContent = 'Preset Saved!';
-                presetButton.classList.add('preset-saved');
-                setTimeout(() => {
-                    presetButton.textContent = 'Preset';
-                    presetButton.classList.remove('preset-saved');
-                }, 1200);
-            }, 900); // 900ms threshold for long hold
-        });
-        presetButton.addEventListener('mouseup', (e) => {
-            clearTimeout(pressTimer);
-            const held = Date.now() - pressStart;
-            if (held < 900) {
-                // Short click: restore preset
-                const preset = loadFilterPreset();
-                appStore.update(prevState => ({
-                    ...prevState,
-                    logFiltering: {
-                        ...prevState.logFiltering,
-                        activeFilters: preset,
-                        isInitialized: true
-                    }
-                }));
-                if (window.logPanel) {
-                    window.logPanel._applyFiltersToLogEntries();
-                    window.logPanel._updateTagsBar();
-                }
-                logMessage('Restored filter preset!', 'info', 'LOG_FILTER', 'PRESET', { component: 'LogFilterBar' });
-            }
-        });
-        presetButton.addEventListener('mouseleave', () => {
-            clearTimeout(pressTimer);
-        });
-
-        tagsBarElementRef.appendChild(controlGroup);
+        // Filter groups (Sources, Types, etc.)
+        const filterGroupsContainer = document.createElement('div');
+        filterGroupsContainer.className = 'log-filter-groups-container';
+        tagsBarElementRef.appendChild(filterGroupsContainer);
 
         // Extract all 4 categories from current log entries
         const categories = extractCategoriesFromLogEntries();
 
         // Create groups in order: SOURCE, TYPE, SUBTYPE, LEVEL
-        // Pass the current activeFilters so buttons show correct state
-        createCategoryGroup(tagsBarElementRef, 'Source', categories.sources, 'source', safeActiveFilters);
-        createCategoryGroup(tagsBarElementRef, 'Type', categories.types, 'type', safeActiveFilters);  
-        createCategoryGroup(tagsBarElementRef, 'Subtype', categories.subtypes, 'subtype', safeActiveFilters);
-        createCategoryGroup(tagsBarElementRef, 'Level', categories.levels, 'level', safeActiveFilters);
+        createCategoryGroup(filterGroupsContainer, 'Source', categories.sources, 'source', safeActiveFilters);
+        const typeGroup = createCategoryGroup(filterGroupsContainer, 'Type', categories.types, 'type', safeActiveFilters);
+        if (typeGroup) {
+            const shouldBeVisible = localStorage.getItem('logTypesVisible') !== 'false';
+            typeGroup.style.display = shouldBeVisible ? 'flex' : 'none'; // Use flex for proper group display
+            toggleTypesButton.classList.toggle('active', shouldBeVisible);
+        }
+        createCategoryGroup(filterGroupsContainer, 'Subtype', categories.subtypes, 'subtype', safeActiveFilters);
+        createCategoryGroup(filterGroupsContainer, 'Level', categories.levels, 'level', safeActiveFilters);
 
     } catch (error) {
         console.error('[LogFilterBar] Error in _updateDisplay:', error);
+    }
+}
+
+function _handleGlobalClick(event) {
+    const menuContainer = document.getElementById('log-menu-container');
+    const menuButton = document.getElementById('log-help-toggle-btn');
+    const state = appStore.getState();
+
+    // If the menu is visible and the user clicks outside of it and its button, close it.
+    if (
+        state.ui.logMenuVisible &&
+        menuContainer &&
+        menuButton &&
+        !menuContainer.contains(event.target) &&
+        !menuButton.contains(event.target)
+    ) {
+        dispatch({ type: ActionTypes.UI_TOGGLE_LOG_MENU });
     }
 }
 
@@ -228,8 +224,14 @@ function _updateDisplay(discoveredTypes, activeFilters) {
  * Handle filter button clicks (clear log, select all, clear all, individual filters)
  * @param {Event} event - The click event
  */
-function _handleTagClick(event) {
-    const targetButton = event.target;
+export function _handleTagClick(event) {
+    // Find the actual button element (in case the click target is a child element like SVG)
+    let targetButton = event.target.closest('.log-tag-button');
+    
+    if (!targetButton) {
+        return; // No valid button found
+    }
+    
     const action = targetButton.dataset.action;
 
     try {
@@ -250,34 +252,10 @@ function _handleTagClick(event) {
                 window.logManager.clearLogBuffer();
             }
             
-            // Clear any API log buffers if they exist
-            if (window.apiLogBuffer && typeof window.apiLogBuffer.clear === 'function') {
-                window.apiLogBuffer.clear();
-            }
+            // Also reset filters in the state
+            dispatch({ type: ActionTypes.LOG_CLEAR });
             
-            // Clear any timing registry if it exists
-            if (window.__timingRegistry && typeof window.__timingRegistry.clear === 'function') {
-                window.__timingRegistry.clear();
-            }
-            
-            // Force clear any remaining DOM log entries
-            const logElement = document.querySelector('#log, .log-entries, #log-entries, .log-panel .log-content');
-            if (logElement) {
-                logElement.innerHTML = '';
-            }
-            
-            // Also clear from the LogPanel instance directly if available
-            if (window.logPanel && window.logPanel.logElement) {
-                window.logPanel.logElement.innerHTML = '';
-            }
-            
-            // Reset any global log counters
-            if (window.logEntryIndex !== undefined) {
-                window.logEntryIndex = 0;
-            }
-            
-            console.log('[LogPanel] Comprehensive log clear completed');
-            return;
+            return; // Exit after clearing
         }
 
         // Handle Copy Log button
@@ -294,33 +272,25 @@ function _handleTagClick(event) {
             return;
         }
 
-        // Handle Select All - clear all active filters to show everything
+        // Handle Select All button
         if (action === 'select-all') {
-            appStore.update(prevState => ({
-                ...prevState,
-                logFiltering: {
-                    ...prevState.logFiltering,
-                    activeFilters: [],
-                    isInitialized: true
-                }
-            }));
+            dispatch({
+                type: ActionTypes.LOG_SET_FILTERS,
+                payload: []
+            });
             return;
         }
 
-        // Handle Clear All - hide everything by setting a special flag
+        // Handle Hide All button
         if (action === 'clear-all') {
-            appStore.update(prevState => ({
-                ...prevState,
-                logFiltering: {
-                    ...prevState.logFiltering,
-                    activeFilters: ['__HIDE_ALL__'],
-                    isInitialized: true
-                }
-            }));
+            dispatch({
+                type: ActionTypes.LOG_SET_FILTERS,
+                payload: ['__CLEAR_ALL__']
+            });
             return;
         }
 
-        // Handle Collapse All - collapse all expanded log entries
+        // Handle Collapse All button
         if (action === 'collapse-all') {
             if (window.logPanel && typeof window.logPanel.hideAllEntries === 'function') {
                 window.logPanel.hideAllEntries();
@@ -328,33 +298,26 @@ function _handleTagClick(event) {
             return;
         }
 
-        // Handle individual filter toggle
-        const filterKey = targetButton.dataset.filterKey; // e.g., "type:API", "level:INFO"
-        if (filterKey) {
-            appStore.update(prevState => {
-                const currentFiltering = prevState.logFiltering || { activeFilters: [] };
-                const oldFilters = currentFiltering.activeFilters || [];
-                let newFilters;
+        if (action === 'toggle-types') {
+            const typeGroup = tagsBarElementRef.querySelector('.log-filter-group[data-category="type"]');
+            if (typeGroup) {
+                const isHidden = typeGroup.style.display === 'none';
+                typeGroup.style.display = isHidden ? 'flex' : 'none'; // Use flex to restore
+                targetButton.classList.toggle('active', isHidden);
+                localStorage.setItem('logTypesVisible', String(isHidden));
+            }
+            return;
+        }
 
-                // If we were hiding all, start fresh with just the clicked filter
-                if (oldFilters.includes('__HIDE_ALL__')) {
-                    newFilters = [filterKey];
-                } else if (oldFilters.includes(filterKey)) {
-                    // Filter is active, remove it
-                    newFilters = oldFilters.filter(f => f !== filterKey);
-                } else {
-                    // Filter is not active, add it
-                    newFilters = [...oldFilters, filterKey];
-                }
-
-                return {
-                    ...prevState,
-                    logFiltering: {
-                        ...currentFiltering,
-                        activeFilters: newFilters,
-                        isInitialized: true
-                    }
-                };
+        // Handle individual tag toggling
+        const filterCategory = targetButton.dataset.filterCategory;
+        const filterValue = targetButton.dataset.filterValue;
+        
+        if (filterCategory && filterValue) {
+            const filterKey = `${filterCategory}:${filterValue}`;
+            dispatch({
+                type: ActionTypes.LOG_TOGGLE_FILTER,
+                payload: filterKey
             });
         }
     } catch (error) {
@@ -367,56 +330,65 @@ function _handleTagClick(event) {
  * @param {HTMLElement} element - The tags bar element
  */
 export function initializeLogFilterBar(element) {
-    if (!element) return;
+    if (!element) {
+        console.error('[LogFilterBar] Initialization failed: provided element is null.');
+        return;
+    }
 
-    // Clear existing content
-    element.innerHTML = '';
+    if (tagsBarElementRef && tagsBarElementRef === element && storeUnsubscribe) {
+        // Already initialized and subscribed for this element
+        // Force a display update in case state is stale
+        const { discoveredTypes, activeFilters } = appStore.getState().logFiltering;
+        _updateDisplay(discoveredTypes, activeFilters);
+        return;
+    }
 
-    // Create control group
-    const controlGroup = document.createElement('div');
-    controlGroup.className = 'log-filter-control-group';
+    tagsBarElementRef = element;
 
-    // Clear Log button
-    const clearLogButton = document.createElement('button');
-    clearLogButton.textContent = 'Clear Log';
-    clearLogButton.className = 'log-tag-button clear-log-button';
-    clearLogButton.dataset.action = 'clear-log';
-    controlGroup.appendChild(clearLogButton);
+    // Attach click handler using event delegation
+    tagsBarElementRef.addEventListener('click', _handleTagClick);
+    
+    // Subscribe to appStore state changes for logFiltering
+    if (storeUnsubscribe) {
+        storeUnsubscribe(); // Unsubscribe from any previous listeners
+    }
+    
+    let lastKnownState = appStore.getState().logFiltering;
 
-    // Select All button (shows all logs)
-    const selectAllButton = document.createElement('button');
-    selectAllButton.textContent = 'Show All';
-    selectAllButton.className = 'log-tag-button select-all-button';
-    selectAllButton.dataset.action = 'select-all';
-    controlGroup.appendChild(selectAllButton);
+    storeUnsubscribe = appStore.subscribe(() => {
+        const currentState = appStore.getState().logFiltering;
+        
+        // Basic dirty check to avoid unnecessary re-renders
+        if (JSON.stringify(lastKnownState) !== JSON.stringify(currentState)) {
+            _updateDisplay(currentState.discoveredTypes, currentState.activeFilters);
+            
+            // After updating display, apply filters to the entries in the log panel
+            if (window.logPanel && typeof window.logPanel._applyFiltersToLogEntries === 'function') {
+                window.logPanel._applyFiltersToLogEntries();
+            }
+            
+            lastKnownState = currentState; // Update last known state
+        }
+    });
 
-    // Clear All button (hides all logs)
-    const clearAllButton = document.createElement('button');
-    clearAllButton.textContent = 'Hide All';
-    clearAllButton.className = 'log-tag-button clear-all-button';
-    clearAllButton.dataset.action = 'clear-all';
-    controlGroup.appendChild(clearAllButton);
+    // Initial render
+    const { discoveredTypes, activeFilters } = lastKnownState;
+    _updateDisplay(discoveredTypes, activeFilters);
+    
+    // Add a global click listener to handle clicks outside the filter bar if needed
+    // This is for things like closing menus that might pop up from the filter bar
+    document.addEventListener('click', _handleGlobalClick);
 
-    // Collapse All button (new)
-    const collapseAllButton = document.createElement('button');
-    collapseAllButton.innerHTML = '⊟'; // Minimize/collapse icon
-    collapseAllButton.className = 'log-tag-button collapse-all-button';
-    collapseAllButton.dataset.action = 'collapse-all';
-    collapseAllButton.title = 'Collapse All Log Entries';
-    controlGroup.appendChild(collapseAllButton);
+    // Load initial filter state from snapshot if available
+    const snapshot = loadFilterSnapshot();
+    if (snapshot && snapshot.activeFilters) {
+        dispatch({
+            type: ActionTypes.LOG_SET_FILTERS,
+            payload: snapshot.activeFilters
+        });
+    }
 
-    // Copy button (copies visible entries)
-    const copyButton = document.createElement('button');
-    copyButton.innerHTML = '📋';
-    copyButton.className = 'log-tag-button copy-button';
-    copyButton.dataset.action = 'copy-log';
-    copyButton.title = 'Copy Visible Log Entries';
-    controlGroup.appendChild(copyButton);
 
-    element.appendChild(controlGroup);
-
-    // Add event listener
-    element.addEventListener('click', _handleTagClick);
 }
 
 /**
@@ -427,57 +399,30 @@ export function initializeLogFilterBar(element) {
 export function updateTagsBar(element, logFilteringState) {
     if (!element || !logFilteringState) return;
 
-    const { discoveredTypes = [], activeFilters = [] } = logFilteringState;
-    
-    // Preserve control group but clear everything else
-    const controlGroup = element.querySelector('.log-filter-control-group');
+    // Simple diffing
+    const currentContent = element.dataset.renderedFor || '';
+    const newContentSignature = `${logFilteringState.discoveredTypes.join(',')}-${logFilteringState.activeFilters.join(',')}`;
+
+    if (currentContent === newContentSignature) return;
+
     element.innerHTML = '';
-    if (controlGroup) {
-        // Clear any level-related content from control group (keep only the main control buttons)
-        const controlButtons = controlGroup.querySelectorAll('.clear-log-button, .select-all-button, .clear-all-button, .copy-button');
-        controlGroup.innerHTML = '';
-        controlButtons.forEach(btn => controlGroup.appendChild(btn));
-        
-        element.appendChild(controlGroup);
-    }
+    element.style.display = 'flex';
+    element.style.flexWrap = 'wrap';
+    element.style.alignItems = 'center';
+    element.style.gap = '0.25rem';
+    element.style.padding = 'var(--space-2) var(--space-3)';
+    element.style.borderBottom = '1px solid var(--color-border-primary)';
 
-    // Get all current log entries to discover actual filter values that exist
-    const logElement = document.getElementById('log');
-    const actualValues = {
-        level: new Set(),
-        source: new Set(),
-        module: new Set(), // Keep module concept for internal use
-        type: new Set(),
-        action: new Set(),
-        to: new Set(),
-        from: new Set()
-    };
-
-    if (logElement) {
-        Array.from(logElement.children).forEach(entry => {
-            if (entry.dataset.logLevel) actualValues.level.add(entry.dataset.logLevel);
-            if (entry.dataset.source) actualValues.source.add(entry.dataset.source);
-            if (entry.dataset.logModule) actualValues.module.add(entry.dataset.logModule); // Keep scanning for module
-            if (entry.dataset.logType) actualValues.type.add(entry.dataset.logType);
-            if (entry.dataset.logAction) actualValues.action.add(entry.dataset.logAction);
-            if (entry.dataset.logTo) actualValues.to.add(entry.dataset.logTo);
-            if (entry.dataset.logFrom) actualValues.from.add(entry.dataset.logFrom);
-        });
-    }
-
+    const { discoveredTypes, activeFilters } = logFilteringState;
+    const allTypes = Array.from(new Set([...discoveredTypes, ...Object.values(logFilteringState.defaultFilters || {})]));
+    
     const createFilterButton = (category, value, isActive) => {
-        const filterKey = `${category}:${value}`;
         const button = document.createElement('button');
+        button.className = 'log-tag-button';
         button.textContent = value;
-        button.className = `log-tag-button filter-${category}`;
-        button.dataset.filterKey = filterKey;
-        
-        if (isActive) {
-            button.classList.add('active');
-        } else {
-            button.classList.add('ghost');
-        }
-        
+        button.dataset.filterCategory = category;
+        button.dataset.filterValue = value;
+        button.classList.toggle('active', isActive);
         return button;
     };
 
@@ -485,90 +430,37 @@ export function updateTagsBar(element, logFilteringState) {
         const group = document.createElement('div');
         group.className = 'log-filter-group';
         if (sameLine) {
-            group.style.display = 'flex';
-            group.style.alignItems = 'center';
-            group.style.gap = '16px';
-            group.style.flexWrap = 'wrap'; // Allow wrapping
+            group.style.display = 'contents'; // Use contents to avoid extra div in flex layout
         }
-
-        categories.forEach(category => {
-            const values = actualValues[category];
-            
-            // Create section for this category
-            const section = document.createElement('div');
-            section.style.display = 'flex';
-            section.style.alignItems = 'center';
-            section.style.gap = '3px';
-            section.style.flexWrap = 'wrap'; // Allow buttons to wrap within each section
-            
-            // Create label
-            const label = document.createElement('span');
-            label.className = 'log-filter-group-label';
-            label.textContent = category.charAt(0).toUpperCase() + category.slice(1) + ':';
-            label.style.flexShrink = '0'; // Prevent label from shrinking
-            section.appendChild(label);
-
-            // Add buttons if values exist, otherwise just show the label as placeholder
-            if (values.size > 0) {
-                Array.from(values).sort().forEach(value => {
-                    const filterKey = `${category}:${value}`;
-                    const isActive = activeFilters.includes(filterKey);
-                    const button = createFilterButton(category, value, isActive);
-                    section.appendChild(button);
-                });
-            }
-            
-            group.appendChild(section);
+        
+        categories.forEach(type => {
+            const isActive = !activeFilters.length || activeFilters.includes(`type:${type}`);
+            const button = createFilterButton('type', type, isActive);
+            group.appendChild(button);
         });
 
         return group;
     };
+    
+    const controlButtons = [
+        { text: 'Select All', action: 'select-all' },
+        { text: 'Clear All', action: 'clear-all' }
+    ];
 
-    // Line 1: Add level filters to the control group if they exist
-    if (controlGroup) {
-        // Add flex-wrap to control group too
-        controlGroup.style.flexWrap = 'wrap';
-        
-        if (actualValues.level.size > 0) {
-            const levelLabel = document.createElement('span');
-            levelLabel.className = 'log-filter-group-label';
-            levelLabel.textContent = 'Level:';
-            levelLabel.style.marginLeft = '16px';
-            levelLabel.style.flexShrink = '0'; // Prevent label from shrinking
-            controlGroup.appendChild(levelLabel);
+    const controlGroup = document.createElement('div');
+    controlGroup.className = 'log-filter-control-group';
+    controlButtons.forEach(btnInfo => {
+        const button = document.createElement('button');
+        button.className = 'log-tag-button';
+        button.textContent = btnInfo.text;
+        button.dataset.action = btnInfo.action;
+        controlGroup.appendChild(button);
+    });
+    element.appendChild(controlGroup);
 
-            Array.from(actualValues.level).sort().forEach(value => {
-                const filterKey = `level:${value}`;
-                const isActive = activeFilters.includes(filterKey);
-                const button = createFilterButton('level', value, isActive);
-                controlGroup.appendChild(button);
-            });
-        } else {
-            // Just show placeholder label
-            const levelLabel = document.createElement('span');
-            levelLabel.className = 'log-filter-group-label';
-            levelLabel.textContent = 'Level:';
-            levelLabel.style.marginLeft = '16px';
-            levelLabel.style.flexShrink = '0';
-            controlGroup.appendChild(levelLabel);
-        }
-    }
+    element.appendChild(createFilterGroup(allTypes));
 
-    // Line 2: Source: (don't display module in filter bar)
-    const line2 = createFilterGroup(['source'], false);
-    element.appendChild(line2);
-
-    // Line 3: Type:
-    const line3 = createFilterGroup(['type']);
-    element.appendChild(line3);
-
-    // Line 4: Action:
-    const line4 = createFilterGroup(['action']);
-    element.appendChild(line4);
-
-    // Line 5: to: from:
-    const line5 = createFilterGroup(['to', 'from'], true);
-    element.appendChild(line5);
+    element.dataset.renderedFor = newContentSignature;
 }
 
 /**
@@ -580,112 +472,96 @@ export function updateTagsBar(element, logFilteringState) {
 export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryCountCallback) {
     if (!logElement) return;
 
-    const entries = Array.from(logElement.children);
+    const filtersByCategory = { source: [], type: [], subtype: [], level: [] };
+    const hasActiveCategory = { source: false, type: false, subtype: false, level: false };
 
-    // If no filters are active, show all entries
-    if (!activeFilters || activeFilters.length === 0) {
-        entries.forEach(entry => {
-            entry.classList.remove('log-entry-hidden-by-filter');
+    // If filters are active, parse them into categories.
+    if (activeFilters && activeFilters.length > 0 && !activeFilters.includes('__CLEAR_ALL__')) {
+        activeFilters.forEach(filter => {
+            const separatorIndex = filter.indexOf(':');
+            if (separatorIndex > -1) {
+                const category = filter.substring(0, separatorIndex);
+                const value = filter.substring(separatorIndex + 1);
+                if (filtersByCategory[category]) {
+                    filtersByCategory[category].push(value.toUpperCase());
+                    hasActiveCategory[category] = true;
+                }
+            }
         });
-        if (updateEntryCountCallback) updateEntryCountCallback();
-        return;
     }
 
-    // If special "hide all" flag is set, hide everything
-    if (activeFilters.includes('__HIDE_ALL__')) {
-        entries.forEach(entry => {
-            entry.classList.add('log-entry-hidden-by-filter');
-        });
-        if (updateEntryCountCallback) updateEntryCountCallback();
-        return;
-    }
+    const allEntries = Array.from(logElement.children);
+    let visibleCount = 0;
+    const shouldHideAll = activeFilters && activeFilters.includes('__CLEAR_ALL__');
 
-    // Group filters by category
-    const filtersByCategory = {};
-    activeFilters.forEach(filter => {
-        const [category, value] = filter.split(':');
-        if (!filtersByCategory[category]) {
-            filtersByCategory[category] = [];
-        }
-        filtersByCategory[category].push(value);
-    });
+    allEntries.forEach(entry => {
+        // Ensure we're only processing element nodes
+        if (entry.nodeType !== 1) return;
 
-    // Apply filters to each entry
-    entries.forEach(entry => {
-        let shouldShow = true;
-
-        // Entry must match at least one filter in EVERY active category
-        for (const [category, allowedValues] of Object.entries(filtersByCategory)) {
-            let categoryMatches = false;
-            
-            // Get the entry's value for this category
-            let entryValue;
-            switch (category) {
-                case 'level':
-                    entryValue = entry.dataset.logLevel;
-                    break;
-                case 'source':
-                    entryValue = entry.dataset.source;
-                    break;
-                case 'module':
-                    entryValue = entry.dataset.logModule; // Keep module filtering capability
-                    break;
-                case 'type':
-                    entryValue = entry.dataset.logType;
-                    break;
-                case 'action':
-                    entryValue = entry.dataset.logAction;
-                    break;
-                case 'to':
-                    entryValue = entry.dataset.logTo;
-                    break;
-                case 'from':
-                    entryValue = entry.dataset.logFrom;
-                    break;
-                default:
-                    entryValue = null;
-            }
-
-            // Check if this entry's value matches any of the allowed values for this category
-            if (entryValue && allowedValues.includes(entryValue)) {
-                categoryMatches = true;
-            }
-
-            // If this category doesn't match, hide the entry
-            if (!categoryMatches) {
-                shouldShow = false;
-                break;
-            }
-        }
-
-        if (shouldShow) {
-            entry.classList.remove('log-entry-hidden-by-filter');
+        let isHidden = false;
+        if (shouldHideAll) {
+            isHidden = true;
         } else {
-            entry.classList.add('log-entry-hidden-by-filter');
+            const entrySource = (entry.dataset.source || '').toUpperCase();
+            const entryType = (entry.dataset.logType || '').toUpperCase();
+            const entrySubtype = (entry.dataset.logSubtype || '').toUpperCase();
+            const entryLevel = (entry.dataset.logLevel || '').toUpperCase();
+
+            // An entry is visible if it matches the active filters for each category.
+            // If a category has no active filters, it's considered a match.
+            const sourceMatch = !hasActiveCategory.source || filtersByCategory.source.includes(entrySource);
+            const typeMatch = !hasActiveCategory.type || filtersByCategory.type.includes(entryType);
+            const subtypeMatch = !hasActiveCategory.subtype || filtersByCategory.subtype.includes(entrySubtype);
+            const levelMatch = !hasActiveCategory.level || filtersByCategory.level.includes(entryLevel);
+
+            if (!(sourceMatch && typeMatch && subtypeMatch && levelMatch)) {
+                isHidden = true;
+            }
+        }
+
+        entry.classList.toggle('log-entry-hidden-by-filter', isHidden);
+        if (!isHidden) {
+            visibleCount++;
         }
     });
 
-    if (updateEntryCountCallback) {
-        updateEntryCountCallback();
+    if (typeof updateEntryCountCallback === 'function') {
+        updateEntryCountCallback(allEntries.length, visibleCount);
     }
 }
 
 function saveFilterSnapshot(state) {
-    filterSnapshot = Array.isArray(state) ? [...state] : [];
-    // Optionally: localStorage.setItem('logFilterSnapshot', JSON.stringify(filterSnapshot));
+    try {
+        localStorage.setItem('logFilterSnapshot', JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save log filter snapshot to localStorage:', e);
+    }
 }
 
 function loadFilterSnapshot() {
-    // Optionally: return JSON.parse(localStorage.getItem('logFilterSnapshot') || '[]');
-    return filterSnapshot ? [...filterSnapshot] : [];
+    try {
+        const snapshot = localStorage.getItem('logFilterSnapshot');
+        return snapshot ? JSON.parse(snapshot) : null;
+    } catch (e) {
+        console.warn('Could not load log filter snapshot from localStorage:', e);
+        return null;
+    }
 }
 
 function saveFilterPreset(state) {
-    filterPreset = Array.isArray(state) ? [...state] : [];
-    // Optionally: localStorage.setItem('logFilterPreset', JSON.stringify(filterPreset));
+    try {
+        localStorage.setItem('logFilterPreset', JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save log filter preset to localStorage:', e);
+    }
 }
 
 function loadFilterPreset() {
-    // Optionally: return JSON.parse(localStorage.getItem('logFilterPreset') || '[]');
-    return filterPreset ? [...filterPreset] : [];
+    try {
+        const preset = localStorage.getItem('logFilterPreset');
+        return preset ? JSON.parse(preset) : [];
+    } catch (e) {
+        console.warn('Could not load log filter preset from localStorage:', e);
+        return [];
+    }
 }

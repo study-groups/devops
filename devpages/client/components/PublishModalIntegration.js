@@ -63,11 +63,4 @@ export function initializePublishModalIntegration() {
   });
 
   logMessage('Publish modal integration initialized', 'info', 'PUBLISH_INTEGRATION');
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializePublishModalIntegration);
-} else {
-  initializePublishModalIntegration();
 } 

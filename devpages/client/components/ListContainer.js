@@ -9,33 +9,57 @@ export class ListContainer {
             ...options
         };
         this.items = [];
+        this.changeHandler = null;
         
-        // Ensure the select element exists
-        const fileSelect = document.getElementById('file-select');
-        if (!fileSelect) {
-            console.error('[LIST] File select element not found');
-            return;
+        this.setupFileSelectHandler();
+    }
+    
+    setupFileSelectHandler() {
+        // Set up file select change handler with retry logic
+        const attemptSetup = () => {
+            const fileSelect = document.getElementById('file-select');
+            if (fileSelect) {
+                // Remove existing handler if any
+                if (this.changeHandler) {
+                    fileSelect.removeEventListener('change', this.changeHandler);
+                }
+                
+                // Create new handler
+                this.changeHandler = () => {
+                    const selectedItem = this.items.find(item => item.name === fileSelect.value);
+                    if (selectedItem && this.options.onSelect) {
+                        this.options.onSelect(selectedItem);
+                    }
+                    // Save the selected file
+                    if (fileSelect.value) {
+                        setCurrentFile(fileSelect.value);
+                        logMessage(`[LIST] Saved current file: ${fileSelect.value}`);
+                    }
+                };
+                
+                fileSelect.addEventListener('change', this.changeHandler);
+                logMessage('[LIST] File select handler attached');
+                return true;
+            }
+            return false;
+        };
+        
+        // Try immediately
+        if (!attemptSetup()) {
+            // If not found, try again after a short delay for DOM to be ready
+            setTimeout(() => {
+                if (!attemptSetup()) {
+                    logMessage('[LIST] File select element not found after retry', 'warn');
+                }
+            }, 100);
         }
-
-        // Set up file select change handler
-        fileSelect.addEventListener('change', () => {
-            const selectedItem = this.items.find(item => item.name === fileSelect.value);
-            if (selectedItem && this.options.onSelect) {
-                this.options.onSelect(selectedItem);
-            }
-            // Save the selected file
-            if (fileSelect.value) {
-                setCurrentFile(fileSelect.value);
-                logMessage(`[LIST] Saved current file: ${fileSelect.value}`);
-            }
-        });
     }
     
     setItems(items) {
         this.items = items;
         const fileSelect = document.getElementById('file-select');
         if (!fileSelect) {
-            console.error('[LIST] File select element not found');
+            logMessage('[LIST] File select element not found during setItems', 'warn');
             return;
         }
         
@@ -94,5 +118,10 @@ export class ListContainer {
         fileSelect.style.display = 'block';
         
         logMessage(`[LIST] Loaded ${items.length} items`);
+    }
+    
+    // Method to refresh the handler setup (useful if DOM changes)
+    refreshHandler() {
+        this.setupFileSelectHandler();
     }
 } 

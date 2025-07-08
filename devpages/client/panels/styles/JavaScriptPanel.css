@@ -192,8 +192,8 @@
 
 /* Syntax Highlighting Enhancements */
 .javascript-code-block .hljs {
-    background: transparent !important;
-    padding: 0 !important;
+    background: transparent;
+    padding: 0;
 }
 
 /* Line Numbers (if needed in future) */

@@ -36,25 +36,63 @@ export class DomInspectorSettingsPanel {
             highlightZIndex: 999999,
         };
         
-        this.createPanel();
-        this.setupEventHandlers();
-        this.loadConfiguration();
-        this.registerWithZIndexManager();
+        try {
+            this.createPanel();
+            this.setupEventHandlers();
+            this.loadConfiguration();
+            // Skip ZIndexManager registration in constructor - will register when panel is shown
+        } catch (error) {
+            console.error('[DomInspectorSettingsPanel] Error during initialization:', error);
+            console.error('[DomInspectorSettingsPanel] Stack trace:', error.stack);
+            // Ensure panel is null if initialization failed
+            if (this.panel && this.panel.nodeType !== Node.ELEMENT_NODE) {
+                this.panel = null;
+            }
+        }
     }
 
     registerWithZIndexManager() {
         // Register with Z-Index Manager for click-to-front behavior
-        if (window.zIndexManager) {
-            window.zIndexManager.register(this.panel, {
+        if (!zIndexManager) {
+            console.log('[DomInspectorSettingsPanel] ZIndexManager not available, skipping registration');
+            return;
+        }
+        
+        // Validate panel before registration
+        if (!this.panel) {
+            console.warn('[DomInspectorSettingsPanel] Panel is null/undefined, skipping ZIndexManager registration');
+            return;
+        }
+        
+        if (typeof this.panel !== 'object' || this.panel.constructor === Object) {
+            console.warn('[DomInspectorSettingsPanel] Panel is not a DOM element (appears to be plain object), skipping ZIndexManager registration. Panel:', this.panel);
+            return;
+        }
+        
+        if (!this.panel.nodeType || this.panel.nodeType !== Node.ELEMENT_NODE) {
+            console.warn('[DomInspectorSettingsPanel] Panel does not have valid nodeType, skipping ZIndexManager registration. NodeType:', this.panel.nodeType);
+            return;
+        }
+        
+        try {
+            zIndexManager.register(this.panel, {
                 type: 'popup',
                 name: 'DOM Inspector Settings',
                 bringToFrontOnClick: true
             });
+            console.log('[DomInspectorSettingsPanel] Successfully registered with ZIndexManager');
+        } catch (error) {
+            console.warn('[DomInspectorSettingsPanel] Failed to register with ZIndexManager:', error);
         }
     }
 
     createPanel() {
-        this.panel = document.createElement('div');
+        try {
+            this.panel = document.createElement('div');
+            // Verify panel was created correctly
+            if (!this.panel || this.panel.nodeType !== Node.ELEMENT_NODE) {
+                throw new Error('Failed to create panel DOM element');
+            }
         this.panel.className = 'dom-inspector-settings-panel base-popup';
         this.panel.style.cssText = `
             top: 100px;
@@ -169,6 +207,17 @@ export class DomInspectorSettingsPanel {
         this.header = header;
         this.content = content;
         this.closeBtn = header.querySelector('.close-btn');
+        
+        // Final verification that panel is still valid
+        if (!this.panel || this.panel.nodeType !== Node.ELEMENT_NODE) {
+            throw new Error('Panel was corrupted during creation process');
+        }
+        } catch (error) {
+            console.error('[DomInspectorSettingsPanel] Error during panel creation:', error);
+            // Set panel to null so we know it failed
+            this.panel = null;
+            throw error;
+        }
     }
 
     createSection(title, controls) {
@@ -551,34 +600,21 @@ export class DomInspectorSettingsPanel {
     }
 
     saveConfiguration() {
-        try {
-            localStorage.setItem('dom-inspector-settings', JSON.stringify(this.config));
-        } catch (e) {
-            console.error('Failed to save DOM Inspector settings:', e);
-        }
+        // Skip localStorage saving - only use deep links or session state
     }
 
     loadConfiguration() {
-        try {
-            const saved = localStorage.getItem('dom-inspector-settings');
-            if (saved) {
-                const config = JSON.parse(saved);
-                this.config = { ...this.config, ...config };
-            }
-            
-            // Also load highlight settings from state manager for consistency
-            if (this.domInspector) {
-                const highlightSettings = this.domInspector.stateManager.getState().highlight;
-                this.config.highlightColor = highlightSettings.color || '#448AFF';
-                this.config.highlightZIndex = highlightSettings.zIndex || 999999;
-            }
-
-            this.updateFormValues();
-            this.applyConfiguration();
-            
-        } catch (e) {
-            console.error('Failed to load DOM Inspector settings:', e);
+        // Skip localStorage loading - only honor deep links or use defaults
+        
+        // Load highlight settings from state manager if available
+        if (this.domInspector) {
+            const highlightSettings = this.domInspector.stateManager.getState().highlight;
+            this.config.highlightColor = highlightSettings.color || '#448AFF';
+            this.config.highlightZIndex = highlightSettings.zIndex || 999999;
         }
+
+        this.updateFormValues();
+        this.applyConfiguration();
     }
 
     updateFormValues() {
@@ -682,8 +718,8 @@ export class DomInspectorSettingsPanel {
 
     destroy() {
         // Unregister from Z-Index Manager
-        if (window.zIndexManager && this.panel) {
-            window.zIndexManager.unregister(this.panel);
+        if (zIndexManager && this.panel) {
+            zIndexManager.unregister(this.panel);
         }
         
         if (this.panel) {

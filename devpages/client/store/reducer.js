@@ -1,6 +1,3 @@
-import { appStore } from '/client/appState.js'; // Need access to appStore to call update
-import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { SMART_COPY_B_KEY } from '/client/appState.js';
 // Removed createStore import, assuming appStore is already created elsewhere
 // Removed eventBus import, assuming event emission is handled within slice reducers or elsewhere
 
@@ -14,6 +11,7 @@ import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
 import { domInspectorReducer } from './reducers/domInspectorReducer.js';
 import { workspaceReducer } from './reducers/workspaceReducer.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -43,6 +41,94 @@ function smartCopyBReducer(state, action) {
     return state;
 }
 
+function logFilteringReducer(state, action) {
+    if (!state) {
+        // Return default state if undefined
+        return {
+            entries: [],
+            discoveredTypes: [],
+            activeFilters: [],
+            searchTerm: '',
+            isInitialized: false,
+        };
+    }
+
+    switch (action.type) {
+        case ActionTypes.LOG_INIT_TYPES:
+            if (Array.isArray(action.payload)) {
+                // Only update if the types array is actually different
+                const newTypes = action.payload;
+                const currentTypes = state.discoveredTypes || [];
+                
+                // Check if arrays are different
+                if (JSON.stringify(newTypes.sort()) !== JSON.stringify(currentTypes.sort())) {
+                    return {
+                        ...state,
+                        discoveredTypes: newTypes,
+                        isInitialized: true
+                    };
+                }
+            }
+            return state; // No change needed
+
+        case ActionTypes.LOG_CLEAR:
+            return {
+                ...state,
+                entries: [],
+                discoveredTypes: [],
+                activeFilters: [],
+                searchTerm: '',
+                isInitialized: false
+            };
+
+        case ActionTypes.LOG_SET_FILTERS:
+            if (Array.isArray(action.payload)) {
+                return {
+                    ...state,
+                    activeFilters: action.payload,
+                    isInitialized: true
+                };
+            }
+            return state;
+
+        case ActionTypes.LOG_TOGGLE_FILTER:
+            if (typeof action.payload === 'string') {
+                const filterKey = action.payload;
+                const currentFilters = state.activeFilters || [];
+                
+                // Handle special case for Clear All mode
+                if (currentFilters.includes('__CLEAR_ALL__')) {
+                    // If in Clear All mode, clicking any filter should exit Clear All and activate only that filter
+                    return {
+                        ...state,
+                        activeFilters: [filterKey],
+                        isInitialized: true
+                    };
+                }
+                
+                // Normal toggle behavior
+                let newFilters;
+                if (currentFilters.includes(filterKey)) {
+                    // Remove the filter
+                    newFilters = currentFilters.filter(f => f !== filterKey);
+                } else {
+                    // Add the filter
+                    newFilters = [...currentFilters, filterKey];
+                }
+                
+                return {
+                    ...state,
+                    activeFilters: newFilters,
+                    isInitialized: true
+                };
+            }
+            return state;
+
+        default:
+            return state;
+    }
+}
+
 // --- Mapping of State Slices to Reducers ---
 
 const sliceReducers = {
@@ -57,12 +143,13 @@ const sliceReducers = {
     workspace: workspaceReducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
+    logFiltering: logFilteringReducer,
 };
 
 // --- Main Application Reducer (Combiner) ---
 // This function is passed to the messageQueue's setReducer
-export function mainReducer(action) {
-    const currentState = appStore.getState();
+export function mainReducer(currentState = {}, action) {
+    // const currentState = appStore.getState(); // Removed direct appStore.getState() call
     let hasChanged = false;
     const nextState = {};
 
@@ -108,9 +195,12 @@ export function mainReducer(action) {
             };
         }
 
-        appStore.update(currentState => finalNextState);
+        // Instead of directly updating appStore, return the new state
+        return finalNextState;
     }
-    // If no slice changed, the store remains unchanged
+
+    // If no slice changed, return the current state to indicate no change
+    return currentState;
 }
 
 // --- Initialization Logic (Example - Should live in app initialization code) ---

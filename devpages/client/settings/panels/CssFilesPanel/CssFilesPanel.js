@@ -9,6 +9,7 @@ import { appStore } from '/client/appState.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { eventBus } from '/client/eventBus.js';
 import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
+import { debugPanelRegistry } from '/client/debug/debugPanelRegistry.js';
 
 // Temporarily disable modular imports due to import errors
 // TODO: Fix import paths in modular components
@@ -1550,51 +1551,13 @@ class CssFilesPanel {
    * Cleanup resources and destroy the panel
    */
   destroy() {
-    console.log('[CssFilesPanel] Destroying...');
-    
-    try {
-      // Clear any pending timeouts
-      if (this.renderTimeout) {
-        clearTimeout(this.renderTimeout);
-        this.renderTimeout = null;
-      }
-      
-      // Cleanup state manager
-      if (this.stateManager) {
-        this.stateManager.destroy();
-      }
-      
-      // Cleanup debugger
-      if (this.debugger) {
-        this.debugger.destroy();
-      }
-      
-      // Cleanup Z-Index analyzer
-      if (this.zIndexAnalyzer) {
-        this.zIndexAnalyzer.clear();
-      }
-      
-      // Clear references
-      this.cssFiles.clear();
-      this.toggleThrottle.clear();
-      this.categories = { 
-        theme: new Map(), 
-        system: new Map(), 
-        app: new Map(),
-        inline: new Map(),
-        other: new Map() 
-      };
-    } catch (error) {
-      console.error('[CssFilesPanel] Error during cleanup:', error);
-    }
-    
     console.log('[CssFilesPanel] Destroyed');
   }
 }
 
-// Register this panel in the settings section registry
-settingsSectionRegistry.register({
-  id: 'css-files',
+// Register this panel in the debug panel registry
+debugPanelRegistry.register({
+  id: 'CssFilesPanel',
   title: 'CSS Files',
   component: CssFilesPanel,
   icon: 'CSS',

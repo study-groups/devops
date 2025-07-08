@@ -16,7 +16,7 @@ export class WorkspacePanelManager {
         this.logContainer = null;
 
         this.isSidebarVisible = false;
-        this.isEditorVisible = false;
+        this.isEditorVisible = true; // Start with editor visible
         this.currentPanelSection = null;
         
         // Panel sections registry
@@ -28,30 +28,84 @@ export class WorkspacePanelManager {
         // Store subscription will be set up after initialization
         this.storeUnsubscribe = null;
         
-        // Initialize when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.initialize());
-        } else {
-            // DOM is already ready, initialize immediately
-            setTimeout(() => this.initialize(), 0);
-        }
+        // Editor instance
+        this.editor = null;
+        
+        // PreviewPanel instance
+        this.previewPanel = null;
     }
 
     log(message, level = 'info') {
         logMessage(`[WorkspacePanelManager] ${message}`, level, 'WORKSPACE');
     }
 
-    initialize() {
+    async initialize() {
+        this.log('Initializing WorkspacePanelManager...');
+        
         try {
+            // Set up panel element references
             this.setupPanelElements();
+            
+            // Register panel sections
             this.registerPanelSections();
+            
+            // Attach event listeners
             this.attachEventListeners();
-            this.setupStoreSubscription(); // Set up store subscription after DOM is ready
-            this.applyInitialState(); // Apply state from store
-            this.log('Workspace Panel Manager initialized');
+            
+            // Initialize preview panel
+            await this.initializePreviewPanel();
+            
+            // Set up store subscription
+            this.setupStoreSubscription();
+            
+            // Apply initial state from store
+            this.applyInitialState();
+            
+            this.log('WorkspacePanelManager initialization complete');
         } catch (error) {
             this.log(`Failed to initialize: ${error.message}`, 'error');
             console.error('[WorkspacePanelManager] Initialization error:', error);
+        }
+    }
+
+    /**
+     * Initialize the PreviewPanel for the main preview container
+     */
+    async initializePreviewPanel() {
+        // Guard against multiple initialization
+        if (this.previewPanel) {
+            this.log('PreviewPanel already initialized, skipping', 'debug');
+            return;
+        }
+
+        try {
+            const { PreviewPanel } = await import('/client/panels/types/PreviewPanel.js');
+            
+            this.previewPanel = new PreviewPanel({
+                id: 'preview-panel',
+                title: 'Preview',
+                order: 2,
+                width: 400,
+                visible: true // Start visible so preview is shown by default
+            });
+
+            // Mount preview panel to the main preview container
+            if (!this.previewContainer) {
+                throw new Error('Preview container not found in the DOM.');
+            }
+            
+            // Clear any existing content first to prevent duplicates (including ContentView content)
+            this.previewContainer.innerHTML = '';
+            
+            await this.previewPanel.mount(this.previewContainer);
+            this.log('PreviewPanel created and mounted to preview-container');
+            
+            // Expose to window for debugging
+            window.previewPanel = this.previewPanel;
+            
+        } catch (error) {
+            this.log(`Failed to initialize PreviewPanel: ${error.message}`, 'error');
+            throw error;
         }
     }
 
@@ -100,13 +154,7 @@ export class WorkspacePanelManager {
             onActivate: this.onContextManagerActivate.bind(this)
         });
 
-        // Register Editor section
-        this.registerPanelSection('editor', {
-            title: 'Editor',
-            icon: '✏️',
-            render: this.renderEditorSection.bind(this),
-            onActivate: this.onEditorActivate.bind(this)
-        });
+        // Editor section removed - main editor is handled by EditorPanel in center area
 
         // Register File Browser section
         this.registerPanelSection('file-browser', {
@@ -233,16 +281,27 @@ export class WorkspacePanelManager {
     }
 
     showEditor() {
-        dispatch({ type: ActionTypes.WORKSPACE_SET_PANEL_VISIBILITY, payload: { panel: 'editor', visible: true } });
+        if (this.editorContainer) {
+            this.editorContainer.classList.remove('hidden');
+        }
+        this.isEditorVisible = true;
+        this.log('Editor shown');
     }
 
     hideEditor() {
-        dispatch({ type: ActionTypes.WORKSPACE_SET_PANEL_VISIBILITY, payload: { panel: 'editor', visible: false } });
+        if (this.editorContainer) {
+            this.editorContainer.classList.add('hidden');
+        }
+        this.isEditorVisible = false;
+        this.log('Editor hidden');
     }
 
     toggleEditor() {
-        const isVisible = this.isEditorVisible;
-        dispatch({ type: ActionTypes.WORKSPACE_SET_PANEL_VISIBILITY, payload: { panel: 'editor', visible: !isVisible } });
+        if (this.isEditorVisible) {
+            this.hideEditor();
+        } else {
+            this.showEditor();
+        }
     }
 
     showLog() {
@@ -291,9 +350,6 @@ export class WorkspacePanelManager {
                 this.attachContextManagerEvents();
                 this.loadContextData();
                 break;
-            case 'editor':
-                this.attachEditorEvents();
-                break;
             case 'file-browser':
                 this.attachFileBrowserEvents();
                 this.loadFileTree();
@@ -336,26 +392,7 @@ export class WorkspacePanelManager {
         `;
     }
 
-    renderEditorSection() {
-        return `
-            <div class="editor-section">
-                <div class="editor-top-bar">
-                    <div id="file-type-badge" class="file-type-badge" data-type="markdown">
-                        <span class="badge-icon">📝</span>
-                        <span class="badge-text">Markdown</span>
-                    </div>
-                    <div class="editor-actions">
-                        <button id="save-btn" class="editor-action-btn">Save</button>
-                        <button id="publish-btn" class="editor-action-btn">Publish</button>
-                        <button id="note-btn" class="editor-action-btn">Note</button>
-                    </div>
-                </div>
-                <div class="editor-body">
-                    <p class="file-path-display">Open a file from the browser to edit.</p>
-                </div>
-            </div>
-        `;
-    }
+    // renderEditorSection removed - editor functionality moved to main EditorPanel
 
     renderFileBrowserSection() {
         return `
@@ -392,23 +429,7 @@ export class WorkspacePanelManager {
         }
     }
 
-    attachEditorEvents() {
-        const saveBtn = document.getElementById('save-btn');
-        const publishBtn = document.getElementById('publish-btn');
-        const noteBtn = document.getElementById('note-btn');
-
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveFile());
-        }
-
-        if (publishBtn) {
-            publishBtn.addEventListener('click', () => this.publishFile());
-        }
-
-        if (noteBtn) {
-            noteBtn.addEventListener('click', () => this.addToContext());
-        }
-    }
+    // attachEditorEvents removed - editor events handled by main EditorPanel
 
     attachFileBrowserEvents() {
         const refreshBtn = document.getElementById('refresh-files-btn');
@@ -424,10 +445,7 @@ export class WorkspacePanelManager {
         this.log('Activated Context Manager mode');
     }
 
-    onEditorActivate() {
-        this.currentMode = 'edit';
-        this.log('Activated Editor mode');
-    }
+    // onEditorActivate removed - editor handled by main EditorPanel
 
     onFileBrowserActivate() {
         this.currentMode = 'browse';
@@ -598,10 +616,7 @@ export class WorkspacePanelManager {
         this.activatePanelSection('context-manager');
     }
 
-    openEditor() {
-        this.showSidebar();
-        this.activatePanelSection('editor');
-    }
+    // openEditor removed - main editor is handled by EditorPanel in center area
 
     getCurrentMode() {
         return this.currentMode;
@@ -635,47 +650,38 @@ export class WorkspacePanelManager {
     }
 
     handleStateChange(workspaceState) {
-        if (!workspaceState) {
-            this.log('handleStateChange called with null/undefined workspace state', 'warn');
-            return;
-        }
+        if (!workspaceState) return;
 
-        if (!this.sidebarContainer || !this.editorContainer || !this.previewContainer) {
-            this.log('handleStateChange called but DOM elements not ready', 'warn');
-            return;
-        }
-
-        this.log(`Applying workspace state: ${JSON.stringify(workspaceState)}`);
-
-        // Sidebar
-        if (workspaceState.sidebar) {
-            this.sidebarContainer.style.width = `${workspaceState.sidebar.width}px`;
-            this.sidebarContainer.classList.toggle('hidden', !workspaceState.sidebar.visible);
-            this.isSidebarVisible = workspaceState.sidebar.visible;
-            this.log(`Sidebar: width=${workspaceState.sidebar.width}px, visible=${workspaceState.sidebar.visible}`);
-        }
-
-        // Editor
-        if (workspaceState.editor) {
-            // For flex-based layout, use flex-basis for percentage-based sizing
-            this.editorContainer.style.flex = `${workspaceState.editor.width / 100}`;
-            this.editorContainer.classList.toggle('hidden', !workspaceState.editor.visible);
-            this.isEditorVisible = workspaceState.editor.visible;
-            this.log(`Editor: flex=${workspaceState.editor.width / 100}, visible=${workspaceState.editor.visible}`);
-        }
-
-        // Preview
-        if (workspaceState.preview) {
-            // Only set flex value if editor is visible, otherwise let CSS handle full width
-            if (workspaceState.editor && workspaceState.editor.visible) {
-                this.previewContainer.style.flex = `${workspaceState.preview.width / 100}`;
-                this.log(`Preview: flex=${workspaceState.preview.width / 100}, visible=${workspaceState.preview.visible}`);
+        // Handle sidebar visibility - directly manipulate DOM, don't dispatch
+        if (this.isSidebarVisible !== workspaceState.sidebar.visible) {
+            if (workspaceState.sidebar.visible) {
+                if (this.sidebarContainer) {
+                    this.sidebarContainer.classList.remove('hidden');
+                }
+                this.isSidebarVisible = true;
+                this.log('Sidebar shown');
             } else {
-                // Remove inline flex style to let CSS take over when editor is hidden
-                this.previewContainer.style.flex = '';
-                this.log(`Preview: flex=auto (editor hidden), visible=${workspaceState.preview.visible}`);
+                if (this.sidebarContainer) {
+                    this.sidebarContainer.classList.add('hidden');
+                }
+                this.isSidebarVisible = false;
+                this.log('Sidebar hidden');
             }
-            this.previewContainer.classList.toggle('hidden', !workspaceState.preview.visible);
+        }
+
+        // Handle editor visibility - these methods are already DOM-only
+        if (this.isEditorVisible !== workspaceState.editor.visible) {
+            if (workspaceState.editor.visible) {
+                this.showEditor();
+            } else {
+                this.hideEditor();
+            }
+        }
+        
+        // Handle active panel section - only if it's valid
+        if (workspaceState.sidebar.activeSection && 
+            this.currentPanelSection !== workspaceState.sidebar.activeSection) {
+            this.activatePanelSection(workspaceState.sidebar.activeSection);
         }
     }
 
@@ -705,6 +711,14 @@ export class WorkspacePanelManager {
             this.storeUnsubscribe();
             this.storeUnsubscribe = null;
         }
+        
+        if (this.previewPanel) {
+            this.previewPanel.destroy();
+            this.previewPanel = null;
+        }
+        
+        // Editor cleanup now handled by EditorPanel
+        
         this.log('WorkspacePanelManager destroyed');
     }
 }

@@ -356,10 +356,10 @@ ${cssLinks}`;
         const theme = state.theme || 'light';
         
         // Load system CSS for this plugin
-        const systemCss = await this.fetchCssContent(`styles/system/${pluginId}-${theme}.css`);
+        const systemCss = await this.fetchCssContent(`client/styles/plugins/${pluginId}-${theme}.css`);
         
         // Load user override if exists
-        const userCss = await this.fetchCssContent(`styles/user/${pluginId}.css`);
+        const userCss = await this.fetchCssContent(`plugins/${pluginId}.css`);
         
         return [systemCss, userCss].filter(Boolean).join('\n');
     }

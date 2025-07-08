@@ -71,45 +71,60 @@ export class StateManager {
             console.log('[GENERAL] StateManager: Old visible =', oldInspectorState.visible);
             console.log('[GENERAL] StateManager: New visible =', newInspectorState.visible);
 
-            // Emit specific change events
+            let hasChanges = false;
+
+            // Emit specific change events only when values actually changed
             if (oldInspectorState.visible !== newInspectorState.visible) {
                 console.log('[GENERAL] StateManager: Visibility changed, emitting visibilityChanged event');
                 this.emit('visibilityChanged', newInspectorState.visible, oldInspectorState.visible);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.position) !== JSON.stringify(newInspectorState.position)) {
                 this.emit('positionChanged', newInspectorState.position, oldInspectorState.position);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.size) !== JSON.stringify(newInspectorState.size)) {
                 this.emit('sizeChanged', newInspectorState.size, oldInspectorState.size);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.highlight) !== JSON.stringify(newInspectorState.highlight)) {
                 this.emit('highlightChanged', newInspectorState.highlight, oldInspectorState.highlight);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.selectorHistory) !== JSON.stringify(newInspectorState.selectorHistory)) {
                 this.emit('historyChanged', newInspectorState.selectorHistory, oldInspectorState.selectorHistory);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.collapsedSections) !== JSON.stringify(newInspectorState.collapsedSections)) {
                 this.emit('sectionsChanged', newInspectorState.collapsedSections, oldInspectorState.collapsedSections);
+                hasChanges = true;
             }
 
             if (JSON.stringify(oldInspectorState.treeState) !== JSON.stringify(newInspectorState.treeState)) {
                 this.emit('treeStateChanged', newInspectorState.treeState, oldInspectorState.treeState);
+                hasChanges = true;
             }
 
             if (oldInspectorState.splitPosition !== newInspectorState.splitPosition) {
                 this.emit('splitPositionChanged', newInspectorState.splitPosition, oldInspectorState.splitPosition);
+                hasChanges = true;
             }
 
-            // Emit general state change event
-            this.emit('stateChanged', newInspectorState, oldInspectorState);
-
-            // Persist state changes
-            this.persistState(newInspectorState);
+            // Only emit general state change event if there were actual changes
+            if (hasChanges) {
+                console.log('[GENERAL] StateManager: emit() called for event: stateChanged args:', [newInspectorState, oldInspectorState]);
+                this.emit('stateChanged', newInspectorState, oldInspectorState);
+                
+                // Persist state changes only when there are actual changes
+                this.persistState(newInspectorState);
+            } else {
+                console.log('[GENERAL] StateManager: Has listeners for event: false');
+            }
         });
     }
 

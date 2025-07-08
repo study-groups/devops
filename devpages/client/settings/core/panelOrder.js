@@ -8,7 +8,7 @@
 
 export const panelOrder = [
     'themes',                   // From ThemeSelectorPanel.js - Theme selection and appearance
-    'css-files',                // From CssFilesPanel.js - CSS file management
+    'CssFilesPanel',            // From CssFilesPanel.js - CSS file management
     'design-tokens',            // From DesignTokensPanel.js - Design tokens editor
     'preview-settings-panel',   // From PreviewSettingsPanel.js
     'html-render-settings-panel', // From HtmlRenderSettingsPanel.js

@@ -127,10 +127,13 @@ function reloadAllCss() {
         
         logMessage(`✅ Soft reload complete - reloaded ${reloadedCount} CSS files`, 'info', 'VIEW_CONTROLS');
         
-        // Trigger a preview refresh after CSS reload
+        // Trigger a preview refresh after CSS reload using window.eventBus (to match PreviewPanel)
         setTimeout(() => {
-            if (window.previewManager && typeof window.previewManager.refresh === 'function') {
-                window.previewManager.refresh();
+            if (window.eventBus && typeof window.eventBus.emit === 'function') {
+                window.eventBus.emit('preview:forceRefresh');
+                logMessage('Preview refresh event emitted via window.eventBus after CSS reload', 'debug', 'VIEW_CONTROLS');
+            } else {
+                logMessage('window.eventBus not available for preview refresh after CSS reload', 'warn', 'VIEW_CONTROLS');
             }
         }, 200);
     };
@@ -220,7 +223,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
         }, 0);
 
         // Handle button clicks
-        element.addEventListener('click', (e) => {
+        element.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (!button) return;
 
@@ -248,8 +251,63 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                     break;
                     
                 case 'refreshPreview':
+                    // Provide visual feedback
+                    button.style.transform = 'rotate(360deg)';
+                    button.style.transition = 'transform 0.6s ease';
+                    setTimeout(() => {
+                        button.style.transform = '';
+                        button.style.transition = '';
+                    }, 600);
+                    
+                    // Debug logging for eventBus instances
+                    logMessage(`Debug: window.eventBus exists: ${!!window.eventBus}`, 'debug', 'VIEW_CONTROLS');
+                    logMessage(`Debug: window.eventBus.emit available: ${!!(window.eventBus && typeof window.eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
+                    logMessage(`Debug: imported eventBus exists: ${!!eventBus}`, 'debug', 'VIEW_CONTROLS');
+                    logMessage(`Debug: imported eventBus.emit available: ${!!(eventBus && typeof eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
+                    
                     // Perform soft page reload - reload all CSS files
                     reloadAllCss();
+                    
+                    // Trigger preview refresh using window.eventBus (to match PreviewPanel)
+                    if (window.eventBus && typeof window.eventBus.emit === 'function') {
+                        logMessage('Emitting preview:forceRefresh event via window.eventBus...', 'debug', 'VIEW_CONTROLS');
+                        try {
+                            window.eventBus.emit('preview:forceRefresh');
+                            logMessage('Preview force refresh event emitted successfully via window.eventBus', 'debug', 'VIEW_CONTROLS');
+                        } catch (error) {
+                            logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
+                        }
+                    } else if (eventBus && typeof eventBus.emit === 'function') {
+                        // Fallback to imported eventBus
+                        logMessage('Using imported eventBus as fallback...', 'debug', 'VIEW_CONTROLS');
+                        try {
+                            eventBus.emit('preview:forceRefresh');
+                            logMessage('Preview force refresh event emitted via imported eventBus', 'debug', 'VIEW_CONTROLS');
+                        } catch (error) {
+                            logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
+                        }
+                    } else {
+                        logMessage('Neither window.eventBus nor imported eventBus available for preview refresh', 'warn', 'VIEW_CONTROLS');
+                    }
+                    
+                    // Also emit CSS settings changed event for good measure
+                    if (window.eventBus && typeof window.eventBus.emit === 'function') {
+                        try {
+                            window.eventBus.emit('preview:cssSettingsChanged', { reason: 'manual_refresh' });
+                            logMessage('CSS settings changed event emitted via window.eventBus', 'debug', 'VIEW_CONTROLS');
+                        } catch (error) {
+                            logMessage(`CSS settings changed event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
+                        }
+                    } else if (eventBus && typeof eventBus.emit === 'function') {
+                        try {
+                            eventBus.emit('preview:cssSettingsChanged', { reason: 'manual_refresh' });
+                            logMessage('CSS settings changed event emitted via imported eventBus', 'debug', 'VIEW_CONTROLS');
+                        } catch (error) {
+                            logMessage(`CSS settings changed event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
+                        }
+                    }
+                    
+                    logMessage('🔄 Full refresh triggered: CSS reload + Preview update via eventBus', 'info', 'VIEW_CONTROLS');
                     break;
             }
         });

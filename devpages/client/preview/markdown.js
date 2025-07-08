@@ -110,11 +110,22 @@ export function processMermaidDiagrams() {
   logMarkdown('[MARKDOWN] processMermaidDiagrams is deprecated, handled by preview system');
 }
 
-// Save the current state
+// Save the current state using consistent keys with main file system
 function saveState(directory, filename) {
   try {
-    localStorage.setItem('lastDirectory', directory);
-    localStorage.setItem('lastFile', filename);
+    // Use the same keys as the main file system for consistency
+    if (filename) {
+      const fullPath = directory ? `${directory}/${filename}` : filename;
+      localStorage.setItem('devpages_last_file', fullPath);
+      if (directory) {
+        localStorage.setItem('devpages_last_directory', directory);
+      }
+      console.log(`[Markdown] Saved last opened file: "${fullPath}"`);
+    } else if (directory) {
+      localStorage.setItem('devpages_last_directory', directory);
+      localStorage.removeItem('devpages_last_file');
+      console.log(`[Markdown] Saved last opened directory: "${directory}"`);
+    }
   } catch (error) {
     console.error('Failed to save state:', error);
   }

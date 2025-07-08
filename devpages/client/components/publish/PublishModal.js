@@ -8,7 +8,7 @@ import { PublishAPI } from './PublishAPI.js';
 import { createModalTemplate } from './PublishModalTemplate.js';
 import { findEditor, ghostValue, loadStylesheet } from './PublishUtils.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
-import { generateStaticHtmlForPublish } from '/client/utils/staticHtmlGenerator.js';
+import { publishService } from '/client/services/PublishService.js';
 import { cssManager } from '/client/utils/CssManager.js';
 
 export class PublishModal {
@@ -19,6 +19,10 @@ export class PublishModal {
     this.spacesConfig = null;
     this.publishStatus = { isPublished: false, url: null };
     this.isProcessing = false;
+    
+    // Event listener references for proper cleanup
+    this.boundCloseOnEscape = this.closeOnEscape.bind(this);
+    this.boundCloseOnBackdropClick = this.closeOnBackdropClick.bind(this);
     
     // Load CSS
     loadStylesheet('/client/components/publish/PublishModalStyles.css');
@@ -82,18 +86,22 @@ export class PublishModal {
     debugEndpointBtn?.addEventListener('click', () => this.handleDebugEndpoint());
 
     // Close on backdrop click
-    this.modal.addEventListener('click', (e) => {
-      if (e.target === this.modal) {
-        this.close();
-      }
-    });
+    this.modal.addEventListener('click', this.boundCloseOnBackdropClick);
 
     // Close on escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isOpen) {
-        this.close();
-      }
-    });
+    document.addEventListener('keydown', this.boundCloseOnEscape);
+  }
+
+  closeOnBackdropClick(e) {
+    if (e.target === this.modal) {
+      this.close();
+    }
+  }
+
+  closeOnEscape(e) {
+    if (e.key === 'Escape' && this.isOpen) {
+      this.close();
+    }
   }
 
   updateConfigDisplay() {
@@ -278,47 +286,35 @@ export class PublishModal {
         throw new Error('Editor content is empty');
       }
 
-      updateStatus('🔄 Generating HTML (using unified renderer)...', 40);
+      updateStatus('🔄 Generating self-contained HTML...', 40);
       
       // Get publish mode from settings
       const publishMode = state.settings?.publish?.mode || 'local';
       
-      // Use the unified static HTML generator with proper context
-      const htmlContent = await generateStaticHtmlForPublish({
-        markdownSource: content,
-        originalFilePath: currentFile,
-        publishMode: publishMode
+      // Use the unified PublishService to generate the HTML
+      const htmlContent = await publishService.generatePublishHtml(content, currentFile, {
+          publishMode: publishMode
       });
+      
+      if (!htmlContent) {
+          throw new Error('HTML generation failed. Content was empty.');
+      }
 
-      updateStatus('🚀 Publishing to DigitalOcean Spaces...', 60);
+      updateStatus(`🚀 Publishing to ${publishMode}...`, 60);
 
       this.setProcessing(true, 'publish');
       this.hideError();
 
       publishController = new AbortController();
 
-      const response = await fetch('/api/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          pathname: currentFile,
-          htmlContent: htmlContent
-        }),
-        signal: publishController.signal
-      });
+      const result = await PublishAPI.publish(currentFile, htmlContent, publishMode === 'spaces');
 
-      const result = await response.json();
-      
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || `Server error: ${response.status}`);
-      }
-      
       updateStatus('✅ Upload complete!', 100);
       
       this.publishStatus = { isPublished: true, url: result.url };
       this.updatePublishStatus();
       
-      logMessage(`Successfully published: ${currentFile} to ${result.url} (${result.processingTime}ms)`, 'info', 'PUBLISH_MODAL');
+      logMessage(`Successfully published: ${currentFile} to ${result.url} (${result.responseTime}ms)`, 'info', 'PUBLISH_MODAL');
 
     } catch (error) {
       if (error.name === 'AbortError') {

@@ -610,3 +610,266 @@ export async function diagnoseDocs() {
         console.error('[DOCS DIAGNOSIS] Error:', error);
     }
 }
+
+// --- Last Opened File Persistence Debug ---
+export async function debugLastOpenedFilePersistence() {
+    logDebug('[DEBUG] Testing last opened file persistence...');
+    
+    // Check what's currently in localStorage
+    const lastFile = localStorage.getItem('devpages_last_file');
+    const lastDir = localStorage.getItem('devpages_last_directory');
+    logDebug(`[DEBUG] Current localStorage: file="${lastFile || 'none'}", dir="${lastDir || 'none'}"`);
+    
+    // Check app state
+    const state = appStore.getState();
+    const currentFile = state.file?.currentPathname;
+    const isDir = state.file?.isDirectorySelected;
+    logDebug(`[DEBUG] Current app state: pathname="${currentFile || 'none'}", isDirectory=${isDir}`);
+    
+    // Test the loadLastOpened function
+    try {
+        const { loadLastOpened } = await import('/client/store/reducers/fileReducer.js');
+        const lastOpened = loadLastOpened();
+        logDebug(`[DEBUG] loadLastOpened() returned:`, lastOpened);
+    } catch (error) {
+        logDebug(`[DEBUG] Error testing loadLastOpened: ${error.message}`, 'error');
+    }
+    
+    // Check URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPathname = urlParams.get('pathname');
+    logDebug(`[DEBUG] URL pathname parameter: "${urlPathname || 'none'}"`);
+    
+    logDebug('[DEBUG] Last opened file persistence test complete');
+}
+
+// --- Editor Debug ---
+export function debugEditorState() {
+    logDebug('[DEBUG] Testing editor state...');
+    
+    // Check if editor panel exists
+    const editorPanel = document.querySelector('#editor-panel');
+    const textarea = document.querySelector('#editor-panel textarea');
+    logDebug(`[DEBUG] Editor panel: ${editorPanel ? 'found' : 'missing'}`);
+    logDebug(`[DEBUG] Textarea: ${textarea ? 'found' : 'missing'}`);
+    
+    if (textarea) {
+        logDebug(`[DEBUG] Textarea content length: ${textarea.value?.length || 0}`);
+        logDebug(`[DEBUG] Textarea first 100 chars: "${(textarea.value || '').substring(0, 100)}"`);
+    }
+    
+    // Check app state
+    const state = appStore.getState();
+    const content = state.file?.content;
+    const pathname = state.file?.currentPathname;
+    logDebug(`[DEBUG] App state content length: ${content?.length || 0}`);
+    logDebug(`[DEBUG] App state pathname: "${pathname || 'none'}"`);
+    logDebug(`[DEBUG] App state content first 100 chars: "${(content || '').substring(0, 100)}"`);
+    
+    // Check if editor panel instance exists on window
+    if (window.editorPanel) {
+        logDebug(`[DEBUG] Window.editorPanel exists`);
+        try {
+            const editorContent = window.editorPanel.getValue();
+            logDebug(`[DEBUG] EditorPanel.getValue() length: ${editorContent?.length || 0}`);
+        } catch (error) {
+            logDebug(`[DEBUG] Error calling editorPanel.getValue(): ${error.message}`, 'error');
+        }
+    } else {
+        logDebug(`[DEBUG] Window.editorPanel not found`);
+    }
+    
+    logDebug('[DEBUG] Editor state test complete');
+}
+
+// --- Force Editor Refresh ---
+export function forceRefreshEditor() {
+    logDebug('[DEBUG] Force refreshing editor from app state...');
+    
+    try {
+        const state = appStore.getState();
+        const content = state.file?.content || '';
+        
+        // Try multiple ways to update the editor
+        const textarea = document.querySelector('#editor-panel textarea');
+        if (textarea) {
+            textarea.value = content;
+            logDebug(`[DEBUG] Updated textarea directly with ${content.length} chars`);
+            
+            // Trigger change event
+            const changeEvent = new Event('input', { bubbles: true });
+            textarea.dispatchEvent(changeEvent);
+            logDebug(`[DEBUG] Dispatched input event on textarea`);
+        }
+        
+        // Try the editor panel method
+        if (window.editorPanel && typeof window.editorPanel.setValue === 'function') {
+            window.editorPanel.setValue(content);
+            logDebug(`[DEBUG] Called editorPanel.setValue() with ${content.length} chars`);
+        }
+        
+        logDebug('[DEBUG] Force editor refresh complete');
+    } catch (error) {
+        logDebug(`[DEBUG] Error in force refresh: ${error.message}`, 'error');
+    }
+}
+
+// --- Preview Debug ---
+export function debugPreviewPanel() {
+    logDebug('[DEBUG] Testing preview panel...');
+    
+    // Check if preview panel exists
+    const previewPanel = document.querySelector('#preview-panel');
+    const previewContainer = document.querySelector('#preview-container');
+    logDebug(`[DEBUG] Preview panel: ${previewPanel ? 'found' : 'missing'}`);
+    logDebug(`[DEBUG] Preview container: ${previewContainer ? 'found' : 'missing'}`);
+    
+    // Check app state for content
+    const state = appStore.getState();
+    const content = state.file?.content;
+    const pathname = state.file?.currentPathname;
+    logDebug(`[DEBUG] App state content length: ${content?.length || 0}`);
+    logDebug(`[DEBUG] App state pathname: "${pathname || 'none'}"`);
+    
+    // Check window.previewPanel
+    if (window.previewPanel) {
+        logDebug(`[DEBUG] Window.previewPanel exists`);
+        try {
+            logDebug(`[DEBUG] PreviewPanel container:`, window.previewPanel.previewContainer);
+        } catch (error) {
+            logDebug(`[DEBUG] Error accessing previewPanel: ${error.message}`, 'error');
+        }
+    } else {
+        logDebug(`[DEBUG] Window.previewPanel not found`);
+    }
+    
+    // Force a preview update
+    if (window.previewPanel && typeof window.previewPanel.updatePreview === 'function') {
+        logDebug(`[DEBUG] Forcing preview update...`);
+        window.previewPanel.updatePreview();
+    }
+    
+    logDebug('[DEBUG] Preview panel test complete');
+}
+
+// --- Preview Settings Integration Debug ---
+export async function debugPreviewSettingsIntegration() {
+    logDebug('[DEBUG] Testing preview settings integration...');
+    
+    // Check if both panels exist
+    const previewPanel = window.previewPanel;
+    const previewSettingsPanel = window.previewSettingsPanel;
+    
+    logDebug(`[DEBUG] PreviewPanel: ${previewPanel ? 'found' : 'missing'}`);
+    logDebug(`[DEBUG] PreviewSettingsPanel: ${previewSettingsPanel ? 'found' : 'missing'}`);
+    
+    // Check current settings in store
+    if (typeof appStore !== 'undefined') {
+        const state = appStore.getState();
+        const previewSettings = state.settings?.preview || {};
+        logDebug(`[DEBUG] Current preview settings in store:`, previewSettings);
+        
+        // Test reading settings from PreviewPanel
+        if (previewPanel && typeof previewPanel.getPreviewSettings === 'function') {
+            const panelSettings = previewPanel.getPreviewSettings();
+            logDebug(`[DEBUG] Settings as read by PreviewPanel:`, panelSettings);
+        }
+    }
+    
+    // Test updating a setting
+    logDebug('[DEBUG] Testing debounce delay update...');
+    const testDelay = 300;
+    
+    if (previewSettingsPanel && typeof previewSettingsPanel.updateSetting === 'function') {
+        previewSettingsPanel.updateSetting('debounceDelay', testDelay);
+        logDebug(`[DEBUG] Updated debounce delay to ${testDelay}ms via PreviewSettingsPanel`);
+        
+        // Check if it was updated in store
+        setTimeout(() => {
+            if (typeof appStore !== 'undefined') {
+                const newState = appStore.getState();
+                const newDelay = newState.settings?.preview?.debounceDelay;
+                logDebug(`[DEBUG] Debounce delay in store after update: ${newDelay}ms`);
+                logDebug(`[DEBUG] Update successful: ${newDelay === testDelay ? 'YES' : 'NO'}`);
+                
+                // Test if PreviewPanel picks up the change
+                if (previewPanel && typeof previewPanel.getPreviewSettings === 'function') {
+                    const panelSettings = previewPanel.getPreviewSettings();
+                    logDebug(`[DEBUG] Debounce delay as read by PreviewPanel: ${panelSettings.debounceDelay}ms`);
+                }
+            }
+        }, 100);
+    } else {
+        logDebug('[DEBUG] PreviewSettingsPanel updateSetting method not available');
+    }
+    
+    // Test eventBus integration
+    if (window.eventBus) {
+        logDebug('[DEBUG] Testing eventBus integration...');
+        window.eventBus.emit('preview:settingsChanged', { testSetting: 'testValue' });
+        logDebug('[DEBUG] Emitted preview:settingsChanged event');
+    }
+    
+    logDebug('[DEBUG] Preview settings integration test complete');
+}
+
+// --- Preview Basic Debug ---
+export function debugPreviewBasics() {
+    logDebug('[DEBUG] === PREVIEW BASICS DEBUG ===');
+    
+    // Check if preview panel exists
+    const previewPanel = window.previewPanel;
+    logDebug(`PreviewPanel object: ${!!previewPanel}`);
+    
+    if (previewPanel) {
+        logDebug(`PreviewPanel container: ${!!previewPanel.previewContainer}`);
+        if (previewPanel.previewContainer) {
+            logDebug(`Container ID: ${previewPanel.previewContainer.id}`);
+            logDebug(`Container innerHTML length: ${previewPanel.previewContainer.innerHTML.length}`);
+            logDebug(`Container visible: ${previewPanel.previewContainer.offsetWidth > 0 && previewPanel.previewContainer.offsetHeight > 0}`);
+        }
+    }
+    
+    // Check DOM for preview containers
+    const previewContainers = document.querySelectorAll('#preview-container, .preview-container, [data-panel-type="preview"]');
+    logDebug(`Found ${previewContainers.length} preview container(s) in DOM`);
+    previewContainers.forEach((container, i) => {
+        logDebug(`Container ${i}: ID=${container.id}, class=${container.className}, content length=${container.innerHTML.length}`);
+    });
+    
+    // Check app state
+    if (typeof appStore !== 'undefined') {
+        const state = appStore.getState();
+        const file = state.file || {};
+        logDebug(`App state file content length: ${file.content?.length || 0}`);
+        logDebug(`App state current pathname: ${file.currentPathname || 'none'}`);
+        logDebug(`App state is directory: ${file.isDirectorySelected}`);
+    }
+    
+    // Test manual preview update
+    if (previewPanel && typeof previewPanel.updatePreview === 'function') {
+        logDebug('Testing manual preview update...');
+        previewPanel.updatePreview();
+        
+        // Also try with test content
+        setTimeout(() => {
+            logDebug('Testing with manual content...');
+            const testContent = '# Test Preview\n\nThis is a test preview content.';
+            if (typeof previewPanel.performPreviewUpdate === 'function') {
+                previewPanel.performPreviewUpdate(testContent, 'test.md');
+            }
+        }, 500);
+    }
+    
+    logDebug('[DEBUG] === PREVIEW BASICS DEBUG COMPLETE ===');
+}
+
+// Expose debug functions to window for console access
+if (typeof window !== 'undefined') {
+    window.debugLastOpenedFilePersistence = debugLastOpenedFilePersistence;
+    window.debugEditorState = debugEditorState;
+    window.forceRefreshEditor = forceRefreshEditor;
+    window.debugPreviewPanel = debugPreviewPanel;
+    window.debugPreviewSettingsIntegration = debugPreviewSettingsIntegration;
+    window.debugPreviewBasics = debugPreviewBasics;
+}

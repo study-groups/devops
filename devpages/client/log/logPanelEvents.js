@@ -4,6 +4,8 @@ import { logInfo, logError, logDebug, logWarn } from './LogCore.js'; // For logg
 import eventBus from '/client/eventBus.js'; // For emitting resize events
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { _handleTagClick } from './LogFilterBar.js';
+import { executeRemoteCommand } from '/client/cli/handlers.js';
 
 // These might be better as part of logPanelInstance.config or passed in
 const MIN_LOG_HEIGHT = 80; // Or get from LogPanel constants
@@ -81,6 +83,37 @@ export function attachLogPanelEventListeners(logPanelInstance) {
         logDebug('Attached resize mousedown listener.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     } else {
         logWarn('Resize handle not found on LogPanel instance. Resizing will not work.', { type: 'LOG_PANEL', subtype: 'ERROR' });
+    }
+
+    // --- CLI Input Listeners ---
+    if (logPanelInstance.cliInputElement) {
+        const sendButton = document.getElementById('cli-send-button');
+
+        const handleSendCommand = async () => {
+            const commandText = logPanelInstance.cliInputElement.value.trim();
+            if (commandText) {
+                try {
+                    await executeRemoteCommand({ command: commandText });
+                    logPanelInstance.cliInputElement.value = '';
+                } catch (err) {
+                    logError(`CLI command failed: ${err.message}`, 'CLI_EXECUTION_ERROR');
+                }
+            }
+        };
+
+        if (sendButton) {
+            sendButton.addEventListener('click', handleSendCommand);
+        }
+
+        logPanelInstance.cliInputElement.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleSendCommand();
+            }
+        });
+        logDebug('Attached CLI input listeners.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+    } else {
+        logWarn('CLI input element not found. CLI will not function.', { type: 'LOG_PANEL', subtype: 'ERROR' });
     }
 
     // --- Delegated Click Listener for Toolbar Actions ---
@@ -256,6 +289,13 @@ export function attachLogPanelEventListeners(logPanelInstance) {
         });
 
         logDebug('Attached click and double-click listeners to logElement for expand/collapse/copy.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+    }
+
+    if (logPanelInstance.tagsBarElement) {
+        // The single source of truth for handling clicks on the tags bar is now in `LogFilterBar.js`.
+        // That module is initialized by the LogPanel and sets its own listeners.
+        // This prevents having two conflicting click handlers.
+        logDebug('Skipping redundant tags bar listener attachment in logPanelEvents.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     }
 }
 

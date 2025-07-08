@@ -65,11 +65,8 @@ async function loadAllPanels() {
       import('../panels/publish/PublishSettingsPanel.js'),
       import('../panels/preview/PreviewSettingsPanel.js'),
       import('../panels/html-render/HtmlRenderSettingsPanel.js'),
-      import('../panels/javascript/JavaScriptPanel.js'),
       import('../panels/console/ConsoleLogPanel.js'),
-      import('../panels/dev-tools/DevToolsPanel.js'),
       import('../panels/api-tokens/ApiTokenPanel.js'),
-      import('../panels/css-files/CssFilesPanel.js'),
       import('../panels/context/ContextManagerPanel.js')
     ];
 

@@ -126,9 +126,10 @@
      padding: 4px 10px; /* Adjust padding */
      font-size: 0.9rem; /* Match selector font size */
      height: 28px; /* Match selector height */
-     border: 1px solid #ccc;
-     border-radius: 3px;
-     background-color: #fff;
+     border: 1px solid var(--color-border);
+     border-radius: var(--radius-base);
+     background-color: var(--color-background-elevated);
+     color: var(--color-foreground);
      cursor: pointer;
      line-height: 1; /* Ensure text is centered */
 }
@@ -332,7 +333,7 @@
 
 /* Context settings trigger (root "/" breadcrumb) - specific interactive styles */
 #context-settings-trigger {
-    cursor: pointer !important;
+    cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -529,8 +530,8 @@
 
 /* Publish button published state styles */
 #publish-btn.published {
-    background-color: #28a745 !important;
-    color: white !important;
+    background-color: #28a745;
+    color: white;
     position: relative;
 }
 
@@ -540,7 +541,7 @@
 }
 
 #publish-btn:hover.published {
-    background-color: #218838 !important;
+    background-color: #218838;
 }
 
 #publish-btn.published::after {
@@ -647,4 +648,10 @@
         padding: 5px 10px;
         font-size: 13px;
     }
+} 
+
+/* File selector specific styles */
+.file-selector {
+    min-width: 150px;
+    margin-left: 8px;
 } 

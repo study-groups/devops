@@ -151,6 +151,206 @@
     font-size: 13px;
 }
 
+/* Context Manager new layout styles */
+.context-section {
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px;
+}
+
+.context-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.context-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Development Info Section */
+.dev-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.info-item label {
+    font-size: 11px;
+    color: var(--color-foreground-muted);
+    font-weight: 500;
+}
+
+.base-url-input, .endpoint-input, .do-token, .do-space {
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+}
+
+.env-select {
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-size: 11px;
+}
+
+/* Publishing Context Styles */
+.publish-context {
+    margin-bottom: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.context-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.context-name {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--color-foreground);
+}
+
+.context-details {
+    padding: 8px 10px;
+}
+
+.context-subsection {
+    margin-bottom: 10px;
+}
+
+.context-subsection:last-child {
+    margin-bottom: 0;
+}
+
+.context-subsection h5 {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-foreground-muted);
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* File Links */
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 8px;
+}
+
+.file-link {
+    font-size: 11px;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-family: var(--font-mono, monospace);
+    padding: 2px 4px;
+    border-radius: 2px;
+    transition: all 0.15s ease;
+}
+
+.file-link:hover {
+    background: var(--color-primary-alpha);
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+/* Notepad Links */
+.notepad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 8px;
+}
+
+.notepad-link {
+    color: var(--color-foreground-muted);
+}
+
+.notepad-link:hover {
+    color: var(--color-foreground);
+    background: var(--color-background-hover);
+}
+
+/* Style Info */
+.style-info {
+    padding-left: 8px;
+}
+
+.style-path {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    color: var(--color-foreground);
+}
+
+.style-info small {
+    display: block;
+    font-size: 10px;
+    color: var(--color-foreground-muted);
+    margin-top: 2px;
+}
+
+/* Digital Ocean Credentials */
+.do-credentials {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 8px;
+}
+
+.do-token, .do-space {
+    font-size: 10px;
+}
+
+/* Context Actions */
+.context-actions-footer {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-border);
+}
+
+.add-context-btn {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.add-context-btn:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+    transform: translateY(-1px);
+}
+
+/* Update existing context item styles for compatibility */
 .context-item {
     display: flex;
     align-items: center;
@@ -265,4 +465,8 @@
 .token-copy-btn:hover {
     color: var(--color-foreground);
     background: var(--color-background-hover);
-} 
+}
+
+
+
+ 

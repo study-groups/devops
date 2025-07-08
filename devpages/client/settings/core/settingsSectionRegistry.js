@@ -11,8 +11,8 @@ import { settingsRegistry } from './settingsRegistry.js';
 // Re-export the registry with a different name for compatibility
 export const settingsSectionRegistry = settingsRegistry;
 
-// Log a deprecation warning
-console.warn('[SettingsSectionRegistry] This module is deprecated. Import from settingsRegistry.js instead.');
+// Deprecation warning removed to reduce console noise
+// TODO: Update all imports to use settingsRegistry.js instead
 
 // Expose globally for debugging
 // Register with consolidation system

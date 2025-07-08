@@ -30,18 +30,19 @@ export class HighlightManager {
         // Update button appearance based on mode
         this.highlightToggleButton.classList.remove('active', 'mode-border', 'mode-shade', 'mode-both', 'mode-none');
         
-        if (highlight.enabled && highlight.mode !== 'none') {
+        const mode = highlight.mode || 'none';
+        if (highlight.enabled && mode !== 'none') {
             this.highlightToggleButton.classList.add('active');
-            this.highlightToggleButton.classList.add(`mode-${highlight.mode}`);
+            this.highlightToggleButton.classList.add(`mode-${mode}`);
         } else {
             this.highlightToggleButton.classList.add('mode-none');
         }
         
         // Update button title to show current mode
-        const modeText = highlight.mode.charAt(0).toUpperCase() + highlight.mode.slice(1);
+        const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
         this.highlightToggleButton.title = `Highlight Mode: ${modeText} (click to cycle)`;
         
-        console.log('HighlightManager: Updated highlight button for mode:', highlight.mode);
+        console.log('HighlightManager: Updated highlight button for mode:', mode);
     }
 
     /**

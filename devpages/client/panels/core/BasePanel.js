@@ -142,10 +142,12 @@ export class BasePanel {
         
         this.element.style.cssText += baseStyles;
 
-        // Apply width only if the panel is NOT headless. Headless panels are controlled by flexbox.
-        if (!this.options.headless) {
+        // Apply width only if the panel is NOT headless and has a defined width
+        if (!this.options.headless && this.state.width !== null) {
             this.element.style.width = `${this.state.width}px`;
-            this.element.style.maxWidth = `${this.options.maxWidth}px`;
+            if (this.options.maxWidth !== null) {
+                this.element.style.maxWidth = `${this.options.maxWidth}px`;
+            }
         }
 
         // If panel is headless, we only create the content container
@@ -183,6 +185,7 @@ export class BasePanel {
 
         // Append to container
         container.appendChild(this.element);
+        this.log(`[DEBUG] Panel ${this.panelId} element appended to container. Container innerHTML: '''${container.innerHTML.substring(0, 500)}...'''`, 'debug');
     }
 
     /**
@@ -311,13 +314,21 @@ export class BasePanel {
      * Set panel width
      */
     setWidth(width) {
-        const newWidth = Math.max(
-            this.options.minWidth,
-            Math.min(this.options.maxWidth, width)
-        );
+        // If width constraints are null, don't apply them
+        let newWidth = width;
+        if (this.options.minWidth !== null && this.options.maxWidth !== null) {
+            newWidth = Math.max(
+                this.options.minWidth,
+                Math.min(this.options.maxWidth, width)
+            );
+        } else if (this.options.minWidth !== null) {
+            newWidth = Math.max(this.options.minWidth, width);
+        } else if (this.options.maxWidth !== null) {
+            newWidth = Math.min(this.options.maxWidth, width);
+        }
         
         this.state.width = newWidth;
-        if (this.element) {
+        if (this.element && newWidth !== null) {
             this.element.style.width = `${newWidth}px`;
         }
         
@@ -339,8 +350,10 @@ export class BasePanel {
             this.element.classList.remove('panel-visible');
         }
 
-        // Apply width
-        this.element.style.width = `${this.state.width}px`;
+        // Apply width only if defined
+        if (this.state.width !== null) {
+            this.element.style.width = `${this.state.width}px`;
+        }
         
         // Apply collapse state
         if (this.contentElement) {
@@ -450,6 +463,7 @@ export class BasePanel {
             if (typeof content === 'string') {
                 this.contentElement.innerHTML = content;
                 this.log('Panel content rendered.', 'debug');
+                this.log(`[DEBUG] Panel ${this.panelId} contentElement innerHTML set. contentElement.outerHTML: '''${this.contentElement.outerHTML.substring(0, 500)}...'''`, 'debug');
             } else {
                 this.log('renderContent() did not return a string.', 'warn');
             }

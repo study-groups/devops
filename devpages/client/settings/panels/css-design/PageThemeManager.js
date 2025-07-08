@@ -137,6 +137,8 @@ class PageThemeManager {
     getPreviewIframeDocument() {
         // Try multiple selectors to find the preview iframe
         const selectors = [
+            '#preview-container iframe',
+            '.preview-container iframe',
             '.preview-container-panel iframe',
             '#content-preview-panel iframe',
             '.preview-panel iframe',
@@ -150,7 +152,13 @@ class PageThemeManager {
             }
         }
         
-        logMessage('Preview iframe not found with any selector', 'debug', 'THEME_MANAGER');
+        // If no iframe found, check if preview container exists but has no iframe yet
+        const previewContainer = document.querySelector('#preview-container, .preview-container');
+        if (previewContainer && !previewContainer.querySelector('iframe')) {
+            logMessage('Preview container found but no iframe present - content may be rendered inline', 'debug', 'THEME_MANAGER');
+        } else {
+            logMessage('Preview iframe not found with any selector', 'debug', 'THEME_MANAGER');
+        }
         return null;
     }
 

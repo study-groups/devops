@@ -7,14 +7,15 @@
  * Creates a simple reactive state container.
  *
  * @template T State object type.
+ * @param {(state: T, action: object) => T} reducer - The root reducer function.
  * @param {T} initialState The initial state object.
  * @returns {{
  *   getState: () => T;
- *   update: (updater: (currentState: T) => Partial<T> | T) => void;
- *   subscribe: (listener: (newState: T, prevState: T) => void) => () => void;
+ *   dispatch: (action: object) => void;
+ *   subscribe: (listener: (newState: T, prevState: T, action?: object) => void) => () => void;
  * }}
  */
-export function createStore(initialState) {
+export function createStore(reducer, initialState) {
     let state = { ...initialState };
     const listeners = new Set();
 
@@ -27,30 +28,12 @@ export function createStore(initialState) {
     }
 
     /**
-     * Updates the state using an updater function and notifies listeners.
-     * @param {(currentState: T) => Partial<T> | T} updater - Function that receives the current state
-     *        and returns an object with the properties to update, or the completely new state object.
+     * Dispatches an action to the store, updating the state and notifying listeners.
+     * @param {object} action - The action object to dispatch.
      */
-    function update(updater) {
+    function dispatch(action) {
         const prevState = { ...state }; // Shallow copy for comparison
-        const updates = updater(state);
-
-        // Check if it's a partial update or a whole new state object
-        let newState = state;
-        if (updates !== state) { // Check if updater returned a new object identity
-             // Check if it's truly partial or meant to replace entirely
-             const isPartial = Object.keys(updates).some(key => !(key in state)) || Object.keys(updates).length < Object.keys(state).length;
-             
-             if(isPartial && typeof updates === 'object' && updates !== null && !Array.isArray(updates)) {
-                // Apply partial updates
-                newState = { ...state, ...updates };
-             } else {
-                 // Replace the state entirely if the updater returned a non-partial object
-                 // (e.g., a primitive, array, or explicitly the full new state)
-                 newState = updates;
-             }
-        }
-        // else: updater mutated the state directly (not recommended, but handle)
+        const newState = reducer(prevState, action); // Pass current state and action to the reducer
 
         // Only update and notify if the state actually changed (shallow compare)
         let changed = false;
@@ -67,18 +50,18 @@ export function createStore(initialState) {
 
 
         if (changed) {
-            console.debug('[StateKit] State updating:', { prevState, newState });
+            console.debug('[StateKit] State updating:', { prevState, newState, action });
             state = newState; // Update the internal state
             // Notify listeners AFTER state is updated
-            listeners.forEach(listener => listener(state, prevState));
+            listeners.forEach(listener => listener(state, prevState, action)); // Pass action to listeners too
         } else {
-             console.debug('[StateKit] Update called but state did not change.');
+             console.debug('[StateKit] Dispatch called but state did not change.', { action });
         }
     }
 
     /**
      * Subscribes a listener function to state changes.
-     * @param {(newState: T, prevState: T) => void} listener - Function to call when state changes.
+     * @param {(newState: T, prevState: T, action?: object) => void} listener - Function to call when state changes.
      * @returns {() => void} An unsubscribe function.
      */
     function subscribe(listener) {
@@ -89,7 +72,9 @@ export function createStore(initialState) {
         };
     }
 
-    console.log('[StateKit] New state created with initial state:', state);
+    // Initialize state by dispatching a dummy action to run the reducer once
+    dispatch({ type: '@@INIT' });
+    console.log('[StateKit] New store created with initial state:', state);
 
-    return { getState, update, subscribe };
+    return { getState, dispatch, subscribe };
 } 

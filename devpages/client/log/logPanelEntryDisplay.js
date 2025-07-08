@@ -221,13 +221,10 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
         return item;
     };
 
-    // Assuming you have actions like 'setSmartCopyBufferA', 'setSmartCopyBufferB', and 'replaceEditorSelection'
-    // The user mentioned "A buffer, B buffer" - let's assume these map to existing state/actions.
     // If `setSelectionStateA/B` are purely for editor selections, we might need new actions for these code buffers.
     // For now, using 'setSmartCopyBufferA/B' as placeholders, adjust if your actions are named differently.
     dropdown.appendChild(createMenuItem('Copy to A', 'setSmartCopyBufferA', 'A'));
     dropdown.appendChild(createMenuItem('Copy to B', 'setSmartCopyBufferB', 'B'));
-    dropdown.appendChild(createMenuItem('Replace Editor Selection', 'replaceEditorSelection'));
 
     menuButton.onclick = (e) => {
         e.stopPropagation();
@@ -604,7 +601,7 @@ export async function updateLogEntryDisplay(logEntryDiv, requestedMode, forceRaw
     }
 
     const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
-    const textWrapper = logEntryDiv.querySelector('.log-entry-text-wrapper');
+    const textWrapper = logEntryDiv.querySelector('.log-entry-expanded-text-wrapper');
     const markdownToggleButton = expandedToolbar?.querySelector('.markdown-toggle-button');
     const htmlToggleButton = expandedToolbar?.querySelector('.html-toggle-button');
 
@@ -699,6 +696,9 @@ export function expandLogEntry(logEntryDiv, logPanelInstance) {
         expandedToolbar.innerHTML = ''; // Clear previous content
         const { logIndex, logTimestamp, logType, logSubtype, rawOriginalMessage } = logEntryDiv.dataset;
 
+        const tokenGroup = document.createElement('div');
+        tokenGroup.className = 'token-group';
+
         const createToken = (text, className) => {
             const token = document.createElement('span');
             token.className = `log-token ${className}`;
@@ -707,10 +707,12 @@ export function expandLogEntry(logEntryDiv, logPanelInstance) {
         };
 
         // Add tokens: Index, Timestamp, Type, Subtype
-        if (logIndex !== undefined) expandedToolbar.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
-        if (logTimestamp) expandedToolbar.appendChild(createToken(logTimestamp, 'log-token-time'));
-        if (logType) expandedToolbar.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
-        if (logSubtype) expandedToolbar.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
+        if (logIndex !== undefined) tokenGroup.appendChild(createToken(`[${logIndex}]`, 'log-token-index'));
+        if (logTimestamp) tokenGroup.appendChild(createToken(logTimestamp, 'log-token-time'));
+        if (logType) tokenGroup.appendChild(createToken(logType, `log-token-type log-type-${logType.toLowerCase()}` ));
+        if (logSubtype) tokenGroup.appendChild(createToken(`[${logSubtype}]`, `log-token-subtype log-subtype-${logSubtype.toLowerCase().replace(/[^a-z0-9\-]/g, '-')}`));
+        
+        expandedToolbar.appendChild(tokenGroup);
 
         // Right-align wrapper for buttons
         const expandedButtonWrapper = document.createElement('div');
@@ -746,6 +748,8 @@ export function expandLogEntry(logEntryDiv, logPanelInstance) {
         collapsePinButton.title = 'Collapse Log Entry';
         collapsePinButton.dataset.action = 'collapseLogEntry';
         expandedButtonWrapper.appendChild(collapsePinButton);
+
+        expandedToolbar.appendChild(expandedButtonWrapper);
 
         expandedToolbar.dataset.toolbarBuilt = 'true';
 

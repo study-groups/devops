@@ -169,9 +169,6 @@ class CodeSidebar {
         if (sidebar) {
             console.log('[CodeSidebar] Showing sidebar');
             sidebar.style.display = 'block';
-            // Also add a bright border for debugging
-            sidebar.style.borderLeft = '5px solid red';
-            sidebar.style.backgroundColor = '#ffffcc';
         } else {
             console.warn('[CodeSidebar] Sidebar element not found when trying to show');
         }
@@ -182,8 +179,6 @@ class CodeSidebar {
         if (sidebar) {
             console.log('[CodeSidebar] Hiding sidebar');
             sidebar.style.display = 'none';
-            sidebar.style.borderLeft = '';
-            sidebar.style.backgroundColor = '';
         } else {
             console.warn('[CodeSidebar] Sidebar element not found when trying to hide');
         }

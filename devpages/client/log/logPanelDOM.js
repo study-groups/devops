@@ -193,7 +193,7 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
     expandedButtonWrapper.appendChild(htmlToggleButton);
 
     const toolbarCopyButton = document.createElement('button');
-    toolbarCopyButton.innerHTML = '&#128203;';
+    toolbarCopyButton.innerHTML = `<img src="/client/styles/icons/copy.svg" alt="Copy" width="14" height="14">`;
     toolbarCopyButton.className = 'log-entry-button toolbar-button';
     toolbarCopyButton.title = 'Copy log entry text (Shift+Click to Paste)';
     toolbarCopyButton.dataset.logText = rawOriginalMessage || '';

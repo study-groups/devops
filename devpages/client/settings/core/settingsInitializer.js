@@ -30,7 +30,7 @@ export async function initializeSettingsPanel() {
     // Debug the registry state before creating the panel
     logSettingsInit(`[DEBUG] Registry state before panel creation: ${settingsRegistry.count()} panels`);
     if (settingsRegistry.count() === 0) {
-      logSettingsInit('[WARN] Registry is empty before panel creation!', 'warn');
+      logSettingsInit('[DEBUG] Registry is empty before panel creation - this is normal during initialization');
     }
     
     // Check if the global registry variables are set up correctly

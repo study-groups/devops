@@ -2,795 +2,452 @@
 
 /* /client/log/log.css - Styles for the Log Component */
 
-/* Log container - base styles */
-#log-container {
-    /* display: flex; */ /* REMOVED - Set by .log-visible */
-    flex-direction: column;
-    /* height: var(--log-height, 120px); */ /* REMOVED - Set by .log-visible */
-    background: #161616; /* RESTORED */
-    border-top: 1px solid #444; /* RESTORED */
-    /* overflow: hidden; */  /* <<< TEMPORARILY COMMENT THIS OUT */
-    overscroll-behavior: contain; /* Prevent scroll chaining to parent elements */
-    position: relative; 
-    /* padding-left: 1rem; */  /* <<< REMOVED Breathing Room */
-    /* padding-right: 1rem; */ /* <<< REMOVED Breathing Room */
-    margin-left: .5rem;   /* <<< ADDED External Margin */
-    margin-right: .5rem;  /* <<< ADDED External Margin */
-    border-radius: 0.5rem;
-    margin-bottom: .5rem; /* <<< ADDED External Margin */
-    /* Consider adding margin-bottom if needed */
+:root {
+    /* Theme variables using design tokens */
+    --log-bg: var(--bg-color, #1e1e1e);
+    --log-text-color: var(--text-color, #f5f5f5);
+    --log-border-color: var(--border-color, #444444);
+    --log-toolbar-bg: var(--table-header-bg, #1e1e1e);
+    --log-entry-hover-bg: rgba(255, 255, 255, 0.05);
 }
 
-/* State when log is VISIBLE - Keep for potential JS hooks */
+/* Light theme overrides */
+[data-theme="light"] {
+    --log-bg: var(--color-gray-100, #f5f5f5);
+    --log-text-color: var(--color-gray-900, #171717);
+    --log-border-color: #e0e0e0;
+    --log-toolbar-bg: #f9f9f9;
+    --log-entry-hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+    --log-bg: var(--bg-color, #1e1e1e);
+    --log-text-color: var(--text-color, #f5f5f5);
+    --log-border-color: var(--border-color, #444444);
+    --log-toolbar-bg: var(--table-header-bg, #1e1e1e);
+    --log-entry-hover-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* === CONTAINER & LAYOUT === */
+
+#log-container {
+    display: flex;
+    flex-direction: column;
+    background: var(--log-bg);
+    border-top: 1px solid var(--log-border-color);
+    border-radius: var(--radius-lg);
+    margin: var(--space-2);
+    position: relative;
+}
+
 #log-container.log-visible {
-    display: flex !important; 
-    height: var(--log-height, 120px); 
+    height: var(--log-height, 150px);
     visibility: visible;
     opacity: 1;
-    transition: height 0.2s ease-out, opacity 0.2s ease-out;
+    transition: height var(--transition-base), opacity var(--transition-base);
 }
 
-/* State when log is HIDDEN - Keep for potential JS hooks */
 #log-container.log-hidden {
-    display: none !important; 
     height: 0;
     visibility: hidden;
     opacity: 0;
-    border-top: none; 
+    border-top: none;
+    margin: 0;
 }
 
-/* Adjust preview container based on presence of log-visible class */
-/* Keep for now, relates to visibility logic */
-.preview-container.log-visible {
-    max-height: calc(100vh - var(--log-height, 120px) - 72px); /* Adjust 72px nav height if needed */
-}
-.preview-container.log-hidden {
-     max-height: calc(100vh - 72px); /* Adjust 72px nav height if needed */
-}
-
-/* Log resize handle - RESTORED */
 #log-resize-handle {
     position: absolute;
-    top: 0;
+    top: -2px;
     left: 0;
     right: 0;
-    height: 4px; /* Small height */
-    background-color: #444; /* Match border */
+    height: var(--space-1);
+    background-color: transparent;
     cursor: ns-resize;
-    z-index: 50;
-    user-select: none;
+    z-index: var(--z-layer-ui);
+    transition: background-color var(--transition-fast);
 }
 
 #log-resize-handle:hover {
-    background-color: #666;
+    background-color: var(--color-blue-500);
 }
-/* Add .resizing class style if needed via JS */
 
-/* Log toolbar - RESTORED Base Styles */
+/* === TOOLBAR === */
+
 #log-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px; /* Use gap from tailwind version */
-    background: #1e1e1e;
-    padding: 2px 8px; /* <<< REDUCED vertical padding slightly */
-    border-bottom: 1px solid #333;
-    min-height: auto; /* <<< REMOVED min-height, let content dictate */
+    gap: var(--space-2);
+    background: var(--log-toolbar-bg);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--log-border-color);
     flex-shrink: 0;
 }
 
-/* Log toolbar buttons - RESTORED Base Styles */
 #log-toolbar button:not(#cli-send-button):not(.log-entry-button) {
     background: transparent;
     border: none;
-    color: #d4d4d4;
-    padding: 2px 6px;
+    color: var(--log-text-color);
+    padding: var(--space-0-5) var(--space-1-5);
     cursor: pointer;
     height: 3rem;
     font-size: 12px;
-    
 }
 
-#log-toolbar button:not(#cli-send-button):not(.log-entry-button):hover {
-    background: rgba(255,255,255,0.1);
+#log-toolbar button:hover {
+    background: var(--log-entry-hover-bg);
 }
 
-/* Specific toolbar items - REMOVED #cli-input rule */
-/* #log-toolbar #cli-input { ... } */ /* <<< REMOVED */
-
-/* App Info - RESTORED */
-#log-toolbar .app-info { 
-    color: #888;
+#log-toolbar .app-info {
+    color: var(--color-gray-500, #888);
     font-size: 11px;
     cursor: pointer;
-    margin-left: 5px;
+    margin-left: var(--space-1);
 }
+
 #log-toolbar .app-info:hover {
-    color: #bbb;
+    color: var(--color-gray-400, #bbb);
 }
 
-/* NEW: Version text specific style */
-#log-app-version {
-    /* REMOVED - Moved to menu */
-    /*
-    color: #666; 
-    font-size: 10px;
-    text-align: center; 
-    font-family: monospace;
-    order: 1; 
-    */
-}
-
-/* Style minimize button within toolbar */
-#minimize-log-btn {
-    /* order: 2; */ /* REMOVED - Order set by DOM */
-    padding: 0px 5px; /* Adjust padding for visual balance */
-    line-height: 1.2; /* Adjust line-height */
-    font-size: 14px; /* Ensure X is visible */
-    margin: 0 2px; /* Adjust margins */
-}
-
-/* Log status text - RESTORED */
 #log-status {
-    color: #888; /* Match app-info color? */
+    color: var(--color-gray-500, #888);
     font-size: 11px;
-    /* margin-left: auto; */ /* Wrapper handles alignment */
-    padding-left: 0px; /* Remove specific padding */
     white-space: nowrap;
-    /* order: 3; */ /* REMOVED - Order set by DOM */
 }
 
-/* Log content area - RESTORED Base Styles */
+/* === LOG CONTENT === */
+
 #log {
-    flex: 1; /* Take remaining space */
+    flex-grow: 1;
     overflow-y: auto;
-    padding: 4px 1rem 0 1rem; /* <<< RESTORED Right Padding */
-    font-family: monospace;
-    font-size: 12px; /* Default font size */
-    line-height: 1.4;
-    color: #d4d4d4; /* Default text color */
+    padding: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: var(--log-text-color);
 }
 
-/* Log scrollbar styling - RESTORED */
 #log::-webkit-scrollbar {
-    width: 8px;
+    width: var(--space-2);
 }
 
 #log::-webkit-scrollbar-thumb {
-    background-color: #555;
-    border-radius: 4px;
+    background-color: var(--color-gray-600, #555);
+    border-radius: var(--space-1);
 }
 
 #log::-webkit-scrollbar-track {
-    background-color: #2a2a2a;
+    background-color: var(--color-gray-800, #2a2a2a);
 }
 
-/* Log entry styling - RESTORED Base (tailwind.css handles density) */
-#log .log-entry { 
-    /* Base entry styles - padding/margin/font set by tailwind.css */
-    /* border-bottom: 1px solid #333; */ /* Maybe remove? */
-    cursor: pointer; /* Keep */
+/* === LOG ENTRIES === */
+
+.log-entry {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start; /* Align items to top */
-    overflow: hidden; /* Add overflow hidden to parent */
-}
-/* #log .log-entry:last-child { border-bottom: none; } */
-
-/* NEW: Wrapper for text content */
-#log .log-entry .log-entry-text-wrapper {
-    flex-grow: 1; /* Allow wrapper to grow */
-    flex-shrink: 1; /* Allow wrapper to shrink */
-    min-width: 0; /* Important for flex shrinking and ellipsis */
-    overflow: hidden; /* <<< ADD explicit overflow hidden here */
-    /* Truncation details (ellipsis, white-space) handled by the :not(.expanded) state */
+    align-items: center;
+    margin-bottom: var(--space-0-5);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--log-text-color);
+    cursor: pointer;
+    min-height: 2rem;
+    transition: background-color var(--transition-fast);
 }
 
-/* Targets the actual text span inside the wrapper */
-#log .log-entry .log-entry-text-content { 
-    display: block; /* Ensure it takes up block space for ellipsis */
-    /* Truncation is handled by the :not(.expanded) state */
+.log-entry:hover {
+    background-color: var(--log-entry-hover-bg);
 }
 
-/* Default (non-expanded) state text wrapper */
-#log .log-entry:not(.expanded) .log-entry-text-wrapper { /* Apply truncation details here */
-    white-space: pre; /* Prevent wrapping */
-    /* overflow: hidden; */ /* Moved to base wrapper rule */
-    text-overflow: ellipsis; /* Show ellipsis */
+.log-entry-text-wrapper {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1-5);
 }
-/* #log .log-entry:not(.expanded) .log-entry-text-content { */ /* No need for specific styles here */
-    /* overflow: hidden; */
-    /* text-overflow: ellipsis; */
-    /* white-space: pre; */
-/* } */
 
-/* Hide expanded toolbar by default */
-#log .log-entry .log-entry-expanded-toolbar {
+.log-entry:not(.expanded) .log-entry-text-wrapper {
+    white-space: pre;
+    text-overflow: ellipsis;
+}
+
+.log-entry-text-content {
+    display: block;
+}
+
+/* === EXPANDED ENTRIES === */
+
+.log-entry-expanded-content {
     display: none;
 }
 
-/* Expanded state */
-#log .log-entry.expanded {
-    padding-bottom: 5px; 
-    border: 1px solid var(--log-border-color, #333); /* Darker border */
-    margin-bottom: 2px; 
-    margin: auto;
-    width: 80%;
-    background-color: var(--log-entry-expanded-bg, #1e1e1e); /* Darker background like toolbar */
+.log-entry.expanded > .log-entry-timestamp,
+.log-entry.expanded > .log-entry-level,
+.log-entry.expanded > .log-entry-type,
+.log-entry.expanded > .log-entry-origin,
+.log-entry.expanded > .log-entry-message,
+.log-entry.expanded > .original-button {
+    display: none;
+}
+
+.log-entry.expanded .log-entry-expanded-content {
+    display: block;
+    width: 100%;
+}
+
+.log-entry.expanded {
+    background-color: var(--log-toolbar-bg);
+    border: 1px solid var(--color-blue-500);
+    padding: 0;
+    margin: var(--space-2) 0;
+    border-radius: var(--radius-sm);
     cursor: default;
-    overflow: visible; 
-    align-items: stretch; 
-    flex-direction: column; 
+    flex-direction: column;
 }
 
-/* Hide the original copy button when expanded */
-#log .log-entry.expanded .original-button {
+.log-entry.expanded .log-entry-expanded-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--log-toolbar-bg);
+    border-bottom: 1px solid var(--log-border-color);
+    margin-bottom: var(--space-1);
+    flex-wrap: wrap;
+    min-height: 24px;
+    flex-shrink: 0;
+}
+
+.log-entry-expanded-toolbar .token-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex-shrink: 0;
+}
+
+.log-entry-expanded-toolbar .button-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+}
+
+.log-entry:not(.expanded) .log-entry-expanded-toolbar {
     display: none;
 }
 
-/* Style the expanded toolbar */
-#log .log-entry.expanded .log-entry-expanded-toolbar {
-    display: flex; 
-    align-items: center; 
-    justify-content: flex-end; /* Ensure right alignment */
-    gap: 0.5em; 
-    padding: 4px 8px; 
-    background-color: var(--log-toolbar-expanded-bg, #2a2a2a); /* Existing shaded background */
-    border-bottom: 1px solid var(--log-border-color, #333); /* Existing darker border */
-    margin-bottom: 5px; 
-    flex-wrap: wrap; 
-    min-height: 24px; 
-    flex-shrink: 0; 
-    order: 1; 
+.log-entry.expanded .log-entry-text-wrapper {
+    padding: var(--space-1) var(--space-2);
+    display: block;
+    user-select: text;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+    overflow: visible;
+    text-overflow: clip;
+    color: var(--log-text-color);
 }
 
-/* Initially hide the expanded toolbar */
-#log .log-entry .log-entry-expanded-toolbar {
-    display: none; 
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
+    white-space: normal;
+    word-wrap: normal;
+    word-break: normal;
 }
 
-/* Style for the tokens within the expanded toolbar */
-#log .log-entry.expanded .log-token {
-    display: inline-block; 
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-size: 0.85em;
-    background-color: var(--log-token-bg, #444); /* Darker token background */
-    color: var(--log-token-color, #ccc); /* Lighter token text */
-    white-space: nowrap; 
+/* === LOG ENTRY BUTTONS === */
+
+.log-entry-button {
+    padding: var(--space-0-5) var(--space-1);
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.5;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-gray-600, #4b5563);
+    color: var(--color-gray-300, #d1d5db);
+    border: none;
+    flex-shrink: 0;
 }
 
-/* Specific token styles (adjusting for darker theme) */
-#log .log-entry.expanded .log-token-index {
-    font-weight: bold;
-    background-color: var(--log-token-index-bg, #557); /* Darker blue */
-    color: #eee;
+.log-entry-button.original-button {
+    margin-left: var(--space-1-5);
 }
 
-#log .log-entry.expanded .log-token-time {
-    background-color: var(--log-token-time-bg, #333); /* Darker gray */
-    color: #aaa;
+.log-entry-button:hover {
+    opacity: 1;
+    background-color: var(--color-gray-500, #6b7280);
 }
 
-#log .log-entry.expanded .log-token-type {
-    font-weight: bold;
-    text-transform: uppercase;
-    /* Use log type classes for specific colors (adjust for dark bg) */
-}
-#log .log-entry.expanded .log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
-#log .log-entry.expanded .log-token-type.log-type-debug { background-color: #444; color: #aaa; }
-#log .log-entry.expanded .log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
-#log .log-entry.expanded .log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
-#log .log-entry.expanded .log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
-/* Add other types as needed */
-
-#log .log-entry.expanded .log-token-subtype {
-    font-style: italic;
-    background-color: var(--log-token-subtype-bg, #2a4a5a); /* Darker teal/blue */
-    color: #bee;
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
+    padding: var(--space-px) var(--space-1);
+    font-size: 0.9em;
+    align-self: center;
+    background: var(--color-gray-600, #4b5563);
+    color: var(--color-gray-300, #d1d5db);
+    border: 1px solid var(--color-gray-500, #6b7280);
+    cursor: pointer;
+    opacity: 0.8;
 }
 
-/* Expanded message content */
-#log .log-entry.expanded .log-entry-text-wrapper {
-    padding: 5px 8px; 
-    display: block; 
-    user-select: text; 
-    white-space: pre-wrap; /* Default: Wrap raw text and preserve whitespace/newlines */
-    word-wrap: break-word; 
-    word-break: break-all; 
-    overflow: visible;     
-    text-overflow: clip;  
-    order: 2; 
-    color: #d4d4d4; /* Ensure message text is light */
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
+    opacity: 1;
+    background-color: var(--color-gray-500, #6b7280);
 }
 
-/* NEW: Override whitespace for rendered Markdown */
-#log .log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
-    white-space: normal; /* Let HTML elements control wrapping */
-    word-wrap: normal; /* Reset if needed */
-    word-break: normal; /* Reset if needed */
-}
-
-/* Ensure <pre> tags inside also have light text */
-/* MOVED to log-markdown.css with more specific rule
-#log .log-entry.expanded .log-entry-text-wrapper pre {
-    color: #d4d4d4;
-}
-*/
-
-/* Adjust the toolbar button style */
-#log .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
-     /* Using .log-entry-button base from earlier styles */
-     /* Ensure they appear correctly on the dark toolbar */
-     padding: 1px 4px; 
-     font-size: 0.9em;
-     align-self: center; 
-     background: #4b5563; /* Match theme */
-     color: #d1d5db; /* Match theme */
-     border: 1px solid #6b7280; /* Match theme */
-     cursor: pointer;
-     opacity: 0.8; 
-     order: 3; /* Ensure buttons come after tokens */
-}
-#log .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
-     opacity: 1;
-     background-color: #6b7280; /* Match theme */
-}
-
-/* NEW: Markdown Toggle Button Style */
-#log .log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button {
-    /* Inherit base button styles */
-    font-weight: bold;
-    /* Add specific styles if needed */
-}
-
-/* NEW: Active state for Markdown Toggle Button */
-#log .log-entry.expanded .log-entry-expanded-toolbar .markdown-toggle-button.active {
-    background-color: #60a5fa; /* Example: blue-400 */
+.markdown-toggle-button.active {
+    background-color: #60a5fa;
     color: #fff;
-    border-color: #3b82f6; /* Example: blue-500 */
+    border-color: #3b82f6;
     opacity: 1;
 }
 
-/* Log message types - RESTORED */
-#log .log-entry.log-error {
-    color: #f14c4c !important; /* Use !important if needed */
+/* === LOG TOKENS === */
+
+.log-token {
+    display: inline-block;
+    padding: var(--space-0-5) var(--space-1);
+    border-radius: var(--radius-sm);
+    font-size: 0.85em;
+    background-color: #444;
+    color: #ccc;
+    white-space: nowrap;
 }
 
-#log .log-entry.log-warning {
-    color: #ddb100 !important;
+.log-token-index {
+    font-weight: bold;
+    background-color: #557;
+    color: #eee;
 }
 
-#log .log-entry.log-config {
-    color: #3794ff !important;
+.log-token-time {
+    background-color: #333;
+    color: #aaa;
+}
+
+.log-token-type {
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
+.log-token-type.log-type-debug { background-color: #444; color: #aaa; }
+.log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
+.log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
+.log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
+
+.log-token-level {
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.log-token-origin {
+    font-style: italic;
+    background-color: #4a3a6a;
+    color: #eeddff;
+}
+
+.log-token-subtype {
+    font-style: italic;
+    background-color: #2a4a5a;
+    color: #bee;
+}
+
+/* === LOG MESSAGE TYPES === */
+
+.log-entry.log-error { color: #f14c4c; }
+.log-entry.log-warning { color: #ddb100; }
+.log-entry.log-config {
+    color: #3794ff;
     font-weight: bold;
     font-family: 'Consolas', monospace;
 }
 
-#log .log-entry.log-separator {
-    border-bottom: 2px solid #3794ff !important;
-    margin: 2px 0 !important;
-    padding: 0 !important;
+.log-entry.log-separator {
+    border-bottom: 2px solid #3794ff;
+    margin: var(--space-0-5) 0;
+    padding: 0;
     height: 0;
     cursor: default;
     color: transparent;
 }
 
-/* NEW: Style for Local Echo Output */
-#log .log-entry.log-entry-cli-local-echo {
-    color: #aaa; /* Different color for local output */
+.log-entry.log-entry-cli-local-echo {
+    color: #aaa;
     font-style: italic;
-    /* Ensure it doesn't have the interactive button */
-    /* button hiding might need more specific rules if structure changes */
-    /* > .original-button, > .log-entry-expanded-toolbar { display: none !important; } */
 }
 
-/* === Styles Moved from tailwind.css === */
+/* === FILTER TAGS BAR === */
 
-#cli-input {
-    /* Toned-down styles */
-    padding-top: 4px;
-    padding-bottom: 4px;
-    padding-left: 8px;
-    padding-right: 8px;
-    line-height: 1.1rem;
-    font-size: 14px;
-    background-color: #374151; /* gray-700 */
-    color: #d1d5db; /* gray-300 */
-    border: 1px solid #4b5563; /* gray-600 */
-    border-radius: 4px;
-    flex-grow: 1;
-}
-#cli-input:focus {
-    outline: none;
-    border-color: #60a5fa; /* blue-400 */
-}
-
-#cli-send-button {
-    line-height: 1.0rem;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    background: #4b5563;
-    border: 1px solid #6b7280;
-    color: #d1d5db;
-    border-radius: 4px;
-    padding-left: 12px;
-    padding-right: 12px;
-    cursor: pointer;
-}
-#cli-send-button:hover {
-    background-color: #6b7280;
-}
-
-.log-entry {
-    /* Density styles - These apply to both states */
-    margin-bottom: 0; /* MODIFIED - Was 1px */
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-family: monospace;
-    font-size: 11px;
-    line-height: 1.2;
-    color: #d4d4d4;
-    /* white-space: pre; */ /* Handled above */
-    /* overflow: hidden; */ /* Handled above */
-    /* text-overflow: ellipsis; */ /* Handled above */
-    cursor: pointer;
-    /* Combine with existing .log-entry styles if needed */
-}
-
-.log-entry-button {
-    /* Base styles for ALL log entry buttons */
-    padding: 2px 5px; /* <<< INCREASED Padding */
-    font-size: 13px;  /* <<< INCREASED Font Size */
-    line-height: 1; 
-    /* margin-left: 6px; */ /* Removed, handled by original-button class */
-    opacity: 0.5;
-    cursor: pointer;
-    border-radius: 3px;
-    background-color: #4b5563;
-    color: #d1d5db;
-    border: none;
-    flex-shrink: 0; /* Ensure buttons don't shrink */
-}
-.log-entry-button.original-button {
-    margin-left: 6px; /* Keep margin only for original button */
-}
-.log-entry-button:hover {
-    opacity: 1;
-    background-color: #6b7280;
-}
-
-/* === End Moved Styles === */
-
-/* === REMOVE Log Menu Styles for log entries === */
-/*
-#log .log-entry.log-menu {
-    background-color: #2a2a2a; 
-    border: 1px solid #444;
-    padding: 5px 8px; 
-    cursor: default; 
-    display: block; 
-}
-#log .log-menu .log-menu-items {
-    margin-top: 5px; 
-    display: flex;
-    flex-wrap: wrap; 
-    gap: 5px; 
-}
-#log .log-menu .log-menu-item {
-    display: inline-block;
-    padding: 2px 6px;
-    background-color: #4b5563; 
-    color: #d1d5db; 
-    border: 1px solid #6b7280; 
-    border-radius: 3px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-#log .log-menu .log-menu-item:hover {
-    background-color: #6b7280; 
-    color: #fff;
-}
-#log .log-entry.log-menu > .original-button,
-#log .log-entry.log-menu > .log-entry-expanded-toolbar {
-    display: none !important;
-}
-*/
-/* === END REMOVAL === */
-
-/* === NEW Toolbar Menu Styles === */
-
-/* Style the toggle button */
-#log-help-toggle-btn {
-    padding: 1px 6px; /* Make it squarish */
-    font-weight: bold;
-    flex-shrink: 0; /* Prevent shrinking */
-    /* Use base button styles */
-    background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
-    font-size: 12px;
-    border-radius: 3px;
-}
-#log-help-toggle-btn:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: #777;
-    color: #ccc;
-}
-
-/* NEW: Styles for State A/B Buttons */
-#log-state-a-btn, 
-#log-state-b-btn {
-    padding: 1px 6px; /* Match help button */
-    font-weight: bold;
-    flex-shrink: 0;
-    background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
-    font-size: 12px;
-    border-radius: 3px;
-    margin-left: 4px; /* Space from Send button */
-}
-
-#log-state-a-btn:hover,
-#log-state-b-btn:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: #777;
-    color: #ccc;
-}
-
-/* Feedback when state is set */
-#log-state-a-btn.state-set,
-#log-state-b-btn.state-set {
-    background-color: #374151; /* Example: gray-700 */
-    border-color: #60a5fa; /* Example: blue-400 */
-    color: #fff;
-}
-
-/* Log Menu Container (Dropdown) */
-#log-menu-container {
-    display: none; /* Hidden by default */
-    position: absolute;
-    top: 40px; /* Position below the hamburger button */
-    left: 10px;
-    width: 180px;
-    background-color: #333;
-    border: 1px solid #444;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 4px 0;
-}
-
-#log-menu-container.visible {
-    display: block;
-}
-
-/* Menu Items inside container */
-#log-menu-container .log-menu-item {
-    display: block; /* Vertical layout */
-    padding: 4px 8px;
-    color: #d1d5db;
-    font-size: 12px;
-    cursor: pointer;
-    border-radius: 3px;
-    white-space: nowrap; /* Prevent wrapping */
-}
-
-#log-menu-container .log-menu-item:hover {
-    background-color: #4b5563; /* gray-600 on hover */
-    color: #fff;
-}
-
-/* Active menu items (with checkmarks) */
-#log-menu-container .log-menu-item[style*="font-weight: bold"] {
-    background-color: #374151; /* Slightly darker background for active items */
-    color: #60a5fa; /* Blue color for active items */
-}
-
-/* NEW: Separator in Menu */
-#log-menu-container .log-menu-separator {
-    height: 1px;
-    background-color: #444; /* Match border color */
-    margin: 4px 0; /* Add vertical spacing */
-}
-
-/* NEW: Version info in Menu */
-#log-menu-container .log-menu-version {
-    padding: 4px 8px;
-    font-size: 10px;
-    color: #666; /* Match old toolbar version color */
-    font-family: monospace;
-    text-align: center;
-    cursor: default; /* Not clickable */
-}
-
-/* === Log Filtering Tags Bar === */
 #log-tags-bar {
     display: flex;
-    flex-wrap: wrap; /* Allow the entire bar to wrap */
-    padding: 4px 8px;
-    padding-left: 3rem;
-    background-color: var(--ink-paper-dark);
-    border-bottom: 1px solid #333;
-    gap: 10px;
-    align-items: flex-start; /* Changed from center to flex-start to handle wrapped content better */
+    flex-direction: column;
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--log-toolbar-bg);
+    border-bottom: 1px solid var(--log-border-color);
+    gap: var(--space-2);
 }
 
-/* Filter group container */
+.log-controls-wrapper {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+
+.log-filter-groups-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2-5);
+    align-items: center;
+}
+
 .log-filter-group {
     display: flex;
     align-items: center;
-    gap: 3px;
-    margin-right: 8px;
-    flex-wrap: wrap; /* Allow groups to wrap internally */
+    gap: var(--space-1);
+    margin-right: var(--space-2);
+    flex-wrap: wrap;
 }
 
-/* Filter group labels */
 .log-filter-group-label {
     font-size: 10px;
     color: #888;
-    margin-right: 4px;
+    margin-right: var(--space-1);
     white-space: nowrap;
 }
 
-/* Base filter button styles */
+/* === TAG BUTTONS === */
+
 .log-tag-button {
-    padding: 2px 6px;
-    font-size: 11px;
-    color: #ccc;
-    background-color: #4b5563;
-    border: 1px solid #555;
-    border-radius: 3px;
+    padding: var(--space-0-5) var(--space-1-5);
+    border: 1px solid var(--log-border-color);
+    border-radius: var(--radius-base);
+    background-color: transparent;
+    color: var(--color-blue-500);
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-    white-space: nowrap;
+    font-size: var(--font-size-xs);
+    transition: all var(--transition-fast);
 }
 
 .log-tag-button:hover {
-    background-color: #6b7280;
-    border-color: #777;
-    color: #fff;
+    background-color: var(--table-header-bg-alt, rgba(0,0,0,0.15));
+    border-color: var(--border-color);
+    color: var(--color-foreground-secondary);
 }
 
-/* Clear Log button - different color */
-.log-tag-button.clear-log-button {
-    background-color: #374151 !important;
-    border-color: #374151 !important;
-    color: #fff !important;
-    margin-right: 8px;
-}
-
-.log-tag-button.clear-log-button:hover {
-    background-color: #4b5563 !important;
-    border-color: #4b5563 !important;
-}
-
-/* Clear Filters button */
-.log-tag-button.clear-filters-button {
-    background-color: #64748b !important;
-    border-color: #64748b !important;
-    color: #fff !important;
-    margin-right: 8px;
-}
-
-.log-tag-button.clear-filters-button:not(.disabled):hover {
-    background-color: #78716c !important;
-    border-color: #78716c !important;
-}
-
-/* Source category - navy blue */
-.log-tag-button.filter-source {
-    background-color: #1e40af !important;
-    border-color: #1e40af !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-source:hover {
-    background-color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
-}
-
-.log-tag-button.filter-source.active {
-    background-color: #60a5fa !important;
-    border-color: #60a5fa !important;
+.log-tag-button.active {
+    background-color: var(--link-color, #2563eb);
+    border-color: var(--link-color, #2563eb);
+    color: #ffffff;
     font-weight: bold;
 }
 
-/* Level category - forest green */
-.log-tag-button.filter-level {
-    background-color: #059669 !important;
-    border-color: #059669 !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-level:hover {
-    background-color: #10b981 !important;
-    border-color: #10b981 !important;
-}
-
-.log-tag-button.filter-level.active {
-    background-color: #34d399 !important;
-    border-color: #34d399 !important;
-    font-weight: bold;
-}
-
-/* Type category - purple */
-.log-tag-button.filter-type {
-    background-color: #7c3aed !important;
-    border-color: #7c3aed !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-type:hover {
-    background-color: #8b5cf6 !important;
-    border-color: #8b5cf6 !important;
-}
-
-.log-tag-button.filter-type.active {
-    background-color: #a78bfa !important;
-    border-color: #a78bfa !important;
-    font-weight: bold;
-}
-
-/* Subtype category - amber */
-.log-tag-button.filter-subtype {
-    background-color: #d97706 !important;
-    border-color: #d97706 !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-subtype:hover {
-    background-color: #f59e0b !important;
-    border-color: #f59e0b !important;
-}
-
-.log-tag-button.filter-subtype.active {
-    background-color: #fbbf24 !important;
-    border-color: #fbbf24 !important;
-    font-weight: bold;
-}
-
-/* Future category options - burgundy and teal inks */
-.log-tag-button.filter-category-7 {
-    background-color: var(--ink-burgundy);
-    border-color: var(--ink-burgundy);
-    color: #fff;
-}
-
-.log-tag-button.filter-category-7:hover {
-    background-color: var(--ink-burgundy-light);
-    border-color: var(--ink-burgundy-light);
-}
-
-.log-tag-button.filter-category-7.active {
-    background-color: var(--ink-burgundy-active);
-    border-color: var(--ink-burgundy-active);
-    color: #fff;
-    font-weight: bold;
-    box-shadow: 0 0 0 1px var(--ink-burgundy-active);
-}
-
-.log-tag-button.filter-category-8 {
-    background-color: var(--ink-teal);
-    border-color: var(--ink-teal);
-    color: #fff;
-}
-
-.log-tag-button.filter-category-8:hover {
-    background-color: var(--ink-teal-light);
-    border-color: var(--ink-teal-light);
-}
-
-.log-tag-button.filter-category-8.active {
-    background-color: var(--ink-teal-active);
-    border-color: var(--ink-teal-active);
-    color: #fff;
-    font-weight: bold;
-    box-shadow: 0 0 0 1px var(--ink-teal-active);
-}
-
-/* Disabled state for all filter buttons */
 .log-tag-button.disabled {
     background-color: #3a3f47;
     color: #777;
@@ -798,398 +455,42 @@
     opacity: 0.6;
 }
 
-/* Class to hide log entries that are filtered out */
-.log-entry-hidden-by-filter {
-    display: none !important; 
-}
-
-/* --- Styles Moved from tailwind.css --- */
-
-/* Log visibility animation states */
-.log-hiding {
-    opacity: 0;
-    height: 0 !important;
-    overflow: hidden;
-}
-
-.log-showing {
-    opacity: 1;
-}
-
-/* Preview container adjustments based on log visibility */
-/* Assumes log-visible/log-hidden classes are applied to .preview-container */
-.preview-container.log-visible {
-    max-height: calc(100vh - var(--log-height, 120px) - 50px); /* Adjust 50px nav height if needed */
-    transition: max-height 0.3s ease;
-}
-
-.preview-container.log-hidden {
-    max-height: calc(100vh - 50px); /* Adjust 50px nav height if needed */
-    transition: max-height 0.3s ease;
-}
-
-.log-tag-button.clear-filters-button {
-    /* Optional: Differentiate "Clear Filters" button */
-    /* e.g., background-color: #555; */
-}
-
-/* General disabled state for tag buttons, including clear/show all */
-.log-tag-button.disabled {
-    background-color: #3a3f47; /* Example disabled style */
-    color: #777;
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-/* Ensure hover on non-disabled "Clear Filters" is consistent */
-.log-tag-button.clear-filters-button:not(.disabled):hover {
-    background-color: #6b7280; /* Match other tag buttons' hover */
-    border-color: #777;
+/* Control buttons */
+.log-tag-button.clear-log-button {
+    background-color: #dc2626;
+    border-color: #b91c1c;
     color: #fff;
-}
-
-.log-tag-button.master-control-button {
-    /* Optional: Differentiate the master control button if desired */
-    /* font-weight: bold; */
-    /* margin-right: 5px; */ /* Add some space if needed */
-}
-
-/* General disabled state for tag buttons */
-.log-tag-button.disabled {
-    background-color: #3a3f47; 
-    color: #777;
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-/* Code fence menu styles */
-.log-entry-codefence-menu-btn {
-  position: absolute;
-  top: 0.3em;
-  right: 0.3em;
-  z-index: 10;
-  padding: 1px 4px;
-  font-size: 12px;
-  background-color: rgba(224, 224, 224, 0.8);
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  cursor: pointer;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.log-entry-codefence-menu-btn:hover {
-  opacity: 1;
-}
-
-.log-entry-codefence-menu {
-  position: absolute;
-  top: calc(0.3em + 18px);
-  right: 0.3em;
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-  z-index: 20;
-  display: none;
-  padding: 5px 0;
-  min-width: 180px;
-}
-
-.log-entry-codefence-menu-item {
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.log-entry-codefence-menu-item:hover {
-  background-color: #f0f0f0;
-}
-
-/* HTML iframe styles */
-.log-entry-html-iframe {
-  width: 100%;
-  height: 300px;
-  border: 1px solid #ccc;
-  background-color: #fff;
-}
-
-/* Expanded log entry toolbar styles */
-.log-entry-expanded-toolbar .button-wrapper {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-/* Style log entries based on visibility */
-.log-entry.log-entry-hidden-by-filter {
-  display: none;
-}
-
-/* Clear Log button in tags bar - distinct styling */
-.log-tag-button.clear-log-button {
-    background-color: #dc2626; /* red-600 - more prominent than Clear Filters */
-    border-color: #b91c1c; /* red-700 */
-    color: #fff;
-    margin-right: 8px; /* Add space after Clear Log */
+    margin-right: var(--space-2);
 }
 
 .log-tag-button.clear-log-button:hover {
-    background-color: #b91c1c; /* red-700 */
-    border-color: #991b1b; /* red-800 */
+    background-color: #b91c1c;
+    border-color: #991b1b;
 }
 
-/* Clear Filters button - keep existing style but add some spacing */
-.log-tag-button.clear-filters-button {
-    margin-right: 8px; /* Add space after Clear Filters */
-}
-
-/* === Paper & Ink Color Scheme === */
-:root {
-  /* Base paper colors */
-  --ink-paper-base: #f8f9fa;
-  --ink-paper-dark: #2a2a2a;
-  
-  /* 8-color ink palette - muted, professional tones */
-  --ink-charcoal: #374151;      /* Clear Log - dark charcoal */
-  --ink-slate: #64748b;         /* Clear Filters - neutral slate */
-  --ink-navy: #1e40af;          /* Source - deep navy blue */
-  --ink-forest: #059669;        /* Level - forest green */
-  --ink-plum: #7c3aed;          /* Type - rich plum purple */
-  --ink-amber: #d97706;         /* Subtype - warm amber */
-  --ink-burgundy: #991b1b;      /* Additional - deep burgundy */
-  --ink-teal: #0d9488;          /* Additional - professional teal */
-  
-  /* Lighter variants for hover states */
-  --ink-charcoal-light: #4b5563;
-  --ink-slate-light: #78716c;
-  --ink-navy-light: #3b82f6;
-  --ink-forest-light: #10b981;
-  --ink-plum-light: #8b5cf6;
-  --ink-amber-light: #f59e0b;
-  --ink-burgundy-light: #dc2626;
-  --ink-teal-light: #14b8a6;
-  
-  /* Even lighter variants for active states */
-  --ink-charcoal-active: #6b7280;
-  --ink-slate-active: #a8a29e;
-  --ink-navy-active: #60a5fa;
-  --ink-forest-active: #34d399;
-  --ink-plum-active: #a78bfa;
-  --ink-amber-active: #fbbf24;
-  --ink-burgundy-active: #f87171;
-  --ink-teal-active: #5eead4;
-}
-
-/* Enhanced filter bar with grouped categories */
-.log-filter-group {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    margin-right: 8px;
-}
-
-.log-filter-group-label {
-    font-size: 10px;
-    color: #888;
-    margin-right: 4px;
-    white-space: nowrap;
-}
-
-/* Clear Log button - dark charcoal */
-.log-tag-button.clear-log-button {
-    background-color: #374151 !important;
-    border-color: #374151 !important;
-    color: #fff !important;
-    margin-right: 8px;
-}
-
-.log-tag-button.clear-log-button:hover {
-    background-color: #4b5563 !important;
-    border-color: #4b5563 !important;
-}
-
-/* Clear Filters button - slate */
-.log-tag-button.clear-filters-button {
-    background-color: #64748b !important;
-    border-color: #64748b !important;
-    color: #fff !important;
-    margin-right: 8px;
-}
-
-.log-tag-button.clear-filters-button:not(.disabled):hover {
-    background-color: #78716c !important;
-    border-color: #78716c !important;
-}
-
-/* Source category - navy blue */
-.log-tag-button.filter-source {
-    background-color: #1e40af !important;
-    border-color: #1e40af !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-source:hover {
-    background-color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
-}
-
-.log-tag-button.filter-source.active {
-    background-color: #60a5fa !important;
-    border-color: #60a5fa !important;
-    font-weight: bold;
-}
-
-/* Level category - forest green */
-.log-tag-button.filter-level {
-    background-color: #059669 !important;
-    border-color: #059669 !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-level:hover {
-    background-color: #10b981 !important;
-    border-color: #10b981 !important;
-}
-
-.log-tag-button.filter-level.active {
-    background-color: #34d399 !important;
-    border-color: #34d399 !important;
-    font-weight: bold;
-}
-
-/* Type category - purple */
-.log-tag-button.filter-type {
-    background-color: #7c3aed !important;
-    border-color: #7c3aed !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-type:hover {
-    background-color: #8b5cf6 !important;
-    border-color: #8b5cf6 !important;
-}
-
-.log-tag-button.filter-type.active {
-    background-color: #a78bfa !important;
-    border-color: #a78bfa !important;
-    font-weight: bold;
-}
-
-/* Subtype category - amber */
-.log-tag-button.filter-subtype {
-    background-color: #d97706 !important;
-    border-color: #d97706 !important;
-    color: #fff !important;
-}
-
-.log-tag-button.filter-subtype:hover {
-    background-color: #f59e0b !important;
-    border-color: #f59e0b !important;
-}
-
-.log-tag-button.filter-subtype.active {
-    background-color: #fbbf24 !important;
-    border-color: #fbbf24 !important;
-    font-weight: bold;
-}
-
-/* Ghost/outline button style - OFF state */
-.log-tag-button.ghost {
-    background-color: transparent !important;
-    border: 2px solid currentColor !important;
-    opacity: 0.5 !important;
-}
-
-.log-tag-button.ghost:hover {
-    opacity: 0.8 !important;
-    background-color: rgba(255,255,255,0.1) !important;
-}
-
-/* Active/solid button style - ON state */
-.log-tag-button.active {
-    opacity: 1 !important;
-    /* Keep existing category colors */
-}
-
-/* Control group for main action buttons */
-.log-filter-control-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-right: 16px;
-    padding-right: 16px;
-    border-right: 1px solid #555;
-    flex-wrap: wrap; /* Allow control buttons to wrap if needed */
-}
-
-/* Clear Log button - red */
-.log-tag-button.clear-log-button {
-    background-color: #dc2626 !important;
-    border-color: #b91c1c !important;
-    color: #fff !important;
-}
-
-.log-tag-button.clear-log-button:hover {
-    background-color: #b91c1c !important;
-    border-color: #991b1b !important;
-}
-
-/* Select All button - green */
 .log-tag-button.select-all-button {
-    background-color: #059669 !important;
-    border-color: #047857 !important;
-    color: #fff !important;
+    background-color: #059669;
+    border-color: #047857;
+    color: #fff;
 }
 
 .log-tag-button.select-all-button:hover {
-    background-color: #047857 !important;
-    border-color: #065f46 !important;
+    background-color: #047857;
+    border-color: #065f46;
 }
 
-/* Clear All button - gray */
-.log-tag-button.clear-all-button {
-    background-color: #6b7280 !important;
-    border-color: #4b5563 !important;
-    color: #fff !important;
-}
-
-.log-tag-button.clear-all-button:hover {
-    background-color: #4b5563 !important;
-    border-color: #374151 !important;
-}
-
-/* Reset button - blue */
 .log-tag-button.clear-filters-button {
-    background-color: #2563eb !important;
-    border-color: #1d4ed8 !important;
-    color: #fff !important;
+    background-color: #2563eb;
+    border-color: #1d4ed8;
+    color: #fff;
+    margin-right: var(--space-2);
 }
 
 .log-tag-button.clear-filters-button:hover {
-    background-color: #1d4ed8 !important;
-    border-color: #1e40af !important;
+    background-color: #1d4ed8;
+    border-color: #1e40af;
 }
 
-/* Ghost/outline button style - OFF state */
-.log-tag-button.ghost {
-    background-color: transparent !important;
-    border: 2px solid currentColor !important;
-    opacity: 0.5 !important;
-}
-
-.log-tag-button.ghost:hover {
-    opacity: 0.8 !important;
-    background-color: rgba(255,255,255,0.1) !important;
-}
-
-/* Active/solid button style - ON state */
-.log-tag-button.active {
-    opacity: 1 !important;
-}
-
-/* Copy button styling */
 .log-tag-button.copy-button {
     background-color: #4b5563;
     color: #d1d5db;
@@ -1200,23 +501,6 @@
     background-color: #6b7280;
 }
 
-/* Ensure expanded entries maintain dark theme */
-#log .log-entry.expanded {
-    background-color: #1e1e1e !important;
-    color: #d4d4d4 !important;
-}
-
-#log .log-entry.expanded * {
-    background-color: inherit;
-    color: inherit;
-}
-
-#log .log-entry.expanded .log-entry-text-wrapper {
-    background-color: transparent !important;
-    color: #d4d4d4 !important;
-}
-
-/* Collapse All button styling */
 .log-tag-button.collapse-all-button {
     background-color: #6b7280;
     color: #d1d5db;
@@ -1225,4 +509,355 @@
 
 .log-tag-button.collapse-all-button:hover {
     background-color: #4b5563;
+}
+
+.log-filter-control-group {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.log-filter-copy-group {
+    display: flex;
+}
+
+.log-filter-control-group .copy-button,
+.log-filter-control-group .collapse-all-button {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    line-height: 1;
+}
+
+.log-filter-copy-group .copy-button .icon {
+    width: 16px;
+    height: 16px;
+}
+
+.log-filter-control-group .collapse-all-button {
+    font-size: 1.2rem;
+}
+
+.toggle-types-button {
+    background-color: #ca8a04;
+    border-color: #a16207;
+    color: #fff;
+}
+
+.toggle-types-button:hover {
+    background-color: #a16207;
+    border-color: #854d0e;
+}
+
+.toggle-types-button.active {
+    background-color: #facc15;
+    border-color: #eab308;
+    color: #422006;
+}
+
+/* Category colors */
+.log-tag-button.filter-source {
+    background-color: #1e40af;
+    border-color: #1e40af;
+    color: #fff;
+}
+
+.log-tag-button.filter-source:hover {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.log-tag-button.filter-source.active {
+    background-color: #60a5fa;
+    border-color: #60a5fa;
+    font-weight: bold;
+}
+
+.log-tag-button.filter-level {
+    background-color: #059669;
+    border-color: #059669;
+    color: #fff;
+}
+
+.log-tag-button.filter-level:hover {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+.log-tag-button.filter-level.active {
+    background-color: #34d399;
+    border-color: #34d399;
+    font-weight: bold;
+}
+
+.log-tag-button.filter-type {
+    background-color: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+}
+
+.log-tag-button.filter-type:hover {
+    background-color: #8b5cf6;
+    border-color: #8b5cf6;
+}
+
+.log-tag-button.filter-type.active {
+    background-color: #a78bfa;
+    border-color: #a78bfa;
+    font-weight: bold;
+}
+
+.log-tag-button.filter-subtype {
+    background-color: #d97706;
+    border-color: #d97706;
+    color: #fff;
+}
+
+.log-tag-button.filter-subtype:hover {
+    background-color: #f59e0b;
+    border-color: #f59e0b;
+}
+
+.log-tag-button.filter-subtype.active {
+    background-color: #fbbf24;
+    border-color: #fbbf24;
+    font-weight: bold;
+}
+
+/* === CLI INPUT === */
+
+#cli-input {
+    flex-grow: 1;
+    padding: var(--space-1) var(--space-2);
+    line-height: 1.1rem;
+    font-size: 14px;
+    background-color: #374151;
+    color: #d1d5db;
+    border: 1px solid #4b5563;
+    border-radius: var(--radius-base);
+    font-family: var(--font-family-code);
+}
+
+#cli-input:focus {
+    outline: none;
+    border-color: #60a5fa;
+}
+
+#cli-send-button {
+    line-height: 1.0rem;
+    padding: var(--space-1) var(--space-3);
+    background: #4b5563;
+    border: 1px solid #6b7280;
+    color: #d1d5db;
+    border-radius: var(--radius-base);
+    cursor: pointer;
+}
+
+#cli-send-button:hover {
+    background-color: #6b7280;
+}
+
+/* === MENU STYLES === */
+
+#log-menu-container {
+    display: none;
+    position: absolute;
+    top: 40px;
+    left: var(--space-2-5);
+    width: 180px;
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: var(--radius-base);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    z-index: 1000;
+    padding: var(--space-1) 0;
+}
+
+#log-menu-container.visible {
+    display: block;
+}
+
+#log-menu-container .log-menu-item {
+    display: block;
+    padding: var(--space-1) var(--space-2);
+    color: #d1d5db;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+#log-menu-container .log-menu-item:hover {
+    background-color: #4b5563;
+    color: #fff;
+}
+
+#log-menu-container .log-menu-separator {
+    height: 1px;
+    background-color: #444;
+    margin: var(--space-1) 0;
+}
+
+#log-menu-container .log-menu-version {
+    padding: var(--space-1) var(--space-2);
+    font-size: 10px;
+    color: #666;
+    font-family: monospace;
+    text-align: center;
+    cursor: default;
+}
+
+/* === HELP TOGGLE BUTTON === */
+
+#log-help-toggle-btn {
+    padding: var(--space-px) var(--space-1-5);
+    font-weight: bold;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+}
+
+#log-help-toggle-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #777;
+    color: #ccc;
+}
+
+/* === STATE BUTTONS === */
+
+#log-state-a-btn, 
+#log-state-b-btn {
+    padding: var(--space-px) var(--space-1-5);
+    font-weight: bold;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    margin-left: var(--space-1);
+}
+
+#log-state-a-btn:hover,
+#log-state-b-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #777;
+    color: #ccc;
+}
+
+#log-state-a-btn.state-set,
+#log-state-b-btn.state-set {
+    background-color: #374151;
+    border-color: #60a5fa;
+    color: #fff;
+}
+
+/* === UTILITY CLASSES === */
+
+.log-entry-hidden-by-filter {
+    display: none;
+}
+
+.log-hiding {
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.log-showing {
+    opacity: 1;
+}
+
+/* === PREVIEW CONTAINER ADJUSTMENTS === */
+
+.preview-container.log-visible {
+    max-height: calc(100vh - var(--log-height, 120px) - 50px);
+    transition: max-height 0.3s ease;
+}
+
+.preview-container.log-hidden {
+    max-height: calc(100vh - 50px);
+    transition: max-height 0.3s ease;
+}
+
+/* === LOG ENTRY COLUMNS === */
+
+.log-entry-timestamp {
+    flex-shrink: 0;
+    margin-right: var(--space-6);
+    margin-left: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted, #888);
+    user-select: none;
+    width: 5rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.log-entry-level {
+    flex-shrink: 0;
+    margin-right: var(--space-4);
+    margin-left: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--text-muted, #888);
+    width: 3.5rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.log-entry-type {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-blue-500);
+    background-color: transparent;
+    transition: color var(--transition-fast);
+    flex-shrink: 0;
+    width: 7rem;
+    margin-right: var(--space-2);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-entry-type:hover {
+    color: var(--color-blue-400);
+    background-color: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+.log-entry-origin {
+    font-weight: normal;
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.7rem;
+    color: var(--text-muted, #888);
+    width: 5.5rem;
+    text-align: left;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.log-entry-message {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: var(--space-2);
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.8rem;
+    color: var(--text-color);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: hidden;
 }

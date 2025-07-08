@@ -245,12 +245,15 @@ export class PreviewManager {
           // Detect file type and route to appropriate renderer
           const fileExtension = this.getFileExtension(filePath);
           let renderResult;
+          let isHtml = false;
 
           if (this.isHtmlFile(fileExtension)) {
             // Use HTML renderer for HTML files
-            logMessage(`[PreviewManager.update] Using HTML renderer for: ${filePath}`, "debug", "PREVIEW");
-            const { previewRenderer } = await import('/client/preview/PreviewRenderer.js');
-            renderResult = await previewRenderer.render(content, filePath, this.previewElement);
+            renderResult = { html: content };
+            isHtml = true;
+          } else if (this.isImageFile(fileExtension)) {
+            // Use Image renderer for image files
+            renderResult = { html: `<img src="${filePath}" alt="Preview of ${filePath}">` };
           } else {
             // Use existing markdown rendering for markdown files and others
             logMessage(`[PreviewManager.update] Using markdown renderer for: ${filePath}`, "debug", "PREVIEW");
@@ -342,6 +345,15 @@ export class PreviewManager {
             logMessage(`[PreviewManager.update] Skipping postProcessRender for iframe mode or missing preview element`, "debug", "PREVIEW");
           }
 
+          // Only process plugins for non-HTML content
+          if (!isHtml) {
+            await processPlugins(this.previewElement, renderResult);
+          }
+          
+          await postProcessRender(this.previewElement);
+
+          this.previewElement.scrollTop = 0;
+
           resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
 
         } catch (error) {
@@ -412,6 +424,13 @@ export class PreviewManager {
    */
   isHtmlFile(extension) {
     return ['html', 'htm'].includes(extension.toLowerCase());
+  }
+
+  /**
+   * Helper function to check if file is an image
+   */
+  isImageFile(extension) {
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension.toLowerCase());
   }
 
   handleFrontMatter(data = {}) {
@@ -659,6 +678,10 @@ export function updatePreview(content, markdownFilePath) {
   if (!previewInstance) {
     console.error('[updatePreview] Preview not initialized. Call initPreview() first.');
     return;
+  }
+  // Ensure markdownFilePath is always a string to prevent errors
+  if (typeof markdownFilePath !== 'string') {
+    markdownFilePath = '';
   }
   previewInstance.update(content, markdownFilePath);
 }

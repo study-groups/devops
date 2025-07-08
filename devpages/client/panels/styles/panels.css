@@ -240,7 +240,7 @@
 
 /* Hide the Add Panel button completely */
 .btn-add-panel {
-    display: none !important;
+    display: none;
 }
 
 /* === Base Panel Styles === */

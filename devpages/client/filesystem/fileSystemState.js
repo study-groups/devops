@@ -3,6 +3,7 @@
  * Handles persistence/loading of the filesystem context, prioritizing URL parameters.
  */
 import { pathJoin } from '/client/utils/pathUtils.js'; // Assuming path utils exist
+import { loadLastOpened } from '/client/store/reducers/fileReducer.js';
 
 // Helper for logging
 function logFS(message, level = 'text') {
@@ -20,11 +21,12 @@ function logFS(message, level = 'text') {
 
 /**
  * Load the initial filesystem path, prioritizing the URL 'pathname' parameter.
- * Returns { initialPathname: string | null }
+ * If no URL parameter, falls back to localStorage for last opened file.
+ * Returns { initialPathname: string | null, isDirectorySelected: boolean }
  */
 export function loadState() {
     try {
-        // Get parameters from URL
+        // Get parameters from URL first (highest priority)
         const params = new URLSearchParams(window.location.search);
         const pathname = params.get('pathname') || null;
         
@@ -33,12 +35,25 @@ export function loadState() {
         if (pathname) {
             // Consider it a file if it has an extension
             isDirectorySelected = !/\.[^/]+$/.test(pathname);
+            console.log(`[FileSystemState] Loaded pathname from URL: "${pathname}" (${isDirectorySelected ? 'directory' : 'file'})`);
+            return { 
+                initialPathname: pathname,
+                isDirectorySelected 
+            };
         }
         
-        return { 
-            initialPathname: pathname,
-            isDirectorySelected 
-        };
+        // If no URL parameter, try to restore from localStorage
+        const lastOpened = loadLastOpened();
+        if (lastOpened.pathname) {
+            console.log(`[FileSystemState] No URL parameter, restored from localStorage: "${lastOpened.pathname}" (${lastOpened.isDirectory ? 'directory' : 'file'})`);
+            return {
+                initialPathname: lastOpened.pathname,
+                isDirectorySelected: lastOpened.isDirectory
+            };
+        }
+        
+        console.log('[FileSystemState] No URL parameter or localStorage data, starting fresh');
+        return { initialPathname: null, isDirectorySelected: true };
     } catch (error) {
         console.error("Error loading file system state:", error);
         return { initialPathname: null, isDirectorySelected: true };

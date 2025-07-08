@@ -42,15 +42,18 @@ export class CssFileManager {
             } else if (cssFile.type === 'inline') {
                 const style = cssFile.element;
                 if (style) {
-        const file = this.cssFiles.get(href);
-        if (file && file.element) {
-            file.element.disabled = !enabled;
-            file.enabled = enabled;
-            console.log(`[CssFileManager] Toggled ${href} to ${enabled ? 'enabled' : 'disabled'}`);
-            return true;
+                    style.disabled = !enabled;
+                    cssFile.disabled = !enabled;
+                    console.log(`[CssFileManager] Toggled inline style ${href} to ${enabled ? 'enabled' : 'disabled'}`);
+                    return true;
+                }
+            }
+            console.warn(`[CssFileManager] Could not find element for href to toggle: ${href}`);
+            return false;
+        } catch (error) {
+            console.error(`[CssFileManager] Error toggling file ${href}:`, error);
+            return false;
         }
-        console.warn(`[CssFileManager] File not found for toggle: ${href}`);
-        return false;
     }
 
     /**
@@ -330,5 +333,56 @@ export class CssFileManager {
 
         console.log(`[CssFileManager] Backup restoration completed:`, results);
         return results;
+    }
+
+    /**
+     * Scans the document for stylesheets, categorizes them, and updates the internal state.
+     */
+    scanAndCategorize() {
+        this.cssFiles.clear();
+        const stylesheets = Array.from(document.styleSheets);
+
+        stylesheets.forEach((sheet, index) => {
+            try {
+                const isExternal = !!sheet.href;
+                const href = sheet.href || `inline-style-${index}`;
+                const fileInfo = {
+                    href: href,
+                    id: href,
+                    element: sheet.ownerNode,
+                    type: isExternal ? 'external' : 'inline',
+                    disabled: sheet.disabled,
+                    size: null, // Placeholder, can be fetched if needed
+                    rulesCount: sheet.cssRules ? sheet.cssRules.length : 0,
+                    isTheme: this._isThemeCss(href),
+                    isSystem: this._isSystemCss(href),
+                    isApp: false // Logic to be refined
+                };
+                fileInfo.isApp = !fileInfo.isTheme && !fileInfo.isSystem && isExternal;
+
+                this.cssFiles.set(href, fileInfo);
+            } catch (e) {
+                // Ignore CORS errors for cross-domain stylesheets
+            }
+        });
+    }
+
+    /**
+     * Checks if a CSS file is theme-related.
+     * @param {string} href
+     * @returns {boolean}
+     */
+    _isThemeCss(href) {
+        return /theme\.css$|dark-mode\.css$|light-mode\.css$|colors?\.css$|appearance\.css$/i.test(href) &&
+            !/ThemeSelectorPanel|panels|settings/i.test(href);
+    }
+
+    /**
+     * Checks if a CSS file is system-related.
+     * @param {string} href
+     * @returns {boolean}
+     */
+    _isSystemCss(href) {
+        return /bootstrap|foundation|bulma|tailwind|normalize|reset|framework|vendor|lib|node_modules|cdn|googleapis/i.test(href);
     }
 } 

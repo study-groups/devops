@@ -27,11 +27,11 @@
 
 /* Remove margin from first and last elements */
 #content-view-wrapper > :first-child {
-    margin-top: 0 !important;
+    margin-top: 0;
 }
 
 #content-view-wrapper > :last-child {
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
 }
 
 /* Responsive adjustments */

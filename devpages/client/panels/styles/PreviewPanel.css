@@ -42,12 +42,12 @@
 /* Remove margin from the first and last elements to prevent extra space */
 .preview-container > :first-child,
 #content-view-wrapper > :first-child {
-    margin-top: 0 !important;
+    margin-top: 0;
 }
 
 .preview-container > :last-child,
 #content-view-wrapper > :last-child {
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
 }
 
 /* ===== IFRAME STYLES (for preview mode) ===== */
@@ -80,7 +80,7 @@
     margin-bottom: var(--density-space-md);
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
-    color: var(--color-foreground);
+    color: var(--heading-color, var(--color-foreground));
 }
 
 .preview-container h1:first-child,
@@ -183,6 +183,10 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     color: var(--color-foreground);
+    
+    /* Improved inline code appearance */
+    line-height: 1.4; /* Better line height for inline code */
+    vertical-align: baseline; /* Better alignment with surrounding text */
 }
 
 .preview-container pre {
@@ -192,6 +196,10 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     overflow-x: auto;
+    
+    /* Improved sizing for better code block appearance */
+    min-height: auto; /* Let content determine height */
+    line-height: 1.5; /* Better line spacing for code */
     
     /* Custom scrollbar for code blocks */
     scrollbar-width: thin;
@@ -218,6 +226,11 @@
     background: none;
     border: none;
     color: inherit;
+    
+    /* Ensure proper code formatting in pre blocks */
+    line-height: inherit; /* Inherit line-height from pre element */
+    vertical-align: baseline;
+    white-space: pre; /* Preserve whitespace formatting */
 }
 
 /* Tables */

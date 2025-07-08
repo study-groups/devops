@@ -9,7 +9,7 @@
 
 import { appStore } from '/client/appState.js';
 import { settingsRegistry } from '../core/settingsRegistry.js';
-import { panelEventBus } from '../core/panelEventBus.js';
+import { eventBus } from '/client/eventBus.js';
 
 export class PanelIntrospector {
   constructor() {
@@ -97,7 +97,10 @@ export class PanelIntrospector {
       panelInstance,
       appState,
       relevantEvents,
-      panelEventBusStats: panelEventBus.getStats()
+      eventBusStats: { 
+        mainEventBus: 'Connected',
+        panelEventBus: 'Deprecated - using main eventBus now'
+      }
     });
   }
 
@@ -172,7 +175,7 @@ export class PanelIntrospector {
    * Generate popup content HTML
    */
   generatePopupContent(panelId, data) {
-    const { panelConfig, panelWithState, panelInstance, appState, relevantEvents, panelEventBusStats } = data;
+    const { panelConfig, panelWithState, panelInstance, appState, relevantEvents, eventBusStats } = data;
     
     return `
       <div class="introspector-header">
@@ -203,7 +206,7 @@ export class PanelIntrospector {
           </div>
           
           <div class="tab-panel" data-panel="events">
-            ${this.generateEventsPanel(relevantEvents, panelEventBusStats)}
+            ${this.generateEventsPanel(relevantEvents, eventBusStats)}
           </div>
           
           <div class="tab-panel" data-panel="instance">
@@ -313,39 +316,30 @@ export class PanelIntrospector {
   /**
    * Generate events panel content
    */
-  generateEventsPanel(relevantEvents, panelEventBusStats) {
-    const eventsHtml = relevantEvents.map(event => `
-      <div class="event-item">
-        <div class="event-header">
-          <span class="event-type">${event.type}</span>
-          <span class="event-time">${new Date(event.timestamp).toLocaleTimeString()}</span>
-        </div>
-        <div class="event-payload">
-          <pre>${JSON.stringify(event.payload, null, 2)}</pre>
-        </div>
-      </div>
-    `).join('');
-    
+  generateEventsPanel(relevantEvents, eventBusStats) {
     return `
       <div class="events-section">
-        <h3>Message Queue Events</h3>
-        <div class="events-stats">
-          <div class="stat">
-            <label>Relevant Events:</label>
-            <span>${relevantEvents.length}</span>
-          </div>
-          <div class="stat">
-            <label>Total Events Captured:</label>
-            <span>${this.messageQueueHistory.length}</span>
-          </div>
+        <h4>Recent Message Queue Events (Last 20)</h4>
+        <div class="events-list">
+          ${relevantEvents.length > 0 ? 
+            relevantEvents.map(event => `
+              <div class="event-item">
+                <div class="event-header">
+                  <span class="event-type">${event.type}</span>
+                  <span class="event-time">${new Date(event.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <div class="event-payload">
+                  <pre class="code-block">${JSON.stringify(event.payload, null, 2)}</pre>
+                </div>
+              </div>
+            `).join('') : 
+            '<p class="no-events">No relevant events found</p>'
+          }
         </div>
         
-        <h4>Panel Event Bus Stats</h4>
-        <pre class="code-block">${JSON.stringify(panelEventBusStats, null, 2)}</pre>
-        
-        <h4>Recent Relevant Events</h4>
-        <div class="events-list">
-          ${eventsHtml || '<p>No relevant events found</p>'}
+        <h4>Event Bus Status</h4>
+        <div class="stats-section">
+          <pre class="code-block">${JSON.stringify(eventBusStats, null, 2)}</pre>
         </div>
       </div>
     `;

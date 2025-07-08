@@ -4,7 +4,7 @@
  */
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { smartCopyActions } from '/client/messaging/actionCreators.js';
-import { editor } from '/client/editor.js';
+// Editor functionality now handled by EditorPanel directly
 import eventBus from '/client/eventBus.js';
 
 // Helper for logging within this module
@@ -86,14 +86,18 @@ export const editorActionHandlers = {
         const { codeContent } = payload;
         if (typeof codeContent === 'string') {
             logAction(`Triggering replaceEditorSelection with content length: ${codeContent.length}`);
-            if (editor && typeof editor.replaceSelection === 'function') {
-                editor.replaceSelection(codeContent);
+            
+            // Get the main editor textarea
+            const editorTextArea = document.querySelector('#editor-container textarea');
+            if (editorTextArea) {
+                editorTextArea.value = codeContent;
+                editorTextArea.dispatchEvent(new Event('input'));
+                logAction('Editor content replaced successfully');
             } else {
-                logAction('Editor or editor.replaceSelection method not available.', 'error');
-                alert('Failed to replace editor content: Editor component is not ready.');
+                logAction('Editor textarea not found', 'error');
             }
         } else {
-            logAction('replaceEditorSelection called without valid codeContent.', 'warning');
+            logAction('Invalid codeContent provided to replaceEditorSelection', 'error');
         }
     },
 

@@ -15,6 +15,7 @@ const DESIGN_TOKENS_ACTIVE_THEME_KEY = 'devpages_active_theme';
 const DESIGN_TOKENS_THEME_VARIANT_KEY = 'devpages_theme_variant';
 const DESIGN_TOKENS_DIR_KEY = 'devpages_design_tokens_dir';
 const CURRENT_CONTEXT_KEY = 'devpages_current_context';
+const CSS_INJECTION_MODE_KEY = 'devpages_css_injection_mode';
 
 /**
  * Load settings from localStorage with fallback to defaults
@@ -86,11 +87,11 @@ function loadPersistedSettings() {
         }
 
         // Load CSS injection mode
-        const savedCssInjectionMode = localStorage.getItem('devpages_css_injection_mode');
-        if (savedCssInjectionMode && ['stylesheet', 'inline'].includes(savedCssInjectionMode)) {
+        const savedCssInjectionMode = localStorage.getItem(CSS_INJECTION_MODE_KEY);
+        if (savedCssInjectionMode && ['inject', 'bundle'].includes(savedCssInjectionMode)) {
             defaults.preview.cssInjectionMode = savedCssInjectionMode;
         } else {
-            defaults.preview.cssInjectionMode = 'stylesheet'; // Default to stylesheet injection
+            defaults.preview.cssInjectionMode = 'inject'; // Default to inject mode
         }
 
         // Load Page Theme settings
@@ -129,6 +130,34 @@ function loadPersistedSettings() {
         const savedCurrentContext = localStorage.getItem(CURRENT_CONTEXT_KEY);
         if (savedCurrentContext) {
             defaults.currentContext = savedCurrentContext;
+        }
+
+        // Load dynamic preview settings (debounceDelay, animations, etc.)
+        const savedPreviewSettings = localStorage.getItem('devpages_preview_settings');
+        if (savedPreviewSettings) {
+            try {
+                const previewSettings = JSON.parse(savedPreviewSettings);
+                if (previewSettings && typeof previewSettings === 'object') {
+                    defaults.preview = { ...defaults.preview, ...previewSettings };
+                    console.debug('[Settings] Loaded dynamic preview settings:', previewSettings);
+                }
+            } catch (e) {
+                console.warn('[Settings] Failed to parse saved preview settings:', e);
+            }
+        } else {
+            // Set default preview settings if none are saved
+            defaults.preview = {
+                ...defaults.preview,
+                debounceDelay: 150,
+                skipUnchanged: true,
+                queueUpdates: true,
+                showLoadingAnimation: true,
+                showSuccessFeedback: true,
+                smoothErrors: true,
+                showRetryButton: true,
+                errorTimeout: 5000,
+                autoScroll: true
+            };
         }
 
         console.debug('[Settings] Loaded persisted settings:', defaults);
@@ -347,18 +376,48 @@ export function settingsReducer(state = initialState, action) {
             };
 
         case ActionTypes.SETTINGS_UPDATE_CSS_INJECTION_MODE:
-            if (typeof payload === 'object' && payload.mode) {
-                const newMode = payload.mode;
-                try {
-                    localStorage.setItem('devpages_css_injection_mode', newMode);
-                    console.debug(`[Reducer] Set CSS injection mode to: ${newMode}`);
-                } catch (e) {
-                    console.error('[Reducer] Failed to save CSS injection mode to localStorage:', e);
-                }
-                nextPreviewState = { ...currentPreviewState, cssInjectionMode: newMode };
+            if (typeof payload === 'string' && ['inject', 'bundle'].includes(payload)) {
+                nextPreviewState = { ...currentPreviewState, cssInjectionMode: payload };
                 updated = true;
+                console.debug(`[Reducer] Set CSS injection mode to: ${payload}`);
+                // Persist this setting
+                try { localStorage.setItem(CSS_INJECTION_MODE_KEY, payload); }
+                catch (e) { console.error('[Reducer] Failed to save CSS injection mode to localStorage:', e); }
+            } else { console.warn(`[Reducer] Invalid payload for SETTINGS_UPDATE_CSS_INJECTION_MODE:`, payload); }
+            break;
+
+        case ActionTypes.SETTINGS_UPDATE_PREVIEW:
+            if (payload && typeof payload === 'object') {
+                nextPreviewState = { ...currentPreviewState, ...payload };
+                updated = true;
+                console.debug(`[Reducer] Updated preview settings:`, payload);
+                
+                // Persist preview settings to localStorage
+                try {
+                    const previewSettings = { ...currentPreviewState, ...payload };
+                    localStorage.setItem('devpages_preview_settings', JSON.stringify(previewSettings));
+                } catch (e) {
+                    console.error('[Reducer] Failed to save preview settings to localStorage:', e);
+                }
+            } else { 
+                console.warn(`[Reducer] Invalid payload for SETTINGS_UPDATE_PREVIEW:`, payload); 
+            }
+            break;
+
+        case ActionTypes.SETTINGS_RESET_PREVIEW:
+            if (payload && typeof payload === 'object') {
+                nextPreviewState = { ...payload };
+                updated = true;
+                console.debug(`[Reducer] Reset preview settings to defaults:`, payload);
+                
+                // Clear persisted settings
+                try {
+                    localStorage.removeItem('devpages_preview_settings');
+                } catch (e) {
+                    console.error('[Reducer] Failed to clear preview settings from localStorage:', e);
+                }
             } else {
-                console.warn(`[Reducer] Invalid payload for SETTINGS_UPDATE_CSS_INJECTION_MODE:`, payload);
+                console.warn(`[Reducer] Invalid payload for SETTINGS_RESET_PREVIEW:`, payload);
             }
             break;
 
@@ -505,16 +564,27 @@ export function settingsReducer(state = initialState, action) {
 
     // --- Emit event AFTER calculating next state, if flagged ---
     if (emitCssUpdateEvent) {
-        // Use setTimeout to ensure state update completes before event handler runs
-        setTimeout(() => {
-             // MODIFIED: Use console.debug directly for logging
-             console.debug('[Reducer] Emitting preview:cssSettingsChanged event.', 'SETTINGS'); // Removed extra 'debug' level arg
-             if (eventBus && typeof eventBus.emit === 'function') {
-                 eventBus.emit('preview:cssSettingsChanged');
-             } else {
-                 console.error('[Reducer] eventBus not available for emitting preview:cssSettingsChanged');
-             }
-         }, 0);
+        // Only emit if the CSS-related state actually changed
+        const cssRelatedChanged = (
+            JSON.stringify(currentPreviewState.cssFiles) !== JSON.stringify(nextPreviewState.cssFiles) ||
+            currentPreviewState.enableRootCss !== nextPreviewState.enableRootCss ||
+            JSON.stringify(currentPreviewState.activeCssFiles) !== JSON.stringify(nextPreviewState.activeCssFiles)
+        );
+        
+        if (cssRelatedChanged) {
+            // Use setTimeout to ensure state update completes before event handler runs
+            setTimeout(() => {
+                 // MODIFIED: Use console.debug directly for logging
+                 console.debug('[Reducer] Emitting preview:cssSettingsChanged event.', 'SETTINGS'); // Removed extra 'debug' level arg
+                 if (eventBus && typeof eventBus.emit === 'function') {
+                     eventBus.emit('preview:cssSettingsChanged');
+                 } else {
+                     console.error('[Reducer] eventBus not available for emitting preview:cssSettingsChanged');
+                 }
+             }, 0);
+        } else {
+            console.debug('[Reducer] CSS update event flagged but no meaningful CSS state changes detected, skipping emission');
+        }
     }
     // ----------------------------------------------------------
 

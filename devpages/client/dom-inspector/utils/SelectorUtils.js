@@ -17,7 +17,7 @@ export class SelectorUtils {
         
         // Try ID first (but sanitize it)
         if (element.id) {
-            const sanitizedId = ValidationUtils.sanitizeSelector(element.id);
+            const sanitizedId = ValidationUtils.sanitizeForSelector(element.id);
             if (sanitizedId && sanitizedId === element.id) {
                 return `#${sanitizedId}`;
             }
@@ -28,7 +28,7 @@ export class SelectorUtils {
             const classNames = element.className && typeof element.className === 'string' ? element.className.split(' ') :
                               element.className && element.className.toString ? element.className.toString().split(' ') : [];
             const className = classNames[0];
-            const sanitizedClass = ValidationUtils.sanitizeSelector(className);
+            const sanitizedClass = ValidationUtils.sanitizeForSelector(className);
             if (sanitizedClass && document.querySelectorAll(`.${sanitizedClass}`).length === 1) {
                 return `.${sanitizedClass}`;
             }
@@ -42,7 +42,7 @@ export class SelectorUtils {
             let selector = current.tagName.toLowerCase();
             
             if (current.id) {
-                const sanitizedId = ValidationUtils.sanitizeSelector(current.id);
+                const sanitizedId = ValidationUtils.sanitizeForSelector(current.id);
                 if (sanitizedId) {
                     selector += `#${sanitizedId}`;
                     path.unshift(selector);
@@ -55,7 +55,7 @@ export class SelectorUtils {
                                   current.className && current.className.toString ? current.className.toString().split(' ') : [];
                 const classes = classNames
                     .filter(c => c.trim())
-                    .map(c => ValidationUtils.sanitizeSelector(c))
+                    .map(c => ValidationUtils.sanitizeForSelector(c))
                     .filter(c => c);
                 if (classes.length > 0) {
                     selector += `.${classes.join('.')}`;
@@ -113,7 +113,7 @@ export class SelectorUtils {
     static _tryIdSelector(element) {
         if (!element.id) return null;
         
-        const sanitizedId = ValidationUtils.sanitizeSelector(element.id);
+        const sanitizedId = ValidationUtils.sanitizeForSelector(element.id);
         if (sanitizedId && sanitizedId === element.id) {
             return `#${sanitizedId}`;
         }
@@ -134,7 +134,7 @@ export class SelectorUtils {
         const classes = classNames.filter(c => c.trim());
         
         for (const className of classes) {
-            const sanitizedClass = ValidationUtils.sanitizeSelector(className);
+            const sanitizedClass = ValidationUtils.sanitizeForSelector(className);
             if (sanitizedClass && document.querySelectorAll(`.${sanitizedClass}`).length === 1) {
                 return `.${sanitizedClass}`;
             }
@@ -175,7 +175,7 @@ export class SelectorUtils {
             
             // Add ID if available
             if (current.id) {
-                const sanitizedId = ValidationUtils.sanitizeSelector(current.id);
+                const sanitizedId = ValidationUtils.sanitizeForSelector(current.id);
                 if (sanitizedId) {
                     selector += `#${sanitizedId}`;
                     path.unshift(selector);
@@ -188,7 +188,7 @@ export class SelectorUtils {
                 const classNames = current.className && typeof current.className === 'string' ? current.className.split(' ') :
                                   current.className && current.className.toString ? current.className.toString().split(' ') : [];
                 const firstClass = classNames[0];
-                const sanitizedClass = ValidationUtils.sanitizeSelector(firstClass);
+                const sanitizedClass = ValidationUtils.sanitizeForSelector(firstClass);
                 if (sanitizedClass) {
                     selector += `.${sanitizedClass}`;
                 }

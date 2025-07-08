@@ -25,6 +25,8 @@ export function createContextManagerComponent(targetElementId) {
     let activeSiblingDropdownPath = null;
     let fetchingParentPath = null;
     let publishStatus = { isPublished: false, url: null };
+    let _loadingRequested = false;
+    let _lastLoggedWarning = null; // Track last warning to prevent spam
 
     // --- Rendering Logic ---
     const render = () => {
@@ -40,20 +42,15 @@ export function createContextManagerComponent(targetElementId) {
         // logContext('Render: Component "element" IS valid.', 'debug');
         // logContext(`Render: Target Element ID during component init was: ${targetElementId}`, 'debug');
 
-        const fileState = appStore.getState().file;
-        const authState = appStore.getState().auth;
-        const settingsStateFromStore = appStore.getState().settings;
+        const fileState = appStore.getState().file || {};
+        const authState = appStore.getState().auth || {};
+        const settingsStateFromStore = appStore.getState().settings || {};
+        
         const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
         const settingsState = {
-            currentContentSubDir: (settingsStateFromStore && typeof settingsStateFromStore.currentContentSubDir === 'string')
-                ? settingsStateFromStore.currentContentSubDir
-                : 'data',
-            availableContentSubDirs: (settingsStateFromStore && Array.isArray(settingsStateFromStore.availableContentSubDirs))
-                ? settingsStateFromStore.availableContentSubDirs
-                : ['data'],
-            doEnvVars: (settingsStateFromStore && Array.isArray(settingsStateFromStore.doEnvVars))
-                ? settingsStateFromStore.doEnvVars
-                : []
+            currentContentSubDir: settingsStateFromStore?.currentContentSubDir || 'data',
+            availableContentSubDirs: settingsStateFromStore?.availableContentSubDirs || ['data'],
+            doEnvVars: settingsStateFromStore?.doEnvVars || []
         };
 
         const isAuthInitializing = authState.isInitializing;
@@ -105,7 +102,9 @@ export function createContextManagerComponent(targetElementId) {
             isAuthenticated
         );
 
+        // Generate primary selector
         let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
+        
         if (isAuthenticated && selectedDirectoryPath !== null) {
             // Improved listing matching logic
             const listingForSelector = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
@@ -142,23 +141,43 @@ export function createContextManagerComponent(targetElementId) {
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             } else {
-                // Enhanced fallback: Try to trigger loading if we don't have the listing
-                logContext(`No listing available for '${selectedDirectoryPath}'. Current listing is for '${fileState.currentListing?.pathname}'. Triggering load...`, 'warn');
-                
-                // Request the directory listing if we don't have it
-                if (!isOverallLoading) {
-                    logContext(`Requesting directory listing for '${selectedDirectoryPath}'`, 'info');
-                    setTimeout(() => {
-                        eventBus.emit('navigate:pathname', { pathname: selectedDirectoryPath, isDirectory: true });
-                    }, 0);
+                // Use the latest available listing instead of trying to load missing ones
+                const currentListing = fileState.currentListing;
+                if (currentListing && (currentListing.dirs?.length > 0 || currentListing.files?.length > 0)) {
+                    // We have a current listing, use it even if path doesn't match exactly
+                    const dirs = currentListing.dirs || [];
+                    const files = currentListing.files || [];
+                    
+                    const items = [
+                        ...dirs.map(name => ({ name, type: 'dir' })),
+                        ...files.map(name => ({ name, type: 'file' }))
+                    ].sort((a, b) => {
+                        if (a.type !== b.type) { return a.type === 'dir' ? -1 : 1; }
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    let optionsHTML = `<option value="" selected disabled>Select item...</option>`;
+                    
+                    if (selectedDirectoryPath !== '') {
+                        const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
+                        optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
+                    }
+                    
+                    items.forEach(item => {
+                        const displayName = item.type === 'dir' ? `${item.name}/` : item.name;
+                        const optionSelected = !isDirectorySelected && item.name === selectedFilename && item.type === 'file';
+                        optionsHTML += `<option value="${item.name}" data-type="${item.type}" ${optionSelected ? 'selected' : ''}>${displayName}</option>`;
+                    });
+                    primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
+                } else {
+                    // No listing available at all - show basic navigation
+                    let optionsHTML = `<option value="" selected disabled>No items available</option>`;
+                    if (selectedDirectoryPath !== '') {
+                        const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
+                        optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
+                    }
+                    primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
                 }
-                
-                let optionsHTML = `<option value="" selected disabled>Loading items...</option>`;
-                if (selectedDirectoryPath !== '') {
-                    const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
-                }
-                primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             }
         } else if (!isAuthenticated) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
@@ -204,6 +223,7 @@ export function createContextManagerComponent(targetElementId) {
                     <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button">Note</button>
                 </div>
             </div>
+            <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
         `;
         // Reduced verbosity
         // logContext('Render: innerHTML HAS BEEN SET.', 'debug');
@@ -214,10 +234,7 @@ export function createContextManagerComponent(targetElementId) {
         if (primarySelectElement) {
             primarySelectElement.addEventListener('change', handlePrimarySelectChange);
         }
-        const publishButton = element.querySelector('#publish-btn');
-        if (publishButton) {
-            publishButton.addEventListener('click', handlePublishButtonClick);
-        }
+        
         const saveButton = element.querySelector('#save-btn');
         if (saveButton) {
             saveButton.addEventListener('click', handleSaveButtonClick);
@@ -375,47 +392,38 @@ export function createContextManagerComponent(targetElementId) {
         } else if (selectedType === 'file') {
             eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: false });
         }
+
+        // after you have pathname & content
+        eventBus.emit('file:selected', { filename: selectedValue, directory: selectedType === 'dir' });          // optional
+        eventBus.emit('file:loaded',  { content: selectedValue, pathname: newRelativePath });             // makes EditorPanel update
+        dispatch({
+          type: ActionTypes.FS_SET_STATE,
+          payload: { content: selectedValue, currentPathname: newRelativePath }
+        });
     };
 
     const handleSaveButtonClick = (event) => {
+        // Prevent default form submission behavior
         event.preventDefault();
-        event.stopPropagation();
-        logContext('Save button clicked', 'EVENT');
-        
-        try {
-            const authState = appStore.getState().auth;
-            if (!authState.isAuthenticated || !authState.user) {
-                logContext('Cannot save: User not authenticated', 'error', 'EVENT');
-                return;
-            }
-            
-            if (window.eventBus && typeof window.eventBus.emit === 'function') {
-                eventBus.emit('file:save');
-            } else {
-                logContext('EventBus not available for file:save', 'error', 'EVENT');
-            }
-        } catch (error) {
-            logContext(`Error in save button handler: ${error.message}`, 'error', 'EVENT');
-            console.error('[CTX] Save button error:', error);
+
+        // Check for current pathname and if the file is not a directory
+        const { currentPathname, isDirectorySelected } = appStore.getState().file;
+        if (!currentPathname || isDirectorySelected) {
+            logContext('Save button clicked but no file is selected.', 'warning', 'EVENT');
+            return;
         }
+
+        // Reduced verbosity
+        // logContext(`Save button clicked for: ${currentPathname}`, 'info', 'EVENT');
+        
+        // Dispatch the action to save the file
+        eventBus.emit('file:save');
     };
 
-    const handlePublishButtonClick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        logContext('Publish button clicked for: ${currentPathname}', 'EVENT');
-        eventBus.emit('ui:publishModal:open', { pathname: currentPathname });
-    };
-
-    /**
-     * Handles clicks on the root breadcrumb ('/').
-     * The primary action is to toggle the main sidebar panel.
-     * The secondary action (e.g., via Ctrl+Click) could open settings.
-     */
     const handleRootBreadcrumbClick = (event) => {
         event.preventDefault();
-        event.stopPropagation();
-        logContext('Root breadcrumb clicked', 'EVENT');
+        const { currentContentSubDir } = appStore.getState().settings;
+        logContext(`Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`, 'EVENT');
 
         // The primary, default action is to toggle the sidebar.
         // We can access the global workspace panel manager instance if it's available.
@@ -512,90 +520,75 @@ export function createContextManagerComponent(targetElementId) {
         logContext('Note button clicked - adding to context', 'EVENT');
         
         let originalText;
+        const noteBtn = event.target;
 
         try {
-            const fileState = appStore.getState().file;
+            const state = appStore.getState();
+            const fileState = state.file;
+            const contextName = state.context?.activeContext || 'default'; // Get active context
+
             if (fileState.isDirectorySelected || !fileState.currentPathname) {
                 logContext('Cannot add note: No file selected or directory view.', 'warn', 'EVENT');
                 alert('Please select a file to add to context.');
                 return;
             }
 
-            // Get current context name from settings or prompt user
-            const settingsState = appStore.getState().settings;
-            let contextName = settingsState?.currentContext;
-            
-            if (!contextName) {
-                // Prompt user for context name
-                contextName = prompt('Enter context name for Cursor AI:');
-                if (!contextName) return; // User cancelled
-                
-                // Validate context name
-                if (!/^[a-zA-Z0-9_-]+$/.test(contextName)) {
-                    alert('Context name must only contain letters, numbers, underscores, and hyphens.');
-                    return;
-                }
-                
-                // Save to settings
-                dispatch({
-                    type: ActionTypes.SETTINGS_SET_CURRENT_CONTEXT,
-                    payload: contextName
-                });
-            }
-
-            // Get editor content
+            // Use a more robust selector to find the editor instance
             const editor = document.querySelector('#md-editor textarea, #editor-container textarea, textarea');
             if (!editor) {
-                alert('Editor not found');
+                logContext('Editor element not found.', 'error', 'EVENT');
+                alert('Could not find the editor content.');
                 return;
             }
 
             const markdownContent = editor.value;
-            if (!markdownContent.trim()) {
-                alert('Cannot add empty file to context');
-                return;
-            }
-
-            // Show loading state
-            const noteBtn = event.target;
+            const pathname = fileState.currentPathname;
+            
             originalText = noteBtn.textContent;
             noteBtn.textContent = 'Adding...';
             noteBtn.disabled = true;
 
-            // Call context publish API
             const response = await fetch('/api/publish/context', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'credentials': 'include'
+                },
                 body: JSON.stringify({
-                    pathname: fileState.currentPathname,
+                    pathname,
                     contextName: contextName,
-                    markdownContent: markdownContent
-                })
+                    markdownContent,
+                }),
             });
 
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || `Server error: ${response.status}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+                throw new Error(errorData.error || `Server responded with ${response.status}`);
             }
-            
-            logContext(`Successfully added ${fileState.currentPathname} to context '${contextName}'`, 'EVENT');
-            alert(`Added to context "${contextName}" successfully!`);
-            
-            // Update button appearance to show it's been added to context
-            noteBtn.classList.add('noted');
-            noteBtn.title = `Added to context: ${contextName}`;
+
+            const result = await response.json();
+
+            if (result.success) {
+                noteBtn.classList.add('noted');
+                noteBtn.title = `Added to context: ${contextName}`;
+                logContext(`Successfully added '${pathname}' to context '${contextName}'.`, 'info', 'EVENT');
+            } else {
+                throw new Error(result.error || 'The server reported an issue, but did not provide an error message.');
+            }
 
         } catch (error) {
             logContext(`Error in note button handler: ${error.message}`, 'error', 'EVENT');
             console.error('[CTX] Note button error:', error);
-            alert(`Failed to add to context: ${error.message}`);
+            alert(`Failed to add note to context: ${error.message}`);
         } finally {
-            // Reset button state
-            const noteBtn = event.target;
             if (noteBtn) {
-                noteBtn.textContent = originalText;
-                noteBtn.disabled = false;
+                // Return to original state after a delay to show "noted" status
+                setTimeout(() => {
+                    noteBtn.textContent = originalText;
+                    noteBtn.disabled = false;
+                    noteBtn.classList.remove('noted');
+                    noteBtn.title = 'Add to Context for Cursor AI';
+                }, 2000);
             }
         }
     };

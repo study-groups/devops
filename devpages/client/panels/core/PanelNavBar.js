@@ -108,13 +108,25 @@ export class PanelNavBar {
         return `
             <div class="navbar-section view-section">
                 <button class="navbar-btn view-btn" data-action="zoom-out" title="Zoom Out">
-                    <span class="btn-icon">🔍-</span>
+                                            <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                            <line x1="8" y1="11" x2="14" y2="11"/>
+                        </svg>
                 </button>
                 <button class="navbar-btn view-btn" data-action="zoom-reset" title="Reset Zoom">
-                    <span class="btn-icon">🔍</span>
+                                            <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
                 </button>
                 <button class="navbar-btn view-btn" data-action="zoom-in" title="Zoom In">
-                    <span class="btn-icon">🔍+</span>
+                                            <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                            <line x1="11" y1="8" x2="11" y2="14"/>
+                            <line x1="8" y1="11" x2="14" y2="11"/>
+                        </svg>
                 </button>
             </div>
         `;
@@ -124,7 +136,10 @@ export class PanelNavBar {
         return `
             <div class="navbar-section panel-section">
                 <button class="navbar-btn panel-btn" data-action="panel-settings" title="Panel Settings">
-                    <span class="btn-icon">⚙️</span>
+                                            <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
                 </button>
                 <button class="navbar-btn panel-btn" data-action="panel-help" title="Panel Help">
                     <span class="btn-icon">❓</span>
@@ -216,13 +231,17 @@ export class PanelNavBar {
                 <div class="context-menu-list">
                     <div class="context-menu-item ${!this.currentContext ? 'active' : ''}" 
                          data-context="">
-                        <span class="context-icon">📁</span>
+                        <svg class="context-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2l5 0 2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
                         <span class="context-name">No Context</span>
                     </div>
                     ${contexts.map(context => `
                         <div class="context-menu-item ${context === this.currentContext ? 'active' : ''}" 
                              data-context="${context}">
-                            <span class="context-icon">📁</span>
+                            <svg class="context-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2l5 0 2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
                             <span class="context-name">${context}</span>
                         </div>
                     `).join('')}

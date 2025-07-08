@@ -32,7 +32,7 @@ const initialState = {
   logVisible: loadFromStorage(LOG_VISIBLE_KEY, false),
   logMenuVisible: false,
   viewMode: derivedViewMode, // Use derived mode instead of stored viewMode
-  theme: loadFromStorage(THEME_KEY, 'light'),
+  theme: 'light', // Force light theme as default
   colorScheme: loadFromStorage(COLOR_SCHEME_KEY, 'system'),
   designDensity: loadFromStorage(DESIGN_DENSITY_KEY, 'comfortable'),
   leftSidebarVisible: loadFromStorage(LEFT_SIDEBAR_KEY, true),

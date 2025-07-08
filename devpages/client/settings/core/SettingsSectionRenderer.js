@@ -27,21 +27,10 @@ export function renderSettingsSections(container, sectionInstances, onToggle) {
   console.log('[SettingsSectionRenderer] Rendering sections:', sectionsToRender.map(s => s.id));
 
   if (sectionsToRender.length === 0) {
-    console.warn('[SettingsSectionRenderer] No sections to render! This might indicate a problem with the registry.');
+    console.log('[SettingsSectionRenderer] No sections to render - registry is likely still loading panels.');
     
-    // Try to debug by checking raw panels array
-    console.log('[SettingsSectionRenderer] Calling debug() on registry:');
-    settingsRegistry.debug();
-    
-    // Add a placeholder message in the UI
-    const placeholderMsg = document.createElement('div');
-    placeholderMsg.className = 'settings-empty-message';
-    placeholderMsg.innerHTML = `
-      <h3>No Settings Panels Found</h3>
-      <p>This could be due to a loading issue or a problem with the registry.</p>
-      <p>Check the console for more information.</p>
-    `;
-    container.appendChild(placeholderMsg);
+    // Don't show error message during normal loading process
+    // The panels will be rendered once they're loaded via loadPanels()
     return;
   }
 

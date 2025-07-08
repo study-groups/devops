@@ -9,6 +9,7 @@ import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 import { getPlugin, processEnabledPlugins } from '/client/preview/plugins/PluginLoader.js';
 import { parseFrontmatter } from '../utils/frontmatterParser.js';
+import LinkManager from '/client/links/LinkManager.js';
 
 // Helper for logging
 function logMarkdownRenderer(message, level = 'debug') {
@@ -89,6 +90,7 @@ export class MarkdownRenderer {
      */
     async createMarkdownItInstance(filePath) {
         await this.loadMarkdownIt();
+        const linkManager = new LinkManager('preview', filePath);
 
         // Pre-load highlight plugin if needed
         let highlightPlugin = null;
@@ -131,6 +133,34 @@ export class MarkdownRenderer {
         if (getIsPluginEnabled(appStore.getState(), 'katex')) {
             md.use(markdownitKatex);
         }
+
+        // Override the default image renderer
+        const defaultImageRenderer = md.renderer.rules.image || function(tokens, idx, options, env, self) {
+            return self.renderToken(tokens, idx, options);
+        };
+
+        md.renderer.rules.image = (tokens, idx, options, env, self) => {
+            const token = tokens[idx];
+            const srcAttr = token.attrGet('src');
+            if (srcAttr) {
+                token.attrSet('src', linkManager.resolveResourcePath(srcAttr));
+            }
+            return defaultImageRenderer(tokens, idx, options, env, self);
+        };
+
+        // Override the default link renderer
+        const defaultLinkRenderer = md.renderer.rules.link_open || function(tokens, idx, options, env, self) {
+            return self.renderToken(tokens, idx, options);
+        };
+
+        md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+            const token = tokens[idx];
+            const hrefAttr = token.attrGet('href');
+            if (hrefAttr) {
+                token.attrSet('href', linkManager.resolveLink(hrefAttr));
+            }
+            return defaultLinkRenderer(tokens, idx, options, env, self);
+        };
 
         // Configure fence rules for special languages
         const originalFence = md.renderer.rules.fence || function(tokens, idx, options, env, self) {
@@ -221,8 +251,9 @@ export class MarkdownRenderer {
         let processedHtmlBody = htmlBodyRaw;
         try {
             const tempDoc = new DOMParser().parseFromString(htmlBodyRaw, 'text/html');
-            const bodyScripts = tempDoc.body.querySelectorAll('script:not([src])');
             
+            // Process and remove inline scripts for later execution
+            const bodyScripts = tempDoc.body.querySelectorAll('script:not([src])');
             bodyScripts.forEach(scriptTag => {
                 if (scriptTag.textContent) {
                     inlineScriptContents.push(scriptTag.textContent);
@@ -249,10 +280,10 @@ export class MarkdownRenderer {
         
         return {
             html: sanitizedHtml,
-            head: headContent,
-            frontMatter: frontMatter,
-            externalScriptUrls: externalScriptUrls,
-            inlineScriptContents: inlineScriptContents
+            frontMatter,
+            headContent,
+            externalScriptUrls,
+            inlineScriptContents
         };
     }
 
@@ -271,6 +302,34 @@ export class MarkdownRenderer {
         }
 
         const { frontMatter = {}, externalScriptUrls = [], inlineScriptContents = [] } = renderResult;
+
+        // Apply HTML content to the preview element first
+        if (renderResult.html) {
+            previewElement.innerHTML = renderResult.html;
+        }
+
+        const linkManager = new LinkManager('preview', filePath);
+        
+        // Now, rewrite paths for elements inside the preview container
+        const images = previewElement.querySelectorAll('img');
+        images.forEach(img => {
+            const src = img.getAttribute('src');
+            if (src) {
+                const newSrc = linkManager.resolveResourcePath(src);
+                img.setAttribute('src', newSrc);
+                logMarkdownRenderer(`Post-processed HTML img src: ${src} -> ${newSrc}`, 'debug');
+            }
+        });
+
+        const links = previewElement.querySelectorAll('a');
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href) {
+                const newHref = linkManager.resolveLink(href);
+                link.setAttribute('href', newHref);
+                logMarkdownRenderer(`Post-processed HTML a href: ${href} -> ${newHref}`, 'debug');
+            }
+        });
 
         // CSS link injection
         const previewSpecificCssClass = `preview-css-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;

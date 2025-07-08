@@ -47,19 +47,11 @@ class PublishRenderer {
   }
 
   /**
-   * Get base CSS content for published pages
+   * Get base CSS content for published pages (theme-aware)
    */
   async getBaseCss() {
-    try {
-      const response = await fetch('/client/preview/md.css');
-      if (response.ok) {
-        return await response.text();
-      }
-    } catch (error) {
-      console.warn('Could not load md.css, using fallback styles');
-    }
-    
-    // Fallback minimal CSS if md.css can't be loaded
+    // Use theme-aware CSS instead of hardcoded md.css
+    // Fallback minimal CSS for publishing
     return `
       * { box-sizing: border-box; }
       body { 

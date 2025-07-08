@@ -107,6 +107,14 @@ export class ConsoleLogManager {
           if (settings.showTimestamps !== undefined) {
             this.showTimestamps = settings.showTimestamps;
           }
+          
+          // ==> FIX: Explicitly check for the correct 'consoleLoggingEnabled' key
+          // This overrides any 'enabled' value from the 'consoleLogSettings' object
+          // to ensure the state from the toggle is respected.
+          const enabledFromStorage = window.localStorage.getItem('consoleLoggingEnabled');
+          if (enabledFromStorage !== null) {
+              this.enabled = enabledFromStorage === 'true';
+          }
         }
       } catch (e) {
         console.error('Error loading console log settings from localStorage:', e);
@@ -421,6 +429,10 @@ export class ConsoleLogManager {
       return args.map(arg => {
         if (arg === null) return 'null';
         if (arg === undefined) return 'undefined';
+        if (typeof arg === 'function') {
+          // Handle functions and class constructors - just show the name
+          return `[${arg.name || 'Function'}]`;
+        }
         if (typeof arg === 'object') {
           try {
             // Try to use JSON.stringify for simple objects
@@ -600,17 +612,18 @@ export class ConsoleLogManager {
       if (this.enabled && this.filter.shouldDisplay(entry)) {
         const formattedArgs = entry.formatForConsole(this.showTimestamps);
         
-        // Check if we have groupCollapsed and trace available
-        if (typeof console.groupCollapsed === 'function' && 
+        // Only add stack traces if explicitly enabled
+        if (this.showStackTraces && 
+            typeof console.groupCollapsed === 'function' && 
             typeof console.trace === 'function' && 
             typeof console.groupEnd === 'function') {
             
-          // Use the group-trace-groupEnd pattern
+          // Use the group-trace-groupEnd pattern when stack traces are enabled
           console.groupCollapsed.apply(console, formattedArgs);
           console.trace();
           console.groupEnd();
         } else {
-          // Fallback to normal logging if groupCollapsed isn't available
+          // Normal logging without stack traces
           if (method in this.originalConsole) {
             this.originalConsole[method].apply(console, formattedArgs);
           } else {
@@ -631,7 +644,8 @@ export class ConsoleLogManager {
       }
     } catch (e) {
       // Ensure console always works even if our handling fails
-      this.originalConsole.error('Error in console log manager:', e);
+      // Use originalConsole.log to avoid recursive error handling
+      this.originalConsole.log('[ConsoleLogManager] Non-recursive Error in console log manager:', e);
       this.originalConsole[method].apply(console, args);
     }
   }

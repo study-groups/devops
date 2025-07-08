@@ -1,7 +1,7 @@
 /**
  * Settings Panel Styles
  * Using the new design system architecture
- * No !important declarations needed
+ * No declarations needed
  */
 
 /* ===== SETTINGS PANEL CONTAINER ===== */
@@ -812,31 +812,31 @@
 
 /* === OVERRIDE EXISTING PLUGIN ITEM STYLES === */
 .plugin-item {
-  display: flex !important;
-  align-items: center !important;
-  padding: var(--space-2) var(--space-4) !important;
-  background-color: var(--color-background) !important;
-  border-bottom: 1px solid var(--color-border-secondary) !important;
-  margin-left: var(--space-3) !important;
-  margin-right: var(--space-3) !important;
-  border-radius: var(--radius-sm) !important;
-  margin-bottom: 1px !important;
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-background);
+  border-bottom: 1px solid var(--color-border-secondary);
+  margin-left: var(--space-3);
+  margin-right: var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1px;
 }
 
 .plugin-item label {
-  flex-grow: 1 !important;
-  margin: 0 !important;
-  cursor: pointer !important;
-  font-size: var(--font-size-sm) !important;
-  color: var(--color-foreground) !important;
-  font-weight: 500 !important;
+  flex-grow: 1;
+  margin: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+  font-weight: 500;
 }
 
 .plugin-item input[type="checkbox"] {
-  margin: 0 var(--space-2-5) 0 0 !important;
-  cursor: pointer !important;
-  transform: scale(1.1) !important;
-  accent-color: var(--color-primary) !important;
+  margin: 0 var(--space-2-5) 0 0;
+  cursor: pointer;
+  transform: scale(1.1);
+  accent-color: var(--color-primary);
 }
 
 /* === COLLAPSIBLE PLUGIN GROUPS === */
@@ -853,7 +853,7 @@
 }
 
 .plugin-group-header:hover {
-  background-color: var(--color-background-hover) !important;
+  background-color: var(--color-background-hover);
 }
 
 .plugin-collapse-indicator {

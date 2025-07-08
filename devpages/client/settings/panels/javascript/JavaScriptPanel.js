@@ -3,7 +3,7 @@
  * Provides information and potentially settings for JavaScript usage in previews.
  */
 
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { debugPanelRegistry } from '/client/debug/debugPanelRegistry.js';
 
 // Helper for logging specific to this panel
 function logJSPanel(message, level = 'info') {
@@ -173,8 +173,8 @@ script: |
   }
 }
 
-// Register this panel with the registry
-settingsSectionRegistry.register({
+// Register this panel with the debug panel registry
+debugPanelRegistry.register({
   id: 'javascript-panel',
   title: 'JavaScript',
   component: JavaScriptPanel,

@@ -560,7 +560,7 @@ video {
 }
 
 .\!container {
-  width: 100% !important;
+  width: 100%;
 }
 
 .container {
@@ -569,7 +569,7 @@ video {
 
 @media (min-width: 640px) {
   .\!container {
-    max-width: 640px !important;
+    max-width: 640px;
   }
 
   .container {
@@ -579,7 +579,7 @@ video {
 
 @media (min-width: 768px) {
   .\!container {
-    max-width: 768px !important;
+    max-width: 768px;
   }
 
   .container {
@@ -589,7 +589,7 @@ video {
 
 @media (min-width: 1024px) {
   .\!container {
-    max-width: 1024px !important;
+    max-width: 1024px;
   }
 
   .container {
@@ -599,7 +599,7 @@ video {
 
 @media (min-width: 1280px) {
   .\!container {
-    max-width: 1280px !important;
+    max-width: 1280px;
   }
 
   .container {
@@ -609,7 +609,7 @@ video {
 
 @media (min-width: 1536px) {
   .\!container {
-    max-width: 1536px !important;
+    max-width: 1536px;
   }
 
   .container {
@@ -794,7 +794,7 @@ button.active {
 
 button.loading {
   position: relative;
-  color: transparent !important;
+  color: transparent;
   pointer-events: none;
 }
 
@@ -879,11 +879,11 @@ button.loading::after {
 /* View mode visibility */
 
 .split-view #log {
-  display: block !important;
+  display: block;
 }
 
 .preview-view #log {
-  display: none !important;
+  display: none;
 }
 
 /* File selectors layout */
@@ -963,7 +963,7 @@ button.loading::after {
   /* >>> NEW CONTAINER FOR TOP ROW <<< */
 
   .mobile-top-row {
-    display: flex !important;
+    display: flex;
     /* Force flex */
     justify-content: space-between;
     align-items: center;
@@ -987,14 +987,14 @@ button.loading::after {
     .file-action-buttons,
     #logout-btn {
     /* Always hide the logout button on mobile */
-    display: none !important;
+    display: none;
   }
 
   /* ===== FILE SELECTORS - MOVED INTO TOP ROW ===== */
 
   .mobile-top-row .file-selectors {
     /* Target within container */
-    display: flex !important;
+    display: flex;
     justify-content: flex-start;
     /* Align selectors to the left */
     gap: 8px;
@@ -1029,7 +1029,7 @@ button.loading::after {
   /* Logged out state - Login form (Remains on second row) */
 
   body[data-auth-state="logged-out"] .login-form {
-    display: flex !important;
+    display: flex;
     justify-content: space-between;
     width: 100%;
     margin: 0;
@@ -1054,7 +1054,7 @@ button.loading::after {
 
   body[data-auth-state="logged-out"] .login-form button,
     body[data-auth-state="logged-out"] #login-btn {
-    display: none !important;
+    display: none;
   }
 
   /* Status text when logged out */
@@ -1069,7 +1069,7 @@ button.loading::after {
   /* Target .auth-info only when it's inside the .mobile-top-row and logged in */
 
   body[data-auth-state="logged-in"] .mobile-top-row .auth-info {
-    display: flex !important;
+    display: flex;
     /* Keep flex display */
     justify-content: flex-end;
     /* Align to the right */
@@ -1108,13 +1108,13 @@ button.loading::after {
   /* This selector targets the direct child of nav, which we no longer want */
 
   body[data-auth-state="logged-in"] nav > .auth-info {
-    display: none !important;
+    display: none;
   }
 
   /* Hide login form when logged in */
 
   body[data-auth-state="logged-in"] .login-form {
-    display: none !important;
+    display: none;
   }
 
   /* Content area spacing */
@@ -1127,19 +1127,19 @@ button.loading::after {
 
   .selector-container, 
     .auth-container {
-    display: none !important;
+    display: none;
   }
 
   /* Clean up any margin that might be inherited from desktop (No change needed) */
 
-  /* .file-ops, .auth-info { margin: 0 !important; } */
+  /* .file-ops, .auth-info { margin: 0; } */
 
   /* Let new rules handle spacing */
 
   /* Force password fields to always be type="text" on mobile */
 
   body[data-auth-state="logged-out"] .login-form input[name="password"] {
-    -webkit-text-security: none !important;
+    -webkit-text-security: none;
     /* Ensure no masking on iOS */
   }
 }
@@ -1326,8 +1326,8 @@ button.loading::after {
 /* <<< ADDED FOR TESTING BASIC BUILD PIPELINE >>> */
 
 .my-tailwind-test-marker {
-  color: limegreen !important;
-  font-weight: 900 !important;
+  color: limegreen;
+  font-weight: 900;
   /* Make it obvious */
 }
 
@@ -1339,4 +1339,4 @@ button.loading::after {
 
 /* Styles moved back to client/log/log.css */
 
-/* Potentially remove !important later if conflicts are resolved */
+/* Potentially remove later if conflicts are resolved */

@@ -132,27 +132,12 @@ function attachTopBarHandlers() {
         logTopBar('Save button handler attached');
     }
     
-    // Handle publish button clicks
+    // Handle publish button clicks - REMOVED: Integration layer handles this now
     const publishBtn = document.getElementById('publish-btn');
     if (publishBtn) {
-        publishBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            logTopBar('Publish button clicked');
-            
-            // Open publish modal if available
-            if (typeof window.openPublishModal === 'function') {
-                const fileState = window.appStore?.getState()?.file;
-                if (fileState?.currentPathname && !fileState.isDirectorySelected) {
-                    window.openPublishModal(fileState.currentPathname);
-                } else {
-                    alert('Please select a file to publish.');
-                }
-            } else if (typeof window.triggerActions?.publishToSpaces === 'function') {
-                window.triggerActions.publishToSpaces();
-            }
-        });
-        logTopBar('Publish button handler attached');
+        // The click handling is now managed by PublishModalIntegration.js
+        // No direct attachment needed here to avoid double handling or conflicts.
+        logTopBar('Publish button handler will be managed by integration layer.');
     }
     
     logTopBar('Top bar handlers attached successfully');

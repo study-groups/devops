@@ -1,6 +1,5 @@
 import { appStore } from '/client/appState.js'; // StateKit store
 // import { getUIState, setUIState } from '/client/uiState.js'; // If you have a separate uiState module
-import { logInfo, logError, logDebug, logWarn } from './LogCore.js';
 
 const LOG_VISIBLE_KEY = 'logVisible'; // Duplicated from LogPanel.js - centralize if possible
 const LOG_HEIGHT_KEY = 'logHeight';   // Duplicated from LogPanel.js - centralize if possible
@@ -12,7 +11,7 @@ const LOG_HEIGHT_KEY = 'logHeight';   // Duplicated from LogPanel.js - centraliz
  * @param {number} minHeight - Minimum allowable height.
  */
 export function loadLogPanelPreferences(logPanelInstance, defaultHeight, minHeight) {
-    logDebug('[logPanelState] loadLogPanelPreferences called.', { type: 'LOG_PANEL', subtype: 'STATE' });
+    console.debug('[logPanelState] loadLogPanelPreferences called.');
     let loadedHeight = defaultHeight;
     // Visibility is primarily driven by appStore.ui.logVisible.
     // This function just sets the instance's height.
@@ -25,10 +24,10 @@ export function loadLogPanelPreferences(logPanelInstance, defaultHeight, minHeig
             loadedHeight = (!isNaN(savedHeight) && savedHeight >= minHeight) ? savedHeight : defaultHeight;
         }
     } catch (e) {
-        logError('[logPanelState] Error loading height from localStorage.', { type: 'LOG_PANEL', subtype: 'ERROR', details: e });
+        console.error('[logPanelState] Error loading height from localStorage.', e);
     }
     logPanelInstance.state.height = loadedHeight;
-    logDebug(`[logPanelState] Loaded height: ${loadedHeight}. Initial visibility will be from appStore.`, { type: 'LOG_PANEL', subtype: 'STATE' });
+    console.debug(`[logPanelState] Loaded height: ${loadedHeight}. Initial visibility will be from appStore.`);
     // No appStore.update here for visibility; appState.js initializes it.
 }
 
@@ -38,7 +37,7 @@ export function loadLogPanelPreferences(logPanelInstance, defaultHeight, minHeig
  * @param {LogPanel} logPanelInstance - The instance of the LogPanel.
  */
 export function saveLogPanelPreferences(logPanelInstance) {
-    logDebug('[logPanelState] saveLogPanelPreferences (state function) called.', { type: 'LOG_PANEL', subtype: 'STATE' });
+    console.debug('[logPanelState] saveLogPanelPreferences (state function) called.');
     if (!logPanelInstance) return;
 
     try {
@@ -47,9 +46,9 @@ export function saveLogPanelPreferences(logPanelInstance) {
         // If we wanted this function to be the SOLE place to save visibility:
         // const currentVisibility = appStore.getState().ui.logVisible;
         // localStorage.setItem(LOG_VISIBLE_KEY, String(currentVisibility));
-        logInfo(`[logPanelState] Saved height: ${logPanelInstance.state.height}`, { type: 'LOG_PANEL', subtype: 'STATE' });
+        console.info(`[logPanelState] Saved height: ${logPanelInstance.state.height}`);
     } catch (e) {
-        logError('[logPanelState] Error saving height to localStorage.', { type: 'LOG_PANEL', subtype: 'ERROR', details: e });
+        console.error('[logPanelState] Error saving height to localStorage.', e);
     }
 }
 
@@ -58,18 +57,22 @@ export function saveLogPanelPreferences(logPanelInstance) {
  * @param {LogPanel} logPanelInstance - The instance of the LogPanel.
  */
 export function subscribeToAppStoreChanges(logPanelInstance) {
-    logDebug('[logPanelState] subscribeToAppStoreChanges called (StateKit model).', { type: 'LOG_PANEL', subtype: 'STATE' });
+    console.debug('[logPanelState] subscribeToAppStoreChanges called (StateKit model).');
     if (!appStore || typeof appStore.subscribe !== 'function') {
-        logError('[logPanelState] appStore.subscribe not available.', { type: 'LOG_PANEL', subtype: 'ERROR' });
+        console.error('[logPanelState] appStore.subscribe not available.');
         return;
     }
 
     const unsubscribe = appStore.subscribe((newState, prevState) => {
         if (!prevState) {
-            logWarn("[logPanelState] PrevState not available in subscriber, cannot reliably detect changes this cycle.");
-            if (typeof logPanelInstance.updateUI === 'function') logPanelInstance.updateUI();
-            if (typeof logPanelInstance._applyFiltersToLogEntries === 'function') logPanelInstance._applyFiltersToLogEntries();
-            if (typeof logPanelInstance._updateTagsBar === 'function') logPanelInstance._updateTagsBar();
+            console.warn("[logPanelState] PrevState not available in subscriber, deferring updates to prevent loops.");
+            // Defer updates to prevent immediate loops during initialization
+            setTimeout(() => {
+                if (typeof logPanelInstance.updateUI === 'function') logPanelInstance.updateUI();
+                // Don't call filter-related updates immediately to prevent loops
+                // if (typeof logPanelInstance._applyFiltersToLogEntries === 'function') logPanelInstance._applyFiltersToLogEntries();
+                // if (typeof logPanelInstance._updateTagsBar === 'function') logPanelInstance._updateTagsBar();
+            }, 100);
             return;
         }
 
@@ -77,13 +80,13 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
 
         // Check for main log panel visibility change
         if (newState.ui && prevState.ui && newState.ui.logVisible !== prevState.ui.logVisible) {
-            // logDebug(`[logPanelState] Main LogPanel visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' }); // SILENCED
+            // console.debug(`[logPanelState] Main LogPanel visibility changed. Requesting UI update.`); // SILENCED
             needsGeneralUIUpdate = true;
         }
 
         // Check for log menu visibility change
         if (newState.ui && prevState.ui && newState.ui.logMenuVisible !== prevState.ui.logMenuVisible) {
-            // logDebug(`[logPanelState] Log Menu visibility changed. Requesting UI update.`, { type: 'LOG_PANEL', subtype: 'STATE' }); // SILENCED
+            // console.debug(`[logPanelState] Log Menu visibility changed. Requesting UI update.`); // SILENCED
             needsGeneralUIUpdate = true; // The general updateUI will handle this
         }
 
@@ -91,16 +94,16 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
             logPanelInstance.updateUI();
         }
 
-        // Check for log filtering changes
+        // Check for log filtering changes with proper null checks
         const newFiltering = newState.logFiltering || { discoveredTypes: [], activeFilters: [] };
         const prevFiltering = prevState.logFiltering || { discoveredTypes: [], activeFilters: [] };
 
-        const activeFiltersChanged = JSON.stringify(newFiltering.activeFilters) !== JSON.stringify(prevFiltering.activeFilters);
-        const discoveredTypesChanged = JSON.stringify(newFiltering.discoveredTypes) !== JSON.stringify(prevFiltering.discoveredTypes);
+        const activeFiltersChanged = JSON.stringify(newFiltering.activeFilters || []) !== JSON.stringify(prevFiltering.activeFilters || []);
+        const discoveredTypesChanged = JSON.stringify(newFiltering.discoveredTypes || []) !== JSON.stringify(prevFiltering.discoveredTypes || []);
 
         if (activeFiltersChanged) {
             // REMOVED: Excessive logging about filter changes
-            // logDebug('[logPanelState] Active log filters changed. Applying to entries & updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
+            // console.debug('[logPanelState] Active log filters changed. Applying to entries & updating tags bar.');
             if (typeof logPanelInstance._applyFiltersToLogEntries === 'function') {
                 logPanelInstance._applyFiltersToLogEntries();
             }
@@ -111,7 +114,7 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
 
         if (discoveredTypesChanged && !activeFiltersChanged) { // Avoid double-updating tags bar if active filters also changed
             // REMOVED: Excessive logging about type discovery
-            // logDebug('[logPanelState] Discovered log types changed. Updating tags bar.', { type: 'LOG_PANEL', subtype: 'STATE' });
+            // console.debug('[logPanelState] Discovered log types changed. Updating tags bar.');
             if (typeof logPanelInstance._updateTagsBar === 'function') {
                 logPanelInstance._updateTagsBar();
             }
@@ -119,25 +122,33 @@ export function subscribeToAppStoreChanges(logPanelInstance) {
     });
 
     logPanelInstance._appStateUnsubscribe = unsubscribe; // Store the unsubscribe function correctly on the instance
-    logInfo('[logPanelState] Subscribed to appStore changes (StateKit model).', { type: 'LOG_PANEL', subtype: 'STATE' });
+    console.info('[logPanelState] Subscribed to appStore changes (StateKit model).');
 }
 
 /**
  * Updates the UI of selection buttons based on their state
- * @param {HTMLElement} toolbarElement - The toolbar element containing the buttons
- * @param {string} bufferType - Either 'A' or 'B' 
- * @param {boolean} hasData - Whether the buffer has data
- * @param {object} stateData - The data stored in the buffer
+ * This function can accept either a LogPanel instance or a toolbar element directly
+ * @param {LogPanel|HTMLElement} logPanelInstanceOrToolbar - The LogPanel instance or toolbar element
+ * @param {string} bufferType - 'A' or 'B'
+ * @param {boolean} hasData - Whether there is data in the buffer
+ * @param {Object} stateData - The state data object
  */
-export function updateSelectionButtonUI(toolbarElement, bufferType, hasData, stateData = null) {
-    // The entire updateSelectionButtonUI method from LogPanel.js (lines ~878-905)
-    const buttonId = bufferType === 'A' ? 'log-state-a-btn' : 'log-state-b-btn';
+export function updateSelectionButtonUI(logPanelInstanceOrToolbar, bufferType, hasData, stateData = null) {
+    let toolbarElement;
     
-    if (!toolbarElement) {
-        console.warn(`Toolbar element not found when trying to update button ${buttonId}.`);
+    // Determine if we received a LogPanel instance or toolbar element directly
+    if (logPanelInstanceOrToolbar && logPanelInstanceOrToolbar.toolbarElement) {
+        // It's a LogPanel instance
+        toolbarElement = logPanelInstanceOrToolbar.toolbarElement;
+    } else if (logPanelInstanceOrToolbar && logPanelInstanceOrToolbar.querySelector) {
+        // It's a toolbar element directly
+        toolbarElement = logPanelInstanceOrToolbar;
+    } else {
+        console.warn('LogPanel instance or toolbar element not available for updateSelectionButtonUI');
         return;
     }
-    
+
+    const buttonId = bufferType === 'A' ? 'log-state-a-btn' : 'log-state-b-btn';
     const button = toolbarElement.querySelector(`#${buttonId}`);
 
     if (button) {
@@ -153,12 +164,4 @@ export function updateSelectionButtonUI(toolbarElement, bufferType, hasData, sta
     } else {
         console.warn(`Button #${buttonId} not found in toolbar for UI update.`);
     }
-}
-
-// Add other state management utility functions as needed.
-
-// Helper (if not already present)
-function logPanelInternalDebug(message, level = 'debug') {
-    const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
-    logFunc(message);
-}
+} 

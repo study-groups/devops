@@ -84,14 +84,12 @@ export function createSectionContainer(id, title, onToggle, isCollapsed) {
   
   // Touch events for mobile
   header.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Prevent default touch behavior
     startLongClickDetection(e);
-  });
+  }, { passive: true });
   
   header.addEventListener('touchend', (e) => {
-    e.preventDefault();
     handleClickEnd(e);
-  });
+  }, { passive: true });
   
   header.addEventListener('touchcancel', cancelLongClickDetection);
 

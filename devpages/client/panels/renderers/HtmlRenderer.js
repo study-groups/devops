@@ -236,7 +236,7 @@ export class HtmlRenderer {
         // Import eventBus and emit event to open CSS Files Panel
         import('/client/eventBus.js').then(({ eventBus }) => {
             eventBus.emit('settings:openPanel', { 
-                panelId: 'css-files',
+                panelId: 'CssFilesPanel',
                 source: 'html-renderer',
                 filePath: filePath
             });

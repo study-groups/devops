@@ -1,0 +1,129 @@
+/**
+ * client/file-browser/file-browser.css
+ * Styles for the File Browser panel.
+ */
+
+.file-browser-panel {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    user-select: none;
+}
+
+.file-browser-cwd-container {
+    padding: 4px 8px;
+    background-color: var(--color-background-light);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-family: monospace;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cwd-path {
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--color-text-muted);
+}
+
+.cwd-path:hover {
+    text-decoration: underline;
+    color: var(--color-text-primary);
+}
+
+.publish-badges {
+    display: flex;
+    gap: 4px;
+}
+
+.publish-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-muted);
+    background-color: var(--color-background-light);
+    border: 1px solid var(--color-border);
+    cursor: default;
+}
+
+.publish-badge.active {
+    background-color: var(--color-blue-500);
+    color: white;
+    border-color: var(--color-blue-500);
+}
+
+.file-browser-tree-container {
+    position: relative;
+    flex-grow: 1;
+    overflow: auto;
+    padding: 4px;
+}
+
+.file-browser-node {
+    padding-left: 15px; /* Indentation for nesting */
+}
+
+.file-browser-node-header {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.file-browser-node-header:hover {
+    background-color: var(--color-background-hover);
+}
+
+.file-browser-node-header.selected {
+    background-color: var(--color-background-selected);
+    font-weight: bold;
+}
+
+.file-browser-node-toggle {
+    width: 15px;
+    text-align: center;
+    margin-right: 4px;
+}
+
+.file-browser-node-children {
+    display: none; /* Collapsed by default */
+}
+
+.file-browser-node.expanded > .file-browser-node-children {
+    display: block;
+}
+
+/* Icons */
+.file-browser-node-icon {
+    margin-right: 5px;
+    width: 16px;
+    height: 16px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.icon-directory {
+    /* Add folder icon URL or SVG here */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2.5A1.5 1.5 0 0 1 3 1h2.251a1.5 1.5 0 0 1 1.22.693l.51 1.02A.75.75 0 0 0 7.75 3H13a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5v-9z"/></svg>');
+}
+
+.file-browser-node.expanded > .file-browser-node-header .icon-directory {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 4.5A1.5 1.5 0 0 0 1 6v6.5A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5V6.313c0-.395-.158-.774-.44-1.054l-.813-.813A1.5 1.5 0 0 0 13 4H7.75a.75.75 0 0 1-.53-.22L6.694 3.25A1.5 1.5 0 0 0 5.483 2H2.5v2.5z"/></svg>');
+}
+
+
+.icon-file {
+    /* Add file icon URL or SVG here */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 1.5A1.5 1.5 0 0 0 2 3v10a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 14 13V4.914a1.5 1.5 0 0 0-.44-1.06L11.121 1.44A1.5 1.5 0 0 0 10.06 1H3.5zM10.5 2H10v2.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V2H4v11h8V4.938L10.5 2.438V2z"/></svg>');
+} 

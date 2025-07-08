@@ -47,7 +47,7 @@
 
 /* ===== BASE POPUP CLASS ===== */
 .base-popup {
-  position: fixed !important;
+  position: fixed;
   z-index: 1000; /* Will be managed by ZIndexManager */
   
   display: flex;
@@ -91,7 +91,7 @@
 /* ===== PANEL CONTAINER ===== */
 .dom-inspector-panel {
   /* Extend base popup */
-  position: fixed !important;
+  position: fixed;
   top: 50px;
   left: 50px;
   z-index: 1000;
@@ -372,13 +372,13 @@
 
 /* Dragging state styles */
 body.dom-inspector-splitter-dragging {
-  cursor: col-resize !important;
-  user-select: none !important;
+  cursor: col-resize;
+  user-select: none;
 }
 
 body.dom-inspector-splitter-dragging * {
-  cursor: col-resize !important;
-  user-select: none !important;
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* ===== TREE VIEW ===== */
@@ -416,19 +416,19 @@ body.dom-inspector-splitter-dragging * {
 
 .dom-inspector-node-header:hover {
   /* All hover effects removed as requested */
-  background: transparent !important;
-  color: inherit !important;
-  border-left: none !important;
-  transform: none !important;
-  box-shadow: none !important;
+  background: transparent;
+  color: inherit;
+  border-left: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .dom-inspector-node-header.selected {
-  background: var(--active-bg) !important;
-  color: var(--active-text) !important;
-  border-color: var(--accent) !important;
-  font-weight: var(--font-weight-semibold) !important;
-  box-shadow: 0 0 0 1px var(--accent-bg) !important;
+  background: var(--active-bg);
+  color: var(--active-text);
+  border-color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 0 0 1px var(--accent-bg);
 }
 
 .dom-inspector-node-toggle {
@@ -1034,7 +1034,7 @@ body.dom-inspector-splitter-dragging * {
 
 /* ===== ACCESSIBILITY ===== */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  * { transition: none; animation: none; }
 }
 
 @media (prefers-contrast: high) {
@@ -1123,9 +1123,9 @@ body.dom-inspector-splitter-dragging * {
 /* Add remaining tooltip styles for backward compatibility */
 .breadcrumb-tooltip {
   /* HOVER TOOLTIP REMOVED */
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
+  display: none;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .tooltip-title {

@@ -17,6 +17,8 @@ const ROOT_STYLE_ELEMENT_ID = 'preview-plugin-css-root-styles';
 let lastAppliedFiles = new Set(); // Keep track of files currently linked
 let lastAppliedConfiguredPaths = new Set();
 let lastAppliedRootStatus = false;
+let _cssDispatchTimeout;
+let _lastAppliedState = null;
 
 /**
  * Initializes the CSS Plugin and applies persisted CSS settings
@@ -204,15 +206,54 @@ export async function applyStyles() {
         logger.debug(`[CSS APPLY DISPATCH] Theme CSS was NOT applied this run.`);
     }
 
-    const previousActivePaths = state.settings?.preview?.activeCssFiles || [];
-    const sortedFinal = [...finalActivePaths].sort();
-    const sortedPrevious = [...previousActivePaths].sort();
-    if (JSON.stringify(sortedFinal) !== JSON.stringify(sortedPrevious)) {
+    const shouldDispatch = shouldDispatchCssChange(finalActivePaths, state);
+    
+    if (shouldDispatch) {
         logger.info(`[CSS APPLY DISPATCH] New active files detected: ${JSON.stringify(finalActivePaths)}`);
-        dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
-        logger.debug(`[CSS APPLY DISPATCH] Dispatched successfully`);
+        // Add debouncing to prevent rapid successive dispatches
+        if (_cssDispatchTimeout) {
+            clearTimeout(_cssDispatchTimeout);
+        }
+        _cssDispatchTimeout = setTimeout(() => {
+            dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
+            logger.debug(`[CSS APPLY DISPATCH] Dispatched successfully`);
+            _cssDispatchTimeout = null;
+        }, 150); // Increased from 50ms to 150ms for better stability
     } else {
         logger.debug(`[CSS APPLY DISPATCH] Active files unchanged, skipping dispatch.`);
     }
     // ===========================================
+}
+
+// CSS state change detection function  
+function shouldDispatchCssChange(finalActivePaths, currentState) {
+    const previousActivePaths = currentState.settings?.preview?.activeCssFiles || [];
+    const sortedFinal = [...finalActivePaths].sort();
+    const sortedPrevious = [...previousActivePaths].sort();
+    
+    // Create a state signature to compare
+    const currentSignature = JSON.stringify({
+        paths: sortedFinal,
+        rootEnabled: currentState.settings?.preview?.enableRootCss || false
+    });
+    
+    // Only dispatch if the signature actually changed AND we're not in a dispatch loop
+    if (_lastAppliedState !== currentSignature) {
+        _lastAppliedState = currentSignature;
+        
+        // Additional check: ensure we're not dispatching the same paths that are already active
+        const pathsChanged = sortedFinal.length !== sortedPrevious.length || 
+                            !sortedFinal.every((path, index) => path === sortedPrevious[index]);
+        
+        if (pathsChanged) {
+            logger.debug(`[CSS APPLY DISPATCH] State signature changed, dispatching update`);
+            return true;
+        } else {
+            logger.debug(`[CSS APPLY DISPATCH] State signature changed but paths unchanged, skipping dispatch`);
+            return false;
+        }
+    }
+    
+    logger.debug(`[CSS APPLY DISPATCH] State signature unchanged, skipping dispatch`);
+    return false;
 }

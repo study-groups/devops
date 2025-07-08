@@ -16,6 +16,24 @@ import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 import { pluginManager } from '/client/preview/PluginManager.js';
 
+let spacesConfig = null;
+
+async function fetchSpacesConfig() {
+    if (spacesConfig) return spacesConfig;
+    try {
+        const response = await fetch('/api/spaces/config');
+        if (response.ok) {
+            const data = await response.json();
+            spacesConfig = data.config;
+            logRenderer(`[Spaces Config] Loaded: ${spacesConfig.publishBaseUrlValue}`, 'info');
+            return spacesConfig;
+        }
+    } catch (error) {
+        logRenderer(`[Spaces Config] Failed to load: ${error.message}`, 'error');
+    }
+    return null;
+}
+
 // Helper for logging within this module
 function logRenderer(message, level = 'debug') {
     const type = 'PREVIEW';
@@ -411,107 +429,44 @@ function parseSizeParameters(text, title) {
 // Keep the markdown-it initialization separate
 // let mdInstance; // REMOVE this global mdInstance, as getMarkdownItInstance creates fresh ones.
 async function getMarkdownItInstance(markdownFilePath) {
-    logRenderer('[getMarkdownItInstance] Called - creating a new, dynamically configured instance.', 'debug');
-    
-    await ensureBaseInitialized(); 
+    await ensureBaseInitialized();
 
-    const currentMd = new window.markdownit({
+    const md = window.markdownit({
         html: true,
-        xhtmlOut: false,
-        breaks: true,
-        langPrefix: 'language-', 
         linkify: true,
-        typographer: true,
-        highlight: function (str, lang) {
-            logRenderer(`[Highlight] lang: '${lang}', str length: ${str.length}`);
-            if (!isPluginEnabled('highlight')) {
-                logRenderer('[Highlight] Highlighting disabled by plugin state.', 'debug');
-                return currentMd.utils.escapeHtml(str);
-            }
-            
-            // Try plugin manager first (if available)
-            if (typeof pluginManager !== 'undefined') {
-                const highlightPlugin = pluginManager.getPlugin('highlight');
-                if (highlightPlugin && highlightPlugin.isReady()) {
-                    try {
-                        const result = highlightPlugin.highlight(str, lang);
-                        logRenderer(`[Highlight] Plugin highlighted '${lang}': ${result.substring(0,100)}...`);
-                        return result;
-                    } catch (error) {
-                        logRenderer(`Error during plugin highlighting for lang '${lang}': ${error.message}`, 'error');
-                    }
-                }
-            }
-            
-            // Fallback to window.hljs (old system)
-            if (window.hljs && lang && window.hljs.getLanguage && window.hljs.getLanguage(lang)) {
-                try {
-                    const result = window.hljs.highlight(str, { language: lang, ignoreIllegals: true });
-                    logRenderer(`[Highlight] Fallback window.hljs highlighted '${lang}'`);
-                    return result.value;
-                } catch (error) {
-                    logRenderer(`Error during fallback highlighting: ${error.message}`, 'error');
-                }
-            }
-            
-            logRenderer(`[Highlight] No highlighting available for lang '${lang}'. Returning escaped HTML.`);
-            return currentMd.utils.escapeHtml(str);
-        }
+        typographer: true
     });
 
-    if (isPluginEnabled('katex')) {
-        logRenderer('[getMarkdownItInstance] KaTeX plugin is enabled. Applying markdown-it-katex.', 'debug');
-        currentMd.use(markdownitKatex);
-    } else {
-        logRenderer('[getMarkdownItInstance] KaTeX plugin is disabled. Not applying markdown-it-katex.', 'debug');
-    }
-
-    if (isPluginEnabled('mermaid')) {
-        logRenderer('[getMarkdownItInstance] Mermaid plugin is enabled, applying custom fence rule for mermaid blocks.', 'debug');
-        
-        const existingFenceRule = currentMd.renderer.rules.fence || function(tokens, idx, options, env, self) {
-            return self.renderToken(tokens, idx, options);
-        };
-
-        currentMd.renderer.rules.fence = (tokens, idx, options, env, self) => {
-            const token = tokens[idx];
-            const langName = token.info ? token.info.trim().split(/\s+/g)[0].toLowerCase() : '';
-            logRenderer(`[Fence Rule] lang: '${langName}'`);
-
-            if (langName === 'mermaid') {
-                logRenderer(`[getMarkdownItInstance] Custom fence: Rendering "mermaid" block. Content length: ${token.content.length}`, 'debug');
-                return `<div class="mermaid">\n${token.content.trim()}\n</div>\n`;
-            }
-            // For all other languages (including 'svg'), fallback to the original fence renderer,
-            // which will use the `highlight` function provided to markdown-it.
-            const fallbackResult = existingFenceRule(tokens, idx, options, env, self);
-            logRenderer(`[Fence Rule] Fallback result for '${langName}': ${fallbackResult.substring(0,100)}...`);
-            return fallbackResult;
-        };
-    } else {
-        logRenderer('[getMarkdownItInstance] Mermaid plugin is disabled, custom fence rule for mermaid NOT applied.', 'debug');
-    }
+    // --- Plugin Loading ---
+    const activePlugins = pluginManager.getAllPlugins();
+    logRenderer(`Loading ${activePlugins.size} active plugins into markdown-it...`, 'info');
 
     // --- BEGIN: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
-    const defaultImageRenderer = currentMd.renderer.rules.image || function(tokens, idx, options, env, self) {
+    const defaultImageRenderer = md.renderer.rules.image || function(tokens, idx, options, env, self) {
         return self.renderToken(tokens, idx, options);
     };
 
-    currentMd.renderer.rules.image = (tokens, idx, options, env, self) => {
+    md.renderer.rules.image = (tokens, idx, options, env, self) => {
         const token = tokens[idx];
         const src = token.attrGet('src');
         const title = token.attrGet('title') || ''; 
         const alt = token.children && token.children[0] ? token.children[0].content : ''; 
         logRenderer(`[Image Rule] src: '${src}', alt: '${alt}', title: '${title}'`);
 
+        if (src && src.startsWith('/uploads/') && spacesConfig?.publishBaseUrlValue) {
+            const newSrc = `${spacesConfig.publishBaseUrlValue}${src}`;
+            token.attrSet('src', newSrc);
+            logRenderer(`Rewritten image src from "${src}" to "${newSrc}"`, 'debug');
+        }
+
         if (src && src.toLowerCase().endsWith('.svg')) {
             logRenderer(`[getMarkdownItInstance] Custom image rule: Rendering SVG image from src: ${src}`, 'debug');
             const { width, height, style } = parseSizeParameters(alt, title);
             
-            const dataWidth = width ? `data-width="${currentMd.utils.escapeHtml(width)}"` : '';
-            const dataHeight = height ? `data-height="${currentMd.utils.escapeHtml(height)}"` : '';
+            const dataWidth = width ? `data-width="${md.utils.escapeHtml(width)}"` : '';
+            const dataHeight = height ? `data-height="${md.utils.escapeHtml(height)}"` : '';
 
-            const outputHtml = `<div class="svg-container" data-src="${currentMd.utils.escapeHtml(src)}" ${dataWidth} ${dataHeight} style="${currentMd.utils.escapeHtml(style)}"></div>`;
+            const outputHtml = `<div class="svg-container" data-src="${md.utils.escapeHtml(src)}" ${dataWidth} ${dataHeight} style="${md.utils.escapeHtml(style)}"></div>`;
             logRenderer(`[Image Rule] SVG image output: ${outputHtml}`);
             return outputHtml;
         }
@@ -526,14 +481,14 @@ async function getMarkdownItInstance(markdownFilePath) {
     
     if (!isPluginEnabled('highlight')) {
         logRenderer('[getMarkdownItInstance] Highlight plugin is disabled in settings. Skipping highlight setup.');
-        currentMd.options.highlight = null; // Disable highlighting
+        md.options.highlight = null; // Disable highlighting
     } else {
         logRenderer('[getMarkdownItInstance] Highlight plugin enabled, setting up highlight function.');
         // ... existing highlight setup ...
     }
 
     logRenderer('[getMarkdownItInstance] Returning newly configured instance.', 'debug');
-    return currentMd;
+    return md;
 }
 
 /**
@@ -611,7 +566,7 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
         logRenderer(`[renderMarkdown] SUCCESSFULLY populated collectedExternalScriptUrls from js_includes. Count: ${collectedExternalScriptUrls.length}, Content: ${JSON.stringify(collectedExternalScriptUrls)}`, 'info');
     } else {
         if (!rawFrontMatter.js_includes) {
-            logRenderer(`[renderMarkdown] rawFrontMatter.js_includes is missing or undefined.`, 'warn');
+            logRenderer(`[renderMarkdown] rawFrontMatter.js_includes is missing or undefined (normal).`, 'debug');
         } else {
             logRenderer(`[renderMarkdown] rawFrontMatter.js_includes is NOT an array. Type: ${typeof rawFrontMatter.js_includes}. Value: ${JSON.stringify(rawFrontMatter.js_includes)}`, 'warn');
         }

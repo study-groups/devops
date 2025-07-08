@@ -28,9 +28,6 @@ export class ConsoleLogEntry {
    * @returns {Array} - Arguments array for console methods
    */
   formatForConsole(showTimestamps = false) {
-    // Build the log prefix with type
-    let prefix = `[${this.type}]`;
-    
     // Get the actual message content, stripping any JSON structure if detected
     let displayMessage = this.message;
     
@@ -49,20 +46,39 @@ export class ConsoleLogEntry {
       }
     }
     
-    // Level goes at the end
-    let levelSuffix = ` [${this.level}]`;
+    // Check if the message is already formatted (contains [DEVPAGES] or similar)
+    const isAlreadyFormatted = typeof displayMessage === 'string' && 
+                              displayMessage.match(/^\[[\w\-_]+\]/);
     
-    // Add timing info when enabled
-    let timingInfo = '';
-    if (showTimestamps) {
-      timingInfo = ` (${this.displayTime})`;
+    if (isAlreadyFormatted) {
+      // Message is already formatted by logMessage, return as-is
+      let finalMessage = displayMessage;
+      
+      // Add timing info when enabled
+      if (showTimestamps) {
+        finalMessage += ` (${this.displayTime})`;
+      }
+      
+      return [finalMessage];
+    } else {
+      // Build the log prefix with type for unformatted messages
+      let prefix = `[${this.type}]`;
+      
+      // Level goes at the end
+      let levelSuffix = ` [${this.level}]`;
+      
+      // Add timing info when enabled
+      let timingInfo = '';
+      if (showTimestamps) {
+        timingInfo = ` (${this.displayTime})`;
+      }
+      
+      // Create the final log message in the format:
+      // [TYPE] message [LEVEL] (timing)
+      const formattedMessage = `${prefix} ${displayMessage}${levelSuffix}${timingInfo}`;
+      
+      return [formattedMessage];
     }
-    
-    // Create the final log message in the format:
-    // [TYPE] message [LEVEL] (timing)
-    const formattedMessage = `${prefix} ${displayMessage}${levelSuffix}${timingInfo}`;
-    
-    return [formattedMessage];
   }
 
   /**

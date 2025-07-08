@@ -3,7 +3,7 @@
  * Uses unified 'pathname' semantics.
  */
 import eventBus from '/client/eventBus.js';
-import { getContent, setContent } from '/client/editor.js';
+// Editor methods accessed through WorkspacePanelManager
 import { logMessage } from '/client/log/index.js';
 import * as fileSystemState from './fileSystemState.js'; // Handles loading initial path from URL
 import { appStore } from '/client/appState.js';
@@ -68,16 +68,14 @@ export async function initializeFileManager() {
     };
 
     try {
-        // --- Get initial path (URL only) ---
-        const { initialPathname } = fileSystemState.loadState(); // Gets 'pathname' from URL or null
+        // --- Get initial path (URL first, localStorage fallback) ---
+        const { initialPathname, isDirectorySelected } = fileSystemState.loadState(); // Gets 'pathname' from URL or localStorage
         if (initialPathname !== null) {
             initialState.currentPathname = initialPathname;
-            // Simple check: assume it's a directory unless it looks like a file (has extension)
-            // This might be refined later based on actual listing results
-            initialState.isDirectorySelected = !/\.[^/]+$/.test(initialPathname);
-             logFileManager(`Loaded initial pathname from URL: '${initialState.currentPathname}', isDirectory: ${initialState.isDirectorySelected}`);
+            initialState.isDirectorySelected = isDirectorySelected;
+             logFileManager(`Loaded initial pathname: '${initialState.currentPathname}', isDirectory: ${initialState.isDirectorySelected}`);
         } else {
-             logFileManager(`No initial pathname from URL.`);
+             logFileManager(`No initial pathname from URL or localStorage.`);
         }
 
         // --- Check for deep link restore (If no URL path) ---
@@ -111,8 +109,8 @@ export async function initializeFileManager() {
         fmUnsubscribe = appStore.subscribe(handleAuthStateChangeForFileManager);
         logFileManager("Subscribed FileManager to appStore changes.");
 
-        // --- Trigger initial check ---
-        await handleAuthStateChangeForFileManager(appStore.getState(), null);
+        // --- Trigger initial check asynchronously so initialization can complete ---
+        handleAuthStateChangeForFileManager(appStore.getState(), null);
 
         // --- Mark initialization process as started ---
         // FS_INIT_COMPLETE will be dispatched by loadInitialFileData
@@ -274,23 +272,14 @@ async function loadInitialFileData() {
                 eventBus.emit('path:changed', { newPath: targetPathname, source: 'fileManagerInitialLoad' });
             } else {
                 logFileManager('[FileManager] SKIPPED path:changed emit in initial load - imported eventBus or emit not ready.', 'warning');
-                console.warn('[EVENTBUS_SKIP_1A] Skipped initial load emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
             }
         } else {
-            console.log('[DEBUG_EMIT_POINT_1B] Reached point before initial load (no path) emit.');
-            
-            console.log('[DEBUG_EVENTBUS_CHECK_1B] window.eventBus exists:', !!window.eventBus);
-            if (window.eventBus) {
-                console.log('[DEBUG_EVENTBUS_CHECK_1B] typeof window.eventBus.emit:', typeof window.eventBus.emit);
-            }
-
             // Emit path change for listeners, indicating root or no path
             if (eventBus && typeof eventBus.emit === 'function') {
                 logFileManager('[FileManager] Emitting path:changed for initial load (no path): null', 'debug');
                 eventBus.emit('path:changed', { newPath: null, source: 'fileManagerInitialLoad' });
             } else {
                 logFileManager('[FileManager] SKIPPED path:changed emit for no path - imported eventBus or emit not ready.', 'warning');
-                console.warn('[EVENTBUS_SKIP_1B] Skipped no-path emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
             }
         }
 
@@ -332,20 +321,6 @@ function setupEventListeners() {
 async function handleNavigateToPathname(data) {
     const { pathname, isDirectory } = data;
     
-    // ADD DEBUG LOGGING
-    console.log(`[DEBUG] Navigation called with:`, { pathname, isDirectory });
-    
-    // Add validation to catch wrong navigation calls
-    if (pathname && /\.[^/]+$/.test(pathname) && isDirectory === true) {
-        console.error(`[ERROR] File being treated as directory:`, { pathname, isDirectory });
-        console.trace('Navigation call stack');
-        
-        // Force correct the isDirectory flag
-        const correctedData = { pathname, isDirectory: false };
-        console.log(`[FIX] Correcting navigation to:`, correctedData);
-        return handleNavigateToPathname(correctedData);
-    }
-    
     const currentPathname = appStore.getState().file.currentPathname;
 
     // Basic validation
@@ -378,7 +353,11 @@ async function handleNavigateToPathname(data) {
     updateUrlParameters(normalizedPathname); // Update URL
 
     // Clear editor content immediately if navigating away from a file or to a new directory
-    setContent('');
+    // Content is now managed through app state - dispatch empty content
+    dispatch({
+        type: ActionTypes.FS_LOAD_FILE_SUCCESS,
+        payload: { pathname: null, content: '' }
+    });
 
     // Load data based on type
     if (isDirectory) {
@@ -387,13 +366,6 @@ async function handleNavigateToPathname(data) {
         await loadFile(normalizedPathname);
     }
     // isLoading will be set to false by the load functions upon completion/error
-
-    console.log('[DEBUG_EMIT_POINT_2] Reached point before navigation emit. normalizedPathname:', normalizedPathname);
-
-    console.log('[DEBUG_EVENTBUS_CHECK_2] window.eventBus exists:', !!window.eventBus);
-    if (window.eventBus) {
-        console.log('[DEBUG_EVENTBUS_CHECK_2] typeof window.eventBus.emit:', typeof window.eventBus.emit);
-    }
     
     // Emit path:changed event so other components (like FileListComponent and Topbar display) can react
     if (eventBus && typeof eventBus.emit === 'function') {
@@ -401,7 +373,6 @@ async function handleNavigateToPathname(data) {
         eventBus.emit('path:changed', { newPath: normalizedPathname, source: 'fileManagerNavigation' });
     } else {
         logFileManager('[FileManager] SKIPPED path:changed emit after navigation - imported eventBus or emit not ready.', 'warning');
-        console.warn('[EVENTBUS_SKIP_2] Skipped navigation emit. Imported eventBus:', eventBus, 'typeof emit:', eventBus ? typeof eventBus.emit : 'N/A');
     }
 }
 
@@ -514,13 +485,21 @@ async function loadFilesAndDirectories(pathname) {
 export async function loadFile(pathname) {
     if (!pathname) {
         logFileManager('LoadFile called with empty pathname. Clearing content.', 'warning');
-        setContent(''); // Clear editor
+        // Content will be cleared via app state
         // Dispatch state? Maybe just clear editor is enough if path is null/empty
-        dispatch({ type: ActionTypes.FS_LOAD_FILE_SUCCESS, payload: { pathname: null } }); // Reflect empty state
+        dispatch({ type: ActionTypes.FS_LOAD_FILE_SUCCESS, payload: { pathname: null, content: '' } }); // Reflect empty state
         return;
     }
     logFileManager(`[LoadFile ${pathname}]: Loading file content...`);
     dispatch({ type: ActionTypes.FS_LOAD_FILE_START });
+
+    // --- FIX: Prevent trying to load a directory as a file ---
+    // A simple check for a file extension. This is a reasonable guard
+    // against trying to fetch content for a path like "/projects".
+    if (!pathname.includes('.')) {
+        logFileManager(`[LoadFile ${pathname}]: Path has no file extension, assuming directory.`, 'debug', 'FILEMGR');
+        return;
+    }
 
     try {
         // Extract directory and filename - Reuse pathUtils
@@ -546,13 +525,15 @@ export async function loadFile(pathname) {
             throw new Error('File content is null or undefined - server may have returned empty response');
         }
 
-        logFileManager(`[LoadFile ${pathname}]: Content loaded successfully (Length: ${content?.length ?? 0}). Setting editor.`);
-        setContent(content); // Update the editor
+        logFileManager(`[LoadFile ${pathname}]: Content loaded successfully (Length: ${content?.length ?? 0}). Content will be available in app state.`);
 
-        // Dispatch success, ensuring pathname and isDirectorySelected are correct
+        // Dispatch success, ensuring pathname and content are stored in state
         dispatch({
              type: ActionTypes.FS_LOAD_FILE_SUCCESS,
-             payload: { pathname: pathname } // Reducer handles setting isDirectorySelected=false
+             payload: { 
+                 pathname: pathname, 
+                 content: content // Store content in app state so EditorPanel can access it
+             } // Reducer handles setting isDirectorySelected=false
         });
 
         // --- REMOVE Entire Dynamic Asset Handling Block --- 
@@ -610,7 +591,8 @@ export async function loadFile(pathname) {
             errorDetails = `Server error while loading file: ${pathname}\n\nPlease check the server logs for more details.`;
         }
         
-        setContent(`## Error Loading File
+        // Show error content in state so EditorPanel can display it
+        const errorContent = `## Error Loading File
 
 Failed to load \`${pathname}\`.
 
@@ -634,9 +616,9 @@ ${errorDetails}
 - Timestamp: ${new Date().toISOString()}
 - Pathname: ${pathname}
 - User Agent: ${navigator.userAgent.substring(0, 50)}...
-`); // Show detailed error in editor
+`;
         
-        dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { pathname, error: error.message } });
+        dispatch({ type: ActionTypes.FS_LOAD_FILE_ERROR, payload: { pathname, error: error.message, content: errorContent } });
     }
 }
 
@@ -655,8 +637,9 @@ export async function saveFile() {
     }
     if (currentState.isLoading || currentState.isSaving) { return false; }
 
-    const content = getContent();
-    logFileManager(`[SAVE_DEBUG] getContent() returned: TYPE=${typeof content}, VALUE='${content}'`, 'debug');
+    // Get content from app state
+    const content = currentState.content || '';
+    logFileManager(`[SAVE_DEBUG] Content from state: TYPE=${typeof content}, LENGTH=${content.length}`, 'debug');
     if (content === null || content === undefined || content === '') {
         logFileManager(`Save aborted: Content is null, undefined, or empty for '${pathname}'.`, 'warning');
         dispatch({ type: ActionTypes.FS_SAVE_FILE_ERROR, payload: { pathname, error: 'Cannot save: Content is empty or invalid.' }});
@@ -715,7 +698,7 @@ export function resetFileManagerState() {
         type: ActionTypes.FS_SET_STATE,
         payload: { // Define the full reset state payload explicitly
             isInitialized: false, isLoading: false, isSaving: false,
-            currentPathname: null, isDirectorySelected: false,
+            currentPathname: null, isDirectorySelected: false, content: '',
             currentListing: { pathname: null, dirs: [], files: [] },
             parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] },
             availableTopLevelDirs: [], error: null,
@@ -725,7 +708,7 @@ export function resetFileManagerState() {
     if (window.APP) window.APP.fileManagerInitialized = false;
     fileSystemState.clearState(); // Clear persisted state (though it does little now)
     updateUrlParameters(null); // Clear pathname from URL
-    setContent('');
+    // Content will be cleared via the state reset above
     cleanupDynamicAssets('(Reset)'); // Clean up any dynamic assets
     logFileManager('FileManager state reset complete.');
 }
@@ -764,7 +747,7 @@ export async function refreshFileManagerForUser(username) {
             payload: {
                 currentPathname: targetPathname,
                 isDirectorySelected: targetIsDir,
-                currentFile: null, // Ensure file is cleared
+                content: '', // Clear content for new user context
                 currentListing: { pathname: null, dirs: [], files: [] }, // Clear listing
                 parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] }, // Clear parent listing
                 isLoading: targetPathname !== null, // Stay loading only if we have a path to load
@@ -772,7 +755,7 @@ export async function refreshFileManagerForUser(username) {
             }
         });
         updateUrlParameters(targetPathname); // Update URL
-        setContent(''); // Clear editor
+        // Content cleared via state update above
 
         // Load listing for the new context (if applicable)
         if (targetPathname !== null && targetIsDir) {

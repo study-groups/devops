@@ -46,7 +46,7 @@
 
 .dom-inspector-panel {
   /* Positioning - CRITICAL for popup behavior */
-  position: fixed !important;
+  position: fixed;
   top: 50px;
   left: 50px;
   z-index: 10000;
@@ -389,11 +389,11 @@
 }
 
 .dom-inspector-node-header.selected {
-  background-color: var(--interactive-background-active) !important;
-  color: var(--interactive-text-active) !important;
-  border-color: var(--interactive-border-active) !important;
-  font-weight: var(--font-weight-semibold) !important;
-  box-shadow: 0 0 0 1px var(--color-primary-background) !important;
+  background-color: var(--interactive-background-active);
+  color: var(--interactive-text-active);
+  border-color: var(--interactive-border-active);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 0 0 1px var(--color-primary-background);
   position: relative;
   z-index: 2;
 }
@@ -630,48 +630,48 @@
 /* Filter controls are now standardized in domInspector-core.css */
 .dom-inspector-filter-controls {
   /* Override with standardized styles */
-  display: flex !important;
-  gap: var(--space-md) !important;
-  align-items: center !important;
-  padding: var(--space-sm) !important;
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-sm);
   
-  background-color: var(--bg-secondary) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  border-radius: var(--radius-base) var(--radius-base) 0 0 !important;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-base) var(--radius-base) 0 0;
 }
 
 .dom-inspector-filter-controls select {
   /* Fix the dropdown size - override with standardized styles */
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  padding: var(--space-xs) var(--space-sm) !important;
-  border-radius: var(--radius-sm) !important;
-  border: 1px solid var(--border-color) !important;
-  background-color: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-  min-width: 120px !important;
-  max-width: 200px !important;
-  height: auto !important;
-  line-height: 1.4 !important;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-width: 120px;
+  max-width: 200px;
+  height: auto;
+  line-height: 1.4;
 }
 
 .dom-inspector-filter-controls select:focus {
-  outline: none !important;
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 2px var(--accent-bg) !important;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
 }
 
 .dom-inspector-toggle-label {
   /* Standardized styling */
-  display: flex !important;
-  align-items: center !important;
-  gap: var(--space-sm) !important;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   
-  cursor: pointer !important;
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  color: var(--text-secondary) !important;
-  user-select: none !important;
+  cursor: pointer;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  user-select: none;
 }
 
 /* ===== HIGHLIGHT TOGGLE PRIMITIVES ===== */
@@ -938,8 +938,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   * {
-    transition: none !important;
-    animation: none !important;
+    transition: none;
+    animation: none;
   }
 }
 
@@ -1060,173 +1060,173 @@
 
 /* Box model styles are now standardized in domInspector-core.css */
 .dom-inspector-box-model-grid {
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  color: var(--text-primary) !important;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
 }
 
 .box-model-grid-row {
-  display: flex !important;
-  align-items: center !important;
-  gap: var(--space-md) !important;
-  padding: var(--space-xs) 0 !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .box-model-grid-row:last-child {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 .box-model-label {
-  font-weight: var(--font-weight-semibold) !important;
-  color: var(--text-secondary) !important;
-  min-width: 80px !important;
-  flex-shrink: 0 !important;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  min-width: 80px;
+  flex-shrink: 0;
 }
 
 .box-model-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
-  gap: var(--space-sm) !important;
-  flex: 1 !important;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: var(--space-sm);
+  flex: 1;
 }
 
 .box-model-size-grid {
-  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .box-model-item {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: var(--space-xs) !important;
-  background: var(--bg-secondary) !important;
-  border-radius: var(--radius-sm) !important;
-  border: 1px solid var(--border-color) !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
 }
 
 .box-model-item div:first-child {
-  font-weight: var(--font-weight-semibold) !important;
-  color: var(--text-secondary) !important;
-  font-size: var(--text-xs) !important;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
 }
 
 .box-model-item div:last-child {
-  color: var(--text-primary) !important;
-  font-size: var(--text-xs) !important;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
   font-family: var(--font-family-mono);
 }
 
 /* Details table styles are now standardized in domInspector-core.css */
 .dom-inspector-details-table {
-  width: 100% !important;
-  border-collapse: collapse !important;
-  table-layout: fixed !important;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
   
   /* Match computed styles exactly */
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  color: var(--text-primary) !important;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
 }
 
 .dom-inspector-details-table td {
-  padding: var(--space-xs) var(--space-sm) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  vertical-align: top !important;
-  word-wrap: break-word !important;
-  overflow-wrap: break-word !important;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .details-table-key,
 .dom-inspector-details-table td:first-child {
-  font-weight: var(--font-weight-semibold) !important;
-  color: var(--text-secondary) !important;
-  width: 40% !important;
-  word-break: break-all !important;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  width: 40%;
+  word-break: break-all;
 }
 
 .details-table-value,
 .dom-inspector-details-table td:last-child {
-  color: var(--text-primary) !important;
-  width: 60% !important;
-  word-break: break-all !important;
-  font-family: var(--font-family-mono) !important;
+  color: var(--text-primary);
+  width: 60%;
+  word-break: break-all;
+  font-family: var(--font-family-mono);
 }
 
 /* Element details styles are now standardized in domInspector-core.css */
 .element-details-container {
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  color: var(--text-primary) !important;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
 }
 
 .details-info-row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
-  gap: var(--space-sm) !important;
-  padding: var(--space-sm) 0 !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .info-item {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: var(--space-xs) !important;
-  background: var(--bg-secondary) !important;
-  border-radius: var(--radius-sm) !important;
-  border: 1px solid var(--border-color) !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
 }
 
 .info-label {
-  font-weight: var(--font-weight-semibold) !important;
-  color: var(--text-secondary) !important;
-  font-size: var(--text-xs) !important;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
 }
 
 .info-value {
-  color: var(--text-primary) !important;
-  font-size: var(--text-xs) !important;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
 }
 
 .details-status-row {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: var(--space-xs) !important;
-  padding: var(--space-sm) 0 !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .status-badge {
-  padding: 2px 6px !important;
-  background: var(--accent-bg) !important;
-  color: var(--accent) !important;
-  border: 1px solid var(--accent) !important;
-  border-radius: var(--radius-sm) !important;
-  font-family: var(--font-family-mono) !important;
-  font-size: 10px !important;
-  font-weight: var(--font-weight-medium) !important;
-  line-height: 1 !important;
+  padding: 2px 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
 .details-html-view {
-  margin-top: var(--space-sm) !important;
+  margin-top: var(--space-sm);
 }
 
 .details-html-view pre {
-  margin: 0 !important;
-  padding: var(--space-sm) !important;
-  background: var(--bg-secondary) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: var(--radius-sm) !important;
-  overflow-x: auto !important;
-  max-height: 200px !important;
-  overflow-y: auto !important;
+  margin: 0;
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .details-html-view code {
-  font-family: var(--font-family-mono) !important;
-  font-size: var(--text-xs) !important;
-  color: var(--text-primary) !important;
-  white-space: pre !important;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  white-space: pre;
 }

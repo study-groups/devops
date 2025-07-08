@@ -5,7 +5,7 @@
 import { BasePanel } from '/client/panels/core/BasePanel.js';
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { updatePreview } from '/client/preview.js';
+import { updatePreview } from '/client/preview/index.js';
 
 export class PreviewPanel extends BasePanel {
     constructor(options = {}) {
@@ -23,7 +23,7 @@ export class PreviewPanel extends BasePanel {
 
         try {
             // Import preview functionality
-            const previewModule = await import('/client/preview.js');
+            const previewModule = await import('/client/preview/index.js');
             
             this.initialized = true;
             this.log('PreviewPanel initialized successfully', 'info');
@@ -59,6 +59,8 @@ export class PreviewPanel extends BasePanel {
 
         this.log(`Mounting PreviewPanel to container: ${container.id || container.className}`, 'debug');
 
+        this.loadCSS();
+
         // The container IS the preview container - use it directly
         this.previewContainer = container;
         this.log('Using container directly as preview container', 'debug');
@@ -78,6 +80,20 @@ export class PreviewPanel extends BasePanel {
 
         this.log('PreviewPanel mounted successfully', 'info');
         return true;
+    }
+
+    /**
+     * Dynamically load the panel's CSS.
+     */
+    loadCSS() {
+        const cssPath = '/client/panels/styles/PreviewPanel.css';
+        if (!document.querySelector(`link[href="${cssPath}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssPath;
+            document.head.appendChild(link);
+            this.log('PreviewPanel CSS loaded.', 'info');
+        }
     }
 
     /**
@@ -141,9 +157,6 @@ export class PreviewPanel extends BasePanel {
                         <p><small>Content is being loaded...</small></p>
                     </div>
                 `;
-                
-                // Actually trigger file loading
-                this.log(`File path exists but no content. Triggering file load for: ${filePath}`, 'warn');
                 try {
                     const { loadFile } = await import('/client/filesystem/fileManager.js');
                     await loadFile(filePath);
@@ -156,17 +169,14 @@ export class PreviewPanel extends BasePanel {
             }
 
             // Use the global preview updater
-            await updatePreview(content, this.previewContainer, filePath);
-            
+            await updatePreview(content, filePath);
+
         } catch (error) {
             this.log(`Preview update failed: ${error.message}`, 'error');
             this.showError('Failed to update preview');
         }
     }
 
-    /**
-     * Show error in preview
-     */
     showError(message) {
         if (this.previewContainer) {
             this.previewContainer.innerHTML = `
@@ -179,13 +189,10 @@ export class PreviewPanel extends BasePanel {
         }
     }
 
-    /**
-     * Clean up resources
-     */
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
         }
         super.destroy();
     }
-} 
+}
