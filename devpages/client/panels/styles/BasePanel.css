@@ -16,8 +16,14 @@
 }
 
 .panel-content {
-    overflow: hidden; /* Content inside should scroll, not the container */
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
 }
+
+/* This rule was too generic and was forcing flex-direction: column on unrelated panel content.
+   It has been removed. Specific panels should style their own children.
+*/
 
 .panel-content .editor-container,
 .panel-content .preview-panel-content {

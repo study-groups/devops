@@ -9,12 +9,11 @@ import { appStore } from '/client/appState.js';
 import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
 import { eventBus } from '/client/eventBus.js';
 import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
-import { debugPanelRegistry } from '/client/debug/debugPanelRegistry.js';
 
 // Temporarily disable modular imports due to import errors
 // TODO: Fix import paths in modular components
 
-class CssFilesPanel {
+export class CssFilesPanel {
   constructor(containerElement) {
     this.containerElement = containerElement;
     this.cssFiles = new Map();
@@ -1555,13 +1554,11 @@ class CssFilesPanel {
   }
 }
 
-// Register this panel in the debug panel registry
-debugPanelRegistry.register({
-  id: 'CssFilesPanel',
-  title: 'CSS Files',
-  component: CssFilesPanel,
-  icon: 'CSS',
-  order: 2
-});
-
-export default CssFilesPanel; 
+// No longer need to self-register
+// // Register this panel with the debug panel registry
+// debugPanelRegistry.register({
+//   id: 'css-files-panel',
+//   title: 'CSS Files',
+//   component: CssFilesPanel,
+//   defaultCollapsed: true
+// }); 

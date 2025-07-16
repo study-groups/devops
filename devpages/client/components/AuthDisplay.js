@@ -188,7 +188,9 @@ export function createAuthDisplayComponent(targetElementId) {
             }];
 
             // Check if user themes directory exists
-            const response = await fetch(`/api/files/list?pathname=themes`);
+            const response = await fetch(`/api/files/list?pathname=themes`, {
+                credentials: 'include'
+            });
             
             if (response.ok) {
                 const data = await response.json();
@@ -211,7 +213,9 @@ export function createAuthDisplayComponent(targetElementId) {
 
     const validateThemeDirectory = async (themeName) => {
         try {
-            const response = await fetch(`/api/files/list?pathname=themes/${themeName}`);
+            const response = await fetch(`/api/files/list?pathname=themes/${themeName}`, {
+                credentials: 'include'
+            });
             if (!response.ok) return null;
             
             const data = await response.json();
@@ -353,30 +357,15 @@ export function createAuthDisplayComponent(targetElementId) {
 
     const updateThemeVariant = (variant) => {
         logAuth(`[AuthDisplay] Updating theme variant to: ${variant}`);
-        themeSettings.themeVariant = variant;
-
-        const lightThemeLink = document.querySelector('link[data-theme="light"]');
-        const darkThemeLink = document.querySelector('link[data-theme="dark"]');
         
-        if (lightThemeLink && darkThemeLink) {
-            if (variant === 'dark') {
-                lightThemeLink.disabled = true;
-                darkThemeLink.disabled = false;
-            } else if (variant === 'light') {
-                lightThemeLink.disabled = false;
-                darkThemeLink.disabled = true;
-            } else { // 'system' or any other non-specific theme
-                lightThemeLink.disabled = true;
-                darkThemeLink.disabled = true;
-            }
-        }
-        
+        // Dispatch the action to keep the store in sync. The reducer is
+        // now the single source of truth for applying the theme to the document.
         dispatch({
             type: ActionTypes.SETTINGS_SET_DESIGN_THEME_VARIANT,
             payload: variant
         });
         
-        // Re-apply current theme to load the correct variant stylesheet
+        // The logic for re-applying user themes is still valid if a user theme is active.
         const currentTheme = availableThemes.find(t => t.id === themeSettings.currentTheme);
         if (currentTheme && currentTheme.type === 'user') {
             applyTheme(currentTheme);
@@ -390,7 +379,9 @@ export function createAuthDisplayComponent(targetElementId) {
 
             if (themeType === 'user') {
                 const apiUrl = `/api/files/content?pathname=${encodeURIComponent(relativePath)}`;
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    credentials: 'include'
+                });
 
                 if (!response.ok) {
                     throw new Error(`API fetch failed for ${relativePath} (status: ${response.status})`);
@@ -684,5 +675,16 @@ export function createAuthDisplayComponent(targetElementId) {
         logAuth('[AuthDisplay] Destroyed.');
     };
 
-    return { mount, update, destroy };
+    return {
+        mount,
+        destroy
+    };
+}
+
+/**
+ * Initializes and mounts the authentication display component.
+ * This should be called once on application startup.
+ */
+export function initializeAuthDisplay() {
+    createAuthDisplayComponent('auth-component-container').mount();
 } 

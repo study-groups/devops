@@ -4,7 +4,7 @@
  */
 
 import { zIndexManager } from '/client/utils/ZIndexManager.js';
-import { debugPanelRegistry } from './debugPanelRegistry.js';
+import { panelRegistry } from '/client/panels/core/panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
 
 const DEBUG_PANEL_STATE_KEY = 'devpages_debug_panel_state';
@@ -33,27 +33,10 @@ class DebugPanelManager {
     }
 
     async init() {
-        await this.loadPanelModules();
         this.createPanelDOM();
         this.attachEventListeners();
         this.registerWithZIndexManager();
         this.loadPanels();
-    }
-
-    async loadPanelModules() {
-        try {
-            logMessage('[DebugPanelManager] Loading debug panel modules...', 'debug');
-            const panelImports = [
-                import('/client/settings/panels/CssFilesPanel/CssFilesPanel.js'),
-                import('/client/settings/panels/javascript/JavaScriptPanel.js'),
-                import('/client/settings/panels/dev-tools/DevToolsPanel.js'),
-            ];
-            await Promise.all(panelImports);
-            logMessage(`[DebugPanelManager] Successfully loaded ${debugPanelRegistry.getPanels().length} debug panel modules.`, 'debug');
-        } catch (error) {
-            logMessage('[DebugPanelManager] Failed to load debug panel modules', 'error');
-            console.error(error);
-        }
     }
 
     createPanelDOM() {
@@ -109,7 +92,9 @@ class DebugPanelManager {
     }
     
     loadPanels() {
-        debugPanelRegistry.getPanels().forEach(panelConfig => {
+        const debugPanels = panelRegistry.getAllPanels().filter(p => p.group === 'debug');
+
+        debugPanels.forEach(panelConfig => {
             const sectionId = panelConfig.id;
             const sectionContainer = document.createElement('div');
             sectionContainer.classList.add('settings-section-container');
@@ -127,7 +112,11 @@ class DebugPanelManager {
             this.contentElement.appendChild(sectionContainer);
             
             const PanelComponent = panelConfig.component;
-            this.sectionInstances[sectionId] = new PanelComponent(content);
+            if (PanelComponent) {
+                this.sectionInstances[sectionId] = new PanelComponent(content);
+            } else {
+                console.error(`No component found for debug panel: ${sectionId}`);
+            }
         });
     }
     
@@ -253,4 +242,10 @@ class DebugPanelManager {
     }
 }
 
-export const debugPanelManager = new DebugPanelManager(); 
+export const debugPanelManager = new DebugPanelManager();
+
+// Expose to window for global access from shortcuts or console
+window.debugPanelManager = debugPanelManager;
+
+// Debug panel manager is handled separately via keyboard shortcuts
+// No need to register it as a panel since it's a standalone component 

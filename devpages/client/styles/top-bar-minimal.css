@@ -9,7 +9,7 @@
     left: 0;
     right: 0;
     height: 40px;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--color-bg-backdrop);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--color-border);
     display: flex;
@@ -24,12 +24,12 @@
     align-items: center;
     gap: 6px;
     padding: 4px 12px;
-    background: var(--color-background-secondary);
+    background: var(--color-bg-alt);
     border: 1px solid var(--color-border);
     border-radius: 16px;
     font-size: 12px;
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--color-fg-alt);
     font-family: var(--font-mono);
     transition: all 0.2s ease;
     user-select: none;
@@ -47,39 +47,39 @@
 
 /* File type specific styling */
 .file-type-badge[data-type="markdown"] {
-    background: #f0f9ff;
-    border-color: #0ea5e9;
-    color: #0284c7;
+    background: var(--color-info-background);
+    border-color: var(--color-info);
+    color: var(--color-info-foreground);
 }
 
 .file-type-badge[data-type="html"] {
-    background: #fef2f2;
-    border-color: #f87171;
-    color: #dc2626;
+    background: var(--color-error-background);
+    border-color: var(--color-error);
+    color: var(--color-error-foreground);
 }
 
 .file-type-badge[data-type="css"] {
-    background: #f0f9ff;
-    border-color: #3b82f6;
-    color: #2563eb;
+    background: var(--color-primary-background);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
 .file-type-badge[data-type="javascript"] {
-    background: #fefce8;
-    border-color: #eab308;
-    color: #ca8a04;
+    background: var(--color-warning-background);
+    border-color: var(--color-warning);
+    color: var(--color-warning-foreground);
 }
 
 .file-type-badge[data-type="json"] {
-    background: #f3f4f6;
-    border-color: #6b7280;
-    color: #4b5563;
+    background: var(--color-bg-alt);
+    border-color: var(--color-border);
+    color: var(--color-fg-alt);
 }
 
 .file-type-badge[data-type="text"] {
-    background: #f9fafb;
-    border-color: #9ca3af;
-    color: #6b7280;
+    background: var(--color-bg-alt);
+    border-color: var(--color-border);
+    color: var(--color-fg-alt);
 }
 
 /* Badge icon */
@@ -92,42 +92,4 @@
 /* Adjust main content to account for minimal top bar */
 main {
     margin-top: 40px;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .top-bar-minimal {
-        background: rgba(17, 24, 39, 0.95);
-        border-bottom-color: var(--color-border-dark);
-    }
-    
-    .file-type-badge {
-        background: var(--color-background-secondary-dark);
-        border-color: var(--color-border-dark);
-        color: var(--color-text-secondary-dark);
-    }
-    
-    .file-type-badge[data-type="markdown"] {
-        background: rgba(14, 165, 233, 0.1);
-        border-color: #0ea5e9;
-        color: #38bdf8;
-    }
-    
-    .file-type-badge[data-type="html"] {
-        background: rgba(239, 68, 68, 0.1);
-        border-color: #ef4444;
-        color: #f87171;
-    }
-    
-    .file-type-badge[data-type="css"] {
-        background: rgba(59, 130, 246, 0.1);
-        border-color: #3b82f6;
-        color: #60a5fa;
-    }
-    
-    .file-type-badge[data-type="javascript"] {
-        background: rgba(234, 179, 8, 0.1);
-        border-color: #eab308;
-        color: #fbbf24;
-    }
 } 

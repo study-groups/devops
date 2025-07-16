@@ -77,9 +77,8 @@ export function attachLogPanelEventListeners(logPanelInstance) {
 
     // --- Resize Listeners ---
     if (logPanelInstance.resizeHandle) {
-        // Ensure methods are bound to the logPanelInstance for correct `this` context
-        const handleResizeMouseDown = _handleResizeMouseDown.bind(logPanelInstance);
-        logPanelInstance.resizeHandle.addEventListener('mousedown', handleResizeMouseDown);
+        // The `startResize` method is already bound to the instance in the constructor.
+        logPanelInstance.resizeHandle.addEventListener('mousedown', logPanelInstance.startResize);
         logDebug('Attached resize mousedown listener.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
     } else {
         logWarn('Resize handle not found on LogPanel instance. Resizing will not work.', { type: 'LOG_PANEL', subtype: 'ERROR' });
@@ -248,8 +247,10 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             // If entry is expanded, handle toolbar clicks
             if (entryDiv.classList.contains('expanded')) {
                 // Check if click is on the pin button (which handles collapse itself)
-                if (event.target.closest('.collapse-pin-button')) {
-                    return; // Pin button has its own handler
+                const pinButton = event.target.closest('.log-entry-pin-button');
+                if (pinButton) {
+                    // Logic for pinning/unpinning, which might involve calling a method on logPanelInstance
+                    return; 
                 }
                 
                 // Check if click is in the toolbar
@@ -269,22 +270,8 @@ export function attachLogPanelEventListeners(logPanelInstance) {
         // Double-click handler for expand/collapse
         logPanelInstance.logElement.addEventListener('dblclick', (event) => {
             const entryDiv = event.target.closest('.log-entry');
-            if (!entryDiv) return;
-
-            // Don't expand/collapse if double-clicking on buttons
-            const isButtonClick = event.target.closest('button, .log-entry-codefence-menu');
-            if (isButtonClick) return;
-
-            if (entryDiv.classList.contains('expanded')) {
-                // Collapse on double-click
-                if (typeof logPanelInstance._collapseLogEntry === 'function') {
-                    logPanelInstance._collapseLogEntry(entryDiv);
-                }
-            } else {
-                // Expand on double-click
-                if (typeof logPanelInstance._expandLogEntry === 'function') {
-                    logPanelInstance._expandLogEntry(entryDiv);
-                }
+            if (entryDiv && typeof logPanelInstance._expandLogEntry === 'function') {
+                logPanelInstance._expandLogEntry(entryDiv);
             }
         });
 
@@ -300,113 +287,20 @@ export function attachLogPanelEventListeners(logPanelInstance) {
 }
 
 /**
- * Handles mouse down on the resize handle.
- * `this` is bound to the LogPanel instance.
- */
-function _handleResizeMouseDown(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    this._isResizing = true;
-    this._startY = event.clientY;
-    // Ensure container is valid before trying to access offsetHeight
-    if (!this.container) {
-        logError("LogPanel container not found during resize mouse down.", { type: 'LOG_PANEL', subtype: 'ERROR' });
-        this._isResizing = false;
-        return;
-    }
-    this._startHeight = this.container.offsetHeight;
-    this.container.classList.add('resizing');
-
-    // Bind and store for removal
-    boundHandleResizeMouseMove = _handleResizeMouseMove.bind(this);
-    boundHandleResizeMouseUp = _handleResizeMouseUp.bind(this);
-
-    document.addEventListener('mousemove', boundHandleResizeMouseMove);
-    document.addEventListener('mouseup', boundHandleResizeMouseUp);
-    logDebug('Resize mouse down, added global listeners.', { type: 'LOG_PANEL', subtype: 'RESIZE' });
-}
-
-/**
- * Handles mouse move during resize.
- * `this` is bound to the LogPanel instance.
- */
-function _handleResizeMouseMove(event) {
-    if (!this._isResizing || !this.container) return;
-
-    const deltaY = this._startY - event.clientY;
-    let newHeight = this._startHeight + deltaY;
-
-    if (newHeight < MIN_LOG_HEIGHT) {
-        newHeight = MIN_LOG_HEIGHT;
-    }
-
-    // Apply immediately for smooth UX
-    this.container.style.height = `${newHeight}px`;
-    document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-    
-    // Store new height for dispatch on mouse up
-    this._currentHeight = newHeight;
-}
-
-/**
- * Handles mouse up after resize, saves the new height.
- * `this` is bound to the LogPanel instance.
- */
-function _handleResizeMouseUp() {
-    if (!this._isResizing) return;
-    this._isResizing = false;
-
-    document.removeEventListener('mousemove', boundHandleResizeMouseMove);
-    document.removeEventListener('mouseup', boundHandleResizeMouseUp);
-    boundHandleResizeMouseMove = null; // Clear stored handlers
-    boundHandleResizeMouseUp = null;
-
-    if (this.container) {
-        this.container.classList.remove('resizing');
-    }
-    if (document.body) { // Check if body exists, for robustness
-       document.body.style.userSelect = '';
-    }
-
-    // Dispatch final height to appStore
-    if (this._currentHeight) {
-        dispatch({ 
-            type: ActionTypes.UI_SET_LOG_HEIGHT, 
-            payload: this._currentHeight 
-        });
-    }
-
-    // The saveLogPanelPreferences method should be part of the LogPanel instance,
-    // potentially calling a function from logPanelState.js
-    if (typeof this.saveLogPanelPreferences === 'function') {
-        this.saveLogPanelPreferences();
-    } else {
-        logWarn('LogPanel.saveLogPanelPreferences is not a function. Cannot save height.', { type: 'LOG_PANEL', subtype: 'RESIZE' });
-    }
-    logDebug(`Resize ended. Final height: ${this._currentHeight}`, { type: 'LOG_PANEL', subtype: 'RESIZE' });
-}
-
-/**
- * Cleans up event listeners.
+ * Removes all event listeners for the LogPanel to prevent memory leaks.
  * @param {LogPanel} logPanelInstance - The instance of the LogPanel.
  */
 export function removeLogPanelEventListeners(logPanelInstance) {
-    if (logPanelInstance && logPanelInstance.resizeHandle) {
-        // To fully remove, we'd need a reference to the exact function passed to addEventListener.
-        // For simplicity, if _handleResizeMouseDown was bound and stored, we could use that.
-        // This part needs careful management if listeners are dynamically added/removed.
-        // For now, this is a placeholder.
-        logDebug('removeLogPanelEventListeners called. Placeholder - actual removal needs to track exact bound functions.', { type: 'LOG_PANEL', subtype: 'EVENTS' });
+    if (!logPanelInstance || !logPanelInstance.container) return;
+
+    // --- Resize Listeners ---
+    if (logPanelInstance.resizeHandle) {
+        logPanelInstance.resizeHandle.removeEventListener('mousedown', logPanelInstance.startResize);
     }
-    // Clean up global listeners if they are still attached (e.g. on destroy)
-    if (boundHandleResizeMouseMove) {
-        document.removeEventListener('mousemove', boundHandleResizeMouseMove);
-        boundHandleResizeMouseMove = null;
-    }
-    if (boundHandleResizeMouseUp) {
-        document.removeEventListener('mouseup', boundHandleResizeMouseUp);
-        boundHandleResizeMouseUp = null;
-    }
+
+    // Note: Delegated and CLI listeners are attached to elements that are destroyed with the panel,
+    // so explicit removal might not be strictly necessary if the DOM elements are removed.
+    // However, it's good practice to clean up if the panel can be re-initialized without a full page reload.
 }
 
 // Add other event-related helper functions as needed.

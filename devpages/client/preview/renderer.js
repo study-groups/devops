@@ -429,62 +429,36 @@ function parseSizeParameters(text, title) {
 // Keep the markdown-it initialization separate
 // let mdInstance; // REMOVE this global mdInstance, as getMarkdownItInstance creates fresh ones.
 async function getMarkdownItInstance(markdownFilePath) {
-    await ensureBaseInitialized();
+    await ensureBaseInitialized(); // Ensures window.markdownit is available
 
     const md = window.markdownit({
         html: true,
         linkify: true,
-        typographer: true
+        typographer: true,
+        breaks: true,
     });
 
-    // --- Plugin Loading ---
-    const activePlugins = pluginManager.getAllPlugins();
-    logRenderer(`Loading ${activePlugins.size} active plugins into markdown-it...`, 'info');
+    // --- STATE-AWARE PLUGIN LOADING ---
+    const activePlugins = await getEnabledPlugins(); // Get plugins based on current state
+    logRenderer(`Loading ${activePlugins.length} active plugins into markdown-it...`, 'info');
+    activePlugins.forEach(plugin => {
+        md.use(plugin.plugin, plugin.options || {});
+        logRenderer(`  -> Loaded plugin: ${plugin.id}`, 'debug');
+    });
 
-    // --- BEGIN: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
-    const defaultImageRenderer = md.renderer.rules.image || function(tokens, idx, options, env, self) {
-        return self.renderToken(tokens, idx, options);
-    };
-
-    md.renderer.rules.image = (tokens, idx, options, env, self) => {
-        const token = tokens[idx];
-        const src = token.attrGet('src');
-        const title = token.attrGet('title') || ''; 
-        const alt = token.children && token.children[0] ? token.children[0].content : ''; 
-        logRenderer(`[Image Rule] src: '${src}', alt: '${alt}', title: '${title}'`);
-
-        if (src && src.startsWith('/uploads/') && spacesConfig?.publishBaseUrlValue) {
-            const newSrc = `${spacesConfig.publishBaseUrlValue}${src}`;
-            token.attrSet('src', newSrc);
-            logRenderer(`Rewritten image src from "${src}" to "${newSrc}"`, 'debug');
-        }
-
-        if (src && src.toLowerCase().endsWith('.svg')) {
-            logRenderer(`[getMarkdownItInstance] Custom image rule: Rendering SVG image from src: ${src}`, 'debug');
-            const { width, height, style } = parseSizeParameters(alt, title);
-            
-            const dataWidth = width ? `data-width="${md.utils.escapeHtml(width)}"` : '';
-            const dataHeight = height ? `data-height="${md.utils.escapeHtml(height)}"` : '';
-
-            const outputHtml = `<div class="svg-container" data-src="${md.utils.escapeHtml(src)}" ${dataWidth} ${dataHeight} style="${md.utils.escapeHtml(style)}"></div>`;
-            logRenderer(`[Image Rule] SVG image output: ${outputHtml}`);
-            return outputHtml;
-        }
-        const defaultHtml = defaultImageRenderer(tokens, idx, options, env, self);
-        logRenderer(`[Image Rule] Default image output for non-SVG: ${defaultHtml.substring(0, 100)}...`);
-        return defaultHtml;
-    };
-    // --- END: SVG Handling for markdown-it (IMAGE RULE ONLY) ---
-
-    // Add debug logging
-    logRenderer(`[getMarkdownItInstance] Checking if highlight plugin enabled: ${isPluginEnabled('highlight')}`);
-    
-    if (!isPluginEnabled('highlight')) {
-        logRenderer('[getMarkdownItInstance] Highlight plugin is disabled in settings. Skipping highlight setup.');
-        md.options.highlight = null; // Disable highlighting
-    } else {
+    // Setup highlighter if the plugin is active AND the library is loaded
+    if (isPluginEnabled('highlight') && window.hljs) {
         logRenderer('[getMarkdownItInstance] Highlight plugin enabled, setting up highlight function.');
-        // ... existing highlight setup ...
+        md.options.highlight = function (str, lang) {
+            if (lang && window.hljs.getLanguage(lang)) {
+                try {
+                    return ('<pre class="hljs"><code>' +
+                        window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                        '</code></pre>');
+                } catch (__) {}
+            }
+            return ('<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>');
+        };
     }
 
     logRenderer('[getMarkdownItInstance] Returning newly configured instance.', 'debug');
@@ -502,6 +476,8 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
     
     let headContent = ''; // Initialize headContent
     let fullPageHtml = ''; // Initialize fullPageHtml
+    let collectedExternalScriptUrls = []; // Initialize script URLs
+    let collectedInlineScriptContents = []; // Initialize inline scripts
 
     let contentToProcess = markdownContent || '';
     
@@ -515,6 +491,16 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
 
     const { frontMatter: rawFrontMatter, body: markdownBody } = parseBasicFrontmatter(contentToProcess);
     logRenderer(`[renderMarkdown] Frontmatter parsed. Body content length for md.render(): ${markdownBody?.length || 0}.`, 'debug');
+
+    // --- NEW: Collect scripts/styles from ACTIVE PLUGINS ---
+    const activePlugins = await getEnabledPlugins();
+    activePlugins.forEach(plugin => {
+        if (plugin.js_includes && Array.isArray(plugin.js_includes)) {
+            collectedExternalScriptUrls.push(...plugin.js_includes);
+            logRenderer(`[renderMarkdown] Added ${plugin.js_includes.length} script(s) from active plugin: ${plugin.id}`, 'info');
+        }
+    });
+    // --- END: Collect scripts/styles from active plugins ---
 
     // --- START: CSS Includes Processing ---
     if (rawFrontMatter.css_includes && Array.isArray(rawFrontMatter.css_includes) && markdownFilePath) {
@@ -560,9 +546,9 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
     logRenderer(`[renderMarkdown] After localMd.render(). Raw HTML body length: ${htmlBodyRaw.length}.`, 'debug');
 
     // ----- SCRIPT COLLECTION -----
-    let collectedExternalScriptUrls = []; // Use a different name to avoid any confusion
+    // Append scripts from frontmatter to those collected from plugins
     if (rawFrontMatter.js_includes && Array.isArray(rawFrontMatter.js_includes)) {
-        collectedExternalScriptUrls = [...rawFrontMatter.js_includes];
+        collectedExternalScriptUrls.push(...rawFrontMatter.js_includes);
         logRenderer(`[renderMarkdown] SUCCESSFULLY populated collectedExternalScriptUrls from js_includes. Count: ${collectedExternalScriptUrls.length}, Content: ${JSON.stringify(collectedExternalScriptUrls)}`, 'info');
     } else {
         if (!rawFrontMatter.js_includes) {
@@ -573,7 +559,6 @@ export async function renderMarkdown(markdownContent, markdownFilePath) {
         logRenderer(`[renderMarkdown] collectedExternalScriptUrls remains empty.`, 'info');
     }
     
-    const collectedInlineScriptContents = []; // Different name
     if (rawFrontMatter.script && typeof rawFrontMatter.script === 'string') {
         collectedInlineScriptContents.push(rawFrontMatter.script);
         logRenderer(`[renderMarkdown] SUCCESSFULLY added script from frontmatter block to collectedInlineScriptContents. New count: ${collectedInlineScriptContents.length}`, 'info');
@@ -909,12 +894,9 @@ export class Renderer {
 
 // Helper function to check if plugin is enabled via application state
 function isPluginEnabled(pluginName) {
-    console.log('[RENDERER DEBUG] isPluginEnabled called for:', pluginName);
     const state = appStore.getState();
-    console.log('[RENDERER DEBUG] App state plugins:', state.plugins);
-    const result = getIsPluginEnabled(state, pluginName);
-    console.log('[RENDERER DEBUG] getIsPluginEnabled result:', result, 'Type:', typeof result, 'Truthy:', !!result);
-    return result;
+    // Use the selector to check the plugin's 'enabled' status from the state
+    return getIsPluginEnabled(state, pluginName);
 } 
 
 // ADD THIS: Helper function to load highlight.js

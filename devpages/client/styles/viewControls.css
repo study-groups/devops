@@ -5,7 +5,7 @@
     gap: var(--space-2);
     align-items: center;
     padding: var(--space-2);
-    background-color: var(--color-background-elevated);
+    background-color: var(--color-bg-elevated);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -13,8 +13,8 @@
     padding: var(--space-2) var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    background-color: var(--color-background);
-    color: var(--color-foreground-secondary);
+    background-color: var(--color-bg);
+    color: var(--color-fg-alt);
     font-size: var(--density-text-sm);
     font-weight: var(--font-weight-medium);
     cursor: pointer;
@@ -23,14 +23,14 @@
 }
 
 #view-controls button:hover {
-    background-color: var(--color-background-elevated);
+    background-color: var(--color-bg-elevated);
     border-color: var(--color-border);
-    color: var(--color-foreground);
+    color: var(--color-fg);
 }
 
 #view-controls button:active {
     transform: translateY(1px);
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
 }
 
 #view-controls button.active {
@@ -84,7 +84,7 @@
 }
 
 .preview-container-reload-btn:hover {
-    background-color: var(--color-background-elevated);
+    background-color: var(--color-bg-elevated);
     transform: rotate(180deg);
 }
 

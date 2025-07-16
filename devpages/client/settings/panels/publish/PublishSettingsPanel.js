@@ -30,10 +30,10 @@ export class PublishSettingsPanel {
 
   async loadSpacesConfig() {
     try {
-      const response = await globalFetch('/api/spaces/config');
+      const response = await globalFetch('/api/config');
       if (response.ok) {
         const data = await response.json();
-        this.spacesConfig = data.config;
+        this.spacesConfig = data;
         this.updateSpacesConfigDisplay();
       } else {
         logMessage('Failed to load Spaces configuration', 'warn', 'PUBLISH_SETTINGS');
@@ -184,45 +184,39 @@ export class PublishSettingsPanel {
   updateSpacesConfigDisplay() {
     if (!this.spacesConfig) return;
 
-    const ghostValue = (value, length = 8) => {
-      if (!value || value === 'Not Set') return 'Not Set';
-      return value.substring(0, 3) + '•'.repeat(Math.max(0, length - 6)) + value.substring(Math.max(3, value.length - 3));
-    };
-
     // Update endpoint
     const endpointEl = this.containerElement.querySelector('#spaces-endpoint');
     if (endpointEl) {
-      endpointEl.textContent = this.spacesConfig.endpointValue || 'Not Set';
-      endpointEl.className = `settings-text--muted ${this.spacesConfig.endpointValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      endpointEl.textContent = this.spacesConfig.DO_SPACES_ENDPOINT || 'Not Set';
+      endpointEl.className = `settings-text--muted ${this.spacesConfig.DO_SPACES_ENDPOINT ? 'configured' : 'not-configured'}`;
     }
 
     // Update region
     const regionEl = this.containerElement.querySelector('#spaces-region');
     if (regionEl) {
-      regionEl.textContent = this.spacesConfig.regionValue || 'Not Set';
-      regionEl.className = `settings-text--muted ${this.spacesConfig.regionValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      regionEl.textContent = this.spacesConfig.DO_SPACES_REGION || 'Not Set';
+      regionEl.className = `settings-text--muted ${this.spacesConfig.DO_SPACES_REGION ? 'configured' : 'not-configured'}`;
     }
 
     // Update bucket
     const bucketEl = this.containerElement.querySelector('#spaces-bucket');
     if (bucketEl) {
-      bucketEl.textContent = this.spacesConfig.bucketValue || 'Not Set';
-      bucketEl.className = `settings-text--muted ${this.spacesConfig.bucketValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      bucketEl.textContent = this.spacesConfig.DO_SPACES_BUCKET || 'Not Set';
+      bucketEl.className = `settings-text--muted ${this.spacesConfig.DO_SPACES_BUCKET ? 'configured' : 'not-configured'}`;
     }
 
-    // Update access key (ghosted)
+    // Update access key
     const keyEl = this.containerElement.querySelector('#spaces-key');
     if (keyEl) {
-      const keyValue = this.spacesConfig.endpointValue; // Using endpoint as proxy for key existence
-      keyEl.textContent = keyValue !== 'Not Set' ? ghostValue('DO_SPACES_KEY', 16) : 'Not Set';
-      keyEl.className = `settings-text--muted ${keyValue !== 'Not Set' ? 'configured' : 'not-configured'}`;
+      keyEl.textContent = this.spacesConfig.DO_SPACES_KEY || 'Not Set';
+      keyEl.className = `settings-text--muted ${this.spacesConfig.DO_SPACES_KEY ? 'configured' : 'not-configured'}`;
     }
 
     // Update base URL
     const baseUrlEl = this.containerElement.querySelector('#spaces-base-url');
     if (baseUrlEl) {
-      baseUrlEl.textContent = this.spacesConfig.publishBaseUrlValue || 'Auto-generated';
-      baseUrlEl.className = `settings-text--muted ${this.spacesConfig.publishBaseUrlValue !== 'Not Set' ? 'configured' : 'auto'}`;
+      baseUrlEl.textContent = this.spacesConfig.PUBLISH_BASE_URL || 'Auto-generated';
+      baseUrlEl.className = `settings-text--muted ${this.spacesConfig.PUBLISH_BASE_URL ? 'configured' : 'auto'}`;
     }
   }
 

@@ -17,8 +17,8 @@
     font-family: monospace;
     font-size: 14px;
     resize: none;
-    background-color: var(--color-background, #fff);
-    color: var(--color-foreground, #000);
+    background-color: var(--color-bg);
+    color: var(--color-fg);
 }
 
 .editor-textarea:focus {

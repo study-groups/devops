@@ -4,7 +4,7 @@
 
 /* Panel Navigation Bar */
 .panel-navbar {
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     border-bottom: 1px solid var(--color-border);
     padding: var(--space-1) var(--space-2);
     display: flex;
@@ -63,7 +63,7 @@
 
 /* Context Section */
 .context-section {
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     padding: var(--space-0-5) var(--space-1);
@@ -82,7 +82,7 @@
 
 .context-name {
     font-weight: var(--font-weight-medium);
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-size: var(--font-size-xs);
     max-width: 100px;
     overflow: hidden;
@@ -97,7 +97,7 @@
     padding: var(--space-0-5) var(--space-1);
     cursor: pointer;
     border-radius: var(--radius-xs);
-    color: var(--color-foreground-muted);
+    color: var(--color-fg-muted);
     font-size: var(--font-size-xs);
     transition: var(--transition-fast);
     display: flex;
@@ -109,8 +109,8 @@
 }
 
 .navbar-btn:hover {
-    background-color: var(--color-background-tertiary);
-    color: var(--color-foreground);
+    background-color: var(--color-bg-muted);
+    color: var(--color-fg);
 }
 
 .navbar-btn:active {
@@ -137,7 +137,7 @@
 .context-menu-dropdown {
     position: fixed;
     z-index: 10000;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
@@ -153,12 +153,12 @@
 
 .context-menu-header {
     padding: var(--space-2) var(--space-3);
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     border-bottom: 1px solid var(--color-border);
     border-radius: var(--radius-md) var(--radius-md) 0 0;
     font-weight: var(--font-weight-semibold);
     font-size: var(--font-size-sm);
-    color: var(--color-foreground);
+    color: var(--color-fg);
 }
 
 .context-menu-list {
@@ -173,13 +173,13 @@
     gap: var(--space-2);
     padding: var(--space-1-5) var(--space-3);
     cursor: pointer;
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-size: var(--font-size-sm);
     transition: var(--transition-fast);
 }
 
 .context-menu-item:hover {
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
 }
 
 .context-menu-item.active {
@@ -203,24 +203,24 @@
 .context-menu-footer {
     padding: var(--space-2) var(--space-3);
     border-top: 1px solid var(--color-border);
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .context-menu-btn {
     width: 100%;
     padding: var(--space-1) var(--space-2);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-size: var(--font-size-xs);
     cursor: pointer;
     transition: var(--transition-fast);
 }
 
 .context-menu-btn:hover {
-    background-color: var(--color-background-tertiary);
+    background-color: var(--color-bg-muted);
     border-color: var(--color-border-secondary);
 }
 
@@ -249,7 +249,7 @@
 
 .help-modal-content {
     position: relative;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
@@ -266,13 +266,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .help-modal-header h3 {
     margin: 0;
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-size: var(--font-size-lg);
 }
 
@@ -281,7 +281,7 @@
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: var(--color-foreground-muted);
+    color: var(--color-fg-muted);
     padding: var(--space-1);
     border-radius: var(--radius-sm);
     transition: var(--transition-fast);
@@ -300,13 +300,13 @@
 
 .help-modal-body h4 {
     margin: var(--space-3) 0 var(--space-1) 0;
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-size: var(--font-size-md);
 }
 
 .help-modal-body p {
     margin: var(--space-2) 0;
-    color: var(--color-foreground-secondary);
+    color: var(--color-fg-alt);
     line-height: var(--line-height-relaxed);
 }
 
@@ -317,17 +317,17 @@
 
 .help-modal-body li {
     margin: var(--space-1) 0;
-    color: var(--color-foreground-secondary);
+    color: var(--color-fg-alt);
     line-height: var(--line-height-relaxed);
 }
 
 .help-modal-body strong {
-    color: var(--color-foreground);
+    color: var(--color-fg);
     font-weight: var(--font-weight-semibold);
 }
 
 .help-modal-body em {
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     padding: 2px 4px;
     border-radius: var(--radius-xs);
     font-style: normal;
@@ -340,7 +340,7 @@
     border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: flex-end;
-    background-color: var(--color-background-secondary);
+    background-color: var(--color-bg-alt);
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
@@ -468,4 +468,37 @@
 .panel[data-panel-type="svg"] .panel-navbar {
     background-color: rgba(220, 53, 69, 0.1);
     border-bottom-color: rgba(220, 53, 69, 0.3);
+} 
+
+.panel-navbar .resizer-container {
+    height: 100%;
+    width: 2px;
+    background-color: var(--color-gray-900);
+    border-bottom: 1px solid var(--color-gray-900);
+}
+.panel-navbar .resizer {
+    width: 100%;
+    height: 100%;
+    border-color: var(--color-gray-900);
+}
+.panel-navbar .resizer:hover {
+    background-color: var(--color-gray-900);
+}
+.panel-navbar .resizer.active {
+    background-color: var(--color-gray-900);
+    border-color: var(--color-gray-900);
+}
+
+.panel-navbar .resizer-container.open {
+    border-color: var(--color-gray-900);
+}
+.panel-navbar .resizer:hover.open {
+    background-color: var(--color-gray-900);
+}
+.panel-navbar .resizer.active.open {
+    background-color: var(--color-gray-900);
+    border-color: var(--color-gray-900);
+}
+.panel-navbar .resizer.active.open:hover {
+    background-color: var(--color-gray-900);
 } 

@@ -10,8 +10,8 @@
   /* Base container using design system tokens */
   width: 100%;
   height: 100%;
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--color-bg);
+  color: var(--color-fg);
   font-family: var(--font-family-sans);
   font-size: var(--density-text-base);
   line-height: var(--density-line-height);
@@ -45,7 +45,7 @@
   width: 100%;
   height: 100%;
   border: none;
-  background-color: var(--color-background-elevated);
+  background-color: var(--color-bg-elevated);
   
   /* Smooth loading transition */
   opacity: 0;
@@ -71,7 +71,7 @@
   margin-bottom: var(--density-space-md);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
-  color: var(--heading-color, var(--color-foreground));
+  color: var(--heading-color, var(--color-fg));
 }
 
 .preview-container h1:first-child,
@@ -109,7 +109,7 @@
 
 .preview-container h6 {
   font-size: var(--density-text-sm);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
 }
 
 /* Paragraph and Text */
@@ -127,13 +127,13 @@
   margin: var(--density-space-lg) 0;
   padding: var(--density-space-md) var(--density-space-lg);
   border-left: 4px solid var(--color-border-secondary);
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .preview-container blockquote p {
   margin-bottom: var(--density-space-sm);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   font-style: italic;
 }
 
@@ -170,10 +170,10 @@
   font-family: var(--font-family-mono);
   font-size: 0.9em;
   padding: var(--space-0-5) var(--space-1);
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  color: var(--color-foreground);
+  color: var(--color-fg);
   
   /* Improved inline code appearance */
   line-height: 1.4; /* Better line height for inline code */
@@ -183,7 +183,7 @@
 .preview-container pre {
   margin: var(--density-space-lg) 0;
   padding: var(--density-space-md);
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow-x: auto;
@@ -200,7 +200,7 @@
   
   /* Custom scrollbar for code blocks */
   scrollbar-width: thin;
-  scrollbar-color: var(--color-foreground-muted) transparent;
+  scrollbar-color: var(--color-fg-muted) transparent;
 }
 
 .preview-container pre::-webkit-scrollbar {
@@ -212,7 +212,7 @@
 }
 
 .preview-container pre::-webkit-scrollbar-thumb {
-  background: var(--color-foreground-muted);
+  background: var(--color-fg-muted);
   border-radius: var(--radius-full);
 }
 
@@ -250,13 +250,13 @@
 }
 
 .preview-container th {
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-foreground);
+  color: var(--color-fg);
 }
 
 .preview-container tbody tr:hover {
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
 }
 
 .preview-container tbody tr:last-child td {
@@ -301,7 +301,7 @@
 .preview-container figcaption {
   margin-top: var(--density-space-sm);
   font-size: var(--density-text-sm);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   font-style: italic;
 }
 
@@ -329,7 +329,7 @@
 .preview-container .mermaid {
   margin: var(--density-space-lg) 0;
   text-align: center;
-  background-color: var(--color-background-elevated);
+  background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--density-space-md);
@@ -364,23 +364,23 @@
 
 @media print {
   .preview-container {
-    background: white;
-    color: black;
+    /* Reset for printing */
   }
-  
   .preview-container {
     padding: 0;
+    background-color: transparent;
+    color: var(--color-print-text);
+    border: none;
+    box-shadow: none;
   }
-  
   .preview-container a {
-    color: black;
+    color: var(--color-print-text);
     text-decoration: underline;
   }
-  
   .preview-container pre,
   .preview-container blockquote {
-    border: 1px solid #ccc;
     page-break-inside: avoid;
+    border: 1px solid var(--color-border);
   }
 }
 
@@ -421,7 +421,7 @@
   position: absolute;
   top: var(--density-space-md);
   right: var(--density-space-md);
-  background: var(--color-background-elevated);
+  background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--density-space-sm);
@@ -444,7 +444,7 @@
 .preview-settings-button {
   background: none;
   border: none;
-  color: var(--color-foreground-muted);
+  color: var(--color-fg-muted);
   cursor: pointer;
   padding: var(--density-space-xs);
   border-radius: var(--radius-sm);
@@ -453,8 +453,8 @@
 }
 
 .preview-settings-button:hover {
-  color: var(--color-foreground);
-  background-color: var(--color-background-secondary);
+  color: var(--color-fg);
+  background-color: var(--color-bg-alt);
 }
 
 .preview-settings-button:focus-visible {

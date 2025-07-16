@@ -67,7 +67,7 @@ export class IframeAnalyzer {
         // Performance analysis
         analysis.push(`<div style="margin-top: 8px;"><strong>Performance:</strong></div>`);
         const rect = iframe.getBoundingClientRect();
-        analysis.push(`<div style="margin-left: 12px;">Viewport Size: ${Math.round(rect.width)}×${Math.round(rect.height)}</div>`);
+        analysis.push(`<div style="margin-left: 12px;">Viewport Size: ${Math.round(rect.width)}x${Math.round(rect.height)}</div>`);
         analysis.push(`<div style="margin-left: 12px;">Visibility: ${rect.width > 0 && rect.height > 0 ? 'Visible' : 'Hidden'}</div>`);
         
         // Recommendations
@@ -143,7 +143,7 @@ export class IframeAnalyzer {
         // Performance analysis
         analysis.push(`<div style="margin-top: 8px;"><strong>Performance:</strong></div>`);
         const rect = iframe.getBoundingClientRect();
-        analysis.push(`<div style="margin-left: 12px;">Viewport Size: ${Math.round(rect.width)}×${Math.round(rect.height)}</div>`);
+        analysis.push(`<div style="margin-left: 12px;">Viewport Size: ${Math.round(rect.width)}x${Math.round(rect.height)}</div>`);
         analysis.push(`<div style="margin-left: 12px;">Visibility: ${rect.width > 0 && rect.height > 0 ? 'Visible' : 'Hidden'}</div>`);
         
         // Recommendations

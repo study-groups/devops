@@ -1,109 +1,421 @@
 /**
- * panels.css - Panel System Styles
+ * panels.css - Core Panel System Styles
  * 
- * Styles for the sidebar panel management system and related components.
+ * Main panel system styles for layout, interaction, and behavior.
+ * Complemented by specialized modules:
+ * - panels/scrollbars.css: Scrollbar styling utilities
+ * - Individual panel component styles in their respective directories
  */
 
-/* Panel Manager Styles */
-.panel-manager-grid {
+/* ===== BASE PANEL SYSTEM ===== */
+
+/* Base Panel Container */
+.panel-container {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    margin-left: 0.5rem;
+    flex-direction: column;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: none;
+    transition: var(--transition-fast);
 }
 
-.panel-manager-item {
+.panel-container.panel-hidden {
+    display: none;
+}
+
+/* Panel Header */
+.panel-header {
+    padding: var(--space-2) var(--space-3);
+    background-color: transparent;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-fg);
+    cursor: grab;
+    user-select: none;
+    transition: background-color var(--transition-fast);
+}
+
+.panel-header:active {
+    cursor: grabbing;
+}
+
+.panel-header:hover {
+    background-color: var(--color-bg-muted);
+}
+
+.panel-title {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-fg);
+    margin: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.panel-controls {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.panel-control-btn {
+    background: none;
+    border: none;
+    padding: var(--space-0-5) var(--space-1);
+    cursor: pointer;
+    color: var(--color-fg-alt);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.panel-control-btn:hover {
+    background-color: var(--color-bg-muted);
+    color: var(--color-fg);
+}
+
+/* Panel Content */
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    background-color: transparent;
+    transition: var(--transition-fast);
+    color: var(--color-fg-alt);
+}
+
+.panel-content:not(:empty) {
+    padding: var(--space-2);
+}
+
+/* ===== SIDEBAR PANELS ===== */
+
+.sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    transition: var(--transition-fast);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-panel:last-child {
+    border-bottom: none;
+}
+
+.sidebar-panel:hover {
+    background-color: var(--color-bg-alt);
+}
+
+.sidebar-panel.active {
+    background-color: var(--color-bg-muted);
+}
+
+.sidebar-panel.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+    z-index: 1000;
+}
+
+.sidebar-panel.collapsed .panel-content {
+    display: none;
+}
+
+.sidebar-panel.collapsed .panel-collapse-toggle svg {
+    transform: rotate(90deg);
+}
+
+.sidebar-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2);
+    background: transparent;
+    border-bottom: 1px solid var(--color-border);
+    cursor: grab;
+    user-select: none;
+    transition: background-color var(--transition-fast);
+}
+
+.sidebar-panel-header-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.sidebar-panel-header:active {
+    cursor: grabbing;
+}
+
+.sidebar-panel-header:hover {
+    background-color: var(--color-bg-muted);
+}
+
+.sidebar-panel .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    background-color: transparent;
+    transition: var(--transition-fast);
+    color: var(--color-fg-alt);
+}
+
+.sidebar-panel .panel-content:not(:empty) {
+    padding: var(--space-2) var(--space-2) var(--space-2) 32px;
+}
+
+/* ===== PANEL ICONS ===== */
+
+.panel-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
-    border-radius: 4px;
-    cursor: pointer;
-    background-color: transparent;
-    border: none;
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.panel-manager-item:hover:not(.inactive) {
-    background-color: var(--color-background-hover);
-}
-
-.panel-manager-item.active {
-    background-color: transparent;
-}
-
-.panel-manager-item.inactive {
-    opacity: 0.5;
-}
-
-.panel-manager-item.inactive:hover {
-    opacity: 0.9;
-    background-color: transparent;
-}
-
-.panel-manager-icon {
     width: 20px;
     height: 20px;
+    margin-right: var(--space-1);
+    cursor: default;
+}
+
+.panel-icon img {
+    width: 16px;
+    height: 16px;
+    opacity: 0.8;
+    transition: var(--transition-fast);
+}
+
+.sidebar-panel-header:hover .panel-icon img {
+    opacity: 1;
+}
+
+/* ===== PANEL COLLAPSE TOGGLE ===== */
+
+.panel-collapse-toggle {
+    background: none;
+    border: none;
+    color: var(--color-fg-alt);
+    cursor: pointer;
+    padding: 0;
+    margin-left: var(--space-2);
+    opacity: 0.7;
+    transition: all var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 13px;
+    height: 13px;
 }
 
-.panel-manager-icon img,
-.panel-manager-icon svg {
-    width: 100%;
-    height: 100%;
+.panel-collapse-toggle svg {
+    width: 13px;
+    height: 13px;
+    transition: transform var(--transition-fast);
 }
 
-/* Panel Manager reset button in header */
+.sidebar-panel-header:hover .panel-collapse-toggle {
+    opacity: 1;
+    color: var(--color-fg);
+}
+
 .panel-reset-btn {
-    font-size: 14px;
-    font-weight: bold;
-    color: var(--color-primary, #007bff);
+    background-color: var(--color-yellow-500);
+    color: var(--color-yellow-100);
+    border: 1px solid var(--color-yellow-500);
+    opacity: 1;
 }
 
 .panel-reset-btn:hover {
-    color: var(--color-primary-dark, #0056b3);
-    transform: rotate(180deg);
-    transition: transform 0.3s ease;
+    background-color: var(--color-yellow-900);
+    border-color: var(--color-yellow-900);
 }
 
-/* Custom SVG icons */
-.icon-settings {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'%3E%3C/circle%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z'%3E%3C/path%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+/* ===== FLOATING PANELS ===== */
+
+.floating-panel-window {
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    resize: both;
+    min-width: 320px;
+    min-height: 240px;
+    max-width: 90vw;
+    max-height: 90vh;
 }
 
-.icon-context {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'%3E%3C/path%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'%3E%3C/polyline%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'%3E%3C/line%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+.floating-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2);
+    background-color: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
+    cursor: move;
+    user-select: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-fg);
 }
 
-.icon-chat {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+.floating-panel-content {
+    padding: var(--space-2);
+    height: calc(100% - 40px);
+    overflow-y: auto;
+    background-color: transparent;
 }
 
-.icon-files {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14 2 14 8 20 8'%3E%3C/polyline%3E%3Cline x1='16' y1='13' x2='8' y2='13'%3E%3C/line%3E%3Cline x1='16' y1='17' x2='8' y2='17'%3E%3C/line%3E%3Cpolyline points='10 9 9 9 8 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+/* ===== PANEL GUTTER ===== */
+
+.panel-gutter {
+    width: 40px;
+    background: transparent;
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-2) 0;
+    gap: var(--space-2);
+    z-index: 10;
 }
 
-.icon-help {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'%3E%3C/path%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+.panel-gutter-button {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-fg-alt);
+    transition: var(--transition-fast);
+    position: relative;
+}
+
+.panel-gutter-button:hover {
+    background-color: var(--color-bg-alt);
+    border-color: var(--color-border-secondary);
+    color: var(--color-fg);
+}
+
+.panel-gutter-button.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+}
+
+.panel-gutter-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Tooltip for gutter buttons */
+.panel-gutter-button::after {
+    content: attr(title);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-gray-900);
+    color: var(--color-gray-100);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--transition-fast);
+    z-index: 1000;
+}
+
+.panel-gutter-button:hover::after {
+    opacity: 1;
+}
+
+/* ===== DROP ZONES ===== */
+
+.drop-zone {
+    height: 3px;
+    background-color: var(--color-blue-500);
+    border-radius: var(--radius-sm);
+    margin: var(--space-1) 0;
+    position: relative;
+    animation: pulse 1s infinite;
+}
+
+.drop-zone::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background-color: var(--color-blue-100);
+    border-radius: var(--radius-sm);
+    z-index: -1;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ===== PANEL SCROLLBARS ===== */
+/* Note: Scrollbar styles are now handled in panels/scrollbars.css */
+
+/* ===== DARK MODE SUPPORT ===== */
+
+[data-theme="dark"] .panel-collapse-toggle svg {
+    filter: invert(1);
+}
+
+[data-theme="dark"] .panel-gutter-button::after {
+    background: var(--color-gray-900);
+    color: var(--color-gray-100);
+}
+
+/* Dark mode scrollbar styles are handled in panels/scrollbars.css */
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 768px) {
+    .panel-layout-container {
+        flex-direction: column;
+    }
+    
+    .panel-section {
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+    
+    .panel-section:last-child {
+        border-bottom: none;
+    }
+    
+    .panel-gutter {
+        width: 100%;
+        height: 40px;
+        flex-direction: row;
+        justify-content: center;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+    
+    .panel-gutter-button::after {
+        left: 50%;
+        top: 100%;
+        transform: translateX(-50%);
+        margin-left: 0;
+        margin-top: var(--space-1);
+    }
 } 
+
+/* ===== END SIDEBAR HEADER ACTIONS ===== */ 

@@ -63,12 +63,17 @@ class DesignTokensPanel {
             <div class="stat" id="typography-count">Typography: 0</div>
             <div class="stat" id="spacing-count">Spacing: 0</div>
             <button class="refresh-btn" id="refresh-tokens">Refresh</button>
-            <button class="view-toggle-btn" id="toggle-view" title="Toggle grid/list view">🔳</button>
           </div>
         </div>
         
-        <div class="token-filters" id="token-filters">
-          <button class="token-filter-badge active" data-filter="all">All</button>
+        <div class="token-controls">
+            <div class="token-filters" id="token-filters">
+              <button class="token-filter-badge active" data-filter="all">All</button>
+            </div>
+            <div class="token-view-modes">
+                <button class="view-mode-btn active" data-view="list">List</button>
+                <button class="view-mode-btn" data-view="grid">Grid</button>
+            </div>
         </div>
         
         <div class="token-categories" id="token-categories">
@@ -92,13 +97,13 @@ class DesignTokensPanel {
         console.warn('[DesignTokensPanel] refresh-tokens button not found');
       }
 
-      // Toggle view button
-      const toggleBtn = document.getElementById('toggle-view');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-          this.toggleViewMode();
-        });
-      }
+      // New view mode buttons
+      const viewModeButtons = this.containerElement.querySelectorAll('.view-mode-btn');
+      viewModeButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+              this.setViewMode(btn.dataset.view);
+          });
+      });
     }, 0);
   }
 
@@ -109,11 +114,12 @@ class DesignTokensPanel {
     try {
       this.tokens = [];
       
-      // Files to scan for design tokens - only include files that actually exist
+      // Files to scan for design tokens - include all design system files
       const cssFiles = [
+        '/client/styles/typography.css',
         '/client/styles/design-system.css',
-        '/client/styles/preview/light.css',
-        '/client/styles/preview/dark.css'
+        '/client/styles/utilities.css',
+        '/client/styles/icons.css'
       ];
 
       for (const file of cssFiles) {
@@ -148,6 +154,36 @@ class DesignTokensPanel {
       console.error('Error loading design tokens:', error);
       this.showError(error);
     }
+  }
+
+  /**
+   * Determines if a color is light or dark.
+   * @param {string} color - The color string (hex, rgb, etc.).
+   * @returns {boolean} True if the color is dark, false otherwise.
+   */
+  isColorDark(color) {
+    // This is a simplified check. For a real implementation, a more robust
+    // color parsing and luminance calculation library would be better.
+    let r, g, b;
+    if (color.match(/^#([0-9a-f]{3}){1,2}$/i)) {
+      let hex = color.substring(1);
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('');
+      }
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    } else if (color.match(/^rgb/)) {
+      const parts = color.match(/(\d+)/g);
+      [r, g, b] = parts.map(Number);
+    } else {
+      // Default to assuming not dark for unknown formats
+      return false;
+    }
+
+    // Luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.5;
   }
 
   /**
@@ -221,7 +257,8 @@ class DesignTokensPanel {
     
     // Typography tokens
     if (variable.includes('font') || variable.includes('text') || 
-        variable.includes('line-height')) {
+        variable.includes('line-height') || variable.includes('letter-spacing') ||
+        variable.includes('typography')) {
       return 'typography';
     }
     
@@ -241,6 +278,11 @@ class DesignTokensPanel {
       return 'animation';
     }
     
+    // Icon tokens
+    if (variable.includes('icon')) {
+      return 'icon';
+    }
+    
     return 'other';
   }
 
@@ -249,13 +291,19 @@ class DesignTokensPanel {
    */
   categorizeToken(variable) {
     if (variable.startsWith('--color-')) return 'Colors';
-    if (variable.startsWith('--font-')) return 'Typography';
+    if (variable.startsWith('--font-family-')) return 'Typography';
+    if (variable.startsWith('--font-size-')) return 'Typography';
+    if (variable.startsWith('--font-weight-')) return 'Typography';
+    if (variable.startsWith('--line-height-')) return 'Typography';
+    if (variable.startsWith('--letter-spacing-')) return 'Typography';
+    if (variable.startsWith('--typography-')) return 'Typography';
     if (variable.startsWith('--space-')) return 'Spacing';
     if (variable.startsWith('--radius-')) return 'Border Radius';
     if (variable.startsWith('--shadow-')) return 'Shadows';
     if (variable.startsWith('--transition-')) return 'Transitions';
     if (variable.startsWith('--z-')) return 'Z-Index';
     if (variable.startsWith('--density-')) return 'Density';
+    if (variable.startsWith('--icon-')) return 'Icons';
     return 'Other';
   }
 
@@ -320,13 +368,20 @@ class DesignTokensPanel {
       if (isColorCategory && this.colorGridMode) {
         html += this.renderColorGridSection(categoryTokens);
       } else {
-        categoryTokens.forEach(token => {
-          if (isColorCategory) {
-            html += this.renderColorToken(token);
-          } else {
-            html += this.renderGenericToken(token);
-          }
-        });
+        // Group typography tokens by type for better organization
+        if (category === 'Typography') {
+          html += this.renderTypographySection(categoryTokens);
+        } else {
+          categoryTokens.forEach(token => {
+            if (isColorCategory) {
+              html += this.renderColorToken(token);
+            } else if (token.type === 'typography') {
+              html += this.renderTypographyToken(token);
+            } else {
+              html += this.renderGenericToken(token);
+            }
+          });
+        }
       }
       
       html += `
@@ -352,6 +407,14 @@ class DesignTokensPanel {
         const tokenValue = e.target.textContent;
         this.copyToClipboard(tokenValue);
         this.showCopyFeedback(e.target);
+      } else if (e.target.classList.contains('typography-table-token')) {
+        const tokenVar = e.target.textContent;
+        this.copyToClipboard(tokenVar);
+        this.showCopyFeedback(e.target);
+      } else if (e.target.classList.contains('typography-table-value')) {
+        const tokenValue = e.target.textContent;
+        this.copyToClipboard(tokenValue);
+        this.showCopyFeedback(e.target);
       }
     });
 
@@ -363,7 +426,9 @@ class DesignTokensPanel {
    */
   renderColorToken(token) {
     const resolvedValue = this.resolveTokenValue(token.value);
-    
+    const isDark = this.isColorDark(resolvedValue);
+    const textColorClass = isDark ? 'text-light' : '';
+
     return `
       <div class="token-row" data-token-type="color">
         <div class="color-token-display">
@@ -371,13 +436,170 @@ class DesignTokensPanel {
           <div class="color-details">
             <div class="token-var">${token.variable}</div>
             <div class="color-value-display">
-              <span class="token-value">${token.value}</span>
+              <span class="token-value ${textColorClass}">${token.value}</span>
             </div>
             <div class="color-name-display">${token.source}</div>
           </div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Render typography section with grouped tokens
+   */
+  renderTypographySection(tokens) {
+    // Group tokens by type
+    const grouped = {
+      'font-family': [],
+      'font-size': [],
+      'font-weight': [],
+      'line-height': [],
+      'letter-spacing': [],
+      'other': []
+    };
+
+    tokens.forEach(token => {
+      if (token.variable.includes('font-family')) {
+        grouped['font-family'].push(token);
+      } else if (token.variable.includes('font-size')) {
+        grouped['font-size'].push(token);
+      } else if (token.variable.includes('font-weight')) {
+        grouped['font-weight'].push(token);
+      } else if (token.variable.includes('line-height')) {
+        grouped['line-height'].push(token);
+      } else if (token.variable.includes('letter-spacing')) {
+        grouped['letter-spacing'].push(token);
+      } else {
+        grouped['other'].push(token);
+      }
+    });
+
+    let html = '';
+
+    // Render font-family tokens normally
+    grouped['font-family'].forEach(token => {
+      html += this.renderTypographyToken(token);
+    });
+
+    // Render font-size tokens in a compact table
+    if (grouped['font-size'].length > 0) {
+      html += this.renderFontSizeTable(grouped['font-size']);
+    }
+
+    // Render font-weight tokens in a compact table
+    if (grouped['font-weight'].length > 0) {
+      html += this.renderFontWeightTable(grouped['font-weight']);
+    }
+
+    // Render other typography tokens normally
+    grouped['line-height'].forEach(token => {
+      html += this.renderTypographyToken(token);
+    });
+    grouped['letter-spacing'].forEach(token => {
+      html += this.renderTypographyToken(token);
+    });
+    grouped['other'].forEach(token => {
+      html += this.renderTypographyToken(token);
+    });
+
+    return html;
+  }
+
+  /**
+   * Render font-size tokens in a compact table format
+   */
+  renderFontSizeTable(tokens) {
+    let html = `
+      <div class="typography-table-container">
+        <div class="typography-table-header">Font Sizes</div>
+        <div class="typography-table">
+    `;
+
+    tokens.forEach(token => {
+      const resolvedValue = this.resolveTokenValue(token.value);
+      html += `
+        <div class="typography-table-row">
+          <div class="typography-table-token">${token.variable}</div>
+          <div class="typography-table-value">${token.value}</div>
+          <div class="typography-table-sample" style="font-size: ${resolvedValue};">Sample</div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /**
+   * Render font-weight tokens in a compact table format
+   */
+  renderFontWeightTable(tokens) {
+    let html = `
+      <div class="typography-table-container">
+        <div class="typography-table-header">Font Weights</div>
+        <div class="typography-table">
+    `;
+
+    tokens.forEach(token => {
+      const resolvedValue = this.resolveTokenValue(token.value);
+      html += `
+        <div class="typography-table-row">
+          <div class="typography-table-token">${token.variable}</div>
+          <div class="typography-table-value">${token.value}</div>
+          <div class="typography-table-sample" style="font-weight: ${resolvedValue};">Sample</div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /**
+   * Render a typography token with font sample
+   */
+  renderTypographyToken(token) {
+    const resolvedValue = this.resolveTokenValue(token.value);
+    const sampleText = this.getTypographySampleText(token.variable);
+    const isFont = token.variable.includes('font');
+    
+    return `
+      <div class="token-row" data-token-type="typography">
+        <div class="typography-token-display">
+          ${isFont ? `<div class="typography-sample" style="font-family: ${resolvedValue};">${sampleText}</div>` : ''}
+          <div class="typography-details">
+            <div class="token-var">${token.variable}</div>
+            <div class="typography-value-display">
+              <span class="token-value">${token.value}</span>
+            </div>
+            <div class="typography-resolved-display">
+              <span class="resolved-value">${resolvedValue}</span>
+            </div>
+            <div class="typography-source-display">${token.source}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get sample text for typography tokens
+   */
+  getTypographySampleText(variable) {
+    if (variable.includes('header')) return 'Header Text';
+    if (variable.includes('text')) return 'Body Text';
+    if (variable.includes('code')) return 'Code Text';
+    if (variable.includes('alt')) return 'Alternative Text';
+    return 'Sample Text';
   }
 
   /**
@@ -609,12 +831,21 @@ class DesignTokensPanel {
     filterContainer.innerHTML = badgesHtml;
   }
 
+  setViewMode(view) {
+    this.viewMode = view;
+    this.updateTokensDisplay();
+
+    const viewModeButtons = this.containerElement.querySelectorAll('.view-mode-btn');
+    viewModeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === this.viewMode);
+    });
+  }
+
   /**
    * Toggle between list and grid view modes.
    */
   toggleViewMode() {
-    this.viewMode = this.viewMode === 'list' ? 'grid' : 'list';
-    this.updateTokensDisplay();
+    this.setViewMode(this.viewMode === 'list' ? 'grid' : 'list');
   }
 
   /**

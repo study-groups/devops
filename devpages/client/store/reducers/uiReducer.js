@@ -1,7 +1,8 @@
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { createReducer, createPersister, loadFromStorage } from './reducerUtils.js';
 
-const LOG_VISIBLE_KEY = 'logVisible';
+const LOG_VISIBLE_KEY = 'log_panel_visible';
+const LOG_HEIGHT_KEY = 'log_panel_height';
 const VIEW_MODE_KEY = 'viewMode';
 const LEFT_SIDEBAR_KEY = 'leftSidebarVisible';
 const TEXT_VISIBLE_KEY = 'textVisible';
@@ -10,40 +11,10 @@ const THEME_KEY = 'devpages_theme';
 const COLOR_SCHEME_KEY = 'devpages_color_scheme';
 const DESIGN_DENSITY_KEY = 'devpages_design_density';
 
-// Load visibility states first, then derive viewMode from them
-const textVisible = loadFromStorage(TEXT_VISIBLE_KEY, true);
-const previewVisible = loadFromStorage(PREVIEW_VISIBLE_KEY, true);
-
-// Derive viewMode from visibility states
-let derivedViewMode;
-if (textVisible && previewVisible) {
-  derivedViewMode = 'split';
-} else if (textVisible && !previewVisible) {
-  derivedViewMode = 'editor';
-} else if (!textVisible && previewVisible) {
-  derivedViewMode = 'preview';
-} else {
-  derivedViewMode = 'blank';
-}
-
-// Load initial state from localStorage where applicable
-const initialState = {
-  isLoading: false,
-  logVisible: loadFromStorage(LOG_VISIBLE_KEY, false),
-  logMenuVisible: false,
-  viewMode: derivedViewMode, // Use derived mode instead of stored viewMode
-  theme: 'light', // Force light theme as default
-  colorScheme: loadFromStorage(COLOR_SCHEME_KEY, 'system'),
-  designDensity: loadFromStorage(DESIGN_DENSITY_KEY, 'comfortable'),
-  leftSidebarVisible: loadFromStorage(LEFT_SIDEBAR_KEY, true),
-  rightSidebarVisible: false,
-  textVisible,
-  previewVisible
-};
-
 // Create persisters for state that should be saved to localStorage
 const persisters = {
   logVisible: createPersister(LOG_VISIBLE_KEY, state => state.logVisible),
+  logHeight: createPersister(LOG_HEIGHT_KEY, state => state.logHeight),
   viewMode: createPersister(VIEW_MODE_KEY, state => state.viewMode),
   leftSidebarVisible: createPersister(LEFT_SIDEBAR_KEY, state => state.leftSidebarVisible),
   textVisible: createPersister(TEXT_VISIBLE_KEY, state => state.textVisible),
@@ -54,41 +25,34 @@ const persisters = {
 };
 
 // Define action handlers using the createReducer pattern
-export const uiReducer = createReducer(initialState, {
+// The initial state is now created in `appState.js`. This reducer receives that state.
+export const uiReducer = createReducer({}, {
   [ActionTypes.UI_SET_LOADING]: (state, action) => {
     const isLoading = !!action.payload;
     return { ...state, isLoading };
   },
   
-  [ActionTypes.UI_SET_LOG_HEIGHT]: (state, action) => {
-    if (typeof action.payload === 'number' && action.payload >= 80) {
-      try {
-        localStorage.setItem('logHeight', String(action.payload));
-      } catch (e) {
-        console.error('[UI Reducer] Failed to save log height:', e);
-      }
-      return { ...state, logHeight: action.payload };
-    }
-    return state;
-  },
-  
   [ActionTypes.UI_SET_LOG_VISIBILITY]: (state, action) => {
-    try {
-      localStorage.setItem('logVisible', String(action.payload));
-    } catch (e) {
-      console.error('[UI Reducer] Failed to save log visibility:', e);
-    }
-    return { ...state, logVisible: !!action.payload };
+      const isVisible = !!action.payload.isVisible;
+      const newState = { ...state, logVisible: isVisible };
+      persisters.logVisible(newState);
+      return newState;
+  },
+
+  [ActionTypes.UI_SET_LOG_HEIGHT]: (state, action) => {
+      const height = parseInt(action.payload.height, 10);
+      if (!isNaN(height) && height > 0) {
+          const newState = { ...state, logHeight: height };
+          persisters.logHeight(newState);
+          return newState;
+      }
+      return state;
   },
   
   [ActionTypes.UI_TOGGLE_LOG_VISIBILITY]: (state) => {
-    const newVisible = !state.logVisible;
-    try {
-      localStorage.setItem('logVisible', String(newVisible));
-    } catch (e) {
-      console.error('[UI Reducer] Failed to save log visibility:', e);
-    }
-    return { ...state, logVisible: newVisible };
+    const newState = { ...state, logVisible: !state.logVisible };
+    persisters.logVisible(newState);
+    return newState;
   },
 
   [ActionTypes.UI_TOGGLE_LOG_MENU]: (state) => {

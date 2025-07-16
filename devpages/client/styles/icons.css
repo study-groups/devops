@@ -1,60 +1,55 @@
 /**
- * icons.css
- * Icon data stored as CSS custom properties with URL-encoded SVGs.
- * This allows icons to be defined alongside other design tokens.
+ * /client/styles/icons.css
+ * 
+ * Defines the application's icon system using CSS variables and mask-image.
+ * This file provides a standardized way to use icons throughout the UI.
+ *
+ * USAGE:
+ * <span class="icon icon-files" title="Files"></span>
  */
 
-:root {
-  --icon-gear: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M12 20V12M12 12V4M12 12H20M12 12H4M18.36 18.36L12 12M12 12L5.64 5.64M18.36 5.64L12 12M12 12L5.64 18.36'/%3e%3ccircle cx='12' cy='12' r='3'/%3e%3c/svg%3e");
-  --icon-folder: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3e%3c/svg%3e");
-  --icon-info: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'/%3e%3cline x1='12' y1='16' x2='12' y2='12'/%3e%3cline x1='12' y1='8' x2='12.01' y2='8'/%3e%3c/svg%3e");
-  --icon-chevron-right: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='9 18 15 12 9 6'/%3e%3c/svg%3e");
-  --icon-chevron-down: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
-  --icon-close: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='18' y1='6' x2='6' y2='18'/%3e%3cline x1='6' y1='6' x2='18' y2='18'/%3e%3c/svg%3e");
-  --icon-check: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='20 6 9 17 4 12'/%3e%3c/svg%3e");
-  --icon-search: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='11' cy='11' r='8'/%3e%3cline x1='21' y1='21' x2='16.65' y2='16.65'/%3e%3c/svg%3e");
-  --icon-menu: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='3' y1='12' x2='21' y2='12'/%3e%3cline x1='3' y1='6' x2='21' y2='6'/%3e%3cline x1='3' y1='18' x2='21' y2='18'/%3e%3c/svg%3e");
-  --icon-edit: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3e%3cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3e%3c/svg%3e");
-  --icon-delete: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='3 6 5 6 21 6'/%3e%3cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3e%3cline x1='10' y1='11' x2='10' y2='17'/%3e%3cline x1='14' y1='11' x2='14' y2='17'/%3e%3c/svg%3e");
-  --icon-add: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='12' y1='5' x2='12' y2='19'/%3e%3cline x1='5' y1='12' x2='19' y2='12'/%3e%3c/svg%3e");
-  --icon-copy: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3crect x='9' y='9' width='13' height='13' rx='2' ry='2'/%3e%3cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3e%3c/svg%3e");
-  --icon-external-link: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3e%3cpolyline points='15 3 21 3 21 9'/%3e%3cline x1='10' y1='14' x2='21' y2='3'/%3e%3c/svg%3e");
+/* Base class for all icons */
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  vertical-align: middle;
 }
 
-/* Styles for sidebar panel icons */
-.panel-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-right: 8px;
-}
+/* 
+ * Individual icons are defined by classes that apply a mask-image.
+ * The mask-image points to an external SVG file.
+ */
 
-.panel-icon img {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
-}
+.icon-gear { -webkit-mask-image: url('/client/styles/icons/gear.svg'); mask-image: url('/client/styles/icons/gear.svg'); }
+.icon-folder { -webkit-mask-image: url('/client/styles/icons/folder.svg'); mask-image: url('/client/styles/icons/folder.svg'); }
+.icon-info { -webkit-mask-image: url('/client/styles/icons/info.svg'); mask-image: url('/client/styles/icons/info.svg'); }
+.icon-chevron-right { -webkit-mask-image: url('/client/styles/icons/chevron-right.svg'); mask-image: url('/client/styles/icons/chevron-right.svg'); }
+.icon-chevron-down { -webkit-mask-image: url('/client/styles/icons/chevron-down.svg'); mask-image: url('/client/styles/icons/chevron-down.svg'); }
+.icon-close { -webkit-mask-image: url('/client/styles/icons/close.svg'); mask-image: url('/client/styles/icons/close.svg'); }
+.icon-check { -webkit-mask-image: url('/client/styles/icons/check.svg'); mask-image: url('/client/styles/icons/check.svg'); }
+.icon-search { -webkit-mask-image: url('/client/styles/icons/search.svg'); mask-image: url('/client/styles/icons/search.svg'); }
+.icon-menu { -webkit-mask-image: url('/client/styles/icons/menu.svg'); mask-image: url('/client/styles/icons/menu.svg'); }
+.icon-edit { -webkit-mask-image: url('/client/styles/icons/edit.svg'); mask-image: url('/client/styles/icons/edit.svg'); }
+.icon-delete { -webkit-mask-image: url('/client/styles/icons/delete.svg'); mask-image: url('/client/styles/icons/delete.svg'); }
+.icon-add { -webkit-mask-image: url('/client/styles/icons/add.svg'); mask-image: url('/client/styles/icons/add.svg'); }
+.icon-copy { -webkit-mask-image: url('/client/styles/icons/copy.svg'); mask-image: url('/client/styles/icons/copy.svg'); }
+.icon-external-link { -webkit-mask-image: url('/client/styles/icons/external-link.svg'); mask-image: url('/client/styles/icons/external-link.svg'); }
+.icon-files { -webkit-mask-image: url('/client/styles/icons/files.svg'); mask-image: url('/client/styles/icons/files.svg'); }
+.icon-panel-manager { -webkit-mask-image: url('/client/styles/icons/panel-manager.svg'); mask-image: url('/client/styles/icons/panel-manager.svg'); }
+.icon-context { -webkit-mask-image: url('/client/styles/icons/context.svg'); mask-image: url('/client/styles/icons/context.svg'); }
+.icon-tokens { -webkit-mask-image: url('/client/styles/icons/tokens.svg'); mask-image: url('/client/styles/icons/tokens.svg'); }
+.icon-logs { -webkit-mask-image: url('/client/styles/icons/logs.svg'); mask-image: url('/client/styles/icons/logs.svg'); }
+.icon-default { -webkit-mask-image: url('/client/styles/icons/default.svg'); mask-image: url('/client/styles/icons/default.svg'); }
 
-.panel-drag-handle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-right: 8px;
-    cursor: grab;
-    opacity: 0.7;
-}
-
-.panel-drag-handle img {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
-}
-
-/* Collapsed Panel */
-.sidebar-panel.collapsed .sidebar-panel-content {
-    display: none;
-} 
+/* Icons migrated from file-browser.css */
+.icon-folder-closed { -webkit-mask-image: url('/client/styles/icons/folder-closed.svg'); mask-image: url('/client/styles/icons/folder-closed.svg'); }
+.icon-folder-open { -webkit-mask-image: url('/client/styles/icons/folder-open.svg'); mask-image: url('/client/styles/icons/folder-open.svg'); }
+.icon-file-generic { -webkit-mask-image: url('/client/styles/icons/file-generic.svg'); mask-image: url('/client/styles/icons/file-generic.svg'); } 

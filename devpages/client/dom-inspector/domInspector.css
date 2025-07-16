@@ -9,26 +9,26 @@
 
 .dom-inspector-panel {
   /* Panel tokens - semantic layer over design tokens */
-  --panel-background: var(--color-background-elevated);
+  --panel-background: var(--color-bg-elevated);
   --panel-border: var(--color-border);
   --panel-shadow: var(--shadow-lg);
   --panel-radius: var(--radius-lg);
   
   /* Interactive element tokens */
-  --interactive-background: var(--color-background);
-  --interactive-background-hover: var(--color-background-secondary);
+  --interactive-background: var(--color-bg);
+  --interactive-background-hover: var(--color-bg-alt);
   --interactive-background-active: var(--color-primary);
-  --interactive-text: var(--color-foreground);
-  --interactive-text-secondary: var(--color-foreground-secondary);
+  --interactive-text: var(--color-fg);
+  --interactive-text-secondary: var(--color-fg-alt);
   --interactive-text-active: var(--color-primary-foreground);
   --interactive-border: var(--color-border);
   --interactive-border-hover: var(--color-border-hover);
   --interactive-border-active: var(--color-primary);
   
   /* Content area tokens */
-  --content-background: var(--color-background);
-  --content-text: var(--color-foreground);
-  --content-text-muted: var(--color-foreground-secondary);
+  --content-background: var(--color-bg);
+  --content-text: var(--color-fg);
+  --content-text-muted: var(--color-fg-alt);
   --content-border: var(--color-border);
   
   /* Status color tokens */
@@ -91,7 +91,7 @@
   padding: var(--density-space-md) var(--density-space-lg);
   
   /* Header styling */
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border-bottom: 1px solid var(--content-border);
   border-radius: var(--panel-radius) var(--panel-radius) 0 0;
   
@@ -118,7 +118,7 @@
 .dom-inspector-settings-btn {
   background: none;
   border: none;
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   cursor: pointer;
   padding: var(--density-space-xs);
   border-radius: var(--radius-base);
@@ -132,8 +132,8 @@
 }
 
 .dom-inspector-settings-btn:hover {
-  background-color: var(--color-background-tertiary);
-  color: var(--color-foreground-primary);
+  background-color: var(--color-bg-muted);
+      color: var(--color-fg);
 }
 
 /* ===== BUTTON PRIMITIVE - REUSABLE BUTTON COMPONENT ===== */
@@ -197,8 +197,8 @@
 }
 
 .dom-inspector-btn--destructive {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--color-bg);
+  color: var(--color-fg);
   border-color: var(--color-border);
 }
 
@@ -265,7 +265,7 @@
 }
 
 .dom-inspector-input::placeholder {
-  color: var(--color-foreground-muted);
+  color: var(--color-fg-muted);
 }
 
 /* ===== TOOLBAR SECTION ===== */
@@ -278,7 +278,7 @@
   padding: var(--density-space-sm) var(--density-space-lg);
   
   /* Styling */
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border-bottom: 1px solid var(--content-border);
 }
 
@@ -437,60 +437,59 @@
 }
 
 .dom-inspector-node-annotations span {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  font-family: var(--font-family-mono);
-  line-height: 1;
+  border: 1px solid transparent;
   white-space: nowrap;
 }
 
 /* Z-Index annotation */
 .annotation-zindex {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
+  color: var(--status-info);
+  border: 1px solid var(--status-info);
+  background-color: var(--status-info-background);
 }
 
 /* Computed Z-Index annotation */
 .annotation-computed-zindex {
-  background-color: rgba(139, 69, 19, 0.1);
-  color: #8b4513;
-  border: 1px solid #8b4513;
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-fg-muted);
+  background-color: var(--color-bg-alt);
 }
 
 /* Layer annotations */
 .annotation-layer {
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: var(--font-weight-bold);
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-xs);
 }
 
 .annotation-layer-ui {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
+  color: var(--status-info);
+  border: 1px solid var(--status-info);
+  background-color: var(--status-info-background);
 }
 
 .annotation-layer-popup {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning);
+  background-color: var(--status-warning-background);
 }
 
 .annotation-layer-system {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid #ef4444;
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
+  background-color: var(--status-error-background);
 }
 
 /* Stacking Context annotation */
 .annotation-stacking-context {
-  background-color: rgba(139, 69, 19, 0.1);
-  color: #8b4513;
-  border: 1px solid #8b4513;
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-fg-muted);
+  background-color: var(--color-bg-alt);
   font-weight: var(--font-weight-bold);
 }
 
@@ -547,7 +546,7 @@
   padding: var(--density-space-sm) var(--density-space-md);
   
   /* Styling */
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   cursor: pointer;
   
   /* Typography using density system */
@@ -699,11 +698,11 @@
 
 /* None Mode */
 .dom-inspector-highlight-toggle.mode-none::before {
-  border: 2px solid var(--color-foreground-muted);
+  border: 2px solid var(--color-fg-muted);
   background-color: transparent;
 }
 .dom-inspector-highlight-toggle.mode-none:hover::before {
-  border-color: var(--color-foreground-primary);
+      border-color: var(--color-fg);
 }
 
 /* Border Mode */
@@ -739,7 +738,7 @@
 }
 
 .dom-inspector-error code {
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   padding: 2px 4px;
   border-radius: 2px;
   font-family: var(--font-family-mono);
@@ -764,7 +763,7 @@
 
 .disabled-details {
   /* Layout using density system */
-  background-color: var(--color-background-tertiary);
+  background-color: var(--color-bg-muted);
   padding: var(--density-space-sm);
   border-radius: var(--radius-sm);
   margin: var(--density-space-sm) 0;
@@ -814,7 +813,7 @@
 }
 
 .dom-inspector-delete-message code {
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   padding: 2px 4px;
   border-radius: 2px;
   font-family: var(--font-family-mono);
@@ -885,7 +884,7 @@
   height: 24px;
   
   /* Styling */
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
   border-left: 1px solid var(--content-border);
   border-top: 1px solid var(--content-border);
   border-radius: var(--radius-base) 0 var(--panel-radius) 0;
@@ -899,7 +898,7 @@
 }
 
 .dom-inspector-resize-handle:hover {
-  background-color: var(--color-background-tertiary);
+  background-color: var(--color-bg-muted);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -960,19 +959,19 @@
 
 .dom-inspector-tree::-webkit-scrollbar-track,
 .dom-inspector-details::-webkit-scrollbar-track {
-  background: var(--color-background-secondary);
+  background: var(--color-bg-alt);
   border-radius: var(--radius-full);
 }
 
 .dom-inspector-tree::-webkit-scrollbar-thumb,
 .dom-inspector-details::-webkit-scrollbar-thumb {
-  background: var(--color-foreground-muted);
+  background: var(--color-fg-muted);
   border-radius: var(--radius-full);
 }
 
 .dom-inspector-tree::-webkit-scrollbar-thumb:hover,
 .dom-inspector-details::-webkit-scrollbar-thumb:hover {
-  background: var(--color-foreground-secondary);
+  background: var(--color-fg-alt);
 }
 
 /* ===== LEGACY COMPATIBILITY ===== */

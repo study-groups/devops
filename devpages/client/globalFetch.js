@@ -34,7 +34,7 @@ export async function globalFetch(url, options = {}) {
     // const { addAuthHeadersIfNeeded } = await import('./auth.js');
     // options = await addAuthHeadersIfNeeded(options);
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, { ...options, credentials: 'include' });
         
         // Add status to context for response log
         const responseLogContext = { ...logContext, status: response.status }; 

@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "wait-for-tunnel",
+            "type": "shell",
+            "command": "sleep 5",
+            "problemMatcher": []
+        }
+    ]
+} 

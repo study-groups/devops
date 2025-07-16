@@ -14,7 +14,7 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 8px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .empty-contexts {
@@ -31,11 +31,11 @@
     padding: 8px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .context-item:hover {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-bg-hover);
 }
 
 .context-item.active {
@@ -64,7 +64,7 @@
     font-size: 12px;
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     padding: 2px 6px;
     border-radius: 2px;
     display: inline-block;
@@ -80,7 +80,7 @@
 .context-action-btn {
     padding: 4px 8px;
     border: 1px solid var(--color-border);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text);
     border-radius: 2px;
     font-size: 12px;
@@ -89,7 +89,7 @@
 }
 
 .context-action-btn:hover {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-bg-hover);
 }
 
 .use-context-btn {
@@ -113,7 +113,7 @@
 
 .info-item {
     padding: 8px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
     font-size: 14px;
@@ -127,7 +127,7 @@
 }
 
 .info-item code {
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     padding: 2px 4px;
     border-radius: 2px;
     font-family: var(--font-mono);
@@ -140,7 +140,7 @@
     border-radius: 4px;
     padding: 8px 12px;
     font-size: 14px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text);
 }
 
@@ -153,7 +153,7 @@
 .settings-section-container .settings-button {
     padding: 8px 16px;
     border: 1px solid var(--color-border);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text);
     border-radius: 4px;
     font-size: 14px;
@@ -162,7 +162,7 @@
 }
 
 .settings-section-container .settings-button:hover {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-bg-hover);
 }
 
 .settings-section-container .settings-button--primary {
@@ -229,7 +229,7 @@
 
 .context-explorer-content {
     position: relative;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     width: 90%;
@@ -245,7 +245,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .context-explorer-header h3 {
@@ -280,7 +280,7 @@
     gap: 12px;
     margin-bottom: 12px;
     padding: 8px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border-radius: 4px;
     font-size: 14px;
     color: var(--color-text-muted);
@@ -302,7 +302,7 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 12px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .file-header {
@@ -326,7 +326,7 @@
 .file-action-btn {
     padding: 4px 8px;
     border: 1px solid var(--color-border);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text);
     border-radius: 2px;
     font-size: 12px;
@@ -335,7 +335,7 @@
 }
 
 .file-action-btn:hover {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-bg-hover);
 }
 
 .view-file-btn {
@@ -359,7 +359,7 @@
 }
 
 .file-stats span {
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     padding: 2px 6px;
     border-radius: 2px;
 }
@@ -368,7 +368,7 @@
     font-size: 13px;
     color: var(--color-text-muted);
     line-height: 1.4;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     padding: 8px;
     border-radius: 4px;
     border-left: 3px solid var(--color-primary);
@@ -381,7 +381,7 @@
     border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: flex-end;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 /* File Viewer Modal */
@@ -409,7 +409,7 @@
 
 .file-viewer-content {
     position: relative;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     width: 95%;
@@ -425,7 +425,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .file-viewer-header h3 {
@@ -458,7 +458,7 @@
 .file-viewer-body {
     flex: 1;
     overflow: auto;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .file-content {
@@ -468,7 +468,7 @@
     font-size: 14px;
     line-height: 1.5;
     color: var(--color-text);
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: none;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -479,7 +479,7 @@
     border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: flex-end;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 /* Template Selection Modal */
@@ -507,7 +507,7 @@
 
 .template-selection-content {
     position: relative;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     width: 95%;
@@ -523,7 +523,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 .template-selection-header h3 {
@@ -572,7 +572,7 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     font-size: 14px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text);
 }
 
@@ -607,7 +607,7 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 12px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -679,7 +679,7 @@
 }
 
 .template-file {
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
     color: var(--color-text-muted);
     padding: 2px 6px;
     border-radius: 2px;
@@ -693,7 +693,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    background-color: var(--color-background);
+    background-color: var(--color-bg);
 }
 
 /* Responsive Design for Modals */

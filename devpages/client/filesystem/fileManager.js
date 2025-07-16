@@ -3,7 +3,7 @@
  * Uses unified 'pathname' semantics.
  */
 import eventBus from '/client/eventBus.js';
-// Editor methods accessed through WorkspacePanelManager
+// Editor methods accessed through WorkspaceLayoutManager
 import { logMessage } from '/client/log/index.js';
 import * as fileSystemState from './fileSystemState.js'; // Handles loading initial path from URL
 import { appStore } from '/client/appState.js';
@@ -104,10 +104,26 @@ export async function initializeFileManager() {
         setupEventListeners(); // Setup NEW event listeners
 
         // --- Subscribe to Auth Changes ONLY ---
-        // --- Subscribe to Auth Changes ---
         if (fmUnsubscribe) fmUnsubscribe();
-        fmUnsubscribe = appStore.subscribe(handleAuthStateChangeForFileManager);
-        logFileManager("Subscribed FileManager to appStore changes.");
+
+        // Create a selector that only returns the auth state.
+        // The subscriber will only be called when the result of this selector changes.
+        const selectAuth = state => state.auth;
+
+        let previousAuth = selectAuth(appStore.getState());
+        fmUnsubscribe = appStore.subscribe(() => {
+            const currentAuth = selectAuth(appStore.getState());
+            // Deep comparison is not strictly necessary if we assume auth state is immutable,
+            // but a simple reference check is fast and effective here.
+            if (currentAuth !== previousAuth) {
+                // Pass a constructed "prevState" to the handler for compatibility.
+                const mockPrevState = { auth: previousAuth };
+                handleAuthStateChangeForFileManager(appStore.getState(), mockPrevState);
+                previousAuth = currentAuth;
+            }
+        });
+
+        logFileManager("Subscribed FileManager to auth state changes.");
 
         // --- Trigger initial check asynchronously so initialization can complete ---
         handleAuthStateChangeForFileManager(appStore.getState(), null);
@@ -131,43 +147,11 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     const isLoggedIn = newState.auth.isAuthenticated;
     const isAuthInitializing = newState.auth.isInitializing;
 
-    // Enhanced logging - but skip if only log filtering changed
-    let triggerReason = "Initial call or unknown state change";
-    let shouldSkip = false;
-    
-    if (prevState) { // Ensure prevState exists to compare
-        if (newState.ui !== prevState.ui) {
-            triggerReason = "UI state change";
-            if (newState.ui.logMenuVisible !== prevState.ui.logMenuVisible) {
-                triggerReason += " (logMenuVisible changed)";
-            } else if (newState.ui.logVisible !== prevState.ui.logVisible) {
-                triggerReason += " (logVisible changed)";
-            }
-            // Add more specific UI checks if needed
-        } else if (newState.auth !== prevState.auth) {
-            triggerReason = "Auth state change";
-        } else if (newState.file !== prevState.file) {
-            triggerReason = "File state change";
-        } else if (newState.logFiltering !== prevState.logFiltering) {
-            // Skip logging if only log filtering state changed
-            shouldSkip = true;
-        }
-        // Add other state slice comparisons if relevant
-    }
-
-    if (!shouldSkip) {
-        logFileManager(`[AUTH_CHANGE_HANDLER] Called. Trigger: ${triggerReason}. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
-    }
-
-    // Skip processing if only log filtering changed and no real auth changes
-    if (shouldSkip && wasLoggedIn === isLoggedIn && !isAuthInitializing) {
-        return;
-    }
+    // The subscription is now specific, so we can remove the complex trigger reason logic.
+    logFileManager(`[AUTH_CHANGE_HANDLER] Called. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
 
     if (isAuthInitializing) {
-        if (!shouldSkip) {
-            logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
-        }
+        logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
         return; 
     }
 

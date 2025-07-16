@@ -1,6 +1,6 @@
 import { eventBus } from '/client/eventBus.js';
-import { UIManager } from '/client/ui/UIManager.js';
-import { appStore, ActionTypes } from '/client/state/appStore.js';
+import { appStore } from '/client/appState.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // --- Module-level state ---
 let isInitialized = false;
@@ -18,27 +18,6 @@ function logTopBar(message, level = 'text') {
 }
 
 /**
- * Renders the auth state based on the store.
- */
-function renderAuthState(authState) {
-    const authContainer = document.getElementById('auth-component-container');
-    const saveBtn = document.getElementById('save-btn');
-    const publishBtn = document.getElementById('publish-btn');
-
-    if (!authContainer) return;
-
-    if (authState.isAuthenticated) {
-        authContainer.textContent = `Welcome, ${authState.user.username}`;
-        if (saveBtn) saveBtn.disabled = false;
-        if (publishBtn) publishBtn.disabled = false;
-    } else {
-        authContainer.textContent = 'Not Authenticated';
-        if (saveBtn) saveBtn.disabled = true;
-        if (publishBtn) publishBtn.disabled = true;
-    }
-}
-
-/**
  * Initializes the Top Bar component, including its handlers and responsive behaviors.
  */
 function init() {
@@ -51,13 +30,22 @@ function init() {
 
     window.addEventListener('resize', updateContentHeight);
     
-    // Subscribe to the store and render the initial state
+    // Subscribe to the store to update button states
     if (!unsubscribeFromStore) {
         unsubscribeFromStore = appStore.subscribe(() => {
-            renderAuthState(appStore.getState().auth);
+            const { auth } = appStore.getState();
+            const saveBtn = document.getElementById('save-btn');
+            const publishBtn = document.getElementById('publish-btn');
+            if (saveBtn) saveBtn.disabled = !auth.isAuthenticated;
+            if (publishBtn) publishBtn.disabled = !auth.isAuthenticated;
         });
     }
-    renderAuthState(appStore.getState().auth);
+    // Set initial button states
+    const { auth } = appStore.getState();
+    const saveBtn = document.getElementById('save-btn');
+    const publishBtn = document.getElementById('publish-btn');
+    if (saveBtn) saveBtn.disabled = !auth.isAuthenticated;
+    if (publishBtn) publishBtn.disabled = !auth.isAuthenticated;
 
     isInitialized = true;
     logTopBar('Top Bar Initialized.');
@@ -71,8 +59,6 @@ function refresh() {
     // Re-attach handlers to ensure they are fresh, especially if the DOM was manipulated.
     attachTopBarHandlers();
     attachRefreshHandler();
-    // Re-render state from the store
-    renderAuthState(appStore.getState().auth);
     logTopBar('Top Bar Refreshed.');
 }
 
@@ -163,17 +149,13 @@ function attachRefreshHandler() {
     }
 }
 
-// --- Component Definition ---
-
-const TopBarComponent = {
-    name: 'TopBar',
-    init,
-    refresh,
-    destroy
-};
-
-// --- Registration ---
-UIManager.register(TopBarComponent);
+/**
+ * Initializes the entire top bar functionality.
+ * This function should be called once on application startup.
+ */
+export function initializeTopBar() {
+    init();
+}
 
 // REMOVED loadCodebaseStructure function
 

@@ -1,6 +1,7 @@
 // log/ui.js - UI interactions for the log component
 import { logMessage } from './LogCore.js';
-import { logState, toggleLog } from './state.js';
+import { dispatch } from '../messaging/messageQueue.js';
+import { ActionTypes } from '../messaging/actionTypes.js';
 import { showSystemInfo } from '../uiManager.js';
 
 // Track initialization
@@ -23,9 +24,6 @@ export function initLogToolbar() {
         console.log('[LOG] Log container not found during toolbar initialization');
         return false;
     }
-
-    // Apply current state
-    logState.updateUI();
 
     // Set up resize handle
     setupLogResize();
@@ -62,6 +60,27 @@ function setupLogResize() {
     
     let startY, startHeight;
     
+    const handleMouseMove = (e) => {
+        const newHeight = startHeight - (e.clientY - startY);
+        if (newHeight >= 80) { // Minimum height
+            document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
+        }
+    };
+
+    const handleMouseUp = () => {
+        const newHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--log-height'), 10);
+        
+        // Dispatch the action to the global store
+        dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: { height: newHeight }});
+        
+        console.log(`[LOG] Resize complete. New height: ${newHeight}px`);
+        
+        // Clean up
+        resizeHandle.classList.remove('resizing');
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    };
+
     resizeHandle.addEventListener('mousedown', (e) => {
         startY = e.clientY;
         startHeight = logContainer.offsetHeight;
@@ -71,54 +90,9 @@ function setupLogResize() {
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
         
-        // Prevent event from propagating to parent elements
         e.stopPropagation();
         e.preventDefault();
     });
-    
-    // Add click handler directly to the resize handle
-    resizeHandle.addEventListener('click', (e) => {
-        // Prevent clicks on the resize handle from affecting the log toggle
-        e.stopPropagation();
-        e.preventDefault();
-        console.log('Resize handle clicked (propagation stopped)');
-    });
-    
-    function handleMouseMove(e) {
-        const newHeight = startHeight - (e.clientY - startY);
-        if (newHeight >= 80) { // Minimum height
-            // Update both the inline style and the CSS variable
-            logContainer.style.height = `${newHeight}px`;
-            document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-            
-            // Update the preview container to reflect the new log height
-            const previewContainer = document.querySelector(".preview-container");
-            if (previewContainer && previewContainer.classList.contains('log-visible')) {
-                previewContainer.style.maxHeight = `calc(100vh - ${newHeight}px - 50px)`;
-            }
-        }
-    }
-    
-    function handleMouseUp(e) {
-        // Get the current height of the log container
-        const currentHeight = logContainer.offsetHeight;
-        
-        // Store the user's preferred height in the state
-        logState.setHeight(currentHeight);
-        
-        // Also update the CSS variable directly
-        document.documentElement.style.setProperty('--log-height', `${currentHeight}px`);
-        
-        // Save to localStorage directly to ensure it's saved
-        localStorage.setItem('logHeight', String(currentHeight));
-        
-        console.log(`[LOG] Resize complete. New height: ${currentHeight}px`);
-        
-        // Clean up
-        resizeHandle.classList.remove('resizing');
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-    }
 }
 
 /**
@@ -127,42 +101,21 @@ function setupLogResize() {
 export function ensureLogButtonsConnected() {
     // Only run once
     if (buttonsConnected) return;
+
+    const connectButton = (id, action) => {
+        const btn = document.getElementById(id);
+        if(btn) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dispatch(action);
+            });
+        }
+    };
     
-    // Connect the log button in the nav bar
-    const logBtn = document.getElementById('log-btn');
-    if (logBtn) {
-        // Remove any existing event listeners
-        logBtn.replaceWith(logBtn.cloneNode(true));
-        
-        // Get the fresh reference
-        const freshLogBtn = document.getElementById('log-btn');
-        
-        // Add our click handler
-        freshLogBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('[LOG] Log button clicked');
-            toggleLog('button');
-        });
-    }
-    
-    // Connect the minimize button in the log toolbar
-    const minimizeBtn = document.getElementById('minimize-log-btn');
-    if (minimizeBtn) {
-        // Remove any existing event listeners
-        minimizeBtn.replaceWith(minimizeBtn.cloneNode(true));
-        
-        // Get the fresh reference
-        const freshMinimizeBtn = document.getElementById('minimize-log-btn');
-        
-        // Add our click handler
-        freshMinimizeBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('[LOG] Minimize button clicked');
-            toggleLog('button');
-        });
-    }
+    // Connect the log button in the nav bar and the minimize button
+    connectButton('log-btn', { type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
+    connectButton('minimize-log-btn', { type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
     
     buttonsConnected = true;
     console.log('[LOG] Log buttons connected');

@@ -3,8 +3,6 @@
  * Provides information and potentially settings for JavaScript usage in previews.
  */
 
-import { debugPanelRegistry } from '/client/debug/debugPanelRegistry.js';
-
 // Helper for logging specific to this panel
 function logJSPanel(message, level = 'info') {
   const type = 'JS_SETTINGS_PANEL';
@@ -164,19 +162,16 @@ script: |
 
   // Method to clean up if needed
   destroy() {
-    logJSPanel('Destroying JavaScriptPanel...');
-    if (this.containerElement && this.containerElement.parentNode) {
-      this.containerElement.parentNode.removeChild(this.containerElement);
-    }
-    this.containerElement = null;
     logJSPanel('JavaScriptPanel destroyed.');
+    // Cleanup, if necessary
   }
 }
 
-// Register this panel with the debug panel registry
-debugPanelRegistry.register({
-  id: 'javascript-panel',
-  title: 'JavaScript',
-  component: JavaScriptPanel,
-  defaultCollapsed: true
-}); 
+// No longer need to self-register
+// // Register this panel with the debug panel registry
+// debugPanelRegistry.register({
+//   id: 'javascript-panel',
+//   title: 'JavaScript',
+//   component: JavaScriptPanel,
+//   defaultCollapsed: true
+// }); 

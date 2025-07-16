@@ -1,521 +1,537 @@
 /**
- * PanelManager.js - Coordinates all panels in the DevPages panel system
- * 
- * Responsibilities:
- * - Panel registration and lifecycle management
- * - Panel ordering and layout coordination
- * - State synchronization with app store
- * - Communication between panels and layout manager
+ * @file client/panels/core/PanelManager.js
+ * @description Manages the lifecycle of UI panels, including rendering, state, and drag-and-drop.
  */
 
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { appStore } from '/client/appState.js';
-import { eventBus } from '/client/eventBus.js';
+import { panelRegistry } from './panelRegistry.js';
+import { EventManager } from '/client/utils/EventManager.js';
 
 export class PanelManager {
-    constructor() {
-        this.panels = new Map(); // panelId -> panel instance
-        this.panelOrder = []; // Array of panel IDs in display order
-        this.container = null; // Main panels container
-        this.gutterContainer = null; // Right gutter container
-        this.storeUnsubscribe = null;
-
-        // Panel state management
-        this.state = {
-            initialized: false,
-            panelsVisible: false, // Master visibility toggle
-            totalWidth: 0,
-            availableWidth: 0
-        };
-
-        this.log('PanelManager initialized', 'info');
+    /**
+     * @param {HTMLElement} container - The DOM element to render panels into.
+     * @param {string} group - The panel group this manager is responsible for.
+     */
+    constructor(container, group) {
+        if (!container) {
+            throw new Error('PanelManager: A container element is required.');
+        }
+        console.warn(`[PanelManager] Constructor called for group: ${group}`);
+        this.container = container;
+        this.group = group;
+        this.panelConfigs = [];
+        this.draggedPanel = null;
+        this.isInitialized = false;
+        this.initCallCount = 0;
+        this.renderCallCount = 0;
+        
+        // Initialize EventManager for automatic cleanup
+        this.eventManager = new EventManager();
+        
+        console.warn(`[PanelManager] Constructor completed for group: ${group}`);
     }
 
     /**
-     * Initialize the panel manager
+     * Initialize the panel manager with current panels from registry
      */
-    initialize(panelsContainer, gutterContainer) {
-        if (this.state.initialized) {
-            this.log('Already initialized, skipping', 'warn');
+    init() {
+        this.initCallCount++;
+        console.warn(`[PanelManager] init() called - COUNT: ${this.initCallCount} for group: ${this.group}`);
+        
+        if (this.initCallCount > 1) {
+            console.error(`[PanelManager] WARNING: init() called ${this.initCallCount} times for group: ${this.group}!`);
+        }
+        
+        if (this.isInitialized) {
+            console.error(`[PanelManager] Already initialized for group: ${this.group}, skipping`);
             return;
         }
-
-        this.container = panelsContainer;
-        this.gutterContainer = gutterContainer;
-
-        // Subscribe to app state changes
-        this.subscribeToStore();
-
-        // Setup container styles
-        this.setupContainers();
-
-        this.state.initialized = true;
-        this.log('PanelManager initialized successfully', 'info');
-    }
-
-    /**
-     * Setup panel and gutter containers
-     */
-    setupContainers() {
-        if (this.container) {
-            this.container.style.cssText = `
-                display: flex;
-                flex-direction: row;
-                height: 100%;
-                background-color: var(--content-background, #f8f9fa);
-                transition: width 0.2s ease;
-            `;
-        }
-
-        if (this.gutterContainer) {
-            this.gutterContainer.style.cssText = `
-                width: 0;
-                background-color: var(--sidebar-background, #e9ecef);
-                border-left: none;
-                display: none;
-                flex-direction: column;
-                align-items: center;
-                padding: 0;
-                gap: 8px;
-            `;
-        }
-    }
-
-    /**
-     * Register a panel with the manager
-     */
-    registerPanel(panel, options = {}) {
-        if (!panel || !panel.panelId) {
-            this.log('Invalid panel provided for registration', 'error');
-            return false;
-        }
-
-        if (this.panels.has(panel.panelId)) {
-            this.log(`Panel ${panel.panelId} already registered`, 'warn');
-            return false;
-        }
-
-        // Set panel order if not specified
-        if (panel.state.order === undefined || panel.state.order === null) {
-            panel.state.order = options.order !== undefined ? options.order : this.panels.size;
-        }
-
-        this.panels.set(panel.panelId, panel);
-        this.updatePanelOrder();
-
-        // Mount the panel if container is available
-        if (this.container) {
-            panel.mount(this.container);
-        }
-
-        this.log(`Panel ${panel.panelId} registered successfully`, 'info');
-        this.updateLayout();
-        return true;
-    }
-
-    /**
-     * Unregister a panel from the manager
-     */
-    unregisterPanel(panelId) {
-        const panel = this.panels.get(panelId);
-        if (!panel) {
-            this.log(`Panel ${panelId} not found for unregistration`, 'warn');
-            return false;
-        }
-
-        // Unmount the panel
-        panel.unmount();
-
-        // Remove from maps and arrays
-        this.panels.delete(panelId);
-        this.panelOrder = this.panelOrder.filter(id => id !== panelId);
-
-        this.log(`Panel ${panelId} unregistered successfully`, 'info');
-        this.updateLayout();
-        return true;
-    }
-
-    /**
-     * Get panel by ID
-     */
-    getPanel(panelId) {
-        return this.panels.get(panelId);
-    }
-
-    /**
-     * Get all panels
-     */
-    getAllPanels() {
-        return Array.from(this.panels.values());
-    }
-
-    /**
-     * Get panel info for all panels
-     */
-    getAllPanelInfo() {
-        return this.getAllPanels().map(panel => panel.getPanelInfo());
-    }
-
-    /**
-     * Show panel by ID
-     */
-    showPanel(panelId) {
-        const panel = this.panels.get(panelId);
-        if (!panel) {
-            this.log(`Panel ${panelId} not found`, 'warn');
-            return false;
-        }
-
-        panel.show();
-        this.updateLayout();
         
-        // Dispatch to app store
-        dispatch({
-            type: ActionTypes.PANEL_SHOW,
-            payload: { panelId }
-        });
-
-        return true;
+        // Ensure the container is clean before we start.
+        const existingPanels = this.container.querySelectorAll('.sidebar-panel');
+        console.warn(`[PanelManager] Found ${existingPanels.length} existing panels, removing them`);
+        existingPanels.forEach(el => el.remove());
+        
+        this.loadPanelState();
+        console.warn(`[PanelManager] Loaded ${this.panelConfigs.length} panel configurations`);
+        
+        this.renderPanels();
+        this.addDragDropHandlers();
+        
+        this.isInitialized = true;
+        console.warn(`[PanelManager] init() completed for group: ${this.group}`);
     }
 
     /**
-     * Hide panel by ID
+     * Loads panel state from localStorage or initializes from the registry.
      */
-    hidePanel(panelId) {
-        const panel = this.panels.get(panelId);
-        if (!panel) {
-            this.log(`Panel ${panelId} not found`, 'warn');
-            return false;
+    loadPanelState() {
+        const storageKey = `panelState_v3_${this.group}`;
+        const resetFlagKey = 'panelState_reset_v4';
+
+        // One-time reset to clear out old or corrupted state.
+        if (!localStorage.getItem(resetFlagKey)) {
+            console.warn('PanelManager: Performing one-time reset of panel state.');
+            localStorage.removeItem(storageKey); // Clear the current version's state
+            localStorage.removeItem(`panelState_v2_${this.group}`); // Clear older versions
+            localStorage.removeItem(`panelState_${this.group}`); // Clear oldest versions
+            localStorage.removeItem('sidebar_panel_order'); // From old SidebarPanelManager
+            localStorage.removeItem('sidebarPanelOrder'); // From old SidebarPanelManager
+            localStorage.setItem(resetFlagKey, 'true');
         }
 
-        panel.hide();
-        this.updateLayout();
+        let finalConfigs = [];
 
-        // Dispatch to app store
-        dispatch({
-            type: ActionTypes.PANEL_HIDE,
-            payload: { panelId }
-        });
+        // Always start with the full panel definitions from the registry
+        const registeredPanels = panelRegistry.getAllPanels().filter(p => p.group === this.group);
+        const registeredPanelsMap = new Map(registeredPanels.map(p => [p.id, p]));
 
-        return true;
+        try {
+            const savedState = JSON.parse(localStorage.getItem(storageKey));
+            
+            if (!Array.isArray(savedState)) {
+                throw new Error("No saved state found, initializing from defaults.");
+            }
+
+            // A map for quick lookups of saved state
+            const savedStateMap = new Map(savedState.map(p => [p.id, p]));
+            
+            // Rebuild configs in the saved order
+            savedState.forEach(savedPanel => {
+                const registeredPanel = registeredPanelsMap.get(savedPanel.id);
+                if (registeredPanel) {
+                    finalConfigs.push({
+                        ...registeredPanel, // The full object with functions/instances
+                        isVisible: savedPanel.isVisible,
+                        isCollapsed: savedPanel.isCollapsed,
+                    });
+                }
+            });
+
+            // Add any new panels that weren't in the saved state
+            const savedIds = new Set(savedState.map(p => p.id));
+            registeredPanels.forEach(p => {
+                if (!savedIds.has(p.id)) {
+                    finalConfigs.push({ ...p, isVisible: p.defaultVisible !== false, isCollapsed: false });
+                }
+            });
+
+        } catch (e) {
+            // Fallback: initialize from registry with default order and state
+            registeredPanels.sort((a, b) => (a.priority || 99) - (b.priority || 99));
+            finalConfigs = registeredPanels.map(p => ({ ...p, isVisible: p.defaultVisible !== false, isCollapsed: false }));
+        }
+
+        this.panelConfigs = finalConfigs;
+        this.savePanelState();
     }
 
     /**
-     * Toggle panel visibility by ID
+     * Saves the current panel configurations to localStorage.
      */
-    togglePanel(panelId) {
-        const panel = this.panels.get(panelId);
-        if (!panel) {
-            this.log(`Panel ${panelId} not found`, 'warn');
-            return false;
-        }
-
-        if (panel.state.visible) {
-            this.hidePanel(panelId);
-        } else {
-            this.showPanel(panelId);
-        }
-
-        return true;
+    savePanelState() {
+        const storageKey = `panelState_v3_${this.group}`;
+        // Only save the data that can be serialized (no functions or instances)
+        const serializableState = this.panelConfigs.map(p => ({
+            id: p.id,
+            isVisible: p.isVisible,
+            isCollapsed: p.isCollapsed,
+        }));
+        localStorage.setItem(storageKey, JSON.stringify(serializableState));
     }
 
     /**
-     * Show all panels
+     * Renders all visible panels into the container.
      */
-    showAllPanels() {
-        this.state.panelsVisible = true;
-        this.panels.forEach(panel => panel.show());
-        this.updateLayout();
-
-        // Update container visibility
-        if (this.container) {
-            this.container.style.display = 'flex';
+    renderPanels() {
+        this.renderCallCount++;
+        
+        if (this.renderCallCount > 1) {
+            console.error(`[PanelManager] WARNING: renderPanels() called ${this.renderCallCount} times for group: ${this.group}!`);
+        }
+        
+        // Clear the container except for the header
+        const header = this.container.querySelector('.sidebar-header');
+        console.log(`[PanelManager] Found header: ${!!header}`);
+        this.container.innerHTML = '';
+        if (header) {
+            this.container.appendChild(header);
         }
 
-        dispatch({
-            type: ActionTypes.PANELS_SHOW_ALL
-        });
-
-        this.log('All panels shown', 'info');
-    }
-
-    /**
-     * Hide all panels
-     */
-    hideAllPanels() {
-        this.state.panelsVisible = false;
-        this.panels.forEach(panel => panel.hide());
-
-        // Hide container
-        if (this.container) {
-            this.container.style.display = 'none';
-        }
-
-        dispatch({
-            type: ActionTypes.PANELS_HIDE_ALL
-        });
-
-        this.log('All panels hidden', 'info');
-    }
-
-    /**
-     * Toggle all panels visibility
-     */
-    toggleAllPanels() {
-        if (this.state.panelsVisible) {
-            this.hideAllPanels();
-        } else {
-            this.showAllPanels();
-        }
-    }
-
-    /**
-     * Update panel order based on order property
-     */
-    updatePanelOrder() {
-        this.panelOrder = Array.from(this.panels.keys()).sort((a, b) => {
-            const panelA = this.panels.get(a);
-            const panelB = this.panels.get(b);
-            return panelA.state.order - panelB.state.order;
-        });
-
-        // Apply order to DOM elements
-        this.panelOrder.forEach((panelId, index) => {
-            const panel = this.panels.get(panelId);
-            if (panel && panel.element) {
-                panel.element.style.order = index;
+        // Re-append in the correct order
+        let renderedCount = 0;
+        this.panelConfigs.forEach(panelConfig => {
+            if (panelConfig.isVisible) {
+                console.log(`[PanelManager] Rendering panel: ${panelConfig.id}`);
+                const panelEl = this.createPanel(panelConfig);
+                panelEl.draggable = true;
+                panelEl.classList.toggle('collapsed', !!panelConfig.isCollapsed);
+                this.container.appendChild(panelEl);
+                renderedCount++;
             }
         });
-
-        this.log(`Panel order updated: ${this.panelOrder.join(' -> ')}`, 'debug');
-    }
-
-    /**
-     * Set panel order
-     */
-    setPanelOrder(panelId, order) {
-        const panel = this.panels.get(panelId);
-        if (!panel) {
-            this.log(`Panel ${panelId} not found`, 'warn');
-            return false;
-        }
-
-        panel.state.order = order;
-        panel.persistState();
-        this.updatePanelOrder();
-        this.updateLayout();
-
-        return true;
-    }
-
-    /**
-     * Calculate and update layout information
-     */
-    updateLayout() {
-        if (!this.container) return;
-
-        const visiblePanels = this.getAllPanels().filter(panel => panel.state.visible);
-        const totalWidth = visiblePanels.reduce((sum, panel) => sum + panel.state.width, 0);
         
-        this.state.totalWidth = totalWidth;
-        this.state.availableWidth = window.innerWidth - totalWidth; // No gutter width needed
-
-        // Update container width
-        if (visiblePanels.length > 0) {
-            this.container.style.width = `${totalWidth}px`;
-            this.container.style.display = 'flex';
-        } else {
-            this.container.style.display = 'none';
-        }
-
-        // Notify layout manager
-        this.notifyLayoutChange();
-
-        this.log(`Layout updated: ${visiblePanels.length} panels, ${totalWidth}px total width`, 'debug');
-    }
-
-    /**
-     * Notify layout manager of changes
-     */
-    notifyLayoutChange() {
-        // Emit event for layout manager
-        if (window.eventBus) {
-            window.eventBus.emit('panels:layoutChanged', {
-                panels: this.getAllPanelInfo(),
-                totalWidth: this.state.totalWidth,
-                availableWidth: this.state.availableWidth,
-                visible: this.state.panelsVisible
-            });
+        console.log(`[PanelManager] Rendered ${renderedCount} panels`);
+        
+        // Debug: Check for duplicate panels
+        const allPanels = this.container.querySelectorAll('.sidebar-panel');
+        console.warn(`[PanelManager] Total panels in DOM: ${allPanels.length}`);
+        
+        const panelIds = Array.from(allPanels).map(p => p.id);
+        console.warn(`[PanelManager] Panel IDs in DOM:`, panelIds);
+        
+        // Check for duplicates
+        const duplicates = panelIds.filter((id, index) => panelIds.indexOf(id) !== index);
+        if (duplicates.length > 0) {
+            console.error(`[PanelManager] DUPLICATE PANELS FOUND:`, duplicates);
         }
     }
 
     /**
-     * Subscribe to app store changes
+     * Creates the DOM element for a single panel.
+     * @param {object} panelConfig - The configuration object for the panel.
+     * @returns {HTMLElement} The created panel element.
      */
-    subscribeToStore() {
-        if (this.storeUnsubscribe) {
-            this.storeUnsubscribe();
+    createPanel(panelConfig) {
+        const panel = document.createElement('div');
+        panel.id = panelConfig.id;
+        panel.className = 'sidebar-panel';
+        panel.dataset.panelId = panelConfig.id;
+
+        // Create panel header for all panels except panel-manager which handles its own header
+        if (panelConfig.id !== 'panel-manager') {
+            this.createPanelHeader(panel, panelConfig);
         }
 
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
-            this.handleStoreChange(newState, prevState);
+        const content = document.createElement('div');
+        content.className = 'panel-content';
+
+        // Handle both instance-based and function-based panels
+        let instance = panelConfig.instance;
+        
+        // If we have a createInstance factory, create a new instance
+        if (!instance && typeof panelConfig.createInstance === 'function') {
+            console.warn(`[PanelManager] Creating new instance for panel: ${panelConfig.id}`);
+            instance = panelConfig.createInstance();
+            // Store the instance for later use (onActivate, etc.)
+            panelConfig.instance = instance;
+        }
+        
+        if (instance && typeof instance.render === 'function') {
+            console.warn(`[PanelManager] Rendering instance-based panel: ${panelConfig.id}`);
+            const renderedContent = instance.render();
+            
+            // Handle async render methods
+            if (renderedContent && typeof renderedContent.then === 'function') {
+                console.warn(`[PanelManager] Async render detected for ${panelConfig.id}`);
+                content.innerHTML = '<div class="loading-spinner">Loading...</div>';
+                renderedContent.then(html => {
+                    console.warn(`[PanelManager] Promise resolved for ${panelConfig.id}, html type:`, typeof html);
+                    console.warn(`[PanelManager] Promise resolved for ${panelConfig.id}, html length:`, html ? html.length : 'null');
+                    console.warn(`[PanelManager] Promise resolved for ${panelConfig.id}, html preview:`, html ? html.substring(0, 200) : 'null');
+                    
+                    if (typeof html === 'string') {
+                        content.innerHTML = html;
+                        console.warn(`[PanelManager] Set async innerHTML for ${panelConfig.id}, content.innerHTML length:`, content.innerHTML.length);
+                        console.warn(`[PanelManager] Set async innerHTML for ${panelConfig.id}, content.innerHTML preview:`, content.innerHTML.substring(0, 200));
+                        
+                        if (typeof instance.onActivate === 'function') {
+                            console.warn(`[PanelManager] Calling onActivate for ${panelConfig.id} after async render`);
+                            setTimeout(() => instance.onActivate(content), 0);
+                        }
+                    } else {
+                        console.error(`[PanelManager] Promise resolved with non-string for ${panelConfig.id}:`, html);
+                    }
+                }).catch(error => {
+                    console.error(`[PanelManager] Promise rejected for ${panelConfig.id}:`, error);
+                    content.innerHTML = '<div class="error">Error loading panel</div>';
+                });
+            } else if (typeof renderedContent === 'string') {
+                content.innerHTML = renderedContent;
+                console.warn(`[PanelManager] Set innerHTML for ${panelConfig.id}:`, content.innerHTML.substring(0, 100));
+                
+                if (typeof instance.onActivate === 'function') {
+                    console.warn(`[PanelManager] Calling onActivate for ${panelConfig.id}`);
+                    setTimeout(() => instance.onActivate(content), 0);
+                }
+            } else if (renderedContent instanceof Node) {
+                content.appendChild(renderedContent);
+                console.warn(`[PanelManager] Appended node for ${panelConfig.id}`);
+                
+                if (typeof instance.onActivate === 'function') {
+                    console.warn(`[PanelManager] Calling onActivate for ${panelConfig.id}`);
+                    setTimeout(() => instance.onActivate(content), 0);
+                }
+            }
+        } else if (typeof panelConfig.render === 'function') {
+            console.warn(`[PanelManager] Rendering function-based panel: ${panelConfig.id}`);
+            const renderedContent = panelConfig.render();
+            if (typeof renderedContent === 'string') {
+                content.innerHTML = renderedContent;
+            } else if (renderedContent instanceof Node) {
+                content.appendChild(renderedContent);
+            }
+            if (typeof panelConfig.onActivate === 'function') {
+                setTimeout(() => panelConfig.onActivate(content), 0);
+            }
+        }
+
+        panel.appendChild(content);
+        return panel;
+    }
+
+    /**
+     * Creates the header element for a panel.
+     * @param {HTMLElement} panel - The panel element.
+     * @param {object} panelConfig - The panel's configuration.
+     */
+    createPanelHeader(panel, panelConfig) {
+        const header = document.createElement('div');
+        header.className = 'sidebar-panel-header';
+
+        // Make the entire header clickable to toggle collapse
+        this.eventManager.on(header, 'click', () => {
+            this.togglePanelCollapse(panelConfig.id);
         });
+
+        const headerLeft = document.createElement('div');
+        headerLeft.className = 'sidebar-panel-header-left';
+
+        if (panelConfig.icon) {
+            const icon = document.createElement('div');
+            icon.className = 'panel-icon';
+            const iconPath = `/client/styles/icons/${panelConfig.icon}.svg`;
+            icon.innerHTML = `<img src="${iconPath}" alt="">`;
+            headerLeft.appendChild(icon);
+        }
+
+        const title = document.createElement('span');
+        title.className = 'panel-title';
+        title.textContent = panelConfig.title;
+        headerLeft.appendChild(title);
+
+        header.appendChild(headerLeft);
+
+        const collapseToggle = document.createElement('button');
+        collapseToggle.className = 'panel-collapse-toggle';
+        collapseToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/></svg>`;
+        collapseToggle.title = 'Collapse/Expand Panel';
+
+        this.eventManager.on(collapseToggle, 'click', (e) => {
+            // Stop propagation to prevent the header's click listener from firing as well
+            e.stopPropagation();
+            this.togglePanelCollapse(panelConfig.id);
+        });
+
+        header.appendChild(collapseToggle);
+        panel.appendChild(header);
     }
 
     /**
-     * Handle app store changes
+     * Initializes drag-and-drop functionality with automatic cleanup.
      */
-    handleStoreChange(newState, prevState) {
-        const newPanels = newState.panels || {};
-        const prevPanels = prevState.panels || {};
+    addDragDropHandlers() {
+        // Use EventManager for automatic cleanup
+        this.eventManager.on(this.container, 'dragstart', this.handleDragStart.bind(this));
+        this.eventManager.on(this.container, 'dragend', this.handleDragEnd.bind(this));
+        this.eventManager.on(this.container, 'dragover', this.handleDragOver.bind(this));
+        this.eventManager.on(this.container, 'drop', this.handleDrop.bind(this));
+        
+        console.warn(`[PanelManager] Added ${this.eventManager.getListenerCount()} drag-drop listeners`);
+    }
+    
+    handleDragStart(e) {
+        if (e.target.classList.contains('sidebar-panel')) {
+            this.draggedPanel = e.target;
+            this.draggedPanel.classList.add('dragging');
+            console.warn('[PanelManager] handleDragStart() called');
+        }
+    }
 
-        // Handle panel visibility changes from store
-        Object.keys(newPanels).forEach(panelId => {
-            const newPanelState = newPanels[panelId];
-            const prevPanelState = prevPanels[panelId] || {};
-            const panel = this.panels.get(panelId);
+    handleDragEnd(e) {
+        if (this.draggedPanel) {
+            this.draggedPanel.classList.remove('dragging');
+            this.draggedPanel = null;
+        }
+        document.querySelectorAll('.drop-zone').forEach(el => el.remove());
+    }
+    
+    handleDragOver(e) {
+        e.preventDefault();
+        const afterElement = this.getDragAfterElement(e.clientY);
+        
+        document.querySelectorAll('.drop-zone').forEach(el => el.remove());
+        
+        const dropZone = document.createElement('div');
+        dropZone.className = 'drop-zone';
+        
+        if (afterElement == null) {
+            const lastPanel = this.container.querySelector('.sidebar-panel:last-of-type');
+            if (lastPanel) {
+                lastPanel.after(dropZone);
+            }
+        } else {
+            this.container.insertBefore(dropZone, afterElement);
+        }
+    }
 
-            if (panel && newPanelState.visible !== prevPanelState.visible) {
-                if (newPanelState.visible) {
-                    panel.show();
+    handleDrop(e) {
+        e.preventDefault();
+        if (!this.draggedPanel) return;
+        
+        console.warn('[PanelManager] handleDrop() called');
+
+        const draggedId = this.draggedPanel.id;
+        const afterElement = this.getDragAfterElement(e.clientY);
+
+        const movedItemIndex = this.panelConfigs.findIndex(p => p.id === draggedId);
+        if (movedItemIndex > -1) {
+            const [movedItem] = this.panelConfigs.splice(movedItemIndex, 1);
+            
+            if (afterElement == null) {
+                this.panelConfigs.push(movedItem);
+            } else {
+                const afterId = afterElement.id;
+                const newIndex = this.panelConfigs.findIndex(p => p.id === afterId);
+                this.panelConfigs.splice(newIndex, 0, movedItem);
+            }
+        }
+
+        this.savePanelState();
+        this.renderPanels(); 
+    }
+
+    getDragAfterElement(y) {
+        const draggableElements = [...this.container.querySelectorAll('.sidebar-panel:not(.dragging)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    
+    /**
+     * Creates a header for the sidebar with Panel Manager controls.
+     * @deprecated This method is deprecated. Panel Manager now handles its own header.
+     */
+    createSidebarHeader() {
+        // This method is deprecated - PanelManagerPanel now handles its own header
+        console.warn('[PanelManager] createSidebarHeader() is deprecated - PanelManagerPanel handles its own header');
+    }
+
+    /**
+     * Toggles the visibility of a panel.
+     * @param {string} panelId - The ID of the panel to toggle.
+     */
+    togglePanelVisibility(panelId) {
+        const panelConfig = this.panelConfigs.find(p => p.id === panelId);
+        if (panelConfig) {
+            panelConfig.isVisible = !panelConfig.isVisible;
+            this.renderPanels();
+            this.savePanelState();
+        }
+    }
+
+    /**
+     * Toggles the collapse state of a panel.
+     * @param {string} panelId - The ID of the panel to toggle.
+     */
+    togglePanelCollapse(panelId) {
+        const panelConfig = this.panelConfigs.find(p => p.id === panelId);
+        if (panelConfig) {
+            panelConfig.isCollapsed = !panelConfig.isCollapsed;
+            document.getElementById(panelId)?.classList.toggle('collapsed', panelConfig.isCollapsed);
+            this.savePanelState();
+        }
+    }
+
+    /**
+     * Collapses all panels.
+     */
+    collapseAllPanels() {
+        console.warn('[PanelManager] collapseAllPanels() called');
+        this.panelConfigs.forEach(p => {
+            // Do not collapse the panel manager itself
+            if (p.id !== 'panel-manager') {
+                p.isCollapsed = true;
+            }
+        });
+        this.renderPanels();
+        this.savePanelState();
+    }
+
+    /**
+     * Expands all panels.
+     */
+    expandAllPanels() {
+        console.warn('[PanelManager] expandAllPanels() called');
+        this.panelConfigs.forEach(p => p.isCollapsed = false);
+        this.renderPanels();
+        this.savePanelState();
+    }
+
+    /**
+     * Toggles the visibility of the Panel Manager controls.
+     */
+    togglePanelManagerControls() {
+        console.warn('[PanelManager] togglePanelManagerControls() called');
+        const panelManagerPanel = this.container.querySelector('#panel-manager');
+        if (panelManagerPanel) {
+            const isCurrentlyCollapsed = panelManagerPanel.classList.contains('collapsed');
+            this.togglePanelCollapse('panel-manager');
+            
+            // Update the button title based on the new state
+            const toggleBtn = this.container.querySelector('.sidebar-header-actions button[title*="Toggle Panel Controls"]');
+            if (toggleBtn) {
+                if (isCurrentlyCollapsed) {
+                    // Panel is now expanded
+                    toggleBtn.title = 'Toggle Panel Controls';
                 } else {
-                    panel.hide();
+                    // Panel is now collapsed
+                    toggleBtn.title = 'Show Panel Controls';
+                }
+            }
+        }
+    }
+
+    /**
+     * Destroys the panel manager and cleans up all resources.
+     */
+    destroy() {
+        console.warn(`[PanelManager] destroy() called for group: ${this.group}`);
+        
+        // Use EventManager for automatic cleanup of all event listeners
+        this.eventManager.destroy();
+        
+        // Clean up panel instances that have cleanup methods
+        this.panelConfigs.forEach(panelConfig => {
+            if (panelConfig.instance) {
+                // Call destroy method if it exists
+                if (typeof panelConfig.instance.destroy === 'function') {
+                    console.warn(`[PanelManager] Calling destroy() on panel instance: ${panelConfig.id}`);
+                    panelConfig.instance.destroy();
+                }
+                // Call unmount method if it exists
+                else if (typeof panelConfig.instance.unmount === 'function') {
+                    console.warn(`[PanelManager] Calling unmount() on panel instance: ${panelConfig.id}`);
+                    panelConfig.instance.unmount();
                 }
             }
         });
-
-        // Update layout if panels changed
-        if (JSON.stringify(newPanels) !== JSON.stringify(prevPanels)) {
-            this.updateLayout();
-        }
+        
+        // Clear the container
+        this.container.innerHTML = '';
+        
+        // Clear internal state
+        this.panelConfigs = [];
+        this.draggedPanel = null;
+        this.isInitialized = false;
+        
+        console.warn(`[PanelManager] destroy() completed for group: ${this.group}`);
     }
-
-    /**
-     * Add a button to the right gutter
-     */
-    addGutterButton(id, options = {}) {
-        if (!this.gutterContainer) {
-            this.log('Gutter container not available', 'warn');
-            return null;
-        }
-
-        const button = document.createElement('button');
-        button.id = `gutter-btn-${id}`;
-        button.className = 'gutter-button';
-        button.title = options.title || id;
-        button.innerHTML = options.icon || '●';
-        button.style.cssText = `
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 4px;
-            background-color: ${options.active ? 'var(--button-primary-background, #007bff)' : 'var(--button-secondary-background, #fff)'};
-            color: ${options.active ? 'var(--button-primary-text, #fff)' : 'var(--button-secondary-text, #6c757d)'};
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            transition: all 0.2s ease;
-        `;
-
-        // Add hover effects
-        button.addEventListener('mouseenter', () => {
-            if (!options.active) {
-                button.style.backgroundColor = 'var(--button-secondary-background-hover, #f8f9fa)';
-            }
-        });
-
-        button.addEventListener('mouseleave', () => {
-            if (!options.active) {
-                button.style.backgroundColor = 'var(--button-secondary-background, #fff)';
-            }
-        });
-
-        // Add click handler
-        if (options.onClick) {
-            button.addEventListener('click', options.onClick);
-        }
-
-        this.gutterContainer.appendChild(button);
-        this.log(`Gutter button ${id} added`, 'debug');
-
-        return button;
-    }
-
-    /**
-     * Remove a gutter button
-     */
-    removeGutterButton(id) {
-        const button = this.gutterContainer?.querySelector(`#gutter-btn-${id}`);
-        if (button) {
-            button.remove();
-            this.log(`Gutter button ${id} removed`, 'debug');
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Cleanup
-     */
-    destroy() {
-        this.log('Destroying PanelManager...', 'info');
-
-        // Unregister all panels
-        Array.from(this.panels.keys()).forEach(panelId => {
-            this.unregisterPanel(panelId);
-        });
-
-        // Unsubscribe from store
-        if (this.storeUnsubscribe) {
-            this.storeUnsubscribe();
-            this.storeUnsubscribe = null;
-        }
-
-        // Clear references
-        this.container = null;
-        this.gutterContainer = null;
-        this.panels.clear();
-        this.panelOrder = [];
-
-        this.state.initialized = false;
-        this.log('PanelManager destroyed', 'info');
-    }
-
-    /**
-     * Get current state
-     */
-    getState() {
-        return {
-            ...this.state,
-            panels: this.getAllPanelInfo(),
-            panelOrder: [...this.panelOrder]
-        };
-    }
-
-    /**
-     * Logging helper
-     */
-    log(message, level = 'info') {
-        const prefix = '[PanelManager]';
-        if (typeof window.logMessage === 'function') {
-            window.logMessage(`${prefix} ${message}`, level, 'PANEL_MANAGER');
-        } else {
-            console[level] ? console[level](`${prefix} ${message}`) : console.log(`${prefix} ${message}`);
-        }
-    }
-}
-
-// Create singleton instance
-export const panelManager = new PanelManager();
-
-// Make globally accessible
-// Register with consolidation system
-if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
-    window.devpages._internal.consolidator.migrate('panelManager', panelManager);
-} else {
-    // Fallback for legacy support
-    window.panelManager = panelManager;
 } 

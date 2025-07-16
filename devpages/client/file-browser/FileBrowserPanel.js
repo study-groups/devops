@@ -6,9 +6,11 @@
 import { logMessage } from '/client/log/index.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
+import { globalFetch } from '/client/globalFetch.js';
 
 export class FileBrowserPanel {
     constructor() {
+        console.warn('[FileBrowserPanel] Constructor called');
         this.container = null;
         this.treeContainer = null;
         this.fileTreeManager = new FileTreeManager();
@@ -19,41 +21,70 @@ export class FileBrowserPanel {
      * Renders the initial structure of the panel.
      */
     async render() {
-        return `
-            <div class="file-browser-panel">
-                <div class="file-browser-cwd-container">
-                    <span class="cwd-path"></span>
-                    <span class="publish-badges"></span>
+        console.warn('[FileBrowserPanel] render() called');
+        try {
+            const html = `
+                <div class="file-browser-panel">
+                    <div class="file-browser-cwd-container">
+                        <span class="publish-badges"></span>
+                        <span class="cwd-path"></span>
+                    </div>
+                    <div class="file-browser-tree-container">
+                        <!-- Tree will be rendered here -->
+                    </div>
                 </div>
-                <div class="file-browser-tree-container">
-                    <!-- Tree will be rendered here -->
-                </div>
-            </div>
-        `;
+            `;
+            console.warn('[FileBrowserPanel] render() returning HTML length:', html.length);
+            console.warn('[FileBrowserPanel] render() HTML preview:', html.substring(0, 200));
+            console.warn('[FileBrowserPanel] render() about to return HTML');
+            return Promise.resolve(html);
+        } catch (error) {
+            console.error('[FileBrowserPanel] render() error:', error);
+            throw error;
+        }
     }
 
     /**
      * Called when the panel becomes active.
      */
     onActivate(panelElement) {
-        this.container = panelElement;
-        this.treeContainer = this.container.querySelector('.file-browser-tree-container');
-        this.cwdPathContainer = this.container.querySelector('.cwd-path');
-        this.badgesContainer = this.container.querySelector('.publish-badges');
+        console.warn('[FileBrowserPanel] onActivate called');
         
-        if (!this.treeContainer) {
-            logMessage('FileBrowserPanel: tree container not found!', 'error', 'FileBrowser');
-            return;
-        }
+        this.container = panelElement;
+        
+        // Wait for DOM to be ready if needed
+        setTimeout(() => {
+            console.warn('[FileBrowserPanel] Looking for tree container...');
+            this.treeContainer = this.container.querySelector('.file-browser-tree-container');
+            this.cwdPathContainer = this.container.querySelector('.cwd-path');
+            this.badgesContainer = this.container.querySelector('.publish-badges');
+            
+            console.warn('[FileBrowserPanel] Tree container found:', !!this.treeContainer);
+            console.warn('[FileBrowserPanel] Container HTML:', this.container.innerHTML.substring(0, 200));
+            
+            if (!this.treeContainer) {
+                logMessage('FileBrowserPanel: tree container not found!', 'error', 'FileBrowser');
+                return;
+            }
+            
+            this.initializePanel();
+        }, 0);
+    }
+    
+    /**
+     * Initialize the panel after DOM is ready
+     */
+    initializePanel() {
 
         this.fetchAndDisplayCwd();
         logMessage('FileBrowserPanel activated.', 'info', 'FileBrowser');
 
         this.fileTreeManager.setTreeContainer(this.treeContainer);
         
+        const path = this.fetchCwd();
         this.fileTreeManager.buildTree({
             onFileClick: (file) => this.handleFileClick(file),
-        });
+        }, path);
 
         this.unsubscribe = appStore.subscribe(() => {
             const state = appStore.getState();
@@ -78,20 +109,43 @@ export class FileBrowserPanel {
         `).join('');
     }
 
+    async fetchServerConfig() {
+        try {
+            const response = await globalFetch('/api/config');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            logMessage(`Failed to fetch server config: ${error.message}`, 'error', 'FileBrowser');
+            return { PD_DIR: null, error: true };
+        }
+    }
+
     async fetchAndDisplayCwd() {
         if (!this.cwdPathContainer) return;
         this.cwdPathContainer.textContent = 'Loading...';
         try {
-            const cwd = await this.fetchCwd();
-            this.cwdPathContainer.textContent = cwd;
+            const config = await this.fetchServerConfig();
+            
+            const joinPath = (...parts) => {
+                const newPath = parts.join('/');
+                return newPath.replace(/\/+/g, '/');
+            };
+
+            const basePath = config.PD_DIR ? joinPath(config.PD_DIR, 'data') : '/server';
+            const currentPath = this.fetchCwd();
+            const fullPath = joinPath(basePath, currentPath);
+            
+            this.cwdPathContainer.textContent = fullPath;
         } catch (error) {
             logMessage(`Failed to fetch CWD: ${error.message}`, 'error', 'FileBrowser');
             this.cwdPathContainer.textContent = 'Error loading CWD.';
         }
     }
 
-    async fetchCwd() {
-        return Promise.resolve('/root/src/devops/devpages');
+    fetchCwd() {
+        return window.location.pathname;
     }
 
     handleFileClick(file) {

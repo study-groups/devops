@@ -20,18 +20,18 @@
     padding: 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background: var(--color-background);
+    background: var(--color-bg);
     transition: all 0.2s ease;
 }
 
 .stylesheet-item:hover {
     border-color: var(--color-border-hover);
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
 }
 
 .stylesheet-item.stylesheet-disabled {
     opacity: 0.6;
-    background: var(--color-background-disabled);
+    background: var(--color-bg-disabled);
 }
 
 .stylesheet-info {
@@ -104,7 +104,7 @@
     padding: 0.375rem 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 3px;
-    background: var(--color-background);
+    background: var(--color-bg);
     color: var(--color-text-primary);
     font-size: 0.8125rem;
     cursor: pointer;
@@ -113,7 +113,7 @@
 
 .stylesheet-action:hover {
     border-color: var(--color-border-hover);
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
 }
 
 .view-css-btn {
@@ -142,7 +142,7 @@
     padding: 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background: var(--color-background-subtle);
+    background: var(--color-bg-subtle);
 }
 
 .stat-label {
@@ -187,7 +187,7 @@
     width: 100%;
     max-width: 800px;
     max-height: 80vh;
-    background: var(--color-background);
+    background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -201,7 +201,7 @@
     justify-content: space-between;
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-background-subtle);
+    background: var(--color-bg-subtle);
     border-radius: 8px 8px 0 0;
 }
 
@@ -244,7 +244,7 @@
     font-family: var(--font-mono);
     font-size: 0.875rem;
     line-height: 1.4;
-    background: var(--color-background);
+    background: var(--color-bg);
     color: var(--color-text-primary);
     resize: vertical;
     outline: none;

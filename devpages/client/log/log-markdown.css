@@ -4,14 +4,14 @@
 /* Example: Style paragraphs inside rendered markdown */
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered p {
     margin-bottom: 0.5em; /* Add some space below paragraphs */
-    color: #e0e0e0; /* Slightly lighter text for paragraphs */
+    color: var(--color-fg); /* Slightly lighter text for paragraphs */
     line-height: 1.5;
 }
 
 /* Example: Style code blocks */
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre {
-    background-color: #2a2d2a; /* Darker background for code blocks */
-    border: 1px solid #444;
+    background-color: var(--color-bg-alt); /* Darker background for code blocks */
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 0.8em;
     margin: 0.5em 0;
@@ -20,7 +20,7 @@
 
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered code {
     font-family: 'Courier New', Courier, monospace; /* Consistent mono font */
-    color: #bada55; /* Example code color */
+    color: var(--color-success); /* Example code color */
 }
 
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre code {
@@ -39,7 +39,7 @@
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered h6 {
     font-size: 1.1em; /* Slightly larger than base text */
     font-weight: bold;
-    color: #e0e0e0; /* Match paragraph color */
+    color: var(--color-fg); /* Match paragraph color */
     margin-top: 0.8em;
     margin-bottom: 0.4em;
     border-bottom: none; /* Remove any inherited borders */

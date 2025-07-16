@@ -14,7 +14,7 @@ let authDisplayComponent = null;
 let contextManagerComponent = null;
 let sidebarContextManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
-// Panel management now handled by WorkspacePanelManager and SidebarPanelManager
+// Panel management now handled by WorkspaceLayoutManager and PanelManager
 
 // --- Logging Helper ---
 function logUI(message, type = 'debug') {

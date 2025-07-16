@@ -3,7 +3,6 @@
  * Development tools panel for cache management and debugging
  */
 
-import { debugPanelRegistry } from '/client/debug/debugPanelRegistry.js';
 import { clearCssCache } from '/client/utils/CssManager.js';
 import { logMessage } from '/client/log/index.js';
 
@@ -13,6 +12,8 @@ export class DevToolsPanel {
     this.contentElement = null;
     
     this.createContent();
+    this.attachEventListeners();
+    this.renderInitialState();
     logMessage('DevToolsPanel instance created.', 'debug', 'DEV_TOOLS');
   }
 
@@ -147,12 +148,22 @@ export class DevToolsPanel {
     this.contentElement = null;
     this.containerElement = null;
   }
+
+  attachEventListeners() {
+    // Implementation of attachEventListeners method
+  }
+
+  renderInitialState() {
+    logMessage('Rendering initial state...', 'debug', 'DEV_TOOLS');
+    // Initial state rendering logic
+  }
 }
 
-// Register this panel with the debug panel registry
-debugPanelRegistry.register({
-  id: 'dev-tools-panel',
-  title: 'Dev Tools',
-  component: DevToolsPanel,
-  defaultCollapsed: true
-}); 
+// No longer need to self-register
+// // Register this panel with the debug panel registry
+// debugPanelRegistry.register({
+//   id: 'dev-tools-panel',
+//   title: 'Dev Tools',
+//   component: DevToolsPanel,
+//   defaultCollapsed: true
+// }); 

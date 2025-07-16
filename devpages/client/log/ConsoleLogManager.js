@@ -121,6 +121,11 @@ export class ConsoleLogManager {
       }
     }
     
+    // ==> FIX: After loading state, explicitly update the UI panel if it exists
+    if (window.devPages?.ui?.updateConsoleLogPanelStatus) {
+        window.devPages.ui.updateConsoleLogPanelStatus();
+    }
+    
     // Set up console interception if enabled
     if (this.interceptConsole) {
       this.interceptConsoleOutput();

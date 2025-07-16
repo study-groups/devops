@@ -3,30 +3,9 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-
     "configurations": [
-    
-          {
-            "type": "pwa-node",
-            "request": "launch",
-            "name": "Launch Server",
-            "program": "${workspaceFolder}/server/server.js",
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "runtimeExecutable": "node",
-            "env": {
-              "NODE_ENV": "development",
-              "PD_DB": "${workspaceFolder}/pd",
-              "PD_DIR": "${workspaceFolder}/pd",
-              "PD_DATA": "${workspaceFolder}/md",
-              "SESSION_SECRET": "dev-secret-change-for-prod"
-            }
-          },
-      
-      
-
         {
-            "type": "pwa-node",
+            "type": "node",
             "request": "attach",
             "name": "Attach to Node Process",
             "processId": "${command:PickProcess}",
@@ -34,20 +13,14 @@
                 "<node_internals>/**"
             ]
         },
-
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch Chrome against devpages.qa.pixeljamarcade.com",
+            "name": "Launch Chrome (Automatic Tunnel)",
             "url": "https://devpages.qa.pixeljamarcade.com",
-            "webRoot": "${workspaceFolder}"
-        },
-        {
-          "type": "chrome"-nodeholder,
-          "request": "launch",
-          "name": "Launch Chrome against devpages.nodeholder.com",
-          "url": "https://devpage.nodeholder.com",
-          "webRoot": "${workspaceFolder}"
-      }
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "wait-for-tunnel",
+            "timeout": 60000
+        }
     ]
 }

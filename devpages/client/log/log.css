@@ -2,40 +2,14 @@
 
 /* /client/log/log.css - Styles for the Log Component */
 
-:root {
-    /* Theme variables using design tokens */
-    --log-bg: var(--bg-color, #1e1e1e);
-    --log-text-color: var(--text-color, #f5f5f5);
-    --log-border-color: var(--border-color, #444444);
-    --log-toolbar-bg: var(--table-header-bg, #1e1e1e);
-    --log-entry-hover-bg: rgba(255, 255, 255, 0.05);
-}
-
-/* Light theme overrides */
-[data-theme="light"] {
-    --log-bg: var(--color-gray-100, #f5f5f5);
-    --log-text-color: var(--color-gray-900, #171717);
-    --log-border-color: #e0e0e0;
-    --log-toolbar-bg: #f9f9f9;
-    --log-entry-hover-bg: rgba(0, 0, 0, 0.05);
-}
-
-/* Dark theme overrides */
-[data-theme="dark"] {
-    --log-bg: var(--bg-color, #1e1e1e);
-    --log-text-color: var(--text-color, #f5f5f5);
-    --log-border-color: var(--border-color, #444444);
-    --log-toolbar-bg: var(--table-header-bg, #1e1e1e);
-    --log-entry-hover-bg: rgba(255, 255, 255, 0.05);
-}
-
 /* === CONTAINER & LAYOUT === */
 
 #log-container {
     display: flex;
     flex-direction: column;
-    background: var(--log-bg);
-    border-top: 1px solid var(--log-border-color);
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-alt);
+    border-top: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     margin: var(--space-2);
     position: relative;
@@ -78,16 +52,18 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    background: var(--log-toolbar-bg);
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-elevated);
     padding: var(--space-2);
-    border-bottom: 1px solid var(--log-border-color);
+    border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
 }
 
 #log-toolbar button:not(#cli-send-button):not(.log-entry-button) {
     background: transparent;
     border: none;
-    color: var(--log-text-color);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg);
     padding: var(--space-0-5) var(--space-1-5);
     cursor: pointer;
     height: 3rem;
@@ -95,22 +71,26 @@
 }
 
 #log-toolbar button:hover {
-    background: var(--log-entry-hover-bg);
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-hover);
 }
 
 #log-toolbar .app-info {
-    color: var(--color-gray-500, #888);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
     font-size: 11px;
     cursor: pointer;
     margin-left: var(--space-1);
 }
 
 #log-toolbar .app-info:hover {
-    color: var(--color-gray-400, #bbb);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
 }
 
 #log-status {
-    color: var(--color-gray-500, #888);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
     font-size: 11px;
     white-space: nowrap;
 }
@@ -124,7 +104,8 @@
     font-family: var(--font-family-code);
     font-size: var(--font-size-sm);
     line-height: var(--line-height-normal);
-    color: var(--log-text-color);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg);
 }
 
 #log::-webkit-scrollbar {
@@ -132,12 +113,14 @@
 }
 
 #log::-webkit-scrollbar-thumb {
-    background-color: var(--color-gray-600, #555);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-border-secondary);
     border-radius: var(--space-1);
 }
 
 #log::-webkit-scrollbar-track {
-    background-color: var(--color-gray-800, #2a2a2a);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg);
 }
 
 /* === LOG ENTRIES === */
@@ -151,14 +134,16 @@
     font-family: monospace;
     font-size: 12px;
     line-height: 1.3;
-    color: var(--log-text-color);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg);
     cursor: pointer;
     min-height: 2rem;
     transition: background-color var(--transition-fast);
 }
 
 .log-entry:hover {
-    background-color: var(--log-entry-hover-bg);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-hover);
 }
 
 .log-entry-text-wrapper {
@@ -201,8 +186,9 @@
 }
 
 .log-entry.expanded {
-    background-color: var(--log-toolbar-bg);
-    border: 1px solid var(--color-blue-500);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-primary);
     padding: 0;
     margin: var(--space-2) 0;
     border-radius: var(--radius-sm);
@@ -216,8 +202,9 @@
     justify-content: space-between;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
-    background-color: var(--log-toolbar-bg);
-    border-bottom: 1px solid var(--log-border-color);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--space-1);
     flex-wrap: wrap;
     min-height: 24px;
@@ -251,7 +238,7 @@
     word-break: break-all;
     overflow: visible;
     text-overflow: clip;
-    color: var(--log-text-color);
+    color: var(--color-fg);
 }
 
 .log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
@@ -266,119 +253,114 @@
     padding: var(--space-0-5) var(--space-1);
     font-size: 13px;
     line-height: 1;
-    opacity: 0.5;
     cursor: pointer;
     border-radius: var(--radius-sm);
-    background-color: var(--color-gray-600, #4b5563);
-    color: var(--color-gray-300, #d1d5db);
-    border: none;
+    background-color: var(--color-bg-button-secondary);
+    color: var(--color-fg-button-secondary);
+    border: 1px solid var(--color-border-button-secondary);
     flex-shrink: 0;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .log-entry-button.original-button {
     margin-left: var(--space-1-5);
+    background: transparent;
+    border-color: transparent;
 }
 
 .log-entry-button:hover {
-    opacity: 1;
-    background-color: var(--color-gray-500, #6b7280);
+    background-color: var(--color-bg-button-secondary-hover);
+    border-color: var(--color-border-button-secondary-hover);
+    color: var(--color-fg-button-secondary-hover);
 }
 
 .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
     padding: var(--space-px) var(--space-1);
     font-size: 0.9em;
     align-self: center;
-    background: var(--color-gray-600, #4b5563);
-    color: var(--color-gray-300, #d1d5db);
-    border: 1px solid var(--color-gray-500, #6b7280);
     cursor: pointer;
-    opacity: 0.8;
 }
 
 .log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
     opacity: 1;
-    background-color: var(--color-gray-500, #6b7280);
 }
 
 .markdown-toggle-button.active {
-    background-color: #60a5fa;
-    color: #fff;
-    border-color: #3b82f6;
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border-color: var(--color-primary);
     opacity: 1;
 }
 
 /* === LOG TOKENS === */
 
 .log-token {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     padding: var(--space-0-5) var(--space-1);
     border-radius: var(--radius-sm);
-    font-size: 0.85em;
-    background-color: #444;
-    color: #ccc;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.2;
     white-space: nowrap;
 }
 
 .log-token-index {
-    font-weight: bold;
-    background-color: #557;
-    color: #eee;
+    background-color: var(--color-bg-alt);
+    color: var(--color-fg-alt);
 }
 
 .log-token-time {
-    background-color: #333;
-    color: #aaa;
+    background-color: var(--color-blue-900);
+    color: var(--color-blue-100);
 }
 
 .log-token-type {
-    font-weight: bold;
-    text-transform: uppercase;
+    background-color: var(--color-bg-alt);
+    color: var(--color-fg-muted);
 }
-
-.log-token-type.log-type-info { background-color: #1d3e6a; color: #a8cfff; }
-.log-token-type.log-type-debug { background-color: #444; color: #aaa; }
-.log-token-type.log-type-warning { background-color: #664f00; color: #ffeca1; }
-.log-token-type.log-type-error { background-color: #7a1a1a; color: #ffd6d6; }
-.log-token-type.log-type-success { background-color: #1e5e1e; color: #b4fdb4; }
+.log-token-type.log-type-info { background-color: var(--color-blue-900); color: var(--color-blue-100); }
+.log-token-type.log-type-debug { background-color: var(--color-gray-900); color: var(--color-gray-100); }
+.log-token-type.log-type-warning { background-color: var(--color-yellow-900); color: var(--color-yellow-100); }
+.log-token-type.log-type-error { background-color: var(--color-red-900); color: var(--color-red-100); }
+.log-token-type.log-type-success { background-color: var(--color-green-900); color: var(--color-green-100); }
 
 .log-token-level {
-    font-weight: bold;
-    text-transform: uppercase;
+    background-color: var(--color-purple-900);
+    color: var(--color-purple-100);
 }
 
 .log-token-origin {
-    font-style: italic;
-    background-color: #4a3a6a;
-    color: #eeddff;
+    background-color: var(--color-green-900);
+    color: var(--color-green-100);
 }
 
 .log-token-subtype {
-    font-style: italic;
-    background-color: #2a4a5a;
-    color: #bee;
+    /* For specific subtypes, if any */
 }
 
 /* === LOG MESSAGE TYPES === */
 
-.log-entry.log-error { color: #f14c4c; }
-.log-entry.log-warning { color: #ddb100; }
+.log-entry.log-error { color: var(--color-error); }
+.log-entry.log-warning { color: var(--color-warning); }
+
 .log-entry.log-config {
-    color: #3794ff;
+    color: var(--color-info);
     font-weight: bold;
     font-family: 'Consolas', monospace;
 }
 
+/* Log Separator */
 .log-entry.log-separator {
-    border-bottom: 2px solid #3794ff;
-    margin: var(--space-0-5) 0;
+    border-bottom: 2px solid var(--color-border-hover);
+    margin: var(--space-1) 0;
     padding: 0;
     height: 0;
-    cursor: default;
-    color: transparent;
+    min-height: 0;
 }
 
 .log-entry.log-entry-cli-local-echo {
-    color: #aaa;
+    color: var(--color-fg-muted);
     font-style: italic;
 }
 
@@ -388,8 +370,8 @@
     display: flex;
     flex-direction: column;
     padding: var(--space-1) var(--space-2);
-    background-color: var(--log-toolbar-bg);
-    border-bottom: 1px solid var(--log-border-color);
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
     gap: var(--space-2);
 }
 
@@ -417,7 +399,7 @@
 
 .log-filter-group-label {
     font-size: 10px;
-    color: #888;
+    color: var(--color-fg-muted);
     margin-right: var(--space-1);
     white-space: nowrap;
 }
@@ -425,90 +407,88 @@
 /* === TAG BUTTONS === */
 
 .log-tag-button {
-    padding: var(--space-0-5) var(--space-1-5);
-    border: 1px solid var(--log-border-color);
+    padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-base);
-    background-color: transparent;
-    color: var(--color-blue-500);
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
-    font-size: var(--font-size-xs);
     transition: all var(--transition-fast);
+    border: 1px solid var(--color-border-secondary);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-fg-alt);
+    white-space: nowrap;
 }
 
 .log-tag-button:hover {
-    background-color: var(--table-header-bg-alt, rgba(0,0,0,0.15));
-    border-color: var(--border-color);
-    color: var(--color-foreground-secondary);
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border);
 }
 
 .log-tag-button.active {
-    background-color: var(--link-color, #2563eb);
-    border-color: var(--link-color, #2563eb);
-    color: #ffffff;
-    font-weight: bold;
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border-color: var(--color-primary);
 }
 
 .log-tag-button.disabled {
-    background-color: #3a3f47;
-    color: #777;
     cursor: not-allowed;
     opacity: 0.6;
 }
 
 /* Control buttons */
 .log-tag-button.clear-log-button {
-    background-color: #dc2626;
-    border-color: #b91c1c;
-    color: #fff;
+    background-color: var(--color-red-500);
+    border-color: var(--color-red-900);
+    color: var(--color-red-100);
     margin-right: var(--space-2);
 }
 
 .log-tag-button.clear-log-button:hover {
-    background-color: #b91c1c;
-    border-color: #991b1b;
+    background-color: var(--color-red-900);
+    border-color: var(--color-red-900);
 }
 
 .log-tag-button.select-all-button {
-    background-color: #059669;
-    border-color: #047857;
-    color: #fff;
+    background-color: var(--color-green-500);
+    border-color: var(--color-green-900);
+    color: var(--color-green-100);
 }
 
 .log-tag-button.select-all-button:hover {
-    background-color: #047857;
-    border-color: #065f46;
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-900);
 }
 
 .log-tag-button.clear-filters-button {
-    background-color: #2563eb;
-    border-color: #1d4ed8;
-    color: #fff;
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-900);
+    color: var(--color-blue-100);
     margin-right: var(--space-2);
 }
 
 .log-tag-button.clear-filters-button:hover {
-    background-color: #1d4ed8;
-    border-color: #1e40af;
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-900);
 }
 
 .log-tag-button.copy-button {
-    background-color: #4b5563;
-    color: #d1d5db;
-    border: 1px solid #6b7280;
+    background-color: var(--color-gray-500);
+    color: var(--color-gray-100);
+    border: 1px solid var(--color-gray-900);
 }
 
 .log-tag-button.copy-button:hover {
-    background-color: #6b7280;
+    background-color: var(--color-gray-900);
 }
 
 .log-tag-button.collapse-all-button {
-    background-color: #6b7280;
-    color: #d1d5db;
-    border: 1px solid #6b7280;
+    background-color: var(--color-gray-500);
+    color: var(--color-gray-100);
+    border: 1px solid var(--color-gray-900);
 }
 
 .log-tag-button.collapse-all-button:hover {
-    background-color: #4b5563;
+    background-color: var(--color-gray-900);
 }
 
 .log-filter-control-group {
@@ -541,88 +521,92 @@
 }
 
 .toggle-types-button {
-    background-color: #ca8a04;
-    border-color: #a16207;
-    color: #fff;
+    background-color: var(--color-yellow-500);
+    border-color: var(--color-yellow-900);
+    color: var(--color-yellow-100);
 }
 
 .toggle-types-button:hover {
-    background-color: #a16207;
-    border-color: #854d0e;
+    background-color: var(--color-yellow-900);
+    border-color: var(--color-yellow-900);
 }
 
 .toggle-types-button.active {
-    background-color: #facc15;
-    border-color: #eab308;
-    color: #422006;
+    background-color: var(--color-yellow-500);
+    border-color: var(--color-yellow-900);
+    color: var(--color-yellow-100);
 }
 
 /* Category colors */
 .log-tag-button.filter-source {
-    background-color: #1e40af;
-    border-color: #1e40af;
-    color: #fff;
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-900);
+    color: var(--color-blue-100);
 }
 
 .log-tag-button.filter-source:hover {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-500);
 }
 
 .log-tag-button.filter-source.active {
-    background-color: #60a5fa;
-    border-color: #60a5fa;
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-100);
+    color: var(--color-white);
     font-weight: bold;
 }
 
 .log-tag-button.filter-level {
-    background-color: #059669;
-    border-color: #059669;
-    color: #fff;
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-900);
+    color: var(--color-green-100);
 }
 
 .log-tag-button.filter-level:hover {
-    background-color: #10b981;
-    border-color: #10b981;
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-500);
 }
 
 .log-tag-button.filter-level.active {
-    background-color: #34d399;
-    border-color: #34d399;
+    background-color: var(--color-green-500);
+    border-color: var(--color-green-100);
+    color: var(--color-white);
     font-weight: bold;
 }
 
 .log-tag-button.filter-type {
-    background-color: #7c3aed;
-    border-color: #7c3aed;
-    color: #fff;
+    background-color: var(--color-purple-800);
+    border-color: var(--color-purple-700);
+    color: var(--color-purple-100);
 }
 
 .log-tag-button.filter-type:hover {
-    background-color: #8b5cf6;
-    border-color: #8b5cf6;
+    background-color: var(--color-purple-700);
+    border-color: var(--color-purple-600);
 }
 
 .log-tag-button.filter-type.active {
-    background-color: #a78bfa;
-    border-color: #a78bfa;
+    background-color: var(--color-purple-500);
+    border-color: var(--color-purple-400);
+    color: var(--color-white);
     font-weight: bold;
 }
 
 .log-tag-button.filter-subtype {
-    background-color: #d97706;
-    border-color: #d97706;
-    color: #fff;
+    background-color: var(--color-orange-800);
+    border-color: var(--color-orange-700);
+    color: var(--color-orange-100);
 }
 
 .log-tag-button.filter-subtype:hover {
-    background-color: #f59e0b;
-    border-color: #f59e0b;
+    background-color: var(--color-orange-700);
+    border-color: var(--color-orange-600);
 }
 
 .log-tag-button.filter-subtype.active {
-    background-color: #fbbf24;
-    border-color: #fbbf24;
+    background-color: var(--color-orange-500);
+    border-color: var(--color-orange-400);
+    color: var(--color-white);
     font-weight: bold;
 }
 
@@ -633,30 +617,31 @@
     padding: var(--space-1) var(--space-2);
     line-height: 1.1rem;
     font-size: 14px;
-    background-color: #374151;
-    color: #d1d5db;
-    border: 1px solid #4b5563;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     font-family: var(--font-family-code);
 }
 
 #cli-input:focus {
-    outline: none;
-    border-color: #60a5fa;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 #cli-send-button {
-    line-height: 1.0rem;
-    padding: var(--space-1) var(--space-3);
-    background: #4b5563;
-    border: 1px solid #6b7280;
-    color: #d1d5db;
-    border-radius: var(--radius-base);
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border: none;
+    padding: 0.5rem 1rem;
     cursor: pointer;
+    border-radius: var(--radius-base);
+    font-size: 12px;
+    transition: background-color var(--transition-fast);
 }
 
 #cli-send-button:hover {
-    background-color: #6b7280;
+    background-color: var(--color-primary-hover);
 }
 
 /* === MENU STYLES === */
@@ -667,10 +652,10 @@
     top: 40px;
     left: var(--space-2-5);
     width: 180px;
-    background-color: #333;
-    border: 1px solid #444;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-lg);
     z-index: 1000;
     padding: var(--space-1) 0;
 }
@@ -682,7 +667,7 @@
 #log-menu-container .log-menu-item {
     display: block;
     padding: var(--space-1) var(--space-2);
-    color: #d1d5db;
+    color: var(--color-fg-alt);
     font-size: 12px;
     cursor: pointer;
     border-radius: var(--radius-sm);
@@ -690,20 +675,20 @@
 }
 
 #log-menu-container .log-menu-item:hover {
-    background-color: #4b5563;
-    color: #fff;
+    background-color: var(--color-bg-hover);
+    color: var(--color-fg);
 }
 
 #log-menu-container .log-menu-separator {
     height: 1px;
-    background-color: #444;
+    background-color: var(--color-border);
     margin: var(--space-1) 0;
 }
 
 #log-menu-container .log-menu-version {
     padding: var(--space-1) var(--space-2);
     font-size: 10px;
-    color: #666;
+    color: var(--color-fg-muted);
     font-family: monospace;
     text-align: center;
     cursor: default;
@@ -716,16 +701,16 @@
     font-weight: bold;
     flex-shrink: 0;
     background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
+    border: 1px solid var(--color-border-secondary);
+    color: var(--color-fg-muted);
     font-size: 12px;
     border-radius: var(--radius-sm);
 }
 
 #log-help-toggle-btn:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: #777;
-    color: #ccc;
+    background: var(--color-bg-hover);
+    border-color: var(--color-border);
+    color: var(--color-fg);
 }
 
 /* === STATE BUTTONS === */
@@ -736,8 +721,8 @@
     font-weight: bold;
     flex-shrink: 0;
     background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
+    border: 1px solid var(--color-border-secondary);
+    color: var(--color-fg-muted);
     font-size: 12px;
     border-radius: var(--radius-sm);
     margin-left: var(--space-1);
@@ -745,16 +730,16 @@
 
 #log-state-a-btn:hover,
 #log-state-b-btn:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: #777;
-    color: #ccc;
+    background: var(--color-bg-hover);
+    border-color: var(--color-border);
+    color: var(--color-fg);
 }
 
 #log-state-a-btn.state-set,
 #log-state-b-btn.state-set {
-    background-color: #374151;
-    border-color: #60a5fa;
-    color: #fff;
+    background-color: var(--color-bg-primary- Faded);
+    border-color: var(--color-primary);
+    color: var(--color-fg);
 }
 
 /* === UTILITY CLASSES === */
@@ -793,7 +778,7 @@
     margin-left: var(--space-2);
     font-family: var(--font-family-code);
     font-size: var(--font-size-xs);
-    color: var(--text-muted, #888);
+    color: var(--color-fg-muted);
     user-select: none;
     width: 5rem;
     white-space: nowrap;
@@ -807,7 +792,7 @@
     font-family: var(--font-family-code);
     font-size: 0.7rem;
     font-weight: bold;
-    color: var(--text-muted, #888);
+    color: var(--color-fg-muted);
     width: 3.5rem;
     text-align: center;
     white-space: nowrap;
@@ -816,7 +801,7 @@
 
 .log-entry-type {
     font-weight: var(--font-weight-semibold);
-    color: var(--color-blue-500);
+    color: var(--color-primary);
     background-color: transparent;
     transition: color var(--transition-fast);
     flex-shrink: 0;
@@ -829,7 +814,7 @@
 }
 
 .log-entry-type:hover {
-    color: var(--color-blue-400);
+    color: var(--color-primary-hover);
     background-color: transparent;
     transform: none;
     box-shadow: none;
@@ -841,7 +826,7 @@
     margin-right: var(--space-2);
     font-family: var(--font-family-code);
     font-size: 0.7rem;
-    color: var(--text-muted, #888);
+    color: var(--color-fg-muted);
     width: 5.5rem;
     text-align: left;
     white-space: nowrap;

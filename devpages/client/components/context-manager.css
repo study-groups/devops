@@ -5,7 +5,7 @@
     flex-direction: column; 
     gap: 4px; 
     padding: 5px; 
-    background-color: #f0f0f0; /* Light background */
+    background-color: var(--color-bg);
     border-radius: 4px;
     margin: 0 5px; 
 }
@@ -18,12 +18,11 @@
     font-size: 1.1rem; /* Slightly larger font size */
     line-height: 1.4; /* Adjust line height */
     padding-bottom: 0px; 
-    /* border-bottom: 1px solid #ddd; REMOVED border */
     flex-wrap: wrap; 
 }
 
 .breadcrumb-item {
-    color: #337ab7; 
+    color: var(--color-primary); 
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 3px;
@@ -31,12 +30,12 @@
 }
 
 .breadcrumb-item:hover {
-    background-color: #e0e0e0;
+    background-color: var(--color-bg-hover);
     text-decoration: underline;
 }
 
 .breadcrumb-separator {
-    color: #777;
+    color: var(--color-fg-muted);
     margin: 0 2px;
     vertical-align: middle; /* Align vertically */
 }
@@ -49,10 +48,10 @@
     margin-left: 4px; 
     padding: 0 6px; /* Horizontal padding */
     font-size: 0.9rem; /* Match font-size of the selector below */
-    border: 1px solid #ccc; /* Matching border */
+    border: 1px solid var(--color-border);
     border-radius: 3px;
-    background-color: #fff; 
-    color: #333; 
+    background-color: var(--color-bg-elevated); 
+    color: var(--color-fg); 
     height: 28px; /* Explicit height */
     line-height: 26px; /* Center text vertically */
     vertical-align: middle; 
@@ -61,7 +60,7 @@
 
 /* Placeholder text */
 .no-subdirs, .no-content-placeholder, .breadcrumb-info {
-    color: #777; 
+    color: var(--color-fg-muted); 
     font-style: italic;
     font-size: 1rem; /* Match base breadcrumb font */
     margin-left: 4px; 
@@ -85,10 +84,10 @@
     min-width: 150px; 
     height: 28px; /* Explicit height */
     padding: 0 8px; /* Horizontal padding */
-    border: 1px solid #ccc; /* Matching border */
-    border-radius: 3px;
-    background-color: #fff; 
-    color: #333; 
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg); 
+    color: var(--color-fg); 
     font-size: 0.9rem; /* Ensure this matches */
     line-height: 26px; /* Center text vertically */
     cursor: pointer;
@@ -97,22 +96,22 @@
 }
 
 .context-selection-row .context-selector:not(:disabled):hover {
-    background-color: #f8f8f8;
-    border-color: #bbb;
+    background-color: var(--color-bg-alt);
+    border-color: var(--color-border-hover);
 }
 
 /* Style the options */
 .context-selection-row .context-selector option {
-   background-color: #fff; 
-   color: #333;
+   background-color: var(--color-bg); 
+   color: var(--color-fg);
 }
 
 /* Style disabled state */
 .context-selection-row .context-selector:disabled {
   opacity: 0.7;
   cursor: not-allowed;
-  background-color: #eee; /* Indicate disabled state */
-  color: #777; 
+  background-color: var(--color-bg-alt);
+  color: var(--color-fg-muted); 
 }
 
 .file-action-buttons {
@@ -128,13 +127,13 @@
      height: 28px; /* Match selector height */
      border: 1px solid var(--color-border);
      border-radius: var(--radius-base);
-     background-color: var(--color-background-elevated);
-     color: var(--color-foreground);
+     background-color: var(--color-bg-elevated);
+     color: var(--color-fg);
      cursor: pointer;
      line-height: 1; /* Ensure text is centered */
 }
 .file-action-buttons button:hover:not(:disabled) {
-    background-color: #eee;
+    background-color: var(--color-bg-hover);
 }
 
 .file-action-buttons button:disabled {
@@ -146,8 +145,8 @@
 .info-popup {
   display: none; /* Hidden by default */
   position: absolute; /* Position relative to viewport or positioned ancestor */
-  background-color: #f9f9f9;
-  border: 1px solid #ccc;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
   padding: 8px;
   font-size: 0.8em; /* Small technical text */
   font-family: monospace;
@@ -175,15 +174,15 @@
   left: 0;
   top: 100%;
   margin-top: 5px;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 10px;
   width: 300px;
   z-index: 1000;
   box-shadow: var(--shadow-base);
   font-size: 12px;
-  color: #333;
+  color: var(--color-fg);
   text-align: left;
 }
 
@@ -193,7 +192,7 @@
 }
 
 .technical-info-tooltip code {
-  background: #eee;
+  background: var(--color-bg-hover);
   padding: 2px 4px;
   border-radius: 3px;
 }
@@ -213,20 +212,20 @@
 }
 
 .org-selector-trigger:hover {
-    background-color: rgba(0, 123, 255, 0.1);
+    background-color: var(--color-primary-background);
 }
 
 .org-indicator {
     font-size: 10px;
-    color: #007bff;
+    color: var(--color-primary);
     font-weight: 500;
     margin-left: 2px;
 }
 
 .org-popup {
     position: absolute;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     box-shadow: var(--shadow-md);
     min-width: 200px;
@@ -237,10 +236,10 @@
 
 .org-popup-header {
     padding: 8px 12px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background-color: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
     font-weight: 600;
-    color: #495057;
+    color: var(--color-fg-alt);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -257,7 +256,7 @@
     justify-content: space-between;
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid #f1f3f5;
+    border-bottom: 1px solid var(--color-border);
     transition: background-color 0.2s ease;
 }
 
@@ -266,16 +265,16 @@
 }
 
 .org-option:hover {
-    background-color: #f8f9fa;
+    background-color: var(--color-bg-hover);
 }
 
 .org-option.selected {
-    background-color: #e3f2fd;
-    color: #1976d2;
+    background-color: var(--color-primary-background);
+    color: var(--color-primary);
 }
 
 .org-current {
-    color: #28a745;
+    color: var(--color-success);
     font-weight: bold;
     font-size: 14px;
 }
@@ -302,20 +301,20 @@
 .org-selector label {
     margin-right: 5px;
     font-size: 0.9em;
-    color: #666;
+    color: var(--color-fg-muted);
 }
 
 .org-select {
     padding: 2px 5px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-border);
     border-radius: 3px;
     font-size: 0.9em;
-    background: white;
+    background: var(--color-bg-elevated);
 }
 
 .org-select:focus {
     outline: none;
-    border-color: #007acc;
+    border-color: var(--color-primary);
 } 
 
 /* Make root separator clickable */
@@ -327,8 +326,8 @@
 }
 
 .root-separator.clickable:hover {
-    background-color: #f0f0f0;
-    color: #007acc;
+    background-color: var(--color-bg-hover);
+    color: var(--color-primary);
 }
 
 /* Context settings trigger (root "/" breadcrumb) - specific interactive styles */
@@ -343,21 +342,21 @@
 
 /* Org popup styles */
 .org-popup {
-    background: white;
-    border: 1px solid #ccc;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
     border-radius: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
     min-width: 150px;
     max-width: 200px;
 }
 
 .org-popup-header {
-    background: #f8f8f8;
+    background: var(--color-bg-alt);
     padding: 8px 12px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--color-border);
     font-size: 0.9em;
     font-weight: bold;
-    color: #555;
+    color: var(--color-fg-alt);
 }
 
 .org-popup-options {
@@ -368,7 +367,7 @@
 .org-option {
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--color-border);
     transition: background-color 0.2s;
 }
 
@@ -377,16 +376,16 @@
 }
 
 .org-option:hover {
-    background-color: #f0f8ff;
+    background-color: var(--color-bg-hover);
 }
 
 .org-option.selected {
-    background-color: #007acc;
-    color: white;
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
 }
 
 .org-option.selected:hover {
-    background-color: #005a9e;
+    background-color: var(--color-primary-hover);
 } 
 
 /* Context Settings Popup Styles - Updated for discrete positioning */
@@ -405,7 +404,7 @@
 }
 
 .context-settings-popup-content {
-    background: white;
+    background: var(--color-bg-elevated);
     padding: 0;
     border-radius: 8px;
     min-width: 500px;
@@ -421,18 +420,18 @@
     align-items: center;
     margin-bottom: 20px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .context-settings-popup-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--color-fg);
     font-size: 1.4em;
 }
 
 .close-btn, .close-btn-footer {
-    background: #dc3545;
-    color: white;
+    background: var(--color-error);
+    color: var(--color-primary-foreground);
     border: none;
     border-radius: 4px;
     padding: 6px 12px;
@@ -441,7 +440,7 @@
 }
 
 .close-btn:hover, .close-btn-footer:hover {
-    background: #c82333;
+    background: var(--color-red-900);
 }
 
 .context-settings-popup-body {
@@ -451,15 +450,15 @@
 .settings-section {
     margin-bottom: 20px;
     padding: 15px;
-    border: 1px solid #eee;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
-    background-color: #f8f9fa;
+    background-color: var(--color-bg-alt);
 }
 
 .settings-section h3 {
     margin-top: 0;
     margin-bottom: 10px;
-    color: #495057;
+    color: var(--color-fg-alt);
     font-size: 1.1em;
 }
 
@@ -467,21 +466,21 @@
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
-    color: #495057;
+    color: var(--color-fg-alt);
 }
 
 .settings-select {
     width: 100%;
     padding: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     font-size: 14px;
-    background-color: white;
+    background-color: var(--color-bg-elevated);
 }
 
 .settings-hint {
     font-size: 0.9em;
-    color: #666;
+    color: var(--color-fg-muted);
     margin-top: 5px;
     font-style: italic;
 }
@@ -497,17 +496,17 @@
 }
 
 .settings-section code {
-    background-color: #e9ecef;
+    background-color: var(--color-bg);
     padding: 2px 4px;
     border-radius: 3px;
     font-size: 0.9em;
-    color: #495057;
+    color: var(--color-fg-alt);
 }
 
 .context-settings-popup-footer {
     text-align: right;
     padding-top: 15px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--color-border);
 }
 
 .context-selected-file {
@@ -516,10 +515,10 @@
     margin-right: 8px; /* Space before selector */
     /* Style it like a text box or however you prefer */
     padding: 4px 6px;
-    background-color: #f0f0f0; /* Example style */
-    border: 1px solid #ccc;     /* Example style */
-    border-radius: 3px;         /* Example style */
-    font-family: monospace;     /* Example style */
+    background-color: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    font-family: monospace;
 }
 
 /* You might need a wrapper around breadcrumbs, selected-file, and selection-row 
@@ -530,8 +529,8 @@
 
 /* Publish button published state styles */
 #publish-btn.published {
-    background-color: #28a745;
-    color: white;
+    background-color: var(--color-success);
+    color: var(--color-primary-foreground);
     position: relative;
 }
 
@@ -541,7 +540,7 @@
 }
 
 #publish-btn:hover.published {
-    background-color: #218838;
+    background-color: var(--color-green-900);
 }
 
 #publish-btn.published::after {
@@ -553,9 +552,9 @@
 /* Note Button Styles */
 #note-btn {
     padding: 6px 12px;
-    border: 1px solid #007bff;
-    background-color: #fff;
-    color: #007bff;
+    border: 1px solid var(--color-primary);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-primary);
     border-radius: 4px;
     font-size: 14px;
     cursor: pointer;
@@ -565,15 +564,15 @@
 }
 
 #note-btn:hover {
-    background-color: #007bff;
-    color: #fff;
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+    box-shadow: var(--shadow-sm);
 }
 
 #note-btn:active {
     transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(0, 123, 255, 0.2);
+    box-shadow: var(--shadow-sm);
 }
 
 #note-btn:disabled {
@@ -584,20 +583,20 @@
 }
 
 #note-btn:disabled:hover {
-    background-color: #fff;
-    color: #007bff;
+    background-color: var(--color-bg-elevated);
+    color: var(--color-primary);
 }
 
 /* Note Button - Added to Context State */
 #note-btn.noted {
-    background-color: #28a745;
-    color: #fff;
-    border-color: #28a745;
+    background-color: var(--color-success);
+    color: var(--color-primary-foreground);
+    border-color: var(--color-success);
 }
 
 #note-btn.noted:hover {
-    background-color: #218838;
-    border-color: #1e7e34;
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-900);
 }
 
 #note-btn.noted::before {
@@ -615,7 +614,7 @@
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 255, 255, 0.2),
+        var(--color-bg-elevated-hover),
         transparent
     );
     transition: left 0.5s;

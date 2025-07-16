@@ -104,11 +104,16 @@ export class PreviewPanel extends BasePanel {
         this.unsubscribe = appStore.subscribe((newState, prevState) => {
             const newFile = newState.file?.currentPathname;
             const oldFile = prevState.file?.currentPathname;
-            const newContent = newState.file?.content;
-            const oldContent = prevState.file?.content;
+            const newContent = newState.file?.currentContent;
+            const oldContent = prevState.file?.currentContent;
+            const newPlugins = newState.plugins;
+            const oldPlugins = prevState.plugins;
 
-            // Update preview when file changes or content is updated
-            if (newFile !== oldFile || newContent !== oldContent) {
+            // Update preview when file changes, content is updated, or plugin settings change
+            if (newFile !== oldFile || newContent !== oldContent || newPlugins !== oldPlugins) {
+                if (newPlugins !== oldPlugins) {
+                    this.log('Plugin state changed, triggering preview update.', 'debug');
+                }
                 this.updatePreview();
             }
         });
@@ -125,7 +130,7 @@ export class PreviewPanel extends BasePanel {
 
         try {
             const state = appStore.getState();
-            const content = state.file?.content || '';
+            const content = state.file?.currentContent || '';
             const filePath = state.file?.currentPathname || '';
             
             // More detailed debugging

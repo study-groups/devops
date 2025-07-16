@@ -4,7 +4,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: var(--color-background, #ffffff);
+    background: var(--color-bg);
     font-family: var(--font-family-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
 }
 
@@ -14,8 +14,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: var(--color-background-secondary, #f8f9fa);
-    border-bottom: 1px solid var(--color-border, #e1e4e8);
+    background: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
 }
 
@@ -23,7 +23,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--color-foreground, #24292e);
+    color: var(--color-fg);
 }
 
 .file-icon {
@@ -37,8 +37,8 @@
 
 .file-size {
     font-size: 12px;
-    color: var(--color-foreground-muted, #6a737d);
-    background: var(--color-background-tertiary, #f1f3f4);
+    color: var(--color-fg-muted);
+    background: var(--color-bg-muted);
     padding: 2px 6px;
     border-radius: 3px;
 }
@@ -49,8 +49,8 @@
 }
 
 .copy-code-btn {
-    background: var(--color-accent, #0366d6);
-    color: white;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
     border: none;
     border-radius: 4px;
     padding: 6px 12px;
@@ -60,11 +60,11 @@
 }
 
 .copy-code-btn:hover {
-    background: var(--color-accent-hover, #0256cc);
+    background: var(--color-primary-hover);
 }
 
 .copy-code-btn.copied {
-    background: var(--color-success, #28a745);
+    background: var(--color-success);
 }
 
 /* Preview Container */
@@ -72,7 +72,7 @@
     flex: 1;
     overflow: auto;
     position: relative;
-    background: var(--color-background, #ffffff);
+    background: var(--color-bg);
 }
 
 .javascript-code-block {
@@ -109,15 +109,15 @@
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    color: var(--color-foreground-muted, #6a737d);
+    color: var(--color-fg-muted);
     font-size: 14px;
 }
 
 .loading-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--color-border, #e1e4e8);
-    border-top: 2px solid var(--color-accent, #0366d6);
+    border: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -138,11 +138,11 @@
 }
 
 .js-error-state {
-    background: var(--color-background-error, #ffeef0);
+    background: var(--color-error-background);
 }
 
 @keyframes flash-success {
-    0% { background-color: var(--color-success-bg, #d4edda); }
+    0% { background-color: var(--color-success-background); }
     100% { background-color: transparent; }
 }
 
@@ -155,7 +155,7 @@
     height: 100%;
     padding: 24px;
     text-align: center;
-    color: var(--color-danger, #d73a49);
+    color: var(--color-error);
 }
 
 .js-error__icon {
@@ -171,13 +171,13 @@
 
 .js-error__content p {
     margin: 0 0 16px 0;
-    color: var(--color-foreground-muted, #6a737d);
+    color: var(--color-fg-muted);
     max-width: 400px;
 }
 
 .js-error__retry {
-    background: var(--color-danger, #d73a49);
-    color: white;
+    background: var(--color-error);
+    color: var(--color-primary-foreground);
     border: none;
     border-radius: 4px;
     padding: 8px 16px;
@@ -187,7 +187,7 @@
 }
 
 .js-error__retry:hover {
-    background: var(--color-danger-hover, #cb2431);
+    background: var(--color-red-900);
 }
 
 /* Syntax Highlighting Enhancements */
@@ -207,10 +207,10 @@
     display: inline-block;
     width: 40px;
     padding-right: 12px;
-    color: var(--color-foreground-muted, #6a737d);
+    color: var(--color-fg-muted);
     text-align: right;
     user-select: none;
-    border-right: 1px solid var(--color-border, #e1e4e8);
+    border-right: 1px solid var(--color-border);
     margin-right: 12px;
 }
 
@@ -233,40 +233,5 @@
     .javascript-code-block {
         padding: 12px;
         font-size: 12px;
-    }
-}
-
-/* Dark Theme Support */
-@media (prefers-color-scheme: dark) {
-    .javascript-panel-content {
-        background: var(--color-background-dark, #0d1117);
-        color: var(--color-foreground-dark, #c9d1d9);
-    }
-    
-    .javascript-panel-header {
-        background: var(--color-background-secondary-dark, #161b22);
-        border-bottom-color: var(--color-border-dark, #30363d);
-    }
-    
-    .file-info {
-        color: var(--color-foreground-dark, #c9d1d9);
-    }
-    
-    .file-size {
-        background: var(--color-background-tertiary-dark, #21262d);
-        color: var(--color-foreground-muted-dark, #8b949e);
-    }
-    
-    .javascript-preview-container {
-        background: var(--color-background-dark, #0d1117);
-    }
-    
-    .js-loading-state {
-        color: var(--color-foreground-muted-dark, #8b949e);
-    }
-    
-    .loading-spinner {
-        border-color: var(--color-border-dark, #30363d);
-        border-top-color: var(--color-accent-dark, #58a6ff);
     }
 } 

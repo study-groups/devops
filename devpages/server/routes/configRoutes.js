@@ -20,7 +20,12 @@ router.get('/', (req, res) => {
       NODE_ENV: env.NODE_ENV,
       // Only expose safe configuration values
       themesPath: `${env.MD_DIR}/themes`,
-      dataPath: env.MD_DIR
+      dataPath: env.MD_DIR,
+      DO_SPACES_ENDPOINT: process.env.DO_SPACES_ENDPOINT,
+      DO_SPACES_REGION: process.env.DO_SPACES_REGION,
+      DO_SPACES_BUCKET: process.env.DO_SPACES_BUCKET,
+      DO_SPACES_KEY: process.env.DO_SPACES_KEY ? `${process.env.DO_SPACES_KEY.substring(0, 4)}...` : undefined,
+      PUBLISH_BASE_URL: process.env.PUBLISH_BASE_URL,
     };
 
     res.json(config);

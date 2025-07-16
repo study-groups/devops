@@ -105,10 +105,19 @@ async function initCoreServices() {
 
 async function initUIInfrastructure() {
     const start = performance.now();
+    console.warn('[Bootstrap] initUIInfrastructure called - START');
     logBootstrap('Stage 2: Initializing UI Infrastructure...');
     
     const { initializeUIComponents } = await import('/client/components/uiComponentsManager.js');
     await initializeUIComponents();
+
+    // Initialize TopBar
+    const { initializeTopBar } = await import('/client/components/topBar.js');
+    initializeTopBar();
+
+    // Initialize AuthDisplay
+    const { initializeAuthDisplay } = await import('/client/components/AuthDisplay.js');
+    initializeAuthDisplay();
 
     // Initialize EditorPanel
     const { EditorPanel } = await import('/client/panels/types/EditorPanel.js');
@@ -121,32 +130,60 @@ async function initUIInfrastructure() {
         logBootstrap('Editor container (editor-container) not found!', 'error');
     }
 
-    // Initialize WorkspacePanelManager
-    const { workspacePanelManager } = await import('/client/layout/WorkspacePanelManager.js');
-    window.workspacePanelManager = workspacePanelManager;
-    await workspacePanelManager.initialize();
+    // Initialize WorkspaceLayoutManager
+    const { workspaceLayoutManager } = await import('/client/layout/WorkspaceLayoutManager.js');
+    window.workspaceLayoutManager = workspaceLayoutManager;
+    await workspaceLayoutManager.initialize();
     
-    // Initialize SidebarPanelManager
-    const { sidebarPanelManager } = await import('/client/sidebar/SidebarPanelManager.js');
-    window.sidebarPanelManager = sidebarPanelManager;
+    // Initialize Panel System
+    console.warn('[Bootstrap] About to initialize panel system...');
+    const { initializePanels } = await import('/client/settings/settingsInitializer.js');
+    const { PanelManager } = await import('/client/panels/core/PanelManager.js');
+    
+    logBootstrap('Initializing panels...');
+    console.warn('[Bootstrap] Calling initializePanels()...');
+    initializePanels(); // Register all panels
+
     const sidebarContainer = document.querySelector('.panel-manager');
     if (sidebarContainer) {
-        sidebarPanelManager.setContainer(sidebarContainer);
-        sidebarPanelManager.initializeDefaultPanels();
-        sidebarPanelManager.renderAllPanels();
+        logBootstrap('Creating and initializing PanelManager...');
+        console.warn('[Bootstrap] Found sidebar container:', sidebarContainer);
+        console.warn('[Bootstrap] Existing panel manager:', window.panelManager);
+        console.warn('[Bootstrap] Sidebar container children:', sidebarContainer.children.length);
+        
+        // Clean up any existing panel manager
+        if (window.panelManager) {
+            console.warn('[Bootstrap] Cleaning up existing panel manager');
+            if (typeof window.panelManager.destroy === 'function') {
+                window.panelManager.destroy();
+            }
+        }
+        
+        console.warn('[Bootstrap] Creating new PanelManager...');
+        const panelManager = new PanelManager(sidebarContainer, 'sidebar');
+        console.warn('[Bootstrap] Calling panelManager.init()...');
+        panelManager.init();
+        window.panelManager = panelManager; // Global access for debugging
+        logBootstrap('PanelManager initialized successfully');
+    } else {
+        logBootstrap('Sidebar container (.panel-manager) not found!', 'error');
     }
+    
+    // Initialize KeyboardShortcutManager
+    const { KeyboardShortcutManager } = await import('/client/keyboard/KeyboardShortcutManager.js');
+    const keyboardShortcutManager = new KeyboardShortcutManager();
+    keyboardShortcutManager.initialize();
 
     // Mount static components
-    const { createAuthDisplayComponent } = await import('/client/components/AuthDisplay.js');
     const { createContextManagerComponent } = await import('/client/components/ContextManagerComponent.js');
     const { createViewControlsComponent } = await import('/client/components/ViewControls.js');
     
-    createAuthDisplayComponent('auth-component-container').mount();
     createContextManagerComponent('context-manager-container').mount();
     createViewControlsComponent('view-controls-container').mount();
     
     recordMetric('ui', 'infrastructure', start);
     logBootstrap('UI Infrastructure initialized');
+    console.warn('[Bootstrap] initUIInfrastructure completed - END');
     eventBus.emit('ui:initialized');
     return performance.now();
 }
@@ -174,9 +211,11 @@ async function initFeatures() {
     const { initializeFileManager } = await import('/client/filesystem/fileManager.js');
     await initializeFileManager();
     
-    // Import feature modules
+    // Import and initialize feature modules
+    const { initializeDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
+    await initializeDomInspector();
+    
     await import('/client/settings/core/settingsInitializer.js');
-    await import('/client/dom-inspector/domInspectorInitializer.js');
     await import('/client/keyboardShortcuts.js');
     await import('/client/cli/index.js');
     
@@ -185,13 +224,8 @@ async function initFeatures() {
     const logPanel = new LogPanel('log-container');
     await logPanel.initialize();
 
-    // Mount PreviewPanel
-    const { PreviewPanel } = await import('/client/panels/types/PreviewPanel.js');
-    const previewContainer = document.querySelector('.preview-container');
-    if (!previewContainer) throw new Error('Preview container not found');
-    const previewPanel = new PreviewPanel();
-    await previewPanel.mount(previewContainer);
-    window.APP = { contentView: previewPanel };
+    // PreviewPanel is now managed by WorkspaceLayoutManager
+    // No need to create duplicate instance here
     
     recordMetric('features', 'modules', start);
     logBootstrap('Feature modules loaded');
@@ -227,7 +261,30 @@ async function waitForAuthReady() {
 }
 
 // ====================== MAIN INITIALIZATION FLOW ======================
+let bootstrapCallCount = 0;
+let isBootstrapping = false;
+let bootstrapCompleted = false;
+
 async function initializeApp() {
+    bootstrapCallCount++;
+    console.warn(`[Bootstrap] initializeApp called - COUNT: ${bootstrapCallCount}`);
+    
+    if (bootstrapCallCount > 1) {
+        console.error(`[Bootstrap] WARNING: initializeApp called ${bootstrapCallCount} times!`);
+        
+        // Prevent duplicate initialization
+        if (isBootstrapping) {
+            console.error('[Bootstrap] Already bootstrapping, ignoring duplicate call');
+            return;
+        }
+        
+        if (bootstrapCompleted) {
+            console.error('[Bootstrap] Bootstrap already completed, ignoring duplicate call');
+            return;
+        }
+    }
+    
+    isBootstrapping = true;
     initMetrics.start = performance.now();
     logBootstrap('Starting application bootstrap...');
     
@@ -258,17 +315,24 @@ async function initializeApp() {
         // Hide splash screen
         hideSplashScreen();
         
+        bootstrapCompleted = true;
+        
     } catch (error) {
         logBootstrap(`Bootstrap failed: ${error.message}`, 'error');
         console.error('Application bootstrap failed:', error);
         eventBus.emit('app:failed', error);
         hideSplashScreen();
+    } finally {
+        isBootstrapping = false;
     }
 }
 
 // Start when DOM is ready
+console.warn('[Bootstrap] Setting up DOM ready listeners...');
 if (document.readyState === 'loading') {
+    console.warn('[Bootstrap] DOM still loading, adding event listener');
     document.addEventListener('DOMContentLoaded', initializeApp);
 } else {
+    console.warn('[Bootstrap] DOM already ready, calling initializeApp immediately');
     initializeApp();
 }

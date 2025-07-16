@@ -218,9 +218,9 @@ export function createContextManagerComponent(targetElementId) {
             <div class="context-selection-row">
                 ${primarySelectorHTML}
                 <div class="file-action-buttons">
-                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
-                    <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
-                    <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button">Note</button>
+                    <button id="save-btn" class="btn btn--primary btn--sm" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
+                    <button id="publish-btn" class="btn btn--secondary btn--sm" title="Publish File" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
+                    <button id="note-btn" class="btn btn--secondary btn--sm note-button" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''}>Note</button>
                 </div>
             </div>
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
@@ -426,13 +426,13 @@ export function createContextManagerComponent(targetElementId) {
         logContext(`Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`, 'EVENT');
 
         // The primary, default action is to toggle the sidebar.
-        // We can access the global workspace panel manager instance if it's available.
-        if (window.workspacePanelManager && typeof window.workspacePanelManager.toggleSidebar === 'function') {
+        // We can access the global workspace layout manager instance if it's available.
+        if (window.workspaceLayoutManager && typeof window.workspaceLayoutManager.toggleSidebar === 'function') {
             logContext('Toggling sidebar visibility', 'EVENT');
-            window.workspacePanelManager.toggleSidebar();
+            window.workspaceLayoutManager.toggleSidebar();
         } else {
-            logContext('WorkspacePanelManager not available, cannot toggle sidebar.', 'error', 'EVENT');
-            alert('Could not toggle the sidebar. The panel manager is not available.');
+            logContext('WorkspaceLayoutManager not available, cannot toggle sidebar.', 'error', 'EVENT');
+            alert('Could not toggle the sidebar. The layout manager is not available.');
         }
 
         // Example of a secondary action (e.g., for showing the settings popup)

@@ -10,15 +10,11 @@ import { appVer } from '/config.js';
 import { setLogPanelInstance, logInfo, logError, logDebug, logWarn } from './LogCore.js';
 import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logPanelDOM.js';
 import { attachLogPanelEventListeners, removeLogPanelEventListeners } from './logPanelEvents.js';
-import { loadLogPanelPreferences, saveLogPanelPreferences as saveLogPanelPreferencesState, subscribeToAppStoreChanges, updateSelectionButtonUI } from './logPanelState.js';
 import { updateLogEntryDisplay, enhanceCodeBlocksAndMermaid } from './logPanelEntryDisplay.js';
 import { updateTagsBar, applyFiltersToLogEntries, initializeLogFilterBar } from './LogFilterBar.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
-const LOG_VISIBLE_KEY = 'logVisible';
-const LOG_HEIGHT_KEY = 'logHeight';
-const DEFAULT_LOG_HEIGHT = 150;
 const MIN_LOG_HEIGHT = 80;
 
 /**
@@ -56,7 +52,8 @@ export class LogPanel {
         this.RENDER_MODE_MARKDOWN = 'markdown';
         this.RENDER_MODE_HTML = 'html';
 
-        this.state = {
+        // Internal component state, not related to global app state
+        this.internalState = {
             entryCount: 0,
             logIndex: 0,
             logOrder: localStorage.getItem('logOrder') || 'recent'
@@ -65,6 +62,11 @@ export class LogPanel {
         this._isResizing = false;
         this._startY = 0;
         this._startHeight = 0;
+
+        // Bind resize handlers once
+        this.startResize = this.startResize.bind(this);
+        this._doResize = this.doResize.bind(this);
+        this._endResize = this.endResize.bind(this);
 
         this.addEntry = this.addEntry.bind(this);
         this.copyLog = this.copyLog.bind(this);
@@ -84,16 +86,103 @@ export class LogPanel {
 
         createLogPanelDOM(this, appVer);
         
-        requestAnimationFrame(() => {
-            loadLogPanelPreferences(this, DEFAULT_LOG_HEIGHT, MIN_LOG_HEIGHT);
-            subscribeToAppStoreChanges(this);
-            attachLogPanelEventListeners(this);
-            this._updateTagsBar();
-            this.updateUI();
-            this.updateEntryCount();
-            if (typeof window !== 'undefined') window.logPanel = this;
-            logInfo('LogPanel UI initialized successfully.', 'LOG_PANEL_LIFECYCLE');
-        });
+        // Subscribe to the store to sync the component with global state
+        this.subscribeToStore();
+
+        // Manually attach event listeners for resizing, etc.
+        attachLogPanelEventListeners(this);
+
+        if (typeof window !== 'undefined') window.logPanel = this;
+        logInfo('LogPanel UI initialized and subscribed to store.', 'LOG_PANEL_LIFECYCLE');
+    }
+
+    /**
+     * Subscribes the component to the appStore to keep its UI in sync with the global state.
+     */
+    subscribeToStore() {
+        if (this._appStateUnsubscribe) {
+            this._appStateUnsubscribe(); // Unsubscribe from any previous subscription
+        }
+
+        const handleStateChange = () => {
+            const currentState = appStore.getState();
+            this.syncWithState(currentState.ui);
+        };
+        
+        this._appStateUnsubscribe = appStore.subscribe(handleStateChange);
+        
+        // Immediately sync with the current state upon subscription
+        handleStateChange(); 
+    }
+
+    /**
+     * Centralized method to update the LogPanel's DOM to match the global app state.
+     * This is the single source of truth for updating the UI from the store.
+     * @param {object} uiState - The `ui` slice of the global app state.
+     */
+    syncWithState(uiState) {
+        if (!this.container || !uiState) return;
+        
+        const { logVisible, logHeight } = uiState;
+
+        // Sync visibility
+        this.container.classList.toggle('log-visible', logVisible);
+        this.container.classList.toggle('log-hidden', !logVisible);
+
+        // Sync height by updating the CSS variable
+        document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
+        
+        // Update other UI elements that depend on state
+        this.updateEntryCount();
+        this._updateTagsBar();
+    }
+
+    /**
+     * Dispatches an action to toggle the log panel's visibility in the global state.
+     * The component's UI will update automatically via its store subscription.
+     */
+    toggleVisibility() {
+        dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
+    }
+
+    startResize(e) {
+        e.preventDefault();
+        this._isResizing = true;
+        this._startY = e.pageY;
+        this._startHeight = this.container.offsetHeight;
+        document.addEventListener('mousemove', this._doResize);
+        document.addEventListener('mouseup', this._endResize);
+    }
+
+    doResize(e) {
+        if (!this._isResizing) return;
+
+        // Calculate the max height, leaving a small gap for the top bar (e.g., 60px)
+        const maxHeight = window.innerHeight - 60;
+        let newHeight = this._startHeight - (e.pageY - this._startY);
+
+        // Clamp the new height between the minimum and maximum allowed values
+        if (newHeight < MIN_LOG_HEIGHT) {
+            newHeight = MIN_LOG_HEIGHT;
+        } else if (newHeight > maxHeight) {
+            newHeight = maxHeight;
+        }
+        
+        this.container.style.height = `${newHeight}px`;
+    }
+
+    endResize() {
+        if (!this._isResizing) return;
+        this._isResizing = false;
+        document.removeEventListener('mousemove', this._doResize);
+        document.removeEventListener('mouseup', this._endResize);
+        
+        const newHeight = this.container.offsetHeight;
+        
+        // Dispatch the action to the global store to notify other components
+        dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: { height: newHeight }});
+        
+        logInfo(`Log panel resized to ${newHeight}px`, 'LOG_PANEL_STATE');
     }
 
     addEntry(entryData, legacyTypeArgument = 'text') {
@@ -169,17 +258,17 @@ export class LogPanel {
 
         logEntryDiv.dataset.logType = logType;
         logEntryDiv.dataset.renderMode = this.RENDER_MODE_RAW;
-        logEntryDiv.dataset.logIndex = this.state.logIndex;
+        logEntryDiv.dataset.logIndex = this.internalState.logIndex;
         logEntryDiv.dataset.logTimestamp = new Date().toLocaleTimeString();
 
-        if (this.state.logOrder === 'recent') {
+        if (this.internalState.logOrder === 'recent') {
             this.logElement.insertBefore(logEntryDiv, this.logElement.firstChild);
         } else {
             this.logElement.appendChild(logEntryDiv);
         }
 
-        this.state.entryCount++;
-        this.state.logIndex++;
+        this.internalState.entryCount++;
+        this.internalState.logIndex++;
         this.updateEntryCount();
         this._updateDiscoveredTypes(logType);
         applyFiltersToLogEntries(this.logElement, appStore.getState().logFiltering.activeFilters);
@@ -188,8 +277,8 @@ export class LogPanel {
     clearLog() {
         if (!this.logElement) return;
         this.logElement.innerHTML = '';
-        this.state.entryCount = 0;
-        this.state.logIndex = 0;
+        this.internalState.entryCount = 0;
+        this.internalState.logIndex = 0;
         this.updateEntryCount();
         dispatch({ type: ActionTypes.LOG_CLEAR });
         logInfo('Log cleared and filters reset.', 'LOG_PANEL_STATE');
@@ -209,7 +298,7 @@ export class LogPanel {
         this.logElement.innerHTML = '';
         entries.forEach(entry => this.logElement.appendChild(entry));
         
-        this.state.logOrder = order;
+        this.internalState.logOrder = order;
         localStorage.setItem('logOrder', order);
         logInfo(`Log order set to: ${order}`, 'LOG_PANEL_STATE');
     }
@@ -241,24 +330,9 @@ export class LogPanel {
         this.logElement.querySelectorAll('.log-entry.expanded').forEach(this._collapseLogEntry.bind(this));
     }
 
-    updateUI() {
-        const { logVisible, logHeight, logMenuVisible } = appStore.getState().ui;
-        if (this.container) {
-            this.container.classList.toggle('log-visible', logVisible);
-            this.container.classList.toggle('log-hidden', !logVisible);
-            this.container.style.height = logVisible ? `${logHeight}px` : '0px';
-            document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
-            document.documentElement.setAttribute('data-log-visible', String(logVisible));
-        }
-        const menuContainer = document.getElementById('log-menu-container');
-        if (menuContainer) {
-            menuContainer.classList.toggle('visible', logMenuVisible);
-        }
-    }
-
     updateEntryCount() {
         if (this.statusElement) {
-            this.statusElement.textContent = `${this.state.entryCount} entries`;
+            this.statusElement.textContent = `${this.internalState.entryCount} entries`;
         }
     }
 
@@ -328,7 +402,7 @@ export class LogPanel {
     }
 
     destroy() {
-        if (this._updateTagsBarTimeout) clearTimeout(this._updateTagsBArTimeout);
+        if (this._updateTagsBarTimeout) clearTimeout(this._updateTagsBarTimeout);
         if (this._appStateUnsubscribe) this._appStateUnsubscribe();
         if (this._logFilteringUnsubscribe) this._logFilteringUnsubscribe();
         removeLogPanelEventListeners(this);

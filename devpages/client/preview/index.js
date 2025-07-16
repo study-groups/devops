@@ -357,12 +357,34 @@ export class PreviewManager {
           resolve({ html: renderResult.html, frontMatter: renderResult.frontMatter });
 
         } catch (error) {
-          logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW");
+          // Log the original error before attempting to display it in the UI
+          logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW", { stack: error.stack });
           console.error('[PREVIEW UPDATE ERROR]', error);
-          resolve({ html: '<p>Error during update.</p>', frontMatter: {} }); 
+
+          // Corrected method call from showErrorState to showError
+          this.showError(error.message); 
+          
+          resolve(false);
         }
       }, this.config.updateDelay);
     });
+  }
+
+  /**
+   * Displays an error message in the preview container.
+   * @param {string} message - The error message to display.
+   */
+  showError(message) {
+    if (this.previewElement) {
+      this.previewElement.innerHTML = `
+        <div class="preview-error-container">
+          <p><strong>Preview Error:</strong></p>
+          <p>${message}</p>
+        </div>
+      `;
+    } else {
+      logMessage('[PreviewManager.showError] Cannot display error because previewElement is null.', 'error', 'PREVIEW');
+    }
   }
 
   applyTheme(theme) {

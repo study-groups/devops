@@ -22,7 +22,7 @@
 .theme-config-grid label,
 .config-label {
   font-weight: var(--font-weight-medium);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   text-align: left;
   white-space: nowrap;
 }
@@ -30,11 +30,11 @@
 .config-value {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
-  background: var(--color-background-elevated);
+  background: var(--color-bg-elevated);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  color: var(--color-foreground);
+  color: var(--color-fg);
   overflow-wrap: break-word;
   word-wrap: break-word;
 }
@@ -42,15 +42,15 @@
 .config-text {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   padding: var(--space-1) var(--space-2); /* Keep alignment with config-value */
   white-space: nowrap;
 }
 
 /* === DIRECTORY INFO SECTION === */
 .theme-dir-item {
-  background: var(--color-background-elevated);
-  color: var(--color-foreground);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
@@ -60,7 +60,7 @@
 }
 
 .no-dirs {
-  color: var(--color-foreground-muted);
+  color: var(--color-fg-muted);
   font-style: italic;
   font-size: var(--font-size-sm);
 }
@@ -82,8 +82,8 @@
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background-color: var(--color-background-surface);
-  color: var(--color-foreground);
+  background-color: var(--color-bg-surface);
+  color: var(--color-fg);
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -91,7 +91,7 @@
 }
 
 .theme-button:hover {
-  background-color: var(--color-background-hover);
+  background-color: var(--color-bg-hover);
   border-color: var(--color-border-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
@@ -103,11 +103,11 @@
 }
 
 .theme-button.active {
-  background-color: var(--color-primary-muted);
+  background-color: var(--color-primary-background);
   border-color: var(--color-primary);
   color: var(--color-primary-foreground);
   font-weight: var(--font-weight-semibold);
-  box-shadow: 0 0 0 2px var(--color-primary-shadow);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 .theme-button-name {
@@ -134,8 +134,8 @@
   height: 24px;
   border-radius: var(--radius-sm);
   background: linear-gradient(to right, 
-    var(--color-background-elevated) 0%, 
-    var(--color-background-surface) 100%);
+    var(--color-bg-elevated) 0%, 
+    var(--color-bg-surface) 100%);
   border: 1px solid var(--color-border);
   margin-top: auto; /* Push preview to the bottom */
 }
@@ -143,21 +143,21 @@
 /* Specific theme previews to give a hint of the theme's colors */
 .theme-button[data-theme-id="system"] .theme-button-preview {
   background: linear-gradient(90deg, 
-    var(--color-system-light-bg, #FFFFFF) 0%, 
-    var(--color-system-light-bg, #FFFFFF) 49.9%, 
-    var(--color-system-dark-bg, #1A202C) 50%, 
-    var(--color-system-dark-bg, #1A202C) 100%);
+    var(--color-bg-elevated) 0%, 
+    var(--color-bg-elevated) 49.9%, 
+    var(--color-gray-900) 50%, 
+    var(--color-gray-900) 100%);
   border: 1px solid var(--color-border);
 }
 
 .theme-button[data-theme-id="basic"] .theme-button-preview {
-  background: linear-gradient(to right, #2a4365, #4299e1);
+  background: linear-gradient(to right, var(--color-blue-900), var(--color-blue-500));
 }
 
 .theme-button[data-theme-id="classic"] .theme-button-preview {
-  background: linear-gradient(to right, #2d3748, #718096);
+  background: linear-gradient(to right, var(--color-gray-900), var(--color-gray-500));
 }
 
 .theme-button[data-theme-id="arcade"] .theme-button-preview {
-  background: linear-gradient(to right, #553c9a, #9f7aea);
+  background: linear-gradient(to right, var(--color-purple-900), var(--color-purple-500));
 }

@@ -199,9 +199,9 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
         // Render the updated toggle buttons for workspace system
         element.innerHTML = `
-            <button id="edit-toggle" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
-            <button id="log-toggle-btn" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
-            <button id="preview-reload-btn" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
+            <button id="edit-toggle" class="btn btn--ghost btn--sm" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
+            <button id="log-toggle-btn" class="btn btn--ghost btn--sm" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
+            <button id="preview-reload-btn" class="btn btn--ghost btn--sm" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
         `;
         
         // Subscribe to app state changes
@@ -233,20 +233,22 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
             switch (action) {
                 case 'toggleLogVisibility':
-                    dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
+                    if (window.logPanel && typeof window.logPanel.toggleVisibility === 'function') {
+                        window.logPanel.toggleVisibility();
+                    }
                     break;
                     
                 case 'toggleEdit':
                     // Use the workspace panel manager to toggle the editor
-                    if (window.workspacePanelManager) {
-                        window.workspacePanelManager.toggleEditor();
+                            if (window.workspaceLayoutManager) {
+            window.workspaceLayoutManager.toggleEditor();
                     }
                     break;
                     
                 case 'togglePanels':
                     // Use the workspace panel manager to toggle the sidebar
-                    if (window.workspacePanelManager) {
-                        window.workspacePanelManager.toggleSidebar();
+                            if (window.workspaceLayoutManager) {
+            window.workspaceLayoutManager.toggleSidebar();
                     }
                     break;
                     

@@ -69,7 +69,7 @@ export class PanelUI {
         this.header = document.createElement('div');
         this.header.className = 'dom-inspector-header';
         this.header.innerHTML = `
-            <span>DOM Inspector</span>
+            <span class="dom-inspector-title">DOM Inspector</span>
             <div class="header-buttons">
                 <button class="dom-inspector-settings-btn" title="Settings">⚙</button>
                 <button class="dom-inspector-close" title="Close">×</button>
@@ -305,13 +305,11 @@ export class PanelUI {
      */
     doSplitterDrag(e) {
         if (!this.isSplitterDragging) return;
-        
-        const mainContent = this.panel.querySelector('.dom-inspector-main');
-        const rect = mainContent.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const percentage = Math.max(15, Math.min(85, (mouseX / rect.width) * 100));
-        
-        this.splitPosition = percentage;
+        const rect = this.panel.getBoundingClientRect();
+        const newSplitPosition = ((e.clientX - rect.left) / rect.width) * 100;
+
+        // Clamp position between 10% and 90%
+        this.splitPosition = Math.max(10, Math.min(90, newSplitPosition));
         this.updateSplitLayout();
     }
 
@@ -321,8 +319,7 @@ export class PanelUI {
     endSplitterDrag() {
         if (!this.isSplitterDragging) return;
         this.isSplitterDragging = false;
-        document.body.classList.remove('dom-inspector-splitter-dragging');
-        
+        document.body.style.cursor = '';
         if (this.onSplitChange) {
             this.onSplitChange(this.splitPosition);
         }
@@ -332,38 +329,40 @@ export class PanelUI {
      * Update the layout based on current split position
      */
     updateSplitLayout() {
-        if (this.treeContainer && this.detailsContainer) {
-            this.treeContainer.style.width = `${this.splitPosition}%`;
-            this.detailsContainer.style.width = `${100 - this.splitPosition}%`;
-        }
+        if (!this.treeContainer || !this.detailsContainer) return;
+        this.treeContainer.style.width = `${this.splitPosition}%`;
+        this.detailsContainer.style.width = `${100 - this.splitPosition}%`;
     }
 
     /**
      * Show the panel
      */
     show() {
-        console.log('[GENERAL] PanelUI.show() called');
-        this.isVisible = true;
-        if (this.panel) {
-            this.panel.style.display = 'flex';
-            console.log('[GENERAL] PanelUI: Panel display set to flex');
-        } else {
-            console.error('PanelUI: Cannot show panel - panel is null!');
+        console.log('[PanelUI] show() called.');
+        if (!this.panel) {
+            console.error('[PanelUI] this.panel is null in show()');
+            return;
         }
+        console.log(`[PanelUI] Before show: display=${this.panel.style.display}`);
+        this.panel.style.display = 'flex';
+        console.log(`[PanelUI] After show: display=${this.panel.style.display}`);
+        this.isVisible = true;
+        this.bringToFront();
     }
 
     /**
      * Hide the panel
      */
     hide() {
-        console.log('[GENERAL] PanelUI.hide() called');
-        this.isVisible = false;
-        if (this.panel) {
-            this.panel.style.display = 'none';
-            console.log('[GENERAL] PanelUI: Panel display set to none');
-        } else {
-            console.error('PanelUI: Cannot hide panel - panel is null!');
+        console.log('[PanelUI] hide() called.');
+        if (!this.panel) {
+            console.error('[PanelUI] this.panel is null in hide()');
+            return;
         }
+        console.log(`[PanelUI] Before hide: display=${this.panel.style.display}`);
+        this.panel.style.display = 'none';
+        console.log(`[PanelUI] After hide: display=${this.panel.style.display}`);
+        this.isVisible = false;
     }
 
     /**

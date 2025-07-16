@@ -21,7 +21,7 @@ export class FileTreeManager {
         this.treeContainer = container;
     }
 
-    async buildTree(callbacks = {}) {
+    async buildTree(callbacks = {}, path) {
         this.callbacks = callbacks;
         if (!this.treeContainer) {
             logMessage('No tree container for building file tree', 'error', 'FileTree');
@@ -32,7 +32,7 @@ export class FileTreeManager {
         this.treeContainer.innerHTML = '<div class="loading-spinner"></div>';
 
         try {
-            const fileTree = await this.fetchFileTree();
+            const fileTree = await this.fetchFileTree(path);
             this.treeContainer.innerHTML = '';
 
             if (fileTree && fileTree.length > 0) {
@@ -52,14 +52,16 @@ export class FileTreeManager {
         }
     }
 
-    createNode(item) {
+    createNode(item, depth = 0) {
         const node = document.createElement('div');
         node.className = 'file-browser-node';
         node.dataset.filePath = item.path;
         node.dataset.itemType = item.type;
+        node.dataset.depth = depth;
 
         const header = document.createElement('div');
         header.className = 'file-browser-node-header';
+        header.style.paddingLeft = `${depth * 12}px`;
 
         const toggle = document.createElement('span');
         toggle.className = 'file-browser-node-toggle';
@@ -72,7 +74,11 @@ export class FileTreeManager {
         header.appendChild(toggle);
 
         const icon = document.createElement('span');
-        icon.className = `file-browser-node-icon icon-${item.type}`;
+        if (item.type === 'directory') {
+            icon.className = 'icon icon-folder-closed file-browser-node-icon';
+        } else {
+            icon.className = 'icon icon-file-generic file-browser-node-icon';
+        }
         header.appendChild(icon);
 
         const name = document.createElement('span');
@@ -82,50 +88,65 @@ export class FileTreeManager {
         
         node.appendChild(header);
 
-        header.addEventListener('click', (e) => {
-            if (e.target === toggle) {
-                if (item.type === 'directory') {
-                    this.toggleNode(node);
-                }
-            } else {
-                if (item.type === 'file' && this.callbacks.onFileClick) {
-                    this.callbacks.onFileClick(item);
-                }
-                this.selectNode(node);
-            }
-        });
-
-        if (item.type === 'directory' && item.children && item.children.length > 0) {
+        if (item.type === 'directory') {
             const childrenContainer = document.createElement('div');
             childrenContainer.className = 'file-browser-node-children';
             childrenContainer.style.display = 'none';
-
-            item.children.forEach(child => {
-                const childNode = this.createNode(child);
-                if (childNode) {
-                    childrenContainer.appendChild(childNode);
-                }
-            });
             node.appendChild(childrenContainer);
         }
+
+        header.addEventListener('click', (e) => {
+            if (item.type === 'directory') {
+                this.toggleNode(node);
+            } else if (item.type === 'file' && this.callbacks.onFileClick) {
+                this.callbacks.onFileClick(item);
+            }
+            this.selectNode(node);
+        });
 
         return node;
     }
 
-    toggleNode(node) {
-        node.classList.toggle('expanded');
-        const isExpanded = node.classList.contains('expanded');
-        const toggle = node.querySelector('.file-browser-node-toggle');
+    async toggleNode(node) {
+        const isExpanded = !node.classList.contains('expanded');
+        node.classList.toggle('expanded', isExpanded);
         const childrenContainer = node.querySelector('.file-browser-node-children');
+        const toggle = node.querySelector('.file-browser-node-toggle');
+        const icon = node.querySelector('.file-browser-node-icon');
+        const filePath = node.dataset.filePath;
 
         if (toggle) {
             toggle.textContent = isExpanded ? '▼' : '▶';
         }
+
+        if (icon && node.dataset.itemType === 'directory') {
+            icon.classList.toggle('icon-folder-closed', !isExpanded);
+            icon.classList.toggle('icon-folder-open', isExpanded);
+        }
+
+        if (isExpanded && !childrenContainer.hasChildNodes()) {
+            childrenContainer.innerHTML = '<div class="loading-spinner"></div>';
+            try {
+                const items = await this.fetchFileTree(filePath);
+                childrenContainer.innerHTML = '';
+                if (items.length > 0) {
+                    items.forEach(item => {
+                        const childNode = this.createNode(item, parseInt(node.dataset.depth) + 1);
+                        childrenContainer.appendChild(childNode);
+                    });
+                } else {
+                    childrenContainer.innerHTML = '<div class="panel-info-text" style="padding-left: 12px;">No files found.</div>';
+                }
+            } catch (error) {
+                childrenContainer.innerHTML = '<div class="panel-info-text" style="padding-left: 12px;">Error loading files.</div>';
+                logMessage(`Error loading directory ${filePath}: ${error.message}`, 'error', 'FileTree');
+            }
+        }
+
         if (childrenContainer) {
             childrenContainer.style.display = isExpanded ? 'block' : 'none';
         }
         
-        const filePath = node.dataset.filePath;
         if (isExpanded) {
             this.treeState.expandedNodes.add(filePath);
         } else {
@@ -170,41 +191,27 @@ export class FileTreeManager {
         this.treeContainer.scrollTop = this.treeState.scrollPosition;
     }
 
-    async fetchFileTree() {
-        // In a real scenario, this would fetch from a server endpoint.
-        // For now, we use mock data.
-        logMessage('Fetching file tree...', 'info', 'FileTree');
-        return this.getMockFileSystem();
-        /*
+    async fetchFileTree(pathname) {
+        logMessage(`Fetching file tree for path: ${pathname}`, 'info', 'FileTree');
         try {
-            const response = await globalFetch('/api/files/tree');
+            const response = await globalFetch(`/api/files/list?pathname=${encodeURIComponent(pathname)}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            return await response.json();
+            const data = await response.json();
+            
+            const joinPath = (...parts) => {
+                const newPath = parts.join('/');
+                return newPath.replace(/\/+/g, '/');
+            };
+
+            const dirs = data.dirs.map(d => ({ name: d, type: 'directory', path: joinPath(data.pathname, d)}));
+            const files = data.files.map(f => ({ name: f, type: 'file', path: joinPath(data.pathname, f) }));
+
+            return [...dirs, ...files];
         } catch (error) {
             console.error("Failed to fetch file tree:", error);
             throw error;
         }
-        */
-    }
-    
-    getMockFileSystem() {
-        return [
-            {
-                name: 'client', type: 'directory', path: 'client', children: [
-                    { name: 'index.html', type: 'file', path: 'client/index.html' },
-                    { name: 'styles', type: 'directory', path: 'client/styles', children: [
-                        { name: 'main.css', type: 'file', path: 'client/styles/main.css' },
-                    ]},
-                ]
-            },
-            {
-                name: 'server', type: 'directory', path: 'server', children: [
-                    { name: 'server.js', type: 'file', path: 'server/server.js' },
-                ]
-            },
-            { name: 'package.json', type: 'file', path: 'package.json' },
-        ];
     }
 } 

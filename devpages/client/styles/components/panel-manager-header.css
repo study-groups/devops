@@ -1,0 +1,147 @@
+/**
+ * client/styles/components/panel-manager-header.css
+ * 
+ * Dedicated styles for the Panel Manager header to prevent conflicts.
+ */
+
+.panel-manager-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.panel-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
+    min-height: 28px;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.panel-manager-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
+}
+
+.panel-manager-header__title {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-fg-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.panel-manager-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.panel-manager-header__button {
+    background: none;
+    border: none;
+    color: var(--color-fg-alt);
+    cursor: pointer;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.panel-manager-header__button:hover {
+    background-color: var(--color-bg-muted);
+    color: var(--color-fg);
+}
+
+.panel-manager-header__button[title="Collapse All Panels"]::after {
+    content: "⌄";
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.panel-manager-header__button[title="Toggle Panel Controls"]::after {
+    content: "☰";
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.panel-manager-header__button[title="Show Panel Controls"]::after {
+    content: "▶";
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Dark Mode */
+[data-theme="dark"] .panel-manager-header__button {
+    color: var(--color-gray-100);
+}
+
+[data-theme="dark"] .panel-manager-header__button:hover {
+    color: var(--color-gray-50);
+    background-color: var(--color-bg-muted);
+}
+
+/*
+ * Styles for the toggles *inside* the Panel Manager panel content.
+ * These are the icons for showing/hiding the other panels.
+ */
+.panel-manager-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: row !important; /* Override any competing .flex-col utility classes */
+}
+
+.panel-toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast);
+    width: 48px; /* Give them a fixed width */
+}
+
+.panel-toggle:hover {
+    background-color: var(--color-bg-muted);
+}
+
+.panel-toggle img {
+    width: 20px;
+    height: 20px;
+    margin-bottom: var(--space-1);
+}
+
+[data-theme="dark"] .panel-toggle img {
+    filter: invert(1);
+}
+
+/* Mode-specific content */
+.panel-manager-mode-content {
+    padding: var(--space-2);
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-sm);
+} 

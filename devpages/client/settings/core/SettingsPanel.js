@@ -8,7 +8,6 @@ import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { settingsRegistry } from './settingsRegistry.js';
 import { logMessage } from '/client/log/index.js';
-import { panelEventBus } from './panelEventBus.js';
 import { renderSettingsSections } from './SettingsSectionRenderer.js';
 import { zIndexManager } from '/client/utils/ZIndexManager.js';
 

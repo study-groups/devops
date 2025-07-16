@@ -7,7 +7,7 @@
     right: 0;
     bottom: 0;
     z-index: 1000;
-    background-color: #000;
+    background-color: var(--color-bg);
     overflow-y: auto;
 }
 
@@ -16,8 +16,8 @@
     font-size: 14px;
     line-height: 1.2;
     padding: 12px;
-    background-color: #000;
-    color: #00ff00;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
     height: 100%;
     overflow-y: auto;
     white-space: pre-wrap;
@@ -28,7 +28,7 @@
 .file-summary-header,
 .file-summary-divider,
 .file-summary-footer {
-    color: #00ff00;
+    color: var(--color-fg);
     margin: 0;
     padding: 0;
     font-size: 14px;
@@ -37,30 +37,30 @@
 
 .file-summary-header {
     margin-bottom: 8px;
-    color: #ffffff;
+    color: var(--color-fg);
 }
 
 .file-summary-divider {
     margin: 8px 0;
-    color: #666666;
+    color: var(--color-fg-muted);
 }
 
 .file-summary-footer {
     margin-top: 8px;
-    color: #666666;
+    color: var(--color-fg-muted);
     text-align: right;
 }
 
 .summary-line {
     margin-bottom: 6px;
-    color: #00ff00;
+    color: var(--color-fg);
     font-weight: bold;
     word-break: break-all;
 }
 
 .summary-actions,
 .summary-future {
-    color: #cccccc;
+    color: var(--color-fg-alt);
     margin-left: 6px;
     font-size: 12px;
 }
@@ -72,19 +72,19 @@
 
 /* Status-specific colors */
 .summary-value:contains("Loading...") {
-    color: #ffaa00;
+    color: var(--color-warning);
 }
 
 .summary-value:contains("Saving...") {
-    color: #ff6600;
+    color: var(--color-warning-foreground);
 }
 
 .summary-value:contains("Error") {
-    color: #ff0000;
+    color: var(--color-error);
 }
 
 .summary-value:contains("No file") {
-    color: #666666;
+    color: var(--color-fg-muted);
 }
 
 /* Scrollbar styling for dark theme */
@@ -93,44 +93,14 @@
 }
 
 .file-summary-display::-webkit-scrollbar-track {
-    background: #222;
+    background: var(--color-bg-alt);
 }
 
 .file-summary-display::-webkit-scrollbar-thumb {
-    background: #444;
+    background: var(--color-border);
     border-radius: 0;
 }
 
 .file-summary-display::-webkit-scrollbar-thumb:hover {
-    background: #666;
-}
-
-/* Alternative color scheme for better readability */
-@media (prefers-color-scheme: light) {
-    .file-summary-display {
-        background-color: #f0f0f0;
-        color: #000;
-    }
-    
-    .file-summary-header {
-        color: #000;
-    }
-    
-    .file-summary-divider,
-    .file-summary-footer {
-        color: #666;
-    }
-    
-    .summary-label {
-        color: #0066cc;
-    }
-    
-    .summary-value {
-        color: #000;
-    }
-    
-    .summary-actions,
-    .summary-future {
-        color: #444;
-    }
+    background: var(--color-border-hover);
 } 

@@ -14,7 +14,7 @@
 
 .file-browser-cwd-container {
     padding: 4px 8px;
-    background-color: var(--color-background-light);
+    background-color: var(--color-bg-light);
     border-bottom: 1px solid var(--color-border);
     color: var(--color-text-muted);
     font-family: monospace;
@@ -50,7 +50,7 @@
     font-size: 10px;
     font-weight: bold;
     color: var(--color-text-muted);
-    background-color: var(--color-background-light);
+    background-color: var(--color-bg-light);
     border: 1px solid var(--color-border);
     cursor: default;
 }
@@ -69,7 +69,7 @@
 }
 
 .file-browser-node {
-    padding-left: 15px; /* Indentation for nesting */
+    /* padding-left is now handled dynamically in JS */
 }
 
 .file-browser-node-header {
@@ -81,18 +81,19 @@
 }
 
 .file-browser-node-header:hover {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-bg-hover);
 }
 
 .file-browser-node-header.selected {
-    background-color: var(--color-background-selected);
+    background-color: var(--color-bg-selected);
     font-weight: bold;
 }
 
 .file-browser-node-toggle {
-    width: 15px;
+    width: 12px;
     text-align: center;
     margin-right: 4px;
+    flex-shrink: 0;
 }
 
 .file-browser-node-children {
@@ -106,24 +107,22 @@
 /* Icons */
 .file-browser-node-icon {
     margin-right: 5px;
-    width: 16px;
-    height: 16px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
+    /* Generic styles are now in icons.css */
 }
 
 .icon-directory {
-    /* Add folder icon URL or SVG here */
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2.5A1.5 1.5 0 0 1 3 1h2.251a1.5 1.5 0 0 1 1.22.693l.51 1.02A.75.75 0 0 0 7.75 3H13a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 13 13H3a1.5 1.5 0 0 1-1.5-1.5v-9z"/></svg>');
+    -webkit-mask-image: url('/client/styles/icons/folder-closed.svg');
+    mask-image: url('/client/styles/icons/folder-closed.svg');
+    color: var(--color-info);
 }
 
 .file-browser-node.expanded > .file-browser-node-header .icon-directory {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 4.5A1.5 1.5 0 0 0 1 6v6.5A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5V6.313c0-.395-.158-.774-.44-1.054l-.813-.813A1.5 1.5 0 0 0 13 4H7.75a.75.75 0 0 1-.53-.22L6.694 3.25A1.5 1.5 0 0 0 5.483 2H2.5v2.5z"/></svg>');
+    -webkit-mask-image: url('/client/styles/icons/folder-open.svg');
+    mask-image: url('/client/styles/icons/folder-open.svg');
 }
 
 
 .icon-file {
-    /* Add file icon URL or SVG here */
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 1.5A1.5 1.5 0 0 0 2 3v10a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 14 13V4.914a1.5 1.5 0 0 0-.44-1.06L11.121 1.44A1.5 1.5 0 0 0 10.06 1H3.5zM10.5 2H10v2.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V2H4v11h8V4.938L10.5 2.438V2z"/></svg>');
+    -webkit-mask-image: url('/client/styles/icons/file-generic.svg');
+    mask-image: url('/client/styles/icons/file-generic.svg');
 } 

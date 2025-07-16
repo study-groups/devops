@@ -12,7 +12,7 @@ import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import eventBus from '/client/eventBus.js';
 import { settingsSectionRegistry } from '/client/settings/core/settingsSectionRegistry.js';
-import { SettingsSectionRenderer } from '/client/settings/core/SettingsSectionRenderer.js';
+import { renderSettingsSections } from '/client/settings/core/SettingsSectionRenderer.js';
 
 let contextManagerInstance = null;
 
@@ -90,118 +90,13 @@ export class ContextPanel extends BasePanel {
      * Render the context manager content
      */
     render() {
-        if (!this.contentElement) return;
-
-        const fileState = appStore.getState().file || {};
-        const authState = appStore.getState().auth || {};
-        const settingsStateFromStore = appStore.getState().settings || {};
+        const container = document.createElement('div');
+        container.className = 'context-manager';
         
-        const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
-        const settingsState = {
-            currentContentSubDir: settingsStateFromStore?.currentContentSubDir || 'data',
-            availableContentSubDirs: settingsStateFromStore?.availableContentSubDirs || ['data'],
-            doEnvVars: settingsStateFromStore?.doEnvVars || []
-        };
+        // Use the centralized renderer to build the settings sections
+        renderSettingsSections(container);
 
-        const isAuthInitializing = authState.isInitializing;
-        const isAuthenticated = authState.isAuthenticated;
-        const isFileLoading = !isAuthInitializing && (!fileState.isInitialized || fileState.isLoading);
-        const isOverallLoading = isAuthInitializing || isFileLoading;
-        const isSaving = fileState.isSaving;
-        const currentPathname = fileState.currentPathname;
-        const isDirectorySelected = fileState.isDirectorySelected;
-        const user = authState.user;
-        const userRole = user?.role;
-        const username = user?.username;
-
-        const selectedDirectoryPath = currentPathname !== null
-            ? (isDirectorySelected ? currentPathname : getParentPath(currentPathname))
-            : null;
-        const selectedFilename = currentPathname !== null && !isDirectorySelected
-            ? getFilename(currentPathname)
-            : null;
-
-        // Generate breadcrumbs for the selected DIRECTORY path
-        const breadcrumbsHTML = this.generateBreadcrumbsHTML(
-            selectedDirectoryPath,
-            selectedOrg, 
-            username,
-            isAuthenticated
-        );
-
-        // Generate primary selector
-        let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
-        if (isAuthenticated && selectedDirectoryPath !== null) {
-            const listingForSelector = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
-
-            if (listingForSelector) {
-                const dirs = listingForSelector.dirs || [];
-                const files = listingForSelector.files || [];
-                const items = [
-                    ...dirs.map(name => ({ name, type: 'dir' })),
-                    ...files.map(name => ({ name, type: 'file' }))
-                ].sort((a, b) => {
-                    if (a.type !== b.type) { return a.type === 'dir' ? -1 : 1; }
-                    return a.name.localeCompare(b.name);
-                });
-
-                let optionsHTML = `<option value="" selected disabled>Select item...</option>`;
-                
-                if (selectedDirectoryPath !== '') {
-                    const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
-                }
-                
-                items.forEach(item => {
-                    const displayName = item.type === 'dir' ? `${item.name}/` : item.name;
-                    const optionSelected = !isDirectorySelected && item.name === selectedFilename && item.type === 'file';
-                    optionsHTML += `<option value="${item.name}" data-type="${item.type}" ${optionSelected ? 'selected' : ''}>${displayName}</option>`;
-                });
-                primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
-            } else {
-                let optionsHTML = `<option value="" selected disabled>Loading items...</option>`;
-                if (selectedDirectoryPath !== '') {
-                    const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
-                }
-                primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
-            }
-        } else if (!isAuthenticated) {
-            primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
-        } else if (isAuthenticated && selectedDirectoryPath === null) {
-            const topLevelDirs = fileState.availableTopLevelDirs || [];
-            if (topLevelDirs.length > 0) {
-                let optionsHTML = `<option value="" selected disabled>Select base directory...</option>`;
-                topLevelDirs.forEach(dirName => {
-                    optionsHTML += `<option value="${dirName}" data-type="dir">${dirName}/</option>`;
-                });
-                primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Base Directory">${optionsHTML}</select>`;
-            } else {
-                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>No base directories</option></select>`;
-            }
-        }
-
-        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null;
-
-        // Render content with compact panel styling
-        this.contentElement.innerHTML = `
-            <div class="context-path-wrapper">
-                <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
-            </div>
-            <div class="context-selection-row">
-                ${primarySelectorHTML}
-            </div>
-            <div class="context-actions">
-                <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
-                <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
-            </div>
-        `;
-
-        // Apply panel-specific styles
-        this.applyPanelStyles();
-
-        // Re-attach event listeners
-        this.attachContextEventListeners();
+        return container;
     }
 
     /**

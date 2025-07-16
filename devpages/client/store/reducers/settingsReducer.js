@@ -453,9 +453,9 @@ export function settingsReducer(state = initialState, action) {
                     localStorage.setItem(DESIGN_TOKENS_ACTIVE_THEME_KEY, payload);
                     console.debug(`[Reducer] Set active design theme to: ${payload}`);
                     
-                    // Apply theme to document
-                    const fullThemeName = `${payload}-${currentDesignTokensState.themeVariant}`;
-                    document.documentElement.setAttribute('data-theme', fullThemeName);
+                    // DO NOT apply the theme here. This action's only responsibility
+                    // is to set the active theme ID. The SETTINGS_SET_DESIGN_THEME_VARIANT
+                    // action is the single source of truth for applying the data-theme attribute.
                     
                     // Emit theme change event
                     window.dispatchEvent(new CustomEvent('themeChanged', {
@@ -475,9 +475,8 @@ export function settingsReducer(state = initialState, action) {
                     localStorage.setItem(DESIGN_TOKENS_THEME_VARIANT_KEY, payload);
                     console.debug(`[Reducer] Set design theme variant to: ${payload}`);
                     
-                    // Apply theme to document
-                    const fullThemeName = `${currentDesignTokensState.activeTheme}-${payload}`;
-                    document.documentElement.setAttribute('data-theme', fullThemeName);
+                    // Apply theme to document using only the variant (light/dark)
+                    document.documentElement.setAttribute('data-theme', payload);
                     
                     // Emit theme change event
                     window.dispatchEvent(new CustomEvent('themeChanged', {

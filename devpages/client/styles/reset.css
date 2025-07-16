@@ -18,8 +18,8 @@ html {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  color: var(--text-color, #333);
-  background-color: var(--bg-color, #fff);
+  color: var(--color-fg);
+  background-color: var(--color-bg);
   line-height: 1.6;
   overflow: hidden; /* Prevent body from scrolling */
   overscroll-behavior: contain; /* Prevent any scroll chaining at document level */
@@ -83,7 +83,7 @@ input, textarea, select {
 
 /* Accessibility */
 *:focus {
-  outline: 2px solid var(--focus-color, #0066cc);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 

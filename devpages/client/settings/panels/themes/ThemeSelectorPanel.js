@@ -126,7 +126,9 @@ class ThemeSelectorPanel {
       this.availableThemes = [...this.getDefaultThemes()];
 
       // Check if user themes directory exists in MD_DIR
-      const response = await fetch(`/api/files/list?pathname=themes`);
+      const response = await fetch(`/api/files/list?pathname=themes`, {
+        credentials: 'include'
+      });
       this.themeDirs = [];
       
       if (response.ok) {
@@ -184,7 +186,9 @@ class ThemeSelectorPanel {
    */
   async validateThemeDirectory(themeName) {
     try {
-      const response = await fetch(`/api/files/list?pathname=themes/${themeName}`);
+      const response = await fetch(`/api/files/list?pathname=themes/${themeName}`, {
+        credentials: 'include'
+      });
       if (!response.ok) return null;
       
       const data = await response.json();
@@ -441,7 +445,9 @@ class ThemeSelectorPanel {
       if (themeType === 'user') {
         // USER THEME: Fetch via API and embed in a <style> tag.
         const apiUrl = `/api/files/content?pathname=${encodeURIComponent(relativePath)}`;
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          credentials: 'include'
+        });
 
         if (!response.ok) {
           throw new Error(`API fetch failed for ${relativePath} (status: ${response.status})`);

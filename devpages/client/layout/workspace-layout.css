@@ -8,7 +8,7 @@
     flex-direction: column; /* Stack main panels and log container vertically */
     width: 100%;
     height: calc(100vh - var(--top-bar-height, 40px)); /* Full viewport height minus top bar */
-    background: var(--color-background);
+    background: var(--color-bg);
     overflow: hidden; /* Prevent scrolling of the entire workspace */
 }
 
@@ -24,7 +24,7 @@
     width: 350px;
     min-width: 250px;
     max-width: 500px;
-    background: var(--color-background-secondary);
+    background: var(--color-bg-alt);
     position: relative;
     transition: all 0.3s ease;
     display: flex;
@@ -56,7 +56,7 @@
 .editor-container {
     flex: 1;
     min-width: 300px;
-    background: var(--color-background);
+    background: var(--color-bg);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -78,7 +78,7 @@
 .preview-container {
     flex: 1;
     min-width: 400px;
-    background: var(--color-background);
+    background: var(--color-bg);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -104,7 +104,7 @@
     height: 250px; /* Default height, can be made resizable */
     min-height: 40px;
     max-height: 50vh; /* Don't let log take more than half the viewport */
-    background: var(--color-background-secondary);
+    background: var(--color-bg-alt);
     border-top: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
@@ -125,7 +125,7 @@
     height: 48px;
     padding: 0 16px;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-background-elevated);
+    background: var(--color-bg-elevated);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -153,7 +153,7 @@
 }
 
 .panel-section-tab:hover {
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
     color: var(--color-text);
 }
 
@@ -188,7 +188,7 @@
     height: 36px;
     padding: 0 12px;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-background);
+    background: var(--color-bg);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -200,7 +200,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    background: var(--color-background-secondary);
+    background: var(--color-bg-alt);
     border: 1px solid var(--color-border);
     border-radius: 12px;
     font-size: 11px;
@@ -210,27 +210,27 @@
 }
 
 .file-type-badge[data-type="markdown"] {
-    background: #f0f9ff;
-    border-color: #0ea5e9;
-    color: #0284c7;
+    background: var(--color-info-background);
+    border-color: var(--color-info);
+    color: var(--color-info-foreground);
 }
 
 .file-type-badge[data-type="html"] {
-    background: #fef2f2;
-    border-color: #f87171;
-    color: #dc2626;
+    background: var(--color-error-background);
+    border-color: var(--color-error);
+    color: var(--color-error-foreground);
 }
 
 .file-type-badge[data-type="css"] {
-    background: #f0f9ff;
-    border-color: #3b82f6;
-    color: #2563eb;
+    background: var(--color-primary-background);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
 .file-type-badge[data-type="javascript"] {
-    background: #fefce8;
-    border-color: #eab308;
-    color: #ca8a04;
+    background: var(--color-warning-background);
+    border-color: var(--color-warning);
+    color: var(--color-warning-foreground);
 }
 
 .editor-actions {
@@ -242,7 +242,7 @@
 .editor-action-btn {
     padding: 4px 8px;
     border: 1px solid var(--color-border);
-    background: var(--color-background);
+    background: var(--color-bg);
     border-radius: 4px;
     font-size: 11px;
     cursor: pointer;
@@ -250,7 +250,7 @@
 }
 
 .editor-action-btn:hover {
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
     border-color: var(--color-primary);
 }
 
@@ -303,7 +303,7 @@
     border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 14px;
-    background: var(--color-background);
+    background: var(--color-bg);
     color: var(--color-text);
 }
 
@@ -330,7 +330,7 @@
     padding: 12px;
     border: 1px solid var(--color-border);
     border-radius: 6px;
-    background: var(--color-background-secondary);
+    background: var(--color-bg-alt);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -338,7 +338,7 @@
 }
 
 .context-item:hover {
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
     border-color: var(--color-primary);
 }
 
@@ -365,7 +365,7 @@
 .context-action-btn {
     padding: 4px 8px;
     border: 1px solid var(--color-border);
-    background: var(--color-background);
+    background: var(--color-bg);
     border-radius: 4px;
     font-size: 11px;
     cursor: pointer;
@@ -407,7 +407,7 @@
     font-family: var(--font-mono);
     font-size: 14px;
     line-height: 1.5;
-    background: var(--color-background);
+    background: var(--color-bg);
     color: var(--color-text);
     resize: none;
     outline: none;
@@ -415,7 +415,7 @@
 }
 
 .markdown-editor:focus {
-    background: var(--color-background);
+    background: var(--color-bg);
     outline: none;
 }
 
@@ -450,7 +450,7 @@
 }
 
 .file-item:hover {
-    background: var(--color-background-hover);
+    background: var(--color-bg-hover);
 }
 
 .file-icon {
@@ -562,27 +562,4 @@ body.resizing * {
 
 body.resizing .panel-resize-handle {
     pointer-events: auto;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .file-type-badge[data-type="markdown"] {
-        background: rgba(14, 165, 233, 0.1);
-        color: #38bdf8;
-    }
-    
-    .file-type-badge[data-type="html"] {
-        background: rgba(239, 68, 68, 0.1);
-        color: #f87171;
-    }
-    
-    .file-type-badge[data-type="css"] {
-        background: rgba(59, 130, 246, 0.1);
-        color: #60a5fa;
-    }
-    
-    .file-type-badge[data-type="javascript"] {
-        background: rgba(234, 179, 8, 0.1);
-        color: #fbbf24;
-    }
 } 

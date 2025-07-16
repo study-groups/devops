@@ -36,7 +36,7 @@ export class BoxModelComponent {
 
         // Create facts table
         const facts = [
-            ['Content', `${width} × ${height}`],
+            ['Content', `${width} x ${height}`],
             ['Margin', `${marginTop} ${marginRight} ${marginBottom} ${marginLeft}`],
             ['Padding', `${paddingTop} ${paddingRight} ${paddingBottom} ${paddingLeft}`],
             ['Border', `${borderTopWidth} ${borderRightWidth} ${borderBottomWidth} ${borderLeftWidth}`],

@@ -5,7 +5,7 @@
 
 .preview-settings-panel {
   padding: var(--density-space-md);
-  background: var(--color-background);
+  background: var(--color-bg);
   border-radius: var(--radius-md);
   max-height: 70vh;
   overflow-y: auto;
@@ -27,7 +27,7 @@
 .preview-settings-section-title {
   font-size: var(--density-text-base);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-foreground);
+  color: var(--color-fg);
   margin: 0 0 var(--density-space-md) 0;
   display: flex;
   align-items: center;
@@ -52,7 +52,7 @@
 }
 
 .preview-setting-item:hover {
-  background-color: var(--color-background-secondary);
+  background-color: var(--color-bg-alt);
 }
 
 .preview-setting-label {
@@ -61,7 +61,7 @@
   gap: var(--density-space-sm);
   font-size: var(--density-text-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-foreground);
+  color: var(--color-fg);
   cursor: pointer;
   margin-bottom: var(--density-space-xs);
 }
@@ -78,8 +78,8 @@
   padding: var(--density-space-xs) var(--density-space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--color-bg);
+  color: var(--color-fg);
   font-size: var(--density-text-sm);
 }
 
@@ -93,8 +93,8 @@
   padding: var(--density-space-xs) var(--density-space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--color-bg);
+  color: var(--color-fg);
   font-size: var(--density-text-sm);
   cursor: pointer;
 }
@@ -107,7 +107,7 @@
 
 .preview-setting-description {
   font-size: var(--density-text-sm);
-  color: var(--color-foreground-muted);
+  color: var(--color-fg-muted);
   margin: 0;
   line-height: var(--line-height-normal);
   padding-left: calc(16px + var(--density-space-sm)); /* Align with checkbox */
@@ -125,8 +125,8 @@
   padding: var(--density-space-sm) var(--density-space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-background-elevated);
-  color: var(--color-foreground);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
   font-size: var(--density-text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -137,7 +137,7 @@
 }
 
 .preview-action-button:hover {
-  background: var(--color-background-secondary);
+  background: var(--color-bg-alt);
   border-color: var(--color-border-secondary);
   transform: translateY(-1px);
 }
@@ -159,7 +159,7 @@
 /* ===== STATUS ===== */
 
 .preview-status {
-  background: var(--color-background-elevated);
+  background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--density-space-md);
@@ -178,15 +178,15 @@
 
 .preview-status-label {
   font-size: var(--density-text-sm);
-  color: var(--color-foreground-secondary);
+  color: var(--color-fg-alt);
   font-weight: var(--font-weight-medium);
 }
 
 .preview-status-value {
   font-size: var(--density-text-sm);
-  color: var(--color-foreground);
+  color: var(--color-fg);
   font-family: var(--font-family-mono);
-  background: var(--color-background-secondary);
+  background: var(--color-bg-alt);
   padding: var(--density-space-xs) var(--density-space-sm);
   border-radius: var(--radius-sm);
 }
@@ -278,7 +278,7 @@
 }
 
 [data-theme="dark"] .preview-status {
-  background: var(--color-background);
+  background: var(--color-bg);
 }
 
 /* ===== HIGH CONTRAST MODE ===== */
@@ -293,26 +293,27 @@
   }
   
   .preview-status {
-    border-width: 2px;
+    border: 2px solid;
   }
 }
-
 .preview-test-button {
-    background: #007bff;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    cursor: pointer;
-    margin-left: 8px;
-    transition: background-color 0.2s ease;
+  padding: var(--density-space-sm) var(--density-space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: var(--density-text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-all);
+  margin-top: var(--density-space-md);
 }
 
 .preview-test-button:hover {
-    background: #0056b3;
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 .preview-test-button:active {
-    transform: translateY(1px);
+  transform: translateY(0);
 } 

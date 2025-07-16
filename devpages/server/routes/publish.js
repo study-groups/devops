@@ -167,6 +167,97 @@ async function saveContextPublishedState(req, filePath, state) {
 // --- Routes ---
 
 /**
+ * GET /api/publish/context/list
+ * Get a list of all available publishing contexts (subdirectories in notepads/context).
+ */
+router.get('/context/list', async (req, res) => {
+    try {
+        const contextBasePath = path.join(projectRootDir, 'notepads', 'context');
+        const fs = await import('fs/promises');
+        
+        const dirents = await fs.readdir(contextBasePath, { withFileTypes: true });
+        
+        const contextNames = dirents
+            .filter(dirent => dirent.isDirectory())
+            .map(dirent => dirent.name);
+            
+        res.json({ contexts: contextNames });
+    } catch (error) {
+        console.error('[API /context/list] Error listing context directories:', error);
+        // If the directory doesn't exist, return an empty list gracefully
+        if (error.code === 'ENOENT') {
+            return res.json({ contexts: [] });
+        }
+        res.status(500).json({ error: 'Failed to retrieve publish contexts.' });
+    }
+});
+
+/**
+ * GET /api/publish/context/:contextName/files
+ * List files in a specific context
+ */
+router.get('/context/:contextName/files', async (req, res) => {
+    try {
+        const { contextName } = req.params;
+        
+        if (!contextName || !/^[a-zA-Z0-9_-]+$/.test(contextName)) {
+            return res.status(400).json({ error: 'Invalid context name' });
+        }
+
+        const contextDir = getContextPath('', contextName);
+        const fs = await import('fs/promises');
+        
+        try {
+            const entries = await fs.readdir(contextDir, { withFileTypes: true });
+            const files = [];
+            
+            for (const entry of entries) {
+                if (entry.isFile() && entry.name.endsWith('.md')) {
+                    const filePath = path.join(contextDir, entry.name);
+                    const stats = await fs.stat(filePath);
+                    const content = await fs.readFile(filePath, 'utf8');
+                    
+                    files.push({
+                        name: entry.name,
+                        size: stats.size,
+                        modified: stats.mtime.toISOString(),
+                        wordCount: content.split(/\s+/).filter(word => word.length > 0).length,
+                        lineCount: content.split('\n').length,
+                        preview: content.substring(0, 200) + (content.length > 200 ? '...' : '')
+                    });
+                }
+            }
+            
+            // Sort by modification date, newest first
+            files.sort((a, b) => new Date(b.modified) - new Date(a.modified));
+            
+            res.json({ 
+                success: true, 
+                contextName,
+                files,
+                totalFiles: files.length 
+            });
+            
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                res.json({ 
+                    success: true, 
+                    contextName,
+                    files: [],
+                    totalFiles: 0 
+                });
+            } else {
+                throw error;
+            }
+        }
+    } catch (error) {
+        console.error('[CONTEXT FILES] Error listing context files:', error);
+        res.status(500).json({ error: 'Failed to list context files' });
+    }
+});
+
+
+/**
  * GET /api/publish?pathname=...
  * Check if a file is currently published (uses PData state files).
  */
@@ -487,101 +578,6 @@ router.delete('/context', express.json(), async (req, res) => {
     } catch (error) {
         console.error(`${logPrefix} Error unpublishing from context:`, error);
         res.status(500).json({ error: `Error unpublishing from context: ${error.message}` });
-    }
-});
-
-/**
- * GET /api/publish/context/list
- * List available contexts
- */
-router.get('/context/list', async (req, res) => {
-    try {
-        const contextBaseDir = path.join(path.resolve(__dirname, '../..'), 'notepads', 'context');
-        const fs = await import('fs/promises');
-        
-        try {
-            const entries = await fs.readdir(contextBaseDir, { withFileTypes: true });
-            const contexts = entries
-                .filter(entry => entry.isDirectory())
-                .map(entry => entry.name)
-                .sort();
-            
-            res.json({ success: true, contexts });
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                // Context directory doesn't exist yet
-                res.json({ success: true, contexts: [] });
-            } else {
-                throw error;
-            }
-        }
-    } catch (error) {
-        console.error('[CONTEXT LIST] Error listing contexts:', error);
-        res.status(500).json({ error: 'Failed to list contexts' });
-    }
-});
-
-/**
- * GET /api/publish/context/:contextName/files
- * List files in a specific context
- */
-router.get('/context/:contextName/files', async (req, res) => {
-    try {
-        const { contextName } = req.params;
-        
-        if (!contextName || !/^[a-zA-Z0-9_-]+$/.test(contextName)) {
-            return res.status(400).json({ error: 'Invalid context name' });
-        }
-
-        const contextDir = getContextPath('', contextName);
-        const fs = await import('fs/promises');
-        
-        try {
-            const entries = await fs.readdir(contextDir, { withFileTypes: true });
-            const files = [];
-            
-            for (const entry of entries) {
-                if (entry.isFile() && entry.name.endsWith('.md')) {
-                    const filePath = path.join(contextDir, entry.name);
-                    const stats = await fs.stat(filePath);
-                    const content = await fs.readFile(filePath, 'utf8');
-                    
-                    files.push({
-                        name: entry.name,
-                        size: stats.size,
-                        modified: stats.mtime.toISOString(),
-                        wordCount: content.split(/\s+/).filter(word => word.length > 0).length,
-                        lineCount: content.split('\n').length,
-                        preview: content.substring(0, 200) + (content.length > 200 ? '...' : '')
-                    });
-                }
-            }
-            
-            // Sort by modification date, newest first
-            files.sort((a, b) => new Date(b.modified) - new Date(a.modified));
-            
-            res.json({ 
-                success: true, 
-                contextName,
-                files,
-                totalFiles: files.length 
-            });
-            
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                res.json({ 
-                    success: true, 
-                    contextName,
-                    files: [],
-                    totalFiles: 0 
-                });
-            } else {
-                throw error;
-            }
-        }
-    } catch (error) {
-        console.error('[CONTEXT FILES] Error listing context files:', error);
-        res.status(500).json({ error: 'Failed to list context files' });
     }
 });
 

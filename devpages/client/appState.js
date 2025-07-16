@@ -37,14 +37,23 @@ export const ActionTypes = {
     LOG_TOGGLE_FILTER: 'log/toggleFilter',
     LOG_CLEAR: 'log/clear',
 
+    // Panel Management Actions
+    PANEL_REGISTER: 'panels/register',
+    PANEL_UNREGISTER: 'panels/unregister',
+    PANEL_SET_VISIBLE: 'panels/setVisible',
+    PANEL_SET_COLLAPSED: 'panels/setCollapsed',
+    PANEL_SET_ORDER: 'panels/setOrder',
+    PANEL_SET_INSTANCE: 'panels/setInstance',
+    PANEL_CLEAR_INSTANCE: 'panels/clearInstance',
+    PANEL_SAVE_STATE: 'panels/saveState',
+
     // Generic state update for backward compatibility
     STATE_UPDATE: 'app/stateUpdate',
 };
 
-// <<< NEW: Key for localStorage persistence >>>
-const LOG_VISIBLE_KEY = 'logVisible'; 
-// <<< NEW: Key for persisting plugin state >>>
-const PLUGINS_STATE_KEY = 'pluginsFullState'; 
+const LOG_VISIBLE_KEY = 'log_panel_visible';
+const LOG_HEIGHT_KEY = 'log_panel_height';
+const PLUGINS_STATE_KEY = 'pluginsFullState';
 // <<< NEW: Keys for persisting SmartCopy buffers >>>
 export const SMART_COPY_A_KEY = 'smartCopyBufferA';
 export const SMART_COPY_B_KEY = 'smartCopyBufferB';
@@ -55,23 +64,38 @@ const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
 const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
 const WORKSPACE_STATE_KEY = 'devpages_workspace_state';
 
-// <<< NEW: Helper to safely get boolean from localStorage >>>
-function getInitialLogVisibility() {
+function getInitialUiState() {
+    const DEFAULT_LOG_HEIGHT = 200;
+    let logVisible = false;
+    let logHeight = DEFAULT_LOG_HEIGHT;
+
     try {
-        const storedValue = localStorage.getItem(LOG_VISIBLE_KEY);
-        // localStorage stores strings, so compare explicitly
-        if (storedValue === 'true') {
-            return true;
-        } else if (storedValue === 'false') {
-            return false;
+        const storedVisibility = localStorage.getItem(LOG_VISIBLE_KEY);
+        if (storedVisibility !== null) {
+            logVisible = JSON.parse(storedVisibility);
         }
-        // If null, undefined, or anything else, use default
-        console.log('[AppState] No valid logVisible state found in localStorage, defaulting to false.');
-        return false; // Default to false if not explicitly stored or invalid
     } catch (e) {
-        console.error('[AppState] Error reading log visibility from localStorage:', e);
-        return false; // Default to false on error
+        console.error(`[AppState] Error reading ${LOG_VISIBLE_KEY} from localStorage:`, e);
     }
+
+    try {
+        const storedHeight = localStorage.getItem(LOG_HEIGHT_KEY);
+        if (storedHeight !== null) {
+            const parsedHeight = parseInt(storedHeight, 10);
+            if (!isNaN(parsedHeight)) {
+                logHeight = parsedHeight;
+            }
+        }
+    } catch (e) {
+        console.error(`[AppState] Error reading ${LOG_HEIGHT_KEY} from localStorage:`, e);
+    }
+
+    return {
+        viewMode: getInitialViewMode(), // Keep existing view mode logic
+        logVisible,
+        logHeight,
+        logMenuVisible: false,
+    };
 }
 
 // <<< ADDED: Helper to load viewMode from localStorage >>>
@@ -320,13 +344,31 @@ function getInitialLogState() {
 
 // Helper to load panels state from localStorage
 const PANELS_STATE_KEY = 'devpages_panels_state';
+const SIDEBAR_PANELS_STATE_KEY = 'devpages_sidebar_panels_state';
+
 function getInitialPanelsState() {
     const defaults = {
-        // Initial visibility for main panels
+        // Main workspace panels
         editor: { visible: true, width: 50 },
         preview: { visible: true, width: 50 },
         sidebar: { visible: true, width: 280 },
-        log: { visible: true, height: 200 },
+        
+        // Sidebar panels state
+        sidebarPanels: {
+            // UI state for each sidebar panel
+            'files': { visible: true, collapsed: false, order: 1 },
+            'panel-manager': { visible: true, collapsed: false, order: 0 },
+            'published-summary': { visible: true, collapsed: false, order: 2 },
+            'context': { visible: true, collapsed: false, order: 3 },
+            'tokens': { visible: true, collapsed: false, order: 4 },
+            'controller': { visible: false, collapsed: false, order: 5 },
+        },
+        
+        // Panel instances cache (not persisted)
+        instances: {}, // Will be populated at runtime
+        
+        // Panel registry cache (not persisted)
+        registry: {}, // Will be populated at runtime
     };
 
     try {
@@ -335,13 +377,14 @@ function getInitialPanelsState() {
             const parsed = JSON.parse(storedState);
             // Basic validation for main panel visibility
             if (parsed && typeof parsed.editor === 'object' && typeof parsed.preview === 'object' &&
-                typeof parsed.sidebar === 'object' && typeof parsed.log === 'object') {
+                typeof parsed.sidebar === 'object') {
                 return {
                     ...defaults,
                     editor: { ...defaults.editor, ...(parsed.editor || {}) },
                     preview: { ...defaults.preview, ...(parsed.preview || {}) },
                     sidebar: { ...defaults.sidebar, ...(parsed.sidebar || {}) },
-                    log: { ...defaults.log, ...(parsed.log || {}) },
+                    // Merge sidebar panels state
+                    sidebarPanels: { ...defaults.sidebarPanels, ...(parsed.sidebarPanels || {}) },
                 };
             }
         }
@@ -412,13 +455,7 @@ const initialAppState = {
         currentOrg: getInitialSelectedOrg(), // Selected org for the file system
         error: null, // Any error related to file operations
     },
-    ui: {
-        // ui state that might be persisted
-        viewMode: getInitialViewMode(), // 'preview' or 'split'
-        logVisible: getInitialLogVisibility(), // Initial visibility of the log panel
-        logHeight: parseInt(localStorage.getItem('logHeight'), 10) || 200, // Height of the log panel
-        logMenuVisible: false, // Ensure the menu is not visible by default
-    },
+    ui: getInitialUiState(),
     // Enhanced plugin state with full configs and default states
     plugins: getInitialPluginsState(),
     settings: {

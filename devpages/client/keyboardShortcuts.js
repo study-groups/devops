@@ -136,34 +136,26 @@ export function initKeyboardShortcuts() {
                 console.log("[GENERAL] Available debug functions: debugInitSettings(), testSettingsPanel()");
                 
                 // Try to auto-initialize if missing
-                console.log("[GENERAL] Attempting to auto-initialize Settings Panel...");
-                if (typeof window.debugInitSettings === 'function') {
-                    window.debugInitSettings().then(result => {
-                        if (result && window.devPages?.settingsPanel) {
-                            console.log("[GENERAL] Settings Panel auto-initialization successful, trying toggle again...");
-                            try {
-                                window.devPages.settingsPanel.toggleVisibility();
-                            } catch (error) {
-                                console.error("[GENERAL] Error toggling Settings Panel after auto-init:", error);
-                            }
-                        } else {
-                            console.error("[GENERAL] Settings Panel auto-initialization failed");
-                        }
-                    });
-                } else {
-                    console.error("[GENERAL] debugInitSettings function not available");
-                }
+                // This might be risky if it causes race conditions, but useful for debugging
+                window.debugInitSettings?.();
             }
         }
     });
 
-    // Add a SINGLE handler for Ctrl+Shift+D for the DOM Inspector
+    // Add handlers for Debug Panel and DOM Inspector
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.shiftKey && !event.altKey) {
-            if (event.key === 'I') {
+            if (event.key === 'D') {
                 event.preventDefault();
-                console.log("[GENERAL] Ctrl+Shift+I pressed, toggling DOM Inspector.");
-                
+                console.log("[GENERAL] Ctrl+Shift+D pressed, toggling Debug Panel.");
+                if (window.debugPanelManager) {
+                    window.debugPanelManager.toggleVisibility();
+                } else {
+                     console.error("[GENERAL] Debug Panel Manager not found on window.");
+                }
+            } else if (event.key === 'O') {
+                event.preventDefault();
+                console.log("[GENERAL] Ctrl+Shift+O pressed, toggling DOM Inspector.");
                 if (window.devPages && window.devPages.domInspector) {
                     try {
                         window.devPages.domInspector.toggle();
@@ -173,10 +165,6 @@ export function initKeyboardShortcuts() {
                 } else {
                     console.error("[GENERAL] DOM Inspector not initialized on window.devPages.domInspector");
                 }
-            } else if (event.key === 'D') {
-                event.preventDefault();
-                console.log("[GENERAL] Ctrl+Shift+D pressed, toggling Debug Panel.");
-                debugPanelManager.toggleVisibility();
             }
         }
     });
