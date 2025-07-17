@@ -6,6 +6,8 @@
 import { zIndexManager } from '/client/utils/ZIndexManager.js';
 import { panelRegistry } from '/client/panels/core/panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
+import { appStore, dispatch } from '/client/appState.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 const DEBUG_PANEL_STATE_KEY = 'devpages_debug_panel_state';
 
@@ -28,15 +30,20 @@ class DebugPanelManager {
         
         this.sectionInstances = {};
 
-        this.loadPersistedState();
-        this.init();
+        // Delay initialization to allow logging system to be ready
+        setTimeout(() => {
+            this.loadPersistedState();
+            this.init();
+        }, 0);
     }
 
     async init() {
         this.createPanelDOM();
         this.attachEventListeners();
         this.registerWithZIndexManager();
+        this.syncRegisteredPanels();
         this.loadPanels();
+        this.updatePanelVisibility(); // Apply loaded visibility state
     }
 
     createPanelDOM() {
@@ -72,12 +79,27 @@ class DebugPanelManager {
         document.body.appendChild(this.panelElement);
 
         this.closeButton = this.headerElement.querySelector('.settings-panel-close');
+        
+        // Debug: Check if close button was found
+        if (this.closeButton) {
+            console.log('[DebugPanelManager] Close button found successfully');
+        } else {
+            console.error('[DebugPanelManager] Close button not found in DOM');
+            logMessage('[DebugPanelManager] Close button not found in DOM', 'error');
+        }
     }
 
     attachEventListeners() {
         this.headerElement.addEventListener('mousedown', this.startDrag.bind(this));
         this.resizeHandle.addEventListener('mousedown', this.startResize.bind(this));
-        this.closeButton.addEventListener('click', () => this.hide());
+        
+        // Add error checking for close button
+        if (this.closeButton) {
+            this.closeButton.addEventListener('click', () => this.hide());
+        } else {
+            console.error('[DebugPanelManager] Close button not found when attaching event listeners');
+            logMessage('[DebugPanelManager] Close button not found when attaching event listeners', 'error');
+        }
         
         this.panelElement.addEventListener('mousedown', () => this.bringToFront());
 
@@ -91,21 +113,74 @@ class DebugPanelManager {
         });
     }
     
+    syncRegisteredPanels() {
+        // Add registered debug panels to the debug state if they don't exist
+        const debugPanels = panelRegistry.getAllPanels().filter(p => p.group === 'debug');
+        const debugState = appStore.getState().debugPanel;
+        
+        debugPanels.forEach((panelConfig, index) => {
+            const panelExists = debugState.panels.find(p => p.id === panelConfig.id);
+            
+            if (!panelExists) {
+                // Add the panel to the debug state
+                dispatch({
+                    type: ActionTypes.DEBUG_PANEL_ADD_PANEL,
+                    payload: {
+                        id: panelConfig.id,
+                        title: panelConfig.title,
+                        visible: panelConfig.isVisible !== false,
+                        enabled: true,
+                        order: index
+                    }
+                });
+                
+                logMessage(`[DebugPanelManager] Added panel to debug state: ${panelConfig.id}`, 'debug');
+            }
+        });
+    }
+
     loadPanels() {
         const debugPanels = panelRegistry.getAllPanels().filter(p => p.group === 'debug');
+        const debugState = appStore.getState().debugPanel;
 
         debugPanels.forEach(panelConfig => {
             const sectionId = panelConfig.id;
+            
+            // Get panel state from the reducer
+            const panelState = debugState.panels.find(p => p.id === sectionId);
+            const isVisible = panelState?.visible !== false;
+            const isCollapsed = debugState.collapsedSections.includes(sectionId);
+            
+            if (!isVisible) {
+                // Don't render hidden panels
+                return;
+            }
+            
             const sectionContainer = document.createElement('div');
             sectionContainer.classList.add('settings-section-container');
+            sectionContainer.dataset.panelId = sectionId;
             
             const header = document.createElement('div');
             header.className = 'settings-section-header';
-            header.textContent = panelConfig.title;
-            header.addEventListener('click', () => this.toggleSectionCollapse(sectionId));
+            
+            // Use + / - indicator based on collapsed state
+            const indicator = isCollapsed ? '+' : '-';
+            header.innerHTML = `
+                <span class="settings-section-title">${indicator} ${panelConfig.title}</span>
+            `;
+            
+            // Single click toggles collapse state
+            header.addEventListener('click', () => {
+                this.toggleSectionCollapse(sectionId);
+            });
             
             const content = document.createElement('div');
-            content.className = 'settings-section-content-wrapper';
+            content.className = 'settings-section-content';
+            
+            // Apply collapsed state to the container, not the content
+            if (isCollapsed) {
+                sectionContainer.classList.add('collapsed');
+            }
             
             sectionContainer.appendChild(header);
             sectionContainer.appendChild(content);
@@ -121,12 +196,55 @@ class DebugPanelManager {
     }
     
     toggleSectionCollapse(sectionId) {
-        const section = this.sectionInstances[sectionId];
-        if (section && section.containerElement) {
-            const contentWrapper = section.containerElement.parentElement;
-            contentWrapper.classList.toggle('collapsed');
+        // Use the existing debug panel action to toggle collapse state
+        dispatch({
+            type: ActionTypes.DEBUG_PANEL_TOGGLE_SECTION,
+            payload: { sectionId }
+        });
+        
+        // Update the UI based on the NEW reducer state, not current DOM state
+        const debugState = appStore.getState().debugPanel;
+        const isCollapsed = debugState.collapsedSections.includes(sectionId);
+        
+        const container = document.querySelector(`[data-panel-id="${sectionId}"]`);
+        if (container) {
+            const titleElement = container.querySelector('.settings-section-title');
+            
+            if (titleElement) {
+                // Apply the collapsed state from the reducer
+                if (isCollapsed) {
+                    container.classList.add('collapsed');
+                } else {
+                    container.classList.remove('collapsed');
+                }
+                
+                // Update the indicator based on reducer state
+                const indicator = isCollapsed ? '+' : '-';
+                const titleText = titleElement.textContent.substring(2); // Remove old indicator
+                titleElement.textContent = `${indicator} ${titleText}`;
+            }
         }
+        
+        logMessage(`[DebugPanelManager] Toggled section ${sectionId} to ${isCollapsed ? 'collapsed' : 'expanded'}`, 'debug');
     }
+    
+
+    
+    reopenSectionPanel(sectionId) {
+        // Use the existing debug panel action to show the panel
+        dispatch({
+            type: ActionTypes.DEBUG_PANEL_SET_PANEL_VISIBILITY,
+            payload: { panelId: sectionId, visible: true }
+        });
+        
+        // Reload panels to show the reopened one
+        this.contentElement.innerHTML = '';
+        this.loadPanels();
+        
+        logMessage(`[DebugPanelManager] Reopened panel ${sectionId}`, 'debug');
+    }
+    
+
     
     toggleVisibility() {
         logMessage(`[DebugPanelManager] Toggling visibility. Currently visible: ${this.isVisible}`, 'debug');
@@ -137,6 +255,7 @@ class DebugPanelManager {
         this.isVisible = true;
         this.panelElement.style.display = 'flex';
         this.bringToFront();
+        this.savePersistedState(); // Save state to persist visibility
         logMessage(`[DebugPanelManager] Panel shown.`, 'debug');
         console.log('[DebugPanelManager] panelElement rect:', this.panelElement.getBoundingClientRect());
     }
@@ -144,6 +263,18 @@ class DebugPanelManager {
     hide() {
         this.isVisible = false;
         this.panelElement.style.display = 'none';
+        this.savePersistedState();
+        logMessage(`[DebugPanelManager] Panel hidden.`, 'debug');
+    }
+
+    updatePanelVisibility() {
+        if (this.panelElement) {
+            this.panelElement.style.display = this.isVisible ? 'flex' : 'none';
+            if (this.isVisible) {
+                this.bringToFront();
+            }
+            logMessage(`[DebugPanelManager] Panel visibility updated to: ${this.isVisible}`, 'debug');
+        }
     }
 
     startDrag(e) {
@@ -206,26 +337,51 @@ class DebugPanelManager {
     }
 
     savePersistedState() {
-        const state = {
-            position: this.currentPos,
-            size: this.currentSize,
-            visible: this.isVisible,
-        };
-        localStorage.setItem(DEBUG_PANEL_STATE_KEY, JSON.stringify(state));
+        // The debug panel state is now managed by the reducer
+        // Update the main panel position, size, and visibility
+        dispatch({
+            type: ActionTypes.DEBUG_PANEL_SET_POSITION,
+            payload: this.currentPos
+        });
+        
+        dispatch({
+            type: ActionTypes.DEBUG_PANEL_SET_SIZE,
+            payload: this.currentSize
+        });
+        
+        // Save the visibility state so it persists across sessions
+        dispatch({
+            type: ActionTypes.DEBUG_PANEL_TOGGLE,
+            payload: this.isVisible
+        });
     }
 
     loadPersistedState() {
         try {
-            const savedState = localStorage.getItem(DEBUG_PANEL_STATE_KEY);
-            if (savedState) {
-                const parsed = JSON.parse(savedState);
-                this.currentPos = parsed.position || this.currentPos;
-                this.currentSize = parsed.size || this.currentSize;
-                this.isVisible = parsed.visible || false;
-            }
+            // Load state from the reducer
+            const debugState = appStore.getState().debugPanel;
+            this.currentPos = debugState.position || this.currentPos;
+            this.currentSize = debugState.size || this.currentSize;
+            // Properly handle boolean visibility state - use the stored value if it exists, otherwise default to false
+            this.isVisible = debugState.visible !== undefined ? debugState.visible : false;
         } catch (e) {
-            logMessage('Failed to load debug panel state', 'error');
+            // Safe fallback for when logging system isn't ready during module loading
+            if (typeof logMessage === 'function') {
+                logMessage('Failed to load debug panel state', 'error');
+            } else {
+                console.error('[DebugPanelManager] Failed to load debug panel state:', e);
+            }
         }
+    }
+
+    getClosedPanels() {
+        const debugState = appStore.getState().debugPanel;
+        return debugState.panels.filter(panel => !panel.visible).map(panel => panel.id);
+    }
+    
+    getAllPanels() {
+        const debugState = appStore.getState().debugPanel;
+        return debugState.panels;
     }
 
     destroy() {
@@ -246,6 +402,37 @@ export const debugPanelManager = new DebugPanelManager();
 
 // Expose to window for global access from shortcuts or console
 window.debugPanelManager = debugPanelManager;
+
+// Add debug function to test panel functionality
+window.testDebugPanel = function() {
+    console.log('=== DEBUG PANEL TEST ===');
+    
+    // Test main panel
+    console.log('Debug panel visible:', debugPanelManager.isVisible);
+    console.log('Debug panel element:', debugPanelManager.panelElement);
+    console.log('Close button element:', debugPanelManager.closeButton);
+    
+    // Test section instances
+    console.log('Section instances:', debugPanelManager.sectionInstances);
+    console.log('Available sections:', Object.keys(debugPanelManager.sectionInstances));
+    
+    // Test panel states (from reducer)
+    console.log('All panels:', debugPanelManager.getAllPanels());
+    console.log('Closed panels:', debugPanelManager.getClosedPanels());
+    
+    console.log('=== END DEBUG PANEL TEST ===');
+};
+
+// Add function to reopen closed panels
+window.reopenDebugPanel = function(panelId) {
+    if (panelId) {
+        debugPanelManager.reopenSectionPanel(panelId);
+        console.log(`Reopened panel: ${panelId}`);
+    } else {
+        console.log('Available closed panels:', debugPanelManager.getClosedPanels());
+        console.log('Usage: reopenDebugPanel("panel-id")');
+    }
+};
 
 // Debug panel manager is handled separately via keyboard shortcuts
 // No need to register it as a panel since it's a standalone component 

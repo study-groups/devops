@@ -297,10 +297,8 @@ export class PanelManager {
         headerLeft.className = 'sidebar-panel-header-left';
 
         if (panelConfig.icon) {
-            const icon = document.createElement('div');
-            icon.className = 'panel-icon';
-            const iconPath = `/client/styles/icons/${panelConfig.icon}.svg`;
-            icon.innerHTML = `<img src="${iconPath}" alt="">`;
+            const icon = document.createElement('span');
+            icon.className = `icon icon-${panelConfig.icon} panel-icon`;
             headerLeft.appendChild(icon);
         }
 

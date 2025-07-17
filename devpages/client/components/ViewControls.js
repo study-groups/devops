@@ -146,6 +146,70 @@ function reloadAllCss() {
     }
 }
 
+/**
+ * Reload all CSS files silently (without popup)
+ */
+async function reloadAllCssSilent() {
+    return new Promise((resolve) => {
+        const timestamp = Date.now();
+        let reloadedCount = 0;
+        const linkElements = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+        
+        if (linkElements.length === 0) {
+            resolve();
+            return;
+        }
+        
+        const processLink = (link, index) => {
+            return new Promise((linkResolve) => {
+                const originalHref = link.getAttribute('href');
+                if (originalHref) {
+                    const separator = originalHref.includes('?') ? '&' : '?';
+                    const newHref = `${originalHref}${separator}t=${timestamp}`;
+                    
+                    const newLink = document.createElement('link');
+                    newLink.rel = 'stylesheet';
+                    newLink.type = 'text/css';
+                    newLink.href = newHref;
+                    
+                    // Copy other attributes
+                    Array.from(link.attributes).forEach(attr => {
+                        if (attr.name !== 'href') {
+                            newLink.setAttribute(attr.name, attr.value);
+                        }
+                    });
+                    
+                    newLink.onload = () => {
+                        setTimeout(() => {
+                            if (link.parentNode) {
+                                link.remove();
+                            }
+                        }, 50);
+                        reloadedCount++;
+                        logMessage(`Reloaded CSS: ${originalHref}`, 'debug', 'VIEW_CONTROLS');
+                        linkResolve();
+                    };
+                    
+                    newLink.onerror = () => {
+                        logMessage(`Failed to reload CSS: ${originalHref}`, 'warn', 'VIEW_CONTROLS');
+                        linkResolve();
+                    };
+                    
+                    link.parentNode.insertBefore(newLink, link);
+                } else {
+                    linkResolve();
+                }
+            });
+        };
+        
+        // Process all links in parallel
+        Promise.all(linkElements.map(processLink)).then(() => {
+            logMessage(`Reloaded ${reloadedCount} CSS files silently`, 'debug', 'VIEW_CONTROLS');
+            resolve();
+        });
+    });
+}
+
 export function createViewControlsComponent(targetElementId, layoutManager) {
     let element = null;
     let appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
@@ -240,15 +304,15 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                     
                 case 'toggleEdit':
                     // Use the workspace panel manager to toggle the editor
-                            if (window.workspaceLayoutManager) {
-            window.workspaceLayoutManager.toggleEditor();
+                    if (window.workspaceLayoutManager) {
+                        window.workspaceLayoutManager.toggleEditor();
                     }
                     break;
                     
                 case 'togglePanels':
                     // Use the workspace panel manager to toggle the sidebar
-                            if (window.workspaceLayoutManager) {
-            window.workspaceLayoutManager.toggleSidebar();
+                    if (window.workspaceLayoutManager) {
+                        window.workspaceLayoutManager.toggleSidebar();
                     }
                     break;
                     
@@ -266,9 +330,8 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                     logMessage(`Debug: window.eventBus.emit available: ${!!(window.eventBus && typeof window.eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
                     logMessage(`Debug: imported eventBus exists: ${!!eventBus}`, 'debug', 'VIEW_CONTROLS');
                     logMessage(`Debug: imported eventBus.emit available: ${!!(eventBus && typeof eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
-                    
                     // Perform soft page reload - reload all CSS files
-                    reloadAllCss();
+                    reloadAllCssSilent();
                     
                     // Trigger preview refresh using window.eventBus (to match PreviewPanel)
                     if (window.eventBus && typeof window.eventBus.emit === 'function') {
@@ -314,8 +377,7 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
             }
         });
 
-        logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');
-        return true;
+        logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');       return true;
     };
 
     const destroy = () => {

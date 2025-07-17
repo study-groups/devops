@@ -22,8 +22,8 @@ export const ActionTypes = {
 
     // UI Actions
     UI_SET_VIEW_MODE: 'ui/setViewMode',
-    UI_TOGGLE_LOG_VISIBILITY: 'ui/toggleLogVisibility',
-    UI_SET_LOG_HEIGHT: 'ui/setLogHeight',
+    UI_TOGGLE_LOG_VISIBILITY: 'UI_TOGGLE_LOG_VISIBILITY',
+    UI_SET_LOG_HEIGHT: 'UI_SET_LOG_HEIGHT',
     UI_TOGGLE_LOG_MENU: 'ui/toggleLogMenu',
     UI_APPLY_INITIAL_STATE: 'ui/applyInitialState',
 
@@ -424,6 +424,39 @@ function getInitialDomInspectorState() {
     return defaults;
 }
 
+// Helper to load Debug Panel state from localStorage
+function getInitialDebugPanelState() {
+    const defaults = {
+        visible: false,
+        position: { x: 150, y: 150 },
+        size: { width: 500, height: 400 },
+        panels: [
+            { id: 'state', title: 'State Inspector', visible: true, order: 0, enabled: true },
+            { id: 'dom-inspector', title: 'DOM Inspector', visible: true, order: 1, enabled: true },
+            { id: 'network', title: 'Network', visible: false, order: 2, enabled: false },
+            { id: 'console', title: 'Console', visible: false, order: 3, enabled: false },
+            { id: 'performance', title: 'Performance', visible: false, order: 4, enabled: false },
+            { id: 'storage', title: 'Storage', visible: false, order: 5, enabled: false }
+        ],
+        activePanel: 'state',
+        // Start with all visible panels collapsed by default
+        collapsedSections: ['state', 'dom-inspector']
+    };
+    
+    try {
+        const storedState = localStorage.getItem('devpages_debug_panel_state');
+        if (storedState) {
+            const parsed = JSON.parse(storedState);
+            if (parsed && typeof parsed.visible === 'boolean') {
+                return { ...defaults, ...parsed };
+            }
+        }
+    } catch (e) {
+        console.error('[AppState] Error loading Debug Panel state from localStorage:', e);
+    }
+    return defaults;
+}
+
 function getInitialPreviewMode() {
     try {
         const storedMode = localStorage.getItem('previewMode');
@@ -488,6 +521,7 @@ const initialAppState = {
     },
     panels: getInitialPanelsState(), // Centralized panel visibility and dimensions
     domInspector: getInitialDomInspectorState(), // DOM Inspector state
+    debugPanel: getInitialDebugPanelState(), // Debug Panel state
     workspace: getInitialWorkspaceState(), // Workspace layout state
     previewMode: getInitialPreviewMode(), // 'markdown' or 'html'
 };

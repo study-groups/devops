@@ -15,6 +15,7 @@ export class FileBrowserPanel {
         this.treeContainer = null;
         this.fileTreeManager = new FileTreeManager();
         this.unsubscribe = null;
+        this.isInitialized = false;
     }
 
     /**
@@ -75,16 +76,23 @@ export class FileBrowserPanel {
      * Initialize the panel after DOM is ready
      */
     initializePanel() {
+        if (this.isInitialized) {
+            return;
+        }
+
+        this.isInitialized = true;
 
         this.fetchAndDisplayCwd();
         logMessage('FileBrowserPanel activated.', 'info', 'FileBrowser');
 
         this.fileTreeManager.setTreeContainer(this.treeContainer);
-        
-        const path = this.fetchCwd();
-        this.fileTreeManager.buildTree({
-            onFileClick: (file) => this.handleFileClick(file),
-        }, path);
+
+        // Make the CWD path clickable to load the tree
+        if (this.cwdPathContainer) {
+            this.cwdPathContainer.classList.add('clickable-path'); // For styling
+            this.cwdPathContainer.title = 'Click to load file tree';
+            this.cwdPathContainer.addEventListener('click', () => this.loadTree(), { once: true });
+        }
 
         this.unsubscribe = appStore.subscribe(() => {
             const state = appStore.getState();
@@ -94,17 +102,35 @@ export class FileBrowserPanel {
         });
     }
 
+    loadTree() {
+        if (!this.treeContainer) {
+            logMessage('Cannot load tree: tree container not found.', 'error', 'FileBrowser');
+            return;
+        }
+
+        if (this.cwdPathContainer) {
+            this.cwdPathContainer.classList.remove('clickable-path');
+            this.cwdPathContainer.title = '';
+        }
+
+        logMessage('Loading file tree...', 'info', 'FileBrowser');
+        const path = this.fetchCwd();
+        this.fileTreeManager.buildTree({
+            onFileClick: (file) => this.handleFileClick(file),
+        }, path);
+    }
+
     updatePublishingBadges(status) {
         if (!this.badgesContainer) return;
 
         const badges = [
-            { key: 'notes', label: 'Notes' },
-            { key: 'spaces', label: 'Spaces' }
+            { key: 'notes', label: 'Notes', icon: 'file' },
+            { key: 'spaces', label: 'Spaces', icon: 'folder' }
         ];
 
         this.badgesContainer.innerHTML = badges.map(badge => `
             <span class="publish-badge ${status[badge.key] ? 'active' : ''}" title="Published to ${badge.label}">
-                ${badge.label.charAt(0)}
+                <span class="icon icon-${badge.icon}"></span>
             </span>
         `).join('');
     }

@@ -4,8 +4,7 @@
  */
 
 .workspace-container {
-    display: flex;
-    flex-direction: column; /* Stack main panels and log container vertically */
+    position: relative;
     width: 100%;
     height: calc(100vh - var(--top-bar-height, 40px)); /* Full viewport height minus top bar */
     background: var(--color-bg);
@@ -14,9 +13,8 @@
 
 .main-panels {
     display: flex;
-    flex: 1; /* Takes up available space above log container */
-    min-height: 0;
     width: 100%;
+    height: 100%;
     overflow: hidden; /* Prevent main panels from scrolling */
 }
 
@@ -101,23 +99,33 @@
 }
 
 .log-container {
-    height: 250px; /* Default height, can be made resizable */
-    min-height: 40px;
-    max-height: 50vh; /* Don't let log take more than half the viewport */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+
+    /* Remove min-height to avoid conflicts with LogPanel CSS */
+    /* min-height: 40px; */
     background: var(--color-bg-alt);
     border-top: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
-    flex-shrink: 0; /* Don't shrink the log container */
     overflow: hidden; /* Log container itself doesn't scroll */
-    position: relative; /* For resize handle positioning */
 }
 
-.log-container.hidden {
-    height: 0;
-    min-height: 0;
-    border-top: none;
-    overflow: hidden;
+
+
+/* Hide scrollbars for a cleaner look while maintaining functionality */
+.preview-container,
+.panel-manager {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.preview-container::-webkit-scrollbar,
+.panel-manager::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
 }
 
 /* Panel Header */

@@ -101,18 +101,26 @@ export class LogPanel {
      */
     subscribeToStore() {
         if (this._appStateUnsubscribe) {
-            this._appStateUnsubscribe(); // Unsubscribe from any previous subscription
+            this._appStateUnsubscribe();
         }
 
-        const handleStateChange = () => {
-            const currentState = appStore.getState();
-            this.syncWithState(currentState.ui);
-        };
-        
-        this._appStateUnsubscribe = appStore.subscribe(handleStateChange);
+        this._appStateUnsubscribe = appStore.subscribe((newState, oldState) => {
+            console.log('[LogPanel] Store subscription triggered');
+            console.log('[LogPanel] Old UI state:', oldState?.ui);
+            console.log('[LogPanel] New UI state:', newState?.ui);
+            
+            // Only sync if the relevant part of the state has changed
+            if (newState.ui.logVisible !== oldState.ui.logVisible || newState.ui.logHeight !== oldState.ui.logHeight) {
+                console.log('[LogPanel] UI state changed, calling syncWithState');
+                this.syncWithState(newState.ui);
+            } else {
+                console.log('[LogPanel] No relevant UI state changes detected');
+            }
+        });
         
         // Immediately sync with the current state upon subscription
-        handleStateChange(); 
+        console.log('[LogPanel] Initial sync with current state');
+        this.syncWithState(appStore.getState().ui);
     }
 
     /**
@@ -121,16 +129,37 @@ export class LogPanel {
      * @param {object} uiState - The `ui` slice of the global app state.
      */
     syncWithState(uiState) {
-        if (!this.container || !uiState) return;
+        console.log('[LogPanel] syncWithState called with:', uiState);
+        
+        if (!this.container || !uiState) {
+            console.log('[LogPanel] syncWithState early return - container:', !!this.container, 'uiState:', !!uiState);
+            return;
+        }
         
         const { logVisible, logHeight } = uiState;
+        console.log('[LogPanel] Applying visibility:', logVisible, 'height:', logHeight);
+
+        // IMPORTANT: Set the CSS variable FIRST before applying classes
+        document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
+        
+        // Force a reflow to ensure the CSS variable is processed
+        this.container.offsetHeight;
 
         // Sync visibility
         this.container.classList.toggle('log-visible', logVisible);
         this.container.classList.toggle('log-hidden', !logVisible);
-
-        // Sync height by updating the CSS variable
-        document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
+        
+        // REMOVE any conflicting 'hidden' class that might be left over from WorkspaceLayoutManager
+        this.container.classList.remove('hidden');
+        
+        console.log('[LogPanel] Container classes after update:', this.container.classList.toString());
+        
+        // Debug: Check computed styles
+        const computedStyle = window.getComputedStyle(this.container);
+        console.log('[LogPanel] Computed height:', computedStyle.height);
+        console.log('[LogPanel] Computed visibility:', computedStyle.visibility);
+        console.log('[LogPanel] Computed opacity:', computedStyle.opacity);
+        console.log('[LogPanel] CSS variable --log-height:', document.documentElement.style.getPropertyValue('--log-height'));
         
         // Update other UI elements that depend on state
         this.updateEntryCount();
@@ -142,6 +171,8 @@ export class LogPanel {
      * The component's UI will update automatically via its store subscription.
      */
     toggleVisibility() {
+        console.log('[LogPanel] toggleVisibility called');
+        console.log('[LogPanel] Dispatching action:', ActionTypes.UI_TOGGLE_LOG_VISIBILITY);
         dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
     }
 
@@ -157,8 +188,10 @@ export class LogPanel {
     doResize(e) {
         if (!this._isResizing) return;
 
-        // Calculate the max height, leaving a small gap for the top bar (e.g., 60px)
-        const maxHeight = window.innerHeight - 60;
+        // Use a fixed height for the top bar to avoid incorrect dynamic calculations
+        const topBarHeight = 50; 
+        const maxHeight = window.innerHeight - topBarHeight;
+        
         let newHeight = this._startHeight - (e.pageY - this._startY);
 
         // Clamp the new height between the minimum and maximum allowed values
@@ -168,7 +201,7 @@ export class LogPanel {
             newHeight = maxHeight;
         }
         
-        this.container.style.height = `${newHeight}px`;
+        document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
     }
 
     endResize() {

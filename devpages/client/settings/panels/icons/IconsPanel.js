@@ -365,11 +365,11 @@ export class IconsPanel {
         // Tab switching
         modal.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const tabName = e.target.dataset.tab;
+                const tabName = e.currentTarget.dataset.tab;
                 
                 // Update active tab button
                 modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
+                e.currentTarget.classList.add('active');
                 
                 // Update active tab pane
                 modal.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
@@ -698,61 +698,73 @@ export class IconsPanel {
      * Scan document for hardcoded emoji icons and replace with tokens
      */
     scanAndReplaceHardcodedIcons() {
-        const hardcodedIcons = [
-            '🏠', '📁', '📄', '⚙️', '🔍', '🗑️', '✏️', '📋', 
-            '🎨', '🖼️', '🎥', '🔊', '📅', '🕐', '🏷️', '🔖',
-            '⭐', '♥️', '👍', '👎', '🔔', '💬', '🗖️', '📑',
-            '🛡️', '🔒', '🔓', '👁️', '🙈'
-        ];
+        const emojiMap = this.getIconNameForEmoji(null, true); // Get the whole map
+        const emojiKeys = Object.keys(emojiMap);
+        const emojiRegex = new RegExp(`(${emojiKeys.join('|')})`, 'g');
 
         const walker = document.createTreeWalker(
             document.body,
             NodeFilter.SHOW_TEXT,
-            null,
+            {
+                acceptNode: (node) => {
+                    if (node.parentElement.closest('script, style, [contenteditable], .ace_editor')) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    const testRegex = new RegExp(emojiRegex.source, 'g');
+                    if (testRegex.test(node.textContent)) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_REJECT;
+                },
+            },
             false
         );
 
-        const replacements = [];
+        const nodesToProcess = [];
         let node;
-
-        while (node = walker.nextNode()) {
-            const text = node.textContent;
-            let hasReplacement = false;
-            let newText = text;
-
-            hardcodedIcons.forEach(emoji => {
-                if (text.includes(emoji)) {
-                    const iconName = this.getIconNameForEmoji(emoji);
-                    if (iconName) {
-                        newText = newText.replace(new RegExp(emoji, 'g'), `var(--icon-${iconName})`);
-                        hasReplacement = true;
-                    }
-                }
-            });
-
-            if (hasReplacement) {
-                replacements.push({ node, newText });
-            }
+        while ((node = walker.nextNode())) {
+            nodesToProcess.push(node);
         }
 
-        // Apply replacements
-        replacements.forEach(({ node, newText }) => {
-            const span = document.createElement('span');
-            span.className = 'icon-token';
-            span.style.cssText = 'font-family: var(--icon-font-family); font-size: var(--icon-size-base);';
-            span.innerHTML = newText;
-            node.parentNode.replaceChild(span, node);
+        let replacementsCount = 0;
+        nodesToProcess.forEach((textNode) => {
+            if (!textNode.parentElement) {
+                return;
+            }
+            const parts = textNode.textContent.split(emojiRegex);
+            
+            if (parts.length <= 1) {
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            parts.forEach((part) => {
+                if (!part) return; 
+
+                const iconName = emojiMap[part];
+                if (iconName) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = `icon icon-${iconName}`;
+                    iconSpan.setAttribute('role', 'img');
+                    iconSpan.setAttribute('aria-label', iconName.replace('-', ' '));
+                    fragment.appendChild(iconSpan);
+                    replacementsCount++;
+                } else {
+                    fragment.appendChild(document.createTextNode(part));
+                }
+            });
+            textNode.parentElement.replaceChild(fragment, textNode);
         });
 
-        if (replacements.length > 0) {
-            logIcons(`Replaced ${replacements.length} hardcoded icons with tokens`);
+        if (replacementsCount > 0) {
+            logIcons(`Replaced ${replacementsCount} hardcoded icons with tokens`);
         }
     }
 
     /**
      * Get icon name for emoji replacement
      */
-    getIconNameForEmoji(emoji) {
+    getIconNameForEmoji(emoji, returnMap = false) {
         const emojiMap = {
             '🏠': 'home',
             '📁': 'folder', 
@@ -784,6 +796,10 @@ export class IconsPanel {
             '👁️': 'visible',
             '🙈': 'hidden'
         };
+        
+        if (returnMap) {
+            return emojiMap;
+        }
         return emojiMap[emoji] || null;
     }
 

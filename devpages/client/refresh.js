@@ -1,6 +1,6 @@
 // refresh.js - Unified refresh functionality for the editor
 import { logMessage } from "./log/index.js";
-import { updatePreview } from './markdown.js';
+import { updatePreview } from './preview/markdown.js';
 
 // Track registered refresh handlers
 const refreshHandlers = [];

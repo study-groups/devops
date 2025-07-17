@@ -125,36 +125,41 @@ export class CssFilesPanel {
     // Use event delegation to handle dynamic content
     this.containerElement.addEventListener('click', (e) => {
       // Refresh button
-      if (e.target.classList.contains('refresh-css-btn')) {
+      const refreshBtn = e.target.closest('.refresh-css-btn');
+      if (refreshBtn) {
         this.refreshCssFiles();
         return;
       }
 
       // Report button
-      if (e.target.classList.contains('report-css-btn')) {
+      const reportBtn = e.target.closest('.report-css-btn');
+      if (reportBtn) {
         this.generateReport();
         return;
       }
 
       // Toggle checkboxes
-      if (e.target.classList.contains('css-toggle-checkbox')) {
-        const href = e.target.dataset.href;
-        const enabled = e.target.checked;
+      const toggleCheckbox = e.target.closest('.css-toggle-checkbox');
+      if (toggleCheckbox) {
+        const href = toggleCheckbox.dataset.href;
+        const enabled = toggleCheckbox.checked;
         console.log('[CssFilesPanel] Toggling CSS file via checkbox:', href, 'enabled:', enabled);
         this.toggleCssFile(href, enabled);
         return;
       }
 
       // View buttons
-      if (e.target.classList.contains('view-css-btn')) {
-        const href = e.target.dataset.href;
+      const viewBtn = e.target.closest('.view-css-btn');
+      if (viewBtn) {
+        const href = viewBtn.dataset.href;
         this.viewCssFile(href);
         return;
       }
 
       // Debug buttons
-      if (e.target.classList.contains('debug-css-btn')) {
-        const href = e.target.dataset.href;
+      const debugBtn = e.target.closest('.debug-css-btn');
+      if (debugBtn) {
+        const href = debugBtn.dataset.href;
         this.debugCssFile(href);
         return;
       }

@@ -358,7 +358,12 @@ export class PreviewManager {
 
         } catch (error) {
           // Log the original error before attempting to display it in the UI
-          logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW", { stack: error.stack });
+          // Safe fallback for when logging system isn't ready during module loading
+          if (typeof logMessage === 'function') {
+            logMessage(`[PreviewManager.update] Error during update process: ${error.message}`, "error", "PREVIEW", { stack: error.stack });
+          } else {
+            console.error('[PREVIEW] Error during update process:', error.message, error);
+          }
           console.error('[PREVIEW UPDATE ERROR]', error);
 
           // Corrected method call from showErrorState to showError

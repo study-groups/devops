@@ -11,6 +11,7 @@ import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
 import { domInspectorReducer } from './reducers/domInspectorReducer.js';
 import { workspaceReducer } from './reducers/workspaceReducer.js';
+import { debugPanelReducer } from './reducers/debugPanelReducer.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 // <<< NEW: Key for localStorage persistence (should match appState.js) >>>
@@ -141,6 +142,7 @@ const sliceReducers = {
     panels: panelsReducer,
     domInspector: domInspectorReducer,
     workspace: workspaceReducer,
+    debugPanel: debugPanelReducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
     logFiltering: logFilteringReducer,
@@ -149,58 +151,21 @@ const sliceReducers = {
 // --- Main Application Reducer (Combiner) ---
 // This function is passed to the messageQueue's setReducer
 export function mainReducer(currentState = {}, action) {
-    // const currentState = appStore.getState(); // Removed direct appStore.getState() call
-    let hasChanged = false;
-    const nextState = {};
+    // Start with all existing state to preserve slices not managed by sliceReducers
+    const nextState = { ...currentState };
 
-    // Iterate over the slice reducers mapping
+    // Apply each slice reducer to its corresponding slice
     for (const sliceKey in sliceReducers) {
-        // Ensure the reducer function exists for the key
         if (typeof sliceReducers[sliceKey] === 'function') {
             const reducer = sliceReducers[sliceKey];
             const previousSliceState = currentState[sliceKey];
-            // Call the slice reducer
             const nextSliceState = reducer(previousSliceState, action);
-            // Assign the result to the next overall state object
             nextState[sliceKey] = nextSliceState;
-            // Check if this slice has changed (strict equality check)
-            if (previousSliceState !== nextSliceState) {
-                hasChanged = true;
-            }
-        } else {
-            // If no reducer is defined for a slice in sliceReducers,
-            // carry over the existing state for that slice.
-            // This handles cases where currentState might have keys not actively managed here.
-            if (currentState.hasOwnProperty(sliceKey)) {
-                nextState[sliceKey] = currentState[sliceKey];
-            }
         }
     }
 
-    // Update the appStore only if any slice reported a change
-    if (hasChanged) {
-        const finalNextState = { ...currentState, ...nextState };
-
-        // Special handling for MD_DIR change - trigger file system reload
-        if (action.type === ActionTypes.SETTINGS_SET_CONTENT_SUBDIR) {
-            console.log('[MainReducer] MD_DIR changed, resetting file system to trigger reload');
-            finalNextState.file = {
-                ...finalNextState.file,
-                isInitialized: false,
-                currentPathname: null,
-                currentListing: null,
-                parentListing: null,
-                availableTopLevelDirs: [],
-                error: null
-            };
-        }
-
-        // Instead of directly updating appStore, return the new state
-        return finalNextState;
-    }
-
-    // If no slice changed, return the current state to indicate no change
-    return currentState;
+    // Always return a new state object
+    return nextState;
 }
 
 // --- Initialization Logic (Example - Should live in app initialization code) ---

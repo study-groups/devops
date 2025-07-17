@@ -3,83 +3,86 @@ import { BasePanel } from '/client/panels/core/BasePanel.js';
 
 export class PanelManagerPanel extends BasePanel {
     constructor() {
-        super('panel-manager', {
-            width: 280,
-            minWidth: 250,
-            maxWidth: 400,
-            resizable: false,
-            collapsible: true,
-            order: 0
+        super({
+            id: 'panel-manager',
+            title: 'Panel Manager'
         });
-        
-        this.mode = 'all'; // 'all' or 'individual'
-        this.isSticky = true;
+
+        this.mode = 'tabbed'; // 'tabbed' or 'focus'
+        this.container = null;
+        this.header = null;
+        this.content = null;
+
+        // Explicitly bind 'this' to ensure correct context in event handlers
+        this.setMode = this.setMode.bind(this);
     }
 
     render() {
-        const container = document.createElement('div');
-        container.className = 'panel-manager-container';
+        this.container = document.createElement('div');
+        this.container.className = 'panel-manager-container';
+        this.container.dataset.mode = this.mode;
         
-        // Create the sticky header
-        const header = this.createHeader();
-        container.appendChild(header);
+        this.header = this.createHeader();
+        this.container.appendChild(this.header);
         
-        // Create the content area
-        const content = this.createContent();
-        container.appendChild(content);
+        this.content = this.createContent();
+        this.container.appendChild(this.content);
         
-        return container;
+        return this.container;
     }
 
     createHeader() {
         const header = document.createElement('div');
         header.className = 'panel-manager-header';
-        
-        const titleElement = document.createElement('span');
-        titleElement.className = 'panel-manager-header__title';
-        titleElement.textContent = 'Panel Manager';
-        
-        const actionsElement = document.createElement('div');
-        actionsElement.className = 'panel-manager-header__actions';
 
-        // Mode toggle button
-        const modeToggleBtn = document.createElement('button');
-        modeToggleBtn.className = 'panel-manager-header__button';
-        modeToggleBtn.title = 'Toggle Mode';
-        modeToggleBtn.addEventListener('click', () => this.toggleMode());
-        modeToggleBtn.innerHTML = this.mode === 'all' ? '⌄' : '☰';
+        const actions = document.createElement('div');
+        actions.className = 'panel-manager-header__actions';
 
-        // Collapse All Panels button (only in 'all' mode)
-        const collapseAllBtn = document.createElement('button');
-        collapseAllBtn.className = 'panel-manager-header__button';
-        collapseAllBtn.title = 'Collapse All Panels';
-        collapseAllBtn.addEventListener('click', () => this.collapseAllPanels());
-        collapseAllBtn.innerHTML = '⌄';
-        collapseAllBtn.style.display = this.mode === 'all' ? 'block' : 'none';
+        const focusButton = this.createHeaderButton('Focus Mode', 'focus-mode', this.mode === 'focus');
+        actions.appendChild(focusButton);
 
-        // Expand All Panels button (only in 'all' mode)
-        const expandAllBtn = document.createElement('button');
-        expandAllBtn.className = 'panel-manager-header__button';
-        expandAllBtn.title = 'Expand All Panels';
-        expandAllBtn.addEventListener('click', () => this.expandAllPanels());
-        expandAllBtn.innerHTML = '⌃';
-        expandAllBtn.style.display = this.mode === 'all' ? 'block' : 'none';
+        const tabbedButton = this.createHeaderButton('Tabbed Mode', 'tabbed-mode', this.mode === 'tabbed');
+        actions.appendChild(tabbedButton);
 
-        actionsElement.appendChild(modeToggleBtn);
-        actionsElement.appendChild(collapseAllBtn);
-        actionsElement.appendChild(expandAllBtn);
+        const collapseAllButton = this.createHeaderButton('Collapse All', 'collapse-all', false, 'collapse-all');
+        actions.appendChild(collapseAllButton);
 
-        header.appendChild(titleElement);
-        header.appendChild(actionsElement);
+        header.appendChild(actions);
+
+        // Event Listeners
+        focusButton.addEventListener('click', () => this.setMode('focus'));
+        tabbedButton.addEventListener('click', () => this.setMode('tabbed'));
+
+        collapseAllButton.addEventListener('click', () => {
+            if (window.panelManager && typeof window.panelManager.collapseAllPanels === 'function') {
+                window.panelManager.collapseAllPanels();
+            }
+        });
 
         return header;
+    }
+
+    createHeaderButton(title, mode, isActive, iconClass = null) {
+        const button = document.createElement('button');
+        button.className = 'panel-manager-header__button';
+        if (isActive) {
+            button.classList.add('panel-manager-header__button--active');
+        }
+        button.title = title;
+        button.dataset.mode = mode;
+
+        const icon = document.createElement('span');
+        icon.className = `icon icon-${iconClass || mode}`;
+        button.appendChild(icon);
+
+        return button;
     }
 
     createContent() {
         const content = document.createElement('div');
         content.className = 'panel-manager-content';
         
-        if (this.mode === 'all') {
+        if (this.mode === 'tabbed') {
             // Show individual panel toggles
             const togglesContainer = document.createElement('div');
             togglesContainer.className = 'panel-manager-toggles';
@@ -96,98 +99,74 @@ export class PanelManagerPanel extends BasePanel {
             
             content.appendChild(togglesContainer);
         } else {
-            // Show mode-specific content
-            const modeContent = document.createElement('div');
-            modeContent.className = 'panel-manager-mode-content';
-            modeContent.innerHTML = '<p>Individual panel management mode</p>';
-            content.appendChild(modeContent);
+            // 'focus' mode is handled by CSS, no extra content needed here.
         }
 
         return content;
     }
 
+    setMode(mode) {
+        if (this.mode === mode || !this.container) {
+            return;
+        }
+        this.mode = mode;
+        this.container.dataset.mode = this.mode;
+
+        // Re-render header to update active button
+        const newHeader = this.createHeader();
+        this.container.replaceChild(newHeader, this.header);
+        this.header = newHeader;
+
+        // Re-render content to show/hide toggles
+        const newContent = this.createContent();
+        this.container.replaceChild(newContent, this.content);
+        this.content = newContent;
+    }
+
     createToggle(panel) {
-        const toggle = document.createElement('div');
-        toggle.className = 'panel-toggle';
-        toggle.dataset.panelId = panel.id;
-        toggle.title = `Toggle ${panel.title}`;
+        const toggleContainer = document.createElement('div');
+        toggleContainer.className = 'panel-toggle';
+        toggleContainer.title = `Toggle ${panel.title}`;
+        toggleContainer.dataset.panelId = panel.id;
 
-        const iconClass = `icon-${panel.icon || 'default'}`;
-        toggle.innerHTML = `<span class="icon ${iconClass}"></span>`;
+        // Add a class to indicate visibility state
+        if (panel.isVisible) {
+            toggleContainer.classList.add('is-visible');
+        }
 
-        return toggle;
+        // Icon
+        const icon = document.createElement('div');
+        icon.className = 'panel-toggle__icon';
+        if (panel.icon) {
+            const iconPath = `/client/styles/icons/${panel.icon}.svg`;
+            icon.innerHTML = `<img src="${iconPath}" alt="${panel.title} icon">`;
+        }
+        
+        // Title
+        const title = document.createElement('span');
+        title.className = 'panel-toggle__title';
+        title.textContent = panel.title;
+
+        toggleContainer.appendChild(icon);
+        toggleContainer.appendChild(title);
+
+        toggleContainer.addEventListener('click', () => {
+            panelRegistry.togglePanelVisibility(panel.id);
+            toggleContainer.classList.toggle('is-visible');
+        });
+
+        return toggleContainer;
     }
 
     toggleMode() {
-        this.mode = this.mode === 'all' ? 'individual' : 'all';
-        this.updateHeader();
-        this.updateContent();
-    }
-
-    updateHeader() {
-        const header = document.querySelector('.panel-manager-header');
-        if (!header) return;
-
-        const modeToggleBtn = header.querySelector('.panel-manager-header__button');
-        const collapseAllBtn = header.querySelectorAll('.panel-manager-header__button')[1];
-        const expandAllBtn = header.querySelectorAll('.panel-manager-header__button')[2];
-
-        if (modeToggleBtn) {
-            modeToggleBtn.innerHTML = this.mode === 'all' ? '⌄' : '☰';
-        }
-
-        if (collapseAllBtn) {
-            collapseAllBtn.style.display = this.mode === 'all' ? 'block' : 'none';
-        }
-
-        if (expandAllBtn) {
-            expandAllBtn.style.display = this.mode === 'all' ? 'block' : 'none';
-        }
-    }
-
-    updateContent() {
-        const content = document.querySelector('.panel-manager-content');
-        if (!content) return;
-
-        content.innerHTML = '';
-        const newContent = this.createContent();
-        content.appendChild(newContent.firstChild);
+        this.setMode(this.mode === 'tabbed' ? 'focus' : 'tabbed');
     }
 
     collapseAllPanels() {
-        if (!window.panelManager) return;
-        
-        window.panelManager.panelConfigs.forEach(p => {
-            if (p.id !== 'panel-manager') {
-                p.isCollapsed = true;
-            }
-        });
-        window.panelManager.renderPanels();
-        window.panelManager.savePanelState();
+        // Future implementation
     }
 
     expandAllPanels() {
-        if (!window.panelManager) return;
-        
-        window.panelManager.panelConfigs.forEach(p => {
-            p.isCollapsed = false;
-        });
-        window.panelManager.renderPanels();
-        window.panelManager.savePanelState();
-    }
-
-    onActivate(panelContentElement) {
-        panelContentElement.addEventListener('click', e => {
-            const toggle = e.target.closest('.panel-toggle');
-            if (toggle) {
-                const panelId = toggle.dataset.panelId;
-                if (panelId && window.panelManager) {
-                    const panelConfig = window.panelManager.panelConfigs.find(p => p.id === panelId);
-                    if (panelConfig) {
-                        window.panelManager.togglePanelCollapse(panelId);
-                    }
-                }
-            }
-        });
+        // Future implementation
     }
 } 

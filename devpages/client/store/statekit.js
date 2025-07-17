@@ -32,30 +32,16 @@ export function createStore(reducer, initialState) {
      * @param {object} action - The action object to dispatch.
      */
     function dispatch(action) {
-        const prevState = { ...state }; // Shallow copy for comparison
-        const newState = reducer(prevState, action); // Pass current state and action to the reducer
+        const prevState = state; // Direct reference for comparison
+        const newState = reducer(state, action);
 
-        // Only update and notify if the state actually changed (shallow compare)
-        let changed = false;
-        if (newState !== prevState) { // Check object identity first
-             // If identities differ, do a shallow key/value check
-             const keys = new Set([...Object.keys(prevState), ...Object.keys(newState)]);
-             for (const key of keys) {
-                 if (prevState[key] !== newState[key]) {
-                     changed = true;
-                     break;
-                 }
-             }
-        }
-
-
-        if (changed) {
-            console.debug('[StateKit] State updating:', { prevState, newState, action });
+        // The reducer should return a new object if the state has changed.
+        // A simple identity check is the most efficient way to detect a change.
+        if (newState !== prevState) {
+            console.debug('[StateKit] State updating [DEBUG]');
             state = newState; // Update the internal state
             // Notify listeners AFTER state is updated
-            listeners.forEach(listener => listener(state, prevState, action)); // Pass action to listeners too
-        } else {
-             console.debug('[StateKit] Dispatch called but state did not change.', { action });
+            listeners.forEach(listener => listener(state, prevState, action));
         }
     }
 

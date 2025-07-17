@@ -233,6 +233,25 @@ async function initFeatures() {
     return performance.now();
 }
 
+// ====================== ONE-TIME UI SETUP ======================
+let uiInitialized = false;
+async function setupUI() {
+    if (uiInitialized) return;
+    uiInitialized = true;
+    
+    logBootstrap('Setting up UI for the first time...');
+    await initUIInfrastructure();
+    await initFeatures();
+    
+    // Subscribe the UI Manager to state changes
+    subscribeUIManager(appStore);
+    logBootstrap('UI Manager subscribed to state updates.');
+    
+    // Hide splash screen after UI is built
+    hideSplashScreen();
+}
+
+
 // ====================== AUTH READY HELPER ======================
 async function waitForAuthReady() {
     const start = performance.now();
@@ -260,79 +279,52 @@ async function waitForAuthReady() {
     });
 }
 
-// ====================== MAIN INITIALIZATION FLOW ======================
-let bootstrapCallCount = 0;
-let isBootstrapping = false;
-let bootstrapCompleted = false;
-
+// ====================== MAIN INITIALIZATION ======================
 async function initializeApp() {
-    bootstrapCallCount++;
-    console.warn(`[Bootstrap] initializeApp called - COUNT: ${bootstrapCallCount}`);
+    const start = performance.now();
+    logBootstrap('Initializing application...');
     
-    if (bootstrapCallCount > 1) {
-        console.error(`[Bootstrap] WARNING: initializeApp called ${bootstrapCallCount} times!`);
-        
-        // Prevent duplicate initialization
-        if (isBootstrapping) {
-            console.error('[Bootstrap] Already bootstrapping, ignoring duplicate call');
-            return;
-        }
-        
-        if (bootstrapCompleted) {
-            console.error('[Bootstrap] Bootstrap already completed, ignoring duplicate call');
-            return;
-        }
-    }
+    // Stage 1: Core services (logging, events, state)
+    await initCoreServices();
     
-    isBootstrapping = true;
-    initMetrics.start = performance.now();
-    logBootstrap('Starting application bootstrap...');
+    // Stage 2: Initialize authentication and WAIT for it to complete
+    // This is the critical change: we do not proceed until we know the user's status.
+    await initAuth();
     
-    try {
-        // Core services first
-        await initCoreServices();
-        
-        // UI infrastructure
-        await initUIInfrastructure();
-        
-        // Authentication
-        await initAuth();
-        
-        // Features
-        await initFeatures();
-        
-        // Finalization
-        logMetrics();
-        logBootstrap('Bootstrap completed successfully');
-        eventBus.emit('app:ready');
-        
-        // Final UI sync
-        initializePublishModalIntegration();
-        subscribeUIManager();
-        dispatch({ type: ActionTypes.UI_APPLY_INITIAL_STATE });
-        logBootstrap('UIManager subscribed and final state synced');
-        
-        // Hide splash screen
-        hideSplashScreen();
-        
-        bootstrapCompleted = true;
-        
-    } catch (error) {
-        logBootstrap(`Bootstrap failed: ${error.message}`, 'error');
-        console.error('Application bootstrap failed:', error);
-        eventBus.emit('app:failed', error);
-        hideSplashScreen();
-    } finally {
-        isBootstrapping = false;
-    }
+    // Stage 3: Setup UI, which will now have the definitive auth state
+    await setupUI();
+
+    const duration = performance.now() - start;
+    logBootstrap(`Application fully initialized in ${duration.toFixed(2)}ms`);
+    logMetrics();
 }
 
-// Start when DOM is ready
-console.warn('[Bootstrap] Setting up DOM ready listeners...');
-if (document.readyState === 'loading') {
-    console.warn('[Bootstrap] DOM still loading, adding event listener');
-    document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-    console.warn('[Bootstrap] DOM already ready, calling initializeApp immediately');
+// Global error handling setup
+window.addEventListener('error', (event) => {
+    logBootstrap(`Unhandled error: ${event.message}`, 'error');
+});
+window.addEventListener('unhandledrejection', (event) => {
+    logBootstrap(`Unhandled promise rejection: ${event.reason}`, 'error');
+});
+
+
+// Start the application
+try {
     initializeApp();
+    
+    // Listen for auth changes to re-trigger necessary parts
+    appStore.subscribe(() => {
+        const state = appStore.getState();
+        // Example: If user logs out and back in, you might need to re-fetch user-specific data
+        // For now, we don't re-run the entire initializeApp sequence.
+    });
+
+} catch (error) {
+    logBootstrap(`A critical error occurred during initialization: ${error.message}`, 'critical');
+    console.error(error);
+    // Display a user-friendly error message on the page
+    const body = document.querySelector('body');
+    if (body) {
+        body.innerHTML = '<div class="critical-error-message">An error occurred while loading the application. Please try refreshing the page.</div>';
+    }
 }

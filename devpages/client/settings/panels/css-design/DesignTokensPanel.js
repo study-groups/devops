@@ -394,7 +394,7 @@ class DesignTokensPanel {
 
     // Event delegation for copy, and color grid toggle
     container.addEventListener('click', (e) => {
-      if (e.target.classList.contains('color-grid-toggle')) {
+      if (e.target.closest('.color-grid-toggle')) {
         this.colorGridMode = !this.colorGridMode;
         this.updateTokensDisplay();
         return;

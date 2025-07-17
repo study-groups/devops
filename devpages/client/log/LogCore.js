@@ -100,27 +100,39 @@ export function legacyPositional(message,
                                  typeOrType    = 'GENERAL',  // Could be type (old 3-param) or type (new 4-param)
                                  level = null) {             // Level (new 4-param only)
 
-    // Detect format based on number of arguments and content
-    if (arguments.length <= 3 || 
-        ['DEBUG', 'INFO', 'WARN', 'ERROR', 'WARNING'].includes(levelOrSource.toUpperCase())) {
-        
-        // OLD FORMAT: logMessage(message, level, type)
-        const actualLevel = levelOrSource;
-        const actualType = typeOrType;
-        log({
-            message,
-            source: 'DEVPAGES',
-            level: canonicalLevel(actualLevel),
-            type: canonicalType(actualType)
-        });
-    } else {
-        // NEW FORMAT: logMessage(message, source, type, level)
-        log({
-            message,
-            source: levelOrSource || 'DEVPAGES',
-            type: canonicalType(typeOrType),
-            level: canonicalLevel(level)
-        });
+    try {
+        // Safety check to prevent errors during module loading
+        if (typeof log !== 'function' || typeof canonicalLevel !== 'function' || typeof canonicalType !== 'function') {
+            console.error('[LogCore] Core logging functions not available, falling back to console:', message);
+            return;
+        }
+
+        // Detect format based on number of arguments and content
+        if (arguments.length <= 3 || 
+            ['DEBUG', 'INFO', 'WARN', 'ERROR', 'WARNING'].includes(levelOrSource.toUpperCase())) {
+            
+            // OLD FORMAT: logMessage(message, level, type)
+            const actualLevel = levelOrSource;
+            const actualType = typeOrType;
+            log({
+                message,
+                source: 'DEVPAGES',
+                level: canonicalLevel(actualLevel),
+                type: canonicalType(actualType)
+            });
+        } else {
+            // NEW FORMAT: logMessage(message, source, type, level)
+            log({
+                message,
+                source: levelOrSource || 'DEVPAGES',
+                type: canonicalType(typeOrType),
+                level: canonicalLevel(level)
+            });
+        }
+    } catch (error) {
+        // Safe fallback to console if logging system fails
+        console.error('[LogCore] Error in legacyPositional:', error);
+        console.error('[LogCore] Original message:', message);
     }
 }
 

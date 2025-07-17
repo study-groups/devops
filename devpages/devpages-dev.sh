@@ -17,4 +17,5 @@ echo "PD_DIR: $PD_DIR"
 echo "-------------------------------------"
 
 # Start the server using nodemon for auto-reloading
-nodemon server/server.js
+# --ignore '.sessions/*' prevents nodemon from restarting when session files are written
+nodemon --ignore '.sessions/*' server/server.js

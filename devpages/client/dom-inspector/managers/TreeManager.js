@@ -112,6 +112,12 @@ export class TreeManager {
         }
         header.appendChild(toggle);
 
+        // Create icon element
+        const icon = document.createElement('span');
+        icon.className = `icon icon-${element.tagName.toLowerCase()}`;
+        header.appendChild(icon);
+
+        // Create name element
         const name = document.createElement('span');
         name.className = 'dom-inspector-node-name';
         name.textContent = `<${element.tagName.toLowerCase()}>`;

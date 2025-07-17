@@ -13,12 +13,17 @@
     border-radius: var(--radius-lg);
     margin: var(--space-2);
     position: relative;
+    /* Default to hidden state */
+    height: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: height var(--transition-base), opacity var(--transition-base);
 }
 
 #log-container.log-visible {
-    height: var(--log-height, 150px);
-    visibility: visible;
-    opacity: 1;
+    height: var(--log-height, 150px) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     transition: height var(--transition-base), opacity var(--transition-base);
 }
 

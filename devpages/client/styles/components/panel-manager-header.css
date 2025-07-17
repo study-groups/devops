@@ -13,12 +13,13 @@
 
 .panel-manager-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: var(--space-1) var(--space-2);
-    background: var(--color-bg-alt);
-    border-bottom: 1px solid var(--color-border);
-    min-height: 28px;
+    justify-content: flex-end; /* Push actions to the right */
+    padding: 0; /* Remove padding */
+    background-color: transparent; /* Remove background */
+    border-bottom: none; /* Remove border */
+    height: auto; /* Let content determine height */
+    min-height: 0;
     user-select: none;
     position: sticky;
     top: 0;
@@ -68,9 +69,72 @@
     text-align: center;
 }
 
+.panel-manager-header__button .icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px; /* Ensure icon mask scales correctly */
+}
+
 .panel-manager-header__button:hover {
     background-color: var(--color-bg-muted);
     color: var(--color-fg);
+}
+
+/* Style for the active button */
+.panel-manager-header__button--active {
+    background-color: transparent; /* Remove background */
+    border-color: transparent; /* Remove border */
+    color: var(--color-accent); /* Keep accent color for the icon */
+}
+
+.panel-manager-header__button--active:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.panel-manager-container[data-mode="focus"] .panel-manager-toggles {
+    display: none;
+}
+
+.panel-manager-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.panel-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), opacity var(--transition-fast);
+    opacity: 0.5;
+}
+
+.panel-toggle.is-visible {
+    opacity: 1;
+}
+
+.panel-toggle:hover {
+    background-color: var(--color-bg-muted);
+}
+
+.panel-toggle__icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.panel-toggle__icon img {
+    width: 100%;
+    height: 100%;
+}
+
+.panel-toggle__title {
+    display: none;
 }
 
 .panel-manager-header__button[title="Collapse All Panels"]::after {

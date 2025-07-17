@@ -75,7 +75,7 @@ export class FileTreeManager {
 
         const icon = document.createElement('span');
         if (item.type === 'directory') {
-            icon.className = 'icon icon-folder-closed file-browser-node-icon';
+            icon.className = 'icon icon-directory file-browser-node-icon';
         } else {
             icon.className = 'icon icon-file-generic file-browser-node-icon';
         }
@@ -117,11 +117,6 @@ export class FileTreeManager {
 
         if (toggle) {
             toggle.textContent = isExpanded ? '▼' : '▶';
-        }
-
-        if (icon && node.dataset.itemType === 'directory') {
-            icon.classList.toggle('icon-folder-closed', !isExpanded);
-            icon.classList.toggle('icon-folder-open', isExpanded);
         }
 
         if (isExpanded && !childrenContainer.hasChildNodes()) {

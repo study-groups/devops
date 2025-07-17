@@ -491,14 +491,14 @@ export class ZIndexAnalyzer {
    */
   setupEventListeners(container) {
     container.addEventListener('click', (e) => {
-      if (e.target.classList.contains('refresh-zindex-analysis')) {
+      if (e.target.closest('.refresh-zindex-analysis')) {
         this.refreshAnalysis();
-      } else if (e.target.classList.contains('scan-dom-zindex')) {
+      } else if (e.target.closest('.scan-dom-zindex')) {
         this.scanDOMElements();
         this.refreshSubPanel();
-      } else if (e.target.classList.contains('highlight-zindex-elements')) {
+      } else if (e.target.closest('.highlight-zindex-elements')) {
         this.highlightZIndexElements();
-      } else if (e.target.classList.contains('export-zindex-report')) {
+      } else if (e.target.closest('.export-zindex-report')) {
         this.exportReport();
       }
     });

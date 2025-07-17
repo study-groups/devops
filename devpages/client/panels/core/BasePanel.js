@@ -10,8 +10,17 @@
  */
 
 export class BasePanel {
-    constructor(panelId, options = {}) {
-        this.panelId = panelId;
+    constructor(options = {}) {
+        if (typeof options === 'string') {
+            const panelId = options;
+            options = arguments[1] || {};
+            options.id = panelId;
+        }
+
+        this.id = options.id || `panel-${Date.now()}`;
+        this.title = options.title || 'Untitled Panel';
+        this.panelId = this.id; // for backward compatibility
+
         this.options = {
             // Default panel configuration
             width: 300,

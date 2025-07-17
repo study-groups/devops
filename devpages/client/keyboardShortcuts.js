@@ -26,6 +26,8 @@ const shortcutMappings = [
     { key: 's', ctrl: 'optional', shift: false, alt: false, useDispatch: false, action: 'shortcut:saveFile', payload: null }, 
     // Refresh Preview (Assuming this triggers a non-state process)
     { key: 'r', ctrl: 'optional', shift: false, alt: true, useDispatch: false, action: 'shortcut:refreshPreview', payload: null },
+    // Comprehensive Refresh (Ctrl+Shift+R)
+    { key: 'r', ctrl: true, shift: true, alt: false, useDispatch: false, action: 'shortcut:comprehensiveRefresh', payload: null },
     // Set View Modes (Using dispatch and the reducer)
     { key: '1', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'editor' } },
     { key: '2', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'preview' } },
@@ -164,6 +166,18 @@ export function initKeyboardShortcuts() {
                     }
                 } else {
                     console.error("[GENERAL] DOM Inspector not initialized on window.devPages.domInspector");
+                }
+            } else if (event.key === 'L') {
+                event.preventDefault();
+                console.log("[GENERAL] Ctrl+Shift+L pressed, toggling Log Panel.");
+                if (window.logPanel && typeof window.logPanel.toggleVisibility === 'function') {
+                    try {
+                        window.logPanel.toggleVisibility();
+                    } catch (error) {
+                        console.error("[GENERAL] Error calling Log Panel toggle:", error);
+                    }
+                } else {
+                    console.error("[GENERAL] Log Panel not initialized on window.logPanel");
                 }
             }
         }

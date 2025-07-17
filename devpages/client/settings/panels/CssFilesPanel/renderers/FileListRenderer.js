@@ -247,10 +247,10 @@ export class FileListRenderer {
 
         // Category toggles
         container.querySelectorAll('.category-header').forEach(header => {
-            header.addEventListener('click', () => {
-                const categoryId = header.dataset.section;
+            header.addEventListener('click', (e) => {
+                const categoryId = e.currentTarget.dataset.section;
                 const content = container.querySelector(`[data-category-content="${categoryId}"]`);
-                const toggle = header.querySelector('.category-toggle');
+                const toggle = e.currentTarget.querySelector('.category-toggle');
                 
                 if (content && toggle) {
                     const isCollapsed = content.style.display === 'none';
@@ -263,8 +263,8 @@ export class FileListRenderer {
         // CSS file toggles
         container.querySelectorAll('.css-toggle').forEach(toggle => {
             toggle.addEventListener('change', (e) => {
-                const href = e.target.dataset.href;
-                const enabled = e.target.checked;
+                const href = e.currentTarget.dataset.href;
+                const enabled = e.currentTarget.checked;
                 if (callbacks.onToggleFile) callbacks.onToggleFile(href, enabled);
             });
         });
@@ -272,7 +272,7 @@ export class FileListRenderer {
         // View CSS buttons
         container.querySelectorAll('.view-css-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const href = e.target.dataset.href;
+                const href = e.currentTarget.dataset.href;
                 if (callbacks.onViewFile) callbacks.onViewFile(href);
             });
         });
@@ -280,7 +280,7 @@ export class FileListRenderer {
         // Debug CSS buttons
         container.querySelectorAll('.debug-css-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const href = e.target.dataset.href;
+                const href = e.currentTarget.dataset.href;
                 if (callbacks.onDebugFile) callbacks.onDebugFile(href);
             });
         });

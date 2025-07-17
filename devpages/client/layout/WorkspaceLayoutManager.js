@@ -102,7 +102,7 @@ export class WorkspaceLayoutManager {
         this.previewContainer = document.getElementById('preview-container');
         this.logContainer = document.getElementById('log-container');
 
-        if (!this.sidebarContainer || !this.editorContainer || !this.previewContainer || !this.logContainer) {
+        if (!this.sidebarContainer || !this.editorContainer || !this.previewContainer) {
             this.log('Required panel elements not found in DOM, will retry...', 'warn');
             // Retry after a short delay
             setTimeout(() => {
@@ -227,33 +227,12 @@ export class WorkspaceLayoutManager {
         }
     }
 
-    showLog() {
-        if (this.logContainer) {
-            this.logContainer.classList.remove('hidden');
-            this.log('Log container shown');
-        }
-    }
-
-    hideLog() {
-        if (this.logContainer) {
-            this.logContainer.classList.add('hidden');
-            this.log('Log container hidden');
-        }
-    }
-
-    toggleLog() {
-        if (this.logContainer) {
-            this.logContainer.classList.toggle('hidden');
-            const isVisible = !this.logContainer.classList.contains('hidden');
-            this.log(`Log container ${isVisible ? 'shown' : 'hidden'}`);
-        }
-    }
-
     // Debug methods
     debugPanelVisibility() {
-        this.log(`Sidebar visible: ${this.isSidebarVisible}`, 'debug');
-        this.log(`Editor visible: ${this.isEditorVisible}`, 'debug');
-        this.log(`Log visible: ${this.logContainer ? !this.logContainer.classList.contains('hidden') : 'N/A'}`, 'debug');
+        console.table({
+            'Sidebar visible': this.isSidebarVisible,
+            'Editor visible': this.isEditorVisible,
+        });
     }
 
     // Initialize center panel content if needed
@@ -273,32 +252,22 @@ export class WorkspaceLayoutManager {
     }
 
     handleStateChange(workspaceState) {
-        if (!workspaceState) return;
-
-        // Handle sidebar visibility - directly manipulate DOM, don't dispatch
-        if (this.isSidebarVisible !== workspaceState.sidebar.visible) {
-            if (workspaceState.sidebar.visible) {
-                if (this.sidebarContainer) {
-                    this.sidebarContainer.classList.remove('hidden');
-                }
-                this.isSidebarVisible = true;
-                this.log('Sidebar shown');
-            } else {
-                if (this.sidebarContainer) {
-                    this.sidebarContainer.classList.add('hidden');
-                }
-                this.isSidebarVisible = false;
-                this.log('Sidebar hidden');
-            }
+        if (!workspaceState || !this.sidebarContainer) {
+            return;
         }
 
-        // Handle editor visibility - these methods are already DOM-only
-        if (this.isEditorVisible !== workspaceState.editor.visible) {
-            if (workspaceState.editor.visible) {
-                this.showEditor();
-            } else {
-                this.hideEditor();
-            }
+        // Handle sidebar visibility
+        const sidebarVisible = workspaceState.sidebar?.visible ?? true;
+        if (this.isSidebarVisible !== sidebarVisible) {
+            this.sidebarContainer.classList.toggle('hidden', !sidebarVisible);
+            this.isSidebarVisible = sidebarVisible;
+            this.log(`Sidebar visibility updated to: ${sidebarVisible}`);
+        }
+
+        // Handle panel widths (simplified)
+        const sidebarWidth = workspaceState.sidebar?.width;
+        if (sidebarWidth) {
+            this.sidebarContainer.style.width = `${sidebarWidth}px`;
         }
     }
 
@@ -308,14 +277,9 @@ export class WorkspaceLayoutManager {
             this.storeUnsubscribe(); // Clean up any existing subscription
         }
         
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
-            const newWorkspace = newState?.workspace;
-            const prevWorkspace = prevState?.workspace;
-            
-            // Only update if workspace state actually changed
-            if (JSON.stringify(newWorkspace) !== JSON.stringify(prevWorkspace)) {
-                this.log('Workspace state changed, updating panels');
-                this.handleStateChange(newWorkspace);
+        this.storeUnsubscribe = appStore.subscribe((newState, oldState) => {
+            if (newState.workspace !== oldState.workspace) {
+                this.handleStateChange(newState.workspace);
             }
         });
         

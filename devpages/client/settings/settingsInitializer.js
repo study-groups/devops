@@ -16,6 +16,7 @@ import { DevToolsPanel } from '/client/settings/panels/dev-tools/DevToolsPanel.j
 import { JavaScriptPanel } from '/client/settings/panels/javascript/JavaScriptPanel.js';
 import { CssFilesPanel } from '/client/settings/panels/CssFilesPanel/CssFilesPanel.js';
 import { DomInspectorDebugPanel } from '/client/settings/panels/dom-inspector/DomInspectorDebugPanel.js';
+import { StateDebugPanel } from '/client/settings/panels/state/StateDebugPanel.js';
 
 // Import Trees Panel
 import { TreesPanel } from '/client/panels/trees/TreesPanel.js';
@@ -121,7 +122,7 @@ export function initializePanels() {
     });
     
     panelRegistry.register('controller', {
-        title: 'Controller',
+        title: 'Controls',
         group: 'sidebar',
         icon: 'panel-manager',
         shortcut: 'Ctrl+Shift+L',
@@ -170,6 +171,14 @@ export function initializePanels() {
         title: 'DOM Inspector',
         group: 'debug',
         component: DomInspectorDebugPanel,
+        defaultCollapsed: false,
+        isVisible: true,
+    });
+
+    panelRegistry.register('state-debug', {
+        title: 'State',
+        group: 'debug',
+        component: StateDebugPanel,
         defaultCollapsed: false,
         isVisible: true,
     });

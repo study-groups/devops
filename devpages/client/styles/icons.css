@@ -53,3 +53,10 @@
 .icon-folder-closed { -webkit-mask-image: url('/client/styles/icons/folder-closed.svg'); mask-image: url('/client/styles/icons/folder-closed.svg'); }
 .icon-folder-open { -webkit-mask-image: url('/client/styles/icons/folder-open.svg'); mask-image: url('/client/styles/icons/folder-open.svg'); }
 .icon-file-generic { -webkit-mask-image: url('/client/styles/icons/file-generic.svg'); mask-image: url('/client/styles/icons/file-generic.svg'); } 
+
+/* Icons for panel manager header */
+.icon-focus-mode { -webkit-mask-image: url('/client/styles/icons/focus-mode.svg?v=2'); mask-image: url('/client/styles/icons/focus-mode.svg?v=2'); }
+.icon-tabbed-mode { -webkit-mask-image: url('/client/styles/icons/tabbed-mode.svg?v=1'); mask-image: url('/client/styles/icons/tabbed-mode.svg?v=1'); } 
+.icon-collapse-all { -webkit-mask-image: url('/client/styles/icons/collapse-all.svg'); mask-image: url('/client/styles/icons/collapse-all.svg'); } 
+.icon-settings { -webkit-mask-image: url('/client/styles/icons/settings.svg'); mask-image: url('/client/styles/icons/settings.svg'); }
+.icon-reset { -webkit-mask-image: url('/client/styles/icons/reset.svg'); mask-image: url('/client/styles/icons/reset.svg'); }

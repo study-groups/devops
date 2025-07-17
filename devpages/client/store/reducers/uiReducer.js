@@ -50,7 +50,10 @@ export const uiReducer = createReducer({}, {
   },
   
   [ActionTypes.UI_TOGGLE_LOG_VISIBILITY]: (state) => {
+    console.log('[uiReducer] UI_TOGGLE_LOG_VISIBILITY called with state:', state);
+    console.log('[uiReducer] Current logVisible:', state.logVisible);
     const newState = { ...state, logVisible: !state.logVisible };
+    console.log('[uiReducer] New logVisible:', newState.logVisible);
     persisters.logVisible(newState);
     return newState;
   },
