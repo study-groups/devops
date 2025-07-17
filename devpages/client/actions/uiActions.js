@@ -1,11 +1,10 @@
 /**
  * UI action handlers
- * Responsible for UI operations like view mode changes and log operations
+ * Responsible for UI interactions like view modes, log panel, etc.
  */
+import { logMessage } from '/client/log/index.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { uiActions } from '/client/messaging/actionCreators.js';
-import { refreshPreview as refreshPreviewFunction } from '/client/previewManager.js';
-import eventBus from '/client/eventBus.js';
 
 // Helper for logging within this module
 function logAction(message, level = 'debug') {
@@ -20,191 +19,193 @@ function logAction(message, level = 'debug') {
 
 export const uiActionHandlers = {
     /**
-     * Sets the view mode (editor, preview, or split)
-     * @param {Object} data - Data containing the viewMode
+     * Sets the view mode using thunks
+     * @param {string} mode - View mode ('preview', 'split', 'editor')
      */
-    setView: (data) => {
-        console.log('[DEBUG actions.js] setView action triggered. Data:', data);
-        const mode = data.viewMode;
-        if (mode && ['editor', 'preview', 'split'].includes(mode)) { // Validate mode
-            logAction(`Triggering setView: ${mode}`);
-            // Use the action creator for cleaner state management
-            dispatch(uiActions.setViewMode(mode));
-            logAction(`Dispatched UI_SET_VIEW_MODE with mode: ${mode}`);
-        } else {
-            logAction(`setView triggered with invalid or missing viewMode: ${mode}`, 'warning');
-            console.warn('[DEBUG actions.js] setView called with invalid/missing viewMode data.', data);
-        }
+    setView: (mode) => {
+        logAction(`Triggering setView action for mode: ${mode}`);
+        
+        // Use the thunk action creator
+        dispatch(uiActions.setViewModeAsync(mode));
+        
+        logAction(`setView executed for mode: ${mode}`);
     },
 
     /**
-     * Refreshes the preview panel
+     * Refreshes the preview using thunks
      */
     refreshPreview: () => {
-        console.log('[Action] refreshPreview triggered');
-        try {
-            refreshPreviewFunction();
-        } catch (error) {
-            console.error('[Action refreshPreview ERROR]', error);
-        }
+        logAction('Triggering refreshPreview action...');
+        
+        // Use the thunk action creator
+        dispatch(uiActions.refreshPreview());
+        
+        logAction('refreshPreview executed');
     },
 
     /**
-     * Copies the current log content to clipboard
+     * Copies log content to clipboard
      */
-    copyLog: async () => {
+    copyLog: () => {
+        logAction('Triggering copyLog action...');
+        
         try {
-            window.logPanel?.copyLog(); 
-        } catch (e) { 
-            logAction(`copyLog failed: ${e.message}`, 'error'); 
+            const logPanel = document.querySelector('#log-panel');
+            if (logPanel) {
+                const logContent = logPanel.textContent || logPanel.innerText;
+                navigator.clipboard.writeText(logContent).then(() => {
+                    logAction('Log content copied to clipboard');
+                }).catch(err => {
+                    logAction(`Failed to copy log content: ${err.message}`, 'error');
+                });
+            } else {
+                logAction('Log panel not found', 'warning');
+            }
+        } catch (error) {
+            logAction(`Error during copyLog: ${error.message}`, 'error');
         }
     },
 
     /**
      * Clears the log panel
      */
-    clearLog: async () => {
+    clearLog: () => {
+        logAction('Triggering clearLog action...');
+        
         try {
-            window.logPanel?.clearLog();
-        } catch (e) { 
-            logAction(`clearLog failed: ${e.message}`, 'error'); 
+            const logPanel = document.querySelector('#log-panel');
+            if (logPanel) {
+                logPanel.innerHTML = '';
+                logAction('Log panel cleared');
+            } else {
+                logAction('Log panel not found', 'warning');
+            }
+        } catch (error) {
+            logAction(`Error during clearLog: ${error.message}`, 'error');
         }
     },
 
     /**
-     * Toggles the log panel visibility
+     * Toggles log visibility using thunks
      */
-    toggleLogVisibility: async () => { 
-        logAction('Triggering toggleLogVisibility via dispatch...');
-        try {
-            dispatch(uiActions.toggleLogVisibility());
-        } catch (e) {
-            logAction(`toggleLogVisibility dispatch failed: ${e.message}`, 'error');
-        }
+    toggleLogVisibility: () => {
+        logAction('Triggering toggleLogVisibility action...');
+        
+        // Use the thunk action creator
+        dispatch(uiActions.toggleLogVisibilityAsync());
+        
+        logAction('toggleLogVisibility executed');
     },
 
     /**
      * Minimizes the log panel
      */
-    minimizeLog: async () => {
-        logAction('Triggering minimizeLog via dispatch...');
+    minimizeLog: () => {
+        logAction('Triggering minimizeLog action...');
+        
         try {
-            dispatch(uiActions.setLogVisibility(false));
-        } catch (e) {
-            logAction(`minimizeLog dispatch failed: ${e.message}`, 'error');
+            const logPanel = document.querySelector('#log-panel');
+            if (logPanel) {
+                logPanel.style.height = '30px';
+                logPanel.style.overflow = 'hidden';
+                logAction('Log panel minimized');
+            } else {
+                logAction('Log panel not found', 'warning');
+            }
+        } catch (error) {
+            logAction(`Error during minimizeLog: ${error.message}`, 'error');
         }
     },
 
     /**
      * Shows system information
      */
-    showSystemInfo: async () => {
+    showSystemInfo: () => {
+        logAction('Triggering showSystemInfo action...');
+        
         try {
-            window.dev?.showAppInfo?.();
-        } catch (e) { 
-            logAction(`showSystemInfo/showAppInfo failed: ${e.message}`, 'error'); 
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                screenSize: `${screen.width}x${screen.height}`,
+                windowSize: `${window.innerWidth}x${window.innerHeight}`,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('System Information:', info);
+            logAction('System information logged to console');
+        } catch (error) {
+            logAction(`Error during showSystemInfo: ${error.message}`, 'error');
         }
     },
 
     /**
-     * Toggles the log menu
+     * Toggles log menu using thunks
      */
     toggleLogMenu: () => {
-        logAction('Triggering toggleLogMenu...');
+        logAction('Triggering toggleLogMenu action...');
+        
+        // Use the thunk action creator
+        dispatch(uiActions.toggleLogMenuAsync());
+        
+        logAction('toggleLogMenu executed');
+    },
+
+    /**
+     * Copies a specific log entry to clipboard
+     * @param {string} entryText - Log entry text to copy
+     */
+    copyLogEntry: (entryText) => {
+        logAction('Triggering copyLogEntry action...');
+        
         try {
-            dispatch(uiActions.toggleLogMenu());
-        } catch (e) {
-            logAction(`toggleLogMenu dispatch failed: ${e.message}`, 'error');
+            navigator.clipboard.writeText(entryText).then(() => {
+                logAction('Log entry copied to clipboard');
+            }).catch(err => {
+                logAction(`Failed to copy log entry: ${err.message}`, 'error');
+            });
+        } catch (error) {
+            logAction(`Error during copyLogEntry: ${error.message}`, 'error');
         }
     },
 
     /**
-     * Copies text content of a log entry
+     * Pastes text from clipboard to log
      */
-    copyLogEntry: async (data, element) => {
-        if (!element) {
-            logAction('copyLogEntry failed: No element provided.', 'error');
-            return;
-        }
-        const logEntryDiv = element.closest('.log-entry');
-        const textSpan = logEntryDiv?.querySelector('.log-entry-text');
-        if (textSpan?.textContent) {
-            try {
-                await navigator.clipboard.writeText(textSpan.textContent);
-                logAction('Log entry copied to clipboard.');
-                // Optional: Show brief feedback
-                const originalText = element.textContent;
-                element.textContent = '✓';
-                setTimeout(() => { element.textContent = originalText; }, 1000);
-            } catch (err) {
-                logAction(`Failed to copy log entry: ${err}`, 'error');
-            }
-        } else {
-            logAction('Could not find text content for log entry.', 'warning');
+    pasteLogEntry: () => {
+        logAction('Triggering pasteLogEntry action...');
+        
+        try {
+            navigator.clipboard.readText().then(text => {
+                const logPanel = document.querySelector('#log-panel');
+                if (logPanel) {
+                    const entry = document.createElement('div');
+                    entry.textContent = `[PASTED] ${text}`;
+                    logPanel.appendChild(entry);
+                    logAction('Text pasted to log panel');
+                } else {
+                    logAction('Log panel not found', 'warning');
+                }
+            }).catch(err => {
+                logAction(`Failed to paste log entry: ${err.message}`, 'error');
+            });
+        } catch (error) {
+            logAction(`Error during pasteLogEntry: ${error.message}`, 'error');
         }
     },
 
     /**
-     * Pastes a log entry into the editor
+     * Applies initial UI state using thunks
      */
-    pasteLogEntry: (data, element) => {
-        if (!element || element.tagName !== 'BUTTON') {
-            logAction(`pasteLogEntry failed: Expected button element, got ${element?.tagName}.`, 'error');
-            return;
-        }
-        const buttonElement = element;
-        const logText = buttonElement.dataset.logText;
-
-        if (logText === undefined || logText === null) {
-            logAction('Paste failed: logText is undefined or null.', 'error');
-            return;
-        }
-        if (logText.trim() === '') {
-            logAction('Paste failed: logText is empty or whitespace.', 'warning');
-            return;
-        }
-
-        try {
-            const editorTextArea = document.querySelector('#editor-container textarea'); 
-            if (!editorTextArea) {
-                logAction('Paste failed: Editor textarea element not found.', 'error');
-                alert('Editor is not available to paste into.');
-                return;
-            }
-
-            logAction(`Attempting to insert text into editor...`, 'debug');
-            const start = editorTextArea.selectionStart;
-            const end = editorTextArea.selectionEnd;
-            
-            editorTextArea.focus();
-            editorTextArea.setSelectionRange(start, end);
-            
-            const success = document.execCommand('insertText', false, logText);
-            if (!success) {
-                logAction('execCommand insertText failed. Pasting may not be undoable.', 'warning');
-                throw new Error('document.execCommand("insertText") failed');
-            }
-            
-            logAction('Log entry pasted into editor.');
-            
-            if (eventBus) {
-                logAction('Emitting editor:contentChanged to trigger preview update.', 'debug');
-                eventBus.emit('editor:contentChanged', { content: editorTextArea.value });
-            } else {
-                logAction('eventBus not available, cannot trigger preview update.', 'warning');
-            }
-
-            // Feedback
-            const originalText = buttonElement.textContent;
-            buttonElement.textContent = '✓';
-            buttonElement.classList.add('pasted-feedback');
-            setTimeout(() => { 
-                buttonElement.textContent = originalText;
-                buttonElement.classList.remove('pasted-feedback');
-            }, 1500);
-        } catch (err) {
-            logAction(`Error during text insertion: ${err}`, 'error');
-            console.error("Paste Log Entry Error:", err);
-        }
+    applyInitialUIState: () => {
+        logAction('Triggering applyInitialUIState action...');
+        
+        // Use the thunk action creator
+        dispatch(uiActions.applyInitialUIState());
+        
+        logAction('applyInitialUIState executed');
     }
 }; 

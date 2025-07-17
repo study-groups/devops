@@ -3,7 +3,8 @@
  * Centralized application state management using statekit.
  */
 
-import { createStore } from '/client/store/statekit.js';
+import { statekit } from '/node_modules/devpages/dist/index.esm.js';
+const { createStore, createLogger, createThunk, createDevTools } = statekit;
 import { mainReducer } from '/client/store/reducer.js'; // Import mainReducer
 
 export const ActionTypes = {
@@ -529,7 +530,23 @@ const initialAppState = {
 // --- Export the Central Application Store ---
 // The appStore is the single source of truth for application state.
 // Other modules should subscribe to this store for state changes.
-const store = createStore(mainReducer, initialAppState);
+const store = createStore(
+    mainReducer, 
+    initialAppState,
+    [
+        // Add Redux-style middleware
+        createLogger({ 
+            collapsed: true, 
+            duration: true,
+            timestamp: true 
+        }),
+        createThunk(), // Enable async actions
+        createDevTools({ 
+            maxAge: 50, // Keep last 50 actions
+            name: 'DevPages StateKit DevTools'
+        })
+    ]
+);
 
 export const appStore = store;
 

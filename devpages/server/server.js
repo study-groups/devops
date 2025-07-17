@@ -212,6 +212,9 @@ app.use('/client', (req, res, next) => {
 // --- NEW: Add static serving for the /public directory ---
 app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
+// --- Add static serving for node_modules (for npm packages) ---
+app.use('/node_modules', express.static(path.join(projectRoot, 'node_modules'), staticOptions));
+
 // --- Other static routes ---
 app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));
 

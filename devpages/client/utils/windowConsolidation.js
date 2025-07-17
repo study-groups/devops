@@ -77,7 +77,10 @@ class DevPagesConsolidator {
         
         this.migrationMap.set('pubsub', 'devpages.utils.pubsub');
         this.migrationMap.set('importModule', 'devpages.utils.modules.importModule');
-        this.migrationMap.set('importAlias', 'devpages.utils.modules.importAlias');
+        // Remove or update the importAlias migration as it is now obsolete
+        // this.migrationMap.set('importAlias', 'devpages.utils.modules.importAlias');
+        // If migration is needed, point to ModuleResolver instead:
+        this.migrationMap.set('ModuleResolver', 'devpages.utils.modules.ModuleResolver');
         this.migrationMap.set('getTimingHistory', 'devpages.utils.timing.getHistory');
         this.migrationMap.set('clearTimingHistory', 'devpages.utils.timing.clearHistory');
         
@@ -209,7 +212,11 @@ class DevPagesConsolidator {
 const devpagesConsolidator = new DevPagesConsolidator();
 
 // Make consolidator available globally for debugging
-window.devpages._internal.consolidator = devpagesConsolidator;
+if (window.devpages && window.devpages._internal) {
+    window.devpages._internal.consolidator = devpagesConsolidator;
+} else {
+    console.warn('[DevPages] Window consolidation not properly initialized');
+}
 
 // Export for module usage
 export default devpagesConsolidator; 

@@ -11,8 +11,10 @@
     "@aws-sdk/client-cloudfront": "^3.840.0",
     "@aws-sdk/client-s3": "^3.782.0",
     "@aws-sdk/s3-request-presigner": "^3.802.0",
+    "@reduxjs/toolkit": "^2.8.2",
     "basic-auth": "^2.0.1",
     "cookie-parser": "^1.4.7",
+    "devpages": "github:study-groups/devpages-package",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
@@ -29,7 +31,15 @@
     "watch:css": "tailwindcss -i client/tailwind.css -o client/output.css --watch",
     "use-tailwind-v3": "npm uninstall tailwindcss @tailwindcss/cli && npm install -D tailwindcss@^3 postcss@^8 autoprefixer@^10 && echo 'Remember to check/restore postcss.config.js for v3!'",
     "use-tailwind-v4": "npm uninstall tailwindcss postcss autoprefixer && npm install -D tailwindcss@^4 @tailwindcss/cli@^4 && echo 'Remember to check/remove postcss.config.js if using v4 defaults!'",
-    "setup-test-users": "node tests/setupTestUsers.js"
+    "setup-test-users": "node tests/setupTestUsers.js",
+    "package:build": "cd packages/devpages-statekit && npm run build",
+    "package:dev": "cd packages/devpages-statekit && npm run dev",
+    "package:test": "cd packages/devpages-statekit && npm test",
+    "package:update": "echo 'Package updates now handled via npm install'",
+    "package:check": "node -e \"import('devpages/dist/index.esm.js').then(pkg => console.log('✅ DevPages package working:', Object.keys(pkg.statekit)))\"",
+    "devpages:build": "npm run package:build",
+    "devpages:update": "npm run package:build && npm run package:update",
+    "devpages:dev": "npm run package:dev"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
