@@ -6,7 +6,8 @@
 
 import FilterManager from '../../utils/FilterManager.js';
 import { LogManager } from '/client/log/LogManager.js';
-import { settingsRegistry } from '../../core/settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { ConsoleLogManager } from '/client/log/ConsoleLogManager.js';
 
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {
@@ -39,9 +40,18 @@ function logConsolePanel(message, level = 'info') {
 }
 
 export class ConsoleLogPanel {
-  constructor(container) {
+  constructor(container, consoleLogManager = null) {
     this.container = container;
     this._boundUpdateBufferedView = this._updateBufferedViewAndStatus.bind(this); // Bound once
+    
+    // Get console log manager instance - prefer injected, fallback to window, create new if needed
+    this.consoleLogManager = consoleLogManager || 
+                            (typeof window !== 'undefined' && window.consoleLogManager) || 
+                            new ConsoleLogManager();
+    
+    // Also get the app log manager for hybrid system
+    this.appLogManager = (typeof window !== 'undefined' && window.logManager) || 
+                        new LogManager();
     
     // Initialize container references
     this.typesContainer = null;
@@ -630,17 +640,37 @@ export class ConsoleLogPanel {
       return;
     }
     
-    if (typeof window.getDiscoveredTypes !== 'function') {
-      console.error('window.getDiscoveredTypes is not a function:', typeof window.getDiscoveredTypes);
-      this.typesContainer.textContent = 'Error: getDiscoveredTypes function not found';
-      return;
-    }
+        // Try to get discovered types from either logging system
+    let discoveredTypes = [];
     
-    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type/subtype filter display');
+    // Try console log manager first
+    if (this.consoleLogManager && 
+        this.consoleLogManager.buffer && 
+        typeof this.consoleLogManager.buffer.getDiscoveredTypes === 'function') {
+      discoveredTypes = this.consoleLogManager.buffer.getDiscoveredTypes();
+      panelOriginalConsole.debug('[ConsoleLogPanel] Using ConsoleLogManager for discovered types');
+    }
+    // Fallback to app log manager
+    else if (this.appLogManager && 
+             this.appLogManager.buffer && 
+             typeof this.appLogManager.buffer.getDiscoveredTypes === 'function') {
+      discoveredTypes = this.appLogManager.buffer.getDiscoveredTypes();
+      panelOriginalConsole.debug('[ConsoleLogPanel] Using AppLogManager for discovered types');
+    }
+    // Fallback to window.discoveredTypes Set
+    else if (typeof window !== 'undefined' && window.discoveredTypes) {
+      discoveredTypes = Array.from(window.discoveredTypes);
+      panelOriginalConsole.debug('[ConsoleLogPanel] Using window.discoveredTypes Set');
+    }
+    // Last resort - return some default types
+    else {
+      discoveredTypes = ['GENERAL', 'USER', 'API', 'SYSTEM', 'ERROR'];
+      panelOriginalConsole.debug('[ConsoleLogPanel] Using default types - no logging system available');
+    }
+
+    panelOriginalConsole.debug('[ConsoleLogPanel] Refreshing type filter display');
     
     this.typesContainer.innerHTML = ''; // Clear existing content
-    
-    const discoveredTypes = window.getDiscoveredTypes();
     
     const includeTypes = new Set(FilterManager.getIncludeTypes());
     const excludeTypes = new Set(FilterManager.getExcludeTypes());
@@ -822,10 +852,9 @@ export class ConsoleLogPanel {
   }
 }
 
-// Register this panel with the registry
-settingsRegistry.register({
+panelRegistry.register({
   id: 'console-log-panel',
-  title: 'Console',
+  title: 'Console Log Options',
   component: ConsoleLogPanel,
-  defaultCollapsed: true,
+  defaultCollapsed: true
 });

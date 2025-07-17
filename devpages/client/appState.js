@@ -1,17 +1,36 @@
 /**
- * client/state/appState.js
- * Centralized application state management using statekit.
+ * client/appState.js
+ * Centralized application state management using StateKit with createSlice
  */
 
-import { statekit } from '/node_modules/devpages/dist/index.esm.js';
-const { createStore, createLogger, createThunk, createDevTools } = statekit;
-import { mainReducer } from '/client/store/reducer.js'; // Import mainReducer
+// Import from local statekit package to get DevTools support
+import { createStore, createLogger, createThunk, createDevpagesTools } from '/packages/devpages-statekit/src/index.js';
 
+// Import the new slices
+import { logReducer } from '/client/store/slices/logSlice.js';
+import { authSlice } from '/client/store/slices/authSlice.js';
+import panelPersistenceMiddleware from '/client/store/middleware/panelPersistence.js';
+import { settingsSlice } from './store/slices/settingsSlice.js';
+import { publishSlice } from './store/slices/publishSlice.js';
+import { previewSlice } from './store/slices/previewSlice.js';
+
+// Import existing reducers
+import { mainReducer } from '/client/store/reducer.js';
+
+// Export ActionTypes for backward compatibility
 export const ActionTypes = {
-    // Auth Actions
-    AUTH_SET_STATE: 'auth/setState',
+    // Auth Actions (now use auth slice)
+    AUTH_SET_INITIALIZING: 'auth/setInitializing',
+    AUTH_SET_AUTH_CHECKED: 'auth/setAuthChecked',
     AUTH_LOGIN_SUCCESS: 'auth/loginSuccess',
     AUTH_LOGOUT: 'auth/logout',
+    AUTH_SET_ERROR: 'auth/setError',
+    AUTH_CLEAR_ERROR: 'auth/clearError',
+    AUTH_UPDATE_USER: 'auth/updateUser',
+    AUTH_SET_PERMISSIONS: 'auth/setPermissions',
+    
+    // Legacy auth actions for backward compatibility
+    AUTH_SET_STATE: 'auth/setState',
     AUTH_INITIALIZING: 'auth/setInitializing',
     AUTH_ERROR: 'auth/setError',
 
@@ -28,15 +47,22 @@ export const ActionTypes = {
     UI_TOGGLE_LOG_MENU: 'ui/toggleLogMenu',
     UI_APPLY_INITIAL_STATE: 'ui/applyInitialState',
 
-    // Log Panel Actions
+    // Log Panel Actions (UI related)
     LOG_PANEL_SET_SELECTION_STATE: 'logPanel/setSelectionState',
     LOG_PANEL_SET_ACTIVE_FENCE: 'logPanel/setActiveFence',
 
-    // Log Filtering Actions
-    LOG_INIT_TYPES: 'log/initTypes',
-    LOG_SET_FILTERS: 'log/setFilters',
+    // Log Actions (now use log slice)
+    LOG_ADD_ENTRY: 'log/addEntry',
+    LOG_CLEAR_ENTRIES: 'log/clearEntries',
+    LOG_SET_ACTIVE_FILTERS: 'log/setActiveFilters',
     LOG_TOGGLE_FILTER: 'log/toggleFilter',
-    LOG_CLEAR: 'log/clear',
+    LOG_SET_SEARCH_TERM: 'log/setSearchTerm',
+    LOG_INITIALIZE_TYPES: 'log/initializeTypes',
+
+    // Legacy log actions for backward compatibility
+    LOG_INIT_TYPES: 'log/initializeTypes',
+    LOG_SET_FILTERS: 'log/setActiveFilters',
+    LOG_CLEAR: 'log/clearEntries',
 
     // Panel Management Actions
     PANEL_REGISTER: 'panels/register',
@@ -52,19 +78,21 @@ export const ActionTypes = {
     STATE_UPDATE: 'app/stateUpdate',
 };
 
+// Storage keys
 const LOG_VISIBLE_KEY = 'log_panel_visible';
 const LOG_HEIGHT_KEY = 'log_panel_height';
 const PLUGINS_STATE_KEY = 'pluginsFullState';
-// <<< NEW: Keys for persisting SmartCopy buffers >>>
-export const SMART_COPY_A_KEY = 'smartCopyBufferA';
-export const SMART_COPY_B_KEY = 'smartCopyBufferB';
-// <<< Key for persisting preview CSS file list >>>
 const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
-const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css'; // <<< NEW KEY
-const VIEW_MODE_KEY = 'appViewMode'; // <<< ADDED: Key for persisting viewMode
+const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css';
+const VIEW_MODE_KEY = 'appViewMode';
 const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
 const WORKSPACE_STATE_KEY = 'devpages_workspace_state';
 
+// Export these for backward compatibility with existing imports
+export const SMART_COPY_A_KEY = 'smartCopyBufferA';
+export const SMART_COPY_B_KEY = 'smartCopyBufferB';
+
+// Helper functions for initial state
 function getInitialUiState() {
     const DEFAULT_LOG_HEIGHT = 200;
     let logVisible = false;
@@ -92,14 +120,13 @@ function getInitialUiState() {
     }
 
     return {
-        viewMode: getInitialViewMode(), // Keep existing view mode logic
+        viewMode: getInitialViewMode(),
         logVisible,
         logHeight,
         logMenuVisible: false,
     };
 }
 
-// <<< ADDED: Helper to load viewMode from localStorage >>>
 function getInitialViewMode() {
     try {
         const storedViewMode = localStorage.getItem(VIEW_MODE_KEY);
@@ -111,22 +138,20 @@ function getInitialViewMode() {
     } catch (e) {
         console.error('[AppState] Error reading viewMode from localStorage:', e);
     }
-    return 'preview'; // Default to 'preview' (rendered page) if not explicitly stored, invalid, or on error
+    return 'preview';
 }
 
-// <<< ADDED: Helper to load workspace state from localStorage >>>
 function getInitialWorkspaceState() {
     const defaults = {
         sidebar: { width: 280, visible: true },
-        editor: { width: 50, visible: true }, // percentage
-        preview: { width: 50, visible: true }, // percentage
+        editor: { width: 50, visible: true },
+        preview: { width: 50, visible: true },
     };
 
     try {
         const storedState = localStorage.getItem(WORKSPACE_STATE_KEY);
         if (storedState) {
             const parsed = JSON.parse(storedState);
-            // Basic validation
             if (parsed && parsed.sidebar && parsed.editor && parsed.preview) {
                  return {
                     ...defaults,
@@ -143,19 +168,31 @@ function getInitialWorkspaceState() {
     return defaults;
 }
 
-// --- Enhanced Data-Driven Plugin Configuration ---
+function getInitialSelectedOrg() {
+    try {
+        const storedValue = localStorage.getItem('devpages_selected_org');
+        if (storedValue && typeof storedValue === 'string') {
+            console.log(`[AppState] Loaded selected org from localStorage: '${storedValue}'`);
+            return storedValue;
+        }
+    } catch(e) {
+        console.error('[AppState] Error reading selected org from localStorage:', e);
+    }
+    console.log('[AppState] Defaulting selected org to "pixeljam-arcade".');
+    return 'pixeljam-arcade';
+}
+
+const middlewares = [createThunk(), createLogger(), createDevpagesTools()];
+
+middlewares.push(panelPersistenceMiddleware);
+
+// Enhanced Data-Driven Plugin Configuration
 export const defaultPluginsConfig = {
     'mermaid': {
         name: "Mermaid Diagrams",
-        // Module loading configuration
         module: '/client/preview/plugins/mermaid/index.js',
         exportName: 'MermaidPlugin',
-        // Plugin settings
-        defaultState: {
-            enabled: true,
-            theme: 'default',
-        },
-        // UI generation manifest
+        defaultState: { enabled: true, theme: 'default' },
         settingsManifest: [
             { key: 'enabled', label: 'Enable Mermaid', type: 'toggle' },
             { key: 'theme', label: 'Theme', type: 'select', options: ['default', 'forest', 'dark', 'neutral'] }
@@ -173,10 +210,9 @@ export const defaultPluginsConfig = {
     },
     'katex': {
         name: "KaTeX Math Rendering",
-        // Special handling for external CDN module
         module: 'https://esm.sh/markdown-it-katex@latest',
         exportName: 'default',
-        type: 'markdown-it-plugin', // Special type for markdown-it plugins
+        type: 'markdown-it-plugin',
         defaultState: { enabled: true },
         settingsManifest: [
             { key: 'enabled', label: 'Enable KaTeX', type: 'toggle' }
@@ -193,49 +229,42 @@ export const defaultPluginsConfig = {
     }
 };
 
-// --- Helper to load FULL plugin state from localStorage --- 
 function getInitialPluginsState() {
     const initialFullState = {};
 
-    // Initialize with defaults from defaultPluginsConfig
     for (const pluginId in defaultPluginsConfig) {
         if (Object.prototype.hasOwnProperty.call(defaultPluginsConfig, pluginId)) {
             initialFullState[pluginId] = {
-                name: defaultPluginsConfig[pluginId].name, // Keep name for display
-                settings: { ...defaultPluginsConfig[pluginId].defaultState }, // Actual configurable settings
-                settingsManifest: defaultPluginsConfig[pluginId].settingsManifest // UI rendering info
+                name: defaultPluginsConfig[pluginId].name,
+                settings: { ...defaultPluginsConfig[pluginId].defaultState },
+                settingsManifest: defaultPluginsConfig[pluginId].settingsManifest
             };
         }
     }
 
     try {
         const storedValue = localStorage.getItem(PLUGINS_STATE_KEY);
-
         if (storedValue) {
             const parsedStoredPlugins = JSON.parse(storedValue);
-
             if (typeof parsedStoredPlugins === 'object' && parsedStoredPlugins !== null) {
                 for (const pluginId in initialFullState) {
                     if (Object.prototype.hasOwnProperty.call(initialFullState, pluginId) &&
                         Object.prototype.hasOwnProperty.call(parsedStoredPlugins, pluginId) &&
                         typeof parsedStoredPlugins[pluginId].settings === 'object') {
                         
-                        // Merge stored settings with defaults, ensuring all default keys are present
                         const defaultPluginSettings = defaultPluginsConfig[pluginId].defaultState;
                         const storedPluginSettings = parsedStoredPlugins[pluginId].settings;
                         
                         const mergedSettings = { ...defaultPluginSettings };
                         for (const settingKey in defaultPluginSettings) {
                             if (Object.prototype.hasOwnProperty.call(storedPluginSettings, settingKey) &&
-                                typeof storedPluginSettings[settingKey] === typeof defaultPluginSettings[settingKey]) { // Basic type check
+                                typeof storedPluginSettings[settingKey] === typeof defaultPluginSettings[settingKey]) {
                                 mergedSettings[settingKey] = storedPluginSettings[settingKey];
                             }
                         }
                         initialFullState[pluginId].settings = mergedSettings;
                     }
                 }
-            } else {
-                console.warn('[AppState] Parsed plugin state from localStorage is not a valid object.');
             }
         }
     } catch (error) {
@@ -245,18 +274,16 @@ function getInitialPluginsState() {
     return initialFullState;
 }
 
-// --- Helper to load configured CSS files (Handles new object structure) ---
 function getInitialPreviewCssFiles() {
     try {
         const storedValue = localStorage.getItem(PREVIEW_CSS_FILES_KEY);
         if (storedValue) {
             const parsed = JSON.parse(storedValue);
-            // Validate: Is it an array? Does each item have path (string) and enabled (boolean)?
             if (Array.isArray(parsed) && parsed.every(item =>
                 item && typeof item.path === 'string' && typeof item.enabled === 'boolean'
             )) {
                 console.log('[AppState] Loaded preview CSS config from localStorage:', parsed);
-                return parsed; // Return validated array of objects
+                return parsed;
             } else {
                  console.warn('[AppState] Invalid preview CSS config structure found in localStorage. Using default empty array.');
             }
@@ -264,130 +291,37 @@ function getInitialPreviewCssFiles() {
     } catch(e) {
         console.error('[AppState] Error reading preview CSS config from localStorage:', e);
     }
-    return []; // Default to empty array
+    return [];
 }
 
-// --- Helper to load root CSS enabled state ---
 function getInitialEnableRootCss() {
     try {
         const storedValue = localStorage.getItem(ENABLE_ROOT_CSS_KEY);
-        if (storedValue === 'false') { // Only disable if explicitly stored as false
+        if (storedValue === 'false') {
             console.log('[AppState] Loaded root CSS state (disabled) from localStorage.');
             return false;
         }
     } catch(e) {
         console.error('[AppState] Error reading root CSS enabled state from localStorage:', e);
     }
-    // Default to true if not stored, invalid, or error
     console.log('[AppState] Defaulting root CSS to enabled.');
     return true;
 }
 
-// Helper to get initial org selection from localStorage
-function getInitialSelectedOrg() {
-    try {
-        const storedValue = localStorage.getItem('devpages_selected_org');
-        if (storedValue && typeof storedValue === 'string') {
-            console.log(`[AppState] Loaded selected org from localStorage: '${storedValue}'`);
-            return storedValue;
-        }
-    } catch(e) {
-        console.error('[AppState] Error reading selected org from localStorage:', e);
-    }
-    // Default to pixeljam-arcade
-    console.log('[AppState] Defaulting selected org to "pixeljam-arcade".');
-    return 'pixeljam-arcade';
-}
-
-// Helper function to load settings panel state from localStorage
-function getInitialSettingsPanelState() {
-  const defaults = {
-    visible: false,  // ✅ Use 'visible', not 'enabled'
-    position: { x: 50, y: 50 },
-    size: { width: 380, height: 550 },
-    collapsedSections: {},
-  };
-
-  try {
-    const storedState = localStorage.getItem('devpages_settings_panel_state');
-    if (storedState) {
-      const parsed = JSON.parse(storedState);
-      // Basic validation
-      if (parsed && typeof parsed.visible === 'boolean' &&
-          typeof parsed.position === 'object' && parsed.position !== null &&
-          typeof parsed.size === 'object' && parsed.size !== null &&
-          typeof parsed.collapsedSections === 'object' && parsed.collapsedSections !== null) {
-        return { ...defaults, ...parsed };
-      }
-    }
-  } catch (e) {
-    console.error('[AppState] Error reading settings panel state from localStorage:', e);
-  }
-  return defaults;
-}
-
-// Helper for log state
-function getInitialLogState() {
-    const defaultLogState = {
-        entries: [], // Array of log entries { message, level, type, timestamp }
-        discoveredTypes: [], // List of all unique types seen
-        activeFilters: [], // Filters applied to display, e.g., ['level:error', 'type:AUTH']
-        searchTerm: '', // Text to search within log messages
-        isInitialized: false, // Flag to ensure default filters are set only once
-    };
-
-    // No localStorage persistence for log entries or discovered types,
-    // as they are ephemeral and rebuilt on each session.
-    // Filters and search term could be persisted if desired.
-
-    return defaultLogState;
-}
-
-// Helper to load panels state from localStorage
-const PANELS_STATE_KEY = 'devpages_panels_state';
-const SIDEBAR_PANELS_STATE_KEY = 'devpages_sidebar_panels_state';
-
 function getInitialPanelsState() {
+    const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state';
     const defaults = {
-        // Main workspace panels
-        editor: { visible: true, width: 50 },
-        preview: { visible: true, width: 50 },
-        sidebar: { visible: true, width: 280 },
-        
-        // Sidebar panels state
-        sidebarPanels: {
-            // UI state for each sidebar panel
-            'files': { visible: true, collapsed: false, order: 1 },
-            'panel-manager': { visible: true, collapsed: false, order: 0 },
-            'published-summary': { visible: true, collapsed: false, order: 2 },
-            'context': { visible: true, collapsed: false, order: 3 },
-            'tokens': { visible: true, collapsed: false, order: 4 },
-            'controller': { visible: false, collapsed: false, order: 5 },
-        },
-        
-        // Panel instances cache (not persisted)
-        instances: {}, // Will be populated at runtime
-        
-        // Panel registry cache (not persisted)
-        registry: {}, // Will be populated at runtime
+        visible: false,
+        position: { x: 100, y: 100 },
+        size: { width: 800, height: 600 },
+        collapsedSections: {},
+        collapsedSubsections: {}
     };
 
     try {
-        const storedState = localStorage.getItem(PANELS_STATE_KEY);
+        const storedState = localStorage.getItem(SETTINGS_PANEL_STATE_KEY);
         if (storedState) {
-            const parsed = JSON.parse(storedState);
-            // Basic validation for main panel visibility
-            if (parsed && typeof parsed.editor === 'object' && typeof parsed.preview === 'object' &&
-                typeof parsed.sidebar === 'object') {
-                return {
-                    ...defaults,
-                    editor: { ...defaults.editor, ...(parsed.editor || {}) },
-                    preview: { ...defaults.preview, ...(parsed.preview || {}) },
-                    sidebar: { ...defaults.sidebar, ...(parsed.sidebar || {}) },
-                    // Merge sidebar panels state
-                    sidebarPanels: { ...defaults.sidebarPanels, ...(parsed.sidebarPanels || {}) },
-                };
-            }
+            return { ...defaults, ...JSON.parse(storedState) };
         }
     } catch (e) {
         console.error('[AppState] Error reading panels state from localStorage:', e);
@@ -395,16 +329,15 @@ function getInitialPanelsState() {
     return defaults;
 }
 
-// Helper to load DOM Inspector state from localStorage
 function getInitialDomInspectorState() {
     const defaults = {
         visible: false,
-        elementDetails: null, // Stores details of the currently inspected element
-        highlightedElement: null, // Selector for the element currently highlighted on page
-        isPicking: false, // Whether the user is in element picking mode
-        position: { x: 100, y: 100 }, // Panel position
-        size: { width: 800, height: 600 }, // Panel size
-        splitPosition: 33, // Tree/details split position
+        elementDetails: null,
+        highlightedElement: null,
+        isPicking: false,
+        position: { x: 100, y: 100 },
+        size: { width: 800, height: 600 },
+        splitPosition: 33,
         highlight: {
             enabled: true,
             color: '#007bff',
@@ -425,7 +358,6 @@ function getInitialDomInspectorState() {
     return defaults;
 }
 
-// Helper to load Debug Panel state from localStorage
 function getInitialDebugPanelState() {
     const defaults = {
         visible: false,
@@ -440,7 +372,6 @@ function getInitialDebugPanelState() {
             { id: 'storage', title: 'Storage', visible: false, order: 5, enabled: false }
         ],
         activePanel: 'state',
-        // Start with all visible panels collapsed by default
         collapsedSections: ['state', 'dom-inspector']
     };
     
@@ -467,94 +398,116 @@ function getInitialPreviewMode() {
     } catch (e) {
         console.error('[AppState] Error loading preview mode from localStorage:', e);
     }
-    return 'markdown'; // Default to markdown
+    return 'markdown';
 }
 
+// Enhanced reducer combiner that includes the new slices
+function combineReducers(slices) {
+    return (state = {}, action) => {
+        const nextState = {};
+        let hasChanged = false;
 
-// --- Initial Application State ---
+        // Handle slices created with StateKit createSlice
+        for (const [sliceName, sliceReducer] of Object.entries(slices)) {
+            if (typeof sliceReducer === 'function') {
+                const sliceState = sliceReducer(state[sliceName], action);
+                if (sliceState !== state[sliceName]) {
+                    hasChanged = true;
+                }
+                nextState[sliceName] = sliceState;
+            }
+        }
+
+        // Handle other slices with mainReducer
+        const otherState = { ...state };
+        // Remove slices that are handled by createSlice
+        for (const sliceName of Object.keys(slices)) {
+            delete otherState[sliceName];
+        }
+        
+        const updatedOtherState = mainReducer(otherState, action);
+        
+        // Check if other state changed
+        for (const key in updatedOtherState) {
+            if (updatedOtherState[key] !== state[key]) {
+                hasChanged = true;
+            }
+            nextState[key] = updatedOtherState[key];
+        }
+
+        return hasChanged ? nextState : state;
+    };
+}
+
+// Initial Application State (only for slices not handled by createSlice)
 const initialAppState = {
-    auth: {
-        isAuthenticated: false,
-        user: null,
-        authChecked: false, // To indicate if initial auth check has completed
-    },
+    // Note: auth and log state are now managed by their respective slices
     file: {
-        currentPathname: null, // Path of the currently selected file
-        currentContent: '',    // Content of the currently selected file
-        isDirectorySelected: true, // If the current selection is a directory
-        isInitialized: false, // Has the file system been loaded?
-        currentListing: null, // Current directory listing
-        parentListing: null,  // Parent directory listing
-        availableTopLevelDirs: [], // For initial folder selection
-        currentOrg: getInitialSelectedOrg(), // Selected org for the file system
-        error: null, // Any error related to file operations
+        currentPathname: null,
+        currentContent: '',
+        isDirectorySelected: true,
+        isInitialized: false,
+        currentListing: null,
+        parentListing: null,
+        availableTopLevelDirs: [],
+        currentOrg: getInitialSelectedOrg(),
+        error: null,
     },
     ui: getInitialUiState(),
-    // Enhanced plugin state with full configs and default states
     plugins: getInitialPluginsState(),
     settings: {
         preview: {
             cssFiles: getInitialPreviewCssFiles(),
             enableRootCss: getInitialEnableRootCss(),
         },
-        // Other settings can be added here
     },
     smartCopy: {
         bufferA: localStorage.getItem(SMART_COPY_A_KEY) || '',
         bufferB: localStorage.getItem(SMART_COPY_B_KEY) || '',
     },
-    settingsPanel: getInitialSettingsPanelState(),
-    logFiltering: {
-        discoveredTypes: [],
-        activeFilters: [],
-        isInitialized: false,
-        defaultFilters: {
-            // Pre-define default types that might not appear in initial logs
-            'API': 'API',
-            'EVENT': 'EVENT',
-            'STATE': 'STATE',
-        }
-    },
+    panels: getInitialPanelsState(),
     logPanel: {
         selectionStateA: null,
         selectionStateB: null,
-        activeCodeFenceBuffer: null, // can be 'A' or 'B'
+        activeCodeFenceBuffer: null,
     },
-    panels: getInitialPanelsState(), // Centralized panel visibility and dimensions
-    domInspector: getInitialDomInspectorState(), // DOM Inspector state
-    debugPanel: getInitialDebugPanelState(), // Debug Panel state
-    workspace: getInitialWorkspaceState(), // Workspace layout state
-    previewMode: getInitialPreviewMode(), // 'markdown' or 'html'
+    domInspector: getInitialDomInspectorState(),
+    debugPanel: getInitialDebugPanelState(),
+    workspace: getInitialWorkspaceState(),
+    previewMode: getInitialPreviewMode(),
 };
 
-// --- Export the Central Application Store ---
-// The appStore is the single source of truth for application state.
-// Other modules should subscribe to this store for state changes.
-const store = createStore(
-    mainReducer, 
-    initialAppState,
-    [
-        // Add Redux-style middleware
-        createLogger({ 
-            collapsed: true, 
-            duration: true,
-            timestamp: true 
-        }),
-        createThunk(), // Enable async actions
-        createDevTools({ 
-            maxAge: 50, // Keep last 50 actions
-            name: 'DevPages StateKit DevTools'
-        })
-    ]
+// --- This is a placeholder for a true combineReducers if you use one ---
+// For now, we'll merge the slice reducers into the mainReducer logic
+// This part assumes mainReducer is structured to handle this.
+// A more standard Redux setup would use a `combineReducers` function.
+
+const rootReducer = (state, action) => {
+    // Run the main reducer first
+    const intermediateState = mainReducer(state, action);
+
+    // Then, run each slice reducer on its part of the state
+    return {
+        ...intermediateState,
+        log: logReducer(intermediateState.log, action),
+        auth: authSlice.reducer(intermediateState.auth, action),
+        settings: settingsSlice.reducer(intermediateState.settings, action),
+        publish: publishSlice.reducer(intermediateState.publish, action),
+        preview: previewSlice.reducer(intermediateState.preview, action),
+        // Add other slice reducers here...
+    };
+};
+
+
+// --- Store Creation ---
+// Create the Redux store
+export const appStore = createStore(
+    rootReducer,
+    undefined, // Initial state is handled by reducers
+    middlewares
 );
 
-export const appStore = store;
-
-// Make appStore available globally for components that need it
-if (typeof window !== 'undefined') {
-    window.appStore = store;
-}
-export const dispatch = store.dispatch;
+export const dispatch = appStore.dispatch;
 
 // Add backward-compatible update function
 appStore.update = function(updater) {
@@ -563,17 +516,4 @@ appStore.update = function(updater) {
     dispatch({ type: ActionTypes.STATE_UPDATE, payload: newState });
 };
 
-// <<< IMPORTANT: DO NOT add appStore.subscribe blocks here that dispatch actions.
-// This creates a circular dependency and is an anti-pattern.
-// All state transformations should happen within reducers.
-// Persistence logic for localStorage is handled within appState.js,
-// which is acceptable as it's not dispatching actions to the store itself.
-// This file is purely for defining the store and initial state.
-// Any logic that needs to react to state changes and dispatch new actions
-// should live in separate modules (e.g., action handlers, components).
-// Refer to the mainReducer for how state changes are processed.
-// Refer to individual components (like PreviewPanel) for how they subscribe to state.
-// Refer to fileActions.js for how actions are defined and dispatched.
-// >>>
-
-console.log('[AppState] Central store initialized.'); 
+console.log('[AppState] Central store initialized with log and auth slices.'); 

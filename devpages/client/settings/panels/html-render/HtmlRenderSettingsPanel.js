@@ -3,9 +3,13 @@
  * Panel for configuring HTML rendering settings.
  */
 
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { e } from '/client/components/elements.js';
+import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { appStore } from '/client/appState.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 
-class HtmlRenderSettingsPanel {
+export class HtmlRenderSettingsPanel {
     constructor(container) {
         this.container = container;
         this.id = 'html-render-settings-panel';
@@ -54,5 +58,10 @@ class HtmlRenderSettingsPanel {
     }
 }
 
-// Self-register the panel with the settings registry
-settingsSectionRegistry.register(HtmlRenderSettingsPanel.getRegistration()); 
+// Register this panel with the registry
+panelRegistry.register({
+    id: 'html-render-settings',
+    title: 'HTML Rendering',
+    component: HtmlRenderSettingsPanel,
+    defaultCollapsed: true
+}); 

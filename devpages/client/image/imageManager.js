@@ -1,4 +1,3 @@
-import { schedulePreviewUpdate } from "/client/preview/markdown.js";
 import { globalFetch } from "/client/globalFetch.js";
 import { withAuthHeaders } from '/client/headers.js';
 import { eventBus } from '/client/eventBus.js';
@@ -66,7 +65,7 @@ export async function undoLastImageOperation() {
         }
     }
 
-    schedulePreviewUpdate();
+    // schedulePreviewUpdate(); // REMOVED: PreviewPanel manages its own updates
     logImage('Undid last image operation');
 }
 
@@ -189,11 +188,6 @@ export async function uploadImage(file) {
                 if (imageOperationsStack.length > MAX_UNDO_STACK) {
                     imageOperationsStack.shift();
                 }
-            }
-            
-            // Update preview if function exists
-            if (typeof schedulePreviewUpdate === 'function') {
-                schedulePreviewUpdate();
             }
             
             // Update image index if function exists

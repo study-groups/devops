@@ -307,9 +307,11 @@ client/
 │   │   └── audio-md.js          # Audio integration
 │   └── renderers/
 │       └── MarkdownRenderer.js  # Core markdown processing
-├── panels/types/
-│   └── PreviewPanel.js          # Panel integration
-└── settings/
+├── panels/
+│   ├── core/
+│   ├── renderers/
+│   ├── styles/
+├── settings/
     └── PreviewSettingsPanel.js  # Interactive preview controls
 ```
 

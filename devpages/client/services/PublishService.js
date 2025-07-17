@@ -3,27 +3,19 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
-import { parseFrontmatter } from '/client/preview/utils/frontmatterParser.js';
 import { globalFetch } from '/client/globalFetch.js';
+import { marked } from 'https://cdn.jsdelivr.net/npm/marked@4.0.12/lib/marked.esm.js';
 
 class PublishService {
   /**
    * Generate clean HTML for publishing (THE SINGLE SOURCE OF TRUTH)
    */
   async generatePublishHtml(markdownContent, filePath, options = {}) {
-    const { frontMatter, body } = parseFrontmatter(markdownContent);
-    
-    // Render markdown using existing renderer
-    const renderResult = await renderMarkdown(body, filePath);
-    
-    const title = frontMatter.title || filePath?.replace(/\.md$/, '') || 'Document';
-    
-    // Clean, minimal CSS - NO DOM SCRAPING
+    const title = filePath?.replace(/\.md$/, '') || 'Document';
+    const htmlContent = marked.parse(markdownContent);
+    const finalHtmlContent = await this.embedImagesAsBase64(htmlContent);
     const baseCSS = await this.getBaseCss();
-    
-    const finalHtmlContent = await this.embedImagesAsBase64(renderResult.html);
-    
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -31,8 +23,6 @@ class PublishService {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
     <meta name="generator" content="DevPages Publisher">
-    ${frontMatter.description ? `<meta name="description" content="${frontMatter.description}">` : ''}
-    
     <style>
 ${baseCSS}
     </style>

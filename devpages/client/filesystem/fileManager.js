@@ -9,7 +9,6 @@ import * as fileSystemState from './fileSystemState.js'; // Handles loading init
 import { appStore } from '/client/appState.js';
 import { api } from '/client/api.js'; // Use refactored API
 import { pathJoin, getParentPath, getFilename } from '/client/utils/pathUtils.js';
-import { renderMarkdown } from '/client/preview/renderers/MarkdownRenderer.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
@@ -147,18 +146,16 @@ async function handleAuthStateChangeForFileManager(newState, prevState) {
     const isLoggedIn = newState.auth.isAuthenticated;
     const isAuthInitializing = newState.auth.isInitializing;
 
-    // The subscription is now specific, so we can remove the complex trigger reason logic.
-    logFileManager(`[AUTH_CHANGE_HANDLER] Called. isLoggedIn: ${isLoggedIn}, wasLoggedIn: ${wasLoggedIn}, isAuthInitializing: ${isAuthInitializing}`, 'debug');
-
+    // Reduced verbose logging - only log when state actually changes
     if (isAuthInitializing) {
-        logFileManager('[AUTH_CHANGE_HANDLER] Auth is initializing. Waiting.', 'debug');
+        // Silent during initialization to prevent spam
         return; 
     }
 
     if (!wasLoggedIn && isLoggedIn) {
         logFileManager("[AUTH_CHANGE_HANDLER] User authenticated. Triggering initial file data load.", 'info');
         await loadInitialFileData();
-        logFileManager("[AUTH_CHANGE_HANDLER] Finished awaiting loadInitialFileData in auth change handler.", 'debug');
+        // Removed debug logging to prevent spam
     } else if (wasLoggedIn && !isLoggedIn) {
         logFileManager("[AUTH_CHANGE_HANDLER] User logged out. Resetting file manager state.", 'info');
         resetFileManagerState();

@@ -3,8 +3,8 @@
  * Integrates with existing appStore/reducer architecture
  */
 
-import { appStore, ActionTypes } from '/client/appState.js';
-import { panelRegistry } from '/client/panels/core/panelRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { appStore } from '/client/appState.js';
 
 export class PanelStateManager {
     constructor() {
@@ -30,96 +30,53 @@ export class PanelStateManager {
     }
 
     /**
-     * Register a panel with the state manager
+     * Register a panel using StateKit thunks
+     * @param {string} panelId - Panel ID to register
+     * @param {object} config - Panel configuration
      */
-    registerPanel(panelId, config) {
-        // Store in registry first
-        panelRegistry.register(panelId, config);
-        
-        // Update centralized state
-        this.store.dispatch({
-            type: ActionTypes.PANEL_REGISTER,
-            payload: { panelId, config }
-        });
-    }
-
-    /**
-     * Unregister a panel
-     */
-    unregisterPanel(panelId) {
-        panelRegistry.unregister(panelId);
-        
-        this.store.dispatch({
-            type: ActionTypes.PANEL_UNREGISTER,
-            payload: { panelId }
-        });
-    }
-
-    /**
-     * Get or create a panel instance
-     */
-    getOrCreateInstance(panelId) {
-        const state = this.store.getState();
-        const existingInstance = state.panels.instances[panelId];
-        
-        if (existingInstance) {
-            return existingInstance;
+    async registerPanel(panelId, config) {
+        try {
+            console.log(`[PanelStateManager] Registering panel: ${panelId}`);
+            
+            // Import the StateKit thunk
+            const { registerPanel } = await import('/client/store/slices/panelSlice.js');
+            
+            // Dispatch the thunk with proper parameters
+            const result = await this.store.dispatch(registerPanel({ panelId, config }));
+            
+            if (result.error) {
+                throw new Error(`Failed to register panel ${panelId}: ${result.error.message}`);
+            }
+            
+            console.log(`[PanelStateManager] Panel registered successfully: ${panelId}`);
+            return result.payload;
+            
+        } catch (error) {
+            console.error(`[PanelStateManager] Error registering panel ${panelId}:`, error);
+            throw error;
         }
-        
-        // Create new instance
-        const panelConfig = state.panels.registry[panelId];
-        if (!panelConfig) {
-            throw new Error(`Panel ${panelId} not registered`);
+    }
+
+    /**
+     * Unregister a panel using StateKit thunk pattern
+     * @param {string} panelId - Panel identifier to unregister
+     */
+    async unregisterPanel(panelId) {
+        try {
+            // Import the StateKit thunk
+            const { unregisterPanel } = await import('/client/store/slices/panelSlice.js');
+            
+            // Dispatch the StateKit thunk
+            const result = await this.store.dispatch(unregisterPanel(panelId));
+            
+            if (result.meta.requestStatus === 'fulfilled') {
+                console.log(`[PanelStateManager] Successfully unregistered panel: ${panelId}`);
+            } else {
+                throw new Error(result.error?.message || 'Panel unregistration failed');
+            }
+        } catch (error) {
+            console.error(`[PanelStateManager] Error unregistering panel ${panelId}:`, error);
         }
-        
-        let instance;
-        if (panelConfig.panelClass) {
-            instance = new panelConfig.panelClass();
-        } else if (panelConfig.instance) {
-            instance = panelConfig.instance;
-        } else if (panelConfig.createInstance) {
-            instance = panelConfig.createInstance();
-        } else {
-            throw new Error(`Panel ${panelId} has no way to create instance`);
-        }
-        
-        // Store the instance
-        this.store.dispatch({
-            type: ActionTypes.PANEL_SET_INSTANCE,
-            payload: { panelId, instance }
-        });
-        
-        return instance;
-    }
-
-    /**
-     * Set panel visibility
-     */
-    setPanelVisible(panelId, visible) {
-        this.store.dispatch({
-            type: ActionTypes.PANEL_SET_VISIBLE,
-            payload: { panelId, visible }
-        });
-    }
-
-    /**
-     * Set panel collapsed state
-     */
-    setPanelCollapsed(panelId, collapsed) {
-        this.store.dispatch({
-            type: ActionTypes.PANEL_SET_COLLAPSED,
-            payload: { panelId, collapsed }
-        });
-    }
-
-    /**
-     * Set panel order
-     */
-    setPanelOrder(panelId, order) {
-        this.store.dispatch({
-            type: ActionTypes.PANEL_SET_ORDER,
-            payload: { panelId, order }
-        });
     }
 
     /**
@@ -157,26 +114,6 @@ export class PanelStateManager {
     getPanelInstance(panelId) {
         const state = this.store.getState();
         return state.panels.instances[panelId];
-    }
-
-    /**
-     * Clear panel instance (for cleanup)
-     */
-    clearPanelInstance(panelId) {
-        this.store.dispatch({
-            type: ActionTypes.PANEL_CLEAR_INSTANCE,
-            payload: { panelId }
-        });
-    }
-
-    /**
-     * Force save current state
-     */
-    saveState() {
-        this.store.dispatch({
-            type: ActionTypes.PANEL_SAVE_STATE,
-            payload: {}
-        });
     }
 
     /**

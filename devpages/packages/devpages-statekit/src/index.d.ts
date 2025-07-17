@@ -43,4 +43,12 @@ export function createLogger(options?: LoggerOptions): Middleware;
 /**
  * Creates a thunk middleware for handling async actions.
  */
-export function createThunk(): Middleware; 
+export function createThunk(): Middleware;
+
+/**
+ * Creates an async thunk action creator (Redux Toolkit-style).
+ */
+export function createAsyncThunk<Returned, ThunkArg = void>(
+    type: string,
+    payloadCreator: (arg: ThunkArg, thunkAPI: { dispatch: any; getState: any; requestId: string }) => Promise<Returned>
+): (arg: ThunkArg) => (dispatch: any, getState: any) => Promise<{ payload: Returned; meta: any }>; 

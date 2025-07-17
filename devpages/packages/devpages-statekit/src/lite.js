@@ -53,7 +53,10 @@ export function createStore(reducer, initialState, middleware = []) {
             const prevState = state;
             const newState = reducer(state, action);
             if (newState !== prevState) {
-                console.debug('[StateKitLite] State updating DEBUG]', { action: action.type, prevState, newState });
+                // Skip debug logging for log entry actions to reduce noise
+                if (action.type !== 'log/addEntry' && action.type !== 'LOG_ADD_ENTRY') {
+                    console.debug('[StateKitLite] State updating DEBUG]', { action: action.type, prevState, newState });
+                }
                 state = newState;
                 listeners.forEach(listener => {
                     try {
@@ -106,10 +109,16 @@ export function createLogger(options = {}) {
         collapsed = true,
         duration = false,
         timestamp = true,
-        colors = true
+        colors = true,
+        excludeActions = [] // Array of action types to exclude from logging
     } = options;
 
     return ({ getState }) => next => action => {
+        // Skip logging for excluded action types
+        if (excludeActions.includes(action.type)) {
+            return next(action);
+        }
+
         const prevState = getState();
         const startTime = Date.now();
         if (console.groupCollapsed) {

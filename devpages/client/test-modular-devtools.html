@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular DevTools Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .test-header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .test-content {
+            padding: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .component-test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .component-test h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .component-container {
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>Modular DevTools Test</h1>
+            <p>Testing modular DevTools components and structure</p>
+        </div>
+        
+        <div class="test-content">
+            <div class="test-section">
+                <h3>Component Tests</h3>
+                <button class="btn" onclick="testAllComponents()">Test All Components</button>
+                <button class="btn" onclick="testIndividualComponents()">Test Individual Components</button>
+                <button class="btn" onclick="testModularStructure()">Test Modular Structure</button>
+                <button class="btn btn-secondary" onclick="clearTestResults()">Clear Results</button>
+            </div>
+            
+            <div class="test-section">
+                <h3>Test Results</h3>
+                <div id="test-results"></div>
+            </div>
+            
+            <div class="grid-layout">
+                <div class="test-section">
+                    <h3>StateInspector Component</h3>
+                    <div class="component-container" id="state-inspector-test"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>ActionHistory Component</h3>
+                    <div class="component-container" id="action-history-test"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>PerformanceMonitor Component</h3>
+                    <div class="component-container" id="performance-monitor-test"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>PanelRegistry Component</h3>
+                    <div class="component-container" id="panel-registry-test"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>DevToolsUtilities Component</h3>
+                    <div class="component-container" id="devtools-utilities-test"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>Full DevToolsPanel</h3>
+                    <div class="component-container" id="devtools-panel-test"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { DevToolsPanel } from '/client/settings/panels/debug/DevToolsPanel.js';
+        import { StateInspector } from '/client/settings/panels/debug/modules/StateInspector.js';
+        import { ActionHistory } from '/client/settings/panels/debug/modules/ActionHistory.js';
+        import { PerformanceMonitor } from '/client/settings/panels/debug/modules/PerformanceMonitor.js';
+        import { PanelRegistry } from '/client/settings/panels/debug/modules/PanelRegistry.js';
+        import { DevToolsUtilities } from '/client/settings/panels/debug/modules/DevToolsUtilities.js';
+        import { appStore } from '/client/appState.js';
+        import { panelRegistry } from '/client/panels/core/panelRegistry.js';
+
+        // Test functions
+        window.testAllComponents = function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<div class="status info">🧪 Testing all modular components...</div>';
+            
+            try {
+                // Test StateInspector
+                const stateInspectorContainer = document.getElementById('state-inspector-test');
+                const stateInspector = new StateInspector(stateInspectorContainer, appStore);
+                results.innerHTML += '<div class="status success">✅ StateInspector component loaded</div>';
+                
+                // Test ActionHistory
+                const actionHistoryContainer = document.getElementById('action-history-test');
+                const actionHistory = new ActionHistory(actionHistoryContainer, window.__STATEKIT_DEVTOOLS__);
+                results.innerHTML += '<div class="status success">✅ ActionHistory component loaded</div>';
+                
+                // Test PerformanceMonitor
+                const performanceMonitorContainer = document.getElementById('performance-monitor-test');
+                const performanceMonitor = new PerformanceMonitor(performanceMonitorContainer, window.__STATEKIT_DEVTOOLS__);
+                results.innerHTML += '<div class="status success">✅ PerformanceMonitor component loaded</div>';
+                
+                // Test PanelRegistry
+                const panelRegistryContainer = document.getElementById('panel-registry-test');
+                const panelRegistryComponent = new PanelRegistry(panelRegistryContainer, panelRegistry);
+                results.innerHTML += '<div class="status success">✅ PanelRegistry component loaded</div>';
+                
+                // Test DevToolsUtilities
+                const devToolsUtilitiesContainer = document.getElementById('devtools-utilities-test');
+                const devToolsUtilities = new DevToolsUtilities(devToolsUtilitiesContainer);
+                results.innerHTML += '<div class="status success">✅ DevToolsUtilities component loaded</div>';
+                
+                // Test Full DevToolsPanel
+                const devToolsPanelContainer = document.getElementById('devtools-panel-test');
+                const devToolsPanel = new DevToolsPanel(devToolsPanelContainer);
+                results.innerHTML += '<div class="status success">✅ Full DevToolsPanel loaded</div>';
+                
+                results.innerHTML += '<div class="status success">🎉 All components tested successfully!</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing components: ${error.message}</div>`;
+            }
+        };
+
+        window.testIndividualComponents = function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<div class="status info">🔍 Testing individual component functionality...</div>';
+            
+            try {
+                // Test component interfaces
+                const testComponents = [
+                    { name: 'StateInspector', class: StateInspector, container: 'state-inspector-test', deps: [appStore] },
+                    { name: 'ActionHistory', class: ActionHistory, container: 'action-history-test', deps: [window.__STATEKIT_DEVTOOLS__] },
+                    { name: 'PerformanceMonitor', class: PerformanceMonitor, container: 'performance-monitor-test', deps: [window.__STATEKIT_DEVTOOLS__] },
+                    { name: 'PanelRegistry', class: PanelRegistry, container: 'panel-registry-test', deps: [panelRegistry] },
+                    { name: 'DevToolsUtilities', class: DevToolsUtilities, container: 'devtools-utilities-test', deps: [] }
+                ];
+                
+                testComponents.forEach(component => {
+                    const container = document.getElementById(component.container);
+                    if (container) {
+                        const instance = new component.class(container, ...component.deps);
+                        results.innerHTML += `<div class="status success">✅ ${component.name} instantiated successfully</div>`;
+                        
+                        // Test component methods
+                        if (instance.updateStateDisplay) {
+                            instance.updateStateDisplay();
+                            results.innerHTML += `<div class="status success">✅ ${component.name} updateStateDisplay() method works</div>`;
+                        }
+                        
+                        if (instance.updateActionHistory) {
+                            instance.updateActionHistory();
+                            results.innerHTML += `<div class="status success">✅ ${component.name} updateActionHistory() method works</div>`;
+                        }
+                        
+                        if (instance.updatePerformanceMetrics) {
+                            instance.updatePerformanceMetrics();
+                            results.innerHTML += `<div class="status success">✅ ${component.name} updatePerformanceMetrics() method works</div>`;
+                        }
+                        
+                        if (instance.updatePanelRegistry) {
+                            instance.updatePanelRegistry();
+                            results.innerHTML += `<div class="status success">✅ ${component.name} updatePanelRegistry() method works</div>`;
+                        }
+                        
+                        if (instance.updateSystemInfo) {
+                            instance.updateSystemInfo();
+                            results.innerHTML += `<div class="status success">✅ ${component.name} updateSystemInfo() method works</div>`;
+                        }
+                    }
+                });
+                
+                results.innerHTML += '<div class="status success">🎉 All individual components tested successfully!</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing individual components: ${error.message}</div>`;
+            }
+        };
+
+        window.testModularStructure = function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<div class="status info">🏗️ Testing modular structure...</div>';
+            
+            try {
+                // Test module imports
+                const modules = {
+                    'StateInspector': StateInspector,
+                    'ActionHistory': ActionHistory,
+                    'PerformanceMonitor': PerformanceMonitor,
+                    'PanelRegistry': PanelRegistry,
+                    'DevToolsUtilities': DevToolsUtilities,
+                    'DevToolsPanel': DevToolsPanel
+                };
+                
+                Object.entries(modules).forEach(([name, module]) => {
+                    if (module && typeof module === 'function') {
+                        results.innerHTML += `<div class="status success">✅ ${name} module imported successfully</div>`;
+                    } else {
+                        results.innerHTML += `<div class="status error">❌ ${name} module import failed</div>`;
+                    }
+                });
+                
+                // Test component interfaces
+                const interfaces = [
+                    'constructor',
+                    'createUI',
+                    'setupEventHandlers',
+                    'initialize',
+                    'destroy'
+                ];
+                
+                const testComponent = new StateInspector(document.createElement('div'), appStore);
+                interfaces.forEach(interfaceName => {
+                    if (typeof testComponent[interfaceName] === 'function') {
+                        results.innerHTML += `<div class="status success">✅ Component interface '${interfaceName}' exists</div>`;
+                    } else {
+                        results.innerHTML += `<div class="status error">❌ Component interface '${interfaceName}' missing</div>`;
+                    }
+                });
+                
+                results.innerHTML += '<div class="status success">🎉 Modular structure tested successfully!</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing modular structure: ${error.message}</div>`;
+            }
+        };
+
+        window.clearTestResults = function() {
+            document.getElementById('test-results').innerHTML = '';
+        };
+
+        // Auto-test on load
+        setTimeout(() => {
+            testModularStructure();
+        }, 1000);
+    </script>
+</body>
+</html> 

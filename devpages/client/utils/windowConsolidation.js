@@ -69,11 +69,7 @@ class DevPagesConsolidator {
         
         this.migrationMap.set('uiComponents', 'devpages.ui.components');
 
-        
-        this.migrationMap.set('settingsRegistry', 'devpages.settings.registry');
-        this.migrationMap.set('panelRegistry', 'devpages.settings.panelRegistry');
-        this.migrationMap.set('settingsSectionRegistry', 'devpages.settings.registry');
-        this.migrationMap.set('previewSettingsPanel', 'devpages.settings.preview');
+        this.migrationMap.set('panelRegistry', 'devpages.settings.registry');
         
         this.migrationMap.set('pubsub', 'devpages.utils.pubsub');
         this.migrationMap.set('importModule', 'devpages.utils.modules.importModule');

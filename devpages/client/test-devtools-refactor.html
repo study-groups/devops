@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTools Refactor Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .test-header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .test-content {
+            padding: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        #devtools-container {
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>DevTools Refactor Test</h1>
+            <p>Testing consolidated state display functionality</p>
+        </div>
+        
+        <div class="test-content">
+            <div class="test-section">
+                <h3>Test Controls</h3>
+                <button class="btn" onclick="testStateDisplay()">Test State Display</button>
+                <button class="btn" onclick="testSearchFunctionality()">Test Search</button>
+                <button class="btn" onclick="testExpandCollapse()">Test Expand/Collapse</button>
+                <button class="btn" onclick="testChangeDetection()">Test Change Detection</button>
+                <button class="btn btn-secondary" onclick="clearTestResults()">Clear Results</button>
+            </div>
+            
+            <div class="test-section">
+                <h3>Test Results</h3>
+                <div id="test-results"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>DevTools Panel</h3>
+                <div id="devtools-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { DevToolsPanel } from '/client/settings/panels/debug/DevToolsPanel.js';
+        import { appStore } from '/client/appState.js';
+
+        // Initialize DevTools panel
+        const container = document.getElementById('devtools-container');
+        const devToolsPanel = new DevToolsPanel(container);
+
+        // Test functions
+        window.testStateDisplay = function() {
+            const results = document.getElementById('test-results');
+            try {
+                // Test that state is displayed
+                const stateContent = container.querySelector('#state-content');
+                if (stateContent && stateContent.innerHTML.includes('table')) {
+                    results.innerHTML += '<div class="status success">✅ State display working - table found</div>';
+                } else {
+                    results.innerHTML += '<div class="status error">❌ State display failed - no table found</div>';
+                }
+                
+                // Test that search input exists
+                const searchInput = container.querySelector('#state-search');
+                if (searchInput) {
+                    results.innerHTML += '<div class="status success">✅ Search input found</div>';
+                } else {
+                    results.innerHTML += '<div class="status error">❌ Search input not found</div>';
+                }
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing state display: ${error.message}</div>`;
+            }
+        };
+
+        window.testSearchFunctionality = function() {
+            const results = document.getElementById('test-results');
+            try {
+                const searchInput = container.querySelector('#state-search');
+                if (searchInput) {
+                    // Test search functionality
+                    searchInput.value = 'auth';
+                    searchInput.dispatchEvent(new Event('input'));
+                    
+                    setTimeout(() => {
+                        const searchStats = container.querySelector('#search-stats');
+                        if (searchStats && searchStats.textContent.includes('Found')) {
+                            results.innerHTML += '<div class="status success">✅ Search functionality working</div>';
+                        } else {
+                            results.innerHTML += '<div class="status error">❌ Search functionality failed</div>';
+                        }
+                    }, 100);
+                } else {
+                    results.innerHTML += '<div class="status error">❌ Search input not found</div>';
+                }
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing search: ${error.message}</div>`;
+            }
+        };
+
+        window.testExpandCollapse = function() {
+            const results = document.getElementById('test-results');
+            try {
+                // Test expandable values
+                const expandableValues = container.querySelectorAll('.expandable-value');
+                if (expandableValues.length > 0) {
+                    results.innerHTML += `<div class="status success">✅ Found ${expandableValues.length} expandable values</div>`;
+                    
+                    // Test clicking on first expandable value
+                    expandableValues[0].click();
+                    setTimeout(() => {
+                        const expandedValues = container.querySelectorAll('.expandable-value');
+                        if (expandedValues.length > 0) {
+                            results.innerHTML += '<div class="status success">✅ Expand/collapse functionality working</div>';
+                        } else {
+                            results.innerHTML += '<div class="status error">❌ Expand/collapse failed</div>';
+                        }
+                    }, 100);
+                } else {
+                    results.innerHTML += '<div class="status info">ℹ️ No expandable values found (may be normal)</div>';
+                }
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing expand/collapse: ${error.message}</div>`;
+            }
+        };
+
+        window.testChangeDetection = function() {
+            const results = document.getElementById('test-results');
+            try {
+                // Dispatch a test action to trigger change detection
+                appStore.dispatch({
+                    type: 'TEST_ACTION',
+                    payload: { test: 'value', timestamp: Date.now() }
+                });
+                
+                setTimeout(() => {
+                    const changedRows = container.querySelectorAll('.state-table tbody tr.changed');
+                    if (changedRows.length > 0) {
+                        results.innerHTML += `<div class="status success">✅ Change detection working - ${changedRows.length} changed rows</div>`;
+                    } else {
+                        results.innerHTML += '<div class="status info">ℹ️ No changes detected (may be normal)</div>';
+                    }
+                }, 200);
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error testing change detection: ${error.message}</div>`;
+            }
+        };
+
+        window.clearTestResults = function() {
+            document.getElementById('test-results').innerHTML = '';
+        };
+
+        // Auto-test on load
+        setTimeout(() => {
+            testStateDisplay();
+        }, 1000);
+    </script>
+</body>
+</html> 

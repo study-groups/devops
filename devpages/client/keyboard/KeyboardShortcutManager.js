@@ -3,7 +3,9 @@
  * @description Manages keyboard shortcuts for the application.
  */
 
-import { panelRegistry } from '/client/panels/core/panelRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { appStore } from '/client/appState.js';
+import { refreshPanels } from '/client/store/slices/panelSlice.js';
 
 export class KeyboardShortcutManager {
     constructor() {
@@ -103,9 +105,7 @@ export class KeyboardShortcutManager {
 
         // We need to tell the active PanelManager to re-render.
         // Using the global for now, but a proper event system would be better.
-        if (window.panelManager) {
-            window.panelManager.renderPanels();
-        }
+        appStore.dispatch(refreshPanels());
     }
 
     /**

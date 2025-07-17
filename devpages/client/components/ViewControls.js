@@ -84,7 +84,7 @@ function reloadAllCss() {
                 link.parentNode.insertBefore(newLink, link);
                 
                 reloadedCount++;
-                logMessage(`Reloading CSS: ${originalHref}`, 'debug', 'VIEW_CONTROLS');
+                // Removed debug logging to prevent spam
             }
         });
         
@@ -186,7 +186,7 @@ async function reloadAllCssSilent() {
                             }
                         }, 50);
                         reloadedCount++;
-                        logMessage(`Reloaded CSS: ${originalHref}`, 'debug', 'VIEW_CONTROLS');
+                        // Removed debug logging to prevent spam
                         linkResolve();
                     };
                     
@@ -204,7 +204,7 @@ async function reloadAllCssSilent() {
         
         // Process all links in parallel
         Promise.all(linkElements.map(processLink)).then(() => {
-            logMessage(`Reloaded ${reloadedCount} CSS files silently`, 'debug', 'VIEW_CONTROLS');
+            // Removed debug logging to prevent spam
             resolve();
         });
     });
@@ -326,28 +326,29 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
                     }, 600);
                     
                     // Debug logging for eventBus instances
-                    logMessage(`Debug: window.eventBus exists: ${!!window.eventBus}`, 'debug', 'VIEW_CONTROLS');
-                    logMessage(`Debug: window.eventBus.emit available: ${!!(window.eventBus && typeof window.eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
-                    logMessage(`Debug: imported eventBus exists: ${!!eventBus}`, 'debug', 'VIEW_CONTROLS');
-                    logMessage(`Debug: imported eventBus.emit available: ${!!(eventBus && typeof eventBus.emit === 'function')}`, 'debug', 'VIEW_CONTROLS');
+                            // Removed excessive debug logging to prevent spam
                     // Perform soft page reload - reload all CSS files
                     reloadAllCssSilent();
                     
                     // Trigger preview refresh using window.eventBus (to match PreviewPanel)
+                    // Debug information (only log in case of errors)
+                    if (!window.eventBus && !eventBus) {
+                        logMessage('Warning: Neither window.eventBus nor imported eventBus available for preview refresh', 'warn', 'VIEW_CONTROLS');
+                    }
+                    
+                    // Try to emit via window.eventBus first
                     if (window.eventBus && typeof window.eventBus.emit === 'function') {
-                        logMessage('Emitting preview:forceRefresh event via window.eventBus...', 'debug', 'VIEW_CONTROLS');
                         try {
                             window.eventBus.emit('preview:forceRefresh');
-                            logMessage('Preview force refresh event emitted successfully via window.eventBus', 'debug', 'VIEW_CONTROLS');
+                            // Only log success on errors, not every time
                         } catch (error) {
                             logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
                         }
                     } else if (eventBus && typeof eventBus.emit === 'function') {
-                        // Fallback to imported eventBus
-                        logMessage('Using imported eventBus as fallback...', 'debug', 'VIEW_CONTROLS');
+                        // Use imported eventBus as fallback
                         try {
                             eventBus.emit('preview:forceRefresh');
-                            logMessage('Preview force refresh event emitted via imported eventBus', 'debug', 'VIEW_CONTROLS');
+                            // Only log success on errors, not every time
                         } catch (error) {
                             logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
                         }

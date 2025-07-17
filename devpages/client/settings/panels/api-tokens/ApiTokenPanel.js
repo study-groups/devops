@@ -6,8 +6,10 @@
 import { appStore } from '/client/appState.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
-import { api } from '/client/api.js';
+import { e } from '/client/components/elements.js';
+import { api } from '/client/api/api.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { ApiTokenService } from '/client/services/ApiTokenService.js';
 
 function logApiToken(message, level = 'info') {
     const type = 'API_TOKEN';
@@ -391,12 +393,9 @@ export class ApiTokenPanel {
     }
 }
 
-// Expose instance globally for button callbacks
-let globalInstance = null;
-
 // Register this panel with the registry
-settingsSectionRegistry.register({
-    id: 'api-token-panel',
+panelRegistry.register({
+    id: 'api-tokens',
     title: 'API Tokens',
     component: ApiTokenPanel,
     defaultCollapsed: true,

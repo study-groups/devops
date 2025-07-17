@@ -1,6 +1,6 @@
 import { globalFetch } from '/client/globalFetch.js';
 import { logMessage } from '/client/log/index.js';
-import { SubPanel } from '/client/panels/core/SubPanel.js';
+import { SubPanel } from '/client/panels/SubPanel.js';
 
 // Helper to generate a color from a string.
 function stringToHslColor(str, s = 70, l = 50) {
@@ -12,7 +12,7 @@ function stringToHslColor(str, s = 70, l = 50) {
     return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
-export class PublishedSummaryPanel {
+export class PublishedSummaryPanel extends SubPanel {
     constructor() {
         this.container = null;
         this.contexts = [];

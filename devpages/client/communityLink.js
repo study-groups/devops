@@ -3,6 +3,8 @@
  * Handles functionality for the community link button
  */
 
+import { appStore } from '/client/appState.js';
+
 // Centralized logger function for this module
 function logCommunity(message, level = 'info') {
   const type = 'COMMUNITY';
@@ -44,15 +46,9 @@ export function initCommunityLink() {
  */
 function handleCommunityLink() {
   try {
-    // Get auth state from localStorage
-    const authStateStr = localStorage.getItem('authState');
-    if (!authStateStr) {
-      alert('Please log in to share with the community');
-      return;
-    }
-    
-    const authState = JSON.parse(authStateStr);
-    if (!authState || !authState.isLoggedIn) {
+    // Get auth state from appStore
+    const authState = appStore.getState().auth;
+    if (!authState || !authState.isAuthenticated) {
       alert('Please log in to share with the community');
       return;
     }
@@ -80,11 +76,10 @@ function handleCommunityLink() {
     
     // Confirm with user
     if (confirm(`Share "${currentFile}" with the community?`)) {
-      // Create authentication headers
-      const headers = {
-        'Authorization': `Basic ${btoa(`${authState.username}:${authState.hashedPassword}`)}`,
-        'Content-Type': 'application/json'
-      };
+          // Create authentication headers (using session cookies)
+    const headers = {
+      'Content-Type': 'application/json'
+    };
       
       // Save to Community Files
       fetch('/api/files/save', {

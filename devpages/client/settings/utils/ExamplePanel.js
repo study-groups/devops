@@ -5,7 +5,7 @@
  * This is a working example you can copy and modify!
  */
 
-import { panelRegistry } from '../core/panelRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 
 export class ExamplePanel {

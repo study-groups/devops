@@ -128,47 +128,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Cookie Parser Middleware
 app.use(cookieParser());
 
-// Session Middleware Configuration
-console.log('>>> [DEBUG] projectRoot for session path:', projectRoot); // Add this log
-const FileStoreSession = FileStore(session);
-app.set('trust proxy', 1); // Add this line before app.use(session(...))
-app.use(session({
-  name: 'devpages.sid',
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-for-prod',
-  resave: false, // Recommended: false
-  saveUninitialized: false, // Recommended: false
-  store: new FileStoreSession({ // 3. Configure the file store
-      path: path.join(projectRoot, '.sessions'), // Store sessions in project root/.sessions
-      logFn: console.log, // Optional: Log session store activity
-      ttl: 24 * 60 * 60 // Session TTL in seconds (e.g., 24 hours)
-  }),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // Keep this check
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-    sameSite: 'lax' // 'lax' is usually a good default
-  }
-}));
-
-// Passport middleware
-app.use(passport.initialize());
-app.use(passport.session());
-
-// ----- PASSPORT CONFIGURATION -----
-// Also uncomment the serialize/deserialize functions if they were commented
-passport.serializeUser((user, done) => {
-    console.log('[Passport serializeUser] Storing user identifier in session:', user.username);
-    done(null, user.username);
-});
-passport.deserializeUser((username, done) => {
-    console.log('[Passport deserializeUser] Retrieving user from session identifier:', username);
-    const user = { username: username };
-    done(null, user);
-});
-// ----- END PASSPORT CONFIGURATION -----
-
-console.log(`[SERVER] Using SESSION_SECRET: ${process.env.SESSION_SECRET || '!!! FALLBACK USED !!!'}`);
-
 // Configure multer (using imported 'uploadsDirectory')
 // Multer setup might be okay here, or move it after the static block if causing issues
 const storage = multer.diskStorage({
@@ -194,7 +153,7 @@ express.static.mime.define({
 
 const staticOptions = { followSymlinks: true };
 
-// --- /client Static Serving Block (KEEP THIS ACTIVE) ---
+// --- /client Static Serving Block (MOVE BEFORE AUTH) ---
 app.use('/client', (req, res, next) => {
     console.log(`[DEBUG] Middleware BEFORE static: Request for /client${req.path}`);
     next();
@@ -209,28 +168,35 @@ app.use('/client', (req, res, next) => {
 });
 // --- End /client Static Serving Block ---
 
+// --- Add static serving for config.js from project root (HIGH PRIORITY) ---
+app.get('/config.js', (req, res) => {
+    console.log(`[SERVER] Serving config.js from: ${path.join(projectRoot, 'config.js')}`);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(projectRoot, 'config.js'), (err) => {
+        if (err) {
+            console.error(`[SERVER] Error serving config.js:`, err);
+            res.status(500).send('Error loading config.js');
+        } else {
+            console.log(`[SERVER] Successfully served config.js`);
+        }
+    });
+});
+
 // --- NEW: Add static serving for the /public directory ---
 app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
+
+// --- Add static serving for the /packages directory ---
+app.use('/packages', express.static(path.join(projectRoot, 'packages'), staticOptions));
 
 // --- Add static serving for node_modules (for npm packages) ---
 app.use('/node_modules', express.static(path.join(projectRoot, 'node_modules'), staticOptions));
 
 // --- Other static routes ---
 app.use('/images', express.static(path.join(pdataInstance.dataRoot, 'images'), staticOptions));
+app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 
-// Ensure the uploads directory exists within the PD_DIR
-const absoluteUploadsPath = path.join(pdDir, 'uploads');
-if (!fsSync.existsSync(absoluteUploadsPath)) {
-    fsSync.mkdirSync(absoluteUploadsPath, { recursive: true });
-    console.log(`[SERVER] Created uploads directory at: ${absoluteUploadsPath}`);
-}
-app.use('/uploads', express.static(absoluteUploadsPath, staticOptions));
-console.log(`[SERVER] Serving /uploads from: ${absoluteUploadsPath}`);
-
+// --- Favicon serving ---
 app.use('/favicon.ico', express.static(path.join(currentDir, 'favicon.ico'), staticOptions));
-app.get('/config.js', (req, res) => {
-    res.sendFile(path.join(projectRoot, 'config.js'));
-});
 
 // --- REMOVE/COMMENT OUT the /md_static_content route IF IT WAS ADDED ---
 /*
@@ -319,23 +285,85 @@ console.log(`[SERVER] REMOVING/COMMENTING OUT /md_static_content route`);
 
 // Application-specific directories within dataDir
 const appImagesDir = path.join(pdataInstance.dataRoot, 'images');
-// Ensure application directories exist
-// Note: fs operations moved inside startServer() as they are async
-// try {
-//     if (!fsSync.existsSync(appImagesDir)) {
-//         console.log(`[SERVER] Creating images directory: ${appImagesDir}`);
-//         await fs.mkdir(appImagesDir, { recursive: true }); // await needs async context
-//     }
-// } catch (error) {
-//     console.error(`[SERVER] Error creating application directories: ${error.message}`);
-//     process.exit(1);
-// }
+const appUploadsDir = path.join(pdataInstance.dataRoot, 'uploads');
 
-// Middleware to attach PData instance to requests (KEEP THIS)
-app.use((req, res, next) => {
+// Ensure directories exist
+try {
+    await fs.mkdir(appImagesDir, { recursive: true });
+    await fs.mkdir(appUploadsDir, { recursive: true });
+    console.log(`[SERVER] Ensured app directories exist: ${appImagesDir}, ${appUploadsDir}`);
+} catch (error) {
+    console.error(`[SERVER] Error creating app directories: ${error.message}`);
+}
+
+// --- PData Middleware (MOVE AFTER STATIC FILES) ---
+app.use(async (req, res, next) => {
     req.pdata = pdataInstance;
     next();
 });
+
+// --- Session and Authentication Setup (MOVE AFTER STATIC FILES) ---
+// Use memory store for development to avoid session-file-store compatibility issues
+let sessionStore;
+try {
+    sessionStore = process.env.NODE_ENV === 'production' 
+        ? new FileStore({
+            path: path.join(pdataInstance.dataRoot, 'sessions'),
+            ttl: 86400, // 24 hours
+            reapInterval: 3600, // 1 hour
+            logFn: (message) => console.log(`[SESSION] ${message}`)
+        })
+        : new session.MemoryStore(); // Use memory store in development
+    console.log(`[SERVER] Session store initialized: ${process.env.NODE_ENV === 'production' ? 'FileStore' : 'MemoryStore'}`);
+} catch (error) {
+    console.warn(`[SERVER] Failed to initialize FileStore, falling back to MemoryStore: ${error.message}`);
+    sessionStore = new session.MemoryStore();
+}
+
+app.use(session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || 'devpages-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// --- Authentication Routes (MOVE AFTER STATIC FILES) ---
+app.use('/login', (req, res) => {
+    const redirectTo = req.query.redirectTo || '/';
+    res.sendFile(path.join(projectRoot, 'client', 'login.html'));
+});
+
+app.use('/logout', (req, res) => {
+    req.logout((err) => {
+        if (err) {
+            console.error('[SERVER] Logout error:', err);
+        }
+        res.redirect('/login');
+    });
+});
+
+// ----- PASSPORT CONFIGURATION -----
+// Also uncomment the serialize/deserialize functions if they were commented
+passport.serializeUser((user, done) => {
+    console.log('[Passport serializeUser] Storing user identifier in session:', user.username);
+    done(null, user.username);
+});
+passport.deserializeUser((username, done) => {
+    console.log('[Passport deserializeUser] Retrieving user from session identifier:', username);
+    const user = { username: username };
+    done(null, user);
+});
+// ----- END PASSPORT CONFIGURATION -----
+
+console.log(`[SERVER] Using SESSION_SECRET: ${process.env.SESSION_SECRET || '!!! FALLBACK USED !!!'}`);
 
 // Authentication middleware (ensure this runs AFTER session and PData attachment)
 // Apply auth middleware selectively or globally as needed
@@ -488,7 +516,7 @@ async function startServer() {
     app.use('/api/publish', authMiddleware, publishRouter); // <--- ADD THIS LINE
     app.use('/api/community', express.json(), authMiddleware, communityRoutes);
     
-    // Add unified CSS route
+    // Add unified CSS route (unprotected - CSS files should be publicly accessible)
     const cssRouter = (await import('./routes/css.js')).default;
     app.use('/css', cssRouter);
     // Legacy markdown route redirect - remove import if markdownRoutes isn't used elsewhere

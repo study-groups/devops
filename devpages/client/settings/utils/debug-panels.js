@@ -2,10 +2,11 @@
  * Debug utility to check what panels are currently registered
  * Run this in the browser console to see all registered panels
  */
+import { appStore } from '/client/appState.js';
 
 export function debugPanels() {
-    if (typeof window !== 'undefined' && window.settingsRegistry) {
-        const panels = window.settingsRegistry.getPanels();
+    if (typeof window !== 'undefined' && window.panelRegistry) {
+        const panels = window.panelRegistry.getAllPanels();
         console.group('🔧 Settings Panels Debug');
         console.log('Total registered panels:', panels.length);
         
@@ -16,14 +17,14 @@ export function debugPanels() {
         console.groupEnd();
         return panels;
     } else {
-        console.error('settingsRegistry not available');
+        console.error('panelRegistry not available');
         return [];
     }
 }
 
 function debugPanelStates() {
-    if (typeof window !== 'undefined' && window.settingsRegistry) {
-        const panels = window.settingsRegistry.getPanelsWithState();
+    if (typeof window !== 'undefined' && window.panelRegistry) {
+        const panels = window.panelRegistry.getPanelsWithState(appStore);
         console.group('🔧 Settings Panel States Debug');
         
         panels.forEach((panel, index) => {
@@ -33,7 +34,7 @@ function debugPanelStates() {
         console.groupEnd();
         return panels;
     } else {
-        console.error('settingsRegistry not available');
+        console.error('panelRegistry not available');
         return [];
     }
 }

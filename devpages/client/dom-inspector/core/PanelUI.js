@@ -376,10 +376,12 @@ export class PanelUI {
      * Update panel position
      */
     setPosition(position) {
-        if (!this.isDragging) {
+        if (!this.isDragging && position && typeof position.x === 'number' && typeof position.y === 'number') {
             this.panel.style.left = `${position.x}px`;
             this.panel.style.top = `${position.y}px`;
             this.currentPos = { ...position };
+        } else {
+            console.warn('[PanelUI] Invalid position provided to setPosition:', position);
         }
     }
 
@@ -387,10 +389,12 @@ export class PanelUI {
      * Update panel size
      */
     setSize(size) {
-        if (!this.isResizing) {
+        if (!this.isResizing && size && typeof size.width === 'number' && typeof size.height === 'number') {
             this.panel.style.width = `${size.width}px`;
             this.panel.style.height = `${size.height}px`;
             this.currentSize = { ...size };
+        } else {
+            console.warn('[PanelUI] Invalid size provided to setSize:', size);
         }
     }
 

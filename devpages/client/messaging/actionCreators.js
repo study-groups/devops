@@ -2,7 +2,7 @@ import { ActionTypes } from './actionTypes.js';
 import { dispatch } from './messageQueue.js';
 
 // Import thunks
-import { authThunks } from '/client/thunks/authThunks.js';
+import { authThunks } from '/client/store/slices/authSlice.js';
 import { fileThunks } from '/client/thunks/fileThunks.js';
 import { uiThunks } from '/client/thunks/uiThunks.js';
 import { settingsThunks } from '/client/thunks/settingsThunks.js';

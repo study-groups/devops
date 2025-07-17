@@ -9,7 +9,8 @@ import { dispatch } from './messaging/messageQueue.js';
 import { ActionTypes } from './messaging/actionTypes.js';
 import { triggerActions } from '/client/actions.js';
 import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js';
-import { debugPanelManager } from '/client/debug/DebugPanelManager.js';
+import { togglePanel } from '/client/store/slices/panelSlice.js';
+// import { debugPanelManager } from '/client/debug/DebugPanelManager.js'; // This is now loaded via debugPanelInitializer and attached to window
 
 // --- Shortcut Definitions ---
 // ctrl: boolean | 'optional' (allows Ctrl or Meta)
@@ -21,7 +22,8 @@ import { debugPanelManager } from '/client/debug/DebugPanelManager.js';
 // triggerAction: string | null (Name of function in triggerActions to call directly)
 // preventDefault: boolean (defaults true)
 const shortcutMappings = [
-    // REMOVED Settings Panel Toggle from here - handled separately below
+    // Settings Panel Toggle
+    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: togglePanel.type, payload: null },
     // Save File
     { key: 's', ctrl: 'optional', shift: false, alt: false, useDispatch: false, action: 'shortcut:saveFile', payload: null }, 
     // Refresh Preview (Assuming this triggers a non-state process)
@@ -42,39 +44,30 @@ export function initKeyboardShortcuts() {
     // Initialize Settings Panel and DOM Inspector on startup
     console.log('[Keyboard] Initializing components for keyboard shortcuts...');
     
-    // Initialize Settings Panel
-    import('/client/settings/core/settingsInitializer.js').then(({ initializeSettingsPanel }) => {
-        initializeSettingsPanel().catch(error => {
-            console.warn('[Keyboard] Failed to initialize Settings Panel:', error);
-        });
-    }).catch(error => {
-        console.warn('[Keyboard] Failed to import Settings Panel initializer:', error);
-    });
+    // Settings Panel now initialized via StateKit-based system in bootstrap.js
     
-    // Initialize DOM Inspector
-    import('/client/dom-inspector/domInspectorInitializer.js').then(({ initializeDomInspector }) => {
-        initializeDomInspector();
-        console.log('[Keyboard] DOM Inspector initialized for keyboard shortcuts');
+    // Initialize DOM Inspector in background (non-blocking)
+    import('/client/dom-inspector/domInspectorInitializer.js').then(({ activateDomInspector }) => {
+        // Defer DOM inspector activation to prevent blocking
+        setTimeout(() => {
+            activateDomInspector();
+            console.log('[Keyboard] DOM Inspector activated for keyboard shortcuts');
+        }, 500);
     }).catch(error => {
-        console.warn('[Keyboard] Failed to initialize DOM Inspector:', error);
+        console.warn('[Keyboard] Failed to activate DOM Inspector:', error);
     });
     
     // Main shortcut handler for configured mappings
     document.addEventListener('keydown', (event) => {
-        // --- Detailed Log Start --- 
-        console.log(`[Shortcut DEBUG] KeyDown: key='${event.key}', code='${event.code}', ctrl=${event.ctrlKey}, meta=${event.metaKey}, shift=${event.shiftKey}, alt=${event.altKey}`);
         const activeElement = document.activeElement;
         const targetTagName = activeElement?.tagName?.toLowerCase() || 'none';
         const isEditable = activeElement?.isContentEditable || false;
-        console.log(`[Shortcut DEBUG] Active Element: <${targetTagName}>, isContentEditable: ${isEditable}`);
-        // --- End Detailed Log --- 
 
         // Ignore shortcuts if typing in an input field, textarea, or contenteditable,
         // UNLESS modifier keys (Ctrl, Alt, Meta) are also pressed.
         if ( (['input', 'textarea', 'select'].includes(targetTagName) || isEditable) && 
              !(event.ctrlKey || event.altKey || event.metaKey) ) 
         {
-            console.log(`[Shortcut DEBUG] Ignoring event: Typing in input/editable without Ctrl/Alt/Meta.`);
             return; 
         }
 
@@ -87,12 +80,6 @@ export function initKeyboardShortcuts() {
 
             // Check key (case-insensitive for letters unless specified)
             const keyMatch = mapping.key.toUpperCase() === (event.key || '').toUpperCase();
-
-            // --- Detailed Log Inside Loop (for A/B) --- 
-            if (mapping.key === 'A' || mapping.key === 'B') {
-                console.log(`[Shortcut DEBUG] Checking mapping for key '${mapping.key}': ctrlMatch=${ctrlMatch}, shiftMatch=${shiftMatch}, altMatch=${altMatch}, keyMatch=${keyMatch}`);
-            }
-            // --- End Detailed Log --- 
 
             if (ctrlMatch && shiftMatch && altMatch && keyMatch) {
                 // Shortcut match found!
@@ -120,36 +107,11 @@ export function initKeyboardShortcuts() {
         }
     });
     
-    // Add a SINGLE handler for Ctrl+Shift+S for the Settings Panel
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'S' && event.ctrlKey && event.shiftKey && !event.altKey) {
-            event.preventDefault();
-            console.log("[GENERAL] Ctrl+Shift+S pressed, toggling Settings Panel.");
-            if (window.devPages && window.devPages.settingsPanel) {
-                try {
-                    window.devPages.settingsPanel.toggleVisibility();
-                    console.log("[GENERAL] Settings Panel toggle called successfully");
-                } catch (error) {
-                    console.error("[GENERAL] Error calling Settings Panel toggle:", error);
-                }
-            } else {
-                console.warn('[GENERAL] Settings Panel not found!');
-                console.log("[GENERAL] window.devPages:", window.devPages);
-                console.log("[GENERAL] Available debug functions: debugInitSettings(), testSettingsPanel()");
-                
-                // Try to auto-initialize if missing
-                // This might be risky if it causes race conditions, but useful for debugging
-                window.debugInitSettings?.();
-            }
-        }
-    });
-
-    // Add handlers for Debug Panel and DOM Inspector
+    // Add handlers for Debug Panel, DOM Inspector, and DevTools
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.shiftKey && !event.altKey) {
             if (event.key === 'D') {
                 event.preventDefault();
-                console.log("[GENERAL] Ctrl+Shift+D pressed, toggling Debug Panel.");
                 if (window.debugPanelManager) {
                     window.debugPanelManager.toggleVisibility();
                 } else {
@@ -157,7 +119,6 @@ export function initKeyboardShortcuts() {
                 }
             } else if (event.key === 'O') {
                 event.preventDefault();
-                console.log("[GENERAL] Ctrl+Shift+O pressed, toggling DOM Inspector.");
                 if (window.devPages && window.devPages.domInspector) {
                     try {
                         window.devPages.domInspector.toggle();
@@ -169,7 +130,6 @@ export function initKeyboardShortcuts() {
                 }
             } else if (event.key === 'L') {
                 event.preventDefault();
-                console.log("[GENERAL] Ctrl+Shift+L pressed, toggling Log Panel.");
                 if (window.logPanel && typeof window.logPanel.toggleVisibility === 'function') {
                     try {
                         window.logPanel.toggleVisibility();
@@ -179,34 +139,27 @@ export function initKeyboardShortcuts() {
                 } else {
                     console.error("[GENERAL] Log Panel not initialized on window.logPanel");
                 }
+            } else if (event.key === 'T') {
+                event.preventDefault();
+                // Use the panelPopup system to launch the registered 'dev-tools' panel
+                if (window.panelPopup) {
+                    try {
+                        window.panelPopup.show('dev-tools', {
+                            width: 800,
+                            height: 600,
+                            title: 'Application DevTools'
+                        });
+                    } catch (error) {
+                        console.error("[GENERAL] Error opening DevTools panel popup:", error);
+                    }
+                } else {
+                    console.error("[GENERAL] panelPopup system not found on window.");
+                }
             }
         }
     });
     
     logMessage('[Keyboard] Keyboard shortcuts initialized', 'info');
-    
-    // Add a global debug function for testing settings panel
-    window.testSettingsPanel = function() {
-        console.log('[TEST] Testing settings panel...');
-        console.log('[TEST] window.devPages exists:', !!window.devPages);
-        console.log('[TEST] window.devPages.settingsPanel exists:', !!(window.devPages && window.devPages.settingsPanel));
-        console.log('[TEST] toggleVisibility method exists:', !!(window.devPages && window.devPages.settingsPanel && typeof window.devPages.settingsPanel.toggleVisibility === 'function'));
-        
-        if (window.devPages && window.devPages.settingsPanel) {
-            try {
-                console.log('[TEST] Calling toggleVisibility()...');
-                const result = window.devPages.settingsPanel.toggleVisibility();
-                console.log('[TEST] toggleVisibility() returned:', result);
-                return result;
-            } catch (error) {
-                console.error('[TEST] Error calling toggleVisibility():', error);
-                return false;
-            }
-        } else {
-            console.warn('[TEST] Settings panel not available!');
-            return false;
-        }
-    };
     
     // Add a global debug function for testing the DOM Inspector
     window.testDomInspector = function() {
@@ -227,39 +180,54 @@ export function initKeyboardShortcuts() {
         }
     };
 
-    console.log('[Keyboard DEBUG] Global testSettingsPanel() function added. Call testSettingsPanel() to test manually.');
-    
-    // Add a function to manually initialize settings panel for debugging
-    window.debugInitSettings = async function() {
-        console.log('[DEBUG] Manually initializing settings panel...');
-        try {
-            const { initializeSettingsPanel } = await import('/client/settings/core/settingsInitializer.js');
-            const result = initializeSettingsPanel();
-            console.log('[DEBUG] Settings panel initialization result:', result);
-            console.log('[DEBUG] window.devPages after init:', window.devPages);
-            return result;
-        } catch (error) {
-            console.error('[DEBUG] Error initializing settings panel:', error);
-            return null;
-        }
-    };
-
     // Add a function to manually initialize DOM Inspector for debugging
     window.debugInitDomInspector = async function() {
-        console.log('[DEBUG] Manually initializing DOM Inspector...');
+        console.log('[DEBUG] Manually activating DOM Inspector...');
         try {
-            const { initializeDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
-            const result = initializeDomInspector();
-            console.log('[DEBUG] DOM Inspector initialization result:', result);
-            return result;
+            const { activateDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
+            // Defer activation to prevent blocking
+            setTimeout(() => {
+                activateDomInspector().then(result => {
+                    console.log('[DEBUG] DOM Inspector activation result:', result);
+                    return result;
+                }).catch(error => {
+                    console.error('[DEBUG] Error activating DOM Inspector:', error);
+                    return null;
+                });
+            }, 100);
         } catch (error) {
-            console.error('[DEBUG] Error initializing DOM Inspector:', error);
+            console.error('[DEBUG] Error importing DOM Inspector:', error);
             return null;
         }
     };
     
-    console.log('[Keyboard DEBUG] Global debugInitSettings() function added. Call debugInitSettings() to manually initialize.');
     console.log('[Keyboard DEBUG] Global debugInitDomInspector() function added. Call debugInitDomInspector() to manually initialize.');
+    
+    // Add a function to test panelPopup system
+    window.testPanelPopup = function() {
+        console.log('[TEST] Testing panelPopup system...');
+        if (window.panelPopup) {
+            try {
+                console.log('[TEST] Opening DevTools panel popup...');
+                const popupId = window.panelPopup.show('dev-tools', {
+                    width: 800,
+                    height: 600,
+                    x: 100,
+                    y: 50
+                });
+                console.log('[TEST] DevTools popup opened with ID:', popupId);
+                return popupId;
+            } catch (error) {
+                console.error('[TEST] Error opening DevTools popup:', error);
+                return null;
+            }
+        } else {
+            console.error('[TEST] panelPopup not found on window');
+            return null;
+        }
+    };
+    
+    console.log('[Keyboard DEBUG] Global testPanelPopup() function added. Call testPanelPopup() to test the popup system.');
 }
 
 // Auto-initialize when module is imported

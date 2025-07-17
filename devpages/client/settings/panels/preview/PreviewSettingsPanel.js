@@ -3,11 +3,10 @@
  * Preview-specific settings panel for controlling preview behavior and appearance.
  */
 
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { eventBus } from '/client/eventBus.js';
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { updatePreview, resetPreview } from '/client/store/slices/settingsSlice.js';
 
 export class PreviewSettingsPanel {
     constructor(container) {
@@ -309,10 +308,7 @@ export class PreviewSettingsPanel {
     }
 
     updateSetting(key, value) {
-        dispatch({
-            type: ActionTypes.SETTINGS_UPDATE_PREVIEW,
-            payload: { [key]: value }
-        });
+        appStore.dispatch(updatePreview({ [key]: value }));
 
         // Emit event for preview system to react
         if (eventBus) {
@@ -356,10 +352,7 @@ export class PreviewSettingsPanel {
             autoScroll: true
         };
 
-        dispatch({
-            type: ActionTypes.SETTINGS_RESET_PREVIEW,
-            payload: defaultSettings
-        });
+        appStore.dispatch(resetPreview(defaultSettings));
 
         this.render(); // Re-render with default values
         this.log('Preview settings reset to defaults', 'info');
@@ -466,11 +459,11 @@ export class PreviewSettingsPanel {
             this.log('Loading animation test completed', 'info');
         }, 3000);
     }
-}
+} 
 
 // Register this panel with the registry
-settingsSectionRegistry.register({
-    id: 'preview-settings-panel',
+panelRegistry.register({
+    id: 'preview-settings',
     title: 'Preview',
     component: PreviewSettingsPanel,
     defaultCollapsed: true

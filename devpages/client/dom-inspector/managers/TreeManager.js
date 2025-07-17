@@ -8,6 +8,7 @@ export class TreeManager {
         this.elementManager = elementManager;
         this.annotationManager = annotationManager;
         this.treeContainer = null;
+        this.treeBuilt = false; // Track if tree has been built
         
         // Tree state for preserving expanded nodes
         this.treeState = {
@@ -30,6 +31,12 @@ export class TreeManager {
     buildTree(callbacks = {}) {
         if (!this.treeContainer) {
             console.error('DOM Inspector: No tree container available for building tree');
+            return;
+        }
+
+        // Check if tree is already built and valid
+        if (this.treeContainer.children.length > 0 && this.treeBuilt) {
+            console.log('DOM Inspector: Tree already built, skipping rebuild');
             return;
         }
 
@@ -71,10 +78,11 @@ export class TreeManager {
                 console.warn('DOM Inspector: No headers found in tree');
             }
             
-            // Auto-restore tree state after a short delay to allow DOM to settle
-            setTimeout(() => {
-                this.restoreTreeState();
-            }, 20);
+            // Auto-restore tree state immediately
+            this.restoreTreeState();
+            
+            // Mark tree as built
+            this.treeBuilt = true;
             
         } else {
             console.error('DOM Inspector: Failed to create root node');
@@ -345,6 +353,15 @@ export class TreeManager {
                 }
             }, 100);
         }
+    }
+
+    /**
+     * Force rebuild the tree (useful when DOM structure has changed)
+     */
+    forceRebuildTree(callbacks = {}) {
+        console.log('DOM Inspector: Force rebuilding tree...');
+        this.treeBuilt = false;
+        this.buildTree(callbacks);
     }
 
     /**

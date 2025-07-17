@@ -27,8 +27,8 @@ export const authActionHandlers = {
     login: (username, password) => {
         logAction(`Triggering login action for user: ${username}`);
         
-        // Use the thunk action creator
-        dispatch(authActions.login(username, password));
+        // Use the thunk action creator with proper credentials object
+        dispatch(authActions.login({ username, password }));
         
         logAction(`Dispatched login thunk for user: ${username}`);
     },

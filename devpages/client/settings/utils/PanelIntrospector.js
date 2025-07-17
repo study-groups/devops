@@ -8,7 +8,7 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { settingsRegistry } from '../core/settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { eventBus } from '/client/eventBus.js';
 
 export class PanelIntrospector {
@@ -81,8 +81,8 @@ export class PanelIntrospector {
     this.currentPanelId = panelId;
     
     // Get panel configuration
-    const panelConfig = settingsRegistry.getPanel(panelId);
-    const panelWithState = settingsRegistry.getPanelWithState(panelId);
+    const panelConfig = panelRegistry.getPanel(panelId);
+    const panelWithState = panelRegistry.getPanelsWithState(appStore).find(p => p.id === panelId);
     
     // Get current app state
     const appState = appStore.getState();
@@ -452,45 +452,44 @@ export class PanelIntrospector {
    * Handle copy functionality
    */
   handleCopy(type) {
-    const panelConfig = settingsRegistry.getPanel(this.currentPanelId);
-    const appState = appStore.getState();
+    const { panelConfig, panelWithState, panelInstance, appState, relevantEvents } = this.getCurrentPanelData();
+    let dataToCopy;
     
-    let dataToCopy = '';
-    
-    switch (type) {
+    switch(type) {
       case 'config':
-        dataToCopy = JSON.stringify(panelConfig, null, 2);
+        dataToCopy = { panelConfig, panelWithState };
         break;
       case 'state':
-        dataToCopy = JSON.stringify({
-          settingsPanel: appState.settingsPanel,
-          ui: appState.ui,
-          panels: appState.panels
-        }, null, 2);
+        dataToCopy = this.getRelevantAppState(this.currentPanelId, appState);
         break;
       case 'all':
-        dataToCopy = JSON.stringify({
-          panelId: this.currentPanelId,
-          config: panelConfig,
-          state: {
-            settingsPanel: appState.settingsPanel,
-            ui: appState.ui,
-            panels: appState.panels
-          },
-          events: this.getRelevantEvents(this.currentPanelId),
-          timestamp: new Date().toISOString()
-        }, null, 2);
+        dataToCopy = {
+          panelConfig,
+          panelWithState,
+          appState: this.getRelevantAppState(this.currentPanelId, appState),
+          relevantEvents: this.getRelevantEvents(this.currentPanelId)
+        };
         break;
+      default:
+        return;
     }
     
-    if (dataToCopy) {
-      navigator.clipboard.writeText(dataToCopy).then(() => {
-        // Show feedback
-        this.showCopyFeedback();
-      }).catch(err => {
-        console.error('Failed to copy:', err);
-      });
-    }
+    navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
+    this.showCopyFeedback();
+  }
+  
+  getCurrentPanelData() {
+    const panelConfig = panelRegistry.getPanel(this.currentPanelId);
+    const panelWithState = panelRegistry.getPanelsWithState(appStore).find(p => p.id === this.currentPanelId);
+    const appState = appStore.getState();
+    const relevantEvents = this.getRelevantEvents(this.currentPanelId);
+    
+    return {
+      panelConfig,
+      panelWithState,
+      appState,
+      relevantEvents
+    };
   }
 
   /**

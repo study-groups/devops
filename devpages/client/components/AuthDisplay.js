@@ -8,8 +8,8 @@ import { appStore } from '/client/appState.js'; // IMPORT central state
 // Assuming logMessage is globally available or adjust path
 // import { logMessage } from '/client/log/index.js'; 
 
-// CHANGED: Import only logout
-import { logout } from '/client/auth.js';
+// CHANGED: Import auth thunks from new auth slice
+import { authThunks } from '/client/store/slices/authSlice.js';
 // ADDED: Import triggerActions
 import { triggerActions } from '/client/actions.js';
 // ADDED: Import dispatch and ActionTypes for theme functionality
@@ -65,18 +65,14 @@ export function createAuthDisplayComponent(targetElementId) {
                 // Clear password field immediately (optimistic)
                 if (passwordInput) passwordInput.value = '';
                 
-                // CHANGED: Use triggerActions to emit login request
-                logAuth(`[AuthDisplay] Triggering login action for user: ${username}`);
-                triggerActions.login(username, password); // This emits an event
+                // Use the new auth slice thunk directly
+                logAuth(`[AuthDisplay] Calling authThunks.login for user: ${username}`);
+                await appStore.dispatch(authThunks.login({ username, password }));
                 
-                // Login success/failure/error display is now handled by rendering based on appStore.auth state changes.
-                // No need for success check or manual error handling here.
-                logAuth(`[AuthDisplay] login action triggered for ${username}. Waiting for state update.`);
+                logAuth(`[AuthDisplay] Login dispatched for ${username}. Waiting for state update.`);
 
             } catch (error) {
-                // This catch block might still be useful if triggerActions.login itself could throw an error
-                // (though unlikely in its current implementation).
-                logAuth(`[AuthDisplay] Error during triggerActions.login call: ${error.message}`, 'error');
+                logAuth(`[AuthDisplay] Error during login dispatch: ${error.message}`, 'error');
                 alert(`An unexpected error occurred trying to log in: ${error.message}`);
             }
         } else {
@@ -86,10 +82,10 @@ export function createAuthDisplayComponent(targetElementId) {
 
     const onLogoutClick = async (event) => {
         event.preventDefault();
-        logAuth("[AuthDisplay] Logout clicked, calling logout().");
+        logAuth("[AuthDisplay] Logout clicked, calling authThunks.logout().");
         try {
-            // Call logout directly, it will dispatch AUTH_LOGOUT
-            await logout(); 
+            // Use the new auth slice thunk for logout
+            await appStore.dispatch(authThunks.logout());
             // Hide dropdown after logout
             hideDropdown();
         } catch (error) {
@@ -422,31 +418,16 @@ export function createAuthDisplayComponent(targetElementId) {
         }
 
         const authState = appStore.getState().auth;
+        logAuth(`[AuthDisplay] Render called. Auth state: isAuthenticated=${authState.isAuthenticated}, user=${JSON.stringify(authState.user)}, isInitializing=${authState.isInitializing}`);
+        
         const settingsState = appStore.getState().settings;
         const selectedOrg = settingsState?.selectedOrg || localStorage.getItem('devpages_selected_org') || 'pixeljam-arcade';
         
-        // DEBUG: Show actual auth state instead of generic message
+        // Show simple loading state instead of debug spam
         if (authState.isInitializing) {
-            const debugInfo = {
-                isInitializing: authState.isInitializing,
-                isAuthenticated: authState.isAuthenticated,
-                user: authState.user,
-                error: authState.error,
-                timestamp: new Date().toLocaleTimeString()
-            };
-            
             element.innerHTML = `
                 <div class="auth-status">
-                    <div>Auth State Debug (${debugInfo.timestamp}):</div>
-                    <div style="font-size: 12px; margin-top: 5px;">
-                        <div>isInitializing: ${debugInfo.isInitializing}</div>
-                        <div>isAuthenticated: ${debugInfo.isAuthenticated}</div>
-                        <div>user: ${debugInfo.user ? debugInfo.user.username : 'null'}</div>
-                        <div>error: ${debugInfo.error || 'none'}</div>
-                    </div>
-                    <div style="margin-top: 5px; font-size: 10px; color: #666;">
-                        Full auth state: ${JSON.stringify(authState)}
-                    </div>
+                    <div>Checking authentication...</div>
                 </div>
             `;
             return;
@@ -629,14 +610,9 @@ export function createAuthDisplayComponent(targetElementId) {
             return false;
         }
 
-        // Subscribe to central state changes, specifically watching the auth slice
-        authUnsubscribe = appStore.subscribe((newState, prevState) => {
-            if (newState.auth !== prevState.auth) {
-                logAuth(`[AuthDisplay subscribe] Auth changed!`);
-                logAuth(`  prevState.auth: ${JSON.stringify(prevState.auth)}`);
-                logAuth(`  newState.auth: ${JSON.stringify(newState.auth)}`);
-                render();
-            }
+        // Subscribe to central state changes - render on any state change for now
+        authUnsubscribe = appStore.subscribe(() => {
+            render();
         });
 
         // Initial render based on current auth state

@@ -138,9 +138,9 @@ function resolveCssPath(cssPath, req) {
 function checkCssPermission(absolutePath, classification, req) {
     const currentUser = req.user?.username || '__public__';
     
-    // For client/system files, allow access to authenticated users
+    // For client/system files, allow public access (needed for initial page load)
     if (classification.type === 'client') {
-        return req.isAuthenticated && req.isAuthenticated();
+        return true; // Allow public access to client CSS files
     }
     
     // For theme files, allow read access (themes are generally public)
@@ -148,13 +148,13 @@ function checkCssPermission(absolutePath, classification, req) {
         return true; // Themes should be publicly accessible
     }
     
-    // For user files, check PData permissions
+    // For user files, check PData permissions if available
     if (req.pdata && typeof req.pdata.can === 'function') {
         return req.pdata.can(currentUser, 'read', absolutePath);
     }
     
-    // Fallback: allow if authenticated
-    return req.isAuthenticated && req.isAuthenticated();
+    // Fallback: allow public access for CSS files
+    return true;
 }
 
 /**

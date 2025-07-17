@@ -45,4 +45,12 @@ declare function createLogger(options?: LoggerOptions): Middleware;
  */
 declare function createThunk(): Middleware;
 
-export { Action, LoggerOptions, Middleware, Store, createLogger, createStore, createThunk };
+/**
+ * Creates an async thunk action creator (Redux Toolkit-style).
+ */
+declare function createAsyncThunk<Returned, ThunkArg = void>(
+    type: string,
+    payloadCreator: (arg: ThunkArg, thunkAPI: { dispatch: any; getState: any; requestId: string }) => Promise<Returned>
+): (arg: ThunkArg) => (dispatch: any, getState: any) => Promise<{ payload: Returned; meta: any }>;
+
+export { Action, LoggerOptions, Middleware, Store, createAsyncThunk, createLogger, createStore, createThunk };

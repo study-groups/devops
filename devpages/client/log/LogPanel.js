@@ -1,8 +1,8 @@
 /**
  * LogPanel.js
  * 
- * Manages the LogPanel UI component. This file has been reverted to a stable version
- * to fix regressions related to entry format, expansion, rendering controls, and CLI functionality.
+ * Updated to use the new log slice for state management.
+ * This provides better app logging functionality with StateKit createSlice.
  */
 import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js';
@@ -15,11 +15,25 @@ import { updateTagsBar, applyFiltersToLogEntries, initializeLogFilterBar } from 
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
+// Import log slice actions and selectors
+import { 
+    addEntry as addLogEntry,
+    clearEntries as clearLogEntries,
+    setActiveFilters,
+    toggleFilter,
+    setSearchTerm,
+    selectLogEntries,
+    selectFilteredEntries,
+    selectActiveFilters,
+    selectDiscoveredTypes,
+    selectLogStats
+} from '/client/store/slices/logSlice.js';
+
 const MIN_LOG_HEIGHT = 80;
 
 /**
  * LogPanel class.
- * Orchestrates the LogPanel component, delegating tasks to specialized modules.
+ * Now integrated with the new log slice for better state management.
  */
 export class LogPanel {
     constructor(containerElementId = 'log-container') {
@@ -29,6 +43,7 @@ export class LogPanel {
             return;
         }
 
+        // UI elements
         this.toolbarElement = null;
         this.tagsBarElement = null;
         this.logElement = null;
@@ -41,43 +56,46 @@ export class LogPanel {
         this.appInfoElement = null;
         this.appVersionElement = null;
 
+        // Panel state (not in global store)
         this._lastCommandSelection = null;
         this._selectionStateA = null;
         this._selectionStateB = null;
         this._codeFenceBufferA = null;
         this._codeFenceBufferB = null;
         this._updateTagsBarTimeout = null;
+        this.isUpdatingFromState = false; // Flag to prevent circular dispatching
 
+        // Render modes
         this.RENDER_MODE_RAW = 'raw';
         this.RENDER_MODE_MARKDOWN = 'markdown';
         this.RENDER_MODE_HTML = 'html';
 
-        // Internal component state, not related to global app state
+        // Internal UI state (separate from global app state)
         this.internalState = {
-            entryCount: 0,
-            logIndex: 0,
             logOrder: localStorage.getItem('logOrder') || 'recent'
         };
 
+        // Resize handling
         this._isResizing = false;
         this._startY = 0;
         this._startHeight = 0;
 
-        // Bind resize handlers once
+        // Bind methods
         this.startResize = this.startResize.bind(this);
         this._doResize = this.doResize.bind(this);
         this._endResize = this.endResize.bind(this);
-
         this.addEntry = this.addEntry.bind(this);
         this.copyLog = this.copyLog.bind(this);
         this.clearLog = this.clearLog.bind(this);
         this._updateLogEntryDisplay = this._updateLogEntryDisplay.bind(this);
         this._enhanceCodeBlocksAndMermaid = this._enhanceCodeBlocksAndMermaid.bind(this);
 
+        // Store subscriptions
         this._appStateUnsubscribe = null;
-        this._logFilteringUnsubscribe = null;
+        this._logStateUnsubscribe = null;
+        this._uiStateUnsubscribe = null; // New subscription for UI state
 
-        logInfo('LogPanel instance created.', 'LOG_PANEL_LIFECYCLE');
+        logInfo('LogPanel instance created with new log slice integration.', 'LOG_PANEL_LIFECYCLE');
         setLogPanelInstance(this);
     }
 
@@ -93,40 +111,65 @@ export class LogPanel {
         attachLogPanelEventListeners(this);
 
         if (typeof window !== 'undefined') window.logPanel = this;
-        logInfo('LogPanel UI initialized and subscribed to store.', 'LOG_PANEL_LIFECYCLE');
+        logInfo('LogPanel UI initialized and subscribed to new log slice.', 'LOG_PANEL_LIFECYCLE');
     }
 
     /**
      * Subscribes the component to the appStore to keep its UI in sync with the global state.
      */
     subscribeToStore() {
+        // Unsubscribe from previous subscriptions
         if (this._appStateUnsubscribe) {
             this._appStateUnsubscribe();
         }
+        if (this._logStateUnsubscribe) {
+            this._logStateUnsubscribe();
+        }
+        if (this._uiStateUnsubscribe) { // Unsubscribe new subscription
+            this._uiStateUnsubscribe();
+        }
 
-        this._appStateUnsubscribe = appStore.subscribe((newState, oldState) => {
-            console.log('[LogPanel] Store subscription triggered');
-            console.log('[LogPanel] Old UI state:', oldState?.ui);
-            console.log('[LogPanel] New UI state:', newState?.ui);
-            
-            // Only sync if the relevant part of the state has changed
+        // Subscribe to UI state changes (visibility and height)
+        this._uiStateUnsubscribe = appStore.subscribe((newState, oldState) => {
             if (newState.ui.logVisible !== oldState.ui.logVisible || newState.ui.logHeight !== oldState.ui.logHeight) {
-                console.log('[LogPanel] UI state changed, calling syncWithState');
-                this.syncWithState(newState.ui);
-            } else {
-                console.log('[LogPanel] No relevant UI state changes detected');
+                // Removed verbose console logging to prevent spam
+                this.isUpdatingFromState = true; // Prevent circular dispatching during UI updates
+                try {
+                    this.syncWithState(newState.ui);
+                } finally {
+                    this.isUpdatingFromState = false; // Always reset the flag
+                }
+            }
+        });
+
+        // Subscribe to log state changes  
+        this._logStateUnsubscribe = appStore.subscribe((newState, oldState) => {
+            // Check if log entries or filters changed
+            const logChanged = newState.log !== oldState.log;
+            
+            if (logChanged) {
+                // Removed verbose console logging to prevent spam
+                this.isUpdatingFromState = true; // Prevent circular dispatching
+                try {
+                    this.updateLogDisplay();
+                    this.updateEntryCount();
+                    this._updateTagsBar();
+                } finally {
+                    this.isUpdatingFromState = false; // Always reset the flag
+                }
             }
         });
         
         // Immediately sync with the current state upon subscription
-        console.log('[LogPanel] Initial sync with current state');
+        // Removed verbose console logging to prevent spam
         this.syncWithState(appStore.getState().ui);
+        this.updateLogDisplay();
+        this.updateEntryCount();
+        this._updateTagsBar();
     }
 
     /**
      * Centralized method to update the LogPanel's DOM to match the global app state.
-     * This is the single source of truth for updating the UI from the store.
-     * @param {object} uiState - The `ui` slice of the global app state.
      */
     syncWithState(uiState) {
         console.log('[LogPanel] syncWithState called with:', uiState);
@@ -139,7 +182,7 @@ export class LogPanel {
         const { logVisible, logHeight } = uiState;
         console.log('[LogPanel] Applying visibility:', logVisible, 'height:', logHeight);
 
-        // IMPORTANT: Set the CSS variable FIRST before applying classes
+        // Set the CSS variable FIRST before applying classes
         document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
         
         // Force a reflow to ensure the CSS variable is processed
@@ -149,103 +192,38 @@ export class LogPanel {
         this.container.classList.toggle('log-visible', logVisible);
         this.container.classList.toggle('log-hidden', !logVisible);
         
-        // REMOVE any conflicting 'hidden' class that might be left over from WorkspaceLayoutManager
+        // Remove any conflicting 'hidden' class
         this.container.classList.remove('hidden');
         
         console.log('[LogPanel] Container classes after update:', this.container.classList.toString());
-        
-        // Debug: Check computed styles
-        const computedStyle = window.getComputedStyle(this.container);
-        console.log('[LogPanel] Computed height:', computedStyle.height);
-        console.log('[LogPanel] Computed visibility:', computedStyle.visibility);
-        console.log('[LogPanel] Computed opacity:', computedStyle.opacity);
-        console.log('[LogPanel] CSS variable --log-height:', document.documentElement.style.getPropertyValue('--log-height'));
-        
-        // Update other UI elements that depend on state
-        this.updateEntryCount();
-        this._updateTagsBar();
     }
 
     /**
-     * Dispatches an action to toggle the log panel's visibility in the global state.
-     * The component's UI will update automatically via its store subscription.
+     * Updates the log display based on the current log state
      */
-    toggleVisibility() {
-        console.log('[LogPanel] toggleVisibility called');
-        console.log('[LogPanel] Dispatching action:', ActionTypes.UI_TOGGLE_LOG_VISIBILITY);
-        dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
-    }
-
-    startResize(e) {
-        e.preventDefault();
-        this._isResizing = true;
-        this._startY = e.pageY;
-        this._startHeight = this.container.offsetHeight;
-        document.addEventListener('mousemove', this._doResize);
-        document.addEventListener('mouseup', this._endResize);
-    }
-
-    doResize(e) {
-        if (!this._isResizing) return;
-
-        // Use a fixed height for the top bar to avoid incorrect dynamic calculations
-        const topBarHeight = 50; 
-        const maxHeight = window.innerHeight - topBarHeight;
-        
-        let newHeight = this._startHeight - (e.pageY - this._startY);
-
-        // Clamp the new height between the minimum and maximum allowed values
-        if (newHeight < MIN_LOG_HEIGHT) {
-            newHeight = MIN_LOG_HEIGHT;
-        } else if (newHeight > maxHeight) {
-            newHeight = maxHeight;
-        }
-        
-        document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
-    }
-
-    endResize() {
-        if (!this._isResizing) return;
-        this._isResizing = false;
-        document.removeEventListener('mousemove', this._doResize);
-        document.removeEventListener('mouseup', this._endResize);
-        
-        const newHeight = this.container.offsetHeight;
-        
-        // Dispatch the action to the global store to notify other components
-        dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: { height: newHeight }});
-        
-        logInfo(`Log panel resized to ${newHeight}px`, 'LOG_PANEL_STATE');
-    }
-
-    addEntry(entryData, legacyTypeArgument = 'text') {
+    updateLogDisplay() {
         if (!this.logElement) return;
 
-        let messageForDisplay;
-        let originalMessageForCopy;
-        let type;
+        const state = appStore.getState();
+        const filteredEntries = selectFilteredEntries(state);
+        
+        // Clear current display
+        this.logElement.innerHTML = '';
 
-        if (entryData && typeof entryData === 'object' && entryData.message !== undefined) {
-            // Handle new structured log object
-            type = entryData.type || 'GENERAL';
-            const message = entryData.message;
+        // Render filtered entries
+        filteredEntries.forEach((entry, index) => {
+            this.renderLogEntry(entry, index);
+        });
 
-            if (typeof message === 'string') {
-                messageForDisplay = message;
-                originalMessageForCopy = message;
-            } else {
-                // Pretty print for display, full JSON for copy
-                messageForDisplay = JSON.stringify(message, null, 2);
-                originalMessageForCopy = JSON.stringify(message);
-            }
-        } else {
-            // Handle legacy string entry
-            type = legacyTypeArgument.toUpperCase();
-            messageForDisplay = String(entryData); // Ensure it's a string
-            originalMessageForCopy = String(entryData);
-        }
+        // Apply filters to newly rendered entries
+        this.applyCurrentFilters();
+    }
 
-        const logType = typeof type === 'string' ? type.toUpperCase() : 'TEXT';
+    /**
+     * Renders a single log entry to the DOM
+     */
+    renderLogEntry(entry, index) {
+        if (!this.logElement) return;
 
         const logEntryDiv = document.createElement('div');
         logEntryDiv.className = 'log-entry';
@@ -253,194 +231,303 @@ export class LogPanel {
         // TIME
         const timestampSpan = document.createElement('span');
         timestampSpan.className = 'log-entry-timestamp';
-        timestampSpan.textContent = new Date().toLocaleTimeString();
+        timestampSpan.textContent = entry.formattedTime || new Date(entry.timestamp).toLocaleTimeString();
 
-        // LEVEL (info, debug, error, etc.)
+        // LEVEL
         const levelSpan = document.createElement('span');
         levelSpan.className = 'log-entry-level';
-        levelSpan.textContent = 'INFO'; // Default, could be extracted from type
+        levelSpan.textContent = entry.level || 'INFO';
 
         // TYPE
         const typeSpan = document.createElement('span');
         typeSpan.className = 'log-entry-type';
-        typeSpan.textContent = logType;
+        typeSpan.textContent = entry.type || 'GENERAL';
 
-        // ORIGIN (source/component)
+        // SOURCE/COMPONENT
         const originSpan = document.createElement('span');
         originSpan.className = 'log-entry-origin';
-        originSpan.textContent = 'SYSTEM'; // Default, could be extracted
+        const origin = entry.component ? `${entry.source}-${entry.component}` : entry.source;
+        originSpan.textContent = origin || 'SYSTEM';
 
-        // MSG
+        // ACTION (if present)
+        let actionSpan = null;
+        if (entry.action) {
+            actionSpan = document.createElement('span');
+            actionSpan.className = 'log-entry-action';
+            actionSpan.textContent = entry.action;
+        }
+
+        // MESSAGE
         const messageSpan = document.createElement('span');
         messageSpan.className = 'log-entry-message';
-        messageSpan.textContent = messageForDisplay;
+        messageSpan.textContent = entry.message || '';
 
         // COPY button
         const copyButton = document.createElement('button');
         copyButton.className = 'original-button';
         copyButton.innerHTML = `<img src="/client/styles/icons/copy.svg" alt="Copy" width="14" height="14">`;
         copyButton.title = 'Copy Original Message';
-        copyButton.dataset.logText = originalMessageForCopy;
+        copyButton.dataset.logText = entry.message || '';
 
+        // Assemble the entry
         logEntryDiv.appendChild(timestampSpan);
         logEntryDiv.appendChild(levelSpan);
         logEntryDiv.appendChild(typeSpan);
         logEntryDiv.appendChild(originSpan);
+        if (actionSpan) {
+            logEntryDiv.appendChild(actionSpan);
+        }
         logEntryDiv.appendChild(messageSpan);
         logEntryDiv.appendChild(copyButton);
 
-        logEntryDiv.dataset.logType = logType;
+        // Set data attributes
+        logEntryDiv.dataset.logType = entry.type || 'GENERAL';
+        logEntryDiv.dataset.logLevel = entry.level || 'INFO';
+        logEntryDiv.dataset.logSource = entry.source || 'UNKNOWN';
         logEntryDiv.dataset.renderMode = this.RENDER_MODE_RAW;
-        logEntryDiv.dataset.logIndex = this.internalState.logIndex;
-        logEntryDiv.dataset.logTimestamp = new Date().toLocaleTimeString();
+        logEntryDiv.dataset.logIndex = index.toString();
+        logEntryDiv.dataset.logTimestamp = entry.formattedTime || new Date(entry.timestamp).toLocaleTimeString();
+        logEntryDiv.dataset.entryId = entry.id;
 
+        // Insert based on log order
         if (this.internalState.logOrder === 'recent') {
             this.logElement.insertBefore(logEntryDiv, this.logElement.firstChild);
         } else {
             this.logElement.appendChild(logEntryDiv);
         }
-
-        this.internalState.entryCount++;
-        this.internalState.logIndex++;
-        this.updateEntryCount();
-        this._updateDiscoveredTypes(logType);
-        applyFiltersToLogEntries(this.logElement, appStore.getState().logFiltering.activeFilters);
     }
 
+    /**
+     * Adds a log entry to the store (with safety against reducer dispatch)
+     * @param {Object} entryData - The log entry data
+     * @param {string} legacyTypeArgument - Legacy type argument for backward compatibility
+     */
+    addEntry(entryData, legacyTypeArgument = 'text') {
+        let logEntry;
+
+        if (entryData && typeof entryData === 'object' && entryData.message !== undefined) {
+            // Handle structured log object
+            logEntry = {
+                message: entryData.message,
+                level: entryData.level || 'INFO',
+                source: entryData.source || 'UNKNOWN',
+                component: entryData.component || null,
+                type: entryData.type || 'GENERAL',
+                action: entryData.action || null,
+                details: entryData.details || null,
+                caller: entryData.caller || null
+            };
+        } else {
+            // Handle legacy string entry
+            logEntry = {
+                message: String(entryData),
+                level: 'INFO',
+                source: 'LEGACY',
+                type: legacyTypeArgument.toUpperCase(),
+                action: null,
+                details: null,
+                caller: null
+            };
+        }
+
+        // Use setTimeout to break out of any reducer context
+        setTimeout(() => {
+            try {
+                dispatch({ type: ActionTypes.LOG_ADD_ENTRY, payload: logEntry });
+            } catch (error) {
+                console.error('[LogPanel] Failed to dispatch log entry:', error);
+            }
+        }, 0);
+    }
+
+    /**
+     * Clears all log entries using the new log slice
+     */
     clearLog() {
-        if (!this.logElement) return;
-        this.logElement.innerHTML = '';
-        this.internalState.entryCount = 0;
-        this.internalState.logIndex = 0;
-        this.updateEntryCount();
-        dispatch({ type: ActionTypes.LOG_CLEAR });
-        logInfo('Log cleared and filters reset.', 'LOG_PANEL_STATE');
+        dispatch({ type: ActionTypes.LOG_CLEAR_ENTRIES });
+        logInfo('Log cleared using new log slice.', 'LOG_PANEL_STATE');
     }
 
+    /**
+     * Sets the log order and updates display
+     */
     setLogOrder(order) {
         if (!this.logElement) return;
-        const entries = Array.from(this.logElement.children);
-        if (entries.length === 0) return;
-
-        entries.sort((a, b) => {
-            const indexA = parseInt(a.dataset.logIndex || '0', 10);
-            const indexB = parseInt(b.dataset.logIndex || '0', 10);
-            return order === 'recent' ? indexB - indexA : indexA - indexB;
-        });
-
-        this.logElement.innerHTML = '';
-        entries.forEach(entry => this.logElement.appendChild(entry));
         
         this.internalState.logOrder = order;
         localStorage.setItem('logOrder', order);
+        
+        // Re-render with new order
+        this.updateLogDisplay();
+        
         logInfo(`Log order set to: ${order}`, 'LOG_PANEL_STATE');
     }
 
-    copyLog() {
-        if (!this.logElement) return;
-        const logText = Array.from(this.logElement.children)
-            .filter(entry => !entry.classList.contains('log-entry-hidden-by-filter'))
-            .map(entry => {
-                const index = entry.dataset.logIndex;
-                const timestamp = entry.dataset.logTimestamp;
-                const rawMessage = entry.querySelector('.log-entry-original-message').textContent;
-                return `[${index}] ${timestamp} ${rawMessage}`;
-            })
-            .join('\n');
-
-        navigator.clipboard.writeText(logText)
-            .then(() => logInfo('Visible log entries copied to clipboard.', 'LOG_PANEL_COPY'))
-            .catch(err => logError(`Failed to copy log: ${err.message}`, 'LOG_PANEL_ERROR', err));
-    }
-
-    showAllEntries() {
-        if (!this.logElement) return;
-        this.logElement.querySelectorAll('.log-entry:not(.expanded)').forEach(this._expandLogEntry.bind(this));
-    }
-
-    hideAllEntries() {
-        if (!this.logElement) return;
-        this.logElement.querySelectorAll('.log-entry.expanded').forEach(this._collapseLogEntry.bind(this));
-    }
-
+    /**
+     * Updates the entry count display
+     */
     updateEntryCount() {
-        if (this.statusElement) {
-            this.statusElement.textContent = `${this.internalState.entryCount} entries`;
-        }
-    }
-
-    scrollToBottom() {
-        if (this.logElement) this.logElement.scrollTop = this.logElement.scrollHeight;
-    }
-
-    _updateLogEntryDisplay(logEntryDiv, requestedMode) {
-        updateLogEntryDisplay(logEntryDiv, requestedMode, false, this);
-    }
-
-    _enhanceCodeBlocksAndMermaid(parentElement, logEntryIndex) {
-        enhanceCodeBlocksAndMermaid(parentElement, logEntryIndex, this);
-    }
-
-    _updateTagsBar() {
-        if (this._updateTagsBarTimeout) clearTimeout(this._updateTagsBarTimeout);
-        this._updateTagsBarTimeout = setTimeout(() => {
-            if (this.tagsBarElement && this.tagsBarElement.isConnected) {
-                initializeLogFilterBar(this.tagsBarElement);
-            }
-            this._updateTagsBarTimeout = null;
-        }, 50);
-    }
-
-    _applyFiltersToLogEntries() {
-        if (!this.logElement) return;
-        applyFiltersToLogEntries(this.logElement, appStore.getState().logFiltering.activeFilters);
-    }
-
-    updateSelectionButtonUI(bufferType, hasData, stateData = null) {
-        updateSelectionButtonUI(this, bufferType, hasData, stateData);
-    }
-
-    _expandLogEntry(logEntryDiv) {
-        if (logEntryDiv.classList.contains('expanded')) return;
-        logEntryDiv.classList.add('expanded');
-
-        let expandedContent = logEntryDiv.querySelector('.log-entry-expanded-content');
-        if (!expandedContent) {
-            expandedContent = document.createElement('div');
-            expandedContent.className = 'log-entry-expanded-content';
-            const expandedToolbar = document.createElement('div');
-            expandedToolbar.className = 'log-entry-expanded-toolbar';
-            const messageContainer = document.createElement('div');
-            messageContainer.className = 'log-entry-expanded-text-wrapper';
-
-            expandedContent.appendChild(expandedToolbar);
-            expandedContent.appendChild(messageContainer);
-            logEntryDiv.appendChild(expandedContent);
+        if (!this.statusElement) return;
+        
+        const state = appStore.getState();
+        const stats = selectLogStats(state);
+        
+        let statusText = `${stats.totalEntries} entries`;
+        
+        if (stats.filteredEntries !== stats.totalEntries) {
+            statusText += ` (${stats.filteredEntries} filtered)`;
         }
         
-        createExpandedEntryToolbarDOM(logEntryDiv, logEntryDiv.dataset, this);
-        this._updateLogEntryDisplay(logEntryDiv, this.RENDER_MODE_RAW);
+        if (stats.discoveredTypes > 0) {
+            statusText += `, ${stats.discoveredTypes} types`;
+        }
+        
+        this.statusElement.textContent = statusText;
     }
 
-    _collapseLogEntry(logEntryDiv) {
-        if (!logEntryDiv.classList.contains('expanded')) return;
-        logEntryDiv.classList.remove('expanded');
+    /**
+     * Updates discovered types for filter bar
+     */
+    _updateDiscoveredTypes(newType) {
+        // This is now handled automatically by the log slice
+        // when entries are added via addEntry action
+        console.log('[LogPanel] Type discovery now handled by log slice:', newType);
     }
 
-    _updateDiscoveredTypes(logType) {
-        const { discoveredTypes } = appStore.getState().logFiltering;
-        if (!discoveredTypes.includes(logType)) {
-            dispatch({ type: ActionTypes.LOG_INIT_TYPES, payload: [...discoveredTypes, logType] });
+    /**
+     * Updates the tags bar based on current log state
+     */
+    _updateTagsBar() {
+        if (!this.tagsBarElement) return;
+
+        // Clear any existing timeout
+        if (this._updateTagsBarTimeout) {
+            clearTimeout(this._updateTagsBarTimeout);
+        }
+
+        // Debounce the update
+        this._updateTagsBarTimeout = setTimeout(() => {
+            const state = appStore.getState();
+            const discoveredTypes = selectDiscoveredTypes(state);
+            const activeFilters = selectActiveFilters(state);
+            
+            // Create a state object for updateTagsBar
+            const logFilteringState = {
+                discoveredTypes,
+                activeFilters
+            };
+            
+            updateTagsBar(this.tagsBarElement, logFilteringState);
+        }, 100);
+    }
+
+    /**
+     * Apply current filters to log entries
+     */
+    applyCurrentFilters() {
+        if (!this.logElement) return;
+        
+        const state = appStore.getState();
+        const activeFilters = selectActiveFilters(state);
+        
+        applyFiltersToLogEntries(this.logElement, activeFilters);
+    }
+
+    /**
+     * Copy current log entries to clipboard
+     */
+    copyLog() {
+        const state = appStore.getState();
+        const entries = selectFilteredEntries(state);
+        
+        if (entries.length === 0) {
+            logInfo('No log entries to copy.', 'LOG_PANEL_ACTION');
+            return;
+        }
+
+        const logText = entries.map(entry => {
+            const timestamp = entry.formattedTime || new Date(entry.timestamp).toLocaleTimeString();
+            const origin = entry.component ? `${entry.source}-${entry.component}` : entry.source;
+            const action = entry.action ? `[${entry.action}]` : '';
+            return `[${timestamp}] [${entry.level}] [${entry.type}] [${origin}] ${action} ${entry.message}`;
+        }).join('\n');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(logText).then(() => {
+                logInfo(`Copied ${entries.length} log entries to clipboard.`, 'LOG_PANEL_ACTION');
+            }).catch(err => {
+                logError(`Failed to copy log to clipboard: ${err.message}`, 'LOG_PANEL_ACTION');
+            });
+        } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = logText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                logInfo(`Copied ${entries.length} log entries to clipboard.`, 'LOG_PANEL_ACTION');
+            } catch (err) {
+                logError(`Failed to copy log to clipboard: ${err.message}`, 'LOG_PANEL_ACTION');
+            }
+            document.body.removeChild(textArea);
         }
     }
 
+    // Resize functionality
+    startResize(e) {
+        this._isResizing = true;
+        this._startY = e.clientY;
+        this._startHeight = parseInt(document.documentElement.style.getPropertyValue('--log-height'), 10) || 200;
+        e.preventDefault();
+    }
+
+    doResize(e) {
+        if (!this._isResizing) return;
+        const deltaY = this._startY - e.clientY;
+        const newHeight = Math.max(MIN_LOG_HEIGHT, this._startHeight + deltaY);
+        
+        document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
+        
+        // Update the store
+        dispatch({ 
+            type: ActionTypes.UI_SET_LOG_HEIGHT, 
+            payload: { height: newHeight } 
+        });
+    }
+
+    endResize() {
+        this._isResizing = false;
+    }
+
+    // Method delegation for backward compatibility
+    _updateLogEntryDisplay(...args) {
+        return updateLogEntryDisplay(...args);
+    }
+
+    _enhanceCodeBlocksAndMermaid(...args) {
+        return enhanceCodeBlocksAndMermaid(...args);
+    }
+
+    /**
+     * Clean up resources
+     */
     destroy() {
-        if (this._updateTagsBarTimeout) clearTimeout(this._updateTagsBarTimeout);
-        if (this._appStateUnsubscribe) this._appStateUnsubscribe();
-        if (this._logFilteringUnsubscribe) this._logFilteringUnsubscribe();
+        if (this._appStateUnsubscribe) {
+            this._appStateUnsubscribe();
+        }
+        if (this._logStateUnsubscribe) {
+            this._logStateUnsubscribe();
+        }
+        if (this._uiStateUnsubscribe) { // Unsubscribe new subscription
+            this._uiStateUnsubscribe();
+        }
+        if (this._updateTagsBarTimeout) {
+            clearTimeout(this._updateTagsBarTimeout);
+        }
+        
         removeLogPanelEventListeners(this);
-        if (this.container) this.container.innerHTML = '';
-        logInfo('LogPanel instance destroyed.', 'LOG_PANEL_LIFECYCLE');
-        setLogPanelInstance(null);
+        
+        logInfo('LogPanel destroyed and unsubscribed from store.', 'LOG_PANEL_LIFECYCLE');
     }
 } 

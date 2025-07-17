@@ -8,7 +8,34 @@ import { createReducer } from './reducerUtils.js';
 
 const MAX_HISTORY_LENGTH = 10;
 
-export function domInspectorReducer(state = {}, action) {
+// Default initial state for DOM Inspector
+const initialState = {
+    visible: false,
+    position: { x: 100, y: 100 },
+    size: { width: 800, height: 600 },
+    splitPosition: 33,
+    selectorHistory: [],
+    collapsedSections: {},
+    highlight: {
+        enabled: true,
+        color: '#ff6b6b',
+        opacity: 0.3,
+        borderColor: '#ff4757',
+        borderWidth: 2
+    },
+    computedStyleFilter: {
+        selectedGroup: 'all',
+        showOnlyGroup: false
+    },
+    treeState: {
+        expandedNodes: [],
+        selectedElementId: null,
+        scrollPosition: 0
+    },
+    selectedElement: null
+};
+
+export function domInspectorReducer(state = initialState, action) {
     switch (action.type) {
         case ActionTypes.DOM_INSPECTOR_SET_STATE:
             return { ...state, ...action.payload };

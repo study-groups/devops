@@ -2,8 +2,7 @@
  * Login Form Component
  * Responsible for displaying login form and handling authentication
  */
-import { handleLogin } from '/client/auth.js';
-import { authState } from '/client/authState.js';
+import { appStore } from '/client/appState.js';
 import { eventBus } from '/client/eventBus.js';
 
 class LoginForm {
@@ -72,11 +71,12 @@ class LoginForm {
     const formElement = this.form.querySelector('form');
     formElement.addEventListener('submit', this.handleSubmit.bind(this));
     
-    // Update visibility based on current auth state using subscribe
+    // Update visibility based on current auth state using appStore subscribe
     // The subscription will call updateVisibility immediately with the current state
-    const unsubscribe = authState.subscribe(state => {
-        this.updateVisibility(state.isAuthenticated);
-        this.updateErrorMessage(state.error);
+    const unsubscribe = appStore.subscribe((newState, prevState) => {
+        const authState = newState.auth;
+        this.updateVisibility(authState.isAuthenticated);
+        this.updateErrorMessage(authState.error);
     });
     // Store the unsubscribe function to call it on destroy
     this.unsubscribeHandlers.push(unsubscribe);

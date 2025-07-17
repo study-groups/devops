@@ -3,15 +3,18 @@
  * A panel that displays the file system tree.
  */
 
+import { BasePanel } from '/client/panels/BasePanel.js';
 import { logMessage } from '/client/log/index.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
 import { globalFetch } from '/client/globalFetch.js';
 
-export class FileBrowserPanel {
-    constructor() {
+export class FileBrowserPanel extends BasePanel {
+    constructor(options) {
+        // Pass options to the base class, including a title
+        super({ title: 'Files', ...options });
+        
         console.warn('[FileBrowserPanel] Constructor called');
-        this.container = null;
         this.treeContainer = null;
         this.fileTreeManager = new FileTreeManager();
         this.unsubscribe = null;
@@ -19,57 +22,46 @@ export class FileBrowserPanel {
     }
 
     /**
-     * Renders the initial structure of the panel.
+     * Required by BasePanel. Renders the panel's specific content.
      */
-    async render() {
-        console.warn('[FileBrowserPanel] render() called');
-        try {
-            const html = `
-                <div class="file-browser-panel">
-                    <div class="file-browser-cwd-container">
-                        <span class="publish-badges"></span>
-                        <span class="cwd-path"></span>
-                    </div>
-                    <div class="file-browser-tree-container">
-                        <!-- Tree will be rendered here -->
-                    </div>
-                </div>
-            `;
-            console.warn('[FileBrowserPanel] render() returning HTML length:', html.length);
-            console.warn('[FileBrowserPanel] render() HTML preview:', html.substring(0, 200));
-            console.warn('[FileBrowserPanel] render() about to return HTML');
-            return Promise.resolve(html);
-        } catch (error) {
-            console.error('[FileBrowserPanel] render() error:', error);
-            throw error;
-        }
+    renderContent() {
+        console.warn('[FileBrowserPanel] renderContent() called');
+        
+        const container = document.createElement('div');
+        container.className = 'file-browser-panel';
+        container.innerHTML = `
+            <div class="file-browser-cwd-container">
+                <span class="publish-badges"></span>
+                <span class="cwd-path"></span>
+            </div>
+            <div class="file-browser-tree-container">
+                <!-- Tree will be rendered here -->
+            </div>
+        `;
+        
+        // Return the container element
+        return container;
     }
 
     /**
-     * Called when the panel becomes active.
+     * Lifecycle hook from BasePanel, called after the panel is mounted.
      */
-    onActivate(panelElement) {
-        console.warn('[FileBrowserPanel] onActivate called');
+    onMount() {
+        super.onMount(); // It's good practice to call the parent's method
         
-        this.container = panelElement;
+        console.warn('[FileBrowserPanel] onMount called');
         
-        // Wait for DOM to be ready if needed
-        setTimeout(() => {
-            console.warn('[FileBrowserPanel] Looking for tree container...');
-            this.treeContainer = this.container.querySelector('.file-browser-tree-container');
-            this.cwdPathContainer = this.container.querySelector('.cwd-path');
-            this.badgesContainer = this.container.querySelector('.publish-badges');
-            
-            console.warn('[FileBrowserPanel] Tree container found:', !!this.treeContainer);
-            console.warn('[FileBrowserPanel] Container HTML:', this.container.innerHTML.substring(0, 200));
-            
-            if (!this.treeContainer) {
-                logMessage('FileBrowserPanel: tree container not found!', 'error', 'FileBrowser');
-                return;
-            }
-            
-            this.initializePanel();
-        }, 0);
+        // this.contentElement is now guaranteed to exist by BasePanel
+        this.treeContainer = this.contentElement.querySelector('.file-browser-tree-container');
+        this.cwdPathContainer = this.contentElement.querySelector('.cwd-path');
+        this.badgesContainer = this.contentElement.querySelector('.publish-badges');
+        
+        if (!this.treeContainer) {
+            this.log('Tree container not found!', 'error');
+            return;
+        }
+        
+        this.initializePanel();
     }
     
     /**
@@ -195,10 +187,10 @@ export class FileBrowserPanel {
     }
 
     destroy() {
+        super.destroy(); // Call parent's destroy method
         logMessage('FileBrowserPanel destroyed.', 'info', 'FileBrowser');
         if (this.unsubscribe) {
             this.unsubscribe();
         }
-        // this.fileTreeManager.destroy(); // Assuming FileTreeManager gets a destroy method
     }
 } 

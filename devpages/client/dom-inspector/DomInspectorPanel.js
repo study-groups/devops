@@ -4,6 +4,8 @@
  */
 
 // Import core components
+import { panelRegistry } from "/client/panels/panelRegistry.js";
+import { eventBus } from "/client/eventBus.js";
 import { StateManager } from "./core/StateManager.js";
 import { PanelUI } from "./core/PanelUI.js";
 import { HighlightOverlay } from "./interaction/HighlightOverlay.js";
@@ -101,6 +103,7 @@ export class DomInspectorPanel {
         // Current state
         this.currentElement = null;
         this.selectedElement = null; // Keep for backward compatibility
+        this.treeBuilt = false; // Track if tree has been built
         
         // NOW initialize StateManager after components are ready
         console.log('[GENERAL] All required components created, initializing StateManager...');
@@ -111,9 +114,19 @@ export class DomInspectorPanel {
         // Get initial state after state manager is initialized
         const initialState = this.stateManager.getState();
         
-        // Set initial state from StateManager
-        this.panelUI.setPosition(initialState.position);
-        this.panelUI.setSize(initialState.size);
+        // Set initial state from StateManager with safety checks
+        if (initialState.position && typeof initialState.position.x === 'number' && typeof initialState.position.y === 'number') {
+            this.panelUI.setPosition(initialState.position);
+        } else {
+            console.warn('[DomInspectorPanel] Invalid position in initial state:', initialState.position);
+        }
+        
+        if (initialState.size && typeof initialState.size.width === 'number' && typeof initialState.size.height === 'number') {
+            this.panelUI.setSize(initialState.size);
+        } else {
+            console.warn('[DomInspectorPanel] Invalid size in initial state:', initialState.size);
+        }
+        
         this.panelUI.setSplitPosition(initialState.splitPosition || 33);
         
         // Initialize highlight overlay with current settings
@@ -165,11 +178,9 @@ export class DomInspectorPanel {
         // Create settings panel
         this.settingsPanel = new DomInspectorSettingsPanel(this);
 
-        // BUILD TREE WITH DELAY TO ENSURE DOM IS READY
-        setTimeout(() => {
-            this.buildTree();
-            console.log('DOM Inspector: Initial tree build completed with delay');
-        }, 100);
+        // DON'T BUILD TREE UNTIL PANEL IS OPENED
+        // Tree will be built on-demand when user opens the panel
+        console.log('DOM Inspector: Tree building deferred until panel is opened');
 
         // Initialize component UI elements
         this.historyManager.setUIElements(this.historyContainer, this.querySelectorInput);
@@ -194,6 +205,12 @@ export class DomInspectorPanel {
             console.log('[GENERAL] State listener: visibilityChanged =', visible);
             if (visible) {
                 console.log('[GENERAL] State listener: calling PanelUI.show()');
+                // Build tree on first visibility change if not already built
+                if (!this.treeBuilt) {
+                    console.log('[GENERAL] Building tree on visibility change...');
+                    this.buildTree();
+                    this.treeBuilt = true;
+                }
                 this.panelUI.show();
             } else {
                 console.log('[GENERAL] State listener: calling PanelUI.hide()');
@@ -202,11 +219,19 @@ export class DomInspectorPanel {
         });
 
         this.stateManager.on('positionChanged', (position) => {
-            this.panelUI.setPosition(position);
+            if (position && typeof position.x === 'number' && typeof position.y === 'number') {
+                this.panelUI.setPosition(position);
+            } else {
+                console.warn('[DomInspectorPanel] Invalid position received in positionChanged event:', position);
+            }
         });
 
         this.stateManager.on('sizeChanged', (size) => {
-            this.panelUI.setSize(size);
+            if (size && typeof size.width === 'number' && typeof size.height === 'number') {
+                this.panelUI.setSize(size);
+            } else {
+                console.warn('[DomInspectorPanel] Invalid size received in sizeChanged event:', size);
+            }
         });
 
         this.stateManager.on('highlightChanged', (highlight) => {
@@ -282,8 +307,8 @@ export class DomInspectorPanel {
             this.panelUI.hide();
         }
 
-        // Build tree 
-        this.buildTree();
+        // Don't build tree here - it will be built when panel is opened
+        // this.buildTree();
         
         // Don't try to select element from state since we no longer store DOM elements there
         // Element selection is handled through the selectedElementChanged event listener
@@ -294,6 +319,14 @@ export class DomInspectorPanel {
 
     show() {
         console.log('[GENERAL] DomInspectorPanel.show() called');
+        
+        // Build tree only when panel is opened
+        if (!this.treeBuilt) {
+            console.log('[GENERAL] Building tree on first open...');
+            this.buildTree();
+            this.treeBuilt = true;
+        }
+        
         this.stateManager.setVisible(true);
     }
 
@@ -335,25 +368,23 @@ export class DomInspectorPanel {
         // Use tree manager to build the tree with proper callbacks
         this.treeManager.buildTree(callbacks);
         
-        // Ensure the tree is properly initialized
-        setTimeout(() => {
-            // Verify tree event handlers are working
-            const firstToggle = this.treeContainer.querySelector('.dom-inspector-node-toggle');
-            const firstHeader = this.treeContainer.querySelector('.dom-inspector-node-header');
-            
-            if (firstToggle) {
-                console.log('DOM Inspector: Tree toggle buttons are ready');
-            }
-            if (firstHeader) {
-                console.log('DOM Inspector: Tree headers are ready');
-            }
-            
-            // If we have a current element, make sure it's visible and selected in the tree
-            if (this.currentElement) {
-                this.updateTreeSelection(this.currentElement);
-                this.expandTreeToElement(this.currentElement);
-            }
-        }, 10);
+        // Ensure the tree is properly initialized immediately
+        // Verify tree event handlers are working
+        const firstToggle = this.treeContainer.querySelector('.dom-inspector-node-toggle');
+        const firstHeader = this.treeContainer.querySelector('.dom-inspector-node-header');
+        
+        if (firstToggle) {
+            console.log('DOM Inspector: Tree toggle buttons are ready');
+        }
+        if (firstHeader) {
+            console.log('DOM Inspector: Tree headers are ready');
+        }
+        
+        // If we have a current element, make sure it's visible and selected in the tree
+        if (this.currentElement) {
+            this.updateTreeSelection(this.currentElement);
+            this.expandTreeToElement(this.currentElement);
+        }
     }
 
     /**

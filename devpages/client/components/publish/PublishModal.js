@@ -7,7 +7,6 @@ import { globalFetch } from '/client/globalFetch.js';
 import { PublishAPI } from './PublishAPI.js';
 import { createModalTemplate } from './PublishModalTemplate.js';
 import { findEditor, ghostValue, loadStylesheet } from './PublishUtils.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
 import { publishService } from '/client/services/PublishService.js';
 import { cssManager } from '/client/utils/CssManager.js';
 

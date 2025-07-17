@@ -28,7 +28,7 @@ export const PANEL_REDUCERS = {
         description: 'Settings panel (themes, icons, design tokens, etc.)',
         collapsedStateKey: 'collapsedSections',
         visibilityStateKey: 'visible',
-        registry: 'settingsRegistry',
+        registry: 'panelRegistry',
         persistenceKey: 'devpages_settings_panel_state',
         supportsCollapse: true,
         supportsVisibility: true,
@@ -77,20 +77,6 @@ export const PANEL_REDUCERS = {
         supportsVisibility: true,
         supportsReordering: false
     },
-    
-    // UI panels (legacy/mixed)
-    ui: {
-        type: 'mixed-ui',
-        description: 'Mixed UI state including some panel visibility',
-        collapsedStateKey: null,
-        visibilityStateKey: 'logVisible,textVisible,previewVisible',
-        registry: null,
-        persistenceKey: 'multiple', // Multiple keys
-        supportsCollapse: false,
-        supportsVisibility: true,
-        supportsReordering: false,
-        legacy: true
-    }
 };
 
 /**

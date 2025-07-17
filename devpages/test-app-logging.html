@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Logging Test - DevPages</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+        .status {
+            padding: 10px;
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            border-color: #ffcdd2;
+            color: #c62828;
+        }
+        .success {
+            background: #e8f5e8;
+            border-color: #c8e6c9;
+            color: #2e7d32;
+        }
+        pre {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>App Logging System Test</h1>
+    <p>Testing the new StateKit createSlice-based app logging system.</p>
+
+    <div class="test-section">
+        <h2>System Status</h2>
+        <div id="system-status" class="status">Initializing...</div>
+        <div id="store-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Log Testing Controls</h2>
+        <p>Test various logging scenarios with the new log slice:</p>
+        
+        <div class="test-controls">
+            <button onclick="testBasicLogging()">Basic Logging</button>
+            <button onclick="testStructuredLogging()">Structured Logging</button>
+            <button onclick="testLogLevels()">Test Log Levels</button>
+            <button onclick="testLogTypes()">Test Log Types</button>
+            <button onclick="testLogActions()">Test Actions</button>
+            <button onclick="testBulkLogging()">Bulk Logging (10 entries)</button>
+            <button class="secondary" onclick="testFiltering()">Test Filtering</button>
+            <button class="secondary" onclick="testSearch()">Test Search</button>
+            <button onclick="testBulkThunk()">Test Bulk Thunk (100 entries)</button>
+            <button onclick="testExportThunk()">Test Export Thunk</button>
+            <button onclick="testAuthThunk()">Test Auth Check Thunk</button>
+            <button class="danger" onclick="clearAllLogs()">Clear All Logs</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Log Statistics</h2>
+        <div id="log-stats"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Raw Log Output</h2>
+        <div class="log-container" id="log-output"></div>
+        <div class="test-controls">
+            <button onclick="refreshLogOutput()">Refresh Output</button>
+            <button onclick="exportLogs()">Export Logs</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>State Inspection</h2>
+        <div class="test-controls">
+            <button onclick="inspectLogState()">Inspect Log State</button>
+            <button onclick="inspectFullState()">Inspect Full State</button>
+        </div>
+        <pre id="state-output"></pre>
+    </div>
+
+    <!-- Import the modules we need -->
+    <script type="module">
+        import { appStore, dispatch, ActionTypes } from '/client/appState.js';
+        import { 
+            addEntry,
+            clearEntries,
+            setActiveFilters,
+            setSearchTerm,
+            selectLogEntries,
+            selectFilteredEntries,
+            selectLogStats,
+            selectDiscoveredTypes,
+            logThunks
+        } from '/client/store/slices/logSlice.js';
+        import { 
+            authThunks,
+            selectIsAuthenticated,
+            selectAuthStatus,
+            selectUserSummary
+        } from '/client/store/slices/authSlice.js';
+
+        // Make everything globally available for testing
+        window.appStore = appStore;
+        window.dispatch = dispatch;
+        window.ActionTypes = ActionTypes;
+        window.logActions = {
+            addEntry,
+            clearEntries,
+            setActiveFilters,
+            setSearchTerm
+        };
+        window.logSelectors = {
+            selectLogEntries,
+            selectFilteredEntries,
+            selectLogStats,
+            selectDiscoveredTypes
+        };
+        window.logThunks = logThunks;
+        window.authThunks = authThunks;
+        window.authSelectors = {
+            selectIsAuthenticated,
+            selectAuthStatus,
+            selectUserSummary
+        };
+
+        let testCounter = 0;
+
+        // Initialize and check system status
+        function updateSystemStatus() {
+            const statusEl = document.getElementById('system-status');
+            const storeInfoEl = document.getElementById('store-info');
+            
+            try {
+                const state = appStore.getState();
+                const authStatus = window.authSelectors.selectAuthStatus(state);
+                const userSummary = window.authSelectors.selectUserSummary(state);
+                
+                statusEl.textContent = 'System initialized successfully ✅';
+                statusEl.className = 'status success';
+                
+                storeInfoEl.innerHTML = `
+                    <strong>Store Status:</strong><br>
+                    • Auth checked: ${authStatus.authChecked}<br>
+                    • Auth authenticated: ${authStatus.isAuthenticated}<br>
+                    • Auth loading: ${authStatus.isLoading}<br>
+                    • UI log visible: ${state.ui?.logVisible || false}<br>
+                    • Log slice available: ${state.log ? '✅' : '❌'}<br>
+                    • Auth slice available: ${state.auth ? '✅' : '❌'}<br>
+                    • User: ${userSummary ? userSummary.displayName : 'Not logged in'}<br>
+                    • State slices: ${Object.keys(state).join(', ')}
+                `;
+            } catch (error) {
+                statusEl.textContent = `System error: ${error.message} ❌`;
+                statusEl.className = 'status error';
+                storeInfoEl.innerHTML = `<strong>Error details:</strong> ${error.stack}`;
+            }
+        }
+
+        // Test functions
+        window.testBasicLogging = function() {
+            testCounter++;
+            dispatch({
+                type: ActionTypes.LOG_ADD_ENTRY,
+                payload: {
+                    message: `Basic test message #${testCounter}`,
+                    level: 'INFO',
+                    source: 'TEST',
+                    type: 'BASIC'
+                }
+            });
+            updateLogStats();
+        };
+
+        window.testStructuredLogging = function() {
+            testCounter++;
+            dispatch({
+                type: ActionTypes.LOG_ADD_ENTRY,
+                payload: {
+                    message: `Structured test with details #${testCounter}`,
+                    level: 'DEBUG',
+                    source: 'TEST',
+                    component: 'STRUCTURED',
+                    type: 'API',
+                    action: 'REQUEST',
+                    details: {
+                        endpoint: '/api/test',
+                        method: 'GET',
+                        params: { test: true, counter: testCounter }
+                    },
+                    caller: 'testStructuredLogging'
+                }
+            });
+            updateLogStats();
+        };
+
+        window.testLogLevels = function() {
+            const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+            levels.forEach((level, index) => {
+                dispatch({
+                    type: ActionTypes.LOG_ADD_ENTRY,
+                    payload: {
+                        message: `${level} level test message`,
+                        level: level,
+                        source: 'TEST',
+                        type: 'LEVEL_TEST',
+                        action: 'DEMO'
+                    }
+                });
+            });
+            updateLogStats();
+        };
+
+        window.testLogTypes = function() {
+            const types = ['USER', 'API', 'SYSTEM', 'DATABASE', 'NETWORK'];
+            types.forEach((type, index) => {
+                dispatch({
+                    type: ActionTypes.LOG_ADD_ENTRY,
+                    payload: {
+                        message: `Testing ${type} type logging`,
+                        level: 'INFO',
+                        source: 'TEST',
+                        type: type,
+                        action: 'TYPE_TEST'
+                    }
+                });
+            });
+            updateLogStats();
+        };
+
+        window.testLogActions = function() {
+            const actions = ['CREATE', 'READ', 'UPDATE', 'DELETE', 'VALIDATE'];
+            actions.forEach((action, index) => {
+                dispatch({
+                    type: ActionTypes.LOG_ADD_ENTRY,
+                    payload: {
+                        message: `Testing ${action} action`,
+                        level: 'INFO',
+                        source: 'TEST',
+                        type: 'CRUD',
+                        action: action
+                    }
+                });
+            });
+            updateLogStats();
+        };
+
+        window.testBulkLogging = function() {
+            for (let i = 1; i <= 10; i++) {
+                dispatch({
+                    type: ActionTypes.LOG_ADD_ENTRY,
+                    payload: {
+                        message: `Bulk log entry ${i}/10 - testing performance`,
+                        level: i % 2 === 0 ? 'INFO' : 'DEBUG',
+                        source: 'BULK_TEST',
+                        type: 'PERFORMANCE',
+                        action: 'BATCH_INSERT',
+                        details: { batchSize: 10, index: i }
+                    }
+                });
+            }
+            updateLogStats();
+        };
+
+        window.testFiltering = function() {
+            // Add some test entries first
+            dispatch({
+                type: ActionTypes.LOG_ADD_ENTRY,
+                payload: {
+                    message: 'Error message for filter test',
+                    level: 'ERROR',
+                    source: 'FILTER_TEST',
+                    type: 'ERROR_TEST'
+                }
+            });
+            
+            // Apply a filter for ERROR level
+            dispatch({
+                type: ActionTypes.LOG_SET_ACTIVE_FILTERS,
+                payload: ['level:error']
+            });
+            
+            setTimeout(() => {
+                // Clear filters after 3 seconds
+                dispatch({
+                    type: ActionTypes.LOG_SET_ACTIVE_FILTERS,
+                    payload: []
+                });
+                updateLogStats();
+            }, 3000);
+            
+            updateLogStats();
+        };
+
+        window.testSearch = function() {
+            // Add a searchable entry
+            dispatch({
+                type: ActionTypes.LOG_ADD_ENTRY,
+                payload: {
+                    message: 'This is a special searchable message with unique keywords',
+                    level: 'INFO',
+                    source: 'SEARCH_TEST',
+                    type: 'SEARCHABLE'
+                }
+            });
+            
+            // Set search term
+            dispatch({
+                type: ActionTypes.LOG_SET_SEARCH_TERM,
+                payload: 'searchable'
+            });
+            
+            setTimeout(() => {
+                // Clear search after 3 seconds
+                dispatch({
+                    type: ActionTypes.LOG_SET_SEARCH_TERM,
+                    payload: ''
+                });
+                updateLogStats();
+            }, 3000);
+            
+            updateLogStats();
+        };
+
+        window.clearAllLogs = function() {
+            dispatch({ type: ActionTypes.LOG_CLEAR_ENTRIES });
+            updateLogStats();
+            refreshLogOutput();
+        };
+
+        window.updateLogStats = function() {
+            const state = appStore.getState();
+            const stats = window.logSelectors.selectLogStats(state);
+            const types = window.logSelectors.selectDiscoveredTypes(state);
+            
+            document.getElementById('log-stats').innerHTML = `
+                <strong>Current Statistics:</strong><br>
+                • Total entries: ${stats.totalEntries}<br>
+                • Filtered entries: ${stats.filteredEntries}<br>
+                • Discovered types: ${stats.discoveredTypes} (${types.join(', ')})<br>
+                • Entries per second: ${stats.entriesPerSecond}<br>
+                • Last entry: ${stats.lastEntryTime ? new Date(stats.lastEntryTime).toLocaleTimeString() : 'None'}<br>
+                • Initialized: ${stats.isInitialized ? '✅' : '❌'}
+            `;
+        };
+
+        window.refreshLogOutput = function() {
+            const state = appStore.getState();
+            const entries = window.logSelectors.selectFilteredEntries(state);
+            const output = document.getElementById('log-output');
+            
+            if (entries.length === 0) {
+                output.innerHTML = '<em>No log entries found</em>';
+                return;
+            }
+            
+            output.innerHTML = entries.slice(0, 20) // Show latest 20
+                .map(entry => {
+                    const timestamp = entry.formattedTime || new Date(entry.timestamp).toLocaleTimeString();
+                    const component = entry.component ? `-${entry.component}` : '';
+                    const action = entry.action ? `[${entry.action}]` : '';
+                    return `[${timestamp}] [${entry.level}] [${entry.source}${component}] [${entry.type}] ${action} ${entry.message}`;
+                })
+                .join('\n');
+        };
+
+        window.exportLogs = function() {
+            const state = appStore.getState();
+            const entries = window.logSelectors.selectLogEntries(state);
+            
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                totalEntries: entries.length,
+                entries: entries
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `app-logs-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        window.inspectLogState = function() {
+            const state = appStore.getState();
+            document.getElementById('state-output').textContent = JSON.stringify(state.log, null, 2);
+        };
+
+        window.inspectFullState = function() {
+            const state = appStore.getState();
+            document.getElementById('state-output').textContent = JSON.stringify(state, null, 2);
+        };
+
+        // Initialize the page
+        updateSystemStatus();
+        updateLogStats();
+        refreshLogOutput();
+
+        // Auto-refresh stats every 2 seconds
+        setInterval(() => {
+            updateLogStats();
+            refreshLogOutput();
+        }, 2000);
+
+        console.log('✅ App Logging Test Page Initialized');
+        console.log('🔧 Available globals: appStore, dispatch, ActionTypes, logActions, logSelectors');
+        console.log('📊 Test the logging system using the buttons above');
+    </script>
+</body>
+</html> 

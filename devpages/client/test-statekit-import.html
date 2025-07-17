@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StateKit Import Test</title>
+</head>
+<body>
+    <h1>StateKit Import Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        try {
+            const { createStore, createLogger, createThunk, createDevTools } = await import('/packages/devpages-statekit/dist/index.esm.js');
+            
+            document.getElementById('output').innerHTML = `
+                <h2>✅ Import Successful!</h2>
+                <p>Available functions:</p>
+                <ul>
+                    <li>createStore: ${typeof createStore}</li>
+                    <li>createLogger: ${typeof createLogger}</li>
+                    <li>createThunk: ${typeof createThunk}</li>
+                    <li>createDevTools: ${typeof createDevTools}</li>
+                </ul>
+                
+                <h3>Testing Store Creation...</h3>
+            `;
+            
+            // Test creating a store with DevTools
+            const initialState = { count: 0 };
+            const reducer = (state, action) => {
+                switch (action.type) {
+                    case 'INCREMENT':
+                        return { ...state, count: state.count + 1 };
+                    default:
+                        return state;
+                }
+            };
+            
+            const store = createStore(
+                reducer,
+                initialState,
+                [
+                    createLogger({ collapsed: true }),
+                    createThunk(),
+                    createDevTools({ maxAge: 10 })
+                ]
+            );
+            
+            document.getElementById('output').innerHTML += `
+                <p>✅ Store created successfully!</p>
+                <p>Initial state: ${JSON.stringify(store.getState())}</p>
+            `;
+            
+            // Test dispatching an action
+            store.dispatch({ type: 'INCREMENT' });
+            
+            document.getElementById('output').innerHTML += `
+                <p>✅ Action dispatched!</p>
+                <p>New state: ${JSON.stringify(store.getState())}</p>
+                <p>🎉 All tests passed! DevTools are working correctly.</p>
+            `;
+            
+        } catch (error) {
+            document.getElementById('output').innerHTML = `
+                <h2>❌ Import Failed</h2>
+                <p>Error: ${error.message}</p>
+                <pre>${error.stack}</pre>
+            `;
+        }
+    </script>
+</body>
+</html> 

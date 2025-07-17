@@ -1,5 +1,6 @@
-import { settingsRegistry } from './settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { createSectionContainer } from '../utils/SettingsDomUtils.js';
+import { appStore } from '/client/appState.js';
 
 /**
  * Renders all settings sections into the given container.
@@ -11,19 +12,14 @@ export function renderSettingsSections(container, sectionInstances, onToggle) {
   // Clear container
   container.innerHTML = '';
 
-  console.log('[SettingsSectionRenderer] Starting renderSettingsSections...');
-  console.log('[SettingsSectionRenderer] Registry object:', settingsRegistry);
-  console.log('[SettingsSectionRenderer] Registry count:', settingsRegistry.count());
-  
-  // Check if we can access the registry through the devpages namespace
-  if (window.devpages && window.devpages.settings && window.devpages.settings.registry) {
-    console.log('[SettingsSectionRenderer] Found registry in devpages.settings.registry');
-    console.log('[SettingsSectionRenderer] devpages.settings.registry count:', window.devpages.settings.registry.count());
-  } else {
-    console.warn('[SettingsSectionRenderer] Registry not found in devpages.settings.registry');
-  }
+  const { panels: panelsState } = appStore.getState();
+  const collapsedSections = panelsState.collapsedSections || {};
 
-  const sectionsToRender = settingsRegistry.getPanelsWithState();
+  const sectionsToRender = panelRegistry.getAllPanels().map(panel => ({
+      ...panel,
+      isCollapsed: collapsedSections[panel.id] ?? panel.defaultCollapsed
+  }));
+  
   console.log('[SettingsSectionRenderer] Rendering sections:', sectionsToRender.map(s => s.id));
 
   if (sectionsToRender.length === 0) {

@@ -3,9 +3,9 @@
  * Provides full-featured design tokens browser for settings
  */
 
-import { settingsRegistry } from '../../core/settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 
-class DesignTokensPanel {
+export class DesignTokensPanel {
   constructor(containerElement) {
     this.containerElement = containerElement;
     this.tokens = [];
@@ -924,17 +924,4 @@ class DesignTokensPanel {
     gridHtml += '</div>';
     return gridHtml;
   }
-}
-
-// Register the section
-settingsRegistry.register({
-  id: 'css-design-tokens',
-  title: 'Design Tokens',
-  category: 'CSS & Design',
-  icon: '🎨',
-  description: 'Browse and manage CSS design tokens',
-  component: DesignTokensPanel,
-  order: 2
-});
-
-export { DesignTokensPanel }; 
+} 

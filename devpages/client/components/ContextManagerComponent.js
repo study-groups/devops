@@ -52,7 +52,6 @@ export function createContextManagerComponent(targetElementId) {
             availableContentSubDirs: settingsStateFromStore?.availableContentSubDirs || ['data'],
             doEnvVars: settingsStateFromStore?.doEnvVars || []
         };
-
         const isAuthInitializing = authState.isInitializing;
         const isAuthenticated = authState.isAuthenticated;
         const isFileLoading = !isAuthInitializing && (!fileState.isInitialized || fileState.isLoading);

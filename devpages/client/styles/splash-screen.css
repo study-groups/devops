@@ -1,7 +1,7 @@
 /* client/styles/splash-screen.css */
 
 /* Splash Screen Styles */
-.preview-containers-splash {
+#devpages-splash {
     position: fixed;
     top: 0;
     left: 0;
@@ -16,7 +16,7 @@
     transition: opacity 0.3s ease-out;
 }
 
-.preview-containers-splash.hidden {
+#devpages-splash.hidden {
     opacity: 0;
     pointer-events: none;
 }

@@ -3,8 +3,8 @@ import { eventBus } from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
 // Remove old import
 // import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
-// Import only logout from auth.js
-import { logout } from '/client/auth.js'; 
+// Import auth thunks from new auth slice
+import { authThunks } from '/client/store/slices/authSlice.js'; 
 // Import the new reactive state
 // import { authState } from '/client/authState.js'; 
 import { globalFetch } from '/client/globalFetch.js';
@@ -14,7 +14,6 @@ import { logMessage } from '/client/log/index.js';
 // --- REMOVED: Import settings state for dynamic toolbar ---
 // import { settingsState } from '/client/settings/settingsState.js'; 
 import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
-import { renderMarkdown } from '/client/preview/renderers/MarkdownRenderer.js'; // Import markdown renderer
 import { appVer } from '/config.js'; // Use absolute path
 // --- END ADDED ---
 

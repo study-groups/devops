@@ -28,12 +28,16 @@ const isAdmin = (req, res, next) => {
 };
 
 router.post('/login', (req, res, next) => {
+    console.log('[AUTH DEBUG] Login request received. Body:', req.body);
+    console.log('[AUTH DEBUG] Content-Type:', req.get('Content-Type'));
+    
     const username = req.body.username;
     const password = req.body.password;
     const logPrefix = `[AUTH /login] User='${username}' -`;
 
     console.log(`${logPrefix} Received login request.`);
     if (!username || !password) {
+        console.log('[AUTH DEBUG] Missing credentials. Username:', !!username, 'Password:', !!password);
         return res.status(400).json({ error: 'Username and password are required' });
     }
     if (!req.pdata) {

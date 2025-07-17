@@ -8,7 +8,8 @@ import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { e } from '/client/components/elements.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 
 export class PublishSettingsPanel {
   constructor(containerElement) {
@@ -235,11 +236,11 @@ export class PublishSettingsPanel {
   }
 }
 
-// Register this panel in the settings section registry
-settingsSectionRegistry.register({
-  id: 'publish',
-  title: 'Publish',
-  component: PublishSettingsPanel,
-  icon: 'upload-cloud', // Example icon
-  level: 1, // Core setting
+// Register this panel with the registry
+panelRegistry.register({
+    id: 'publish-settings',
+    title: 'Publishing',
+    component: PublishSettingsPanel,
+    icon: 'upload-cloud', // Example icon
+    level: 1, // Core setting
 }); 

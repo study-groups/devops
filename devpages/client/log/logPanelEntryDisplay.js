@@ -1,5 +1,5 @@
 import { triggerActions } from '/client/actions.js';
-// import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js'; // Already in LogPanel.js
+import { renderMarkdown, postProcessRender } from '/client/preview/renderer.js';
 
 // Placeholder for logError, logDebug from LogCore.js if needed directly here
 // import { logError, logDebug } from './LogCore.js';
@@ -41,9 +41,9 @@ export async function updateLogEntryDisplayContent(logEntryDiv, requestedMode, r
     try {
         if (finalMode === renderContext.RENDER_MODE_MARKDOWN) {
             textWrapper.classList.add('markdown-rendered');
-            const mdResult = await renderContext.renderMarkdown(coreMessage);
+            const mdResult = await renderMarkdown(coreMessage);
             textWrapper.innerHTML = mdResult.html;
-            await renderContext.postProcessRender(textWrapper); // Standard post-processing (e.g., syntax highlighting)
+            await postProcessRender(textWrapper, mdResult.externalScriptUrls, mdResult.inlineScriptContents);
             enhanceMarkdownContent(textWrapper, logIndex);     // <<< OUR NEW FUNCTION CALL
         } else if (finalMode === renderContext.RENDER_MODE_HTML) {
             textWrapper.classList.add('html-rendered');

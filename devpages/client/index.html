@@ -6,29 +6,59 @@
     <title>DevPages</title>
     <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
     
+    <!-- Preload critical CSS files -->
+    <link rel="preload" href="/client/styles/reset.css" as="style">
+    <link rel="preload" href="/client/styles/preview/core.css" as="style">
+    <link rel="preload" href="/client/styles/design-system.css" as="style">
+    
+    <!-- Critical CSS - load immediately -->
     <link rel="stylesheet" href="/client/styles/reset.css">
     <link rel="stylesheet" href="/client/styles/preview/core.css">
 
-    <link rel="stylesheet" href="/client/styles/typography.css">
-    <link rel="stylesheet" href="/client/styles/design-system.css">
-    <link rel="stylesheet" href="/client/styles/utilities.css">
-    <link rel="stylesheet" href="/client/styles/icons.css">
-    <link rel="stylesheet" href="/client/layout/workspace-layout.css">
+    <!-- Non-critical CSS - load asynchronously -->
+    <link rel="stylesheet" href="/client/styles/typography.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/design-system.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/utilities.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/icons.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/layout/workspace-layout.css" media="print" onload="this.media='all'">
 
-    <link rel="stylesheet" href="/client/log/log.css"> 
-    <link rel="stylesheet" href="/client/components/auth-display.css">
-    <link rel="stylesheet" href="/client/components/context-manager.css">
-    <link rel="stylesheet" href="/client/components/topBar.css">
-    <link rel="stylesheet" href="/client/styles/viewControls.css">
-    <link rel="stylesheet" href="/client/settings/core/settings.css">
-    <link rel="stylesheet" href="/client/file-browser/file-browser.css">
-    <link rel="stylesheet" href="/client/styles/panels.css">
-    <link rel="stylesheet" href="/client/styles/panels/scrollbars.css">
-    <link rel="stylesheet" href="/client/styles/subpanel.css">
-    <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css">
-    <link rel="stylesheet" href="/client/styles/splash-screen.css">
-    <link rel="stylesheet" href="/client/sidebar/panels/PublishedSummaryPanel.css">
-    <link rel="stylesheet" href="/client/styles/components/panel-manager-header.css">
+    <link rel="stylesheet" href="/client/log/log.css" media="print" onload="this.media='all'"> 
+    <link rel="stylesheet" href="/client/components/auth-display.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/components/context-manager.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/components/topBar.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/viewControls.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/settings/core/settings.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/file-browser/file-browser.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/panels.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/panels/scrollbars.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/subpanel.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/splash-screen.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/sidebar/panels/PublishedSummaryPanel.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/components/panel-manager-header.css" media="print" onload="this.media='all'">
+
+    <!-- Fallback for browsers that don't support onload -->
+    <noscript>
+        <link rel="stylesheet" href="/client/styles/typography.css">
+        <link rel="stylesheet" href="/client/styles/design-system.css">
+        <link rel="stylesheet" href="/client/styles/utilities.css">
+        <link rel="stylesheet" href="/client/styles/icons.css">
+        <link rel="stylesheet" href="/client/layout/workspace-layout.css">
+        <link rel="stylesheet" href="/client/log/log.css">
+        <link rel="stylesheet" href="/client/components/auth-display.css">
+        <link rel="stylesheet" href="/client/components/context-manager.css">
+        <link rel="stylesheet" href="/client/components/topBar.css">
+        <link rel="stylesheet" href="/client/styles/viewControls.css">
+        <link rel="stylesheet" href="/client/settings/core/settings.css">
+        <link rel="stylesheet" href="/client/file-browser/file-browser.css">
+        <link rel="stylesheet" href="/client/styles/panels.css">
+        <link rel="stylesheet" href="/client/styles/panels/scrollbars.css">
+        <link rel="stylesheet" href="/client/styles/subpanel.css">
+        <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css">
+        <link rel="stylesheet" href="/client/styles/splash-screen.css">
+        <link rel="stylesheet" href="/client/sidebar/panels/PublishedSummaryPanel.css">
+        <link rel="stylesheet" href="/client/styles/components/panel-manager-header.css">
+    </noscript>
 
     <script src="/client/errorTracker.js"></script>
 
@@ -54,7 +84,13 @@
     <main class="workspace-container">
         <div class="main-panels" id="panels-container">
             <div class="sidebar-container" id="sidebar-container">
-                <div class="panel-manager">
+                <div class="container">
+                    <div id="drag-handle"></div>
+                    <div class="sidebar">
+                    </div>
+                    <div class="resizer" data-direction="horizontal"></div>
+                    <div class="main-content">
+                    </div>
                 </div>
             </div>
             <div class="editor-container" id="editor-container">
@@ -69,7 +105,3 @@
     <script type="module" src="/client/bootstrap.js"></script>
 
 </body>
-
-
-</html>
-</html>

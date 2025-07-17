@@ -4,7 +4,7 @@
  * Distinguishes between system CSS and theme CSS (from MD_DIR/themes)
  */
 
-import { settingsRegistry } from '../../core/settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
@@ -627,13 +627,11 @@ class ThemeSelectorPanel {
   }
 }
 
-// Register the panel
-settingsRegistry.register({
+panelRegistry.register({
   id: 'themes',
-  title: 'Themes',
-  icon: '▣',
-  order: 2,
-  component: ThemeSelectorPanel
+  title: 'Themes, Schemes, and Variants',
+  component: ThemeSelectorPanel,
+  defaultCollapsed: false
 });
 
 export default ThemeSelectorPanel; 

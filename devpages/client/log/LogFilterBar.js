@@ -401,7 +401,7 @@ export function updateTagsBar(element, logFilteringState) {
 
     // Simple diffing
     const currentContent = element.dataset.renderedFor || '';
-    const newContentSignature = `${logFilteringState.discoveredTypes.join(',')}-${logFilteringState.activeFilters.join(',')}`;
+    const newContentSignature = `${(logFilteringState.discoveredTypes || []).join(',')}-${(logFilteringState.activeFilters || []).join(',')}`;
 
     if (currentContent === newContentSignature) return;
 
@@ -413,7 +413,7 @@ export function updateTagsBar(element, logFilteringState) {
     element.style.padding = 'var(--space-2) var(--space-3)';
     element.style.borderBottom = '1px solid var(--color-border-primary)';
 
-    const { discoveredTypes, activeFilters } = logFilteringState;
+    const { discoveredTypes = [], activeFilters = [] } = logFilteringState;
     const allTypes = Array.from(new Set([...discoveredTypes, ...Object.values(logFilteringState.defaultFilters || {})]));
     
     const createFilterButton = (category, value, isActive) => {

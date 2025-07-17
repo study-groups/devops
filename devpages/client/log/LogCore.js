@@ -1,8 +1,58 @@
 /**
- * LogCore.js - Central logging hub with object-based API and legacy shim
- * Renamed from core.js and simplified by removing subtype functionality
+ * LogCore.js – Central Logging System
+ * Provides unified logging functionality for console output only
+ * Store integration is handled separately to avoid circular dispatch issues
  */
+
+// Legacy variable kept for backward compatibility
 let logPanelInstance = null;
+
+// Rate limiting for excessive logging
+const logRateLimit = {
+    maxPerSecond: 50, // Allow max 50 logs per second
+    logCounts: new Map(),
+    
+    shouldAllow: function(source, type, level) {
+        const key = `${source}:${type}:${level}`;
+        const now = Date.now();
+        const secondWindow = Math.floor(now / 1000);
+        
+        if (!this.logCounts.has(key)) {
+            this.logCounts.set(key, { count: 0, window: secondWindow });
+        }
+        
+        const entry = this.logCounts.get(key);
+        
+        // Reset count if we're in a new second
+        if (entry.window !== secondWindow) {
+            entry.count = 0;
+            entry.window = secondWindow;
+        }
+        
+        // Check if we're over the limit
+        if (entry.count >= this.maxPerSecond) {
+            return false;
+        }
+        
+        entry.count++;
+        return true;
+    }
+};
+
+// Global flag to suppress debug logging during initialization
+let suppressDebugDuringInit = true;
+
+// Auto-disable suppression after 10 seconds
+setTimeout(() => {
+    suppressDebugDuringInit = false;
+    console.log('[LogCore] Debug logging suppression disabled after initialization period');
+}, 10000);
+
+// Allow manual control
+window.toggleLogSuppression = (enabled) => {
+    suppressDebugDuringInit = enabled;
+    console.log(`[LogCore] Debug logging suppression ${enabled ? 'enabled' : 'disabled'}`);
+};
 
 /* 0.  CONSTANTS & HELPERS ------------------------------------ */
 export const LEVELS = Object.freeze(['DEBUG', 'INFO', 'WARN', 'ERROR']);
@@ -12,13 +62,15 @@ export const canonicalLevel = (raw = 'INFO') => {
     if (u === 'WARNING') return 'WARN';
     return LEVELS.includes(u) ? u : 'INFO';
 };
-export const canonicalType  = (raw = 'GENERAL') =>
+
+export const canonicalType = (raw = 'GENERAL') =>
     String(raw).trim().toUpperCase();
 
 /* 1.  LOG PANEL REGISTRATION --------------------------------- */
 export function setLogPanelInstance(instance) {
     if (instance && typeof instance.addEntry === 'function') {
         logPanelInstance = instance;
+        console.log('[LogCore] LogPanel instance set');
     } else {
         console.error('[LogCore] Invalid LogPanel instance supplied');
         logPanelInstance = null;
@@ -30,7 +82,7 @@ export function log({ message,
                       source  = 'DEVPAGES',
                       level   = 'INFO',
                       type    = 'GENERAL',
-                      action  = null,      // NEW: Support ACTION instead of subtype (005.5.md)
+                      action  = null,
                       details = null,
                       ts      = Date.now(),
                       forceConsole = false,
@@ -42,14 +94,24 @@ export function log({ message,
     const act = action ? String(action).toUpperCase() : null;
     const comp = component ? String(component).toUpperCase() : null;
 
+    // Rate limit to prevent spam (unless forced)
+    if (!forceConsole && !logRateLimit.shouldAllow(src, typ, lvl)) {
+        return; // Drop the log entry silently
+    }
+
+    // Suppress debug logging during initialization (unless forced)
+    if (!forceConsole && suppressDebugDuringInit && lvl === 'DEBUG') {
+        return; // Drop debug logs during init
+    }
+
     const entry = { ts, message, source: src, level: lvl, type: typ, action: act, details, component: comp };
 
-    // Always add to LogPanel if it exists
-    if (logPanelInstance) {
+    // Add to LogPanel if it exists (for UI display)
+    if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
         logPanelInstance.addEntry(entry);
     }
-    
-    // Console output with format: [SOURCE][COMPONENT][TYPE][ACTION] message [LEVEL] (005.5.md)
+
+    // Console output with format: [SOURCE][COMPONENT][TYPE][ACTION] message [LEVEL]
     const isConsoleEnabled = typeof window !== 'undefined' && 
                              typeof window.isConsoleLoggingEnabled === 'function' && 
                              window.isConsoleLoggingEnabled();
@@ -61,7 +123,7 @@ export function log({ message,
         }
         prefix += `[${typ}]`;
         if (act) {
-            prefix += `[${act}]`;  // Add ACTION support (005.5.md)
+            prefix += `[${act}]`;
         }
         
         const formattedMessage = `${prefix} ${message} [${lvl}]`;
@@ -96,22 +158,19 @@ export function createLogger(moduleName) {
 
 /* 5.  LEGACY POSITIONAL SHIM -------------------------------- */
 export function legacyPositional(message,
-                                 levelOrSource = 'INFO',     // Could be level (old 3-param) or source (new 4-param)
-                                 typeOrType    = 'GENERAL',  // Could be type (old 3-param) or type (new 4-param)
-                                 level = null) {             // Level (new 4-param only)
+                                 levelOrSource = 'INFO',
+                                 typeOrType    = 'GENERAL',
+                                 level = null) {
 
     try {
-        // Safety check to prevent errors during module loading
         if (typeof log !== 'function' || typeof canonicalLevel !== 'function' || typeof canonicalType !== 'function') {
             console.error('[LogCore] Core logging functions not available, falling back to console:', message);
             return;
         }
 
-        // Detect format based on number of arguments and content
         if (arguments.length <= 3 || 
             ['DEBUG', 'INFO', 'WARN', 'ERROR', 'WARNING'].includes(levelOrSource.toUpperCase())) {
             
-            // OLD FORMAT: logMessage(message, level, type)
             const actualLevel = levelOrSource;
             const actualType = typeOrType;
             log({
@@ -121,7 +180,6 @@ export function legacyPositional(message,
                 type: canonicalType(actualType)
             });
         } else {
-            // NEW FORMAT: logMessage(message, source, type, level)
             log({
                 message,
                 source: levelOrSource || 'DEVPAGES',
@@ -130,13 +188,11 @@ export function legacyPositional(message,
             });
         }
     } catch (error) {
-        // Safe fallback to console if logging system fails
         console.error('[LogCore] Error in legacyPositional:', error);
         console.error('[LogCore] Original message:', message);
     }
 }
 
-/* expose legacy name so old imports keep working */
 export { legacyPositional as globalLogMessageHandler };
 if (typeof window !== 'undefined') {
     window.logMessage = legacyPositional;

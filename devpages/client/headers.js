@@ -3,31 +3,24 @@
  * Provides consistent auth headers across the application
  */
 
+import { appStore } from '/client/appState.js';
+
 /**
  * Get the current authentication headers
  * @returns {Object} Headers object with Authorization header
  */
 export function getAuthHeaders() {
     try {
-        // Get auth state from localStorage
-        const authStateStr = localStorage.getItem('authState');
-        if (!authStateStr) {
-            console.warn('No auth state found in localStorage');
+        // Get auth state from appStore
+        const authState = appStore.getState().auth;
+        if (!authState || !authState.isAuthenticated || !authState.user) {
+            console.warn('No authenticated user found in appStore');
             return {};
         }
         
-        const authState = JSON.parse(authStateStr);
-        if (!authState || !authState.username || !authState.hashedPassword) {
-            console.warn('Invalid auth state in localStorage');
-            return {};
-        }
-        
-        // Create Basic auth header (username:password encoded in base64)
-        const basicAuth = btoa(`${authState.username}:${authState.hashedPassword}`);
-        
-        return {
-            'Authorization': `Basic ${basicAuth}`
-        };
+        // For now, return empty headers since the new auth system uses session cookies
+        // The server will handle authentication via session cookies
+        return {};
     } catch (error) {
         console.error('Error creating auth headers:', error);
         return {};

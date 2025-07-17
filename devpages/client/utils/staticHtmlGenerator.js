@@ -2,6 +2,7 @@ import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 import { globalFetch } from '/client/globalFetch.js';
 import { cssManager, CSS_CONTEXT, generateCssSection } from '/client/utils/CssManager.js';
+import { renderMarkdown } from '/client/preview/renderer.js';
 
 // Helper for logging within this module
 function logStaticGen(message, level = 'debug') {
@@ -140,9 +141,7 @@ export async function generateStaticHtmlForPublish({
     
     try {
         // 1. Convert Markdown to HTML using the unified preview renderer
-        const { renderMarkdown } = await import('/client/preview/renderer.js');
-        const renderResult = await renderMarkdown(markdownSource, originalFilePath);
-        const htmlContent = renderResult.html || renderResult;
+        const { html: htmlContent } = await renderMarkdown(markdownSource, originalFilePath);
         
         if (!htmlContent) {
             throw new Error('Markdown rendering returned empty content');

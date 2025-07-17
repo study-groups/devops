@@ -3,7 +3,7 @@
  * Simplified demo panel showcasing the main event bus system
  */
 
-import { settingsRegistry } from '../core/settingsRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { eventBus } from '/client/eventBus.js';
 import { SettingsEvents, emitCssSettingsChanged, emitThemeChanged } from '../core/settingsEvents.js';
 
@@ -209,7 +209,7 @@ class EventBusDemoPanel {
 }
 
 // Register this panel with the registry
-settingsRegistry.register({
+panelRegistry.register({
     id: PANEL_ID,
     title: 'Event Bus Demo (Simplified)',
     component: EventBusDemoPanel,

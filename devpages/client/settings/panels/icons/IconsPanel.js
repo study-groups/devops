@@ -5,11 +5,15 @@
 
 import { appStore } from '/client/appState.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { IconApiService } from '/client/services/IconApiService.js';
 
 const SYSTEM_ICONS = [
     'gear', 'folder', 'info', 'chevron-right', 'chevron-down', 'close', 
-    'check', 'search', 'menu', 'edit', 'delete', 'add', 'copy', 'external-link'
+    'check', 'search', 'menu', 'edit', 'delete', 'add', 'copy', 'external-link',
+    'zap',
+    'zoom-in',
+    'zoom-out'
 ];
 
 function logIcons(message, level = 'info') {
@@ -974,10 +978,10 @@ window.iconUtils = {
                window.iconsPanel.getIconSymbol(iconName) !== '?' : 
                false;
     }
-};
+}; 
 
 // Register this panel with the registry
-settingsSectionRegistry.register({
+panelRegistry.register({
     id: 'icons-panel',
     title: 'Icons',
     component: IconsPanel,

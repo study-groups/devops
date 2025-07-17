@@ -1,6 +1,5 @@
 // refresh.js - Unified refresh functionality for the editor
 import { logMessage } from "./log/index.js";
-import { updatePreview } from './preview/markdown.js';
 
 // Track registered refresh handlers
 const refreshHandlers = [];
@@ -58,9 +57,6 @@ export function executeRefresh() {
  * Initialize the refresh button
  */
 export function initRefreshButton() {
-    // First register the core refresh handlers
-    registerCoreHandlers();
-    
     // Find the refresh button
     const refreshBtn = document.getElementById('refresh-btn');
     if (!refreshBtn) {
@@ -100,27 +96,4 @@ export function initRefreshButton() {
     });
     
     logMessage('[REFRESH] Refresh system initialized');
-}
-
-/**
- * Register the core refresh handlers
- */
-function registerCoreHandlers() {
-    // Register markdown preview update handler
-    registerRefreshHandler(() => {
-        try {
-            const editor = document.querySelector('#md-editor textarea');
-            if (editor) {
-                const content = editor.value;
-                
-                // Update the preview (SVG processing is now handled within updatePreview)
-                updatePreview(content);
-                logMessage('[REFRESH] Markdown preview refreshed');
-                return Promise.resolve(true);
-            }
-        } catch (error) {
-            logMessage(`[REFRESH ERROR] Markdown preview update failed: ${error.message}`);
-        }
-        return Promise.resolve(false);
-    }, 'markdown-preview');
 } 

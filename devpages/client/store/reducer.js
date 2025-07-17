@@ -2,9 +2,8 @@
 // Removed eventBus import, assuming event emission is handled within slice reducers or elsewhere
 
 // Import individual slice reducers
-import { authReducer } from './reducers/authReducer.js';
-import { uiReducer } from './reducers/uiReducer.js';
-import { settingsPanelReducer } from './reducers/settingsPanelReducer.js';
+// REMOVED: authReducer - now handled by authSlice in appState.js
+import uiReducer from './uiSlice.js';
 import { fileReducer } from './reducers/fileReducer.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
@@ -13,16 +12,13 @@ import { domInspectorReducer } from './reducers/domInspectorReducer.js';
 import { workspaceReducer } from './reducers/workspaceReducer.js';
 import { debugPanelReducer } from './reducers/debugPanelReducer.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { previewSlice } from './slices/previewSlice.js';
 
-// <<< NEW: Key for localStorage persistence (should match appState.js) >>>
+// Remove legacy localStorage keys that are now managed by the log slice
 const LOG_VISIBLE_KEY = 'logVisible';
-// <<< NEW: Key for persisting plugin state (should match appState.js) >>>
 const PLUGINS_STATE_KEY = 'pluginsEnabledState';
-// <<< NEW: Key for persisting preview CSS file list >>>
 const PREVIEW_CSS_FILES_KEY = 'devpages_preview_css_files';
-// <<< NEW: Key for persisting root CSS enabled state >>>
 const ENABLE_ROOT_CSS_KEY = 'devpages_enable_root_css';
-// <<< NEW: Key for persisting settings panel state >>>
 const SETTINGS_PANEL_STATE_KEY = 'devpages_settings_panel_state';
 
 // --- Simple Reducers (kept inline for simplicity) ---
@@ -42,100 +38,16 @@ function smartCopyBReducer(state, action) {
     return state;
 }
 
-function logFilteringReducer(state, action) {
-    if (!state) {
-        // Return default state if undefined
-        return {
-            entries: [],
-            discoveredTypes: [],
-            activeFilters: [],
-            searchTerm: '',
-            isInitialized: false,
-        };
-    }
-
-    switch (action.type) {
-        case ActionTypes.LOG_INIT_TYPES:
-            if (Array.isArray(action.payload)) {
-                // Only update if the types array is actually different
-                const newTypes = action.payload;
-                const currentTypes = state.discoveredTypes || [];
-                
-                // Check if arrays are different
-                if (JSON.stringify(newTypes.sort()) !== JSON.stringify(currentTypes.sort())) {
-                    return {
-                        ...state,
-                        discoveredTypes: newTypes,
-                        isInitialized: true
-                    };
-                }
-            }
-            return state; // No change needed
-
-        case ActionTypes.LOG_CLEAR:
-            return {
-                ...state,
-                entries: [],
-                discoveredTypes: [],
-                activeFilters: [],
-                searchTerm: '',
-                isInitialized: false
-            };
-
-        case ActionTypes.LOG_SET_FILTERS:
-            if (Array.isArray(action.payload)) {
-                return {
-                    ...state,
-                    activeFilters: action.payload,
-                    isInitialized: true
-                };
-            }
-            return state;
-
-        case ActionTypes.LOG_TOGGLE_FILTER:
-            if (typeof action.payload === 'string') {
-                const filterKey = action.payload;
-                const currentFilters = state.activeFilters || [];
-                
-                // Handle special case for Clear All mode
-                if (currentFilters.includes('__CLEAR_ALL__')) {
-                    // If in Clear All mode, clicking any filter should exit Clear All and activate only that filter
-                    return {
-                        ...state,
-                        activeFilters: [filterKey],
-                        isInitialized: true
-                    };
-                }
-                
-                // Normal toggle behavior
-                let newFilters;
-                if (currentFilters.includes(filterKey)) {
-                    // Remove the filter
-                    newFilters = currentFilters.filter(f => f !== filterKey);
-                } else {
-                    // Add the filter
-                    newFilters = [...currentFilters, filterKey];
-                }
-                
-                return {
-                    ...state,
-                    activeFilters: newFilters,
-                    isInitialized: true
-                };
-            }
-            return state;
-
-        default:
-            return state;
-    }
-}
+// REMOVED: logFilteringReducer - now handled by log slice
+// The log state is now managed by the logSlice created with StateKit createSlice
+// and is handled in the combined reducer in appState.js
 
 // --- Mapping of State Slices to Reducers ---
+// Note: log slice and auth slice are excluded here as they're handled separately in appState.js
 
 const sliceReducers = {
-    auth: authReducer,
+    // REMOVED: auth: authReducer - now handled by authSlice in appState.js
     ui: uiReducer,
-    settingsPanel: settingsPanelReducer,
     file: fileReducer,
     plugins: pluginsReducer,
     settings: settingsReducer,
@@ -143,13 +55,15 @@ const sliceReducers = {
     domInspector: domInspectorReducer,
     workspace: workspaceReducer,
     debugPanel: debugPanelReducer,
+    preview: previewSlice.reducer,
     smartCopyA: smartCopyAReducer,
     smartCopyB: smartCopyBReducer,
-    logFiltering: logFilteringReducer,
+    // REMOVED: logFiltering: logFilteringReducer - now in log slice
 };
 
 // --- Main Application Reducer (Combiner) ---
-// This function is passed to the messageQueue's setReducer
+// This function handles all slices except the log slice
+// The log slice is handled separately in the combineReducers function in appState.js
 export function mainReducer(currentState = {}, action) {
     // Start with all existing state to preserve slices not managed by sliceReducers
     const nextState = { ...currentState };
@@ -164,71 +78,13 @@ export function mainReducer(currentState = {}, action) {
         }
     }
 
+    // Handle legacy STATE_UPDATE action for backward compatibility
+    if (action.type === ActionTypes.STATE_UPDATE && action.payload) {
+        return { ...nextState, ...action.payload };
+    }
+
     // Always return a new state object
     return nextState;
 }
 
-// --- Initialization Logic (Example - Should live in app initialization code) ---
-// Removed loadSavedSettings from here. This function should be called once
-// during application startup (e.g., in bootstrap.js or main entry point)
-// after the store and messageQueue are initialized.
-/*
-function loadSavedSettings() {
-    // Load saved settings panel state
-    try {
-        const savedPanelState = localStorage.getItem('devpages_settings_panel_state');
-        if (savedPanelState) {
-            const parsedState = JSON.parse(savedPanelState);
-            dispatch({ type: ActionTypes.SETTINGS_PANEL_SET_STATE, payload: parsedState });
-        }
-    } catch (e) { console.error('[Init] Failed to load settings panel state:', e); }
-
-    // Load saved CSS files configuration
-    try {
-        const savedCssFiles = localStorage.getItem('devpages_preview_css_files');
-        if (savedCssFiles) {
-            const parsedFiles = JSON.parse(savedCssFiles);
-            dispatch({ type: ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES, payload: parsedFiles });
-        }
-    } catch (e) { console.error('[Init] Failed to load CSS files config:', e); }
-
-    // Load root CSS enabled state
-    try {
-        const rootCssEnabled = localStorage.getItem('devpages_enable_root_css');
-        if (rootCssEnabled !== null) {
-            dispatch({ type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, payload: rootCssEnabled === 'true' });
-        } else {
-            dispatch({ type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, payload: true }); // Default
-        }
-    } catch (e) { console.error('[Init] Failed to load root CSS state:', e); }
-
-     // Load SmartCopy B
-     try {
-        const savedSmartCopyB = localStorage.getItem(SMART_COPY_B_KEY);
-        if (savedSmartCopyB !== null) { // Check for null to allow empty string
-            dispatch({ type: ActionTypes.SET_SMART_COPY_B, payload: savedSmartCopyB });
-        }
-    } catch (e) { console.error('[Init] Failed to load SmartCopy B state:', e); }
-
-    // Load Log Visibility
-    try {
-        const savedLogVisible = localStorage.getItem('logVisible');
-        if (savedLogVisible !== null) {
-            dispatch({ type: ActionTypes.UI_SET_LOG_VISIBILITY, payload: savedLogVisible === 'true' });
-        }
-    } catch (e) { console.error('[Init] Failed to load log visibility state:', e); }
-
-    // Load Plugin Enabled States
-    try {
-        const savedPluginsEnabled = localStorage.getItem('pluginsEnabledState');
-        if (savedPluginsEnabled) {
-            const enabledStates = JSON.parse(savedPluginsEnabled);
-            // We need an action to merge this into the initially populated plugin state
-            // Or the initial plugin state itself should be loaded from storage.
-            // For now, let's assume an action SET_PLUGIN_ENABLED_STATES exists
-            // dispatch({ type: ActionTypes.PLUGINS_SET_ENABLED_STATES, payload: enabledStates });
-            console.warn('[Init] Need mechanism/action to load saved plugin enabled states.');
-        }
-    } catch (e) { console.error('[Init] Failed to load plugin enabled states:', e); }
-}
-*/ 
+console.log('[Reducer] Main reducer initialized (log slice handled separately)'); 

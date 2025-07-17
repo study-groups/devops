@@ -3,9 +3,15 @@
  * Manages the plugin settings within the main SettingsPanel.
  */
 
+import { e,
+    renderApp,
+    createElement,
+    mount
+} from '/client/components/elements.js';
 import { appStore } from '/client/appState.js';
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // Import ActionTypes
-import { settingsSectionRegistry } from '../../core/settingsSectionRegistry.js';
+import { dispatch } from '/client/messaging/messageQueue.js'; // Import ActionTypes
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 
 function logPlugins(message, level = 'info') {
   const type = 'PLUGINS_PANEL';
@@ -216,9 +222,9 @@ export class PluginsPanel {
 }
 
 // Register this panel with the registry
-settingsSectionRegistry.register({
-  id: 'plugins-panel',
-  title: 'Plugins',
-  component: PluginsPanel,
-  defaultCollapsed: true,
+panelRegistry.register({
+    id: 'plugins',
+    title: 'Plugins',
+    component: PluginsPanel,
+    defaultCollapsed: true,
 });

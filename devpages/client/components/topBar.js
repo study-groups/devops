@@ -209,7 +209,7 @@ function attachRefreshHandler() {
                 
                 // 5. Refresh all panels
                 logTopBar('Refreshing panels...');
-                await refreshPanels();
+                appStore.dispatch({ type: ActionTypes.REFRESH_PANELS });
                 
                 // 6. Refresh preview
                 logTopBar('Refreshing preview...');
