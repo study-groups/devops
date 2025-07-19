@@ -148,14 +148,33 @@ script: |
 
     // Trigger highlighting for the code examples if highlight plugin is active
     setTimeout(() => {
+        // Only highlight if the panel is visible in the DOM
+        if (!this.containerElement || this.containerElement.offsetParent === null) return;
+
         if (window.hljs) {
-             this.containerElement.querySelectorAll('pre code').forEach((block) => {
-                 window.hljs.highlightElement(block);
-             });
+            const codeBlocks = this.containerElement.querySelectorAll('pre code');
+            if (codeBlocks.length === 0) return;
+            codeBlocks.forEach((block) => {
+                if (block.textContent && block.textContent.trim() !== '') {
+                    try {
+                        window.hljs.highlightElement(block);
+                    } catch (e) {
+                        logJSPanel('Highlight.js error: ' + e.message, 'error');
+                    }
+                }
+            });
         } else if (typeof Prism !== 'undefined') {
-            this.containerElement.querySelectorAll('pre code[class*="language-"]').forEach((block) => {
-                 Prism.highlightElement(block);
-             });
+            const codeBlocks = this.containerElement.querySelectorAll('pre code[class*="language-"]');
+            if (codeBlocks.length === 0) return;
+            codeBlocks.forEach((block) => {
+                if (block.textContent && block.textContent.trim() !== '') {
+                    try {
+                        Prism.highlightElement(block);
+                    } catch (e) {
+                        logJSPanel('Prism error: ' + e.message, 'error');
+                    }
+                }
+            });
         }
     }, 100); // Short delay to ensure elements are in DOM
   }

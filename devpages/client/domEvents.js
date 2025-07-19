@@ -24,7 +24,7 @@ let isProcessingDelete = false;
 const PROTECTED_ACTIONS = new Set([
     'saveFile', 
     'delete-image', // Add back - Now handled by the global handler
-    // 'toggleCommunityLink' - Handled internally now
+
 ]);
 
 // Helper for logging within this module

@@ -358,49 +358,49 @@ body {
 }
 
 /* Button Size Variants */
-.btn--sm {
+.btn-sm {
   padding: var(--density-space-xs) var(--density-space-sm);
   font-size: var(--font-size-xs);
   gap: var(--space-0-5);
 }
 
-.btn--primary {
+.btn-primary {
   background-color: var(--color-blue-500);
   color: white;
   border-color: var(--color-blue-500);
 }
 
-.btn--primary:hover {
+.btn-primary:hover {
   background-color: var(--color-blue-900);
   border-color: var(--color-blue-900);
 }
 
-.btn--primary:active {
+.btn-primary:active {
   background-color: var(--color-blue-900);
 }
 
-.btn--secondary {
+.btn-secondary {
   background-color: var(--color-bg);
   color: var(--color-fg-alt);
   border-color: var(--color-border);
 }
 
-.btn--secondary:hover {
+.btn-secondary:hover {
   background-color: var(--color-bg-elevated);
   color: var(--color-fg);
 }
 
-.btn--secondary:active {
+.btn-secondary:active {
   background-color: var(--color-bg-alt);
 }
 
-.btn--ghost {
+.btn-ghost {
   background-color: transparent;
   border-color: transparent;
   color: var(--color-fg-alt);
 }
 
-.btn--ghost:hover {
+.btn-ghost:hover {
   background-color: var(--color-bg-alt);
   color: var(--color-fg);
 }

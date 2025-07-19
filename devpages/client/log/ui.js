@@ -2,7 +2,7 @@
 import { logMessage } from './LogCore.js';
 import { dispatch } from '../messaging/messageQueue.js';
 import { ActionTypes } from '../messaging/actionTypes.js';
-import { showSystemInfo } from '../uiManager.js';
+// import { showSystemInfo } from '../uiManager.js';
 
 // Track initialization
 let toolbarInitialized = false;
@@ -31,6 +31,7 @@ export function initLogToolbar() {
     // Connect info button to showSystemInfo function
     const infoBtn = document.getElementById('info-btn');
     if (infoBtn) {
+        /*
         infoBtn.addEventListener('click', async () => {
             try {
                 await showSystemInfo();
@@ -40,6 +41,10 @@ export function initLogToolbar() {
             }
         });
         console.log('[LOG] Info button connected to showSystemInfo function');
+        */
+        infoBtn.style.display = 'none'; // Hide the button as it does nothing
+        console.log('[LOG] Info button is disconnected and hidden as its function was removed.');
+
     }
     
     // Mark as initialized

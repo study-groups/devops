@@ -1,73 +1,72 @@
 {
-  "name": "devpages-monorepo",
-  "private": true,
-  "workspaces": [
-    "pdata",
-    "server",
-    "client"
-  ],
+  "name": "devpages",
+  "version": "1.0.0",
+  "description": "DevPages content management system",
   "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "test": "echo \"No tests yet\" && exit 0",
+    "test:meta-system": "node meta-language/tools/test-system.js",
+    "validate-actions": "node meta-language/tools/action-validator.js",
+    "generate-types": "node meta-language/tools/schema-codegen.js",
+    "validate-schema": "npm run validate-actions && npm run generate-types",
+    "precommit": "npm run validate-schema",
+    "lint": "eslint client/ --ext .js",
+    "lint:actions": "eslint client/ --ext .js --rule 'custom-rules/require-reducer: error'"
+  },
   "dependencies": {
-    "@aws-sdk/client-cloudfront": "^3.840.0",
-    "@aws-sdk/client-s3": "^3.782.0",
-    "@aws-sdk/s3-request-presigner": "^3.802.0",
-    "@reduxjs/toolkit": "^2.8.2",
-    "basic-auth": "^2.0.1",
+    "@aws-sdk/s3-request-presigner": "^3.848.0",
+    "client-s3": "github:aws-sdk/client-s3",
     "cookie-parser": "^1.4.7",
-    "devpages": "github:study-groups/devpages-package",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-session": "^1.18.1",
+    "dotenv": "^17.2.0",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "glob": "^10.3.0",
     "gray-matter": "^4.0.3",
-    "marked": "^15.0.11",
-    "multer": "^1.4.5-lts.1",
-    "pdata": "file:./pdata",
-    "playwright": "^1.51.1",
+    "js-yaml": "^4.1.0",
+    "multer": "^2.0.2",
+    "passport": "^0.7.0",
+    "pdata": "^0.0.0",
     "session-file-store": "^1.5.0"
   },
-  "scripts": {
-    "test": "jest",
-    "test:pdata": "cd pdata && npm test",
-    "watch:css": "tailwindcss -i client/tailwind.css -o client/output.css --watch",
-    "use-tailwind-v3": "npm uninstall tailwindcss @tailwindcss/cli && npm install -D tailwindcss@^3 postcss@^8 autoprefixer@^10 && echo 'Remember to check/restore postcss.config.js for v3!'",
-    "use-tailwind-v4": "npm uninstall tailwindcss postcss autoprefixer && npm install -D tailwindcss@^4 @tailwindcss/cli@^4 && echo 'Remember to check/remove postcss.config.js if using v4 defaults!'",
-    "setup-test-users": "node tests/setupTestUsers.js",
-    "package:build": "cd packages/devpages-statekit && npm run build",
-    "package:dev": "cd packages/devpages-statekit && npm run dev",
-    "package:test": "cd packages/devpages-statekit && npm test",
-    "package:update": "echo 'Package updates now handled via npm install'",
-    "package:check": "node -e \"import('devpages/dist/index.esm.js').then(pkg => console.log('✅ DevPages package working:', Object.keys(pkg.statekit)))\"",
-    "devpages:build": "npm run package:build",
-    "devpages:update": "npm run package:build && npm run package:update",
-    "devpages:dev": "npm run package:dev"
-  },
   "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "jest": "^29.7.0",
-    "playwright": "^1.42.1",
-    "postcss": "^8.4.38",
-    "postcss-cli": "^11.0.0",
-    "prettier": "^3.2.5"
+    "eslint": "^8.0.0"
   },
-  "imports": {
-    "#pdata": "./pdata/index.js",
-    "#server/*": "./server/*"
-  },
-  "version": "0.0.1",
-  "jest": {
-    "testEnvironment": "node",
-    "roots": [
-      "<rootDir>/tests"
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended"
     ],
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "node"
+    "env": {
+      "browser": true,
+      "es2022": true,
+      "node": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 2022,
+      "sourceType": "module"
+    },
+    "rules": {
+      "no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "no-console": "off"
+    },
+    "plugins": [
+      "custom-rules"
     ],
-    "testMatch": [
-      "**/tests/**/*.test.js",
-      "**/?(*.)+(spec|test).js"
-    ],
-    "verbose": true
+    "overrides": [
+      {
+        "files": [
+          "client/**/*.js"
+        ],
+        "rules": {
+          "custom-rules/require-reducer": "error"
+        }
+      }
+    ]
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { settingsThunks as settingsSliceThunks } from '/client/store/slices/settingsSlice.js';
 
 // Helper for logging within this module
 function logSettings(message, level = 'debug') {
@@ -30,15 +31,8 @@ export const settingsThunks = {
                 payload: cssId 
             });
             
-            // Persist to localStorage
-            try {
-                const state = getState();
-                const cssFiles = state.settings?.preview?.cssFiles || [];
-                localStorage.setItem('devpages_preview_css_files', JSON.stringify(cssFiles));
-                logSettings(`Preview CSS files persisted to localStorage`);
-            } catch (e) {
-                logSettings(`Failed to persist preview CSS files: ${e.message}`, 'warning');
-            }
+            // Persist to localStorage via the new thunk
+            dispatch(settingsSliceThunks.savePreviewCssFiles());
             
             return true;
         } catch (error) {
@@ -61,15 +55,8 @@ export const settingsThunks = {
                 payload: cssPath 
             });
             
-            // Persist to localStorage
-            try {
-                const state = getState();
-                const cssFiles = state.settings?.preview?.cssFiles || [];
-                localStorage.setItem('devpages_preview_css_files', JSON.stringify(cssFiles));
-                logSettings(`Preview CSS files persisted to localStorage`);
-            } catch (e) {
-                logSettings(`Failed to persist preview CSS files: ${e.message}`, 'warning');
-            }
+            // Persist to localStorage via the new thunk
+            dispatch(settingsSliceThunks.savePreviewCssFiles());
             
             return true;
         } catch (error) {
@@ -92,15 +79,8 @@ export const settingsThunks = {
                 payload: cssId 
             });
             
-            // Persist to localStorage
-            try {
-                const state = getState();
-                const cssFiles = state.settings?.preview?.cssFiles || [];
-                localStorage.setItem('devpages_preview_css_files', JSON.stringify(cssFiles));
-                logSettings(`Preview CSS files persisted to localStorage`);
-            } catch (e) {
-                logSettings(`Failed to persist preview CSS files: ${e.message}`, 'warning');
-            }
+            // Persist to localStorage via the new thunk
+            dispatch(settingsSliceThunks.savePreviewCssFiles());
             
             return true;
         } catch (error) {
@@ -202,13 +182,8 @@ export const settingsThunks = {
                 payload: files 
             });
             
-            // Persist to localStorage
-            try {
-                localStorage.setItem('devpages_preview_css_files', JSON.stringify(files));
-                logSettings(`Preview CSS files persisted to localStorage`);
-            } catch (e) {
-                logSettings(`Failed to persist preview CSS files: ${e.message}`, 'warning');
-            }
+            // Persist to localStorage via the new thunk
+            dispatch(settingsSliceThunks.savePreviewCssFiles());
             
             return files;
         } catch (error) {

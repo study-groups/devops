@@ -97,7 +97,7 @@ export class PanelNavBar {
                     <span class="context-icon">📁</span>
                     <span class="context-name">${contextDisplayName}</span>
                 </div>
-                <button class="navbar-btn context-btn" data-action="select-context" title="Change Context">
+                <button class="btn btn-sm btn-ghost context-btn" data-action="select-context" title="Change Context">
                     <span class="btn-icon">🔄</span>
                 </button>
             </div>
@@ -107,20 +107,20 @@ export class PanelNavBar {
     renderViewControls() {
         return `
             <div class="navbar-section view-section">
-                <button class="navbar-btn view-btn" data-action="zoom-out" title="Zoom Out">
+                <button class="btn btn-sm btn-ghost view-btn" data-action="zoom-out" title="Zoom Out">
                                             <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"/>
                             <path d="m21 21-4.35-4.35"/>
                             <line x1="8" y1="11" x2="14" y2="11"/>
                         </svg>
                 </button>
-                <button class="navbar-btn view-btn" data-action="zoom-reset" title="Reset Zoom">
+                <button class="btn btn-sm btn-ghost view-btn" data-action="zoom-reset" title="Reset Zoom">
                                             <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"/>
                             <path d="m21 21-4.35-4.35"/>
                         </svg>
                 </button>
-                <button class="navbar-btn view-btn" data-action="zoom-in" title="Zoom In">
+                <button class="btn btn-sm btn-ghost view-btn" data-action="zoom-in" title="Zoom In">
                                             <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"/>
                             <path d="m21 21-4.35-4.35"/>
@@ -135,13 +135,13 @@ export class PanelNavBar {
     renderPanelControls() {
         return `
             <div class="navbar-section panel-section">
-                <button class="navbar-btn panel-btn" data-action="panel-settings" title="Panel Settings">
+                <button class="btn btn-sm btn-ghost panel-btn" data-action="panel-settings" title="Panel Settings">
                                             <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3"/>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                         </svg>
                 </button>
-                <button class="navbar-btn panel-btn" data-action="panel-help" title="Panel Help">
+                <button class="btn btn-sm btn-ghost panel-btn" data-action="panel-help" title="Panel Help">
                     <span class="btn-icon">❓</span>
                 </button>
             </div>
@@ -154,7 +154,7 @@ export class PanelNavBar {
         return `
             <div class="navbar-section custom-section">
                 ${this.options.customActions.map(action => `
-                    <button class="navbar-btn custom-btn" 
+                    <button class="btn btn-sm btn-ghost custom-btn" 
                             data-action="${action.id}" 
                             title="${action.title}">
                         <span class="btn-icon">${action.icon}</span>
@@ -247,7 +247,7 @@ export class PanelNavBar {
                     `).join('')}
                 </div>
                 <div class="context-menu-footer">
-                    <button class="context-menu-btn" data-action="manage-contexts">
+                    <button class="btn btn-sm btn-secondary" data-action="manage-contexts">
                         Manage Contexts
                     </button>
                 </div>
@@ -333,7 +333,7 @@ export class PanelNavBar {
             <div class="help-modal-content">
                 <div class="help-modal-header">
                     <h3>Panel Help - ${this.panelId}</h3>
-                    <button class="help-modal-close">×</button>
+                    <button class="btn btn-sm btn-ghost help-modal-close">×</button>
                 </div>
                 <div class="help-modal-body">
                     <p>This panel provides controls and functionality for managing your content.</p>
@@ -349,7 +349,7 @@ export class PanelNavBar {
                     <em>Ctrl+0:</em> Reset zoom</p>
                 </div>
                 <div class="help-modal-footer">
-                    <button class="btn-secondary help-modal-close">Close</button>
+                    <button class="btn btn-secondary help-modal-close">Close</button>
                 </div>
             </div>
         `;

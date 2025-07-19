@@ -155,7 +155,7 @@ export class PreviewSettingsPanel {
                         </label>
                         <p class="preview-setting-description">
                             Display animated loading indicators during rendering
-                            <button class="preview-test-button" onclick="window.previewSettingsPanel?.testLoadingAnimations()">
+                            <button class="btn btn-primary btn-sm preview-test-button" onclick="window.previewSettingsPanel?.testLoadingAnimations()">
                                 Test Animation
                             </button>
                         </p>
@@ -208,13 +208,13 @@ export class PreviewSettingsPanel {
                     <h5 class="preview-settings-section-title">Actions</h5>
                     
                     <div class="preview-settings-actions">
-                        <button id="preview-force-refresh" class="preview-action-button">
+                        <button id="preview-force-refresh" class="btn btn-secondary preview-action-button">
                             🔄 Force Refresh
                         </button>
-                        <button id="preview-clear-cache" class="preview-action-button">
+                        <button id="preview-clear-cache" class="btn btn-secondary preview-action-button">
                             🗑️ Clear Cache
                         </button>
-                        <button id="preview-reset-settings" class="preview-action-button preview-action-button--danger">
+                        <button id="preview-reset-settings" class="btn btn-ghost preview-action-button preview-action-button--danger">
                             ↺ Reset to Defaults
                         </button>
                     </div>

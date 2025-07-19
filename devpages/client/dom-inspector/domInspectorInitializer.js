@@ -3,6 +3,7 @@
  * Initializes the DOM Inspector Panel component.
  */
 import { DomInspectorPanel } from './DomInspectorPanel.js';
+import { appStore } from '/client/appState.js';
 
 let domInspectorInstance = null;
 
@@ -33,13 +34,8 @@ export async function activateDomInspector() {
     console.log('[DOM INSPECTOR] DOM is ready, creating DomInspectorPanel instance...');
     
     // Check if required dependencies are available
-    if (typeof window !== 'undefined' && !window.appStore) {
-      console.error('[DOM INSPECTOR] appStore not available on window');
-      return null;
-    }
-    
-    if (typeof window !== 'undefined' && !window.zIndexManager) {
-      console.error('[DOM INSPECTOR] zIndexManager not available on window');
+    if (!appStore) {
+      console.error('[DOM INSPECTOR] appStore not available');
       return null;
     }
     
@@ -59,8 +55,7 @@ export async function activateDomInspector() {
     
     // Log additional debugging information
     console.log('[DOM INSPECTOR DEBUG] Document ready state:', document.readyState);
-    console.log('[DOM INSPECTOR DEBUG] Window appStore available:', !!window.appStore);
-    console.log('[DOM INSPECTOR DEBUG] Window zIndexManager available:', !!window.zIndexManager);
+    console.log('[DOM INSPECTOR DEBUG] appStore available:', !!appStore);
     console.log('[DOM INSPECTOR DEBUG] Window devPages available:', !!window.devPages);
     
     return null;

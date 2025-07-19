@@ -8,6 +8,7 @@ import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { globalFetch } from '/client/globalFetch.js';
 
 class ThemeSelectorPanel {
   constructor(containerElement) {
@@ -114,8 +115,8 @@ class ThemeSelectorPanel {
    */
   async loadAvailableThemes() {
     try {
-      // Get MD_DIR from config
-      const configResponse = await fetch('/api/config');
+      // Get MD_DIR from config  
+      const configResponse = await globalFetch('/api/config');
       this.mdDir = 'unknown';
       if (configResponse.ok) {
         const config = await configResponse.json();
@@ -278,7 +279,7 @@ class ThemeSelectorPanel {
     const themesList = themeItems.map(theme => {
       const activeClass = theme.isActive ? ' active' : '';
       const activeIndicator = theme.isActive ? ' ✓' : '';
-      return `<button class="theme-dir-item${activeClass}" data-theme-id="${theme.id}" title="Select ${theme.name} theme">${theme.name}${activeIndicator}</button>`;
+      return `<button class="btn btn-ghost btn-sm theme-dir-item${activeClass}" data-theme-id="${theme.id}" title="Select ${theme.name} theme">${theme.name}${activeIndicator}</button>`;
     }).join('');
 
     // Color scheme buttons
@@ -291,7 +292,7 @@ class ThemeSelectorPanel {
     const colorSchemesList = colorSchemes.map(scheme => {
       const activeClass = scheme.isActive ? ' active' : '';
       const activeIndicator = scheme.isActive ? ' ✓' : '';
-      return `<button class="theme-dir-item${activeClass}" data-color-scheme="${scheme.id}" title="Set ${scheme.name} color scheme">${scheme.name}${activeIndicator}</button>`;
+      return `<button class="btn btn-ghost btn-sm theme-dir-item${activeClass}" data-color-scheme="${scheme.id}" title="Set ${scheme.name} color scheme">${scheme.name}${activeIndicator}</button>`;
     }).join('');
 
     // Spacing density buttons
@@ -304,7 +305,7 @@ class ThemeSelectorPanel {
     const spacingList = spacingOptions.map(spacing => {
       const activeClass = spacing.isActive ? ' active' : '';
       const activeIndicator = spacing.isActive ? ' ✓' : '';
-      return `<button class="theme-dir-item${activeClass}" 
+      return `<button class="btn btn-ghost btn-sm theme-dir-item${activeClass}" 
               data-spacing="${spacing.id}" 
               title="Set ${spacing.name} spacing density">${spacing.name}${activeIndicator}</button>`;
     }).join('');

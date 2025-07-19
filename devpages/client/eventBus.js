@@ -90,7 +90,13 @@ export class EventBus {
     const handlers = this.handlers.get(eventName);
     handlers.forEach(handler => {
       try {
-        handler(data);
+        const result = handler(data);
+        // Handle async handlers that return promises
+        if (result && typeof result.catch === 'function') {
+          result.catch(error => {
+            console.error(`[EventBus] Async error in event handler for ${eventName}:`, error);
+          });
+        }
       } catch (error) {
         console.error(`[EventBus] Error in event handler for ${eventName}:`, error);
       }

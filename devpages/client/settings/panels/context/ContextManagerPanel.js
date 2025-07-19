@@ -247,7 +247,7 @@ export class ContextManagerPanel {
           <div class="settings-row">
             <input type="text" id="current-context-input" class="settings-input" 
               value="${currentContext || ''}" placeholder="No context selected" readonly>
-            <button id="select-context-btn" class="settings-button settings-button--primary">
+            <button id="select-context-btn" class="btn btn-primary settings-button settings-button--primary">
               Select
             </button>
           </div>
@@ -259,7 +259,7 @@ export class ContextManagerPanel {
             ${this.renderContextsList(availableContexts, currentContext)}
           </div>
           <div class="settings-actions">
-            <button id="create-context-btn" class="settings-button">
+            <button id="create-context-btn" class="btn btn-secondary settings-button">
               Create New Context
             </button>
           </div>

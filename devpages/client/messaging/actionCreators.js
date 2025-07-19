@@ -25,7 +25,7 @@ export const authActions = {
   
   // Thunk action creators
   login: authThunks.login,
-  logoutAsync: authThunks.logout,
+  logoutAsync: authThunks.logoutAsync,
   checkAuthStatus: authThunks.checkAuthStatus,
   generateToken: authThunks.generateToken
 };

@@ -3,9 +3,27 @@
  * Responsible for file operations like loading, saving, and navigation
  */
 import { logMessage } from '/client/log/index.js';
-import { loadFile, saveFile } from '/client/filesystem/fileManager.js';
 import { generateStaticHtmlForPublish, downloadStaticHTML } from '/client/utils/staticHtmlGenerator.js';
+/*
 import { dispatch } from '/client/messaging/messageQueue.js';
+import { ActionTypes } from '/client/messaging/actionTypes.js';
+// import { loadFile, saveFile } from '/client/filesystem/fileManager.js'; // Legacy - to be removed
+
+export function requestLoadFile(pathname, isDirectory) {
+    // This is a legacy action, prefer dispatching directly from components
+    // or using a thunk.
+    dispatch({
+        type: isDirectory ? ActionTypes.FS_LOAD_LISTING_START : ActionTypes.FS_LOAD_FILE_START,
+        payload: { pathname }
+    });
+    // The actual loading is handled by fileManager listening to these actions
+}
+
+export function requestSaveFile() {
+    // Legacy action
+    dispatch({ type: ActionTypes.FS_SAVE_FILE_START });
+}
+*/
 import { fileActions } from '/client/messaging/actionCreators.js';
 import { appStore } from '/client/appState.js';
 import * as selectors from '/client/store/selectors.js';

@@ -48,7 +48,7 @@ function loadPreviewSettings() {
 // Default settings
 const defaultSettings = {
     preview: {
-        cssFiles: [],
+        cssFiles: [], // Initial state is empty, will be loaded by thunk
         activeCssFiles: [],
         enableRootCss: localStorage.getItem(STORAGE_KEYS.ENABLE_ROOT_CSS) === 'true',
         bundleCss: localStorage.getItem(STORAGE_KEYS.CSS_BUNDLING) !== 'false',
@@ -86,8 +86,35 @@ const defaultSettings = {
     selectedOrg: 'pixeljam-arcade'
 };
 
-// Load persisted CSS files
-defaultSettings.preview.cssFiles = loadPreviewCssFiles();
+// Load persisted CSS files is now handled by a thunk
+
+// Define thunks separately to avoid circular references within createSlice
+const settingsThunks = {
+    loadInitialSettings: () => (dispatch, getState) => {
+        // Now it can safely dispatch another thunk from this same object
+        dispatch(settingsThunks.loadPreviewCssFiles());
+    },
+    loadPreviewCssFiles: () => (dispatch, getState) => {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEYS.PREVIEW_CSS_FILES);
+            if (stored) {
+                const cssFiles = JSON.parse(stored);
+                dispatch(settingsSlice.actions.setPreviewCssFiles(cssFiles));
+            }
+        } catch (e) {
+            console.warn('[SettingsSlice] Failed to load or parse preview CSS files from localStorage:', e);
+            dispatch(settingsSlice.actions.setPreviewCssFiles([]));
+        }
+    },
+    savePreviewCssFiles: () => (dispatch, getState) => {
+        const { cssFiles } = getState().settings.preview;
+        try {
+            localStorage.setItem(STORAGE_KEYS.PREVIEW_CSS_FILES, JSON.stringify(cssFiles));
+        } catch (e) {
+            console.error('[SettingsSlice] Failed to persist CSS files:', e);
+        }
+    }
+};
 
 const settingsSlice = createSlice({
     name: 'settings',
@@ -126,6 +153,9 @@ const settingsSlice = createSlice({
         },
 
         // CSS file management
+        setPreviewCssFiles: (state, action) => {
+            state.preview.cssFiles = action.payload;
+        },
         addPreviewCss: (state, action) => {
             const { path, enabled = true } = action.payload;
             const existingIndex = state.preview.cssFiles.findIndex(file => file.path === path);
@@ -135,23 +165,11 @@ const settingsSlice = createSlice({
             } else {
                 state.preview.cssFiles[existingIndex].enabled = enabled;
             }
-            
-            try {
-                localStorage.setItem(STORAGE_KEYS.PREVIEW_CSS_FILES, JSON.stringify(state.preview.cssFiles));
-            } catch (e) {
-                console.error('[SettingsSlice] Failed to persist CSS files:', e);
-            }
         },
 
         removePreviewCss: (state, action) => {
             const path = action.payload;
             state.preview.cssFiles = state.preview.cssFiles.filter(file => file.path !== path);
-            
-            try {
-                localStorage.setItem(STORAGE_KEYS.PREVIEW_CSS_FILES, JSON.stringify(state.preview.cssFiles));
-            } catch (e) {
-                console.error('[SettingsSlice] Failed to persist CSS files:', e);
-            }
         },
 
         togglePreviewCssEnabled: (state, action) => {
@@ -159,11 +177,6 @@ const settingsSlice = createSlice({
             const file = state.preview.cssFiles.find(file => file.path === path);
             if (file) {
                 file.enabled = !file.enabled;
-                try {
-                    localStorage.setItem(STORAGE_KEYS.PREVIEW_CSS_FILES, JSON.stringify(state.preview.cssFiles));
-                } catch (e) {
-                    console.error('[SettingsSlice] Failed to persist CSS files:', e);
-                }
             }
         },
 
@@ -275,7 +288,11 @@ const settingsSlice = createSlice({
             
             current[keys[keys.length - 1]] = value;
         }
-    }
+    },
+    extraReducers: (builder) => {
+        // This is where you would handle actions from other slices if needed
+    },
+    thunks: settingsThunks
 });
 
 export const { 
@@ -290,8 +307,11 @@ export const {
     updateDesignTokens, 
     setCurrentContext, 
     setSelectedOrg,
-    updateSetting 
+    updateSetting,
+    setPreviewCssFiles
 } = settingsSlice.actions;
 
-export { settingsSlice };
-export default settingsSlice.reducer; 
+export { settingsThunks };
+export const settingsReducer = settingsSlice.reducer;
+
+export default settingsSlice; 

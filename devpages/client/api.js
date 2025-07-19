@@ -25,8 +25,7 @@ const endpoints = {
     deleteFile: (pathname) => `/api/files/delete?pathname=${encodeURIComponent(pathname)}`,
     
     // Config endpoints
-    getConfig: (directory) => `/api/config?directory=${encodeURIComponent(directory)}`,
-    manageLink: () => '/api/community/manage-link'
+    getConfig: (directory) => `/api/config?directory=${encodeURIComponent(directory)}`
 };
 
 // Global fetch wrapper (will be set to window.fetch initially)
@@ -80,16 +79,7 @@ const api = {
         globalFetch = fetchFn;
     },
 
-/**
-     * Get current org from app state
-     */
-    getCurrentOrg() {
-        // Get from global app state when available
-        if (typeof window !== 'undefined' && window.appStore) {
-            return window.appStore.getState().file.currentOrg;
-        }
-        return null;
-    },
+
 
     /**
      * Fetch file content
@@ -98,12 +88,6 @@ const api = {
      */
     async fetchFileContent(relativePath) {
         let url = endpoints.fileContent(relativePath);
-        
-        // Add org parameter if set
-        const currentOrg = this.getCurrentOrg();
-        if (currentOrg) {
-            url += `&org=${encodeURIComponent(currentOrg)}`;
-        }
         
         logApi(`Fetching file content: ${url}`, 'debug');
         
@@ -168,18 +152,21 @@ const api = {
         
         let url = endpoints.directoryList(pathname);
         
-        // Add org parameter if set
-        const currentOrg = this.getCurrentOrg();
-        if (currentOrg) {
-            url += `&org=${encodeURIComponent(currentOrg)}`;
-        }
-        
         logApi(`Fetching directory listing: ${url}`, 'debug');
         
         try {
             const response = await authenticatedFetch(url);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let errorText = `HTTP error! status: ${response.status}`;
+                try {
+                    const body = await response.text();
+                    if (body && !body.trim().toLowerCase().startsWith('<!doctype html>')) {
+                        errorText += ` - ${body}`;
+                    }
+                } catch (e) {
+                    // Ignore if we cannot read the error body
+                }
+                throw new Error(errorText);
             }
             const data = await response.json();
             logApi(`Directory listing received for "${pathname}": ${data.dirs?.length || 0} dirs, ${data.files?.length || 0} files`, 'debug');
@@ -200,12 +187,6 @@ const api = {
         logApi(`Saving file: ${relativePath}`, 'info');
         
         const payload = { pathname: relativePath, content };
-        
-        // Add org if set
-        const currentOrg = this.getCurrentOrg();
-        if (currentOrg) {
-            payload.org = currentOrg;
-        }
         
         try {
             const response = await authenticatedFetch(endpoints.saveFile(), {
@@ -248,28 +229,7 @@ const api = {
         }
     },
 
-    /**
-     * Manage community link (add/remove)
-     * @param {string} filename
-     * @param {string} directory
-     * @param {string} action - 'add' or 'remove'
-     * @returns {Promise<object>} Parsed JSON result
-     */
-    async manageCommunityLink(filename, directory, action = 'add') {
-        const url = `${endpoints.manageLink()}?file=${encodeURIComponent(filename)}&dir=${encodeURIComponent(directory)}&action=${action}`;
-        logApi(`Managing community link: ${action} for ${filename} from ${directory}`);
-        try {
-            const options = { method: 'POST' };
-            const response = await globalFetch(url, options);
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-            return await response.json();
-        } catch (error) {
-            logApi(`Failed to manage community link: ${error.message}`, 'error');
-            throw error;
-        }
-    },
+
 
     /**
      * Fetch public CSS content via the unprotected route.
@@ -335,6 +295,7 @@ const api = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
+                credentials: 'include' // Include session cookies for authentication
             });
             
             logApi(`Login response status: ${response.status}`, 'debug');

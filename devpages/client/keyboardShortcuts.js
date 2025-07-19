@@ -141,19 +141,20 @@ export function initKeyboardShortcuts() {
                 }
             } else if (event.key === 'T') {
                 event.preventDefault();
-                // Use the panelPopup system to launch the registered 'dev-tools' panel
-                if (window.panelPopup) {
+                // Use the popup system to launch the registered 'dev-tools' panel
+                if (window.popup) {
                     try {
-                        window.panelPopup.show('dev-tools', {
+                        window.popup.show('dev-tools', {
+                            title: 'DevTools',
                             width: 800,
-                            height: 600,
-                            title: 'Application DevTools'
+                            height: 600
                         });
+                        console.log('[GENERAL] DevTools panel opened successfully');
                     } catch (error) {
                         console.error("[GENERAL] Error opening DevTools panel popup:", error);
                     }
                 } else {
-                    console.error("[GENERAL] panelPopup system not found on window.");
+                    console.error("[GENERAL] popup system not found on window.");
                 }
             }
         }
@@ -203,31 +204,29 @@ export function initKeyboardShortcuts() {
     
     console.log('[Keyboard DEBUG] Global debugInitDomInspector() function added. Call debugInitDomInspector() to manually initialize.');
     
-    // Add a function to test panelPopup system
-    window.testPanelPopup = function() {
-        console.log('[TEST] Testing panelPopup system...');
-        if (window.panelPopup) {
+    // Add a function to test popup system
+    window.testPopup = function() {
+        console.log('[TEST] Testing popup system...');
+        if (window.popup) {
             try {
                 console.log('[TEST] Opening DevTools panel popup...');
-                const popupId = window.panelPopup.show('dev-tools', {
-                    width: 800,
-                    height: 600,
-                    x: 100,
-                    y: 50
+                const popupId = window.popup.show('dev-tools', {
+                    title: 'DevTools Test',
+                    width: 600,
+                    height: 400
                 });
                 console.log('[TEST] DevTools popup opened with ID:', popupId);
                 return popupId;
             } catch (error) {
                 console.error('[TEST] Error opening DevTools popup:', error);
-                return null;
             }
         } else {
-            console.error('[TEST] panelPopup not found on window');
+            console.error('[TEST] popup not found on window');
             return null;
         }
     };
     
-    console.log('[Keyboard DEBUG] Global testPanelPopup() function added. Call testPanelPopup() to test the popup system.');
+    console.log('[Keyboard DEBUG] Global testPopup() function added. Call testPopup() to test the popup system.');
 }
 
 // Auto-initialize when module is imported

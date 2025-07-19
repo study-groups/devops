@@ -143,8 +143,12 @@ router.get('/dirs', authMiddleware, async (req, res) => {
   try {
     const username = req.user.username;
 
+    console.log(`[API /dirs] Getting directories for user: ${username}`);
+
     // Use the correct method name from PData.js
     const directories = await req.pdata.getAvailableTopDirs(username);
+
+    console.log(`[API /dirs] Server returning directories:`, directories);
 
     res.json(directories);
   } catch (error) {

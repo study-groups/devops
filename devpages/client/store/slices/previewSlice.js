@@ -26,18 +26,21 @@ export const initializePreviewSystem = createAsyncThunk(
         try {
             // Dynamically import the renderer and plugin manager
             const { PreviewRenderer } = await import('/client/preview/PreviewRenderer.js');
-            const { PluginManager } = await import('/client/preview/PluginManager.js');
+            const { pluginManager } = await import('/client/preview/PluginManager.js');
 
             const renderer = new PreviewRenderer();
-            const pluginManager = new PluginManager();
 
             // Get enabled plugins from the settings
             const settings = getState().settings.preview;
-            const enabledPlugins = settings.enabledPlugins || ['mermaid', 'katex', 'highlight'];
+            const enabledPlugins = settings.enabledPlugins || ['mermaid', 'highlight'];
 
             // Initialize plugins
             for (const pluginName of enabledPlugins) {
-                await pluginManager.loadPlugin(pluginName, settings[pluginName] || {});
+                try {
+                    await pluginManager.loadPlugin(pluginName, settings[pluginName] || {});
+                } catch (error) {
+                    log(`Failed to load plugin ${pluginName}: ${error.message}`, 'warn');
+                }
             }
 
             dispatch(previewSlice.actions.setInitializationStatus('ready'));

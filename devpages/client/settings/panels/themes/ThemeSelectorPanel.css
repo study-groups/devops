@@ -48,16 +48,7 @@
 }
 
 /* === DIRECTORY INFO SECTION === */
-.theme-dir-item {
-  background: var(--color-bg-elevated);
-  color: var(--color-fg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  font-family: var(--font-family-mono);
-}
+/* .theme-dir-item styles now handled by design-system.css .btn.btn-ghost.btn-sm classes */
 
 .no-dirs {
   color: var(--color-fg-muted);
@@ -66,48 +57,14 @@
 }
 
 /* === THEME SELECTION BUTTONS === */
-.theme-buttons-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-3);
-  padding: var(--space-1);
-}
+/* Theme button styles now handled by design-system.css .btn.btn-ghost.btn-sm classes */
 
-.theme-button {
-  display: flex;
-  flex-direction: column; /* Stack name and preview vertically */
-  align-items: stretch; /* Stretch items to fill width */
-  text-align: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-surface);
-  color: var(--color-fg);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  box-shadow: var(--shadow-sm);
-}
-
-.theme-button:hover {
-  background-color: var(--color-bg-hover);
-  border-color: var(--color-border-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.theme-button:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm);
-}
-
-.theme-button.active {
-  background-color: var(--color-primary-background);
-  border-color: var(--color-primary);
-  color: var(--color-primary-foreground);
+/* Keep only active state styling for theme buttons */
+.theme-dir-item.active {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary-foreground) !important;
   font-weight: var(--font-weight-semibold);
-  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 .theme-button-name {

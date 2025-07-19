@@ -59,15 +59,7 @@ export class TreesPanel {
             ${this.isChildPanel ? '📁 Trees' : 'Trees'}
           </h3>
           <div class="trees-panel-controls">
-            <button class="refresh-trees-btn" style="
-              padding: ${this.isChildPanel ? '2px 6px' : '4px 8px'};
-              background: var(--color-primary, #007bff);
-              color: white;
-              border: none;
-              border-radius: 3px;
-              cursor: pointer;
-              font-size: ${this.isChildPanel ? '10px' : '12px'};
-            ">
+            <button class="btn ${this.isChildPanel ? 'btn-sm' : ''} btn-primary refresh-trees-btn">
               Refresh
             </button>
           </div>

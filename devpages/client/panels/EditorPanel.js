@@ -196,7 +196,9 @@ export class EditorPanel extends BasePanel {
                 this.log('Found valid auth state in appStore');
                 document.body.setAttribute('data-auth-state', 'logged-in');
                 if (!document.body.hasAttribute('data-app-state') || document.body.getAttribute('data-app-state') !== 'ready') {
-                    setTimeout(() => this.triggerFileManagerInit(authState.user.username), 100);
+                    // The file manager is now initialized centrally in bootstrap.js
+                    // and its state is managed by pathSlice. This component no longer
+                    // needs to trigger its initialization.
                 }
             }
         } catch (error) {
@@ -204,21 +206,8 @@ export class EditorPanel extends BasePanel {
         }
     }
 
-    triggerFileManagerInit(username) {
-        this.log(`Triggering file manager initialization for ${username}`);
-        import('/client/filesystem/fileManager.js').then(module => {
-            if (module.initializeFileManager) {
-                module.initializeFileManager().then(() => {
-                    this.log('File manager initialized - last opened file will be restored automatically');
-                });
-            }
-        }).catch(error => {
-            this.log(`Failed to import fileManager: ${error.message}`, 'error');
-        });
-    }
-
-    // Note: Last opened file restoration is now handled by the main file system
-    // in fileReducer.js and fileManager.js - no need for panel-specific restoration
+    // This method is now obsolete as file content is driven by the state.
+    // The editor component should listen to state changes and update its content.
 
     loadFile(filename, directory) {
         this.log(`Loading file: ${filename} in directory: ${directory}`);
@@ -272,7 +261,9 @@ export class EditorPanel extends BasePanel {
     handleAuthLogin(event) {
         const { username } = event.detail;
         this.log(`Auth login event received for ${username}. Initializing file manager.`);
-        this.triggerFileManagerInit(username);
+        // The file manager is now initialized centrally in bootstrap.js
+        // and its state is managed by pathSlice. This component no longer
+        // needs to trigger its initialization.
     }
 
     saveCurrentContent() {

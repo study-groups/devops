@@ -59,7 +59,7 @@ export class GraphvizPlugin {
         return new Promise((resolve, reject) => {
             // First, load viz.js
             const vizScript = document.createElement('script');
-            vizScript.src = 'https://cdn.jsdelivr.net/npm/@viz-js/viz@latest/dist/render.umd.js';
+            vizScript.src = '/client/vendor/scripts/viz-render.umd.js';
             vizScript.async = true;
             
             vizScript.onload = () => {
@@ -67,7 +67,7 @@ export class GraphvizPlugin {
                 
                 // Then load the rendering worker
                 const workerScript = document.createElement('script');
-                workerScript.src = 'https://cdn.jsdelivr.net/npm/@viz-js/viz@latest/dist/render.umd.js';
+                workerScript.src = '/client/vendor/scripts/viz-render.umd.js'; // This seems odd, but follows the original logic
                 workerScript.async = true;
                 
                 workerScript.onload = () => {

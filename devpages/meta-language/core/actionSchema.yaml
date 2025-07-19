@@ -1,0 +1,318 @@
+# DevPages Action & Event Schema
+# This defines all actions, their reducers, and event flows
+# Used for code generation, validation, and documentation
+
+domains:
+  file:
+    description: "File system operations and directory/file path management"
+    state_shape:
+      currentPathname: "string | null"
+      currentContent: "string"
+      isDirectorySelected: "boolean"
+      isLoading: "boolean"
+      isSaving: "boolean"
+      isInitialized: "boolean"
+      currentListing: "{ pathname: string, dirs: string[], files: string[] } | null"
+      parentListing: "{ pathname: string, dirs: string[], files: string[] } | null"
+      availableTopLevelDirs: "string[]"
+      error: "string | null"
+      navigationHistory: "string[]"
+    
+    actions:
+      # Directory Management
+      FS_SET_TOP_DIRS:
+        type: "dispatch"
+        payload: "string[]"
+        reducer_required: true
+        description: "Set available top-level directories from API"
+        events:
+          - "file:topDirsLoaded"
+          
+      FS_LOAD_LISTING_START:
+        type: "dispatch"
+        payload: "{ pathname: string }"
+        reducer_required: true
+        description: "Start loading directory listing"
+        
+      FS_LOAD_LISTING_SUCCESS:
+        type: "dispatch" 
+        payload: "{ pathname: string, dirs: string[], files: string[] }"
+        reducer_required: true
+        description: "Successfully loaded directory listing"
+        events:
+          - "file:listingLoaded"
+          
+      FS_LOAD_LISTING_ERROR:
+        type: "dispatch"
+        payload: "{ pathname: string, error: string }"
+        reducer_required: true
+        description: "Error loading directory listing"
+        events:
+          - "file:error"
+          
+      # File Operations
+      FS_LOAD_FILE_START:
+        type: "dispatch"
+        payload: "{ pathname: string }"
+        reducer_required: true
+        description: "Start loading file content"
+        
+      FS_LOAD_FILE_SUCCESS:
+        type: "dispatch"
+        payload: "{ pathname: string, content: string }"
+        reducer_required: true
+        description: "Successfully loaded file content"
+        events:
+          - "file:fileLoaded"
+          
+      FS_LOAD_FILE_ERROR:
+        type: "dispatch"
+        payload: "{ pathname: string, error: string }"
+        reducer_required: true
+        description: "Error loading file content"
+        events:
+          - "file:error"
+          
+      FS_SAVE_FILE_START:
+        type: "dispatch"
+        payload: "{ pathname: string }"
+        reducer_required: true
+        description: "Start saving file content"
+        
+      FS_SAVE_FILE_SUCCESS:
+        type: "dispatch"
+        payload: "{ pathname: string }"
+        reducer_required: true
+        description: "Successfully saved file content"
+        events:
+          - "file:fileSaved"
+          
+      FS_SAVE_FILE_ERROR:
+        type: "dispatch"
+        payload: "{ pathname: string, error: string }"
+        reducer_required: true
+        description: "Error saving file content"
+        events:
+          - "file:error"
+          
+      # Navigation & State Management
+      FS_SET_CURRENT_PATH:
+        type: "dispatch"
+        payload: "{ pathname: string, isDirectory: boolean }"
+        reducer_required: true
+        description: "Set current pathname and selection type"
+        events:
+          - "file:pathChanged"
+          
+      FS_SET_CONTENT:
+        type: "dispatch"
+        payload: "string"
+        reducer_required: true
+        description: "Update current file content in memory"
+        
+      FS_CLEAR_ERROR:
+        type: "dispatch"
+        payload: "void"
+        reducer_required: true
+        description: "Clear file system error state"
+        
+      FS_INIT_START:
+        type: "dispatch"
+        payload: "void"
+        reducer_required: true
+        description: "Start file system initialization"
+        
+      FS_INIT_COMPLETE:
+        type: "dispatch"
+        payload: "void"
+        reducer_required: true
+        description: "Complete file system initialization"
+        
+    events:
+      # Directory Events
+      "file:topDirsLoaded":
+        type: "event"
+        payload: "{ dirs: string[] }"
+        listeners:
+          - "PathManagerComponent"
+          - "FileBrowserPanel"
+          - "DirectorySelector"
+        description: "Top-level directories loaded and available"
+        
+      "file:listingLoaded":
+        type: "event"
+        payload: "{ pathname: string, dirs: string[], files: string[] }"
+        listeners:
+          - "PathManagerComponent"
+          - "FileBrowserPanel"
+          - "NavigationBreadcrumbs"
+        description: "Directory listing loaded successfully"
+        
+      # File Events  
+      "file:fileLoaded":
+        type: "event"
+        payload: "{ pathname: string, content: string }"
+        listeners:
+          - "EditorPanel"
+          - "ContentPreview"
+          - "FileStatusBar"
+        description: "File content loaded successfully"
+        
+      "file:fileSaved":
+        type: "event"
+        payload: "{ pathname: string }"
+        listeners:
+          - "EditorPanel"
+          - "FileStatusBar"
+          - "NotificationSystem"
+        description: "File saved successfully"
+        
+      # Navigation Events
+      "file:pathChanged":
+        type: "event"
+        payload: "{ pathname: string, isDirectory: boolean }"
+        listeners:
+          - "PathManagerComponent"
+          - "NavigationBreadcrumbs"
+          - "UrlManager"
+        description: "Current path selection changed"
+        
+      # Error Events
+      "file:error":
+        type: "event"
+        payload: "{ operation: string, pathname: string, error: string }"
+        listeners:
+          - "ErrorHandler"
+          - "NotificationSystem"
+          - "FileStatusBar"
+        description: "File system operation error occurred"
+
+  auth:
+    description: "Authentication state and operations"
+    state_shape:
+      isAuthenticated: "boolean"
+      user: "object | null"
+      isInitializing: "boolean"
+      
+    actions:
+      AUTH_LOGIN_SUCCESS:
+        type: "dispatch"
+        payload: "{ user: object, token: string }"
+        reducer_required: true
+        events:
+          - "auth:loginSuccess"
+          
+    events:
+      "auth:loginSuccess":
+        type: "event"
+        payload: "{ user: object }"
+        listeners:
+          - "PathManagerComponent" # Triggers directory loading
+          - "FileBrowserPanel"
+        description: "User successfully logged in"
+
+  ui:
+    description: "UI state and interactions"
+    actions:
+      UI_SET_VIEW_MODE:
+        type: "dispatch"
+        payload: "string"
+        reducer_required: true
+
+# Cross-domain flows (complex interactions)
+flows:
+  user_login_flow:
+    description: "Complete user login process"
+    steps:
+      - action: "AUTH_LOGIN_SUCCESS"
+        domain: "auth"
+      - event: "auth:loginSuccess" 
+        triggers:
+          - action: "FS_INIT_START"
+            domain: "file"
+          - action: "FS_SET_TOP_DIRS"
+            domain: "file"
+          - event: "ui:refresh"
+            
+  directory_navigation_flow:
+    description: "User navigates to a directory"
+    steps:
+      - event: "navigate:pathname"
+        triggers:
+          - action: "FS_SET_CURRENT_PATH"
+            domain: "file"
+          - action: "FS_LOAD_LISTING_START"
+            domain: "file"
+      - action: "FS_LOAD_LISTING_SUCCESS"
+        domain: "file"
+        triggers:
+          - event: "file:listingLoaded"
+          - event: "file:pathChanged"
+          
+  file_selection_flow:
+    description: "User selects and loads a file"
+    steps:
+      - event: "file:selected"
+        triggers:
+          - action: "FS_SET_CURRENT_PATH"
+            domain: "file"
+          - action: "FS_LOAD_FILE_START"
+            domain: "file"
+      - action: "FS_LOAD_FILE_SUCCESS"
+        domain: "file"
+        triggers:
+          - event: "file:fileLoaded"
+          - event: "file:pathChanged"
+          
+  file_save_flow:
+    description: "User saves current file"
+    steps:
+      - event: "file:saveRequested"
+        triggers:
+          - action: "FS_SAVE_FILE_START"
+            domain: "file"
+      - action: "FS_SAVE_FILE_SUCCESS"
+        domain: "file"
+        triggers:
+          - event: "file:fileSaved"
+          
+  error_handling_flow:
+    description: "Handle file system errors gracefully"
+    steps:
+      - action: "FS_LOAD_LISTING_ERROR"
+        domain: "file"
+        triggers:
+          - event: "file:error"
+      - action: "FS_LOAD_FILE_ERROR"
+        domain: "file"
+        triggers:
+          - event: "file:error"
+      - action: "FS_SAVE_FILE_ERROR"
+        domain: "file"
+        triggers:
+          - event: "file:error"
+          
+  breadcrumb_navigation_flow:
+    description: "Navigate via breadcrumb clicks"
+    steps:
+      - event: "breadcrumb:clicked"
+        triggers:
+          - action: "FS_SET_CURRENT_PATH"
+            domain: "file"
+          - action: "FS_LOAD_LISTING_START"
+            domain: "file"
+
+# Validation rules
+validation:
+  rules:
+    - name: "action_has_reducer"
+      description: "Every action with reducer_required: true must have a matching case in reducer"
+      type: "static_analysis"
+      
+    - name: "event_has_listeners"
+      description: "Every event must have at least one registered listener"
+      type: "runtime_check"
+      
+    - name: "payload_type_matches"
+      description: "Action payloads must match declared types"
+      type: "typescript_check" 

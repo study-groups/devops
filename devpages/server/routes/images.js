@@ -1,7 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { uploadsDirectory } from '#server/config.js';
+import { uploadsDirectory } from '../config.js';
 import { Router } from 'express';
 const router = Router();
 

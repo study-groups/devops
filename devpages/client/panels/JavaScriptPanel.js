@@ -3,7 +3,6 @@
  * Handles displaying and syntax highlighting JavaScript files
  */
 
-import { fileManager } from '/client/filesystem/fileManager.js';
 import { eventBus } from '/client/eventBus.js';
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';

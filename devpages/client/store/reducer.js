@@ -4,7 +4,7 @@
 // Import individual slice reducers
 // REMOVED: authReducer - now handled by authSlice in appState.js
 import uiReducer from './uiSlice.js';
-import { fileReducer } from './reducers/fileReducer.js';
+import { pathReducer } from './slices/pathSlice.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
@@ -48,7 +48,7 @@ function smartCopyBReducer(state, action) {
 const sliceReducers = {
     // REMOVED: auth: authReducer - now handled by authSlice in appState.js
     ui: uiReducer,
-    file: fileReducer,
+    path: pathReducer,
     plugins: pluginsReducer,
     settings: settingsReducer,
     panels: panelsReducer,

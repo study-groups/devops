@@ -48,61 +48,15 @@ export class MermaidPlugin {
 
     async init() {
         console.log('[MERMAID DEBUG] Init called');
-        if (mermaidInitialized) {
-            console.log('[MERMAID DEBUG] Already initialized');
-            logMermaid('Mermaid already initialized globally.');
-            return true;
-        }
-        
-        console.log('[MERMAID DEBUG] Starting initialization');
-        logMermaid('Initializing Enhanced Mermaid library...');
+        // Defer script loading and initialization until a diagram is actually found.
+        logMermaid('Mermaid plugin initialized. Ready to process diagrams on demand.');
         
         try {
-            
-            // Check if Mermaid is already available from HTML script tag
-            if (typeof window.mermaid !== 'undefined') {
-                console.log('[MERMAID DEBUG] Mermaid already available from HTML');
-                logMermaid('Mermaid script already loaded from HTML.');
-                mermaidScriptLoaded = true;
-            } else if (!mermaidScriptLoaded) {
-                // Only try to load dynamically if not already loaded
-                console.log('[MERMAID DEBUG] Loading Mermaid script dynamically');
-                logMermaid('Loading Mermaid script from CDN...');
-                await this.loadMermaidScript();
-                mermaidScriptLoaded = true;
-            }
-            
-            if (typeof window.mermaid === 'undefined') {
-                throw new Error('Mermaid library failed to load or define window.mermaid.');
-            }
-            
-            console.log('[MERMAID DEBUG] Mermaid object:', window.mermaid);
-            console.log('[MERMAID DEBUG] Mermaid keys:', Object.keys(window.mermaid || {}));
-            console.log('[MERMAID DEBUG] Mermaid version:', window.mermaid.version);
-            console.log('[MERMAID DEBUG] Mermaid initialize function:', typeof window.mermaid.initialize);
-            console.log('[MERMAID DEBUG] Mermaid run function:', typeof window.mermaid.run);
-            logMermaid(`Mermaid library loaded successfully. Version: ${window.mermaid.version || 'unknown'}`);
-            
-            // Initialize Mermaid with options
-            console.log('[MERMAID DEBUG] Calling mermaid.initialize with options:', this.options);
-            window.mermaid.initialize(this.options);
-            mermaidInitialized = true;
-            
-            // Initialize components
-            await this.renderer.init();
-            await this.controls.init();
             await this.fullscreen.init();
-            
-            logMermaid('Enhanced Mermaid library initialized successfully.');
-            
+            logMermaid('Mermaid fullscreen handler initialized.');
             return true;
         } catch (error) {
-            logMermaid(`Initialization failed: ${error.message}`, 'error');
-            console.error('[MERMAID INIT ERROR]', error);
-            
-            // Store the error for debugging
-            window.mermaidLastError = error.message;
-            
+            logMermaid(`Fullscreen handler initialization failed: ${error.message}`, 'error');
             return false;
         }
     }
@@ -110,7 +64,9 @@ export class MermaidPlugin {
     async loadMermaidScript() {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js';
+            //script.src = 'https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js';
+            script.src = '/client/vendor/scripts/mermaid.min.js';
+
             script.async = true;
             script.onload = () => {
                 logMermaid('Mermaid script loaded successfully.');
@@ -133,20 +89,30 @@ export class MermaidPlugin {
             return;
         }
         
-        if (!mermaidInitialized) {
-            logMermaid('Cannot process, Mermaid not initialized.', 'warning');
+        if (!this.renderer || !this.renderer.shadowRoot) {
+            logMermaid('Renderer or shadowRoot not available.', 'warn');
             return;
         }
         
-        console.log('[MERMAID DEBUG] Process called, initialized:', mermaidInitialized);
-        console.log('[MERMAID DEBUG] Preview element:', previewElement);
-        console.log('[MERMAID DEBUG] window.mermaid available:', typeof window.mermaid);
-        console.log('[MERMAID DEBUG] window.mermaid.run available:', typeof window.mermaid?.run);
-        
-        console.log('[MERMAID DEBUG] Processing Mermaid diagrams...');
-        logMermaid('Processing Mermaid diagrams...');
-        
         const mermaidDivsToProcess = previewElement.querySelectorAll('.mermaid:not([data-mermaid-processed="true"])');
+        
+        // If no diagrams are found, do nothing.
+        if (mermaidDivsToProcess.length === 0) {
+            return;
+        }
+        
+        // If diagrams are found, ensure the script is loaded and initialized.
+        if (!mermaidInitialized) {
+            logMermaid(`Found ${mermaidDivsToProcess.length} Mermaid diagrams, ensuring library is loaded.`);
+            await this.initializeMermaid();
+        }
+
+        if (!mermaidInitialized) {
+            logMermaid('Mermaid initialization failed. Aborting processing.', 'warn');
+            return;
+        }
+
+        logMermaid('Processing Mermaid diagrams...');
         console.log('[MERMAID DEBUG] Found mermaid divs to process:', mermaidDivsToProcess.length);
         
         // Log the content of each mermaid div
@@ -195,6 +161,51 @@ export class MermaidPlugin {
         }
     }
 
+    /**
+     * Centralized initialization function that loads the script and runs Mermaid setup.
+     * This is only called when a diagram is first encountered.
+     */
+    async initializeMermaid() {
+        if (mermaidInitialized) {
+            return true;
+        }
+
+        logMermaid('Initializing Enhanced Mermaid library...');
+
+        try {
+            // Load the script from the CDN
+            if (!mermaidScriptLoaded) {
+                await this.loadMermaidScript();
+                mermaidScriptLoaded = true;
+            }
+
+            // Configure and initialize Mermaid
+            window.mermaid.initialize({
+                startOnLoad: false,
+                theme: document.body.classList.contains('dark-mode') ? 'dark' : 'default',
+                securityLevel: 'strict',
+                logLevel: 5, // 1=debug, 5=fatal
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: true
+                }
+            });
+
+            mermaidInitialized = true;
+            logMermaid('Enhanced Mermaid library initialized successfully.');
+
+            return true;
+        } catch (error) {
+            logMermaid(`Initialization failed: ${error.message}`, 'error');
+            console.error('[MERMAID INIT ERROR]', error);
+
+            // Store the error for debugging
+            window.mermaidLastError = error.message;
+
+            return false;
+        }
+    }
+
     setupDiagramControls(mermaidContainer, svgElement) {
         console.log('[MERMAID DEBUG] Setting up diagram controls for:', mermaidContainer, svgElement);
         
@@ -229,7 +240,7 @@ export class MermaidPlugin {
     }
 
     destroy() {
-        logMermaid('Enhanced MermaidPlugin: Destroying...');
+        logMermaid('Mermaid plugin destroyed.');
         
         if (this.controls) {
             this.controls.destroy();

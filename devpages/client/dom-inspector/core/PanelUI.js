@@ -71,8 +71,8 @@ export class PanelUI {
         this.header.innerHTML = `
             <span class="dom-inspector-title">DOM Inspector</span>
             <div class="header-buttons">
-                <button class="dom-inspector-settings-btn" title="Settings">⚙</button>
-                <button class="dom-inspector-close" title="Close">×</button>
+                <button class="btn btn-sm btn-ghost dom-inspector-settings-btn" title="Settings">⚙</button>
+                <button class="btn btn-sm btn-ghost dom-inspector-close" title="Close">×</button>
             </div>
         `;
 

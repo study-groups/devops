@@ -119,20 +119,32 @@ export class HighlightPlugin extends BasePlugin {
       return;
     }
 
-    const CDN_URL = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js';
-    const CSS_URL = this.defaultTheme === 'dark' 
-      ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github-dark.min.css'
-      : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css';
+    // Local path for highlight.js script
+    const CDN_URL = '/client/vendor/scripts/highlight.min.js';
 
-    logMessage(`Loading highlight.js from CDN: ${CDN_URL}`);
+    let highlightJsLoaded = false;
+    let highlightJsLoading = false;
 
-    // Load CSS first
-    await this._loadCSS(CSS_URL);
-    logMessage('CSS loaded');
+    if (highlightJsLoaded) return;
+    if (highlightJsLoading) {
+        console.log('[Highlight.js] Waiting for existing load to complete...');
+        await new Promise(resolve => document.addEventListener('highlightjs-loaded', resolve, { once: true }));
+        return;
+    }
 
-    // Load JS
-    await this._loadScript(CDN_URL);
-    logMessage('JavaScript loaded');
+    highlightJsLoading = true;
+
+    try {
+        console.log('[Highlight.js] Loading script...');
+        await this._loadScript(CDN_URL);
+        highlightJsLoaded = true;
+        console.log('[Highlight.js] Script loaded successfully.');
+        document.dispatchEvent(new CustomEvent('highlightjs-loaded'));
+    } catch (error) {
+        console.error('[Highlight.js] Failed to load script:', error);
+    } finally {
+        highlightJsLoading = false;
+    }
 
     if (!window.hljs) {
       throw new Error('highlight.js script loaded but window.hljs not available');

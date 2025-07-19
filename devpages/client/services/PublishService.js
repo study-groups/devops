@@ -2,9 +2,10 @@
  * Centralized publish service - single source of truth for HTML generation and publishing
  */
 
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 import { globalFetch } from '/client/globalFetch.js';
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked@4.0.12/lib/marked.esm.js';
+import { marked } from '/client/vendor/scripts/marked.esm.js';
 
 class PublishService {
   /**
@@ -138,7 +139,7 @@ ${finalHtmlContent}
    * Publish to Digital Ocean Spaces
    */
   async publishToSpaces(htmlContent, filePath) {
-    const response = await fetch('/api/publish', {
+    const response = await globalFetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -33,17 +33,17 @@ export function createModalTemplate() {
         <div class="config-header">
           <h3 class="section-title">Configuration Status</h3>
           <div class="test-buttons">
-            <button class="btn-test-setup" type="button">
+            <button class="btn btn-secondary btn-sm btn-test-setup" type="button" data-test-type="setup">
               <span class="test-icon">🔧</span>
               <span class="test-text">Check Setup</span>
               <span class="test-spinner" style="display: none;">⟳</span>
             </button>
-            <button class="btn-test-publish" type="button">
+            <button class="btn btn-secondary btn-sm btn-test-publish" type="button" data-test-type="publish">
               <span class="test-icon">🧪</span>
               <span class="test-text">Test Publish</span>
               <span class="test-spinner" style="display: none;">⟳</span>
             </button>
-            <button class="btn-debug-endpoint" type="button">
+            <button class="btn btn-secondary btn-sm btn-debug-endpoint" type="button" data-test-type="debug">
               <span class="test-icon">🐛</span>
               <span class="test-text">Debug Endpoint</span>
               <span class="test-spinner" style="display: none;">⟳</span>
@@ -135,12 +135,12 @@ export function createModalTemplate() {
 
     <div class="publish-modal-footer">
       <div class="modal-actions">
-        <button class="btn-secondary cancel-btn" type="button">Cancel</button>
-        <button class="btn-danger unpublish-btn" type="button" style="display: none;">
+        <button class="btn btn-secondary cancel-btn" type="button">Cancel</button>
+        <button class="btn btn-ghost unpublish-btn" type="button" style="display: none;">
           <span class="btn-text">Unpublish</span>
           <span class="btn-spinner" style="display: none;">⟳</span>
         </button>
-        <button class="btn-primary publish-btn" type="button">
+        <button class="btn btn-primary publish-btn" type="button">
           <span class="btn-text">Publish</span>
           <span class="btn-spinner" style="display: none;">⟳</span>
         </button>

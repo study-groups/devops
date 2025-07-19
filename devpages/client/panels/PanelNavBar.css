@@ -90,37 +90,7 @@
     white-space: nowrap;
 }
 
-/* Navigation Buttons */
-.navbar-btn {
-    background: none;
-    border: none;
-    padding: var(--space-0-5) var(--space-1);
-    cursor: pointer;
-    border-radius: var(--radius-xs);
-    color: var(--color-fg-muted);
-    font-size: var(--font-size-xs);
-    transition: var(--transition-fast);
-    display: flex;
-    align-items: center;
-    gap: var(--space-0-5);
-    min-width: 24px;
-    height: 24px;
-    justify-content: center;
-}
-
-.navbar-btn:hover {
-    background-color: var(--color-bg-muted);
-    color: var(--color-fg);
-}
-
-.navbar-btn:active {
-    transform: scale(0.95);
-}
-
-.navbar-btn.active {
-    background-color: var(--color-primary);
-    color: var(--color-primary-foreground);
-}
+/* Navigation Buttons - Now using design system .btn classes */
 
 .btn-icon {
     font-size: var(--font-size-xs);
@@ -207,22 +177,7 @@
     border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
-.context-menu-btn {
-    width: 100%;
-    padding: var(--space-1) var(--space-2);
-    background-color: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-fg);
-    font-size: var(--font-size-xs);
-    cursor: pointer;
-    transition: var(--transition-fast);
-}
-
-.context-menu-btn:hover {
-    background-color: var(--color-bg-muted);
-    border-color: var(--color-border-secondary);
-}
+/* Context menu buttons now use design system classes */
 
 /* Panel Help Modal */
 .panel-help-modal {
@@ -385,11 +340,7 @@
         display: none; /* Hide labels on mobile */
     }
     
-    .navbar-btn {
-        min-width: 20px;
-        height: 20px;
-        padding: var(--space-0-5);
-    }
+    /* Navbar buttons now use design system classes */
     
     .context-menu-dropdown {
         min-width: 180px;
@@ -415,9 +366,7 @@
     border-color: var(--color-gray-700);
 }
 
-[data-theme="dark"] .navbar-btn:hover {
-    background-color: var(--color-gray-700);
-}
+/* Dark theme navbar button styles now handled by design system */
 
 [data-theme="dark"] .context-menu-dropdown {
     background-color: var(--color-gray-800);
@@ -435,14 +384,7 @@
     background-color: var(--color-gray-700);
 }
 
-[data-theme="dark"] .context-menu-btn {
-    background-color: var(--color-gray-800);
-    border-color: var(--color-gray-700);
-}
-
-[data-theme="dark"] .context-menu-btn:hover {
-    background-color: var(--color-gray-700);
-}
+/* Dark theme context menu button styles now handled by design system */
 
 /* Special case: Disable navbar for markdown preview panels */
 .panel[data-panel-type="markdown-preview"] .panel-navbar {

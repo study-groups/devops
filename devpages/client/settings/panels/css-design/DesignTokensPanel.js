@@ -62,7 +62,7 @@ export class DesignTokensPanel {
             <div class="stat" id="color-count">Colors: 0</div>
             <div class="stat" id="typography-count">Typography: 0</div>
             <div class="stat" id="spacing-count">Spacing: 0</div>
-            <button class="refresh-btn" id="refresh-tokens">Refresh</button>
+            <button class="btn btn-secondary btn-sm refresh-btn" id="refresh-tokens">Refresh</button>
           </div>
         </div>
         
@@ -708,7 +708,7 @@ export class DesignTokensPanel {
         <div class="error-details">
           <code>${error.message}</code>
         </div>
-        <button class="retry-button" onclick="this.closest('.theme-editor-panel').dispatchEvent(new CustomEvent('retry'))">
+        <button class="btn btn-primary retry-button" onclick="this.closest('.theme-editor-panel').dispatchEvent(new CustomEvent('retry'))">
           Try Again
         </button>
       </div>

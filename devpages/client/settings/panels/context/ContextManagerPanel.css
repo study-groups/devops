@@ -149,37 +149,10 @@
     border-color: var(--color-primary);
 }
 
-/* Settings Button Overrides */
-.settings-section-container .settings-button {
-    padding: 8px 16px;
-    border: 1px solid var(--color-border);
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.settings-section-container .settings-button:hover {
-    background-color: var(--color-bg-hover);
-}
-
-.settings-section-container .settings-button--primary {
-    background-color: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
-}
-
-.settings-section-container .settings-button--secondary {
-    background-color: var(--color-secondary);
-    color: white;
-    border-color: var(--color-secondary);
-}
-
+/* Settings buttons now handled by design-system.css .btn classes */
 .settings-section-container .settings-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Responsive Design */

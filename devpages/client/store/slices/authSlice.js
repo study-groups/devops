@@ -383,21 +383,26 @@ export const authThunks = {
     },
 
     // Async logout
-    logout: (reason = 'user_logout') => async (dispatch, getState) => {
+    logoutAsync: (reason = 'user_logout') => async (dispatch, getState) => {
+        console.log('[AuthThunk] Starting logout process...');
         dispatch(setLoading(true));
 
         try {
+            console.log('[AuthThunk] Calling server logout endpoint...');
             // Call server logout endpoint
-            await globalFetch('/api/auth/logout', {
+            const response = await globalFetch('/api/auth/logout', {
                 method: 'POST',
                 credentials: 'include'
             });
+            console.log('[AuthThunk] Server logout response status:', response.status);
         } catch (error) {
             console.warn('[AuthThunk] Server logout failed:', error.message);
             // Continue with client logout even if server call fails
         }
 
+        console.log('[AuthThunk] Dispatching logout action...');
         dispatch(logout({ reason }));
+        console.log('[AuthThunk] Logout process completed');
         return { success: true };
     },
 
@@ -428,13 +433,19 @@ export const authThunks = {
                 dispatch(setAuthChecked(true));
                 return { success: true, user: user };
             } else {
-                // Not authenticated
+                // Not authenticated - clear auth state but preserve other data
                 dispatch(setAuthChecked(true));
+                const currentState = getState().auth;
+                if (currentState.isAuthenticated) {
+                    // Only logout if we thought we were authenticated
+                    dispatch(logout({ reason: 'session_expired' }));
+                }
                 return { success: false, authenticated: false };
             }
         } catch (error) {
             console.warn('[AuthThunk] Auth check failed:', error.message);
             dispatch(setAuthChecked(true));
+            // Don't automatically logout on network errors - could be temporary
             return { success: false, error: error.message };
         }
     },

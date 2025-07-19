@@ -10,12 +10,13 @@ import { createStore, createLogger, createThunk, createDevpagesTools } from '/pa
 import { logReducer } from '/client/store/slices/logSlice.js';
 import { authSlice } from '/client/store/slices/authSlice.js';
 import panelPersistenceMiddleware from '/client/store/middleware/panelPersistence.js';
-import { settingsSlice } from './store/slices/settingsSlice.js';
+import { settingsReducer, settingsThunks } from './store/slices/settingsSlice.js';
 import { publishSlice } from './store/slices/publishSlice.js';
 import { previewSlice } from './store/slices/previewSlice.js';
 
 // Import existing reducers
 import { mainReducer } from '/client/store/reducer.js';
+import { fileReducer } from '/client/store/reducers/fileReducer.js';
 
 // Export ActionTypes for backward compatibility
 export const ActionTypes = {
@@ -77,6 +78,9 @@ export const ActionTypes = {
     // Generic state update for backward compatibility
     STATE_UPDATE: 'app/stateUpdate',
 };
+
+// Re-export thunks for consistent access
+export { settingsThunks };
 
 // Storage keys
 const LOG_VISIBLE_KEY = 'log_panel_visible';
@@ -226,7 +230,7 @@ export const defaultPluginsConfig = {
         settingsManifest: [
             { key: 'enabled', label: 'Enable Audio Markdown', type: 'toggle' }
         ]
-    }
+    },
 };
 
 function getInitialPluginsState() {
@@ -475,6 +479,14 @@ const initialAppState = {
     debugPanel: getInitialDebugPanelState(),
     workspace: getInitialWorkspaceState(),
     previewMode: getInitialPreviewMode(),
+    dynamicImports: {
+        'markdown-it': {
+            loaded: false,
+            module: '/client/vendor/scripts/markdown-it.min.js',
+            retries: 0,
+            maxRetries: 3
+        }
+    }
 };
 
 // --- This is a placeholder for a true combineReducers if you use one ---
@@ -482,25 +494,19 @@ const initialAppState = {
 // This part assumes mainReducer is structured to handle this.
 // A more standard Redux setup would use a `combineReducers` function.
 
-const rootReducer = (state, action) => {
-    // Run the main reducer first
-    const intermediateState = mainReducer(state, action);
+const rootReducer = combineReducers({
+    log: logReducer,
+    auth: authSlice.reducer,
+    file: fileReducer,
+    settings: settingsReducer,
+    publish: publishSlice.reducer,
+    preview: previewSlice.reducer,
+    // Note: panels and main are handled by the legacy mainReducer
+    // This will be migrated in the future.
+    ...mainReducer.slices
+});
 
-    // Then, run each slice reducer on its part of the state
-    return {
-        ...intermediateState,
-        log: logReducer(intermediateState.log, action),
-        auth: authSlice.reducer(intermediateState.auth, action),
-        settings: settingsSlice.reducer(intermediateState.settings, action),
-        publish: publishSlice.reducer(intermediateState.publish, action),
-        preview: previewSlice.reducer(intermediateState.preview, action),
-        // Add other slice reducers here...
-    };
-};
-
-
-// --- Store Creation ---
-// Create the Redux store
+// Create the store
 export const appStore = createStore(
     rootReducer,
     undefined, // Initial state is handled by reducers

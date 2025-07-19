@@ -1,355 +1,324 @@
-// bootstrap.js - Synchronous Application Initialization
-import { logMessage } from '/client/log/index.js';
-import '/client/log/LogCore.js';
-import { ConsoleLogManager } from '/client/log/ConsoleLogManager.js';
-import { eventBus } from '/client/eventBus.js';
+/**
+ * @fileoverview DEPRECATED - Application bootstrap (v2).
+ * 
+ * ⚠️ WARNING: This file has been replaced by bootloader.js
+ * This is kept for reference only - DO NOT USE
+ * 
+ * The new bootloader.js provides:
+ * - Cleaner lifecycle messaging
+ * - Better integration with existing appStore, eventBus, and appDispatch
+ * - Improved error handling and debugging
+ * - Simplified component initialization
+ * 
+ * This file handles the staged, robust initialization of the application,
+ * improving encapsulation, DOM safety, and testability.
+ */
 
-// Window consolidation - must be imported early
-import '/client/utils/windowConsolidation.js';
+import { LifecycleEvents } from '/client/lifecycle/events.js';
+import { lifecycleManager } from '/client/lifecycle/LifecycleManager.js';
 
-// Panel popup system - must be imported early for keyboard shortcuts
-import '/client/utils/panelPopup.js';
+class AppBootstrapper {
+  constructor(domDependencies) {
+    this.domDependencies = domDependencies;
+    
+    // Encapsulated services and managers
+    this.services = {};
+    this.managers = {};
+    this.components = {};
+    
+    // State and metrics
+    this.currentState = 'pending';
+    this.initMetrics = {
+      start: performance.now(),
+      stages: {},
+      events: {}
+    };
+  }
 
-// Reducer & State
-import { mainReducer } from '/client/store/reducer.js';
-import { dispatch, setReducer } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { appStore } from './appState.js';
+  log(message, level = 'info') {
+    const timestamp = new Date().toISOString();
+    console.log(`[BootstrapV2] [${timestamp}] [${level.toUpperCase()}]: ${message}`);
+  }
 
-// Make appStore available globally for DOM Inspector and other components
-window.appStore = appStore;
-
-// UI Manager for final subscription
-import { subscribeUIManager } from '/client/uiManager.js';
-
-// Publish Modal Integration
-import { initializePublishModalIntegration } from '/client/components/PublishModalIntegration.js';
-
-// Debug utilities (development only)
-import '/client/debug-file-loading.js';
-
-// Migration helper utilities
-import '/client/utils/migrationHelper.js';
-
-// CSS Performance monitoring
-import '/client/utils/cssPerformanceMonitor.js';
-
-// Load editor-specific styles asynchronously
-const editorStylesLink = document.createElement('link');
-editorStylesLink.rel = 'stylesheet';
-editorStylesLink.href = '/client/styles/editor.css';
-editorStylesLink.media = 'print';
-editorStylesLink.onload = function() {
-    this.media = 'all';
-};
-document.head.appendChild(editorStylesLink);
-
-// ====================== INITIALIZATION METRICS ======================
-const initMetrics = {
-    start: 0,
-    stages: {},
-    events: {}
-};
-
-const performance = window.performance || {
-    now: () => Date.now()
-};
-
-function recordMetric(stage, event, startTime) {
+  recordMetric(stage, event, startTime) {
     const duration = performance.now() - startTime;
-    if (!initMetrics.stages[stage]) initMetrics.stages[stage] = {};
-    initMetrics.stages[stage][event] = duration;
-    return performance.now();
-}
-
-function logBootstrap(message, level = 'info') {
-    if (typeof window.logMessage === 'function') {
-        logMessage(message, level, 'BOOTSTRAP');
-    } else {
-        console.log(`[BOOTSTRAP] ${message}`);
+    if (!this.initMetrics.stages[stage]) {
+      this.initMetrics.stages[stage] = {};
     }
-}
+    this.initMetrics.stages[stage][event] = duration;
+    this.log(`Metric: [${stage}.${event}] took ${duration.toFixed(2)}ms`);
+  }
 
-function hideSplashScreen() {
+  async run() {
+    this.log('🚀 DevPages Application Initialization Started (v2) 🚀');
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_START);
+    
+    const stages = [
+      this.initCoreServices,
+      this.verifyDom,
+      this.initAuth,
+      this.initUIInfrastructure,
+      this.initFeatures,
+      this.finalize,
+    ];
+
+    try {
+      for (const stage of stages) {
+        const stageName = stage.name.replace('bound ', '');
+        this.currentState = `initializing:${stageName}`;
+        this.log(`Executing stage: ${stageName}`);
+        const stageStartTime = performance.now();
+        
+        await stage.call(this);
+        
+        this.recordMetric('bootstrap', stageName, stageStartTime);
+        this.log(`Stage ${stageName} completed.`);
+      }
+      this.currentState = 'initialized';
+    } catch (error) {
+      this.handleInitializationError(error);
+    }
+  }
+
+  handleInitializationError(error) {
+    this.currentState = 'failed';
+    this.log(`🚨 CRITICAL INITIALIZATION FAILURE 🚨`, 'error');
+    this.log(error.message, 'error');
+    console.error('Bootstrap error:', error);
+    this.hideSplashScreen(); // Show error message
+
+    const errorOverlay = document.createElement('div');
+    errorOverlay.className = 'error-overlay';
+    errorOverlay.innerHTML = `<div class="error-message">An error occurred during application initialization. Please try refreshing the page. Details: ${error.message}</div>`;
+    document.body.appendChild(errorOverlay);
+  }
+
+  hideSplashScreen() {
     const splash = document.getElementById('devpages-splash');
-    const body = document.body;
-    
-    logBootstrap('hideSplashScreen called');
-    logBootstrap(`Splash element found: ${!!splash}`);
-    logBootstrap(`Body element found: ${!!body}`);
-    
-    if (splash && body) {
-        logBootstrap('Removing splash-active class from body');
-        body.classList.remove('splash-active');
-        
-        logBootstrap('Adding hidden class to splash');
-        splash.classList.add('hidden');
-        
-        setTimeout(() => {
-            if (splash.parentNode) {
-                logBootstrap('Removing splash element from DOM');
-                splash.parentNode.removeChild(splash);
-            }
-        }, 300);
-        logBootstrap('Splash screen hidden, main interface visible');
-    } else {
-        logBootstrap('Splash screen elements not found!', 'error');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.parentNode?.removeChild(splash), 300);
     }
-}
+    document.body.classList.remove('splash-active');
+  }
 
-// ====================== STAGE INITIALIZERS ======================
-async function initCoreServices() {
-    const start = performance.now();
-    logBootstrap('Stage 1: Initializing Core Services...');
-    
-    // Initialize global console log manager
-    const consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
-    window.consoleLogManager = consoleLogManager;
-    window.eventBus = eventBus;
-    setReducer(mainReducer);
-    window.triggerActions = window.triggerActions || {};
-    
-    recordMetric('core', 'services', start);
-    logBootstrap('Core Services (Logging, EventBus, Reducer) initialized');
-    eventBus.emit('core:initialized');
-    return performance.now();
-}
+  // ====================== STAGES ======================
 
-let uiInfrastructureInitialized = false;
-async function initUIInfrastructure() {
-    if (uiInfrastructureInitialized) {
-        console.warn('[Bootstrap] UI infrastructure already initialized, skipping.');
-        return;
+  async initCoreServices() {
+    this.log('Initializing core services...');
+    
+    try {
+        this.log('Importing appState...');
+        const { appStore, dispatch, settingsThunks } = await import('/client/appState.js');
+        this.log('Importing ConsoleLogManager...');
+        const { ConsoleLogManager } = await import('/client/log/ConsoleLogManager.js');
+        this.log('Importing eventBus...');
+        const { eventBus } = await import('/client/eventBus.js');
+        this.log('Importing messageQueue...');
+        const { setReducer } = await import('/client/messaging/messageQueue.js');
+        this.log('Importing mainReducer...');
+        const { mainReducer } = await import('/client/store/reducer.js');
+        
+        this.services.appStore = appStore;
+        this.services.eventBus = eventBus;
+
+        this.services.consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
+        setReducer(mainReducer);
+        dispatch(settingsThunks.loadInitialSettings());
+
+        // Initialize lifecycle manager with the main eventBus
+        lifecycleManager.setEventBus(this.services.eventBus);
+        
+        // Expose services on window.APP following established pattern
+        window.APP = window.APP || {};
+        window.APP.eventBus = this.services.eventBus;
+        window.APP.lifecycle = lifecycleManager;
+        window.APP.store = this.services.appStore;
+        
+        this.services.eventBus.emit('core:initialized');
+        this.log('Core services initialized.');
+        lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_CORE_SERVICES_READY);
+    } catch (e) {
+        this.log(`Error in initCoreServices: ${e.message}`, 'error');
+        throw e;
     }
-    uiInfrastructureInitialized = true;
-
-    const start = performance.now();
-    logBootstrap('Stage 2: Initializing UI Infrastructure...');
-    
-    const { initializeUIComponents } = await import('/client/components/uiComponentsManager.js');
-    await initializeUIComponents();
-
-    // Initialize TopBar
-    const { initializeTopBar } = await import('/client/components/topBar.js');
-    initializeTopBar();
-
-    // Initialize AuthDisplay
-    const { initializeAuthDisplay } = await import('/client/components/AuthDisplay.js');
-    initializeAuthDisplay();
-
-    // Initialize EditorPanel in background
-    const { EditorPanel } = await import('/client/panels/EditorPanel.js');
-    const editorContainer = document.getElementById('editor-container');
-    if (editorContainer) {
-        const editorPanel = new EditorPanel();
-        // Check if mount returns a Promise
-        const mountResult = editorPanel.mount(editorContainer);
-        if (mountResult && typeof mountResult.catch === 'function') {
-            mountResult.catch(error => {
-                logBootstrap(`Editor panel mount failed: ${error.message}`, 'error');
-            });
+  }
+  
+  async verifyDom() {
+    this.log('Verifying DOM dependencies...');
+    for (const id of this.domDependencies) {
+        if (!document.getElementById(id)) {
+            throw new Error(`Critical DOM element #${id} not found. Halting initialization.`);
         }
-        window.editorPanel = editorPanel;
-    } else {
-        logBootstrap('Editor container (editor-container) not found!', 'error');
     }
+    this.log('All DOM dependencies verified.');
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_DOM_VERIFIED);
+  }
 
-    // Initialize WorkspaceLayoutManager in background
-    const { WorkspaceLayoutManager } = await import('./layout/WorkspaceLayoutManager.js');
-    const workspaceLayoutManager = new WorkspaceLayoutManager();
-    window.workspaceLayoutManager = workspaceLayoutManager;
-    // Check if initialize returns a Promise
-    const initResult = workspaceLayoutManager.initialize();
-    if (initResult && typeof initResult.catch === 'function') {
-        initResult.catch(error => {
-            logBootstrap(`Workspace layout manager initialization failed: ${error.message}`, 'error');
-        });
-    }
-    
-    // Initialize Panel System in background
-    const { initializePanels } = await import('/client/settings/settingsInitializer.js');
-    const { initializeDebugPanels } = await import('/packages/devpages-debug/debugPanelInitializer.js');
-    const { SidebarManagerPanel: PanelManager } = await import('/client/panels/SidebarManagerPanel.js');
+  async initUIInfrastructure() {
+    this.log('Initializing UI infrastructure...');
+
+    const { componentManager } = await import('/client/componentManager.js');
+    this.managers.componentManager = componentManager;
+
+    const promises = [
+        import('/client/components/uiComponentsManager.js').then(m => m.initializeUIComponents()).catch(e => this.log(`uiComponentsManager failed: ${e.message}`, 'error')),
+        import('/client/components/topBar.js').then(m => m.initializeTopBar()).catch(e => this.log(`topBar failed: ${e.message}`, 'error')),
+        import('/client/components/AuthDisplay.js').then(m => m.initializeAuthDisplay()).catch(e => this.log(`AuthDisplay failed: ${e.message}`, 'error')),
+        import('/client/settings/settingsInitializer.js').then(m => m.initializePanels()).catch(e => this.log(`settingsInitializer failed: ${e.message}`, 'error')),
+        import('/packages/devpages-debug/debugPanelInitializer.js').then(m => m.initializeDebugPanels()).catch(e => this.log(`debugPanelInitializer failed: ${e.message}`, 'error')),
+    ];
+
+    const editorContainer = document.getElementById('editor-container');
+    const { EditorPanel } = await import('/client/panels/EditorPanel.js');
+    this.components.editorPanel = new EditorPanel();
+    await this.components.editorPanel.mount(editorContainer);
+
+    const { WorkspaceLayoutManager } = await import('/client/layout/WorkspaceLayoutManager.js');
+    this.managers.workspaceLayoutManager = new WorkspaceLayoutManager();
+    await this.managers.workspaceLayoutManager.initialize();
+
     const { loadInitialPanelState } = await import('/client/store/slices/panelSlice.js');
+    this.services.appStore.dispatch(loadInitialPanelState('sidebar'));
+
     const { PanelRenderer } = await import('/client/panels/PanelRenderer.js');
     const { DragDropManager } = await import('/client/panels/DragDropManager.js');
+    const sidebarContainer = document.getElementById('sidebar-container');
+    const panelManagerContainer = document.createElement('div');
+    panelManagerContainer.className = 'panel-manager';
+    sidebarContainer.appendChild(panelManagerContainer);
+    new PanelRenderer(panelManagerContainer, 'sidebar').start();
+    new DragDropManager(panelManagerContainer, 'sidebar').start();
     
-    logBootstrap('Initializing panels...');
-    appStore.dispatch(loadInitialPanelState('sidebar'));
-    
-    // Initialize panels in background
-    const panelsResult = initializePanels();
-    if (panelsResult && typeof panelsResult.catch === 'function') {
-        panelsResult.catch(error => {
-            logBootstrap(`Panel initialization failed: ${error.message}`, 'error');
-        });
-    }
-    
-    const debugPanelsResult = initializeDebugPanels();
-    if (debugPanelsResult && typeof debugPanelsResult.catch === 'function') {
-        debugPanelsResult.catch(error => {
-            logBootstrap(`Debug panel initialization failed: ${error.message}`, 'error');
-        });
-    }
-
-    // Create the sidebar container programmatically
-    const sidebarContainer = document.createElement('div');
-    sidebarContainer.className = 'panel-manager';
-    
-    // Find the main sidebar container and append the new container to it
-    const mainSidebarContainer = document.getElementById('sidebar-container');
-    if (mainSidebarContainer) {
-        mainSidebarContainer.appendChild(sidebarContainer);
-
-        const panelRenderer = new PanelRenderer(sidebarContainer, 'sidebar');
-        panelRenderer.start();
-
-        const dragDropManager = new DragDropManager(sidebarContainer, 'sidebar');
-        dragDropManager.start();
-    } else {
-        logBootstrap('Main sidebar container (#sidebar-container) not found!', 'error');
-    }
-    
-    // Initialize KeyboardShortcutManager
     const { KeyboardShortcutManager } = await import('/client/keyboard/KeyboardShortcutManager.js');
-    const keyboardShortcutManager = new KeyboardShortcutManager();
-    keyboardShortcutManager.initialize();
+    this.managers.keyboardShortcutManager = new KeyboardShortcutManager().initialize();
 
-    // Mount static components
-    const { createContextManagerComponent } = await import('/client/components/ContextManagerComponent.js');
+    const { createPathManagerComponent } = await import('/client/components/PathManagerComponent.js');
+    this.components.pathManager = createPathManagerComponent('context-manager-container');
+    this.components.pathManager.mount();
+
     const { createViewControlsComponent } = await import('/client/components/ViewControls.js');
+    this.components.viewControls = createViewControlsComponent('view-controls-container');
+    this.components.viewControls.mount();
     
-    createContextManagerComponent('context-manager-container').mount();
-    createViewControlsComponent('view-controls-container').mount();
-    
-    recordMetric('ui', 'infrastructure', start);
-    logBootstrap('UI Infrastructure initialized');
-    eventBus.emit('ui:initialized');
-    return performance.now();
-}
+    await Promise.all(promises);
 
-async function initAuth() {
-    const start = performance.now();
-    logBootstrap('Auth: Starting authentication system...');
+    this.managers.componentManager.init();
     
-    // Use the NEW auth slice thunk instead of legacy auth
+    const { subscribeUIManager } = await import('/client/uiStateReactor.js');
+    subscribeUIManager();
+
+    this.log('UI infrastructure initialized.');
+    this.services.eventBus.emit('ui:initialized');
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_UI_INFRASTRUCTURE_READY);
+  }
+
+  async initAuth() {
+    this.log('Initializing authentication...');
     const { authThunks } = await import('/client/store/slices/authSlice.js');
-    const { appStore } = await import('/client/appState.js');
-    const { eventBus } = await import('/client/eventBus.js');
     
-    // Set up event listener for login requests from UI components
-    if (!window.APP?.authLoginListenerAttached) {
-        eventBus.on('auth:loginRequested', async ({ username, password }) => {
-            logBootstrap(`[AUTH] Received auth:loginRequested for user: ${username}`);
-            await appStore.dispatch(authThunks.login({ username, password }));
-        });
-        window.APP = window.APP || {};
-        window.APP.authLoginListenerAttached = true;
-        logBootstrap('[AUTH] Event listener for auth:loginRequested set up.');
+    this.authLoginListener = ({ username, password }) => {
+        this.log(`[AUTH] Received auth:loginRequested for user: ${username}`);
+        this.services.appStore.dispatch(authThunks.login({ username, password }));
+    };
+    
+    this.services.eventBus.on('auth:loginRequested', this.authLoginListener);
+    
+    const authResult = await this.services.appStore.dispatch(authThunks.checkAuth());
+    
+    // Verify auth state is properly set
+    const authState = this.services.appStore.getState().auth;
+    this.log(`Authentication check completed. Authenticated: ${authState.isAuthenticated}, User: ${authState.user?.username || 'none'}`);
+    
+    if (!authState.isAuthenticated) {
+      this.log('User is not authenticated. Some features may not work properly.', 'warn');
     }
     
-    // Dispatch the auth check thunk but don't wait for it
-    appStore.dispatch(authThunks.checkAuth());
-    
-    // Don't wait for auth to be ready - let it happen in background
-    // Components will handle auth state changes via subscriptions
-    
-    recordMetric('auth', 'initialization', start);
-    logBootstrap('Authentication system started (non-blocking)');
-    return performance.now();
-}
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_AUTH_READY);
+    lifecycleManager.emit(LifecycleEvents.UI_SAFE_TO_API_CALL);
+  }
 
-async function initFeatures() {
-    const start = performance.now();
-    logBootstrap('Stage 3: Initializing Feature Modules...');
-    
-    // Initialize file manager in background (non-blocking)
-    const { initializeFileManager } = await import('/client/filesystem/fileManager.js');
-    const fileManagerResult = initializeFileManager();
-    if (fileManagerResult && typeof fileManagerResult.catch === 'function') {
-        fileManagerResult.catch(error => {
-            logBootstrap(`File manager initialization failed: ${error.message}`, 'error');
-        });
-    }
-    
-    // Initialize keyboard shortcuts (synchronous)
+  async initFeatures() {
+    this.log('Initializing feature modules...');
     const { initKeyboardShortcuts } = await import('/client/keyboardShortcuts.js');
     initKeyboardShortcuts();
     
-    // Load CLI module in background
-    import('/client/cli/index.js').catch(error => {
-        logBootstrap(`CLI module load failed: ${error.message}`, 'error');
-    });
+    const promises = [
+        import('/client/cli/index.js').catch(error => {
+            this.log(`CLI module load failed: ${error.message}`, 'error');
+        }),
+        import('/client/log/LogPanel.js').then(async ({ LogPanel }) => {
+            const logPanel = new LogPanel('log-container');
+            await logPanel.initialize();
+            this.components.logPanel = logPanel;
+        })
+    ];
     
-    // Initialize log panel in background
-    const { LogPanel } = await import('/client/log/LogPanel.js');
-    const logPanel = new LogPanel('log-container');
-    const logPanelResult = logPanel.initialize();
-    if (logPanelResult && typeof logPanelResult.catch === 'function') {
-        logPanelResult.catch(error => {
-            logBootstrap(`Log panel initialization failed: ${error.message}`, 'error');
-        });
+    await Promise.all(promises);
+
+    this.log('Feature modules initialized.');
+    this.services.eventBus.emit('features:initialized');
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_FEATURES_READY);
+  }
+
+  async finalize() {
+    this.log('Finalizing application...');
+    this.hideSplashScreen();
+    this.log('✅ DevPages Application Initialized Successfully ✅');
+    
+    lifecycleManager.emit(LifecycleEvents.BOOTSTRAP_COMPLETE);
+    lifecycleManager.emit(LifecycleEvents.APP_READY);
+    
+    if(this.services.eventBus) {
+        this.services.eventBus.emit('app:ready');
     }
     
-    // DOM INSPECTOR: COMPLETELY DISABLED - Only loads when explicitly activated by user
-    // This prevents any DOM inspector loading during app initialization
+    // Non-critical debug tools
+    import('/client/debug-file-loading.js').catch(e => this.log('debug-file-loading failed', 'warn'));
+    import('/client/utils/cssPerformanceMonitor.js').catch(e => this.log('cssPerformanceMonitor failed', 'warn'));
+  }
+  
+  async shutdown() {
+    this.log('Shutting down application...');
     
-    recordMetric('features', 'modules', start);
-    logBootstrap('Feature modules started (non-blocking)');
-    eventBus.emit('features:initialized');
-    return performance.now();
+    // Unsubscribe UI reactor to prevent state updates on a torn-down UI
+    if (this.services.uiStateReactor) {
+        this.services.uiStateReactor.unsubscribe();
+        this.log('UI State Reactor unsubscribed.');
+    }
+    
+    // Destroy all UI components
+    if (this.managers.componentManager) {
+        this.managers.componentManager.destroyAll();
+        this.log('All UI components destroyed.');
+    }
+    
+    // Clear all event bus listeners
+    if (this.services.eventBus) {
+        this.services.eventBus.off('auth:loginRequested', this.authLoginListener);
+        this.log('Auth listener removed.');
+        this.services.eventBus.clearAll();
+        this.log('Event bus cleared.');
+    }
+    
+    this.log('Application shutdown complete.');
+  }
 }
 
-// ====================== MAIN INITIALIZATION ======================
-async function initializeApp() {
-    initMetrics.start = performance.now();
-    logBootstrap('🚀 DevPages Application Initialization Started 🚀');
-
-    try {
-        await initCoreServices();
-        await initUIInfrastructure();
-        await initAuth();
-        await initFeatures();
-
-        // Subscribe the UI Manager to state updates after all UI is initialized
-        subscribeUIManager(appStore);
-        logBootstrap('UI Manager subscribed to state updates.');
-
-        // Hide the splash screen to reveal the application
-        hideSplashScreen();
-
-        logBootstrap('✅ DevPages Application Initialized Successfully ✅');
-        eventBus.emit('app:ready');
-
-    } catch (error) {
-        logBootstrap('🚨 CRITICAL INITIALIZATION FAILURE 🚨', 'error');
-        logBootstrap(error.message, 'error');
-        console.error('Bootstrap error:', error);
-        
-        // Hide splash even on error so user can see the error
-        hideSplashScreen();
-        
-        const errorOverlay = document.createElement('div');
-        errorOverlay.className = 'error-overlay';
-        errorOverlay.innerHTML = '<div class="error-message">An error occurred during application initialization. Please try refreshing the page.</div>';
-        document.body.appendChild(errorOverlay);
-    }
-}
-
-// Start the application
-try {
-    initializeApp();
-    
-    appStore.subscribe(() => {
-        const state = appStore.getState();
-        // Handle state changes as needed
-    });
-
-} catch (error) {
-    logBootstrap(`A critical error occurred during initialization: ${error.message}`, 'critical');
-    console.error(error);
-    const body = document.querySelector('body');
-    if (body) {
-        body.innerHTML = '<div class="critical-error-message">An error occurred while loading the application. Please try refreshing the page.</div>';
-    }
-} 
+// ====================== EXECUTION ======================
+// DISABLED: Old bootstrap system disabled to prevent conflicts with new bootloader.js
+// The new bootloader.js system is now the primary initialization method
+/*
+document.addEventListener('DOMContentLoaded', () => {
+  const domDependencies = [
+      'editor-container', 'sidebar-container', 'context-manager-container', 'view-controls-container', 'log-container'
+  ];
+  
+  const bootstrapper = new AppBootstrapper(domDependencies);
+  
+  // Expose a controlled shutdown method on the window
+  window.APP_SHUTDOWN = () => bootstrapper.shutdown();
+  
+  bootstrapper.run();
+});
+*/ 

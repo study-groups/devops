@@ -3,8 +3,7 @@
  * Handles markdown-to-HTML conversion with plugin support
  */
 
-import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
-import markdownitKatex from 'https://esm.sh/markdown-it-katex@latest';
+import DOMPurify from '/client/vendor/scripts/dompurify.es.js';
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 import { getPlugin, processEnabledPlugins } from '/client/preview/plugins/PluginLoader.js';
@@ -35,7 +34,7 @@ export class MarkdownRenderer {
                 return;
             }
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js';
+            script.src = '/client/vendor/scripts/markdown-it.min.js';
             script.async = true;
             script.onload = resolve;
             script.onerror = reject;
@@ -131,7 +130,7 @@ export class MarkdownRenderer {
 
         // Apply KaTeX plugin if enabled
         if (getIsPluginEnabled(appStore.getState(), 'katex')) {
-            md.use(markdownitKatex);
+            md.use(window.mditKaTeX, { "throwOnError": false, "errorColor": " #cc0000" });
         }
 
         // Override the default image renderer

@@ -5,23 +5,23 @@
  * and extensions.
  */
 
-import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.es.js';
+import DOMPurify from '/client/vendor/scripts/dompurify.es.js';
 import { HighlightPlugin, init as initHighlight } from '/client/preview/plugins/highlight.js';
 import { MermaidPlugin } from '/client/preview/plugins/mermaid/index.js';
 import { GraphvizPlugin } from '/client/preview/plugins/graphviz.js';
 import { getEnabledPlugins } from '/client/preview/plugins/index.js';
-import markdownitKatex from 'https://esm.sh/markdown-it-katex@latest';
 // import matter from 'https://esm.sh/gray-matter@4.0.3'; // REMOVED - Not browser compatible
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 import { pluginManager } from '/client/preview/PluginManager.js';
+import { globalFetch } from '/client/globalFetch.js';
 
 let spacesConfig = null;
 
 async function fetchSpacesConfig() {
     if (spacesConfig) return spacesConfig;
     try {
-        const response = await fetch('/api/spaces/config');
+        const response = await globalFetch('/api/spaces/config');
         if (response.ok) {
             const data = await response.json();
             spacesConfig = data.config;
@@ -85,7 +85,7 @@ async function loadMarkdownItScript() {
             return;
         }
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js';
+        script.src = '/client/vendor/scripts/markdown-it.min.js';
         script.async = true;
         script.onload = () => {
             logRenderer('markdown-it script loaded successfully from CDN.');

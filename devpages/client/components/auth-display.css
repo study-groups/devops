@@ -40,24 +40,7 @@
     position: relative;
 }
 
-/* User Button (replaces logout button) */
-.user-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-    font-size: 1rem;
-    color: var(--color-fg);
-}
-
-.user-button:hover {
-    background-color: var(--color-bg-hover);
-}
+/* User Button styles now handled by design-system.css .btn.btn--ghost classes */
 
 .dropdown-arrow {
     font-size: 0.8rem;
@@ -133,72 +116,21 @@
     gap: 6px;
 }
 
-.theme-option,
-.color-scheme-option,
-.spacing-option {
-    background: var(--color-bg-alt);
-    border: 1px solid var(--color-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-fg);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+/* Theme/Color/Spacing button styles now handled by design-system.css .btn.btn--ghost.btn--sm classes */
 
-.theme-option:hover,
-.color-scheme-option:hover,
-.spacing-option:hover {
-    background-color: var(--color-bg-hover);
-    border-color: var(--color-border-hover);
-    transform: translateY(-1px);
-}
-
+/* Keep only active state styling for theme options */
 .theme-option.active,
 .color-scheme-option.active,
 .spacing-option.active {
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-primary-foreground);
+    background-color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: var(--color-primary-foreground) !important;
     font-weight: 600;
 }
 
-.theme-option.active:hover,
-.color-scheme-option.active:hover,
-.spacing-option.active:hover {
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-    transform: translateY(-1px);
-}
-
-/* Logout Button */
+/* Logout button styles now handled by design-system.css .btn.btn--secondary classes */
 .logout-button {
     width: 100%;
-    background: var(--color-error);
-    color: var(--color-primary-foreground);
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.logout-button:hover {
-    background: var(--color-red-900);
-    transform: translateY(-1px);
-}
-
-.logout-button:active {
-    transform: translateY(0);
 }
 
 /* Dropdown backdrop overlay */

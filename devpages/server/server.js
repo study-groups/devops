@@ -15,14 +15,14 @@ import { authMiddleware } from './middleware/auth.js';
 import { port, uploadsDirectory, env } from './config.js'; // Import env for MD_DIR usage
 import imageRouter from './routes/images.js';
 import authRoutes from './routes/auth.js'; // Assuming default export
-import communityRoutes from './routes/community.js'; // Assuming default export
+
 import saveRoutes from './routes/save.js'; // Assuming default export
 import cliRoutes from './routes/cli.js'; // Assuming default export
 import filesRouter from './routes/files.js';
 import configRoutes from './routes/configRoutes.js';
 import previewRoutes from './routes/previewRoutes.js'; // Assuming default export
 import publishRouter from './routes/publish.js'; // <--- ADD THIS IMPORT
-import { PData, createPDataRoutes } from 'pdata'; // Import class and factory
+import { PData, createPDataRoutes } from '../pdata/index.js';
 import spacesRouter from './routes/spaces.js'; // Keep spaces router import
 
 // Derive __dirname in ES module
@@ -514,7 +514,7 @@ async function startServer() {
     app.use('/api/auth', authRoutes);
     app.use('/api/files', authMiddleware, filesRouter);
     app.use('/api/publish', authMiddleware, publishRouter); // <--- ADD THIS LINE
-    app.use('/api/community', express.json(), authMiddleware, communityRoutes);
+    
     
     // Add unified CSS route (unprotected - CSS files should be publicly accessible)
     const cssRouter = (await import('./routes/css.js')).default;

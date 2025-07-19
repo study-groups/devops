@@ -28,11 +28,15 @@ export class CssFileUtils {
   static safeGetRuleCount(sheet) {
     if (!sheet) return 0;
     
+    const href = sheet.href || sheet.ownerNode?.href || '(unknown sheet)';
+    console.log(`[CssFileUtils/safeGetRuleCount] Attempting to access rules for: ${href}`);
+
     try {
-      return sheet.cssRules ? sheet.cssRules.length : 0;
+      const ruleCount = sheet.cssRules ? sheet.cssRules.length : 0;
+      console.log(`[CssFileUtils/safeGetRuleCount] Successfully accessed rules for: ${href}. Count: ${ruleCount}`);
+      return ruleCount;
     } catch (error) {
-      // CORS restriction - external stylesheet
-      console.warn('Cannot access CSS rules due to CORS restrictions:', error.message);
+      console.log(`[CssFileUtils/safeGetRuleCount] CAUGHT an error for: ${href}. This is expected for CORS files.`);
       return -1; // Indicate CORS restriction
     }
   }
@@ -43,11 +47,15 @@ export class CssFileUtils {
   static safeGetCssRules(sheet) {
     if (!sheet) return [];
     
+    const href = sheet.href || sheet.ownerNode?.href || '(unknown sheet)';
+    console.log(`[CssFileUtils/safeGetCssRules] Attempting to access rules for: ${href}`);
+
     try {
-      return Array.from(sheet.cssRules || []);
+      const rules = Array.from(sheet.cssRules || []);
+      console.log(`[CssFileUtils/safeGetCssRules] Successfully accessed rules for: ${href}. Count: ${rules.length}`);
+      return rules;
     } catch (error) {
-      // CORS restriction - external stylesheet
-      console.warn('Cannot access CSS rules due to CORS restrictions:', error.message);
+      console.log(`[CssFileUtils/safeGetCssRules] CAUGHT an error for: ${href}. This is expected for CORS files.`);
       return [];
     }
   }

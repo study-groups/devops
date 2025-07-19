@@ -6,13 +6,13 @@ import { eventBus } from '/client/eventBus.js';
 import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js';
 import { createAuthDisplayComponent } from '/client/components/AuthDisplay.js';
-import { createContextManagerComponent } from '/client/components/ContextManagerComponent.js';
+import { createPathManagerComponent } from '/client/components/PathManagerComponent.js';
 
 // --- Module State ---
 let appStateUnsubscribe = null;
 let authDisplayComponent = null;
-let contextManagerComponent = null;
-let sidebarContextManagerComponent = null; // New sidebar instance
+let pathManagerComponent = null;
+let sidebarPathManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
 // Panel management now handled by WorkspaceLayoutManager and PanelManager
 
@@ -147,13 +147,13 @@ async function handleAppStateChange(newState, prevState) {
 
         if (showSelectorCondition) {
             logUI('State changed to root/selector view. Emitting ui:renderFileList to show selector.');
-            // We might still need this specific event if ContextManagerComponent doesn't subscribe to the store directly yet
+            // We might still need this specific event if PathManagerComponent doesn't subscribe to the store directly yet
             eventBus.emit('ui:renderFileList');
         } else {
             logUI('State changed, standard listing/file view expected.');
-            // If ContextManagerComponent subscribes, it will handle rendering the listing itself.
+            // If PathManagerComponent subscribes, it will handle rendering the listing itself.
             // If not, you might need to emit a different event here or pass data.
-            // For now, assume ContextManagerComponent will handle it via store subscription.
+            // For now, assume PathManagerComponent will handle it via store subscription.
         }
     }
 

@@ -7,10 +7,10 @@
 
 import { logMessage } from '../../log/index.js';
 
-// KaTeX CDN URLs
-const KATEX_JS_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js';
-const KATEX_CSS_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css';
-const KATEX_AUTO_CDN = 'https://cdn.jsdelivr.net/npm/katex@latest/dist/contrib/auto-render.min.js';
+// CDN URLs for KaTeX assets
+const KATEX_JS_CDN = '/client/vendor/scripts/katex.min.js';
+const KATEX_CSS_CDN = '/client/vendor/styles/katex.min.css';
+const KATEX_AUTO_CDN = '/client/vendor/scripts/auto-render.min.js';
 
 // Plugin state
 let katex = null;

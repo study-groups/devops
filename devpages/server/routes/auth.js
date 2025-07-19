@@ -3,8 +3,8 @@ import path from 'path';
 import { createRequire } from 'module'; // Import createRequire
 import session from 'express-session'; // Assuming session is used here for login
 import passport from 'passport';
-import { authMiddleware, generateApiToken, revokeApiToken, getUserTokens } from '#server/middleware/auth.js';
-import { env, uploadsDirectory, imagesDirectory } from '#server/config.js';
+import { authMiddleware, generateApiToken, revokeApiToken, getUserTokens } from '../middleware/auth.js';
+import { env, uploadsDirectory, imagesDirectory } from '../config.js';
 
 // Create a require function for JSON import
 const require = createRequire(import.meta.url);

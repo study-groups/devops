@@ -9,7 +9,6 @@ A lightweight, reactive state management library designed for simplicity and lea
 - **Redux-compatible**: Follows Redux patterns and conventions
 - **TypeScript**: Full TypeScript support with type definitions
 - **Middleware**: Extensible middleware system
-- **Learning-focused**: Perfect for understanding state management concepts
 
 ## Installation
 

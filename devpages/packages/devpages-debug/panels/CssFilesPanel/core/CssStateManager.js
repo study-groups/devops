@@ -3,7 +3,6 @@
  * Centralized state management for the CSS Files Panel
  */
 
-import { appStore } from "/client/appState.js";
 import { dispatch, ActionTypes } from "/client/messaging/messageQueue.js";
 
 const CSS_FILES_STATE_KEY = 'devpages_css_files_state';

@@ -210,7 +210,7 @@ async function reloadAllCssSilent() {
     });
 }
 
-export function createViewControlsComponent(targetElementId, layoutManager) {
+export function createViewControlsComponent(targetElementId, layoutManager = null) {
     let element = null;
     let appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
 
@@ -263,9 +263,9 @@ export function createViewControlsComponent(targetElementId, layoutManager) {
 
         // Render the updated toggle buttons for workspace system
         element.innerHTML = `
-            <button id="edit-toggle" class="btn btn--ghost btn--sm" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
-            <button id="log-toggle-btn" class="btn btn--ghost btn--sm" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
-            <button id="preview-reload-btn" class="btn btn--ghost btn--sm" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
+            <button id="edit-toggle" class="btn btn-ghost btn-sm" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
+            <button id="log-toggle-btn" class="btn btn-ghost btn-sm" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
+            <button id="preview-reload-btn" class="btn btn-ghost btn-sm" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
         `;
         
         // Subscribe to app state changes

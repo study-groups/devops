@@ -5,11 +5,27 @@
 
 import { appStore } from '/client/appState.js';
 import { parseFrontmatter } from '/client/preview/utils/frontmatterParser.js';
+import { eventBus } from '/client/eventBus.js';
 
 class PublishRenderer {
-  constructor() {
+  constructor(publishManager) {
+    this.publishManager = publishManager;
     this.markdownItLoaded = false;
     this.markdownIt = null;
+    this.initializeMarkdownIt();
+  }
+
+  async initializeMarkdownIt() {
+    if (window.markdownit) {
+      this.markdownIt = window.markdownit();
+    } else {
+      const script = document.createElement('script');
+      script.src = '/client/vendor/scripts/markdown-it.min.js';
+      script.onload = () => {
+        this.markdownIt = window.markdownit();
+      };
+      document.head.appendChild(script);
+    }
   }
 
   /**

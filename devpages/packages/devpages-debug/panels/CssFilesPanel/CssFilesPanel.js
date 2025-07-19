@@ -5,7 +5,6 @@
 
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { appStore } from '/client/appState.js';
 import { eventBus } from '/client/eventBus.js';
 import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
@@ -33,17 +32,66 @@ export class CssFilesPanel {
     // Initialize Z-Index analyzer
     this.zIndexAnalyzer = new ZIndexAnalyzer();
     
+    this.isLoaded = false;
     this.init();
   }
 
   async init() {
+    this.renderInitialState();
+  }
+
+  loadPanel() {
+    this.isLoaded = true;
     this.refresh();
+  }
+
+  renderInitialState() {
+    this.containerElement.innerHTML = `
+      <div class="css-panel-content" style="
+        font-family: var(--font-family-sans, system-ui);
+        color: var(--color-foreground);
+        background: var(--color-background, white);
+        border-radius: 6px;
+        padding: 20px;
+        text-align: center;
+      ">
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 600;">CSS Files Analysis</h3>
+        <p style="margin-bottom: 20px; font-size: 13px; color: var(--color-foreground-muted);">
+          To improve performance, this panel does not load automatically.
+        </p>
+        <button class="load-css-panel-btn" style="
+          background: var(--color-primary, #0066cc); 
+          color: white; 
+          border: none; 
+          padding: 10px 20px; 
+          border-radius: 4px; 
+          cursor: pointer; 
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.background='var(--color-primary-hover, #0052a3)'" onmouseout="this.style.background='var(--color-primary, #0066cc)'">
+          Load Stylesheets
+        </button>
+      </div>
+    `;
+    this.setupInitialEventListeners();
+  }
+  
+  setupInitialEventListeners() {
+    const loadBtn = this.containerElement.querySelector('.load-css-panel-btn');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => this.loadPanel(), { once: true });
+    }
   }
 
   /**
    * Refresh CSS files data and re-render
    */
   refresh() {
+    if (!this.isLoaded) {
+      this.renderInitialState();
+      return;
+    }
     // Scan for CSS files using inline implementation
     this.scanCssFiles();
     this.analyzeZIndexUsage();
@@ -982,30 +1030,47 @@ export class CssFilesPanel {
   /**
    * Safely get rule count from a stylesheet, handling CORS restrictions
    */
-  safeGetRuleCount(sheet) {
-    if (!sheet) return 0;
+  safeGetRuleCount(sheet, hrefForLogging = '(unknown sheet)') {
+    if (!sheet) {
+      return 0;
+    }
     
     try {
+      // Accessing cssRules can throw a SecurityError for cross-origin stylesheets
       return sheet.cssRules ? sheet.cssRules.length : 0;
     } catch (error) {
-      // CORS restriction - external stylesheet
-      console.warn('Cannot access CSS rules due to CORS restrictions:', error.message);
-      return -1; // Indicate CORS restriction
+      if (error instanceof DOMException && error.name === 'SecurityError') {
+        // This is an expected and common condition for cross-origin stylesheets.
+        // It's a security feature of the browser, not an application error.
+        console.warn(`[CssFilesPanel] CSS rules for ${hrefForLogging} are not accessible due to browser CORS policy. This is expected for external stylesheets.`);
+        return -1; // Indicate that rules are inaccessible due to CORS
+      }
+      // Log other unexpected errors
+      console.error(`[CssFilesPanel] Unexpected error getting rule count for ${hrefForLogging}:`, error);
+      return -1; // Treat as inaccessible on other errors too
     }
   }
 
   /**
    * Safely get CSS rules from a stylesheet, handling CORS restrictions
    */
-  safeGetCssRules(sheet) {
-    if (!sheet) return [];
+  safeGetCssRules(sheet, hrefForLogging = '(unknown sheet)') {
+    if (!sheet) {
+      return [];
+    }
     
     try {
+      // Accessing cssRules can throw a SecurityError for cross-origin stylesheets
       return Array.from(sheet.cssRules || []);
     } catch (error) {
-      // CORS restriction - external stylesheet
-      console.warn('Cannot access CSS rules due to CORS restrictions:', error.message);
-      return [];
+      if (error instanceof DOMException && error.name === 'SecurityError') {
+        // Expected condition for cross-origin stylesheets.
+        console.warn(`[CssFilesPanel] CSS rules for ${hrefForLogging} are not accessible due to browser CORS policy. This is expected for external stylesheets.`);
+        return []; // Return an empty array as rules are inaccessible
+      }
+      // Log other unexpected errors
+      console.error(`[CssFilesPanel] Unexpected error getting CSS rules for ${hrefForLogging}:`, error);
+      return []; // Return empty array on other errors too
     }
   }
 
@@ -1026,7 +1091,7 @@ export class CssFilesPanel {
     try {
       if (cssFile.element && cssFile.element.sheet) {
         const sheet = cssFile.element.sheet;
-        const rules = this.safeGetCssRules(sheet);
+        const rules = this.safeGetCssRules(sheet, cssFile.href);
         
         analysis.rules = rules;
         analysis.corsRestricted = rules.length === 0 && cssFile.ruleCount === -1;
@@ -1430,22 +1495,40 @@ export class CssFilesPanel {
     linkElements.forEach((link, index) => {
       const href = link.href || link.getAttribute('href');
       if (href) {
-        const cssFile = {
-          href: href,
-          type: 'external',
-          media: link.media || 'all',
-          disabled: link.disabled,
-          element: link,
-          index: index,
-          loadOrder: index + 1,
-          crossOrigin: link.crossOrigin || null,
-          integrity: link.integrity || null,
-          isLoaded: link.sheet !== null,
-          ruleCount: this.safeGetRuleCount(link.sheet)
-        };
-        
-        this.cssFiles.set(href, cssFile);
-        this.categorizeCssFile(href, cssFile);
+        try {
+          const cssFile = {
+            href: href,
+            type: 'external',
+            media: link.media || 'all',
+            disabled: link.disabled,
+            element: link,
+            index: index,
+            loadOrder: index + 1,
+            crossOrigin: link.crossOrigin || null,
+            integrity: link.integrity || null,
+            isLoaded: link.sheet !== null,
+            ruleCount: this.safeGetRuleCount(link.sheet, href)
+          };
+          
+          this.cssFiles.set(href, cssFile);
+          this.categorizeCssFile(href, cssFile);
+        } catch (error) {
+          // If any error occurs (like a more aggressive SecurityError), create a fallback entry.
+          console.log(`[CssFilesPanel] Could not fully process stylesheet ${href}: ${error.message}`);
+          const cssFile = {
+            href: href,
+            type: 'external',
+            media: link.media || 'all',
+            disabled: link.disabled,
+            element: link,
+            index: index,
+            loadOrder: index + 1,
+            isLoaded: false, // Mark as not loaded if we had an error
+            ruleCount: -1 // Mark as inaccessible
+          };
+          this.cssFiles.set(href, cssFile);
+          this.categorizeCssFile(href, cssFile);
+        }
       }
     });
 
@@ -1481,7 +1564,7 @@ export class CssFilesPanel {
         content: content,
         lineCount: content.split('\n').length,
         charCount: content.length,
-        ruleCount: this.safeGetRuleCount(style.sheet),
+        ruleCount: this.safeGetRuleCount(style.sheet, href),
         isLoaded: true, // Inline styles are always "loaded"
         location: location // Where in the document this style tag is located
       };

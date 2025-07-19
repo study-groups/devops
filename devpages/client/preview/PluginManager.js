@@ -128,10 +128,15 @@ export class PluginManager {
    * @private
    */
   async _initializeKatexPlugin(config) {
-    const { KaTeXPlugin } = await import('/client/preview/plugins/katex.js');
-    const plugin = new KaTeXPlugin(config);
-    await plugin.init();
-    return plugin;
+    try {
+      const { KaTeXPlugin } = await import('/client/preview/plugins/katex.js');
+      const plugin = new KaTeXPlugin(config);
+      await plugin.init();
+      return plugin;
+    } catch (error) {
+      console.error('[PluginManager] KaTeX plugin failed to load, continuing without it.', error);
+      return null;
+    }
   }
 
   /**

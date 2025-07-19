@@ -185,7 +185,7 @@ export class PublishAPI {
       
       const startTime = Date.now();
       
-      const response = await fetch('/api/publish', {
+      const response = await globalFetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -283,7 +283,7 @@ export class PublishAPI {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch('/api/publish', {
+      const response = await globalFetch('/api/publish', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pathname }),
@@ -380,7 +380,7 @@ export class PublishAPI {
         logMessage('Test 1: Testing if POST /api/publish is reachable...', 'debug', 'PUBLISH_API');
         const startTime = Date.now();
         
-        const response = await fetch('/api/publish', {
+        const response = await globalFetch('/api/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}), // Empty body
@@ -431,7 +431,7 @@ export class PublishAPI {
         
         logMessage(`📤 Sending test payload: ${JSON.stringify(testPayload, null, 2)}`, 'debug', 'PUBLISH_API');
         
-        const response = await fetch('/api/publish', {
+        const response = await globalFetch('/api/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(testPayload),
@@ -528,7 +528,7 @@ export class PublishAPI {
   static async testServerHealth() {
     try {
       // Test with a simple GET request to see if server is responsive
-      const healthResponse = await fetch('/api/spaces/config', {
+      const healthResponse = await globalFetch('/api/spaces/config', {
         signal: AbortSignal.timeout(3000)
       });
       
@@ -536,7 +536,7 @@ export class PublishAPI {
         logMessage('✅ Server is responsive to GET requests', 'info', 'PUBLISH_API');
         
         // Now test if server accepts POST requests at all
-        const postTestResponse = await fetch('/api/spaces/config', {
+        const postTestResponse = await globalFetch('/api/spaces/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),

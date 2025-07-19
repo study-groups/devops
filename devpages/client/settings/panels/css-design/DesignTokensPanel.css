@@ -45,22 +45,7 @@
   border: 1px solid var(--color-border);
 }
 
-.refresh-btn {
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-3);
-  background-color: var(--color-primary);
-  color: var(--color-primary-foreground);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition-all);
-}
-
-.refresh-btn:hover {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-}
-
+/* Refresh button styles now handled by design-system.css .btn.btn-secondary.btn-sm classes */
 .refresh-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -133,21 +118,7 @@
   color: var(--color-fg);
 }
 
-.retry-button {
-  background-color: var(--color-primary);
-  color: var(--color-primary-foreground);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition: var(--transition-all);
-}
-
-.retry-button:hover {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-}
+/* Retry button styles now handled by design-system.css .btn.btn-primary classes */
 
 /* Token Categories */
 .token-category {

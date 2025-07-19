@@ -107,7 +107,7 @@ export class BasePanel {
         header.innerHTML = `
             <span class="title">${this.title}</span>
             <div class="controls">
-                <button class="toggle-collapse" title="Toggle Collapse">
+                <button class="btn btn-sm btn-ghost toggle-collapse" title="Toggle Collapse">
                     <span class="icon">${this.state.isCollapsed ? '+' : '-'}</span>
                 </button>
             </div>
