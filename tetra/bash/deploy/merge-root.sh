@@ -1,6 +1,6 @@
 # verbs.sh
 
-tetra_deploy_merge() {
+tetra_deploy_merge_via_root() {
   if [ -n "$1" ] && [ -f "$1" ] && [ -r "$1" ]; then
     . "$1"
     shift
@@ -13,7 +13,6 @@ tetra_deploy_merge() {
   local MERGE_BRANCH="${MERGE_BRANCH:-api-dev}"
   local SERVICE1="${SERVICE1:-nginx}"
   local SERVICE2="${SERVICE2:-arcade-staging}"
-  local HARD_MERGE="${HARD_MERGE:-false}"
 
   [ -n "$1" ] && REMOTE_HOST="$1"
   [ -n "$2" ] && REMOTE_USER="$2"
@@ -23,19 +22,19 @@ tetra_deploy_merge() {
   [ -n "$6" ] && SERVICE1="$6"
   [ -n "$7" ] && SERVICE2="$7"
 
-  local clean_cmd=""
-  if [ "$HARD_MERGE" = "true" ]; then
-    clean_cmd="git clean -fd &&"
-  fi
-
-  ssh $REMOTE_USER@"$REMOTE_HOST" <<EOF
+  ssh root@"$REMOTE_HOST" <<EOF
+set -xe
+sudo -u "$REMOTE_USER" bash -c "
   cd $REPO_PATH &&
   git checkout $BRANCH &&
   git pull origin $BRANCH &&
   git fetch origin &&
-  $clean_cmd
   git merge origin/$MERGE_BRANCH -m 'Merging origin/$MERGE_BRANCH into $BRANCH' &&
   git push origin $BRANCH
   cd $REPO_PATH/pja/cabinet
+"
+systemctl restart $SERVICE1
+systemctl restart $SERVICE2
 EOF
 }
+
