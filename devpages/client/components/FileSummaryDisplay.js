@@ -8,6 +8,8 @@ import { appStore } from '/client/appState.js';
 export function createFileSummaryDisplay(containerId) {
     let element = null;
     let appStateUnsubscribe = null;
+    let fileThunks = null;
+    let prevState = appStore.getState(); // Initialize previous state
 
     /**
      * Get current file information
@@ -84,7 +86,9 @@ export function createFileSummaryDisplay(containerId) {
 
         // Subscribe to app state changes
         appStateUnsubscribe = appStore.subscribe(() => {
-            render();
+            const newState = appStore.getState();
+            handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
 
         // Append overlay to container
@@ -96,6 +100,17 @@ export function createFileSummaryDisplay(containerId) {
         console.log('[FileSummaryDisplay] Mounted as overlay');
         return true;
     };
+
+    function handleStateChange(newState, prevState) {
+        if (!prevState) return; // Guard against initial undefined state
+        const newFile = newState.file;
+        const prevFile = prevState.file;
+
+        if (newFile.currentPathname !== prevFile.currentPathname ||
+            newFile.currentContent !== prevFile.currentContent) {
+            render();
+        }
+    }
 
     /**
      * Unmount the component

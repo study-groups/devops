@@ -2,13 +2,13 @@
  * Simplified PublishModal - orchestration only
  */
 import { appStore } from '/client/appState.js';
-import { logMessage } from '/client/log/index.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { PublishAPI } from './PublishAPI.js';
 import { createModalTemplate } from './PublishModalTemplate.js';
 import { findEditor, ghostValue, loadStylesheet } from './PublishUtils.js';
 import { publishService } from '/client/services/PublishService.js';
 import { cssManager } from '/client/utils/CssManager.js';
+
+const log = window.APP.services.log.createLogger('UI', 'PublishModal');
 
 export class PublishModal {
   constructor() {
@@ -218,7 +218,7 @@ export class PublishModal {
       
       testResults.querySelector('.test-details').textContent = details.join('\n');
       
-      logMessage('Setup test passed', 'info', 'PUBLISH_MODAL');
+      log.info('TEST_SETUP_PASSED', 'Setup test passed');
       
     } catch (error) {
       // Show error
@@ -241,7 +241,7 @@ export class PublishModal {
       
       testResults.querySelector('.test-details').textContent = errorDetails;
       
-      logMessage(`Setup test failed: ${error.message}`, 'error', 'PUBLISH_MODAL');
+      log.error('TEST_SETUP_FAILED', `Setup test failed: ${error.message}`);
     } finally {
       // Reset button state
       testBtn.disabled = false;
@@ -313,15 +313,15 @@ export class PublishModal {
       this.publishStatus = { isPublished: true, url: result.url };
       this.updatePublishStatus();
       
-      logMessage(`Successfully published: ${currentFile} to ${result.url} (${result.responseTime}ms)`, 'info', 'PUBLISH_MODAL');
+      log.info('PUBLISH_SUCCESS', `Successfully published: ${currentFile} to ${result.url} (${result.responseTime}ms)`);
 
     } catch (error) {
       if (error.name === 'AbortError') {
         updateStatus('❌ Cancelled by user', 0);
-        logMessage('Publish cancelled by user', 'info', 'PUBLISH_MODAL');
+        log.info('PUBLISH_CANCELLED', 'Publish cancelled by user');
       } else {
         updateStatus('❌ Failed', 0);
-        logMessage(`Publish error: ${error.message}`, 'error', 'PUBLISH_MODAL');
+        log.error('PUBLISH_ERROR', `Publish error: ${error.message}`, { stack: error.stack });
         this.showError('Failed to publish', error.message, error.stack);
       }
     } finally {
@@ -351,10 +351,10 @@ export class PublishModal {
       this.publishStatus = { isPublished: false, url: null };
       this.updatePublishStatus();
       
-      logMessage(`Successfully unpublished: ${currentFile}`, 'info', 'PUBLISH_MODAL');
+      log.info('UNPUBLISH_SUCCESS', `Successfully unpublished: ${currentFile}`);
 
     } catch (error) {
-      logMessage(`Unpublish error: ${error.message}`, 'error', 'PUBLISH_MODAL');
+      log.error('UNPUBLISH_ERROR', `Unpublish error: ${error.message}`, { stack: error.stack });
       this.showError('Failed to unpublish', error.message, error.stack);
     } finally {
       this.setProcessing(false, 'unpublish');
@@ -417,7 +417,7 @@ export class PublishModal {
     
     try {
       await navigator.clipboard.writeText(this.publishStatus.url);
-      logMessage('Published URL copied to clipboard', 'info', 'PUBLISH_MODAL');
+      log.info('COPY_URL_SUCCESS', 'Published URL copied to clipboard');
       
       // Show brief feedback
       const copyBtn = this.modal.querySelector('.copy-url-btn');
@@ -429,7 +429,7 @@ export class PublishModal {
         }, 1500);
       }
     } catch (error) {
-      logMessage(`Failed to copy URL: ${error.message}`, 'error', 'PUBLISH_MODAL');
+      log.error('COPY_URL_FAILED', `Failed to copy URL: ${error.message}`);
       this.showError('Failed to copy URL', error.message);
     }
   }
@@ -453,14 +453,14 @@ export class PublishModal {
     this.updateConfigDisplay();
     this.updatePublishStatus();
     
-    logMessage('Publish modal opened', 'debug', 'PUBLISH_MODAL');
+    log.debug('MODAL_OPEN', 'Publish modal opened');
   }
 
   close() {
     this.isOpen = false;
     this.modal.style.display = 'none';
     this.hideError();
-    logMessage('Publish modal closed', 'debug', 'PUBLISH_MODAL');
+    log.debug('MODAL_CLOSE', 'Publish modal closed');
   }
 
   destroy() {
@@ -469,7 +469,7 @@ export class PublishModal {
     }
     this.modal = null;
     this.isOpen = false;
-    logMessage('Publish modal destroyed', 'debug', 'PUBLISH_MODAL');
+    log.debug('MODAL_DESTROY', 'Publish modal destroyed');
   }
 
   async handlePublishWithRetry(retryCount = 0) {
@@ -479,7 +479,7 @@ export class PublishModal {
       await this.handlePublish();
     } catch (error) {
       if (error.message.includes('timed out') && retryCount < maxRetries) {
-        logMessage(`Publish attempt ${retryCount + 1} failed, retrying...`, 'warn', 'PUBLISH_MODAL');
+        log.warn('PUBLISH_RETRY', `Publish attempt ${retryCount + 1} failed, retrying...`);
         
         // Show retry message
         this.updateProgressMessage(`Retrying... (${retryCount + 1}/${maxRetries})`);
@@ -516,7 +516,7 @@ export class PublishModal {
       testResults.querySelector('.test-status').textContent = '✅ ' + result.message;
       testResults.querySelector('.test-details').textContent = `Minimal content published successfully in ${result.details.responseTime}ms`;
       
-      logMessage('Test publish passed', 'info', 'PUBLISH_MODAL');
+      log.info('TEST_PUBLISH_PASSED', 'Test publish passed');
       
     } catch (error) {
       // Show error
@@ -525,7 +525,7 @@ export class PublishModal {
       testResults.querySelector('.test-status').textContent = '❌ Test Publish Failed';
       testResults.querySelector('.test-details').textContent = error.message;
       
-      logMessage(`Test publish failed: ${error.message}`, 'error', 'PUBLISH_MODAL');
+      log.error('TEST_PUBLISH_FAILED', `Test publish failed: ${error.message}`);
     } finally {
       // Reset button state
       testBtn.disabled = false;
@@ -567,7 +567,7 @@ export class PublishModal {
         
         testResults.querySelector('.test-details').textContent = details.join('\n');
         
-        logMessage('Endpoint debugging completed successfully - publish is working!', 'info', 'PUBLISH_MODAL');
+        log.info('DEBUG_ENDPOINT_SUCCESS', 'Endpoint debugging completed successfully - publish is working!');
       } else {
         // Show detailed error info
         testResults.className = 'test-results error';
@@ -611,7 +611,7 @@ export class PublishModal {
         
         testResults.querySelector('.test-details').textContent = details;
         
-        logMessage(`Endpoint debugging revealed 400 error: ${result.details.errorMessage}`, 'error', 'PUBLISH_MODAL');
+        log.error('DEBUG_ENDPOINT_ERROR', `Endpoint debugging revealed 400 error: ${result.details.errorMessage}`);
       }
       
     } catch (error) {
@@ -621,7 +621,7 @@ export class PublishModal {
       testResults.querySelector('.test-status').textContent = '❌ Debug Failed';
       testResults.querySelector('.test-details').textContent = error.message;
       
-      logMessage(`Endpoint debugging failed: ${error.message}`, 'error', 'PUBLISH_MODAL');
+      log.error('DEBUG_ENDPOINT_FAILED', `Endpoint debugging failed: ${error.message}`);
     } finally {
       // Reset button state
       debugBtn.disabled = false;

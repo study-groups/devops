@@ -25,14 +25,8 @@ const pluginModules = {
   'css': CssPlugin,
 };
 
-// Helper for logging within this module
-function logPlugins(message, level = 'debug', type='PLUGINS') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('PluginManager');
 
 /**
  * Initialize plugins
@@ -41,29 +35,18 @@ function logPlugins(message, level = 'debug', type='PLUGINS') {
  * @returns {Promise<Map>} Map of initialized plugins
  */
 export async function initPlugins(pluginNames = [], config = {}) {
-  console.log('[PLUGINS DIAG] initPlugins called with pluginNames:', pluginNames, 'config:', config); // DIAGNOSTIC LOG
   try {
-    console.log('*** initPlugins called with:', pluginNames);
-    logPlugins(`[PREVIEW] Initializing plugins: ${pluginNames.join(', ')}`);
-    
-    // Is 'css' even in the pluginNames list?
-    console.log('Is CSS plugin requested?', pluginNames.includes('css'));
-    console.log('Available plugin modules:', Object.keys(pluginModules));
+    log.info('PLUGINS', 'INIT_START', `[PREVIEW] Initializing plugins: ${pluginNames.join(', ')}`);
     
     enabledPlugins.clear();
 
     for (const name of pluginNames) {
-      console.log(`*** Processing plugin: ${name}`);
-      
       if (!builtInPlugins[name] && !pluginModules[name]) {
-        console.log(`*** Plugin ${name} not found in builtIn or modules!`);
-        logPlugins(`[PREVIEW WARNING] Plugin "${name}" not found`);
+        log.warn('PLUGINS', 'PLUGIN_NOT_FOUND', `[PREVIEW WARNING] Plugin "${name}" not found`);
         continue;
       }
 
       try {
-        console.log(`*** Starting initialization for: ${name}`);
-        
         // Use a simplified approach - handle both module and class-based plugins
         if (name === 'css') {
           // Special handling for CSS plugin
@@ -72,25 +55,20 @@ export async function initPlugins(pluginNames = [], config = {}) {
             if (cssPlugin && typeof cssPlugin.init === 'function') {
               await cssPlugin.init(config);
               enabledPlugins.set(name, cssPlugin);
-              logPlugins(`[PREVIEW] CSS plugin initialized successfully`);
+              log.info('PLUGINS', 'CSS_PLUGIN_INIT_SUCCESS', `[PREVIEW] CSS plugin initialized successfully`);
             }
           } catch (error) {
-            logPlugins(`[PREVIEW] Failed to initialize CSS plugin: ${error.message}`, 'error');
+            log.error('PLUGINS', 'CSS_PLUGIN_INIT_FAILED', `[PREVIEW] Failed to initialize CSS plugin: ${error.message}`, error);
           }
         } else if (pluginModules[name]) {
-          console.log(`*** Initializing module plugin: ${name}`);
           const modulePlugin = pluginModules[name];
-          console.log(`*** Module structure:`, Object.keys(modulePlugin));
           
           if (typeof modulePlugin.init === 'function') {
             await modulePlugin.init(config);
-            console.log(`*** Adding ${name} to enabledPlugins`);
             enabledPlugins.set(name, modulePlugin);
-            console.log(`*** After adding, enabledPlugins has:`, [...enabledPlugins.keys()]);
-            logPlugins(`[PREVIEW] Module plugin "${name}" initialized`);
+            log.info('PLUGINS', 'MODULE_PLUGIN_INIT_SUCCESS', `[PREVIEW] Module plugin "${name}" initialized`);
           }
         } else if (builtInPlugins[name]) {
-          console.log(`*** Initializing class plugin: ${name}`);
           // Class-based plugins
           let PluginClass = await builtInPlugins[name]();
           const plugin = new PluginClass();
@@ -98,23 +76,19 @@ export async function initPlugins(pluginNames = [], config = {}) {
           
           if (initialized) {
             enabledPlugins.set(name, plugin);
-            logPlugins(`[PREVIEW] Plugin "${name}" initialized`);
+            log.info('PLUGINS', 'CLASS_PLUGIN_INIT_SUCCESS', `[PREVIEW] Plugin "${name}" initialized`);
           } else {
-            logPlugins(`[PREVIEW WARNING] Plugin "${name}" initialization failed`);
+            log.warn('PLUGINS', 'CLASS_PLUGIN_INIT_FAILED', `[PREVIEW WARNING] Plugin "${name}" initialization failed`);
           }
         }
       } catch (error) {
-        console.log(`*** Error initializing ${name}:`, error);
-        logPlugins(`[PREVIEW ERROR] Failed to initialize plugin "${name}": ${error.message}`);
-        console.error(`[PREVIEW ERROR] Plugin "${name}":`, error);
+        log.error('PLUGINS', 'PLUGIN_INIT_FAILED', `[PREVIEW ERROR] Failed to initialize plugin "${name}": ${error.message}`, error);
       }
     }
     
-    console.log('*** After all initialization, enabledPlugins has:', [...enabledPlugins.keys()]);
     return enabledPlugins;
   } catch (error) {
-    logPlugins(`[PREVIEW ERROR] Plugin initialization failed: ${error.message}`);
-    console.error('[PREVIEW ERROR] Plugin system:', error);
+    log.error('PLUGINS', 'INIT_PLUGINS_FAILED', `[PREVIEW ERROR] Plugin initialization failed: ${error.message}`, error);
     return new Map();
   }
 }
@@ -128,12 +102,12 @@ export async function initPlugins(pluginNames = [], config = {}) {
 export function registerPlugin(name, plugin) {
   try {
     if (!name || typeof name !== 'string') {
-      logPlugins(`[PREVIEW ERROR] Invalid plugin name: ${name}`);
+      log.error('PLUGINS', 'INVALID_PLUGIN_NAME', `[PREVIEW ERROR] Invalid plugin name: ${name}`);
       return false;
     }
     
     if (!plugin || typeof plugin !== 'object') {
-      logPlugins(`[PREVIEW ERROR] Invalid plugin object for ${name}`);
+      log.error('PLUGINS', 'INVALID_PLUGIN_OBJECT', `[PREVIEW ERROR] Invalid plugin object for ${name}`);
       return false;
     }
     
@@ -141,18 +115,17 @@ export function registerPlugin(name, plugin) {
     const requiredProps = ['init'];
     for (const prop of requiredProps) {
       if (typeof plugin[prop] !== 'function') {
-        logPlugins(`[PREVIEW ERROR] Plugin ${name} missing required function: ${prop}`);
+        log.error('PLUGINS', 'MISSING_REQUIRED_FUNCTION', `[PREVIEW ERROR] Plugin ${name} missing required function: ${prop}`);
         return false;
       }
     }
     
     // Register the plugin
     plugins.set(name, plugin);
-    logPlugins(`[PREVIEW] Registered plugin: ${name}`);
+    log.info('PLUGINS', 'PLUGIN_REGISTERED', `[PREVIEW] Registered plugin: ${name}`);
     return true;
   } catch (error) {
-    logPlugins(`[PREVIEW ERROR] Failed to register plugin ${name}: ${error.message}`);
-    console.error(`[PREVIEW ERROR] Plugin ${name}:`, error);
+    log.error('PLUGINS', 'PLUGIN_REGISTRATION_FAILED', `[PREVIEW ERROR] Failed to register plugin ${name}: ${error.message}`, error);
     return false;
   }
 }
@@ -190,19 +163,18 @@ export function isPluginEnabled(name) {
  * @param {HTMLElement} previewElement - The preview container element.
  */
 export function initializePlugins(previewElement) {
-    logPlugins(`Initializing ${plugins.length} plugins...`);
+    log.info('PLUGINS', 'INITIALIZING_ALL', `Initializing ${plugins.length} plugins...`);
     plugins.forEach(plugin => {
         try {
             if (typeof plugin.initialize === 'function') {
                 plugin.initialize(previewElement);
-                logPlugins(`Initialized plugin: ${plugin.constructor.name}`);
+                log.info('PLUGINS', 'PLUGIN_INITIALIZED', `Initialized plugin: ${plugin.constructor.name}`);
             }
         } catch (error) {
-             logPlugins(`Error initializing plugin ${plugin.constructor.name}: ${error.message}`, 'error');
-             console.error(error); // Log full error object
+             log.error('PLUGINS', 'PLUGIN_INITIALIZATION_ERROR', `Error initializing plugin ${plugin.constructor.name}: ${error.message}`, error);
         }
     });
-    logPlugins('All plugins initialized.');
+    log.info('PLUGINS', 'ALL_PLUGINS_INITIALIZED', 'All plugins initialized.');
 }
 
 /**
@@ -210,19 +182,18 @@ export function initializePlugins(previewElement) {
  * @param {HTMLElement} previewElement - The preview container element.
  */
 export function processPlugins(previewElement) {
-    logPlugins(`Processing ${plugins.length} plugins...`);
+    log.info('PLUGINS', 'PROCESSING_ALL', `Processing ${plugins.length} plugins...`);
     plugins.forEach(plugin => {
         try {
             if (typeof plugin.process === 'function') {
                 plugin.process(previewElement);
-                logPlugins(`Processed plugin: ${plugin.constructor.name}`);
+                log.info('PLUGINS', 'PLUGIN_PROCESSED', `Processed plugin: ${plugin.constructor.name}`);
             }
         } catch (error) {
-             logPlugins(`Error processing plugin ${plugin.constructor.name}: ${error.message}`, 'error');
-             console.error(error); // Log full error object
+             log.error('PLUGINS', 'PLUGIN_PROCESSING_ERROR', `Error processing plugin ${plugin.constructor.name}: ${error.message}`, error);
         }
     });
-    logPlugins('All plugins processed.');
+    log.info('PLUGINS', 'ALL_PLUGINS_PROCESSED', 'All plugins processed.');
 }
 
 /**

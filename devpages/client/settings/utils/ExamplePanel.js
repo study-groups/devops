@@ -21,6 +21,15 @@ export class ExamplePanel {
     console.log('🎉 ExamplePanel created! Check the settings panel.');
   }
 
+  init() {
+    let prevState = appStore.getState(); // Initialize previous state
+    this.unsubscribe = appStore.subscribe(() => {
+      const newState = appStore.getState();
+      this.onStateChange(newState, prevState);
+      prevState = newState; // Update previous state
+    });
+  }
+
   render() {
     const currentTheme = appStore.getState().ui?.theme || 'unknown';
     
@@ -88,14 +97,18 @@ export class ExamplePanel {
   }
 
   subscribeToState() {
-    this.unsubscribe = appStore.subscribe((newState, prevState) => {
-      // Re-render when theme changes to show current theme
-      if (newState.ui?.theme !== prevState.ui?.theme) {
-        console.log('Theme changed, updating example panel');
-        this.render();
-        this.attachEvents();
-      }
-    });
+    this.init();
+  }
+
+  onStateChange(newState, prevState) {
+    // Handle state changes relevant to this panel
+    // For example, if a specific setting is updated
+    const newSetting = newState.settings.examplePanel;
+    const oldSetting = prevState.settings.examplePanel;
+
+    if (newSetting !== oldSetting) {
+      this.render();
+    }
   }
 
   showNotification(message) {

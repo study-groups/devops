@@ -71,15 +71,38 @@ class LoginForm {
     const formElement = this.form.querySelector('form');
     formElement.addEventListener('submit', this.handleSubmit.bind(this));
     
+    // Hide login form initially, let state dictate visibility
+    this.form.style.display = 'none';
+
+    let prevState = appStore.getState(); // Initialize previous state
+    // Update visibility based on current auth state using appStore subscribe
+    const unsubscribe = appStore.subscribe(() => {
+        const newState = appStore.getState();
+        const newIsAuthenticated = newState.auth.isAuthenticated;
+        const oldIsAuthenticated = prevState.auth.isAuthenticated;
+        
+        if (newIsAuthenticated !== oldIsAuthenticated) {
+            this.form.style.display = newIsAuthenticated ? 'none' : 'block';
+        }
+        prevState = newState; // Update previous state
+    });
+
+    // Initial visibility check
+    if (!appStore.getState().auth.isAuthenticated) {
+      this.updateVisibility(false);
+    } else {
+      this.updateVisibility(true);
+    }
+
     // Update visibility based on current auth state using appStore subscribe
     // The subscription will call updateVisibility immediately with the current state
-    const unsubscribe = appStore.subscribe((newState, prevState) => {
+    const unsubscribe2 = appStore.subscribe((newState, prevState) => {
         const authState = newState.auth;
         this.updateVisibility(authState.isAuthenticated);
         this.updateErrorMessage(authState.error);
     });
     // Store the unsubscribe function to call it on destroy
-    this.unsubscribeHandlers.push(unsubscribe);
+    this.unsubscribeHandlers.push(unsubscribe2);
   }
   
   handleSubmit(event) {

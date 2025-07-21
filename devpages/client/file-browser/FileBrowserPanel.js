@@ -4,10 +4,10 @@
  */
 
 import { BasePanel } from '/client/panels/BasePanel.js';
-import { logMessage } from '/client/log/index.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
-import { globalFetch } from '/client/globalFetch.js';
+
+const log = window.APP.services.log.createLogger('FileBrowserPanel');
 
 export class FileBrowserPanel extends BasePanel {
     constructor(options) {
@@ -57,7 +57,7 @@ export class FileBrowserPanel extends BasePanel {
         this.badgesContainer = this.contentElement.querySelector('.publish-badges');
         
         if (!this.treeContainer) {
-            this.log('Tree container not found!', 'error');
+            log.error('FILE_BROWSER', 'TREE_CONTAINER_NOT_FOUND', 'Tree container not found!');
             return;
         }
         
@@ -75,7 +75,7 @@ export class FileBrowserPanel extends BasePanel {
         this.isInitialized = true;
 
         this.fetchAndDisplayCwd();
-        logMessage('FileBrowserPanel activated.', 'info', 'FileBrowser');
+        log.info('FILE_BROWSER', 'PANEL_ACTIVATED', 'FileBrowserPanel activated.');
 
         this.fileTreeManager.setTreeContainer(this.treeContainer);
 
@@ -96,7 +96,7 @@ export class FileBrowserPanel extends BasePanel {
 
     loadTree() {
         if (!this.treeContainer) {
-            logMessage('Cannot load tree: tree container not found.', 'error', 'FileBrowser');
+            log.error('FILE_BROWSER', 'LOAD_TREE_NO_CONTAINER', 'Cannot load tree: tree container not found.');
             return;
         }
 
@@ -105,7 +105,7 @@ export class FileBrowserPanel extends BasePanel {
             this.cwdPathContainer.title = '';
         }
 
-        logMessage('Loading file tree...', 'info', 'FileBrowser');
+        log.info('FILE_BROWSER', 'LOADING_TREE', 'Loading file tree...');
         const path = this.fetchCwd();
         this.fileTreeManager.buildTree({
             onFileClick: (file) => this.handleFileClick(file),
@@ -129,13 +129,13 @@ export class FileBrowserPanel extends BasePanel {
 
     async fetchServerConfig() {
         try {
-            const response = await globalFetch('/api/config');
+            const response = await window.APP.services.globalFetch('/api/config');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return await response.json();
         } catch (error) {
-            logMessage(`Failed to fetch server config: ${error.message}`, 'error', 'FileBrowser');
+            log.error('FILE_BROWSER', 'FETCH_CONFIG_ERROR', `Failed to fetch server config: ${error.message}`, error);
             return { PD_DIR: null, error: true };
         }
     }
@@ -157,7 +157,7 @@ export class FileBrowserPanel extends BasePanel {
             
             this.cwdPathContainer.textContent = fullPath;
         } catch (error) {
-            logMessage(`Failed to fetch CWD: ${error.message}`, 'error', 'FileBrowser');
+            log.error('FILE_BROWSER', 'FETCH_CWD_ERROR', `Failed to fetch CWD: ${error.message}`, error);
             this.cwdPathContainer.textContent = 'Error loading CWD.';
         }
     }
@@ -167,7 +167,7 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     handleFileClick(file) {
-        logMessage(`File clicked: ${file.path}`, 'info', 'FileBrowser');
+        log.info('FILE_BROWSER', 'FILE_CLICK', `File clicked: ${file.path}`);
         // Here you would dispatch an action to load the file
         // and its corresponding publish status.
         // For now, let's simulate a state change for demonstration.
@@ -182,13 +182,13 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     handleDirectoryClick(dir) {
-        logMessage(`Directory clicked: ${dir.path}`, 'info', 'FileBrowser');
+        log.info('FILE_BROWSER', 'DIRECTORY_CLICK', `Directory clicked: ${dir.path}`);
         // This is handled by the tree manager's toggle logic, but we can add more actions here if needed.
     }
 
     destroy() {
         super.destroy(); // Call parent's destroy method
-        logMessage('FileBrowserPanel destroyed.', 'info', 'FileBrowser');
+        log.info('FILE_BROWSER', 'PANEL_DESTROYED', 'FileBrowserPanel destroyed.');
         if (this.unsubscribe) {
             this.unsubscribe();
         }

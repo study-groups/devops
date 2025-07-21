@@ -14,7 +14,6 @@
 
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js'; // Fixed import - FORCE RELOAD
 
 // Helper for logging within this module
@@ -171,7 +170,7 @@ export class CssManager {
                 case CSS_FILE_TYPE.CLIENT:
                     // Client CSS files: fetch directly from client path
                     const clientUrl = this.devMode ? `${cssPath}?t=${Date.now()}` : cssPath;
-                    response = await globalFetch(clientUrl);
+                    response = await window.APP.services.globalFetch(clientUrl);
                     break;
                     
                 case CSS_FILE_TYPE.USER:
@@ -180,7 +179,7 @@ export class CssManager {
                     const userUrl = this.devMode 
                         ? `/public/css?path=${encodeURIComponent(cssPath)}&t=${Date.now()}`
                         : `/public/css?path=${encodeURIComponent(cssPath)}`;
-                    response = await globalFetch(userUrl);
+                    response = await window.APP.services.globalFetch(userUrl);
                     break;
                     
                 default:

@@ -1,86 +1,19 @@
 /**
- * PanelStateManager - Centralized panel state management
- * Integrates with existing appStore/reducer architecture
+ * PanelStateManager - A headless service for interacting with panel state in the Redux store.
  */
-
-import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { panelDefinitions } from './panelRegistry.js';
 import { appStore } from '/client/appState.js';
+import { panelThunks } from '/client/store/slices/panelSlice.js';
 
-export class PanelStateManager {
+class PanelStateService {
     constructor() {
         this.store = appStore;
-        this.unsubscribe = null;
     }
 
     /**
-     * Initialize the state manager
-     */
-    initialize() {
-        // Subscribe to store changes
-        this.unsubscribe = this.store.subscribe(this.handleStateChange.bind(this));
-    }
-
-    /**
-     * Clean up subscriptions
-     */
-    destroy() {
-        if (this.unsubscribe) {
-            this.unsubscribe();
-        }
-    }
-
-    /**
-     * Register a panel using StateKit thunks
-     * @param {string} panelId - Panel ID to register
-     * @param {object} config - Panel configuration
-     */
-    async registerPanel(panelId, config) {
-        try {
-            console.log(`[PanelStateManager] Registering panel: ${panelId}`);
-            
-            // Import the StateKit thunk
-            const { registerPanel } = await import('/client/store/slices/panelSlice.js');
-            
-            // Dispatch the thunk with proper parameters
-            const result = await this.store.dispatch(registerPanel({ panelId, config }));
-            
-            if (result.error) {
-                throw new Error(`Failed to register panel ${panelId}: ${result.error.message}`);
-            }
-            
-            console.log(`[PanelStateManager] Panel registered successfully: ${panelId}`);
-            return result.payload;
-            
-        } catch (error) {
-            console.error(`[PanelStateManager] Error registering panel ${panelId}:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Unregister a panel using StateKit thunk pattern
-     * @param {string} panelId - Panel identifier to unregister
-     */
-    async unregisterPanel(panelId) {
-        try {
-            // Import the StateKit thunk
-            const { unregisterPanel } = await import('/client/store/slices/panelSlice.js');
-            
-            // Dispatch the StateKit thunk
-            const result = await this.store.dispatch(unregisterPanel(panelId));
-            
-            if (result.meta.requestStatus === 'fulfilled') {
-                console.log(`[PanelStateManager] Successfully unregistered panel: ${panelId}`);
-            } else {
-                throw new Error(result.error?.message || 'Panel unregistration failed');
-            }
-        } catch (error) {
-            console.error(`[PanelStateManager] Error unregistering panel ${panelId}:`, error);
-        }
-    }
-
-    /**
-     * Get panel UI state
+     * Get the UI state for a specific panel.
+     * @param {string} panelId - The ID of the panel.
+     * @returns {object} The UI state of the panel.
      */
     getPanelUIState(panelId) {
         const state = this.store.getState();
@@ -92,24 +25,38 @@ export class PanelStateManager {
     }
 
     /**
-     * Get all visible panels ordered by priority
+     * Get all visible panels, ordered by their priority.
+     * @returns {Array<object>} A sorted list of visible panels.
      */
     getVisiblePanels() {
         const state = this.store.getState();
         const sidebarPanels = state.panels.sidebarPanels;
-        
-        return Object.keys(sidebarPanels)
-            .filter(panelId => sidebarPanels[panelId].visible)
-            .sort((a, b) => sidebarPanels[a].order - sidebarPanels[b].order)
-            .map(panelId => ({
-                id: panelId,
-                config: state.panels.registry[panelId],
-                uiState: sidebarPanels[panelId]
-            }));
+
+        return panelDefinitions
+            .filter(panelDef => {
+                const uiState = sidebarPanels[panelDef.id];
+                return uiState ? uiState.visible : panelDef.isDefault;
+            })
+            .sort((a, b) => {
+                const orderA = sidebarPanels[a.id]?.order ?? 99;
+                const orderB = sidebarPanels[b.id]?.order ?? 99;
+                return orderA - orderB;
+            })
+            .map(panelDef => {
+                const defaultState = { visible: panelDef.isDefault, collapsed: false, order: 99 };
+                const uiState = sidebarPanels[panelDef.id] || defaultState;
+                return {
+                    id: panelDef.id,
+                    config: panelDef,
+                    uiState: uiState
+                };
+            });
     }
 
     /**
-     * Get panel instance
+     * Get the instance of a mounted panel.
+     * @param {string} panelId - The ID of the panel.
+     * @returns {object|undefined} The panel instance, if it exists.
      */
     getPanelInstance(panelId) {
         const state = this.store.getState();
@@ -117,13 +64,12 @@ export class PanelStateManager {
     }
 
     /**
-     * Handle state changes (for subscriptions)
+     * Toggle the visibility of a panel.
+     * @param {string} panelId - The ID of the panel to toggle.
      */
-    handleStateChange() {
-        // Could emit events here if needed
-        // For now, just let components subscribe to store directly
+    togglePanelVisibility(panelId) {
+        this.store.dispatch(panelThunks.togglePanelVisibility(panelId));
     }
 }
 
-// Create global instance
-export const panelStateManager = new PanelStateManager(); 
+export const panelStateService = new PanelStateService(); 

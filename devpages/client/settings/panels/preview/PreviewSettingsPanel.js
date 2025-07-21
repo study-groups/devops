@@ -8,6 +8,9 @@ import { eventBus } from '/client/eventBus.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { updatePreview, resetPreview } from '/client/store/slices/settingsSlice.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('PreviewSettingsPanel');
+
 export class PreviewSettingsPanel {
     constructor(container) {
         this.container = container;
@@ -30,9 +33,9 @@ export class PreviewSettingsPanel {
             window.previewSettingsPanel = this;
             
             this.initialized = true;
-            this.log('PreviewSettingsPanel initialized successfully', 'info');
+            log.info('PANEL_INIT', 'SUCCESS', 'PreviewSettingsPanel initialized successfully');
         } catch (error) {
-            this.log(`PreviewSettingsPanel initialization failed: ${error.message}`, 'error');
+            log.error('PANEL_INIT', 'FAILED', `PreviewSettingsPanel initialization failed: ${error.message}`, error);
             this.container.innerHTML = '<p style="color: var(--color-warning, #f59e0b); background-color: var(--color-warning-background, #fff3cd); padding: 1rem; border-radius: 0.375rem; border: 1px solid var(--color-warning, #f59e0b);">Error loading preview settings.</p>';
         }
     }
@@ -44,7 +47,7 @@ export class PreviewSettingsPanel {
             link.rel = 'stylesheet';
             link.href = cssPath;
             document.head.appendChild(link);
-            this.log('PreviewSettingsPanel CSS loaded.', 'info');
+            log.info('PANEL_INIT', 'CSS_LOADED', 'PreviewSettingsPanel CSS loaded.');
         }
     }
 
@@ -315,14 +318,14 @@ export class PreviewSettingsPanel {
             eventBus.emit('preview:settingsChanged', { [key]: value });
         }
 
-        this.log(`Preview setting updated: ${key} = ${value}`, 'debug');
+        log.debug('SETTINGS', 'UPDATE', `Preview setting updated: ${key} = ${value}`);
     }
 
     forceRefresh() {
         if (eventBus) {
             eventBus.emit('preview:forceRefresh');
         }
-        this.log('Force refresh triggered', 'info');
+        log.info('ACTIONS', 'FORCE_REFRESH', 'Force refresh triggered');
     }
 
     clearCache() {
@@ -335,7 +338,7 @@ export class PreviewSettingsPanel {
             eventBus.emit('preview:clearCache');
         }
         
-        this.log('Preview cache cleared', 'info');
+        log.info('ACTIONS', 'CLEAR_CACHE', 'Preview cache cleared');
     }
 
     resetSettings() {
@@ -355,7 +358,7 @@ export class PreviewSettingsPanel {
         appStore.dispatch(resetPreview(defaultSettings));
 
         this.render(); // Re-render with default values
-        this.log('Preview settings reset to defaults', 'info');
+        log.info('ACTIONS', 'RESET_SETTINGS', 'Preview settings reset to defaults');
     }
 
     updateStatus(data) {
@@ -377,19 +380,20 @@ export class PreviewSettingsPanel {
     }
 
     subscribeToState() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            if (newState.settings?.preview !== prevState.settings?.preview) {
-                // Re-render if preview settings changed from elsewhere
-                this.render();
-            }
+        let prevState = appStore.getState(); // Initialize previous state
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
 
-    log(message, level = 'debug') {
-        if (typeof window.logMessage === 'function') {
-            window.logMessage(`[PreviewSettingsPanel] ${message}`, level, 'PREVIEW_SETTINGS');
-        } else {
-            console.log(`[PreviewSettingsPanel] ${message}`);
+    handleStateChange(newState, prevState) {
+        const newSettings = newState.settings.preview;
+        const oldSettings = prevState.settings.preview;
+
+        if (JSON.stringify(newSettings) !== JSON.stringify(oldSettings)) {
+            this.render();
         }
     }
 
@@ -404,7 +408,7 @@ export class PreviewSettingsPanel {
             eventBus.off('preview:error', this.updateStatus.bind(this));
         }
 
-        this.log('PreviewSettingsPanel destroyed');
+        log.info('PANEL_DESTROY', 'DESTROYED', 'PreviewSettingsPanel destroyed');
     }
 
     testLoadingAnimations() {
@@ -414,7 +418,7 @@ export class PreviewSettingsPanel {
         // Find a preview container to test with
         const previewContainer = document.querySelector('.preview-container, .preview');
         if (!previewContainer) {
-            this.log('No preview container found for testing loading animations', 'warn');
+            log.warn('TEST', 'NO_PREVIEW_CONTAINER', 'No preview container found for testing loading animations');
             return;
         }
         
@@ -456,7 +460,7 @@ export class PreviewSettingsPanel {
         setTimeout(() => {
             previewContainer.classList.remove('preview-updating');
             testMessage.remove();
-            this.log('Loading animation test completed', 'info');
+            log.info('TEST', 'ANIMATION_TEST_COMPLETE', 'Loading animation test completed');
         }, 3000);
     }
 } 

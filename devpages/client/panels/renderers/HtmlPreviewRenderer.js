@@ -2,13 +2,7 @@
  * HTML Renderer - Renders HTML content inside a sandboxed iframe with CSS debugging capabilities.
  */
 
-function logHtmlPreviewRenderer(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`[HtmlPreviewRenderer] ${message}`, level, 'HTML_RENDERER');
-    } else {
-        console.log(`[HtmlPreviewRenderer] ${message}`);
-    }
-}
+const log = window.APP.services.log.createLogger('HtmlPreviewRenderer');
 
 export class HtmlPreviewRenderer {
     constructor() {
@@ -31,7 +25,7 @@ export class HtmlPreviewRenderer {
      * @returns {Promise<Object>} Render result containing an iframe.
      */
     async render(htmlContent, filePath) {
-        logHtmlPreviewRenderer(`Rendering HTML file in iframe: ${filePath}`);
+        log.info('HTML_RENDERER', 'RENDER_START', `Rendering HTML file in iframe: ${filePath}`);
 
         // Inject the game client SDK script at the beginning of the head
         let content = htmlContent || '';
@@ -43,8 +37,8 @@ export class HtmlPreviewRenderer {
         }
         
         // Log the content being rendered for debugging
-        logHtmlPreviewRenderer(`HTML content length: ${content.length}`, 'debug');
-        logHtmlPreviewRenderer(`HTML content preview: ${content.substring(0, 200)}...`, 'debug');
+        log.debug('HTML_RENDERER', 'RENDER_CONTENT', `HTML content length: ${content.length}`);
+        log.debug('HTML_RENDERER', 'RENDER_CONTENT_PREVIEW', `HTML content preview: ${content.substring(0, 200)}...`);
         
         // Use direct file URL for better isolation and performance
         // const fileUrl = `/api/files/content?pathname=${encodeURIComponent(filePath)}`;
@@ -74,7 +68,7 @@ export class HtmlPreviewRenderer {
             requiresIsolation: true
         };
 
-        logHtmlPreviewRenderer(`Successfully generated iframe for HTML file: ${filePath}`);
+        log.info('HTML_RENDERER', 'RENDER_SUCCESS', `Successfully generated iframe for HTML file: ${filePath}`);
         return result;
     }
 
@@ -83,7 +77,7 @@ export class HtmlPreviewRenderer {
      * @param {HTMLElement} previewElement - The container element for the preview.
      */
     async postProcess(previewElement, renderResult, filePath) {
-        logHtmlPreviewRenderer('Post-processing for iframe-based HTML render.');
+        log.info('HTML_RENDERER', 'POST_PROCESS_START', 'Post-processing for iframe-based HTML render.');
         
         const container = previewElement.querySelector('.html-renderer-container');
         const iframe = previewElement.querySelector('.html-preview-iframe');
@@ -134,7 +128,7 @@ export class HtmlPreviewRenderer {
         // Remove any problematic classes that might be applied by parent CSS
         iframe.classList.remove('loaded', 'loading');
         
-        logHtmlPreviewRenderer('Applied CSS isolation to iframe');
+        log.info('HTML_RENDERER', 'CSS_ISOLATION_APPLIED', 'Applied CSS isolation to iframe');
     }
 
     /**
@@ -142,7 +136,7 @@ export class HtmlPreviewRenderer {
      */
     setupIframeEventListeners(iframe, container, toolbar) {
         iframe.addEventListener('load', () => {
-            logHtmlPreviewRenderer('HTML iframe loaded successfully');
+            log.info('HTML_RENDERER', 'IFRAME_LOADED', 'HTML iframe loaded successfully');
             
             // Re-apply isolation after load
             this.ensureIframeIsolation(iframe);
@@ -164,7 +158,7 @@ export class HtmlPreviewRenderer {
         });
         
         iframe.addEventListener('error', (e) => {
-            logHtmlPreviewRenderer(`HTML iframe error: ${e.message}`, 'error');
+            log.error('HTML_RENDERER', 'IFRAME_ERROR', `HTML iframe error: ${e.message}`, e);
             this.showIframeError(container, e);
         });
 
@@ -210,10 +204,10 @@ export class HtmlPreviewRenderer {
             if (iframeDoc) {
                 const title = iframeDoc.title || 'Untitled';
                 const bodyText = iframeDoc.body ? iframeDoc.body.textContent.substring(0, 100) : '';
-                logHtmlPreviewRenderer(`Iframe content analyzed - Title: ${title}, Body preview: ${bodyText}...`);
+                log.info('HTML_RENDERER', 'IFRAME_CONTENT_ANALYZED', `Iframe content analyzed - Title: ${title}, Body preview: ${bodyText}...`);
             }
         } catch (e) {
-            logHtmlPreviewRenderer('Cannot analyze iframe content (cross-origin or security restrictions)');
+            log.warn('HTML_RENDERER', 'IFRAME_CONTENT_ANALYSIS_FAILED', 'Cannot analyze iframe content (cross-origin or security restrictions)');
         }
     }
 
@@ -221,7 +215,7 @@ export class HtmlPreviewRenderer {
      * Open CSS debugger for iframe content
      */
     openCssDebugger(iframe, filePath) {
-        logHtmlPreviewRenderer('Opening CSS debugger for iframe');
+        log.info('HTML_RENDERER', 'OPEN_CSS_DEBUGGER', 'Opening CSS debugger for iframe');
         
         // Create debugging panel
         this.createCssDebugPanel(iframe, filePath);
@@ -231,7 +225,7 @@ export class HtmlPreviewRenderer {
      * Create CSS debugging panel - now redirects to existing CSS Files Panel
      */
     createCssDebugPanel(iframe, filePath) {
-        logHtmlPreviewRenderer('Opening CSS debug - redirecting to CSS Files Panel');
+        log.info('HTML_RENDERER', 'REDIRECT_TO_CSS_FILES_PANEL', 'Opening CSS debug - redirecting to CSS Files Panel');
         
         // Import eventBus and emit event to open CSS Files Panel
         import('/client/eventBus.js').then(({ eventBus }) => {
@@ -241,7 +235,7 @@ export class HtmlPreviewRenderer {
                 filePath: filePath
             });
         }).catch(error => {
-            logHtmlPreviewRenderer(`Failed to open CSS Files Panel: ${error.message}`, 'error');
+            log.error('HTML_RENDERER', 'OPEN_CSS_FILES_PANEL_FAILED', `Failed to open CSS Files Panel: ${error.message}`, error);
             
             // Fallback: show simple message
             this.showSimpleMessage(
@@ -379,7 +373,7 @@ export class HtmlPreviewRenderer {
                 const { event: eventType, data } = eventData;
                 
                 if (eventType === 'cssToggled') {
-                    logHtmlPreviewRenderer(`CSS file toggled via EventBus: ${data.href} (enabled: ${data.enabled})`);
+                    log.info('HTML_RENDERER', 'CSS_TOGGLED', `CSS file toggled via EventBus: ${data.href} (enabled: ${data.enabled})`);
                     
                     // Re-apply iframe isolation after CSS changes
                     const iframe = document.querySelector('.html-preview-iframe');
@@ -391,7 +385,7 @@ export class HtmlPreviewRenderer {
                 }
             });
         }).catch(error => {
-            logHtmlPreviewRenderer(`Failed to set up CSS change listener: ${error.message}`, 'error');
+            log.error('HTML_RENDERER', 'CSS_CHANGE_LISTENER_FAILED', `Failed to set up CSS change listener: ${error.message}`, error);
         });
     }
 
@@ -415,7 +409,7 @@ export class HtmlPreviewRenderer {
      * Cleanup method to be called when renderer is destroyed
      */
     destroy() {
-        logHtmlPreviewRenderer('Cleaning up HTML renderer');
+        log.info('HTML_RENDERER', 'DESTROY', 'Cleaning up HTML renderer');
         this.cleanupDebugPanel();
         
         // Clear any global references

@@ -2,27 +2,19 @@ import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('TopBar');
+
 // --- Module-level state ---
 let isInitialized = false;
 let unsubscribeFromStore = null;
-
-// Helper for logging within this module
-function logTopBar(message, level = 'text') {
-    const type = 'TOP_BAR';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message,type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${type}: ${message}`);
-    }
-}
 
 /**
  * Initializes the Top Bar component, including its handlers and responsive behaviors.
  */
 function init() {
     if (isInitialized) return;
-    logTopBar('Initializing Top Bar...');
+    log.info('TOP_BAR', 'INIT_START', 'Initializing Top Bar...');
     
     updateContentHeight();
     attachTopBarHandlers();
@@ -33,7 +25,7 @@ function init() {
 
     // Listen for comprehensive refresh shortcut
     eventBus.on('shortcut:comprehensiveRefresh', () => {
-        logTopBar('Comprehensive refresh triggered via keyboard shortcut');
+        log.info('TOP_BAR', 'REFRESH_SHORTCUT', 'Comprehensive refresh triggered via keyboard shortcut');
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
             refreshBtn.click();
@@ -60,7 +52,7 @@ function init() {
     if (publishBtn) publishBtn.disabled = !auth.isAuthenticated;
 
     isInitialized = true;
-    logTopBar('Top Bar Initialized.');
+    log.info('TOP_BAR', 'INIT_COMPLETE', 'Top Bar Initialized.');
 }
 
 /**
@@ -73,7 +65,7 @@ async function initializeRefreshSystem() {
         
         // Register additional refresh handlers for our comprehensive refresh
         registerRefreshHandler(() => {
-            logTopBar('Executing topBar refresh handler');
+            log.info('TOP_BAR', 'REFRESH_HANDLER', 'Executing topBar refresh handler');
             return Promise.resolve();
         }, 'topBar-comprehensive');
         
@@ -84,25 +76,25 @@ async function initializeRefreshSystem() {
         const { executeRefresh } = await import('/client/refresh.js');
         window.executeRefresh = executeRefresh;
         
-        logTopBar('Refresh system initialized successfully');
+        log.info('TOP_BAR', 'REFRESH_SYSTEM_INIT', 'Refresh system initialized successfully');
     } catch (error) {
-        logTopBar(`Failed to initialize refresh system: ${error.message}`, 'warn');
+        log.warn('TOP_BAR', 'REFRESH_SYSTEM_INIT_FAILED', `Failed to initialize refresh system: ${error.message}`);
     }
 }
 
 function refresh() {
-    logTopBar('Refreshing Top Bar...');
+    log.info('TOP_BAR', 'REFRESH_START', 'Refreshing Top Bar...');
     // For the top bar, a refresh might involve re-checking auth state or updating content.
     // For now, simply updating the content height is a good example.
     updateContentHeight();
     // Re-attach handlers to ensure they are fresh, especially if the DOM was manipulated.
     attachTopBarHandlers();
     attachRefreshHandler();
-    logTopBar('Top Bar Refreshed.');
+    log.info('TOP_BAR', 'REFRESH_COMPLETE', 'Top Bar Refreshed.');
 }
 
 function destroy() {
-    logTopBar('Destroying Top Bar...');
+    log.info('TOP_BAR', 'DESTROY_START', 'Destroying Top Bar...');
     // A real implementation would remove specific listeners.
     // For now, we just remove the global one we added.
     window.removeEventListener('resize', updateContentHeight);
@@ -114,7 +106,7 @@ function destroy() {
     }
 
     isInitialized = false;
-    logTopBar('Top Bar Destroyed.');
+    log.info('TOP_BAR', 'DESTROY_COMPLETE', 'Top Bar Destroyed.');
 }
 
 /**
@@ -138,12 +130,12 @@ function updateContentHeight() {
     // Update preview container max-height
     previewContainer.style.maxHeight = `calc(100vh - ${topBarHeight}px${logVisible ? ` - ${logHeight}px` : ''})`;
     
-    logTopBar(`Preview container height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
+    log.info('TOP_BAR', 'UPDATE_CONTENT_HEIGHT', `Preview container height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
 }
 
 // RESTORED: Essential UI handler functions
 function attachTopBarHandlers() {
-    logTopBar('Attaching top bar event handlers...');
+    log.info('TOP_BAR', 'ATTACH_HANDLERS_START', 'Attaching top bar event handlers...');
     
     // Handle save button clicks
     const saveBtn = document.getElementById('save-btn');
@@ -151,10 +143,10 @@ function attachTopBarHandlers() {
         saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            logTopBar('Save button clicked, dispatching action.');
+            log.info('TOP_BAR', 'SAVE_BUTTON_CLICKED', 'Save button clicked, dispatching action.');
             appStore.dispatch({ type: ActionTypes.FILE_SAVE_REQUEST });
         });
-        logTopBar('Save button handler attached');
+        log.info('TOP_BAR', 'SAVE_BUTTON_HANDLER_ATTACHED', 'Save button handler attached');
     }
     
     // Handle publish button clicks - REMOVED: Integration layer handles this now
@@ -162,10 +154,10 @@ function attachTopBarHandlers() {
     if (publishBtn) {
         // The click handling is now managed by PublishModalIntegration.js
         // No direct attachment needed here to avoid double handling or conflicts.
-        logTopBar('Publish button handler will be managed by integration layer.');
+        log.info('TOP_BAR', 'PUBLISH_BUTTON_HANDLER_SKIPPED', 'Publish button handler will be managed by integration layer.');
     }
     
-    logTopBar('Top bar handlers attached successfully');
+    log.info('TOP_BAR', 'ATTACH_HANDLERS_COMPLETE', 'Top bar handlers attached successfully');
 }
 
 /**
@@ -177,7 +169,7 @@ function attachRefreshHandler() {
         refreshBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            logTopBar('🔄 Comprehensive UI refresh triggered');
+            log.info('TOP_BAR', 'COMPREHENSIVE_REFRESH_START', '🔄 Comprehensive UI refresh triggered');
             
             // Add visual feedback
             refreshBtn.classList.add('refreshing');
@@ -192,41 +184,41 @@ function attachRefreshHandler() {
             
             try {
                 // 1. Clear various caches
-                logTopBar('Clearing caches...');
+                log.info('TOP_BAR', 'CLEAR_CACHES', 'Clearing caches...');
                 clearCaches();
                 
                 // 2. Reload all CSS files
-                logTopBar('Reloading CSS files...');
+                log.info('TOP_BAR', 'RELOAD_CSS', 'Reloading CSS files...');
                 await reloadAllCssSilent();
                 
                 // 3. Execute existing refresh handlers from refresh.js if available
-                logTopBar('Executing registered refresh handlers...');
+                log.info('TOP_BAR', 'EXECUTE_REFRESH_HANDLERS', 'Executing registered refresh handlers...');
                 await executeExistingRefreshHandlers();
                 
                 // 4. Refresh all registered components via UIManager
-                logTopBar('Refreshing UI components...');
+                log.info('TOP_BAR', 'REFRESH_UI_COMPONENTS', 'Refreshing UI components...');
                 await refreshUIComponents();
                 
                 // 5. Refresh all panels
-                logTopBar('Refreshing panels...');
+                log.info('TOP_BAR', 'REFRESH_PANELS', 'Refreshing panels...');
                 appStore.dispatch({ type: ActionTypes.REFRESH_PANELS });
                 
                 // 6. Refresh preview
-                logTopBar('Refreshing preview...');
+                log.info('TOP_BAR', 'REFRESH_PREVIEW', 'Refreshing preview...');
                 await refreshPreview();
                 
                 // 7. Emit comprehensive refresh events
-                logTopBar('Emitting refresh events...');
+                log.info('TOP_BAR', 'EMIT_REFRESH_EVENTS', 'Emitting refresh events...');
                 emitRefreshEvents();
                 
                 // 8. Refresh app state
-                logTopBar('Refreshing app state...');
+                log.info('TOP_BAR', 'REFRESH_APP_STATE', 'Refreshing app state...');
                 await refreshAppState();
                 
-                logTopBar('✅ Comprehensive refresh completed successfully');
+                log.info('TOP_BAR', 'COMPREHENSIVE_REFRESH_SUCCESS', '✅ Comprehensive refresh completed successfully');
                 
             } catch (error) {
-                logTopBar(`❌ Refresh error: ${error.message}`, 'error');
+                log.error('TOP_BAR', 'COMPREHENSIVE_REFRESH_FAILED', `❌ Refresh error: ${error.message}`, error);
                 console.error('[TopBar] Refresh error:', error);
             } finally {
                 // Restore button state
@@ -243,7 +235,7 @@ function attachRefreshHandler() {
                 // Fallback: If the button still shows "Refreshing...", force restore to a default
                 setTimeout(() => {
                     if (refreshBtn.textContent.includes('Refreshing') || refreshBtn.innerHTML.includes('Refreshing')) {
-                        logTopBar('Button text still shows refreshing, applying fallback restoration');
+                        log.warn('TOP_BAR', 'REFRESH_BUTTON_STUCK', 'Button text still shows refreshing, applying fallback restoration');
                         // Try to restore to a sensible default based on common refresh button patterns
                         if (originalContent.includes('&#x21bb;') || originalContent.includes('↻')) {
                             refreshBtn.innerHTML = '&#x21bb;';
@@ -258,9 +250,9 @@ function attachRefreshHandler() {
                 }, 100);
             }
         });
-        logTopBar('Comprehensive refresh button handler attached');
+        log.info('TOP_BAR', 'REFRESH_HANDLER_ATTACHED', 'Comprehensive refresh button handler attached');
     } else {
-        logTopBar('Refresh button not found', 'warning');
+        log.warn('TOP_BAR', 'REFRESH_BUTTON_NOT_FOUND', 'Refresh button not found');
     }
 }
 
@@ -272,14 +264,14 @@ async function executeExistingRefreshHandlers() {
         try {
             // Check if the refresh system from refresh.js is available
             if (window.executeRefresh && typeof window.executeRefresh === 'function') {
-                logTopBar('Executing existing refresh handlers...');
+                log.info('TOP_BAR', 'EXECUTE_EXISTING_REFRESH', 'Executing existing refresh handlers...');
                 window.executeRefresh();
-                logTopBar('Existing refresh handlers executed');
+                log.info('TOP_BAR', 'EXISTING_REFRESH_EXECUTED', 'Existing refresh handlers executed');
             } else {
-                logTopBar('No existing refresh handlers found', 'debug');
+                log.debug('TOP_BAR', 'NO_EXISTING_REFRESH', 'No existing refresh handlers found');
             }
         } catch (error) {
-            logTopBar(`Error executing existing refresh handlers: ${error.message}`, 'warn');
+            log.warn('TOP_BAR', 'EXISTING_REFRESH_ERROR', `Error executing existing refresh handlers: ${error.message}`);
         }
         resolve();
     });
@@ -299,7 +291,7 @@ function clearCaches() {
     );
     cacheKeys.forEach(key => {
         localStorage.removeItem(key);
-        logTopBar(`Cleared cache key: ${key}`);
+        log.info('TOP_BAR', 'CACHE_CLEARED', `Cleared cache key: ${key}`);
     });
     
     // Clear sessionStorage cache keys
@@ -310,7 +302,7 @@ function clearCaches() {
     );
     sessionCacheKeys.forEach(key => {
         sessionStorage.removeItem(key);
-        logTopBar(`Cleared session cache key: ${key}`);
+        log.info('TOP_BAR', 'SESSION_CACHE_CLEARED', `Cleared session cache key: ${key}`);
     });
     
     // Clear service worker registrations if available
@@ -318,7 +310,7 @@ function clearCaches() {
         navigator.serviceWorker.getRegistrations().then(registrations => {
             registrations.forEach(registration => {
                 registration.unregister();
-                logTopBar('Unregistered service worker');
+                log.info('TOP_BAR', 'SERVICE_WORKER_UNREGISTERED', 'Unregistered service worker');
             });
         });
     }
@@ -364,12 +356,12 @@ async function reloadAllCssSilent() {
                             }
                         }, 50);
                         reloadedCount++;
-                        logTopBar(`Reloaded CSS: ${originalHref}`);
+                        log.info('TOP_BAR', 'CSS_RELOADED', `Reloaded CSS: ${originalHref}`);
                         linkResolve();
                     };
                     
                     newLink.onerror = () => {
-                        logTopBar(`Failed to reload CSS: ${originalHref}`, 'warn');
+                        log.warn('TOP_BAR', 'CSS_RELOAD_FAILED', `Failed to reload CSS: ${originalHref}`);
                         linkResolve();
                     };
                     
@@ -382,7 +374,7 @@ async function reloadAllCssSilent() {
         
         // Process all links in parallel
         Promise.all(linkElements.map(processLink)).then(() => {
-            logTopBar(`Reloaded ${reloadedCount} CSS files`);
+            log.info('TOP_BAR', 'CSS_RELOAD_COMPLETE', `Reloaded ${reloadedCount} CSS files`);
             resolve();
         });
     });
@@ -397,9 +389,9 @@ async function refreshUIComponents() {
             // Check if UIManager is available
             if (window.UIManager && typeof window.UIManager.refreshAll === 'function') {
                 window.UIManager.refreshAll();
-                logTopBar('UIManager components refreshed');
+                log.info('TOP_BAR', 'UI_MANAGER_REFRESHED', 'UIManager components refreshed');
             } else {
-                logTopBar('UIManager not available for component refresh', 'warn');
+                log.warn('TOP_BAR', 'UI_MANAGER_NOT_FOUND', 'UIManager not available for component refresh');
             }
             
             // Also try to refresh specific components if they exist
@@ -416,15 +408,15 @@ async function refreshUIComponents() {
                 if (component && typeof component.refresh === 'function') {
                     try {
                         component.refresh();
-                        logTopBar(`Refreshed component: ${componentName}`);
+                        log.info('TOP_BAR', 'COMPONENT_REFRESHED', `Refreshed component: ${componentName}`);
                     } catch (error) {
-                        logTopBar(`Failed to refresh ${componentName}: ${error.message}`, 'warn');
+                        log.warn('TOP_BAR', 'COMPONENT_REFRESH_FAILED', `Failed to refresh ${componentName}: ${error.message}`);
                     }
                 }
             });
             
         } catch (error) {
-            logTopBar(`UI component refresh error: ${error.message}`, 'error');
+            log.error('TOP_BAR', 'UI_COMPONENT_REFRESH_ERROR', `UI component refresh error: ${error.message}`, error);
         }
         resolve();
     });
@@ -439,7 +431,7 @@ async function refreshPanels() {
             // Refresh panel manager if available
             if (window.panelManager && typeof window.panelManager.refresh === 'function') {
                 window.panelManager.refresh();
-                logTopBar('Panel manager refreshed');
+                log.info('TOP_BAR', 'PANEL_MANAGER_REFRESHED', 'Panel manager refreshed');
             }
             
             // Refresh individual panels
@@ -461,10 +453,10 @@ async function refreshPanels() {
                 });
             });
             
-            logTopBar('Panels refreshed');
+            log.info('TOP_BAR', 'PANELS_REFRESHED', 'Panels refreshed');
             
         } catch (error) {
-            logTopBar(`Panel refresh error: ${error.message}`, 'error');
+            log.error('TOP_BAR', 'PANEL_REFRESH_ERROR', `Panel refresh error: ${error.message}`, error);
         }
         resolve();
     });
@@ -516,18 +508,18 @@ async function refreshPreview() {
                         break;
                     }
                 } catch (error) {
-                    logTopBar(`Preview refresh method failed: ${error.message}`, 'warn');
+                    log.warn('TOP_BAR', 'PREVIEW_REFRESH_METHOD_FAILED', `Preview refresh method failed: ${error.message}`);
                 }
             }
             
             if (previewRefreshed) {
-                logTopBar('Preview refreshed');
+                log.info('TOP_BAR', 'PREVIEW_REFRESHED', 'Preview refreshed');
             } else {
-                logTopBar('No preview refresh method available', 'warn');
+                log.warn('TOP_BAR', 'NO_PREVIEW_REFRESH_METHOD', 'No preview refresh method available');
             }
             
         } catch (error) {
-            logTopBar(`Preview refresh error: ${error.message}`, 'error');
+            log.error('TOP_BAR', 'PREVIEW_REFRESH_ERROR', `Preview refresh error: ${error.message}`, error);
         }
         resolve();
     });
@@ -554,11 +546,11 @@ function emitRefreshEvents() {
                 eventBus.emit(eventName, { reason: 'comprehensive_refresh', timestamp: Date.now() });
             }
         } catch (error) {
-            logTopBar(`Failed to emit ${eventName}: ${error.message}`, 'warn');
+            log.warn('TOP_BAR', 'EMIT_REFRESH_EVENT_FAILED', `Failed to emit ${eventName}: ${error.message}`);
         }
     });
     
-    logTopBar('Refresh events emitted');
+    log.info('TOP_BAR', 'REFRESH_EVENTS_EMITTED', 'Refresh events emitted');
 }
 
 /**
@@ -574,7 +566,7 @@ async function refreshAppState() {
                     type: 'APP_REFRESH', 
                     payload: { timestamp: Date.now() }
                 });
-                logTopBar('App state refreshed');
+                log.info('TOP_BAR', 'APP_STATE_REFRESHED', 'App state refreshed');
             }
             
             // Refresh any global state managers
@@ -589,15 +581,15 @@ async function refreshAppState() {
                 if (manager && typeof manager.refresh === 'function') {
                     try {
                         manager.refresh();
-                        logTopBar(`Refreshed state manager: ${managerName}`);
+                        log.info('TOP_BAR', 'STATE_MANAGER_REFRESHED', `Refreshed state manager: ${managerName}`);
                     } catch (error) {
-                        logTopBar(`Failed to refresh ${managerName}: ${error.message}`, 'warn');
+                        log.warn('TOP_BAR', 'STATE_MANAGER_REFRESH_FAILED', `Failed to refresh ${managerName}: ${error.message}`);
                     }
                 }
             });
             
         } catch (error) {
-            logTopBar(`App state refresh error: ${error.message}`, 'error');
+            log.error('TOP_BAR', 'APP_STATE_REFRESH_ERROR', `App state refresh error: ${error.message}`, error);
         }
         resolve();
     });

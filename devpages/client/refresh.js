@@ -1,5 +1,5 @@
 // refresh.js - Unified refresh functionality for the editor
-import { logMessage } from "./log/index.js";
+const log = window.APP.services.log.createLogger('Refresh');
 
 // Track registered refresh handlers
 const refreshHandlers = [];
@@ -15,7 +15,7 @@ export function registerRefreshHandler(handler, name = 'unnamed') {
             func: handler,
             name: name
         });
-        logMessage(`[REFRESH] Registered new handler: ${name}`);
+        log.info('REFRESH', 'HANDLER_REGISTERED', `Registered new handler: ${name}`);
     }
 }
 
@@ -29,16 +29,16 @@ export function executeRefresh() {
         refreshBtn.disabled = true;
     }
     
-    logMessage('[REFRESH] Starting refresh process...');
+    log.info('REFRESH', 'START', 'Starting refresh process...');
     
     // Execute all registered refresh handlers
     const promises = refreshHandlers.map(handler => {
         try {
-            logMessage(`[REFRESH] Executing handler: ${handler.name}`);
+            log.info('REFRESH', 'EXECUTE_HANDLER', `Executing handler: ${handler.name}`);
             const result = handler.func();
             return result instanceof Promise ? result : Promise.resolve(result);
         } catch (error) {
-            logMessage(`[REFRESH ERROR] Handler ${handler.name} failed: ${error.message}`);
+            log.error('REFRESH', 'HANDLER_ERROR', `Handler ${handler.name} failed: ${error.message}`, error);
             return Promise.resolve();
         }
     });
@@ -49,7 +49,7 @@ export function executeRefresh() {
             refreshBtn.classList.remove('refreshing');
             refreshBtn.disabled = false;
         }
-        logMessage('[REFRESH] Refresh process completed');
+        log.info('REFRESH', 'COMPLETE', 'Refresh process completed');
     });
 }
 
@@ -60,12 +60,12 @@ export function initRefreshButton() {
     // Find the refresh button
     const refreshBtn = document.getElementById('refresh-btn');
     if (!refreshBtn) {
-        logMessage('[REFRESH] Refresh button not found, looking for svg-refresh-btn as fallback');
+        log.warn('REFRESH', 'BUTTON_NOT_FOUND', 'Refresh button not found, looking for svg-refresh-btn as fallback');
         
         // Try to find the SVG refresh button as a fallback
         const svgRefreshBtn = document.getElementById('svg-refresh-btn');
         if (svgRefreshBtn) {
-            logMessage('[REFRESH] Using svg-refresh-btn as fallback');
+            log.info('REFRESH', 'FALLBACK_BUTTON', 'Using svg-refresh-btn as fallback');
             
             // Clone and replace to remove existing listeners
             const newRefreshBtn = svgRefreshBtn.cloneNode(true);
@@ -78,7 +78,7 @@ export function initRefreshButton() {
             // Add click handler
             newRefreshBtn.addEventListener('click', executeRefresh);
         } else {
-            logMessage('[REFRESH ERROR] No refresh button found');
+            log.error('REFRESH', 'NO_BUTTON_FOUND', 'No refresh button found');
             return;
         }
     } else {
@@ -91,9 +91,9 @@ export function initRefreshButton() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.altKey && !e.shiftKey) {
             e.preventDefault(); // Prevent browser refresh
             executeRefresh();
-            logMessage('[REFRESH] Triggered by keyboard shortcut (Ctrl+R)');
+            log.info('REFRESH', 'KEYBOARD_TRIGGER', 'Triggered by keyboard shortcut (Ctrl+R)');
         }
     });
     
-    logMessage('[REFRESH] Refresh system initialized');
+    log.info('REFRESH', 'INITIALIZED', 'Refresh system initialized');
 } 

@@ -8,7 +8,8 @@ import { pathReducer } from './slices/pathSlice.js';
 import { pluginsReducer } from './reducers/pluginsReducer.js';
 import { settingsReducer } from './reducers/settingsReducer.js';
 import { panelsReducer } from './reducers/panelsReducer.js';
-import { domInspectorReducer } from './reducers/domInspectorReducer.js';
+// Correct the import path for the domInspectorReducer
+import { domInspectorReducer } from './slices/domInspectorSlice.js';
 import { workspaceReducer } from './reducers/workspaceReducer.js';
 import { debugPanelReducer } from './reducers/debugPanelReducer.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';

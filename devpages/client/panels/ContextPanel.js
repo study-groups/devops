@@ -29,6 +29,18 @@ export class ContextPanel extends BasePanel {
         this.log('ContextPanel initialized', 'info');
     }
 
+    init() {
+        let prevState = appStore.getState(); // Initialize previous state
+        this.storeUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            if (newState.file.currentPathname !== prevState.file.currentPathname) {
+                this.currentPath = newState.file.currentPathname;
+                this.render();
+            }
+            prevState = newState; // Update previous state
+        });
+    }
+
     /**
      * Get panel title
      */
@@ -40,19 +52,10 @@ export class ContextPanel extends BasePanel {
      * Setup event listeners
      */
     onSetupEventListeners() {
-        // Subscribe to app store for context-related changes
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
-            this.handleStoreChange(newState, prevState);
-        });
+        this.currentPath = null;
+        this.storeUnsubscribe = null;
 
-        this.selectedFence = null;
-        this.render();
-        
-        // Listen for settings changes to re-render if necessary
-        eventBus.on('panel-registry-changed', () => {
-            console.log('ContextPanel: panel registry changed, re-rendering');
-            this.render();
-        });
+        this.init();
     }
 
     /**

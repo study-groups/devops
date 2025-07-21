@@ -1,31 +1,16 @@
 /**
- * UnifiedLogging.js - Harmonized logging system implementing standards from:
- * - 005.5.md: DevPages API, SDK & Logging Standards
- * - 006.md: Namespace breakdown and refactoring
- * - 007.md: PJA Games unified logging approach
- * 
- * This bridges the current dual-track system (AppLog* and ConsoleLog*) with
- * the proposed unified standards while maintaining backward compatibility.
+ * @file UnifiedLogging.js
+ * @description Centralized, structured logging system for the DevPages application.
+ * This system is designed to be extensible, configurable, and consistent across the entire application.
+ * It is exposed globally via the `window.APP.services.log` namespace.
  */
 
-// Import existing components
-import { log as logCore } from './LogCore.js';
-import { ConsoleLogManager } from './ConsoleLogManager.js';
-import { LogPanel } from './LogPanel.js';
+// Establish the global namespace
+window.APP = window.APP || {};
+window.APP.services = window.APP.services || {};
 
-// TODO: Import ApiLog components when available
-// import { ApiLogEntry, GameApiManager, GAME_API_ACTIONS } from './ApiLog.js';
-
-// Namespace definition following 007.md approach
-window.DevPages = window.DevPages || {};
-window.DevPages.logging = window.DevPages.logging || {};
-
-// Also support PJA Games namespace for SDK compatibility (007.md)
-window.PjaGames = window.PjaGames || {};
-window.PjaGames.logging = window.PjaGames.logging || {};
-
-// Configuration following 005.5.md standards (no subtypes, structured format)
-window.DevPages.logging.config = {
+// --- Configuration ---
+const config = {
   defaultMaxEntries: 50,
   defaultOrder: 'desc',
   // Standard levels with priorities (005.5.md)
@@ -37,6 +22,7 @@ window.DevPages.logging.config = {
   },
   // Standard types following 005.5.md taxonomy
   standardTypes: {
+    BOOT: ['START', 'PHASE_1', 'PHASE_2', 'PHASE_3', 'PHASE_4', 'SUCCESS', 'CRITICAL_FAILURE', 'SUMMARY', 'APP_READY', 'SPLASH_HIDDEN', 'SERVICE_INJECTED', 'STORE_EXPOSED'],
     LIFECYCLE: ['LOADING', 'STARTED', 'ENDED', 'CONNECTED', 'MOUNTED'],
     STATE: ['IDLE', 'SET_VOLUME', 'SUBMIT_SCORE', 'ACTIVE', 'PAUSED'],
     API: ['REQUEST', 'RESPONSE', 'ERROR', 'TIMEOUT'],
@@ -45,8 +31,8 @@ window.DevPages.logging.config = {
   }
 };
 
-// TYPE Handlers - Each TYPE gets a parser that knows how to handle its messages
-window.DevPages.logging.typeHandlers = {
+// --- Type Handlers ---
+const typeHandlersConfig = {
   // API Type Handler - Parses PJA Game API messages
   API: {
     name: 'PJA Game API Parser',
@@ -154,14 +140,14 @@ window.DevPages.logging.typeHandlers = {
   }
 };
 
-// Enhanced Logger class following 006.md structure
-window.DevPages.logging.Logger = class Logger {
-  constructor(source, component = null, options = {}) {
-    this.source = source.toUpperCase();
-    this.component = component ? component.toUpperCase() : null;
+// --- Logger Class ---
+class Logger {
+  constructor(type, source = null, options = {}) {
+    this.type = type.toUpperCase();
+    this.source = source ? source.toUpperCase() : null;
     this.options = {
-      containerId: options.containerId || `${source.toLowerCase()}-log`,
-      maxEntries: options.maxEntries || window.DevPages.logging.config.defaultMaxEntries,
+      containerId: options.containerId || (source ? `${source.toLowerCase()}-log` : 'global-log'),
+      maxEntries: options.maxEntries || window.APP.services.log.config.defaultMaxEntries,
       enableConsole: options.enableConsole !== false,
       enablePanel: options.enablePanel !== false,
       ...options
@@ -171,7 +157,7 @@ window.DevPages.logging.Logger = class Logger {
     this.consoleManager = options.consoleManager || window.consoleLogManager;
     this.logPanel = options.logPanel || window.logPanelInstance;
     
-    console.log(`[DevPages.logging] Logger created for ${this.source}${this.component ? '-' + this.component : ''}`);
+    console.log(`[DevPages.logging] Logger created for ${this.type}${this.source ? `-${this.source}` : ''}`);
   }
 
   /**
@@ -180,27 +166,26 @@ window.DevPages.logging.Logger = class Logger {
    * 
    * TYPE now acts as container switch to get TYPE handler/parser
    */
-  log(level, type, action, message, payload = null) {
+  log(level, action, message, payload = null) {
     const normalizedLevel = this.normalizeLevel(level);
-    const normalizedType = type.toUpperCase();
+    const normalizedType = this.type;
     const normalizedAction = action.toUpperCase();
     
     // Get TYPE handler for parsing
-    const typeHandler = window.DevPages.logging.typeHandlers[normalizedType] || 
-                       window.DevPages.logging.typeHandlers.DEFAULT;
+    const typeHandler = window.APP.services.log.typeHandlers[normalizedType] || 
+                       window.APP.services.log.typeHandlers.DEFAULT;
     
     // Parse message using TYPE handler
     const parsed = typeHandler.parse(message, payload);
     
     // Validate against standard taxonomy (005.5.md recommendations)
-    this.validateTypeAction(normalizedType, normalizedAction);
+    this.validateTypeAction(normalizedAction);
     
     const logEntry = {
       ts: Date.now(),
       source: this.source,
-      component: this.component,
       type: normalizedType,
-      action: normalizedAction, // Using ACTION instead of subtype (005.5.md)
+      action: normalizedAction,
       level: normalizedLevel,
       message: parsed.formatted, // Use parsed/formatted message
       payload: parsed.details,   // Use parsed details
@@ -226,11 +211,11 @@ window.DevPages.logging.Logger = class Logger {
    * [SOURCE-Component][TYPE][ACTION] message [LEVEL]
    */
   formatMessage(level, type, action, message) {
-    let prefix = `[${this.source}]`;
-    if (this.component) {
-      prefix += `[${this.component}]`;
+    let prefix = `[${this.type}]`;
+    if (this.source) {
+      prefix += `[${this.source}]`;
     }
-    prefix += `[${type}][${action}]`;
+    prefix += `[${action}]`;
     
     return `${prefix} ${message} [${level}]`;
   }
@@ -238,8 +223,9 @@ window.DevPages.logging.Logger = class Logger {
   /**
    * Validate type and action against standard taxonomy (005.5.md)
    */
-  validateTypeAction(type, action) {
-    const config = window.DevPages.logging.config;
+  validateTypeAction(action) {
+    const type = this.type;
+    const config = window.APP.services.log.config;
     if (config.standardTypes[type]) {
       if (!config.standardTypes[type].includes(action)) {
         console.warn(`[DevPages.logging] Non-standard ACTION '${action}' for TYPE '${type}'. Consider using: ${config.standardTypes[type].join(', ')}`);
@@ -281,200 +267,169 @@ window.DevPages.logging.Logger = class Logger {
         ts: logEntry.ts,
         message: logEntry.message,
         source: logEntry.source,
-        component: logEntry.component,
         level: logEntry.level,
         type: logEntry.type,
-        action: logEntry.action, // Include action
+        action: logEntry.action,
         details: logEntry.payload
       };
       this.logPanel.addEntry(panelEntry);
     }
   }
 
-  // Convenience methods following 005.5.md recommendations
-  debug(type, action, message, payload = null) {
-    return this.log('DEBUG', type, action, message, payload);
+  // Convenience methods
+  debug(action, message, payload = null) {
+    return this.log('DEBUG', action, message, payload);
   }
 
-  info(type, action, message, payload = null) {
-    return this.log('INFO', type, action, message, payload);
+  info(action, message, payload = null) {
+    return this.log('INFO', action, message, payload);
   }
 
-  warn(type, action, message, payload = null) {
-    return this.log('WARN', type, action, message, payload);
+  warn(action, message, payload = null) {
+    return this.log('WARN', action, message, payload);
   }
 
-  error(type, action, message, payload = null) {
-    return this.log('ERROR', type, action, message, payload);
+  error(action, message, payload = null) {
+    return this.log('ERROR', action, message, payload);
   }
+}
 
-  // Domain-specific convenience methods (005.5.md examples)
-  lifecycle(action, message, payload = null) {
-    return this.info('LIFECYCLE', action, message, payload);
-  }
-
-  state(action, message, payload = null) {
-    return this.info('STATE', action, message, payload);
-  }
-
-  // API convenience methods - use API TYPE handler
-  apiSend(action, to, data = null) {
-    const handler = window.DevPages.logging.typeHandlers.API;
-    return handler.logSend(this, action, to, data);
-  }
-
-  apiReceive(action, from, data = null) {
-    const handler = window.DevPages.logging.typeHandlers.API;
-    return handler.logReceive(this, action, from, data);
-  }
-
-  system(action, message, payload = null) {
-    return this.info('SYSTEM', action, message, payload);
-  }
-
-  user(action, message, payload = null) {
-    return this.info('USER', action, message, payload);
-  }
-};
-
-// Factory function following 006.md recommendations
-window.DevPages.logging.createLogger = function(source, component = null, options = {}) {
-  return new window.DevPages.logging.Logger(source, component, options);
-};
-
-// Bridge for PJA Games SDK (007.md compatibility)
-window.PjaGames.logging.createLogger = window.DevPages.logging.createLogger;
-window.PjaGames.logging.Logger = window.DevPages.logging.Logger;
-window.PjaGames.logging.config = window.DevPages.logging.config;
-window.PjaGames.logging.typeHandlers = window.DevPages.logging.typeHandlers;
-
-// Enhanced global directLog function for backward compatibility
-window.directLog = function(level, from, to, type, action, message, data = null) {
-  // Create temporary logger if none exists
-  const logger = new window.DevPages.logging.Logger(from || 'GLOBAL', null, {
-    enableConsole: true,
-    enablePanel: true
-  });
-  
-  return logger.log(level, type, action, message, data);
-};
-
-// Setup controls following 007.md pattern
-window.DevPages.logging.setupControls = function(loggerInstance, controlsConfig = {}) {
-  if (!loggerInstance.options.containerId) return;
-  
-  const containerId = loggerInstance.options.containerId;
-  const {
-    clearButtonSelector = `[data-action="${containerId}-clear"]`,
-    toggleOrderButtonSelector = `[data-action="${containerId}-toggle-order"]`,
-    copyButtonSelector = `[data-action="${containerId}-copy"]`
-  } = controlsConfig;
-  
-  // Setup clear button
-  document.querySelectorAll(clearButtonSelector).forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (loggerInstance.logPanel) {
-        loggerInstance.logPanel.clearLog();
-      }
-    });
-  });
-  
-  // Setup copy button
-  document.querySelectorAll(copyButtonSelector).forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (loggerInstance.logPanel) {
-        loggerInstance.logPanel.copyLog();
-      }
-    });
-  });
-  
-  console.log(`[DevPages.logging] UI controls set up for ${loggerInstance.source}`);
-};
-
-// === PJA GAME API INTEGRATION ===
-// Simple clean pjaGameApi inspired by pjaSdk.module.js
-
-window.DevPages.logging.pjaGameApi = {
-  // Game API Actions from pjaSdk.module.js
-  actions: {
-    GAME_IDLE: "GAME_IDLE",
-    GAME_LOADING: "GAME_LOADING", 
-    GAME_LOADED: "GAME_LOADED",
-    GAME_STARTED: "GAME_STARTED",
-    GAME_ENDED: "GAME_ENDED",
-    GAME_STATE_UPDATE: "GAME_STATE_UPDATE",
-    PLAYER_ACTION: "PLAYER_ACTION",
-    SUBMIT_SCORE: "SUBMIT_SCORE",
-    SET_VOLUME: "SET_VOLUME",
-    PLAY_GAME: "PLAY_GAME", 
-    PAUSE_GAME: "PAUSE_GAME",
-    GET_SCORE: "GET_SCORE",
-    GET_USER: "GET_USER",
-    SET_USER: "SET_USER",
-    AUTHENTICATE: "AUTHENTICATE"
+// --- Public API ---
+const loggingService = {
+  config,
+  typeHandlers: typeHandlersConfig,
+  Logger,
+  createLogger(type, source = null, options = {}) {
+    return new loggingService.Logger(type, source, options);
   },
-  
-  // Create API logger for specific role
-  createApiLogger: function(role, targetWindow = null) {
-    const logger = window.DevPages.logging.createLogger(role, 'API');
+  directLog(level, from, to, type, action, message, data = null) {
+    // Create temporary logger if none exists
+    const logger = new loggingService.Logger(from || 'GLOBAL', null, {
+      enableConsole: true,
+      enablePanel: true
+    });
     
-    return {
-      ...logger,
-      
-      // Send API message with logging
-      send: function(action, to, data = null) {
-        const apiEntry = {
-          action,
-          from: role,
-          to,
-          ttime: performance.now(),
-          data
-        };
-        
-        // Log the send
-        logger.apiSend(action, to, data);
-        
-        // If targetWindow provided, actually send via postMessage
-        if (targetWindow && typeof targetWindow.postMessage === 'function') {
-          targetWindow.postMessage({ type: action, data }, "*");
+    return logger.log(level, type, action, message, data);
+  },
+  setupControls(loggerInstance, controlsConfig = {}) {
+    if (!loggerInstance.options.containerId) return;
+    
+    const containerId = loggerInstance.options.containerId;
+    const {
+      clearButtonSelector = `[data-action="${containerId}-clear"]`,
+      toggleOrderButtonSelector = `[data-action="${containerId}-toggle-order"]`,
+      copyButtonSelector = `[data-action="${containerId}-copy"]`
+    } = controlsConfig;
+    
+    // Setup clear button
+    document.querySelectorAll(clearButtonSelector).forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (loggerInstance.logPanel) {
+          loggerInstance.logPanel.clearLog();
         }
-        
-        return apiEntry;
-      },
+      });
+    });
+    
+    // Setup copy button
+    document.querySelectorAll(copyButtonSelector).forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (loggerInstance.logPanel) {
+          loggerInstance.logPanel.copyLog();
+        }
+      });
+    });
+    
+    console.log(`[DevPages.logging] UI controls set up for ${loggerInstance.source}`);
+  },
+  pjaGameApi: {
+    // Game API Actions from pjaSdk.module.js
+    actions: {
+      GAME_IDLE: "GAME_IDLE",
+      GAME_LOADING: "GAME_LOADING", 
+      GAME_LOADED: "GAME_LOADED",
+      GAME_STARTED: "GAME_STARTED",
+      GAME_ENDED: "GAME_ENDED",
+      GAME_STATE_UPDATE: "GAME_STATE_UPDATE",
+      PLAYER_ACTION: "PLAYER_ACTION",
+      SUBMIT_SCORE: "SUBMIT_SCORE",
+      SET_VOLUME: "SET_VOLUME",
+      PLAY_GAME: "PLAY_GAME", 
+      PAUSE_GAME: "PAUSE_GAME",
+      GET_SCORE: "GET_SCORE",
+      GET_USER: "GET_USER",
+      SET_USER: "SET_USER",
+      AUTHENTICATE: "AUTHENTICATE"
+    },
+    
+    // Create API logger for specific role
+    createApiLogger: function(role, targetWindow = null) {
+      const logger = loggingService.createLogger(role, 'API');
       
-      // Receive API message with logging  
-      receive: function(action, from, data = null) {
-        const apiEntry = {
-          action,
-          from,
-          to: role,
-          rtime: performance.now(),
-          data
-        };
+      return {
+        ...logger,
         
-        // Log the receive
-        logger.apiReceive(action, from, data);
+        // Send API message with logging
+        send: function(action, to, data = null) {
+          const apiEntry = {
+            action,
+            from: role,
+            to,
+            ttime: performance.now(),
+            data
+          };
+          
+          // Log the send
+          logger.log('INFO', 'API', 'SEND', `Sending ${action} to ${to}`, { apiEntry: apiEntry });
+          
+          // If targetWindow provided, actually send via postMessage
+          if (targetWindow && typeof targetWindow.postMessage === 'function') {
+            targetWindow.postMessage({ type: action, data }, "*");
+          }
+          
+          return apiEntry;
+        },
         
-        return apiEntry;
-      },
-      
-      // Convenience methods for game actions
-      gameLoaded: () => logger.apiSend('GAME_LOADED', 'HOST'),
-      gameStarted: () => logger.apiSend('GAME_STARTED', 'HOST'),
-      gameEnded: (score) => logger.apiSend('GAME_ENDED', 'HOST', { score }),
-      submitScore: (score) => logger.apiSend('SUBMIT_SCORE', 'SERVER', { score }),
-      authenticate: (token) => logger.apiSend('AUTHENTICATE', 'SERVER', { token })
-    };
+        // Receive API message with logging  
+        receive: function(action, from, data = null) {
+          const apiEntry = {
+            action,
+            from,
+            to: role,
+            rtime: performance.now(),
+            data
+          };
+          
+          // Log the receive
+          logger.log('INFO', 'API', 'RECEIVE', `Received ${action} from ${from}`, { apiEntry: apiEntry });
+          
+          return apiEntry;
+        },
+        
+        // Convenience methods for game actions
+        gameLoaded: () => logger.send('GAME_LOADED', 'HOST'),
+        gameStarted: () => logger.send('GAME_STARTED', 'HOST'),
+        gameEnded: (score) => logger.send('GAME_ENDED', 'HOST', { score }),
+        submitScore: (score) => logger.send('SUBMIT_SCORE', 'SERVER', { score }),
+        authenticate: (token) => logger.send('AUTHENTICATE', 'SERVER', { token })
+      };
+    }
   }
 };
 
-// Export for module usage
-export const Logger = window.DevPages.logging.Logger;
-export const createLogger = window.DevPages.logging.createLogger;
-export const setupControls = window.DevPages.logging.setupControls;
-export const typeHandlers = window.DevPages.logging.typeHandlers;
-export const pjaGameApi = window.DevPages.logging.pjaGameApi;
+// Expose the logging service via the new, standardized namespace
+window.APP.services.log = loggingService;
+
+// For backward compatibility, we can also expose it via the old namespaces.
+// This should be removed once the entire application has been refactored.
+window.DevPages = window.DevPages || {};
+window.DevPages.logging = loggingService;
+window.PjaGames = window.PjaGames || {};
+window.PjaGames.logging = loggingService;
+
+export const { createLogger, setupControls, pjaGameApi } = loggingService;
+export { Logger };
+export const typeHandlers = typeHandlersConfig;
 
 console.log('[DevPages.logging] Unified logging system with TYPE handlers and API parsers initialized'); 

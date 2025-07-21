@@ -3,7 +3,6 @@
  * Manages collections of files as named contexts
  */
 import { appStore } from '/client/appState.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 
 class ContextManager {
@@ -19,7 +18,7 @@ class ContextManager {
   async loadContexts() {
     try {
       // Use the files API directly to read the config file
-      const response = await globalFetch('/api/files/content', {
+      const response = await window.APP.services.globalFetch('/api/files/content', {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -61,7 +60,7 @@ class ContextManager {
       };
       
       // Use the files API directly to write the config file
-      const response = await globalFetch('/api/files/save', {
+      const response = await window.APP.services.globalFetch('/api/files/save', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -159,7 +158,7 @@ class ContextManager {
   // List files in a directory using PData's listDirectory
   async listFiles(directory) {
     try {
-      const response = await globalFetch('/api/files/list', {
+      const response = await window.APP.services.globalFetch('/api/files/list', {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -180,7 +179,7 @@ class ContextManager {
   // Read file content using PData's readFile
   async readFile(filePath) {
     try {
-      const response = await globalFetch('/api/files/content', {
+      const response = await window.APP.services.globalFetch('/api/files/content', {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -200,7 +199,7 @@ class ContextManager {
   // Write file content using PData's writeFile
   async writeFile(filePath, content) {
     try {
-      const response = await globalFetch('/api/files/save', {
+      const response = await window.APP.services.globalFetch('/api/files/save', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

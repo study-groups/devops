@@ -1,6 +1,8 @@
-import { globalFetch } from "/client/globalFetch.js";
 import { withAuthHeaders } from '/client/headers.js';
 import { eventBus } from '/client/eventBus.js';
+
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('ImageManager');
 
 // Undo stack for image operations
 const imageOperationsStack = [];
@@ -26,19 +28,9 @@ class ImageOperation {
     }
 }
 
-// Helper for logging within this module
-function logImage(message, level = 'text') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, 'DEVPAGES', 'IMAGES', null, level);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[IMAGES] ${message}`);
-    }
-}
-
 export async function undoLastImageOperation() {
     if (imageOperationsStack.length === 0) {
-        logImage('No image operations to undo');
+        log.info('IMAGE', 'UNDO_EMPTY', 'No image operations to undo');
         return;
     }
 
@@ -53,7 +45,7 @@ export async function undoLastImageOperation() {
     // If it was an insert, we should also delete the image file
     if (lastOperation.type === 'insert') {
         try {
-            await globalFetch(`/api/images/delete`, {
+            await window.APP.services.globalFetch(`/api/images/delete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -61,20 +53,20 @@ export async function undoLastImageOperation() {
                 body: JSON.stringify({ url: lastOperation.imageUrl })
             });
         } catch (error) {
-            logImage(`Failed to delete image file: ${error.message}`);
+            log.error('IMAGE', 'UNDO_DELETE_FAILED', `Failed to delete image file: ${error.message}`, error);
         }
     }
 
     // schedulePreviewUpdate(); // REMOVED: PreviewPanel manages its own updates
-    logImage('Undid last image operation');
+    log.info('IMAGE', 'UNDO_SUCCESS', 'Undid last image operation');
 }
 
 export async function uploadImage(file) {
-    logImage(`Attempting to upload image: ${file.name} (${Math.round(file.size / 1024)} KB)`);
+    log.info('IMAGE', 'UPLOAD_ATTEMPT', `Attempting to upload image: ${file.name} (${Math.round(file.size / 1024)} KB)`);
     
     // Validate file type
     if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-        logImage(`Unsupported file type: ${file.type}. Supported types: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
+        log.warn('IMAGE', 'UNSUPPORTED_FILE_TYPE', `Unsupported file type: ${file.type}. Supported types: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
         return null;
     }
     
@@ -86,7 +78,7 @@ export async function uploadImage(file) {
     
     // Check if the editor exists before trying to get selection
     if (!editor) {
-        logImage('Error: Editor element not found. The image was uploaded but could not be inserted.');
+        log.error('IMAGE', 'EDITOR_NOT_FOUND', 'Error: Editor element not found. The image was uploaded but could not be inserted.');
         return null;
     }
     
@@ -105,7 +97,7 @@ export async function uploadImage(file) {
             cursorPos = textarea.selectionStart || 0;
             previousState = textarea.value || '';
         } else {
-            logImage('Warning: Could not find textarea in editor. Will append image at end.');
+            log.warn('IMAGE', 'TEXTAREA_NOT_FOUND', 'Warning: Could not find textarea in editor. Will append image at end.');
         }
     }
     
@@ -114,29 +106,29 @@ export async function uploadImage(file) {
     const uploadUrl = `/api/images/upload`;
 
     try {
-        logImage(`Calling globalFetch for ${uploadUrl}`);
-        const response = await globalFetch(uploadUrl, { 
+        log.info('IMAGE', 'UPLOADING', `Calling globalFetch for ${uploadUrl}`);
+        const response = await window.APP.services.globalFetch(uploadUrl, { 
             method: 'POST', 
             body: formData,
             headers: {
                 'Accept': 'application/json'
             }
         });
-        logImage(`globalFetch returned for ${uploadUrl}. Status: ${response?.status}, OK: ${response?.ok}`);
+        log.info('IMAGE', 'UPLOAD_RESPONSE', `globalFetch returned for ${uploadUrl}. Status: ${response?.status}, OK: ${response?.ok}`);
 
         if (!response.ok) {
             let errorMessage = `Upload failed with status: ${response.status}`;
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.error || `${response.status}: ${response.statusText || 'Server error'}`;
-                logImage(`Server error response: ${JSON.stringify(errorData)}`);
+                log.error('IMAGE', 'UPLOAD_SERVER_ERROR', `Server error response: ${JSON.stringify(errorData)}`);
             } catch (parseError){
                 let rawResponse = '';
                 try {
                     rawResponse = await response.text();
                 } catch {}
                 errorMessage = `${response.status}: ${response.statusText || 'Server error, non-JSON response'}`;
-                logImage(`Server error response was not JSON: ${rawResponse}`); 
+                log.error('IMAGE', 'UPLOAD_NON_JSON_ERROR', `Server error response was not JSON: ${rawResponse}`); 
             }
             
             if (response.status === 413) {
@@ -150,7 +142,7 @@ export async function uploadImage(file) {
         if (!data.url) throw new Error('Invalid URL in response');
 
         const imageUrl = data.url.startsWith('/') ? data.url : `/${data.url}`;
-        logImage(`Uploaded file: ${imageUrl}`);
+        log.info('IMAGE', 'UPLOAD_SUCCESS', `Uploaded file: ${imageUrl}`);
 
         // REMOVED: Direct editor manipulation from imageManager
         /*
@@ -162,7 +154,7 @@ export async function uploadImage(file) {
             if (editor.tagName !== 'TEXTAREA' && editor.value === undefined) {
                 targetElement = editor.querySelector('textarea');
                 if (!targetElement) {
-                    logImage('Warning: Could not find textarea to insert image into.');
+                    log.warn('IMAGE', 'NO_TEXTAREA_FOR_INSERT', 'Warning: Could not find textarea to insert image into.');
                     // Return the URL even if we couldn't insert it
                     return imageUrl;
                 }
@@ -195,7 +187,7 @@ export async function uploadImage(file) {
                 await updateImageIndex();
             }
         } catch (insertError) {
-            logImage(`Warning: Image uploaded but couldn't be inserted: ${insertError.message}`);
+            log.warn('IMAGE', 'INSERT_ERROR', `Warning: Image uploaded but couldn't be inserted: ${insertError.message}`);
             console.error('Insert error:', insertError);
         }
         */
@@ -204,7 +196,7 @@ export async function uploadImage(file) {
         return imageUrl;
     } catch (error) {
         const errorMessage = error.message || 'Unknown fetch error';
-        logImage(`Upload error caught: ${errorMessage}`, 'error');
+        log.error('IMAGE', 'UPLOAD_ERROR', `Upload error caught: ${errorMessage}`, error);
         console.error('Upload error details:', error);
         
         eventBus.emit('image:uploadError', { filename: file.name, error: errorMessage });
@@ -214,7 +206,7 @@ export async function uploadImage(file) {
 
 export async function deleteImage(imageUrl) {
     try {
-        logImage(`Attempting to delete image: ${imageUrl}`);
+        log.info('IMAGE', 'DELETE_ATTEMPT', `Attempting to delete image: ${imageUrl}`);
         
         // Extract the filename from the URL
         const filename = imageUrl.split('/').pop();
@@ -223,7 +215,7 @@ export async function deleteImage(imageUrl) {
         }
         
         // Use globalFetch with the emergency endpoint that we know works
-        const response = await globalFetch('/image-delete', {
+        const response = await window.APP.services.globalFetch('/image-delete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -239,10 +231,10 @@ export async function deleteImage(imageUrl) {
         // Get the response data
         const data = await response.json();
         
-        logImage(`Successfully deleted image: ${filename}`);
+        log.info('IMAGE', 'DELETE_SUCCESS', `Successfully deleted image: ${filename}`);
         return true;
     } catch (error) {
-        logImage(`Failed to delete image: ${error.message}`);
+        log.error('IMAGE', 'DELETE_FAILED', `Failed to delete image: ${error.message}`, error);
         console.error('Delete error details:', error);
         return false;
     }
@@ -250,7 +242,7 @@ export async function deleteImage(imageUrl) {
 
 export async function updateImageIndex() {
     try {
-        const response = await globalFetch('/api/images/generate-index', {
+        const response = await window.APP.services.globalFetch('/api/images/generate-index', {
             method: 'POST'
         });
         
@@ -258,9 +250,9 @@ export async function updateImageIndex() {
             throw new Error(`Server returned ${response.status}: ${await response.text()}`);
         }
         
-        logImage('Updated image index successfully');
+        log.info('IMAGE', 'UPDATE_INDEX_SUCCESS', 'Updated image index successfully');
     } catch (error) {
-        logImage(`Failed to update image index: ${error.message}`);
+        log.error('IMAGE', 'UPDATE_INDEX_FAILED', `Failed to update image index: ${error.message}`, error);
         console.error('[IMAGES ERROR] Index update failed:', error);
     }
 }
@@ -278,17 +270,17 @@ document.addEventListener('keydown', (e) => {
 export async function handleDeleteImageAction(actionData) {
     const imageName = actionData.imageName; // Get image name from data passed by domEvents
     if (!imageName) {
-        logImage('handleDeleteImageAction called without imageName', 'error');
+        log.error('IMAGE', 'DELETE_ACTION_NO_IMAGENAME', 'handleDeleteImageAction called without imageName');
         return;
     }
 
     const decodedImageName = decodeURIComponent(imageName);
 
     if (confirm(`Are you sure you want to delete ${decodedImageName}?`)) {
-        logImage(`Attempting delete via action for: ${decodedImageName}`);
+        log.info('IMAGE', 'DELETE_ACTION_ATTEMPT', `Attempting delete via action for: ${decodedImageName}`);
         try {
             const imageUrl = `/uploads/${decodedImageName}`;
-            const response = await globalFetch('/image-delete', { // Use correct POST endpoint
+            const response = await window.APP.services.globalFetch('/image-delete', { // Use correct POST endpoint
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -302,12 +294,12 @@ export async function handleDeleteImageAction(actionData) {
             }
 
             const result = await response.json(); // Assuming JSON success response
-            logImage(`Successfully deleted ${decodedImageName}: ${result.message || 'Success'}`);
+            log.info('IMAGE', 'DELETE_ACTION_SUCCESS', `Successfully deleted ${decodedImageName}: ${result.message || 'Success'}`);
             alert('Image deleted successfully');
             window.location.reload(); // Reload to update the index page
 
         } catch (error) {
-            logImage(`Failed to delete ${decodedImageName}: ${error.message}`, 'error');
+            log.error('IMAGE', 'DELETE_ACTION_FAILED', `Failed to delete ${decodedImageName}: ${error.message}`, error);
             alert(`Error deleting image: ${error.message}`);
         }
     }

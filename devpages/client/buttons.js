@@ -4,19 +4,11 @@
  */
 import { eventBus } from '/client/eventBus.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('Buttons');
+
 // Maintain a registry of button handlers
 const buttonHandlers = new Map();
-
-// Helper for logging within this module
-function logButton(message, level = 'text') {
-    const type = 'BUTTONS';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
 
 /**
  * Safely register a button handler, replacing any existing handler
@@ -26,7 +18,7 @@ function logButton(message, level = 'text') {
  */
 export function registerButtonHandler(buttonId, handler, description = '') {
     if (!buttonId || typeof handler !== 'function') {
-        console.error('[BUTTONS] Invalid button registration:', buttonId);
+        log.error('BUTTONS', 'INVALID_REGISTRATION', `Invalid button registration: ${buttonId}`);
         return false;
     }
     
@@ -40,7 +32,7 @@ export function registerButtonHandler(buttonId, handler, description = '') {
     // Find the button
     const button = document.getElementById(buttonId);
     if (!button) {
-        logButton(`[BUTTONS] Warning: Button #${buttonId} not found in DOM but handler registered`);
+        log.warn('BUTTONS', 'BUTTON_NOT_FOUND', `Warning: Button #${buttonId} not found in DOM but handler registered`);
         return false;
     }
     
@@ -54,7 +46,7 @@ export function registerButtonHandler(buttonId, handler, description = '') {
         event.stopPropagation();
         
         // Log button click
-        logButton(`[BUTTONS] Button clicked: ${buttonId}`);
+        log.info('BUTTONS', 'BUTTON_CLICKED', `Button clicked: ${buttonId}`);
         
         // Dispatch button event
         eventBus.emit('button:clicked', {
@@ -66,12 +58,11 @@ export function registerButtonHandler(buttonId, handler, description = '') {
         try {
             handler(event);
         } catch (error) {
-            console.error(`[BUTTONS] Error in handler for ${buttonId}:`, error);
-            logButton(`[BUTTONS] Error in button handler: ${error.message}`, 'error');
+            log.error('BUTTONS', 'HANDLER_ERROR', `Error in handler for ${buttonId}:`, error);
         }
     });
     
-    logButton(`[BUTTONS] Registered handler for ${buttonId}${description ? ': ' + description : ''}`);
+    log.info('BUTTONS', 'HANDLER_REGISTERED', `Registered handler for ${buttonId}${description ? ': ' + description : ''}`);
     return true;
 }
 
@@ -81,7 +72,7 @@ export function registerButtonHandler(buttonId, handler, description = '') {
  */
 export function registerButtons(handlersMap) {
     if (!handlersMap || typeof handlersMap !== 'object') {
-        console.error('[BUTTONS] Invalid handlers map');
+        log.error('BUTTONS', 'INVALID_HANDLERS_MAP', 'Invalid handlers map');
         return false;
     }
     
@@ -99,11 +90,11 @@ export function registerButtons(handlersMap) {
                 successCount++;
             }
         } else {
-            console.error(`[BUTTONS] Invalid handler config for ${buttonId}`);
+            log.error('BUTTONS', 'INVALID_HANDLER_CONFIG', `Invalid handler config for ${buttonId}`);
         }
     }
     
-    logButton(`[BUTTONS] Registered ${successCount} button handlers`);
+    log.info('BUTTONS', 'HANDLERS_REGISTERED', `Registered ${successCount} button handlers`);
     return successCount > 0;
 }
 
@@ -125,11 +116,11 @@ export function unregisterButton(buttonId) {
         // Replace with a clone to remove event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
-        logButton(`[BUTTONS] Unregistered handler for ${buttonId}`);
+        log.info('BUTTONS', 'HANDLER_UNREGISTERED', `Unregistered handler for ${buttonId}`);
         return true;
     }
     
-    logButton(`[BUTTONS] Removed registry entry for ${buttonId} but button not found in DOM`);
+    log.warn('BUTTONS', 'BUTTON_NOT_FOUND', `Removed registry entry for ${buttonId} but button not found in DOM`);
     return true;
 }
 
@@ -163,7 +154,7 @@ export function getAllButtons() {
 export function setupButtonGroup(containerId, handlers) {
     const container = document.getElementById(containerId);
     if (!container) {
-        logButton(`[BUTTONS] Container #${containerId} not found`);
+        log.error('BUTTONS', 'CONTAINER_NOT_FOUND', `Container #${containerId} not found`);
         return false;
     }
     
@@ -182,16 +173,16 @@ export function setupButtonGroup(containerId, handlers) {
         if (buttonId && handlers[buttonId]) {
             event.preventDefault();
             event.stopPropagation();
-            logButton(`[BUTTONS] Group button clicked: ${buttonId}`);
+            log.info('BUTTONS', 'GROUP_BUTTON_CLICKED', `Group button clicked: ${buttonId}`);
             try {
                 handlers[buttonId](event);
             } catch (error) {
-                console.error(`[BUTTONS] Error in group handler for ${buttonId}:`, error);
+                log.error('BUTTONS', 'GROUP_HANDLER_ERROR', `Error in group handler for ${buttonId}:`, error);
             }
         }
     });
     
-    logButton(`[BUTTONS] Set up button group for ${containerId} with ${Object.keys(handlers).length} handlers`);
+    log.info('BUTTONS', 'BUTTON_GROUP_SETUP', `Set up button group for ${containerId} with ${Object.keys(handlers).length} handlers`);
     return true;
 }
 
@@ -203,7 +194,7 @@ export function setupButtonGroup(containerId, handlers) {
 export function setButtonEnabled(buttonId, enabled = true) {
     const button = document.getElementById(buttonId);
     if (!button) {
-        logButton(`[BUTTONS] Button #${buttonId} not found`);
+        log.warn('BUTTONS', 'BUTTON_NOT_FOUND', `Button #${buttonId} not found`);
         return false;
     }
     
@@ -219,7 +210,7 @@ export function setButtonEnabled(buttonId, enabled = true) {
 }
 
 // Consider if initialization is needed or if this module is just utility functions.
-logButton('Button utilities module loaded.');
+log.info('BUTTONS', 'MODULE_LOADED', 'Button utilities module loaded.');
 
 // Export all functions
 export default {

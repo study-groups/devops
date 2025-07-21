@@ -1,4 +1,3 @@
-import { globalFetch } from '/client/globalFetch.js';
 import { logMessage } from '/client/log/index.js';
 import { SubPanel } from '/client/panels/SubPanel.js';
 
@@ -116,7 +115,7 @@ export class PublishedSummaryPanel extends SubPanel {
 
     async fetchDoSpacesConfig() {
         try {
-            const response = await globalFetch('/api/config');
+            const response = await window.APP.services.globalFetch('/api/config');
             if (response.ok) {
                 this.doSpacesConfig = await response.json();
             } else {
@@ -129,7 +128,7 @@ export class PublishedSummaryPanel extends SubPanel {
 
     async fetchContexts() {
         try {
-            const response = await globalFetch('/api/publish/context/list');
+            const response = await window.APP.services.globalFetch('/api/publish/context/list');
             if (response.ok) {
                 const data = await response.json();
                 this.contexts = data.contexts || [];
@@ -145,7 +144,7 @@ export class PublishedSummaryPanel extends SubPanel {
 
     async fetchFilesForContext(contextName) {
         try {
-            const response = await globalFetch(`/api/publish/context/${contextName}/files`);
+            const response = await window.APP.services.globalFetch(`/api/publish/context/${contextName}/files`);
             if (response.ok) {
                 const data = await response.json();
                 return data.files || [];

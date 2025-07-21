@@ -112,7 +112,7 @@ export class DomInspectorPanel {
         console.log('[GENERAL] StateManager initialized');
         
         // Get initial state after state manager is initialized
-        const initialState = this.stateManager.getState();
+        const initialState = this.stateManager.getState() || {};
         
         // Set initial state from StateManager with safety checks
         if (initialState.position && typeof initialState.position.x === 'number' && typeof initialState.position.y === 'number') {
@@ -130,7 +130,7 @@ export class DomInspectorPanel {
         this.panelUI.setSplitPosition(initialState.splitPosition || 33);
         
         // Initialize highlight overlay with current settings
-        this.highlightOverlay = new HighlightOverlay(initialState.highlight);
+        this.highlightOverlay = new HighlightOverlay(initialState.highlight || {});
         
         // Initialize element picker with callbacks
         this.elementPicker = new ElementPicker({

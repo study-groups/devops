@@ -5,15 +5,8 @@
 
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
-// Helper for logging within this module
-function logPlugin(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, 'PLUGIN');
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[PLUGIN] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('PluginThunks');
 
 export const pluginThunks = {
     /**
@@ -22,7 +15,7 @@ export const pluginThunks = {
      */
     initializePlugins: () => async (dispatch, getState) => {
         try {
-            logPlugin('Initializing plugins...');
+            log.info('PLUGIN', 'INIT_START', 'Initializing plugins...');
             
             const state = getState();
             const plugins = state.plugins || {};
@@ -32,7 +25,7 @@ export const pluginThunks = {
                 const storedPlugins = localStorage.getItem('pluginsFullState');
                 if (storedPlugins) {
                     const parsedPlugins = JSON.parse(storedPlugins);
-                    logPlugin('Loaded plugin state from localStorage');
+                    log.info('PLUGIN', 'LOAD_STATE_SUCCESS', 'Loaded plugin state from localStorage');
                     
                     // Dispatch plugin state update
                     dispatch({ 
@@ -41,13 +34,13 @@ export const pluginThunks = {
                     });
                 }
             } catch (e) {
-                logPlugin(`Failed to load plugin state: ${e.message}`, 'warning');
+                log.warn('PLUGIN', 'LOAD_STATE_FAILED', `Failed to load plugin state: ${e.message}`, e);
             }
             
-            logPlugin('Plugins initialized successfully');
+            log.info('PLUGIN', 'INIT_SUCCESS', 'Plugins initialized successfully');
             return true;
         } catch (error) {
-            logPlugin(`Error initializing plugins: ${error.message}`, 'error');
+            log.error('PLUGIN', 'INIT_ERROR', `Error initializing plugins: ${error.message}`, error);
             throw error;
         }
     },
@@ -60,7 +53,7 @@ export const pluginThunks = {
      */
     updatePluginSettings: (pluginId, settings) => async (dispatch, getState) => {
         try {
-            logPlugin(`Updating settings for plugin: ${pluginId}`);
+            log.info('PLUGIN', 'UPDATE_SETTINGS', `Updating settings for plugin: ${pluginId}`);
             
             dispatch({ 
                 type: ActionTypes.PLUGINS_UPDATE_SETTINGS, 
@@ -72,14 +65,14 @@ export const pluginThunks = {
                 const state = getState();
                 const plugins = state.plugins || {};
                 localStorage.setItem('pluginsFullState', JSON.stringify(plugins));
-                logPlugin(`Plugin settings persisted to localStorage`);
+                log.info('PLUGIN', 'PERSIST_SETTINGS_SUCCESS', `Plugin settings persisted to localStorage`);
             } catch (e) {
-                logPlugin(`Failed to persist plugin settings: ${e.message}`, 'warning');
+                log.warn('PLUGIN', 'PERSIST_SETTINGS_FAILED', `Failed to persist plugin settings: ${e.message}`, e);
             }
             
             return settings;
         } catch (error) {
-            logPlugin(`Error updating plugin settings: ${error.message}`, 'error');
+            log.error('PLUGIN', 'UPDATE_SETTINGS_ERROR', `Error updating plugin settings: ${error.message}`, error);
             throw error;
         }
     },
@@ -91,7 +84,7 @@ export const pluginThunks = {
      */
     togglePluginEnabled: (pluginId) => async (dispatch, getState) => {
         try {
-            logPlugin(`Toggling enabled state for plugin: ${pluginId}`);
+            log.info('PLUGIN', 'TOGGLE_ENABLED', `Toggling enabled state for plugin: ${pluginId}`);
             
             const state = getState();
             const plugin = state.plugins?.[pluginId];
@@ -114,14 +107,14 @@ export const pluginThunks = {
                     settings: { ...updatedPlugins[pluginId]?.settings, enabled: newEnabled }
                 };
                 localStorage.setItem('pluginsFullState', JSON.stringify(updatedPlugins));
-                logPlugin(`Plugin enabled state persisted to localStorage: ${newEnabled}`);
+                log.info('PLUGIN', 'PERSIST_ENABLED_STATE_SUCCESS', `Plugin enabled state persisted to localStorage: ${newEnabled}`);
             } catch (e) {
-                logPlugin(`Failed to persist plugin enabled state: ${e.message}`, 'warning');
+                log.warn('PLUGIN', 'PERSIST_ENABLED_STATE_FAILED', `Failed to persist plugin enabled state: ${e.message}`, e);
             }
             
             return newEnabled;
         } catch (error) {
-            logPlugin(`Error toggling plugin enabled: ${error.message}`, 'error');
+            log.error('PLUGIN', 'TOGGLE_ENABLED_ERROR', `Error toggling plugin enabled: ${error.message}`, error);
             throw error;
         }
     },
@@ -134,12 +127,12 @@ export const pluginThunks = {
      */
     loadPluginModule: (pluginId, modulePath) => async (dispatch, getState) => {
         try {
-            logPlugin(`Loading plugin module: ${modulePath} for plugin: ${pluginId}`);
+            log.info('PLUGIN', 'LOAD_MODULE', `Loading plugin module: ${modulePath} for plugin: ${pluginId}`);
             
             // Load the module dynamically
             const module = await import(modulePath);
             
-            logPlugin(`Plugin module loaded successfully: ${pluginId}`);
+            log.info('PLUGIN', 'LOAD_MODULE_SUCCESS', `Plugin module loaded successfully: ${pluginId}`);
             
             // Dispatch module loaded action
             dispatch({ 
@@ -149,7 +142,7 @@ export const pluginThunks = {
             
             return module;
         } catch (error) {
-            logPlugin(`Error loading plugin module: ${error.message}`, 'error');
+            log.error('PLUGIN', 'LOAD_MODULE_ERROR', `Error loading plugin module: ${error.message}`, error);
             throw error;
         }
     },
@@ -162,7 +155,7 @@ export const pluginThunks = {
      */
     registerPlugin: (pluginId, pluginConfig) => async (dispatch, getState) => {
         try {
-            logPlugin(`Registering plugin: ${pluginId}`);
+            log.info('PLUGIN', 'REGISTER', `Registering plugin: ${pluginId}`);
             
             dispatch({ 
                 type: ActionTypes.PLUGINS_REGISTER, 
@@ -171,7 +164,7 @@ export const pluginThunks = {
             
             return pluginConfig;
         } catch (error) {
-            logPlugin(`Error registering plugin: ${error.message}`, 'error');
+            log.error('PLUGIN', 'REGISTER_ERROR', `Error registering plugin: ${error.message}`, error);
             throw error;
         }
     },
@@ -183,7 +176,7 @@ export const pluginThunks = {
      */
     unregisterPlugin: (pluginId) => async (dispatch, getState) => {
         try {
-            logPlugin(`Unregistering plugin: ${pluginId}`);
+            log.info('PLUGIN', 'UNREGISTER', `Unregistering plugin: ${pluginId}`);
             
             dispatch({ 
                 type: ActionTypes.PLUGINS_UNREGISTER, 
@@ -192,7 +185,7 @@ export const pluginThunks = {
             
             return true;
         } catch (error) {
-            logPlugin(`Error unregistering plugin: ${error.message}`, 'error');
+            log.error('PLUGIN', 'UNREGISTER_ERROR', `Error unregistering plugin: ${error.message}`, error);
             throw error;
         }
     },
@@ -203,17 +196,17 @@ export const pluginThunks = {
      */
     savePluginState: () => async (dispatch, getState) => {
         try {
-            logPlugin('Saving plugin state to localStorage...');
+            log.info('PLUGIN', 'SAVE_STATE', 'Saving plugin state to localStorage...');
             
             const state = getState();
             const plugins = state.plugins || {};
             
             localStorage.setItem('pluginsFullState', JSON.stringify(plugins));
-            logPlugin('Plugin state saved to localStorage');
+            log.info('PLUGIN', 'SAVE_STATE_SUCCESS', 'Plugin state saved to localStorage');
             
             return plugins;
         } catch (error) {
-            logPlugin(`Error saving plugin state: ${error.message}`, 'error');
+            log.error('PLUGIN', 'SAVE_STATE_ERROR', `Error saving plugin state: ${error.message}`, error);
             throw error;
         }
     }

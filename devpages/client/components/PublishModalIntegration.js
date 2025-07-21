@@ -3,8 +3,9 @@
  */
 
 import { openPublishModal } from './publish/PublishModal.js';
-import { logMessage } from '../log/index.js';
 import eventBus from '../eventBus.js';
+
+const log = window.APP.services.log.createLogger('SYSTEM', 'PublishIntegration');
 
 // Replace the existing publish functionality
 export function initializePublishModalIntegration() {
@@ -13,11 +14,11 @@ export function initializePublishModalIntegration() {
     const originalPublishToSpaces = window.triggerActions.publishToSpaces;
     
     window.triggerActions.publishToSpaces = function() {
-      logMessage('Publishing via modal interface', 'info', 'PUBLISH_INTEGRATION');
+      log.info('TRIGGER_ACTION_REPLACED', 'Publishing via modal interface');
       openPublishModal();
     };
     
-    logMessage('Replaced publishToSpaces with modal interface', 'debug', 'PUBLISH_INTEGRATION');
+    log.debug('REPLACE_SUCCESS', 'Replaced publishToSpaces with modal interface');
   }
 
   // Handle publish button clicks
@@ -50,7 +51,7 @@ export function initializePublishModalIntegration() {
 
   // Listen for publish requests from event bus
   eventBus.on('publish:request', (data) => {
-    logMessage('Received publish request via event bus', 'debug', 'PUBLISH_INTEGRATION');
+    log.debug('EVENT_BUS_REQUEST', 'Received publish request via event bus');
     openPublishModal(data?.pathname);
   });
 
@@ -62,5 +63,5 @@ export function initializePublishModalIntegration() {
     }
   });
 
-  logMessage('Publish modal integration initialized', 'info', 'PUBLISH_INTEGRATION');
+  log.info('INITIALIZED', 'Publish modal integration initialized');
 } 

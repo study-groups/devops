@@ -4,8 +4,11 @@
  */
 import { DomInspectorPanel } from './DomInspectorPanel.js';
 import { appStore } from '/client/appState.js';
+import { eventBus } from '/client/eventBus.js';
+import { showFatalError } from '/client/utils/uiError.js';
 
 let domInspectorInstance = null;
+let isActivating = false;
 
 export async function initializeDomInspector() {
   if (domInspectorInstance) {
@@ -26,6 +29,12 @@ export async function activateDomInspector() {
     console.log('[DOM INSPECTOR] Instance already exists, returning existing instance');
     return domInspectorInstance;
   }
+
+  if (isActivating) {
+      console.warn('[DOM INSPECTOR] Activation already in progress.');
+      return;
+  }
+  isActivating = true;
 
   try {
     console.log('[DOM INSPECTOR] Initializing after explicit activation...');
@@ -57,8 +66,9 @@ export async function activateDomInspector() {
     console.log('[DOM INSPECTOR DEBUG] Document ready state:', document.readyState);
     console.log('[DOM INSPECTOR DEBUG] appStore available:', !!appStore);
     console.log('[DOM INSPECTOR DEBUG] Window devPages available:', !!window.devPages);
-    
-    return null;
+    showFatalError(error, 'DOM Inspector Activation');
+  } finally {
+    isActivating = false;
   }
 }
 

@@ -1,6 +1,5 @@
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { cssManager, CSS_CONTEXT, generateCssSection } from '/client/utils/CssManager.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
 
@@ -29,10 +28,10 @@ async function fetchCssContent(cssPath) {
         
         if (cssPath.startsWith('/client/')) {
             // Client CSS files: fetch directly from client path
-            response = await globalFetch(cssPath);
+            response = await window.APP.services.globalFetch(cssPath);
         } else {
             // User CSS files: use /public/css endpoint (expects files in PD_DIR/data)
-            response = await globalFetch(`/public/css?path=${encodeURIComponent(cssPath)}`);
+            response = await window.APP.services.globalFetch(`/public/css?path=${encodeURIComponent(cssPath)}`);
         }
         
         if (!response.ok) {

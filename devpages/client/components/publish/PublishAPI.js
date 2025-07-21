@@ -1,8 +1,8 @@
 /**
  * API service for publish operations
  */
-import { globalFetch } from '/client/globalFetch.js';
-import { logMessage } from '/client/log/index.js';
+
+const log = window.APP.services.log.createLogger('API', 'PublishAPI');
 
 export class PublishAPI {
   // Modified to use existing endpoints for testing
@@ -15,11 +15,11 @@ export class PublishAPI {
     };
 
     try {
-      logMessage('Testing setup with existing endpoints...', 'info', 'PUBLISH_API');
+      log.info('TEST_SETUP_START', 'Testing setup with existing endpoints...');
       
       // Test 1: Check Spaces configuration
       try {
-        const configResponse = await globalFetch('/api/spaces/config');
+        const configResponse = await window.APP.services.globalFetch('/api/spaces/config');
         const configTime = Date.now() - startTime;
         
         if (configResponse.ok) {
@@ -59,7 +59,7 @@ export class PublishAPI {
 
       // Test 2: Check publish endpoint with a dummy query
       try {
-        const publishResponse = await globalFetch('/api/publish?pathname=test.md');
+        const publishResponse = await window.APP.services.globalFetch('/api/publish?pathname=test.md');
         const publishTime = Date.now() - startTime;
         
         if (publishResponse.ok) {
@@ -117,7 +117,7 @@ export class PublishAPI {
       }
       
     } catch (error) {
-      logMessage(`Setup test failed: ${error.message}`, 'error', 'PUBLISH_API');
+      log.error('TEST_SETUP_FAILED', `Setup test failed: ${error.message}`);
       throw new Error(`Setup test failed: ${error.message}`);
     }
   }
@@ -127,7 +127,7 @@ export class PublishAPI {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
     try {
-      const response = await globalFetch(`/api/publish?pathname=${encodeURIComponent(pathname)}`, {
+      const response = await window.APP.services.globalFetch(`/api/publish?pathname=${encodeURIComponent(pathname)}`, {
         signal: controller.signal
       });
       
@@ -140,13 +140,13 @@ export class PublishAPI {
           url: data.url || null
         };
       } else {
-        logMessage('Failed to check publish status', 'warn', 'PUBLISH_API');
+        log.warn('STATUS_CHECK_FAILED', 'Failed to check publish status');
         return { isPublished: false, url: null };
       }
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        logMessage('Status check timed out', 'warn', 'PUBLISH_API');
+        log.warn('STATUS_CHECK_TIMEOUT', 'Status check timed out');
       }
       return { isPublished: false, url: null };
     }
@@ -156,9 +156,9 @@ export class PublishAPI {
     // Validate request before sending
     try {
       this.validatePublishRequest(pathname, htmlContent, bundleCss);
-      logMessage('✅ Request validation passed', 'debug', 'PUBLISH_API');
+      log.debug('VALIDATION_PASSED', 'Request validation passed');
     } catch (validationError) {
-      logMessage(`❌ Request validation failed: ${validationError.message}`, 'error', 'PUBLISH_API');
+      log.error('VALIDATION_FAILED', `Request validation failed: ${validationError.message}`);
       throw validationError;
     }
     
@@ -170,7 +170,7 @@ export class PublishAPI {
       
       const sizeMB = (htmlContent.length / (1024 * 1024)).toFixed(2);
       const sizeKB = Math.round(htmlContent.length / 1024);
-      logMessage(`📤 Publishing ${sizeKB}KB to ${pathname}`, 'info', 'PUBLISH_API');
+      log.info('PUBLISH_START', `Publishing ${sizeKB}KB to ${pathname}`);
       
       // Log the actual request being sent for debugging
       const requestBody = {
@@ -179,13 +179,13 @@ export class PublishAPI {
         bundleCss,
         contentLength: htmlContent.length
       };
-      logMessage(`📋 Request payload: ${JSON.stringify(requestBody, null, 2)}`, 'debug', 'PUBLISH_API');
+      log.debug('PUBLISH_PAYLOAD', `Request payload: ${JSON.stringify(requestBody, null, 2)}`);
       
       if (onProgress) onProgress(`📤 Uploading ${sizeKB}KB...`);
       
       const startTime = Date.now();
       
-      const response = await globalFetch('/api/publish', {
+      const response = await window.APP.services.globalFetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,11 +199,11 @@ export class PublishAPI {
       const responseTime = Date.now() - startTime;
       clearTimeout(timeoutId);
       
-      logMessage(`📡 Server responded with ${response.status} in ${responseTime}ms`, 'debug', 'PUBLISH_API');
+      log.debug('PUBLISH_RESPONSE', `Server responded with ${response.status} in ${responseTime}ms`);
       
       // Always try to read the response body for error details
       const responseText = await response.text();
-      logMessage(`📄 Response body: ${responseText.substring(0, 500)}`, 'debug', 'PUBLISH_API');
+      log.debug('PUBLISH_RESPONSE_BODY', `Response body: ${responseText.substring(0, 500)}`);
       
       if (response.status === 400) {
         let errorMessage = 'Bad Request (400)';
@@ -212,7 +212,7 @@ export class PublishAPI {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.error || errorData.message || 'Request validation failed';
           
-          logMessage(`❌ 400 Error details: ${JSON.stringify(errorData, null, 2)}`, 'error', 'PUBLISH_API');
+          log.error('PUBLISH_400_ERROR', `400 Error details: ${JSON.stringify(errorData, null, 2)}`);
           
           // Provide specific guidance based on error content
           let guidance = '\n\n🔧 Possible fixes:\n';
@@ -266,7 +266,7 @@ export class PublishAPI {
         throw new Error(data.error || 'Publish succeeded but no URL returned');
       }
 
-      logMessage(`✅ Published in ${responseTime}ms: ${data.url}`, 'info', 'PUBLISH_API');
+      log.info('PUBLISH_SUCCESS', `Published in ${responseTime}ms: ${data.url}`);
       return { success: true, url: data.url, responseTime };
       
     } catch (error) {
@@ -283,7 +283,7 @@ export class PublishAPI {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await globalFetch('/api/publish', {
+      const response = await window.APP.services.globalFetch('/api/publish', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pathname }),
@@ -316,16 +316,16 @@ export class PublishAPI {
 
   static async getSpacesConfig() {
     try {
-      const response = await globalFetch('/api/spaces/config');
+      const response = await window.APP.services.globalFetch('/api/spaces/config');
       if (response.ok) {
         const data = await response.json();
         return data.config;
       } else {
-        logMessage('Failed to load Spaces configuration', 'warn', 'PUBLISH_API');
+        log.warn('CONFIG_LOAD_FAILED', 'Failed to load Spaces configuration');
         return null;
       }
     } catch (error) {
-      logMessage(`Error loading Spaces config: ${error.message}`, 'error', 'PUBLISH_API');
+      log.error('CONFIG_LOAD_ERROR', `Error loading Spaces config: ${error.message}`);
       return null;
     }
   }
@@ -341,15 +341,15 @@ export class PublishAPI {
     const testPathname = `test-${Date.now()}.md`;
     
     try {
-      logMessage('Testing publish with minimal content...', 'info', 'PUBLISH_API');
+      log.info('TEST_PUBLISH_START', 'Testing publish with minimal content...');
       const result = await this.publish(testPathname, testContent, false);
       
       // Clean up the test file
       try {
         await this.unpublish(testPathname);
-        logMessage('Test file cleaned up', 'debug', 'PUBLISH_API');
+        log.debug('TEST_PUBLISH_CLEANUP', 'Test file cleaned up');
       } catch (cleanupError) {
-        logMessage(`Test cleanup failed: ${cleanupError.message}`, 'warn', 'PUBLISH_API');
+        log.warn('TEST_PUBLISH_CLEANUP_FAILED', `Test cleanup failed: ${cleanupError.message}`);
       }
       
       return {
@@ -373,14 +373,14 @@ export class PublishAPI {
     };
 
     try {
-      logMessage('🔍 Starting comprehensive publish endpoint debugging...', 'info', 'PUBLISH_API');
+      log.info('DEBUG_ENDPOINT_START', 'Starting comprehensive publish endpoint debugging...');
 
       // Test 1: Can we reach the POST endpoint at all?
       try {
-        logMessage('Test 1: Testing if POST /api/publish is reachable...', 'debug', 'PUBLISH_API');
+        log.debug('DEBUG_ENDPOINT_TEST1', 'Test 1: Testing if POST /api/publish is reachable...');
         const startTime = Date.now();
         
-        const response = await globalFetch('/api/publish', {
+        const response = await window.APP.services.globalFetch('/api/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}), // Empty body
@@ -393,25 +393,25 @@ export class PublishAPI {
         results.postReachable = true;
         results.serverProcessingTime = responseTime;
         
-        logMessage(`✅ POST endpoint reachable in ${responseTime}ms, status: ${response.status}`, 'info', 'PUBLISH_API');
-        logMessage(`📄 Response body: ${responseText}`, 'debug', 'PUBLISH_API');
+        log.info('DEBUG_ENDPOINT_TEST1_REACHABLE', `POST endpoint reachable in ${responseTime}ms, status: ${response.status}`);
+        log.debug('DEBUG_ENDPOINT_TEST1_BODY', `Response body: ${responseText}`);
         
         if (response.status === 400) {
           // Parse the 400 error details
           try {
             const errorData = JSON.parse(responseText);
             results.errorDetails = errorData;
-            logMessage(`📋 400 Error parsed: ${JSON.stringify(errorData, null, 2)}`, 'debug', 'PUBLISH_API');
+            log.debug('DEBUG_ENDPOINT_TEST1_400_PARSED', `400 Error parsed: ${JSON.stringify(errorData, null, 2)}`);
           } catch (parseError) {
             results.errorDetails = { rawError: responseText };
-            logMessage(`📋 400 Error (raw): ${responseText}`, 'debug', 'PUBLISH_API');
+            log.debug('DEBUG_ENDPOINT_TEST1_400_RAW', `400 Error (raw): ${responseText}`);
           }
         }
         
         results.postWithEmptyBody = response.ok || response.status === 400; // 400 is expected for empty body
         
       } catch (postError) {
-        logMessage(`❌ POST endpoint test failed: ${postError.message}`, 'error', 'PUBLISH_API');
+        log.error('DEBUG_ENDPOINT_TEST1_FAILED', `POST endpoint test failed: ${postError.message}`);
         if (postError.name === 'TimeoutError') {
           throw new Error(`POST /api/publish endpoint is still hanging (10s timeout).`);
         }
@@ -420,7 +420,7 @@ export class PublishAPI {
 
       // Test 2: Try with minimal valid payload
       try {
-        logMessage('Test 2: Testing with minimal valid payload...', 'debug', 'PUBLISH_API');
+        log.debug('DEBUG_ENDPOINT_TEST2', 'Test 2: Testing with minimal valid payload...');
         const startTime = Date.now();
         
         const testPayload = {
@@ -429,9 +429,9 @@ export class PublishAPI {
           bundleCss: false
         };
         
-        logMessage(`📤 Sending test payload: ${JSON.stringify(testPayload, null, 2)}`, 'debug', 'PUBLISH_API');
+        log.debug('DEBUG_ENDPOINT_TEST2_PAYLOAD', `Sending test payload: ${JSON.stringify(testPayload, null, 2)}`);
         
-        const response = await globalFetch('/api/publish', {
+        const response = await window.APP.services.globalFetch('/api/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(testPayload),
@@ -441,8 +441,8 @@ export class PublishAPI {
         const responseTime = Date.now() - startTime;
         const responseText = await response.text();
         
-        logMessage(`📡 Minimal payload test: ${responseTime}ms, status: ${response.status}`, 'info', 'PUBLISH_API');
-        logMessage(`📄 Response: ${responseText}`, 'debug', 'PUBLISH_API');
+        log.info('DEBUG_ENDPOINT_TEST2_RESPONSE', `Minimal payload test: ${responseTime}ms, status: ${response.status}`);
+        log.debug('DEBUG_ENDPOINT_TEST2_BODY', `Response: ${responseText}`);
         
         results.postWithMinimalBody = response.ok;
         
@@ -477,13 +477,13 @@ export class PublishAPI {
           }
         } else if (response.ok) {
           const data = JSON.parse(responseText);
-          logMessage(`✅ Minimal publish worked! URL: ${data.url}`, 'info', 'PUBLISH_API');
+          log.info('DEBUG_ENDPOINT_TEST2_SUCCESS', `Minimal publish worked! URL: ${data.url}`);
           
           // Clean up test file
           try {
             await this.unpublish('debug-test.md');
           } catch (cleanupError) {
-            logMessage(`Cleanup failed: ${cleanupError.message}`, 'warn', 'PUBLISH_API');
+            log.warn('DEBUG_ENDPOINT_CLEANUP_FAILED', `Cleanup failed: ${cleanupError.message}`);
           }
           
           return {
@@ -508,7 +508,7 @@ export class PublishAPI {
         }
         
       } catch (minimalError) {
-        logMessage(`❌ Minimal payload test failed: ${minimalError.message}`, 'error', 'PUBLISH_API');
+        log.error('DEBUG_ENDPOINT_TEST2_FAILED', `Minimal payload test failed: ${minimalError.message}`);
         if (minimalError.name === 'TimeoutError') {
           throw new Error(`Server still hanging with minimal payload (15s timeout).`);
         }
@@ -528,15 +528,15 @@ export class PublishAPI {
   static async testServerHealth() {
     try {
       // Test with a simple GET request to see if server is responsive
-      const healthResponse = await globalFetch('/api/spaces/config', {
+      const healthResponse = await window.APP.services.globalFetch('/api/spaces/config', {
         signal: AbortSignal.timeout(3000)
       });
       
       if (healthResponse.ok) {
-        logMessage('✅ Server is responsive to GET requests', 'info', 'PUBLISH_API');
+        log.info('SERVER_HEALTH_GET_OK', 'Server is responsive to GET requests');
         
         // Now test if server accepts POST requests at all
-        const postTestResponse = await globalFetch('/api/spaces/config', {
+        const postTestResponse = await window.APP.services.globalFetch('/api/spaces/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -544,7 +544,7 @@ export class PublishAPI {
         });
         
         // We expect this to fail (405 Method Not Allowed), but it should fail quickly
-        logMessage(`POST test to /api/spaces/config: ${postTestResponse.status} (${postTestResponse.statusText})`, 'debug', 'PUBLISH_API');
+        log.debug('SERVER_HEALTH_POST_TEST', `POST test to /api/spaces/config: ${postTestResponse.status} (${postTestResponse.statusText})`);
         
         return {
           serverResponsive: true,

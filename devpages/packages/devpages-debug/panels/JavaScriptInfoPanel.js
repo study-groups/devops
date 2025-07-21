@@ -3,27 +3,20 @@
  * Provides information and potentially settings for JavaScript usage in previews.
  */
 
-// Helper for logging specific to this panel
-function logJSPanel(message, level = 'info') {
-  const type = 'JS_SETTINGS_PANEL';
-  if (typeof window.logMessage === 'function') {
-    window.logMessage(message, level, type);
-  } else {
-    console.log(`[${type}] ${message}`);
-  }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('JavaScriptInfoPanel');
 
 export class JavaScriptInfoPanel {
   constructor(parentElement) {
     this.containerElement = null; // The main element for this panel's content
 
     if (!parentElement) {
-      logJSPanel('JavaScriptPanel requires a parent element to attach its content.', 'error');
+      log.error('JS_PANEL', 'NO_PARENT_ELEMENT', 'JavaScriptPanel requires a parent element to attach its content.');
       return;
     }
 
     this.createPanelContent(parentElement);
-    logJSPanel('JavaScriptPanel instance created.');
+    log.info('JS_PANEL', 'INSTANCE_CREATED', 'JavaScriptPanel instance created.');
   }
 
   createPanelContent(parentElement) {
@@ -159,7 +152,7 @@ script: |
                     try {
                         window.hljs.highlightElement(block);
                     } catch (e) {
-                        logJSPanel('Highlight.js error: ' + e.message, 'error');
+                        log.error('JS_PANEL', 'HIGHLIGHT_JS_ERROR', 'Highlight.js error: ' + e.message, e);
                     }
                 }
             });
@@ -171,7 +164,7 @@ script: |
                     try {
                         Prism.highlightElement(block);
                     } catch (e) {
-                        logJSPanel('Prism error: ' + e.message, 'error');
+                        log.error('JS_PANEL', 'PRISM_ERROR', 'Prism error: ' + e.message, e);
                     }
                 }
             });
@@ -181,7 +174,7 @@ script: |
 
   // Method to clean up if needed
   destroy() {
-    logJSPanel('JavaScriptInfoPanel destroyed.');
+    log.info('JS_PANEL', 'DESTROYED', 'JavaScriptInfoPanel destroyed.');
     // Cleanup, if necessary
   }
 }

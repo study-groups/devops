@@ -5,19 +5,8 @@ import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js';
 import eventBus from '/client/eventBus.js';
 
+const log = window.APP.services.log.createLogger('DeepLink');
 const DEEP_LINK_KEY = 'deepLinkRequest';
-
-// Helper for logging
-function logDeepLink(message, level = 'text') {
-    const type = 'DEEP_LINK';
-    // Use window.logMessage if available, otherwise fallback to console
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
 
 /**
  * Save the current URL parameters for restoration after login
@@ -34,9 +23,9 @@ export function saveDeepLinkRequest() {
         };
         
         localStorage.setItem(DEEP_LINK_KEY, JSON.stringify(deepLinkData));
-        logDeepLink(`Saved request: ${JSON.stringify(deepLinkData)}`);
+        log.info('DEEP_LINK', 'SAVED_REQUEST', `Saved request: ${JSON.stringify(deepLinkData)}`);
     } else {
-        logDeepLink('No pathname parameter found to save.');
+        log.info('DEEP_LINK', 'NO_PATHNAME', 'No pathname parameter found to save.');
     }
 }
 
@@ -53,13 +42,13 @@ export function getSavedDeepLinkRequest() {
         
         // Validate the data structure
         if (!deepLinkData.pathname) {
-            logDeepLink(`Saved deep link data is invalid or missing pathname: ${savedData}`, 'warning');
+            log.warn('DEEP_LINK', 'INVALID_DATA', `Saved deep link data is invalid or missing pathname: ${savedData}`);
             return null;
         }
         
         return deepLinkData;
     } catch (error) {
-        logDeepLink(`Error retrieving saved request: ${error.message}`, 'error');
+        log.error('DEEP_LINK', 'RETRIEVE_ERROR', `Error retrieving saved request: ${error.message}`, error);
         return null;
     }
 }
@@ -69,7 +58,7 @@ export function getSavedDeepLinkRequest() {
  */
 export function clearSavedDeepLinkRequest() {
     localStorage.removeItem(DEEP_LINK_KEY);
-    logDeepLink('Cleared saved request');
+    log.info('DEEP_LINK', 'CLEARED_REQUEST', 'Cleared saved request');
 }
 
 /**
@@ -80,13 +69,13 @@ export function restoreDeepLinkNavigation() {
     const savedRequest = getSavedDeepLinkRequest();
     if (!savedRequest || !savedRequest.pathname) return false;
     
-    logDeepLink(`Restoring navigation to pathname: '${savedRequest.pathname}'`);
+    log.info('DEEP_LINK', 'RESTORING_NAVIGATION', `Restoring navigation to pathname: '${savedRequest.pathname}'`);
     
     // Use the eventBus to navigate to the saved pathname
     if (window.eventBus && typeof window.eventBus.emit === 'function') {
         // The isDirectory flag will be determined by handleNavigateToPathname
         const isDirectory = !/\.[^/]+$/.test(savedRequest.pathname);
-        logDeepLink(`Emitting navigate:pathname with isDirectory=${isDirectory}`);
+        log.info('DEEP_LINK', 'EMITTING_NAVIGATION', `Emitting navigate:pathname with isDirectory=${isDirectory}`);
         
         window.eventBus.emit('navigate:pathname', {
             pathname: savedRequest.pathname,
@@ -98,7 +87,7 @@ export function restoreDeepLinkNavigation() {
         return true;
     }
     
-    logDeepLink('EventBus not available, cannot restore navigation', 'warning');
+    log.warn('DEEP_LINK', 'EVENTBUS_UNAVAILABLE', 'EventBus not available, cannot restore navigation');
     return false;
 }
 
@@ -116,13 +105,13 @@ export function initDeepLinkHandler() {
         if (!authState.isLoggedIn && authState.authChecked) {
             // User is not logged in but auth check is complete, save the deep link
             saveDeepLinkRequest();
-            logDeepLink('URL parameters saved for post-login navigation');
+            log.info('DEEP_LINK', 'URL_PARAMS_SAVED', 'URL parameters saved for post-login navigation');
         }
     }
 }
 
 export function generateDeepLink() {
-    logMessage('Generating deep link...', 'debug');
+    log.debug('DEEP_LINK', 'GENERATE', 'Generating deep link...');
     const currentState = appStore.getState();
     const currentFile = currentState.file?.currentFile;
     const currentDir = currentState.file?.currentDirectory;
@@ -130,7 +119,7 @@ export function generateDeepLink() {
     // --- 2. Set Initial View Mode ---
     const viewModeParam = urlParams.get('view');
     if (viewModeParam && ['editor', 'preview', 'split'].includes(viewModeParam)) {
-        logMessage(`Deep link: Setting view mode to '${viewModeParam}'`, 'info');
+        log.info('DEEP_LINK', 'SET_VIEW_MODE', `Deep link: Setting view mode to '${viewModeParam}'`);
         // Update central state directly
         appStore.update(currentState => ({
             ui: { ...currentState.ui, viewMode: viewModeParam }

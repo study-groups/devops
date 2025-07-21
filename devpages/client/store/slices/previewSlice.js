@@ -6,10 +6,15 @@
  */
 
 import { createSlice, createAsyncThunk } from '/packages/devpages-statekit/src/index.js';
-import { logMessage } from '/client/log/index.js';
 
-// --- Helper Functions ---
-const log = (message, level = 'debug') => logMessage(message, level, 'PREVIEW_SLICE');
+let log = null;
+
+function getLogger() {
+    if (!log) {
+        log = window.APP.services.log.createLogger('PreviewSlice');
+    }
+    return log;
+}
 
 // --- Thunks ---
 
@@ -20,7 +25,8 @@ const log = (message, level = 'debug') => logMessage(message, level, 'PREVIEW_SL
 export const initializePreviewSystem = createAsyncThunk(
     'preview/initialize',
     async (_, { dispatch, getState }) => {
-        log('Initializing preview system...');
+        const logger = getLogger();
+        logger.info('PREVIEW_INIT', 'START', 'Initializing preview system...');
         dispatch(previewSlice.actions.setInitializationStatus('loading'));
 
         try {
@@ -39,16 +45,16 @@ export const initializePreviewSystem = createAsyncThunk(
                 try {
                     await pluginManager.loadPlugin(pluginName, settings[pluginName] || {});
                 } catch (error) {
-                    log(`Failed to load plugin ${pluginName}: ${error.message}`, 'warn');
+                    logger.warn('PREVIEW_INIT', 'PLUGIN_LOAD_FAILED', `Failed to load plugin ${pluginName}: ${error.message}`, error);
                 }
             }
 
             dispatch(previewSlice.actions.setInitializationStatus('ready'));
-            log('Preview system initialized successfully.');
+            logger.info('PREVIEW_INIT', 'SUCCESS', 'Preview system initialized successfully.');
 
             return { renderer, pluginManager };
         } catch (error) {
-            log(`Preview system initialization failed: ${error.message}`, 'error');
+            logger.error('PREVIEW_INIT', 'FAILED', `Preview system initialization failed: ${error.message}`, error);
             dispatch(previewSlice.actions.setInitializationStatus('error'));
             throw error;
         }
@@ -108,4 +114,6 @@ export const {
     resetPreview,
 } = previewSlice.actions;
 
-log('Preview slice created successfully.'); 
+// Note: The final log message is removed as it would execute on module load
+// and cause the same error. Logging for slice creation should be done
+// from the part of the code that imports and uses the slice. 

@@ -8,6 +8,9 @@ import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { IconApiService } from '/client/services/IconApiService.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('IconsPanel');
+
 const SYSTEM_ICONS = [
     'gear', 'folder', 'info', 'chevron-right', 'chevron-down', 'close', 
     'check', 'search', 'menu', 'edit', 'delete', 'add', 'copy', 'external-link',
@@ -16,19 +19,11 @@ const SYSTEM_ICONS = [
     'zoom-out'
 ];
 
-function logIcons(message, level = 'info') {
-    const type = 'ICONS_PANEL';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`);
-    }
-}
-
 export class IconsPanel {
     constructor(parentElement) {
         this.containerElement = parentElement;
         this.stateUnsubscribe = null;
+        let prevState = appStore.getState(); // Initialize previous state
         this.iconSets = new Map();
         this.customIcons = new Map();
         this.iconTokens = {};
@@ -66,7 +61,7 @@ export class IconsPanel {
         // Enforce custom icon usage
         this.enforceCustomIcons();
         
-        logIcons('IconsPanel initialized');
+        log.info('PANEL_INIT', 'INITIALIZED', 'IconsPanel initialized');
     }
 
     loadCSS() {
@@ -78,7 +73,7 @@ export class IconsPanel {
             link.type = 'text/css';
             link.href = '/client/settings/panels/icons/IconsPanel.css';
             document.head.appendChild(link);
-            logIcons('Loaded IconsPanel.css');
+            log.info('PANEL_INIT', 'CSS_LOADED', 'Loaded IconsPanel.css');
         }
     }
 
@@ -225,7 +220,7 @@ export class IconsPanel {
             payload: setKey
         });
         
-        logIcons(`Active icon set changed to: ${setKey}`);
+        log.info('ICON_SET', 'SET_ACTIVE', `Active icon set changed to: ${setKey}`);
     }
 
     renderIconGrid() {
@@ -282,7 +277,7 @@ export class IconsPanel {
             item.style.display = matches ? 'block' : 'none';
         });
         
-        logIcons(`Filtered icons with term: "${searchTerm}"`);
+        log.info('ICON_BROWSER', 'FILTER', `Filtered icons with term: "${searchTerm}"`);
     }
 
     copyIcon(name) {
@@ -290,7 +285,7 @@ export class IconsPanel {
         
         navigator.clipboard.writeText(className).then(() => {
             this.showTemporaryMessage(`Copied CSS class: .${className}`, 'success');
-            logIcons(`Copied class for: ${name}`);
+            log.info('ICON_BROWSER', 'COPY_CLASS', `Copied class for: ${name}`);
         }).catch((err) => {
             this.showTemporaryMessage(`Failed to copy: ${err}`, 'error');
         });
@@ -316,7 +311,7 @@ export class IconsPanel {
         `.trim();
         
         this.showUsageModal(name, `<span class="icon icon-${name}"></span>`, usage);
-        logIcons(`Showed usage for icon: ${name}`);
+        log.info('ICON_BROWSER', 'SHOW_USAGE', `Showed usage for icon: ${name}`);
     }
 
     showUsageModal(name, symbol, usage) {
@@ -392,7 +387,7 @@ export class IconsPanel {
             payload: { [tokenName]: value }
         });
         
-        logIcons(`Updated icon token: ${tokenName} = ${value}`);
+        log.info('TOKENS', 'UPDATE', `Updated icon token: ${tokenName} = ${value}`);
     }
 
     updateTokenPreview() {
@@ -465,7 +460,7 @@ export class IconsPanel {
         symbolInput.value = '';
         
         this.showTemporaryMessage(`Added custom icon: ${name}`, 'success');
-        logIcons(`Added custom icon: ${name} = ${symbol}`);
+        log.info('CUSTOM_ICONS', 'ADD', `Added custom icon: ${name} = ${symbol}`);
     }
 
     renderCustomIconsList() {
@@ -498,7 +493,7 @@ export class IconsPanel {
             this.saveCustomIcons();
             this.renderCustomIconsList();
             this.showTemporaryMessage(`Removed custom icon: ${name}`, 'success');
-            logIcons(`Removed custom icon: ${name}`);
+            log.info('CUSTOM_ICONS', 'REMOVE', `Removed custom icon: ${name}`);
         }
     }
 
@@ -537,7 +532,7 @@ export class IconsPanel {
         const content = this.generateIconTokensCSS(tokens);
         
         this.downloadFile('icon-tokens.css', content);
-        logIcons('Exported icon tokens');
+        log.info('TOKENS', 'EXPORT', 'Exported icon tokens');
     }
 
     generateIconTokens() {
@@ -636,7 +631,7 @@ export class IconsPanel {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        logIcons(`File downloaded: ${filename}`);
+        log.info('TOKENS', 'DOWNLOAD_FILE', `File downloaded: ${filename}`);
     }
 
     showTemporaryMessage(message, type = 'info') {
@@ -666,21 +661,21 @@ export class IconsPanel {
     }
 
     subscribeToState() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            if (newState.settings?.icons !== prevState.settings?.icons) {
-                this.handleStateUpdate(newState.settings.icons);
-            }
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
 
-    handleStateUpdate(iconsState) {
-        if (iconsState?.activeIconSet !== this.activeIconSet) {
-            this.activeIconSet = iconsState.activeIconSet;
+    handleStateChange(newState, prevState) {
+        if (newState.settings?.activeIconSet !== prevState.settings?.activeIconSet) {
+            this.activeIconSet = newState.settings.activeIconSet;
             document.getElementById('active-icon-set').value = this.activeIconSet;
             this.renderIconGrid();
         }
         
-        if (iconsState?.customIcons) {
+        if (newState.settings?.customIcons) {
             this.loadCustomIcons();
         }
     }
@@ -695,7 +690,7 @@ export class IconsPanel {
         // Set up mutation observer to catch new hardcoded icons
         this.setupIconEnforcement();
         
-        logIcons('Icon enforcement enabled');
+        log.info('ICON_ENFORCEMENT', 'ENABLED', 'Icon enforcement enabled');
     }
 
     /**
@@ -761,7 +756,7 @@ export class IconsPanel {
         });
 
         if (replacementsCount > 0) {
-            logIcons(`Replaced ${replacementsCount} hardcoded icons with tokens`);
+            log.info('ICON_ENFORCEMENT', 'REPLACED_ICONS', `Replaced ${replacementsCount} hardcoded icons with tokens`);
         }
     }
 
@@ -867,7 +862,7 @@ export class IconsPanel {
             }
         }
 
-        logIcons(`Icon not found: ${iconName}`, 'warning');
+        log.warn('ICON_UTILS', 'TOKEN_NOT_FOUND', `Icon not found: ${iconName}`);
         return `var(--icon-${iconName}, '?')`;
     }
 
@@ -910,7 +905,7 @@ export class IconsPanel {
     }
 
     destroy() {
-        logIcons('Destroying IconsPanel...');
+        log.info('PANEL_DESTROY', 'DESTROYING', 'Destroying IconsPanel...');
         
         // Clean up mutation observer
         if (this.iconObserver) {
@@ -942,7 +937,7 @@ export class IconsPanel {
             this.containerElement.innerHTML = '';
         }
         this.containerElement = null;
-        logIcons('IconsPanel destroyed.');
+        log.info('PANEL_DESTROY', 'DESTROYED', 'IconsPanel destroyed.');
     }
 }
 

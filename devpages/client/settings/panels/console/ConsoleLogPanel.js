@@ -9,6 +9,9 @@ import { LogManager } from '/client/log/LogManager.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { ConsoleLogManager } from '/client/log/ConsoleLogManager.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('ConsoleLogPanel');
+
 // Attempt to get the most original console methods
 const panelOriginalConsole = (() => {
   const getOriginal = (method) => {
@@ -29,15 +32,6 @@ const panelOriginalConsole = (() => {
     error: getOriginal('error')
   };
 })();
-
-function logConsolePanel(message, level = 'info') {
-  const type = 'CONSOLE_LOG_PANEL';
-  if (typeof window.logMessage === 'function') {
-    window.logMessage(message, level, type);
-  } else {
-    console.log(`[${type}] ${message}`);
-  }
-}
 
 export class ConsoleLogPanel {
   constructor(container, consoleLogManager = null) {
@@ -68,13 +62,13 @@ export class ConsoleLogPanel {
       window.registerOnBufferUpdate(this._boundUpdateBufferedView);
     }
     
-    logConsolePanel('Console Log Panel initialized. UI created. Buffer update listener registered.');
+    log.info('PANEL_INIT', 'INITIALIZED', 'Console Log Panel initialized. UI created. Buffer update listener registered.');
     
     // Expose a way for ConsoleLogManager to directly trigger a UI update
     if (typeof window.devPages === 'undefined') window.devPages = {};
     if (typeof window.devPages.ui === 'undefined') window.devPages.ui = {};
     window.devPages.ui.updateConsoleLogPanelStatus = this.updateStatusDisplay.bind(this);
-    logConsolePanel('Registered window.devPages.ui.updateConsoleLogPanelStatus');
+    log.info('PANEL_INIT', 'STATUS_UPDATER_REGISTERED', 'Registered window.devPages.ui.updateConsoleLogPanelStatus');
 
     if (this.updateStatusDisplay) {
         setTimeout(() => this.updateStatusDisplay(), 0); 
@@ -190,15 +184,15 @@ export class ConsoleLogPanel {
         // Safely log initial state
         if (window.originalConsoleForDebug && typeof window.originalConsoleForDebug.debug === 'function') {
           const funcString = typeof isCheckedFn === 'function' ? isCheckedFn.toString().substring(0,150) : 'N/A (not a function)';
-          window.originalConsoleForDebug.debug(`[ConsoleLogPanel_INIT] Initial checked for ${id}:`, initialChecked, 'via function:', funcString);
+          log.debug('UI', 'INITIAL_CHECKED', `Initial checked for ${id}: ${initialChecked} via function: ${funcString}`);
         } else {
           // Fallback if originalConsoleForDebug is not ready (should ideally not happen if init order is correct)
-          console.log(`[ConsoleLogPanel_INIT_FALLBACK] Initial checked for ${id}: ${initialChecked}. isCheckedFn type: ${typeof isCheckedFn}`);
+          log.debug('UI', 'INITIAL_CHECKED_FALLBACK', `Initial checked for ${id}: ${initialChecked}. isCheckedFn type: ${typeof isCheckedFn}`);
         }
         toggle.checked = initialChecked;
       } catch (e) {
         // This catch is now for errors from isCheckedFn() itself or other unexpected issues
-        logConsolePanel(`Error setting initial state for toggle ${id}: ${e.message}`, 'warn');
+        log.warn('UI', 'INITIAL_STATE_ERROR', `Error setting initial state for toggle ${id}: ${e.message}`, e);
         console.error(`[ConsoleLogPanel_ERROR] Error setting initial state for ${id}:`, e);
         toggle.checked = false; // Fallback if any error occurs
       }
@@ -242,19 +236,19 @@ export class ConsoleLogPanel {
 
         try {
             input.value = typeof getValueFn === 'function' ? getValueFn() : '';
-            logConsolePanel(`Initial value for ${id}: "${input.value}"`, 'debug');
+            log.debug('UI', 'INITIAL_VALUE', `Initial value for ${id}: "${input.value}"`);
         } catch(e) {
-            logConsolePanel(`Error getting initial value for ${id}: ${e.message}`, 'warn');
+            log.warn('UI', 'GET_INITIAL_VALUE_ERROR', `Error getting initial value for ${id}: ${e.message}`, e);
             input.value = '';
         }
 
         input.addEventListener('input', (event) => {
             const keywordValue = event.target.value;
-            logConsolePanel(`Input event for ${id}. Value: "${keywordValue}". Calling setGlobalKeywordFn.`, 'debug');
+            log.debug('UI', 'KEYWORD_INPUT', `Input event for ${id}. Value: "${keywordValue}". Calling setGlobalKeywordFn.`);
             if (typeof setGlobalKeywordFn === 'function') {
                 setGlobalKeywordFn(keywordValue, true); // Pass value and persist = true
             } else {
-                logConsolePanel(`Error: setGlobalKeywordFn for ${id} is not a function.`, 'error');
+                log.error('UI', 'SET_GLOBAL_KEYWORD_FN_ERROR', `Error: setGlobalKeywordFn for ${id} is not a function.`);
             }
         });
         settingDiv.appendChild(input);
@@ -581,7 +575,7 @@ export class ConsoleLogPanel {
       if (typeof window.getLogBuffer === 'function') {
         const logs = window.getLogBuffer();
         if (logs.length === 0) {
-          logConsolePanel('No logs to download', 'warn');
+          log.warn('BUFFER', 'DOWNLOAD_EMPTY', 'No logs to download');
           return;
         }
         
@@ -610,7 +604,7 @@ export class ConsoleLogPanel {
     this.updateStatusDisplay(); // This will now call refreshType/LevelFilterDisplay
     this._updateBufferedViewAndStatus(); // For buffer count
 
-    logConsolePanel("ConsoleLogPanel UI created and initial refresh triggered.");
+    log.info('UI', 'CREATE_UI_SUCCESS', "ConsoleLogPanel UI created and initial refresh triggered.");
   }
 
   destroy() {
@@ -620,13 +614,13 @@ export class ConsoleLogPanel {
     // Clean up the global reference
     if (window.devPages && window.devPages.ui && window.devPages.ui.updateConsoleLogPanelStatus === this.updateStatusDisplay) {
         delete window.devPages.ui.updateConsoleLogPanelStatus;
-        logConsolePanel('Deregistered window.devPages.ui.updateConsoleLogPanelStatus');
+        log.info('PANEL_DESTROY', 'STATUS_UPDATER_DEREGISTERED', 'Deregistered window.devPages.ui.updateConsoleLogPanelStatus');
     }
 
     if (this.container) {
       this.container.innerHTML = '';
     }
-    logConsolePanel('Console Log Panel destroyed.');
+    log.info('PANEL_DESTROY', 'DESTROYED', 'Console Log Panel destroyed.');
   }
 
   // Convert refreshTypeFilterDisplay to a class method
@@ -774,7 +768,7 @@ export class ConsoleLogPanel {
       }
       updateButtonVisuals(currentItemState);
       this.updateFilter(name, currentItemState, filterType);
-      logConsolePanel(`Set ${filterType} "${name}" to ${currentItemState} mode via solo button`, 'debug');
+      log.debug('FILTER', 'SOLO_BUTTON_CLICK', `Set ${filterType} "${name}" to ${currentItemState} mode via solo button`);
     });
     
     muteButton.addEventListener('click', () => {
@@ -785,7 +779,7 @@ export class ConsoleLogPanel {
       }
       updateButtonVisuals(currentItemState);
       this.updateFilter(name, currentItemState, filterType);
-      logConsolePanel(`Set ${filterType} "${name}" to ${currentItemState} mode via mute button`, 'debug');
+      log.debug('FILTER', 'MUTE_BUTTON_CLICK', `Set ${filterType} "${name}" to ${currentItemState} mode via mute button`);
     });
     
     buttonContainer.appendChild(soloButton);

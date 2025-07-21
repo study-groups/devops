@@ -4,27 +4,19 @@
  */
 import { appStore } from '/client/appState.js';
 
-// Helper for logging within this module
-function logAction(message, level = 'debug') {
-    const type = 'ACTION'
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('DebugActions');
 
 export const debugActionHandlers = {
     /**
      * Runs a comprehensive diagnostic on the UI
      */
     runDebugUI: async () => {
-        logAction('Triggering runAllDiagnostics...');
+        log.info('ACTION', 'RUN_DEBUG_UI', 'Triggering runAllDiagnostics...');
         try {
             await window.dev?.runAllDiagnostics?.(); 
         } catch (e) { 
-            logAction(`runAllDiagnostics failed: ${e.message}`, 'error'); 
+            log.error('ACTION', 'RUN_DEBUG_UI_FAILED', `runAllDiagnostics failed: ${e.message}`, e);
         }
     },
 
@@ -32,11 +24,11 @@ export const debugActionHandlers = {
      * Shows application information
      */
     showAppInfo: async () => {
-        logAction('Triggering showAppInfo...');
+        log.info('ACTION', 'SHOW_APP_INFO', 'Triggering showAppInfo...');
         try {
             window.dev?.showAppInfo?.();
         } catch (e) { 
-            logAction(`showAppInfo failed: ${e.message}`, 'error'); 
+            log.error('ACTION', 'SHOW_APP_INFO_FAILED', `showAppInfo failed: ${e.message}`, e);
         }
     },
 
@@ -44,11 +36,11 @@ export const debugActionHandlers = {
      * Debug all API endpoints
      */
     debugAllApiEndpoints: async () => {
-        logAction('Triggering debugAllApiEndpoints...');
+        log.info('ACTION', 'DEBUG_ALL_API_ENDPOINTS', 'Triggering debugAllApiEndpoints...');
         try {
             await window.dev?.debugAllApiEndpoints?.(); 
         } catch (e) { 
-            logAction(`debugAllApiEndpoints failed: ${e.message}`, 'error'); 
+            log.error('ACTION', 'DEBUG_ALL_API_ENDPOINTS_FAILED', `debugAllApiEndpoints failed: ${e.message}`, e);
         }
     },
 
@@ -56,11 +48,11 @@ export const debugActionHandlers = {
      * Debug URL parameters
      */
     debugUrlParameters: async () => {
-        logAction('Triggering debugUrlParameters...');
+        log.info('ACTION', 'DEBUG_URL_PARAMETERS', 'Triggering debugUrlParameters...');
         try {
             window.dev?.debugUrlParameters?.(); 
         } catch (e) { 
-            logAction(`debugUrlParameters failed: ${e.message}`, 'error'); 
+            log.error('ACTION', 'DEBUG_URL_PARAMETERS_FAILED', `debugUrlParameters failed: ${e.message}`, e);
         }
     },
 
@@ -68,11 +60,11 @@ export const debugActionHandlers = {
      * Debug file list
      */
     debugFileList: async () => {
-        logAction('Triggering debugFileList...');
+        log.info('ACTION', 'DEBUG_FILE_LIST', 'Triggering debugFileList...');
         try {
             window.dev?.debugFileList?.(); 
         } catch (e) { 
-            logAction(`debugFileList failed: ${e.message}`, 'error'); 
+            log.error('ACTION', 'DEBUG_FILE_LIST_FAILED', `debugFileList failed: ${e.message}`, e);
         }
     },
 
@@ -80,13 +72,13 @@ export const debugActionHandlers = {
      * Debug authentication state
      */
     debugAuthState: async () => {
-        logAction('Debugging Auth State...');
+        log.info('ACTION', 'DEBUG_AUTH_STATE', 'Debugging Auth State...');
         try {
             const currentState = appStore.getState().auth;
-            logAction(`Current Auth State (from appState): ${JSON.stringify(currentState)}`);
-            logAction(`Is Authenticated: ${currentState.isAuthenticated}`);
+            log.info('ACTION', 'DEBUG_AUTH_STATE_DATA', `Current Auth State (from appState): ${JSON.stringify(currentState)}`);
+            log.info('ACTION', 'DEBUG_AUTH_STATE_STATUS', `Is Authenticated: ${currentState.isAuthenticated}`);
         } catch (error) {
-            logAction(`Error loading auth state: ${error.message}`, 'error');
+            log.error('ACTION', 'DEBUG_AUTH_STATE_FAILED', `Error loading auth state: ${error.message}`, error);
         }
     }
 }; 

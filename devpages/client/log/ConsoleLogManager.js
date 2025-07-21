@@ -1,6 +1,12 @@
 /**
- * ConsoleLogManager.js - Main controller class for the console logging system
+ * @file ConsoleLogManager.js
+ * @description Manages the console logging functionality for the application.
+ * This service is exposed globally via the `window.APP.services.console` namespace.
  */
+
+// Establish the global namespace
+window.APP = window.APP || {};
+window.APP.services = window.APP.services || {};
 
 // Simple implementations for missing classes
 class ConsoleLogEntry {
@@ -218,3 +224,6 @@ export class ConsoleLogManager {
     return this.buffer.size();
   }
 } 
+
+// Expose the console logging service via the new, standardized namespace
+window.APP.services.console = new ConsoleLogManager(); 

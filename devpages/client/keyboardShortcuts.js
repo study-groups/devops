@@ -8,9 +8,17 @@ import { eventBus } from './eventBus.js';
 import { dispatch } from './messaging/messageQueue.js';
 import { ActionTypes } from './messaging/actionTypes.js';
 import { triggerActions } from '/client/actions.js';
-import { SMART_COPY_A_KEY, SMART_COPY_B_KEY } from '/client/appState.js';
-import { togglePanel } from '/client/store/slices/panelSlice.js';
-// import { debugPanelManager } from '/client/debug/DebugPanelManager.js'; // This is now loaded via debugPanelInitializer and attached to window
+import { appStore } from './appState.js';
+import { dispatchers } from './appDispatch.js';
+
+const SMART_COPY_A_KEY = 'smartCopyBufferA';
+const SMART_COPY_B_KEY = 'smartCopyBufferB';
+
+function getSelectedText() {
+    // This function is not used in the current shortcut mappings,
+    // but it's kept as it was in the original file.
+    // If it were used, it would need to be defined here.
+}
 
 // --- Shortcut Definitions ---
 // ctrl: boolean | 'optional' (allows Ctrl or Meta)
@@ -23,7 +31,7 @@ import { togglePanel } from '/client/store/slices/panelSlice.js';
 // preventDefault: boolean (defaults true)
 const shortcutMappings = [
     // Settings Panel Toggle
-    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: togglePanel.type, payload: null },
+    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: dispatchers.togglePanel, payload: null },
     // Save File
     { key: 's', ctrl: 'optional', shift: false, alt: false, useDispatch: false, action: 'shortcut:saveFile', payload: null }, 
     // Refresh Preview (Assuming this triggers a non-state process)

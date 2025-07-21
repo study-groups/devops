@@ -7,14 +7,8 @@ import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled, getAllPlugins } from '/client/store/selectors.js';
 import { defaultPluginsConfig } from '/client/appState.js';
 
-// Helper for logging
-function logPluginLoader(message, level = 'info') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`[PluginLoader] ${message}`, level, 'PLUGIN_LOADER');
-    } else {
-        console.log(`[PluginLoader] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('PluginLoader');
 
 // Global plugin instance cache
 const pluginInstances = new Map();
@@ -80,7 +74,7 @@ export async function loadPluginFromConfig(pluginId, config) {
         return pluginInstances.get(pluginId);
     }
 
-    logPluginLoader(`Loading plugin: ${pluginId}`);
+    log.info('PLUGIN_LOADER', 'LOADING_PLUGIN', `Loading plugin: ${pluginId}`);
 
     try {
         let pluginInstance = null;
@@ -88,7 +82,7 @@ export async function loadPluginFromConfig(pluginId, config) {
 
         if (config.module && config.exportName) {
             // Modern class-based loading
-            logPluginLoader(`Loading module: ${config.module}, export: ${config.exportName}`);
+            log.info('PLUGIN_LOADER', 'LOADING_MODULE', `Loading module: ${config.module}, export: ${config.exportName}`);
             const module = await import(config.module);
             const PluginClass = module[config.exportName];
             
@@ -105,7 +99,7 @@ export async function loadPluginFromConfig(pluginId, config) {
             
         } else if (config.legacyInitFunction) {
             // Legacy function-based loading (backwards compatibility)
-            logPluginLoader(`Using legacy init function: ${config.legacyInitFunction}`);
+            log.info('PLUGIN_LOADER', 'LEGACY_INIT', `Using legacy init function: ${config.legacyInitFunction}`);
             const initFunction = window[config.legacyInitFunction];
             
             if (typeof initFunction === 'function') {
@@ -119,12 +113,12 @@ export async function loadPluginFromConfig(pluginId, config) {
 
         if (pluginInstance) {
             pluginInstances.set(pluginId, pluginInstance);
-            logPluginLoader(`Successfully loaded plugin: ${pluginId}`);
+            log.info('PLUGIN_LOADER', 'PLUGIN_LOAD_SUCCESS', `Successfully loaded plugin: ${pluginId}`);
         }
 
         return pluginInstance;
     } catch (error) {
-        logPluginLoader(`Failed to load plugin ${pluginId}: ${error.message}`, 'error');
+        log.error('PLUGIN_LOADER', 'PLUGIN_LOAD_FAILED', `Failed to load plugin ${pluginId}: ${error.message}`, error);
         return null;
     }
 }
@@ -169,7 +163,7 @@ export function unloadPlugin(pluginId) {
         plugin.destroy();
     }
     pluginInstances.delete(pluginId);
-    logPluginLoader(`Unloaded plugin: ${pluginId}`);
+    log.info('PLUGIN_LOADER', 'UNLOAD_PLUGIN', `Unloaded plugin: ${pluginId}`);
 }
 
 /**
@@ -195,7 +189,7 @@ export function getAllLoadedPlugins() {
  * @param {HTMLElement} element - Element to process
  */
 export async function processEnabledPlugins(element) {
-    logPluginLoader('processEnabledPlugins called');
+    log.info('PLUGIN_LOADER', 'PROCESS_ENABLED_PLUGINS_START', 'processEnabledPlugins called');
     
     const state = appStore.getState();
     const allPlugins = getAllPlugins(state);
@@ -210,9 +204,9 @@ export async function processEnabledPlugins(element) {
             if (plugin && typeof plugin.process === 'function') {
                 try {
                     await plugin.process(element);
-                    logPluginLoader(`Processed element with plugin: ${pluginId}`);
+                    log.info('PLUGIN_LOADER', 'PLUGIN_PROCESS_SUCCESS', `Processed element with plugin: ${pluginId}`);
                 } catch (error) {
-                    logPluginLoader(`Error processing with plugin ${pluginId}: ${error.message}`, 'error');
+                    log.error('PLUGIN_LOADER', 'PLUGIN_PROCESS_ERROR', `Error processing with plugin ${pluginId}: ${error.message}`, error);
                 }
             }
         } else {
@@ -222,13 +216,13 @@ export async function processEnabledPlugins(element) {
             if (plugin && typeof plugin.cleanup === 'function') {
                 try {
                     plugin.cleanup(element);
-                    logPluginLoader(`Cleaned up disabled plugin: ${pluginId}`);
+                    log.info('PLUGIN_LOADER', 'PLUGIN_CLEANUP_SUCCESS', `Cleaned up disabled plugin: ${pluginId}`);
                 } catch (error) {
-                    logPluginLoader(`Error cleaning up plugin ${pluginId}: ${error.message}`, 'error');
+                    log.error('PLUGIN_LOADER', 'PLUGIN_CLEANUP_ERROR', `Error cleaning up plugin ${pluginId}: ${error.message}`, error);
                 }
             }
         }
     }
     
-    logPluginLoader('processEnabledPlugins completed');
+    log.info('PLUGIN_LOADER', 'PROCESS_ENABLED_PLUGINS_COMPLETE', 'processEnabledPlugins completed');
 }

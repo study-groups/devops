@@ -5,15 +5,8 @@
 
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
-// Helper for logging within this module
-function logUI(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, 'UI');
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[UI] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('UIThunks');
 
 export const uiThunks = {
     /**
@@ -23,7 +16,7 @@ export const uiThunks = {
      */
     setViewMode: (mode) => async (dispatch, getState) => {
         try {
-            logUI(`Setting view mode to: ${mode}`);
+            log.info('UI', 'SET_VIEW_MODE', `Setting view mode to: ${mode}`);
             
             // Validate mode
             const validModes = ['preview', 'split', 'editor'];
@@ -37,14 +30,14 @@ export const uiThunks = {
             // Persist to localStorage
             try {
                 localStorage.setItem('appViewMode', mode);
-                logUI(`View mode persisted to localStorage: ${mode}`);
+                log.info('UI', 'PERSIST_VIEW_MODE_SUCCESS', `View mode persisted to localStorage: ${mode}`);
             } catch (e) {
-                logUI(`Failed to persist view mode: ${e.message}`, 'warning');
+                log.warn('UI', 'PERSIST_VIEW_MODE_FAILED', `Failed to persist view mode: ${e.message}`, e);
             }
             
             return mode;
         } catch (error) {
-            logUI(`Error setting view mode: ${error.message}`, 'error');
+            log.error('UI', 'SET_VIEW_MODE_ERROR', `Error setting view mode: ${error.message}`, error);
             throw error;
         }
     },
@@ -59,21 +52,21 @@ export const uiThunks = {
             const currentVisibility = state.ui?.logVisible || false;
             const newVisibility = !currentVisibility;
             
-            logUI(`Toggling log visibility to: ${newVisibility}`);
+            log.info('UI', 'TOGGLE_LOG_VISIBILITY', `Toggling log visibility to: ${newVisibility}`);
             
             dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
             
             // Persist to localStorage
             try {
                 localStorage.setItem('log_panel_visible', JSON.stringify(newVisibility));
-                logUI(`Log visibility persisted to localStorage: ${newVisibility}`);
+                log.info('UI', 'PERSIST_LOG_VISIBILITY_SUCCESS', `Log visibility persisted to localStorage: ${newVisibility}`);
             } catch (e) {
-                logUI(`Failed to persist log visibility: ${e.message}`, 'warning');
+                log.warn('UI', 'PERSIST_LOG_VISIBILITY_FAILED', `Failed to persist log visibility: ${e.message}`, e);
             }
             
             return newVisibility;
         } catch (error) {
-            logUI(`Error toggling log visibility: ${error.message}`, 'error');
+            log.error('UI', 'TOGGLE_LOG_VISIBILITY_ERROR', `Error toggling log visibility: ${error.message}`, error);
             throw error;
         }
     },
@@ -85,7 +78,7 @@ export const uiThunks = {
      */
     setLogHeight: (height) => async (dispatch, getState) => {
         try {
-            logUI(`Setting log height to: ${height}px`);
+            log.info('UI', 'SET_LOG_HEIGHT', `Setting log height to: ${height}px`);
             
             // Validate height
             if (typeof height !== 'number' || height < 100 || height > 800) {
@@ -97,14 +90,14 @@ export const uiThunks = {
             // Persist to localStorage
             try {
                 localStorage.setItem('log_panel_height', height.toString());
-                logUI(`Log height persisted to localStorage: ${height}`);
+                log.info('UI', 'PERSIST_LOG_HEIGHT_SUCCESS', `Log height persisted to localStorage: ${height}`);
             } catch (e) {
-                logUI(`Failed to persist log height: ${e.message}`, 'warning');
+                log.warn('UI', 'PERSIST_LOG_HEIGHT_FAILED', `Failed to persist log height: ${e.message}`, e);
             }
             
             return height;
         } catch (error) {
-            logUI(`Error setting log height: ${error.message}`, 'error');
+            log.error('UI', 'SET_LOG_HEIGHT_ERROR', `Error setting log height: ${error.message}`, error);
             throw error;
         }
     },
@@ -119,13 +112,13 @@ export const uiThunks = {
             const currentMenuState = state.ui?.logMenuVisible || false;
             const newMenuState = !currentMenuState;
             
-            logUI(`Toggling log menu to: ${newMenuState}`);
+            log.info('UI', 'TOGGLE_LOG_MENU', `Toggling log menu to: ${newMenuState}`);
             
             dispatch({ type: ActionTypes.UI_TOGGLE_LOG_MENU });
             
             return newMenuState;
         } catch (error) {
-            logUI(`Error toggling log menu: ${error.message}`, 'error');
+            log.error('UI', 'TOGGLE_LOG_MENU_ERROR', `Error toggling log menu: ${error.message}`, error);
             throw error;
         }
     },
@@ -136,17 +129,17 @@ export const uiThunks = {
      */
     applyInitialUIState: () => async (dispatch, getState) => {
         try {
-            logUI('Applying initial UI state from localStorage');
+            log.info('UI', 'APPLY_INITIAL_STATE', 'Applying initial UI state from localStorage');
             
             // Load view mode
             try {
                 const storedViewMode = localStorage.getItem('appViewMode');
                 if (storedViewMode && ['preview', 'split', 'editor'].includes(storedViewMode)) {
                     dispatch({ type: ActionTypes.UI_SET_VIEW_MODE, payload: storedViewMode });
-                    logUI(`Loaded view mode from localStorage: ${storedViewMode}`);
+                    log.info('UI', 'LOAD_VIEW_MODE_SUCCESS', `Loaded view mode from localStorage: ${storedViewMode}`);
                 }
             } catch (e) {
-                logUI(`Failed to load view mode: ${e.message}`, 'warning');
+                log.warn('UI', 'LOAD_VIEW_MODE_FAILED', `Failed to load view mode: ${e.message}`, e);
             }
             
             // Load log visibility
@@ -157,10 +150,10 @@ export const uiThunks = {
                     if (logVisible) {
                         dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
                     }
-                    logUI(`Loaded log visibility from localStorage: ${logVisible}`);
+                    log.info('UI', 'LOAD_LOG_VISIBILITY_SUCCESS', `Loaded log visibility from localStorage: ${logVisible}`);
                 }
             } catch (e) {
-                logUI(`Failed to load log visibility: ${e.message}`, 'warning');
+                log.warn('UI', 'LOAD_LOG_VISIBILITY_FAILED', `Failed to load log visibility: ${e.message}`, e);
             }
             
             // Load log height
@@ -170,16 +163,16 @@ export const uiThunks = {
                     const logHeight = parseInt(storedLogHeight, 10);
                     if (!isNaN(logHeight) && logHeight >= 100 && logHeight <= 800) {
                         dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: logHeight });
-                        logUI(`Loaded log height from localStorage: ${logHeight}`);
+                        log.info('UI', 'LOAD_LOG_HEIGHT_SUCCESS', `Loaded log height from localStorage: ${logHeight}`);
                     }
                 }
             } catch (e) {
-                logUI(`Failed to load log height: ${e.message}`, 'warning');
+                log.warn('UI', 'LOAD_LOG_HEIGHT_FAILED', `Failed to load log height: ${e.message}`, e);
             }
             
-            logUI('Initial UI state applied successfully');
+            log.info('UI', 'APPLY_INITIAL_STATE_SUCCESS', 'Initial UI state applied successfully');
         } catch (error) {
-            logUI(`Error applying initial UI state: ${error.message}`, 'error');
+            log.error('UI', 'APPLY_INITIAL_STATE_ERROR', `Error applying initial UI state: ${error.message}`, error);
             throw error;
         }
     },
@@ -190,18 +183,18 @@ export const uiThunks = {
      */
     refreshPreview: () => async (dispatch, getState) => {
         try {
-            logUI('Refreshing preview...');
+            log.info('UI', 'REFRESH_PREVIEW', 'Refreshing preview...');
             
             // This could trigger a preview refresh event
             // For now, just log the action
-            logUI('Preview refresh requested');
+            log.info('UI', 'REFRESH_PREVIEW_REQUESTED', 'Preview refresh requested');
             
             // You could dispatch a preview refresh action here
             // dispatch({ type: ActionTypes.PREVIEW_REFRESH });
             
             return true;
         } catch (error) {
-            logUI(`Error refreshing preview: ${error.message}`, 'error');
+            log.error('UI', 'REFRESH_PREVIEW_ERROR', `Error refreshing preview: ${error.message}`, error);
             throw error;
         }
     }

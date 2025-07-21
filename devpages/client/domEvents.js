@@ -7,15 +7,16 @@ import { triggerActions } from '/client/actions.js';
 import { authThunks } from '/client/store/slices/authSlice.js'; 
 // Import the new reactive state
 // import { authState } from '/client/authState.js'; 
-import { globalFetch } from '/client/globalFetch.js';
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
 import { appStore } from '/client/appState.js';
-import { logMessage } from '/client/log/index.js';
 // --- REMOVED: Import settings state for dynamic toolbar ---
 // import { settingsState } from '/client/settings/settingsState.js'; 
 import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
 import { appVer } from '/config.js'; // Use absolute path
 // --- END ADDED ---
+
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('DOM', 'DomEvents');
 
 // Add a isProcessingDelete variable to track ongoing operations
 let isProcessingDelete = false;
@@ -27,40 +28,20 @@ const PROTECTED_ACTIONS = new Set([
 
 ]);
 
-// Helper for logging within this module
-function logDomEvent(message, level = 'text') {
-    const type = 'DOM_EVENT';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
-
 export function initializeDomEvents() {
-    console.log('[DEBUG domEvents.js] === initializeDomEvents function entered ===');
-    console.log('[DEBUG] Entering initializeDomEvents function.');
-    logDomEvent('Initializing DOM event listeners...');
+    log.info('INIT_START', 'Initializing DOM event listeners...');
 
     // Setup delegated listener after DOM is ready
     const setupDelegatedListener = () => {
-        console.log('[DEBUG domEvents.js] === setupDelegatedListener function entered ===');
-        logDomEvent('DOM ready, attaching delegated listener...');
+        log.info('SETUP_DELEGATED_LISTENER', 'DOM ready, attaching delegated listener...');
 
-        console.log('[DEBUG domEvents.js] Adding click listener to document.body...');
         document.body.addEventListener('click', (event) => {
-            // Comment out debug logs
-            // console.log('[DEBUG domEvents.js] Body click detected. Event target:', event.target);
-
             // If the click originated inside a .log-entry, assume it's handled by the direct listener in LogPanel.js
             if (event.target.closest('.log-entry')) {
-                // console.log('[DEBUG domEvents.js] Click target is inside .log-entry, assuming handled directly. Exiting body listener.');
                 return;
             }
 
             if (event.alreadyHandled) {
-                // console.log('[DEBUG domEvents.js] Event already handled by another listener (e.g., inline script). Skipping global handler.');
                 return; // Stop processing if already handled
             }
 
@@ -68,17 +49,13 @@ export function initializeDomEvents() {
             let target = null;
             if (event.target.hasAttribute('data-action')) {
                 target = event.target;
-                // console.log('[DEBUG domEvents.js] Found data-action directly on event.target.');
             } else {
                 target = event.target.closest('[data-action]');
-                // console.log('[DEBUG domEvents.js] Used closest() to find data-action result:', target);
             }
 
             if (!target) {
-                // console.log('[DEBUG domEvents.js] No data-action found on target or parents (checked both directly and via closest). Exiting handler.');
                 return;
             }
-            // console.log('[DEBUG domEvents.js] Found target with data-action:', target);
 
             const action = target.dataset.action;
             const params = { ...target.dataset }; // Pass all data attributes
@@ -88,7 +65,7 @@ export function initializeDomEvents() {
             const shouldLogDomEvent = !isMenuItem && action !== 'toggleLogMenu';
 
             if (shouldLogDomEvent) {
-                logDomEvent(`Delegated click found data-action: ${action} on target: ${target.tagName}#${target.id}.${target.className}`);
+                log.info('DELEGATED_CLICK', `Delegated click found data-action: ${action} on target: ${target.tagName}#${target.id}.${target.className}`);
             }
 
             // --- Check Authentication --- 
@@ -96,7 +73,7 @@ export function initializeDomEvents() {
             const isLoggedIn = appStore.getState().auth.isLoggedIn;
 
             if (requiresAuth && !isLoggedIn) {
-                logDomEvent(`Action '${action}' requires login. User not logged in. Preventing action.`, 'warning');
+                log.warn('AUTH_REQUIRED', `Action '${action}' requires login. User not logged in. Preventing action.`);
                 alert('Please log in to perform this action.'); 
                 return; // Stop execution if auth required and not logged in
             }
@@ -105,55 +82,45 @@ export function initializeDomEvents() {
             // Check if the action exists in triggerActions
             if (triggerActions[action]) {
                 if (shouldLogDomEvent) {
-                    logDomEvent(`Found handler for action '${action}' in triggerActions. Executing...`);
+                    log.info('ACTION_HANDLER_FOUND', `Found handler for action '${action}' in triggerActions. Executing...`);
                 }
                 try {
                     triggerActions[action](params, target); // Pass params and the clicked element
                     if (shouldLogDomEvent) {
-                        logDomEvent(`Action '${action}' executed successfully via triggerActions.`);
+                        log.info('ACTION_EXECUTED', `Action '${action}' executed successfully via triggerActions.`);
                     }
                     
                     // <<< MODIFIED: Close Menu Directly if click was inside it >>>
                     // const menuContainer = target.closest('#log-menu-container'); // Already checked
                     if (isMenuItem) { // Use the check from above
                          // <<< SILENCED menu closure logging >>>
-                         /*
-                         if (action !== 'clearLog') {
-                            logDomEvent('Action originated inside log menu, closing menu directly...');
-                         }
-                         */
                          const menuToClose = document.getElementById('log-menu-container'); 
                          menuToClose?.classList.remove('visible'); 
                     }
                     // <<< END MODIFICATION >>>
 
                 } catch (error) {
-                    logDomEvent(`Error executing action '${action}' via triggerActions: ${error.message}`, 'error');
-                    console.error(`[DOM Event Action Error] Action: ${action}`, error);
+                    log.error('ACTION_EXECUTION_ERROR', `Error executing action '${action}' via triggerActions: ${error.message}`, error);
                 }
             } else {
-                logDomEvent(`No handler found for action: ${action}`, 'warning');
+                log.warn('NO_ACTION_HANDLER', `No handler found for action: ${action}`);
             }
             
             if (target.tagName === 'BUTTON') {
                  event.preventDefault();
             }
         });
-        console.log('[DEBUG domEvents.js] Click listener attached to document.body.');
-        logDomEvent('Delegated click listener for data-actions attached.');
-        logDomEvent('Delegated DOM event listener initialized.');
+        log.info('LISTENER_ATTACHED', 'Delegated click listener for data-actions attached.');
+        log.info('INIT_COMPLETE_DELEGATED', 'Delegated DOM event listener initialized.');
     };
 
     // Check if the DOM is already loaded
-    console.log(`[DEBUG domEvents.js] Checking document.readyState: ${document.readyState}`);
     if (document.readyState === 'loading') {  // Loading hasn't finished yet
-        console.log('[DEBUG domEvents.js] DOM not ready, adding DOMContentLoaded listener.');
         document.addEventListener('DOMContentLoaded', setupDelegatedListener);
     } else {  // 'DOMContentLoaded' has already fired
-        console.log('[DEBUG domEvents.js] DOM already ready, calling setupDelegatedListener directly.');
         setupDelegatedListener();
     }
-    console.log('[DEBUG domEvents.js] === initializeDomEvents function exiting ===');
+    log.info('INIT_COMPLETE', 'initializeDomEvents function exiting.');
 }
 
 // Handle document click events
@@ -190,11 +157,11 @@ function handleDocumentClick(event) {
 async function handleDirectImageDelete(imageName) {
     // Prevent multiple simultaneous deletes
     if (isProcessingDelete) {
-        logDomEvent(`[IMAGES] Delete already in progress, ignoring duplicate request`);
+        log.warn('DELETE_IN_PROGRESS', `Delete already in progress, ignoring duplicate request`);
         return;
     }
     
-    logDomEvent(`[IMAGES] Direct delete requested for: ${imageName}`);
+    log.info('DIRECT_DELETE_REQUEST', `Direct delete requested for: ${imageName}`);
     
     if (confirm(`Are you sure you want to delete ${decodeURIComponent(imageName)}?`)) {
         try {
@@ -202,7 +169,7 @@ async function handleDirectImageDelete(imageName) {
             const imageUrl = `/uploads/${decodeURIComponent(imageName)}`;
             
             // Use globalFetch with the emergency endpoint
-            const response = await globalFetch('/image-delete', {
+            const response = await window.APP.services.globalFetch('/image-delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -215,7 +182,7 @@ async function handleDirectImageDelete(imageName) {
                 throw new Error(`Server error: ${response.status} ${text}`);
             }
             
-            logDomEvent(`[IMAGES] Successfully deleted: ${imageName}`);
+            log.info('DELETE_SUCCESS', `Successfully deleted: ${imageName}`);
             alert('Image deleted successfully');
             
             // Add a small delay before reload to ensure the alert is seen
@@ -223,7 +190,7 @@ async function handleDirectImageDelete(imageName) {
                 window.location.reload();
             }, 500);
         } catch (error) {
-            logDomEvent(`[IMAGES ERROR] ${error.message}`);
+            log.error('DELETE_ERROR', `Error deleting image: ${error.message}`, error);
             alert(`Error deleting image: ${error.message}`);
         } finally {
             // Reset processing flag
@@ -250,7 +217,7 @@ function handleFormSubmit(event) {
 function connectGlobalFunctions() {
     // For image deletion - key change is to make this a noop since direct handler works
     window.handleImageDelete = function(imageName) {
-        logDomEvent('[COMPAT] Legacy handleImageDelete called');
+        log.warn('LEGACY_HANDLE_IMAGE_DELETE', 'Legacy handleImageDelete called');
         // Don't call triggerActions.deleteImage(imageName) again
         // The button's onclick already triggers our direct handler
         
@@ -260,22 +227,24 @@ function connectGlobalFunctions() {
     
     // For login
     window.handleLogin = function(username, password) {
-        logDomEvent('[COMPAT] Legacy handleLogin called, forwarding to event system via triggerActions');
+        log.warn('LEGACY_HANDLE_LOGIN', 'Legacy handleLogin called, forwarding to event system via triggerActions');
         triggerActions.login(username, password);
     };
     
     // For logout
     window.handleLogout = function() {
-        logDomEvent('[COMPAT] Legacy handleLogout called, forwarding to event system via triggerActions');
+        log.warn('LEGACY_HANDLE_LOGOUT', 'Legacy handleLogout called, forwarding to event system via triggerActions');
         triggerActions.logout();
     };
     
-    logDomEvent('[EVENTS] Global compatibility functions connected');
+    log.info('GLOBAL_FUNCTIONS_CONNECTED', 'Global compatibility functions connected');
 }
 
 // --- ADDED: Subscribe to login state changes to update body class ---
-logDomEvent('Subscribing to auth state changes for body class.');
-appStore.subscribe((newState, prevState) => { // CHANGED: Use appStore
+log.info('SUBSCRIBE_AUTH_STATE', 'Subscribing to auth state changes for body class.');
+let prevState = appStore.getState(); // Initialize previous state
+appStore.subscribe(() => { // CHANGED: Use appStore
+    const newState = appStore.getState();
     const newLoggedIn = newState.auth?.isLoggedIn;
     const oldLoggedIn = prevState?.auth?.isLoggedIn;
 
@@ -289,6 +258,7 @@ appStore.subscribe((newState, prevState) => { // CHANGED: Use appStore
             body.classList.remove('logged-in');
         }
     }
+    prevState = newState; // Update previous state
 });
 
 function handleGenericEvent(event) {

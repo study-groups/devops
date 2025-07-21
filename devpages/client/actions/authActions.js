@@ -2,21 +2,11 @@
  * Auth action handlers
  * Responsible for authentication operations
  */
-import { logMessage } from '/client/log/index.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { authActions } from '/client/messaging/actionCreators.js';
-import eventBus from '/client/eventBus.js';
 
-// Helper for logging within this module
-function logAction(message, level = 'debug') {
-    const type = 'ACTION'
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('AuthActions');
 
 export const authActionHandlers = {
     /**
@@ -25,25 +15,25 @@ export const authActionHandlers = {
      * @param {String} password - Password
      */
     login: (username, password) => {
-        logAction(`Triggering login action for user: ${username}`);
+        log.info('ACTION', 'LOGIN_START', `Triggering login for user: ${username}`);
         
         // Use the thunk action creator with proper credentials object
         dispatch(authActions.login({ username, password }));
         
-        logAction(`Dispatched login thunk for user: ${username}`);
+        log.info('ACTION', 'LOGIN_DISPATCHED', `Dispatched login thunk for user: ${username}`);
     },
 
     /**
      * Logs the user out using thunks
      */
     logout: async () => {
-        logAction('Triggering logout action...');
+        log.info('ACTION', 'LOGOUT_START', 'Triggering logout...');
         try {
             // Use the thunk action creator
             await dispatch(authActions.logoutAsync());
-            logAction('Logout completed successfully');
+            log.info('ACTION', 'LOGOUT_SUCCESS', 'Logout completed successfully');
         } catch (error) {
-            logAction(`Logout failed: ${error.message}`, 'error');
+            log.error('ACTION', 'LOGOUT_FAILED', `Logout failed: ${error.message}`, error);
             alert(`Logout failed: ${error.message}`);
         }
     },
@@ -52,12 +42,12 @@ export const authActionHandlers = {
      * Checks authentication status using thunks
      */
     checkAuthStatus: () => {
-        logAction('Checking authentication status...');
+        log.info('ACTION', 'AUTH_CHECK_START', 'Checking authentication status...');
         
         // Use the thunk action creator
         dispatch(authActions.checkAuthStatus());
         
-        logAction('Auth status check initiated');
+        log.info('ACTION', 'AUTH_CHECK_DISPATCHED', 'Auth status check initiated');
     },
 
     /**
@@ -66,11 +56,11 @@ export const authActionHandlers = {
      * @param {string} description - Token description
      */
     generateToken: (expiryHours = 24, description = 'API Access Token') => {
-        logAction(`Generating API token with ${expiryHours}h expiry`);
+        log.info('ACTION', 'TOKEN_GEN_START', `Generating API token with ${expiryHours}h expiry`);
         
         // Use the thunk action creator
         dispatch(authActions.generateToken(expiryHours, description));
         
-        logAction('Token generation initiated');
+        log.info('ACTION', 'TOKEN_GEN_DISPATCHED', 'Token generation initiated');
     }
 }; 

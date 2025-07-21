@@ -6,7 +6,7 @@
  * in the associated audio player.
  */
 
-import { logMessage } from '../../log/index.js';
+const log = window.APP.services.log.createLogger('AudioMDPlugin');
 
 export class AudioMDPlugin {
   constructor() {
@@ -18,10 +18,10 @@ export class AudioMDPlugin {
     try {
       // Initialize audio functionality
       this.initialized = true;
-      logMessage('[PREVIEW] AudioMD plugin initialized');
+      log.info('AUDIO_MD', 'INIT', 'AudioMD plugin initialized');
       return true;
     } catch (error) {
-      logMessage(`[PREVIEW ERROR] Failed to initialize AudioMD: ${error.message}`);
+      log.error('AUDIO_MD', 'INIT_ERROR', `Failed to initialize AudioMD: ${error.message}`, error);
       return false;
     }
   }
@@ -45,7 +45,7 @@ export class AudioMDPlugin {
 
       return html;
     } catch (error) {
-      logMessage(`[PREVIEW ERROR] AudioMD postProcess error: ${error.message}`);
+      log.error('AUDIO_MD', 'POST_PROCESS_ERROR', `AudioMD postProcess error: ${error.message}`, error);
       return html;
     }
   }
@@ -90,7 +90,7 @@ function parseTimestamp(timestamp) {
     
     return 0;
   } catch (error) {
-    console.error('[PREVIEW ERROR] Failed to parse timestamp:', error);
+    log.error('AUDIO_MD', 'PARSE_TIMESTAMP_ERROR', 'Failed to parse timestamp:', error);
     return 0;
   }
 }
@@ -152,7 +152,7 @@ function initAudioPlayer(container) {
                   document.querySelector(config.audioSelector);
     
     if (!player) {
-      logMessage('[PREVIEW WARNING] Audio player not found');
+      log.warn('AUDIO_MD', 'PLAYER_NOT_FOUND', 'Audio player not found');
       return;
     }
     
@@ -164,7 +164,7 @@ function initAudioPlayer(container) {
       return;
     }
     
-    logMessage(`[PREVIEW] Found ${timestampLinks.length} audio timestamp links`);
+    log.info('AUDIO_MD', 'FOUND_TIMESTAMP_LINKS', `Found ${timestampLinks.length} audio timestamp links`);
     
     // Add event listener to audio player for time updates
     player.addEventListener('timeupdate', handleTimeUpdate);
@@ -179,8 +179,7 @@ function initAudioPlayer(container) {
       player.controls = true;
     }
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to initialize audio player: ${error.message}`);
-    console.error('[PREVIEW ERROR] Audio player init:', error);
+    log.error('AUDIO_MD', 'INIT_PLAYER_ERROR', `Failed to initialize audio player: ${error.message}`, error);
   }
 }
 
@@ -220,7 +219,7 @@ function handleTimeUpdate(event) {
       }
     }
   } catch (error) {
-    console.error('[PREVIEW ERROR] Audio time update handler:', error);
+    log.error('AUDIO_MD', 'TIME_UPDATE_ERROR', 'Audio time update handler:', error);
   }
 }
 
@@ -236,7 +235,7 @@ function handleTimestampClick(event) {
       // Try to find audio player again
       audioPlayer = document.querySelector(config.audioSelector);
       if (!audioPlayer) {
-        logMessage('[PREVIEW WARNING] Audio player not found for timestamp click');
+        log.warn('AUDIO_MD', 'PLAYER_NOT_FOUND_ON_CLICK', 'Audio player not found for timestamp click');
         return;
       }
     }
@@ -249,13 +248,12 @@ function handleTimestampClick(event) {
     
     // Play if paused
     if (audioPlayer.paused) {
-      audioPlayer.play().catch(error => {
-        console.error('[PREVIEW ERROR] Failed to play audio:', error);
+      audioPlayer.play().catch(playError => {
+        log.error('AUDIO_MD', 'PLAY_ERROR', 'Failed to play audio:', playError);
       });
     }
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to handle timestamp click: ${error.message}`);
-    console.error('[PREVIEW ERROR] Timestamp click:', error);
+    log.error('AUDIO_MD', 'TIMESTAMP_CLICK_ERROR', `Failed to handle timestamp click: ${error.message}`, error);
   }
 }
 
@@ -308,7 +306,7 @@ function codeRenderer(code, infostring) {
       </div>
     `;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to render audio block: ${error.message}`);
+    log.error('AUDIO_MD', 'RENDER_AUDIO_BLOCK_ERROR', `Failed to render audio block: ${error.message}`, error);
     
     // Return error message
     return `
