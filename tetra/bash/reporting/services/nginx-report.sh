@@ -39,39 +39,40 @@ collect_nginx_data() {
 generate_nginx_summary() {
     echo "NGINX Port Mapping Summary"
     echo "--------------------------"
-    printf "%-25s | %-15s | %-28s | %s\n" "NGINX Config" "Location" "Proxy Pass" "Service Status"
-    echo "--------------------------------------------------------------------------------"
-
-    for config_file in /etc/nginx/sites-enabled/*; do
-        if [ -f "$config_file" ]; then
-            config_filename=$(basename "$config_file")
-            gawk -v cfg_file="$config_filename" '
-            BEGIN { current_location = "N/A" }
-            /location\s/ {
-                match($0, /location\s+([^\{]+)/, m);
-                current_location = m[1];
-                gsub(/^[ \t]+|[ \t]+$/, "", current_location);
-            }
-            /proxy_pass\s/ {
-                proxy_url = $2;
-                gsub(";", "", proxy_url);
-                
-                url_no_slash = proxy_url;
-                gsub(/\/$/, "", url_no_slash);
-                port = "N/A";
-                if (url_no_slash ~ /localhost|127\.0\.0\.1/) {
-                    if (match(url_no_slash, /[0-9]+$/)) {
-                        port = substr(url_no_slash, RSTART, RLENGTH);
-                    }
+    (
+        printf "%-25s | %-15s | %-28s | %s\n" "NGINX Config" "Location" "Proxy Pass" "Service Status"
+        echo "--------------------------------------------------------------------------------"
+        for config_file in /etc/nginx/sites-enabled/*; do
+            if [ -f "$config_file" ]; then
+                config_filename=$(basename "$config_file")
+                gawk -v cfg_file="$config_filename" '
+                BEGIN { current_location = "N/A" }
+                /location\s/ {
+                    match($0, /location\s+([^\{]+)/, m);
+                    current_location = m[1];
+                    gsub(/^[ \t]+|[ \t]+$/, "", current_location);
                 }
-                status = "Port " port;
-                if (port == "N/A") { status = (proxy_url ~ /^http/) ? "Remote/Other" : "Local URI"; }
-                
-                printf "%-25s | %-15s | %-28s | %s\n", cfg_file, current_location, proxy_url, status;
-            }
-            ' "$config_file"
-        fi
-    done
+                /proxy_pass\s/ {
+                    proxy_url = $2;
+                    gsub(";", "", proxy_url);
+                    
+                    url_no_slash = proxy_url;
+                    gsub(/\/$/, "", url_no_slash);
+                    port = "N/A";
+                    if (url_no_slash ~ /localhost|127\.0\.0\.1/) {
+                        if (match(url_no_slash, /[0-9]+$/)) {
+                            port = substr(url_no_slash, RSTART, RLENGTH);
+                        }
+                    }
+                    status = "Port " port;
+                    if (port == "N/A") { status = (proxy_url ~ /^http/) ? "Remote/Other" : "Local URI"; }
+                    
+                    printf "%-25s | %-15s | %-28s | %s\n", cfg_file, current_location, proxy_url, status;
+                }
+                ' "$config_file"
+            fi
+        done
+    )
 }
 
 # Generates a detailed report of NGINX configurations.
@@ -86,4 +87,20 @@ generate_nginx_detailed() {
             echo -e "\n"
         fi
     done
+}
+
+# Generates a report of all active NGINX domains.
+generate_domains_report() {
+    echo ""
+    echo "Active NGINX Domains"
+    echo "--------------------"
+    if [ -d "/etc/nginx/sites-enabled" ]; then
+        grep -r -h 'server_name' /etc/nginx/sites-enabled/ | \
+        sed -e 's/server_name//' -e 's/;//' | \
+        xargs -n1 | \
+        sort -u | \
+        sed '/^$/d' # Remove empty lines
+    else
+        echo "NGINX sites-enabled directory not found."
+    fi
 } 
