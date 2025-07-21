@@ -24,7 +24,7 @@ tetra_deploy_build() {
 
   ssh root@"$REMOTE_HOST" <<EOF
 set -xe
-sudo -u "$REMOTE_USER" bash -c "
+sudo -u "$REMOTE_USER" bash -l -c "
   cd $REPO_PATH &&
   pwd
   which node
