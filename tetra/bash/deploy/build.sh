@@ -22,26 +22,31 @@ tetra_deploy_build() {
   [ -n "$6" ] && SERVICE1="$6"
   [ -n "$7" ] && SERVICE2="$7"
 
-  ssh "$REMOTE_USER"@"$REMOTE_HOST" <<EOF
+  ssh "$REMOTE_USER"@"$REMOTE_HOST" <<'EOF'
 set -xe
-cd $REPO_PATH &&
-pwd &&
-echo 'DEBUG: Current user:' &&
-whoami &&
-echo 'DEBUG: Home directory:' &&
-echo \$HOME &&
-echo 'DEBUG: Current PATH:' &&
-echo \$PATH &&
-echo 'DEBUG: Loading NVM...' &&
-echo \"DEBUG: NVM_DIR: \$NVM_DIR\" &&
-[ -s "\$NVM_DIR/nvm.sh" ] && source "\$NVM_DIR/nvm.sh" && echo 'NVM sourced successfully' || echo "NVM not found at \$NVM_DIR" &&
-echo 'DEBUG: Updated PATH:' &&
-echo \$PATH &&
-echo 'DEBUG: Looking for node...' &&
-which node || echo 'node not found' &&
-echo 'DEBUG: Looking for npm...' &&
-which npm || echo 'npm not found' &&
-npm install &&
+cd "${REPO_PATH:-/home/staging/src/pixeljam}" &&
+
+# Manually source NVM because this is a non-interactive shell.
+# We know the correct path from previous debugging.
+export NVM_DIR="/home/staging/pj/nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+  echo "NVM sourced successfully."
+else
+  echo "ERROR: nvm.sh not found in $NVM_DIR"
+  exit 1
+fi
+
+echo "Node version:"
+which node
+node -v
+
+echo "NPM version:"
+which npm
+npm -v
+
+echo "Running npm install and build..."
+npm install
 npm run build
 EOF
 }
