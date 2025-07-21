@@ -52,9 +52,19 @@ collect_systemd_data() {
                 awk -v service="$service_unit" '
                 {
                     # Extract address and port, compatible with both ss and netstat
-                    listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
-                    split(listen_addr, addr_parts, ":");
-                    port = addr_parts[length(addr_parts)];
+                    # For ss: field 5 is local address, for netstat: field 4 is local address
+                    listen_addr = ($1 == "tcp" || $1 == "udp") ? $5 : $4;
+                    # Handle both IPv4 and IPv6 addresses properly
+                    # Use gsub to extract port from both [::1]:4400 and 0.0.0.0:4400 formats
+                    if (listen_addr ~ /]:.*/) {
+                        # IPv6 format like [::1]:4400 - extract everything after ]:
+                        gsub(/.*]:/, "", listen_addr);
+                        port = listen_addr;
+                    } else {
+                        # IPv4 format - split on : and take last part
+                        split(listen_addr, addr_parts, ":");
+                        port = addr_parts[length(addr_parts)];
+                    }
                     if (port ~ /^[0-9]+$/) {
                         print port, "systemd", "listen", service
                     }
@@ -122,10 +132,19 @@ generate_systemd_detailed() {
                 if grep -q "pid=$pid," "$CACHE_FILE"; then
                     local pid_ports
                     pid_ports=$(grep "pid=$pid," "$CACHE_FILE" | awk '{
-                        listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
-                        split(listen_addr, addr_parts, ":");
-                        port = addr_parts[length(addr_parts)];
-                        printf "%s ", port
+                        # For ss: field 5 is local address, for netstat: field 4 is local address
+                        listen_addr = ($1 == "tcp" || $1 == "udp") ? $5 : $4;
+                        # Handle both IPv4 and IPv6 addresses properly
+                        if (listen_addr ~ /]:.*/) {
+                            # IPv6 format like [::1]:4400 - extract everything after ]:
+                            gsub(/.*]:/, "", listen_addr);
+                            port = listen_addr;
+                        } else {
+                            # IPv4 format - split on : and take last part
+                            split(listen_addr, addr_parts, ":");
+                            port = addr_parts[length(addr_parts)];
+                        }
+                        if (port ~ /^[0-9]+$/) printf "%s ", port
                     }' | xargs)
                     if [ -n "$pid_ports" ]; then
                         ports_info="$ports_info $pid_ports"

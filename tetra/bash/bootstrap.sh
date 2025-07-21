@@ -18,6 +18,7 @@ DIRS=(
     "$TETRA_SRC/bash/python"
     "$TETRA_SRC/bash/sync"
     "$TETRA_SRC/bash/ssh"
+    "$TETRA_SRC/bash/node"
 )
 
 # Source .sh files from each directory, excluding bootstrap.sh
