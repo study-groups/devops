@@ -25,15 +25,20 @@ trap cleanup EXIT
 
 # --- Helper Functions ---
 display_help() {
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [command]"
     echo ""
     echo "Generates a service interworking report."
     echo ""
-    echo "Options:"
-    echo "  --verbose   Show detailed information for all services."
-    echo "  --summary   Show a summary view (default)."
-    echo "  --ports     Include a report on all used ports."
-    echo "  --help, -h  Display this help message."
+    echo "Commands:"
+    echo "  all       Run all reports in verbose mode."
+    echo "  nginx     Show detailed NGINX report."
+    echo "  systemd   Show detailed systemd report."
+    echo "  docker    Show detailed Docker report."
+    echo "  pm2       Show detailed PM2 report."
+    echo "  ports     Show a report on all used ports."
+    echo "  help      Display this help message."
+    echo ""
+    echo "If no command is provided, a summary report is generated."
 }
 
 # --- Report Generation Functions ---
@@ -56,34 +61,7 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-VERBOSITY="summary" # Default verbosity
-RUN_PORTS_REPORT=0
-
-while [[ $# -gt 0 ]]; do
-    key="$1"
-    case $key in
-        --verbose)
-        VERBOSITY="verbose"
-        shift
-        ;;
-        --summary)
-        VERBOSITY="summary"
-        shift
-        ;;
-        --ports)
-        RUN_PORTS_REPORT=1
-        shift
-        ;;
-        --help | -h)
-        display_help
-        exit 0
-        ;;
-        *)
-        echo "Unknown option: $key"
-        exit 1
-        ;;
-    esac
-done
+COMMANDS=("$@")
 
 # --- Main Logic ---
 
@@ -95,7 +73,7 @@ collect_docker_data
 collect_pm2_data
 collect_systemd_data
 
-# Step 2: Generate reports based on flags
+# Step 2: Generate reports based on commands
 REPORT_FILE="$DEFAULT_REPORT_FILE"
 > "$REPORT_FILE" # Clear the report file
 
@@ -105,20 +83,47 @@ echo "" >> "$REPORT_FILE"
 
 process_env_report # Always include env report
 
-if [ "$VERBOSITY" == "summary" ]; then
+# Default to summary if no specific command given
+if [ ${#COMMANDS[@]} -eq 0 ]; then
     generate_nginx_summary >> "$REPORT_FILE"
     generate_systemd_summary >> "$REPORT_FILE"
     generate_pm2_summary >> "$REPORT_FILE"
+    generate_docker_summary >> "$REPORT_FILE"
 fi
 
-if [ "$VERBOSITY" == "verbose" ]; then
-    generate_nginx_detailed >> "$REPORT_FILE"
-    generate_systemd_detailed >> "$REPORT_FILE"
-    generate_pm2_detailed >> "$REPORT_FILE"
-fi
-
-if [ $RUN_PORTS_REPORT -eq 1 ]; then
-    generate_ports_report
-fi
+for cmd in "${COMMANDS[@]}"; do
+    case "$cmd" in
+        all)
+            generate_nginx_detailed >> "$REPORT_FILE"
+            generate_systemd_detailed >> "$REPORT_FILE"
+            generate_docker_detailed >> "$REPORT_FILE"
+            generate_pm2_detailed >> "$REPORT_FILE"
+            generate_ports_report >> "$REPORT_FILE"
+            ;;
+        nginx)
+            generate_nginx_detailed >> "$REPORT_FILE"
+            ;;
+        systemd)
+            generate_systemd_detailed >> "$REPORT_FILE"
+            ;;
+        docker)
+            generate_docker_detailed >> "$REPORT_FILE"
+            ;;
+        pm2)
+            generate_pm2_detailed >> "$REPORT_FILE"
+            ;;
+        ports)
+            generate_ports_report >> "$REPORT_FILE"
+            ;;
+        help)
+            display_help
+            ;;
+        *)
+            echo "Unknown command: $cmd"
+            display_help
+            exit 1
+            ;;
+    esac
+done
 
 echo "Report generated at: $REPORT_FILE"

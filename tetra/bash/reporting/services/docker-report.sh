@@ -1,9 +1,13 @@
 #!/bin/bash
-# Docker Data Collection
+# Docker Data Collection and Reporting
+
+command_exists() {
+    command -v "$1" &> /dev/null
+}
 
 # Collects Docker container data and populates port information.
 collect_docker_data() {
-    if ! command -v docker &> /dev/null; then return; fi
+    if ! command_exists docker; then return; fi
 
     docker ps --format "{{.ID}}" | while read -r container_id; do
         if [ -z "$container_id" ]; then continue; fi
@@ -30,5 +34,34 @@ collect_docker_data() {
                 add_port_info "$hport" "docker" "host_port" "$image_name"
             fi
         done
+    done
+}
+
+# Generates a summary report of running Docker containers.
+generate_docker_summary() {
+    if ! command_exists docker; then return; fi
+    echo ""
+    echo "Docker Container Summary"
+    echo "------------------------"
+    docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+}
+
+# Generates a detailed report for each running Docker container.
+generate_docker_detailed() {
+    if ! command_exists docker; then return; fi
+    
+    echo ""
+    echo "Detailed Docker Container Analysis"
+    echo "=================================="
+    
+    if ! docker ps -q &>/dev/null; then
+        echo "No running Docker containers found or Docker daemon is not running."
+        return
+    fi
+
+    docker ps -q | while read -r id; do
+        echo ""
+        echo "--- Container: $(docker inspect --format '{{.Name}}' "$id" | sed 's,^/,,') ---"
+        docker inspect "$id" | jq '.[0] | {Name: .Name, Image: .Config.Image, State: .State, IPAddress: .NetworkSettings.IPAddress, Ports: .NetworkSettings.Ports}'
     done
 } 
