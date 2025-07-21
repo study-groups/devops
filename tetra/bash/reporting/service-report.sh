@@ -105,8 +105,9 @@ generate_connections_report() {
     fi
 
     (
-        echo -e "Port\tSource (NGINX)\t->\tDestination"
+        echo -e "Port\tSource (NGINX)\tDestination"
         awk -F'\t' '
+            BEGIN {OFS="\t"}
             # First pass: Build listeners map
             FNR==NR {
                 if ($3 != "proxy_pass") {
@@ -124,9 +125,9 @@ generate_connections_report() {
                     port = $1
                     proxy_info = $2 " (" $4 ")"
                     if (port in listeners) {
-                        print port, proxy_info, "->", listeners[port]
+                        print port, proxy_info, "-> " listeners[port]
                     } else {
-                        print port, proxy_info, "->", "!! NO LISTENER FOUND !!"
+                        print port, proxy_info, "-> !! NO LISTENER FOUND !!"
                     }
                 }
             }
@@ -162,15 +163,31 @@ collect_nginx_data
 collect_docker_data
 collect_systemd_data
 
-# Discover and collect PM2 data for all users running it as a systemd service
-if command -v systemctl &> /dev/null; then
-    mapfile -t PM2_USERS < <(systemctl list-units 'pm2-*.service' --state=running --no-legend --plain | awk '{print $1}' | sed -e 's/pm2-//' -e 's/\.service//')
-    for user in "${PM2_USERS[@]}"; do
-        if id "$user" &>/dev/null; then
-            collect_pm2_data_for_user "$user"
-        fi
-    done
+# Collect PM2 data for relevant users
+declare -A USERS_TO_CHECK_MAP
+if [ "$(id -u)" -eq 0 ]; then
+    # Add common users when run as root
+    USERS_TO_CHECK_MAP[prod]=1
+    USERS_TO_CHECK_MAP[staging]=1
+    USERS_TO_CHECK_MAP[$(logname)]=1
+
+    # Discover and add any other PM2 users from systemd
+    if command -v systemctl &> /dev/null; then
+        mapfile -t PM2_SYSTEMD_USERS < <(systemctl list-units 'pm2-*.service' --state=running --no-legend --plain | awk '{print $1}' | sed -e 's/pm2-//' -e 's/\.service//')
+        for user in "${PM2_SYSTEMD_USERS[@]}"; do
+            USERS_TO_CHECK_MAP[$user]=1
+        done
+    fi
+else
+    # When not root, only check the current user
+    USERS_TO_CHECK_MAP[$(logname)]=1
 fi
+
+for user in "${!USERS_TO_CHECK_MAP[@]}"; do
+    if id "$user" &>/dev/null; then
+        collect_pm2_data_for_user "$user"
+    fi
+done
 
 # Step 2: Generate reports based on commands
 echo "Service Interworking Report"
@@ -183,7 +200,7 @@ process_env_report # Always include env report
 if [ ${#COMMANDS[@]} -eq 0 ]; then
     generate_nginx_summary
     generate_systemd_summary
-    for user in "${PM2_USERS[@]}"; do
+    for user in "${!USERS_TO_CHECK_MAP[@]}"; do
         if id "$user" &>/dev/null; then
             generate_pm2_summary_for_user "$user"
         fi
@@ -197,7 +214,7 @@ for cmd in "${COMMANDS[@]}"; do
             generate_nginx_detailed
             generate_systemd_detailed
             generate_docker_detailed
-            for user in "${PM2_USERS[@]}"; do
+            for user in "${!USERS_TO_CHECK_MAP[@]}"; do
                 if id "$user" &>/dev/null; then
                     generate_pm2_detailed_for_user "$user"
                 fi
@@ -224,7 +241,7 @@ for cmd in "${COMMANDS[@]}"; do
             generate_docker_detailed
             ;;
         pm2)
-            for user in "${PM2_USERS[@]}"; do
+            for user in "${!USERS_TO_CHECK_MAP[@]}"; do
                 if id "$user" &>/dev/null; then
                     generate_pm2_detailed_for_user "$user"
                 fi

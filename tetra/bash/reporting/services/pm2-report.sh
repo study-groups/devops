@@ -10,23 +10,51 @@ command_exists() {
 #   $1: The user to run the pm2 command as.
 collect_pm2_data_for_user() {
     local user="$1"
-    if ! command_exists pm2; then return; fi
+    local pm2_json_file="$PM2_DATA_DIR/pm2_data_${user}.json"
 
-    # Use sudo to run pm2 commands as the specified user
-    local pm2_info
-    pm2_info=$(sudo -u "$user" pm2 jlist 2>/dev/null)
-    if [ -z "$pm2_info" ]; then return; fi
+    if ! command_exists "pm2"; then
+        return
+    fi
 
-    echo "$pm2_info" | jq -c '.[]' | while read -r process_json; do
-        local name port
-        name=$(echo "$process_json" | jq -r '.name')
-        port=$(echo "$process_json" | jq -r '.pm2_env.PORT // .pm2_env.port // ""')
-        
-        if [ -n "$port" ]; then
-            # Add the user context to the details
-            add_port_info "$port" "pm2" "listen" "$name ($user)"
+    # Source the user-specific tetra.sh to set up nvm before running pm2
+    local tetra_setup_script
+    tetra_setup_script_path=$(eval echo ~${user}/tetra/tetra.sh)
+    
+    if [ ! -f "$tetra_setup_script_path" ]; then
+        # Fallback for users that dont have tetra
+        if sudo -u "$user" pm2 jlist > "$pm2_json_file" 2>/dev/null; then
+            # Data collected, now process it
+            local app_names
+            app_names=$(jq -r '.[].name' < "$pm2_json_file")
+            for app_name in $app_names; do
+                local port
+                port=$(sudo -u "$user" bash -c "pm2 describe '$app_name' | grep -oP 'port \\K\\d+'" 2>/dev/null)
+                if [[ -n "$port" ]]; then
+                    add_port_info "$port" "pm2" "listen" "$app_name"
+                fi
+            done
+        else
+            # No pm2 processes for this user, or pm2 not installed/configured for them
+            rm -f "$pm2_json_file"
         fi
-    done
+        return
+    fi
+    
+    if sudo -u "$user" bash -c "source '$tetra_setup_script_path' &>/dev/null && pm2 jlist" > "$pm2_json_file" 2>/dev/null; then
+        # Data collected, now process it
+        local app_names
+        app_names=$(jq -r '.[].name' < "$pm2_json_file")
+        for app_name in $app_names; do
+            local port
+            port=$(sudo -u "$user" bash -c "source '$tetra_setup_script_path' &>/dev/null && pm2 describe '$app_name' | grep -oP 'port \\K\\d+'" 2>/dev/null)
+            if [[ -n "$port" ]]; then
+                add_port_info "$port" "pm2" "listen" "$app_name"
+            fi
+        done
+    else
+        # No pm2 processes for this user, or pm2 not installed/configured for them
+        rm -f "$pm2_json_file"
+    fi
 }
 
 # Generates a summary report of running PM2 processes for a given user.
@@ -34,17 +62,22 @@ collect_pm2_data_for_user() {
 #   $1: The user to run the pm2 command as.
 generate_pm2_summary_for_user() {
     local user="$1"
-    if ! command_exists pm2; then return; fi
-    
-    # Check if the user has any pm2 processes
-    if ! sudo -u "$user" pm2 jlist 2>/dev/null | jq -e '. | length > 0' >/dev/null; then
+    local pm2_json_file="$PM2_DATA_DIR/pm2_data_${user}.json"
+
+    if ! command_exists "jq"; then
+        echo "jq is not installed. Cannot generate summary report."
         return
     fi
 
+    if [ ! -s "$pm2_json_file" ]; then
+        echo "No PM2 data found for user: $user"
+        return
+    fi
+
+    echo "PM2 Summary for user: $user"
+    echo "--------------------------"
+    jq -r '.[] | "\(.name) | \(.pm2_env.status) | \(.pm2_env.version // "N/A") | \(.pm2_env.pm_uptime) | \(.pm2_env.restart_time) restarts"' < "$pm2_json_file" | column -t -s '|'
     echo ""
-    echo "PM2 Process Summary (User: $user)"
-    echo "---------------------------------"
-    sudo -u "$user" pm2 list
 }
 
 # Generates a detailed report for each PM2 process for a given user.
@@ -52,21 +85,29 @@ generate_pm2_summary_for_user() {
 #   $1: The user to run the pm2 command as.
 generate_pm2_detailed_for_user() {
     local user="$1"
-    if ! command_exists pm2; then return; fi
-    
-    local pm2_info
-    pm2_info=$(sudo -u "$user" pm2 jlist 2>/dev/null)
-    if [ -z "$pm2_info" ] || [ "$(echo "$pm2_info" | jq 'length')" -eq 0 ]; then
+    local pm2_json_file="$PM2_DATA_DIR/pm2_data_${user}.json"
+
+    if [ !-s "$pm2_json_file" ]; then
         return
     fi
 
     echo ""
-    echo "Detailed PM2 Process Analysis (User: $user)"
-    echo "=========================================="
+    echo "Detailed PM2 Process Analysis for user: $user"
+    echo "=============================================="
+    
+    local app_names
+    app_names=$(jq -r '.[].name' < "$pm2_json_file")
 
-    echo "$pm2_info" | jq -r '.[].name' | while read -r name; do
+    local tetra_setup_script_path
+    tetra_setup_script_path=$(eval echo ~${user}/tetra/tetra.sh)
+
+    for app_name in $app_names; do
         echo ""
-        echo "--- Process: $name ---"
-        sudo -u "$user" pm2 describe "$name"
+        echo "--- Process: $app_name ---"
+        if [ -f "$tetra_setup_script_path" ]; then
+            sudo -u "$user" bash -c "source '$tetra_setup_script_path' &>/dev/null && pm2 describe '$app_name'"
+        else
+            sudo -u "$user" pm2 describe "$app_name"
+        fi
     done
 } 
