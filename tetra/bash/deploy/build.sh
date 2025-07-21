@@ -27,12 +27,18 @@ set -xe
 sudo -u "$REMOTE_USER" bash -l -c "
   cd $REPO_PATH &&
   pwd &&
-  # Source nvm if it exists
-  [ -f ~/.nvm/nvm.sh ] && source ~/.nvm/nvm.sh &&
-  # Source bashrc again to ensure all exports are loaded
-  [ -f ~/.bashrc ] && source ~/.bashrc &&
-  which node &&
-  which npm &&
+  echo 'DEBUG: Current PATH:' &&
+  echo \$PATH &&
+  echo 'DEBUG: Checking for nvm...' &&
+  ([ -f ~/.nvm/nvm.sh ] && source ~/.nvm/nvm.sh && echo 'NVM sourced') || echo 'NVM not found' &&
+  echo 'DEBUG: Checking for bashrc...' &&
+  ([ -f ~/.bashrc ] && source ~/.bashrc && echo 'bashrc sourced') || echo 'bashrc not found' &&
+  echo 'DEBUG: Updated PATH:' &&
+  echo \$PATH &&
+  echo 'DEBUG: Looking for node...' &&
+  which node || echo 'node not found' &&
+  echo 'DEBUG: Looking for npm...' &&
+  which npm || echo 'npm not found' &&
   npm install &&
   npm run build
 "
