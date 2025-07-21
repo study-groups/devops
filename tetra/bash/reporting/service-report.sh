@@ -30,13 +30,15 @@ display_help() {
     echo "Generates a service interworking report."
     echo ""
     echo "Commands:"
-    echo "  all       Run all reports in verbose mode."
-    echo "  nginx     Show detailed NGINX report."
-    echo "  systemd   Show detailed systemd report."
-    echo "  docker    Show detailed Docker report."
-    echo "  pm2       Show detailed PM2 report."
-    echo "  ports     Show a report on all used ports."
-    echo "  help      Display this help message."
+    echo "  all          Run all reports in verbose mode."
+    echo "  abbreviated  Show a report of services on ports >1024 and <10000."
+    echo "  connections  Analyze and show connections between services."
+    echo "  nginx        Show detailed NGINX report."
+    echo "  systemd      Show detailed systemd report."
+    echo "  docker       Show detailed Docker report."
+    echo "  pm2          Show detailed PM2 report."
+    echo "  ports        Show a report on all used ports."
+    echo "  help         Display this help message."
     echo ""
     echo "If no command is provided, a summary report is generated."
 }
@@ -49,10 +51,75 @@ generate_ports_report() {
     echo "-----------------" >> "$REPORT_FILE"
     if [ -s "$PORTS_DATA_FILE" ]; then
         # Prepend header, sort, and format with a 2-space separator
-        (echo -e "Port\tService\tAction\tDetails"; sort -u -k1,4 "$PORTS_DATA_FILE") | column -t -s $'\t' -o '  ' >> "$REPORT_FILE"
+        (
+            echo -e "Port\tService\tAction\tDetails"
+            awk -F'\t' '{
+                if ($3 == "proxy_pass") {
+                    print "1\t" $0
+                } else {
+                    print "2\t" $0
+                }
+            }' "$PORTS_DATA_FILE" | \
+            sort -u -k1,1 -k5,5 -k2,2n | \
+            cut -f2-
+        ) | column -t -s $'\t' -o '  ' >> "$REPORT_FILE"
     else
         echo "No port information collected." >> "$REPORT_FILE"
     fi
+}
+
+generate_abbreviated_ports_report() {
+    echo "" >> "$REPORT_FILE"
+    echo "Abbreviated Port Usage Report (Ports >1024 & <10000)" >> "$REPORT_FILE"
+    echo "----------------------------------------------------" >> "$REPORT_FILE"
+    if [ -s "$PORTS_DATA_FILE" ]; then
+        (
+            echo -e "Port\tService\tAction\tDetails"
+            awk -F'\t' '$1 > 1024 && $1 < 10000 {print}' "$PORTS_DATA_FILE" | \
+            sort -u -k1,1n
+        ) | column -t -s $'\t' -o '  ' >> "$REPORT_FILE"
+    else
+        echo "No port information collected." >> "$REPORT_FILE"
+    fi
+}
+
+generate_connections_report() {
+    echo "" >> "$REPORT_FILE"
+    echo "Service Connection Analysis" >> "$REPORT_FILE"
+    echo "---------------------------" >> "$REPORT_FILE"
+    if [ ! -s "$PORTS_DATA_FILE" ]; then
+        echo "No port information collected." >> "$REPORT_FILE"
+        return
+    fi
+
+    (
+        echo -e "Port\tSource (NGINX)\t->\tDestination"
+        awk -F'\t' '
+            # First pass: Build listeners map
+            FNR==NR {
+                if ($3 != "proxy_pass") {
+                    if ($1 in listeners) {
+                        listeners[$1] = listeners[$1] "; " $2 " (" $4 ")"
+                    } else {
+                        listeners[$1] = $2 " (" $4 ")"
+                    }
+                }
+                next
+            }
+            # Second pass: Check proxies and print connections
+            {
+                if ($3 == "proxy_pass") {
+                    port = $1
+                    proxy_info = $2 " (" $4 ")"
+                    if (port in listeners) {
+                        print port, proxy_info, "->", listeners[port]
+                    } else {
+                        print port, proxy_info, "->", "!! NO LISTENER FOUND !!"
+                    }
+                }
+            }
+        ' "$PORTS_DATA_FILE" "$PORTS_DATA_FILE"
+    ) | column -t -s $'\t' -o '  ' >> "$REPORT_FILE"
 }
 
 # --- Argument Parsing ---
@@ -99,6 +166,13 @@ for cmd in "${COMMANDS[@]}"; do
             generate_docker_detailed >> "$REPORT_FILE"
             generate_pm2_detailed >> "$REPORT_FILE"
             generate_ports_report >> "$REPORT_FILE"
+            generate_connections_report >> "$REPORT_FILE"
+            ;;
+        abbreviated)
+            generate_abbreviated_ports_report >> "$REPORT_FILE"
+            ;;
+        connections)
+            generate_connections_report >> "$REPORT_FILE"
             ;;
         nginx)
             generate_nginx_detailed >> "$REPORT_FILE"

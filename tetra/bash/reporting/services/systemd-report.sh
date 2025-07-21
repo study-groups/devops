@@ -78,23 +78,33 @@ generate_systemd_detailed() {
     systemctl list-units --type=service --state=running --no-pager --no-legend --plain | awk '{print $1}' | while read -r service_unit; do
         if [ -z "$service_unit" ]; then continue; fi
 
-        echo "Service: $service_unit"
-        local props main_pid
-        props=$(systemctl show "$service_unit" --no-pager --property=Description --property=ExecStart --property=User --property=MainPID 2>/dev/null)
+        local props main_pid user exec_start exec_path exec_args
+        props=$(systemctl show "$service_unit" --no-pager --property=User --property=MainPID --property=ExecStart 2>/dev/null)
+        
         main_pid=$(echo "$props" | grep '^MainPID=' | cut -d= -f2-)
+        user=$(echo "$props" | grep '^User=' | cut -d= -f2-)
+        exec_start=$(echo "$props" | grep '^ExecStart=' | cut -d= -f2-)
         
-        echo "$props" | sed 's/^/  /'
+        # Extract path and args from ExecStart
+        exec_path=$(echo "$exec_start" | sed -n 's/^{ path=\([^ ;]*\).*$/\1/p')
+        exec_args=$(echo "$exec_start" | sed -n 's/.*argv\[\]=\([^;]*\).*$/\1/p' | sed 's/;//')
+
+        echo "Service: $service_unit:$main_pid"
         
+        local ports_info=""
         if [ -n "$main_pid" ] && [ "$main_pid" -gt 0 ] && [ -s "$CACHE_FILE" ]; then
             if grep -q "pid=$main_pid," "$CACHE_FILE"; then
-                echo "  Listening Ports:"
-                grep "pid=$main_pid," "$CACHE_FILE" | awk '{
-                    proto = ($1 == "tcp" || $1 == "udp") ? $1 : "unknown";
+                ports_info=$(grep "pid=$main_pid," "$CACHE_FILE" | awk '{
                     listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
-                    printf "    - %s (%s)\n", listen_addr, proto
-                }'
+                    split(listen_addr, addr_parts, ":");
+                    port = addr_parts[length(addr_parts)];
+                    printf "%s ", port
+                }' | xargs)
             fi
         fi
+        
+        echo "  ${user:-<no_user>}:${ports_info:-<no_port>}"
+        echo "  ${exec_path:-<no_path>}:${exec_args:-<no_args>}"
         echo ""
     done
 } 
