@@ -36,6 +36,12 @@ SYSTEMD_IGNORE_LIST=(
     "getty@.*\.service"
     "user@.*\.service"
     "session-.*\.scope"
+    "nfs-mountd\.service"
+    "rpc-statd\.service"
+    "multipathd\.service"
+    "networkd-dispatcher\.service"
+    "postfix@.*\.service"
+    "serial-getty@.*\.service"
 )
 
 # Check if a service should be ignored based on the ignore list
@@ -201,8 +207,6 @@ generate_systemd_detailed() {
         # Extract path and args from ExecStart
         exec_path=$(echo "$exec_start" | sed -n 's/^{ path=\([^ ;]*\).*$/\1/p')
         exec_args=$(echo "$exec_start" | sed -n 's/.*argv\[\]=\([^;]*\).*$/\1/p' | sed 's/;//')
-
-        echo "Service: $service_unit:$main_pid"
         
         local ports_info=""
         if [ -n "$main_pid" ] && [ "$main_pid" -gt 0 ] && [ -s "$CACHE_FILE" ]; then
@@ -244,6 +248,15 @@ generate_systemd_detailed() {
             ports_info=$(echo "$ports_info" | xargs)  # Clean up extra spaces
         fi
         
+        # Additional filtering for services with no user and no ports (unless showing all details)
+        if [ "$ignore_filtered" = "false" ]; then
+            if [ -z "$user" ] && [ -z "$ports_info" ]; then
+                continue  # Skip services with both no user and no ports in filtered view
+            fi
+        fi
+        
+        # Display the service information
+        echo "Service: $service_unit:$main_pid"
         echo "  ${user:-<no_user>}:${ports_info:-<no_port>}"
         echo "  ${exec_path:-<no_path>}:${exec_args:-<no_args>}"
         echo ""
