@@ -26,10 +26,15 @@ tetra_deploy_build() {
 set -xe
 sudo -u "$REMOTE_USER" bash -l -c "
   cd $REPO_PATH &&
-  pwd
-  which node
-  npm install
-  npm build
+  pwd &&
+  # Source nvm if it exists
+  [ -f ~/.nvm/nvm.sh ] && source ~/.nvm/nvm.sh &&
+  # Source bashrc again to ensure all exports are loaded
+  [ -f ~/.bashrc ] && source ~/.bashrc &&
+  which node &&
+  which npm &&
+  npm install &&
+  npm run build
 "
 EOF
 }
