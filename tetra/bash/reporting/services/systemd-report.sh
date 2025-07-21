@@ -35,19 +35,32 @@ collect_systemd_data() {
         main_pid=$(systemctl show "$service_unit" -p MainPID --value 2>/dev/null)
 
         if [ -n "$main_pid" ] && [ "$main_pid" -gt 0 ]; then
-            # Grep the cache for this PID to get listening port lines
-            grep "pid=$main_pid," "$CACHE_FILE" | \
-            awk -v service="$service_unit" '
-            {
-                # Extract address and port, compatible with both ss and netstat
-                listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
-                split(listen_addr, addr_parts, ":");
-                port = addr_parts[length(addr_parts)];
-                if (port ~ /^[0-9]+$/) {
-                    print port, "systemd", "listen", service
-                }
-            }' | while read -r port svc action details; do
-                add_port_info "$port" "$svc" "$action" "$details"
+            # Get all PIDs in the process tree (main PID + all descendants)
+            local all_pids
+            if command_exists pstree; then
+                # Use pstree to find all child processes
+                all_pids=$(pstree -p "$main_pid" 2>/dev/null | grep -oE '\([0-9]+\)' | tr -d '()')
+            else
+                # Fallback: use ps to find direct children only
+                all_pids=$(ps --ppid "$main_pid" -o pid --no-headers 2>/dev/null | xargs)
+                all_pids="$main_pid $all_pids"
+            fi
+            
+            # Check each PID for listening ports
+            for pid in $all_pids; do
+                grep "pid=$pid," "$CACHE_FILE" | \
+                awk -v service="$service_unit" '
+                {
+                    # Extract address and port, compatible with both ss and netstat
+                    listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
+                    split(listen_addr, addr_parts, ":");
+                    port = addr_parts[length(addr_parts)];
+                    if (port ~ /^[0-9]+$/) {
+                        print port, "systemd", "listen", service
+                    }
+                }' | while read -r port svc action details; do
+                    add_port_info "$port" "$svc" "$action" "$details"
+                done
             done
         fi
     done
@@ -93,14 +106,33 @@ generate_systemd_detailed() {
         
         local ports_info=""
         if [ -n "$main_pid" ] && [ "$main_pid" -gt 0 ] && [ -s "$CACHE_FILE" ]; then
-            if grep -q "pid=$main_pid," "$CACHE_FILE"; then
-                ports_info=$(grep "pid=$main_pid," "$CACHE_FILE" | awk '{
-                    listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
-                    split(listen_addr, addr_parts, ":");
-                    port = addr_parts[length(addr_parts)];
-                    printf "%s ", port
-                }' | xargs)
+            # Get all PIDs in the process tree (main PID + all descendants)
+            local all_pids
+            if command_exists pstree; then
+                # Use pstree to find all child processes
+                all_pids=$(pstree -p "$main_pid" 2>/dev/null | grep -oE '\([0-9]+\)' | tr -d '()')
+            else
+                # Fallback: use ps to find direct children only
+                all_pids=$(ps --ppid "$main_pid" -o pid --no-headers 2>/dev/null | xargs)
+                all_pids="$main_pid $all_pids"
             fi
+            
+            # Check each PID for listening ports and collect them
+            for pid in $all_pids; do
+                if grep -q "pid=$pid," "$CACHE_FILE"; then
+                    local pid_ports
+                    pid_ports=$(grep "pid=$pid," "$CACHE_FILE" | awk '{
+                        listen_addr = ($1 == "tcp" || $1 == "udp") ? $4 : $5;
+                        split(listen_addr, addr_parts, ":");
+                        port = addr_parts[length(addr_parts)];
+                        printf "%s ", port
+                    }' | xargs)
+                    if [ -n "$pid_ports" ]; then
+                        ports_info="$ports_info $pid_ports"
+                    fi
+                fi
+            done
+            ports_info=$(echo "$ports_info" | xargs)  # Clean up extra spaces
         fi
         
         echo "  ${user:-<no_user>}:${ports_info:-<no_port>}"
