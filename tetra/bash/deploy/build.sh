@@ -29,10 +29,9 @@ sudo -u "$REMOTE_USER" bash -l -c "
   pwd &&
   echo 'DEBUG: Current PATH:' &&
   echo \$PATH &&
-  echo 'DEBUG: Checking for nvm...' &&
-  ([ -f ~/.nvm/nvm.sh ] && source ~/.nvm/nvm.sh && echo 'NVM sourced') || echo 'NVM not found' &&
-  echo 'DEBUG: Checking for bashrc...' &&
-  ([ -f ~/.bashrc ] && source ~/.bashrc && echo 'bashrc sourced') || echo 'bashrc not found' &&
+  echo 'DEBUG: Loading NVM from correct location...' &&
+  export NVM_DIR=\"\$HOME/pj/bin/nvm\" &&
+  [ -s \"\$NVM_DIR/nvm.sh\" ] && source \"\$NVM_DIR/nvm.sh\" && echo 'NVM sourced successfully' || echo 'NVM not found at \$NVM_DIR' &&
   echo 'DEBUG: Updated PATH:' &&
   echo \$PATH &&
   echo 'DEBUG: Looking for node...' &&
