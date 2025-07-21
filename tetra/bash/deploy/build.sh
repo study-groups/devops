@@ -13,6 +13,8 @@ tetra_deploy_build() {
   local MERGE_BRANCH="${MERGE_BRANCH:-api-dev}"
   local SERVICE1="${SERVICE1:-nginx}"
   local SERVICE2="${SERVICE2:-arcade-staging}"
+  # New parameter for the project's subdirectory within the repo
+  local PROJECT_SUBDIR="${PROJECT_SUBDIR:-pja/cabinet}"
 
   [ -n "$1" ] && REMOTE_HOST="$1"
   [ -n "$2" ] && REMOTE_USER="$2"
@@ -21,16 +23,15 @@ tetra_deploy_build() {
   [ -n "$5" ] && MERGE_BRANCH="$5"
   [ -n "$6" ] && SERVICE1="$6"
   [ -n "$7" ] && SERVICE2="$7"
+  [ -n "$8" ] && PROJECT_SUBDIR="$8"
 
-  ssh "$REMOTE_USER"@"$REMOTE_HOST" <<'EOF'
-set -xe
+  # Pass local variables to the remote shell and execute the script.
+  ssh "$REMOTE_USER"@"$REMOTE_HOST" "REPO_PATH='${REPO_PATH}' PROJECT_SUBDIR='${PROJECT_SUBDIR}' bash -s" <<'EOF'
+# Change to the project directory
+cd "${REPO_PATH}/${PROJECT_SUBDIR}"
 
-# The user specified the project is in a subdirectory.
-cd "${REPO_PATH:-/home/staging/src/pixeljam}/pja/cabinet" &&
-
-# Manually source NVM because this is a non-interactive shell.
-# We know the correct path from previous debugging.
-export NVM_DIR="/home/staging/pj/nvm"
+# Manually source NVM, resolving $HOME on the remote machine.
+export NVM_DIR="$HOME/pj/nvm"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   . "$NVM_DIR/nvm.sh"
 else
@@ -44,6 +45,10 @@ node -v
 which npm
 npm -v
 echo "-------------------------"
+
+# Set the PD_DIR environment variable, resolving $HOME on the remote.
+export PD_DIR="$HOME/pj/pd"
+echo "PD_DIR set to: $PD_DIR"
 
 echo "Running npm install and build in $(pwd)..."
 npm install
