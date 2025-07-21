@@ -29,14 +29,16 @@ sudo -u "$REMOTE_USER" bash -l -c "
   pwd &&
   echo 'DEBUG: Current user:' &&
   whoami &&
-  echo 'DEBUG: Home directory:' &&
+  echo 'DEBUG: Home directory before:' &&
   echo \$HOME &&
   echo 'DEBUG: Current PATH:' &&
   echo \$PATH &&
   echo 'DEBUG: Loading NVM from correct location...' &&
   export HOME=/home/$REMOTE_USER &&
-  export NVM_DIR=\"\$HOME/pj/bin/nvm\" &&
+  export NVM_DIR=\"/home/$REMOTE_USER/pj/nvm\" &&
   echo \"DEBUG: NVM_DIR set to: \$NVM_DIR\" &&
+  echo \"DEBUG: Checking if \$NVM_DIR/nvm.sh exists...\" &&
+  ls -la \"\$NVM_DIR/nvm.sh\" || echo \"File not found\" &&
   [ -s \"\$NVM_DIR/nvm.sh\" ] && source \"\$NVM_DIR/nvm.sh\" && echo 'NVM sourced successfully' || echo \"NVM not found at \$NVM_DIR\" &&
   echo 'DEBUG: Updated PATH:' &&
   echo \$PATH &&
