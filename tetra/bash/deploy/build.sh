@@ -27,8 +27,13 @@ tetra_deploy_build() {
 
   # Pass local variables to the remote shell and execute the script.
   ssh "$REMOTE_USER"@"$REMOTE_HOST" "REPO_PATH='${REPO_PATH}' PROJECT_SUBDIR='${PROJECT_SUBDIR}' bash -s" <<'EOF'
-# Change to the project directory
-cd "${REPO_PATH}/${PROJECT_SUBDIR}"
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# Change to the project directory. Provide a default for REPO_PATH as a safeguard.
+PROJECT_ROOT="${REPO_PATH:-/home/staging/src/pixeljam}"
+cd "${PROJECT_ROOT}/${PROJECT_SUBDIR}"
+echo "Changed to directory: $(pwd)"
 
 # Manually source NVM, resolving $HOME on the remote machine.
 export NVM_DIR="$HOME/pj/nvm"
