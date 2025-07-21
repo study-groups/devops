@@ -24,30 +24,32 @@ tetra_deploy_build() {
 
   ssh "$REMOTE_USER"@"$REMOTE_HOST" <<'EOF'
 set -xe
-cd "${REPO_PATH:-/home/staging/src/pixeljam}" &&
+
+# The user specified the project is in a subdirectory.
+cd "${REPO_PATH:-/home/staging/src/pixeljam}/pja/cabinet" &&
 
 # Manually source NVM because this is a non-interactive shell.
 # We know the correct path from previous debugging.
 export NVM_DIR="/home/staging/pj/nvm"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   . "$NVM_DIR/nvm.sh"
-  echo "NVM sourced successfully."
 else
-  echo "ERROR: nvm.sh not found in $NVM_DIR"
+  echo "ERROR: nvm.sh not found in $NVM_DIR" >&2
   exit 1
 fi
 
-echo "Node version:"
+echo "--- Node/NPM versions ---"
 which node
 node -v
-
-echo "NPM version:"
 which npm
 npm -v
+echo "-------------------------"
 
-echo "Running npm install and build..."
+echo "Running npm install and build in $(pwd)..."
 npm install
 npm run build
+
+echo "Build successful."
 EOF
 }
 
