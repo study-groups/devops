@@ -30,6 +30,9 @@ tetra_deploy_build() {
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# Expand potential tilde in REPO_PATH on the remote host.
+eval "REPO_PATH=${REPO_PATH}"
+
 # Change to the project directory. Provide a default for REPO_PATH as a safeguard.
 PROJECT_ROOT="${REPO_PATH:-/home/staging/src/pixeljam}"
 cd "${PROJECT_ROOT}/${PROJECT_SUBDIR}"

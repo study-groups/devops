@@ -22,10 +22,6 @@ tetra_deploy_restart() {
   [ -n "$6" ] && SERVICE1="$6"
   [ -n "$7" ] && SERVICE2="$7"
 
-  ssh root@"$REMOTE_HOST" <<EOF
-set -xe
-systemctl restart $SERVICE1
-systemctl restart $SERVICE2
-EOF
+  ssh "$REMOTE_USER"@"$REMOTE_HOST" "echo 'Restarting services: $SERVICE1, $SERVICE2'; nohup sudo systemctl restart $SERVICE1 >/dev/null 2>&1 & nohup sudo systemctl restart $SERVICE2 >/dev/null 2>&1 &"
 }
 
