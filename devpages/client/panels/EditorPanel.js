@@ -24,6 +24,20 @@ export class EditorPanel extends BasePanel {
         this.boundHandleFileSelected = this.handleFileSelected.bind(this);
         this.boundHandleFileLoaded = this.handleFileLoaded.bind(this);
         this.boundHandleAuthLogin = this.handleAuthLogin.bind(this);
+        this.editor = null;
+        this.stateUnsubscribe = null;
+    }
+    
+    init() {
+        super.init();
+        let prevState = appStore.getState(); // Initialize previous state
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            if (newState.file.currentPathname !== prevState.file.currentPathname) {
+                this.updateEditorContent(newState.file.currentContent);
+            }
+            prevState = newState; // Update previous state
+        });
     }
 
     renderContent() {
@@ -80,16 +94,8 @@ export class EditorPanel extends BasePanel {
     }
 
     subscribeToStateChanges() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            const newFileContent = newState.file?.content;
-            const prevFileContent = prevState?.file?.content;
-            if (newFileContent !== prevFileContent && newFileContent !== this.getValue()) {
-                // Set flag to prevent dispatching during state-driven updates
-                this.isUpdatingFromState = true;
-                this.setValue(newFileContent || '');
-                this.isUpdatingFromState = false;
-            }
-        });
+        // This method is now obsolete as file content is driven by the state.
+        // The editor component should listen to state changes and update its content.
     }
 
     setupEditorFeatures() {

@@ -12,8 +12,7 @@ import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logPanelDOM.
 import { attachLogPanelEventListeners, removeLogPanelEventListeners } from './logPanelEvents.js';
 import { updateLogEntryDisplay, enhanceCodeBlocksAndMermaid } from './logPanelEntryDisplay.js';
 import { updateTagsBar, applyFiltersToLogEntries, initializeLogFilterBar } from './LogFilterBar.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { dispatch } from '/client/appState.js';
 
 // Import log slice actions and selectors
 import { 
@@ -94,6 +93,7 @@ export class LogPanel {
         this._appStateUnsubscribe = null;
         this._logStateUnsubscribe = null;
         this._uiStateUnsubscribe = null; // New subscription for UI state
+        let prevState = appStore.getState(); // Initialize previous state
 
         logInfo('LogPanel instance created with new log slice integration.', 'LOG_PANEL_LIFECYCLE');
         setLogPanelInstance(this);
@@ -130,8 +130,9 @@ export class LogPanel {
         }
 
         // Subscribe to UI state changes (visibility and height)
-        this._uiStateUnsubscribe = appStore.subscribe((newState, oldState) => {
-            if (newState.ui.logVisible !== oldState.ui.logVisible || newState.ui.logHeight !== oldState.ui.logHeight) {
+        this._uiStateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            if (newState.ui.logVisible !== prevState.ui.logVisible || newState.ui.logHeight !== prevState.ui.logHeight) {
                 // Removed verbose console logging to prevent spam
                 this.isUpdatingFromState = true; // Prevent circular dispatching during UI updates
                 try {
@@ -143,9 +144,10 @@ export class LogPanel {
         });
 
         // Subscribe to log state changes  
-        this._logStateUnsubscribe = appStore.subscribe((newState, oldState) => {
+        this._logStateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
             // Check if log entries or filters changed
-            const logChanged = newState.log !== oldState.log;
+            const logChanged = newState.log !== prevState.log;
             
             if (logChanged) {
                 // Removed verbose console logging to prevent spam
@@ -158,6 +160,7 @@ export class LogPanel {
                     this.isUpdatingFromState = false; // Always reset the flag
                 }
             }
+            prevState = newState; // Update previous state
         });
         
         // Immediately sync with the current state upon subscription
@@ -333,7 +336,7 @@ export class LogPanel {
         // Use setTimeout to break out of any reducer context
         setTimeout(() => {
             try {
-                dispatch({ type: ActionTypes.LOG_ADD_ENTRY, payload: logEntry });
+                dispatch(addLogEntry(logEntry));
             } catch (error) {
                 console.error('[LogPanel] Failed to dispatch log entry:', error);
             }
@@ -344,7 +347,7 @@ export class LogPanel {
      * Clears all log entries using the new log slice
      */
     clearLog() {
-        dispatch({ type: ActionTypes.LOG_CLEAR_ENTRIES });
+        dispatch(clearLogEntries());
         logInfo('Log cleared using new log slice.', 'LOG_PANEL_STATE');
     }
 
@@ -491,7 +494,7 @@ export class LogPanel {
         
         // Update the store
         dispatch({ 
-            type: ActionTypes.UI_SET_LOG_HEIGHT, 
+            type: 'UI_SET_LOG_HEIGHT', 
             payload: { height: newHeight } 
         });
     }

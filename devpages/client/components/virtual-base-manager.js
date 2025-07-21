@@ -11,30 +11,22 @@ import { setVirtualBasePath, getAvailableBasePaths } from '/client/utils/virtual
 import eventBus from '/client/eventBus.js';
 
 class VirtualBaseManager {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.currentBasePath = '';
-        this.availablePaths = [];
-        
-        if (!this.container) {
-            console.warn('[VirtualBaseManager] Container not found:', containerId);
-            return;
-        }
-        
-        this.setupEventListeners();
-        this.render();
-        
-        // Subscribe to state changes
-        this.unsubscribe = appStore.subscribe((newState, prevState) => {
-            const newBasePath = newState.file.virtualBasePath;
-            const newAvailablePaths = newState.file.availableTopLevelDirs;
-            
-            if (newBasePath !== this.currentBasePath || 
-                JSON.stringify(newAvailablePaths) !== JSON.stringify(this.availablePaths)) {
-                this.currentBasePath = newBasePath;
-                this.availablePaths = newAvailablePaths;
-                this.render();
-            }
+    constructor(options = {}) {
+        this.logType = options.logType || 'VBM';
+        this.unsubscribe = null;
+        this.eventBus = window.APP.eventBus;
+    }
+
+    initialize() {
+        // Your component's logic here...
+        logMessage('VirtualBaseManager initialized', 'info', this.logType);
+
+        let prevState = appStore.getState(); // Initialize previous state
+        // Subscribe to the store
+        this.unsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            this.onStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
     

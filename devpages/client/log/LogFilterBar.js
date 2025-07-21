@@ -1,4 +1,5 @@
-import { appStore, dispatch, ActionTypes } from '/client/appState.js'; // Dependency
+import { appStore, dispatch } from '/client/appState.js';
+import { setActiveFilters, toggleFilter, clearEntries } from '/client/store/slices/logSlice.js';
 
 /**
  * Utility function to extract emoji symbols from CSS variable tokens
@@ -216,7 +217,7 @@ function _handleGlobalClick(event) {
         !menuContainer.contains(event.target) &&
         !menuButton.contains(event.target)
     ) {
-        dispatch({ type: ActionTypes.UI_TOGGLE_LOG_MENU });
+        dispatch({ type: 'UI_TOGGLE_LOG_MENU' });
     }
 }
 
@@ -253,7 +254,7 @@ export function _handleTagClick(event) {
             }
             
             // Also reset filters in the state
-            dispatch({ type: ActionTypes.LOG_CLEAR });
+            dispatch(clearEntries());
             
             return; // Exit after clearing
         }
@@ -274,19 +275,13 @@ export function _handleTagClick(event) {
 
         // Handle Select All button
         if (action === 'select-all') {
-            dispatch({
-                type: ActionTypes.LOG_SET_FILTERS,
-                payload: []
-            });
+            dispatch(setActiveFilters([]));
             return;
         }
 
         // Handle Hide All button
         if (action === 'clear-all') {
-            dispatch({
-                type: ActionTypes.LOG_SET_FILTERS,
-                payload: ['__CLEAR_ALL__']
-            });
+            dispatch(setActiveFilters(['__CLEAR_ALL__']));
             return;
         }
 
@@ -315,10 +310,7 @@ export function _handleTagClick(event) {
         
         if (filterCategory && filterValue) {
             const filterKey = `${filterCategory}:${filterValue}`;
-            dispatch({
-                type: ActionTypes.LOG_TOGGLE_FILTER,
-                payload: filterKey
-            });
+            dispatch(toggleFilter(filterKey));
         }
     } catch (error) {
         console.error('[LogFilterBar] Error in _handleTagClick:', error);
@@ -382,10 +374,7 @@ export function initializeLogFilterBar(element) {
     // Load initial filter state from snapshot if available
     const snapshot = loadFilterSnapshot();
     if (snapshot && snapshot.activeFilters) {
-        dispatch({
-            type: ActionTypes.LOG_SET_FILTERS,
-            payload: snapshot.activeFilters
-        });
+        dispatch(setActiveFilters(snapshot.activeFilters));
     }
 
 

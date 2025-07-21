@@ -7,7 +7,8 @@
  */
 
 import { getLinkSettings } from '/client/settings/linkSettings.js';
-import { logMessage } from '/client/log/index.js';
+
+const log = window.APP.services.log.createLogger('SYSTEM', 'LinkManager');
 
 class LinkManager {
     constructor(context = 'preview', sourceFilePath = '') {
@@ -66,12 +67,12 @@ class LinkManager {
             finalPath = this.simpleJoinPath(this.sourceDir, resourcePath);
         } else {
             // Should not be reached, but as a fallback, return original path
-            logMessage(`[LinkManager] Unhandled resource path type: ${resourcePath}`, 'warn');
+            log.warn('UNHANDLED_PATH', `Unhandled resource path type: ${resourcePath}`);
             return resourcePath;
         }
 
         const resolvedUrl = `${this.settings.prefix}${encodeURIComponent(finalPath)}`;
-        logMessage(`[LinkManager] Rewriting resource path: ${resourcePath} -> ${resolvedUrl}`, 'debug');
+        log.debug('REWRITE_RESOURCE', `Rewriting resource path: ${resourcePath} -> ${resolvedUrl}`);
         return resolvedUrl;
     }
 
@@ -114,7 +115,7 @@ class LinkManager {
         }
         
         const resolvedUrl = `${this.settings.markdownLinkPrefix}${finalPath}`;
-        logMessage(`[LinkManager] Rewriting markdown link: ${linkPath} -> ${resolvedUrl}`, 'debug');
+        log.debug('REWRITE_MARKDOWN', `Rewriting markdown link: ${linkPath} -> ${resolvedUrl}`);
         return resolvedUrl;
     }
 }

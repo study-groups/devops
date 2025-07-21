@@ -5,16 +5,8 @@
 import { pathJoin } from '/client/utils/pathUtils.js'; // Assuming path utils exist
 import { loadLastOpened } from '/client/store/reducers/fileReducer.js';
 
-// Helper for logging
-function logFS(message, level = 'text') {
-    const type = 'FS_STATE';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('FileSystemState');
 
 // We might not store anything here anymore if URL is the primary source
 // const STATE_KEY = 'devpages_fsState'; // Keep key if needed for other settings later
@@ -67,7 +59,7 @@ export function loadState() {
  */
 export function saveState(stateToSave) {
     // No-op for now - state is reflected in URL parameters by fileManager
-    logFS(`saveState called (currently no-op): ${JSON.stringify(stateToSave)}`);
+    log.info('FS_STATE', 'SAVE_STATE', `saveState called (currently no-op): ${JSON.stringify(stateToSave)}`);
     return true;
 }
 
@@ -78,12 +70,12 @@ export function clearState() {
     // No state currently persisted, but clear any legacy keys if needed.
     // try {
     //     localStorage.removeItem(STATE_KEY);
-    //     logFS('Cleared file system state from localStorage.');
+    //     log.info('FS_STATE', 'CLEAR_STATE_SUCCESS', 'Cleared file system state from localStorage.');
     // } catch (error) {
-    //     logFS(`Error clearing file system state: ${error.message}`, 'error');
+    //     log.error('FS_STATE', 'CLEAR_STATE_ERROR', `Error clearing file system state: ${error.message}`, error);
     //     return false;
     // }
-    logFS('clearState called (currently no-op).');
+    log.info('FS_STATE', 'CLEAR_STATE', 'clearState called (currently no-op).');
     return true;
 }
 

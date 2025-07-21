@@ -1,102 +1,33 @@
-import { appStore } from '/client/appState.js';
+import { createPathManagerComponent } from './PathManagerComponent.js';
+import { initializeAuthDisplay } from './AuthDisplay.js';
 import { createContextSettingsPopupComponent } from './ContextSettingsPopupComponent.js';
 
-const registeredComponents = new Map();
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('uiComponentsManager');
 
-const logUIComponents = (message, level = 'debug') => {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, 'UI_COMPONENTS');
-    } else {
-        console.log(`[UI_COMPONENTS] ${message}`);
-    }
-};
+export function initializeUIComponents() {
+    log.info('UI_COMPONENTS', 'INIT_START', 'Initializing UI components...');
 
-export async function initializeUIComponents() {
-    logUIComponents('Starting UI Components initialization...', 'info');
-    
     try {
-        // Register popup components
-        logUIComponents('Creating ContextSettingsPopupComponent...', 'debug');
-        const settingsPopup = createContextSettingsPopupComponent('ctx-settings-popup');
-        
-        // Mount the popup (creates DOM element and appends to body)
-        const popupInterface = settingsPopup.mount(document.body);
-        
-        // Store both the component and its interface
-        registeredComponents.set('contextSettings', {
-            component: settingsPopup,
-            interface: popupInterface
-        });
-        
-        logUIComponents('ContextSettingsPopupComponent created and mounted successfully.', 'debug');
-        
-        // Create uiComponents object
-        const uiComponents = {
-            getComponent: (name) => {
-                const comp = registeredComponents.get(name);
-                return comp ? comp.component : null;
-            },
-            showPopup: (name, props = {}) => {
-                const comp = registeredComponents.get(name);
-                if (comp?.interface?.show) {
-                    logUIComponents(`Showing popup: ${name}`, 'debug');
-                    comp.interface.show(props);
-                    return true;
-                } else {
-                    logUIComponents(`Failed to show popup: ${name} - component not found or no show method`, 'error');
-                    return false;
-                }
-            },
-            hidePopup: (name) => {
-                const comp = registeredComponents.get(name);
-                if (comp?.interface?.hide) {
-                    logUIComponents(`Hiding popup: ${name}`, 'debug');
-                    comp.interface.hide();
-                    return true;
-                } else {
-                    logUIComponents(`Failed to hide popup: ${name} - component not found or no hide method`, 'error');
-                    return false;
-                }
-            },
-            isPopupVisible: (name) => {
-                const comp = registeredComponents.get(name);
-                if (comp?.interface?.isVisible) {
-                    return comp.interface.isVisible();
-                }
-                return false;
-            }
-        };
+        // This manager is now only responsible for non-primary components
+        // like popups and modals, which are not managed directly by the bootloader.
 
-        // Register with consolidation system
-        if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
-            window.devpages._internal.consolidator.migrate('uiComponents', uiComponents);
-        } else {
-            // Fallback for legacy support
-            window.uiComponents = uiComponents;
+        // Create a settings popup for the path manager
+        log.debug('UI_COMPONENTS', 'CREATE_CONTEXT_SETTINGS_POPUP', 'Creating ContextSettingsPopupComponent...');
+        const settingsPopup = createContextSettingsPopupComponent('path-settings-popup');
+        
+        if (settingsPopup) {
+            settingsPopup.mount();
         }
-        
-        logUIComponents('UI Components system initialized successfully. Available components:', 'info');
-        logUIComponents(`- contextSettings: ${registeredComponents.has('contextSettings') ? 'ready' : 'failed'}`, 'info');
-        
+
+        // The AuthDisplay and PathManager are now handled by the main bootloader.
+        // We no longer initialize them here.
+
+        log.info('UI_COMPONENTS', 'INIT_SUCCESS', 'Secondary UI components initialized successfully.');
+
     } catch (error) {
-        logUIComponents(`Error during UI Components initialization: ${error.message}`, 'error');
-        console.error('[UI_COMPONENTS] Initialization error:', error);
-        
-        // Provide fallback implementation
-        const fallbackUiComponents = {
-            getComponent: () => null,
-            showPopup: () => false,
-            hidePopup: () => false,
-            isPopupVisible: () => false
-        };
-
-        // Register fallback with consolidation system
-        if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
-            window.devpages._internal.consolidator.migrate('uiComponents', fallbackUiComponents);
-        } else {
-            window.uiComponents = fallbackUiComponents;
-        }
-        
-        throw error; // Re-throw so bootstrap can handle it
+        log.error('UI_COMPONENTS', 'INIT_ERROR', 'Error during secondary UI component initialization', error);
+        // Re-throw the error to be caught by the main bootloader's error handler
+        throw error;
     }
 }

@@ -1,8 +1,9 @@
 // log/ui.js - UI interactions for the log component
-import { logMessage } from './LogCore.js';
 import { dispatch } from '../messaging/messageQueue.js';
 import { ActionTypes } from '../messaging/actionTypes.js';
 // import { showSystemInfo } from '../uiManager.js';
+
+const log = window.APP.services.log.createLogger('LogUI');
 
 // Track initialization
 let toolbarInitialized = false;
@@ -15,13 +16,13 @@ let buttonsConnected = false;
 export function initLogToolbar() {
     // Only run once
     if (toolbarInitialized) {
-        console.log('[LOG] Log toolbar already initialized');
+        log.info('LOG', 'TOOLBAR_ALREADY_INITIALIZED', 'Log toolbar already initialized');
         return true;
     }
     
     const logContainer = document.getElementById('log-container');
     if (!logContainer) {
-        console.log('[LOG] Log container not found during toolbar initialization');
+        log.warn('LOG', 'LOG_CONTAINER_NOT_FOUND', 'Log container not found during toolbar initialization');
         return false;
     }
 
@@ -36,20 +37,20 @@ export function initLogToolbar() {
             try {
                 await showSystemInfo();
             } catch (error) {
-                logMessage(`[ERROR] Failed to show system info: ${error.message}`);
+                log.error('LOG', 'SHOW_SYSTEM_INFO_ERROR', `Failed to show system info: ${error.message}`, error);
                 console.error('[ERROR] Failed to show system info:', error);
             }
         });
-        console.log('[LOG] Info button connected to showSystemInfo function');
+        log.info('LOG', 'INFO_BUTTON_CONNECTED', 'Info button connected to showSystemInfo function');
         */
         infoBtn.style.display = 'none'; // Hide the button as it does nothing
-        console.log('[LOG] Info button is disconnected and hidden as its function was removed.');
+        log.info('LOG', 'INFO_BUTTON_DISCONNECTED', 'Info button is disconnected and hidden as its function was removed.');
 
     }
     
     // Mark as initialized
     toolbarInitialized = true;
-    console.log('[LOG] Log toolbar initialized');
+    log.info('LOG', 'TOOLBAR_INITIALIZED', 'Log toolbar initialized');
     
     return true;
 }
@@ -78,7 +79,7 @@ function setupLogResize() {
         // Dispatch the action to the global store
         dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: { height: newHeight }});
         
-        console.log(`[LOG] Resize complete. New height: ${newHeight}px`);
+        log.info('LOG', 'RESIZE_COMPLETE', `Resize complete. New height: ${newHeight}px`);
         
         // Clean up
         resizeHandle.classList.remove('resizing');
@@ -123,7 +124,7 @@ export function ensureLogButtonsConnected() {
     connectButton('minimize-log-btn', { type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
     
     buttonsConnected = true;
-    console.log('[LOG] Log buttons connected');
+    log.info('LOG', 'BUTTONS_CONNECTED', 'Log buttons connected');
 }
 
 /**
@@ -132,7 +133,7 @@ export function ensureLogButtonsConnected() {
 export function handleScrollLockChange() {
     // Don't toggle the log when scroll lock changes
     // Just log the event if needed
-    logMessage('[UI] Scroll lock state changed');
+    log.info('UI', 'SCROLL_LOCK_CHANGED', 'Scroll lock state changed');
 }
 
 // Add diagnostic click handlers
@@ -164,7 +165,7 @@ export function setupDiagnosticHandlers() {
             const originalClickHandler = button.onclick;
             
             button.onclick = function(e) {
-                console.log('Editor tab clicked:', button.textContent);
+                log.info('UI', 'EDITOR_TAB_CLICKED', `Editor tab clicked: ${button.textContent}`);
                 
                 // Prevent this click from toggling the log
                 e.stopPropagation();
@@ -175,14 +176,14 @@ export function setupDiagnosticHandlers() {
                 }
             };
             
-            console.log('Added interceptor to tab button:', button.textContent);
+            log.info('UI', 'INTERCEPTOR_ADDED', `Added interceptor to tab button: ${button.textContent}`);
         });
         
         // Also try to intercept clicks on the tab container
         const tabContainers = document.querySelectorAll('.editor-tabs, .editor-mode-tabs');
         tabContainers.forEach(container => {
             container.addEventListener('click', (e) => {
-                console.log('Tab container clicked');
+                log.info('UI', 'TAB_CONTAINER_CLICKED', 'Tab container clicked');
                 e.stopPropagation();
             }, true);
         });

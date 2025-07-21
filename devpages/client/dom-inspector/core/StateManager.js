@@ -3,13 +3,19 @@
  * Centralized state management for the DOM Inspector
  */
 
-import { appStore } from "/client/appState.js";
-import { dispatch, ActionTypes } from "/client/messaging/messageQueue.js";
+import { appStore, dispatch } from '/client/appState.js';
+import { DomUtils } from '../utils/DomUtils.js';
+import { ElementManager } from '../managers/ElementManager.js';
+import { setState } from '/client/store/slices/domInspectorSlice.js';
+
+const log = window.APP.services.log.createLogger('DOMInspectorStateManager');
 
 const DOM_INSPECTOR_STATE_KEY = 'devpages_dom_inspector_state';
 
 export class StateManager {
     constructor() {
+        this.domUtils = new DomUtils();
+        this.elementManager = new ElementManager(this.domUtils);
         this.stateUnsubscribe = null;
         this.listeners = new Map(); // Event listeners for state changes
     }
@@ -18,17 +24,74 @@ export class StateManager {
      * Initialize the state manager and subscribe to store changes
      */
     initialize() {
-        // Load persisted state if available
-        const persistedState = this.loadPersistedState();
-        if (persistedState) {
-            dispatch({
-                type: ActionTypes.DOM_INSPECTOR_SET_STATE,
-                payload: persistedState
-            });
+        if (this.stateUnsubscribe) {
+            // Already initialized
+            return;
         }
 
-        // Subscribe to store changes
-        this.subscribeToStore();
+        log.debug('DOM_INSPECTOR', 'INIT', 'Initializing DOM Inspector State Manager...');
+
+        const loadedState = this.loadPersistedState();
+        if (loadedState) {
+            dispatch({ type: 'domInspector/setState', payload: loadedState });
+            log.debug('DOM_INSPECTOR', 'LOADED_STATE', 'Dispatched loaded state to sync store.');
+        } else {
+            log.debug('DOM_INSPECTOR', 'NO_SAVED_STATE', 'No saved state found, using default state.');
+        }
+
+        let prevState = appStore.getState();
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            const oldInspectorState = prevState.domInspector || {};
+            const newInspectorState = newState.domInspector || {};
+
+            if (newInspectorState === oldInspectorState) {
+                prevState = newState;
+                return;
+            }
+
+            let hasChanges = false;
+
+            if (oldInspectorState.visible !== newInspectorState.visible) {
+                this.emit('visibilityChanged', newInspectorState.visible, oldInspectorState.visible);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.position) !== JSON.stringify(newInspectorState.position)) {
+                this.emit('positionChanged', newInspectorState.position, oldInspectorState.position);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.size) !== JSON.stringify(newInspectorState.size)) {
+                this.emit('sizeChanged', newInspectorState.size, oldInspectorState.size);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.highlight) !== JSON.stringify(newInspectorState.highlight)) {
+                this.emit('highlightChanged', newInspectorState.highlight, oldInspectorState.highlight);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.selectorHistory) !== JSON.stringify(newInspectorState.selectorHistory)) {
+                this.emit('historyChanged', newInspectorState.selectorHistory, oldInspectorState.selectorHistory);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.collapsedSections) !== JSON.stringify(newInspectorState.collapsedSections)) {
+                this.emit('sectionsChanged', newInspectorState.collapsedSections, oldInspectorState.collapsedSections);
+                hasChanges = true;
+            }
+            if (JSON.stringify(oldInspectorState.treeState) !== JSON.stringify(newInspectorState.treeState)) {
+                this.emit('treeStateChanged', newInspectorState.treeState, oldInspectorState.treeState);
+                hasChanges = true;
+            }
+            if (oldInspectorState.splitPosition !== newInspectorState.splitPosition) {
+                this.emit('splitPositionChanged', newInspectorState.splitPosition, oldInspectorState.splitPosition);
+                hasChanges = true;
+            }
+
+            if (hasChanges) {
+                this.emit('stateChanged', newInspectorState, oldInspectorState);
+                this.persistState(newInspectorState);
+            }
+
+            prevState = newState;
+        });
     }
 
     /**
@@ -42,7 +105,7 @@ export class StateManager {
                 return JSON.parse(savedState);
             }
         } catch (e) {
-            console.error('Failed to load DOM Inspector state:', e);
+            log.error('DOM_INSPECTOR', 'LOAD_STATE_ERROR', 'Failed to load DOM Inspector state:', e);
         }
         return null;
     }
@@ -55,77 +118,17 @@ export class StateManager {
         try {
             localStorage.setItem(DOM_INSPECTOR_STATE_KEY, JSON.stringify(state));
         } catch (e) {
-            console.error('Failed to persist DOM Inspector state:', e);
+            log.error('DOM_INSPECTOR', 'PERSIST_STATE_ERROR', 'Failed to persist DOM Inspector state:', e);
         }
     }
 
     /**
-     * Subscribe to store changes
+     * Helper to update parts of the DOM Inspector state
+     * @param {Object} partialState - A partial state object to merge
      */
-    subscribeToStore() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            const oldInspectorState = prevState.domInspector;
-            const newInspectorState = newState.domInspector;
-
-            console.log('[GENERAL] StateManager: Store subscription triggered');
-            console.log('[GENERAL] StateManager: Old visible =', oldInspectorState.visible);
-            console.log('[GENERAL] StateManager: New visible =', newInspectorState.visible);
-
-            let hasChanges = false;
-
-            // Emit specific change events only when values actually changed
-            if (oldInspectorState.visible !== newInspectorState.visible) {
-                console.log('[GENERAL] StateManager: Visibility changed, emitting visibilityChanged event');
-                this.emit('visibilityChanged', newInspectorState.visible, oldInspectorState.visible);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.position) !== JSON.stringify(newInspectorState.position)) {
-                this.emit('positionChanged', newInspectorState.position, oldInspectorState.position);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.size) !== JSON.stringify(newInspectorState.size)) {
-                this.emit('sizeChanged', newInspectorState.size, oldInspectorState.size);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.highlight) !== JSON.stringify(newInspectorState.highlight)) {
-                this.emit('highlightChanged', newInspectorState.highlight, oldInspectorState.highlight);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.selectorHistory) !== JSON.stringify(newInspectorState.selectorHistory)) {
-                this.emit('historyChanged', newInspectorState.selectorHistory, oldInspectorState.selectorHistory);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.collapsedSections) !== JSON.stringify(newInspectorState.collapsedSections)) {
-                this.emit('sectionsChanged', newInspectorState.collapsedSections, oldInspectorState.collapsedSections);
-                hasChanges = true;
-            }
-
-            if (JSON.stringify(oldInspectorState.treeState) !== JSON.stringify(newInspectorState.treeState)) {
-                this.emit('treeStateChanged', newInspectorState.treeState, oldInspectorState.treeState);
-                hasChanges = true;
-            }
-
-            if (oldInspectorState.splitPosition !== newInspectorState.splitPosition) {
-                this.emit('splitPositionChanged', newInspectorState.splitPosition, oldInspectorState.splitPosition);
-                hasChanges = true;
-            }
-
-            // Only emit general state change event if there were actual changes
-            if (hasChanges) {
-                console.log('[GENERAL] StateManager: emit() called for event: stateChanged args:', [newInspectorState, oldInspectorState]);
-                this.emit('stateChanged', newInspectorState, oldInspectorState);
-                
-                // Persist state changes only when there are actual changes
-                this.persistState(newInspectorState);
-            } else {
-                console.log('[GENERAL] StateManager: Has listeners for event: false');
-            }
-        });
+    updateState(partialState) {
+        const currentState = this.getState() || {};
+        dispatch(setState({ ...currentState, ...partialState }));
     }
 
     /**
@@ -141,7 +144,7 @@ export class StateManager {
      * @param {boolean} visible - Whether panel should be visible
      */
     setVisible(visible) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_VISIBLE, payload: visible });
+        this.updateState({ visible });
     }
 
     /**
@@ -149,7 +152,7 @@ export class StateManager {
      * @param {Object} position - Position object with x and y properties
      */
     setPosition(position) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_POSITION, payload: position });
+        this.updateState({ position });
     }
 
     /**
@@ -157,7 +160,7 @@ export class StateManager {
      * @param {Object} size - Size object with width and height properties
      */
     setSize(size) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_SIZE, payload: size });
+        this.updateState({ size });
     }
 
     /**
@@ -165,7 +168,7 @@ export class StateManager {
      * @param {number} splitPosition - Split position as percentage (0-100)
      */
     setSplitPosition(splitPosition) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_SPLIT_POSITION, payload: splitPosition });
+        this.updateState({ splitPosition });
     }
 
     /**
@@ -173,7 +176,7 @@ export class StateManager {
      * @param {Object} highlight - Highlight settings object
      */
     setHighlight(highlight) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_SET_HIGHLIGHT, payload: highlight });
+        this.updateState({ highlight });
     }
 
     /**
@@ -181,7 +184,10 @@ export class StateManager {
      * @param {string} selector - CSS selector to add
      */
     addToHistory(selector) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_ADD_SELECTOR_HISTORY, payload: selector });
+        const history = this.getSelectorHistory();
+        if (history.includes(selector)) return;
+        const newHistory = [selector, ...history].slice(0, 20); // Keep last 20
+        this.updateState({ selectorHistory: newHistory });
     }
 
     /**
@@ -189,7 +195,9 @@ export class StateManager {
      * @param {string} selector - CSS selector to remove
      */
     removeFromHistory(selector) {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_REMOVE_SELECTOR_HISTORY, payload: selector });
+        const history = this.getSelectorHistory();
+        const newHistory = history.filter(s => s !== selector);
+        this.updateState({ selectorHistory: newHistory });
     }
 
     /**
@@ -198,9 +206,12 @@ export class StateManager {
      * @param {boolean} collapsed - Whether section should be collapsed
      */
     setSectionCollapsed(id, collapsed) {
-        dispatch({
-            type: ActionTypes.DOM_INSPECTOR_SET_SECTION_COLLAPSED,
-            payload: { id, collapsed }
+        const collapsedSections = this.getCollapsedSections();
+        this.updateState({
+            collapsedSections: {
+                ...collapsedSections,
+                [id]: collapsed
+            }
         });
     }
 
@@ -209,10 +220,7 @@ export class StateManager {
      * @param {Object} treeState - Tree state object
      */
     setTreeState(treeState) {
-        dispatch({
-            type: ActionTypes.DOM_INSPECTOR_SET_TREE_STATE,
-            payload: treeState
-        });
+        this.updateState({ treeState });
     }
 
     /**
@@ -222,7 +230,7 @@ export class StateManager {
     setSelectedElement(element) {
         // Don't store the DOM element in state as it can't be serialized
         // Instead, emit the element selection event directly to listeners
-        console.log('[GENERAL] StateManager: Setting selected element (not storing in state):', element);
+        log.debug('DOM_INSPECTOR', 'SET_SELECTED_ELEMENT', 'Setting selected element (not storing in state):', { element });
         this.emit('selectedElementChanged', element, null);
     }
 
@@ -287,7 +295,8 @@ export class StateManager {
      * @returns {number} Split position as percentage
      */
     getSplitPosition() {
-        return this.getState().splitPosition || 33; // Default to 33%
+        const state = this.getState();
+        return state ? state.splitPosition || 33 : 33; // Default to 33%
     }
 
     /**
@@ -319,12 +328,12 @@ export class StateManager {
      * @param {...any} args - Arguments to pass to listeners
      */
     emit(event, ...args) {
-        console.log(`[GENERAL] StateManager: emit() called for event: ${event} args:`, args);
+        log.debug('DOM_INSPECTOR', 'EMIT_EVENT', `emit() called for event: ${event}`, { args });
         if (this.listeners.has(event)) {
-            console.log(`[GENERAL] StateManager: Has listeners for event: true`);
+            log.debug('DOM_INSPECTOR', 'HAS_LISTENERS', `Has listeners for event: true`);
             this.listeners.get(event).forEach(callback => callback(...args));
         } else {
-            console.log(`[GENERAL] StateManager: Has listeners for event: false`);
+            log.debug('DOM_INSPECTOR', 'NO_LISTENERS', `Has listeners for event: false`);
         }
     }
 
@@ -332,8 +341,9 @@ export class StateManager {
      * Reset the DOM Inspector state to its initial values
      */
     resetState() {
-        dispatch({ type: ActionTypes.DOM_INSPECTOR_RESET_STATE });
-        this.persistState(appStore.getState().domInspector);
+        dispatch({ type: 'domInspector/resetState' }); // This might need a dedicated reducer case
+        const initialState = appStore.getState().domInspector;
+        this.persistState(initialState);
     }
 
     /**
@@ -345,6 +355,6 @@ export class StateManager {
             this.stateUnsubscribe = null;
         }
         this.listeners.clear();
-        console.log('StateManager destroyed');
+        log.info('DOM_INSPECTOR', 'DESTROY', 'StateManager destroyed');
     }
 } 

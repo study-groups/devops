@@ -4,8 +4,9 @@
  */
 
 import { ActionTypes } from './actionTypes.js';
-import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js';
+
+const log = window.APP.services.log.createLogger('MessageQueue');
 
 // No longer needed as appStore.dispatch handles the reducer call
 // let currentReducer = null;
@@ -17,7 +18,7 @@ import { appStore } from '/client/appState.js';
  */
 export const setReducer = (reducer) => {
     // currentReducer = reducer; // No longer needed
-    logMessage('Reducer set in messageQueue (via appStore direct dispatch)', 'debug', 'MESSAGE_QUEUE');
+    log.debug('MESSAGE_QUEUE', 'SET_REDUCER', 'Reducer set in messageQueue (via appStore direct dispatch)');
 };
 
 /**
@@ -30,11 +31,11 @@ export const dispatch = (action) => {
     // and updates its internal state. We route all actions through this.
     if (appStore && typeof appStore.dispatch === 'function') {
         // Removed logMessage from dispatch to prevent recursion
-        // logMessage(`Dispatching action to appStore: ${action.type}`, 'debug', 'MESSAGE_QUEUE', { action });
+        // log.debug('MESSAGE_QUEUE', 'DISPATCH', `Dispatching action to appStore: ${action.type}`, { action });
         appStore.dispatch(action);
     } else {
         // Removed logMessage to prevent any potential recursion
-        // logMessage('Cannot dispatch action: appStore or appStore.dispatch not available.', 'error', 'MESSAGE_QUEUE', { action });
+        // log.error('MESSAGE_QUEUE', 'DISPATCH_ERROR', 'Cannot dispatch action: appStore or appStore.dispatch not available.', { action });
         console.error('AppStore not ready for dispatch:', appStore, action);
     }
 };

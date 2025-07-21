@@ -8,10 +8,18 @@ import { eventBus } from '../eventBus.js';
 // Import the new remote execution function
 import { executeRemoteCommand } from './handlers.js';
 // Import SmartCopy keys and appStore
-import { SMART_COPY_A_KEY, SMART_COPY_B_KEY, appStore } from '/client/appState.js';
-// import { getLogPanelInstance } from '../log/logPanelAccess.js'; // Create this file
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { appStore } from '/client/appState.js';
+
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('CLI');
+
+const SMART_COPY_A_KEY = 'smartCopyBufferA';
+const SMART_COPY_B_KEY = 'smartCopyBufferB';
+
+function setBuffer(bufferId, value) {
+    const key = bufferId === 'a' ? SMART_COPY_A_KEY : SMART_COPY_B_KEY;
+    localStorage.setItem(key, value);
+}
 
 // Log successful import
 console.log('[CLI] Core imports completed');
@@ -60,14 +68,14 @@ const substituteCommands = async (text) => {
         if (!commandToRun) continue; // Skip empty $( )
 
         // Use logMessage for user-visible actions/info
-        logInfo(`[CLI Subst] Executing sub-command from ${placeholder}: '${commandToRun}'...`, 'info');
+        log.info('CLI_SUBST', 'EXECUTE', `[CLI Subst] Executing sub-command from ${placeholder}: '${commandToRun}'...`);
         try {
             // Execute the sub-command via the API
             const subPayload = { command: commandToRun, encoded_data: btoa(''), environment: {} };
             const subResultOutput = await executeRemoteCommand(subPayload);
             const outputSnippet = (subResultOutput || '').substring(0, 50);
             // Log output info to UI log
-            logInfo(`[CLI Subst] Sub-command '${commandToRun}' output: "${outputSnippet}${subResultOutput.length > 50 ? '...' : ''}"`, 'info');
+            log.info('CLI_SUBST', 'OUTPUT', `[CLI Subst] Sub-command '${commandToRun}' output: "${outputSnippet}${subResultOutput.length > 50 ? '...' : ''}"`);
 
             // Replace the *first* occurrence of this specific placeholder in the *current* text state.
             // This handles cases where the same placeholder appears multiple times, replacing them one by one.
@@ -78,7 +86,7 @@ const substituteCommands = async (text) => {
         } catch (error) {
              // Log error to console and UI log
              console.error(`[CLI Subst] Sub-command '${commandToRun}' failed: ${error.message}`);
-             logInfo(`[CLI Subst ERROR] Sub-command '${commandToRun}' failed: ${error.message}`, 'error');
+             log.error('CLI_SUBST', 'ERROR', `[CLI Subst ERROR] Sub-command '${commandToRun}' failed: ${error.message}`, error);
              // Abort main command if sub-command fails
              throw new Error(`Sub-command '${commandToRun}' failed: ${error.message}`);
         }
@@ -147,7 +155,7 @@ async function handleSendCommand() {
              encodedData = btoa(unescape(encodeURIComponent(argumentsDataString)));
         } catch (e) {
              console.error('[CLI Flow] Error Base64 encoding arguments/data:', e);
-             logInfo(`[CLIENT ERROR] Failed to Base64 encode arguments/data for ${mainCommand}.`, 'error');
+             log.error('CLI_FLOW', 'ENCODING_ERROR', `[CLIENT ERROR] Failed to Base64 encode arguments/data for ${mainCommand}.`, e);
              return; // Stop processing if encoding fails
         }
 
@@ -181,9 +189,9 @@ async function handleSendCommand() {
 
         // --- Execute Main Command ---
     cliInput.value = '';
-        logInfo(`> ${originalRawInput}`); // Log original input
+        log.info('CLI_EXECUTE', 'INPUT', `> ${originalRawInput}`); // Log original input
          // Log execution start to UI
-         logInfo(`Executing main command: ${payload.command}...`, 'info');
+         log.info('CLI_EXECUTE', 'START', `Executing main command: ${payload.command}...`);
         console.log('[CLI Action] Payload OBJECT being sent to executeRemoteCommand:', payload); // Log final payload
 
         const resultOutput = await executeRemoteCommand(payload);
@@ -194,7 +202,7 @@ async function handleSendCommand() {
         // --- END DEBUG LINES ---
         if (resultOutput && resultOutput.trim()) {
             // First attempt: use window.logMessage as it should normally work
-            window.logMessage(resultOutput, 'DEVPAGES', 'CLI', 'RESULT', 'info');
+            log.info('CLI_RESULT', 'OUTPUT', resultOutput);
             
             // Backup approach: If we have direct access to logPanelInstance, use it
             // if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
@@ -214,7 +222,7 @@ async function handleSendCommand() {
 
     } catch (error) { // Catch errors from substitution or main execution
          console.error(`[CLI Action] Command processing failed: ${error.message}`);
-         logInfo(`[ERROR] ${error.message}`, 'error'); // Display error in log panel
+         log.error('CLI_ACTION', 'PROCESSING_FAILED', `[ERROR] ${error.message}`, error); // Display error in log panel
     } finally {
     console.log('[CLI Action] Command handling complete.');
     }

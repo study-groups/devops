@@ -2,20 +2,10 @@
 // Using window.APP.eventBus and window.APP.store instead of direct imports
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import { appDispatch } from '/client/appDispatch.js';
-import { fetchListingByPath } from '/client/store/slices/pathSlice.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 
-const logContext = (message, level = 'debug', subtype = 'RENDER') => {
-    const type = "CTX";
-    const fullType = `${type}${subtype ? `_${subtype}` : ''}`;
-
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, fullType);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : (level === 'info' ? console.info : console.log));
-        logFunc(`[${fullType}] ${message}`);
-    }
-};
+const log = window.APP.services.log.createLogger('PathManagerComponent');
 
 export function createPathManagerComponent(targetElementId) {
     let element = null;
@@ -31,26 +21,23 @@ export function createPathManagerComponent(targetElementId) {
     // --- Rendering Logic ---
     const render = () => {
         // CRITICAL DEBUG - Is render even being called?
-        console.log('🚨 RENDER FUNCTION CALLED - PathManagerComponent');
         
         // Reduced console.log verbosity
-        // logContext('Render function Top Execution Point.', 'debug');
+        // log.debug('RENDER', 'TOP_EXECUTION', 'Render function Top Execution Point.');
 
         if (!element) {
-            logContext('Render SKIPPED: component "element" is null or undefined.', 'error');
-            console.error('[CTX RENDER] CRITICAL: render() called but this.element is not set!', element);
+            log.error('RENDER', 'ELEMENT_NULL', 'Render SKIPPED: component "element" is null or undefined.');
+            console.error('[PathManager RENDER] CRITICAL: render() called but this.element is not set!', element);
             return;
         }
         // Reduced verbosity - only log errors and warnings
-        // logContext('Render: Component "element" IS valid.', 'debug');
-        // logContext(`Render: Target Element ID during component init was: ${targetElementId}`, 'debug');
+        // log.debug('RENDER', 'ELEMENT_VALID', 'Render: Component "element" IS valid.');
+        // log.debug('RENDER', 'TARGET_ID', `Render: Target Element ID during component init was: ${targetElementId}`);
 
         // CRITICAL DEBUG - Check if window.APP exists
-        console.log('🚨 window.APP exists?', !!window.APP);
-        console.log('🚨 window.APP.store exists?', !!window.APP?.store);
         
         if (!window.APP?.store) {
-            console.error('🚨 CRITICAL: window.APP.store not available in render!');
+            log.error('RENDER', 'STORE_UNAVAILABLE', 'CRITICAL: window.APP.store not available in render!');
             return;
         }
         
@@ -60,12 +47,12 @@ export function createPathManagerComponent(targetElementId) {
         const settingsStateFromStore = window.APP.store.getState().settings || {};
         
         // CRITICAL DEBUG - State retrieved
-        console.log('🚨 STATE RETRIEVED:', {
-            pathState: !!pathState,
-            fileState: !!fileState,
-            authState: !!authState,
-            isAuthenticated: authState.isAuthenticated
-        });
+        // log.debug('RENDER', 'STATE_RETRIEVED', 'State retrieved:', {
+        //     pathState: !!pathState,
+        //     fileState: !!fileState,
+        //     authState: !!authState,
+        //     isAuthenticated: authState.isAuthenticated
+        // });
         
         const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
         const settingsState = {
@@ -103,26 +90,26 @@ export function createPathManagerComponent(targetElementId) {
 
         const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/';
         // Reduced verbosity - only log when needed
-        // logContext(`Using STATIC CONTENT_ROOT_PREFIX for test: '${CONTENT_ROOT_PREFIX}'`, 'debug');
+        // log.debug('RENDER', 'STATIC_CONTENT_ROOT', `Using STATIC CONTENT_ROOT_PREFIX for test: '${CONTENT_ROOT_PREFIX}'`);
 
         // Reduced verbosity - combine state logging into fewer entries
-        // logContext(`State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`, 'debug');
-        // logContext(`State Snapshot - Auth: User='${username}', Role=${userRole}, Org=${selectedOrg}`, 'debug');
-        // logContext(`Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`, 'debug');
-        // logContext(`Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`, 'debug');
+        // log.debug('RENDER', 'STATE_SNAPSHOT', `State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`);
+        // log.debug('RENDER', 'AUTH_SNAPSHOT', `State Snapshot - Auth: User='${username}', Role=${userRole}, Org=${selectedOrg}`);
+        // log.debug('RENDER', 'COMPONENT_STATE', `Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`);
+        // log.debug('RENDER', 'DERIVED_STATE', `Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`);
 
         // Removed verbose debug block - only log when there are issues
-        // logContext('=== RENDER DEBUG INFO ===', 'debug');
-        // logContext(`isAuthenticated: ${isAuthenticated}`, 'debug');
-        // logContext(`selectedDirectoryPath: '${selectedDirectoryPath}'`, 'debug');
-        // logContext(`currentPathname: '${currentPathname}'`, 'debug');
-        // logContext(`isDirectorySelected: ${isDirectorySelected}`, 'debug');
-        // logContext(`currentListing.pathname: '${fileState.currentListing?.pathname}'`, 'debug');
-        // logContext(`currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`, 'debug');
-        // logContext(`currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`, 'debug');
-        // logContext(`isOverallLoading: ${isOverallLoading}`, 'debug');
-        // logContext(`availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`, 'debug');
-        // logContext('=== END RENDER DEBUG ===', 'debug');
+        // log.debug('RENDER', 'DEBUG_INFO_START', '=== RENDER DEBUG INFO ===');
+        // log.debug('RENDER', 'IS_AUTHENTICATED', `isAuthenticated: ${isAuthenticated}`);
+        // log.debug('RENDER', 'SELECTED_DIRECTORY_PATH', `selectedDirectoryPath: '${selectedDirectoryPath}'`);
+        // log.debug('RENDER', 'CURRENT_PATHNAME', `currentPathname: '${currentPathname}'`);
+        // log.debug('RENDER', 'IS_DIRECTORY_SELECTED', `isDirectorySelected: ${isDirectorySelected}`);
+        // log.debug('RENDER', 'CURRENT_LISTING_PATHNAME', `currentListing.pathname: '${fileState.currentListing?.pathname}'`);
+        // log.debug('RENDER', 'CURRENT_LISTING_DIRS', `currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`);
+        // log.debug('RENDER', 'CURRENT_LISTING_FILES', `currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`);
+        // log.debug('RENDER', 'IS_OVERALL_LOADING', `isOverallLoading: ${isOverallLoading}`);
+        // log.debug('RENDER', 'AVAILABLE_TOP_LEVEL_DIRS', `availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`);
+        // log.debug('RENDER', 'DEBUG_INFO_END', '=== END RENDER DEBUG ===');
 
         // Generate breadcrumbs for the selected DIRECTORY path
         const breadcrumbsHTML = generateBreadcrumbsHTML(
@@ -133,31 +120,31 @@ export function createPathManagerComponent(targetElementId) {
         );
 
         // CRITICAL DEBUG - Before primary selector logic
-        console.log('🚨 ABOUT TO GENERATE PRIMARY SELECTOR:', {
-            isAuthenticated,
-            selectedDirectoryPath,
-            pathLogic: `isAuthenticated=${isAuthenticated} && selectedDirectoryPath=${selectedDirectoryPath} (null or empty = ${selectedDirectoryPath === null || selectedDirectoryPath === ''})`
-        });
+        // log.debug('RENDER', 'ABOUT_TO_GENERATE_PRIMARY_SELECTOR', 'About to generate primary selector:', {
+        //     isAuthenticated,
+        //     selectedDirectoryPath,
+        //     pathLogic: `isAuthenticated=${isAuthenticated} && selectedDirectoryPath=${selectedDirectoryPath} (null or empty = ${selectedDirectoryPath === null || selectedDirectoryPath === ''})`
+        // });
         
         // Generate primary selector
         let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
         
         if (isAuthenticated && selectedDirectoryPath !== null && selectedDirectoryPath !== '') {
-            console.log('🚨 BRANCH 1: Directory path exists:', selectedDirectoryPath);
+            // log.debug('RENDER', 'BRANCH_1', 'Directory path exists:', selectedDirectoryPath);
             // HYBRID: Check both path and file state for current listing
             const pathListing = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
             const fileListing = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
             const listingForSelector = pathListing || fileListing;
             
             // Only log when there's an issue
-            // logContext(`Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`, 'debug');
+            // log.debug('RENDER', 'LISTING_CHECK', `Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`);
 
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
                 const files = listingForSelector.files || [];
                 
                 // Only log when there's an issue
-                // logContext(`Found listing: ${dirs.length} dirs, ${files.length} files`, 'debug');
+                // log.debug('RENDER', 'LISTING_FOUND', `Found listing: ${dirs.length} dirs, ${files.length} files`);
                 
                 const items = [
                     ...dirs.map(name => ({ name, type: 'dir' })),
@@ -220,22 +207,13 @@ export function createPathManagerComponent(targetElementId) {
                 }
             }
         } else if (!isAuthenticated) {
-            console.log('🚨 BRANCH 2: Not authenticated');
+            // log.debug('RENDER', 'BRANCH_2', 'Not authenticated');
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
         } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
-            console.log('🚨 BRANCH 3: TopDir logic - authenticated with null/empty path');
             // Use the established window.APP convention 
             const topLevelDirs = fileState.availableTopLevelDirs || [];
             
             // IMMEDIATE DEBUG - log what we're seeing
-            console.log('🔍 IMMEDIATE DEBUG - TopLevelDirs check:', {
-                topLevelDirs,
-                topLevelDirsLength: topLevelDirs.length,
-                fileState: fileState,
-                fileStateKeys: Object.keys(fileState),
-                isAuthenticated,
-                selectedDirectoryPath
-            });
             
             if (topLevelDirs.length > 0) {
                 let optionsHTML = `<option value="" selected disabled>Select base directory...</option>`;
@@ -245,33 +223,32 @@ export function createPathManagerComponent(targetElementId) {
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Base Directory">${optionsHTML}</select>`;
             } else {
                 // No top-level directories available - run diagnostic
-                logContext('No top-level directories available. Running diagnostic...', 'warn');
+                log.warn('RENDER', 'NO_TOP_LEVEL_DIRS', 'No top-level directories available. Running diagnostic...');
                 diagnoseTopDirIssue();
                 
                 // Use the established fileThunks pattern from bootloader
                 if (!isOverallLoading) {
-                    logContext('Attempting to load directories via fileThunks...', 'warn');
+                    log.warn('RENDER', 'ATTEMPT_LOAD_DIRS', 'Attempting to load directories via fileThunks...');
                     setTimeout(async () => {
                         try {
                             const { fileThunks } = await import('/client/thunks/fileThunks.js');
                             window.APP.store.dispatch(fileThunks.loadTopLevelDirectories());
                         } catch (error) {
-                            logContext(`Failed to load directories: ${error.message}`, 'error');
+                            log.error('RENDER', 'LOAD_DIRS_FAILED', `Failed to load directories: ${error.message}`, error);
                         }
                     }, 0);
                 }
                 primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
             }
         } else {
-            console.log('🚨 BRANCH 4: Unexpected case:', { isAuthenticated, selectedDirectoryPath });
+            // log.debug('RENDER', 'BRANCH_4', 'Unexpected case:', { isAuthenticated, selectedDirectoryPath });
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
         }
 
         const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null;
 
         // Reduced verbosity
-        // logContext('Render: About to set innerHTML.', 'debug');
-        // console.log('[CTX RENDER] About to set innerHTML for element:', element);
+        // log.debug('RENDER', 'SET_INNER_HTML', 'Render: About to set innerHTML.');
         
         // Simplified layout: Breadcrumbs, then the selection row
         element.innerHTML = `
@@ -289,8 +266,7 @@ export function createPathManagerComponent(targetElementId) {
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
         `;
         // Reduced verbosity
-        // logContext('Render: innerHTML HAS BEEN SET.', 'debug');
-        // console.log('[CTX RENDER] innerHTML set. Current element.innerHTML:', element.innerHTML.substring(0, 200) + "...");
+        // log.debug('RENDER', 'INNER_HTML_SET', 'Render: innerHTML HAS BEEN SET.');
 
         // --- Attach Event Listeners (FIXED: No need to remove from fresh DOM elements) ---
         const primarySelectElement = element.querySelector('#context-primary-select');
@@ -308,9 +284,9 @@ export function createPathManagerComponent(targetElementId) {
         if (settingsTrigger) {
             settingsTrigger.addEventListener('click', handleRootBreadcrumbClick);
             // Reduced verbosity - only log errors
-            // logContext('Settings trigger event listener attached.', 'debug');
+            // log.debug('RENDER', 'SETTINGS_TRIGGER_LISTENER_ATTACHED', 'Settings trigger event listener attached.');
         } else {
-            logContext('Settings trigger element not found in DOM.', 'error');
+            log.error('RENDER', 'SETTINGS_TRIGGER_NOT_FOUND', 'Settings trigger element not found in DOM.');
         }
 
         // --- Breadcrumb Navigation Event Listener ---
@@ -318,9 +294,9 @@ export function createPathManagerComponent(targetElementId) {
         if (breadcrumbContainer) {
             breadcrumbContainer.addEventListener('click', handleBreadcrumbClick);
             // Reduced verbosity - only log errors
-            // logContext('Breadcrumb navigation event listener attached.', 'debug');
+            // log.debug('RENDER', 'BREADCRUMB_NAV_LISTENER_ATTACHED', 'Breadcrumb navigation event listener attached.');
         } else {
-            logContext('Breadcrumb container element not found in DOM.', 'error');
+            log.error('RENDER', 'BREADCRUMB_CONTAINER_NOT_FOUND', 'Breadcrumb container element not found in DOM.');
         }
 
         // Add event listener for the filename input if you want interaction
@@ -339,7 +315,7 @@ export function createPathManagerComponent(targetElementId) {
         }
         
         // CRITICAL DEBUG - Render function completed
-        console.log('🚨 RENDER FUNCTION COMPLETED SUCCESSFULLY');
+        // log.debug('RENDER', 'FUNCTION_COMPLETED', 'Render function completed successfully');
     };
 
     // --- Breadcrumb Generation Function ---
@@ -405,7 +381,7 @@ export function createPathManagerComponent(targetElementId) {
             
             const pathname = target.dataset.navigatePath;
             
-            logContext(`Breadcrumb navigation: '${pathname}'`, 'EVENT');
+            log.info('BREADCRUMB', 'NAVIGATE', `Breadcrumb navigation: '${pathname}'`);
             
             // Use established eventBus pattern
             window.APP.eventBus.emit('navigate:pathname', { pathname, isDirectory: true });
@@ -424,42 +400,42 @@ export function createPathManagerComponent(targetElementId) {
         const isDirectorySelected = pathState.isDirectorySelected;
 
         // DEBUG: Log the state we're working with
-        console.log('🚨 DROPDOWN SELECTION DEBUG:', {
-            selectedValue,
-            selectedType,
-            currentPathname,
-            isDirectorySelected,
-            pathState
-        });
+        // log.debug('SELECT', 'DROPDOWN_SELECTION_DEBUG', 'DROPDOWN SELECTION DEBUG:', {
+        //     selectedValue,
+        //     selectedType,
+        //     currentPathname,
+        //     isDirectorySelected,
+        //     pathState
+        // });
 
         // Determine current directory for building new paths
         let currentDirectory = null;
         
         // Handle root directory case first
         if (currentPathname === '' || currentPathname === null) {
-            console.log('🚨 ROOT CASE: Using empty string as current directory');
+            // log.debug('SELECT', 'ROOT_CASE', 'ROOT CASE: Using empty string as current directory');
             currentDirectory = '';
         } else {
             currentDirectory = isDirectorySelected ? currentPathname : getParentPath(currentPathname);
-            console.log('🚨 Current directory calculated:', currentDirectory);
+            // log.debug('SELECT', 'CURRENT_DIRECTORY_CALCULATED', 'Current directory calculated:', currentDirectory);
         }
         
         // Final validation
         if (currentDirectory === null || currentDirectory === undefined) {
-            console.log('🚨 FALLBACK: Using empty string for undefined current directory');
+            // log.debug('SELECT', 'FALLBACK', 'FALLBACK: Using empty string for undefined current directory');
             currentDirectory = '';
         }
 
         // Handle parent directory navigation
         if (selectedType === 'parent') {
             const parentPath = selectedOption.dataset.parentPath;
-            logContext(`Navigating to parent directory: '${parentPath}'`, 'EVENT');
+            log.info('SELECT', 'NAVIGATE_PARENT', `Navigating to parent directory: '${parentPath}'`);
             window.APP.eventBus.emit('navigate:pathname', { pathname: parentPath, isDirectory: true });
             return;
         }
 
         const newRelativePath = pathJoin(currentDirectory, selectedValue);
-        logContext(`Primary select change: Base Dir='${currentDirectory}', Selected='${selectedValue}', Type='${selectedType}', New Path='${newRelativePath}'`, "EVENT");
+        log.info('SELECT', 'PRIMARY_SELECT_CHANGE', `Primary select change: Base Dir='${currentDirectory}', Selected='${selectedValue}', Type='${selectedType}', New Path='${newRelativePath}'`);
 
         // Primary navigation - let the bootloader's navigate:pathname handler do the heavy lifting
         if (selectedType === 'dir') {
@@ -480,12 +456,12 @@ export function createPathManagerComponent(targetElementId) {
         // Check for current pathname and if the file is not a directory
         const { currentPathname, isDirectorySelected } = window.APP.store.getState().path;
         if (!currentPathname || isDirectorySelected) {
-            logContext('Save button clicked but no file is selected.', 'warning', 'EVENT');
+            log.warn('SAVE', 'NO_FILE_SELECTED', 'Save button clicked but no file is selected.');
             return;
         }
 
         // Reduced verbosity
-        // logContext(`Save button clicked for: ${currentPathname}`, 'info', 'EVENT');
+        // log.info('SAVE', 'BUTTON_CLICKED', `Save button clicked for: ${currentPathname}`);
         
         // Use established window.APP.eventBus pattern
         window.APP.eventBus.emit('file:save');
@@ -494,21 +470,21 @@ export function createPathManagerComponent(targetElementId) {
     const handleRootBreadcrumbClick = (event) => {
         event.preventDefault();
         const { currentContentSubDir } = window.APP.store.getState().settings;
-        logContext(`Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`, 'EVENT');
+        log.info('BREADCRUMB', 'ROOT_CLICK', `Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`);
 
         // The primary, default action is to toggle the sidebar.
         // We can access the global workspace panel manager instance if it's available.
         if (window.workspacePanelManager && typeof window.workspacePanelManager.toggleSidebar === 'function') {
-            logContext('Toggling sidebar visibility', 'EVENT');
+            log.info('BREADCRUMB', 'TOGGLE_SIDEBAR', 'Toggling sidebar visibility');
             window.workspacePanelManager.toggleSidebar();
         } else {
-            logContext('WorkspacePanelManager not available, cannot toggle sidebar.', 'error', 'EVENT');
+            log.error('BREADCRUMB', 'NO_PANEL_MANAGER', 'WorkspacePanelManager not available, cannot toggle sidebar.');
             alert('Could not toggle the sidebar. The panel manager is not available.');
         }
 
         // Example of a secondary action (e.g., for showing the settings popup)
         if (event.ctrlKey || event.metaKey) {
-            logContext('Ctrl/Meta+Click detected, showing settings popup.', 'EVENT');
+            log.info('BREADCRUMB', 'SHOW_SETTINGS', 'Ctrl/Meta+Click detected, showing settings popup.');
             
             if (typeof window.uiComponents?.showPopup === 'function') {
                 const fileState = window.APP.store.getState().file;
@@ -525,11 +501,11 @@ export function createPathManagerComponent(targetElementId) {
 
                 const success = window.uiComponents.showPopup('contextSettings', popupProps);
                 if (!success) {
-                    logContext('Failed to display context settings popup', 'error', 'EVENT');
+                    log.error('BREADCRUMB', 'SHOW_SETTINGS_FAILED', 'Failed to display context settings popup');
                     alert('Unable to open settings panel. Please check console for details.');
                 }
             } else {
-                logContext('UI Components system not available for settings popup', 'error', 'EVENT');
+                log.error('BREADCRUMB', 'NO_UI_COMPONENTS', 'UI Components system not available for settings popup');
             }
         }
     };
@@ -541,16 +517,16 @@ export function createPathManagerComponent(targetElementId) {
         const isFromSidebar = event.target.closest('#panel-content');
         const isFromBreadcrumb = event.target.id === 'context-settings-trigger';
 
-        logContext(`Settings click: fromSidebar=${!!isFromSidebar}, fromBreadcrumb=${isFromBreadcrumb}`, 'EVENT');
+        log.info('SETTINGS', 'CLICK', `Settings click: fromSidebar=${!!isFromSidebar}, fromBreadcrumb=${isFromBreadcrumb}`);
 
         // Existing logic for opening the popup from the sidebar can remain.
         // The breadcrumb click is now handled by handleRootBreadcrumbClick.
         if (isFromSidebar) {
             // Sidebar click: Show popup
-            logContext('Sidebar settings click: showing popup', 'EVENT');
+            log.info('SETTINGS', 'SHOW_POPUP_SIDEBAR', 'Sidebar settings click: showing popup');
             
             if (typeof window.uiComponents?.showPopup === 'function') {
-                logContext('UI Components system available, showing popup immediately', 'EVENT');
+                log.info('SETTINGS', 'SHOW_POPUP_IMMEDIATE', 'UI Components system available, showing popup immediately');
                 
                 const fileState = window.APP.store.getState().file;
                 const settingsState = window.APP.store.getState().settings;
@@ -564,23 +540,23 @@ export function createPathManagerComponent(targetElementId) {
                     doEnvVars: settingsState?.doEnvVars || []
                 };
                 
-                logContext(`Showing context settings popup with props: ${JSON.stringify(popupProps)}`, 'EVENT');
+                log.info('SETTINGS', 'POPUP_PROPS', `Showing context settings popup with props: ${JSON.stringify(popupProps)}`);
                 
                 const success = window.uiComponents.showPopup('contextSettings', popupProps);
                 if (success) {
-                    logContext('Context settings popup displayed successfully', 'EVENT');
+                    log.info('SETTINGS', 'POPUP_SUCCESS', 'Context settings popup displayed successfully');
                 } else {
-                    logContext('Failed to display context settings popup', 'error', 'EVENT');
+                    log.error('SETTINGS', 'POPUP_FAILED', 'Failed to display context settings popup');
                     alert('Unable to open settings panel. Please check console for details.');
                 }
             } else {
-                logContext('UI Components system not available yet', 'error', 'EVENT');
+                log.error('SETTINGS', 'NO_UI_COMPONENTS', 'UI Components system not available yet');
                 alert('Settings panel is not ready yet. Please wait for the app to finish loading.');
             }
         } else if (isFromBreadcrumb) {
             // This case is now handled by the dedicated root breadcrumb handler.
             // We can just log it for now or remove this block.
-            logContext('Breadcrumb settings click is now handled by handleRootBreadcrumbClick.', 'info');
+            log.info('SETTINGS', 'BREADCRUMB_CLICK_HANDLED', 'Breadcrumb settings click is now handled by handleRootBreadcrumbClick.');
             // To prevent accidental double-handling, we do nothing here.
         }
     };
@@ -588,7 +564,7 @@ export function createPathManagerComponent(targetElementId) {
     const handleNoteButtonClick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        logContext('Note button clicked - adding to context', 'EVENT');
+        log.info('NOTE', 'BUTTON_CLICK', 'Note button clicked - adding to context');
         
         let originalText;
         const noteBtn = event.target;
@@ -599,7 +575,7 @@ export function createPathManagerComponent(targetElementId) {
             const contextName = state.context?.activeContext || 'default'; // Get active context
 
             if (pathState.isDirectorySelected || !pathState.currentPathname) {
-                logContext('Cannot add note: No file selected or directory view.', 'warn', 'EVENT');
+                log.warn('NOTE', 'NO_FILE_SELECTED', 'Cannot add note: No file selected or directory view.');
                 alert('Please select a file to add to context.');
                 return;
             }
@@ -607,7 +583,7 @@ export function createPathManagerComponent(targetElementId) {
             // Use a more robust selector to find the editor instance
             const editor = document.querySelector('#md-editor textarea, #editor-container textarea, textarea');
             if (!editor) {
-                logContext('Editor element not found.', 'error', 'EVENT');
+                log.error('NOTE', 'EDITOR_NOT_FOUND', 'Editor element not found.');
                 alert('Could not find the editor content.');
                 return;
             }
@@ -642,14 +618,14 @@ export function createPathManagerComponent(targetElementId) {
             if (result.success) {
                 noteBtn.classList.add('noted');
                 noteBtn.title = `Added to context: ${contextName}`;
-                logContext(`Successfully added '${pathname}' to context '${contextName}'.`, 'info', 'EVENT');
+                log.info('NOTE', 'ADD_SUCCESS', `Successfully added '${pathname}' to context '${contextName}'.`);
             } else {
                 throw new Error(result.error || 'The server reported an issue, but did not provide an error message.');
             }
 
         } catch (error) {
-            logContext(`Error in note button handler: ${error.message}`, 'error', 'EVENT');
-            console.error('[CTX] Note button error:', error);
+            log.error('NOTE', 'HANDLER_ERROR', `Error in note button handler: ${error.message}`, error);
+            console.error('[PathManager] Note button error:', error);
             alert(`Failed to add note to context: ${error.message}`);
         } finally {
             if (noteBtn) {
@@ -666,39 +642,37 @@ export function createPathManagerComponent(targetElementId) {
 
     // --- Component Lifecycle ---
     const mount = () => {
-        logContext(`Mount_CM: Initializing for targetElementId: ${targetElementId}`, 'INFO');
+        log.info('MOUNT', 'START', `Mount_CM: Initializing for targetElementId: ${targetElementId}`);
 
         element = document.getElementById(targetElementId);
         if (!element) {
-            logContext(`Mount_CM FAILED: Target element with ID '${targetElementId}' not found in DOM.`, 'ERROR');
+            log.error('MOUNT', 'TARGET_NOT_FOUND', `Mount_CM FAILED: Target element with ID '${targetElementId}' not found in DOM.`);
             console.error(`[ContextManagerComponent] Mount failed: target element #${targetElementId} not found.`);
             return;
         }
-        logContext('Mount_CM: Target element found.', 'INFO');
+        log.info('MOUNT', 'TARGET_FOUND', 'Mount_CM: Target element found.');
 
         if (storeUnsubscribe) {
             storeUnsubscribe();
-            logContext('Mount_CM: Existing store subscription found and removed.', 'DEBUG');
+            log.debug('MOUNT', 'UNSUBSCRIBE_EXISTING', 'Mount_CM: Existing store subscription found and removed.');
         }
 
         storeUnsubscribe = window.APP.store.subscribe(() => {
-            console.log('🚨 STORE SUBSCRIPTION TRIGGERED - About to call render');
             render();
         });
-        logContext('Mount_CM: Subscribed to appStore changes.', 'INFO');
+        log.info('MOUNT', 'SUBSCRIBE_SUCCESS', 'Mount_CM: Subscribed to appStore changes.');
         
         // No need for navigate:pathname listener - we'll use direct actions
-        logContext('Mount_CM: Using direct file system actions.', 'INFO');
+        log.info('MOUNT', 'DIRECT_ACTIONS', 'Mount_CM: Using direct file system actions.');
         
         // Initial render
-        logContext('Mount_CM: Calling initial render.', 'INFO');
+        log.info('MOUNT', 'INITIAL_RENDER', 'Mount_CM: Calling initial render.');
         render();
-        logContext('Mount_CM: Initial render complete.', 'INFO');
+        log.info('MOUNT', 'INITIAL_RENDER_COMPLETE', 'Mount_CM: Initial render complete.');
     };
 
     const destroy = () => {
-        console.log('[CTX DESTROY] >>>>> Destroy function CALLED <<<<<');
-        logContext(`Destroying component and unsubscribing...`, 'DESTROY');
+        log.info('DESTROY', 'START', `Destroying component and unsubscribing...`);
         if (storeUnsubscribe) {
             storeUnsubscribe();
             storeUnsubscribe = null;
@@ -715,10 +689,10 @@ export function createPathManagerComponent(targetElementId) {
             const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
             if (breadcrumbContainer) breadcrumbContainer.removeEventListener('click', handleBreadcrumbClick);
 
-            logContext(`Listeners removed from element during destroy.`, 'DESTROY');
+            log.info('DESTROY', 'LISTENERS_REMOVED', `Listeners removed from element during destroy.`);
         }
         element = null;
-        logContext('Component destroyed.', 'DESTROY');
+        log.info('DESTROY', 'COMPLETE', 'Component destroyed.');
     };
 
     return { mount, destroy };

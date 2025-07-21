@@ -1,13 +1,12 @@
 import globalFetch from '../../globalFetch.js';
 
-function logCssManager(message: string, level: 'info' | 'warn' | 'error' | 'debug' = 'info') {
-    const type = 'CSS_MANAGER';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`);
+declare global {
+    interface Window {
+        APP: any;
     }
 }
+
+const log = window.APP.services.log.createLogger('CssManager');
 
 export class CssManager {
 
@@ -77,7 +76,7 @@ export class CssManager {
             document.head.appendChild(styleEl);
         }
         styleEl.innerHTML = css;
-        logCssManager(`Applied CSS to <style id="${styleId}">`);
+        log.info('CSS', 'APPLY_SCOPED_CSS', `Applied CSS to <style id="${styleId}">`);
     }
 
     /**
@@ -87,7 +86,7 @@ export class CssManager {
      * @param styleId The ID for the style tag (e.g., 'custom-theme-styles').
      */
     public async applyTheme(themePath: string, scope: string, styleId: string): Promise<void> {
-        logCssManager(`Applying theme from ${themePath} with scope ${scope}`);
+        log.info('CSS', 'APPLY_THEME', `Applying theme from ${themePath} with scope ${scope}`);
         try {
             const response = await globalFetch(`/api/files/content?pathname=${encodeURIComponent(themePath)}`);
             if (!response.ok) {
@@ -98,11 +97,11 @@ export class CssManager {
             const scopedCss = this.addScope(fileContent, scope);
             this.applyScopedCss(scopedCss, styleId);
             
-            logCssManager(`Theme applied successfully from ${themePath}`);
+            log.info('CSS', 'APPLY_THEME_SUCCESS', `Theme applied successfully from ${themePath}`);
 
         } catch (error) {
             console.error(`Error applying theme from ${themePath}:`, error);
-            logCssManager(`Failed to apply theme from ${themePath}. Check console for details.`, 'error');
+            log.error('CSS', 'APPLY_THEME_FAILED', `Failed to apply theme from ${themePath}. Check console for details.`, error);
         }
     }
     
@@ -112,7 +111,7 @@ export class CssManager {
      * @param themePath The path to save the theme file to.
      */
     public async saveTheme(cssContent: string, themePath: string): Promise<boolean> {
-        logCssManager(`Saving theme to ${themePath}`);
+        log.info('CSS', 'SAVE_THEME', `Saving theme to ${themePath}`);
         try {
             const response = await globalFetch('/api/files/save', {
                 method: 'POST',
@@ -136,13 +135,13 @@ export class CssManager {
             }
             
             const result = await response.json();
-            logCssManager(`Theme saved successfully: ${result.message}`);
+            log.info('CSS', 'SAVE_THEME_SUCCESS', `Theme saved successfully: ${result.message}`);
             return true;
 
         } catch (error) {
             console.error(`Error saving theme to ${themePath}:`, error);
             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            logCssManager(`Failed to save theme to ${themePath}: ${errorMessage}`, 'error');
+            log.error('CSS', 'SAVE_THEME_FAILED', `Failed to save theme to ${themePath}: ${errorMessage}`, error);
             return false;
         }
     }

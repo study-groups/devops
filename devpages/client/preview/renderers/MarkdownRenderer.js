@@ -10,14 +10,8 @@ import { getPlugin, processEnabledPlugins } from '/client/preview/plugins/Plugin
 import { parseFrontmatter } from '../utils/frontmatterParser.js';
 import LinkManager from '/client/links/LinkManager.js';
 
-// Helper for logging
-function logMarkdownRenderer(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`[MarkdownRenderer] ${message}`, level, 'MARKDOWN_RENDERER');
-    } else {
-        console.log(`[MarkdownRenderer] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('MarkdownRenderer');
 
 export class MarkdownRenderer {
     constructor() {
@@ -96,9 +90,9 @@ export class MarkdownRenderer {
         if (getIsPluginEnabled(appStore.getState(), 'highlight')) {
             try {
                 highlightPlugin = await getPlugin('highlight');
-                logMarkdownRenderer('Highlight plugin loaded successfully', 'debug');
+                log.info('MARKDOWN', 'HIGHLIGHT_PLUGIN_LOADED', 'Highlight plugin loaded successfully');
             } catch (error) {
-                logMarkdownRenderer(`Failed to load highlight plugin: ${error.message}`, 'error');
+                log.error('MARKDOWN', 'HIGHLIGHT_PLUGIN_LOAD_FAILED', `Failed to load highlight plugin: ${error.message}`, error);
             }
         }
 
@@ -120,7 +114,7 @@ export class MarkdownRenderer {
                     try {
                         return highlightPlugin.highlight(str, lang);
                     } catch (error) {
-                        logMarkdownRenderer(`Highlighting error: ${error.message}`, 'error');
+                        log.error('MARKDOWN', 'HIGHLIGHTING_ERROR', `Highlighting error: ${error.message}`, error);
                     }
                 }
                 
@@ -187,7 +181,7 @@ export class MarkdownRenderer {
      * @returns {Promise<Object>} Render result
      */
     async render(markdownContent, filePath) {
-        logMarkdownRenderer(`Rendering markdown file: ${filePath}`);
+        log.info('MARKDOWN', 'RENDER_START', `Rendering markdown file: ${filePath}`);
         
         let contentToProcess = markdownContent || '';
         
@@ -214,11 +208,11 @@ export class MarkdownRenderer {
                         resolvedCssPDataPath = this.simpleJoinPath(pdataFilePathDir, trimmedCssPath);
                     } else {
                         // If it's an absolute path (starts with /) or a full URL, use as is for the href directly
-                        logMarkdownRenderer(`CSS path '${trimmedCssPath}' is absolute or a full URL. It will be used as-is if it's a URL, or needs API prefix if it's an absolute server path.`, 'warn');
+                        log.warn('MARKDOWN', 'CSS_PATH_UNHANDLED', `CSS path '${trimmedCssPath}' is absolute or a full URL. It will be used as-is if it's a URL, or needs API prefix if it's an absolute server path.`);
                         if (trimmedCssPath.startsWith('http')) {
                              headContent += `<link rel="stylesheet" type="text/css" href="${DOMPurify.sanitize(trimmedCssPath, { USE_PROFILES: { html: true } })}">\n`;
                         } else {
-                            logMarkdownRenderer(`Non-relative, non-HTTP CSS path '${trimmedCssPath}' in css_includes is not fully handled by this example logic.`, 'warn');
+                            log.warn('MARKDOWN', 'CSS_PATH_UNHANDLED', `Non-relative, non-HTTP CSS path '${trimmedCssPath}' in css_includes is not fully handled by this example logic.`);
                         }
                         return; // Skip further processing for this item
                     }
@@ -226,7 +220,7 @@ export class MarkdownRenderer {
                     const resolvedOrgPath = resolvedCssPDataPath;
                     const finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedOrgPath)}`;
                     headContent += `<link rel="stylesheet" type="text/css" href="${DOMPurify.sanitize(finalCssUrl, { USE_PROFILES: { html: true } })}">\n`;
-                    logMarkdownRenderer(`Added CSS link to headContent: ${finalCssUrl}`, 'info');
+                    log.info('MARKDOWN', 'CSS_LINK_ADDED', `Added CSS link to headContent: ${finalCssUrl}`);
                 }
             });
         }
@@ -261,7 +255,7 @@ export class MarkdownRenderer {
             });
             processedHtmlBody = tempDoc.body.innerHTML; 
         } catch (e) {
-            logMarkdownRenderer(`Error processing inline scripts: ${e}`, 'error');
+            log.error('MARKDOWN', 'INLINE_SCRIPT_PROCESSING_ERROR', `Error processing inline scripts: ${e}`, e);
         }
         
         // Sanitize with DOMPurify
@@ -293,10 +287,10 @@ export class MarkdownRenderer {
      * @param {string} filePath - Source file path
      */
     async postProcess(previewElement, renderResult, filePath) {
-        logMarkdownRenderer(`Post-processing markdown: ${filePath}`);
+        log.info('MARKDOWN', 'POST_PROCESS_START', `Post-processing markdown: ${filePath}`);
 
         if (!previewElement) {
-            logMarkdownRenderer('No preview element for post-processing', 'warn');
+            log.warn('MARKDOWN', 'NO_PREVIEW_ELEMENT', 'No preview element for post-processing');
             return;
         }
 
@@ -316,7 +310,7 @@ export class MarkdownRenderer {
             if (src) {
                 const newSrc = linkManager.resolveResourcePath(src);
                 img.setAttribute('src', newSrc);
-                logMarkdownRenderer(`Post-processed HTML img src: ${src} -> ${newSrc}`, 'debug');
+                log.debug('MARKDOWN', 'POST_PROCESS_IMG_SRC', `Post-processed HTML img src: ${src} -> ${newSrc}`);
             }
         });
 
@@ -326,19 +320,19 @@ export class MarkdownRenderer {
             if (href) {
                 const newHref = linkManager.resolveLink(href);
                 link.setAttribute('href', newHref);
-                logMarkdownRenderer(`Post-processed HTML a href: ${href} -> ${newHref}`, 'debug');
+                log.debug('MARKDOWN', 'POST_PROCESS_A_HREF', `Post-processed HTML a href: ${href} -> ${newHref}`);
             }
         });
 
         // CSS link injection
         const previewSpecificCssClass = `preview-css-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
         document.querySelectorAll(`link.${previewSpecificCssClass}`).forEach(link => {
-            logMarkdownRenderer(`Removing old CSS link: ${link.href}`, 'debug');
+            log.debug('MARKDOWN', 'REMOVE_OLD_CSS', `Removing old CSS link: ${link.href}`);
             link.remove();
         });
 
         if (frontMatter.css_includes && Array.isArray(frontMatter.css_includes) && filePath) {
-            logMarkdownRenderer(`Processing ${frontMatter.css_includes.length} CSS includes.`, 'debug');
+            log.debug('MARKDOWN', 'PROCESS_CSS_INCLUDES', `Processing ${frontMatter.css_includes.length} CSS includes.`);
             const pdataFilePathDir = filePath.substring(0, filePath.lastIndexOf('/'));
             
             frontMatter.css_includes.forEach(cssPath => {
@@ -348,21 +342,21 @@ export class MarkdownRenderer {
 
                     if (trimmedCssPath.startsWith('http://') || trimmedCssPath.startsWith('https://')) {
                         finalCssUrl = trimmedCssPath; // Use full URL as is
-                        logMarkdownRenderer(`CSS Path is absolute URL: ${finalCssUrl}`, 'debug');
+                        log.debug('MARKDOWN', 'CSS_PATH_ABSOLUTE', `CSS Path is absolute URL: ${finalCssUrl}`);
                     } else if (trimmedCssPath.startsWith('/')) {
                         if (trimmedCssPath.startsWith('/api/pdata/read?file=')) { // Already correctly prefixed
                             finalCssUrl = trimmedCssPath;
                         } else { // Assume it's a path within pdata from the root of pdata
                              finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(trimmedCssPath.startsWith('/') ? trimmedCssPath.substring(1) : trimmedCssPath)}`;
                         }
-                        logMarkdownRenderer(`CSS Path is root-relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
+                        log.debug('MARKDOWN', 'CSS_PATH_ROOT_RELATIVE', `CSS Path is root-relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`);
                     } else if (trimmedCssPath.startsWith('./') || trimmedCssPath.startsWith('../')) {
                         const resolvedPDataPath = this.simpleJoinPath(pdataFilePathDir, trimmedCssPath);
                         finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
-                        logMarkdownRenderer(`CSS Path is relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`, 'debug');
+                        log.debug('MARKDOWN', 'CSS_PATH_RELATIVE', `CSS Path is relative: '${trimmedCssPath}'. Resolved to: ${finalCssUrl}`);
                     } else {
                         // Assume relative to MD file if no other indicators
-                        logMarkdownRenderer(`CSS Path is ambiguous (assuming relative to MD): '${trimmedCssPath}'.`, 'debug');
+                        log.debug('MARKDOWN', 'CSS_PATH_AMBIGUOUS', `CSS Path is ambiguous (assuming relative to MD): '${trimmedCssPath}'.`);
                         const resolvedPDataPath = this.simpleJoinPath(pdataFilePathDir, trimmedCssPath);
                         finalCssUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
                     }
@@ -377,9 +371,9 @@ export class MarkdownRenderer {
                             linkEl.href = finalCssUrl;
                             linkEl.classList.add(previewSpecificCssClass); // Add class for identification
                             document.head.appendChild(linkEl);
-                            logMarkdownRenderer(`Appended CSS link to document.head: ${finalCssUrl}`, 'info');
+                            log.info('MARKDOWN', 'CSS_LINK_APPENDED', `Appended CSS link to document.head: ${finalCssUrl}`);
                         } else {
-                            logMarkdownRenderer(`CSS link already exists in document.head: ${finalCssUrl}`, 'debug');
+                            log.debug('MARKDOWN', 'CSS_LINK_EXISTS', `CSS link already exists in document.head: ${finalCssUrl}`);
                         }
                     }
                 }
@@ -390,7 +384,7 @@ export class MarkdownRenderer {
         let fetchedExternalScripts = [];
 
         if (externalScriptUrls && externalScriptUrls.length > 0) {
-            logMarkdownRenderer(`Fetching ${externalScriptUrls.length} external scripts...`);
+            log.info('MARKDOWN', 'FETCH_EXTERNAL_SCRIPTS', `Fetching ${externalScriptUrls.length} external scripts...`);
             const scriptPromises = externalScriptUrls.map(scriptUrlOrPath => {
                 const trimmedUrl = scriptUrlOrPath.trim();
                 let finalFetchUrl = trimmedUrl;
@@ -416,11 +410,11 @@ export class MarkdownRenderer {
                     const resolvedPDataPath = this.simpleJoinPath(pdataFilePathDir, trimmedUrl);
                     finalFetchUrl = `/api/files/content?pathname=${encodeURIComponent(resolvedPDataPath)}`;
                 } else {
-                    logMarkdownRenderer(`Cannot resolve script path '${trimmedUrl}' without filePath context`, 'warn');
+                    log.warn('MARKDOWN', 'CANNOT_RESOLVE_SCRIPT_PATH', `Cannot resolve script path '${trimmedUrl}' without filePath context`);
                     finalFetchUrl = trimmedUrl; // Hope for the best
                 }
 
-                logMarkdownRenderer(`Fetching script: ${trimmedUrl} -> ${finalFetchUrl}`);
+                log.info('MARKDOWN', 'FETCHING_SCRIPT', `Fetching script: ${trimmedUrl} -> ${finalFetchUrl}`);
                 
                 return fetch(finalFetchUrl)
                     .then(response => {
@@ -430,11 +424,11 @@ export class MarkdownRenderer {
                         return response.text();
                     })
                     .then(text => {
-                        logMarkdownRenderer(`Successfully fetched script: ${scriptName} (${text.length} chars)`);
+                        log.info('MARKDOWN', 'FETCH_SCRIPT_SUCCESS', `Successfully fetched script: ${scriptName} (${text.length} chars)`);
                         return { name: scriptName, url: finalFetchUrl, content: text, error: false };
                     })
                     .catch(error => {
-                        logMarkdownRenderer(`Failed to fetch script ${scriptName}: ${error.message}`, 'error');
+                        log.error('MARKDOWN', 'FETCH_SCRIPT_FAILED', `Failed to fetch script ${scriptName}: ${error.message}`, error);
                         return { 
                             name: scriptName, 
                             url: finalFetchUrl, 
@@ -464,7 +458,7 @@ ${trimmedContent}
     console.error("Error in external script ${script.name}:", error);
 }`;
                     scriptParts.push(wrappedScript);
-                    logMarkdownRenderer(`Added external script: ${script.name} (${trimmedContent.length} chars)${script.error ? ' [ERROR FALLBACK]' : ''}`);
+                    log.info('MARKDOWN', 'ADD_EXTERNAL_SCRIPT', `Added external script: ${script.name} (${trimmedContent.length} chars)${script.error ? ' [ERROR FALLBACK]' : ''}`);
                 }
             }
         });
@@ -483,7 +477,7 @@ ${trimmedContent}
     console.error("Error in inline script #${i + 1}:", error);
 }`;
                     scriptParts.push(wrappedScript);
-                    logMarkdownRenderer(`Added inline script #${i + 1} (${trimmedContent.length} chars)`);
+                    log.info('MARKDOWN', 'ADD_INLINE_SCRIPT', `Added inline script #${i + 1} (${trimmedContent.length} chars)`);
                 }
             }
         });
@@ -491,7 +485,7 @@ ${trimmedContent}
         // Execute bundled scripts
         if (scriptParts.length > 0) {
             const bundledScriptContent = scriptParts.join('\n');
-            logMarkdownRenderer(`Executing ${scriptParts.length} bundled scripts (total: ${bundledScriptContent.length} chars)`);
+            log.info('MARKDOWN', 'EXECUTE_BUNDLED_SCRIPTS', `Executing ${scriptParts.length} bundled scripts (total: ${bundledScriptContent.length} chars)`);
 
             const scriptElement = document.createElement('script');
             scriptElement.type = 'text/javascript';
@@ -499,12 +493,12 @@ ${trimmedContent}
             try {
                 scriptElement.textContent = bundledScriptContent;
                 previewElement.appendChild(scriptElement);
-                logMarkdownRenderer('Successfully executed bundled scripts');
+                log.info('MARKDOWN', 'EXECUTE_BUNDLED_SCRIPTS_SUCCESS', 'Successfully executed bundled scripts');
             } catch (error) {
-                logMarkdownRenderer(`Error executing scripts: ${error.message}`, 'error');
+                log.error('MARKDOWN', 'EXECUTE_BUNDLED_SCRIPTS_FAILED', `Error executing scripts: ${error.message}`, error);
             }
         } else {
-            logMarkdownRenderer('No scripts to execute');
+            log.info('MARKDOWN', 'NO_SCRIPTS_TO_EXECUTE', 'No scripts to execute');
         }
 
         // Process markdown plugins (Mermaid, etc.)
@@ -518,7 +512,7 @@ ${trimmedContent}
         });
         previewElement.dispatchEvent(event);
         
-        logMarkdownRenderer(`Post-processing complete for: ${filePath}`);
+        log.info('MARKDOWN', 'POST_PROCESS_COMPLETE', `Post-processing complete for: ${filePath}`);
     }
 }
 

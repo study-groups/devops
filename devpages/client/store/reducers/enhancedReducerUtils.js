@@ -4,13 +4,7 @@
  * Eliminates multiple localStorage access patterns
  */
 
-import { logMessage } from '/client/log/index.js';
-
-const logger = {
-    debug: (msg, data) => logMessage(msg, 'debug', 'REDUCER_UTILS', data),
-    warn: (msg, data) => logMessage(msg, 'warn', 'REDUCER_UTILS', data),
-    error: (msg, data) => logMessage(msg, 'error', 'REDUCER_UTILS', data)
-};
+const log = window.APP.services.log.createLogger('ReducerUtils');
 
 // Global dispatch function - will be set by the store
 let globalDispatch = null;
@@ -22,7 +16,7 @@ let globalDispatch = null;
  */
 export const setGlobalDispatch = (dispatch) => {
     globalDispatch = dispatch;
-    logger.debug('Global dispatch function set');
+    log.debug('REDUCER_UTILS', 'SET_GLOBAL_DISPATCH', 'Global dispatch function set');
 };
 
 /**
@@ -40,13 +34,13 @@ export const loadFromStorage = (key, defaultValue, validator = null) => {
         const parsedValue = JSON.parse(storedValue);
         
         if (validator && !validator(parsedValue)) {
-            logger.warn(`Loaded value for ${key} failed validation, using default.`);
+            log.warn('REDUCER_UTILS', 'VALIDATION_FAILED', `Loaded value for ${key} failed validation, using default.`);
             return defaultValue;
         }
         
         return parsedValue;
     } catch (e) {
-        logger.error(`Error loading ${key} from localStorage:`, e);
+        log.error('REDUCER_UTILS', 'LOAD_FROM_STORAGE_ERROR', `Error loading ${key} from localStorage:`, e);
         return defaultValue;
     }
 };
@@ -64,7 +58,7 @@ export const createPersister = (key, selector) => {
             localStorage.setItem(key, JSON.stringify(dataToStore));
             return true;
         } catch (e) {
-            logger.error(`Failed to persist ${key} to localStorage:`, e);
+            log.error('REDUCER_UTILS', 'PERSIST_ERROR', `Failed to persist ${key} to localStorage:`, e);
             return false;
         }
     };
@@ -91,9 +85,9 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
             // Persist entire state slice
             try {
                 localStorage.setItem(stateKey, JSON.stringify(state));
-                logger.debug(`Persisted state slice: ${stateKey}`);
+                log.debug('REDUCER_UTILS', 'PERSIST_STATE_SLICE', `Persisted state slice: ${stateKey}`);
             } catch (e) {
-                logger.error(`Failed to persist state slice ${stateKey}:`, e);
+                log.error('REDUCER_UTILS', 'PERSIST_STATE_SLICE_ERROR', `Failed to persist state slice ${stateKey}:`, e);
             }
         }
 
@@ -103,9 +97,9 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
                 try {
                     const data = selector(state);
                     localStorage.setItem(key, JSON.stringify(data));
-                    logger.debug(`Persisted state part: ${key}`);
+                    log.debug('REDUCER_UTILS', 'PERSIST_STATE_PART', `Persisted state part: ${key}`);
                 } catch (e) {
-                    logger.error(`Failed to persist state part ${key}:`, e);
+                    log.error('REDUCER_UTILS', 'PERSIST_STATE_PART_ERROR', `Failed to persist state part ${key}:`, e);
                 }
             });
         }
@@ -137,7 +131,7 @@ export const createBoundActions = (actionCreators) => {
     Object.entries(actionCreators).forEach(([key, actionCreator]) => {
         boundActions[key] = (...args) => {
             if (!globalDispatch) {
-                logger.error(`Cannot dispatch ${key}: global dispatch not set. Call setGlobalDispatch() first.`);
+                log.error('REDUCER_UTILS', 'DISPATCH_ERROR', `Cannot dispatch ${key}: global dispatch not set. Call setGlobalDispatch() first.`);
                 return;
             }
             
@@ -170,10 +164,10 @@ export const createStateSlice = (sliceName, config) => {
             if (stored) {
                 const parsed = JSON.parse(stored);
                 loadedInitialState = { ...initialState, ...parsed };
-                logger.debug(`Loaded initial state for ${sliceName} from localStorage`);
+                log.debug('REDUCER_UTILS', 'LOADED_INITIAL_STATE', `Loaded initial state for ${sliceName} from localStorage`);
             }
         } catch (e) {
-            logger.error(`Failed to load initial state for ${sliceName}:`, e);
+            log.error('REDUCER_UTILS', 'LOAD_INITIAL_STATE_ERROR', `Failed to load initial state for ${sliceName}:`, e);
         }
     }
 
@@ -270,13 +264,13 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
         if (stored) {
             const parsed = JSON.parse(stored);
             if (schema && !validateSettings(parsed, schema)) {
-                logger.warn(`Invalid stored settings for ${sliceName}, using defaults`);
+                log.warn('REDUCER_UTILS', 'INVALID_SETTINGS', `Invalid stored settings for ${sliceName}, using defaults`);
             } else {
                 initialState = { ...defaultSettings, ...parsed };
             }
         }
     } catch (e) {
-        logger.error(`Failed to load settings for ${sliceName}:`, e);
+        log.error('REDUCER_UTILS', 'LOAD_SETTINGS_ERROR', `Failed to load settings for ${sliceName}:`, e);
     }
 
     const slice = createStateSlice(sliceName, {
@@ -457,13 +451,13 @@ export const migrationUtils = {
         const stateVersion = state._version || 1;
         
         if (stateVersion < currentVersion) {
-            logger.debug(`Migrating state from v${stateVersion} to v${currentVersion}`);
+            log.debug('REDUCER_UTILS', 'MIGRATING_STATE', `Migrating state from v${stateVersion} to v${currentVersion}`);
             
             for (let v = stateVersion; v < currentVersion; v++) {
                 const migrationKey = `${v}_to_${v + 1}`;
                 if (migrations[migrationKey]) {
                     state = migrations[migrationKey](state);
-                    logger.debug(`Applied migration: ${migrationKey}`);
+                    log.debug('REDUCER_UTILS', 'APPLIED_MIGRATION', `Applied migration: ${migrationKey}`);
                 }
             }
             
@@ -493,7 +487,7 @@ export const migrationUtils = {
                     restConfig.initialState = { ...restConfig.initialState, ...parsed };
                 }
             } catch (e) {
-                logger.error(`Failed to load and migrate state for ${sliceName}:`, e);
+                log.error('REDUCER_UTILS', 'MIGRATE_STATE_ERROR', `Failed to load and migrate state for ${sliceName}:`, e);
             }
         }
         
@@ -532,7 +526,7 @@ export const cleanupUtils = {
         
         keysToRemove.forEach(key => {
             localStorage.removeItem(key);
-            logger.debug(`Cleaned up old state: ${key}`);
+            log.debug('REDUCER_UTILS', 'CLEANED_OLD_STATE', `Cleaned up old state: ${key}`);
         });
         
         return keysToRemove.length;
@@ -556,7 +550,7 @@ export const cleanupUtils = {
             localStorage.removeItem(key);
         });
         
-        logger.debug(`Cleared ${keysToRemove.length} DevPages state entries`);
+        log.debug('REDUCER_UTILS', 'CLEARED_DEVPAGES_STATE', `Cleared ${keysToRemove.length} DevPages state entries`);
         return keysToRemove.length;
     }
 }; 

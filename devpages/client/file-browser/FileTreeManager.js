@@ -3,8 +3,8 @@
  * Manages the file system tree building and state.
  * Adapted from dom-inspector/managers/TreeManager.js
  */
-import { globalFetch } from '/client/globalFetch.js';
-import { logMessage } from '/client/log/index.js';
+
+const log = window.APP.services.log.createLogger('FileTreeManager');
 
 export class FileTreeManager {
     constructor() {
@@ -24,7 +24,7 @@ export class FileTreeManager {
     async buildTree(callbacks = {}, path) {
         this.callbacks = callbacks;
         if (!this.treeContainer) {
-            logMessage('No tree container for building file tree', 'error', 'FileTree');
+            log.error('FILE_TREE', 'NO_CONTAINER', 'No tree container for building file tree');
             return;
         }
 
@@ -47,7 +47,7 @@ export class FileTreeManager {
                 this.treeContainer.innerHTML = '<div class="panel-info-text">No files found.</div>';
             }
         } catch (error) {
-            logMessage(`Error building file tree: ${error.message}`, 'error', 'FileTree');
+            log.error('FILE_TREE', 'BUILD_ERROR', `Error building file tree: ${error.message}`, error);
             this.treeContainer.innerHTML = '<div class="panel-info-text">Error loading files.</div>';
         }
     }
@@ -134,7 +134,7 @@ export class FileTreeManager {
                 }
             } catch (error) {
                 childrenContainer.innerHTML = '<div class="panel-info-text" style="padding-left: 12px;">Error loading files.</div>';
-                logMessage(`Error loading directory ${filePath}: ${error.message}`, 'error', 'FileTree');
+                log.error('FILE_TREE', 'LOAD_DIRECTORY_ERROR', `Error loading directory ${filePath}: ${error.message}`, error);
             }
         }
 
@@ -187,9 +187,9 @@ export class FileTreeManager {
     }
 
     async fetchFileTree(pathname) {
-        logMessage(`Fetching file tree for path: ${pathname}`, 'info', 'FileTree');
+        log.info('FILE_TREE', 'FETCH_START', `Fetching file tree for path: ${pathname}`);
         try {
-            const response = await globalFetch(`/api/files/list?pathname=${encodeURIComponent(pathname)}`);
+            const response = await window.APP.services.globalFetch(`/api/files/list?pathname=${encodeURIComponent(pathname)}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }

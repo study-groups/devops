@@ -6,82 +6,75 @@ import { SettingsPanel } from './SettingsPanel.js';
 import { pageThemeManager } from '../panels/css-design/PageThemeManager.js';
 import { settingsRegistry } from './settingsRegistry.js';
 
-// Helper for logging
-function logSettingsInit(message, level = 'info') {
-  const type = 'SETTINGS_INIT';
-  if (typeof window.logMessage === 'function') {
-    window.logMessage(message, level, type);
-  } else {
-    console.log(`[${type}] ${message}`);
-  }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('SettingsInitializer');
 
 let settingsPanelInstance = null;
 
 export async function initializeSettingsPanel() {
   if (settingsPanelInstance) {
-    logSettingsInit('[DEBUG] initializeSettingsPanel called, instance already exists.');
+    log.debug('INIT', 'ALREADY_INITIALIZED', '[DEBUG] initializeSettingsPanel called, instance already exists.');
     return settingsPanelInstance;
   }
   
   try {
-    logSettingsInit('[DEBUG] Starting settings panel initialization...');
+    log.debug('INIT', 'START', '[DEBUG] Starting settings panel initialization...');
     
     // Debug the registry state before creating the panel
-    logSettingsInit(`[DEBUG] Registry state before panel creation: ${settingsRegistry.count()} panels`);
+    log.debug('INIT', 'REGISTRY_STATE_BEFORE', `[DEBUG] Registry state before panel creation: ${settingsRegistry.count()} panels`);
     if (settingsRegistry.count() === 0) {
-      logSettingsInit('[DEBUG] Registry is empty before panel creation - this is normal during initialization');
+      log.debug('INIT', 'REGISTRY_EMPTY_NORMAL', '[DEBUG] Registry is empty before panel creation - this is normal during initialization');
     }
     
     // Check if the global registry variables are set up correctly
     if (window.settingsRegistry && window.settingsRegistry === settingsRegistry) {
-      logSettingsInit('[DEBUG] window.settingsRegistry is correctly set up');
+      log.debug('INIT', 'REGISTRY_SETUP_OK', '[DEBUG] window.settingsRegistry is correctly set up');
     } else {
-      logSettingsInit('[WARN] window.settingsRegistry is not correctly set up!', 'warn');
+      log.warn('INIT', 'REGISTRY_SETUP_WARN', '[WARN] window.settingsRegistry is not correctly set up!');
     }
     
     if (window.settingsSectionRegistry && window.settingsSectionRegistry === settingsRegistry) {
-      logSettingsInit('[DEBUG] window.settingsSectionRegistry is correctly set up');
+      log.debug('INIT', 'SECTION_REGISTRY_SETUP_OK', '[DEBUG] window.settingsSectionRegistry is correctly set up');
     } else {
-      logSettingsInit('[WARN] window.settingsSectionRegistry is not correctly set up!', 'warn');
+      log.warn('INIT', 'SECTION_REGISTRY_SETUP_WARN', '[WARN] window.settingsSectionRegistry is not correctly set up!');
     }
     
     if (window.devpages && window.devpages.settings && window.devpages.settings.registry === settingsRegistry) {
-      logSettingsInit('[DEBUG] window.devpages.settings.registry is correctly set up');
+      log.debug('INIT', 'DEVPAGES_REGISTRY_SETUP_OK', '[DEBUG] window.devpages.settings.registry is correctly set up');
     } else {
-      logSettingsInit('[WARN] window.devpages.settings.registry is not correctly set up!', 'warn');
+      log.warn('INIT', 'DEVPAGES_REGISTRY_SETUP_WARN', '[WARN] window.devpages.settings.registry is not correctly set up!');
     }
     
-    logSettingsInit('[DEBUG] Creating new SettingsPanel instance...');
+    log.debug('INIT', 'CREATING_INSTANCE', '[DEBUG] Creating new SettingsPanel instance...');
     settingsPanelInstance = new SettingsPanel();
     
-    logSettingsInit('[DEBUG] SettingsPanel instance created successfully.');
+    log.debug('INIT', 'INSTANCE_CREATED', '[DEBUG] SettingsPanel instance created successfully.');
     
     // Load panels dynamically after reducer is set
-    logSettingsInit('[DEBUG] Loading panels dynamically...');
+    log.debug('INIT', 'LOADING_PANELS', '[DEBUG] Loading panels dynamically...');
     await settingsPanelInstance.loadPanels();
-    logSettingsInit('[DEBUG] Panels loaded successfully.');
+    log.debug('INIT', 'PANELS_LOADED', '[DEBUG] Panels loaded successfully.');
     
     // Debug the registry state after loading panels
-    logSettingsInit(`[DEBUG] Registry state after loading panels: ${settingsRegistry.count()} panels`);
+    log.debug('INIT', 'REGISTRY_STATE_AFTER', `[DEBUG] Registry state after loading panels: ${settingsRegistry.count()} panels`);
     if (settingsRegistry.count() === 0) {
-      logSettingsInit('[ERROR] Registry is still empty after loading panels!', 'error');
+      log.error('INIT', 'REGISTRY_STILL_EMPTY', '[ERROR] Registry is still empty after loading panels!');
       
       // Emergency fix - check if panels are registered in a different registry
       if (window.settingsSectionRegistry && window.settingsSectionRegistry !== settingsRegistry) {
         const altCount = window.settingsSectionRegistry.count();
-        logSettingsInit(`[WARN] Found ${altCount} panels in window.settingsSectionRegistry (different instance)`, 'warn');
+        log.warn('INIT', 'FOUND_ALT_REGISTRY', `[WARN] Found ${altCount} panels in window.settingsSectionRegistry (different instance)`);
         
         // Copy panels from the alternate registry to the main one
         if (altCount > 0 && typeof window.settingsSectionRegistry.getPanels === 'function') {
           const altPanels = window.settingsSectionRegistry.getPanels();
-          logSettingsInit(`[INFO] Attempting to copy ${altPanels.length} panels to main registry`, 'info');
+          log.info('INIT', 'COPYING_PANELS', `[INFO] Attempting to copy ${altPanels.length} panels to main registry`);
           
           altPanels.forEach(panel => {
             settingsRegistry.register(panel);
           });
           
-          logSettingsInit(`[INFO] After copy, main registry has ${settingsRegistry.count()} panels`, 'info');
+          log.info('INIT', 'COPY_COMPLETE', `[INFO] After copy, main registry has ${settingsRegistry.count()} panels`);
         }
       }
     }
@@ -91,20 +84,19 @@ export async function initializeSettingsPanel() {
     
     // Start the page theme manager
     try {
-      logSettingsInit('[DEBUG] Starting page theme manager...');
+      log.debug('INIT', 'STARTING_THEME_MANAGER', '[DEBUG] Starting page theme manager...');
       pageThemeManager.start();
-      logSettingsInit('[DEBUG] Page theme manager started successfully.');
+      log.debug('INIT', 'THEME_MANAGER_STARTED', '[DEBUG] Page theme manager started successfully.');
     } catch (themeError) {
-      logSettingsInit(`[ERROR] Page theme manager failed: ${themeError.message}`, 'error');
+      log.error('INIT', 'THEME_MANAGER_FAILED', `[ERROR] Page theme manager failed: ${themeError.message}`, themeError);
       console.error('[SETTINGS INIT] Theme manager error:', themeError);
     }
     
-    logSettingsInit('[DEBUG] Settings panel initialization completed successfully.');
+    log.debug('INIT', 'COMPLETE', '[DEBUG] Settings panel initialization completed successfully.');
     return settingsPanelInstance;
   } catch (error) {
     console.error('[SETTINGS INIT ERROR]', error);
-    logSettingsInit(`[ERROR] Settings panel initialization failed: ${error.message}`, 'error');
-    logSettingsInit(`[ERROR] Error stack: ${error.stack}`, 'error');
+    log.error('INIT', 'FAILED', `[ERROR] Settings panel initialization failed: ${error.message}`, error);
     return null;
   }
 }
@@ -119,6 +111,6 @@ export function destroySettingsPanel() {
         // Stop the page theme manager
         pageThemeManager.stop();
 
-        logSettingsInit('SettingsPanel instance destroyed.');
+        log.info('DESTROY', 'SUCCESS', 'SettingsPanel instance destroyed.');
     }
 }

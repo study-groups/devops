@@ -8,7 +8,6 @@ import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
-import { globalFetch } from '/client/globalFetch.js';
 
 class ThemeSelectorPanel {
   constructor(containerElement) {
@@ -116,7 +115,7 @@ class ThemeSelectorPanel {
   async loadAvailableThemes() {
     try {
       // Get MD_DIR from config  
-      const configResponse = await globalFetch('/api/config');
+      const configResponse = await window.APP.services.globalFetch('/api/config');
       this.mdDir = 'unknown';
       if (configResponse.ok) {
         const config = await configResponse.json();

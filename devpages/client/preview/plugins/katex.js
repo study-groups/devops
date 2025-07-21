@@ -5,7 +5,7 @@
  * using KaTeX for both inline and block math.
  */
 
-import { logMessage } from '../../log/index.js';
+const log = window.APP.services.log.createLogger('KaTeXPlugin');
 
 // CDN URLs for KaTeX assets
 const KATEX_JS_CDN = '/client/vendor/scripts/katex.min.js';
@@ -34,11 +34,11 @@ let config = {
  * @returns {Promise<Boolean>} Whether loading was successful
  */
 async function loadKaTeX() {
-  logMessage('[PREVIEW DEBUG] loadKaTeX started.');
+  log.debug('KATEX', 'LOAD_START', 'loadKaTeX started.');
   try {
     // If already loaded, return early
     if (window.katex && window.renderMathInElement) {
-      logMessage('[PREVIEW DEBUG] KaTeX and renderMathInElement already loaded.');
+      log.debug('KATEX', 'ALREADY_LOADED', 'KaTeX and renderMathInElement already loaded.');
       katex = window.katex;
       renderMathInElement = window.renderMathInElement;
       return true;
@@ -46,12 +46,12 @@ async function loadKaTeX() {
     
     // Check if the script is already loading
     if (document.querySelector(`script[src="${KATEX_JS_CDN}"]`)) {
-      logMessage('[PREVIEW DEBUG] KaTeX JS script already exists in DOM. Waiting...');
+      log.debug('KATEX', 'SCRIPT_EXISTS', 'KaTeX JS script already exists in DOM. Waiting...');
       // Wait for it to load
       await new Promise(resolve => {
         const checkLoaded = () => {
           if (window.katex) {
-            logMessage('[PREVIEW DEBUG] window.katex became available.');
+            log.debug('KATEX', 'WINDOW_KATEX_AVAILABLE', 'window.katex became available.');
             resolve();
           } else {
             setTimeout(checkLoaded, 100);
@@ -61,13 +61,13 @@ async function loadKaTeX() {
       });
       
       katex = window.katex;
-      logMessage('[PREVIEW DEBUG] katex variable assigned after wait.');
+      log.debug('KATEX', 'KATEX_ASSIGNED_AFTER_WAIT', 'katex variable assigned after wait.');
 
     } else {
-      logMessage('[PREVIEW DEBUG] KaTeX JS script not in DOM. Loading CSS and JS...');
+      log.debug('KATEX', 'LOADING_SCRIPT', 'KaTeX JS script not in DOM. Loading CSS and JS...');
       // Load KaTeX CSS
       if (!document.querySelector(`link[href="${KATEX_CSS_CDN}"]`)) {
-        logMessage('[PREVIEW DEBUG] Loading KaTeX CSS.');
+        log.debug('KATEX', 'LOADING_CSS', 'Loading KaTeX CSS.');
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = KATEX_CSS_CDN;
@@ -75,48 +75,47 @@ async function loadKaTeX() {
       }
       
       // Load KaTeX JS
-      logMessage('[PREVIEW DEBUG] Attempting to load KaTeX JS script.');
+      log.debug('KATEX', 'ATTEMPT_LOAD_JS', 'Attempting to load KaTeX JS script.');
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = KATEX_JS_CDN;
         script.async = true;
-        script.onload = () => { logMessage('[PREVIEW DEBUG] KaTeX JS onload triggered.'); resolve(); };
-        script.onerror = (err) => { logMessage(`[PREVIEW DEBUG] KaTeX JS onerror triggered: ${err}`); reject(err); };
+        script.onload = () => { log.debug('KATEX', 'JS_ONLOAD', 'KaTeX JS onload triggered.'); resolve(); };
+        script.onerror = (err) => { log.error('KATEX', 'JS_ONERROR', `KaTeX JS onerror triggered: ${err}`); reject(err); };
         document.head.appendChild(script);
       });
       
-      logMessage('[PREVIEW DEBUG] KaTeX JS script finished loading (promise resolved).');
+      log.debug('KATEX', 'JS_LOADED', 'KaTeX JS script finished loading (promise resolved).');
       katex = window.katex;
-      if (!katex) { logMessage('[PREVIEW DEBUG] WARNING: window.katex is null/undefined after load!'); }
+      if (!katex) { log.warn('KATEX', 'KATEX_NULL_AFTER_LOAD', 'WARNING: window.katex is null/undefined after load!'); }
       
       // Load auto-render extension
-      logMessage('[PREVIEW DEBUG] Attempting to load auto-render script.');
+      log.debug('KATEX', 'ATTEMPT_LOAD_AUTORENDER', 'Attempting to load auto-render script.');
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = KATEX_AUTO_CDN;
         script.async = true;
-        script.onload = () => { logMessage('[PREVIEW DEBUG] Auto-render JS onload triggered.'); resolve(); };
-        script.onerror = (err) => { logMessage(`[PREVIEW DEBUG] Auto-render JS onerror triggered: ${err}`); reject(err); };
+        script.onload = () => { log.debug('KATEX', 'AUTORENDER_ONLOAD', 'Auto-render JS onload triggered.'); resolve(); };
+        script.onerror = (err) => { log.error('KATEX', 'AUTORENDER_ONERROR', `Auto-render JS onerror triggered: ${err}`); reject(err); };
         document.head.appendChild(script);
       });
       
-      logMessage('[PREVIEW DEBUG] Auto-render script finished loading (promise resolved).');
+      log.debug('KATEX', 'AUTORENDER_LOADED', 'Auto-render script finished loading (promise resolved).');
       renderMathInElement = window.renderMathInElement;
-      if (!renderMathInElement) { logMessage('[PREVIEW DEBUG] WARNING: window.renderMathInElement is null/undefined after load!'); }
+      if (!renderMathInElement) { log.warn('KATEX', 'AUTORENDER_NULL_AFTER_LOAD', 'WARNING: window.renderMathInElement is null/undefined after load!'); }
     }
     
-    logMessage('[PREVIEW DEBUG] Checking final katex and renderMathInElement variables.');
+    log.debug('KATEX', 'FINAL_CHECK', 'Checking final katex and renderMathInElement variables.');
     if (!katex || !renderMathInElement) {
-      logMessage('[PREVIEW DEBUG] Final check FAILED.');
+      log.error('KATEX', 'FINAL_CHECK_FAILED', 'Final check FAILED.');
       throw new Error('KaTeX or auto-render extension not loaded');
     }
     
-    logMessage('[PREVIEW DEBUG] Final check PASSED. KaTeX loaded successfully');
-    logMessage('[PREVIEW] KaTeX loaded successfully');
+    log.debug('KATEX', 'FINAL_CHECK_PASSED', 'Final check PASSED. KaTeX loaded successfully');
+    log.info('KATEX', 'LOAD_SUCCESS', 'KaTeX loaded successfully');
     return true;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to load KaTeX: ${error.message}`);
-    console.error('[PREVIEW ERROR] KaTeX load:', error);
+    log.error('KATEX', 'LOAD_ERROR', `Failed to load KaTeX: ${error.message}`, error);
     return false;
   }
 }
@@ -139,11 +138,10 @@ async function init(options = {}) {
       config = { ...config, ...options.katexOptions };
     }
     
-    logMessage('[PREVIEW] KaTeX plugin initialized');
+    log.info('KATEX', 'INIT_SUCCESS', 'KaTeX plugin initialized');
     return true;
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to initialize KaTeX plugin: ${error.message}`);
-    console.error('[PREVIEW ERROR] KaTeX plugin:', error);
+    log.error('KATEX', 'INIT_ERROR', `Failed to initialize KaTeX plugin: ${error.message}`, error);
     return false;
   }
 }
@@ -166,12 +164,12 @@ function processInlineMath(text) {
           throwOnError: false
         });
       } catch (error) {
-        console.error('[PREVIEW ERROR] KaTeX inline math:', error);
+        log.error('KATEX', 'INLINE_MATH_ERROR', 'KaTeX inline math:', error);
         return `<span class="katex-error" title="${error.message}">${match}</span>`;
       }
     });
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to process inline math: ${error.message}`);
+    log.error('KATEX', 'PROCESS_INLINE_MATH_ERROR', `Failed to process inline math: ${error.message}`, error);
     return text;
   }
 }
@@ -200,7 +198,7 @@ function codeRenderer(code, infostring) {
       strict: config.strict
     });
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed to render math block: ${error.message}`);
+    log.error('KATEX', 'RENDER_MATH_BLOCK_ERROR', `Failed to render math block: ${error.message}`, error);
     
     // Return error message
     return `
@@ -221,7 +219,7 @@ function codeRenderer(code, infostring) {
 async function postProcess(element) {
   try {
     if (!katex || !renderMathInElement) {
-      logMessage('[PREVIEW WARNING] KaTeX not fully loaded, skipping math rendering');
+      log.warn('KATEX', 'KATEX_NOT_LOADED_SKIP_RENDER', 'KaTeX not fully loaded, skipping math rendering');
       return;
     }
     
@@ -231,10 +229,9 @@ async function postProcess(element) {
       output: 'html'
     });
     
-    logMessage('[PREVIEW] Math expressions rendered');
+    log.info('KATEX', 'MATH_EXPRESSIONS_RENDERED', 'Math expressions rendered');
   } catch (error) {
-    logMessage(`[PREVIEW ERROR] Failed during KaTeX post-processing: ${error.message}`);
-    console.error('[PREVIEW ERROR] KaTeX post-process:', error);
+    log.error('KATEX', 'POST_PROCESS_ERROR', `Failed during KaTeX post-processing: ${error.message}`, error);
   }
 }
 
@@ -253,11 +250,10 @@ export class KaTeXPlugin {
   async init(options = {}) {
     try {
       this.initialized = await init(options);
-      logMessage('[KATEX PLUGIN] Initialization ' + (this.initialized ? 'successful' : 'failed'));
+      log.info('KATEX', 'INIT_STATUS', 'Initialization ' + (this.initialized ? 'successful' : 'failed'));
       return this.initialized;
     } catch (error) {
-      logMessage(`[KATEX PLUGIN] Initialization failed: ${error.message}`, 'error');
-      console.error('[KATEX PLUGIN] Error during init:', error);
+      log.error('KATEX', 'PLUGIN_INIT_ERROR', `Initialization failed: ${error.message}`, error);
       this.initialized = false;
       return false;
     }
@@ -267,7 +263,7 @@ export class KaTeXPlugin {
     if (!this.initialized) {
       await this.init(); // Try to initialize if not already done
       if (!this.initialized) {
-        logMessage('[KATEX PLUGIN] Cannot process content - plugin not initialized', 'warning');
+        log.warn('KATEX', 'PROCESS_NOT_INITIALIZED', 'Cannot process content - plugin not initialized');
         return;
       }
     }
@@ -276,15 +272,14 @@ export class KaTeXPlugin {
     // --- Running renderMathInElement here would try to re-process already rendered HTML, causing errors. --- 
     /*
     try {
-      logMessage('[KATEX PLUGIN] Processing math expressions...');
+      log.info('KATEX', 'PROCESSING_MATH_EXPRESSIONS', 'Processing math expressions...');
       await postProcess(previewElement);
-      logMessage('[KATEX PLUGIN] Math expressions processed successfully');
+      log.info('KATEX', 'MATH_EXPRESSIONS_PROCESSED_SUCCESSFULLY', 'Math expressions processed successfully');
     } catch (error) {
-      logMessage(`[KATEX PLUGIN] Error processing math: ${error.message}`, 'error');
-      console.error('[KATEX PLUGIN] Error during processing:', error);
+      log.error('KATEX', 'ERROR_PROCESSING_MATH', `Error processing math: ${error.message}`, error);
     }
     */
-   logMessage('[KATEX PLUGIN] Skipping process step as markdown-it handles rendering.', 'debug');
+   log.debug('KATEX', 'SKIPPING_PROCESS_STEP', 'Skipping process step as markdown-it handles rendering.');
   }
   
   // Used by markdown-it system

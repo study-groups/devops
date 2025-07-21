@@ -4,13 +4,15 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { logMessage } from '/client/log/index.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('SYSTEM', 'AppDispatch');
 
 // Import all the slice actions and thunks for easy access
 import { authThunks } from '/client/store/slices/authSlice.js';
 import { logThunks } from '/client/store/slices/logSlice.js';
-import { fetchListingByPath } from '/client/store/slices/pathSlice.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 
 /**
  * Enhanced dispatch function that wraps appStore.dispatch
@@ -36,7 +38,7 @@ export const appDispatch = (action) => {
         throw new Error('appDispatch expects an action object or thunk function');
         
     } catch (error) {
-        logMessage(`appDispatch error: ${error.message}`, 'error', 'APP_DISPATCH', { action });
+        log.error('DISPATCH_ERROR', `appDispatch error: ${error.message}`, { action });
         throw error;
     }
 };
@@ -57,7 +59,7 @@ export const dispatchers = {
     // Path/File system actions  
     path: {
         fetchListing: (pathname, isDirectory = true) => 
-            appDispatch(fetchListingByPath({ pathname, isDirectory })),
+            appDispatch(pathThunks.fetchListingByPath({ pathname, isDirectory })),
     },
     
     // Logging actions
@@ -117,7 +119,7 @@ export const safeDispatch = async (action, options = {}) => {
         return result;
         
     } catch (error) {
-        logMessage(`safeDispatch error: ${error.message}`, 'error', 'SAFE_DISPATCH');
+        log.error('SAFE_DISPATCH_ERROR', `safeDispatch error: ${error.message}`);
         
         if (onError) {
             onError(error);
@@ -174,4 +176,4 @@ export default appDispatch;
 // Expose appStore for direct access when needed
 export { appStore } from '/client/appState.js';
 
-logMessage('appDispatch module initialized with StateKit integration', 'debug', 'APP_DISPATCH'); 
+log.info('INITIALIZED', 'appDispatch module initialized with StateKit integration'); 

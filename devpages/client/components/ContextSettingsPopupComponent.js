@@ -4,16 +4,7 @@ import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 // Using the reducer system instead of SettingsStateManager
 
-const logContextSettings = (message, level = 'debug', subtype = 'RENDER') => {
-    const type = "CTX_SETTINGS";
-    const fullType = `${type}${subtype ? `_${subtype}` : ''}`;
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, fullType);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : (level === 'info' ? console.info : console.log));
-        logFunc(`[${fullType}] ${message}`);
-    }
-};
+const log = window.APP.services.log.createLogger('ContextSettingsPopup');
 
 export function createContextSettingsPopupComponent(popupId = 'context-settings-popup') {
     let popupElement = null;
@@ -63,14 +54,14 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     function startHeartbeat() {
         stopHeartbeat(); // Ensure no double interval
         heartbeatRunning = true;
-        logContextSettings(`Heartbeat started. Interval: ${heartbeatIntervalMs}ms, Refresh: ${heartbeatRefreshFileList}, CheckServer: ${heartbeatCheckServer}`, 'EVENT');
+        log.info('HEARTBEAT', 'START', `Heartbeat started. Interval: ${heartbeatIntervalMs}ms, Refresh: ${heartbeatRefreshFileList}, CheckServer: ${heartbeatCheckServer}`);
         heartbeatTimer = setInterval(() => {
             if (heartbeatRefreshFileList) {
-                logContextSettings('Heartbeat: Refreshing file list', 'EVENT');
+                log.info('HEARTBEAT', 'REFRESH_FILE_LIST', 'Heartbeat: Refreshing file list');
                 dispatch({ type: ActionTypes.FILE_LIST_REFRESH });
             }
             if (heartbeatCheckServer) {
-                logContextSettings('Heartbeat: Checking for server messages (stub)', 'EVENT');
+                log.info('HEARTBEAT', 'CHECK_SERVER', 'Heartbeat: Checking for server messages (stub)');
                 // Stub: Replace with real server check later
                 checkServerMessagesStub();
             }
@@ -84,7 +75,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
             heartbeatTimer = null;
         }
         if (heartbeatRunning) {
-            logContextSettings('Heartbeat stopped.', 'EVENT');
+            log.info('HEARTBEAT', 'STOP', 'Heartbeat stopped.');
         }
         heartbeatRunning = false;
         render();
@@ -92,7 +83,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
 
     function checkServerMessagesStub() {
         // Stub for future server message check
-        logContextSettings('Stub: Would check server messages here.', 'DEBUG');
+        log.debug('HEARTBEAT', 'STUB', 'Stub: Would check server messages here.');
     }
 
     // --- Heartbeat form handlers ---
@@ -118,11 +109,11 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
 
     const render = () => {
         if (!popupElement) {
-            logContextSettings('Render skipped: popupElement is null', 'warn');
+            log.warn('RENDER', 'POPUP_ELEMENT_NULL', 'Render skipped: popupElement is null');
             return;
         }
         
-        logContextSettings('Render START for popup', 'VISIBILITY_DETAIL');
+        log.debug('RENDER', 'START', 'Render START for popup');
 
         // Simple org selector options
         const orgOptionsHTML = `
@@ -194,7 +185,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         // Attach event listeners
         attachEventListeners();
 
-        logContextSettings('Render END for popup', 'VISIBILITY_DETAIL');
+        log.debug('RENDER', 'END', 'Render END for popup');
     };
 
     const attachEventListeners = () => {
@@ -325,7 +316,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
 
     const handleOrgChange = (event) => {
         const newSelectedOrg = event.target.value;
-        logContextSettings(`Org selection changed to: ${newSelectedOrg}`, 'EVENT');
+        log.info('ORG', 'CHANGE', `Org selection changed to: ${newSelectedOrg}`);
         
         if (newSelectedOrg && newSelectedOrg !== currentSelectedOrg) {
             // Use the proper dispatch function from messageQueue
@@ -342,7 +333,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
 
     const show = (props = {}) => {
         if (!popupElement) {
-            logContextSettings('Cannot show popup: popupElement is null', 'error');
+            log.error('POPUP', 'SHOW_ERROR', 'Cannot show popup: popupElement is null');
             return;
         }
         
@@ -354,7 +345,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         currentSelectedOrg = currentStateFromApp.settings?.selectedOrg || 'pixeljam-arcade';
         currentDisplayPathname = props.displayPathname || currentStateFromApp.file?.currentPathname || '';
 
-        logContextSettings(`Show popup with org: ${currentSelectedOrg}`, 'VISIBILITY');
+        log.info('POPUP', 'SHOW', `Show popup with org: ${currentSelectedOrg}`);
         
         render();
         popupElement.style.display = 'block';
@@ -366,7 +357,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
 
     const hide = () => {
         if (!popupElement) return;
-        logContextSettings('Hiding popup', 'VISIBILITY');
+        log.info('POPUP', 'HIDE', 'Hiding popup');
         popupElement.style.display = 'none';
         isVisible = false;
         
@@ -375,15 +366,13 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     };
 
     const mount = (targetBody = document.body) => {
-        console.log(`[CTX POPUP MOUNT] >>>>> Popup mount CALLED. popupId: ${popupId} <<<<<`);
-        logContextSettings(`Mount_Popup: Initializing. popupId: ${popupId}. Target DOM body: ${targetBody ? 'Exists' : 'NULL'}`, 'MOUNT');
+        log.info('POPUP', 'MOUNT_START', `Mount_Popup: Initializing. popupId: ${popupId}. Target DOM body: ${targetBody ? 'Exists' : 'NULL'}`);
 
         if (document.getElementById(popupId)) {
             popupElement = document.getElementById(popupId);
-            logContextSettings(`Mount_Popup: Element with ID ${popupId} ALREADY EXISTS in DOM. Re-using.`, 'MOUNT_DETAIL');
-            console.log(`[CTX POPUP MOUNT] Re-using existing element:`, popupElement);
+            log.info('POPUP', 'MOUNT_REUSE', `Mount_Popup: Element with ID ${popupId} ALREADY EXISTS in DOM. Re-using.`);
         } else {
-            logContextSettings(`Mount_Popup: Element with ID ${popupId} NOT found. Creating new div.`, 'MOUNT_DETAIL');
+            log.info('POPUP', 'MOUNT_CREATE', `Mount_Popup: Element with ID ${popupId} NOT found. Creating new div.`);
             popupElement = document.createElement('div');
             popupElement.id = popupId;
             popupElement.className = 'context-settings-popup-overlay'; 
@@ -391,22 +380,19 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
             
             if (targetBody && typeof targetBody.appendChild === 'function') {
                 targetBody.appendChild(popupElement);
-                logContextSettings(`Mount_Popup: New div for ${popupId} APPENDED to targetBody.`, 'MOUNT_DETAIL');
-                console.log(`[CTX POPUP MOUNT] New div appended:`, popupElement);
-                console.log(`[CTX POPUP MOUNT] Parent of new div:`, popupElement.parentElement);
+                log.info('POPUP', 'MOUNT_APPEND', `Mount_Popup: New div for ${popupId} APPENDED to targetBody.`);
             } else {
-                logContextSettings(`Mount_Popup CRITICAL FAILURE: targetBody is invalid or has no appendChild method. Cannot append ${popupId}.`, 'ERROR_LIFECYCLE');
-                console.error(`[CTX POPUP MOUNT] CRITICAL: targetBody invalid for appendChild. targetBody:`, targetBody);
+                log.error('POPUP', 'MOUNT_FAILURE', `Mount_Popup CRITICAL FAILURE: targetBody is invalid or has no appendChild method. Cannot append ${popupId}.`);
                 popupElement = null; // Don't use an unappended element
                 return { show: ()=>{}, hide: ()=>{}, isVisible: ()=>false }; // Return dummy object
             }
         }
         // Ensure render is called if popupElement is valid
         if (popupElement) {
-            logContextSettings(`Mount_Popup: Calling initial render for ${popupId}.`, 'MOUNT_DETAIL');
+            log.info('POPUP', 'MOUNT_RENDER', `Mount_Popup: Calling initial render for ${popupId}.`);
             render();
         } else {
-            logContextSettings(`Mount_Popup: popupElement is null for ${popupId} after creation/check, skipping initial render.`, 'WARN_LIFECYCLE');
+            log.warn('POPUP', 'MOUNT_RENDER_SKIP', `Mount_Popup: popupElement is null for ${popupId} after creation/check, skipping initial render.`);
         }
         return { show, hide, isVisible: () => isVisible };
     };
@@ -414,7 +400,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
     const destroy = () => {
         if (popupElement && popupElement.parentNode) {
             popupElement.parentNode.removeChild(popupElement);
-            logContextSettings(`Popup element #${popupId} removed.`, 'DESTROY');
+            log.info('POPUP', 'DESTROY', `Popup element #${popupId} removed.`);
         }
         popupElement = null;
         isVisible = false;

@@ -239,20 +239,7 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
         }
     };
 
-    // Handle app state changes
-    const handleAppStateChange = (newState, prevState) => {
-        const newWorkspace = newState?.workspace || {};
-        const prevWorkspace = prevState?.workspace || {};
-
-        if (JSON.stringify(newWorkspace) !== JSON.stringify(prevWorkspace)) {
-            updateToggleButtons(newWorkspace);
-        }
-
-        const newUi = newState?.ui || {};
-        updateLogButtonState(newUi.logVisible || false);
-    };
-
-    const mount = () => {
+    function init() {
         logMessage('Mounting ViewControls with text/preview system...', 'info', 'VIEW_CONTROLS');
         
         element = document.getElementById(targetElementId);
@@ -268,9 +255,15 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
             <button id="preview-reload-btn" class="btn btn-ghost btn-sm" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
         `;
         
-        // Subscribe to app state changes
-        if (appStateUnsubscribe) appStateUnsubscribe();
-        appStateUnsubscribe = appStore.subscribe(handleAppStateChange);
+        let prevState = appStore.getState(); // Initialize previous state
+        appStateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            handleAppStateChange(newState, prevState);
+            prevState = newState; // Update previous state
+        });
+
+        // Initial render
+        handleAppStateChange(appStore.getState(), {});
         
         // Subscribe to layout system events
         if (eventBus && typeof eventBus.on === 'function') {
@@ -379,7 +372,20 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
         });
 
         logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');       return true;
-    };
+    }
+
+    function handleAppStateChange(newState, prevState) {
+        if (!prevState) return; // Guard against initial undefined state
+        const newViewMode = newState.ui.viewMode;
+        const oldViewMode = prevState.ui.viewMode;
+
+        if (newViewMode !== oldViewMode) {
+            // This function is now called directly by the subscribe callback,
+            // so we don't need to call render() here.
+            // The updateToggleButtons and updateLogButtonState functions
+            // will be called by the subscribe callback.
+        }
+    }
 
     const destroy = () => {
         logMessage('Destroying ViewControls...', 'info', 'VIEW_CONTROLS');
@@ -398,7 +404,7 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
     };
 
     return {
-        mount,
+        init, // Changed from mount to init
         destroy
     };
 }

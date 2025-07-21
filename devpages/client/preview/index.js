@@ -11,8 +11,9 @@ import {
     updatePreviewContent as updatePreviewContentAction 
 } from '/client/store/slices/previewSlice.js';
 import { createAsyncThunk } from '/packages/devpages-statekit/src/index.js';
-import { logMessage } from '/client/log/index.js';
 import { renderMarkdown, postProcessRender } from './renderer.js';
+
+const log = window.APP.services.log.createLogger('Preview');
 
 // --- Thunks ---
 
@@ -32,7 +33,7 @@ export const updatePreview = createAsyncThunk(
             // This thunk just provides the necessary data.
             return { html, frontMatter, externalScriptUrls, inlineScriptContents };
         } catch (error) {
-            logMessage(`Failed to update preview: ${error.message}`, 'error', 'PREVIEW');
+            log.error('PREVIEW', 'UPDATE_ERROR', `Failed to update preview: ${error.message}`, error);
             throw error;
         }
     }
@@ -46,11 +47,11 @@ export const updatePreview = createAsyncThunk(
  * @returns {Promise<void>}
  */
 export async function initPreview(options = {}) {
-    logMessage('Dispatching preview system initialization...', 'info', 'PREVIEW');
+    log.info('PREVIEW', 'INIT_START', 'Dispatching preview system initialization...');
     try {
         await appStore.dispatch(initializePreviewSystem());
     } catch (error) {
-        logMessage(`Error during preview initialization dispatch: ${error.message}`, 'error', 'PREVIEW');
+        log.error('PREVIEW', 'INIT_ERROR', `Error during preview initialization dispatch: ${error.message}`, error);
     }
 }
 
@@ -71,7 +72,7 @@ export function updatePreviewContent(content, filePath) {
 export function setPreviewTheme(theme) {
     // This should dispatch an action to the settings slice
     // Example: appStore.dispatch(updatePreviewSettings({ theme }));
-    logMessage(`Setting theme to ${theme} should be handled by settingsSlice`, 'warn', 'PREVIEW');
+    log.warn('PREVIEW', 'DEPRECATED_THEME_SETTER', `Setting theme to ${theme} should be handled by settingsSlice`);
 }
 
 // Export additional components for advanced use if necessary

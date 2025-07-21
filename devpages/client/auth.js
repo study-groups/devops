@@ -12,13 +12,16 @@ import { api } from '/client/api.js'; // Import the centralized API object
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('Auth');
+
 // --- Public API ---
 
 /**
  * Checks the initial authentication status with the server and updates central state.
  */
 async function checkInitialAuthStatus() {
-    logAuth('[AUTH] Checking initial auth status with server...');
+    log.info('AUTH', 'CHECK_INITIAL_STATUS', '[AUTH] Checking initial auth status with server...');
     // Dispatch start action
     dispatch({ type: ActionTypes.AUTH_INIT_START });
 
@@ -29,30 +32,25 @@ async function checkInitialAuthStatus() {
     };
 
     try {
-        logAuth('[AUTH checkInitialAuthStatus] Awaiting api.getUserStatus()...', 'debug');
-        console.log('[AUTH DEBUG] About to call api.getUserStatus()');
-        console.log('[AUTH DEBUG] Current cookies:', document.cookie);
+        log.debug('AUTH', 'AWAIT_USER_STATUS', '[AUTH checkInitialAuthStatus] Awaiting api.getUserStatus()...');
         
         const result = await api.getUserStatus(); 
-        console.log('[AUTH DEBUG] api.getUserStatus() result:', result);
-        console.log('[AUTH DEBUG] Result status:', result?.status);
-        console.log('[AUTH DEBUG] Result ok:', result?.ok);
         
-        logAuth(`[AUTH checkInitialAuthStatus] api.getUserStatus() responded with status: ${result?.status}`, 'debug');
+        log.debug('AUTH', 'USER_STATUS_RESPONSE', `[AUTH checkInitialAuthStatus] api.getUserStatus() responded with status: ${result?.status}`);
 
         if (result.ok) {
             const data = await result.json();
             if (data.username) {
-                logAuth(`[AUTH] Server confirmed active session for: ${data.username} (Role: ${data.role})`);
+                log.info('AUTH', 'SESSION_CONFIRMED', `[AUTH] Server confirmed active session for: ${data.username} (Role: ${data.role})`);
                 authResult = {
                     isAuthenticated: true,
                     user: { username: data.username, role: data.role },
                 };
             } else {
-                 logAuth('[AUTH] Server status OK but no username returned.', 'warning');
+                 log.warn('AUTH', 'NO_USERNAME_IN_RESPONSE', '[AUTH] Server status OK but no username returned.');
             }
         } else if (result.status === 401) {
-            logAuth('[AUTH] No active session found on server.');
+            log.info('AUTH', 'NO_ACTIVE_SESSION', '[AUTH] No active session found on server.');
         } else {
             // Read error message from response if possible
             let errorMsg = `Server status check failed: ${result.status}`;
@@ -60,17 +58,17 @@ async function checkInitialAuthStatus() {
                 const errorData = await result.text(); // Use text() for non-JSON errors
                 errorMsg = `${errorMsg} - ${errorData.substring(0, 100)}`; // Append response snippet
             } catch(e){/*Ignore parse error*/}
-            logAuth(`[AUTH] Unexpected status ${result.status} checking auth status. ${errorMsg}`, 'error');
+            log.error('AUTH', 'UNEXPECTED_STATUS', `[AUTH] Unexpected status ${result.status} checking auth status. ${errorMsg}`);
             authResult.error = errorMsg;
         }
     } catch (error) {
-        logAuth(`[AUTH] Error checking initial auth status: ${error.message}`, 'error');
+        log.error('AUTH', 'CHECK_STATUS_ERROR', `[AUTH] Error checking initial auth status: ${error.message}`, error);
         authResult.error = 'Network error checking auth status';
     }
 
     // Dispatch completion action
     dispatch({ type: ActionTypes.AUTH_INIT_COMPLETE, payload: authResult });
-    logAuth(`[AUTH] Initial auth check complete. isAuthenticated: ${authResult.isAuthenticated}`);
+    log.info('AUTH', 'CHECK_STATUS_COMPLETE', `[AUTH] Initial auth check complete. isAuthenticated: ${authResult.isAuthenticated}`);
 }
 
 /**
@@ -78,24 +76,24 @@ async function checkInitialAuthStatus() {
  * and setting up event listeners. Called from bootstrap.js.
  */
 export function initAuth() {
-    logAuth('[AUTH] Initializing authentication system...');
+    log.info('AUTH', 'INIT_SYSTEM', '[AUTH] Initializing authentication system...');
     checkInitialAuthStatus(); // This function now manages isInitializing state
     
     // Listen for login requests from UI components
     // Avoid adding listener multiple times if initAuth is called again
     if (!window.APP?.authLoginListenerAttached) {
         eventBus.on('auth:loginRequested', ({ username, password }) => {
-            logAuth(`[AUTH] Received auth:loginRequested for user: ${username}`);
+            log.info('AUTH', 'LOGIN_REQUESTED', `[AUTH] Received auth:loginRequested for user: ${username}`);
             handleLogin(username, password); 
         });
         window.APP = window.APP || {};
         window.APP.authLoginListenerAttached = true; // Set flag
-        logAuth('[AUTH] Event listener for auth:loginRequested set up.');
+        log.info('AUTH', 'EVENT_LISTENER_SET_UP', '[AUTH] Event listener for auth:loginRequested set up.');
     } else {
-         logAuth('[AUTH] Event listener for auth:loginRequested already attached.');
+         log.info('AUTH', 'EVENT_LISTENER_ALREADY_ATTACHED', '[AUTH] Event listener for auth:loginRequested already attached.');
     }
     
-    logAuth('[AUTH] System initialized. Initial check started.');
+    log.info('AUTH', 'SYSTEM_INITIALIZED', '[AUTH] System initialized. Initial check started.');
 }
 
 /**
@@ -107,7 +105,7 @@ export function initAuth() {
  */
 async function handleLogin(username, password) {
   if (!username || !password) {
-    logAuth('[AUTH] Login attempt with missing credentials', 'warning');
+    log.warn('AUTH', 'LOGIN_MISSING_CREDENTIALS', '[AUTH] Login attempt with missing credentials');
     dispatch({ type: ActionTypes.AUTH_LOGIN_FAILURE, payload: { error: 'Username and password required' } });
     return;
   }
@@ -123,19 +121,19 @@ async function handleLogin(username, password) {
   let success = false;
 
   try {
-    logAuth(`[AUTH handleLogin] Calling api.login for user: ${username}`);
+    log.info('AUTH', 'CALLING_API_LOGIN', `[AUTH handleLogin] Calling api.login for user: ${username}`);
     const user = await api.login(username, password); // Expects { username, role, ...}
 
-    logAuth(`[AUTH handleLogin] api.login response received: ${JSON.stringify(user)}`, 'debug'); // Log response
+    log.debug('AUTH', 'API_LOGIN_RESPONSE', `[AUTH handleLogin] api.login response received: ${JSON.stringify(user)}`); // Log response
 
     // --- CRITICAL: Role Check ---
     if (!user || !user.role) {
-        logAuth(`[AUTH handleLogin] Role check failed for user data: ${JSON.stringify(user)}`, 'error');
+        log.error('AUTH', 'ROLE_CHECK_FAILED', `[AUTH handleLogin] Role check failed for user data: ${JSON.stringify(user)}`);
         throw new Error('User role not configured. Login aborted.');
     }
     // --- End Role Check ---
 
-    logAuth(`[AUTH handleLogin] Login API call successful for: ${user.username} (Role: ${user.role})`);
+    log.info('AUTH', 'LOGIN_API_SUCCESS', `[AUTH handleLogin] Login API call successful for: ${user.username} (Role: ${user.role})`);
     loginResult = {
         isAuthenticated: true,
         user: user, // Store the full user object
@@ -143,15 +141,15 @@ async function handleLogin(username, password) {
     };
 
     // Log before dispatching success
-    logAuth(`[AUTH handleLogin] Dispatching AUTH_LOGIN_SUCCESS with payload: ${JSON.stringify(loginResult)}`, 'debug');
+    log.debug('AUTH', 'DISPATCHING_LOGIN_SUCCESS', `[AUTH handleLogin] Dispatching AUTH_LOGIN_SUCCESS with payload: ${JSON.stringify(loginResult)}`);
     dispatch({ type: ActionTypes.AUTH_LOGIN_SUCCESS, payload: loginResult });
     success = true;
 
   } catch (error) {
-    logAuth(`[AUTH handleLogin] Caught error: ${error.message}`, 'error'); // Log the caught error
+    log.error('AUTH', 'LOGIN_CAUGHT_ERROR', `[AUTH handleLogin] Caught error: ${error.message}`, error); // Log the caught error
     loginResult.error = error.message;
     // Log before dispatching failure
-    logAuth(`[AUTH handleLogin] Dispatching AUTH_LOGIN_FAILURE with payload: ${JSON.stringify(loginResult)}`, 'debug');
+    log.debug('AUTH', 'DISPATCHING_LOGIN_FAILURE', `[AUTH handleLogin] Dispatching AUTH_LOGIN_FAILURE with payload: ${JSON.stringify(loginResult)}`);
     safeDispatch({ type: ActionTypes.AUTH_LOGIN_FAILURE, payload: loginResult });
     success = false;
   }
@@ -165,45 +163,43 @@ async function handleLogin(username, password) {
  */
 export async function logout(notifyServer = true) {
   const username = appStore.getState().auth.user?.username;
-  logAuth(`[LOGOUT_FLOW] Logout requested for ${username || 'user'}. Notify server: ${notifyServer}`);
-
-  logAuth(`[LOGOUT_FLOW] (Removed isLoading = true dispatch)`);
+  log.info('LOGOUT', 'START', `[LOGOUT_FLOW] Logout requested for ${username || 'user'}. Notify server: ${notifyServer}`);
 
   if (notifyServer) {
     try {
-      logAuth(`[LOGOUT_FLOW] Calling api.logout()...`);
+      log.info('LOGOUT', 'CALLING_API_LOGOUT', `[LOGOUT_FLOW] Calling api.logout()...`);
       await api.logout();
-      logAuth('[LOGOUT_FLOW] Server logout successful.');
+      log.info('LOGOUT', 'API_LOGOUT_SUCCESS', '[LOGOUT_FLOW] Server logout successful.');
     } catch (error) {
-      logAuth(`[LOGOUT_FLOW] Error calling api.logout(): ${error.message}`, 'error');
+      log.error('LOGOUT', 'API_LOGOUT_ERROR', `[LOGOUT_FLOW] Error calling api.logout(): ${error.message}`, error);
     }
   }
 
   // --- Client-side state clearing --- 
   try {
-      logAuth('[LOGOUT_FLOW] Clearing fileSystemState...');
+      log.info('LOGOUT', 'CLEARING_FILESYSTEM_STATE', '[LOGOUT_FLOW] Clearing fileSystemState...');
       fileSystemState.saveState({ currentDir: '', currentFile: '' });
-      logAuth('[LOGOUT_FLOW] fileSystemState cleared.');
+      log.info('LOGOUT', 'FILESYSTEM_STATE_CLEARED', '[LOGOUT_FLOW] fileSystemState cleared.');
   } catch (fsError) {
-       logAuth(`[LOGOUT_FLOW WARNING] Failed to clear fileSystemState: ${fsError.message}`, 'warning');
+       log.warn('LOGOUT', 'FILESYSTEM_STATE_CLEAR_ERROR', `[LOGOUT_FLOW WARNING] Failed to clear fileSystemState: ${fsError.message}`, fsError);
   }
 
   try {
-      logAuth('[LOGOUT_FLOW] Clearing editor content...');
+      log.info('LOGOUT', 'CLEARING_EDITOR_CONTENT', '[LOGOUT_FLOW] Clearing editor content...');
       if (window.editor && typeof window.editor.setContent === 'function') {
           window.editor.setContent('');
-          logAuth('[LOGOUT_FLOW] Editor content cleared.');
+          log.info('LOGOUT', 'EDITOR_CONTENT_CLEARED', '[LOGOUT_FLOW] Editor content cleared.');
       } else {
-           logAuth('[LOGOUT_FLOW WARNING] window.editor or setContent not found.', 'warning');
+           log.warn('LOGOUT', 'EDITOR_NOT_FOUND', '[LOGOUT_FLOW WARNING] window.editor or setContent not found.');
       }
   } catch (editorError) {
-       logAuth(`[LOGOUT_FLOW WARNING] Failed to clear editor content: ${editorError.message}`, 'warning');
+       log.warn('LOGOUT', 'EDITOR_CLEAR_ERROR', `[LOGOUT_FLOW WARNING] Failed to clear editor content: ${editorError.message}`, editorError);
   }
   // --- End Client-side state clearing --- 
 
   // Dispatch AUTH_LOGOUT action - reducer handles resetting auth state
   dispatch({ type: ActionTypes.AUTH_LOGOUT });
-  logAuth('[LOGOUT_FLOW] Dispatched AUTH_LOGOUT. State reset handled by reducer/subscribers.');
+  log.info('LOGOUT', 'DISPATCHED_LOGOUT', '[LOGOUT_FLOW] Dispatched AUTH_LOGOUT. State reset handled by reducer/subscribers.');
   // Note: fileManager will see the auth state change via its subscription
   // and call its own resetFileManagerState function.
 }
@@ -212,20 +208,4 @@ export async function logout(notifyServer = true) {
 export default {
   initAuth,
   logout,
-};
-
-/**
- * Wrapper for logging auth messages.
- * Uses window.logMessage if available, otherwise console.log.
- * @param {string} message
- * @param {string} [logLevel='info'] - 'text', 'error', 'warning', 'info', 'debug'
- */
-function logAuth(message, logLevel = 'info') {
-    const type = 'AUTH'; // Keep specific type
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, logLevel, type);
-    } else {
-        const logFunc = logLevel === 'error' ? console.error : (logLevel === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-} 
+}; 

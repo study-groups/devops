@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { appDispatch } from '/client/appDispatch.js';
-import { fetchListingByPath } from '/client/store/slices/pathSlice.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { getParentPath } from '/client/utils/pathUtils.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 
@@ -51,7 +51,7 @@ export const pathUtils = {
         appStore.dispatch(pathActions.setCurrentPath(parentPath, true));
         
         // If we need the parent listing, trigger server fetch
-        return appDispatch(fetchListingByPath({ pathname: parentPath, isDirectory: true }));
+        return appDispatch(pathThunks.fetchListingByPath({ pathname: parentPath, isDirectory: true }));
     },
 
     /**
@@ -67,7 +67,7 @@ export const pathUtils = {
      * Use when we need fresh server data
      */
     async loadDirectory(pathname) {
-        return appDispatch(fetchListingByPath({ pathname, isDirectory: true }));
+        return appDispatch(pathThunks.fetchListingByPath({ pathname, isDirectory: true }));
     },
 
     /**
@@ -75,7 +75,7 @@ export const pathUtils = {
      * Use when selecting a file that needs content loading
      */
     async loadFile(pathname) {
-        return appDispatch(fetchListingByPath({ pathname, isDirectory: false }));
+        return appDispatch(pathThunks.fetchListingByPath({ pathname, isDirectory: false }));
     },
 
     /**

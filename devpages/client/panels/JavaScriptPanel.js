@@ -36,6 +36,17 @@ export class JavaScriptPanel extends BasePanel {
         return true;
     }
 
+    async init() {
+        super.init();
+        let prevState = appStore.getState(); // Initialize previous state
+        // Subscribe to state changes
+        this.storeUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
+        });
+    }
+
     /**
      * Dynamically load the panel's CSS
      */
@@ -142,12 +153,13 @@ export class JavaScriptPanel extends BasePanel {
      * Setup state subscription to handle content updates
      */
     setupStateSubscription() {
-        if (this.storeUnsubscribe) {
-            this.storeUnsubscribe();
-        }
-
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
+        this.storeUnsubscribe = null;
+        this.lastRenderedPath = null;
+        let prevState = appStore.getState(); // Initialize previous state
+        this.storeUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
             this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
 

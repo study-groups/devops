@@ -1,6 +1,6 @@
 #!/bin/bash
 source $HOME/src/devops/devpages/env.sh
-NVM_DIR=/root/pj/nvm
+NVM_DIR=${NVM_DIR:-$HOME/pj/nvm}
 echo "--- DevPages Production Environment ---"
 echo "NODE_ENV: $NODE_ENV"
 echo "PORT: $PORT"

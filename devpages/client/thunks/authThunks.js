@@ -7,15 +7,8 @@ import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { api } from '/client/api.js';
 import { logMessage } from '/client/log/index.js';
 
-// Helper for logging within this module
-function logAuth(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, 'AUTH');
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[AUTH] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('AuthThunks');
 
 export const authThunks = {
     /**
@@ -26,7 +19,7 @@ export const authThunks = {
      */
     login: (username, password) => async (dispatch, getState) => {
         if (!username || !password) {
-            logAuth('Login attempt with missing credentials', 'warning');
+            log.warn('AUTH', 'LOGIN_MISSING_CREDENTIALS', 'Login attempt with missing credentials');
             dispatch({ 
                 type: ActionTypes.AUTH_LOGIN_FAILURE, 
                 payload: { error: 'Username and password required' } 
@@ -38,10 +31,10 @@ export const authThunks = {
         dispatch({ type: ActionTypes.AUTH_INIT_START });
 
         try {
-            logAuth(`Attempting login for user: ${username}`);
+            log.info('AUTH', 'LOGIN_ATTEMPT', `Attempting login for user: ${username}`);
             const user = await api.login(username, password);
 
-            logAuth(`Login successful for: ${user.username} (Role: ${user.role})`);
+            log.info('AUTH', 'LOGIN_SUCCESS', `Login successful for: ${user.username} (Role: ${user.role})`);
             
             // Validate user data
             if (!user || !user.role) {
@@ -61,7 +54,7 @@ export const authThunks = {
             
             return true;
         } catch (error) {
-            logAuth(`Login failed: ${error.message}`, 'error');
+            log.error('AUTH', 'LOGIN_FAILED', `Login failed: ${error.message}`, error);
             
             const loginResult = {
                 isAuthenticated: false,
@@ -84,7 +77,7 @@ export const authThunks = {
      */
     logout: () => async (dispatch, getState) => {
         try {
-            logAuth('Logging out user...');
+            log.info('AUTH', 'LOGOUT_START', 'Logging out user...');
             
             // Call logout API
             await fetch('/api/auth/logout', {
@@ -95,10 +88,10 @@ export const authThunks = {
             // Dispatch logout action
             dispatch({ type: ActionTypes.AUTH_LOGOUT });
             
-            logAuth('Logout successful');
+            log.info('AUTH', 'LOGOUT_SUCCESS', 'Logout successful');
             return true;
         } catch (error) {
-            logAuth(`Logout failed: ${error.message}`, 'error');
+            log.error('AUTH', 'LOGOUT_FAILED', `Logout failed: ${error.message}`, error);
             // Still dispatch logout to clear local state
             dispatch({ type: ActionTypes.AUTH_LOGOUT });
             return false;
@@ -111,7 +104,7 @@ export const authThunks = {
      */
     checkAuthStatus: () => async (dispatch, getState) => {
         try {
-            logAuth('Checking authentication status...');
+            log.info('AUTH', 'CHECK_AUTH_STATUS_START', 'Checking authentication status...');
             
             dispatch({ type: ActionTypes.AUTH_CHECK_START });
             
@@ -119,7 +112,7 @@ export const authThunks = {
             
             if (response.ok) {
                 const userData = await response.json();
-                logAuth(`User authenticated: ${userData.username}`);
+                log.info('AUTH', 'USER_AUTHENTICATED', `User authenticated: ${userData.username}`);
                 
                 dispatch({ 
                     type: ActionTypes.AUTH_LOGIN_SUCCESS, 
@@ -130,13 +123,13 @@ export const authThunks = {
                     }
                 });
             } else {
-                logAuth('User not authenticated');
+                log.info('AUTH', 'USER_NOT_AUTHENTICATED', 'User not authenticated');
                 dispatch({ type: ActionTypes.AUTH_LOGIN_REQUIRED });
             }
             
             dispatch({ type: ActionTypes.AUTH_CHECK_COMPLETE });
         } catch (error) {
-            logAuth(`Auth check failed: ${error.message}`, 'error');
+            log.error('AUTH', 'AUTH_CHECK_FAILED', `Auth check failed: ${error.message}`, error);
             dispatch({ type: ActionTypes.AUTH_LOGIN_REQUIRED });
             dispatch({ type: ActionTypes.AUTH_CHECK_COMPLETE });
         }
@@ -150,15 +143,15 @@ export const authThunks = {
      */
     generateToken: (expiryHours = 24, description = 'API Access Token') => async (dispatch, getState) => {
         try {
-            logAuth(`Generating API token with ${expiryHours}h expiry`);
+            log.info('AUTH', 'GENERATE_TOKEN_START', `Generating API token with ${expiryHours}h expiry`);
             
             const tokenData = await api.generateToken(expiryHours, description);
             
-            logAuth(`Token generated successfully: ${tokenData.token.substring(0, 8)}...`);
+            log.info('AUTH', 'GENERATE_TOKEN_SUCCESS', `Token generated successfully: ${tokenData.token.substring(0, 8)}...`);
             
             return tokenData;
         } catch (error) {
-            logAuth(`Token generation failed: ${error.message}`, 'error');
+            log.error('AUTH', 'GENERATE_TOKEN_FAILED', `Token generation failed: ${error.message}`, error);
             throw error;
         }
     }

@@ -13,14 +13,7 @@ import { dispatch } from '/client/messaging/messageQueue.js'; // Import ActionTy
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 
-function logPlugins(message, level = 'info') {
-  const type = 'PLUGINS_PANEL';
-  if (typeof window.logMessage === 'function') {
-    window.logMessage(message, level, type);
-  } else {
-    console.log(`[${type}] ${message}`);
-  }
-}
+const log = window.APP.services.log.createLogger('PluginsPanel');
 
 export class PluginsPanel {
   constructor(parentElement) {
@@ -30,13 +23,13 @@ export class PluginsPanel {
     this.pluginControlElements = {}; // To store references: { mermaid_theme: selectElement, mermaid_enabled: checkboxElement }
 
     if (!parentElement) {
-      logPlugins('PluginsPanel requires a parent element to attach its content.', 'error');
+      log.error('PLUGINS_PANEL', 'NO_PARENT_ELEMENT', 'PluginsPanel requires a parent element to attach its content.');
       return;
     }
 
     this.createPanelContent(parentElement);
     this.subscribeToState();
-    logPlugins('PluginsPanel instance created.');
+    log.info('PLUGINS_PANEL', 'INSTANCE_CREATED', 'PluginsPanel instance created.');
   }
 
   createPanelContent(parentElement) {
@@ -135,35 +128,18 @@ export class PluginsPanel {
   }
 
   subscribeToState() {
-    this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-      const newPlugins = newState.plugins;
-      const oldPlugins = prevState.plugins;
-
-      if (newPlugins !== oldPlugins) { // Basic check for any change in plugins slice
-        logPlugins('Plugin state change detected, re-rendering controls or updating values.', 'debug');
-        // Iterate through all managed controls and update their values if changed
-        for (const pluginId in newPlugins) {
-          if (Object.prototype.hasOwnProperty.call(newPlugins, pluginId) && newPlugins[pluginId].settings) {
-            const pluginSettings = newPlugins[pluginId].settings;
-            for (const settingKey in pluginSettings) {
-              if (Object.prototype.hasOwnProperty.call(pluginSettings, settingKey)) {
-                const controlRefKey = `${pluginId}_${settingKey}`;
-                const controlElement = this.pluginControlElements[controlRefKey];
-                if (controlElement) {
-                  const newValue = pluginSettings[settingKey];
-                  if (controlElement.type === 'checkbox' && controlElement.checked !== !!newValue) {
-                    controlElement.checked = !!newValue;
-                  } else if (controlElement.tagName === 'SELECT' && controlElement.value !== newValue) {
-                    controlElement.value = newValue;
-                  }
-                  // Add other control type updates here
-                }
-              }
-            }
-          }
-        }
-      }
+    let prevState = appStore.getState(); // Initialize previous state
+    this.stateUnsubscribe = appStore.subscribe(() => {
+      const newState = appStore.getState();
+      this.handleStateChange(newState, prevState);
+      prevState = newState; // Update previous state
     });
+  }
+
+  handleStateChange(newState, prevState) {
+    if (newState.plugins !== prevState.plugins) {
+      this.renderPluginControls(newState.plugins);
+    }
   }
 
   handleSettingChange(event) {
@@ -178,13 +154,13 @@ export class PluginsPanel {
       } else if (target.tagName === 'SELECT') {
         value = target.value;
       } else {
-        logPlugins(`Unsupported control type for event: ${target.type || target.tagName}`, 'warn');
+        log.warn('PLUGINS_PANEL', 'UNSUPPORTED_CONTROL_TYPE', `Unsupported control type for event: ${target.type || target.tagName}`);
         return;
       }
       
       // The reactive system will handle the update automatically
       
-      logPlugins(`Setting change for plugin '${pluginId}', setting '${settingKey}' to: ${value}. Dispatching action.`);
+      log.info('PLUGINS_PANEL', 'SETTING_CHANGE', `Setting change for plugin '${pluginId}', setting '${settingKey}' to: ${value}. Dispatching action.`);
       dispatch({
         type: ActionTypes.PLUGIN_UPDATE_SETTING,
         payload: {
@@ -199,7 +175,7 @@ export class PluginsPanel {
 
 
   destroy() {
-    logPlugins('Destroying PluginsPanel...');
+    log.info('PLUGINS_PANEL', 'DESTROYING', 'Destroying PluginsPanel...');
     if (this.stateUnsubscribe) {
       this.stateUnsubscribe();
       this.stateUnsubscribe = null;
@@ -215,7 +191,7 @@ export class PluginsPanel {
     this.containerElement = null;
     this.controlsContainer = null;
     this.pluginControlElements = {};
-    logPlugins('PluginsPanel destroyed.');
+    log.info('PLUGINS_PANEL', 'DESTROYED', 'PluginsPanel destroyed.');
   }
 
 

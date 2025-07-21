@@ -4,14 +4,8 @@ import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
 import { globalFetch } from '../globalFetch.js';
 
-// Ensure window.logMessage exists or provide a stub
-if (typeof window !== 'undefined' && typeof window.logMessage === 'undefined') {
-    console.warn('Stubbing window.logMessage for CLI handlers.');
-    window.logMessage = (message, type) => {
-        const logType = type === 'error' ? 'error' : (type === 'warning' ? 'warn' : 'log');
-        console[logType](message);
-    };
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('cliHandlers');
 
 /**
  * Executes a command remotely via the server API.
@@ -26,15 +20,14 @@ export async function executeRemoteCommand(payload) {
     // Basic validation - ensure it's an object (could be more specific if needed)
     if (typeof payload !== 'object' || payload === null) {
         const errorMsg = '[Remote Handler] Invalid payload format received (not an object).';
-        console.error(errorMsg, payload);
-        window.logMessage(errorMsg, 'DEVPAGES', 'CLI', 'ERROR', 'error');
+        log.error('CLI', 'INVALID_PAYLOAD', errorMsg, payload);
         throw new Error('Invalid payload format for remote command execution (internal client error).');
     }
 
     // Determine command for logging/events (might be in command or qa_alias)
     const commandForLog = payload.command || payload.qa_alias || '[unknown command]';
 
-    window.logMessage(`[CLI] Sending to server: ${commandForLog}...`);
+    log.info('CLI', 'SENDING_COMMAND', `Sending to server: ${commandForLog}...`);
     EventBus.emit(CLI_EVENTS.COMMAND_PROCESSING, { command: commandForLog, timestamp: Date.now() });
 
     console.log('[Remote Handler] Sending stringified payload (before fetch):', JSON.stringify(payload));
@@ -62,7 +55,7 @@ export async function executeRemoteCommand(payload) {
 
             // Use the existing error handling logic
             console.error('[Remote Handler] API Error Response (or non-JSON response)');
-            window.logMessage(`[SERVER ERROR] ${errorText}`, 'DEVPAGES', 'CLI', 'SERVER_ERROR', 'error');
+            log.error('CLI', 'SERVER_ERROR', `[SERVER ERROR] ${errorText}`);
             throw new Error(errorText); // Throw the more informative error
         }
 
@@ -77,7 +70,7 @@ export async function executeRemoteCommand(payload) {
         lines.forEach(line => {
             if (line.startsWith('STDERR:')) {
                 const stderrMsg = line.substring(7).trim();
-                window.logMessage(`[CLI STDERR] ${stderrMsg}`, 'DEVPAGES', 'CLI', 'STDERR', 'warning');
+                log.warn('CLI', 'STDERR', `[CLI STDERR] ${stderrMsg}`);
             } else {
                 stdoutBuffer.push(line);
             }
@@ -92,7 +85,7 @@ export async function executeRemoteCommand(payload) {
     } catch (error) {
         console.error(`[Remote Handler] Network or processing error for "${commandForLog}":`, error);
         const errorMessage = error?.message || 'Unknown execution error';
-        window.logMessage(`[NETWORK/CLIENT ERROR] ${errorMessage}`, 'DEVPAGES', 'CLI', 'NETWORK_ERROR', 'error');
+        log.error('CLI', 'NETWORK_ERROR', `[NETWORK/CLIENT ERROR] ${errorMessage}`, error);
         EventBus.emit(CLI_EVENTS.COMMAND_ERROR, { command: commandForLog, error: errorMessage, timestamp: Date.now() });
         throw error;
     }

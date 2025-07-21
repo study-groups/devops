@@ -9,6 +9,9 @@ import { imageActionHandlers } from './imageActions.js';
 import { authActionHandlers } from './authActions.js';
 import { debugActionHandlers } from './debugActions.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('Actions');
+
 // Re-export the action handlers for direct use
 export {
     fileActionHandlers,
@@ -19,24 +22,9 @@ export {
     debugActionHandlers
 };
 
-// Helper for logging within this module
-function logAction(message, level = 'debug') {
-    const type = 'ACTION'
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
-
 // Initialize all action handlers
 export function initializeActions() {
-    console.log('[DEBUG] actions/index.js: initializeActions() called');
-    logAction('Action handlers registration complete.');
-    
-    // Initialize the combined triggerActions object
-    console.log('[DEBUG] Defined triggerActions:', Object.keys(triggerActions));
+    log.info('ACTION', 'INIT', 'Action handlers registration complete.');
 }
 
 /**

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@aws-sdk/s3-request-presigner": "^3.848.0",
+    "@reduxjs/toolkit": "^2.8.2",
     "client-s3": "github:aws-sdk/client-s3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.0",

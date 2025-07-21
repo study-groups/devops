@@ -4,29 +4,20 @@
  */
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { smartCopyActions } from '/client/messaging/actionCreators.js';
-// Editor functionality now handled by EditorPanel directly
 import eventBus from '/client/eventBus.js';
 
-// Helper for logging within this module
-function logAction(message, level = 'debug') {
-    const type = 'ACTION'
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('EditorActions');
 
 export const editorActionHandlers = {
     /**
      * Sets the SmartCopy buffer A with the current selection
      */
     setSmartCopyBufferA: () => {
-        logAction('Setting SmartCopy Buffer A...');
+        log.info('ACTION', 'SET_SMART_COPY_A_START', 'Setting SmartCopy Buffer A...');
         const editorTextArea = document.querySelector('#editor-container textarea');
         if (!editorTextArea) {
-            logAction('Cannot set SmartCopy A: Editor textarea not found.', 'error');
+            log.error('ACTION', 'SET_SMART_COPY_A_FAILED', 'Cannot set SmartCopy A: Editor textarea not found.');
             alert('Editor not found to copy selection from.');
             return;
         }
@@ -35,16 +26,16 @@ export const editorActionHandlers = {
         const selectedText = editorTextArea.value.substring(start, end);
 
         if (start === end) {
-             logAction('Cannot set SmartCopy A: No text selected.', 'warning');
+             log.warn('ACTION', 'SET_SMART_COPY_A_SKIPPED', 'Cannot set SmartCopy A: No text selected.');
              return;
         }
 
         try {
             // Dispatch the action which will handle state update
             dispatch(smartCopyActions.setSmartCopyA(selectedText));
-            logAction(`SmartCopy Buffer A set (Length: ${selectedText.length})`);
+            log.info('ACTION', 'SET_SMART_COPY_A_SUCCESS', `SmartCopy Buffer A set (Length: ${selectedText.length})`);
         } catch (e) {
-            logAction(`Failed to set SmartCopy Buffer A: ${e.message}`, 'error');
+            log.error('ACTION', 'SET_SMART_COPY_A_FAILED', `Failed to set SmartCopy Buffer A: ${e.message}`, e);
             alert('Failed to save selection to buffer A.');
         }
     },
@@ -53,10 +44,10 @@ export const editorActionHandlers = {
      * Sets the SmartCopy buffer B with the current selection
      */
     setSmartCopyBufferB: (data, element) => {
-        logAction('Setting SmartCopy Buffer B...');
+        log.info('ACTION', 'SET_SMART_COPY_B_START', 'Setting SmartCopy Buffer B...');
         const editorTextArea = document.querySelector('#editor-container textarea');
         if (!editorTextArea) {
-            logAction('Cannot set SmartCopy B: Editor textarea not found.', 'error');
+            log.error('ACTION', 'SET_SMART_COPY_B_FAILED', 'Cannot set SmartCopy B: Editor textarea not found.');
             alert('Editor not found to copy selection from.');
             return;
         }
@@ -65,16 +56,16 @@ export const editorActionHandlers = {
         const selectedText = editorTextArea.value.substring(start, end);
 
         if (start === end) {
-             logAction('Cannot set SmartCopy B: No text selected.', 'warning');
+             log.warn('ACTION', 'SET_SMART_COPY_B_SKIPPED', 'Cannot set SmartCopy B: No text selected.');
              return;
         }
 
         try {
             // Dispatch the action which will handle state update and persistence
             dispatch(smartCopyActions.setSmartCopyB(selectedText));
-            logAction(`SmartCopy Buffer B set (Length: ${selectedText.length})`);
+            log.info('ACTION', 'SET_SMART_COPY_B_SUCCESS', `SmartCopy Buffer B set (Length: ${selectedText.length})`);
         } catch (e) {
-            logAction(`Failed to set SmartCopy Buffer B: ${e.message}`, 'error');
+            log.error('ACTION', 'SET_SMART_COPY_B_FAILED', `Failed to set SmartCopy Buffer B: ${e.message}`, e);
             alert('Failed to save selection to buffer B.');
         }
     },
@@ -85,19 +76,19 @@ export const editorActionHandlers = {
     replaceEditorSelection: (payload) => {
         const { codeContent } = payload;
         if (typeof codeContent === 'string') {
-            logAction(`Triggering replaceEditorSelection with content length: ${codeContent.length}`);
+            log.info('ACTION', 'REPLACE_EDITOR_SELECTION', `Triggering replaceEditorSelection with content length: ${codeContent.length}`);
             
             // Get the main editor textarea
             const editorTextArea = document.querySelector('#editor-container textarea');
             if (editorTextArea) {
                 editorTextArea.value = codeContent;
                 editorTextArea.dispatchEvent(new Event('input'));
-                logAction('Editor content replaced successfully');
+                log.info('ACTION', 'REPLACE_EDITOR_SELECTION_SUCCESS', 'Editor content replaced successfully');
             } else {
-                logAction('Editor textarea not found', 'error');
+                log.error('ACTION', 'REPLACE_EDITOR_SELECTION_FAILED', 'Editor textarea not found');
             }
         } else {
-            logAction('Invalid codeContent provided to replaceEditorSelection', 'error');
+            log.error('ACTION', 'REPLACE_EDITOR_SELECTION_FAILED', `Invalid codeContent provided to replaceEditorSelection: ${typeof codeContent}`);
         }
     },
 
@@ -106,17 +97,17 @@ export const editorActionHandlers = {
      */
     pasteTextAtCursor: (data) => {
         const textToPaste = data?.textToPaste;
-        logAction('>>> pasteTextAtCursor Action Started <<<');
+        log.info('ACTION', 'PASTE_TEXT_AT_CURSOR_START', '>>> pasteTextAtCursor Action Started <<<');
         
         if (textToPaste === undefined || textToPaste === null) {
-            logAction('PasteText failed: textToPaste is undefined or null.', 'error');
+            log.error('ACTION', 'PASTE_TEXT_AT_CURSOR_FAILED', 'PasteText failed: textToPaste is undefined or null.');
             return;
         }
 
         try {
             const editorTextArea = document.querySelector('#editor-container textarea');
             if (!editorTextArea) {
-                logAction('PasteText failed: Editor textarea not found.', 'error');
+                log.error('ACTION', 'PASTE_TEXT_AT_CURSOR_FAILED', 'PasteText failed: Editor textarea not found.');
                 alert('Editor is not available to paste into.');
                 return;
             }
@@ -132,11 +123,11 @@ export const editorActionHandlers = {
             // Execute the insertText command to insert/replace
             const success = document.execCommand('insertText', false, textToPaste);
             if (!success) {
-                logAction('PasteText execCommand insertText failed.', 'warning');
+                log.warn('ACTION', 'PASTE_TEXT_AT_CURSOR_FAILED', 'PasteText execCommand insertText failed.');
                 throw new Error('document.execCommand("insertText") failed');
             }
 
-            logAction('Text pasted into editor at cursor.');
+            log.info('ACTION', 'PASTE_TEXT_AT_CURSOR_SUCCESS', 'Text pasted into editor at cursor.');
 
             // Trigger preview update
             if (eventBus) {
@@ -144,8 +135,7 @@ export const editorActionHandlers = {
             }
 
         } catch (err) {
-            logAction(`Error during PasteText insertion: ${err}`, 'error');
-            console.error("Paste Text Error:", err);
+            log.error('ACTION', 'PASTE_TEXT_AT_CURSOR_FAILED', `Error during PasteText insertion: ${err}`, err);
         }
     },
 
@@ -153,9 +143,9 @@ export const editorActionHandlers = {
      * Pastes CLI response over a previously marked selection
      */
     pasteCliResponseOverSelection: (data, element) => {
-        logAction('>>> pasteCliResponseOverSelection Action Started <<<');
+        log.info('ACTION', 'PASTE_CLI_RESPONSE_START', '>>> pasteCliResponseOverSelection Action Started <<<');
         if (!element || element.tagName !== 'BUTTON') { 
-            logAction(`PasteOver failed: Expected button element, got ${element?.tagName}.`, 'error');
+            log.error('ACTION', 'PASTE_CLI_RESPONSE_FAILED', `PasteOver failed: Expected button element, got ${element?.tagName}.`);
             return;
         }
         const buttonElement = element;
@@ -165,18 +155,18 @@ export const editorActionHandlers = {
         const end = parseInt(buttonElement.dataset.selectionEnd, 10);
         const responseText = buttonElement.dataset.responseText;
 
-        logAction(`PasteOver: Start=${start}, End=${end}, ResponseText Length=${responseText?.length}`, 'debug');
+        log.debug('ACTION', 'PASTE_CLI_RESPONSE_DATA', `PasteOver: Start=${start}, End=${end}, ResponseText Length=${responseText?.length}`);
 
         // Validate data
         if (isNaN(start) || isNaN(end) || responseText === undefined || responseText === null) {
-            logAction('PasteOver failed: Invalid data retrieved from button dataset.', 'error');
+            log.error('ACTION', 'PASTE_CLI_RESPONSE_FAILED', 'PasteOver failed: Invalid data retrieved from button dataset.');
             return;
         }
 
         try {
             const editorTextArea = document.querySelector('#editor-container textarea');
             if (!editorTextArea) {
-                logAction('PasteOver failed: Editor textarea not found.', 'error');
+                log.error('ACTION', 'PASTE_CLI_RESPONSE_FAILED', 'PasteOver failed: Editor textarea not found.');
                 alert('Editor is not available to paste into.');
                 return;
             }
@@ -188,11 +178,11 @@ export const editorActionHandlers = {
             // Execute the insertText command to replace selection
             const success = document.execCommand('insertText', false, responseText);
             if (!success) {
-                logAction('PasteOver execCommand insertText failed.', 'warning');
+                log.warn('ACTION', 'PASTE_CLI_RESPONSE_FAILED', 'PasteOver execCommand insertText failed.');
                 throw new Error('document.execCommand("insertText") failed');
             }
 
-            logAction('CLI Response pasted over original selection.');
+            log.info('ACTION', 'PASTE_CLI_RESPONSE_SUCCESS', 'CLI Response pasted over original selection.');
 
             // Trigger preview update
             if (eventBus) {
@@ -205,8 +195,7 @@ export const editorActionHandlers = {
             setTimeout(() => { buttonElement.innerHTML = originalHTML; }, 1500);
 
         } catch (err) {
-            logAction(`Error during PasteOver insertion: ${err}`, 'error');
-            console.error("Paste Over Selection Error:", err);
+            log.error('ACTION', 'PASTE_CLI_RESPONSE_FAILED', `Error during PasteOver insertion: ${err}`, err);
         }
     }
 }; 

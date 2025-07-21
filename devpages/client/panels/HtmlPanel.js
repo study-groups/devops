@@ -111,12 +111,19 @@ export class HtmlPanel extends BasePanel {
      * Setup state subscription to handle content updates
      */
     setupStateSubscription() {
-        if (this.storeUnsubscribe) {
-            this.storeUnsubscribe();
-        }
+        this.storeUnsubscribe = null;
+        this.lastRenderedContent = null;
+        this.lastRenderedPath = null;
+    }
 
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
+    init() {
+        super.init();
+        let prevState = appStore.getState(); // Initialize previous state
+        // Subscribe to state changes
+        this.storeUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
             this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
 
@@ -124,15 +131,17 @@ export class HtmlPanel extends BasePanel {
      * Handle app state changes
      */
     handleStateChange(newState, prevState) {
-        const currentFile = newState.file;
-        
-        // Check if we need to render HTML content
-        if (currentFile && currentFile.content !== undefined) {
-            const filePath = currentFile.currentPathname || '';
-            const isHtmlFile = filePath.toLowerCase().endsWith('.html') || filePath.toLowerCase().endsWith('.htm');
+        if (!this.iframe) {
+            const currentFile = newState.file;
             
-            if (isHtmlFile && currentFile.content !== this.htmlState.lastContent) {
-                this.updateHtmlPreview(currentFile.content, filePath);
+            // Check if we need to render HTML content
+            if (currentFile && currentFile.content !== undefined) {
+                const filePath = currentFile.currentPathname || '';
+                const isHtmlFile = filePath.toLowerCase().endsWith('.html') || filePath.toLowerCase().endsWith('.htm');
+                
+                if (isHtmlFile && currentFile.content !== this.htmlState.lastContent) {
+                    this.updateHtmlPreview(currentFile.content, filePath);
+                }
             }
         }
     }

@@ -3,14 +3,8 @@
  * Extensible system for supporting .md, .js, .json, images, etc.
  */
 
-// Helper for logging
-function logPreviewRenderer(message, level = 'info') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`[PreviewRenderer] ${message}`, level, 'PREVIEW_RENDERER');
-    } else {
-        console.log(`[PreviewRenderer] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('PreviewRenderer');
 
 export class PreviewRenderer {
     constructor() {
@@ -37,7 +31,7 @@ export class PreviewRenderer {
         // this.registerRenderer('json', () => import('./renderers/JsonRenderer.js'));
         // this.registerRenderer('css', () => import('./renderers/CssRenderer.js'));
         
-        logPreviewRenderer('Default renderers registered');
+        log.info('PREVIEW', 'RENDERERS_REGISTERED', 'Default renderers registered');
     }
 
     /**
@@ -47,7 +41,7 @@ export class PreviewRenderer {
      */
     registerRenderer(extension, importFn) {
         this.renderers.set(extension.toLowerCase(), importFn);
-        logPreviewRenderer(`Registered renderer for .${extension} files`);
+        log.info('PREVIEW', 'RENDERER_REGISTERED', `Registered renderer for .${extension} files`);
     }
 
     /**
@@ -83,7 +77,7 @@ export class PreviewRenderer {
         const importFn = this.renderers.get(ext);
         if (!importFn) {
             // Fallback to plain text renderer
-            logPreviewRenderer(`No renderer found for .${ext}, using plain text fallback`);
+            log.warn('PREVIEW', 'RENDERER_NOT_FOUND', `No renderer found for .${ext}, using plain text fallback`);
             return this.getPlainTextRenderer();
         }
 
@@ -95,11 +89,11 @@ export class PreviewRenderer {
             
             // Cache the renderer
             this.rendererCache.set(ext, renderer);
-            logPreviewRenderer(`Loaded renderer for .${ext} files`);
+            log.info('PREVIEW', 'RENDERER_LOADED', `Loaded renderer for .${ext} files`);
             
             return renderer;
         } catch (error) {
-            logPreviewRenderer(`Failed to load renderer for .${ext}: ${error.message}`, 'error');
+            log.error('PREVIEW', 'RENDERER_LOAD_FAILED', `Failed to load renderer for .${ext}: ${error.message}`, error);
             return this.getPlainTextRenderer();
         }
     }
@@ -111,7 +105,7 @@ export class PreviewRenderer {
     getPlainTextRenderer() {
         return {
             async render(content, filePath, previewElement) {
-                logPreviewRenderer(`Rendering as plain text: ${filePath}`);
+                log.info('PREVIEW', 'RENDER_AS_TEXT', `Rendering as plain text: ${filePath}`);
                 
                 // Simple HTML-escaped content in <pre> tag
                 const escapedContent = content
@@ -132,7 +126,7 @@ export class PreviewRenderer {
             
             async postProcess(previewElement, result, filePath) {
                 // No post-processing needed for plain text
-                logPreviewRenderer(`Plain text post-processing complete for: ${filePath}`);
+                log.info('PREVIEW', 'POST_PROCESS_TEXT', `Plain text post-processing complete for: ${filePath}`);
             }
         };
     }
@@ -145,7 +139,7 @@ export class PreviewRenderer {
      * @returns {Promise<Object>} Render result
      */
     async render(content, filePath, previewElement) {
-        logPreviewRenderer(`Rendering file: ${filePath}`);
+        log.info('PREVIEW', 'RENDER_START', `Rendering file: ${filePath}`);
         
         const extension = this.getFileExtension(filePath);
         const renderer = await this.getRenderer(extension);
@@ -159,11 +153,11 @@ export class PreviewRenderer {
                 await renderer.postProcess(previewElement, result, filePath);
             }
             
-            logPreviewRenderer(`Successfully rendered ${filePath} (${extension})`);
+            log.info('PREVIEW', 'RENDER_SUCCESS', `Successfully rendered ${filePath} (${extension})`);
             return result;
             
         } catch (error) {
-            logPreviewRenderer(`Error rendering ${filePath}: ${error.message}`, 'error');
+            log.error('PREVIEW', 'RENDER_FAILED', `Error rendering ${filePath}: ${error.message}`, error);
             
             // Fallback to plain text on error
             const fallbackRenderer = this.getPlainTextRenderer();

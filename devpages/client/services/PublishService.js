@@ -2,9 +2,9 @@
  * Centralized publish service - single source of truth for HTML generation and publishing
  */
 
-import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { panelStateService } from '../panels/PanelStateManager.js';
+import { workspaceLayoutService } from '../layout/WorkspaceLayoutManager.js';
 import { appStore } from '/client/appState.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { marked } from '/client/vendor/scripts/marked.esm.js';
 
 class PublishService {
@@ -17,6 +17,9 @@ class PublishService {
     const finalHtmlContent = await this.embedImagesAsBase64(htmlContent);
     const baseCSS = await this.getBaseCss();
 
+    const panels = panelStateService.getVisiblePanels();
+    const layout = workspaceLayoutService.isSidebarVisible ? 'sidebar-visible' : 'sidebar-hidden';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -28,9 +31,12 @@ class PublishService {
 ${baseCSS}
     </style>
 </head>
-<body>
+<body class="${layout}">
     <div class="markdown-content">
 ${finalHtmlContent}
+    </div>
+    <div class="panels-info" style="display:none;">
+        ${JSON.stringify(panels.map(p => ({id: p.id, visible: p.uiState.visible})))}
     </div>
     <footer style="margin-top: 3em; padding-top: 1em; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 0.9em;">
         Published with DevPages
@@ -64,7 +70,7 @@ ${finalHtmlContent}
           }
 
           try {
-              const response = await globalFetch(src, { credentials: 'omit' });
+              const response = await window.APP.services.globalFetch(src, { credentials: 'omit' });
               if (!response.ok) {
                   console.warn(`[PublishService] Failed to fetch image for embedding: ${src} (Status: ${response.status})`);
                   return;
@@ -139,7 +145,7 @@ ${finalHtmlContent}
    * Publish to Digital Ocean Spaces
    */
   async publishToSpaces(htmlContent, filePath) {
-    const response = await globalFetch('/api/publish', {
+    const response = await window.APP.services.globalFetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

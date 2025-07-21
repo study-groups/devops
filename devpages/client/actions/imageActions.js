@@ -2,19 +2,10 @@
  * Image action handlers
  * Responsible for image operations like deletion and management
  */
-import { globalFetch } from '/client/globalFetch.js';
 import eventBus from '/client/eventBus.js';
 
-// Helper for logging within this module
-function logAction(message, level = 'debug') {
-    const type = 'ACTION'
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[${type}] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('ImageActions');
 
 export const imageActionHandlers = {
     /**
@@ -22,14 +13,14 @@ export const imageActionHandlers = {
      * @param {String} imageName - Name of the image to delete
      */
     deleteImage: async (imageName) => {
-        logAction(`Delete requested for image: ${imageName}`);
+        log.info('ACTION', 'DELETE_IMAGE_START', `Delete requested for image: ${imageName}`);
         
         if (confirm(`Are you sure you want to delete ${decodeURIComponent(imageName)}?`)) {
             try {
                 const imageUrl = `/uploads/${decodeURIComponent(imageName)}`;
                 
                 // Use the emergency endpoint
-                const response = await globalFetch('/image-delete', {
+                const response = await window.APP.services.globalFetch('/image-delete', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -43,7 +34,7 @@ export const imageActionHandlers = {
                 }
                 
                 const data = await response.json();
-                logAction(`Successfully deleted: ${imageName}`);
+                log.info('ACTION', 'DELETE_IMAGE_SUCCESS', `Successfully deleted: ${imageName}`, data);
                 
                 // Notify of successful deletion
                 eventBus.emit('image:deleted', { imageName });
@@ -51,7 +42,7 @@ export const imageActionHandlers = {
                 // Reload the page to refresh the index
                 window.location.reload();
             } catch (error) {
-                logAction(`Image delete error: ${error.message}`, 'error');
+                log.error('ACTION', 'DELETE_IMAGE_FAILED', `Image delete error: ${error.message}`, error);
                 alert(`Error deleting image: ${error.message}`);
                 
                 // Notify of failed deletion
@@ -68,7 +59,7 @@ export const imageActionHandlers = {
     handleDeleteImage: (data, element) => {
         const imageName = data?.imageName || element?.dataset?.imageName;
         if (!imageName) {
-            logAction('Cannot delete image: No image name provided.', 'error');
+            log.error('ACTION', 'DELETE_IMAGE_FAILED', 'Cannot delete image: No image name provided.');
             return;
         }
         

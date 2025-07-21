@@ -3,6 +3,8 @@
  * Provides a simple logging function for components that need context-aware logging
  */
 
+const log = window.APP.services.log.createLogger('logContext');
+
 /**
  * Log a message with context information
  * @param {string} message - The message to log
@@ -10,12 +12,21 @@
  * @param {string} subtype - Optional subtype for categorization
  */
 export function logContext(message, level = 'info', subtype = 'CONTEXT') {
-  const type = 'PATH_MANAGER';
-  
-  if (typeof window.logMessage === 'function') {
-    window.logMessage(message, level, type, subtype);
-  } else {
-    // Fallback to console if window.logMessage is not available
-    console.log(`[${type}:${subtype}] ${message}`);
-  }
+    const type = 'PATH_MANAGER';
+    
+    switch (level) {
+        case 'error':
+            log.error(type, subtype, message);
+            break;
+        case 'warn':
+            log.warn(type, subtype, message);
+            break;
+        case 'debug':
+            log.debug(type, subtype, message);
+            break;
+        case 'info':
+        default:
+            log.info(type, subtype, message);
+            break;
+    }
 } 

@@ -1,55 +1,50 @@
 /**
- * @file client/panels/core/panelRegistry.js
- * @description A central registry for all UI panels in the application.
- * This module provides a single place to register, unregister, and retrieve panels.
- * It ensures that panels are managed consistently across the application.
- * @exports panelRegistry
+ * @deprecated The panel registry is being replaced by a unified component system in bootloader.js.
+ * This file is now a temporary, static list of panel definitions that will be consumed by the bootloader.
  */
-
-import { panelOrder } from '/client/settings/core/panelOrder.js';
-import eventBus from '/client/eventBus.js';
-
-const panels = [];
-
-class PanelRegistry {
-    register(config) {
-        if (panels.some(panel => panel.id === config.id)) {
-            console.warn(`Panel with id "${config.id}" is already registered.`);
-            return;
-        }
-        panels.push(config);
-        eventBus.emit('panel-registry-changed');
-    }
-
-    unregister(id) {
-        const index = panels.findIndex(panel => panel.id === id);
-        if (index > -1) {
-            panels.splice(index, 1);
-            eventBus.emit('panel-registry-changed');
-        }
-    }
-
-    getPanel(id) {
-        return panels.find(panel => panel.id === id);
-    }
-
-    getAllPanels() {
-        return [...panels].sort((a, b) => {
-            const indexA = panelOrder.indexOf(a.id);
-            const indexB = panelOrder.indexOf(b.id);
-
-            if (indexA !== -1 && indexB !== -1) {
-                return indexA - indexB;
-            }
-            if (indexA !== -1) {
-                return -1;
-            }
-            if (indexB !== -1) {
-                return 1;
-            }
-            return 0;
-        });
-    }
-}
-
-export const panelRegistry = new PanelRegistry(); 
+export const panelDefinitions = [
+    {
+        name: 'FileBrowser',
+        id: 'file-browser',
+        factory: () => import('./FileBrowserPanel.js').then(m => m.FileBrowserPanel),
+        title: 'File Browser',
+        isDefault: true,
+        allowedZones: ['left', 'right'],
+        defaultZone: 'left',
+    },
+    {
+        name: 'CodePanel',
+        id: 'code',
+        factory: () => import('./CodePanel.js').then(m => m.CodePanel),
+        title: 'Code Editor',
+        isDefault: true,
+        allowedZones: ['main'],
+        defaultZone: 'main',
+    },
+    {
+        name: 'PreviewPanel',
+        id: 'preview',
+        factory: () => import('./PreviewPanel.js').then(m => m.PreviewPanel),
+        title: 'Preview',
+        isDefault: true,
+        allowedZones: ['main'],
+        defaultZone: 'main',
+    },
+    {
+        name: 'LogPanel',
+        id: 'log',
+        factory: () => import('../log/LogPanel.js').then(m => m.LogPanel),
+        title: 'Console Log',
+        isDefault: false,
+        allowedZones: ['bottom'],
+        defaultZone: 'bottom',
+    },
+    {
+        name: 'DomInspectorPanel',
+        id: 'dom-inspector',
+        factory: () => import('../dom-inspector/DomInspectorPanel.js').then(m => m.DomInspectorPanel),
+        title: 'DOM Inspector',
+        isDefault: false,
+        allowedZones: ['left', 'right', 'bottom'],
+    },
+]; 

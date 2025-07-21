@@ -8,70 +8,78 @@ import { appStore } from '/client/appState.js';
 import { createAuthDisplayComponent } from '/client/components/AuthDisplay.js';
 import { createPathManagerComponent } from '/client/components/PathManagerComponent.js';
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('uiStateReactor');
+
 // --- Module State ---
 let appStateUnsubscribe = null;
+let lastKnownState = {};
 let authDisplayComponent = null;
 let pathManagerComponent = null;
 let sidebarPathManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
 // Panel management now handled by WorkspaceLayoutManager and PanelManager
 
-// --- Logging Helper ---
-function logUI(message, type = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type, 'UI_MANAGER');
-    } else {
-        console.log(`[UI_MANAGER] ${message}`);
-    }
-}
-
 // --- UI Applying Functions ---
 function applyViewMode(mode) {
-    logUI(`Applying view mode: ${mode}`);
+    log.info('UI', 'APPLY_VIEW_MODE', `Applying view mode: ${mode}`);
     const body = document.body;
-    logUI(`Body classes BEFORE remove: ${body.className}`);
+    log.debug('UI', 'APPLY_VIEW_MODE_BEFORE', `Body classes BEFORE remove: ${body.className}`);
     body.classList.remove('view-code', 'view-preview', 'view-split', 'view-blank');
-    logUI(`Body classes AFTER remove: ${body.className}`);
+    log.debug('UI', 'APPLY_VIEW_MODE_AFTER', `Body classes AFTER remove: ${body.className}`);
     switch (mode) {
         case 'editor': 
-            logUI(`Adding class: view-code`);
+            log.debug('UI', 'APPLY_VIEW_MODE_ADD', `Adding class: view-code`);
             body.classList.add('view-code'); 
             break;
         case 'preview': 
-            logUI(`Adding class: view-preview`);
+            log.debug('UI', 'APPLY_VIEW_MODE_ADD', `Adding class: view-preview`);
             body.classList.add('view-preview'); 
             break;
         case 'split': 
-            logUI(`Adding class: view-split`);
+            log.debug('UI', 'APPLY_VIEW_MODE_ADD', `Adding class: view-split`);
             body.classList.add('view-split'); 
             break;
         case 'blank':
-            logUI(`Adding class: view-blank`);
+            log.debug('UI', 'APPLY_VIEW_MODE_ADD', `Adding class: view-blank`);
             body.classList.add('view-blank');
             break;
         default: 
-            logUI(`Unknown view mode '${mode}', defaulting to split view.`);
+            log.warn('UI', 'APPLY_VIEW_MODE_UNKNOWN', `Unknown view mode '${mode}', defaulting to split view.`);
             body.classList.add('view-split'); 
             break;
     }
-    logUI(`Body classes after applyViewMode('${mode}'): ${body.className}`);
+    log.info('UI', 'APPLY_VIEW_MODE_FINAL', `Body classes after applyViewMode('${mode}'): ${body.className}`);
     window.dispatchEvent(new Event('resize'));
 }
 
 function applyLogVisibility(isVisible) {
-    logUI(`Applying log visibility: ${isVisible}`);
+    log.info('UI', 'APPLY_LOG_VISIBILITY', `Applying log visibility: ${isVisible}`);
     document.documentElement.setAttribute('data-log-visible', isVisible.toString());
     window.dispatchEvent(new Event('resize'));
 }
 
 function applyLogHeight(height) {
-    logUI(`Applying log height: ${height}px`);
+    log.info('UI', 'APPLY_LOG_HEIGHT', `Applying log height: ${height}px`);
     document.documentElement.style.setProperty('--log-height', `${height}px`);
     window.dispatchEvent(new Event('resize'));
 }
 
 // --- Central State Change Handler ---
-async function handleAppStateChange(newState, prevState) {
+function init() {
+    let prevState = appStore.getState(); // Initialize previous state
+    appStateUnsubscribe = appStore.subscribe(() => {
+        const newState = appStore.getState();
+        handleAppStateChange(newState, prevState);
+        prevState = newState; // Update previous state
+    });
+
+    // Initial state handling
+    handleAppStateChange(appStore.getState(), {});
+}
+
+function handleAppStateChange(newState, prevState) {
+    if (!prevState) return; // Guard against initial undefined state
     // Determine if a change relevant to UIManager occurred
     const authChanged = newState.auth !== prevState.auth;
     const fileChanged = newState.file !== prevState.file;
@@ -85,7 +93,7 @@ async function handleAppStateChange(newState, prevState) {
         // ADDED: Handle viewMode changes for body class application
         if (newState.ui.viewMode !== prevState.ui?.viewMode) {
             uiManagerSpecificUiChange = true;
-            logUI(`View mode changed from '${prevState.ui?.viewMode}' to '${newState.ui.viewMode}'`);
+            log.info('UI', 'VIEW_MODE_CHANGED', `View mode changed from '${prevState.ui?.viewMode}' to '${newState.ui.viewMode}'`);
             applyViewMode(newState.ui.viewMode);
         }
         // Add other checks for ui properties UIManager directly acts upon
@@ -94,22 +102,18 @@ async function handleAppStateChange(newState, prevState) {
     const uimanagerRelevantChange = authChanged || fileChanged || settingsPanelChanged || uiManagerSpecificUiChange;
 
     if (uimanagerRelevantChange) {
-        if (typeof window.logMessage === 'function') {
-            window.logMessage(`[UIManager] handleAppStateChange processing relevant changes.`, 'debug', 'APP_STATE', 
-                { auth: authChanged, file: fileChanged, settingsPanel: settingsPanelChanged, uiRelevant: uiManagerSpecificUiChange });
-        } else {
-            console.log(`[APP_STATE] [UIManager] Processing relevant state changes.`);
-        }
+        log.debug('UI', 'STATE_CHANGE_RELEVANT', `handleAppStateChange processing relevant changes.`, 
+            { auth: authChanged, file: fileChanged, settingsPanel: settingsPanelChanged, uiRelevant: uiManagerSpecificUiChange });
     }
     // No early return here, as individual handlers below still need to process their slices if they changed.
 
     // --- Auth State Handling (existing logic) ---
     if (authChanged) {
-        logUI(`Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
+        log.info('UI', 'AUTH_STATE_CHANGED', `Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
         // The fileManager now listens for auth changes internally.
         // The uiManager's responsibility is just to react to UI-related state, not to orchestrate other modules.
         // All logic for calling initializeFileManager, refreshFileManagerForUser, or resetFileManagerState has been removed.
-        logUI('Auth state change handling finished.');
+        log.info('UI', 'AUTH_STATE_HANDLED', 'Auth state change handling finished.');
     }
 
     // --- File System State Handling ---
@@ -129,7 +133,7 @@ async function handleAppStateChange(newState, prevState) {
             return;
         }
         
-        logUI(`File state changed structurally. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`, 'debug');
+        log.info('UI', 'FILE_STATE_CHANGED', `File state changed structurally. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`);
 
         // Update UI components based on the new file state
         updateActionButtonsState(newState.file);
@@ -146,11 +150,11 @@ async function handleAppStateChange(newState, prevState) {
         const showSelectorCondition = (!isLoggedIn || currentUsername?.toLowerCase() === 'mike') && !currentTopDir && availableTopDirs.length > 0;
 
         if (showSelectorCondition) {
-            logUI('State changed to root/selector view. Emitting ui:renderFileList to show selector.');
+            log.info('UI', 'RENDER_FILE_LIST', 'State changed to root/selector view. Emitting ui:renderFileList to show selector.');
             // We might still need this specific event if PathManagerComponent doesn't subscribe to the store directly yet
             eventBus.emit('ui:renderFileList');
         } else {
-            logUI('State changed, standard listing/file view expected.');
+            log.info('UI', 'STANDARD_LISTING_VIEW', 'State changed, standard listing/file view expected.');
             // If PathManagerComponent subscribes, it will handle rendering the listing itself.
             // If not, you might need to emit a different event here or pass data.
             // For now, assume PathManagerComponent will handle it via store subscription.
@@ -160,16 +164,12 @@ async function handleAppStateChange(newState, prevState) {
     // --- Settings Panel State Handling (Example) ---
     if (settingsPanelChanged) {
         // Update settings panel UI if needed
-        logUI('Settings Panel state changed.', 'debug');
+        log.debug('UI', 'SETTINGS_PANEL_STATE_CHANGED', 'Settings Panel state changed.');
     }
 
     // --- UI State Handling (Example for properties uiManager itself handles like global isLoading) ---
      if (uiManagerSpecificUiChange) { 
-         if (typeof window.logMessage === 'function') {
-            window.logMessage(`[UIManager] Global UI properties changed (e.g., isLoading: ${newState.ui.isLoading})`, 'debug', 'APP_STATE', { isLoading: newState.ui.isLoading });
-         } else {
-            console.log(`[APP_STATE] [UIManager] Global UI properties changed (e.g. isLoading).`);
-         }
+        log.debug('UI', 'GLOBAL_UI_PROPERTIES_CHANGED', `Global UI properties changed (e.g., isLoading: ${newState.ui.isLoading})`, { isLoading: newState.ui.isLoading });
      }
 }
 
@@ -200,9 +200,9 @@ function updateActionButtonsState(fileState) { // Accepts file state slice
         // Maybe disable other actions during loading/saving?
         // e.g., document.getElementById('new-file-btn').disabled = isLoading || isSaving;
 
-        logUI(`Save button state updated: disabled=${shouldDisableSave}, isSaving=${isSaving}`);
+        log.debug('UI', 'SAVE_BUTTON_STATE_UPDATED', `Save button state updated: disabled=${shouldDisableSave}, isSaving=${isSaving}`);
     } catch (error) {
-         logUI(`Error updating action buttons state: ${error?.message}`, 'error');
+         log.error('UI', 'UPDATE_ACTION_BUTTONS_ERROR', `Error updating action buttons state: ${error?.message}`, error);
     }
 }
 
@@ -280,9 +280,9 @@ function updateBreadcrumbs(fileState) { // Accepts file state slice
         }
         // --- End Breadcrumb Generation ---
 
-        logUI(`Breadcrumbs updated.`);
+        log.debug('UI', 'BREADCRUMBS_UPDATED', `Breadcrumbs updated.`);
     } catch (error) {
-        logUI(`Error updating breadcrumbs: ${error?.message}`, 'error');
+        log.error('UI', 'UPDATE_BREADCRUMBS_ERROR', `Error updating breadcrumbs: ${error?.message}`, error);
         console.error("Breadcrumb update error:", error); // Log full error for debugging
     }
 }
@@ -294,11 +294,11 @@ function updateBreadcrumbs(fileState) { // Accepts file state slice
  */
 export function subscribeUIManager() {
     if (appStateUnsubscribe) {
-        logUI('UIManager is already subscribed. Skipping.');
+        log.warn('UI', 'ALREADY_SUBSCRIBED', 'UIManager is already subscribed. Skipping.');
         return;
     }
-    logUI('Subscribing UIManager to app state changes...');
-    appStateUnsubscribe = appStore.subscribe(handleAppStateChange);
+    log.info('UI', 'SUBSCRIBING', 'Subscribing UIManager to app state changes...');
+    init(); // Call init to set up the subscription
 }
 
 /**
@@ -308,7 +308,7 @@ export function unsubscribeUIManager() {
     if (appStateUnsubscribe) {
         appStateUnsubscribe();
         appStateUnsubscribe = null;
-        logUI('UIManager unsubscribed from app state changes.');
+        log.info('UI', 'UNSUBSCRIBED', 'UIManager unsubscribed from app state changes.');
     }
 }
 

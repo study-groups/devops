@@ -7,14 +7,8 @@
 
 import { BasePlugin } from './BasePlugin.js';
 
-// Helper for logging within this module
-function logMessage(message, type = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, type, 'HIGHLIGHT');
-    } else {
-        console.log(`[HIGHLIGHT] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('HighlightPlugin');
 
 export class HighlightPlugin extends BasePlugin {
   constructor(config = {}) {
@@ -34,14 +28,14 @@ export class HighlightPlugin extends BasePlugin {
       this.ready = !!this.hljs;
       
       if (this.ready) {
-        logMessage('[HighlightPlugin] Initialized successfully');
+        log.info('HIGHLIGHT', 'INIT_SUCCESS', '[HighlightPlugin] Initialized successfully');
       } else {
-        logMessage('[HighlightPlugin] Failed to initialize - hljs not available', 'error');
+        log.error('HIGHLIGHT', 'INIT_FAILED', '[HighlightPlugin] Failed to initialize - hljs not available');
       }
       
       return this.ready;
     } catch (error) {
-      logMessage(`[HighlightPlugin] Initialization failed: ${error.message}`, 'error');
+      log.error('HIGHLIGHT', 'INIT_FAILED', `[HighlightPlugin] Initialization failed: ${error.message}`, error);
       console.error('[HighlightPlugin] Error:', error);
       this.initialized = false;
       this.ready = false;
@@ -57,7 +51,7 @@ export class HighlightPlugin extends BasePlugin {
    */
   highlight(code, language) {
     if (!this.isReady()) {
-      logMessage('Plugin not ready, returning escaped HTML', 'warn');
+      log.warn('HIGHLIGHT', 'NOT_READY', 'Plugin not ready, returning escaped HTML');
       return this._escapeHtml(code);
     }
 
@@ -68,14 +62,14 @@ export class HighlightPlugin extends BasePlugin {
           language, 
           ignoreIllegals: true 
         });
-        logMessage(`Highlighted ${language} code successfully`);
+        log.info('HIGHLIGHT', 'HIGHLIGHT_SUCCESS', `Highlighted ${language} code successfully`);
       } else {
         result = this.hljs.highlightAuto(code);
-        logMessage(`Auto-detected and highlighted code`);
+        log.info('HIGHLIGHT', 'HIGHLIGHT_AUTO_SUCCESS', `Auto-detected and highlighted code`);
       }
       return result.value;
     } catch (error) {
-      logMessage(`Highlight error for language '${language}': ${error.message}`, 'error');
+      log.error('HIGHLIGHT', 'HIGHLIGHT_ERROR', `Highlight error for language '${language}': ${error.message}`, error);
       return this._escapeHtml(code);
     }
   }
@@ -86,7 +80,7 @@ export class HighlightPlugin extends BasePlugin {
    */
   async postProcess(element) {
     if (!this.isReady()) {
-      logMessage('Plugin not ready for post-processing', 'warn');
+      log.warn('HIGHLIGHT', 'NOT_READY_POST_PROCESS', 'Plugin not ready for post-processing');
       return;
     }
 
@@ -98,12 +92,12 @@ export class HighlightPlugin extends BasePlugin {
         this.hljs.highlightElement(block);
         processedCount++;
       } catch (error) {
-        logMessage(`Post-process error on code block: ${error.message}`, 'error');
+        log.error('HIGHLIGHT', 'POST_PROCESS_ERROR', `Post-process error on code block: ${error.message}`, error);
       }
     }
 
     if (processedCount > 0) {
-      logMessage(`Post-processed ${processedCount} code blocks`);
+      log.info('HIGHLIGHT', 'POST_PROCESS_SUCCESS', `Post-processed ${processedCount} code blocks`);
     }
   }
 
@@ -114,7 +108,7 @@ export class HighlightPlugin extends BasePlugin {
   async _loadHighlightJS() {
     // Check if already loaded globally
     if (window.hljs) {
-      logMessage('Using existing window.hljs');
+      log.info('HIGHLIGHT', 'HLJS_ALREADY_LOADED', 'Using existing window.hljs');
       this.hljs = window.hljs;
       return;
     }
@@ -151,14 +145,14 @@ export class HighlightPlugin extends BasePlugin {
     }
 
     this.hljs = window.hljs;
-    logMessage(`highlight.js version: ${this.hljs.versionString || 'unknown'}`);
+    log.info('HIGHLIGHT', 'HLJS_VERSION', `highlight.js version: ${this.hljs.versionString || 'unknown'}`);
 
     // Configure
     this.hljs.configure({
       ignoreUnescapedHTML: true,
       throwUnescapedHTML: false
     });
-    logMessage('highlight.js configured');
+    log.info('HIGHLIGHT', 'HLJS_CONFIGURED', 'highlight.js configured');
   }
 
   /**
@@ -167,7 +161,7 @@ export class HighlightPlugin extends BasePlugin {
    */
   async _loadCSS(url) {
     if (document.querySelector(`link[href="${url}"]`)) {
-      logMessage('CSS already loaded, skipping');
+      log.warn('HIGHLIGHT', 'CSS_ALREADY_LOADED', 'CSS already loaded, skipping');
       return;
     }
 
@@ -176,7 +170,7 @@ export class HighlightPlugin extends BasePlugin {
     link.href = url;
     link.id = 'highlight-theme-css';
     document.head.appendChild(link);
-    logMessage(`CSS link added: ${url}`);
+    log.info('HIGHLIGHT', 'CSS_LINK_ADDED', `CSS link added: ${url}`);
   }
 
   /**
@@ -185,7 +179,7 @@ export class HighlightPlugin extends BasePlugin {
    */
   async _loadScript(url) {
     if (document.querySelector(`script[src="${url}"]`)) {
-      logMessage('Script already loaded, skipping');
+      log.warn('HIGHLIGHT', 'SCRIPT_ALREADY_LOADED', 'Script already loaded, skipping');
       return;
     }
 
@@ -194,11 +188,11 @@ export class HighlightPlugin extends BasePlugin {
       script.src = url;
       script.async = true;
       script.onload = () => {
-        logMessage('Script loaded successfully');
+        log.info('HIGHLIGHT', 'SCRIPT_LOADED', 'Script loaded successfully');
         resolve();
       };
       script.onerror = (error) => {
-        logMessage(`Script load failed: ${error}`, 'error');
+        log.error('HIGHLIGHT', 'SCRIPT_LOAD_FAILED', `Script load failed: ${error}`, error);
         reject(error);
       };
       document.head.appendChild(script);

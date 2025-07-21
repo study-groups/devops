@@ -1,22 +1,15 @@
 import fileManager from "/client/filesystem/fileManager.js";
 import { initPreview, updatePreview } from "./index.js";
 
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('Markdown');
+
 let requiresMathJax = false;
 
 let lastMarkdown = "";
 let updateScheduled = false;
 let updateTimeout;
 let previewInitialized = false;
-
-// Centralized logger function for this module
-function logMarkdown(message, level = 'info') {
-    const type = 'MARKDOWN';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`); // Fallback
-    }
-}
 
 // Initialize the markdown preview
 export function initMarkdownPreview() {
@@ -32,8 +25,7 @@ export function initMarkdownPreview() {
     previewInitialized = result;
     return result;
   } catch (error) {
-    logMarkdown(`Failed to initialize preview: ${error.message}`, 'error');
-    console.error('[MARKDOWN ERROR]', error);
+    log.error('MARKDOWN', 'INIT_FAILED', `Failed to initialize preview: ${error.message}`, error);
     return false;
   }
 }
@@ -90,8 +82,7 @@ export async function loadFile(filename) {
     saveState(fileManager.getCurrentDirectory(), filename);
     updateUrlState(fileManager.getCurrentDirectory(), filename);
   } catch (error) {
-    logMarkdown(`Failed to load file: ${error.message}`, 'error');
-    console.error('[FILES ERROR]', error);
+    log.error('MARKDOWN', 'LOAD_FILE_FAILED', `Failed to load file: ${error.message}`, error);
   }
 }
 
@@ -102,12 +93,12 @@ export { updateMarkdownPreview as updatePreview };
 function initImageDeleteHandlers() {
   // Don't redefine the handler - it's now managed in main.js
   // and domEvents.js
-  logMarkdown('[MARKDOWN] Image delete handlers will be initialized by main.js');
+  log.info('MARKDOWN', 'INIT_IMAGE_HANDLERS', '[MARKDOWN] Image delete handlers will be initialized by main.js');
 }
 
 // Process Mermaid diagrams (deprecated, kept for backward compatibility)
 export function processMermaidDiagrams() {
-  logMarkdown('[MARKDOWN] processMermaidDiagrams is deprecated, handled by preview system');
+  log.info('MARKDOWN', 'PROCESS_MERMAID', '[MARKDOWN] processMermaidDiagrams is deprecated, handled by preview system');
 }
 
 // Save the current state using consistent keys with main file system

@@ -10,17 +10,8 @@ import { MermaidFullscreen } from './fullscreen.js';
 import { appStore } from '/client/appState.js';
 import { getIsPluginEnabled } from '/client/store/selectors.js';
 
-// Helper for logging within this module
-function logMermaid(message, level = 'debug') {
-    const prefix = '[MERMAID PLUGIN]';
-    const type = 'MERMAID_PLUGIN';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level, type);
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('MermaidPlugin');
 
 // Global flag to ensure Mermaid library is loaded only once
 let mermaidScriptLoaded = false;
@@ -42,21 +33,19 @@ export class MermaidPlugin {
         this.controls = new MermaidControls();
         this.fullscreen = new MermaidFullscreen();
         
-        console.log('[MERMAID DEBUG] Enhanced MermaidPlugin instance created');
-        logMermaid('Enhanced MermaidPlugin instance created.');
+        log.info('MERMAID', 'PLUGIN_CREATED', 'Enhanced MermaidPlugin instance created');
     }
 
     async init() {
-        console.log('[MERMAID DEBUG] Init called');
         // Defer script loading and initialization until a diagram is actually found.
-        logMermaid('Mermaid plugin initialized. Ready to process diagrams on demand.');
+        log.info('MERMAID', 'PLUGIN_INITIALIZED', 'Mermaid plugin initialized. Ready to process diagrams on demand.');
         
         try {
             await this.fullscreen.init();
-            logMermaid('Mermaid fullscreen handler initialized.');
+            log.info('MERMAID', 'FULLSCREEN_INITIALIZED', 'Mermaid fullscreen handler initialized.');
             return true;
         } catch (error) {
-            logMermaid(`Fullscreen handler initialization failed: ${error.message}`, 'error');
+            log.error('MERMAID', 'FULLSCREEN_INIT_FAILED', `Fullscreen handler initialization failed: ${error.message}`, error);
             return false;
         }
     }
@@ -69,11 +58,11 @@ export class MermaidPlugin {
 
             script.async = true;
             script.onload = () => {
-                logMermaid('Mermaid script loaded successfully.');
+                log.info('MERMAID', 'SCRIPT_LOADED', 'Mermaid script loaded successfully.');
                 resolve();
             };
             script.onerror = (err) => {
-                logMermaid('Failed to load Mermaid script.', 'error');
+                log.error('MERMAID', 'SCRIPT_LOAD_FAILED', 'Failed to load Mermaid script.', err);
                 reject(err);
             };
             document.head.appendChild(script);
@@ -90,7 +79,7 @@ export class MermaidPlugin {
         }
         
         if (!this.renderer || !this.renderer.shadowRoot) {
-            logMermaid('Renderer or shadowRoot not available.', 'warn');
+            log.warn('MERMAID', 'RENDERER_UNAVAILABLE', 'Renderer or shadowRoot not available.');
             return;
         }
         
@@ -103,61 +92,42 @@ export class MermaidPlugin {
         
         // If diagrams are found, ensure the script is loaded and initialized.
         if (!mermaidInitialized) {
-            logMermaid(`Found ${mermaidDivsToProcess.length} Mermaid diagrams, ensuring library is loaded.`);
+            log.info('MERMAID', 'LIBRARY_INIT_REQUIRED', `Found ${mermaidDivsToProcess.length} Mermaid diagrams, ensuring library is loaded.`);
             await this.initializeMermaid();
         }
 
         if (!mermaidInitialized) {
-            logMermaid('Mermaid initialization failed. Aborting processing.', 'warn');
+            log.warn('MERMAID', 'LIBRARY_INIT_FAILED', 'Mermaid initialization failed. Aborting processing.');
             return;
         }
 
-        logMermaid('Processing Mermaid diagrams...');
-        console.log('[MERMAID DEBUG] Found mermaid divs to process:', mermaidDivsToProcess.length);
-        
-        // Log the content of each mermaid div
-        mermaidDivsToProcess.forEach((div, index) => {
-            console.log(`[MERMAID DEBUG] Div ${index + 1} content:`, div.textContent.trim().substring(0, 100));
-            console.log(`[MERMAID DEBUG] Div ${index + 1} HTML:`, div.innerHTML.substring(0, 200));
-        });
+        log.info('MERMAID', 'PROCESSING_DIAGRAMS', `Processing ${mermaidDivsToProcess.length} Mermaid diagrams...`);
         
         if (mermaidDivsToProcess.length > 0) {
-            logMermaid(`Found ${mermaidDivsToProcess.length} new diagrams to process.`);
-            console.log('[MERMAID DEBUG] About to call mermaid.run()');
+            log.info('MERMAID', 'NEW_DIAGRAMS_FOUND', `Found ${mermaidDivsToProcess.length} new diagrams to process.`);
             
             try {
-                console.log('[MERMAID DEBUG] Calling window.mermaid.run with nodes:', mermaidDivsToProcess);
                 await window.mermaid.run({ nodes: mermaidDivsToProcess });
-                console.log('[MERMAID DEBUG] mermaid.run() completed successfully');
-                logMermaid('Mermaid.run() completed.');
+                log.info('MERMAID', 'MERMAID_RUN_COMPLETED', 'Mermaid.run() completed.');
             } catch (error) {
-                console.error('[MERMAID DEBUG] Error during mermaid.run():', error);
-                logMermaid(`Error during mermaid.run(): ${error.message}`, 'error');
+                log.error('MERMAID', 'MERMAID_RUN_ERROR', `Error during mermaid.run(): ${error.message}`, error);
             }
 
-            console.log('[MERMAID DEBUG] Setting up controls for each diagram...');
             mermaidDivsToProcess.forEach((mermaidContainer, index) => {
-                console.log(`[MERMAID DEBUG] Processing diagram ${index + 1}/${mermaidDivsToProcess.length}`);
                 const svgElement = mermaidContainer.querySelector('svg');
-                console.log(`[MERMAID DEBUG] Found SVG for diagram ${index + 1}:`, !!svgElement);
                 
                 if (!svgElement) {
                     if (!mermaidContainer.querySelector('.mermaid-error')) {
-                        logMermaid('No SVG found in a .mermaid element after run, skipping controls.', 'warn');
+                        log.warn('MERMAID', 'NO_SVG_FOUND', 'No SVG found in a .mermaid element after run, skipping controls.');
                     }
                     mermaidContainer.setAttribute('data-mermaid-processed', 'true');
                     return; 
                 }
                 
-                console.log(`[MERMAID DEBUG] Setting up controls for diagram ${index + 1}`);
                 // Setup enhanced controls with fullscreen support
                 this.setupDiagramControls(mermaidContainer, svgElement);
                 mermaidContainer.setAttribute('data-mermaid-processed', 'true');
-                console.log(`[MERMAID DEBUG] Completed setup for diagram ${index + 1}`);
             });
-            console.log('[MERMAID DEBUG] Finished setting up all diagrams');
-        } else {
-            console.log('[MERMAID DEBUG] No new mermaid diagrams found to process');
         }
     }
 
@@ -170,7 +140,7 @@ export class MermaidPlugin {
             return true;
         }
 
-        logMermaid('Initializing Enhanced Mermaid library...');
+        log.info('MERMAID', 'INITIALIZING_LIBRARY', 'Initializing Enhanced Mermaid library...');
 
         try {
             // Load the script from the CDN
@@ -192,12 +162,11 @@ export class MermaidPlugin {
             });
 
             mermaidInitialized = true;
-            logMermaid('Enhanced Mermaid library initialized successfully.');
+            log.info('MERMAID', 'LIBRARY_INITIALIZED', 'Enhanced Mermaid library initialized successfully.');
 
             return true;
         } catch (error) {
-            logMermaid(`Initialization failed: ${error.message}`, 'error');
-            console.error('[MERMAID INIT ERROR]', error);
+            log.error('MERMAID', 'INITIALIZATION_FAILED', `Initialization failed: ${error.message}`, error);
 
             // Store the error for debugging
             window.mermaidLastError = error.message;
@@ -240,7 +209,7 @@ export class MermaidPlugin {
     }
 
     destroy() {
-        logMermaid('Mermaid plugin destroyed.');
+        log.info('MERMAID', 'PLUGIN_DESTROYED', 'Enhanced MermaidPlugin cleanup finished.');
         
         if (this.controls) {
             this.controls.destroy();
@@ -257,7 +226,7 @@ export class MermaidPlugin {
         });
         this.activeListeners = [];
         
-        logMermaid('Enhanced MermaidPlugin cleanup finished.');
+        log.info('MERMAID', 'PLUGIN_DESTROYED', 'Enhanced MermaidPlugin cleanup finished.');
     }
 
 

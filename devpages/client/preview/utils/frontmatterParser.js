@@ -1,13 +1,5 @@
-// Helper for logging within this module
-function logFrontmatterParser(message, level = 'debug') {
-    const prefix = '[FrontmatterParser]';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(`${prefix} ${message}`, level, 'FRONTMATTER_PARSER');
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
-        logFunc(`${prefix} ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('FrontmatterParser');
 
 /**
  * Enhanced frontmatter parser with better error handling and type coercion
@@ -15,10 +7,10 @@ function logFrontmatterParser(message, level = 'debug') {
  * @returns {{frontMatter: object, body: string}}
  */
 export function parseFrontmatter(markdownContent) {
-    logFrontmatterParser('Parsing frontmatter (enhanced version)...', 'debug');
+    log.info('FRONTMATTER', 'PARSE_START', 'Parsing frontmatter (enhanced version)...');
     
     if (!markdownContent || typeof markdownContent !== 'string') {
-        logFrontmatterParser('Invalid markdown content provided', 'warn');
+        log.warn('FRONTMATTER', 'PARSE_INVALID_CONTENT', 'Invalid markdown content provided');
         return { frontMatter: {}, body: markdownContent || '' };
     }
 
@@ -29,19 +21,19 @@ export function parseFrontmatter(markdownContent) {
     let markdownBody = markdownContent;
 
     if (!match || !match[1]) {
-        logFrontmatterParser('No frontmatter block found', 'debug');
+        log.info('FRONTMATTER', 'PARSE_NO_FRONTMATTER', 'No frontmatter block found');
         return { frontMatter: frontMatterData, body: markdownBody };
     }
 
     const yamlContent = match[1];
     markdownBody = markdownContent.substring(match[0].length);
-    logFrontmatterParser(`Found frontmatter block (${yamlContent.length} chars)`, 'debug');
+    log.info('FRONTMATTER', 'PARSE_FRONTMATTER_FOUND', `Found frontmatter block (${yamlContent.length} chars)`);
 
     try {
         frontMatterData = parseYamlContent(yamlContent);
-        logFrontmatterParser(`Successfully parsed ${Object.keys(frontMatterData).length} frontmatter keys`, 'debug');
+        log.info('FRONTMATTER', 'PARSE_SUCCESS', `Successfully parsed ${Object.keys(frontMatterData).length} frontmatter keys`);
     } catch (error) {
-        logFrontmatterParser(`Error parsing frontmatter: ${error.message}`, 'error');
+        log.error('FRONTMATTER', 'PARSE_FAILED', `Error parsing frontmatter: ${error.message}`, error);
         frontMatterData = {};
         markdownBody = markdownContent; // Fallback to original content
     }
@@ -94,10 +86,10 @@ function parseYamlContent(yamlContent) {
         if (currentKey) {
             if (parsingState === 'array') {
                 result[currentKey] = arrayValues;
-                logFrontmatterParser(`Completed array '${currentKey}' with ${arrayValues.length} items`, 'debug');
+                log.debug('FRONTMATTER', 'PARSE_ARRAY_COMPLETE', `Completed array '${currentKey}' with ${arrayValues.length} items`);
             } else if (parsingState === 'block_scalar') {
                 result[currentKey] = currentValue.join('\n').trim();
-                logFrontmatterParser(`Completed block scalar '${currentKey}'`, 'debug');
+                log.debug('FRONTMATTER', 'PARSE_BLOCK_SCALAR_COMPLETE', `Completed block scalar '${currentKey}'`);
             }
             
             // Reset state
@@ -120,7 +112,7 @@ function parseYamlContent(yamlContent) {
                 parsingState = 'array';
                 arrayValues = [];
                 baseIndent = currentIndent + 2; // Expect items to be indented
-                logFrontmatterParser(`Starting array parsing for '${key}'`, 'debug');
+                log.debug('FRONTMATTER', 'PARSE_ARRAY_START', `Starting array parsing for '${key}'`);
                 continue;
             }
 
@@ -130,13 +122,13 @@ function parseYamlContent(yamlContent) {
                 parsingState = 'block_scalar';
                 currentValue = [];
                 baseIndent = -1; // Will be determined by first content line
-                logFrontmatterParser(`Starting block scalar parsing for '${key}'`, 'debug');
+                log.debug('FRONTMATTER', 'PARSE_BLOCK_SCALAR_START', `Starting block scalar parsing for '${key}'`);
                 continue;
             }
 
             // Simple key-value pair
             result[key] = parseValue(valueStr);
-            logFrontmatterParser(`Parsed simple key-value: ${key} = ${JSON.stringify(result[key])}`, 'debug');
+            log.debug('FRONTMATTER', 'PARSE_KEY_VALUE', `Parsed simple key-value: ${key} = ${JSON.stringify(result[key])}`);
         }
     }
 

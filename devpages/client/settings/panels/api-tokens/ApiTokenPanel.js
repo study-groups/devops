@@ -11,14 +11,7 @@ import { api } from '/client/api/api.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { ApiTokenService } from '/client/services/ApiTokenService.js';
 
-function logApiToken(message, level = 'info') {
-    const type = 'API_TOKEN';
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, type);
-    } else {
-        console.log(`[${type}] ${message}`);
-    }
-}
+const log = window.APP.services.log.createLogger('ApiTokenPanel');
 
 export class ApiTokenPanel {
     constructor(parentElement) {
@@ -30,7 +23,7 @@ export class ApiTokenPanel {
         this.subscribeToState();
         this.loadTokens();
         
-        logApiToken('ApiTokenPanel initialized');
+        log.info('PANEL_INIT', 'INITIALIZED', 'ApiTokenPanel initialized');
     }
 
     createPanelContent(parentElement) {
@@ -151,7 +144,7 @@ export class ApiTokenPanel {
         const expiryHours = parseInt(this.containerElement.querySelector('#token-expiry').value);
         const description = this.containerElement.querySelector('#token-description').value.trim() || 'API Access Token';
 
-        logApiToken(`Generating token with ${expiryHours}h expiry: ${description}`);
+        log.info('TOKEN', 'GENERATING', `Generating token with ${expiryHours}h expiry: ${description}`);
 
         try {
             const tokenData = await api.generateToken(expiryHours, description);
@@ -164,7 +157,7 @@ export class ApiTokenPanel {
             
             this.showTemporaryMessage('Token generated successfully!', 'success');
         } catch (error) {
-            logApiToken(`Error generating token: ${error.message}`, 'error');
+            log.error('TOKEN', 'GENERATION_ERROR', `Error generating token: ${error.message}`, error);
             this.showTemporaryMessage(`Error generating token: ${error.message}`, 'error');
         }
     }
@@ -209,7 +202,7 @@ export class ApiTokenPanel {
             this.tokens = response.tokens || [];
             this.displayTokens();
         } catch (error) {
-            logApiToken(`Error loading tokens: ${error.message}`, 'error');
+            log.error('TOKEN', 'LOAD_ERROR', `Error loading tokens: ${error.message}`, error);
             tokensList.innerHTML = `<div class="error-tokens">Error loading tokens: ${error.message}</div>`;
         }
     }
@@ -266,7 +259,7 @@ export class ApiTokenPanel {
             // Refresh the tokens list
             await this.loadTokens();
         } catch (error) {
-            logApiToken(`Error revoking token: ${error.message}`, 'error');
+            log.error('TOKEN', 'REVOKE_ERROR', `Error revoking token: ${error.message}`, error);
             this.showTemporaryMessage(`Error revoking token: ${error.message}`, 'error');
         }
     }
@@ -360,20 +353,22 @@ export class ApiTokenPanel {
     }
 
     subscribeToState() {
-        this.stateUnsubscribe = appStore.subscribe((newState, prevState) => {
-            // React to auth-related state changes
-            const newAuth = newState.auth;
-            const prevAuth = prevState.auth;
-            
-            if (newAuth?.user !== prevAuth?.user) {
-                // User changed, reload tokens
-                this.loadTokens();
-            }
+        let prevState = appStore.getState(); // Initialize previous state
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
     }
 
+    handleStateChange(newState, prevState) {
+        if (newState.settings.apiTokens !== prevState.settings.apiTokens) {
+            this.loadTokens(); // Re-render or update specific parts if needed
+        }
+    }
+
     destroy() {
-        logApiToken('Destroying ApiTokenPanel...');
+        log.info('PANEL_DESTROY', 'DESTROYING', 'Destroying ApiTokenPanel...');
         if (this.stateUnsubscribe) {
             this.stateUnsubscribe();
             this.stateUnsubscribe = null;
@@ -389,7 +384,7 @@ export class ApiTokenPanel {
             delete window.apiTokenPanel;
         }
         
-        logApiToken('ApiTokenPanel destroyed.');
+        log.info('PANEL_DESTROY', 'DESTROYED', 'ApiTokenPanel destroyed.');
     }
 }
 

@@ -6,15 +6,8 @@
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { settingsThunks as settingsSliceThunks } from '/client/store/slices/settingsSlice.js';
 
-// Helper for logging within this module
-function logSettings(message, level = 'debug') {
-    if (typeof window.logMessage === 'function') {
-        window.logMessage(message, level, 'SETTINGS');
-    } else {
-        const logFunc = level === 'error' ? console.error : (level === 'warning' ? console.warn : console.log);
-        logFunc(`[SETTINGS] ${message}`);
-    }
-}
+// Get a dedicated logger for this module
+const log = window.APP.services.log.createLogger('SettingsThunks');
 
 export const settingsThunks = {
     /**
@@ -24,7 +17,7 @@ export const settingsThunks = {
      */
     togglePreviewCssEnabled: (cssId) => async (dispatch, getState) => {
         try {
-            logSettings(`Toggling preview CSS enabled for: ${cssId}`);
+            log.info('SETTINGS', 'TOGGLE_PREVIEW_CSS', `Toggling preview CSS enabled for: ${cssId}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_TOGGLE_PREVIEW_CSS_ENABLED, 
@@ -36,7 +29,7 @@ export const settingsThunks = {
             
             return true;
         } catch (error) {
-            logSettings(`Error toggling preview CSS: ${error.message}`, 'error');
+            log.error('SETTINGS', 'TOGGLE_PREVIEW_CSS_ERROR', `Error toggling preview CSS: ${error.message}`, error);
             throw error;
         }
     },
@@ -48,7 +41,7 @@ export const settingsThunks = {
      */
     addPreviewCss: (cssPath) => async (dispatch, getState) => {
         try {
-            logSettings(`Adding preview CSS: ${cssPath}`);
+            log.info('SETTINGS', 'ADD_PREVIEW_CSS', `Adding preview CSS: ${cssPath}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_ADD_PREVIEW_CSS, 
@@ -60,7 +53,7 @@ export const settingsThunks = {
             
             return true;
         } catch (error) {
-            logSettings(`Error adding preview CSS: ${error.message}`, 'error');
+            log.error('SETTINGS', 'ADD_PREVIEW_CSS_ERROR', `Error adding preview CSS: ${error.message}`, error);
             throw error;
         }
     },
@@ -72,7 +65,7 @@ export const settingsThunks = {
      */
     removePreviewCss: (cssId) => async (dispatch, getState) => {
         try {
-            logSettings(`Removing preview CSS: ${cssId}`);
+            log.info('SETTINGS', 'REMOVE_PREVIEW_CSS', `Removing preview CSS: ${cssId}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_REMOVE_PREVIEW_CSS, 
@@ -84,7 +77,7 @@ export const settingsThunks = {
             
             return true;
         } catch (error) {
-            logSettings(`Error removing preview CSS: ${error.message}`, 'error');
+            log.error('SETTINGS', 'REMOVE_PREVIEW_CSS_ERROR', `Error removing preview CSS: ${error.message}`, error);
             throw error;
         }
     },
@@ -96,7 +89,7 @@ export const settingsThunks = {
      */
     setActivePreviewCss: (cssId) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting active preview CSS: ${cssId}`);
+            log.info('SETTINGS', 'SET_ACTIVE_PREVIEW_CSS', `Setting active preview CSS: ${cssId}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, 
@@ -105,7 +98,7 @@ export const settingsThunks = {
             
             return true;
         } catch (error) {
-            logSettings(`Error setting active preview CSS: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_ACTIVE_PREVIEW_CSS_ERROR', `Error setting active preview CSS: ${error.message}`, error);
             throw error;
         }
     },
@@ -120,21 +113,21 @@ export const settingsThunks = {
             const currentState = state.settings?.preview?.enableRootCss || true;
             const newState = !currentState;
             
-            logSettings(`Toggling root CSS enabled to: ${newState}`);
+            log.info('SETTINGS', 'TOGGLE_ROOT_CSS', `Toggling root CSS enabled to: ${newState}`);
             
             dispatch({ type: ActionTypes.SETTINGS_TOGGLE_ROOT_CSS_ENABLED });
             
             // Persist to localStorage
             try {
                 localStorage.setItem('devpages_enable_root_css', newState.toString());
-                logSettings(`Root CSS enabled state persisted to localStorage: ${newState}`);
+                log.info('SETTINGS', 'PERSIST_ROOT_CSS_SUCCESS', `Root CSS enabled state persisted to localStorage: ${newState}`);
             } catch (e) {
-                logSettings(`Failed to persist root CSS enabled state: ${e.message}`, 'warning');
+                log.warn('SETTINGS', 'PERSIST_ROOT_CSS_FAILED', `Failed to persist root CSS enabled state: ${e.message}`, e);
             }
             
             return newState;
         } catch (error) {
-            logSettings(`Error toggling root CSS enabled: ${error.message}`, 'error');
+            log.error('SETTINGS', 'TOGGLE_ROOT_CSS_ERROR', `Error toggling root CSS enabled: ${error.message}`, error);
             throw error;
         }
     },
@@ -146,7 +139,7 @@ export const settingsThunks = {
      */
     setRootCssEnabled: (isEnabled) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting root CSS enabled to: ${isEnabled}`);
+            log.info('SETTINGS', 'SET_ROOT_CSS', `Setting root CSS enabled to: ${isEnabled}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
@@ -156,14 +149,14 @@ export const settingsThunks = {
             // Persist to localStorage
             try {
                 localStorage.setItem('devpages_enable_root_css', isEnabled.toString());
-                logSettings(`Root CSS enabled state persisted to localStorage: ${isEnabled}`);
+                log.info('SETTINGS', 'PERSIST_ROOT_CSS_SUCCESS', `Root CSS enabled state persisted to localStorage: ${isEnabled}`);
             } catch (e) {
-                logSettings(`Failed to persist root CSS enabled state: ${e.message}`, 'warning');
+                log.warn('SETTINGS', 'PERSIST_ROOT_CSS_FAILED', `Failed to persist root CSS enabled state: ${e.message}`, e);
             }
             
             return isEnabled;
         } catch (error) {
-            logSettings(`Error setting root CSS enabled: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_ROOT_CSS_ERROR', `Error setting root CSS enabled: ${error.message}`, error);
             throw error;
         }
     },
@@ -175,7 +168,7 @@ export const settingsThunks = {
      */
     setPreviewCssFiles: (files) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting preview CSS files: ${files.length} files`);
+            log.info('SETTINGS', 'SET_PREVIEW_CSS_FILES', `Setting preview CSS files: ${files.length} files`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_PREVIEW_CSS_FILES, 
@@ -187,7 +180,7 @@ export const settingsThunks = {
             
             return files;
         } catch (error) {
-            logSettings(`Error setting preview CSS files: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_PREVIEW_CSS_FILES_ERROR', `Error setting preview CSS files: ${error.message}`, error);
             throw error;
         }
     },
@@ -199,7 +192,7 @@ export const settingsThunks = {
      */
     setActiveDesignTheme: (themeName) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting active design theme: ${themeName}`);
+            log.info('SETTINGS', 'SET_ACTIVE_DESIGN_THEME', `Setting active design theme: ${themeName}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_ACTIVE_DESIGN_THEME, 
@@ -208,7 +201,7 @@ export const settingsThunks = {
             
             return themeName;
         } catch (error) {
-            logSettings(`Error setting active design theme: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_ACTIVE_DESIGN_THEME_ERROR', `Error setting active design theme: ${error.message}`, error);
             throw error;
         }
     },
@@ -220,7 +213,7 @@ export const settingsThunks = {
      */
     setDesignThemeVariant: (variant) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting design theme variant: ${variant}`);
+            log.info('SETTINGS', 'SET_DESIGN_THEME_VARIANT', `Setting design theme variant: ${variant}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_DESIGN_THEME_VARIANT, 
@@ -229,7 +222,7 @@ export const settingsThunks = {
             
             return variant;
         } catch (error) {
-            logSettings(`Error setting design theme variant: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_DESIGN_THEME_VARIANT_ERROR', `Error setting design theme variant: ${error.message}`, error);
             throw error;
         }
     },
@@ -241,7 +234,7 @@ export const settingsThunks = {
      */
     setDesignTokensDirectory: (directory) => async (dispatch, getState) => {
         try {
-            logSettings(`Setting design tokens directory: ${directory}`);
+            log.info('SETTINGS', 'SET_DESIGN_TOKENS_DIRECTORY', `Setting design tokens directory: ${directory}`);
             
             dispatch({ 
                 type: ActionTypes.SETTINGS_SET_DESIGN_TOKENS_DIR, 
@@ -250,7 +243,7 @@ export const settingsThunks = {
             
             return directory;
         } catch (error) {
-            logSettings(`Error setting design tokens directory: ${error.message}`, 'error');
+            log.error('SETTINGS', 'SET_DESIGN_TOKENS_DIRECTORY_ERROR', `Error setting design tokens directory: ${error.message}`, error);
             throw error;
         }
     }

@@ -35,6 +35,22 @@ export class CodePanel extends BasePanel {
         this.log('CodePanel initialized', 'info');
     }
 
+    init() {
+        super.init();
+        let prevState = appStore.getState(); // Initialize previous state
+        // Subscribe to relevant state changes
+        this.storeUnsubscribe = appStore.subscribe(() => {
+            const newState = appStore.getState();
+            if (newState.file.currentPathname !== prevState.file.currentPathname) {
+                this.handleFileChange(newState.file.currentPathname);
+            }
+            if (newState.file.currentContent !== prevState.file.currentContent) {
+                this.handleContentChange(newState.file.currentContent);
+            }
+            prevState = newState; // Update previous state
+        });
+    }
+
     /**
      * Get panel title
      */
@@ -46,11 +62,6 @@ export class CodePanel extends BasePanel {
      * Setup event listeners
      */
     onSetupEventListeners() {
-        // Subscribe to app store for file-related changes
-        this.storeUnsubscribe = appStore.subscribe((newState, prevState) => {
-            this.handleStoreChange(newState, prevState);
-        });
-
         // Listen for external path changes
         if (eventBus && typeof eventBus.on === 'function') {
             eventBus.on('path:changed', this.handleExternalPathChange.bind(this));

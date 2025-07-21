@@ -7,7 +7,6 @@ import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { globalFetch } from '/client/globalFetch.js';
 import { e } from '/client/components/elements.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 
@@ -31,7 +30,7 @@ export class PublishSettingsPanel {
 
   async loadSpacesConfig() {
     try {
-      const response = await globalFetch('/api/config');
+      const response = await window.APP.services.globalFetch('/api/config');
       if (response.ok) {
         const data = await response.json();
         this.spacesConfig = data;

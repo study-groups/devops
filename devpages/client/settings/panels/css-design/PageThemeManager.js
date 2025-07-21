@@ -5,49 +5,47 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { logMessage } from '/client/log/index.js';
+
+const log = window.APP.services.log.createLogger('PageThemeManager');
 
 const PAGE_THEME_CORE_LINK_ID = 'devpages-page-theme-core-stylesheet';
 const PAGE_THEME_MODE_LINK_ID = 'devpages-page-theme-mode-stylesheet';
 
 class PageThemeManager {
     constructor() {
+        this.store = appStore;
         this.unsubscribe = null;
-        this.currentTheme = {
-            themeDir: null,
-            themeMode: null,
-        };
-        this.loadedThemes = new Set(); // Track successfully loaded themes
+        this.currentThemeDir = '';
     }
-
-    start() {
-        if (this.unsubscribe) {
-            logMessage('PageThemeManager is already running.', 'warn', 'THEME_MANAGER');
-            return;
-        }
-
-        logMessage('Starting PageThemeManager...', 'info', 'THEME_MANAGER');
-        this.unsubscribe = appStore.subscribe((newState, oldState) => {
-            const newThemeSettings = newState.settings?.pageTheme;
-            const oldThemeSettings = oldState.settings?.pageTheme;
-
-            if (newThemeSettings && newThemeSettings !== oldThemeSettings) {
-                this.handleThemeChange(newThemeSettings);
-            }
+    
+    init() {
+        let prevState = this.store.getState(); // Initialize previous state
+        this.unsubscribe = this.store.subscribe(() => {
+            const newState = this.store.getState();
+            this.handleStateChange(newState, prevState);
+            prevState = newState; // Update previous state
         });
 
         // Apply the initial theme based on the current state
         const initialState = appStore.getState();
-        this.handleThemeChange(initialState.settings?.pageTheme);
+        this.handleStateChange(initialState, prevState); // Pass initial state and previous state
     }
 
     stop() {
         if (this.unsubscribe) {
             this.unsubscribe();
             this.unsubscribe = null;
-            logMessage('PageThemeManager stopped.', 'info', 'THEME_MANAGER');
+            log.info('THEME_MANAGER', 'STOP', 'PageThemeManager stopped.');
         }
         this.removeThemeStylesheets();
+    }
+
+    handleStateChange(newState, oldState) {
+        const themeDir = newState.settings.pageTheme.themeDir;
+        if (themeDir !== this.currentThemeDir) {
+            this.currentThemeDir = themeDir;
+            this.handleThemeChange(newState.settings.pageTheme);
+        }
     }
 
     async handleThemeChange(themeSettings) {
@@ -55,14 +53,15 @@ class PageThemeManager {
 
         const { themeDir, themeMode } = themeSettings;
 
-        if (this.currentTheme.themeDir === themeDir && this.currentTheme.themeMode === themeMode) {
+        if (this.currentThemeDir === themeDir && this.currentThemeMode === themeMode) {
             return; // No change
         }
 
-        this.currentTheme = { themeDir, themeMode };
+        this.currentThemeDir = themeDir;
+        this.currentThemeMode = themeMode;
 
         if (!themeDir || !themeMode) {
-            logMessage('Theme directory or mode is not set. Removing theme stylesheets.', 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'NO_THEME_SET', 'Theme directory or mode is not set. Removing theme stylesheets.');
             this.removeThemeStylesheets();
             return;
         }
@@ -72,7 +71,7 @@ class PageThemeManager {
         const modeUrl = `${themeDir}/${themeMode}.css`;
         const legacyUrl = `${themeDir}/${themeMode}.css`; // Fallback to old structure
 
-        logMessage(`Applying page theme: ${themeDir} (${themeMode} mode)`, 'info', 'THEME_MANAGER');
+        log.info('THEME_MANAGER', 'APPLYING_THEME', `Applying page theme: ${themeDir} (${themeMode} mode)`);
         
         // Try new structure first, fallback to legacy
         const coreExists = await this.validateThemeFile(coreUrl);
@@ -89,16 +88,16 @@ class PageThemeManager {
             // themeUrl format: "/themes/classic/core.css" or similar
             const apiPath = themeUrl.startsWith('/') ? themeUrl.substring(1) : themeUrl;
             
-            logMessage(`Validating theme file via files API: ${apiPath}`, 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'VALIDATE_THEME_FILE', `Validating theme file via files API: ${apiPath}`);
             
             // Use the authenticated files API
             const response = await fetch(`/api/files/content?pathname=${encodeURIComponent(apiPath)}`, { method: 'HEAD' });
             const exists = response.ok;
             
-            logMessage(`Theme file ${apiPath} ${exists ? 'exists' : 'not found'} (${response.status})`, 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'VALIDATE_THEME_FILE_RESULT', `Theme file ${apiPath} ${exists ? 'exists' : 'not found'} (${response.status})`);
             return exists;
         } catch (error) {
-            logMessage(`Theme file validation failed for ${themeUrl}: ${error.message}`, 'warn', 'THEME_MANAGER');
+            log.warn('THEME_MANAGER', 'VALIDATE_THEME_FILE_ERROR', `Theme file validation failed for ${themeUrl}: ${error.message}`, error);
             return false;
         }
     }
@@ -106,7 +105,7 @@ class PageThemeManager {
     async applyNewThemeStructure(coreUrl, modeUrl) {
         const previewDoc = this.getPreviewIframeDocument();
         if (!previewDoc) {
-            logMessage('Preview iframe not found. Cannot apply page theme.', 'warn', 'THEME_MANAGER');
+            log.warn('THEME_MANAGER', 'PREVIEW_IFRAME_NOT_FOUND', 'Preview iframe not found. Cannot apply page theme.');
             return;
         }
 
@@ -118,7 +117,7 @@ class PageThemeManager {
         if (modeExists) {
             await this.applyThemeStylesheet(previewDoc, PAGE_THEME_MODE_LINK_ID, modeUrl);
         } else {
-            logMessage(`Mode file ${modeUrl} not found, using core only`, 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'MODE_FILE_NOT_FOUND', `Mode file ${modeUrl} not found, using core only`);
         }
     }
 
@@ -130,7 +129,7 @@ class PageThemeManager {
         if (legacyExists) {
             await this.applyThemeStylesheet(previewDoc, PAGE_THEME_MODE_LINK_ID, legacyUrl);
         } else {
-            logMessage(`Legacy theme file not found: ${legacyUrl}`, 'error', 'THEME_MANAGER');
+            log.error('THEME_MANAGER', 'LEGACY_THEME_NOT_FOUND', `Legacy theme file not found: ${legacyUrl}`);
         }
     }
 
@@ -155,9 +154,9 @@ class PageThemeManager {
         // If no iframe found, check if preview container exists but has no iframe yet
         const previewContainer = document.querySelector('#preview-container, .preview-container');
         if (previewContainer && !previewContainer.querySelector('iframe')) {
-            logMessage('Preview container found but no iframe present - content may be rendered inline', 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'PREVIEW_CONTAINER_NO_IFRAME', 'Preview container found but no iframe present - content may be rendered inline');
         } else {
-            logMessage('Preview iframe not found with any selector', 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'PREVIEW_IFRAME_NOT_FOUND_ANY', 'Preview iframe not found with any selector');
         }
         return null;
     }
@@ -170,7 +169,7 @@ class PageThemeManager {
             link.id = linkId;
             link.rel = 'stylesheet';
             previewDoc.head.appendChild(link);
-            logMessage(`Created new theme stylesheet link: ${linkId}`, 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'CREATED_STYLESHEET_LINK', `Created new theme stylesheet link: ${linkId}`);
         }
 
         // Convert theme URL to files API URL for loading
@@ -180,7 +179,7 @@ class PageThemeManager {
         if (link.getAttribute('href') !== apiUrl) {
             link.setAttribute('href', apiUrl);
             this.loadedThemes.add(themeUrl);
-            logMessage(`Updated theme stylesheet: ${themeUrl} -> ${apiUrl}`, 'debug', 'THEME_MANAGER');
+            log.debug('THEME_MANAGER', 'UPDATED_STYLESHEET', `Updated theme stylesheet: ${themeUrl} -> ${apiUrl}`);
         }
     }
 
@@ -191,7 +190,7 @@ class PageThemeManager {
                 const link = previewDoc.getElementById(linkId);
                 if (link) {
                     link.parentNode.removeChild(link);
-                    logMessage(`Removed theme stylesheet: ${linkId}`, 'debug', 'THEME_MANAGER');
+                    log.debug('THEME_MANAGER', 'REMOVED_STYLESHEET', `Removed theme stylesheet: ${linkId}`);
                 }
             });
         }

@@ -4,6 +4,9 @@
  * Store integration is handled separately to avoid circular dispatch issues
  */
 
+// Get a dedicated logger for this module
+const logCoreLogger = window.APP.services.log.createLogger('LogCore');
+
 // Legacy variable kept for backward compatibility
 let logPanelInstance = null;
 
@@ -45,13 +48,13 @@ let suppressDebugDuringInit = true;
 // Auto-disable suppression after 10 seconds
 setTimeout(() => {
     suppressDebugDuringInit = false;
-    console.log('[LogCore] Debug logging suppression disabled after initialization period');
+    logCoreLogger.info('DEBUG_LOGGING_ENABLED', 'Debug logging suppression disabled after initialization period');
 }, 10000);
 
 // Allow manual control
 window.toggleLogSuppression = (enabled) => {
     suppressDebugDuringInit = enabled;
-    console.log(`[LogCore] Debug logging suppression ${enabled ? 'enabled' : 'disabled'}`);
+    logCoreLogger.info('DEBUG_LOGGING_SUPPRESSION', `Debug logging suppression ${enabled ? 'enabled' : 'disabled'}`);
 };
 
 /* 0.  CONSTANTS & HELPERS ------------------------------------ */
@@ -70,7 +73,7 @@ export const canonicalType = (raw = 'GENERAL') =>
 export function setLogPanelInstance(instance) {
     if (instance && typeof instance.addEntry === 'function') {
         logPanelInstance = instance;
-        console.log('[LogCore] LogPanel instance set');
+        logCoreLogger.info('LOG_PANEL_INSTANCE_SET', 'LogPanel instance set');
     } else {
         console.error('[LogCore] Invalid LogPanel instance supplied');
         logPanelInstance = null;
@@ -193,7 +196,4 @@ export function legacyPositional(message,
     }
 }
 
-export { legacyPositional as globalLogMessageHandler };
-if (typeof window !== 'undefined') {
-    window.logMessage = legacyPositional;
-} 
+export { legacyPositional as globalLogMessageHandler }; 

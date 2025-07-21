@@ -56,13 +56,19 @@ import {
   logWarn, 
   logError,
   createLogger,
-  legacyPositional,
-  globalLogMessageHandler,
   setLogPanelInstance,
   LEVELS,
   canonicalLevel,
   canonicalType
 } from './LogCore.js';
+
+/**
+ * @deprecated Use `log({ message, level, type })` instead.
+ */
+function logMessage(message, level = 'info', type = 'GENERAL') {
+  log({ message, level, type });
+}
+
 
 // Console Performance Timing
 import {
@@ -142,12 +148,15 @@ export {
   logWarn,
   logError,
   createLogger as createLogCoreLogger,  // Renamed to avoid conflict
-  legacyPositional as logMessage, // This is what most modules import as logMessage
-  globalLogMessageHandler,
   setLogPanelInstance,
   LEVELS,
   canonicalLevel,
   canonicalType
+};
+
+// Export the deprecated logMessage function for backward compatibility
+export {
+  logMessage
 };
 
 // Export console timing functions
@@ -169,9 +178,4 @@ export {
   initializeTiming,
   isDetailedTimingEnabled,
   isPerformanceLoggingEnabled
-};
-
-// Ensure window.logMessage is available globally (backup)
-if (typeof window !== 'undefined' && !window.logMessage) {
-  window.logMessage = legacyPositional;
-} 
+}; 
