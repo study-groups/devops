@@ -41,12 +41,14 @@ display_help() {
     echo "Generates a service interworking report and prints to stdout."
     echo ""
     echo "Commands:"
-    echo "  all          Run all reports in verbose mode."
+    echo "  all          Run all reports in verbose mode (filtered to exclude common services)."
+    echo "  all-details  Run all reports showing ALL services including common system services."
     echo "  abbreviated  Show a report of services on ports >1024 and <10000."
     echo "  connections  Analyze and show connections between services."
     echo "  domains      List all active NGINX domains."
     echo "  nginx        Show detailed NGINX report."
-    echo "  systemd      Show detailed systemd report."
+    echo "  systemd      Show detailed systemd report (filtered)."
+    echo "  systemd-all  Show detailed systemd report (all services)."
     echo "  docker       Show detailed Docker report."
     echo "  pm2          Show detailed PM2 report."
     echo "  ports        Show a report on all used ports."
@@ -199,7 +201,7 @@ process_env_report # Always include env report
 # Default to summary if no specific command given
 if [ ${#COMMANDS[@]} -eq 0 ]; then
     generate_nginx_summary
-    generate_systemd_summary
+    generate_systemd_summary false  # filtered (default)
     for user in "${!USERS_TO_CHECK_MAP[@]}"; do
         if id "$user" &>/dev/null; then
             generate_pm2_summary_for_user "$user"
@@ -212,7 +214,19 @@ for cmd in "${COMMANDS[@]}"; do
     case "$cmd" in
         all)
             generate_nginx_detailed
-            generate_systemd_detailed
+            generate_systemd_detailed false  # filtered (default)
+            generate_docker_detailed
+            for user in "${!USERS_TO_CHECK_MAP[@]}"; do
+                if id "$user" &>/dev/null; then
+                    generate_pm2_detailed_for_user "$user"
+                fi
+            done
+            generate_ports_report
+            generate_connections_report
+            ;;
+        all-details)
+            generate_nginx_detailed
+            generate_systemd_detailed true   # unfiltered (show all)
             generate_docker_detailed
             for user in "${!USERS_TO_CHECK_MAP[@]}"; do
                 if id "$user" &>/dev/null; then
@@ -235,7 +249,10 @@ for cmd in "${COMMANDS[@]}"; do
             generate_nginx_detailed
             ;;
         systemd)
-            generate_systemd_detailed
+            generate_systemd_detailed false  # filtered (default)
+            ;;
+        systemd-all)
+            generate_systemd_detailed true   # unfiltered (show all)
             ;;
         docker)
             generate_docker_detailed

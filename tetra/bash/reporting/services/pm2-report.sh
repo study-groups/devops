@@ -35,8 +35,6 @@ collect_pm2_data_for_user() {
                 done
             fi
         fi
-        # Clean up the file whether successful or not
-        rm -f "$pm2_json_file"
         return
     fi
     
@@ -53,8 +51,6 @@ collect_pm2_data_for_user() {
             done
         fi
     fi
-    # Clean up the file whether successful or not
-    rm -f "$pm2_json_file"
 }
 
 # Generates a summary report of running PM2 processes for a given user.
