@@ -27,11 +27,17 @@ set -xe
 sudo -u "$REMOTE_USER" bash -l -c "
   cd $REPO_PATH &&
   pwd &&
+  echo 'DEBUG: Current user:' &&
+  whoami &&
+  echo 'DEBUG: Home directory:' &&
+  echo \$HOME &&
   echo 'DEBUG: Current PATH:' &&
   echo \$PATH &&
   echo 'DEBUG: Loading NVM from correct location...' &&
+  export HOME=/home/$REMOTE_USER &&
   export NVM_DIR=\"\$HOME/pj/bin/nvm\" &&
-  [ -s \"\$NVM_DIR/nvm.sh\" ] && source \"\$NVM_DIR/nvm.sh\" && echo 'NVM sourced successfully' || echo 'NVM not found at \$NVM_DIR' &&
+  echo \"DEBUG: NVM_DIR set to: \$NVM_DIR\" &&
+  [ -s \"\$NVM_DIR/nvm.sh\" ] && source \"\$NVM_DIR/nvm.sh\" && echo 'NVM sourced successfully' || echo \"NVM not found at \$NVM_DIR\" &&
   echo 'DEBUG: Updated PATH:' &&
   echo \$PATH &&
   echo 'DEBUG: Looking for node...' &&
