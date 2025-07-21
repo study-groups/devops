@@ -1,7 +1,7 @@
 alias pbvm='$TETRA_SRC/bash/pbvm/pbvm.sh'
 alias hotrod-paste='$TETRA_SRC/bash/hotrod/hotrod.sh'
 alias hotrod-tunnel='$TETRA_SRC/bash/hotrod/tunnel.sh'
-alias service-report='$TETRA_SRC/bash/nginx/service-report.sh'
+alias service-report='$TETRA_SRC/bash/reporting/service-report.sh'
 alias tro='$TETRA_SRC/bash/hotrod/tro.sh'
 alias ttro='$TETRA_SRC/bash/hotrod/tro.sh'
 alias ttks='tetra-tmux-kill-server'
