@@ -1,68 +1,110 @@
-# verbs.sh
-
 tetra_deploy_build() {
-  if [ -n "$1" ] && [ -f "$1" ] && [ -r "$1" ]; then
-    . "$1"
-    shift
-  fi
+    # Source env file if provided and readable
+    if [ -n "$1" ] && [ -f "$1" ] && [ -r "$1" ]; then
+        . "$1"
+        shift
+    fi
 
-  local REMOTE_HOST="${REMOTE_HOST:-pixeljamarcade.com}"
-  local REMOTE_USER="${REMOTE_USER:-staging}"
-  local REPO_PATH="${REPO_PATH:-$HOME/src/pixeljam}"
-  local BRANCH="${BRANCH:-staging}"
-  local MERGE_BRANCH="${MERGE_BRANCH:-api-dev}"
-  local SERVICE1="${SERVICE1:-nginx}"
-  local SERVICE2="${SERVICE2:-arcade-staging}"
-  # New parameter for the project's subdirectory within the repo
-  local PROJECT_SUBDIR="${PROJECT_SUBDIR:-pja/cabinet}"
+    export NVM_DIR="$HOME/pj/nvm"
+    export PD_DIR="$HOME/pj/pd"
 
-  [ -n "$1" ] && REMOTE_HOST="$1"
-  [ -n "$2" ] && REMOTE_USER="$2"
-  [ -n "$3" ] && REPO_PATH="$3"
-  [ -n "$4" ] && BRANCH="$4"
-  [ -n "$5" ] && MERGE_BRANCH="$5"
-  [ -n "$6" ] && SERVICE1="$6"
-  [ -n "$7" ] && SERVICE2="$7"
-  [ -n "$8" ] && PROJECT_SUBDIR="$8"
+    # Set CLI or env vars, allow override by positional arguments
+    local REMOTE_HOST="${REMOTE_HOST:-pixeljamarcade.com}"
+    local REMOTE_USER="${REMOTE_USER:-staging}"
+    local REPO_PATH="${REPO_PATH:-$HOME/src/pixeljam}"
+    local BRANCH="${BRANCH:-staging}"
+    local MERGE_BRANCH="${MERGE_BRANCH:-api-dev}"
+    local SERVICE1="${SERVICE1:-nginx}"
+    local SERVICE2="${SERVICE2:-arcade-staging}"
+    local PROJECT_SUBDIR="${PROJECT_SUBDIR:-pja/cabinet}"
 
-  # Pass local variables to the remote shell and execute the script.
-  ssh "$REMOTE_USER"@"$REMOTE_HOST" "REPO_PATH='${REPO_PATH}' PROJECT_SUBDIR='${PROJECT_SUBDIR}' bash -s" <<'EOF'
-# Exit immediately if a command exits with a non-zero status.
+    [ -n "$1" ] && REMOTE_HOST="$1"
+    [ -n "$2" ] && REMOTE_USER="$2"
+    [ -n "$3" ] && REPO_PATH="$3"
+    [ -n "$4" ] && BRANCH="$4"
+    [ -n "$5" ] && MERGE_BRANCH="$5"
+    [ -n "$6" ] && SERVICE1="$6"
+    [ -n "$7" ] && SERVICE2="$7"
+    [ -n "$8" ] && PROJECT_SUBDIR="$8"
+
+    ssh "$REMOTE_USER@$REMOTE_HOST" "REPO_PATH='$REPO_PATH' PROJECT_SUBDIR='$PROJECT_SUBDIR' bash -l -s" <<'EOF'
 set -e
 
-# Expand potential tilde in REPO_PATH on the remote host.
-eval "REPO_PATH=${REPO_PATH}"
-
-# Change to the project directory. Provide a default for REPO_PATH as a safeguard.
-PROJECT_ROOT="${REPO_PATH:-/home/staging/src/pixeljam}"
-cd "${PROJECT_ROOT}/${PROJECT_SUBDIR}"
-echo "Changed to directory: $(pwd)"
-
-# Manually source NVM, resolving $HOME on the remote machine.
-export NVM_DIR="$HOME/pj/nvm"
-if [ -s "$NVM_DIR/nvm.sh" ]; then
-  . "$NVM_DIR/nvm.sh"
-else
-  echo "ERROR: nvm.sh not found in $NVM_DIR" >&2
-  exit 1
+# Expand ~ manually if present
+if [[ "$REPO_PATH" == "~"* ]]; then
+    REPO_PATH="${HOME}${REPO_PATH:1}"
+fi
+if [[ "$PROJECT_SUBDIR" == "~"* ]]; then
+    PROJECT_SUBDIR="${HOME}${PROJECT_SUBDIR:1}"
 fi
 
-echo "--- Node/NPM versions ---"
+PROJECT_ROOT="${REPO_PATH:-$HOME/src/pixeljam}"
+TARGET_DIR="${PROJECT_ROOT}/${PROJECT_SUBDIR}"
+
+echo "[DEBUG] user: $(whoami)"
+echo "[DEBUG] HOME: $HOME"
+export NVM_DIR="$HOME/pj/nvm"
+echo "[DEBUG] NVM_DIR: $NVM_DIR"
+ls -l "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+echo "[DEBUG] nvm.sh exit code: $?"
+nvm use 20 || nvm use default
+echo "[DEBUG] nvm use exit code: $?"
 which node
 node -v
 which npm
 npm -v
-echo "-------------------------"
 
-# Set the PD_DIR environment variable, resolving $HOME on the remote.
-export PD_DIR="$HOME/pj/pd"
-echo "PD_DIR set to: $PD_DIR"
+echo "[INFO] cd to: $TARGET_DIR"
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "[FAIL] Directory $TARGET_DIR does not exist"
+    exit 2
+fi
+cd "$TARGET_DIR"
+echo "[DEBUG] cd exit code: $?"
 
-echo "Running npm install and build in $(pwd)..."
+echo "[INFO] Directory listing:"
+ls -la
+echo "[DEBUG] ls exit code: $?"
+
+echo "[INFO] Checking for env.sh..."
+if [ ! -f ./env.sh ]; then
+    echo "[FAIL] Missing ./env.sh in $TARGET_DIR"
+    exit 2
+fi
+if ! grep -q . ./env.sh; then
+    echo "[FAIL] ./env.sh is empty"
+    exit 2
+fi
+echo "[DEBUG] env.sh exists and is not empty"
+
+echo "[INFO] Sourcing env.sh..."
+. ./env.sh
+echo "[DEBUG] env.sh exit code: $?"
+
+which node
+echo "[DEBUG] which node exit code: $?"
+node -v
+echo "[DEBUG] node -v exit code: $?"
+which npm
+echo "[DEBUG] which npm exit code: $?"
+npm -v
+echo "[DEBUG] npm -v exit code: $?"
+
+echo "[INFO] Removing node_modules and running npm install"
+rm -rf ./node_modules
+echo "[DEBUG] rm -rf exit code: $?"
 npm install
-npm run build
+echo "[DEBUG] npm install exit code: $?"
 
-echo "Build successful."
+echo "[INFO] Sourcing env.sh (again) before build"
+. ./env.sh
+echo "[DEBUG] env.sh (pre-build) exit code: $?"
+
+echo "[INFO] Running build..."
+npm run build
+echo "[DEBUG] npm run build exit code: $?"
+
+echo "[SUCCESS] Build completed successfully."
 EOF
 }
-
