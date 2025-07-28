@@ -39,48 +39,6 @@ export async function createTestApp() {
     let pdataInstance;
     try {
         pdataInstance = new PData();
-        
-        // Check if users is already a Map
-        if (!(pdataInstance.users instanceof Map)) {
-            console.log(`[Test Server] PData.users is not a Map, converting...`);
-            
-            // First keep a reference to the original users
-            const originalUsers = pdataInstance.users;
-            
-            // Create a new Map
-            pdataInstance.users = new Map();
-            
-            // If we have user objects with salt/hash properties, add them to the Map
-            if (typeof originalUsers === 'object') {
-                for (const [key, value] of Object.entries(originalUsers)) {
-                    if (value && typeof value === 'object' && value.salt && value.hash) {
-                        pdataInstance.users.set(key, value);
-                        console.log(`[Test Server] Added user ${key} to users Map with salt/hash`);
-                    }
-                }
-            }
-            
-            // If the Map is still empty, add test users with salt/hash
-            if (pdataInstance.users.size === 0) {
-                // Import the functions we need for password hashing
-                const { generateSalt, hashPassword } = await import('../userUtils.js');
-                
-                // Add test users
-                const testUsers = [
-                    { username: 'testuser', password: 'password123', role: 'user' },
-                    { username: 'testadmin', password: 'adminpassword', role: 'admin' }
-                ];
-                
-                for (const user of testUsers) {
-                    const salt = generateSalt();
-                    const hash = hashPassword(user.password, salt);
-                    pdataInstance.users.set(user.username, { salt, hash });
-                    console.log(`[Test Server] Added test user ${user.username} to users Map`);
-                }
-            }
-            
-            console.log(`[Test Server] Users Map now contains ${pdataInstance.users.size} users`);
-        }
     } catch (error) {
         console.error('[Test Server] CRITICAL: PData failed to initialize.', error);
         throw new Error(`PData failed to initialize: ${error.message}`);

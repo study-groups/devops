@@ -42,16 +42,19 @@ fs.writeFileSync(rolesCsvPath, rolesCsvContent.trim());
 
 // Ensure data and uploads directories exist
 const dataDir = path.join(pdataTestRootDir, 'data');
+const usersDataDir = path.join(dataDir, 'users');
 const uploadsDir = path.join(pdataTestRootDir, 'uploads');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(usersDataDir)) fs.mkdirSync(usersDataDir, { recursive: true });
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Create user-specific directories
-const testUserDir = path.join(dataDir, 'testuser');
-const anotherUserDir = path.join(dataDir, 'anotheruser');
+const testUserDir = path.join(usersDataDir, 'testuser');
+const testAdminDir = path.join(usersDataDir, 'testadmin');
+const anotherUserDir = path.join(usersDataDir, 'anotheruser');
 
 // Ensure user directories exist
 if (!fs.existsSync(testUserDir)) fs.mkdirSync(testUserDir, { recursive: true });
+if (!fs.existsSync(testAdminDir)) fs.mkdirSync(testAdminDir, { recursive: true });
 if (!fs.existsSync(anotherUserDir)) fs.mkdirSync(anotherUserDir, { recursive: true });
 
 // Create a file in anotheruser directory

@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PDATA_TEST_ROOT = path.resolve(__dirname, 'pdata_test_root');
-const USER_DATA_DIR = (username) => path.join(PDATA_TEST_ROOT, 'data', username);
+const USER_DATA_DIR = (username) => path.join(PDATA_TEST_ROOT, 'data', 'users', username);
 
 // At the top of your test file, before importing PData
 process.env.PD_DIR = PDATA_TEST_ROOT;
@@ -77,7 +77,7 @@ describe('PData API End-to-End Tests', () => {
         await fs.emptyDir(USER_DATA_DIR('testuser'));
         await fs.emptyDir(USER_DATA_DIR('testadmin'));
         // Ensure the base 'data' and 'uploads' directories still exist if emptyDir removes them
-        await fs.ensureDir(path.join(PDATA_TEST_ROOT, 'data'));
+        await fs.ensureDir(path.join(PDATA_TEST_ROOT, 'data', 'users'));
         await fs.ensureDir(path.join(PDATA_TEST_ROOT, 'uploads'));
         console.log('--- Starting new test ---');
     }, 4000);
@@ -123,7 +123,7 @@ describe('PData API End-to-End Tests', () => {
         });
 
         it('should list an empty directory for testuser', async () => {
-            const res = await agent.get('/api/pdata/list');
+            const res = await agent.get('/api/pdata/list?dir=testuser');
             expect(res.statusCode).toEqual(200);
             expect(res.body.files).toEqual([]);
             expect(res.body.dirs).toEqual([]);

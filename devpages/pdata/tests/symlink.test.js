@@ -13,7 +13,11 @@ const PDATA_TEST_ROOT = path.resolve(__dirname, 'pdata_test_root');
 describe('PData Symlink Tests', () => {
     let pdata;
 
-    beforeAll(() => {
+    beforeAll(async () => {
+        // Run the setup script to ensure symlinks and test data are created
+        const setup = await import('child_process').then(cp => cp.execSync('npm run setup-test-users'));
+        console.log(setup.toString());
+
         // Set environment variable for test
         process.env.PD_DIR = PDATA_TEST_ROOT;
         
@@ -23,9 +27,17 @@ describe('PData Symlink Tests', () => {
 
     beforeEach(() => {
         // Make sure the setup script has been run
-        const symlinkPath = path.join(PDATA_TEST_ROOT, 'data', 'testuser', 'others', 'link.md');
+        const symlinkPath = path.join(PDATA_TEST_ROOT, 'data', 'users', 'testuser', 'others', 'link.md');
         if (!fs.existsSync(symlinkPath)) {
             throw new Error('Test symlink not found. Please run the setup script first.');
+        }
+    });
+
+    afterAll(() => {
+        // Clean up the symlink after tests
+        const symlinkPath = path.join(PDATA_TEST_ROOT, 'data', 'users', 'testuser', 'others', 'link.md');
+        if (fs.existsSync(symlinkPath)) {
+            fs.unlinkSync(symlinkPath);
         }
     });
 

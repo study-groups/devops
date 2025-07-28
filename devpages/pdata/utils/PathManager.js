@@ -125,11 +125,7 @@ class PathManager {
         
         // Admin role check
         if (role === 'admin') {
-            // Admins can do anything within the application data root
-            if (resourcePath.startsWith(this.dataRoot + path.sep) || resourcePath === this.dataRoot) {
-                return true;
-            }
-            return false;
+            return true;
         }
 
         // Regular user role check
