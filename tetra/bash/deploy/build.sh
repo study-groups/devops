@@ -15,8 +15,11 @@ tetra_deploy_build() {
     local SERVICE2="${SERVICE2:-arcade-staging}"
     local PROJECT_SUBDIR="${PROJECT_SUBDIR:-pja/arcade}"
 
-    ssh "$REMOTE_USER@$REMOTE_HOST" "REPO_PATH='$REPO_PATH' PROJECT_SUBDIR='$PROJECT_SUBDIR' bash -l -c '
+    ssh "$REMOTE_USER@$REMOTE_HOST" "REPO_PATH='$REPO_PATH' PROJECT_SUBDIR='$PROJECT_SUBDIR' BRANCH='$BRANCH' bash -l -c '
 set -e
+
+# Source bashrc to ensure environment is loaded
+[ -f \"\$HOME/.bashrc\" ] && source \"\$HOME/.bashrc\"
 
 # Load NVM from standard location
 export NVM_DIR=\"\$HOME/pj/nvm\"
@@ -43,10 +46,23 @@ fi
 
 cd \"\$TARGET_DIR\"
 
-echo \"[INFO] Running npm run build\"
-npm run build
+# Determine build script from branch
+BUILD_COMMAND="build" # Default
+if [ "\$BRANCH" == "staging" ]; then
+    BUILD_COMMAND="build:staging"
+elif [ "\$BRANCH" == "main" ] || [ "\$BRANCH" == "prod" ]; then # Assuming main/prod branch for production
+    BUILD_COMMAND="build:prod"
+elif [ "\$BRANCH" == "dev" ] || [ "\$BRANCH" == "api-dev" ]; then
+    BUILD_COMMAND="build:dev"
+fi
+
+echo \"[INFO] Running npm run \$BUILD_COMMAND for branch '\''\$BRANCH'\''...\"
+if ! npm run \$BUILD_COMMAND; then
+    echo \"[FAIL] npm run \$BUILD_COMMAND failed.\"
+    exit 1
+fi
 
 echo \"[SUCCESS] Build completed at: \$(date)\"
-echo \"\$(date): Build completed successfully\" >> ~/.build_history
+echo \"\$(date): Build completed successfully for branch \$BRANCH\" >> ~/.build_history
 '"
 }
