@@ -1,6 +1,6 @@
 {
       "name": "@nodeholder/pdata",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "type": "module",
       "description": "PData service for secure file management",
       "keywords": [
