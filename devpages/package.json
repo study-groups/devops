@@ -21,7 +21,7 @@
     "client-s3": "github:aws-sdk/client-s3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.0",
-    "express": "^4.18.2",
+    "express": "^5.0.0-beta.1",
     "express-session": "^1.18.2",
     "glob": "^10.3.0",
     "gray-matter": "^4.0.3",
