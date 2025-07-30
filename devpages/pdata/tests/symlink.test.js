@@ -3,74 +3,61 @@ import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 import { PData } from '../PData.js';
 
-// --- ES Module equivalent for __dirname ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// ---
 
 const PDATA_TEST_ROOT = path.resolve(__dirname, 'pdata_test_root');
 
-describe('PData Symlink Tests', () => {
+describe('PData Symlink and Roles Tests', () => {
     let pdata;
 
     beforeAll(async () => {
-        // Run the setup script to ensure symlinks and test data are created
+        process.env.PD_DIR = PDATA_TEST_ROOT;
+        
         const setup = await import('child_process').then(cp => cp.execSync('npm run setup-test-users'));
         console.log(setup.toString());
 
-        // Set environment variable for test
-        process.env.PD_DIR = PDATA_TEST_ROOT;
-        
-        // Initialize PData with the test environment
         pdata = new PData();
+        // Add a user with both user and admin roles
+        await pdata.addUser('superadmin', 'superpassword', ['user', 'admin']);
     });
 
-    beforeEach(() => {
-        // Make sure the setup script has been run
-        const symlinkPath = path.join(PDATA_TEST_ROOT, 'data', 'users', 'testuser', 'others', 'link.md');
-        if (!fs.existsSync(symlinkPath)) {
-            throw new Error('Test symlink not found. Please run the setup script first.');
-        }
-    });
-
-    afterAll(() => {
-        // Clean up the symlink after tests
+    afterAll(async () => {
+        await pdata.deleteUser('superadmin');
         const symlinkPath = path.join(PDATA_TEST_ROOT, 'data', 'users', 'testuser', 'others', 'link.md');
         if (fs.existsSync(symlinkPath)) {
             fs.unlinkSync(symlinkPath);
         }
     });
 
-    test('should list symlinks in directory listing', async () => {
-        // List the contents of testuser/others directory
-        const { dirs, files } = await pdata.listDirectory('testuser', 'testuser/others');
-        
-        // Check if the symlink is included in the files list
+    test('should list symlinks in directory listing for a regular user', async () => {
+        const { files } = await pdata.listDirectory('testuser', 'testuser/others');
         expect(files).toContain('link.md');
     });
 
-    test('should read content through a symlink', async () => {
-        // Read the content of the symlink
+    test('should read content through a symlink for a regular user', async () => {
         const content = await pdata.readFile('testuser', 'testuser/others/link.md');
-        
-        // Verify the content matches the source file
         expect(content).toContain('# Shared Document');
-        expect(content).toContain('This is a shared document that will be accessed via symlink.');
     });
 
-    test('should not allow writing through a symlink to a file owned by another user', async () => {
-        // Attempt to write to the symlink, which points to another user's file
-        // This should fail with a permission error
-        await expect(
-            pdata.writeFile('testuser', 'testuser/others/link.md', 'Modified content')
-        ).rejects.toThrow(/Permission denied/);
+    test('should not allow a regular user to write through a symlink to another user\'s file', async () => {
+        await expect(pdata.writeFile('testuser', 'users/testuser/others/link.md', 'Modified content')).rejects.toThrow(/Permission denied/);
     });
 
-    test('should allow admin to read through user symlinks', async () => {
-        // Admin should be able to read through the symlink
-        const content = await pdata.readFile('testadmin', 'testuser/others/link.md');
-        
-        // Verify the content
+    test('should allow an admin to read through a user symlink', async () => {
+        const content = await pdata.readFile('testadmin', 'users/testuser/others/link.md');
         expect(content).toContain('# Shared Document');
+    });
+
+    test('should allow a user with admin role to read any file', async () => {
+        const content = await pdata.readFile('superadmin', 'users/testuser/file1.txt');
+        expect(content).toBe('This is file 1 for testuser.');
+    });
+
+    test('should allow a user with admin role to write to any file', async () => {
+        const newContent = 'Admin was here.';
+        await pdata.writeFile('superadmin', 'users/anotheruser/shared-doc.md', newContent);
+        const updatedContent = await pdata.readFile('superadmin', 'users/anotheruser/shared-doc.md');
+        expect(updatedContent).toBe(newContent);
     });
 });

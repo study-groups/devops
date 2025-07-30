@@ -60,10 +60,10 @@
       },
       "scripts": {
             "setup-test-users": "node tests/setupTestUsers.js",
-            "test": "npm run setup-test-users && NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js",
-            "test:watch": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js --watch",
-            "test:api": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js tests/api.test.js",
-            "test:coverage": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.js --coverage",
+            "test": "npm run setup-test-users && NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js",
+            "test:watch": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --watch",
+            "test:api": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js tests/api.test.js",
+            "test:coverage": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --coverage",
             "lint": "eslint .",
             "docs": "jsdoc -c jsdoc.json"
       }
