@@ -19,6 +19,31 @@ class PathManager {
         this.permissiveSymlinks = true;
     }
 
+    /**
+     * Get user's expected home directory information
+     * @param {string} username - Username to find home directory for
+     * @returns {Object} { type: 'project'|'user', path: string, exists: boolean }
+     */
+    getUserHomeDirectory(username) {
+        const projectDir = path.join(this.projectsDir, username);
+        const userDir = path.join(this.usersDir, username);
+        
+        // Check which directories exist
+        const projectExists = fs.existsSync(projectDir);
+        const userExists = fs.existsSync(userDir);
+        
+        // Prefer projects over users if both exist
+        if (projectExists) {
+            return { type: 'project', path: projectDir, exists: true };
+        }
+        if (userExists) {
+            return { type: 'user', path: userDir, exists: true };
+        }
+        
+        // Default to users directory for new users
+        return { type: 'user', path: userDir, exists: false };
+    }
+
     async can(username, action, resourcePath) {
         if (!username || !this.roles.has(username)) return false;
         if (!path.isAbsolute(resourcePath)) return false;

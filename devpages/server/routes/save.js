@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs/promises';
 
 // Import local middleware with .js extension
 import { authMiddleware } from '../middleware/auth.js';
@@ -27,27 +26,16 @@ router.post('/', authMiddleware, async (req, res) => {
             content = req.body?.content ?? ''; // Use optional chaining and nullish coalescing
         }
 
-        // Determine target directory
-        const baseDir = process.env.MD_DIR || '.';
-        let targetDir;
-
-        // Just use the actual directory name, falling back to username if dir is empty/null
-        // Ensure username exists before using it as fallback
-        const effectiveDir = dir || (username ? username : '');
-        targetDir = path.join(baseDir, effectiveDir);
-
-        // Ensure directory exists
-        await fs.mkdir(targetDir, { recursive: true });
-
-        // Save the file
-        const filePath = path.join(targetDir, file);
         // Basic path validation
         if (file.includes('..') || file.includes('/')) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
-        await fs.writeFile(filePath, content, 'utf8');
 
-        console.log(`[SAVE] File saved: ${filePath}`);
+        // Use PData system for file operations (handles directory creation automatically)
+        const relativePath = dir ? path.posix.join(dir, file) : file;
+        await req.pdata.writeFile(username, relativePath, content);
+
+        console.log(`[SAVE] File saved: ${relativePath} for user ${username}`);
         res.json({ success: true, message: 'File saved successfully' });
     } catch (error) {
         console.error('[SAVE ERROR]', error);
