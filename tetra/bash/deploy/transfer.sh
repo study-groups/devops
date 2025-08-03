@@ -63,6 +63,9 @@ tetra_transfer_push() {
     return 1
   fi
 
+  echo "🚀 Ensuring remote directory exists for $REMOTE_ENV_FILE"
+  ssh "$REMOTE_USER@$REMOTE_HOST" "mkdir -p \"\$(dirname \"$REMOTE_ENV_FILE\")\""
+
   echo "🚀 Pushing $LOCAL_ENV_FILE → $REMOTE_USER@$REMOTE_HOST:$REMOTE_ENV_FILE"
   scp "$LOCAL_ENV_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_ENV_FILE"
 }

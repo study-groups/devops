@@ -19,6 +19,7 @@ DIRS=(
     "$TETRA_SRC/bash/sync"
     "$TETRA_SRC/bash/ssh"
     "$TETRA_SRC/bash/node"
+    "$TETRA_SRC/bash/enc"
     "$TETRA_SRC/bash/deploy"
 )
 
