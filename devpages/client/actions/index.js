@@ -6,7 +6,8 @@ import { fileActionHandlers } from './fileActions.js';
 import { uiActionHandlers } from './uiActions.js';
 import { editorActionHandlers } from './editorActions.js';
 import { imageActionHandlers } from './imageActions.js';
-import { authActionHandlers } from './authActions.js';
+// Auth functionality moved to store/slices/authSlice.js for consistency
+// import { authActionHandlers } from './authActions.js';
 import { debugActionHandlers } from './debugActions.js';
 
 // Get a dedicated logger for this module
@@ -18,7 +19,7 @@ export {
     uiActionHandlers,
     editorActionHandlers,
     imageActionHandlers,
-    authActionHandlers,
+    // authActionHandlers, // Moved to store/slices/authSlice.js
     debugActionHandlers
 };
 
@@ -61,9 +62,10 @@ export const triggerActions = {
     deleteImage: imageActionHandlers.deleteImage,
     'delete-image': imageActionHandlers.handleDeleteImage,
     
-    // Auth actions
-    login: authActionHandlers.login,
-    logout: authActionHandlers.logout,
+    // Auth actions - moved to store/slices/authSlice.js
+    // Use authThunks.login, authThunks.logout directly from authSlice.js
+    // login: authActionHandlers.login,
+    // logout: authActionHandlers.logout,
     
     // Debug actions
     runDebugUI: debugActionHandlers.runDebugUI,

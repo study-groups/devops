@@ -79,25 +79,22 @@
         </div>
     </nav>
 
-    <!-- Main workspace structure -->
-    <main class="workspace-container">
-        <div class="main-panels" id="panels-container">
-            <div class="sidebar-container" id="sidebar-container">
-                <div class="container">
-                    <div id="drag-handle"></div>
-                    <div class="sidebar">
-                    </div>
-                    <div class="resizer" data-direction="horizontal"></div>
-                    <div class="main-content">
-                    </div>
-                </div>
-            </div>
-            <div class="editor-container" id="editor-container">
-            </div>
-            <div class="preview-container" id="preview-container">
-            </div>
+    <main class="workspace-container" id="main-workspace">
+        <!-- The workspace-layout.css and WorkspaceLayoutManager will turn this into a 3-column layout -->
+        <div class="workspace-zone" id="workspace-zone-left">
+            <!-- This will be the home for the sidebar dock -->
         </div>
-        <div class="log-container" id="log-container">
+
+        <div class="workspace-resizer vertical" id="resizer-left"></div>
+
+        <div class="workspace-zone" id="workspace-zone-main">
+            <!-- This will be the home for the editor, preview, etc. -->
+        </div>
+
+        <div class="workspace-resizer vertical" id="resizer-right"></div>
+
+        <div class="workspace-zone" id="workspace-zone-right">
+             <!-- This will be a secondary sidebar zone -->
         </div>
     </main>
 

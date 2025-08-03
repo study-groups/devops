@@ -3,7 +3,7 @@
  * Manages CSS selector generation, validation, and testing
  */
 
-import { ValidationUtils } from "../utils/ValidationUtils.js";
+import { ValidationUtils } from "/client/dom-inspector/utils/ValidationUtils.js";
 
 export class SelectorManager {
     constructor() {

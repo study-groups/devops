@@ -15,13 +15,22 @@ export class DomInspectorDebugPanel {
         if (!this.container) {
             console.error('[DomInspectorDebugPanel] Constructor: container is null!');
         }
-        this.domInspector = null;
-        this.isInitialized = false;
+        this.domInspector = window.devPages?.domInspector || null;
+        this.isInitialized = !!this.domInspector;
         this.currentElement = null;
         
         this.createUI();
         this.setupEventHandlers();
-        this.initializeDomInspector();
+
+        if (this.isInitialized) {
+            this.updateStatus('Ready');
+            this.updateInfo();
+            this.updateInterval = setInterval(() => this.updateInfo(), 1000);
+            console.log('[DomInspectorDebugPanel] DOM Inspector instance found and hooked.');
+        } else {
+            this.updateStatus('Not Found');
+            console.error('[DomInspectorDebugPanel] DOM Inspector instance not found on window.devPages.');
+        }
     }
 
     createUI() {
@@ -299,41 +308,7 @@ export class DomInspectorDebugPanel {
         });
     }
 
-    async initializeDomInspector() {
-        try {
-            // Import and activate the DOM Inspector in background
-            const { activateDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
-            
-            // Defer activation to prevent blocking
-            setTimeout(() => {
-                activateDomInspector().then(result => {
-                    this.domInspector = result;
-                    if (this.domInspector) {
-                        this.isInitialized = true;
-                        this.updateStatus('Ready');
-                        this.updateInfo();
-                        
-                        // Set up periodic updates
-                        this.updateInterval = setInterval(() => {
-                            this.updateInfo();
-                        }, 1000);
-                        
-                        console.log('[DomInspectorDebugPanel] DOM Inspector activated successfully');
-                    } else {
-                        this.updateStatus('Failed to activate');
-                        console.error('[DomInspectorDebugPanel] Failed to activate DOM Inspector');
-                    }
-                }).catch(error => {
-                    this.updateStatus('Error: ' + error.message);
-                    console.error('[DomInspectorDebugPanel] Error activating DOM Inspector:', error);
-                });
-            }, 100);
-            
-        } catch (error) {
-            this.updateStatus('Error: ' + error.message);
-            console.error('[DomInspectorDebugPanel] Error activating DOM Inspector:', error);
-        }
-    }
+
 
     updateStatus(status) {
         const statusElement = this.container.querySelector('#dom-inspector-status');

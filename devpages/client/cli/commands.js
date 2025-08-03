@@ -1,4 +1,4 @@
-// Import logMessage to make it available
+
 import { logMessage } from '../log/index.js';
 
 // Define registerCliCommand at the top of the file

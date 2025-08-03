@@ -5,7 +5,7 @@
  * Integrates with Redux to store and manage shortcuts.
  */
 
-import * as panelActions from '../slices/panelSlice.js';
+import * as panelActions from '/client/store/slices/panelSlice.js';
 
 export class KeyboardShortcutHandler {
     constructor(dispatch, getState) {

@@ -4,128 +4,51 @@
  */
 
 .workspace-container {
-    position: relative;
-    width: 100%;
-    height: calc(100vh - var(--top-bar-height, 40px)); /* Full viewport height minus top bar */
-    background: var(--color-bg);
-    overflow: hidden; /* Prevent scrolling of the entire workspace */
-}
-
-.main-panels {
     display: flex;
     width: 100%;
-    height: 100%;
-    overflow: hidden; /* Prevent main panels from scrolling */
+    height: calc(100vh - var(--top-bar-height, 40px));
+    background: var(--color-bg);
+    overflow: hidden;
 }
 
-.sidebar-container {
-    width: 350px;
-    min-width: 250px;
+.workspace-zone {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+#workspace-zone-left {
+    flex: 0 0 250px; /* Initial width */
+    min-width: 200px;
     max-width: 500px;
     background: var(--color-bg-alt);
-    position: relative;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
     border-right: 1px solid var(--color-border);
-    overflow: hidden; /* Prevent sidebar from causing workspace scroll */
 }
 
-.sidebar-container.hidden {
-    width: 0;
-    min-width: 0;
-    max-width: 0;
-    border-right: none;
-    overflow: hidden;
-    opacity: 0;
-}
-
-/* This is the container for the actual panel content inside the sidebar */
-.panel-manager {
+#workspace-zone-main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto; /* Allow scrolling within the sidebar panels */
-    overflow-x: hidden; /* Prevent horizontal scroll */
-    overscroll-behavior: contain; /* Prevent scroll chaining to workspace */
 }
 
-.editor-container {
-    flex: 1;
-    min-width: 300px;
-    background: var(--color-bg);
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    border-right: 1px solid var(--color-border);
-    transition: all 0.3s ease;
-    overflow-y: auto; /* Allow vertical scrolling in editor */
-    overflow-x: hidden; /* Prevent horizontal overflow */
-}
-
-.editor-container.hidden {
-    flex: 0;
-    width: 0;
-    min-width: 0;
-    border-right: none;
-    overflow: hidden;
-    display: none;
-}
-
-.preview-container {
-    flex: 1;
-    min-width: 400px;
-    background: var(--color-bg);
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow-y: auto; /* Allow vertical scrolling in preview */
-    overflow-x: hidden; /* Prevent horizontal overflow */
-}
-
-/* When editor is hidden, preview takes full width */
-.editor-container.hidden + .preview-container {
-    flex: 1;
-    width: 100%;
-    min-width: 0;
-}
-
-/* Alternative selector for when preview should expand */
-.main-panels:has(.editor-container.hidden) .preview-container {
-    flex: 1;
-    width: 100%;
-    min-width: 0;
-}
-
-.log-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-
-    /* Remove min-height to avoid conflicts with LogPanel CSS */
-    /* min-height: 40px; */
+#workspace-zone-right {
+    flex: 0 0 250px; /* Initial width */
+    min-width: 200px;
+    max-width: 500px;
     background: var(--color-bg-alt);
-    border-top: 1px solid var(--color-border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* Log container itself doesn't scroll */
+    border-left: 1px solid var(--color-border);
 }
 
-
-
-/* Hide scrollbars for a cleaner look while maintaining functionality */
-.preview-container,
-.panel-manager {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+.workspace-resizer.vertical {
+    flex: 0 0 4px;
+    background: var(--color-bg-muted);
+    cursor: col-resize;
+    transition: background-color 0.2s ease;
 }
 
-.preview-container::-webkit-scrollbar,
-.panel-manager::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, and Opera */
+.workspace-resizer.vertical:hover {
+    background: var(--color-primary);
 }
 
 /* Panel Header */

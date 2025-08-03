@@ -2,7 +2,8 @@
 
 import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
-import { globalFetch } from '../globalFetch.js';
+// Use the globally available globalFetch service
+const globalFetch = window.APP.services.globalFetch;
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('cliHandlers');

@@ -2,7 +2,32 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 
+const isAdmin = (req, res, next) => {
+    if (req.isAuthenticated() && req.pdata && req.pdata.getUserRole(req.user?.username) === 'admin') {
+        return next();
+    }
+    res.status(403).json({ success: false, error: 'Forbidden: Admin privileges required' });
+};
+
 const router = express.Router();
+
+// GET /api/pdata/users/list
+router.get('/users/list', isAdmin, async (req, res) => {
+    if (!req.pdata) {
+        console.error('[API /pdata/users/list ROUTE] PData instance missing.');
+        return res.status(500).json({ success: false, error: 'Internal Server Error: PData context missing.' });
+    }
+
+    try {
+        const usersWithRoles = req.pdata.listUsersWithRoles();
+        res.json({ success: true, users: usersWithRoles });
+    } catch (error) {
+        console.error(`[API /pdata/users/list ROUTE] Error:`, error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
+
 
 // GET /api/pdata/list
 // This route expects authMiddleware to have run first, providing req.user

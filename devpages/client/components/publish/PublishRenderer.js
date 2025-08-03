@@ -111,7 +111,7 @@ class PublishRenderer {
       }
 
       try {
-        const response = await fetch(cssPath);
+        const response = await fetch(cssPath, { credentials: 'include' });
         if (response.ok) {
           const css = await response.text();
           settingsCss += `\n/* From: ${cssPath} */\n${css}\n`;

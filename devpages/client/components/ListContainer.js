@@ -1,5 +1,5 @@
-import { logMessage } from '../log/index.js';
-import { loadFileSystemState, setCurrentFile } from '../fileSystemState.js';
+import { logMessage } from '/client/log/index.js';
+import { loadFileSystemState, setCurrentFile } from '/client/fileSystemState.js';
 
 // Simple dropdown list container
 export class ListContainer {

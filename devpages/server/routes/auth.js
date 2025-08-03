@@ -69,8 +69,10 @@ router.post('/login', (req, res, next) => {
 
                 // 4. Send success response to client
                 return res.json({ // Status 200 OK (default)
-                    username: user.username,
-                    role: role
+                    user: {
+                        username: user.username,
+                        role: role
+                    }
                 });
             });
         } else {
@@ -85,21 +87,65 @@ router.post('/login', (req, res, next) => {
     }
 });
 
+router.post('/verify', (req, res) => {
+    console.log('[AUTH DEBUG] Verify request received. Body:', req.body);
+    
+    const { username, password } = req.body;
+    const logPrefix = `[AUTH /verify] User='${username}' -`;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required for verification' });
+    }
+    if (!req.pdata) {
+        return res.status(500).json({ error: 'Internal Server Error: Auth service misconfiguration.' });
+    }
+
+    try {
+        const isValid = req.pdata.validateUser(username, password);
+
+        if (isValid) {
+            console.log(`${logPrefix} Verification successful.`);
+            const role = req.pdata.getUserRole(username);
+            // Return user data without creating a session
+            return res.json({
+                success: true,
+                user: {
+                    username: username,
+                    role: role
+                }
+            });
+        } else {
+            console.log(`${logPrefix} Invalid credentials for verification.`);
+            return res.status(401).json({ success: false, error: 'Invalid username or password' });
+        }
+    } catch (error) {
+        console.error(`${logPrefix} UNEXPECTED ERROR during verification:`, error);
+        return res.status(500).json({ error: 'An internal error occurred during verification.' });
+    }
+});
+
 // Protected routes (auth required)
 router.get('/user', (req, res) => {
-    // `req.isAuthenticated()` is provided by Passport after `passport.session()` middleware runs.
-    // It checks if a valid session exists and `deserializeUser` was successful.
     if (req.isAuthenticated() && req.user) {
-        // If authenticated, `req.user` contains the object returned by `deserializeUser`.
         const role = req.pdata ? req.pdata.getUserRole(req.user.username) : 'unknown';
-        res.json({ 
-            username: req.user.username, 
-            role: role,
-            authMethod: req.authMethod || 'session'
+        const sessionInfo = {
+            id: req.session.id,
+            expires: req.session.cookie.expires ? new Date(req.session.cookie.expires).toLocaleString() : 'Session',
+        };
+
+        res.json({
+            isAuthenticated: true,
+            user: {
+                username: req.user.username,
+                role: role,
+                authMethod: req.authMethod || 'session'
+            },
+            session: sessionInfo
+
         });
     } else {
-        // Not authenticated
-        res.status(401).json({ error: 'Not authenticated' });
+        // User is not authenticated. Send a 200 OK with isAuthenticated: false.
+        res.status(200).json({ isAuthenticated: false, user: null });
     }
 });
 
@@ -212,7 +258,7 @@ function updateActiveUser(username) {
 }
 
 // Add this route to get detailed system info
-router.get('/system', isAdmin, (req, res) => {
+router.get('/system', authMiddleware, (req, res) => {
     res.json({
         message: "System status OK.",
         timestamp: Date.now(),

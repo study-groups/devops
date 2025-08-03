@@ -403,7 +403,7 @@ export class CssDebugger {
    */
   async viewCssSource(href, onNotification) {
     try {
-      const response = await fetch(href);
+      const response = await fetch(href, { credentials: 'include' });
       const cssText = await response.text();
       
       const modal = document.createElement('div');
@@ -576,7 +576,7 @@ export class CssDebugger {
         return `${sizeKB} KB`;
       } else {
         // Fallback: fetch the content to get size
-        const fullResponse = await fetch(href);
+        const fullResponse = await fetch(href, { credentials: 'include' });
         const text = await fullResponse.text();
         return `${(text.length / 1024).toFixed(1)} KB`;
       }

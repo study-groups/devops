@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Capability Token Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .form-section {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border-left: 4px solid #007acc;
+        }
+        .form-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            align-items: center;
+        }
+        .form-group {
+            flex: 1;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #444;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        button:hover {
+            background: #005999;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .tokens-list {
+            margin-top: 30px;
+        }
+        .token-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        .token-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .token-id {
+            font-family: 'Courier New', monospace;
+            color: #6f42c1;
+            font-weight: bold;
+        }
+        .token-meta {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0;
+        }
+        .revoke-btn {
+            background: #dc3545;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .revoke-btn:hover {
+            background: #c82333;
+        }
+        .copy-btn {
+            background: #28a745;
+            padding: 6px 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .copy-btn:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Capability Token Generator</h1>
+        
+        <div class="form-section">
+            <h3>Basic Settings</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="tokenType">Token Type</label>
+                    <select id="tokenType">
+                        <option value="access">Access Token</option>
+                        <option value="guest">Guest Login Token</option>
+                        <option value="share">Share Token</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" placeholder="e.g., Beta tester access, Demo for convention">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ttl">Expires In (hours)</label>
+                    <input type="number" id="ttl" value="24" min="1" max="8760">
+                </div>
+                <div class="form-group">
+                    <label for="maxUses">Max Uses (optional)</label>
+                    <input type="number" id="maxUses" placeholder="Leave empty for unlimited">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Game Access</h3>
+            <div class="checkbox-group" id="gamesGroup">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="game-zelda" value="zelda">
+                    <label for="game-zelda">Zelda</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="game-mario" value="mario">
+                    <label for="game-mario">Mario</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="game-tetris" value="tetris">
+                    <label for="game-tetris">Tetris</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="game-custom" value="custom">
+                    <label for="game-custom">Custom:</label>
+                    <input type="text" id="customGame" placeholder="game-name" style="width: 120px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Endpoint Access</h3>
+            <div class="checkbox-group" id="endpointsGroup">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="endpoint-games" value="/api/capabilities/games/*" checked>
+                    <label for="endpoint-games">Game API</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="endpoint-files" value="/api/files/list">
+                    <label for="endpoint-files">File Listing</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="endpoint-content" value="/api/files/content">
+                    <label for="endpoint-content">File Content</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="customEndpoints">Custom Endpoints (one per line)</label>
+                <textarea id="customEndpoints" placeholder="/api/tournament/scores&#10;/api/feedback/submit"></textarea>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>File System Paths</h3>
+            <div class="form-group">
+                <label for="filePaths">Path Permissions (path:permissions format)</label>
+                <textarea id="filePaths" placeholder="/games/zelda/*:read&#10;/games/zelda/saves/*:read,write&#10;/shared/assets/*:read"></textarea>
+                <small style="color: #666;">Format: path:permission1,permission2 (one per line)</small>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Special Capabilities</h3>
+            <div class="checkbox-group" id="specialGroup">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="special-guest" value="create_guest">
+                    <label for="special-guest">Create Guest Users</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="special-beta" value="beta_tester">
+                    <label for="special-beta">Beta Tester</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="special-tournament" value="tournament_access">
+                    <label for="special-tournament">Tournament Access</label>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="generateToken()" id="generateBtn">Generate Capability Token</button>
+        
+        <div id="result"></div>
+        
+        <div class="tokens-list">
+            <h2>Active Tokens</h2>
+            <button onclick="loadTokens()" style="margin-bottom: 15px;">Refresh Token List</button>
+            <div id="tokensList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-toggle guest creation for guest tokens
+        document.getElementById('tokenType').addEventListener('change', function() {
+            const isGuest = this.value === 'guest';
+            document.getElementById('special-guest').checked = isGuest;
+        });
+
+        async function generateToken() {
+            const button = document.getElementById('generateBtn');
+            button.disabled = true;
+            button.textContent = 'Generating...';
+            
+            try {
+                const capabilities = {
+                    games: getSelectedGames(),
+                    endpoints: getSelectedEndpoints(),
+                    paths: getFilePaths(),
+                    special: getSpecialCapabilities()
+                };
+                
+                // Remove empty arrays
+                Object.keys(capabilities).forEach(key => {
+                    if (Array.isArray(capabilities[key]) && capabilities[key].length === 0) {
+                        delete capabilities[key];
+                    } else if (typeof capabilities[key] === 'object' && Object.keys(capabilities[key]).length === 0) {
+                        delete capabilities[key];
+                    }
+                });
+                
+                const payload = {
+                    type: document.getElementById('tokenType').value,
+                    capabilities,
+                    description: document.getElementById('description').value,
+                    ttl: parseInt(document.getElementById('ttl').value) * 3600, // Convert to seconds
+                    maxUses: document.getElementById('maxUses').value ? parseInt(document.getElementById('maxUses').value) : undefined
+                };
+                
+                const response = await fetch('/api/capabilities/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult(JSON.stringify(data, null, 2), 'success');
+                    loadTokens(); // Refresh token list
+                } else {
+                    showResult(`Error: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult(`Error: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Generate Capability Token';
+            }
+        }
+
+        function getSelectedGames() {
+            const games = [];
+            document.querySelectorAll('#gamesGroup input[type="checkbox"]:checked').forEach(cb => {
+                if (cb.value === 'custom') {
+                    const customGame = document.getElementById('customGame').value.trim();
+                    if (customGame) games.push(customGame);
+                } else {
+                    games.push(cb.value);
+                }
+            });
+            return games;
+        }
+
+        function getSelectedEndpoints() {
+            const endpoints = [];
+            document.querySelectorAll('#endpointsGroup input[type="checkbox"]:checked').forEach(cb => {
+                endpoints.push(cb.value);
+            });
+            
+            // Add custom endpoints
+            const customEndpoints = document.getElementById('customEndpoints').value.trim();
+            if (customEndpoints) {
+                customEndpoints.split('\n').forEach(endpoint => {
+                    const trimmed = endpoint.trim();
+                    if (trimmed) endpoints.push(trimmed);
+                });
+            }
+            
+            return endpoints;
+        }
+
+        function getFilePaths() {
+            const paths = {};
+            const filePathsText = document.getElementById('filePaths').value.trim();
+            
+            if (filePathsText) {
+                filePathsText.split('\n').forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed && trimmed.includes(':')) {
+                        const [path, permsStr] = trimmed.split(':');
+                        const permissions = permsStr.split(',').map(p => p.trim());
+                        paths[path.trim()] = permissions;
+                    }
+                });
+            }
+            
+            return paths;
+        }
+
+        function getSpecialCapabilities() {
+            const special = [];
+            document.querySelectorAll('#specialGroup input[type="checkbox"]:checked').forEach(cb => {
+                special.push(cb.value);
+            });
+            return special;
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+        }
+
+        async function loadTokens() {
+            try {
+                const response = await fetch('/api/capabilities/list', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayTokens(data.tokens);
+                } else {
+                    document.getElementById('tokensList').innerHTML = `<p>Error: ${data.error}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('tokensList').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+
+        function displayTokens(tokens) {
+            const container = document.getElementById('tokensList');
+            
+            if (tokens.length === 0) {
+                container.innerHTML = '<p>No active tokens found.</p>';
+                return;
+            }
+            
+            container.innerHTML = tokens.map(token => `
+                <div class="token-item">
+                    <div class="token-header">
+                        <span class="token-id">${token.token}</span>
+                        <div>
+                            <button class="copy-btn" onclick="copyToClipboard('${token.token.replace('...', '')}')">Copy</button>
+                            <button class="revoke-btn" onclick="revokeToken('${token.token.replace('...', '')}')">Revoke</button>
+                        </div>
+                    </div>
+                    <div class="token-meta">
+                        <strong>Type:</strong> ${token.type} | 
+                        <strong>Issuer:</strong> ${token.issuer} | 
+                        <strong>Usage:</strong> ${token.usageCount}/${token.maxUses || '∞'} |
+                        <strong>Expires:</strong> ${new Date(token.expiresAt).toLocaleString()}
+                    </div>
+                    <div class="token-meta">
+                        <strong>Description:</strong> ${token.description}
+                    </div>
+                    <div class="token-meta">
+                        <strong>Capabilities:</strong> ${JSON.stringify(token.capabilities)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function revokeToken(tokenStart) {
+            if (!confirm('Are you sure you want to revoke this token?')) return;
+            
+            try {
+                const response = await fetch(`/api/capabilities/revoke/${tokenStart}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadTokens(); // Refresh list
+                    showResult('Token revoked successfully', 'success');
+                } else {
+                    showResult(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showResult('Token copied to clipboard!', 'success');
+            });
+        }
+
+        // Load tokens on page load
+        document.addEventListener('DOMContentLoaded', loadTokens);
+    </script>
+</body>
+</html>

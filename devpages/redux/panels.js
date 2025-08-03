@@ -4,11 +4,9 @@
  * This file initializes and manages the panel system based on Redux state.
  */
 import { PanelManager } from './components/PanelManager.js';
-import { initializeAuthDisplay } from './components/AuthDisplay.js';
 import { KeyboardShortcutHandler } from './components/KeyboardShortcutHandler.js';
 
 let panelManager = null;
-let authDisplay = null;
 let keyboardHandler = null;
 
 export async function initializePanelSystem(store) {
@@ -19,20 +17,18 @@ export async function initializePanelSystem(store) {
         return;
     }
     
-    // Always initialize the AuthDisplay component for login/logout UI
-    if (!authDisplay) {
-        initializeAuthDisplay();
-    }
+    // AuthDisplay is now handled by the main bootstrap system - no duplicate initialization needed
 
-    // Check authentication before initializing panels
+    // Check authentication before initializing debug-specific panels
     const authState = store.getState().auth;
-    if (!authState.isAuthenticated) {
-        console.log('🔒 [panels.js] User not authenticated - debug panels disabled for security');
-        console.log('🔑 [panels.js] Login to access debug panels and development tools');
-        return; // Exit early - no panels for unauthenticated users
-    }
+    const isAuthenticated = authState.isAuthenticated;
     
-    console.log('✅ [panels.js] User authenticated - initializing debug panels');
+    if (!isAuthenticated) {
+        console.log('🔒 [panels.js] User not authenticated - some panels may have limited functionality');
+        console.log('🔑 [panels.js] Login to access all debug panels and development tools');
+    } else {
+        console.log('✅ [panels.js] User authenticated - initializing all panels');
+    }
 
     // Initialize PanelManager immediately for access to Debug Dock, etc.
     if (!panelManager) {

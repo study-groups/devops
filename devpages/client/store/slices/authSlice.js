@@ -67,6 +67,8 @@ export function authReducer(state = getInitialAuthState(), action) {
                 ...state,
                 isAuthenticated: false,
                 user: null,
+                isLoading: false,
+                error: null,
             };
         case SET_AUTH_CHECKED:
             return { ...state, authChecked: action.payload };
@@ -130,10 +132,11 @@ export const authThunks = {
         dispatch(setLoading(true));
         try {
             const response = await window.APP.services.globalFetch('/api/auth/user', { credentials: 'include' });
-            if (response.ok) {
-                const data = await response.json();
+            const data = await response.json();
+
+            if (response.ok && data.isAuthenticated) {
                 dispatch(loginSuccess(data));
-                 localStorage.setItem('devpages_auth_state', JSON.stringify({ isAuthenticated: true, user: data.user }));
+                localStorage.setItem('devpages_auth_state', JSON.stringify({ isAuthenticated: true, user: data.user }));
             } else {
                 dispatch(logout());
                 localStorage.removeItem('devpages_auth_state');
@@ -141,6 +144,7 @@ export const authThunks = {
             dispatch(setAuthChecked(true));
         } catch (error) {
             dispatch(setError(error.message));
+            dispatch(logout());
             dispatch(setAuthChecked(true));
         }
     },

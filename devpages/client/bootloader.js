@@ -12,42 +12,40 @@
  */
 
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
-import { createStore, applyMiddleware, combineReducers, compose } from '/node_modules/redux/dist/redux.browser.mjs';
 import { eventBus } from './eventBus.js';
 import { componentManager } from './componentManager.js';
 import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
+import { WorkspaceZone } from './layout/WorkspaceZone.js';
 import { workspaceLayoutService } from './layout/WorkspaceLayoutManager.js';
 import { panelStateService } from './panels/PanelStateManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
+import { initializeStore, thunks as appThunks } from './appState.js';
 
 // Define log variable, but do not initialize it yet.
 let log;
 
 // --- Unified Component & Panel Definitions ---
 
-const coreComponentDefinitions = [
+const allComponentDefinitions = [
+    // Core Components
     { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: './components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
     { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: './components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
     { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
-    { name: 'uiComponents', type: 'service', priority: 4, required: true, modulePath: './components/uiComponentsManager.js', factoryFunction: 'initializeUIComponents', dependencies: ['coreServices'], description: 'UI popup and modal components' }
+    { name: 'uiComponents', type: 'service', priority: 4, required: true, modulePath: './components/uiComponentsManager.js', factoryFunction: 'initializeUIComponents', dependencies: ['coreServices'], description: 'UI popup and modal components' },
+    // Panel Components
+    ...staticPanelDefinitions.map(p => ({
+        ...p,
+        type: 'panel',
+        priority: 10, // Panels load after core components
+        required: p.isDefault,
+        factory: p.factory,
+        dependencies: ['coreServices', 'auth'],
+        description: p.title
+    }))
 ];
 
-const panelComponentDefinitions = staticPanelDefinitions.map(p => ({
-    ...p,
-    name: p.name,
-    type: 'panel',
-    priority: 10, // Panels load after core components
-    required: p.isDefault,
-    modulePath: `./panels/${p.name}.js`, // Assuming a convention
-    factoryFunction: p.name,
-    dependencies: ['coreServices', 'auth'],
-    description: p.title
-}));
-
-const componentDefinitions = [...coreComponentDefinitions, ...panelComponentDefinitions];
-
-const requiredDOMElements = componentDefinitions
+const requiredDOMElements = allComponentDefinitions
     .filter(comp => comp.targetElementId)
     .map(comp => comp.targetElementId);
 
@@ -65,158 +63,122 @@ let bootErrors = [];
 // INITIALIZATION PHASES
 // =============================================================================
 
-/**
- * Phase 1: Pre-Initialization
- * Sets up the global environment, logging, and application shell.
- */
 async function bootPreInit() {
-    // Phase 1: Pre-Initialization - Setup global APP namespace
     window.APP = window.APP || {};
     window.APP.services = window.APP.services || {};
     window.APP.eventBus = eventBus;
     window.APP.services.eventBus = eventBus;
-    
-    // The logger is now initialized by the UnifiedLogging.js import.
-    // We just need to create the logger instance for this module.
     log = window.APP.services.log.createLogger('BOOT', 'Bootloader');
-    
     log.info('PHASE_1', '🚀 Phase 1: Pre-Initialization');
-
     window.APP.bootloader = {
-        start: async () => {
-            log.info('START', '[REDUX-BOOT] Starting via APP.bootloader.start()...');
-            return initializeReduxSystem();
-        },
+        start: () => initializeReduxSystem(),
         instance: null,
         isReady: () => !!systemAPIs,
         type: 'redux'
     };
 }
 
-/**
- * Phase 2: Core Initialization
- * Creates the Redux store.
- */
 async function bootCore() {
     log.info('PHASE_2', '📦 Phase 2: Core Initialization - Creating Redux store...');
-
-    const authSlice = await import('./store/slices/authSlice.js');
-    const pathSlice = await import('./store/slices/pathSlice.js');
-    const settingsSlice = await import('./store/slices/settingsSlice.js');
-    const panelSlice = await import('./store/slices/panelSlice.js');
-    const domInspectorSlice = await import('./store/slices/domInspectorSlice.js');
-    
-    const rootReducer = combineReducers({
-        auth: authSlice.authReducer,
-        path: pathSlice.pathReducer,
-        settings: settingsSlice.settingsReducer,
-        panels: panelSlice.panelReducer,
-        domInspector: domInspectorSlice.domInspectorReducer
-    });
-    
-    const thunkMiddleware = (store) => (next) => (action) => {
-        if (typeof action === 'function') {
-            return action(store.dispatch, store.getState);
-        }
-        return next(action);
-    };
-
     let preloadedState = {};
     try {
         const savedSettings = localStorage.getItem('devpages-settings');
         if (savedSettings) {
             preloadedState.settings = JSON.parse(savedSettings);
-            log.info('LOAD_SETTINGS_SUCCESS', '📦 Loaded saved settings from localStorage');
         }
     } catch (error) {
         log.warn('LOAD_SETTINGS_FAILED', '⚠️ Failed to load saved settings, using defaults', error);
     }
-    
-    const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
-    const store = createStore(
-        rootReducer,
-        preloadedState,
-        composeEnhancers(applyMiddleware(thunkMiddleware))
-    );
-    
+    const { appStore, dispatch } = initializeStore(preloadedState);
     if (!preloadedState.settings) {
-        store.dispatch(settingsSlice.settingsThunks.loadInitialSettings());
+        dispatch(appThunks.settings.loadInitialSettings());
     }
-
-    window.APP.store = store;
-    window.APP.services.store = store;
-    window.APP.redux = { store, dispatch: store.dispatch, getState: store.getState };
+    window.APP.store = appStore;
+    window.APP.services.store = appStore;
+    window.APP.redux = { store: appStore, dispatch, getState: appStore.getState };
     log.info('STORE_EXPOSED', '🌍 Store exposed globally on window.APP');
-    
-    const actions = { auth: authSlice, path: pathSlice, settings: settingsSlice, panels: panelSlice };
-    return { store, actions };
+    return { store: appStore, actions: appThunks };
 }
 
-/**
- * Phase 3: Secondary Initialization
- * Initializes systems that depend on the core services.
- */
 async function bootSecondary({ store, actions }) {
     log.info('PHASE_3', '🔧 Phase 3: Secondary Initialization');
-    
     services.appStore = store;
     services.eventBus = eventBus;
     services.panelState = panelStateService;
+    services.panelState.initialize(store); // Initialize with the store
     services.workspaceLayout = workspaceLayoutService;
-
     const { appDispatch } = await import('./appDispatch.js');
     services.appDispatch = appDispatch;
-
     const { ConsoleLogManager } = await import('./log/ConsoleLogManager.js');
     services.consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
-
-    // --- Dependency Injection for Services ---
     const globalFetchLogger = window.APP.services.log.createLogger('API', 'globalFetch');
     window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
     log.info('SERVICE_INJECTED', 'Injected logger into globalFetch service.');
 
+    // --- Staged Component Initialization ---
+    const preAuthComponents = allComponentDefinitions.filter(c => !(c.dependencies || []).includes('auth'));
+    const postAuthComponents = allComponentDefinitions.filter(c => (c.dependencies || []).includes('auth'));
 
+    // 1. Initialize components that DON'T need auth
+    log.info('INIT_COMPONENTS_PRE_AUTH', '🧩 Initializing pre-authentication components...');
+    await initializeComponentSystem(store, preAuthComponents);
+
+    // 2. Initialize auth system
     await initializeAuthSystem(store, actions);
-    await initializeComponentSystem(store);
-    await initializeEventListeners(store, actions);
 
-    // Initialize layout manager after components are ready
+    // 2.5. Load essential data now that we are authenticated
+    if (store.getState().auth.isAuthenticated) {
+        log.info('DATA_FETCH_PRE_UI', '🚀 Fetching initial data post-authentication...');
+        await store.dispatch(actions.path.fetchListingByPath({ pathname: '/', isDirectory: true }));
+        log.info('DATA_FETCH_COMPLETE', '✅ Initial data fetched.');
+    }
+
+    // 3. Initialize components that DO need auth
+    log.info('INIT_COMPONENTS_POST_AUTH', '🧩 Initializing post-authentication components...');
+    await initializeComponentSystem(store, postAuthComponents);
+    
+    await initializeEventListeners(store, actions);
+    
+    try {
+        const { initializePanelSystem } = await import('/redux/panels.js');
+        await initializePanelSystem(store);
+        log.info('PANEL_SYSTEM_READY', '🎛️ Redux panel system initialized successfully');
+    } catch (error) {
+        log.error('PANEL_SYSTEM_FAILED', '❌ Failed to initialize Redux panel system:', error);
+    }
+
     workspaceLayoutService.initialize();
+    window.APP.services.workspaceLayoutManager = workspaceLayoutService;
+
+    // Initialize Workspace Zones for on-demand panel rendering
+    const zoneIds = ['workspace-zone-left', 'workspace-zone-main', 'workspace-zone-right'];
+    for (const zoneId of zoneIds) {
+        const zone = new WorkspaceZone(zoneId);
+        zone.initialize();
+    }
 }
 
-/**
- * Phase 4: Finalization
- * Completes the boot process and signals readiness.
- */
 async function bootFinalize() {
     log.info('PHASE_4', '🎯 Phase 4: Finalization');
-    
     const splashElement = document.getElementById('devpages-splash');
     if (splashElement) {
         splashElement.style.display = 'none';
-        log.info('SPLASH_HIDDEN', '🎭 Splash screen hidden');
     }
     document.body.classList.remove('splash-active');
-    
-    const successfulComponents = componentDefinitions.length - failedComponents.size;
-    log.info('SUMMARY', `📊 Boot Summary: ${successfulComponents}/${componentDefinitions.length} components successful. Auth: ${bootState.isAuthenticated ? 'Yes' : 'No'}`);
-    
+    const successfulComponents = allComponentDefinitions.length - failedComponents.size;
+    log.info('SUMMARY', `📊 Boot Summary: ${successfulComponents}/${allComponentDefinitions.length} components successful. Auth: ${bootState.isAuthenticated ? 'Yes' : 'No'}`);
     eventBus.emit('app:ready');
     window.APP_SHUTDOWN = () => shutdown();
-
-    // --- Global Error Handling ---
     window.onerror = (message, source, lineno, colno, error) => {
         showFatalError(error || new Error(message), 'window.onerror');
-        return true; // Prevent default browser error handling
+        return true;
     };
     window.addEventListener('unhandledrejection', event => {
         showFatalError(event.reason, 'unhandledrejection');
-        event.preventDefault(); // Prevent default browser error handling
+        event.preventDefault();
     });
-
     log.info('APP_READY', '🎉 Application ready for use');
 }
-
 
 // =============================================================================
 // SYSTEM ORCHESTRATION & HELPERS
@@ -228,41 +190,28 @@ let initializationPromise = null;
 async function initializeReduxSystem() {
     if (initializationPromise) return initializationPromise;
     if (systemAPIs) return systemAPIs;
-
     initializationPromise = (async () => {
         try {
             lifecycleStages.push('boot:start');
             await bootPreInit();
-            
             const coreAPIs = await bootCore();
             lifecycleStages.push('boot:coreServicesReady');
-            
             await bootSecondary(coreAPIs);
             lifecycleStages.push('boot:secondarySystemsReady');
-            
             await bootFinalize();
             lifecycleStages.push('boot:complete');
-            
             systemAPIs = {
                 store: coreAPIs.store,
                 isReady: () => true,
                 getStore: () => coreAPIs.store,
             };
-            
             if (window.APP?.bootloader) {
                 window.APP.bootloader.instance = { getSystemAPIs: () => systemAPIs };
             }
-            
             log.info('SUCCESS', '✅ Redux system initialization completed successfully');
             return systemAPIs;
-            
         } catch (error) {
-            // In case of a critical failure, our first priority is to show the user
-            // a helpful error screen. The `fail` function is self-contained and has no dependencies.
             fail(error);
-
-            // Our second priority is to attempt to log the error. This might fail if the
-            // logger itself or its dependencies are the cause of the issue, so we wrap it.
             try {
                 if (log) {
                     log.error('CRITICAL_FAILURE', `💥 Critical initialization failure: ${error.message}`, error);
@@ -272,71 +221,60 @@ async function initializeReduxSystem() {
             } catch (loggingError) {
                 console.error('💥 Logger failed during critical error handling:', loggingError);
             }
-
-            throw error; // Re-throw the original error to ensure it's not swallowed
+            throw error;
         }
     })();
-    
     return initializationPromise;
 }
 
-// --- Initialization Sub-systems ---
-
 async function initializeAuthSystem(store, actions) {
     log.info('INIT', '🔐 Initializing authentication...');
-    const { authThunks } = actions.auth;
-
-    await store.dispatch(authThunks.checkAuth());
+    const { auth } = actions;
+    await store.dispatch(auth.checkAuth());
     const authState = store.getState().auth;
-    
     bootState.isAuthenticated = authState.isAuthenticated || false;
     bootState.authChecked = true;
-    
     if (bootState.isAuthenticated) {
         log.info('AUTHENTICATED', `✅ User authenticated: ${authState.user?.username}`);
-        const { fileThunks } = await import('./thunks/fileThunks.js');
-        store.dispatch(fileThunks.loadTopLevelDirectories());
     } else {
         log.info('NOT_AUTHENTICATED', 'ℹ️ User not authenticated');
     }
 }
 
-async function initializeComponentSystem(store) {
+async function initializeComponentSystem(store, componentDefs) {
     await waitDOMReady();
-    await verifyDOMElements();
-    await registerComponents(store);
-    await initializeComponents(store);
+    await verifyDOMElements(componentDefs);
+    await registerComponents(store, componentDefs);
+    await initializeComponents(store, componentDefs);
 }
 
 async function initializeEventListeners(store, actions) {
     log.info('INIT', '📡 Setting up global event listeners...');
-    const { pathThunks } = actions.path;
-
+    const { path } = actions;
     eventBus.on('navigate:pathname', async ({ pathname, isDirectory }) => {
         log.info('NAVIGATE', `📡 Navigate to pathname: '${pathname}'`);
-        store.dispatch(pathThunks.fetchListingByPath({ pathname, isDirectory }));
+        store.dispatch(path.fetchListingByPath({ pathname, isDirectory }));
     });
-    
     const { initKeyboardShortcuts } = await import('./keyboardShortcuts.js');
     initKeyboardShortcuts();
     log.info('KEYBOARD_SHORTCUTS', '⌨️ Keyboard shortcuts initialized');
 }
 
-// --- Component Management Helpers (adapted from original class) ---
-
 function waitDOMReady() {
-    log.info('DOM', 'WAIT_READY', '📄 Waiting for DOM ready...');
     if (document.readyState === 'complete' || document.readyState === 'interactive') return Promise.resolve();
     return new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
 }
 
-function verifyDOMElements() {
+function verifyDOMElements(componentDefs) {
     log.info('DOM', 'VERIFY_ELEMENTS', '🔍 Verifying required DOM elements...');
-    const missing = requiredDOMElements.filter(id => !document.getElementById(id));
+    const missing = componentDefs
+        .filter(c => c.targetElementId && !document.getElementById(c.targetElementId))
+        .map(c => c.targetElementId);
+
     if (missing.length > 0) {
         log.warn('MISSING_ELEMENTS', `⚠️ Missing DOM elements: ${missing.join(', ')}`);
         missing.forEach(elementId => {
-            const component = componentDefinitions.find(c => c.targetElementId === elementId);
+            const component = componentDefs.find(c => c.targetElementId === elementId);
             if (component) {
                 failedComponents.add(component.name);
                 log.warn('SKIPPED', `⚠️ Component ${component.name} will be skipped`);
@@ -345,17 +283,18 @@ function verifyDOMElements() {
     }
 }
 
-async function registerComponents(store) {
-    log.info('REGISTERING', '📋 Registering components...');
-    for (const def of componentDefinitions) {
+async function registerComponents(store, componentDefs) {
+    log.info('REGISTERING', `📋 Registering ${componentDefs.length} components...`);
+    for (const def of componentDefs) {
         if (failedComponents.has(def.name)) continue;
         try {
+            // The isRegistered check was removed as it's buggy and redundant.
+            // The componentManager itself handles re-registration warnings.
             componentManager.register({
                 name: def.name,
                 mount: () => mountManagedComponent(def, store),
                 destroy: () => destroyManagedComponent(def)
             });
-            log.info('REGISTERED', `✅ Registered ${def.name}`);
         } catch (error) {
             log.error('REGISTER_FAILED', `❌ Failed to register ${def.name}: ${error.message}`, error);
             if (def.required) throw error;
@@ -364,10 +303,11 @@ async function registerComponents(store) {
     }
 }
 
-function initializeComponents(store) {
-    log.info('INITIALIZING', '🧩 Initializing components...');
+function initializeComponents(store, componentDefs) {
+    log.info('INITIALIZING', `🧩 Initializing ${componentDefs.length} components...`);
     try {
-        componentManager.init();
+        const componentNames = componentDefs.map(c => c.name);
+        componentManager.init(componentNames);
     } catch (error) {
         log.error('INIT_FAILED', `❌ Component initialization failed: ${error.message}`, error);
         throw error;
@@ -380,46 +320,50 @@ async function mountManagedComponent(componentDef, store) {
         if (!checkDependencies(componentDef.dependencies)) {
             throw new Error(`Dependencies not met for ${componentDef.name}.`);
         }
-        const module = await import(componentDef.modulePath);
-        const factory = module[componentDef.factoryFunction];
-        if (!factory) throw new Error(`Factory ${componentDef.factoryFunction} not found in ${componentDef.modulePath}.`);
-        
         let component;
-
         if (componentDef.type === 'panel') {
-            const PanelClass = factory;
-            component = new PanelClass();
-            panelStateService.registerPanel(componentDef.id, component);
-            // Panels might not have a traditional mount, they are managed by the layout
-            log.info('PANEL_REGISTERED', `✅ ${componentDef.name} panel registered.`);
+            // For panels, we just register their definition for on-demand loading
+            panelStateService.registerPanel(componentDef.id, {
+                id: componentDef.id,
+                title: componentDef.title,
+                factory: componentDef.factory,
+                defaultZone: componentDef.defaultZone,
+            });
+            component = { name: componentDef.name, type: 'panel-definition' };
         } else if (componentDef.targetElementId) {
+            const module = await import(componentDef.modulePath);
+            const factory = module[componentDef.factoryFunction];
+            if (!factory) throw new Error(`Factory ${componentDef.factoryFunction} not found in ${componentDef.modulePath}.`);
             const targetElement = document.getElementById(componentDef.targetElementId);
-            if (!targetElement) throw new Error(`Target element '${componentDef.targetElementId}' not found.`);
-            
+if (!targetElement) throw new Error(`Target element '${componentDef.targetElementId}' not found.`);
             const instance = factory(componentDef.targetElementId);
             if (instance && typeof instance.mount === 'function') {
                 const mountResult = instance.mount();
-                componentRegistry.set(componentDef.name, mountResult || instance);
                 component = mountResult || instance;
             } else {
                 component = instance;
             }
         } else {
+            const module = await import(componentDef.modulePath);
+            const factory = module[componentDef.factoryFunction];
+            if (!factory) throw new Error(`Factory ${componentDef.factoryFunction} not found in ${componentDef.modulePath}.`);
             component = await factory();
+
+            // If the factory returns a service object, attach it to the global namespace
+            if (componentDef.type === 'service' && component) {
+                window.APP.services[componentDef.name] = component;
+            }
         }
-        
         if (component) {
             componentRegistry.set(componentDef.name, component);
-            log.info('MOUNTED', `✅ ${componentDef.name} mounted.`);
         }
-
         return component;
     } catch (error) {
         log.error('MOUNT_FAILED', `❌ Failed to mount ${componentDef.name}: ${error.message}`, error);
         failedComponents.add(componentDef.name);
         if (componentDef.required) {
-            fail(error); // Directly trigger the boot failure UI
-            throw error; // Re-throw to halt execution
+            fail(error);
+            throw error;
         }
         return null;
     }
@@ -445,8 +389,6 @@ function checkDependencies(dependencies) {
     }
     return true;
 }
-
-// --- Shutdown and Failure ---
 
 function shutdown() {
     log.info('SHUTDOWN', '🛑 Shutting down application...');
@@ -521,18 +463,13 @@ Failed components: ${failedComponentsList}
     eventBus.emit('boot:failed', { errors: bootErrors.map(e => e.message), stages: lifecycleStages });
 }
 
-// =============================================================================
-// AUTO-START
-// =============================================================================
 
-// Export for explicit initialization
 export const bootloader = {
     initialize: initializeReduxSystem,
     getStore: () => systemAPIs?.store,
     getSystemAPIs: () => systemAPIs
 };
 
-// Auto-start on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeReduxSystem);
 } else {

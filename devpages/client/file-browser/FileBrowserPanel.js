@@ -163,7 +163,9 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     fetchCwd() {
-        return window.location.pathname;
+        // Don't use window.location.pathname as that's a web route, not a file path
+        // Instead, default to empty string which will resolve to the user's home directory
+        return '';
     }
 
     handleFileClick(file) {

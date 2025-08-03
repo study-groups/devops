@@ -2,13 +2,11 @@
  * auth.js
  * Core authentication logic: state management, login/logout, hashing, API interaction.
  */
-// Remove globalFetch if no longer needed directly
-// import { globalFetch } from '/client/globalFetch.js'; 
-import { eventBus } from '/client/eventBus.js'; // Import eventBus
-// REMOVED: import { authState } from './authState.js'; // Import the new reactive state
-import { appStore } from '/client/appState.js'; // IMPORT the central state
-import fileSystemState from '/client/filesystem/fileSystemState.js'; // Keep for now, might refactor later
-import { api } from '/client/api.js'; // Import the centralized API object
+// globalFetch is accessed via window.APP.services.globalFetch 
+import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
+import fileSystemState from '/client/filesystem/fileSystemState.js';
+import { api } from '/client/api.js';
 import { dispatch } from '/client/messaging/messageQueue.js';
 import { ActionTypes } from '/client/messaging/actionTypes.js';
 

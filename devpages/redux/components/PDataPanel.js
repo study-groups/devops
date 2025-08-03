@@ -26,26 +26,45 @@ export class PDataPanel extends BasePanel {
         this.store = store;
         this.subPanelStates = {
             'auth-subpanel': { isCollapsed: false },
+            'session-subpanel': { isCollapsed: false },
             'api-explorer-subpanel': { isCollapsed: false },
-            'timing-subpanel': { isCollapsed: true },
-            'introspection-subpanel': { isCollapsed: true }
+                        'timing-subpanel': { isCollapsed: true },
+            'introspection-subpanel': { isCollapsed: true },
+            'verification-subpanel': { isCollapsed: true },
+            'info-subpanel': { isCollapsed: false },
+            'userdata-subpanel': { isCollapsed: true },
+            'lcl-query-subpanel': { isCollapsed: false }
+
+
+
         };
+        
+        this.verifiedUser = null;
         
         this.log(`PDataPanel created: ${panelId}`);
     }
     
-
+    
     
     /**
      * Render collapsible sub-panels
      */
     renderContent() {
+        const authState = this.store.getState().auth;
+        const isAdmin = authState.user?.role === 'admin';
+
         return `
             <div class="pdata-explorer">
                 ${this.renderSubPanel('auth-subpanel', '📁 Authentication', this.renderAuthContent())}
-                ${this.renderSubPanel('api-explorer-subpanel', '🌐 API Explorer', this.renderApiContent())}
+                ${this.renderSubPanel('session-subpanel', '🍪 Session Debug', this.renderSessionContent())}
+                ${this.renderSubPanel('verification-subpanel', '👤 User Verification', this.renderVerificationContent())}
+                ${isAdmin ? this.renderSubPanel('api-explorer-subpanel', '🌐 API Explorer', this.renderApiContent()) : ''}
                 ${this.renderSubPanel('timing-subpanel', '⏱️ Request Timing', this.renderTimingContent())}
                 ${this.renderSubPanel('introspection-subpanel', '🔍 Response Introspection', this.renderIntrospectionContent())}
+                ${this.renderSubPanel('info-subpanel', 'ℹ️ PData Info', this.renderInfoContent())}
+                ${isAdmin ? this.renderSubPanel('userdata-subpanel', '👥 User Data', this.renderUserDataContent()) : ''}
+                ${this.renderSubPanel('lcl-query-subpanel', '🔎 LCL Query', this.renderLclQueryContent())}
+
             </div>
         `;
     }
@@ -76,29 +95,139 @@ export class PDataPanel extends BasePanel {
     renderAuthContent() {
         const authState = this.store.getState().auth;
         const isAuth = authState.isAuthenticated;
-        const user = authState.user;
         
+        if (isAuth) {
+            const user = authState.user;
+            return `
+                <div class="auth-status">
+                    <div class="status-indicator ${isAuth ? 'connected' : 'disconnected'}">
+                        <span class="status-dot"></span>
+                        <span class="status-text">${isAuth ? 'Connected & Authenticated' : 'Not Authenticated'}</span>
+                    </div>
+                </div>
+                <div class="auth-details">
+                    <div class="auth-field">
+                        <label>User:</label>
+                        <span class="auth-value">${user?.username || 'N/A'}</span>
+                    </div>
+                    <div class="auth-field">
+                        <label>Organization:</label>
+                        <span class="auth-value">${user?.org || 'N/A'}</span>
+                    </div>
+                    <div class="auth-field">
+                        <label>Session:</label>
+                        <span class="auth-value">${isAuth ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="auth-field">
+                        <label>Session ID:</label>
+                        <span class="auth-value">${authState.session?.id?.substring(0, 10) || 'N/A'}...</span>
+                    </div>
+                    <div class="auth-field">
+                        <label>Expires:</label>
+                        <span class="auth-value">${authState.session?.expires || 'N/A'}</span>
+                    </div>
+
+                </div>
+            `;
+        } else {
+            return this.renderLoginForm();
+        }
+    }
+
+    /**
+     * Render login form when not authenticated
+     */
+    renderLoginForm() {
         return `
-            <div class="auth-status">
-                <div class="status-indicator ${isAuth ? 'connected' : 'disconnected'}">
-                    <span class="status-dot"></span>
-                    <span class="status-text">${isAuth ? 'Connected & Authenticated' : 'Not Authenticated'}</span>
+            <form id="pdata-login-form" class="login-form">
+                <div class="login-field">
+                    <input type="text" id="pdata-username" name="username" placeholder="Username" required>
+                </div>
+                <div class="login-field">
+                    <input type="password" id="pdata-password" name="password" placeholder="Password" required autocomplete="current-password">
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary btn-login">Login</button>
+                </div>
+                <div id="pdata-login-error" class="login-error"></div>
+            </form>
+        `;
+    }
+
+    /**
+     * Render session debug sub-panel content
+     */
+    renderSessionContent() {
+        return `
+            <div class="session-debug">
+                <div class="session-info">
+                    <div class="session-field">
+                        <label>Environment:</label>
+                        <span class="session-value" id="session-env">Loading...</span>
+                    </div>
+                    <div class="session-field">
+                        <label>Cookies:</label>
+                        <span class="session-value" id="session-cookies">Loading...</span>
+                    </div>
+                    <div class="session-field">
+                        <label>Session Store:</label>
+                        <span class="session-value" id="session-store">Loading...</span>
+                    </div>
+                    <div class="session-field">
+                        <label>Last Request:</label>
+                        <span class="session-value" id="session-last-request">Never</span>
+                    </div>
+                </div>
+                <div class="session-actions">
+                    <button class="btn btn-secondary" onclick="window.APP.pdataPanel.testSessionRequest()">Test Session</button>
+                    <button class="btn btn-secondary" onclick="window.APP.pdataPanel.clearSessionData()">Clear Cookies</button>
+                </div>
+                <div class="session-raw">
+                    <label>Raw Cookie Data:</label>
+                    <pre id="session-raw-data">Loading...</pre>
                 </div>
             </div>
-            <div class="auth-details">
-                <div class="auth-field">
-                    <label>User:</label>
-                    <span class="auth-value">${user?.username || 'N/A'}</span>
+        `;
+    }
+
+    
+    /**
+     * Render user verification sub-panel content
+     */
+    renderVerificationContent() {
+        if (this.verifiedUser) {
+            return `
+                <div class="verification-result">
+                    <div class="auth-details">
+                        <div class="auth-field">
+                            <label>Username:</label>
+                            <span class="auth-value">${this.verifiedUser.username}</span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Role:</label>
+                            <span class="auth-value">${this.verifiedUser.role}</span>
+                        </div>
+                    </div>
+                    <div class="verification-actions">
+                        <button class="btn btn-secondary btn-clear-verification">Clear</button>
+                    </div>
                 </div>
-                <div class="auth-field">
-                    <label>Organization:</label>
-                    <span class="auth-value">${user?.org || 'N/A'}</span>
+            `;
+        }
+
+        return `
+            <form id="pdata-verify-form" class="login-form">
+                <div class="login-field">
+                    <input type="text" id="pdata-verify-username" name="username" placeholder="Username to verify" required autocomplete="username">
                 </div>
-                <div class="auth-field">
-                    <label>Session:</label>
-                    <span class="auth-value">${isAuth ? 'Active' : 'Inactive'}</span>
+                <div class="login-field">
+                    <input type="password" id="pdata-verify-password" name="password" placeholder="Password" required autocomplete="current-password">
                 </div>
-            </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary btn-verify">Verify</button>
+                </div>
+                <div id="pdata-verify-error" class="login-error"></div>
+            </form>
         `;
     }
     
@@ -177,6 +306,35 @@ export class PDataPanel extends BasePanel {
             </div>
         `;
     }
+
+    renderInfoContent() {
+        return `
+            <div id="pdata-info-content" class="auth-details">
+                <div class="pdata-info-loading">Loading PData info...</div>
+            </div>
+        `;
+    }
+
+    renderUserDataContent() {
+        return `
+            <div id="pdata-userdata-content" class="auth-details">
+                <div class="pdata-userdata-loading">Loading user data...</div>
+            </div>
+        `;
+    }
+
+    renderLclQueryContent() {
+        return `
+            <div class="lcl-query-container">
+                <input type="text" id="lcl-query-input" class="pdata-input" placeholder="e.g., list users">
+                <button id="lcl-query-submit" class="btn btn-primary">Run</button>
+                <div id="lcl-query-results" class="pdata-results"></div>
+            </div>
+        `;
+    }
+
+
+
     
     /**
      * Called after panel is mounted to DOM
@@ -185,16 +343,108 @@ export class PDataPanel extends BasePanel {
         super.onMount();
         this.loadPanelStyles();
         this.setupEventListeners();
+        
+        // Initialize session debugging data
+        setTimeout(() => this.refreshSessionData(), 100);
+        
+        // Make panel accessible for session debugging buttons
+        if (!window.APP) window.APP = {};
+        window.APP.pdataPanel = this;
+        
+        const authState = this.store.getState().auth;
+        if (!authState.isAuthenticated) {
+            return;
+        }
+        this.fetchPDataInfo();
+        this.fetchUserData();
         this.log('PDataPanel mounted with sub-panels');
     }
+    
+    async fetchUserData() {
+        const authState = this.store.getState().auth;
+        if (!authState.isAuthenticated || authState.user?.role !== 'admin') {
+            return;
+        }
+        try {
+            // This endpoint needs to be created
+            const response = await fetch('/api/pdata/users/list', { credentials: 'include' }); 
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            const container = this.element.querySelector('#pdata-userdata-content');
+
+            if (container && data.success) {
+                let html = '<div class="user-data-grid">';
+                for (const username in data.users) {
+                    const roles = data.users[username].join(', ');
+                    html += `
+                        <div class="auth-field">
+                            <label>${username}:</label>
+                            <span class="auth-value">${roles}</span>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            } else if(container) {
+                 container.innerHTML = `<div class="login-error">${data.error || 'Failed to load user data.'}</div>`;
+            }
+        } catch (error) {
+            console.error('Failed to fetch user data:', error);
+            const container = this.element.querySelector('#pdata-userdata-content');
+            if (container) {
+                container.innerHTML = `<div class="login-error">Failed to load user data.</div>`;
+            }
+        }
+    }
+
+    
+    async fetchPDataInfo() {
+        const authState = this.store.getState().auth;
+        if (!authState.isAuthenticated) {
+            return;
+        }
+        try {
+            const response = await fetch('/api/auth/system', { credentials: 'include' });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            const container = this.element.querySelector('#pdata-info-content');
+            if(container) {
+                container.innerHTML = `
+                                <div class="auth-field" data-tooltip="The root directory for all PData operations, defined by the PD_DIR environment variable. This is the single source of truth for the data layer's location.">
+                <label>PD_DIR:</label>
+                <span class="auth-value">${data.pdataDataRoot}</span>
+            </div>
+            <div class="auth-field" data-tooltip="The primary database directory. If DB_ROOT is not set in the environment, it defaults to a 'db' subdirectory within PD_DIR.">
+                <label>DB_ROOT:</label>
+                <span class="auth-value">${data.pdataDbRoot}</span>
+            </div>
+            <div class="auth-field" data-tooltip="A dedicated directory for temporary file uploads. It is managed by PData and is separate from user-specific data directories to handle transient files.">
+                <label>Uploads Dir:</label>
+                <span class="auth-value">${data.pdataUploadsDir}</span>
+            </div>
+
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to fetch PData info:', error);
+            const container = this.element.querySelector('#pdata-info-content');
+            if(container) {
+                container.innerHTML = `<div class="login-error">Failed to load PData info.</div>`;
+            }
+        }
+    }
+
     
     /**
      * Setup event listeners for sub-panel collapse and flyout
      */
     setupEventListeners() {
         if (!this.element) return;
-        
-        // Sub-panel header click handlers
+
         this.element.addEventListener('click', (e) => {
             const subPanelHeader = e.target.closest('.subpanel-header');
             if (subPanelHeader) {
@@ -202,14 +452,102 @@ export class PDataPanel extends BasePanel {
                 this.toggleSubPanel(subPanelId);
                 e.stopPropagation();
             }
-            
-            // Flyout toggle handler (now handled by BasePanel)
+
             const flyoutBtn = e.target.closest('.flyout-toggle');
             if (flyoutBtn) {
                 this.toggleFlyout();
                 e.stopPropagation();
             }
+
+            const clearButton = e.target.closest('.btn-clear-verification');
+            if (clearButton) {
+                this.verifiedUser = null;
+                this.rerenderSubPanel('verification-subpanel');
+            }
         });
+
+        this.element.addEventListener('submit', async (e) => {
+            if (e.target.id === 'pdata-login-form') {
+                e.preventDefault();
+                const username = this.element.querySelector('#pdata-username').value;
+                const password = this.element.querySelector('#pdata-password').value;
+                const errorDiv = this.element.querySelector('#pdata-login-error');
+                
+                errorDiv.textContent = '';
+                const result = await this.store.dispatch(
+                    window.APP.store.authThunks.login({ username, password })
+                );
+                if (!result.success) {
+                    errorDiv.textContent = result.error || 'Login failed. Please try again.';
+                } else {
+                    this.log('Login successful, re-rendering auth panel.');
+                }
+            }
+
+            if (e.target.id === 'pdata-verify-form') {
+                e.preventDefault();
+                const username = this.element.querySelector('#pdata-verify-username').value;
+                const password = this.element.querySelector('#pdata-verify-password').value;
+                const errorDiv = this.element.querySelector('#pdata-verify-error');
+                
+                errorDiv.textContent = '';
+                try {
+                    const response = await fetch('/api/auth/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        this.verifiedUser = result.user;
+                        this.rerenderSubPanel('verification-subpanel');
+                    } else {
+                        errorDiv.textContent = result.error || 'Verification failed.';
+                    }
+                } catch (err) {
+                    errorDiv.textContent = 'An error occurred.';
+                }
+            }
+        });
+    }
+
+    rerenderSubPanel(subPanelId) {
+        const subPanel = this.element.querySelector(`.pdata-subpanel[data-subpanel-id="${subPanelId}"] .subpanel-content`);
+        if (subPanel) {
+            let content = '';
+            switch (subPanelId) {
+                case 'auth-subpanel':
+                    content = this.renderAuthContent();
+                    break;
+                case 'verification-subpanel':
+                    content = this.renderVerificationContent();
+                    break;
+                case 'api-explorer-subpanel':
+                    content = this.renderApiContent();
+                    break;
+                case 'timing-subpanel':
+                    content = this.renderTimingContent();
+                    break;
+                case 'introspection-subpanel':
+                    content = this.renderIntrospectionContent();
+                    break;
+                case 'info-subpanel':
+                    content = this.renderInfoContent();
+                    break;
+                case 'userdata-subpanel':
+                    content = this.renderUserDataContent();
+                    break;
+                case 'lcl-query-subpanel':
+                    content = this.renderLclQueryContent();
+                    break;
+
+
+
+            }
+            subPanel.innerHTML = content;
+            this.setupEventListeners(); // Re-attach listeners after re-render
+        }
     }
     
     /**
@@ -616,6 +954,72 @@ export class PDataPanel extends BasePanel {
                 word-break: break-word;
             }
             
+            
+            .auth-field[data-tooltip] {
+                position: relative;
+                cursor: help;
+            }
+
+            .auth-field[data-tooltip]::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: 100%;
+                top: 50%;
+                transform: translateY(-50%);
+                margin-left: 10px;
+                background-color: #333;
+                color: #fff;
+                padding: 5px 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                white-space: pre-wrap; /* Use pre-wrap to respect newlines */
+                width: 250px;
+                z-index: 100;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s;
+                pointer-events: none; /* Allows clicks to pass through */
+                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+
+            .auth-field[data-tooltip]:hover::after {
+                opacity: 1;
+                visibility: visible;
+            }
+            
+            /* Login Form Styles */
+
+            .login-form {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .login-field input {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid var(--color-border, #e1e5e9);
+                border-radius: 4px;
+                font-size: 12px;
+                box-sizing: border-box;
+            }
+
+            .login-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .btn-login {
+                width: 100%;
+            }
+
+            .login-error {
+                color: var(--color-danger, #dc3545);
+                font-size: 11px;
+                margin-top: 4px;
+                min-height: 14px;
+            }
+
             /* Timing and Introspection Styles */
             .timing-metrics, .introspection-data {
                 width: 100%;
@@ -688,5 +1092,93 @@ export class PDataPanel extends BasePanel {
         }
         
         this.log('Synced from Redux state');
+    }
+
+    /**
+     * Test session functionality
+     */
+    async testSessionRequest() {
+        try {
+            const response = await window.APP.services.globalFetch('/api/auth/user', {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            
+            document.getElementById('session-last-request').textContent = new Date().toLocaleTimeString();
+            
+            if (response.ok) {
+                this.updateSessionInfo('✅ Session working', 'success');
+            } else {
+                this.updateSessionInfo('❌ Session failed', 'error');
+            }
+        } catch (error) {
+            this.updateSessionInfo('❌ Request failed', 'error');
+            document.getElementById('session-last-request').textContent = `Error: ${error.message}`;
+        }
+    }
+
+    /**
+     * Clear session cookies
+     */
+    clearSessionData() {
+        // Clear all cookies
+        document.cookie.split(";").forEach(cookie => {
+            const eqPos = cookie.indexOf("=");
+            const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+            document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        });
+        
+        this.updateSessionInfo('🧹 Cookies cleared', 'warning');
+        this.refreshSessionData();
+    }
+
+    /**
+     * Update session information display
+     */
+    updateSessionInfo(message, type = 'info') {
+        const statusElement = document.getElementById('session-cookies');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.className = `session-value ${type}`;
+        }
+    }
+
+    /**
+     * Refresh session data display
+     */
+    refreshSessionData() {
+        // Update environment info
+        const envElement = document.getElementById('session-env');
+        if (envElement) {
+            envElement.textContent = window.location.protocol === 'https:' ? 'HTTPS (Secure)' : 'HTTP (Insecure)';
+        }
+
+        // Update cookie info
+        const cookiesElement = document.getElementById('session-cookies');
+        if (cookiesElement) {
+            const sessionCookie = document.cookie
+                .split(';')
+                .find(cookie => cookie.trim().startsWith('devpages.sid='));
+            
+            if (sessionCookie) {
+                cookiesElement.textContent = '✅ Session cookie found';
+                cookiesElement.className = 'session-value success';
+            } else {
+                cookiesElement.textContent = '❌ No session cookie';
+                cookiesElement.className = 'session-value error';
+            }
+        }
+
+        // Update raw cookie data
+        const rawElement = document.getElementById('session-raw-data');
+        if (rawElement) {
+            rawElement.textContent = document.cookie || '(no cookies)';
+        }
+
+        // Update session store info
+        const storeElement = document.getElementById('session-store');
+        if (storeElement) {
+            storeElement.textContent = 'FileStore (Production)';
+        }
     }
 } 

@@ -2,12 +2,23 @@
  * PanelStateManager - A headless service for interacting with panel state in the Redux store.
  */
 import { panelDefinitions } from './panelRegistry.js';
-import { appStore } from '/client/appState.js';
 import { panelThunks } from '/client/store/slices/panelSlice.js';
 
 class PanelStateService {
     constructor() {
-        this.store = appStore;
+        this.store = null;
+    }
+
+    /**
+     * Initializes the service with the Redux store. This must be called before any other methods.
+     * @param {object} store - The Redux store instance.
+     */
+    initialize(store) {
+        if (!store) {
+            throw new Error("[PanelStateService] Initialization failed: store is required.");
+        }
+        this.store = store;
+        console.log('[PanelStateService] Initialized with Redux store.');
     }
 
     /**
@@ -16,6 +27,7 @@ class PanelStateService {
      * @returns {object} The UI state of the panel.
      */
     getPanelUIState(panelId) {
+        if (!this.store) throw new Error("PanelStateService not initialized.");
         const state = this.store.getState();
         return state.panels.sidebarPanels[panelId] || {
             visible: true,
@@ -29,6 +41,7 @@ class PanelStateService {
      * @returns {Array<object>} A sorted list of visible panels.
      */
     getVisiblePanels() {
+        if (!this.store) throw new Error("PanelStateService not initialized.");
         const state = this.store.getState();
         const sidebarPanels = state.panels.sidebarPanels;
 
@@ -59,8 +72,19 @@ class PanelStateService {
      * @returns {object|undefined} The panel instance, if it exists.
      */
     getPanelInstance(panelId) {
+        if (!this.store) throw new Error("PanelStateService not initialized.");
         const state = this.store.getState();
         return state.panels.instances[panelId];
+    }
+
+    /**
+     * Register a panel with the panel system.
+     * @param {string} panelId - The ID of the panel to register.
+     * @param {object} component - The panel component instance.
+     */
+    registerPanel(panelId, component) {
+        if (!this.store) throw new Error("PanelStateService not initialized.");
+        this.store.dispatch(panelThunks.registerPanel({ panelId, config: component }));
     }
 
     /**
@@ -68,8 +92,9 @@ class PanelStateService {
      * @param {string} panelId - The ID of the panel to toggle.
      */
     togglePanelVisibility(panelId) {
+        if (!this.store) throw new Error("PanelStateService not initialized.");
         this.store.dispatch(panelThunks.togglePanelVisibility(panelId));
     }
 }
 
-export const panelStateService = new PanelStateService(); 
+export const panelStateService = new PanelStateService();

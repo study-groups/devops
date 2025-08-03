@@ -74,7 +74,7 @@ class DragDropManager {
     }
 }
 
-const dragDropManager = new DragDropManager(document.getElementById('sidebar-container'), 'sidebar');
+const dragDropManager = new DragDropManager(document.getElementById('workspace-zone-left'), 'sidebar');
 dragDropManager.start();
 
 export { DragDropManager }; 

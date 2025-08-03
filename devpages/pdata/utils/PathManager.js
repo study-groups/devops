@@ -10,6 +10,7 @@ class PathManager {
         }
 
         this.contentRoot = path.join(this.dataRoot, 'data');
+        fs.ensureDirSync(this.contentRoot);
         this.uploadsDir = path.join(this.dataRoot, 'uploads');
         this.usersDir = path.join(this.contentRoot, 'users');
         this.projectsDir = path.join(this.contentRoot, 'projects');

@@ -826,7 +826,7 @@ export class CssFilesPanel {
       }
     } else {
       try {
-        const response = await fetch(href);
+        const response = await fetch(href, { credentials: 'include' });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

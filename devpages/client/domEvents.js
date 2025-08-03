@@ -2,15 +2,11 @@
 import { eventBus } from '/client/eventBus.js';
 import { triggerActions } from '/client/actions.js';
 // Remove old import
-// import { AUTH_STATE, handleLogin, logout } from '/client/auth.js';
-// Import auth thunks from new auth slice
 import { authThunks } from '/client/store/slices/authSlice.js'; 
-// Import the new reactive state
-// import { authState } from '/client/authState.js'; 
 import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Updated path
 import { appStore } from '/client/appState.js';
 // --- REMOVED: Import settings state for dynamic toolbar ---
-// import { settingsState } from '/client/settings/settingsState.js'; 
+ 
 import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
 import { appVer } from '/config.js'; // Use absolute path
 // --- END ADDED ---

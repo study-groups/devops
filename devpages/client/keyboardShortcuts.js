@@ -9,7 +9,7 @@ import { dispatch } from './messaging/messageQueue.js';
 import { ActionTypes } from './messaging/actionTypes.js';
 import { triggerActions } from '/client/actions.js';
 import { appStore } from './appState.js';
-import { dispatchers } from './appDispatch.js';
+import { panelThunks } from './store/slices/panelSlice.js';
 
 const SMART_COPY_A_KEY = 'smartCopyBufferA';
 const SMART_COPY_B_KEY = 'smartCopyBufferB';
@@ -31,7 +31,7 @@ function getSelectedText() {
 // preventDefault: boolean (defaults true)
 const shortcutMappings = [
     // Settings Panel Toggle
-    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: dispatchers.togglePanel, payload: null },
+    { key: 'S', ctrl: true, shift: true, alt: false, useDispatch: true, action: panelThunks.togglePanel, payload: 'settings-panel' },
     // Save File
     { key: 's', ctrl: 'optional', shift: false, alt: false, useDispatch: false, action: 'shortcut:saveFile', payload: null }, 
     // Refresh Preview (Assuming this triggers a non-state process)
@@ -49,21 +49,9 @@ const shortcutMappings = [
 
 // Initialize keyboard shortcuts
 export function initKeyboardShortcuts() {
-    // Initialize Settings Panel and DOM Inspector on startup
     console.log('[Keyboard] Initializing components for keyboard shortcuts...');
     
     // Settings Panel now initialized via StateKit-based system in bootstrap.js
-    
-    // Initialize DOM Inspector in background (non-blocking)
-    import('/client/dom-inspector/domInspectorInitializer.js').then(({ activateDomInspector }) => {
-        // Defer DOM inspector activation to prevent blocking
-        setTimeout(() => {
-            activateDomInspector();
-            console.log('[Keyboard] DOM Inspector activated for keyboard shortcuts');
-        }, 500);
-    }).catch(error => {
-        console.warn('[Keyboard] Failed to activate DOM Inspector:', error);
-    });
     
     // Main shortcut handler for configured mappings
     document.addEventListener('keydown', (event) => {
@@ -104,7 +92,11 @@ export function initKeyboardShortcuts() {
                 if (mapping.triggerAction && triggerActions[mapping.triggerAction]) {
                     triggerActions[mapping.triggerAction](); // Call function from triggerActions
                 } else if (mapping.useDispatch) {
-                    dispatch({ type: mapping.action, payload: mapping.payload });
+                    if (typeof mapping.action === 'function') {
+                        dispatch(mapping.action(mapping.payload));
+                    } else {
+                        dispatch({ type: mapping.action, payload: mapping.payload });
+                    }
                 } else { // Assumes eventBus if not useDispatch and not triggerAction
                     eventBus.emit(mapping.action, mapping.payload);
                 }
@@ -127,14 +119,26 @@ export function initKeyboardShortcuts() {
                 }
             } else if (event.key === 'O') {
                 event.preventDefault();
+                // On-demand activation of DOM Inspector
                 if (window.devPages && window.devPages.domInspector) {
-                    try {
-                        window.devPages.domInspector.toggle();
-                    } catch (error) {
-                        console.error("[GENERAL] Error calling DOM Inspector toggle:", error);
-                    }
+                    window.devPages.domInspector.toggle();
                 } else {
-                    console.error("[GENERAL] DOM Inspector not initialized on window.devPages.domInspector");
+                    console.log('[Keyboard] DOM Inspector not found, activating for the first time...');
+                    import('/client/dom-inspector/domInspectorInitializer.js')
+                        .then(({ activateDomInspector }) => {
+                            return activateDomInspector();
+                        })
+                        .then(instance => {
+                            if (instance) {
+                                console.log('[Keyboard] DOM Inspector activated on-demand.');
+                                instance.toggle();
+                            } else {
+                                console.error("[Keyboard] Failed to activate DOM Inspector on-demand.");
+                            }
+                        })
+                        .catch(error => {
+                            console.error("[Keyboard] Error activating DOM Inspector on-demand:", error);
+                        });
                 }
             } else if (event.key === 'L') {
                 event.preventDefault();
@@ -184,34 +188,11 @@ export function initKeyboardShortcuts() {
                 return false;
             }
         } else {
-            console.warn('[TEST] DOM Inspector not available! Use debugInitDomInspector() to load it.');
+            console.warn('[TEST] DOM Inspector not available!');
             return false;
         }
     };
 
-    // Add a function to manually initialize DOM Inspector for debugging
-    window.debugInitDomInspector = async function() {
-        console.log('[DEBUG] Manually activating DOM Inspector...');
-        try {
-            const { activateDomInspector } = await import('/client/dom-inspector/domInspectorInitializer.js');
-            // Defer activation to prevent blocking
-            setTimeout(() => {
-                activateDomInspector().then(result => {
-                    console.log('[DEBUG] DOM Inspector activation result:', result);
-                    return result;
-                }).catch(error => {
-                    console.error('[DEBUG] Error activating DOM Inspector:', error);
-                    return null;
-                });
-            }, 100);
-        } catch (error) {
-            console.error('[DEBUG] Error importing DOM Inspector:', error);
-            return null;
-        }
-    };
-    
-    console.log('[Keyboard DEBUG] Global debugInitDomInspector() function added. Call debugInitDomInspector() to manually initialize.');
-    
     // Add a function to test popup system
     window.testPopup = function() {
         console.log('[TEST] Testing popup system...');
@@ -238,4 +219,4 @@ export function initKeyboardShortcuts() {
 }
 
 // Auto-initialize when module is imported
-initKeyboardShortcuts(); 
+// initKeyboardShortcuts(); 

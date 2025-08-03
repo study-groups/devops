@@ -4,8 +4,8 @@
  */
 
 import { appStore, dispatch } from '/client/appState.js';
-import { DomUtils } from '../utils/DomUtils.js';
-import { ElementManager } from '../managers/ElementManager.js';
+import { DomUtils } from '/client/dom-inspector/utils/DomUtils.js';
+import { ElementManager } from '/client/dom-inspector/managers/ElementManager.js';
 import { setState } from '/client/store/slices/domInspectorSlice.js';
 
 const log = window.APP.services.log.createLogger('DOMInspectorStateManager');

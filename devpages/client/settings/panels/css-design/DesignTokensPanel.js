@@ -124,7 +124,7 @@ export class DesignTokensPanel {
 
       for (const file of cssFiles) {
         try {
-          const response = await fetch(file);
+          const response = await fetch(file, { credentials: 'include' });
           if (response.ok) {
             const cssText = await response.text();
             const fileTokens = this.parseTokensFromCSS(cssText, file);

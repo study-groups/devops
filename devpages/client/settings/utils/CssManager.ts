@@ -1,4 +1,5 @@
-import globalFetch from '../../globalFetch.js';
+// Use the globally available globalFetch service
+const globalFetch = window.APP.services.globalFetch;
 
 declare global {
     interface Window {

@@ -14,6 +14,29 @@ import { showFatalError } from '/client/utils/uiError.js';
 const log = window.APP.services.log.createLogger('AuthDisplay');
 
 /**
+ * Performs a shallow comparison between two objects to see if they are equivalent.
+ * @param {object} objA
+ * @param {object} objB
+ * @returns {boolean}
+ */
+function shallowEqual(objA, objB) {
+    if (objA === objB) return true;
+    if (!objA || !objB) return false;
+
+    const keysA = Object.keys(objA);
+    const keysB = Object.keys(objB);
+
+    if (keysA.length !== keysB.length) return false;
+
+    for (let i = 0; i < keysA.length; i++) {
+        if (!objB.hasOwnProperty(keysA[i]) || objA[keysA[i]] !== objB[keysA[i]]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * A simplified "connect" utility for vanilla JS components.
  * It subscribes a component to the Redux store and injects state and dispatch
  * functions as props.
@@ -23,28 +46,41 @@ const log = window.APP.services.log.createLogger('AuthDisplay');
  * a "connected" component factory.
  */
 function connect(mapStateToProps, mapDispatchToProps) {
-    return function (Component) {
-        return function (targetElementId, props) {
+    return function(Component) {
+        return function(targetElementId, props = {}) {
             const component = Component(targetElementId, props);
+            let lastMappedState = null;
 
             const handleChange = () => {
                 const state = appStore.getState();
                 const mappedState = mapStateToProps(state);
-                component.update(mappedState);
+
+                if (lastMappedState && shallowEqual(lastMappedState, mappedState)) {
+                    return; // Don't re-render if state is the same
+                }
+                lastMappedState = mappedState;
+
+                const mappedDispatch = mapDispatchToProps(appStore.dispatch);
+
+                component.update({
+                    ...props,
+                    ...mappedState,
+                    ...mappedDispatch,
+                });
             };
 
-            const mappedDispatch = mapDispatchToProps(appStore.dispatch);
-            component.update(mappedDispatch);
-
             const unsubscribe = appStore.subscribe(handleChange);
-            handleChange(); // Initial render
+            handleChange();
 
+            // Enhance the component's destroy method to include unsubscribing
             const originalDestroy = component.destroy;
             component.destroy = () => {
                 unsubscribe();
-                originalDestroy();
+                if (originalDestroy) {
+                    originalDestroy();
+                }
             };
-
+            
             return component;
         };
     };
@@ -138,9 +174,9 @@ function AuthDisplayComponent(targetElementId) {
         const { auth } = props;
         if (!auth) return;
 
-        log.info('AUTH', 'RENDER_CALLED', `[AuthDisplay] Render called. Auth state: isAuthenticated=${auth.isAuthenticated}, user=${JSON.stringify(auth.user)}, isInitializing=${auth.isInitializing}`);
+        log.info('AUTH', 'RENDER_CALLED', `[AuthDisplay] Render called. Auth state: isAuthenticated=${auth.isAuthenticated}, user=${JSON.stringify(auth.user)}, authChecked=${auth.authChecked}, isLoading=${auth.isLoading}`);
 
-        if (auth.isInitializing) {
+        if (!auth.authChecked || auth.isLoading) {
             element.innerHTML = `<div class="auth-status"><div>Checking authentication...</div></div>`;
             return;
         }
@@ -165,10 +201,10 @@ function AuthDisplayComponent(targetElementId) {
             renderDropdown();
         } else {
             element.innerHTML = `
-                <form id="login-form" class="login-form hide-on-small" style="display: flex; flex-wrap: nowrap; gap: 5px;" method="POST">
-                    <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px;">
-                    <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px;">
-                    <button type="submit" id="login-btn" class="btn btn-primary btn-sm">Login</button>
+                <form id="login-form" class="login-form" style="display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 5px; white-space: nowrap;" method="POST">
+                    <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" style="padding: 4px; flex-shrink: 0; min-width: 0;">
+                    <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" style="padding: 4px; flex-shrink: 0; min-width: 0;">
+                    <button type="submit" id="login-btn" class="btn btn-primary btn-sm" style="flex-shrink: 0;">Login</button>
                 </form>
             `;
             element.querySelector('#login-form').addEventListener('submit', onLoginSubmit);
@@ -271,6 +307,10 @@ const mapDispatchToProps = dispatch => ({
 
 const ConnectedAuthDisplay = connect(mapStateToProps, mapDispatchToProps)(AuthDisplayComponent);
 
-export function initializeAuthDisplay() {
-    ConnectedAuthDisplay('auth-component-container');
+export function initializeAuthDisplay(containerId) {
+    const component = ConnectedAuthDisplay(containerId);
+    if (component) {
+        component.mount();
+    }
+    return component;
 } 

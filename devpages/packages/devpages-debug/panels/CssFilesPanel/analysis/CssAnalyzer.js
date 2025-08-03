@@ -27,7 +27,7 @@ export class CssAnalyzer {
         cssText = styleElement ? (styleElement.textContent || styleElement.innerHTML) : '';
       } else {
         // External CSS file
-        const response = await fetch(href);
+        const response = await fetch(href, { credentials: 'include' });
         cssText = await response.text();
       }
 

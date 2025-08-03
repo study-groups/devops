@@ -35,7 +35,7 @@ export async function refreshImageIndex() {
             const indexContainer = document.querySelector('.markdown-body');
             if (indexContainer) {
                 // Get the updated index content
-                const response = await fetch('/images/index');
+                const response = await fetch('/images/index', { credentials: 'include' });
                 if (response.ok) {
                     const html = await response.text();
                     indexContainer.innerHTML = html;

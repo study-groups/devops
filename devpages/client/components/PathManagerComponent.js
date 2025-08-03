@@ -42,14 +42,13 @@ export function createPathManagerComponent(targetElementId) {
         }
         
         const pathState = window.APP.store.getState().path || {};
-        const fileState = window.APP.store.getState().file || {};
         const authState = window.APP.store.getState().auth || {};
         const settingsStateFromStore = window.APP.store.getState().settings || {};
         
         // CRITICAL DEBUG - State retrieved
         // log.debug('RENDER', 'STATE_RETRIEVED', 'State retrieved:', {
         //     pathState: !!pathState,
-        //     fileState: !!fileState,
+        //     pathState: !!pathState,
         //     authState: !!authState,
         //     isAuthenticated: authState.isAuthenticated
         // });
@@ -64,18 +63,18 @@ export function createPathManagerComponent(targetElementId) {
         const isAuthInitializing = authState.isInitializing;
         const isAuthenticated = authState.isAuthenticated;
         const isPathLoading = pathState.status === 'loading';
-        const isFileLoading = !isAuthInitializing && (!fileState.isInitialized || fileState.isLoading);
+        const isFileLoading = !isAuthInitializing && (!pathState.isInitialized || pathState.isLoading);
         const isOverallLoading = isAuthInitializing || isPathLoading || isFileLoading;
-        const isSaving = pathState.isSaving || fileState.isSaving;
+        const isSaving = pathState.isSaving || pathState.isSaving;
         
         // HYBRID: Use path state for current navigation, file state for legacy compatibility
         // Fix: Treat null as empty string for root directory navigation
         const currentPathname = pathState.currentPathname !== null 
             ? pathState.currentPathname 
-            : (fileState.currentPathname !== null ? fileState.currentPathname : '');
+            : (pathState.currentPathname !== null ? pathState.currentPathname : '');
         const isDirectorySelected = pathState.isDirectorySelected !== undefined 
             ? pathState.isDirectorySelected 
-            : (fileState.isDirectorySelected !== undefined ? fileState.isDirectorySelected : true); // Default to true for root
+            : (pathState.isDirectorySelected !== undefined ? pathState.isDirectorySelected : true); // Default to true for root
         
         const user = authState.user;
         const userRole = user?.role;
@@ -104,11 +103,11 @@ export function createPathManagerComponent(targetElementId) {
         // log.debug('RENDER', 'SELECTED_DIRECTORY_PATH', `selectedDirectoryPath: '${selectedDirectoryPath}'`);
         // log.debug('RENDER', 'CURRENT_PATHNAME', `currentPathname: '${currentPathname}'`);
         // log.debug('RENDER', 'IS_DIRECTORY_SELECTED', `isDirectorySelected: ${isDirectorySelected}`);
-        // log.debug('RENDER', 'CURRENT_LISTING_PATHNAME', `currentListing.pathname: '${fileState.currentListing?.pathname}'`);
-        // log.debug('RENDER', 'CURRENT_LISTING_DIRS', `currentListing.dirs: [${(fileState.currentListing?.dirs || []).join(', ')}]`);
-        // log.debug('RENDER', 'CURRENT_LISTING_FILES', `currentListing.files: [${(fileState.currentListing?.files || []).join(', ')}]`);
+        // log.debug('RENDER', 'CURRENT_LISTING_PATHNAME', `currentListing.pathname: '${pathState.currentListing?.pathname}'`);
+        // log.debug('RENDER', 'CURRENT_LISTING_DIRS', `currentListing.dirs: [${(pathState.currentListing?.dirs || []).join(', ')}]`);
+        // log.debug('RENDER', 'CURRENT_LISTING_FILES', `currentListing.files: [${(pathState.currentListing?.files || []).join(', ')}]`);
         // log.debug('RENDER', 'IS_OVERALL_LOADING', `isOverallLoading: ${isOverallLoading}`);
-        // log.debug('RENDER', 'AVAILABLE_TOP_LEVEL_DIRS', `availableTopLevelDirs: [${(fileState.availableTopLevelDirs || []).join(', ')}]`);
+        // log.debug('RENDER', 'AVAILABLE_TOP_LEVEL_DIRS', `availableTopLevelDirs: [${(pathState.availableTopLevelDirs || []).join(', ')}]`);
         // log.debug('RENDER', 'DEBUG_INFO_END', '=== END RENDER DEBUG ===');
 
         // Generate breadcrumbs for the selected DIRECTORY path
@@ -133,11 +132,11 @@ export function createPathManagerComponent(targetElementId) {
             // log.debug('RENDER', 'BRANCH_1', 'Directory path exists:', selectedDirectoryPath);
             // HYBRID: Check both path and file state for current listing
             const pathListing = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
-            const fileListing = fileState.currentListing?.pathname === selectedDirectoryPath ? fileState.currentListing : null;
+            const fileListing = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
             const listingForSelector = pathListing || fileListing;
             
             // Only log when there's an issue
-            // log.debug('RENDER', 'LISTING_CHECK', `Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${fileState.currentListing?.pathname}', match=${!!listingForSelector}`);
+            // log.debug('RENDER', 'LISTING_CHECK', `Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${pathState.currentListing?.pathname}', match=${!!listingForSelector}`);
 
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
@@ -169,7 +168,7 @@ export function createPathManagerComponent(targetElementId) {
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             } else {
                 // HYBRID: Use the latest available listing from either state
-                const currentListing = pathState.currentListing || fileState.currentListing;
+                const currentListing = pathState.currentListing || pathState.currentListing;
                 if (currentListing && (currentListing.dirs?.length > 0 || currentListing.files?.length > 0)) {
                     // We have a current listing, use it even if path doesn't match exactly
                     const dirs = currentListing.dirs || [];
@@ -211,7 +210,7 @@ export function createPathManagerComponent(targetElementId) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
         } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
             // Use the established window.APP convention 
-            const topLevelDirs = fileState.availableTopLevelDirs || [];
+            const topLevelDirs = pathState.availableTopLevelDirs || [];
             
             // IMMEDIATE DEBUG - log what we're seeing
             
@@ -252,7 +251,12 @@ export function createPathManagerComponent(targetElementId) {
         
         // Simplified layout: Breadcrumbs, then the selection row
         element.innerHTML = `
-            <div class="context-path-and-file-wrapper">
+            <div class="context-path-and-file-wrapper" style="display: flex; align-items: center;">
+                <div id="sidebar-toggle-btn" class="sidebar-toggle" title="Toggle Sidebar">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M4 4h6v6H4V4zm8 0h6v6h-6V4zM4 14h6v6H4v-6zm8 0h6v6h-6v-6z"/>
+                    </svg>
+                </div>
                 <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
             </div>
             <div class="context-selection-row">
@@ -312,6 +316,11 @@ export function createPathManagerComponent(targetElementId) {
         const noteButton = element.querySelector('#note-btn');
         if (noteButton) {
             noteButton.addEventListener('click', handleNoteButtonClick);
+        }
+
+        const sidebarToggleButton = element.querySelector('#sidebar-toggle-btn');
+        if (sidebarToggleButton) {
+            sidebarToggleButton.addEventListener('click', handleSidebarToggleClick);
         }
         
         // CRITICAL DEBUG - Render function completed
@@ -472,41 +481,30 @@ export function createPathManagerComponent(targetElementId) {
         const { currentContentSubDir } = window.APP.store.getState().settings;
         log.info('BREADCRUMB', 'ROOT_CLICK', `Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`);
 
-        // The primary, default action is to toggle the sidebar.
-        // We can access the global workspace panel manager instance if it's available.
-        if (window.workspacePanelManager && typeof window.workspacePanelManager.toggleSidebar === 'function') {
-            log.info('BREADCRUMB', 'TOGGLE_SIDEBAR', 'Toggling sidebar visibility');
-            window.workspacePanelManager.toggleSidebar();
-        } else {
-            log.error('BREADCRUMB', 'NO_PANEL_MANAGER', 'WorkspacePanelManager not available, cannot toggle sidebar.');
-            alert('Could not toggle the sidebar. The panel manager is not available.');
-        }
+        // The primary action is to open the settings popup
+        log.info('BREADCRUMB', 'SHOW_SETTINGS', 'Showing context settings popup.');
+        
+        if (typeof window.APP?.services?.uiComponents?.showPopup === 'function') {
+            const state = window.APP.store.getState();
+            const pathState = state.path || {};
+            const settingsState = state.settings || {};
+            const availableTopDirs = pathState.availableTopLevelDirs || ['data'];
 
-        // Example of a secondary action (e.g., for showing the settings popup)
-        if (event.ctrlKey || event.metaKey) {
-            log.info('BREADCRUMB', 'SHOW_SETTINGS', 'Ctrl/Meta+Click detected, showing settings popup.');
-            
-            if (typeof window.uiComponents?.showPopup === 'function') {
-                const fileState = window.APP.store.getState().file;
-                const settingsState = window.APP.store.getState().settings;
-                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
+            const popupProps = {
+                pdDirBase: '/root/pj/pd/',
+                contentSubDir: settingsState.currentContentSubDir || 'data',
+                availableSubDirs: availableTopDirs,
+                displayPathname: pathState.currentPathname || '',
+                doEnvVars: settingsState.doEnvVars || []
+            };
 
-                const popupProps = {
-                    pdDirBase: '/root/pj/pd/',
-                    contentSubDir: settingsState?.currentContentSubDir || 'data',
-                    availableSubDirs: availableTopDirs,
-                    displayPathname: fileState?.currentPathname || '',
-                    doEnvVars: settingsState?.doEnvVars || []
-                };
-
-                const success = window.uiComponents.showPopup('contextSettings', popupProps);
-                if (!success) {
-                    log.error('BREADCRUMB', 'SHOW_SETTINGS_FAILED', 'Failed to display context settings popup');
-                    alert('Unable to open settings panel. Please check console for details.');
-                }
-            } else {
-                log.error('BREADCRUMB', 'NO_UI_COMPONENTS', 'UI Components system not available for settings popup');
+            const success = window.APP?.services?.uiComponents.showPopup('contextSettings', popupProps);
+            if (!success) {
+                log.error('BREADCRUMB', 'SHOW_SETTINGS_FAILED', 'Failed to display context settings popup');
+                alert('Unable to open settings panel. Please check console for details.');
             }
+        } else {
+            log.error('BREADCRUMB', 'NO_UI_COMPONENTS', 'UI Components system not available for settings popup');
         }
     };
 
@@ -525,24 +523,25 @@ export function createPathManagerComponent(targetElementId) {
             // Sidebar click: Show popup
             log.info('SETTINGS', 'SHOW_POPUP_SIDEBAR', 'Sidebar settings click: showing popup');
             
-            if (typeof window.uiComponents?.showPopup === 'function') {
+            if (typeof window.APP?.services?.uiComponents?.showPopup === 'function') {
                 log.info('SETTINGS', 'SHOW_POPUP_IMMEDIATE', 'UI Components system available, showing popup immediately');
                 
-                const fileState = window.APP.store.getState().file;
-                const settingsState = window.APP.store.getState().settings;
-                const availableTopDirs = fileState.availableTopLevelDirs || ['data'];
+                const state = window.APP.store.getState();
+                const pathState = state.path || {};
+                const settingsState = state.settings || {};
+                const availableTopDirs = pathState.availableTopLevelDirs || ['data'];
                 
                 const popupProps = {
                     pdDirBase: '/root/pj/pd/',
-                    contentSubDir: settingsState?.currentContentSubDir || 'data',
+                    contentSubDir: settingsState.currentContentSubDir || 'data',
                     availableSubDirs: availableTopDirs,
-                    displayPathname: fileState?.currentPathname || '',
-                    doEnvVars: settingsState?.doEnvVars || []
+                    displayPathname: pathState.currentPathname || '',
+                    doEnvVars: settingsState.doEnvVars || []
                 };
                 
                 log.info('SETTINGS', 'POPUP_PROPS', `Showing context settings popup with props: ${JSON.stringify(popupProps)}`);
                 
-                const success = window.uiComponents.showPopup('contextSettings', popupProps);
+                const success = window.APP?.services?.uiComponents.showPopup('contextSettings', popupProps);
                 if (success) {
                     log.info('SETTINGS', 'POPUP_SUCCESS', 'Context settings popup displayed successfully');
                 } else {
@@ -637,6 +636,14 @@ export function createPathManagerComponent(targetElementId) {
                     noteBtn.title = 'Add to Context for Cursor AI';
                 }, 2000);
             }
+        }
+    };
+
+    const handleSidebarToggleClick = () => {
+        if (window.APP && window.APP.services && window.APP.services.workspaceLayoutManager) {
+            window.APP.services.workspaceLayoutManager.toggleLeftSidebar();
+        } else {
+            console.error('[PathManager] WorkspaceLayoutManager not found on window.APP.services.');
         }
     };
 

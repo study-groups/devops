@@ -178,8 +178,8 @@ class Logger {
     // Parse message using TYPE handler
     const parsed = typeHandler.parse(message, payload);
     
-    // Validate against standard taxonomy (005.5.md recommendations)
-    this.validateTypeAction(normalizedAction);
+    // Validate against standard taxonomy (005.5.md recommendations) - suppressed for cleaner console
+    // this.validateTypeAction(normalizedAction);
     
     const logEntry = {
       ts: Date.now(),

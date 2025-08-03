@@ -13,27 +13,35 @@ dotenv.config();
 
 const DOCS_BASE_PATH = path.resolve('md'); // Assuming md/ is at the project root
 
-// Initialize S3 client
-const s3Client = new S3Client({
-    region: process.env.SPACES_REGION,
-    endpoint: process.env.SPACES_ENDPOINT,
-    credentials: {
-        accessKeyId: process.env.SPACES_KEY,
-        secretAccessKey: process.env.SPACES_SECRET,
-    },
-});
+// --- Configuration (Use DO_SPACES_ prefix to match rest of codebase) ---
+const SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT; // e.g., 'sfo3.digitaloceanspaces.com'
+const SPACES_REGION = process.env.DO_SPACES_REGION;     // e.g., 'sfo3'
+const SPACES_BUCKET = process.env.DO_SPACES_BUCKET;   // Your Spaces bucket name
+const SPACES_KEY = process.env.DO_SPACES_KEY;
+const SPACES_SECRET = process.env.DO_SPACES_SECRET;
 
-// --- Configuration (Move to environment variables ideally) ---
-const SPACES_ENDPOINT = process.env.SPACES_ENDPOINT; // e.g., 'sfo3.digitaloceanspaces.com'
-const SPACES_REGION = process.env.SPACES_REGION;     // e.g., 'sfo3'
-const SPACES_BUCKET = process.env.SPACES_BUCKET;   // Your Spaces bucket name
-const SPACES_KEY = process.env.SPACES_KEY;
-const SPACES_SECRET = process.env.SPACES_SECRET;
-
-// Basic validation of configuration
+// Basic validation of configuration (non-fatal - spaces are optional)
 if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_BUCKET || !SPACES_KEY || !SPACES_SECRET) {
-    console.error('[FATAL] Spaces configuration missing in environment variables!');
-    // process.exit(1); // Or handle more gracefully
+    console.warn('[Media Proxy] Spaces configuration missing in environment variables. Media proxy features disabled.');
+    // Spaces features will be disabled but server continues
+}
+
+// Initialize S3 client only if configuration is complete
+let s3Client = null;
+if (SPACES_ENDPOINT && SPACES_REGION && SPACES_KEY && SPACES_SECRET) {
+    try {
+        s3Client = new S3Client({
+            region: SPACES_REGION,
+            endpoint: SPACES_ENDPOINT,
+            credentials: {
+                accessKeyId: SPACES_KEY,
+                secretAccessKey: SPACES_SECRET,
+            },
+        });
+        console.log('[Media Proxy] S3 client initialized successfully');
+    } catch (error) {
+        console.error('[Media Proxy] Failed to initialize S3 client:', error);
+    }
 }
 
 // --- Helper Functions ---
@@ -74,6 +82,9 @@ router.get('/', authMiddleware, async (req, res) => {
     if (!user) {
         // Should be caught by authMiddleware, but double-check
         return res.status(401).send('Authentication required.');
+    }
+    if (!s3Client) {
+        return res.status(503).send('Media proxy service unavailable: Spaces configuration not complete.');
     }
 
     // Construct absolute path to the markdown file

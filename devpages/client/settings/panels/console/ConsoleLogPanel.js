@@ -4,7 +4,7 @@
  * Designed to be in feature parity with ConsoleLogManager.js (no subtypes)
  */
 
-import FilterManager from '../../utils/FilterManager.js';
+import FilterManager from '/client/settings/utils/FilterManager.js';
 import { LogManager } from '/client/log/LogManager.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { ConsoleLogManager } from '/client/log/ConsoleLogManager.js';

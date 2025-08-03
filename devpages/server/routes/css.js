@@ -184,11 +184,12 @@ function validateResolvedPath(absolutePath, req) {
 
 /**
  * Main CSS serving route
- * GET /css/:path - Serves CSS files with proper caching and security
+ * GET /css/* - Serves CSS files with proper caching and security
+ * Updated for Express 5.x compatibility
  */
-router.get('/:path(*)', async (req, res) => {
+router.get('/*', async (req, res) => {
     const logPrefix = '[CSS Route]';
-    const cssPath = req.params.path;
+    const cssPath = req.params[0] || req.path.substring(1); // Remove leading slash from req.path
     
     console.log(`${logPrefix} Request for CSS: ${cssPath}`);
     

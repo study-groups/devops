@@ -28,11 +28,29 @@ class PData {
 
 	_initializeDataRoot() {
 		const dataRootPath = process.env.PD_DIR;
-		if (!dataRootPath) throw new Error('[PDATA Class FATAL] PD_DIR must be set.');
-		if (!path.isAbsolute(dataRootPath)) throw new Error(`[PDATA Class FATAL] PD_DIR must be an absolute path: ${dataRootPath}`);
+		if (!dataRootPath) {
+			throw new Error('[PDATA Class FATAL] PD_DIR must be set.');
+		}
+		if (!path.isAbsolute(dataRootPath)) {
+			throw new Error(`[PDATA Class FATAL] PD_DIR must be an absolute path: ${dataRootPath}`);
+		}
 		
 		this._ensureDirectoryExists(dataRootPath, 'PD_DIR (PData Root)');
 		this.dataRoot = fs.realpathSync(dataRootPath);
+
+		// Initialize dbRoot, using DB_ROOT if set, otherwise default to a subdirectory of dataRoot
+		const dbRootEnv = process.env.DB_ROOT;
+		if (dbRootEnv) {
+			if (!path.isAbsolute(dbRootEnv)) {
+				throw new Error(`[PDATA Class FATAL] DB_ROOT, if set, must be an absolute path: ${dbRootEnv}`);
+			}
+			this.dbRoot = fs.realpathSync(dbRootEnv);
+			console.log(`[PData] Initialized with DB_ROOT from environment: ${this.dbRoot}`);
+		} else {
+			this.dbRoot = path.join(this.dataRoot, 'db');
+			console.log(`[PData] DB_ROOT not set, defaulting to: ${this.dbRoot}`);
+		}
+		this._ensureDirectoryExists(this.dbRoot, 'PData DB Root');
 	}
 
 	_loadRolesAndUsers() {
@@ -198,8 +216,17 @@ class PData {
 		return this.roles.get(username) || [];
 	}
 
+    getUserRole(username) {
+        const roles = this.getUserRoles(username);
+        return roles.length > 0 ? roles[0] : null;
+    }
+
+
 	async listDirectory(username, relativePath = '') {
         const absolutePathToList = await this.pathManager.resolvePathForUser(username, relativePath);
+
+        // Ensure the directory exists before trying to read it.
+        await fs.ensureDir(absolutePathToList);
 
         if (!absolutePathToList.startsWith(this.uploadsDir) && !await this.pathManager.can(username, 'list', absolutePathToList)) {
             throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);

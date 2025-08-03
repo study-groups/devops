@@ -80,7 +80,7 @@ export class CssFileManager {
             title = `Inline Style: ${file.id}`;
         } else {
             try {
-                const response = await fetch(href);
+                const response = await fetch(href, { credentials: 'include' });
                 if (response.ok) {
                     content = await response.text();
                 } else {

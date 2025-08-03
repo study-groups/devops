@@ -139,6 +139,15 @@ export const authMiddleware = (req, res, next) => {
     if (req.isAuthenticated()) {
         console.log(`[AUTH MIDDLEWARE] Valid session found via req.isAuthenticated() for user: ${req.user?.username || 'UNKNOWN'}. Allowing access.`);
         req.authMethod = 'session';
+        
+        // Ensure session object exists and has a default org
+        if (!req.session) {
+            req.session = {};
+        }
+        if (!req.session.org) {
+            req.session.org = req.user?.username || 'default'; // Default to username or 'default'
+        }
+        
         next();
     } else {
         console.log('[AUTH MIDDLEWARE] No valid session found via req.isAuthenticated(). Denying access.');

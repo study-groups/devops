@@ -240,8 +240,6 @@ class AppBootstrapper {
 
   async initFeatures() {
     this.log('Initializing feature modules...');
-    const { initKeyboardShortcuts } = await import('/client/keyboardShortcuts.js');
-    initKeyboardShortcuts();
     
     const promises = [
         import('/client/cli/index.js').catch(error => {
@@ -310,10 +308,7 @@ class AppBootstrapper {
 // The new bootloader.js system is now the primary initialization method
 /*
 document.addEventListener('DOMContentLoaded', () => {
-  const domDependencies = [
-      'editor-container', 'sidebar-container', 'context-manager-container', 'view-controls-container', 'log-container'
-  ];
-  
+
   const bootstrapper = new AppBootstrapper(domDependencies);
   
   // Expose a controlled shutdown method on the window

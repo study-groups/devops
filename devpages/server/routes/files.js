@@ -91,10 +91,14 @@ const contentSubDir = 'data'; // The name of the subdir in PD_DIR linking to MD_
 
 // Helper function to get effective path with org
 function getEffectivePath(req, pathname) {
-    const org = req.query.org || req.body.org || req.session.org;
+    // Safely access session with explicit null checks and defensive programming
+    let org = (req.query && req.query.org) || (req.body && req.body.org);
+    if (!org && req.session && req.session.org) {
+        org = req.session.org;
+    }
     
-    // Update session org if provided in request
-    if (req.query.org || req.body.org) {
+    // Update session org if provided in request and session exists
+    if (req.session && ((req.query && req.query.org) || (req.body && req.body.org))) {
         req.session.org = org;
     }
     
@@ -112,9 +116,30 @@ function getEffectivePath(req, pathname) {
  * Get list of files and subdirectories in a directory
  */
 router.get('/list', authMiddleware, async (req, res) => {
-    const clientPathname = req.query.pathname || '';
-    const effectivePath = getEffectivePath(req, clientPathname);
-  const username = req.user.username;
+    const clientPathname = req.query.pathname || '/';
+    
+    // Defensive coding: Ensure req.user exists before accessing properties
+    if (!req.user || !req.user.username) {
+        console.error(`[API /list] User object not found on request after auth middleware. This should not happen.`);
+        return res.status(500).json({ error: 'User authentication data is missing from the request.' });
+    }
+    const username = req.user.username;
+    const userRole = req.pdata.getUserRole(username);
+    
+    let effectivePath;
+    
+    if (userRole === 'admin') {
+        // Admin users get direct access to all paths
+        effectivePath = clientPathname === '/' ? '/' : clientPathname;
+    } else {
+        // Regular users: apply org logic and personal directory restrictions
+        effectivePath = getEffectivePath(req, clientPathname);
+        
+        // If regular user requested the root, redirect to their personal directory
+        if (clientPathname === '/') {
+            effectivePath = username;
+        }
+    }
     
     console.log(`[API /list] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
     
@@ -126,13 +151,13 @@ router.get('/list', authMiddleware, async (req, res) => {
             dirs: result.dirs,
             files: result.files
         });
-  } catch (error) {
+    } catch (error) {
         console.error(`[API /list] Error for '${effectivePath}':`, error.message);
         res.status(500).json({
             error: `Failed to list contents for '${clientPathname}': ${error.message}`,
             requestedPath: clientPathname
-    });
-  }
+        });
+    }
 });
 
 /**

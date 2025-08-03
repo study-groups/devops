@@ -13,24 +13,37 @@ export function createGlobalFetch(log) {
      * @returns {Promise<Response>} Fetch response
      */
     return async function globalFetch(url, options = {}) {
-        const method = options.method || 'GET';
+        const { silent = false, ...fetchOptions } = options;
+        const method = fetchOptions.method || 'GET';
         const context = { url, method };
 
-        log.debug('FETCH', 'REQUEST_START', `Request to: ${url}`, context);
+        if (!silent) {
+            log.info('FETCH', 'REQUEST_START', `Request to: ${url}`, context);
+        }
 
         try {
-            // All authenticated fetches should include credentials
-            const response = await fetch(url, { ...options, credentials: 'include' });
-
+            const response = await fetch(url, { ...fetchOptions, credentials: 'include' });
             const responseContext = { ...context, status: response.status };
-            log.debug('FETCH', 'RESPONSE_SUCCESS', `Response from ${url}: ${response.status} ${response.statusText}`, responseContext);
+
+            // Log non-ok responses as warnings, but not 401s on the user endpoint
+            if (!response.ok) {
+                if (response.status === 401 && url.includes('/api/auth/user')) {
+                    if (!silent) {
+                        log.debug('FETCH', 'AUTH_CHECK_UNAUTHENTICATED', `Unauthenticated session check on ${url}`, responseContext);
+                    }
+                } else {
+                    log.warn('FETCH', 'RESPONSE_NOT_OK', `Non-OK response from ${url}: ${response.status}`, responseContext);
+                }
+            } else if (!silent) {
+                log.info('FETCH', 'RESPONSE_SUCCESS', `Success response from ${url}: ${response.status}`, responseContext);
+            }
             
             return response;
         } catch (error) {
             const errorContext = { ...context, error: error.message };
             log.error('FETCH', 'REQUEST_FAILED', `Request to ${url} failed: ${error.message}`, errorContext);
             
-            throw error; // Re-throw the error so the caller can handle it
+            throw error;
         }
     }
 } 
