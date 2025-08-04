@@ -1,0 +1,8 @@
+# role,capabilities
+# Defines a role as a bundle of capabilities.
+admin,cap:admin_access
+editor,cap:read:~/docs/**;cap:write:~/docs/**
+project,cap:read:/projects/{project}/**;cap:write:/projects/{project}/**
+guest,cap:read:/public/**
+dev,cap:read:/**;cap:write:/dev/**
+user,cap:read:~/;cap:write:~/

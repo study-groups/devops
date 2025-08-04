@@ -62,6 +62,12 @@ class PathManager {
         
         // Allow reading from anywhere inside the content root if it's a symlink
         if (action === 'read' || action === 'list') {
+            const stats = await fs.lstat(resourcePath);
+            if (stats.isSymbolicLink()) {
+                const linkTarget = await fs.readlink(resourcePath);
+                const targetPath = path.resolve(path.dirname(resourcePath), linkTarget);
+                return this.can(username, action, targetPath);
+            }
             if (resourcePath.startsWith(this.contentRoot)) {
                 return true;
             }

@@ -1,0 +1,4 @@
+# capability,expression,description
+# (Optional) Defines reusable capability patterns or sets.
+# Example:
+# cap:read:arcade_mods,read:/games/mods/**
