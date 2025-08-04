@@ -1,4 +1,0 @@
-# set_name,paths
-# (Optional) Groups filesystem paths under a logical name.
-# Example:
-# premium_games,/games/premium/*;/games/exclusive/*

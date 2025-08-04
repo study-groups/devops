@@ -11,28 +11,21 @@ class PathManager {
 
         this.contentRoot = path.join(this.dataRoot, 'data');
         fs.ensureDirSync(this.contentRoot);
-        this.uploadsDir = path.join(this.dataRoot, 'uploads');
         this.usersDir = path.join(this.contentRoot, 'users');
         this.projectsDir = path.join(this.contentRoot, 'projects');
 
         this.roles = config.roles || new Map();
+        this.systemRoots = config.systemRoots || {};
         this.permissiveSymlinks = true;
     }
 
-    /**
-     * Get user's expected home directory information
-     * @param {string} username - Username to find home directory for
-     * @returns {Object} { type: 'project'|'user', path: string, exists: boolean }
-     */
     getUserHomeDirectory(username) {
         const projectDir = path.join(this.projectsDir, username);
         const userDir = path.join(this.usersDir, username);
         
-        // Check which directories exist
         const projectExists = fs.existsSync(projectDir);
         const userExists = fs.existsSync(userDir);
         
-        // Prefer projects over users if both exist
         if (projectExists) {
             return { type: 'project', path: projectDir, exists: true };
         }
@@ -40,7 +33,6 @@ class PathManager {
             return { type: 'user', path: userDir, exists: true };
         }
         
-        // Default to users directory for new users
         return { type: 'user', path: userDir, exists: false };
     }
 
@@ -51,16 +43,15 @@ class PathManager {
         const userRoles = this.roles.get(username) || [];
         if (userRoles.includes('admin')) return true;
 
-        // Standard user permissions
         const userTopDir = path.join(this.usersDir, username);
         if (resourcePath.startsWith(userTopDir)) return true;
         
-        // Allow reading/listing from uploads directory
-        if ((action === 'read' || action === 'list') && resourcePath.startsWith(this.uploadsDir)) {
-            return true;
+        for (const rootPath of Object.values(this.systemRoots)) {
+            if (resourcePath.startsWith(rootPath)) {
+                return true; // Simplified for now; could be more granular
+            }
         }
         
-        // Allow reading from anywhere inside the content root if it's a symlink
         if (action === 'read' || action === 'list') {
             const stats = await fs.lstat(resourcePath);
             if (stats.isSymbolicLink()) {
@@ -92,7 +83,6 @@ class PathManager {
             return resolvedPath;
         }
 
-        // Standard user path resolution
         const userRootOnFs = path.join(this.usersDir, username);
         let finalPathOnFs;
 
@@ -100,22 +90,19 @@ class PathManager {
             finalPathOnFs = userRootOnFs;
         } else if (normalizedClientPath.startsWith(`${username}/`)) {
             finalPathOnFs = path.join(userRootOnFs, normalizedClientPath.substring(username.length + 1));
+        } else if (this.systemRoots[normalizedClientPath]) {
+            finalPathOnFs = this.systemRoots[normalizedClientPath];
         } else {
-             // Special case for uploads directory
-             if (normalizedClientPath === 'uploads') {
-                 finalPathOnFs = this.uploadsDir;
-             } else {
-                 // For non-admins, if a path doesn't start with their username, check if it's a valid top-level shared dir
-                 const potentialPath = path.join(this.contentRoot, normalizedClientPath);
-                 if(!fs.existsSync(potentialPath)){
-                    throw new Error(`Access Denied: Path '${inputPath}' is invalid or outside your allowed directory.`);
-                 }
-                 finalPathOnFs = potentialPath;
-             }
+            const potentialPath = path.join(this.contentRoot, normalizedClientPath);
+            if(!fs.existsSync(potentialPath)){
+               throw new Error(`Access Denied: Path '${inputPath}' is invalid or outside your allowed directory.`);
+            }
+            finalPathOnFs = potentialPath;
         }
 
-        if (!path.resolve(finalPathOnFs).startsWith(path.resolve(this.contentRoot)) && 
-            !path.resolve(finalPathOnFs).startsWith(path.resolve(this.uploadsDir))) {
+        const isSystemRootPath = Object.values(this.systemRoots).some(root => path.resolve(finalPathOnFs).startsWith(path.resolve(root)));
+
+        if (!path.resolve(finalPathOnFs).startsWith(path.resolve(this.contentRoot)) && !isSystemRootPath) {
             throw new Error('Security Violation: Attempt to access path outside user scope.');
         }
 

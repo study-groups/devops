@@ -22,6 +22,8 @@ if (!fs.existsSync(pdataTestRootDir)) {
 
 const usersCsvPath = path.join(pdataTestRootDir, 'users.csv');
 const rolesCsvPath = path.join(pdataTestRootDir, 'roles.csv');
+const assetsCsvPath = path.join(pdataTestRootDir, 'assets.csv');
+const capabilitiesCsvPath = path.join(pdataTestRootDir, 'capabilities.csv');
 
 let usersCsvContent = '';
 let rolesCsvContent = '';
@@ -35,6 +37,22 @@ users.forEach(user => {
 
 fs.writeFileSync(usersCsvPath, usersCsvContent.trim());
 fs.writeFileSync(rolesCsvPath, rolesCsvContent.trim());
+
+const assetsCsvContent = `set_name,paths
+public_games,/games/demo/*,/games/free/*
+premium_games,/games/premium/*,/games/cheap-golf
+team_docs,/users/team1/docs/*,/users/team1/resources/*
+`;
+fs.writeFileSync(assetsCsvPath, assetsCsvContent.trim());
+console.log(`Created assets.csv in ${pdataTestRootDir}`);
+
+const capabilitiesCsvContent = `capability,expression,description
+cap:read:arcade_mods,read:/games/mods/**
+cap:write:docs,write:/users/{user}/docs/**
+cap:admin_users,delete:/users/*;write:/users/*
+`;
+fs.writeFileSync(capabilitiesCsvPath, capabilitiesCsvContent.trim());
+console.log(`Created capabilities.csv in ${pdataTestRootDir}`);
 
 const dataDir = path.join(pdataTestRootDir, 'data');
 const usersDataDir = path.join(dataDir, 'users');
