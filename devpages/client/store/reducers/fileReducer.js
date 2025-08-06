@@ -1,170 +1,112 @@
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+// client/store/reducers/fileReducer.js
 
-const LAST_OPENED_KEY = 'devpages_last_opened_file';
+// --- Action Types ---
+const LOAD_FILE_PENDING = 'file/loadFile/pending';
+const LOAD_FILE_SUCCESS = 'file/loadFile/fulfilled';
+const LOAD_FILE_FAILURE = 'file/loadFile/rejected';
+const CLEAR_FILE = 'file/clearFile';
+const UPDATE_FILE_CONTENT = 'file/updateContent';
 
-/**
- * Load last opened file from localStorage
- */
-export function loadLastOpened() {
-    try {
-        const stored = localStorage.getItem(LAST_OPENED_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            return {
-                pathname: parsed.pathname || null,
-                isDirectory: parsed.isDirectory !== false // Default to true if not specified
-            };
-        }
-    } catch (error) {
-        console.warn('[FileReducer] Error loading last opened file:', error);
-    }
-    return { pathname: null, isDirectory: true };
-}
+// --- Initial State ---
+const initialState = {
+    currentFile: {
+        pathname: null,
+        content: '',
+        originalContent: '', // Keep track of the original content to check for dirtiness
+        isDirty: false,
+        lastModified: null
+    },
+    status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
+    error: null
+};
 
-/**
- * Save last opened file to localStorage
- */
-export function saveLastOpened(pathname, isDirectory = false) {
-    try {
-        localStorage.setItem(LAST_OPENED_KEY, JSON.stringify({
-            pathname,
-            isDirectory,
-            timestamp: Date.now()
-        }));
-    } catch (error) {
-        console.warn('[FileReducer] Error saving last opened file:', error);
-    }
-}
+const SAVE_FILE_PENDING = 'file/saveFile/pending';
 
-/**
- * File state reducer
- */
-export function fileReducer(state = {}, action) {
+// --- Action Creators ---
+export const fileActions = {
+    saveFilePending: () => ({
+        type: SAVE_FILE_PENDING
+    }),
+    loadFilePending: (pathname) => ({ 
+        type: LOAD_FILE_PENDING, 
+        payload: { pathname } 
+    }),
+    loadFileSuccess: (data) => ({ 
+        type: LOAD_FILE_SUCCESS, 
+        payload: data 
+    }),
+    loadFileFailure: (error) => ({ 
+        type: LOAD_FILE_FAILURE, 
+        payload: error 
+    }),
+    clearFile: () => ({ 
+        type: CLEAR_FILE 
+    }),
+    updateFileContent: (content) => ({
+        type: UPDATE_FILE_CONTENT,
+        payload: { content }
+    })
+};
+
+// --- Reducer ---
+export const fileReducer = (state = initialState, action) => {
     switch (action.type) {
-        case ActionTypes.FS_SET_TOP_DIRS:
+        case LOAD_FILE_PENDING:
             return {
                 ...state,
-                availableTopLevelDirs: Array.isArray(action.payload) ? action.payload : [],
-                isInitialized: true
-            };
-
-        case ActionTypes.FS_INIT_START:
-            return {
-                ...state,
-                isLoading: true,
-                error: null
-            };
-
-        case ActionTypes.FS_INIT_COMPLETE:
-            return {
-                ...state,
-                isLoading: false,
-                isInitialized: true
-            };
-
-        case ActionTypes.FS_SET_STATE:
-            return {
-                ...state,
-                ...action.payload
-            };
-
-        case ActionTypes.FS_LOAD_LISTING_START:
-            return {
-                ...state,
-                isLoading: true,
-                error: null
-            };
-
-        case ActionTypes.FS_LOAD_LISTING_SUCCESS:
-            const { pathname, dirs, files } = action.payload;
-            return {
-                ...state,
-                isLoading: false,
-                currentListing: {
-                    pathname,
-                    dirs: dirs || [],
-                    files: files || []
+                status: 'loading',
+                error: null,
+                currentFile: {
+                    ...initialState.currentFile, // Reset file state on new load
+                    pathname: action.payload.pathname
                 }
             };
-
-        case ActionTypes.FS_LOAD_LISTING_ERROR:
+        case LOAD_FILE_SUCCESS:
+            const { pathname, content } = action.payload;
             return {
                 ...state,
-                isLoading: false,
-                error: action.payload
-            };
-
-        case ActionTypes.FS_LOAD_FILE_START:
-            return {
-                ...state,
-                isLoading: true,
+                status: 'succeeded',
+                currentFile: {
+                    pathname,
+                    content,
+                    originalContent: content, // Set original content on successful load
+                    isDirty: false,
+                    lastModified: new Date().toISOString()
+                },
                 error: null
             };
-
-        case ActionTypes.FS_LOAD_FILE_SUCCESS:
-            const { pathname: filePath, content } = action.payload;
-            // Save to localStorage for persistence
-            saveLastOpened(filePath, false);
+        case LOAD_FILE_FAILURE:
             return {
                 ...state,
-                isLoading: false,
-                currentPathname: filePath,
-                currentContent: content,
-                isDirectorySelected: false
+                status: 'failed',
+                error: action.payload,
+                currentFile: {
+                    ...initialState.currentFile // Reset on failure
+                }
             };
-
-        case ActionTypes.FS_LOAD_FILE_ERROR:
+        case CLEAR_FILE:
             return {
-                ...state,
-                isLoading: false,
-                error: action.payload
+                ...initialState
             };
-
-        case ActionTypes.FS_SAVE_FILE_START:
-            return {
-                ...state,
-                isSaving: true,
-                error: null
-            };
-
-        case ActionTypes.FS_SAVE_FILE_SUCCESS:
-            return {
-                ...state,
-                isSaving: false
-            };
-
-        case ActionTypes.FS_SAVE_FILE_ERROR:
-            return {
-                ...state,
-                isSaving: false,
-                error: action.payload
-            };
-
-        case ActionTypes.FS_SET_CURRENT_PATH:
-            const { pathname: currentPath, isDirectory } = action.payload;
-            // Save to localStorage for persistence if it's a file
-            if (!isDirectory) {
-                saveLastOpened(currentPath, false);
+        case UPDATE_FILE_CONTENT:
+            if (state.currentFile.pathname) {
+                const newContent = action.payload.content;
+                return {
+                    ...state,
+                    currentFile: {
+                        ...state.currentFile,
+                        content: newContent,
+                        isDirty: newContent !== state.currentFile.originalContent
+                    }
+                };
             }
+            return state; // Do nothing if no file is loaded
+        case SAVE_FILE_PENDING:
             return {
                 ...state,
-                currentPathname: currentPath,
-                isDirectorySelected: isDirectory
+                status: 'saving'
             };
-
-        case ActionTypes.FS_SET_CONTENT:
-            return {
-                ...state,
-                currentContent: action.payload
-            };
-
-        case ActionTypes.FS_CLEAR_ERROR:
-            return {
-                ...state,
-                error: null
-            };
-
         default:
             return state;
     }
-} 
+};

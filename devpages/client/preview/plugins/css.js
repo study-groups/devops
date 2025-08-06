@@ -1,7 +1,8 @@
 import { appStore } from '/client/appState.js'; // Assuming settings are in appStore
+import { appStore } from "/client/appState.js";
 import { api } from '/client/api.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure pathJoin is imported
-import { dispatch, ActionTypes } from '/client/messaging/messageQueue.js'; // <<< Ensure dispatch and ActionTypes are imported
+// REMOVED: messageQueue import (file deleted)
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('CssPlugin');
@@ -29,7 +30,7 @@ export function init(config = {}) {
             if (savedState === null) {
                 // First time - set default to false (using theme system instead)
                 dispatch({ 
-                    type: ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
+                    type: // ActionTypes.SETTINGS_SET_ROOT_CSS_ENABLED, 
                     payload: false 
                 });
                 log.debug('CSS_PLUGIN', 'SET_DEFAULT_ROOT_CSS', 'Set default enableRootCss to false (using theme system)');
@@ -209,7 +210,7 @@ export async function applyStyles() {
             clearTimeout(_cssDispatchTimeout);
         }
         _cssDispatchTimeout = setTimeout(() => {
-            dispatch({ type: ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
+            dispatch({ type: // ActionTypes.SETTINGS_SET_ACTIVE_PREVIEW_CSS, payload: finalActivePaths });
             log.debug('CSS_PLUGIN', 'DISPATCH_SUCCESS', `[CSS APPLY DISPATCH] Dispatched successfully`);
             _cssDispatchTimeout = null;
         }, 150); // Increased from 50ms to 150ms for better stability

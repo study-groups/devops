@@ -2,13 +2,13 @@
  * Virtual Base Path Manager Component
  * Allows users to switch between different virtual MD_DIR contexts
  */
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { pathUtils } from '/client/utils/pathUtils.js';
 import { getFile } from '/client/api.js';
 import { setVirtualBasePath, getAvailableBasePaths } from '/client/utils/virtualPathUtils.js';
 import eventBus from '/client/eventBus.js';
+import { pathActions } from '/client/store/slices/pathSlice.js';
+import { updatePreviewContent } from '/client/store/slices/previewSlice.js';
 
 class VirtualBaseManager {
     constructor(options = {}) {
@@ -109,22 +109,12 @@ class VirtualBaseManager {
         setVirtualBasePath(normalizedPath);
         
         // Clear current file/directory selection since paths will change
-        dispatch({
-            type: ActionTypes.FS_SET_STATE,
-            payload: {
-                currentPathname: null,
-                isDirectorySelected: false,
-                currentListing: { pathname: null, dirs: [], files: [] },
-                parentListing: { pathname: null, triggeringPath: null, dirs: [], files: [] },
-                error: null
-            }
-        });
-        
+        appStore.dispatch(pathActions.setCurrentPath(null, false));
+        appStore.dispatch(pathActions.fetchListingSuccess({ listing: { pathname: null, dirs: [], files: [] }, requestedPath: null, isDirectory: false, listedPath: null }));
+
         // Clear editor content
-        if (typeof window.setContent === 'function') {
-            window.setContent('');
-        }
-        
+        appStore.dispatch(updatePreviewContent({ content: '' }));
+
         // Trigger reload of file manager with new base
         try {
             // Load the root of the new virtual base

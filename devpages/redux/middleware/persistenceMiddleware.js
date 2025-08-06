@@ -11,7 +11,6 @@ const PERSISTENCE_ACTIONS = [
     'panels/createDock',
     'panels/updateDockPosition', 
     'panels/updateDockSize',
-    'panels/toggleDockVisibility',
     'panels/toggleDockCollapse',
     'panels/maximizeDock',
     'panels/bringDockToFront',

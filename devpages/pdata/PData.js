@@ -4,6 +4,7 @@ import { UserManager } from './UserManager.js';
 import { FileManager } from './FileManager.js';
 import { CapabilityManager } from './CapabilityManager.js';
 import { AuthSrv } from './AuthSrv.js';
+import { MountManager } from './utils/MountManager.js';
 
 class PData {
     constructor(config = {}) {
@@ -11,13 +12,6 @@ class PData {
         this._validateConfig();
         this._initializePaths();
         this._initializeManagers();
-        
-        // Convert Map to Object for AuthSrv compatibility
-        const assetSetsObj = Object.fromEntries(this.capabilityManager.assetSets);
-        this.authSrv = new AuthSrv({ 
-            secret: 'a_secure_secret_key',
-            assetSets: assetSetsObj
-        });
     }
 
     _validateConfig() {
@@ -59,6 +53,13 @@ class PData {
         
         this.capabilityManager = new CapabilityManager({ dataRoot: this.dataRoot });
 
+        // Initialize AuthSrv before FileManager so it can be passed to constructor
+        const assetSetsObj = Object.fromEntries(this.capabilityManager.assetSets);
+        this.authSrv = new AuthSrv({ 
+            secret: 'a_secure_secret_key',
+            assetSets: assetSetsObj
+        });
+
         this.fileManager = new FileManager({
             dataRoot: this.dataRoot,
             uploadsDir: this.uploadsDir,
@@ -66,6 +67,11 @@ class PData {
             capabilityManager: this.capabilityManager,
             systemRoots: this.systemRoots
         }, this.userManager, this.capabilityManager, this.authSrv);
+
+        this.mountManager = new MountManager({
+            dataRoot: this.dataRoot,
+            roles: this.userManager.roles
+        });
 
         console.log(`[PData] Managers initialized.`);
     }
@@ -81,9 +87,67 @@ class PData {
         if (this.userManager.validateUser(username, password)) {
             const roles = this.userManager.getUserRoles(username);
             const caps = this.capabilityManager.expandRolesToCapabilities(roles);
-            return this.authSrv.createToken({ username, roles, caps });
+            
+            // UNIFIED MOUNTING: Single mount based on user role
+            const mounts = await this._createUnifiedMounts(username, roles);
+            
+            return this.authSrv.createToken({ username, roles, caps, mounts });
         }
         return null;
+    }
+
+    /**
+     * Create unified mount namespace for a user based on their role
+     * Three-tier system: ~data (userspace), ~log/~cache (system), ~/data/* (user-specific)
+     */
+    async _createUnifiedMounts(username, roles) {
+        const mounts = {};
+        
+        if (roles.includes('admin')) {
+            // Admin gets system-wide access
+            mounts['~data'] = path.join(this.dataRoot, 'data');
+            mounts['~log'] = path.join(this.dataRoot, 'logs'); 
+            mounts['~cache'] = path.join(this.dataRoot, 'cache');
+            mounts['~uploads'] = path.join(this.dataRoot, 'uploads');
+            // Full system access for admin debugging
+            mounts['~system'] = this.dataRoot;
+        } else {
+            // Regular users get ONLY their specific home directory (Plan 9 isolation)
+            // NO access to general ~data (that would expose all users/projects)
+            
+            // User-specific home directory under ~/data/
+            const userHome = await this._getUserHomeDirectory(username);
+            const relativePath = path.relative(path.join(this.dataRoot, 'data'), userHome);
+            mounts[`~/data/${relativePath}`] = userHome;
+        }
+        
+        return mounts;
+    }
+
+    /**
+     * Get the home directory path for a user
+     * Checks users.csv for home_dir field, otherwise uses legacy logic
+     */
+    async _getUserHomeDirectory(username) {
+        // Check if user has a specific home_dir defined in users.csv
+        const userData = this.userManager.users.get(username);
+        if (userData && userData.home_dir) {
+            // home_dir is relative to $PD_DIR/data
+            const homePath = path.join(this.dataRoot, 'data', userData.home_dir);
+            await fs.ensureDir(homePath);
+            return homePath;
+        }
+        
+        // Legacy logic: check projects first, then users
+        const projectPath = path.join(this.dataRoot, 'data', 'projects', username);
+        if (await fs.pathExists(projectPath)) {
+            return projectPath;
+        }
+        
+        // Default to users directory
+        const userPath = path.join(this.dataRoot, 'data', 'users', username);
+        await fs.ensureDir(userPath);
+        return userPath;
     }
 
     validateToken(token) {
@@ -132,6 +196,10 @@ class PData {
 
     getUserRoles(username) {
         return this.userManager.getUserRoles(username);
+    }
+
+    getUserRole(username) {
+        return this.userManager.getUserRole(username);
     }
 
     // FILE MANAGEMENT METHODS
@@ -186,6 +254,14 @@ class PData {
             rolesCount: Object.keys(this.userManager.listUsersWithRoles()).length,
             initialized: true
         };
+    }
+    
+    /**
+     * Get available top-level directories for a user using the mounting system
+     * This is the Plan 9-inspired approach where directories are mount points
+     */
+    async getAvailableTopDirs(username) {
+        return this.mountManager.getAvailableMounts(username);
     }
     
     // BACKWARD COMPATIBILITY PROPERTIES

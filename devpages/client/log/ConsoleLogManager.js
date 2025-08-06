@@ -135,16 +135,32 @@ export class ConsoleLogManager {
         };
       }
       
+      // Expose via APP.services instead of global window
+      window.APP = window.APP || {};
+      window.APP.services = window.APP.services || {};
+      window.APP.logging = window.APP.logging || {};
+      
+      // Core manager instances
+      window.APP.services.consoleLogManager = this;
+      window.APP.services.logManager = this; // Legacy alias
+      
+      // Console logging control functions
+      window.APP.logging.isEnabled = () => this.isLoggingEnabled();
+      window.APP.logging.enable = (persist) => this.enableLogging(persist);
+      window.APP.logging.disable = (persist) => this.disableLogging(persist);
+      
+      // Buffer management functions
+      window.APP.logging.getBuffer = () => this.getLogBuffer();
+      window.APP.logging.getBufferSize = () => this.getLogBufferSize();
+      window.APP.logging.clearBuffer = () => this.clearLogBuffer();
+      
+      // Legacy window functions for backwards compatibility (deprecated)
       window.discoveredTypes = new Set();
       window.consoleLogManager = this;
       window.logManager = this;
-      
-      // Console logging control functions
       window.isConsoleLoggingEnabled = () => this.isLoggingEnabled();
       window.enableConsoleLogging = (persist) => this.enableLogging(persist);
       window.disableConsoleLogging = (persist) => this.disableLogging(persist);
-      
-      // Buffer management functions
       window.getLogBuffer = () => this.getLogBuffer();
       window.getLogBufferSize = () => this.getLogBufferSize();
       window.clearLogBuffer = () => this.clearLogBuffer();

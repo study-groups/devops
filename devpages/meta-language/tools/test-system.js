@@ -102,7 +102,8 @@ class SystemTester {
             const testFilePath = path.join(PROJECT_ROOT, 'temp-test-file.js');
             const problematicCode = `
 // This should trigger an error
-import { dispatch } from './messaging/messageQueue.js';
+// REMOVED: messageQueue import (file deleted)
+// import { dispatch } from './messaging/messageQueue.js';
 
 function badFunction() {
     // Dispatch an action that doesn't exist in schema

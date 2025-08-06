@@ -35,6 +35,9 @@
 }
 
 .panel-manager-header__title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     color: var(--color-fg-muted);
@@ -42,6 +45,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.panel-manager-header__title .icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
 }
 
 .panel-manager-header__actions {

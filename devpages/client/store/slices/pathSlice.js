@@ -5,12 +5,14 @@ const FETCH_LISTING_PENDING = 'path/fetchListing/pending';
 const FETCH_LISTING_SUCCESS = 'path/fetchListing/fulfilled';
 const FETCH_LISTING_FAILURE = 'path/fetchListing/rejected';
 const SET_CURRENT_PATH = 'path/setCurrentPath';
+const SET_TOP_DIRS = 'path/setTopDirs';
 
 // --- Initial State ---
 const initialState = {
   currentPathname: null,
   isDirectorySelected: false,
   isSaving: false,
+  topLevelDirs: [],
   currentListing: {
     pathname: null,
     dirs: [],
@@ -42,6 +44,11 @@ export function pathReducer(state = initialState, action) {
                 currentPathname: action.payload.pathname,
                 isDirectorySelected: action.payload.isDirectory,
             };
+        case SET_TOP_DIRS:
+            return {
+                ...state,
+                topLevelDirs: action.payload,
+            };
         default:
             return state;
     }
@@ -53,6 +60,7 @@ export const pathActions = {
     fetchListingSuccess: (data) => ({ type: FETCH_LISTING_SUCCESS, payload: data }),
     fetchListingFailure: (error) => ({ type: FETCH_LISTING_FAILURE, payload: error }),
     setCurrentPath: (pathname, isDirectory) => ({ type: SET_CURRENT_PATH, payload: { pathname, isDirectory } }),
+    setTopDirs: (dirs) => ({ type: SET_TOP_DIRS, payload: dirs }),
 };
 
 
@@ -68,6 +76,34 @@ export const pathThunks = {
             dispatch(pathActions.fetchListingSuccess(result));
         } catch (error) {
             dispatch(pathActions.fetchListingFailure(error.message));
+        }
+    },
+    loadTopLevelDirectories: () => async (dispatch) => {
+        try {
+            console.log('[pathSlice] Starting loadTopLevelDirectories...');
+            const response = await fetch('/api/files/dirs', { credentials: 'include' });
+            if (!response.ok) {
+                console.warn(`[pathSlice] API /api/files/dirs returned ${response.status}. Trying fallback...`);
+                
+                // Try fallback API endpoint
+                const fallbackResponse = await fetch('/api/files/list?path=/', { credentials: 'include' });
+                if (!fallbackResponse.ok) {
+                    throw new Error(`Both API endpoints failed. Primary: ${response.status}, Fallback: ${fallbackResponse.status}`);
+                }
+                const fallbackData = await fallbackResponse.json();
+                const directories = fallbackData.dirs || fallbackData.directories || [];
+                dispatch(pathActions.setTopDirs(directories));
+                return directories;
+            }
+            
+            const directories = await response.json();
+            dispatch(pathActions.setTopDirs(directories));
+            return directories;
+        } catch (error) {
+            console.error(`[pathSlice] Error loading top-level directories: ${error.message}`, error);
+            // Set empty array as fallback
+            dispatch(pathActions.setTopDirs([]));
+            return [];
         }
     },
 };

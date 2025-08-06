@@ -1,0 +1,138 @@
+/* 
+    client/layout/panel-refactor.css
+    New styles for the panel visual refactor.
+    This will include styles for fly-outs, drag-and-drop, and metadata popovers.
+*/
+
+/* ==========================================================================
+   Fly-out Panel Styles
+   ========================================================================== */
+
+.workspace-sidebar .sidebar-panel.docked {
+    width: 48px;
+    min-width: 48px;
+    overflow: hidden;
+    transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+}
+
+.workspace-sidebar .sidebar-panel.docked .panel-header-title,
+.workspace-sidebar .sidebar-panel.docked .sidebar-panel-content,
+.workspace-sidebar .sidebar-panel.docked .panel-collapse-btn {
+    display: none;
+}
+
+.workspace-sidebar .sidebar-panel.docked .panel-header {
+    justify-content: center;
+    cursor: pointer;
+}
+
+.workspace-sidebar .sidebar-panel.docked .panel-header:before {
+    content: '▶'; /* Use an icon or character to indicate expandable */
+    font-size: 14px;
+    color: var(--color-text-secondary);
+}
+
+.workspace-sidebar .sidebar-panel.expanded {
+    width: 300px; /* Or whatever the default expanded width is */
+    min-width: 250px;
+    transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+}
+
+.sidebar-panel-content {
+    transition: opacity 0.3s ease, max-height 0.3s ease;
+    overflow: hidden;
+}
+
+.sidebar-panel.collapsed .sidebar-panel-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top: none;
+}
+
+/* ==========================================================================
+   Drag and Drop Styles
+   ========================================================================== */
+
+.panel-dragging {
+    cursor: grabbing !important;
+}
+
+.panel-dragging .sidebar-panel {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: var(--color-primary-light);
+}
+
+.sortable-drag {
+    opacity: 1 !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+}
+
+.panel-header {
+    cursor: grab;
+}
+
+/* ==========================================================================
+   Metadata Popover Styles
+   ========================================================================== */
+
+.metadata-popover {
+    position: fixed;
+    z-index: 10000;
+    background: var(--color-background-light);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+    min-width: 250px;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    animation: popover-fade-in 0.2s ease-out;
+}
+
+.metadata-popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-border);
+    font-weight: bold;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.close-popover-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 0 5px;
+}
+
+.close-popover-btn:hover {
+    color: var(--color-text-primary);
+}
+
+.metadata-popover-content {
+    padding: 12px;
+}
+
+@keyframes popover-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+

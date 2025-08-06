@@ -3,8 +3,6 @@
  * Manages CSS files and provides comprehensive CSS debugging capabilities
  */
 
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { eventBus } from '/client/eventBus.js';
 import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';

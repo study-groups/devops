@@ -1,7 +1,7 @@
 import eventBus from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
+import { settingsThunks } from '/client/store/slices/settingsSlice.js';
 // Using the reducer system instead of SettingsStateManager
 
 const log = window.APP.services.log.createLogger('ContextSettingsPopup');
@@ -58,7 +58,8 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         heartbeatTimer = setInterval(() => {
             if (heartbeatRefreshFileList) {
                 log.info('HEARTBEAT', 'REFRESH_FILE_LIST', 'Heartbeat: Refreshing file list');
-                dispatch({ type: ActionTypes.FILE_LIST_REFRESH });
+                const { currentPathname, isDirectorySelected } = appStore.getState().path;
+                appStore.dispatch(pathThunks.fetchListingByPath({ pathname: currentPathname, isDirectory: isDirectorySelected }));
             }
             if (heartbeatCheckServer) {
                 log.info('HEARTBEAT', 'CHECK_SERVER', 'Heartbeat: Checking for server messages (stub)');
@@ -320,10 +321,7 @@ export function createContextSettingsPopupComponent(popupId = 'context-settings-
         
         if (newSelectedOrg && newSelectedOrg !== currentSelectedOrg) {
             // Use the proper dispatch function from messageQueue
-            dispatch({ 
-                type: ActionTypes.SETTINGS_SET_SELECTED_ORG, 
-                payload: newSelectedOrg 
-            });
+            appStore.dispatch(settingsThunks.setSelectedOrg(newSelectedOrg));
             
             // Update local state for immediate UI feedback
             currentSelectedOrg = newSelectedOrg;

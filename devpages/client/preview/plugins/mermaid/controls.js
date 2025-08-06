@@ -89,7 +89,7 @@ export class MermaidControls {
 
         const dropdownMenu = document.createElement('div');
         dropdownMenu.className = 'mermaid-dropdown-menu';
-        dropdownMenu.style.display = 'none';
+        dropdownMenu.dataset.visible = 'false';
 
         // Fullscreen menu item (first option)
         const fullscreenButton = document.createElement('button');
@@ -149,7 +149,7 @@ export class MermaidControls {
         });
         
         mermaidContainer.addEventListener('mouseleave', () => {
-            if (dropdownMenu.style.display !== 'block') {
+            if (dropdownMenu.dataset.visible !== 'true') {
                 hamburgerButton.style.opacity = '0';
             }
         });
@@ -170,12 +170,12 @@ export class MermaidControls {
     }
 
     _toggleDropdown(dropdownMenu) {
-        const isVisible = dropdownMenu.style.display === 'block';
-        dropdownMenu.style.display = isVisible ? 'none' : 'block';
+        const isVisible = dropdownMenu.dataset.visible === 'true';
+        dropdownMenu.dataset.visible = isVisible ? 'false' : 'true';
     }
 
     _hideDropdown(dropdownMenu) {
-        dropdownMenu.style.display = 'none';
+        dropdownMenu.dataset.visible = 'false';
     }
 
 

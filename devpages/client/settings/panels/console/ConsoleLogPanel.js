@@ -1,9 +1,10 @@
 /**
- * client/settings/ConsoleLogPanel.js
- * Settings panel for console logging, performance metrics, and type filtering.
+ * @file client/settings/panels/console/ConsoleLogPanel.js
+ * @description Settings panel for console logging, performance metrics, and type filtering.
  * Designed to be in feature parity with ConsoleLogManager.js (no subtypes)
  */
 
+import { BasePanel } from '/client/panels/BasePanel.js';
 import FilterManager from '/client/settings/utils/FilterManager.js';
 import { LogManager } from '/client/log/LogManager.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
@@ -33,14 +34,14 @@ const panelOriginalConsole = (() => {
   };
 })();
 
-export class ConsoleLogPanel {
-  constructor(container, consoleLogManager = null) {
-    this.container = container;
+export class ConsoleLogPanel extends BasePanel {
+  constructor(options) {
+    super(options);
+    
     this._boundUpdateBufferedView = this._updateBufferedViewAndStatus.bind(this); // Bound once
     
     // Get console log manager instance - prefer injected, fallback to window, create new if needed
-    this.consoleLogManager = consoleLogManager || 
-                            (typeof window !== 'undefined' && window.consoleLogManager) || 
+    this.consoleLogManager = (typeof window !== 'undefined' && window.consoleLogManager) || 
                             new ConsoleLogManager();
     
     // Also get the app log manager for hybrid system
@@ -52,23 +53,29 @@ export class ConsoleLogPanel {
     this.levelFilterContainer = null;
     this.bufferStatusText = null; // For _updateBufferedViewAndStatus
     this.bufferViewArea = null; // For _updateBufferedViewAndStatus
-
-    this.initialize();
   }
 
-  initialize() {
+  render() {
+    if (!this.element) {
+      this.element = document.createElement('div');
+      this.element.className = 'console-log-panel';
+    }
     this.createUI();
+    return this.element;
+  }
+
+  onMount(container) {
     if (typeof window.registerOnBufferUpdate === 'function') {
       window.registerOnBufferUpdate(this._boundUpdateBufferedView);
     }
     
-    log.info('PANEL_INIT', 'INITIALIZED', 'Console Log Panel initialized. UI created. Buffer update listener registered.');
+    this.log('PANEL_INIT', 'INITIALIZED', 'Console Log Panel initialized. UI created. Buffer update listener registered.');
     
     // Expose a way for ConsoleLogManager to directly trigger a UI update
     if (typeof window.devPages === 'undefined') window.devPages = {};
     if (typeof window.devPages.ui === 'undefined') window.devPages.ui = {};
     window.devPages.ui.updateConsoleLogPanelStatus = this.updateStatusDisplay.bind(this);
-    log.info('PANEL_INIT', 'STATUS_UPDATER_REGISTERED', 'Registered window.devPages.ui.updateConsoleLogPanelStatus');
+    this.log('PANEL_INIT', 'STATUS_UPDATER_REGISTERED', 'Registered window.devPages.ui.updateConsoleLogPanelStatus');
 
     if (this.updateStatusDisplay) {
         setTimeout(() => this.updateStatusDisplay(), 0); 
@@ -77,7 +84,7 @@ export class ConsoleLogPanel {
     const allFilters = FilterManager.loadAllFilters();
     window.config = allFilters;
 
-    window.addEventListener('storage', (event) => {
+    this.storageListener = (event) => {
       // If any filter key changes, reload filters and update UI
       if (FilterManager.STORAGE_KEYS && Object.values(FilterManager.STORAGE_KEYS).includes(event.key)) {
         const allFilters = FilterManager.loadAllFilters();
@@ -88,7 +95,17 @@ export class ConsoleLogPanel {
         this.refreshLevelFilterDisplay();
         // If you have keyword filter UI, refresh that too
       }
-    });
+    };
+    window.addEventListener('storage', this.storageListener);
+  }
+
+  onUnmount() {
+    if (this.storageListener) {
+      window.removeEventListener('storage', this.storageListener);
+    }
+    if (typeof window.registerOnBufferUpdate === 'function' && this._boundUpdateBufferedView) {
+      // Note: There's no unregister function, but we store the reference for potential cleanup
+    }
   }
 
   _updateBufferedViewAndStatus(newLogEntry = null) {
@@ -127,8 +144,13 @@ export class ConsoleLogPanel {
   }
 
   createUI() {
+    // Clear any existing content
+    if (this.element) {
+      this.element.innerHTML = '';
+    }
+    
     const panelContent = document.createElement('div');
-    // panelContent.classList.add('settings-panel-content'); // Optional: if SettingsPanel.js needs it
+    panelContent.classList.add('settings-panel-content');
 
     // Helper to create a standard settings group like in CssSettingsPanel
     const createSettingsGroup = (titleText, descriptionText = '') => {
@@ -597,8 +619,10 @@ export class ConsoleLogPanel {
     bufferGroup.appendChild(bufferActionsDiv);
     panelContent.appendChild(bufferGroup);
     
-    // Finally append all content to container
-    this.container.appendChild(panelContent);
+    // Finally append all content to element
+    if (this.element) {
+      this.element.appendChild(panelContent);
+    }
     
     // Initial population of UI elements that depend on ConsoleLogManager
     this.updateStatusDisplay(); // This will now call refreshType/LevelFilterDisplay

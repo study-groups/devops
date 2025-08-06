@@ -5,7 +5,7 @@
  * and tracks the overall state of the preview panel.
  */
 
-import { createSlice, createAsyncThunk } from '/packages/devpages-statekit/src/index.js';
+import { createSlice, createAsyncThunk } from '/client/vendor/scripts/redux-toolkit.mjs';
 
 let log = null;
 

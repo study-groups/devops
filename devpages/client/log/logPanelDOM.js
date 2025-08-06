@@ -67,7 +67,7 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
 
     const rightWrapper = document.createElement('div');
     rightWrapper.style.marginLeft = 'auto';
-    rightWrapper.style.display = 'flex';
+    rightWrapper.dataset.visible = 'true';
     rightWrapper.style.alignItems = 'center';
     rightWrapper.style.gap = '0.5rem';
     toolbarEl.appendChild(rightWrapper);
@@ -175,7 +175,7 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
 
     const expandedButtonWrapper = document.createElement('div');
     expandedButtonWrapper.style.marginLeft = 'auto';
-    expandedButtonWrapper.style.display = 'flex';
+    expandedButtonWrapper.dataset.visible = 'true';
     expandedButtonWrapper.style.alignItems = 'center';
     expandedButtonWrapper.style.gap = '0.25rem';
     expandedToolbar.appendChild(expandedButtonWrapper);

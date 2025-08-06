@@ -2,8 +2,7 @@ import { appStore } from '/client/appState.js';
 import { triggerActions } from '/client/actions.js'; // Assuming this is where actions like toggleLogVisibility are.
 import { logInfo, logError, logDebug, logWarn } from './LogCore.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { uiThunks } from '/client/store/uiSlice.js';
 import { _handleTagClick } from './LogFilterBar.js';
 import { executeRemoteCommand } from '/client/cli/handlers.js';
 
@@ -150,7 +149,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             switch (action) {
                 case 'toggleLogVisibility':
                 case 'minimizeLog':
-                    dispatch({ type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
+                    appStore.dispatch(uiThunks.toggleLogVisibility());
                     break;
                 case 'setLogOrderRecent':
                     if (typeof logPanelInstance.setLogOrder === 'function') logPanelInstance.setLogOrder('recent');

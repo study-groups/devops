@@ -244,7 +244,7 @@ ${renderedHtml}
         const blob = new Blob([completeHtml], { type: 'text/html;charset=utf-8' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.style.display = 'none';
+        a.dataset.visible = 'false';
         a.href = url;
         
         const epochSeconds = Math.floor(Date.now() / 1000);

@@ -34,24 +34,57 @@ class FileManager {
         const isToken = typeof subject === 'object' && subject.username;
         const username = isToken ? subject.username : subject;
 
-        if (!relativePath || relativePath === '.' || relativePath === username) {
-            await this.ensureUserDirectory(username);
-        }
-
-        const absolutePathToList = await this.pathManager.resolvePathForUser(username, relativePath);
-        
-        if (!await fs.pathExists(absolutePathToList)) {
-            return { dirs: [], files: [], message: `Directory '${relativePath || '/'}' does not exist.`, exists: false };
-        }
+        let absolutePathToList;
 
         if (isToken) {
-            if (!this.authSrv.tokenHasCap(subject, 'list', relativePath)) {
+            // UNIFIED MOUNTING: Use token-based namespace resolution
+            try {
+                absolutePathToList = this.authSrv.resolvePath(subject, relativePath);
+            } catch (error) {
+                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
+            }
+
+            // For capability checking, convert empty path to appropriate mount alias
+            let capabilityPath = relativePath;
+            if (!relativePath || relativePath === '.' || relativePath === '/') {
+                // User is accessing their mount root - default to their home mount
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/'; // Use user-specific mount
+                } else {
+                    // Fallback to ~data for userspace access
+                    capabilityPath = '~data/';
+                }
+            } else if (!relativePath.startsWith('~')) {
+                // For relative paths, check if it should map to user's home or general data
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    // Map to user's specific home directory
+                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
+                } else {
+                    // Map to general data access
+                    capabilityPath = '~data/' + relativePath;
+                }
+            }
+
+            if (!this.authSrv.tokenHasCap(subject, 'list', capabilityPath)) {
                 throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
             }
         } else {
+            // Legacy username-based resolution (fallback)
+            if (!relativePath || relativePath === '.' || relativePath === username) {
+                await this.ensureUserDirectory(username);
+            }
+
+            absolutePathToList = await this.pathManager.resolvePathForUser(username, relativePath);
+            
             if (!await this.pathManager.can(username, 'list', absolutePathToList)) {
                 throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
             }
+        }
+        
+        if (!await fs.pathExists(absolutePathToList)) {
+            return { dirs: [], files: [], message: `Directory '${relativePath || '/'}' does not exist.`, exists: false };
         }
 
         const entries = await fs.readdir(absolutePathToList, { withFileTypes: true });
@@ -64,7 +97,11 @@ class FileManager {
 
             if (isToken) {
                 const entryRelativePath = path.join(relativePath, entry.name);
-                if (this.authSrv.tokenHasCap(subject, checkAction, entryRelativePath)) {
+                console.log(`[FileManager] Checking capability: user='${subject.username}', action='${checkAction}', path='${entryRelativePath}', entry='${entry.name}'`);
+                console.log(`[FileManager] User capabilities:`, subject.caps);
+                const hasCapability = this.authSrv.tokenHasCap(subject, checkAction, entryRelativePath);
+                console.log(`[FileManager] Capability check result: ${hasCapability}`);
+                if (hasCapability) {
                     if (entry.isDirectory()) dirs.push(entry.name);
                     else if (entry.isFile() || entry.isSymbolicLink()) files.push(entry.name);
                 }
@@ -87,13 +124,43 @@ class FileManager {
         const username = isToken ? subject.username : subject;
         if (!relativePath) throw new Error("File path is required.");
 
-        const absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
+        let absolutePath;
 
         if (isToken) {
-            if (!this.authSrv.tokenHasCap(subject, 'read', relativePath)) {
+            // UNIFIED MOUNTING: Use token-based namespace resolution
+            try {
+                absolutePath = this.authSrv.resolvePath(subject, relativePath);
+            } catch (error) {
+                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
+            }
+
+            // For capability checking, ensure proper path format for three-tier system
+            let capabilityPath = relativePath;
+            if (!relativePath || relativePath === '.' || relativePath === '/') {
+                // Convert to mount alias with trailing slash if accessing root
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/';
+                } else {
+                    capabilityPath = '~data/';
+                }
+            } else if (!relativePath.startsWith('~')) {
+                // For relative paths, prepend the appropriate mount alias
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
+                } else {
+                    capabilityPath = '~data/' + relativePath;
+                }
+            }
+
+            if (!this.authSrv.tokenHasCap(subject, 'read', capabilityPath)) {
                 throw new Error(`Permission denied to read file '${relativePath}'.`);
             }
         } else {
+            // Legacy username-based resolution (fallback)
+            absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
+
             if (!await this.pathManager.can(username, 'read', absolutePath)) {
                 throw new Error(`Permission denied to read file '${relativePath}'.`);
             }
@@ -115,12 +182,42 @@ class FileManager {
         if (!relativePath) throw new Error("File path is required.");
         if (content === undefined) throw new Error("Content is required for writeFile.");
 
-        const absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
+        let absoluteFilePath;
 
         if (isToken) {
-            if (!this.authSrv.tokenHasCap(subject, 'write', relativePath)) {
+            // UNIFIED MOUNTING: Use token-based namespace resolution
+            try {
+                absoluteFilePath = this.authSrv.resolvePath(subject, relativePath);
+            } catch (error) {
+                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
+            }
+
+            // For capability checking, ensure proper path format for three-tier system
+            let capabilityPath = relativePath;
+            if (!relativePath || relativePath === '.' || relativePath === '/') {
+                // Convert to mount alias with trailing slash if accessing root
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/';
+                } else {
+                    capabilityPath = '~data/';
+                }
+            } else if (!relativePath.startsWith('~')) {
+                // For relative paths, prepend the appropriate mount alias
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
+                } else {
+                    capabilityPath = '~data/' + relativePath;
+                }
+            }
+
+            if (!this.authSrv.tokenHasCap(subject, 'write', capabilityPath)) {
                 throw new Error(`Permission denied to write to file '${relativePath}'.`);
             }
+        } else {
+            // Legacy username-based resolution (fallback)
+            absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
         }
         
         const { isSymlink, targetPath, canAccess } = await this.pathManager.resolveSymlink(username, absoluteFilePath, 'write');
@@ -148,13 +245,43 @@ class FileManager {
         const username = isToken ? subject.username : subject;
         if (!relativePath) throw new Error("File path is required.");
 
-        const absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
+        let absolutePath;
 
         if (isToken) {
-             if (!this.authSrv.tokenHasCap(subject, 'delete', relativePath)) {
+            // UNIFIED MOUNTING: Use token-based namespace resolution
+            try {
+                absolutePath = this.authSrv.resolvePath(subject, relativePath);
+            } catch (error) {
+                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
+            }
+
+            // For capability checking, ensure proper path format for three-tier system
+            let capabilityPath = relativePath;
+            if (!relativePath || relativePath === '.' || relativePath === '/') {
+                // Convert to mount alias with trailing slash if accessing root
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/';
+                } else {
+                    capabilityPath = '~data/';
+                }
+            } else if (!relativePath.startsWith('~')) {
+                // For relative paths, prepend the appropriate mount alias
+                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
+                if (userHomeMounts.length > 0) {
+                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
+                } else {
+                    capabilityPath = '~data/' + relativePath;
+                }
+            }
+
+            if (!this.authSrv.tokenHasCap(subject, 'delete', capabilityPath)) {
                 throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
             }
         } else {
+            // Legacy username-based resolution (fallback)
+            absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
+
             if (!await this.pathManager.can(username, 'delete', absolutePath)) {
                 throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
             }

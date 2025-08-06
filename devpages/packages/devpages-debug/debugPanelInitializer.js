@@ -4,11 +4,11 @@
  */
 
 import { panelRegistry } from '/client/panels/panelRegistry.js';
-import { panelStateManager } from '/client/panels/PanelStateManager.js';
 import { JavaScriptInfoPanel } from './panels/JavaScriptInfoPanel.js';
 import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';
 import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
 import { DevToolsPanel } from './devtools/DevToolsPanel.js';
+import { ExternalDependenciesPanel } from './panels/ExternalDependenciesPanel.js';
 import './DebugPanelManager.js';
 
 export async function initializeDebugPanels() {
@@ -95,18 +95,43 @@ export async function initializeDebugPanels() {
             }
         });
 
-        // Also register the main debug panel toggle with panelStateManager for sidebar integration
-        await panelStateManager.registerPanel('debug-panel', {
-            title: 'Debug Panel',
-            group: 'manager', // Special group for panels that are just actions
-            onActivate: () => {
-                if (window.debugPanelManager) {
-                    window.debugPanelManager.toggleVisibility();
-                } else {
-                    console.error('DebugPanelManager not found on window.');
-                }
-            },
-            shortcut: 'Ctrl+Shift+D',
+        // PData Panel - moved from Redux system
+        const { PDataPanel } = await import('./panels/PDataPanel.js');
+        console.log('[DebugPanelInitializer] Registering PData panel with component:', PDataPanel.name);
+        panelRegistry.register({
+            id: 'pdata-panel',
+            title: 'PData Panel',
+            group: 'debug',
+            component: PDataPanel,
+            description: 'Debug PData authentication, session, and API functionality',
+            icon: 'icon-database',
+            order: 1,
+            isVisible: true,
+            defaultCollapsed: false,
+            metadata: {
+                category: 'debugging',
+                features: ['authentication', 'session-debug', 'api-explorer', 'user-verification'],
+                dependencies: []
+            }
+        });
+
+        // External Dependencies Panel
+        console.log('[DebugPanelInitializer] Registering External Dependencies panel with component:', ExternalDependenciesPanel.name);
+        panelRegistry.register({
+            id: 'external-dependencies',
+            title: 'External Dependencies',
+            group: 'debug',
+            component: ExternalDependenciesPanel,
+            description: 'Monitor and audit all external JavaScript libraries and CSS dependencies',
+            icon: 'icon-package',
+            order: 5,
+            isVisible: true,
+            defaultCollapsed: false,
+            metadata: {
+                category: 'debugging',
+                features: ['dependency-tracking', 'performance-monitoring', 'architecture-compliance', 'security-audit'],
+                dependencies: []
+            }
         });
 
         // Verify registration

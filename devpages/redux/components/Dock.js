@@ -11,6 +11,7 @@
  */
 
 import * as panelActions from '../slices/panelSlice.js';
+import { uiActions } from '/client/store/uiSlice.js';
 
 export class Dock {
     constructor(dockId, dispatch, getState) {
@@ -99,7 +100,20 @@ export class Dock {
         });
         
         this.element.querySelector('.close').addEventListener('click', () => {
-            this.dispatch(panelActions.toggleDockVisibility({ dockId: this.dockId }));
+            switch (this.dockId) {
+                case 'sidebar-dock':
+                    this.dispatch(uiActions.toggleLeftSidebar());
+                    break;
+                case 'editor-dock':
+                    this.dispatch(uiActions.toggleEditor());
+                    break;
+                case 'preview-dock':
+                    this.dispatch(uiActions.togglePreview());
+                    break;
+                default:
+                    this.log(`Close button clicked for unhandled dock: ${this.dockId}`, 'warn');
+                    break;
+            }
         });
         
         // Resize handles

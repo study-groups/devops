@@ -1,8 +1,8 @@
 // client/components/ContextManagerComponent.js
-// Using window.APP.eventBus and window.APP.store instead of direct imports
+// Standardized Redux store access
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
-import { appDispatch } from '/client/appDispatch.js';
-import { pathThunks } from '/client/store/slices/pathSlice.js';
+import { appStore } from '/client/appState.js';
+import { fileThunks } from '/client/thunks/fileThunks.js';
 import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 
 const log = window.APP.services.log.createLogger('PathManagerComponent');
@@ -20,38 +20,63 @@ export function createPathManagerComponent(targetElementId) {
 
     // --- Rendering Logic ---
     const render = () => {
-        // CRITICAL DEBUG - Is render even being called?
-        
-        // Reduced console.log verbosity
-        // log.debug('RENDER', 'TOP_EXECUTION', 'Render function Top Execution Point.');
-
         if (!element) {
             log.error('RENDER', 'ELEMENT_NULL', 'Render SKIPPED: component "element" is null or undefined.');
             console.error('[PathManager RENDER] CRITICAL: render() called but this.element is not set!', element);
             return;
         }
-        // Reduced verbosity - only log errors and warnings
-        // log.debug('RENDER', 'ELEMENT_VALID', 'Render: Component "element" IS valid.');
-        // log.debug('RENDER', 'TARGET_ID', `Render: Target Element ID during component init was: ${targetElementId}`);
 
-        // CRITICAL DEBUG - Check if window.APP exists
+        if (!appStore) {
+            log.error('RENDER', 'STORE_UNAVAILABLE', 'CRITICAL: appStore not available in render!');
+            return;
+        }
+
+        const uiState = appStore.getState().ui || {};
+        if (!uiState.contextManagerVisible) {
+            element.style.display = 'none';
+            return;
+        }
+        element.style.display = 'block';
+
+
+        // Get auth state to check if we should show authentication-related content
+        const authState = appStore.getState().auth || {};
         
-        if (!window.APP?.store) {
-            log.error('RENDER', 'STORE_UNAVAILABLE', 'CRITICAL: window.APP.store not available in render!');
+        // Show loading state during auth initialization
+        if (!authState.authChecked || authState.isLoading) {
+            element.innerHTML = `
+                <div class="path-manager-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Checking authentication...</span>
+                </div>
+            `;
+            return;
+        }
+
+        // Show login prompt if not authenticated - keep four-corner toggle as branding
+        if (!authState.isAuthenticated) {
+            element.innerHTML = `
+                <div class="path-manager-auth-required" style="display: flex; align-items: center;">
+                    <div id="sidebar-toggle-btn" class="sidebar-toggle" title="Login required" style="opacity: 0.5; cursor: default;">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                            <path d="M4 4h6v6H4V4zm8 0h6v6h-6V4zM4 14h6v6H4v-6zm8 0h6v6h-6v-6z"/>
+                        </svg>
+                    </div>
+                    <span style="color: #6c757d; font-size: 14px; margin-left: 8px;">login required</span>
+                </div>
+            `;
+            // Add event listener even when not authenticated (for testing)
+            const sidebarToggleButton = element.querySelector('#sidebar-toggle-btn');
+            if (sidebarToggleButton) {
+                sidebarToggleButton.addEventListener('click', handleSidebarToggleClick);
+            }
             return;
         }
         
-        const pathState = window.APP.store.getState().path || {};
-        const authState = window.APP.store.getState().auth || {};
-        const settingsStateFromStore = window.APP.store.getState().settings || {};
-        
-        // CRITICAL DEBUG - State retrieved
-        // log.debug('RENDER', 'STATE_RETRIEVED', 'State retrieved:', {
-        //     pathState: !!pathState,
-        //     pathState: !!pathState,
-        //     authState: !!authState,
-        //     isAuthenticated: authState.isAuthenticated
-        // });
+        // Now we know we're authenticated, get all necessary state
+        const pathState = appStore.getState().path || {};
+        const fileState = appStore.getState().file || {};
+        const settingsStateFromStore = appStore.getState().settings || {};
         
         const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
         const settingsState = {
@@ -60,32 +85,23 @@ export function createPathManagerComponent(targetElementId) {
             doEnvVars: settingsStateFromStore?.doEnvVars || []
         };
 
-        const isAuthInitializing = authState.isInitializing;
+        // Authentication status (needed for breadcrumbs and other logic)
         const isAuthenticated = authState.isAuthenticated;
         const isPathLoading = pathState.status === 'loading';
-        const isFileLoading = !isAuthInitializing && (!pathState.isInitialized || pathState.isLoading);
-        const isOverallLoading = isAuthInitializing || isPathLoading || isFileLoading;
-        const isSaving = pathState.isSaving || pathState.isSaving;
+        const isFileLoading = fileState.status === 'loading';
+        const isOverallLoading = isPathLoading || isFileLoading;
+        const isSaving = fileState.status === 'saving'; // Correctly check file state for saving status
         
-        // HYBRID: Use path state for current navigation, file state for legacy compatibility
-        // Fix: Treat null as empty string for root directory navigation
-        const currentPathname = pathState.currentPathname !== null 
-            ? pathState.currentPathname 
-            : (pathState.currentPathname !== null ? pathState.currentPathname : '');
-        const isDirectorySelected = pathState.isDirectorySelected !== undefined 
-            ? pathState.isDirectorySelected 
-            : (pathState.isDirectorySelected !== undefined ? pathState.isDirectorySelected : true); // Default to true for root
+        const currentPathname = pathState.currentPathname || '';
+        const isDirectorySelected = pathState.isDirectorySelected;
         
         const user = authState.user;
-        const userRole = user?.role;
         const username = user?.username;
 
-        const selectedDirectoryPath = currentPathname !== null
-            ? (isDirectorySelected ? currentPathname : getParentPath(currentPathname))
-            : null;
-        const selectedFilename = currentPathname !== null && !isDirectorySelected
-            ? getFilename(currentPathname)
-            : null;
+        const selectedDirectoryPath = isDirectorySelected ? currentPathname : getParentPath(currentPathname);
+        const selectedFilename = isDirectorySelected ? null : getFilename(currentPathname);
+
+        const listingForSelector = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
 
         const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/';
         // Reduced verbosity - only log when needed
@@ -130,20 +146,11 @@ export function createPathManagerComponent(targetElementId) {
         
         if (isAuthenticated && selectedDirectoryPath !== null && selectedDirectoryPath !== '') {
             // log.debug('RENDER', 'BRANCH_1', 'Directory path exists:', selectedDirectoryPath);
-            // HYBRID: Check both path and file state for current listing
-            const pathListing = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
-            const fileListing = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
-            const listingForSelector = pathListing || fileListing;
-            
-            // Only log when there's an issue
-            // log.debug('RENDER', 'LISTING_CHECK', `Listing check: selectedDirectoryPath='${selectedDirectoryPath}', currentListing.pathname='${pathState.currentListing?.pathname}', match=${!!listingForSelector}`);
+            const listingForSelector = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
 
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
                 const files = listingForSelector.files || [];
-                
-                // Only log when there's an issue
-                // log.debug('RENDER', 'LISTING_FOUND', `Found listing: ${dirs.length} dirs, ${files.length} files`);
                 
                 const items = [
                     ...dirs.map(name => ({ name, type: 'dir' })),
@@ -155,117 +162,69 @@ export function createPathManagerComponent(targetElementId) {
 
                 let optionsHTML = `<option value="" selected disabled>Select item...</option>`;
                 
-                if (selectedDirectoryPath !== '') {
-                    const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
+                const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
+                if (parentOfSelectedDir !== null && parentOfSelectedDir !== undefined) {
+                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir}">..</option>`;
                 }
                 
                 items.forEach(item => {
                     const displayName = item.type === 'dir' ? `${item.name}/` : item.name;
-                    const optionSelected = !isDirectorySelected && item.name === selectedFilename && item.type === 'file';
-                    optionsHTML += `<option value="${item.name}" data-type="${item.type}" ${optionSelected ? 'selected' : ''}>${displayName}</option>`;
+                    const isSelected = item.type === 'file' && item.name === selectedFilename;
+                    optionsHTML += `<option value="${item.name}" data-type="${item.type}" ${isSelected ? 'selected' : ''}>${displayName}</option>`;
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
             } else {
-                // HYBRID: Use the latest available listing from either state
-                const currentListing = pathState.currentListing || pathState.currentListing;
-                if (currentListing && (currentListing.dirs?.length > 0 || currentListing.files?.length > 0)) {
-                    // We have a current listing, use it even if path doesn't match exactly
-                    const dirs = currentListing.dirs || [];
-                    const files = currentListing.files || [];
-                    
-                    const items = [
-                        ...dirs.map(name => ({ name, type: 'dir' })),
-                        ...files.map(name => ({ name, type: 'file' }))
-                    ].sort((a, b) => {
-                        if (a.type !== b.type) { return a.type === 'dir' ? -1 : 1; }
-                        return a.name.localeCompare(b.name);
-                    });
-
-                    let optionsHTML = `<option value="" selected disabled>Select item...</option>`;
-                    
-                    if (selectedDirectoryPath !== '') {
-                        const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                        optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
-                    }
-                    
-                    items.forEach(item => {
-                        const displayName = item.type === 'dir' ? `${item.name}/` : item.name;
-                        const optionSelected = !isDirectorySelected && item.name === selectedFilename && item.type === 'file';
-                        optionsHTML += `<option value="${item.name}" data-type="${item.type}" ${optionSelected ? 'selected' : ''}>${displayName}</option>`;
-                    });
-                    primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
-                } else {
-                    // No listing available at all - show basic navigation
-                    let optionsHTML = `<option value="" selected disabled>No items available</option>`;
-                    if (selectedDirectoryPath !== '') {
-                        const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
-                        optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir || ''}">..</option>`;
-                    }
-                    primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File">${optionsHTML}</select>`;
+                // No listing available for the selected path, so show a loading or empty state.
+                let optionsHTML = `<option value="" selected disabled>Loading items...</option>`;
+                const parentOfSelectedDir = getParentPath(selectedDirectoryPath);
+                if (parentOfSelectedDir !== null && parentOfSelectedDir !== undefined) {
+                    optionsHTML += `<option value=".." data-type="parent" data-parent-path="${parentOfSelectedDir}">..</option>`;
                 }
+                primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File" disabled>${optionsHTML}</select>`;
             }
         } else if (!isAuthenticated) {
             // log.debug('RENDER', 'BRANCH_2', 'Not authenticated');
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
         } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
             // Use the established window.APP convention 
-            const topLevelDirs = pathState.availableTopLevelDirs || [];
+            const topLevelDirs = pathState.topLevelDirs || [];
             
-            // IMMEDIATE DEBUG - log what we're seeing
-            
-            if (topLevelDirs.length > 0) {
+            if (pathState.status === 'loading') {
+                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
+            } else if (topLevelDirs.length > 0) {
                 let optionsHTML = `<option value="" selected disabled>Select base directory...</option>`;
                 topLevelDirs.forEach(dirName => {
                     optionsHTML += `<option value="${dirName}" data-type="dir">${dirName}/</option>`;
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Base Directory">${optionsHTML}</select>`;
             } else {
-                // No top-level directories available - run diagnostic
-                log.warn('RENDER', 'NO_TOP_LEVEL_DIRS', 'No top-level directories available. Running diagnostic...');
-                diagnoseTopDirIssue();
-                
-                // Use the established fileThunks pattern from bootloader
-                if (!isOverallLoading) {
-                    log.warn('RENDER', 'ATTEMPT_LOAD_DIRS', 'Attempting to load directories via fileThunks...');
-                    setTimeout(async () => {
-                        try {
-                            const { fileThunks } = await import('/client/thunks/fileThunks.js');
-                            window.APP.store.dispatch(fileThunks.loadTopLevelDirectories());
-                        } catch (error) {
-                            log.error('RENDER', 'LOAD_DIRS_FAILED', `Failed to load directories: ${error.message}`, error);
-                        }
-                    }, 0);
-                }
-                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
+                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>No directories found</option></select>`;
             }
         } else {
             // log.debug('RENDER', 'BRANCH_4', 'Unexpected case:', { isAuthenticated, selectedDirectoryPath });
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
         }
 
-        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null;
+        const isFileDirty = fileState.currentFile?.isDirty || false;
+        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null || !isFileDirty;
 
         // Reduced verbosity
         // log.debug('RENDER', 'SET_INNER_HTML', 'Render: About to set innerHTML.');
         
-        // Simplified layout: Breadcrumbs, then the selection row
+        // Simplified layout: Breadcrumbs, then the selection row with buttons immediately adjacent
         element.innerHTML = `
-            <div class="context-path-and-file-wrapper" style="display: flex; align-items: center;">
-                <div id="sidebar-toggle-btn" class="sidebar-toggle" title="Toggle Sidebar">
+            <div class="context-path-and-file-wrapper" style="display: flex !important; align-items: center !important; gap: 8px; flex-wrap: nowrap !important; width: 100%; box-sizing: border-box;">
+                <div id="sidebar-toggle-btn" class="sidebar-toggle" title="Toggle Sidebar" style="flex-shrink: 0 !important; display: inline-flex !important; align-items: center; justify-content: center;">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                         <path d="M4 4h6v6H4V4zm8 0h6v6h-6V4zM4 14h6v6H4v-6zm8 0h6v6h-6v-6z"/>
                     </svg>
                 </div>
-                <div class="context-breadcrumbs">${breadcrumbsHTML}</div>
-            </div>
-            <div class="context-selection-row">
-                ${primarySelectorHTML}
-                <div class="file-action-buttons">
-                    <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
-                    <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
-                    <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button">Note</button>
-                </div>
+                <div class="context-breadcrumbs" style="display: inline-flex !important; align-items: center;">${breadcrumbsHTML}</div>
+                <div>${primarySelectorHTML}</div>
+                <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''} style="flex-shrink: 0;">${isSaving ? 'Saving...' : 'Save'}</button>
+                <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''} style="flex-shrink: 0;">Publish</button>
+                <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button" style="flex-shrink: 0;">Note</button>
+                <div style="flex: 1;"></div>
             </div>
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
         `;
@@ -318,6 +277,7 @@ export function createPathManagerComponent(targetElementId) {
             noteButton.addEventListener('click', handleNoteButtonClick);
         }
 
+        // Sidebar toggle button event listener - keep the branded four boxes
         const sidebarToggleButton = element.querySelector('#sidebar-toggle-btn');
         if (sidebarToggleButton) {
             sidebarToggleButton.addEventListener('click', handleSidebarToggleClick);
@@ -404,7 +364,7 @@ export function createPathManagerComponent(targetElementId) {
         const selectedValue = selectedOption.value;
         const selectedType = selectedOption.dataset.type;
 
-        const pathState = window.APP.store.getState().path;
+        const pathState = appStore.getState().path;
         const currentPathname = pathState.currentPathname;
         const isDirectorySelected = pathState.isDirectorySelected;
 
@@ -452,60 +412,35 @@ export function createPathManagerComponent(targetElementId) {
         } else if (selectedType === 'file') {
             window.APP.eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: false });
         }
-
-        // Emit additional events for editor integration (hybrid compatibility)
-        window.APP.eventBus.emit('file:selected', { filename: selectedValue, directory: selectedType === 'dir' });          
-        window.APP.eventBus.emit('file:loaded',  { content: selectedValue, pathname: newRelativePath });
+        window.APP.eventBus.emit('file:selected', { filename: selectedValue, directory: selectedType === 'dir' });
     };
 
     const handleSaveButtonClick = (event) => {
-        // Prevent default form submission behavior
         event.preventDefault();
+        
+        const state = appStore.getState();
+        const { currentPathname, isDirectorySelected } = state.path;
+        const isDirty = state.file.currentFile.isDirty;
 
-        // Check for current pathname and if the file is not a directory
-        const { currentPathname, isDirectorySelected } = window.APP.store.getState().path;
         if (!currentPathname || isDirectorySelected) {
             log.warn('SAVE', 'NO_FILE_SELECTED', 'Save button clicked but no file is selected.');
             return;
         }
 
-        // Reduced verbosity
-        // log.info('SAVE', 'BUTTON_CLICKED', `Save button clicked for: ${currentPathname}`);
+        if (!isDirty) {
+            log.info('SAVE', 'NOT_DIRTY', 'Save button clicked but no changes to save.');
+            // Optionally, provide feedback to the user that there's nothing to save.
+            return;
+        }
         
-        // Use established window.APP.eventBus pattern
-        window.APP.eventBus.emit('file:save');
+        log.info('SAVE', 'DISPATCHING_SAVE_THUNK', `Dispatching saveFile thunk for: ${currentPathname}`);
+        appStore.dispatch(fileThunks.saveFile());
     };
 
     const handleRootBreadcrumbClick = (event) => {
         event.preventDefault();
-        const { currentContentSubDir } = window.APP.store.getState().settings;
-        log.info('BREADCRUMB', 'ROOT_CLICK', `Root breadcrumb clicked. Current content subdir: '${currentContentSubDir}'`);
-
-        // The primary action is to open the settings popup
-        log.info('BREADCRUMB', 'SHOW_SETTINGS', 'Showing context settings popup.');
-        
-        if (typeof window.APP?.services?.uiComponents?.showPopup === 'function') {
-            const state = window.APP.store.getState();
-            const pathState = state.path || {};
-            const settingsState = state.settings || {};
-            const availableTopDirs = pathState.availableTopLevelDirs || ['data'];
-
-            const popupProps = {
-                pdDirBase: '/root/pj/pd/',
-                contentSubDir: settingsState.currentContentSubDir || 'data',
-                availableSubDirs: availableTopDirs,
-                displayPathname: pathState.currentPathname || '',
-                doEnvVars: settingsState.doEnvVars || []
-            };
-
-            const success = window.APP?.services?.uiComponents.showPopup('contextSettings', popupProps);
-            if (!success) {
-                log.error('BREADCRUMB', 'SHOW_SETTINGS_FAILED', 'Failed to display context settings popup');
-                alert('Unable to open settings panel. Please check console for details.');
-            }
-        } else {
-            log.error('BREADCRUMB', 'NO_UI_COMPONENTS', 'UI Components system not available for settings popup');
-        }
+        log.info('BREADCRUMB', 'ROOT_CLICK', 'Toggling mount info panel.');
+        console.log("Toggling mount info panel is disabled for now.");
     };
 
     const handleSettingsClick = (event) => {
@@ -526,7 +461,7 @@ export function createPathManagerComponent(targetElementId) {
             if (typeof window.APP?.services?.uiComponents?.showPopup === 'function') {
                 log.info('SETTINGS', 'SHOW_POPUP_IMMEDIATE', 'UI Components system available, showing popup immediately');
                 
-                const state = window.APP.store.getState();
+                const state = appStore.getState();
                 const pathState = state.path || {};
                 const settingsState = state.settings || {};
                 const availableTopDirs = pathState.availableTopLevelDirs || ['data'];
@@ -569,7 +504,7 @@ export function createPathManagerComponent(targetElementId) {
         const noteBtn = event.target;
 
         try {
-            const state = window.APP.store.getState();
+            const state = appStore.getState();
             const pathState = state.path;
             const contextName = state.context?.activeContext || 'default'; // Get active context
 
@@ -640,10 +575,10 @@ export function createPathManagerComponent(targetElementId) {
     };
 
     const handleSidebarToggleClick = () => {
-        if (window.APP && window.APP.services && window.APP.services.workspaceLayoutManager) {
-            window.APP.services.workspaceLayoutManager.toggleLeftSidebar();
+        if (window.APP && window.APP.services && window.APP.services.workspaceManager) {
+            window.APP.services.workspaceManager.toggleLeftSidebar();
         } else {
-            console.error('[PathManager] WorkspaceLayoutManager not found on window.APP.services.');
+            console.error('[PathManager] WorkspaceManager not found on window.APP.services.');
         }
     };
 
@@ -664,7 +599,7 @@ export function createPathManagerComponent(targetElementId) {
             log.debug('MOUNT', 'UNSUBSCRIBE_EXISTING', 'Mount_CM: Existing store subscription found and removed.');
         }
 
-        storeUnsubscribe = window.APP.store.subscribe(() => {
+        storeUnsubscribe = appStore.subscribe(() => {
             render();
         });
         log.info('MOUNT', 'SUBSCRIBE_SUCCESS', 'Mount_CM: Subscribed to appStore changes.');

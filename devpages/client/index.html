@@ -62,6 +62,8 @@
 
     <script src="/client/errorTracker.js"></script>
 
+
+
 </head>
 <body class="splash-active">
     <div id="devpages-splash">
@@ -80,21 +82,21 @@
     </nav>
 
     <main class="workspace-container" id="main-workspace">
-        <!-- The workspace-layout.css and WorkspaceLayoutManager will turn this into a 3-column layout -->
-        <div class="workspace-zone" id="workspace-zone-left">
-            <!-- This will be the home for the sidebar dock -->
+        <!-- Semantic workspace layout: sidebar, editor, preview -->
+        <div class="workspace-sidebar" id="workspace-sidebar">
+            <!-- Sidebar: Navigation, panels, tools -->
         </div>
 
         <div class="workspace-resizer vertical" id="resizer-left"></div>
 
-        <div class="workspace-zone" id="workspace-zone-main">
-            <!-- This will be the home for the editor, preview, etc. -->
+        <div class="workspace-editor" id="workspace-editor">
+            <!-- Editor: Primary content editing area -->
         </div>
 
         <div class="workspace-resizer vertical" id="resizer-right"></div>
 
-        <div class="workspace-zone" id="workspace-zone-right">
-             <!-- This will be a secondary sidebar zone -->
+        <div class="workspace-preview" id="workspace-preview">
+             <!-- Preview: Output, rendered content display -->
         </div>
     </main>
 

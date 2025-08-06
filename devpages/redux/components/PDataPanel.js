@@ -3,7 +3,8 @@
  * Features: Collapsible sub-panels, flyout mode, position persistence
  */
 
-import { BasePanel } from '../panels/BasePanel.js';
+import { BasePanel } from '/client/panels/BasePanel.js';
+import { dispatch, thunks } from '/client/appState.js';
 
 export class PDataPanel extends BasePanel {
     constructor(panelId, store, options = {}) {
@@ -96,6 +97,14 @@ export class PDataPanel extends BasePanel {
         const authState = this.store.getState().auth;
         const isAuth = authState.isAuthenticated;
         
+        // Debug auth state
+        console.log('[PDataPanel] Auth state check:', {
+            isAuthenticated: isAuth,
+            authChecked: authState.authChecked,
+            user: authState.user,
+            session: authState.session
+        });
+        
         if (isAuth) {
             const user = authState.user;
             return `
@@ -130,6 +139,8 @@ export class PDataPanel extends BasePanel {
                 </div>
             `;
         } else {
+            // User is not authenticated - show login form
+            console.log('[PDataPanel] User not authenticated, showing login form');
             return this.renderLoginForm();
         }
     }
@@ -362,7 +373,7 @@ export class PDataPanel extends BasePanel {
     
     async fetchUserData() {
         const authState = this.store.getState().auth;
-        if (!authState.isAuthenticated || authState.user?.role !== 'admin') {
+        if (!authState.isAuthenticated) {
             return;
         }
         try {
@@ -403,6 +414,10 @@ export class PDataPanel extends BasePanel {
     async fetchPDataInfo() {
         const authState = this.store.getState().auth;
         if (!authState.isAuthenticated) {
+            const container = this.element.querySelector('#pdata-info-content');
+            if (container) {
+                container.innerHTML = '<div class="auth-status">Please log in to view PData information</div>';
+            }
             return;
         }
         try {
@@ -474,8 +489,8 @@ export class PDataPanel extends BasePanel {
                 const errorDiv = this.element.querySelector('#pdata-login-error');
                 
                 errorDiv.textContent = '';
-                const result = await this.store.dispatch(
-                    window.APP.store.authThunks.login({ username, password })
+                const result = await dispatch(
+                    thunks.auth.login({ username, password })
                 );
                 if (!result.success) {
                     errorDiv.textContent = result.error || 'Login failed. Please try again.';
@@ -577,6 +592,7 @@ export class PDataPanel extends BasePanel {
      * Update sub-panel visual state
      */
     updateSubPanelVisual(subPanelId) {
+        if (!this.element) return;
         const subPanel = this.element.querySelector(`[data-subpanel-id="${subPanelId}"]`);
         if (!subPanel) return;
         
@@ -598,14 +614,14 @@ export class PDataPanel extends BasePanel {
         if (this.state.isCollapsed && this.element) {
             const content = this.element.querySelector('.panel-content');
             if (content) {
-                content.style.display = 'none';
+                content.dataset.visible = 'false';
                 content.style.height = '0';
                 content.style.minHeight = '0';
             }
         } else if (this.element) {
             const content = this.element.querySelector('.panel-content');
             if (content) {
-                content.style.display = 'block';
+                content.dataset.visible = 'true';
                 content.style.height = '';
                 content.style.minHeight = '';
             }

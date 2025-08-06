@@ -36,6 +36,11 @@ class PanelRegistry {
     getPanels() {
         return Array.from(this.panels.values());
     }
+    
+    // Alias for better compatibility
+    getAllPanels() {
+        return this.getPanels();
+    }
 
     getPanel(panelId) {
         return this.panels.get(panelId);
@@ -55,15 +60,20 @@ export const panelDefinitions = [
         factory: () => import('/client/file-browser/FileBrowserPanel.js').then(m => m.FileBrowserPanel),
         title: 'File Browser',
         isDefault: true,
-        defaultZone: 'left',
     },
     {
         name: 'CodePanel',
         id: 'code',
         factory: () => import('./CodePanel.js').then(m => m.CodePanel),
-        title: 'Code Editor',
+        title: 'Code',
         isDefault: true,
-        defaultZone: 'main',
+    },
+    {
+        name: 'EditorPanel',
+        id: 'editor',
+        factory: () => import('./EditorPanel.js').then(m => m.EditorPanel),
+        title: 'Editor',
+        isDefault: true,
     },
     {
         name: 'PreviewPanel',
@@ -71,15 +81,13 @@ export const panelDefinitions = [
         factory: () => import('./PreviewPanel.js').then(m => m.PreviewPanel),
         title: 'Preview',
         isDefault: true,
-        defaultZone: 'main',
     },
     {
         name: 'LogPanel',
         id: 'log',
-        factory: () => import('/client/log/LogPanel.js').then(m => m.LogPanel),
+        factory: () => import('../log/LogPanel.js').then(m => m.LogPanel),
         title: 'Console Log',
         isDefault: false,
-        defaultZone: 'bottom',
     },
     {
         name: 'NlpPanel',
@@ -87,15 +95,19 @@ export const panelDefinitions = [
         factory: () => import('./NlpPanel.js').then(m => m.NlpPanel),
         title: 'NLP',
         isDefault: false,
-        defaultZone: 'bottom',
     },
     {
-        name: 'SettingsPanel',
+        name: 'DesignTokensPanel',
         id: 'settings-panel',
         factory: () => import('/client/settings/panels/css-design/DesignTokensPanel.js').then(m => m.DesignTokensPanel),
-        title: 'Design Tokens',
-        isDefault: false,
-        defaultZone: 'right',
+        title: '🎨 Design Tokens',
+        isDefault: true,
     },
-
+    {
+        name: 'CommPanel',
+        id: 'comm-panel',
+        factory: () => import('./CommPanel.js').then(m => m.CommPanel),
+        title: 'Communications',
+        isDefault: false,
+    },
 ]; 

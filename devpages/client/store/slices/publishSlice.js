@@ -1,31 +1,19 @@
 /**
  * @file publishSlice.js
- * @description Publish slice using StateKit createSlice pattern
- * Manages publishing settings and operations
+ * @description Publish slice using Redux Toolkit createSlice pattern.
+ *
+ * ARCHITECTURE BLUEPRINT: This slice follows the clean, refactored Redux pattern.
+ * 1.  **Pure Reducers:** All reducers are pure functions that only modify the state.
+ * 2.  **No Side Effects:** There are NO calls to `localStorage` or other APIs inside the slice.
+ * 3.  **Centralized Persistence:** State persistence is handled declaratively by the `persistenceMiddleware`.
+ *     Actions that should trigger a save are added to the middleware's whitelist.
+ * 4.  **Consistent Naming:** Actions follow a clear `verbNoun` pattern.
  */
 
-import { createSlice } from '/packages/devpages-statekit/src/index.js';
+import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
 
-// Storage keys for persistence
-const STORAGE_KEYS = {
-    PUBLISH_MODE: 'devpages_publish_mode',
-    PUBLISH_SETTINGS: 'devpages_publish_settings'
-};
-
-// Helper function to load persisted publish settings
-function loadPublishSettings() {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEYS.PUBLISH_SETTINGS);
-        return stored ? JSON.parse(stored) : {};
-    } catch (e) {
-        console.warn('[PublishSlice] Failed to load publish settings:', e);
-        return {};
-    }
-}
-
-// Default publish settings
-const defaultSettings = {
-    mode: localStorage.getItem(STORAGE_KEYS.PUBLISH_MODE) || 'local',
+const initialState = {
+    mode: 'local',
     bundleCss: true,
     minifyOutput: false,
     includeSourceMaps: false,
@@ -35,58 +23,49 @@ const defaultSettings = {
     lastPublishTime: null,
     isPublishing: false,
     publishHistory: [],
-    ...loadPublishSettings()
 };
 
 const publishSlice = createSlice({
     name: 'publish',
-    initialState: defaultSettings,
+    initialState,
     reducers: {
-        // Set publish mode (local/remote)
+        /**
+         * Updates multiple publish settings at once.
+         * The persistence middleware will automatically save this change.
+         */
+        updateSettings: (state, action) => {
+            Object.assign(state, action.payload);
+        },
+        
+        /**
+         * Sets the publish mode ('local' or 'remote').
+         * The persistence middleware will automatically save this change.
+         */
         setPublishMode: (state, action) => {
             const mode = action.payload;
             if (['local', 'remote'].includes(mode)) {
                 state.mode = mode;
-                try {
-                    localStorage.setItem(STORAGE_KEYS.PUBLISH_MODE, mode);
-                } catch (e) {
-                    console.error('[PublishSlice] Failed to persist publish mode:', e);
-                }
             }
         },
 
-        // Update publish settings
-        updateSettings: (state, action) => {
-            const settings = action.payload;
-            Object.assign(state, settings);
-            
-            // Persist settings to localStorage
-            try {
-                const settingsToPersist = {
-                    bundleCss: state.bundleCss,
-                    minifyOutput: state.minifyOutput,
-                    includeSourceMaps: state.includeSourceMaps,
-                    publishDirectory: state.publishDirectory,
-                    remoteEndpoint: state.remoteEndpoint,
-                    authToken: state.authToken
-                };
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settingsToPersist));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist publish settings:', e);
-            }
-        },
+        // --- Publishing Process State ---
 
-        // Start publishing process
+        /**
+         * Initiates the publishing process, setting the `isPublishing` flag.
+         * This state is temporary and is NOT persisted.
+         */
         startPublishing: (state) => {
             state.isPublishing = true;
         },
 
-        // Finish publishing process
+        /**
+         * Finalizes the publishing process, updating history and resetting flags.
+         * The `lastPublishTime` and `publishHistory` are persisted by the middleware.
+         */
         finishPublishing: (state, action) => {
             state.isPublishing = false;
             state.lastPublishTime = new Date().toISOString();
             
-            // Add to publish history
             const publishEntry = {
                 timestamp: state.lastPublishTime,
                 mode: state.mode,
@@ -97,128 +76,41 @@ const publishSlice = createSlice({
             
             state.publishHistory.unshift(publishEntry);
             
-            // Keep only the last 10 publish entries
+            // Keep only the last 10 entries
             if (state.publishHistory.length > 10) {
-                state.publishHistory = state.publishHistory.slice(0, 10);
+                state.publishHistory.pop();
             }
         },
 
-        // Clear publish history
+        /**
+         * Clears the entire publish history.
+         * The persistence middleware will automatically save this change.
+         */
         clearHistory: (state) => {
             state.publishHistory = [];
         },
 
-        // Set CSS bundling preference
-        setBundleCss: (state, action) => {
-            state.bundleCss = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.bundleCss = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist CSS bundling setting:', e);
-            }
-        },
-
-        // Set minification preference
-        setMinifyOutput: (state, action) => {
-            state.minifyOutput = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.minifyOutput = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist minify setting:', e);
-            }
-        },
-
-        // Set source maps preference
-        setIncludeSourceMaps: (state, action) => {
-            state.includeSourceMaps = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.includeSourceMaps = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist source maps setting:', e);
-            }
-        },
-
-        // Set publish directory
-        setPublishDirectory: (state, action) => {
-            state.publishDirectory = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.publishDirectory = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist publish directory:', e);
-            }
-        },
-
-        // Set remote endpoint
-        setRemoteEndpoint: (state, action) => {
-            state.remoteEndpoint = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.remoteEndpoint = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist remote endpoint:', e);
-            }
-        },
-
-        // Set auth token
-        setAuthToken: (state, action) => {
-            state.authToken = action.payload;
-            try {
-                const settings = loadPublishSettings();
-                settings.authToken = action.payload;
-                localStorage.setItem(STORAGE_KEYS.PUBLISH_SETTINGS, JSON.stringify(settings));
-            } catch (e) {
-                console.error('[PublishSlice] Failed to persist auth token:', e);
-            }
-        },
-
-        // Reset all settings to defaults
+        /**
+         * Resets all settings to their default values.
+         * The persistence middleware will automatically save this change.
+         */
         resetSettings: (state) => {
-            Object.assign(state, {
-                mode: 'local',
-                bundleCss: true,
-                minifyOutput: false,
-                includeSourceMaps: false,
-                publishDirectory: '',
-                remoteEndpoint: '',
-                authToken: '',
-                lastPublishTime: null,
-                isPublishing: false,
-                publishHistory: []
-            });
-            
-            try {
-                localStorage.removeItem(STORAGE_KEYS.PUBLISH_MODE);
-                localStorage.removeItem(STORAGE_KEYS.PUBLISH_SETTINGS);
-            } catch (e) {
-                console.error('[PublishSlice] Failed to clear persisted settings:', e);
-            }
+            // Re-assign state to the initial default values
+            Object.assign(state, initialState);
         }
     }
 });
 
 export const {
-    setPublishMode,
     updateSettings,
+    setPublishMode,
     startPublishing,
     finishPublishing,
     clearHistory,
-    setBundleCss,
-    setMinifyOutput,
-    setIncludeSourceMaps,
-    setPublishDirectory,
-    setRemoteEndpoint,
-    setAuthToken,
     resetSettings
 } = publishSlice.actions;
 
-export { publishSlice };
-export default publishSlice.reducer; 
+export const publishReducer = publishSlice.reducer;
+export default publishReducer; // Default export for combineReducers
+
+console.log('[PublishSlice] ✅ Refactored publish slice ready.');

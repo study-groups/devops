@@ -171,7 +171,7 @@ export class MermaidFullscreen {
     _hideResizeHandles(container) {
         const handles = container.querySelectorAll('.mermaid-resize-handle');
         handles.forEach(handle => {
-            handle.style.display = 'none';
+            handle.dataset.visible = 'false';
         });
         console.log('[MERMAID FULLSCREEN] Resize handles completely hidden for fullscreen');
     }
@@ -182,7 +182,7 @@ export class MermaidFullscreen {
         if (controlsInstance && controlsInstance.resizeEnabled) {
             const handles = container.querySelectorAll('.mermaid-resize-handle');
             handles.forEach(handle => {
-                handle.style.display = 'block';
+                handle.dataset.visible = 'true';
                 handle.style.opacity = '0.6'; // Match the professional blue styling
                 handle.style.pointerEvents = 'auto';
                 handle.style.background = '#007acc';

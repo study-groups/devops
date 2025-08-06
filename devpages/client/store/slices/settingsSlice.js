@@ -60,6 +60,31 @@ export const settingsThunks = {
         key: 'selectedOrg',
         value: org
     }),
+
+    addPreviewCssFile: (filePath) => (dispatch, getState) => {
+        const { cssFiles } = getState().settings.preview;
+        const newFile = { id: `css-${Date.now()}`, path: filePath, enabled: true };
+        const newFiles = [...cssFiles, newFile];
+        dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: newFiles }));
+    },
+
+    removePreviewCssFile: (fileId) => (dispatch, getState) => {
+        const { cssFiles } = getState().settings.preview;
+        const newFiles = cssFiles.filter(file => file.id !== fileId);
+        dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: newFiles }));
+    },
+
+    togglePreviewCssFile: (fileId) => (dispatch, getState) => {
+        const { cssFiles } = getState().settings.preview;
+        const newFiles = cssFiles.map(file => 
+            file.id === fileId ? { ...file, enabled: !file.enabled } : file
+        );
+        dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: newFiles }));
+    },
+
+    setPreviewCssFiles: (files) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: files }));
+    },
     
     // Legacy compatibility - will be auto-persisted
     loadInitialSettings: () => (dispatch) => {

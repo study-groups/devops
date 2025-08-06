@@ -115,7 +115,7 @@ function _updateDisplay(discoveredTypes, activeFilters) {
     
     try {
         tagsBarElementRef.innerHTML = '';
-        tagsBarElementRef.style.display = 'flex';
+        tagsBarElementRef.dataset.visible = 'true';
 
         const controlsWrapper = document.createElement('div');
         controlsWrapper.className = 'log-controls-wrapper';
@@ -395,7 +395,7 @@ export function updateTagsBar(element, logFilteringState) {
     if (currentContent === newContentSignature) return;
 
     element.innerHTML = '';
-    element.style.display = 'flex';
+    element.dataset.visible = 'true';
     element.style.flexWrap = 'wrap';
     element.style.alignItems = 'center';
     element.style.gap = '0.25rem';

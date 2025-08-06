@@ -9,99 +9,58 @@
  * Common event naming convention: 'domain:action'
  * Examples: 'editor:contentChanged', 'auth:loginRequested', 'file:save'
  */
+import { appStore } from './appState.js';
+import { logEventBusEvent } from './store/slices/commSlice.js';
+
 export class EventBus {
-  constructor() {
-    this.handlers = new Map();
-    // REMOVED: Authentication state is now managed centrally in appState.js
-    // this.authState = {
-    //   isAuthenticated: false,
-    //   username: null,
-    //   token: null,
-    //   loginTime: null,
-    //   expiresAt: null
-    // };
-  }
-
-  /**
-   * Register an event handler
-   * @param {string} event - The event name to subscribe to
-   * @param {Function} handler - The callback function to execute when the event is emitted
-   * @returns {EventBus} - Returns this instance for method chaining
-   * 
-   * @example
-   * // Subscribe to editor content changes
-   * eventBus.on('editor:contentChanged', (data) => {
-   *   console.log('Editor content changed:', data.content);
-   *   updatePreview(data.content);
-   * });
-   */
-  on(event, handler) {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, new Set());
+    constructor() {
+        this.handlers = new Map();
     }
-    this.handlers.get(event).add(handler);
-    console.log(`[EventBus] Subscribed to "${event}"`);
-    return this; // For chaining
-  }
 
-  /**
-   * Remove an event handler
-   * @param {string} event - The event name to unsubscribe from
-   * @param {Function} handler - The handler function to remove
-   * @returns {EventBus} - Returns this instance for method chaining
-   * 
-   * @example
-   * // Define handler function
-   * const handleContentChange = (data) => {...};
-   * 
-   * // Subscribe
-   * eventBus.on('editor:contentChanged', handleContentChange);
-   * 
-   * // Later, unsubscribe
-   * eventBus.off('editor:contentChanged', handleContentChange);
-   */
-  off(event, handler) {
-    const handlers = this.handlers.get(event);
-    if (handlers) {
-      handlers.delete(handler);
-    }
-    return this;
-  }
-
-  /**
-   * Emit an event with optional data
-   * @param {string} eventName - The name of the event to emit
-   * @param {*} data - Optional data to pass to handlers
-   * 
-   * @example
-   * // Emit content changed event with new content
-   * eventBus.emit('editor:contentChanged', { 
-   *   content: textarea.value,
-   *   timestamp: Date.now()
-   * });
-   */
-  emit(eventName, data) {
-    if (!this.handlers.has(eventName)) {
-        // Optional: Log if emitting an event with no listeners
-        // console.debug(`[EventBus] Emitted "${eventName}" but no listeners registered.`);
-        return;
-    }
-    
-    const handlers = this.handlers.get(eventName);
-    handlers.forEach(handler => {
-      try {
-        const result = handler(data);
-        // Handle async handlers that return promises
-        if (result && typeof result.catch === 'function') {
-          result.catch(error => {
-            console.error(`[EventBus] Async error in event handler for ${eventName}:`, error);
-          });
+    on(event, handler) {
+        if (!this.handlers.has(event)) {
+            this.handlers.set(event, new Set());
         }
-      } catch (error) {
-        console.error(`[EventBus] Error in event handler for ${eventName}:`, error);
-      }
-    });
-  }
+        this.handlers.get(event).add(handler);
+        return this;
+    }
+
+    off(event, handler) {
+        const handlers = this.handlers.get(event);
+        if (handlers) {
+            handlers.delete(handler);
+        }
+        return this;
+    }
+
+    emit(eventName, data) {
+        const logEntry = {
+            name: eventName,
+            payload: data,
+            timestamp: new Date().toISOString()
+        };
+        if (appStore) {
+            appStore.dispatch(logEventBusEvent(logEntry));
+        }
+
+        if (!this.handlers.has(eventName)) {
+            return;
+        }
+        
+        const handlers = this.handlers.get(eventName);
+        handlers.forEach(handler => {
+            try {
+                const result = handler(data);
+                if (result && typeof result.catch === 'function') {
+                    result.catch(error => {
+                        console.error(`[EventBus] Async error in event handler for ${eventName}:`, error);
+                    });
+                }
+            } catch (error) {
+                console.error(`[EventBus] Error in event handler for ${eventName}:`, error);
+            }
+        });
+    }
 }
 
 // Create and export a singleton instance
@@ -148,7 +107,23 @@ export default eventBus;
  * App Events:
  * - 'app:ready' - Application initialization complete
  *
+ * Panel Events:
+ * - 'panels:expandAll' - Request to expand ALL panels across ALL zones
+ * - 'panels:collapseAll' - Request to collapse ALL panels across ALL zones  
+ * - 'panels:toggleManager' - Request to toggle specific panel manager (source-specific)
+ * - 'panels:toggleVisibility' - Request to toggle individual panel visibility (global)
+ * - 'panels:toggleCollapse' - Request to toggle individual panel collapse state (global)
+ * - 'panels:stateChanged' - Panel state has changed (global event for UI updates)
+ * - 'panels:managerToggled' - Panel manager visibility toggled (source-specific)
+ * - 'panels:panelVisibilityChanged' - Individual panel visibility changed (global)
+ * - 'panels:panelCollapseChanged' - Individual panel collapse state changed (global)
+ * - 'panels:panelRegistered' - New panel registered in system (global)
+ * - 'panels:panelMounted' - Panel mounted/shown (global)
+ * - 'panels:panelUnmounted' - Panel unmounted/hidden (global)
+ *
  * A key benefit of using the EventBus is the ability to decouple
  * components. For example, the editor component can emit content changes
  * without knowing which components need to respond (preview, autosave, etc).
+ * Similarly, panel management actions are broadcast via events so any component
+ * can respond without tight coupling to the WorkspaceZone.
  */ 

@@ -3,8 +3,8 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { uiThunks } from '/client/store/uiSlice.js';
+import { settingsThunks } from '/client/store/slices/settingsSlice.js';
 import { logMessage } from '/client/log/index.js';
 
 export class PanelNavBar {
@@ -261,17 +261,11 @@ export class PanelNavBar {
             
             if (contextItem) {
                 const newContext = contextItem.dataset.context;
-                dispatch({
-                    type: ActionTypes.SETTINGS_SET_CURRENT_CONTEXT,
-                    payload: newContext
-                });
+                appStore.dispatch(settingsThunks.setCurrentContext(newContext));
                 menu.remove();
             } else if (manageBtn) {
                 // Open settings panel to context management
-                dispatch({
-                    type: ActionTypes.SETTINGS_OPEN_PANEL,
-                    payload: 'context-manager'
-                });
+                appStore.dispatch(uiThunks.toggleContextManager());
                 menu.remove();
             }
         });
@@ -314,9 +308,9 @@ export class PanelNavBar {
     }
 
     handlePanelSettings() {
-        dispatch({
-            type: ActionTypes.PANEL_OPEN_SETTINGS,
-            payload: { panelId: this.panelId }
+        appStore.dispatch({
+            type: 'panels/togglePanelVisibility',
+            payload: { panelId: 'settings-panel' }
         });
     }
 

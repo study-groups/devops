@@ -1,5 +1,6 @@
 /**
  * client/bootloader.js - Redux System Bootloader
+ * Cache bust: 2024-08-05-01
  * 
  * This bootloader follows a phase-based pattern for clarity and maintainability.
  * It initializes systems in a strict, ordered sequence, using Redux for state management.
@@ -16,11 +17,10 @@ import { eventBus } from './eventBus.js';
 import { componentManager } from './componentManager.js';
 import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
-import { WorkspaceZone } from './layout/WorkspaceZone.js';
-import { workspaceLayoutService } from './layout/WorkspaceLayoutManager.js';
-import { panelStateService } from './panels/PanelStateManager.js';
+import { workspaceManager } from './layout/WorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
 import { initializeStore, thunks as appThunks } from './appState.js';
+import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
 
 // Define log variable, but do not initialize it yet.
 let log;
@@ -29,10 +29,10 @@ let log;
 
 const allComponentDefinitions = [
     // Core Components
-    { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: './components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
-    { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: './components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
-    { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
-    { name: 'uiComponents', type: 'service', priority: 4, required: true, modulePath: './components/uiComponentsManager.js', factoryFunction: 'initializeUIComponents', dependencies: ['coreServices'], description: 'UI popup and modal components' },
+    { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: '/client/components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
+    { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: '/client/components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
+    { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: '/client/components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
+    { name: 'uiComponents', type: 'service', priority: 4, required: true, modulePath: '/client/components/uiComponentsManager.js', factoryFunction: 'initializeUIComponents', dependencies: ['coreServices'], description: 'UI popup and modal components' },
     // Panel Components
     ...staticPanelDefinitions.map(p => ({
         ...p,
@@ -93,10 +93,16 @@ async function bootCore() {
     if (!preloadedState.settings) {
         dispatch(appThunks.settings.loadInitialSettings());
     }
-    window.APP.store = appStore;
+    // Store available via services for any remaining legacy code
     window.APP.services.store = appStore;
-    window.APP.redux = { store: appStore, dispatch, getState: appStore.getState };
-    log.info('STORE_EXPOSED', '🌍 Store exposed globally on window.APP');
+    if (!window.APP.bootloader) window.APP.bootloader = {};
+    
+    // Initialize system coordination
+    dispatch(startInitialization());
+    window.APP.bootloader.phase = 'initializing';
+    log.info('SYSTEM_COORDINATION', '✅ System coordination initialized');
+    
+    log.info('STORE_INITIALIZED', '✅ Redux store initialized and available via direct imports');
     return { store: appStore, actions: appThunks };
 }
 
@@ -104,9 +110,7 @@ async function bootSecondary({ store, actions }) {
     log.info('PHASE_3', '🔧 Phase 3: Secondary Initialization');
     services.appStore = store;
     services.eventBus = eventBus;
-    services.panelState = panelStateService;
-    services.panelState.initialize(store); // Initialize with the store
-    services.workspaceLayout = workspaceLayoutService;
+
     const { appDispatch } = await import('./appDispatch.js');
     services.appDispatch = appDispatch;
     const { ConsoleLogManager } = await import('./log/ConsoleLogManager.js');
@@ -114,6 +118,8 @@ async function bootSecondary({ store, actions }) {
     const globalFetchLogger = window.APP.services.log.createLogger('API', 'globalFetch');
     window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
     log.info('SERVICE_INJECTED', 'Injected logger into globalFetch service.');
+
+
 
     // --- Staged Component Initialization ---
     const preAuthComponents = allComponentDefinitions.filter(c => !(c.dependencies || []).includes('auth'));
@@ -129,8 +135,30 @@ async function bootSecondary({ store, actions }) {
     // 2.5. Load essential data now that we are authenticated
     if (store.getState().auth.isAuthenticated) {
         log.info('DATA_FETCH_PRE_UI', '🚀 Fetching initial data post-authentication...');
+        
+        // Load top-level directories for file browser and path manager
+                    store.dispatch(setComponentLoading({ component: 'fileSystem' }));
+        try {
+            await store.dispatch(actions.path.loadTopLevelDirectories());
+            store.dispatch(setComponentReady({ component: 'fileSystem' }));
+            log.info('FILE_SYSTEM_INIT', '✅ File system directories loaded.');
+        } catch (error) {
+            store.dispatch(setComponentError({ component: 'fileSystem', error: error.message }));
+            log.error('FILE_SYSTEM_INIT_FAILED', `❌ Failed to load file system: ${error.message}`, error);
+        }
+        
+        // Load root directory listing
         await store.dispatch(actions.path.fetchListingByPath({ pathname: '/', isDirectory: true }));
         log.info('DATA_FETCH_COMPLETE', '✅ Initial data fetched.');
+        
+        // Initialize debug panels (only when authenticated)
+        try {
+            const { initializeDebugPanels } = await import('../packages/devpages-debug/index.js');
+            await initializeDebugPanels();
+            log.info('DEBUG_PANELS_INIT', '🔧 Debug panels initialized successfully');
+        } catch (error) {
+            log.error('DEBUG_PANELS_INIT_FAILED', `❌ Failed to initialize debug panels: ${error.message}`, error);
+        }
     }
 
     // 3. Initialize components that DO need auth
@@ -139,22 +167,61 @@ async function bootSecondary({ store, actions }) {
     
     await initializeEventListeners(store, actions);
     
+    // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
     try {
-        const { initializePanelSystem } = await import('/redux/panels.js');
-        await initializePanelSystem(store);
-        log.info('PANEL_SYSTEM_READY', '🎛️ Redux panel system initialized successfully');
+        const { registerMissingPanels } = await import('./panels/panelRegistrationFix.js');
+        log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
+        // Note: registerMissingPanels() is called automatically on import
     } catch (error) {
-        log.error('PANEL_SYSTEM_FAILED', '❌ Failed to initialize Redux panel system:', error);
+        log.warn('PANEL_REGISTRATION_FAILED', '⚠️ Failed to register missing panels:', error);
     }
 
-    workspaceLayoutService.initialize();
-    window.APP.services.workspaceLayoutManager = workspaceLayoutService;
+    // ENHANCED: Initialize enhanced WorkspaceManager (single, consolidated system)
+    try {
+        workspaceManager.initialize();
+        window.APP.services.workspaceManager = workspaceManager;
+        log.info('WORKSPACE_INIT', '✅ Enhanced WorkspaceManager initialized with APP.workspace API');
+        log.info('WORKSPACE_HIERARCHY', '🎖️ Proper hierarchy: Log (most special) > Editor > Preview > Sidebar');
+    } catch (error) {
+        log.error('WORKSPACE_INIT_FAILED', '❌ WorkspaceManager initialization failed:', error);
+        throw error;
+    }
 
-    // Initialize Workspace Zones for on-demand panel rendering
-    const zoneIds = ['workspace-zone-left', 'workspace-zone-main', 'workspace-zone-right'];
-    for (const zoneId of zoneIds) {
-        const zone = new WorkspaceZone(zoneId);
-        zone.initialize();
+    // SAFETY: Override window.APP.panels with safe stub to prevent Redux conflicts
+    try {
+        await import('./fix-window-panels.js');
+        log.info('PANELS_STUB', '✅ window.APP.panels replaced with safe stub');
+    } catch (error) {
+        log.warn('PANELS_STUB_FAILED', '⚠️ Failed to load panels stub:', error);
+    }
+
+    // Initialize Panel Testing Framework in development
+    // Browser-safe environment detection (instead of process.env.NODE_ENV)
+    const isProduction = window.location.hostname.includes('pixeljamarcade.com') && 
+                        !window.location.hostname.includes('qa.') && 
+                        !window.location.hostname.includes('dev.');
+    if (!isProduction) {
+        try {
+            const { panelTestFramework } = await import('./tests/PanelTestFramework.js');
+            panelTestFramework.initialize(workspaceManager);
+            
+            // Auto-run health check
+            setTimeout(() => {
+                console.log('\n🧪 Auto-running Panel Health Check...');
+                panelTestFramework.quickHealthCheck();
+            }, 2000);
+            
+            // Make test functions available via APP namespace
+            window.APP.testing = {
+                runPanelTests: () => panelTestFramework.runAllTests(),
+                panelHealthCheck: () => panelTestFramework.quickHealthCheck(),
+                framework: panelTestFramework
+            };
+            
+            console.log('[Bootloader] Panel testing framework initialized. Use APP.testing.runPanelTests() or APP.testing.panelHealthCheck() in console.');
+        } catch (error) {
+            console.warn('[Bootloader] Failed to initialize panel testing framework:', error);
+        }
     }
 }
 
@@ -177,6 +244,23 @@ async function bootFinalize() {
         showFatalError(event.reason, 'unhandledrejection');
         event.preventDefault();
     });
+    // Mark system as fully ready
+    window.APP.bootloader.phase = 'ready';
+    
+    // Handle deep linking from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const pathname = urlParams.get('pathname');
+    if (pathname) {
+        log.info('DEEP_LINK', `Found deep link pathname: ${pathname}`);
+        // Heuristic to determine if the path is a file or directory
+        const isDirectory = !/.+\.[^/]+$/.test(pathname);
+        
+        // Small delay to ensure all components are ready for the event
+        setTimeout(() => {
+            eventBus.emit('navigate:pathname', { pathname, isDirectory });
+        }, 100);
+    }
+    
     log.info('APP_READY', '🎉 Application ready for use');
 }
 
@@ -251,13 +335,34 @@ async function initializeComponentSystem(store, componentDefs) {
 async function initializeEventListeners(store, actions) {
     log.info('INIT', '📡 Setting up global event listeners...');
     const { path } = actions;
+    const { fileThunks } = await import('/client/thunks/fileThunks.js');
+    
     eventBus.on('navigate:pathname', async ({ pathname, isDirectory }) => {
-        log.info('NAVIGATE', `📡 Navigate to pathname: '${pathname}'`);
-        store.dispatch(path.fetchListingByPath({ pathname, isDirectory }));
+        log.info('NAVIGATE', `📡 Navigate to pathname: '${pathname}', isDirectory: ${isDirectory}`);
+        
+        const params = new URLSearchParams(window.location.search);
+        params.delete('pathname');
+        let searchString = params.toString();
+        if (searchString) {
+            searchString += '&';
+        }
+        searchString += `pathname=${pathname}`;
+
+        const newUrl = `${window.location.origin}${window.location.pathname}?${searchString}${window.location.hash}`;
+        window.history.pushState({ path: pathname }, '', newUrl);
+
+        store.dispatch(actions.path.fetchListingByPath({ pathname, isDirectory }));
+
+        if (!isDirectory) {
+            try {
+                await store.dispatch(fileThunks.loadFileContent(pathname));
+                log.info('FILE_CONTENT_LOAD', `Dispatched loadFileContent for: ${pathname}`);
+            } catch (error) {
+                log.error('FILE_CONTENT_LOAD_FAILED', `❌ Failed to load file content for ${pathname}: ${error.message}`, error);
+            }
+        }
     });
-    const { initKeyboardShortcuts } = await import('./keyboardShortcuts.js');
-    initKeyboardShortcuts();
-    log.info('KEYBOARD_SHORTCUTS', '⌨️ Keyboard shortcuts initialized');
+    log.info('KEYBOARD_SHORTCUTS', '⌨️ Keyboard shortcuts will be initialized by WorkspaceManager');
 }
 
 function waitDOMReady() {
@@ -323,12 +428,7 @@ async function mountManagedComponent(componentDef, store) {
         let component;
         if (componentDef.type === 'panel') {
             // For panels, we just register their definition for on-demand loading
-            panelStateService.registerPanel(componentDef.id, {
-                id: componentDef.id,
-                title: componentDef.title,
-                factory: componentDef.factory,
-                defaultZone: componentDef.defaultZone,
-            });
+            // This is now handled by WorkspaceManager
             component = { name: componentDef.name, type: 'panel-definition' };
         } else if (componentDef.targetElementId) {
             const module = await import(componentDef.modulePath);

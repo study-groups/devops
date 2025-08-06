@@ -10,7 +10,7 @@ function testFileReducerIntegration() {
     console.log('\n📊 Test 1: File Reducer Integration');
     console.log('=================================');
     
-    const state = window.APP.store.getState();
+    const state = appStore.getState();
     console.log('Available state domains:', Object.keys(state));
     
     if (state.file) {
@@ -29,7 +29,7 @@ function testActionTypes() {
     console.log('\n📋 Test 2: Action Types Definition');
     console.log('==================================');
     
-    const { ActionTypes } = window.APP.store;
+    const { ActionTypes } = appStore;
     const requiredActions = [
         'FS_SET_TOP_DIRS',
         'FS_LOAD_LISTING_START', 
@@ -57,12 +57,12 @@ async function testDirectoryLoading() {
         const { fileThunks } = await import('./thunks/fileThunks.js');
         console.log('📦 fileThunks imported successfully');
         
-        const beforeState = window.APP.store.getState().file;
+        const beforeState = appStore.getState().file;
         console.log('State before loading:', beforeState.availableTopLevelDirs);
         
-        await window.APP.store.dispatch(fileThunks.loadTopLevelDirectories());
+        await appStore.dispatch(fileThunks.loadTopLevelDirectories());
         
-        const afterState = window.APP.store.getState().file;
+        const afterState = appStore.getState().file;
         console.log('State after loading:', afterState.availableTopLevelDirs);
         
         if (afterState.availableTopLevelDirs && afterState.availableTopLevelDirs.length > 0) {
@@ -111,15 +111,15 @@ function testDirectActionDispatch() {
     try {
         const testDirs = ['test-dir-1', 'test-dir-2', 'test-dir-3'];
         
-        const beforeState = window.APP.store.getState().file;
+        const beforeState = appStore.getState().file;
         console.log('Before dispatch:', beforeState.availableTopLevelDirs);
         
-        window.APP.store.dispatch({
+        appStore.dispatch({
             type: 'FS_SET_TOP_DIRS',
             payload: testDirs
         });
         
-        const afterState = window.APP.store.getState().file;
+        const afterState = appStore.getState().file;
         console.log('After dispatch:', afterState.availableTopLevelDirs);
         
         if (JSON.stringify(afterState.availableTopLevelDirs) === JSON.stringify(testDirs)) {

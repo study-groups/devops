@@ -2,8 +2,7 @@
  * Centralized publish service - single source of truth for HTML generation and publishing
  */
 
-import { panelStateService } from '../panels/PanelStateManager.js';
-import { workspaceLayoutService } from '../layout/WorkspaceLayoutManager.js';
+import { workspaceManager } from '../layout/WorkspaceManager.js';
 import { appStore } from '/client/appState.js';
 import { marked } from '/client/vendor/scripts/marked.esm.js';
 
@@ -17,8 +16,8 @@ class PublishService {
     const finalHtmlContent = await this.embedImagesAsBase64(htmlContent);
     const baseCSS = await this.getBaseCss();
 
-    const panels = panelStateService.getVisiblePanels();
-    const layout = workspaceLayoutService.isSidebarVisible ? 'sidebar-visible' : 'sidebar-hidden';
+    const panels = []; // TODO: Get panel state from Redux
+    const layout = 'sidebar-visible'; // TODO: Get layout state from workspaceManager/Redux
 
     return `<!DOCTYPE html>
 <html lang="en">

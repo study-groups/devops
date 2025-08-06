@@ -1,6 +1,6 @@
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { fileThunks } from '/client/thunks/fileThunks.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('TopBar');
@@ -74,7 +74,10 @@ async function initializeRefreshSystem() {
         
         // Make executeRefresh available globally
         const { executeRefresh } = await import('/client/refresh.js');
-        window.executeRefresh = executeRefresh;
+        // Expose via APP namespace instead of global window
+        window.APP = window.APP || {};
+        window.APP.debug = window.APP.debug || {};
+        window.APP.debug.executeRefresh = executeRefresh;
         
         log.info('TOP_BAR', 'REFRESH_SYSTEM_INIT', 'Refresh system initialized successfully');
     } catch (error) {
@@ -143,8 +146,8 @@ function attachTopBarHandlers() {
         saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            log.info('TOP_BAR', 'SAVE_BUTTON_CLICKED', 'Save button clicked, dispatching action.');
-            appStore.dispatch({ type: ActionTypes.FILE_SAVE_REQUEST });
+            log.info('TOP_BAR', 'SAVE_BUTTON_CLICKED', 'Save button clicked, dispatching thunk.');
+            appStore.dispatch(fileThunks.saveFile());
         });
         log.info('TOP_BAR', 'SAVE_BUTTON_HANDLER_ATTACHED', 'Save button handler attached');
     }
@@ -395,12 +398,12 @@ async function refreshUIComponents() {
             }
             
             // Also try to refresh specific components if they exist
-            const componentsToRefresh = [
-                'editorPanel',
+                        const componentsToRefresh = [
+                'editorPanel', 
                 'previewPanel', 
                 'logPanel',
                 'panelManager',
-                'workspaceLayoutManager'
+                'workspaceManager'
             ];
             
             componentsToRefresh.forEach(componentName => {
@@ -572,7 +575,7 @@ async function refreshAppState() {
             // Refresh any global state managers
             const stateManagers = [
                 'debugPanelManager',
-                'workspaceLayoutManager',
+                'workspaceManager',
                 'panelManager'
             ];
             
@@ -603,8 +606,12 @@ export function initializeTopBar() {
     init();
 }
 
-// Add global test function for comprehensive refresh
-window.testComprehensiveRefresh = function() {
+// Initialize APP.debug namespace for debug functions
+window.APP = window.APP || {};
+window.APP.debug = window.APP.debug || {};
+
+// Add debug function for comprehensive refresh
+window.APP.debug.testComprehensiveRefresh = function() {
     console.log('=== TESTING COMPREHENSIVE REFRESH ===');
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
@@ -617,11 +624,11 @@ window.testComprehensiveRefresh = function() {
     }
 };
 
-// Add global function to check refresh system status
-window.checkRefreshSystemStatus = function() {
+// Add debug function to check refresh system status
+window.APP.debug.checkRefreshSystemStatus = function() {
     console.log('=== REFRESH SYSTEM STATUS ===');
     console.log('Refresh button exists:', !!document.getElementById('refresh-btn'));
-    console.log('window.executeRefresh exists:', !!window.executeRefresh);
+    console.log('APP.debug.executeRefresh exists:', !!window.APP?.debug?.executeRefresh);
     console.log('window.UIManager exists:', !!window.UIManager);
     console.log('window.panelManager exists:', !!window.panelManager);
     console.log('window.eventBus exists:', !!window.eventBus);
@@ -630,11 +637,11 @@ window.checkRefreshSystemStatus = function() {
     console.log('- Click refresh button');
     console.log('- Press Ctrl+Shift+R (comprehensive refresh)');
     console.log('- Press Alt+R (preview refresh)');
-    console.log('- Call window.testComprehensiveRefresh()');
+    console.log('- Call APP.debug.testComprehensiveRefresh()');
 };
 
 // Add debug function to check button content
-window.debugRefreshButton = function() {
+window.APP.debug.debugRefreshButton = function() {
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
         console.log('=== REFRESH BUTTON DEBUG ===');
@@ -649,8 +656,8 @@ window.debugRefreshButton = function() {
     }
 };
 
-// Add function to check for CSS popup sources
-window.debugCssPopup = function() {
+// Add debug function to check for CSS popup sources
+window.APP.debug.debugCssPopup = function() {
     console.log('=== CSS POPUP DEBUG ===');
     console.log('ViewControls reloadAllCss function exists:', typeof window.reloadAllCss === 'function');
     console.log('topBar reloadAllCssSilent function exists:', typeof window.reloadAllCssSilent === 'function');
@@ -675,8 +682,8 @@ window.debugCssPopup = function() {
     }
 };
 
-// Add function to test both refresh buttons
-window.testBothRefreshButtons = function() {
+// Add debug function to test both refresh buttons
+window.APP.debug.testBothRefreshButtons = function() {
     console.log('=== TESTING BOTH REFRESH BUTTONS ===');
     
     // Test ViewControls refresh button

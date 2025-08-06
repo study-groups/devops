@@ -81,7 +81,7 @@ export class HtmlPanel extends BasePanel {
         return `
             <div class="html-panel-content">
                 <div id="html-preview" class="html-preview html-content" data-html-content>
-                    <div class="html-loading-state" style="display: none;">
+                    <div class="html-loading-state" data-visible="false">
                         <div class="loading-spinner"></div>
                         <div>Loading HTML...</div>
                     </div>
@@ -237,7 +237,7 @@ export class HtmlPanel extends BasePanel {
         
         const loadingState = this.htmlContainer.querySelector('.html-loading-state');
         if (loadingState) {
-            loadingState.style.display = 'flex';
+            loadingState.dataset.visible = 'true';
         }
         
         this.htmlContainer.classList.add('html-updating');
@@ -280,7 +280,7 @@ export class HtmlPanel extends BasePanel {
         // Hide loading state
         const loadingState = this.htmlContainer.querySelector('.html-loading-state');
         if (loadingState) {
-            loadingState.style.display = 'none';
+            loadingState.dataset.visible = 'false';
         }
         
         // Remove success class after animation

@@ -19,22 +19,23 @@ export const getIsLoading = (state) => state.ui.isLoading;
 export const getTheme = (state) => state.ui.theme;
 
 // ===== FILE SELECTORS =====
-export const getCurrentPathname = (state) => state.file.currentPathname;
-export const getIsDirectorySelected = (state) => state.file.isDirectorySelected;
-export const getCurrentListing = (state) => state.file.currentListing;
-export const getParentListing = (state) => state.file.parentListing;
-export const getAvailableTopLevelDirs = (state) => state.file.availableTopLevelDirs;
-export const getFileError = (state) => state.file.error;
-export const getIsFileSaving = (state) => state.file.isSaving;
-export const getIsFileLoading = (state) => state.file.isLoading;
+// Defensive selectors that handle undefined state gracefully
+export const getCurrentPathname = (state) => state.file?.currentPathname || '';
+export const getIsDirectorySelected = (state) => state.file?.isDirectorySelected || false;
+export const getCurrentListing = (state) => state.file?.currentListing || null;
+export const getParentListing = (state) => state.file?.parentListing || null;
+export const getAvailableTopLevelDirs = (state) => state.file?.availableTopLevelDirs || [];
+export const getFileError = (state) => state.file?.error || null;
+export const getIsFileSaving = (state) => state.file?.isSaving || false;
+export const getIsFileLoading = (state) => state.file?.isLoading || false;
 
-// Derived selectors that combine state
+// Derived selectors that combine state using other selectors
 export const getCurrentFilePath = (state) => 
-  !state.file.isDirectorySelected ? state.file.currentPathname : null;
+  !getIsDirectorySelected(state) ? getCurrentPathname(state) : null;
 
 export const getCurrentDirectoryPath = (state) => 
-  state.file.isDirectorySelected ? state.file.currentPathname : 
-    (state.file.currentListing?.pathname || null);
+  getIsDirectorySelected(state) ? getCurrentPathname(state) : 
+    (getCurrentListing(state)?.pathname || null);
 
 // ===== SETTINGS SELECTORS =====
 export const getPreviewCssFiles = (state) => state.settings.preview.cssFiles;

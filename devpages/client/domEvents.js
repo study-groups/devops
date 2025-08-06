@@ -66,7 +66,7 @@ export function initializeDomEvents() {
 
             // --- Check Authentication --- 
             const requiresAuth = PROTECTED_ACTIONS.has(action);
-            const isLoggedIn = appStore.getState().auth.isLoggedIn;
+            const isLoggedIn = appStore.getState().auth.isAuthenticated;
 
             if (requiresAuth && !isLoggedIn) {
                 log.warn('AUTH_REQUIRED', `Action '${action}' requires login. User not logged in. Preventing action.`);
@@ -241,8 +241,8 @@ log.info('SUBSCRIBE_AUTH_STATE', 'Subscribing to auth state changes for body cla
 let prevState = appStore.getState(); // Initialize previous state
 appStore.subscribe(() => { // CHANGED: Use appStore
     const newState = appStore.getState();
-    const newLoggedIn = newState.auth?.isLoggedIn;
-    const oldLoggedIn = prevState?.auth?.isLoggedIn;
+            const newLoggedIn = newState.auth?.isAuthenticated;
+        const oldLoggedIn = prevState?.auth?.isAuthenticated;
 
     if (newLoggedIn !== oldLoggedIn) {
         const body = document.body;

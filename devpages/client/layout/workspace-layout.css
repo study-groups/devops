@@ -1,7 +1,13 @@
 /**
  * workspace-layout.css
- * Main layout: main-panels (sidebar, editor, preview) and a bottom log-container
+ * Semantic workspace layout: sidebar, editor, preview areas
  */
+
+/* Import dock system styles */
+@import url('./left-zone-docks.css');
+
+/* Import new panel refactor styles */
+@import url('./panel-refactor.css');
 
 .workspace-container {
     display: flex;
@@ -11,14 +17,18 @@
     overflow: hidden;
 }
 
-.workspace-zone {
+/* Base semantic area styling */
+.workspace-sidebar,
+.workspace-editor,
+.workspace-preview {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     position: relative;
 }
 
-#workspace-zone-left {
+/* Sidebar: Navigation, panels, tools */
+.workspace-sidebar {
     flex: 0 0 250px; /* Initial width */
     min-width: 200px;
     max-width: 500px;
@@ -26,13 +36,35 @@
     border-right: 1px solid var(--color-border);
 }
 
-#workspace-zone-main {
+/* Data-driven visibility for the sidebar */
+.workspace-sidebar[data-visible="false"] {
+    display: none !important;
+}
+
+/* Hide resizer when sidebar is hidden */
+.workspace-sidebar[data-visible="false"] + .workspace-resizer {
+    display: none !important;
+}
+
+/* ACTUALLY HIDE THE SIDEBAR WHEN CLOSED */
+.workspace-sidebar.hidden {
+    display: none !important;
+}
+
+/* Hide resizer when sidebar is hidden */
+.workspace-sidebar.hidden + .workspace-resizer {
+    display: none !important;
+}
+
+/* Editor: Primary content editing area */
+.workspace-editor {
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
-#workspace-zone-right {
+/* Preview: Output, rendered content display */
+.workspace-preview {
     flex: 0 0 250px; /* Initial width */
     min-width: 200px;
     max-width: 500px;
@@ -493,4 +525,9 @@ body.resizing * {
 
 body.resizing .panel-resize-handle {
     pointer-events: auto;
+}
+
+/* Generic data-driven visibility */
+[data-visible="false"] {
+    display: none !important;
 } 

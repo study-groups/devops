@@ -1,9 +1,6 @@
-import { appStore } from '/client/appState.js'; // CHANGED: Use appStore
-import eventBus from '/client/eventBus.js';
-import { triggerActions } from '/client/actions.js';
-import { logMessage } from '/client/log/index.js'; // Use the central logger
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { appStore, dispatch } from '/client/appState.js';
+import { uiActions } from '/client/store/uiSlice.js';
+import { logMessage } from '/client/log/index.js';
 
 /**
  * Reload all CSS stylesheets by appending a timestamp to force cache busting
@@ -212,30 +209,21 @@ async function reloadAllCssSilent() {
 
 export function createViewControlsComponent(targetElementId, layoutManager = null) {
     let element = null;
-    let appStateUnsubscribe = null; // ADDED: Store unsubscribe function for appState
+    let appStateUnsubscribe = null;
 
-    const updateToggleButtons = (workspaceState) => {
-        if (!element) {
-            console.error('[ViewControls] updateToggleButtons called but element is null');
-            return;
-        }
-        
-        // Update Edit toggle (editor panel visibility) - use workspace state
-        const editToggle = element.querySelector('#edit-toggle');
-        if (editToggle && workspaceState?.editor) {
-            editToggle.classList.toggle('active', workspaceState.editor.visible);
-            editToggle.title = workspaceState.editor.visible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
-        }
-
-    };
-    
-    const updateLogButtonState = (isVisible) => {
+    const handleStateChange = () => {
         if (!element) return;
-        
+        const state = appStore.getState();
+        const editToggle = element.querySelector('#edit-toggle');
+        if (editToggle) {
+            editToggle.classList.toggle('active', state.ui.textVisible);
+            editToggle.title = state.ui.textVisible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
+        }
+
         const logButton = element.querySelector('#log-toggle-btn');
         if (logButton) {
-            logButton.classList.toggle('active', isVisible);
-            logButton.title = isVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
+            logButton.classList.toggle('active', state.ui.logVisible);
+            logButton.title = state.ui.logVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
         }
     };
 
@@ -248,38 +236,15 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
             return false;
         }
 
-        // Render the updated toggle buttons for workspace system
         element.innerHTML = `
             <button id="edit-toggle" class="btn btn-ghost btn-sm" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
             <button id="log-toggle-btn" class="btn btn-ghost btn-sm" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
             <button id="preview-reload-btn" class="btn btn-ghost btn-sm" title="Soft Reload - Refresh All CSS" data-action="refreshPreview">&#x21bb;</button>
         `;
         
-        let prevState = appStore.getState(); // Initialize previous state
-        appStateUnsubscribe = appStore.subscribe(() => {
-            const newState = appStore.getState();
-            handleAppStateChange(newState, prevState);
-            prevState = newState; // Update previous state
-        });
-
-        // Initial render
-        handleAppStateChange(appStore.getState(), {});
+        appStateUnsubscribe = appStore.subscribe(handleStateChange);
+        handleStateChange(); // Initial render
         
-        // Subscribe to layout system events
-        if (eventBus && typeof eventBus.on === 'function') {
-            eventBus.on('layout:panelStateChanged', (layoutState) => {
-                updateToggleButtons(layoutState);
-            });
-        }
-        
-        // Set initial button states - delay to ensure store is initialized
-        setTimeout(() => {
-            const initialAppState = appStore.getState();
-            updateToggleButtons(initialAppState.workspace || {});
-            updateLogButtonState(initialAppState.ui?.logVisible || false);
-        }, 0);
-
-        // Handle button clicks
         element.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             if (!button) return;
@@ -290,27 +255,14 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
 
             switch (action) {
                 case 'toggleLogVisibility':
-                    if (window.logPanel && typeof window.logPanel.toggleVisibility === 'function') {
-                        window.logPanel.toggleVisibility();
-                    }
+                    dispatch(uiActions.updateSetting({ key: 'logVisible', value: !appStore.getState().ui.logVisible }));
                     break;
                     
                 case 'toggleEdit':
-                    // Use the workspace panel manager to toggle the editor
-                    if (window.workspaceLayoutManager) {
-                        window.workspaceLayoutManager.toggleEditor();
-                    }
-                    break;
-                    
-                case 'togglePanels':
-                    // Use the workspace panel manager to toggle the sidebar
-                    if (window.workspaceLayoutManager) {
-                        window.workspaceLayoutManager.toggleSidebar();
-                    }
+                    dispatch(uiActions.updateSetting({ key: 'textVisible', value: !appStore.getState().ui.textVisible }));
                     break;
                     
                 case 'refreshPreview':
-                    // Provide visual feedback
                     button.style.transform = 'rotate(360deg)';
                     button.style.transition = 'transform 0.6s ease';
                     setTimeout(() => {
@@ -318,93 +270,41 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
                         button.style.transition = '';
                     }, 600);
                     
-                    // Debug logging for eventBus instances
-                            // Removed excessive debug logging to prevent spam
-                    // Perform soft page reload - reload all CSS files
                     reloadAllCssSilent();
                     
-                    // Trigger preview refresh using window.eventBus (to match PreviewPanel)
-                    // Debug information (only log in case of errors)
-                    if (!window.eventBus && !eventBus) {
-                        logMessage('Warning: Neither window.eventBus nor imported eventBus available for preview refresh', 'warn', 'VIEW_CONTROLS');
-                    }
-                    
-                    // Try to emit via window.eventBus first
                     if (window.eventBus && typeof window.eventBus.emit === 'function') {
                         try {
                             window.eventBus.emit('preview:forceRefresh');
-                            // Only log success on errors, not every time
                         } catch (error) {
                             logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
                         }
-                    } else if (eventBus && typeof eventBus.emit === 'function') {
-                        // Use imported eventBus as fallback
-                        try {
-                            eventBus.emit('preview:forceRefresh');
-                            // Only log success on errors, not every time
-                        } catch (error) {
-                            logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
-                        }
-                    } else {
-                        logMessage('Neither window.eventBus nor imported eventBus available for preview refresh', 'warn', 'VIEW_CONTROLS');
-                    }
-                    
-                    // Also emit CSS settings changed event for good measure
-                    if (window.eventBus && typeof window.eventBus.emit === 'function') {
-                        try {
-                            window.eventBus.emit('preview:cssSettingsChanged', { reason: 'manual_refresh' });
-                            logMessage('CSS settings changed event emitted via window.eventBus', 'debug', 'VIEW_CONTROLS');
-                        } catch (error) {
-                            logMessage(`CSS settings changed event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
-                        }
-                    } else if (eventBus && typeof eventBus.emit === 'function') {
-                        try {
-                            eventBus.emit('preview:cssSettingsChanged', { reason: 'manual_refresh' });
-                            logMessage('CSS settings changed event emitted via imported eventBus', 'debug', 'VIEW_CONTROLS');
-                        } catch (error) {
-                            logMessage(`CSS settings changed event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
-                        }
-                    }
+                    } 
                     
                     logMessage('🔄 Full refresh triggered: CSS reload + Preview update via eventBus', 'info', 'VIEW_CONTROLS');
                     break;
             }
         });
 
-        logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');       return true;
-    }
-
-    function handleAppStateChange(newState, prevState) {
-        if (!prevState) return; // Guard against initial undefined state
-        const newViewMode = newState.ui.viewMode;
-        const oldViewMode = prevState.ui.viewMode;
-
-        if (newViewMode !== oldViewMode) {
-            // This function is now called directly by the subscribe callback,
-            // so we don't need to call render() here.
-            // The updateToggleButtons and updateLogButtonState functions
-            // will be called by the subscribe callback.
-        }
+        logMessage('ViewControls mounted and subscribed.', 'info', 'VIEW_CONTROLS');
+        return true;
     }
 
     const destroy = () => {
-        logMessage('Destroying ViewControls...', 'info', 'VIEW_CONTROLS');
-        // Unsubscribe from appState changes
         if (appStateUnsubscribe) {
             appStateUnsubscribe();
             appStateUnsubscribe = null;
-            logMessage('ViewControls unsubscribed from appState changes.', 'info', 'VIEW_CONTROLS');
         }
-        
-        if (element) {
-            element.innerHTML = '';
-        }
-        element = null;
         logMessage('ViewControls destroyed.', 'info', 'VIEW_CONTROLS');
     };
 
+    // Auto-initialize for bootloader compatibility
+    const success = init();
+    if (!success) {
+        throw new Error('ViewControls failed to initialize');
+    }
+
     return {
-        init, // Changed from mount to init
+        init,
         destroy
     };
 }

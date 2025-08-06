@@ -182,7 +182,7 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
     const dropdown = document.createElement('div');
     dropdown.className = 'code-fence-dropdown';
     dropdown.id = menuId;
-    dropdown.style.display = 'none';
+    dropdown.dataset.visible = 'false';
     dropdown.style.position = 'absolute';
     dropdown.style.top = '25px'; // Below the button
     dropdown.style.right = '5px';
@@ -216,7 +216,7 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
                 console.error(`[CodeFenceMenu] Error triggering action ${actionType}:`, err);
                 showTemporaryFeedback(item, `Error: ${err.message}`, true);
             }
-            dropdown.style.display = 'none'; // Hide menu after action
+            dropdown.dataset.visible = 'false'; // Hide menu after action
         };
         return item;
     };
@@ -228,12 +228,12 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
 
     menuButton.onclick = (e) => {
         e.stopPropagation();
-        const isHidden = dropdown.style.display === 'none';
+        const isHidden = dropdown.dataset.visible === 'false';
         // Hide all other code fence menus
         document.querySelectorAll('.code-fence-dropdown').forEach(d => {
-            if (d.id !== menuId) d.style.display = 'none';
+            if (d.id !== menuId) d.dataset.visible = 'false';
         });
-        dropdown.style.display = isHidden ? 'block' : 'none';
+        dropdown.dataset.visible = isHidden ? 'true' : 'false';
     };
 
     // Add to the DOM
@@ -254,7 +254,7 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
     // Ensure this listener is only added once or managed properly to avoid multiple listeners
     const clickOutsideListener = (event) => {
         if (!dropdown.contains(event.target) && event.target !== menuButton) {
-            dropdown.style.display = 'none';
+            dropdown.dataset.visible = 'false';
         }
     };
     // A more robust way might be to add this listener when menu is shown, and remove when hidden,
@@ -543,11 +543,11 @@ export function addHamburgerMenuToElement(
 
     hamburgerBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const parentLogEntry = targetElement.closest('.log-entry');
+        const parentLogEntry = targetElement.closest('.log-entry');        
         if (parentLogEntry) {
             parentLogEntry.querySelectorAll('.log-entry-codefence-menu').forEach(m => {
                 if (m !== menuDiv) {
-                    m.style.display = 'none';
+                    m.dataset.visible = 'false';
                     const otherHamburger = m.previousElementSibling;
                     if (otherHamburger && otherHamburger.classList.contains('log-entry-codefence-menu-btn')) {
                         otherHamburger.style.opacity = '0.7';
@@ -555,8 +555,8 @@ export function addHamburgerMenuToElement(
                 }
             });
         }
-        const currentlyVisible = menuDiv.style.display === 'block';
-        menuDiv.style.display = currentlyVisible ? 'none' : 'block';
+        const currentlyVisible = menuDiv.dataset.visible === 'true';
+        menuDiv.dataset.visible = currentlyVisible ? 'false' : 'true';
         hamburgerBtn.style.opacity = currentlyVisible ? '0.7' : '1';
     });
     
@@ -574,7 +574,7 @@ function setupGlobalClickHandler() {
             const buttonForThisMenu = openMenu.previousElementSibling;
             // Check if click is outside the menu AND its button
             if (!openMenu.contains(event.target) && !(buttonForThisMenu && buttonForThisMenu.contains(event.target))) {
-                openMenu.style.display = 'none';
+                openMenu.dataset.visible = 'false';
                 if (buttonForThisMenu && buttonForThisMenu.classList.contains('log-entry-codefence-menu-btn')) {
                     buttonForThisMenu.style.opacity = '0.7';
                 }
@@ -792,7 +792,7 @@ export function collapseLogEntry(logEntryDiv, logPanelInstance) {
     // Hide the expanded toolbar
     const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
     if (expandedToolbar) {
-        expandedToolbar.style.display = 'none';
+        expandedToolbar.dataset.visible = 'false';
     }
     
     // Reset the text wrapper to show original simple content
@@ -821,7 +821,7 @@ export function collapseLogEntry(logEntryDiv, logPanelInstance) {
     // Show the original copy button
     const originalButton = logEntryDiv.querySelector('.original-button');
     if (originalButton) {
-        originalButton.style.display = 'block';
+        originalButton.dataset.visible = 'true';
     }
     
     // Reset render mode

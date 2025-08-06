@@ -1,52 +1,58 @@
 /**
- * client/settings/PluginsPanel.js
- * Manages the plugin settings within the main SettingsPanel.
+ * @file client/settings/panels/plugins/PluginsPanel.js
+ * @description Manages the plugin settings within the main SettingsPanel.
  */
 
+import { BasePanel } from '/client/panels/BasePanel.js';
 import { e,
     renderApp,
     createElement,
     mount
 } from '/client/components/elements.js';
 import { appStore } from '/client/appState.js';
-import { dispatch } from '/client/messaging/messageQueue.js'; // Import ActionTypes
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { pluginThunks } from '/client/store/slices/pluginSlice.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 
 const log = window.APP.services.log.createLogger('PluginsPanel');
 
-export class PluginsPanel {
-  constructor(parentElement) {
-    this.containerElement = null;
+export class PluginsPanel extends BasePanel {
+  constructor(options) {
+    super(options);
     this.controlsContainer = null; // Holds all dynamically generated plugin controls
     this.stateUnsubscribe = null;
     this.pluginControlElements = {}; // To store references: { mermaid_theme: selectElement, mermaid_enabled: checkboxElement }
-
-    if (!parentElement) {
-      log.error('PLUGINS_PANEL', 'NO_PARENT_ELEMENT', 'PluginsPanel requires a parent element to attach its content.');
-      return;
-    }
-
-    this.createPanelContent(parentElement);
-    this.subscribeToState();
-    log.info('PLUGINS_PANEL', 'INSTANCE_CREATED', 'PluginsPanel instance created.');
   }
 
-  createPanelContent(parentElement) {
-    // The parentElement is now the content wrapper created by SettingsPanel
-    // We don't need to create additional containers, just use it directly
-    this.containerElement = parentElement;
-    this.containerElement.classList.add('plugins-panel-content');
+  render() {
+    if (!this.element) {
+      this.element = document.createElement('div');
+      this.element.className = 'plugins-panel';
+    }
+    
+    this.element.classList.add('plugins-panel-content');
 
     this.controlsContainer = document.createElement('div');
     this.controlsContainer.classList.add('plugins-controls-container');
     
-    this.containerElement.appendChild(this.controlsContainer);
+    this.element.appendChild(this.controlsContainer);
 
     this.renderPluginControls(appStore.getState().plugins);
+    
+    return this.element;
+  }
 
+  onMount(container) {
     // Event delegation for changing settings
     this.controlsContainer.addEventListener('change', this.handleSettingChange.bind(this));
+    this.subscribeToState();
+    this.log('PLUGINS_PANEL', 'INSTANCE_CREATED', 'PluginsPanel instance created.');
+  }
+
+  onUnmount() {
+    if (this.stateUnsubscribe) {
+      this.stateUnsubscribe();
+      this.stateUnsubscribe = null;
+    }
   }
 
   renderPluginControls(pluginsState) {
@@ -161,38 +167,13 @@ export class PluginsPanel {
       // The reactive system will handle the update automatically
       
       log.info('PLUGINS_PANEL', 'SETTING_CHANGE', `Setting change for plugin '${pluginId}', setting '${settingKey}' to: ${value}. Dispatching action.`);
-      dispatch({
-        type: ActionTypes.PLUGIN_UPDATE_SETTING,
-        payload: {
-          pluginId: pluginId,
-          settingKey: settingKey,
-          value: value,
-        }
-      });
+      appStore.dispatch(pluginThunks.updatePluginSettings({ pluginId, settingKey, value }));
     }
   }
 
 
 
-  destroy() {
-    log.info('PLUGINS_PANEL', 'DESTROYING', 'Destroying PluginsPanel...');
-    if (this.stateUnsubscribe) {
-      this.stateUnsubscribe();
-      this.stateUnsubscribe = null;
-    }
-    if (this.controlsContainer) {
-        this.controlsContainer.removeEventListener('change', this.handleSettingChange.bind(this));
-    }
-    // Clear the container content but don't remove the container itself
-    // since it's managed by the SettingsPanel
-    if (this.containerElement) {
-      this.containerElement.innerHTML = '';
-    }
-    this.containerElement = null;
-    this.controlsContainer = null;
-    this.pluginControlElements = {};
-    log.info('PLUGINS_PANEL', 'DESTROYED', 'PluginsPanel destroyed.');
-  }
+
 
 
 }

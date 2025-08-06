@@ -7,7 +7,7 @@ import { zIndexManager } from '/client/utils/ZIndexManager.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
 import { appStore, dispatch } from '/client/appState.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { addPanel, setPanelVisibility, toggleSection, setPosition, setSize, toggleVisibility } from '/client/store/slices/debugPanelSlice.js';
 
 // DEPRECATED: Panels are now registered via debugPanelInitializer.js
 
@@ -125,16 +125,13 @@ class DebugPanelManager {
             
             if (!panelExists) {
                 // Add the panel to the debug state
-                dispatch({
-                    type: ActionTypes.DEBUG_PANEL_ADD_PANEL,
-                    payload: {
-                        id: panelConfig.id,
-                        title: panelConfig.title,
-                        visible: panelConfig.isVisible !== false,
-                        enabled: true,
-                        order: index
-                    }
-                });
+                appStore.dispatch(addPanel({
+                    id: panelConfig.id,
+                    title: panelConfig.title,
+                    visible: panelConfig.isVisible !== false,
+                    enabled: true,
+                    order: index
+                }));
                 
                 logMessage(`[DebugPanelManager] Added panel to debug state: ${panelConfig.id}`, 'debug');
             }
@@ -228,10 +225,7 @@ class DebugPanelManager {
     
     toggleSectionCollapse(sectionId) {
         // Use the existing debug panel action to toggle collapse state
-        dispatch({
-            type: ActionTypes.DEBUG_PANEL_TOGGLE_SECTION,
-            payload: { sectionId }
-        });
+        appStore.dispatch(toggleSection(sectionId));
         
         // Update the UI based on the NEW reducer state, not current DOM state
         const debugState = appStore.getState().debugPanel;
@@ -263,10 +257,7 @@ class DebugPanelManager {
     
     reopenSectionPanel(sectionId) {
         // Use the existing debug panel action to show the panel
-        dispatch({
-            type: ActionTypes.DEBUG_PANEL_SET_PANEL_VISIBILITY,
-            payload: { panelId: sectionId, visible: true }
-        });
+        appStore.dispatch(setPanelVisibility({ panelId: sectionId, visible: true }));
         
         // Reload panels to show the reopened one
         this.contentElement.innerHTML = '';
@@ -368,21 +359,12 @@ class DebugPanelManager {
     savePersistedState() {
         // The debug panel state is now managed by the reducer
         // Update the main panel position, size, and visibility
-        dispatch({
-            type: ActionTypes.DEBUG_PANEL_SET_POSITION,
-            payload: this.currentPos
-        });
+        appStore.dispatch(setPosition(this.currentPos));
         
-        dispatch({
-            type: ActionTypes.DEBUG_PANEL_SET_SIZE,
-            payload: this.currentSize
-        });
+        appStore.dispatch(setSize(this.currentSize));
         
         // Save the visibility state so it persists across sessions
-        dispatch({
-            type: ActionTypes.DEBUG_PANEL_TOGGLE,
-            payload: this.isVisible
-        });
+        appStore.dispatch(toggleVisibility(this.isVisible));
     }
 
     loadPersistedState() {

@@ -16,7 +16,7 @@ export const panelOrder = [
     'javascript-panel',         // From JavaScriptPanel.js
     'icons-panel',              // From IconsPanel.js
     'plugins-panel',            // From PluginsPanel.js
-    'api-token-panel',          // From ApiTokenPanel.js
+    // 'api-token-panel',       // Moved to notsure/panels/
     'console-log-panel',        // From ConsoleLogPanel.js
     'dev-tools-panel',          // From DevToolsPanel.js
 ]; 

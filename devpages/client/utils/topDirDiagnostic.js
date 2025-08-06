@@ -2,24 +2,19 @@
  * Top Directory Diagnostic Utility
  * Simple function to debug why availableTopLevelDirs is empty
  */
+import { appStore } from '/client/appState.js';
 
 export function diagnoseTopDirIssue() {
     console.log('🔍 TOP DIR DIAGNOSTIC - Starting analysis...');
     
-    // Check if window.APP exists
-    if (!window.APP) {
-        console.log('❌ window.APP is not available');
-        return;
-    }
-    
-    // Check if store exists
-    if (!window.APP.store) {
-        console.log('❌ window.APP.store is not available');
+    // Check if store is available
+    if (!appStore) {
+        console.log('❌ appStore is not available');
         return;
     }
     
     try {
-        const state = window.APP.store.getState();
+        const state = appStore.getState();
         console.log('✅ Store state retrieved successfully');
         console.log('📊 Available state slices:', Object.keys(state));
         

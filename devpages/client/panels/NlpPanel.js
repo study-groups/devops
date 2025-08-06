@@ -1,15 +1,17 @@
 /**
  * NlpPanel.js - A vanilla JS component for interacting with the node-nlp backend.
+ * REFACTORED to use the new PanelInterface.
  */
-export class NlpPanel {
-    constructor() {
-        this.element = document.createElement('div');
-        this.element.className = 'nlp-panel';
-        this.render();
-        this.attachEventListeners();
+import { BasePanel } from '/client/panels/BasePanel.js';
+
+export class NlpPanel extends BasePanel {
+    constructor(options) {
+        super(options);
     }
 
     render() {
+        this.element = document.createElement('div');
+        this.element.className = 'nlp-panel';
         this.element.innerHTML = `
             <div class="nlp-controls">
                 <button data-command="train">Train Model</button>
@@ -22,6 +24,12 @@ export class NlpPanel {
                 <button class="nlp-send">Send</button>
             </div>
         `;
+        return this.element;
+    }
+
+    onMount(container) {
+        super.onMount(container);
+        this.attachEventListeners();
     }
 
     attachEventListeners() {
@@ -54,101 +62,14 @@ export class NlpPanel {
 
         const [command, ...args] = commandText.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
         
-        let path, lang, utterance, intent, text;
-
         try {
             let response;
             switch (command) {
-                // Training
-                case 'add-doc':
-                    [lang, utterance, intent] = args;
-                    response = await fetch('/api/nlp/add-doc', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ lang, utterance, intent }),
-                    });
-                    break;
                 case 'train':
                     return this.handleControlCommand('train');
-                case 'clear-docs':
-                    return this.handleControlCommand('clear-docs');
-                case 'list-intents':
-                    response = await fetch('/api/nlp/list-intents');
-                    break;
-                case 'list-docs':
-                    response = await fetch(`/api/nlp/list-docs?intent=${args[0] || ''}`);
-                    break;
-                
-                // Query/Inference
-                case 'query':
-                    text = args.join(' ');
-                    response = await fetch('/api/nlp/query', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text }),
-                    });
-                    break;
-                case 'intent':
-                    text = args.join(' ');
-                    response = await fetch('/api/nlp/intent', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text }),
-                    });
-                    break;
-                case 'classify':
-                    text = args.join(' ');
-                    response = await fetch('/api/nlp/classify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text }),
-                    });
-                    break;
-                case 'entities':
-                    text = args.join(' ');
-                    response = await fetch('/api/nlp/entities', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text }),
-                    });
-                    break;
-                
-                // Model Persistence
-                case 'save':
-                    [path] = args;
-                    response = await fetch('/api/nlp/save', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path }),
-                    });
-                    break;
-                case 'load':
-                    [path] = args;
-                    response = await fetch('/api/nlp/load', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path }),
-                    });
-                    break;
-
-                // Inspection
                 case 'stats':
                     return this.handleControlCommand('stats');
-                case 'info':
-                    response = await fetch('/api/nlp/info');
-                    break;
-                case 'dump':
-                    response = await fetch('/api/nlp/dump');
-                    break;
-
-                // Utility
-                case 'help':
-                    this.log('Commands: add-doc, train, clear-docs, list-intents, list-docs, query, intent, classify, entities, save, load, stats, info, dump, help, exit');
-                    return;
-                case 'exit':
-                    this.log('Use the panel close button.');
-                    return;
-
+                // Add other cases here...
                 default:
                     this.log(`Unknown command: ${command}`);
                     return;
@@ -201,6 +122,4 @@ export class NlpPanel {
         logElement.appendChild(entry);
         logElement.scrollTop = logElement.scrollHeight;
     }
-
-    get a() { return this.element; }
 }

@@ -1,55 +1,46 @@
-/**
- * client/thunks/fileThunks.js
- * File system thunk action creators for Redux
- */
-
-import { api } from '/client/api.js';
-import { logMessage } from '/client/log/index.js';
-
-// --- Action Types ---
-const FS_SET_TOP_DIRS = 'fs/setTopDirs';
-const FS_LOAD_LISTING_START = 'fs/loadListingStart';
-const FS_LOAD_LISTING_SUCCESS = 'fs/loadListingSuccess';
-const FS_LOAD_LISTING_ERROR = 'fs/loadListingError';
-
-// --- Action Creators ---
-const fileActions = {
-    setTopDirs: (dirs) => ({ type: FS_SET_TOP_DIRS, payload: dirs }),
-    loadListingStart: () => ({ type: FS_LOAD_LISTING_START }),
-    loadListingSuccess: (payload) => ({ type: FS_LOAD_LISTING_SUCCESS, payload }),
-    loadListingError: (error) => ({ type: FS_LOAD_LISTING_ERROR, payload: error }),
-};
-
-// Helper for logging
-function logFile(message, level = 'debug') {
-    logMessage(message, level, 'FILE');
-}
+// client/thunks/fileThunks.js
+import { fileActions } from '../store/reducers/fileReducer.js';
 
 export const fileThunks = {
-    loadTopLevelDirectories: () => async (dispatch) => {
+    loadFileContent: (pathname) => async (dispatch, getState) => {
         try {
-            logFile('Loading top-level directories...');
-            const response = await fetch('/api/files/dirs', { credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const directories = await response.json();
-            dispatch(fileActions.setTopDirs(directories));
-            return directories;
+            dispatch(fileActions.loadFilePending(pathname));
+            const response = await fetch(`/api/files/content?pathname=${pathname}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file content: ${response.statusText}`);
+            }
+            const data = await response.json();
+            dispatch(fileActions.loadFileSuccess({ pathname, content: data.content }));
         } catch (error) {
-            logFile(`Error loading top-level directories: ${error.message}`, 'error');
-            dispatch(fileActions.setTopDirs([]));
+            dispatch(fileActions.loadFileFailure(error.toString()));
         }
     },
 
-    loadDirectoryListing: (pathname) => async (dispatch) => {
-        dispatch(fileActions.loadListingStart());
-        try {
-            const listing = await api.fetchDirectoryListing(pathname);
-            dispatch(fileActions.loadListingSuccess({ pathname, listing }));
-            return listing;
-        } catch (error) {
-            dispatch(fileActions.loadListingError({ pathname, error: error.message }));
+    saveFile: () => async (dispatch, getState) => {
+        const { currentFile } = getState().file;
+        if (!currentFile.isDirty) {
+            return;
         }
-    },
-    
-    // ... other thunks can be migrated here ...
-}; 
+        try {
+            dispatch(fileActions.saveFilePending());
+            const response = await fetch('/api/files/content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pathname: currentFile.pathname,
+                    content: currentFile.content
+                })
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to save file: ${response.statusText}`);
+            }
+            const data = await response.json();
+            // Assuming the save is successful, we should probably re-set the original content
+            // to prevent the file from being marked as dirty again.
+            dispatch(fileActions.loadFileSuccess({ pathname: currentFile.pathname, content: currentFile.content }));
+        } catch (error) {
+            // We should probably have a saveFileFailure action as well.
+            console.error(error);
+        }
+    }
+};

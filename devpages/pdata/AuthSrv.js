@@ -2,6 +2,7 @@
 // A Plan 9-inspired Namespace+Token Engine for PData
 
 import crypto from 'crypto';
+import path from 'path';
 import minimatch from 'minimatch';
 
 class AuthSrv {
@@ -44,12 +45,58 @@ class AuthSrv {
 
   // Resolve a virtual path to a real path using the session mounts
   resolvePath(token, vpath) {
+    // CRITICAL SECURITY: Validate path format to prevent literal ~ directory creation
+    if (vpath && vpath.includes('~') && !vpath.startsWith('~')) {
+      throw new Error(`Invalid path format: literal '~' characters are forbidden except at the start of virtual paths. Path: ${vpath}`);
+    }
+    
+    // Additional security: prevent path traversal attacks
+    if (vpath && (vpath.includes('../') || vpath.includes('..\\') || vpath === '..' || vpath.endsWith('/..'))) {
+      throw new Error(`Invalid path: path traversal detected. Path: ${vpath}`);
+    }
+
+    // Handle root mount access (e.g., '.' or '' maps to mount root)
+    if (!vpath || vpath === '.' || vpath === '/') {
+      // Return the first mount root for empty/root requests
+      const mountEntries = Object.entries(token.mounts);
+      if (mountEntries.length > 0) {
+        return mountEntries[0][1]; // Return the path of the first mount
+      }
+    }
+
+    // Handle direct alias access (e.g., '~system' or '~home')
+    if (token.mounts[vpath]) {
+      return token.mounts[vpath];
+    }
+
+    // Handle path within mount (e.g., '~data/users' or '~/data/projects/gridranger/docs')
     for (const [alias, realRoot] of Object.entries(token.mounts)) {
-      if (vpath.startsWith(alias)) {
+      if (vpath.startsWith(alias + '/')) {
         return realRoot + vpath.slice(alias.length);
       }
     }
-    throw new Error('No valid mount for path');
+    
+    // Handle implicit path mapping for users without explicit aliases
+    if (!vpath.startsWith('~')) {
+      // For relative paths, try to map to user's home mount first
+      const userHomeMounts = Object.entries(token.mounts).filter(([alias]) => alias.startsWith('~/data/'));
+      if (userHomeMounts.length > 0) {
+        const [homeAlias, homeRoot] = userHomeMounts[0];
+        return path.join(homeRoot, vpath);
+      }
+      
+      // Fallback to ~data if available
+      if (token.mounts['~data']) {
+        return path.join(token.mounts['~data'], vpath);
+      }
+      
+      // Last resort: try ~system for admin users
+      if (token.mounts['~system']) {
+        return path.join(token.mounts['~system'], vpath);
+      }
+    }
+    
+    throw new Error(`No valid mount for path: ${vpath}`);
   }
 
   // -------- Internals --------

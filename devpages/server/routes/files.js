@@ -91,6 +91,11 @@ const contentSubDir = 'data'; // The name of the subdir in PD_DIR linking to MD_
 
 // Helper function to get effective path with org
 function getEffectivePath(req, pathname) {
+    // If the path starts with a tilde, it's a virtual path and should not be modified.
+    if (pathname.startsWith('~')) {
+        return pathname;
+    }
+
     // Safely access session with explicit null checks and defensive programming
     let org = (req.query && req.query.org) || (req.body && req.body.org);
     if (!org && req.session && req.session.org) {
@@ -111,6 +116,21 @@ function getEffectivePath(req, pathname) {
     return pathname;
 }
 
+// Helper function to create an auth token from a request object
+async function createAuthToken(req) {
+    if (!req.user || !req.user.username) {
+        throw new Error('User authentication data is missing from the request.');
+    }
+    const username = req.user.username;
+    const userRoles = req.pdata.getUserRoles(username);
+    return {
+        username: username,
+        roles: userRoles,
+        caps: req.pdata.capabilityManager.expandRolesToCapabilities(userRoles),
+        mounts: await req.pdata._createUnifiedMounts(username, userRoles)
+    };
+}
+
 /**
  * GET /api/files/list
  * Get list of files and subdirectories in a directory
@@ -118,44 +138,42 @@ function getEffectivePath(req, pathname) {
 router.get('/list', authMiddleware, async (req, res) => {
     const clientPathname = req.query.pathname || '/';
     
-    // Defensive coding: Ensure req.user exists before accessing properties
-    if (!req.user || !req.user.username) {
-        console.error(`[API /list] User object not found on request after auth middleware. This should not happen.`);
-        return res.status(500).json({ error: 'User authentication data is missing from the request.' });
-    }
-    const username = req.user.username;
-    const userRole = req.pdata.getUserRole(username);
-    
-    let effectivePath;
-    
-    if (userRole === 'admin') {
-        // Admin users get direct access to all paths
-        effectivePath = clientPathname === '/' ? '/' : clientPathname;
-    } else {
-        // Regular users: apply org logic and personal directory restrictions
-        effectivePath = getEffectivePath(req, clientPathname);
-        
-        // If regular user requested the root, redirect to their personal directory
-        if (clientPathname === '/') {
-            effectivePath = username;
-        }
-    }
-    
-    console.log(`[API /list] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
-    
     try {
-        const result = await req.pdata.listDirectory(username, effectivePath);
+        const username = req.user.username;
+        const effectivePath = getEffectivePath(req, clientPathname);
+
+        console.log(`[API /list] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
+
+        let result;
+        if (effectivePath.startsWith('~')) {
+            // Use token-based authorization for virtual paths
+            const authToken = await createAuthToken(req);
+            result = await req.pdata.listDirectory(authToken, effectivePath);
+        } else {
+            // Use legacy username-based authorization for relative paths
+            const userRole = req.pdata.getUserRole(username);
+            let legacyPath = effectivePath;
+            if (userRole === 'admin' && clientPathname === '/') {
+                const mounts = await req.pdata.getAvailableTopDirs(username);
+                return res.json({ pathname: '/', dirs: mounts, files: [] });
+            }
+            if (clientPathname === '/' && userRole !== 'admin') {
+                legacyPath = username;
+            }
+            result = await req.pdata.listDirectory(username, legacyPath);
+        }
+
         console.log(`[API /list] Success for '${effectivePath}': ${result.dirs.length} dirs, ${result.files.length} files`);
         res.json({
-            pathname: clientPathname, // Return original client pathname
+            pathname: clientPathname,
             dirs: result.dirs,
             files: result.files
         });
     } catch (error) {
-        console.error(`[API /list] Error for '${effectivePath}':`, error.message);
+        console.error(`[API /list] Error for '${req.query.pathname || '/'}':`, error.message);
         res.status(500).json({
-            error: `Failed to list contents for '${clientPathname}': ${error.message}`,
-            requestedPath: clientPathname
+            error: `Failed to list contents for '${req.query.pathname || '/'}': ${error.message}`,
+            requestedPath: req.query.pathname || '/'
         });
     }
 });
@@ -190,15 +208,28 @@ router.get('/content', authMiddleware, async (req, res) => {
     const clientPathname = req.query.pathname;
     if (!clientPathname) {
         return res.status(400).json({ error: 'pathname parameter is required' });
-  }
-    
-    const effectivePath = getEffectivePath(req, clientPathname);
-    const username = req.user.username;
-    console.log(`[API /content] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
-    
+    }
+
     try {
-        const content = await req.pdata.readFile(username, effectivePath);
+        const effectivePath = getEffectivePath(req, clientPathname);
+        const username = req.user.username;
+        console.log(`[API /content] Client requested: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
+
+        let content;
+        if (effectivePath.startsWith('~')) {
+            // Use token-based authorization for virtual paths
+            const authToken = await createAuthToken(req);
+            content = await req.pdata.readFile(authToken, effectivePath);
+        } else {
+            // Use legacy username-based authorization for relative paths
+            content = await req.pdata.readFile(username, effectivePath);
+        }
+        
         console.log(`[API /content] Success for '${effectivePath}': ${content.length} chars`);
+
+        // ---> START DIAGNOSTIC LOG <---
+        console.log(`[files.js] Sending content for ${clientPathname}. Preview: ${content.substring(0, 200)}...`);
+        // --->  END DIAGNOSTIC LOG  <---
 
         const extension = path.extname(clientPathname).toLowerCase();
         let contentType = 'text/plain'; // Default
@@ -220,25 +251,30 @@ router.get('/content', authMiddleware, async (req, res) => {
         } else if (extension === '.svg') {
             contentType = 'image/svg+xml';
         }
-        // Add more MIME types as needed
+        
+        // Set cache-control headers to prevent the browser from caching the file content response.
+        // This is crucial to prevent showing stale content when switching between files.
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
 
         console.log(`[API /content] Determined Content-Type for '${clientPathname}': ${contentType}`);
-
         res.type(contentType).send(content);
-  } catch (error) {
-        console.error(`[API /content] Error for '${effectivePath}':`, error.message);
+    } catch (error) {
+        console.error(`[API /content] Error for '${clientPathname}':`, error.message);
         res.status(500).json({
             error: `Failed to read file '${clientPathname}': ${error.message}`,
             requestedPath: clientPathname
-    });
-  }
+        });
+    }
 });
 
 /**
  * POST /api/files/save
  * Save file content
  */
-router.post('/save', express.json({ type: '*/*' }), async (req, res) => {
+router.post('/save', express.json({ type: '*/*' }), authMiddleware, async (req, res) => {
     const { pathname: clientPathname, content, org } = req.body;
     if (!clientPathname || content === undefined) {
         return res.status(400).json({ error: 'pathname and content are required' });
@@ -248,8 +284,27 @@ router.post('/save', express.json({ type: '*/*' }), async (req, res) => {
     const username = req.user.username;
     console.log(`[API /save] Client saving: '${clientPathname}', effective path: '${effectivePath}', user: '${username}'`);
     
+    // CRITICAL SECURITY CHECK: Prevent creation of literal ~ directories
+    if (effectivePath.includes('~') && !effectivePath.startsWith('~')) {
+        console.error(`[API /save] SECURITY VIOLATION: Attempted to create literal ~ directory: '${effectivePath}', user: '${username}'`);
+        return res.status(400).json({
+            error: 'Invalid path: literal ~ characters in non-virtual paths are forbidden',
+            requestedPath: clientPathname
+        });
+    }
+    
     try {
-        await req.pdata.writeFile(username, effectivePath, content);
+        if (effectivePath.startsWith('~')) {
+            // Use token-based authorization for virtual paths
+            const authToken = await createAuthToken(req);
+            console.log(`[API /save] Using token-based auth for virtual path: '${effectivePath}'`);
+            await req.pdata.writeFile(authToken, effectivePath, content);
+        } else {
+            // Use legacy username-based authorization for relative paths
+            console.log(`[API /save] Using username-based auth for relative path: '${effectivePath}'`);
+            await req.pdata.writeFile(username, effectivePath, content);
+        }
+        
         console.log(`[API /save] Success for '${effectivePath}': ${content.length} chars saved`);
         res.json({
             success: true,

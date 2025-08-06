@@ -7,7 +7,6 @@ import { appStore } from '/client/appState.js';
 import { appDispatch } from '/client/appDispatch.js';
 import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { getParentPath } from '/client/utils/pathUtils.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 
 /**
  * Simple path actions for local state updates (no server interaction)
@@ -29,12 +28,6 @@ export const pathActions = {
     clearError: () => ({
         type: 'path/clearError'
     }),
-
-    // File state actions for backward compatibility
-    setCurrentFile: (pathname, isDirectory = false) => ({
-        type: ActionTypes.FS_SET_CURRENT_PATH,
-        payload: { pathname, isDirectory }
-    })
 };
 
 /**
@@ -222,7 +215,7 @@ export const navigationHelpers = {
             }
             
             // HYBRID: Update file state with simple action
-            appStore.dispatch(pathActions.setCurrentFile(newPath, false));
+            appStore.dispatch(pathActions.setCurrentPath(newPath, false));
             
             return result;
         }

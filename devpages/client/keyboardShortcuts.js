@@ -5,11 +5,10 @@
 
 import { logMessage } from './log/index.js';
 import { eventBus } from './eventBus.js';
-import { dispatch } from './messaging/messageQueue.js';
-import { ActionTypes } from './messaging/actionTypes.js';
-import { triggerActions } from '/client/actions.js';
+import { triggerActions } from './actions.js';
 import { appStore } from './appState.js';
 import { panelThunks } from './store/slices/panelSlice.js';
+import { uiThunks } from './store/uiSlice.js';
 
 const SMART_COPY_A_KEY = 'smartCopyBufferA';
 const SMART_COPY_B_KEY = 'smartCopyBufferB';
@@ -39,12 +38,9 @@ const shortcutMappings = [
     // Comprehensive Refresh (Ctrl+Shift+R)
     { key: 'r', ctrl: true, shift: true, alt: false, useDispatch: false, action: 'shortcut:comprehensiveRefresh', payload: null },
     // Set View Modes (Using dispatch and the reducer)
-    { key: '1', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'editor' } },
-    { key: '2', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'preview' } },
-    { key: '3', ctrl: false, shift: false, alt: true, useDispatch: true, action: ActionTypes.UI_SET_VIEW_MODE, payload: { viewMode: 'split' } },
-    // SmartCopy Actions (Integrated)
-    { key: 'A', ctrl: true, shift: true, alt: false, triggerAction: 'setSmartCopyBufferA' },
-    { key: 'B', ctrl: true, shift: true, alt: false, useDispatch: true, action: ActionTypes.SET_SMART_COPY_B, payload: null },
+    { key: '1', ctrl: false, shift: false, alt: true, useDispatch: true, action: uiThunks.setViewMode, payload: 'editor' },
+    { key: '2', ctrl: false, shift: false, alt: true, useDispatch: true, action: uiThunks.setViewMode, payload: 'preview' },
+    { key: '3', ctrl: false, shift: false, alt: true, useDispatch: true, action: uiThunks.setViewMode, payload: 'split' },
 ];
 
 // Initialize keyboard shortcuts
@@ -93,9 +89,9 @@ export function initKeyboardShortcuts() {
                     triggerActions[mapping.triggerAction](); // Call function from triggerActions
                 } else if (mapping.useDispatch) {
                     if (typeof mapping.action === 'function') {
-                        dispatch(mapping.action(mapping.payload));
+                        appStore.dispatch(mapping.action(mapping.payload));
                     } else {
-                        dispatch({ type: mapping.action, payload: mapping.payload });
+                        appStore.dispatch({ type: mapping.action, payload: mapping.payload });
                     }
                 } else { // Assumes eventBus if not useDispatch and not triggerAction
                     eventBus.emit(mapping.action, mapping.payload);
@@ -115,7 +111,7 @@ export function initKeyboardShortcuts() {
                 if (window.debugPanelManager) {
                     window.debugPanelManager.toggleVisibility();
                 } else {
-                     console.error("[GENERAL] Debug Panel Manager not found on window.");
+                    console.error("[GENERAL] DebugPanelManager not found on window.debugPanelManager.");
                 }
             } else if (event.key === 'O') {
                 event.preventDefault();

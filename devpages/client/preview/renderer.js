@@ -891,14 +891,14 @@ async function loadHighlightJS() {
         // Load CSS
         const cssLink = document.createElement('link');
         cssLink.rel = 'stylesheet';
-        cssLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css';
+        cssLink.href = '/client/vendor/styles/highlight-github.min.css';
         cssLink.id = 'highlight-theme-css';
         document.head.appendChild(cssLink);
         
         // Load JS
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js';
+            script.src = '/client/vendor/scripts/highlight.min.js';
             script.onload = resolve;
             script.onerror = reject;
             document.head.appendChild(script);

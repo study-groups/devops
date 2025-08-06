@@ -9,10 +9,10 @@ const endpoints = {
     userStatus: () => '/api/auth/user',
     
     // File endpoints
-    fileContent: (pathname) => `/api/files/content?pathname=${encodeURIComponent(pathname)}`,
-    directoryList: (pathname) => `/api/files/list?pathname=${encodeURIComponent(pathname)}`,
+    fileContent: (pathname) => `/api/files/content?pathname=${pathname}`,
+    directoryList: (pathname) => `/api/files/list?pathname=${pathname}`,
     saveFile: () => '/api/files/save',
-    deleteFile: (pathname) => `/api/files/delete?pathname=${encodeURIComponent(pathname)}`,
+    deleteFile: (pathname) => `/api/files/delete?pathname=${pathname}`,
     
     // Config endpoints
     getConfig: (directory) => `/api/config?directory=${encodeURIComponent(directory)}`
@@ -463,8 +463,7 @@ const api = {
         }
         log.debug('API_REQUEST', 'DELETE_FILE', `deleteFile called for: ${relativePath}`);
 
-        const encodedPath = encodeURIComponent(relativePath);
-        const url = `/api/files/delete?pathname=${encodedPath}`;
+        const url = `/api/files/delete?pathname=${relativePath}`;
 
         const options = {
             method: 'DELETE'

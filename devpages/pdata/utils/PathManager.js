@@ -123,6 +123,37 @@ class PathManager {
         }
         return { isSymlink: false, targetPath: null, canAccess: false };
     }
+
+    /**
+     * UNIFIED MOUNTING: Check if a path is within a user's unified mount
+     * This is used by token-based operations for consistency checking
+     */
+    isPathWithinMount(absolutePath, mountPath) {
+        const normalizedPath = path.resolve(absolutePath);
+        const normalizedMount = path.resolve(mountPath);
+        return normalizedPath.startsWith(normalizedMount);
+    }
+
+    /**
+     * UNIFIED MOUNTING: Validate that a token-resolved path is secure
+     * Ensures path doesn't escape the mount boundaries
+     */
+    validateTokenPath(absolutePath, token) {
+        // Get the mount root from the token
+        const mountEntries = Object.entries(token.mounts);
+        if (mountEntries.length === 0) {
+            throw new Error('Token has no valid mounts');
+        }
+
+        // Check if path is within any of the token's mounts
+        for (const [alias, mountPath] of mountEntries) {
+            if (this.isPathWithinMount(absolutePath, mountPath)) {
+                return true;
+            }
+        }
+
+        throw new Error(`Path ${absolutePath} is outside allowed mount boundaries`);
+    }
 }
 
 export { PathManager };

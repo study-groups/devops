@@ -1,0 +1,26 @@
+/**
+ * Loading styles for PathManager during system initialization
+ */
+
+.path-manager-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: var(--space-2, 8px);
+    color: var(--color-foreground-muted, #666);
+    font-size: var(--font-size-sm, 12px);
+}
+
+.loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border, #e0e0e0);
+    border-top: 2px solid var(--color-primary, #007bff);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

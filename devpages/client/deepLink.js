@@ -102,7 +102,7 @@ export function initDeepLinkHandler() {
     if (dir) {
         // Check if user is logged in by accessing appState directly
         const authState = appStore.getState().auth;
-        if (!authState.isLoggedIn && authState.authChecked) {
+        if (!authState.isAuthenticated && authState.authChecked) {
             // User is not logged in but auth check is complete, save the deep link
             saveDeepLinkRequest();
             log.info('DEEP_LINK', 'URL_PARAMS_SAVED', 'URL parameters saved for post-login navigation');

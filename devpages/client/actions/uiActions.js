@@ -1,8 +1,9 @@
 /**
+import { appStore } from "/client/appState.js";
  * UI action handlers
  * Responsible for UI interactions like view modes, log panel, etc.
  */
-import { dispatch } from '/client/messaging/messageQueue.js';
+// REMOVED: messageQueue import (file deleted)
 import { uiActions } from '/client/messaging/actionCreators.js';
 
 // Get a dedicated logger for this module

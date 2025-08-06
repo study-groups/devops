@@ -56,7 +56,7 @@ class DevPagesConsolidator {
     setupMigrationMap() {
         // Define the migration mapping from old globals to new paths
         this.migrationMap.set('panelManager', 'devpages.panels.manager');
-        // panelUIManager removed - functionality moved to WorkspaceLayoutManager
+        // panelUIManager removed - functionality moved to WorkspaceManager
         this.migrationMap.set('iconsPanel', 'devpages.panels.icons');
         this.migrationMap.set('iconUtils', 'devpages.utils.icons');
         

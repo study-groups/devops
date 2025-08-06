@@ -10,7 +10,7 @@ import {
     initializePreviewSystem, 
     updatePreviewContent as updatePreviewContentAction 
 } from '/client/store/slices/previewSlice.js';
-import { createAsyncThunk } from '/packages/devpages-statekit/src/index.js';
+import { createAsyncThunk } from '/client/vendor/scripts/redux-toolkit.mjs';
 import { renderMarkdown, postProcessRender } from './renderer.js';
 
 const log = window.APP.services.log.createLogger('Preview');

@@ -1,25 +1,17 @@
 /**
  * CodePanel.js - Code file browser integrated as a panel
- * 
- * Converts the existing code sidebar/file list functionality into a panel-based component
- * that can be managed by the PanelManager system.
+ * REFACTORED to use the new PanelInterface.
  */
 
 import { BasePanel } from './BasePanel.js';
 import { appStore } from '/client/appState.js';
 import eventBus from '/client/eventBus.js';
+import { getCurrentPathname } from '../store/selectors.js';
 
 export class CodePanel extends BasePanel {
     constructor(options = {}) {
-        super('code', {
-            width: 300,
-            minWidth: 250,
-            maxWidth: 500,
-            order: 1, // Second panel from left
-            ...options
-        });
+        super(options);
 
-        // Code panel specific state
         this.codeState = {
             currentPath: '',
             directories: [],
@@ -29,71 +21,54 @@ export class CodePanel extends BasePanel {
             loading: false
         };
 
-        // File type handlers for different file extensions
         this.fileTypeHandlers = this.initializeFileTypeHandlers();
-
-        this.log('CodePanel initialized', 'info');
+        this.storeUnsubscribe = null;
     }
 
-    init() {
-        super.init();
-        let prevState = appStore.getState(); // Initialize previous state
-        // Subscribe to relevant state changes
+    render() {
+        this.element = document.createElement('div');
+        this.element.className = 'code-panel-content';
+        this.updateContentElement();
+        return this.element;
+    }
+
+    onMount(container) {
+        super.onMount(container);
+        this.loadFiles();
+        
+        // BETTER REDUX PATTERN: Use selectors instead of direct state access
+        let prevState = appStore.getState();
+        let prevPathname = getCurrentPathname(prevState);
+        
         this.storeUnsubscribe = appStore.subscribe(() => {
             const newState = appStore.getState();
-            if (newState.file.currentPathname !== prevState.file.currentPathname) {
-                this.handleFileChange(newState.file.currentPathname);
+            const newPathname = getCurrentPathname(newState);
+            
+            if (newPathname !== prevPathname) {
+                this.handleFileChange(newPathname);
+                prevPathname = newPathname;
             }
-            if (newState.file.currentContent !== prevState.file.currentContent) {
-                this.handleContentChange(newState.file.currentContent);
-            }
-            prevState = newState; // Update previous state
+            prevState = newState;
         });
+
+        eventBus.on('path:changed', this.handleExternalPathChange.bind(this));
+        this.element.addEventListener('click', this.handleClick.bind(this));
     }
 
-    /**
-     * Get panel title
-     */
-    getTitle() {
-        return 'Project Files';
-    }
-
-    /**
-     * Setup event listeners
-     */
-    onSetupEventListeners() {
-        // Listen for external path changes
-        if (eventBus && typeof eventBus.on === 'function') {
-            eventBus.on('path:changed', this.handleExternalPathChange.bind(this));
+    onUnmount() {
+        super.onUnmount();
+        if (this.storeUnsubscribe) {
+            this.storeUnsubscribe();
         }
-
-        // Setup click delegation for file/directory items
-        if (this.contentElement) {
-            this.addEventListener(this.contentElement, 'click', this.handleClick.bind(this));
-        }
+        eventBus.off('path:changed', this.handleExternalPathChange.bind(this));
     }
 
-    /**
-     * Handle app store changes
-     */
-    handleStoreChange(newState, prevState) {
-        const newFileState = newState.file;
-        const prevFileState = prevState.file || {};
-
-        const pathChanged = newFileState?.currentPathname !== prevFileState?.currentPathname;
-        const isDirectoryChanged = newFileState?.isDirectorySelected !== prevFileState?.isDirectorySelected;
-
-        if (pathChanged || isDirectoryChanged) {
-            this.codeState.currentPath = this.getCurrentPath();
-            this.loadFiles();
-        }
+    handleFileChange(newPath) {
+        this.codeState.currentPath = newPath || '';
+        this.loadFiles();
     }
 
-    /**
-     * Handle external path changes
-     */
     handleExternalPathChange(eventData) {
-        this.log(`External path change: ${JSON.stringify(eventData)}`, 'debug');
         const newPath = eventData?.path || '';
         if (newPath !== this.codeState.currentPath) {
             this.codeState.currentPath = newPath;
@@ -101,406 +76,98 @@ export class CodePanel extends BasePanel {
         }
     }
 
-    /**
-     * Get current path from app state
-     */
     getCurrentPath() {
-        if (window.appStore) {
-            const state = window.appStore.getState();
-            return state.file?.currentPathname || '';
-        }
-        return this.codeState.currentPath || '';
+        const state = appStore.getState();
+        return getCurrentPathname(state); // Uses selector with built-in defensive programming
     }
 
-    /**
-     * Initialize file type handlers
-     */
-    initializeFileTypeHandlers() {
-        return {
-            // JavaScript files
-            'js': {
-                icon: '🟨',
-                category: 'script',
-                description: 'JavaScript Module',
-                color: '#f7df1e',
-                canParse: true,
-                language: 'javascript'
-            },
-            'mjs': {
-                icon: '🟨',
-                category: 'script', 
-                description: 'ES Module',
-                color: '#f7df1e',
-                canParse: true,
-                language: 'javascript'
-            },
-            
-            // HTML files
-            'html': {
-                icon: '🟧',
-                category: 'markup',
-                description: 'HTML Document',
-                color: '#e34f26',
-                canParse: true,
-                language: 'html'
-            },
-            'htm': {
-                icon: '🟧',
-                category: 'markup',
-                description: 'HTML Document',
-                color: '#e34f26',
-                canParse: true,
-                language: 'html'
-            },
-
-            // CSS files
-            'css': {
-                icon: '🟦',
-                category: 'style',
-                description: 'Stylesheet',
-                color: '#1572b6',
-                canParse: true,
-                language: 'css'
-            },
-
-            // Markdown files
-            'md': {
-                icon: '📝',
-                category: 'document',
-                description: 'Markdown Document',
-                color: '#083fa1',
-                canParse: false,
-                language: 'markdown'
-            },
-
-            // Shell scripts
-            'sh': {
-                icon: '⚫',
-                category: 'script',
-                description: 'Shell Script',
-                color: '#89e051',
-                canParse: true,
-                language: 'bash'
-            },
-
-            // Config files
-            'json': {
-                icon: '🔧',
-                category: 'config',
-                description: 'JSON Data',
-                color: '#000000',
-                canParse: true,
-                language: 'json'
-            },
-
-            // DevPages specific
-            'devpage': {
-                icon: '📋',
-                category: 'devpages',
-                description: 'DevPage Definition',
-                color: '#6f42c1',
-                canParse: false,
-                language: 'json'
-            }
-        };
-    }
-
-    /**
-     * Load files for current path
-     */
-    async loadFiles(path = '', options = { source: 'internal' }) {
+    async loadFiles(path = '') {
         this.codeState.loading = true;
-        this.render(); // Show loading state
+        this.updateContentElement();
 
         const targetPath = path || this.getCurrentPath();
         
         try {
-            this.log(`Loading files for path: '${targetPath}'`, 'debug');
-
-            // Simulate API call to get file listing
-            // In real implementation, this would call the server API
             const response = await this.fetchFileListing(targetPath);
             
             if (response && response.dirs && response.files) {
                 this.codeState.directories = response.dirs || [];
                 this.codeState.files = response.files || [];
                 this.codeState.currentPath = targetPath;
-                
-                this.log(`Loaded ${this.codeState.directories.length} directories and ${this.codeState.files.length} files`, 'debug');
             } else {
                 this.codeState.directories = [];
                 this.codeState.files = [];
             }
         } catch (error) {
-            this.log(`Error loading files: ${error.message}`, 'error');
+            console.error(`Error loading files: ${error.message}`);
             this.codeState.directories = [];
             this.codeState.files = [];
         } finally {
             this.codeState.loading = false;
-            this.render();
+            this.updateContentElement();
         }
     }
 
-    /**
-     * Fetch file listing from server (placeholder)
-     */
     async fetchFileListing(path) {
-        // This is a placeholder - in real implementation this would
-        // call the actual API endpoint
         if (window.api && typeof window.api.getFileList === 'function') {
             return await window.api.getFileList(path);
         }
-        
-        // Fallback: try to get from app state
-        const state = window.appStore?.getState();
-        const currentListing = state?.file?.currentListing;
-        
-        if (currentListing && currentListing.pathname === path) {
-            return {
-                dirs: currentListing.dirs || [],
-                files: currentListing.files || []
-            };
-        }
-        
-        // Default empty response
         return { dirs: [], files: [] };
     }
 
-    /**
-     * Render the code panel content
-     */
-    render() {
-        if (!this.contentElement) return;
+    updateContentElement() {
+        if (!this.element) return;
 
         if (this.codeState.loading) {
-            this.contentElement.innerHTML = `
-                <div class="panel-loading">
-                    <div class="loading-spinner"></div>
-                    <div>Loading files...</div>
-                </div>
-            `;
-            this.applyPanelStyles();
+            this.element.innerHTML = `<div class="panel-loading"><div class="loading-spinner"></div><div>Loading files...</div></div>`;
             return;
         }
 
         const { directories, files } = this.codeState;
         
         if (directories.length === 0 && files.length === 0) {
-            this.contentElement.innerHTML = `
-                <div class="panel-empty">
-                    <div class="empty-icon">📁</div>
-                    <div>No files found</div>
-                    <div class="empty-hint">Check your current directory path</div>
-                </div>
-            `;
-            this.applyPanelStyles();
+            this.element.innerHTML = `<div class="panel-empty"><div class="empty-icon">📁</div><div>No files found</div></div>`;
             return;
         }
 
-        // Build file list HTML
         let fileListHTML = '';
-
-        // Add directories first
         directories.forEach(dirName => {
             fileListHTML += this.createFileItemHTML(dirName, 'directory');
         });
-
-        // Add files
         files.forEach(fileName => {
             fileListHTML += this.createFileItemHTML(fileName, 'file');
         });
 
-        this.contentElement.innerHTML = `
-            <div class="file-list-container">
-                ${fileListHTML}
-            </div>
-        `;
-
-        this.applyPanelStyles();
+        this.element.innerHTML = `<div class="file-list-container">${fileListHTML}</div>`;
     }
 
-    /**
-     * Create HTML for a file/directory item
-     */
     createFileItemHTML(name, type) {
         const isDirectory = type === 'directory';
-        const extension = isDirectory ? null : name.split('.').pop().toLowerCase();
         const fileInfo = this.getFileInfo(name, type);
-        
         const icon = isDirectory ? '📁' : (fileInfo.icon || '📄');
-        const displayName = isDirectory ? name : name;
         
         return `
-            <div class="file-item file-item-${type}" 
-                 data-name="${name}" 
-                 data-type="${type}"
-                 title="${fileInfo.description || (isDirectory ? 'Directory' : 'File')}">
+            <div class="file-item file-item-${type}" data-name="${name}" data-type="${type}" title="${fileInfo.description || name}">
                 <span class="file-icon">${icon}</span>
-                <span class="file-name">${displayName}</span>
-                ${isDirectory ? '' : `<span class="file-ext">.${extension || ''}</span>`}
+                <span class="file-name">${name}</span>
             </div>
         `;
     }
 
-    /**
-     * Get file information based on extension
-     */
     getFileInfo(fileName, type) {
         if (type === 'directory') {
-            return {
-                icon: '📁',
-                description: 'Directory',
-                category: 'directory'
-            };
+            return { icon: '📁', description: 'Directory', category: 'directory' };
         }
-
         const extension = fileName.split('.').pop().toLowerCase();
-        return this.fileTypeHandlers[extension] || {
-            icon: '📄',
-            description: 'File',
-            category: 'unknown',
-            color: '#6c757d'
-        };
+        return this.fileTypeHandlers[extension] || { icon: '📄', description: 'File', category: 'unknown' };
     }
 
-    /**
-     * Apply panel-specific styles
-     */
-    applyPanelStyles() {
-        if (!this.contentElement) return;
-
-        // Add styles for the code panel
-        const style = document.createElement('style');
-        style.textContent = `
-            .panel-code .file-list-container {
-                height: 100%;
-                overflow-y: auto;
-            }
-            
-            .panel-code .file-item {
-                display: flex;
-                align-items: center;
-                padding: 6px 8px;
-                cursor: pointer;
-                border-radius: 3px;
-                margin: 1px 0;
-                font-size: 13px;
-                color: #333;
-                transition: background-color 0.15s ease;
-                user-select: none;
-            }
-            
-            .panel-code .file-item:hover {
-                background-color: #e9ecef;
-            }
-            
-            .panel-code .file-item:active {
-                background-color: #dee2e6;
-            }
-            
-            .panel-code .file-icon {
-                margin-right: 8px;
-                width: 16px;
-                text-align: center;
-                font-size: 12px;
-                opacity: 0.8;
-            }
-            
-            .panel-code .file-name {
-                flex: 1;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                line-height: 1.3;
-            }
-            
-            .panel-code .file-ext {
-                font-size: 11px;
-                color: #6c757d;
-                opacity: 0.7;
-            }
-            
-            .panel-code .file-item-directory {
-                font-weight: 500;
-            }
-            
-            .panel-code .file-item-directory .file-name {
-                color: #495057;
-            }
-            
-            .panel-code .file-item-file .file-name {
-                color: #6c757d;
-            }
-            
-            .panel-code .panel-loading {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 100px;
-                color: #6c757d;
-                font-style: italic;
-            }
-            
-            .panel-code .loading-spinner {
-                width: 20px;
-                height: 20px;
-                border: 2px solid #f3f3f3;
-                border-top: 2px solid #007bff;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin-bottom: 8px;
-            }
-            
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            
-            .panel-code .panel-empty {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 150px;
-                color: #6c757d;
-                text-align: center;
-            }
-            
-            .panel-code .empty-icon {
-                font-size: 32px;
-                margin-bottom: 8px;
-                opacity: 0.5;
-            }
-            
-            .panel-code .empty-hint {
-                font-size: 11px;
-                opacity: 0.7;
-                margin-top: 4px;
-            }
-        `;
-        
-        // Add class to content element
-        this.contentElement.classList.add('panel-code');
-        
-        // Append style if not already present
-        if (!document.head.querySelector('style[data-code-panel]')) {
-            style.setAttribute('data-code-panel', 'true');
-            document.head.appendChild(style);
-        }
-    }
-
-    /**
-     * Handle click events on file/directory items
-     */
     handleClick(event) {
         const fileItem = event.target.closest('.file-item');
         if (!fileItem) return;
 
         const name = fileItem.dataset.name;
         const type = fileItem.dataset.type;
-
-        this.log(`File item clicked: ${name} (${type})`, 'debug');
 
         if (type === 'directory') {
             this.handleDirectoryClick(name);
@@ -509,77 +176,28 @@ export class CodePanel extends BasePanel {
         }
     }
 
-    /**
-     * Handle directory click
-     */
     handleDirectoryClick(dirName) {
-        this.log(`Opening directory: ${dirName}`, 'debug');
-        
         const currentPath = this.getCurrentPath();
         const newPath = currentPath ? `${currentPath}/${dirName}` : dirName;
-        
-        // Emit navigation event
-        if (eventBus) {
-            eventBus.emit('navigate:pathname', { 
-                pathname: newPath, 
-                isDirectory: true 
-            });
-        }
+        eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: true });
     }
 
-    /**
-     * Handle file click
-     */
     handleFileClick(fileName) {
-        this.log(`Opening file: ${fileName}`, 'debug');
-        
         const currentPath = this.getCurrentPath();
         const newPath = currentPath ? `${currentPath}/${fileName}` : fileName;
-        
-        // Emit navigation event
-        if (eventBus) {
-            eventBus.emit('navigate:pathname', { 
-                pathname: newPath, 
-                isDirectory: false 
-            });
-        }
+        eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: false });
     }
 
-    /**
-     * Refresh file list
-     */
-    refresh() {
-        this.log('Refreshing file list', 'debug');
-        this.loadFiles();
+    initializeFileTypeHandlers() {
+        return {
+            'js': { icon: '🟨', description: 'JavaScript Module' },
+            'mjs': { icon: '🟨', description: 'ES Module' },
+            'html': { icon: '🟧', description: 'HTML Document' },
+            'css': { icon: '🟦', description: 'Stylesheet' },
+            'md': { icon: '📝', description: 'Markdown Document' },
+            'sh': { icon: '⚫', description: 'Shell Script' },
+            'json': { icon: '🔧', description: 'JSON Data' },
+            'devpage': { icon: '📋', description: 'DevPage Definition' }
+        };
     }
-
-    /**
-     * Called when panel is mounted
-     */
-    onMount() {
-        this.log('CodePanel mounted', 'info');
-        this.loadFiles(); // Load initial file list
-    }
-
-    /**
-     * Called when panel is shown
-     */
-    onShow() {
-        this.log('CodePanel shown', 'debug');
-        this.refresh(); // Refresh when shown
-    }
-
-    /**
-     * Called when panel is hidden
-     */
-    onHide() {
-        this.log('CodePanel hidden', 'debug');
-    }
-
-    /**
-     * Called when panel is resized
-     */
-    onResize() {
-        this.log(`CodePanel resized to ${this.state.width}px`, 'debug');
-    }
-} 
+}

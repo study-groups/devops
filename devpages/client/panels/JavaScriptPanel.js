@@ -80,7 +80,7 @@ export class JavaScriptPanel extends BasePanel {
                     </div>
                 </div>
                 <div id="javascript-preview" class="javascript-preview js-content" data-js-content>
-                    <div class="js-loading-state" style="display: none;">
+                    <div class="js-loading-state" data-visible="false">
                         <div class="loading-spinner"></div>
                         <div>Loading JavaScript...</div>
                     </div>
@@ -301,7 +301,7 @@ export class JavaScriptPanel extends BasePanel {
         
         const loadingState = this.jsContainer.querySelector('.js-loading-state');
         if (loadingState) {
-            loadingState.style.display = 'flex';
+            loadingState.dataset.visible = 'true';
         }
         
         this.jsContainer.classList.add('js-updating');
@@ -344,7 +344,7 @@ export class JavaScriptPanel extends BasePanel {
         // Hide loading state
         const loadingState = this.jsContainer.querySelector('.js-loading-state');
         if (loadingState) {
-            loadingState.style.display = 'none';
+            loadingState.dataset.visible = 'false';
         }
         
         // Remove success class after animation

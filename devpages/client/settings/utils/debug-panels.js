@@ -40,8 +40,11 @@ function debugPanelStates() {
 }
 
 // Expose debug functions globally
-window.debugPanels = debugPanels;
-window.debugPanelStates = debugPanelStates;
+// Expose via APP.debug instead of global window
+window.APP = window.APP || {};
+window.APP.debug = window.APP.debug || {};
+window.APP.debug.panels = debugPanels;
+window.APP.debug.panelStates = debugPanelStates;
 
 // Also check for any CSS & Design panels specifically
 export function debugCssDesignPanels() {
@@ -67,7 +70,7 @@ export function debugCssDesignPanels() {
 }
 
 if (typeof window !== 'undefined') {
-    window.debugCssDesignPanels = debugCssDesignPanels;
+    window.APP.debug.cssDesignPanels = debugCssDesignPanels;
 }
 
 // Function to check and clear problematic localStorage values
@@ -160,6 +163,6 @@ export function clearProblematicLocalStorage() {
 }
 
 if (typeof window !== 'undefined') {
-    window.debugLocalStorage = debugLocalStorage;
-    window.clearProblematicLocalStorage = clearProblematicLocalStorage;
+    window.APP.debug.localStorage = debugLocalStorage;
+    window.APP.debug.clearProblematicLocalStorage = clearProblematicLocalStorage;
 } 

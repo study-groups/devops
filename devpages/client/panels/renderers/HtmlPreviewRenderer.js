@@ -46,7 +46,7 @@ export class HtmlPreviewRenderer {
         // Create iframe with enhanced isolation and debugging capabilities
         const iframeHtml = `
             <div class="html-renderer-container" data-file-path="${filePath}">
-                <div class="html-renderer-toolbar" style="display: none;">
+                <div class="html-renderer-toolbar" data-visible="false">
                     <button class="html-debug-btn" title="Debug CSS Issues">🔍 Debug CSS</button>
                     <button class="html-reload-btn" title="Reload Content">🔄 Reload</button>
                 </div>
@@ -96,10 +96,10 @@ export class HtmlPreviewRenderer {
             // Show toolbar on hover
             if (container && toolbar) {
                 container.addEventListener('mouseenter', () => {
-                    toolbar.style.display = 'flex';
+                    toolbar.dataset.visible = 'true';
                 });
                 container.addEventListener('mouseleave', () => {
-                    toolbar.style.display = 'none';
+                    toolbar.dataset.visible = 'false';
                 });
             }
         }

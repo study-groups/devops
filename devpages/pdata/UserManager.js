@@ -30,9 +30,13 @@ class UserManager {
 
         try {
             this.users = this._loadCsvFile(this.usersFilePath, 3, (parts, map) => {
-                const [username, salt, hash] = parts.map(p => p.trim());
-                if (username && salt && hash) map.set(username, { salt, hash });
-            }, "Users", false);
+                const [username, salt, hash, home_dir] = parts.map(p => p.trim());
+                if (username && salt && hash) {
+                    const userData = { salt, hash };
+                    if (home_dir) userData.home_dir = home_dir;
+                    map.set(username, userData);
+                }
+            }, "Users", false, false); // Allow 3 or 4 parts
 
             for (const username of this.users.keys()) {
                 if (!this.roles.has(username)) this.roles.set(username, ['user']);

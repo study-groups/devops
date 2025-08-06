@@ -6,6 +6,7 @@
  */
 
 import * as panelActions from '/client/store/slices/panelSlice.js';
+import { uiActions } from '/client/store/uiSlice.js';
 
 export class KeyboardShortcutHandler {
     constructor(dispatch, getState) {
@@ -228,31 +229,24 @@ export class KeyboardShortcutHandler {
         console.log(`[KeyboardShortcuts] HANDLING SHORTCUT: ${id}`);
         const state = this.getState();
         
-        // Handle special reset action
+        // Mapping from dock ID to uiSlice action
+        const dockActionMap = {
+            'sidebar-dock': () => this.dispatch(uiActions.toggleLeftSidebar()),
+            'editor-dock': () => this.dispatch(uiActions.toggleEditor()),
+            'preview-dock': () => this.dispatch(uiActions.togglePreview()),
+        };
+
+        // Handle special reset action - DISABLED (moved to package debug system)
         if (id === 'reset-defaults') {
-            console.log('☢️ Reset shortcut triggered. Bypassing Redux for nuclear reset.');
-            if (window.APP?.panels?.resetDefaults) {
-                window.APP.panels.resetDefaults();
-            } else {
-                console.error('Nuclear reset function (APP.panels.resetDefaults) not found!');
-            }
+            console.log('☢️ Reset shortcut DISABLED - Redux panel system deprecated');
+            console.log('🎯 Use Ctrl+Shift+D to access the new debug system instead');
             return;
         }
         
         // Handle dock shortcuts
-        if (state.panels.docks[id]) {
-            const dock = state.panels.docks[id];
-            console.log(`[KeyboardShortcuts] DOCK SHORTCUT: ${id}, current visible: ${dock.isVisible}`);
-            
-            if (dock.isVisible) {
-                // If dock is visible, hide it
-                this.dispatch(panelActions.toggleDockVisibility({ dockId: id }));
-                this.log(`Hiding dock: ${id}`);
-            } else {
-                // If dock is hidden, show it and mount its panels
-                this.dispatch(panelActions.toggleDockVisibility({ dockId: id }));
-                this.log(`Showing dock: ${id}`);
-            }
+        if (dockActionMap[id]) {
+            console.log(`[KeyboardShortcuts] DOCK SHORTCUT: ${id}`);
+            dockActionMap[id]();
             return;
         }
         
@@ -261,23 +255,25 @@ export class KeyboardShortcutHandler {
             const panel = state.panels.panels[id];
             console.log(`[KeyboardShortcuts] PANEL SHORTCUT: ${id}, current visible: ${panel.isVisible}`);
             
-            if (panel.isVisible) {
-                // Hide panel
-                this.dispatch(panelActions.togglePanelVisibility({ panelId: id }));
-                this.log(`Hiding panel: ${id}`);
-            } else {
-                // Show panel and ensure its dock is visible
-                this.dispatch(panelActions.togglePanelVisibility({ panelId: id }));
-                
-                // Make sure the dock is also visible
-                if (panel.dockId && state.panels.docks[panel.dockId]) {
-                    this.dispatch(panelActions.toggleDockVisibility({ dockId: panel.dockId, forceVisible: true }));
+            this.dispatch(panelActions.togglePanelVisibility({ panelId: id }));
+
+            // Ensure the dock is visible when showing a panel
+            if (!panel.isVisible && panel.dockId && dockActionMap[panel.dockId]) {
+                const dockState = state.ui;
+                let dockIsVisible = true;
+                if (panel.dockId === 'sidebar-dock') dockIsVisible = dockState.leftSidebarVisible;
+                if (panel.dockId === 'editor-dock') dockIsVisible = dockState.editorVisible;
+                if (panel.dockId === 'preview-dock') dockIsVisible = dockState.previewVisible;
+
+                if (!dockIsVisible) {
+                    dockActionMap[panel.dockId]();
                 }
-                
-                // Activate the panel in its dock
-                this.dispatch(panelActions.activatePanel({ panelId: id }));
-                this.log(`Activated panel in dock: ${id} in ${panel.dockId}`);
             }
+            
+            // Activate the panel in its dock
+            this.dispatch(panelActions.activatePanel({ panelId: id }));
+            this.log(`Activated panel in dock: ${id} in ${panel.dockId}`);
+            
             return;
         }
         

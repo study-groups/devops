@@ -7,8 +7,6 @@
 
 import { BasePanel } from './BasePanel.js';
 import { appStore } from '/client/appState.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import eventBus from '/client/eventBus.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
@@ -33,8 +31,8 @@ export class ContextPanel extends BasePanel {
         let prevState = appStore.getState(); // Initialize previous state
         this.storeUnsubscribe = appStore.subscribe(() => {
             const newState = appStore.getState();
-            if (newState.file.currentPathname !== prevState.file.currentPathname) {
-                this.currentPath = newState.file.currentPathname;
+            if (newState.file?.currentPathname !== prevState.file?.currentPathname) {
+                this.currentPath = newState.file?.currentPathname || '';
                 this.render();
             }
             prevState = newState; // Update previous state

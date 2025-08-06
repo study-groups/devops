@@ -35,6 +35,9 @@ if (window.devpages && window.devpages._internal && window.devpages._internal.co
     window.devpages._internal.consolidator.migrate('pubsub', pubsub);
 } else {
     // Fallback for legacy support
-    window.pubsub = pubsub;
+    // Expose via APP.services instead of global window
+    window.APP = window.APP || {};
+    window.APP.services = window.APP.services || {};
+    window.APP.services.pubsub = pubsub;
 }
 } 

@@ -1,7 +1,7 @@
 // log/ui.js - UI interactions for the log component
-import { dispatch } from '../messaging/messageQueue.js';
-import { ActionTypes } from '../messaging/actionTypes.js';
 // import { showSystemInfo } from '../uiManager.js';
+import { uiSlice } from '/client/store/uiSlice.js';
+import { appStore } from '/client/appState.js';
 
 const log = window.APP.services.log.createLogger('LogUI');
 
@@ -43,7 +43,7 @@ export function initLogToolbar() {
         });
         log.info('LOG', 'INFO_BUTTON_CONNECTED', 'Info button connected to showSystemInfo function');
         */
-        infoBtn.style.display = 'none'; // Hide the button as it does nothing
+        infoBtn.dataset.visible = 'false'; // Hide the button as it does nothing
         log.info('LOG', 'INFO_BUTTON_DISCONNECTED', 'Info button is disconnected and hidden as its function was removed.');
 
     }
@@ -77,7 +77,7 @@ function setupLogResize() {
         const newHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--log-height'), 10);
         
         // Dispatch the action to the global store
-        dispatch({ type: ActionTypes.UI_SET_LOG_HEIGHT, payload: { height: newHeight }});
+        appStore.dispatch(uiSlice.actions.updateSetting({ key: 'logHeight', value: newHeight }));
         
         log.info('LOG', 'RESIZE_COMPLETE', `Resize complete. New height: ${newHeight}px`);
         
@@ -114,14 +114,14 @@ export function ensureLogButtonsConnected() {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                dispatch(action);
+                appStore.dispatch(action);
             });
         }
     };
     
     // Connect the log button in the nav bar and the minimize button
-    connectButton('log-btn', { type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
-    connectButton('minimize-log-btn', { type: ActionTypes.UI_TOGGLE_LOG_VISIBILITY });
+    connectButton('log-btn', uiSlice.actions.updateSetting({ key: 'logVisible', value: !appStore.getState().ui.logVisible }));
+    connectButton('minimize-log-btn', uiSlice.actions.updateSetting({ key: 'logVisible', value: !appStore.getState().ui.logVisible }));
     
     buttonsConnected = true;
     log.info('LOG', 'BUTTONS_CONNECTED', 'Log buttons connected');

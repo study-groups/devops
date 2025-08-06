@@ -40,7 +40,7 @@ class PublishRenderer {
     if (typeof window.markdownit === 'undefined') {
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js';
+        script.src = '/client/vendor/scripts/markdown-it.min.js';
         script.async = true;
         script.onload = resolve;
         script.onerror = reject;

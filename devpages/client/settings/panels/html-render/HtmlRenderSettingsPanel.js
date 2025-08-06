@@ -1,25 +1,25 @@
 /**
- * client/settings/panels/html-render/HtmlRenderSettingsPanel.js
- * Panel for configuring HTML rendering settings.
+ * @file client/settings/panels/html-render/HtmlRenderSettingsPanel.js
+ * @description Panel for configuring HTML rendering settings.
  */
 
+import { BasePanel } from '/client/panels/BasePanel.js';
 import { e } from '/client/components/elements.js';
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 
-export class HtmlRenderSettingsPanel {
-    constructor(container) {
-        this.container = container;
-        this.id = 'html-render-settings-panel';
-        
-        // Render immediately upon construction
-        this.render();
+export class HtmlRenderSettingsPanel extends BasePanel {
+    constructor(options) {
+        super(options);
     }
 
     render() {
-        this.container.innerHTML = `
+        if (!this.element) {
+            this.element = document.createElement('div');
+            this.element.className = 'html-render-settings-panel';
+        }
+        
+        this.element.innerHTML = `
             <div class="settings-section-content">
                 <div class="setting-item">
                     <p>This panel will contain settings to control how .html files are rendered in the preview pane.</p>
@@ -36,16 +36,22 @@ export class HtmlRenderSettingsPanel {
                 </div>
             </div>
         `;
+        
+        return this.element;
+    }
 
+    onMount(container) {
         this.setupEventListeners();
     }
 
     setupEventListeners() {
-        const select = this.container.querySelector('#html-render-mode');
-        select.addEventListener('change', (e) => {
-            console.log(`HTML Render Mode changed to: ${e.target.value}`);
-            // In a real implementation, this would dispatch an action to the app store.
-        });
+        const select = this.element.querySelector('#html-render-mode');
+        if (select) {
+            select.addEventListener('change', (e) => {
+                this.log(`HTML Render Mode changed to: ${e.target.value}`);
+                // In a real implementation, this would dispatch an action to the app store.
+            });
+        }
     }
 
     static getRegistration() {

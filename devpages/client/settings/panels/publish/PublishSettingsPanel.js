@@ -3,12 +3,11 @@
  * Component to manage publish settings and options.
  */
 
-import { dispatch } from '/client/messaging/messageQueue.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 import { e } from '/client/components/elements.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { settingsThunks } from '/client/store/slices/settingsSlice.js';
 
 export class PublishSettingsPanel {
   constructor(containerElement) {
@@ -129,10 +128,7 @@ export class PublishSettingsPanel {
     const radioButtons = this.containerElement.querySelectorAll('input[name="publish-mode"]');
     radioButtons.forEach(radio => {
       radio.addEventListener('change', (event) => {
-        dispatch({
-          type: ActionTypes.SETTINGS_SET_PUBLISH_MODE,
-          payload: event.target.value
-        });
+        appStore.dispatch(settingsThunks.updatePublish({ mode: event.target.value }));
       });
     });
 
@@ -140,10 +136,7 @@ export class PublishSettingsPanel {
     const bundleToggle = this.containerElement.querySelector('#bundle-css-toggle');
     if (bundleToggle) {
       bundleToggle.addEventListener('change', (event) => {
-        dispatch({
-          type: ActionTypes.SETTINGS_SET_PUBLISH_CSS_BUNDLING,
-          payload: event.target.checked
-        });
+        appStore.dispatch(settingsThunks.updatePublish({ bundleCss: event.target.checked }));
       });
     }
   }

@@ -1,10 +1,10 @@
 /**
- * appDispatch.js - StateKit-compatible dispatch wrapper
- * Provides a clean interface for dispatching actions using StateKit patterns
+ * appDispatch.js - Redux dispatch wrapper
+ * Provides a clean interface for dispatching Redux actions
  */
 
 import { appStore } from '/client/appState.js';
-import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { uiThunks } from '/client/store/uiSlice.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('SYSTEM', 'AppDispatch');
@@ -72,10 +72,7 @@ export const dispatchers = {
     // Legacy actions for backward compatibility
     legacy: {
         // Panel actions
-        openSettingsPanel: (payload) => appDispatch({
-            type: ActionTypes.SETTINGS_OPEN_PANEL,
-            payload
-        }),
+        openSettingsPanel: () => appDispatch(uiThunks.toggleContextManager()),
         
         // File actions (until they're migrated to thunks)
         saveFile: () => {
@@ -85,12 +82,6 @@ export const dispatchers = {
                 return { success: true, action: 'file:save' };
             });
         },
-        
-        // Generic state update
-        updateState: (payload) => appDispatch({
-            type: ActionTypes.STATE_UPDATE,
-            payload
-        }),
     }
 };
 
@@ -176,4 +167,4 @@ export default appDispatch;
 // Expose appStore for direct access when needed
 export { appStore } from '/client/appState.js';
 
-log.info('INITIALIZED', 'appDispatch module initialized with StateKit integration'); 
+log.info('INITIALIZED', 'appDispatch module initialized with Redux integration'); 

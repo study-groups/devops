@@ -1,8 +1,9 @@
 /**
+import { appStore } from "/client/appState.js";
  * Editor action handlers
  * Responsible for editor operations like text manipulation
  */
-import { dispatch } from '/client/messaging/messageQueue.js';
+// REMOVED: messageQueue import (file deleted)
 import { smartCopyActions } from '/client/messaging/actionCreators.js';
 import eventBus from '/client/eventBus.js';
 

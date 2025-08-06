@@ -38,7 +38,6 @@ export class HighlightOverlay {
             height: 0;
             transition: all 0.1s ease;
             border-radius: 2px;
-            display: none;
         `;
         
         document.body.appendChild(this.overlay);
@@ -85,11 +84,11 @@ export class HighlightOverlay {
         const { mode } = this.settings;
         
         if (mode === 'none') {
-            this.overlay.style.display = 'none';
+            this.overlay.dataset.visible = 'false';
             return;
         }
         
-        this.overlay.style.display = 'block';
+        this.overlay.dataset.visible = 'true';
         this.overlay.style.top = `${rect.top}px`;
         this.overlay.style.left = `${rect.left}px`;
         this.overlay.style.width = `${rect.width}px`;
@@ -103,7 +102,7 @@ export class HighlightOverlay {
      */
     hide() {
         if (this.overlay) {
-            this.overlay.style.display = 'none';
+            this.overlay.dataset.visible = 'false';
         }
     }
 

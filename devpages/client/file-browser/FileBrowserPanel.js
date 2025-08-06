@@ -1,6 +1,7 @@
 /**
  * client/file-browser/FileBrowserPanel.js
  * A panel that displays the file system tree.
+ * REFACTORED to use the new PanelInterface.
  */
 
 import { BasePanel } from '/client/panels/BasePanel.js';
@@ -11,25 +12,15 @@ const log = window.APP.services.log.createLogger('FileBrowserPanel');
 
 export class FileBrowserPanel extends BasePanel {
     constructor(options) {
-        // Pass options to the base class, including a title
-        super({ title: 'Files', ...options });
-        
-        console.warn('[FileBrowserPanel] Constructor called');
-        this.treeContainer = null;
+        super(options);
         this.fileTreeManager = new FileTreeManager();
         this.unsubscribe = null;
-        this.isInitialized = false;
     }
 
-    /**
-     * Required by BasePanel. Renders the panel's specific content.
-     */
-    renderContent() {
-        console.warn('[FileBrowserPanel] renderContent() called');
-        
-        const container = document.createElement('div');
-        container.className = 'file-browser-panel';
-        container.innerHTML = `
+    render() {
+        this.element = document.createElement('div');
+        this.element.className = 'file-browser-panel';
+        this.element.innerHTML = `
             <div class="file-browser-cwd-container">
                 <span class="publish-badges"></span>
                 <span class="cwd-path"></span>
@@ -38,23 +29,15 @@ export class FileBrowserPanel extends BasePanel {
                 <!-- Tree will be rendered here -->
             </div>
         `;
-        
-        // Return the container element
-        return container;
+        return this.element;
     }
 
-    /**
-     * Lifecycle hook from BasePanel, called after the panel is mounted.
-     */
-    onMount() {
-        super.onMount(); // It's good practice to call the parent's method
+    onMount(container) {
+        super.onMount(container);
         
-        console.warn('[FileBrowserPanel] onMount called');
-        
-        // this.contentElement is now guaranteed to exist by BasePanel
-        this.treeContainer = this.contentElement.querySelector('.file-browser-tree-container');
-        this.cwdPathContainer = this.contentElement.querySelector('.cwd-path');
-        this.badgesContainer = this.contentElement.querySelector('.publish-badges');
+        this.treeContainer = this.element.querySelector('.file-browser-tree-container');
+        this.cwdPathContainer = this.element.querySelector('.cwd-path');
+        this.badgesContainer = this.element.querySelector('.publish-badges');
         
         if (!this.treeContainer) {
             log.error('FILE_BROWSER', 'TREE_CONTAINER_NOT_FOUND', 'Tree container not found!');
@@ -63,32 +46,28 @@ export class FileBrowserPanel extends BasePanel {
         
         this.initializePanel();
     }
-    
-    /**
-     * Initialize the panel after DOM is ready
-     */
-    initializePanel() {
-        if (this.isInitialized) {
-            return;
+
+    onUnmount() {
+        super.onUnmount();
+        if (this.unsubscribe) {
+            this.unsubscribe();
         }
-
-        this.isInitialized = true;
-
+    }
+    
+    initializePanel() {
         this.fetchAndDisplayCwd();
         log.info('FILE_BROWSER', 'PANEL_ACTIVATED', 'FileBrowserPanel activated.');
 
         this.fileTreeManager.setTreeContainer(this.treeContainer);
 
-        // Make the CWD path clickable to load the tree
         if (this.cwdPathContainer) {
-            this.cwdPathContainer.classList.add('clickable-path'); // For styling
+            this.cwdPathContainer.classList.add('clickable-path');
             this.cwdPathContainer.title = 'Click to load file tree';
             this.cwdPathContainer.addEventListener('click', () => this.loadTree(), { once: true });
         }
 
         this.unsubscribe = appStore.subscribe(() => {
             const state = appStore.getState();
-            // Assuming publish status is tracked per file path
             const publishStatus = state.file?.publishStatus || {};
             this.updatePublishingBadges(publishStatus);
         });
@@ -163,16 +142,11 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     fetchCwd() {
-        // Don't use window.location.pathname as that's a web route, not a file path
-        // Instead, default to empty string which will resolve to the user's home directory
         return '';
     }
 
     handleFileClick(file) {
         log.info('FILE_BROWSER', 'FILE_CLICK', `File clicked: ${file.path}`);
-        // Here you would dispatch an action to load the file
-        // and its corresponding publish status.
-        // For now, let's simulate a state change for demonstration.
         const mockStatus = {
             notes: Math.random() > 0.5,
             spaces: Math.random() > 0.5,
@@ -185,14 +159,5 @@ export class FileBrowserPanel extends BasePanel {
 
     handleDirectoryClick(dir) {
         log.info('FILE_BROWSER', 'DIRECTORY_CLICK', `Directory clicked: ${dir.path}`);
-        // This is handled by the tree manager's toggle logic, but we can add more actions here if needed.
     }
-
-    destroy() {
-        super.destroy(); // Call parent's destroy method
-        log.info('FILE_BROWSER', 'PANEL_DESTROYED', 'FileBrowserPanel destroyed.');
-        if (this.unsubscribe) {
-            this.unsubscribe();
-        }
-    }
-} 
+}

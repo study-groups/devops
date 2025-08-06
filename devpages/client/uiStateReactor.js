@@ -18,7 +18,7 @@ let authDisplayComponent = null;
 let pathManagerComponent = null;
 let sidebarPathManagerComponent = null; // New sidebar instance
 let breadcrumbContainer = null; // Keep reference for listener
-// Panel management now handled by WorkspaceLayoutManager and PanelManager
+// Panel management now handled by WorkspaceManager and PanelManager
 
 // --- UI Applying Functions ---
 function applyViewMode(mode) {
@@ -120,11 +120,11 @@ function handleAppStateChange(newState, prevState) {
     if (fileChanged) {
         // Only log and react to STRUCTURAL file changes, not content changes
         const structuralChange = (
-            newState.file.currentPathname !== prevState.file?.currentPathname ||
-            newState.file.isDirectorySelected !== prevState.file?.isDirectorySelected ||
-            newState.file.isLoading !== prevState.file?.isLoading ||
-            newState.file.currentListing !== prevState.file?.currentListing ||
-            newState.file.availableTopLevelDirs !== prevState.file?.availableTopLevelDirs
+            newState.file?.currentPathname !== prevState.file?.currentPathname ||
+            newState.file?.isDirectorySelected !== prevState.file?.isDirectorySelected ||
+            newState.file?.isLoading !== prevState.file?.isLoading ||
+            newState.file?.currentListing !== prevState.file?.currentListing ||
+            newState.file?.availableTopLevelDirs !== prevState.file?.availableTopLevelDirs
         );
         
         // Don't react to content-only changes (from typing in editor)
@@ -133,18 +133,18 @@ function handleAppStateChange(newState, prevState) {
             return;
         }
         
-        log.info('UI', 'FILE_STATE_CHANGED', `File state changed structurally. isLoading: ${newState.file.isLoading}, currentPathname: ${newState.file.currentPathname}`);
+        log.info('UI', 'FILE_STATE_CHANGED', `File state changed structurally. isLoading: ${newState.file?.isLoading}, currentPathname: ${newState.file?.currentPathname}`);
 
         // Update UI components based on the new file state
-        updateActionButtonsState(newState.file);
-        updateBreadcrumbs(newState.file);
+        updateActionButtonsState(newState.file || {});
+        updateBreadcrumbs(newState.file || {});
 
         // Logic previously in handleFileManagerStateSettled for showing top-level selector
         const currentAuthState = newState.auth; // Use the current auth state
         const currentUsername = currentAuthState.user?.username;
         const isLoggedIn = currentAuthState.isAuthenticated;
-        const currentTopDir = newState.file.topLevelDirectory;
-        const availableTopDirs = newState.file.availableTopLevelDirs;
+        const currentTopDir = newState.file?.topLevelDirectory;
+        const availableTopDirs = newState.file?.availableTopLevelDirs || [];
 
         // Condition to show the top-level selector (e.g., logged out or specific user at root)
         const showSelectorCondition = (!isLoggedIn || currentUsername?.toLowerCase() === 'mike') && !currentTopDir && availableTopDirs.length > 0;

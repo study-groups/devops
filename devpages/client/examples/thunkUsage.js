@@ -3,7 +3,7 @@
  * Examples of how to use the new thunk system
  */
 
-import { dispatch } from '/client/messaging/messageQueue.js';
+// REMOVED: messageQueue import (file deleted)
 import { authActions, fileActions, uiActions, settingsActions, pluginActions } from '/client/messaging/actionCreators.js';
 
 // ===== AUTHENTICATION EXAMPLES =====

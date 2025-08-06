@@ -338,14 +338,8 @@ export class PanelUI {
      * Show the panel
      */
     show() {
-        console.log('[PanelUI] show() called.');
-        if (!this.panel) {
-            console.error('[PanelUI] this.panel is null in show()');
-            return;
-        }
-        console.log(`[PanelUI] Before show: display=${this.panel.style.display}`);
-        this.panel.style.display = 'flex';
-        console.log(`[PanelUI] After show: display=${this.panel.style.display}`);
+        if (!this.panel) return;
+        this.panel.dataset.visible = 'true';
         this.isVisible = true;
         this.bringToFront();
     }
@@ -354,14 +348,8 @@ export class PanelUI {
      * Hide the panel
      */
     hide() {
-        console.log('[PanelUI] hide() called.');
-        if (!this.panel) {
-            console.error('[PanelUI] this.panel is null in hide()');
-            return;
-        }
-        console.log(`[PanelUI] Before hide: display=${this.panel.style.display}`);
-        this.panel.style.display = 'none';
-        console.log(`[PanelUI] After hide: display=${this.panel.style.display}`);
+        if (!this.panel) return;
+        this.panel.dataset.visible = 'false';
         this.isVisible = false;
     }
 

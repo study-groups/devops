@@ -6,7 +6,7 @@
  */
 
 import { appStore } from "/client/appState.js";
-import { dispatch, ActionTypes } from "/client/messaging/messageQueue.js";
+// REMOVED: messageQueue import (file deleted)
 
 export class DomInspectorDebugPanel {
     constructor(container) {
