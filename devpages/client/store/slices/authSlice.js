@@ -146,6 +146,8 @@ export const authThunks = {
             dispatch(setError(error.message));
             dispatch(logout());
             dispatch(setAuthChecked(true));
+        } finally {
+            dispatch(setLoading(false));
         }
     },
 };

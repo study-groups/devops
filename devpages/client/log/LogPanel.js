@@ -31,12 +31,26 @@ export class LogPanel extends BasePanel {
             this.clearButton.addEventListener('click', () => this.store.dispatch(clearEntries()));
         }
         
+        this.store.subscribe(() => {
+            const state = this.store.getState();
+            this.onStateChange(state);
+        });
+        
         const state = this.store.getState();
-        this.onStateChange(state.log);
+        this.element.style.display = state.ui.logVisible ? '' : 'none';
+        this.onStateChange(state);
     }
 
-    onStateChange(logState) {
-        if (!this.logElement || !logState) return;
+    onStateChange(state) {
+        if (!this.logElement || !state.log) return;
+
+        const logState = state.log;
+        const uiState = state.ui;
+
+        // Toggle visibility
+        if (this.element.style.display !== (uiState.logVisible ? '' : 'none')) {
+            this.element.style.display = uiState.logVisible ? '' : 'none';
+        }
 
         const filteredEntries = selectFilteredEntries({ log: logState });
         
@@ -85,4 +99,19 @@ export class LogPanel extends BasePanel {
         
         this.statusElement.textContent = statusText;
     }
+}
+
+export function createLogPanel(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`[createLogPanel] Container with id '${containerId}' not found.`);
+        return null;
+    }
+
+    const panel = new LogPanel({ id: 'log-panel', store: appStore });
+    const panelElement = panel.render();
+    container.appendChild(panelElement);
+    panel.onMount(container);
+
+    return panel;
 }

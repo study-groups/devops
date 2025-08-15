@@ -5,7 +5,8 @@
  */
 import { appStore, dispatch } from '../appState.js';
 import { panelActions, selectDocks } from '../store/slices/panelSlice.js';
-import { uiActions } from '../store/uiSlice.js';
+import { uiActions, uiThunks } from '../store/uiSlice.js';
+import { storageService } from '/client/services/storageService.js';
 import { panelDefinitions } from '../panels/panelRegistry.js';
 import { Sidebar } from './Sidebar.js';
 import '../libs/Sortable.min.js';
@@ -65,12 +66,20 @@ class WorkspaceManager {
         const docks = selectDocks(state);
 
         panelDefinitions.forEach(panelDef => {
+            // Check if panel already exists in Redux state
+            const existingPanel = state.panels.panels[panelDef.id];
+            if (existingPanel) {
+                console.log(`[WorkspaceManager] Panel '${panelDef.id}' already exists, skipping creation`);
+                return;
+            }
+
             // Find the dock that this panel should belong to.
             const targetDockId = Object.keys(docks).find(dockId => 
                 docks[dockId].panels.includes(panelDef.id)
             );
 
             if (targetDockId) {
+                console.log(`[WorkspaceManager] Creating panel '${panelDef.id}' in dock '${targetDockId}'`);
                 dispatch(panelActions.createPanel({
                     id: panelDef.id,
                     title: panelDef.title,
@@ -157,7 +166,7 @@ class WorkspaceManager {
     render() {
         const state = appStore.getState();
         const docks = selectDocks(state);
-        const panels = Object.values(docks).flatMap(dock => dock.panels.map(panelId => state.panels.panels[panelId]));
+        const allPanels = state.panels.panels || {};
 
         // Apply sidebar visibility from the single source of truth: uiSlice
         const sidebarVisible = state.ui?.leftSidebarVisible === true;
@@ -192,24 +201,44 @@ class WorkspaceManager {
                 continue;
             }
 
+            // Map special docks to appropriate containers
+            let targetSemanticZone = semanticZone;
+            if (semanticZone === 'settings' || semanticZone === 'logs') {
+                // Settings and logs docks should render in sidebar
+                targetSemanticZone = 'sidebar';
+                console.log(`[WorkspaceManager] Mapping ${semanticZone} dock to sidebar zone`);
+            }
+
             // Only handle non-sidebar zones
             if (!dock.isVisible) {
+                console.log(`[WorkspaceManager] Dock ${dockId} is not visible, skipping`);
                 continue;
             }
             
-            const container = this.semanticZones[semanticZone];
+            const container = this.semanticZones[targetSemanticZone];
             if (!container) {
+                console.log(`[WorkspaceManager] No container found for semantic zone: ${targetSemanticZone} (from dock: ${dockId})`);
                 continue;
             }
 
-            // Handle legacy panels for editor/preview zones
-            const panelsInDock = dock.panels.map(id => panels.find(p => p.id === id)).filter(Boolean);
+            console.log(`[WorkspaceManager] Rendering dock ${dockId} with panels:`, dock.panels);
+
+            // Handle panels for editor/preview zones
+            const panelsInDock = dock.panels.map(panelId => allPanels[panelId]).filter(Boolean);
+            console.log(`[WorkspaceManager] Found ${panelsInDock.length} panels in dock ${dockId}:`, panelsInDock.map(p => p.id));
+            
             panelsInDock.forEach(panel => {
+                console.log(`[WorkspaceManager] Processing panel ${panel.id}, isVisible: ${panel.isVisible}`);
                 if (panel.isVisible) {
                     const panelEl = document.getElementById(panel.id);
                     if (!panelEl) {
-                        this.createAndMountPanel(panel, container, semanticZone);
+                        console.log(`[WorkspaceManager] Creating and mounting panel: ${panel.id}`);
+                        this.createAndMountPanel(panel, container, targetSemanticZone);
+                    } else {
+                        console.log(`[WorkspaceManager] Panel ${panel.id} already exists in DOM`);
                     }
+                } else {
+                    console.log(`[WorkspaceManager] Panel ${panel.id} is not visible, skipping`);
                 }
             });
         }
@@ -474,13 +503,14 @@ class WorkspaceManager {
         if (!panelInPanels && !panelInSidebar) {
             console.log(`[WorkspaceManager] Panel ${panelId} not registered, registering now...`);
             // Register the panel with default config
-            dispatch(panelActions.registerPanel({ 
-                panelId, 
-                config: { 
-                    title: panelId === 'pdata-panel' ? 'Debug Panel' : 
-                           panelId === 'settings-panel' ? 'Settings Panel' : panelId,
-                    visible: true,
-                    collapsed: false
+            dispatch(panelActions.createPanel({ 
+                id: panelId,
+                dockId: 'sidebar-dock', // Default to sidebar dock
+                title: panelId === 'pdata-panel' ? 'Debug Panel' : 
+                       panelId === 'settings-panel' ? 'Settings Panel' : panelId,
+                config: {
+                    isVisible: true,
+                    isCollapsed: false
                 }
             }));
         }
@@ -574,7 +604,7 @@ class WorkspaceManager {
         const focusedPanel = this.getFocusedPanel();
         if (focusedPanel && focusedPanel.getSmartCopyContent) {
             const content = focusedPanel.getSmartCopyContent();
-            localStorage.setItem('smartCopyBufferA', content);
+            storageService.setItem('smartCopyBufferA', content);
         }
     }
 
@@ -671,7 +701,7 @@ class WorkspaceManager {
             toggleLogArea: () => {
                 try {
                     if (appStore) {
-                        appStore.dispatch({ type: 'UI_TOGGLE_LOG_VISIBILITY' });
+                        dispatch(uiThunks.toggleLogVisibility());
                         return true;
                     }
                     return false;

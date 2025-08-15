@@ -3,7 +3,7 @@ import { logReduxAction } from './slices/commSlice.js';
 
 export const commLoggerMiddleware = store => next => action => {
     // We don't want to log our own logging actions, or we'll get an infinite loop.
-    if (action.type !== logReduxAction.type) {
+    if (action.type !== logReduxAction.type && typeof action !== 'function') {
         const logEntry = {
             type: action.type,
             payload: action.payload,

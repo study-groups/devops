@@ -411,8 +411,8 @@ export function createPathManagerComponent(targetElementId) {
             window.APP.eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: true });
         } else if (selectedType === 'file') {
             window.APP.eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: false });
+            appStore.dispatch(fileThunks.loadFile(newRelativePath));
         }
-        window.APP.eventBus.emit('file:selected', { filename: selectedValue, directory: selectedType === 'dir' });
     };
 
     const handleSaveButtonClick = (event) => {

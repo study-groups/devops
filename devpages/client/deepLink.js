@@ -4,6 +4,7 @@
 import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js';
 import eventBus from '/client/eventBus.js';
+import { storageService } from '/client/services/storageService.js';
 
 const log = window.APP.services.log.createLogger('DeepLink');
 const DEEP_LINK_KEY = 'deepLinkRequest';
@@ -22,7 +23,7 @@ export function saveDeepLinkRequest() {
             timestamp: Date.now() // Add timestamp for potential expiration handling
         };
         
-        localStorage.setItem(DEEP_LINK_KEY, JSON.stringify(deepLinkData));
+        storageService.setItem(DEEP_LINK_KEY, deepLinkData);
         log.info('DEEP_LINK', 'SAVED_REQUEST', `Saved request: ${JSON.stringify(deepLinkData)}`);
     } else {
         log.info('DEEP_LINK', 'NO_PATHNAME', 'No pathname parameter found to save.');
@@ -35,10 +36,10 @@ export function saveDeepLinkRequest() {
  */
 export function getSavedDeepLinkRequest() {
     try {
-        const savedData = localStorage.getItem(DEEP_LINK_KEY);
+        const savedData = storageService.getItem(DEEP_LINK_KEY);
         if (!savedData) return null;
         
-        const deepLinkData = JSON.parse(savedData);
+        const deepLinkData = savedData;
         
         // Validate the data structure
         if (!deepLinkData.pathname) {
@@ -57,7 +58,7 @@ export function getSavedDeepLinkRequest() {
  * Clear the saved deep link request
  */
 export function clearSavedDeepLinkRequest() {
-    localStorage.removeItem(DEEP_LINK_KEY);
+    storageService.removeItem(DEEP_LINK_KEY);
     log.info('DEEP_LINK', 'CLEARED_REQUEST', 'Cleared saved request');
 }
 

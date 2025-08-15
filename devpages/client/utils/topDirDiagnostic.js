@@ -3,6 +3,7 @@
  * Simple function to debug why availableTopLevelDirs is empty
  */
 import { appStore } from '/client/appState.js';
+import { storageService } from '/client/services/storageService.js';
 
 export function diagnoseTopDirIssue() {
     console.log('🔍 TOP DIR DIAGNOSTIC - Starting analysis...');
@@ -64,14 +65,14 @@ export function diagnoseTopDirIssue() {
         
         // Check if bootloader completed
         console.log('🚀 Bootloader info:', {
-            hasComponentManager: typeof window.componentManager !== 'undefined',
+            hasWorkspaceManager: typeof window.APP.workspace !== 'undefined',
             hasEventBus: typeof window.APP.eventBus !== 'undefined',
             eventBusType: typeof window.APP.eventBus
         });
         
         // Check localStorage for any persisted state
         try {
-            const lastOpened = localStorage.getItem('devpages_last_opened_file');
+            const lastOpened = storageService.getItem('last_opened_file');
             console.log('💾 LocalStorage last opened file:', lastOpened);
         } catch (e) {
             console.log('❌ Could not read localStorage:', e.message);

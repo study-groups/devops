@@ -3,7 +3,9 @@
  * Automatically saves panel state to localStorage when certain actions are dispatched
  */
 
-const PANELS_STORAGE_KEY = 'devpages_redux_panels_state';
+import { storageService } from '/client/services/storageService.js';
+
+const PANELS_STORAGE_KEY = 'redux_panels_state';
 
 // Actions that should trigger persistence
 const PERSISTENCE_ACTIONS = [
@@ -57,7 +59,7 @@ export const persistenceMiddleware = (store) => (next) => (action) => {
                     shortcuts: state.panels.shortcuts
                 };
                 
-                localStorage.setItem(PANELS_STORAGE_KEY, JSON.stringify(stateToPersist));
+                storageService.setItem(PANELS_STORAGE_KEY, stateToPersist);
                 console.log(`[PersistenceMiddleware] Saved state after action: ${action.type}`);
             }
         } catch (error) {

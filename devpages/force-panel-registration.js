@@ -26,18 +26,16 @@ if (!panelActions) {
     
     panelsToRegister.forEach(panelConfig => {
         try {
-            store.dispatch({
-                type: 'panels/registerPanel',
-                payload: {
-                    panelId: panelConfig.id,
-                    config: {
-                        title: panelConfig.title,
-                        visible: panelConfig.visible,
-                        collapsed: false,
-                        order: panelConfig.order
-                    }
+            store.dispatch(panelActions.createPanel({
+                id: panelConfig.id,
+                dockId: 'sidebar-dock', // Default to sidebar dock
+                title: panelConfig.title,
+                config: {
+                    isVisible: panelConfig.visible,
+                    isCollapsed: false,
+                    order: panelConfig.order
                 }
-            });
+            }));
             console.log(`✅ Registered: ${panelConfig.id}`);
         } catch (error) {
             console.error(`❌ Failed to register ${panelConfig.id}:`, error);
@@ -56,12 +54,13 @@ if (!panelActions) {
     
     panelsToRegister.forEach(panelConfig => {
         try {
-            store.dispatch(panelActions.registerPanel({
-                panelId: panelConfig.id,
+            store.dispatch(panelActions.createPanel({
+                id: panelConfig.id,
+                dockId: 'sidebar-dock', // Default to sidebar dock
+                title: panelConfig.title,
                 config: {
-                    title: panelConfig.title,
-                    visible: panelConfig.visible,
-                    collapsed: false,
+                    isVisible: panelConfig.visible,
+                    isCollapsed: false,
                     order: panelConfig.order
                 }
             }));

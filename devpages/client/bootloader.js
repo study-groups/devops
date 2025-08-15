@@ -14,7 +14,6 @@
 
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
 import { eventBus } from './eventBus.js';
-import { componentManager } from './componentManager.js';
 import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
 import { workspaceManager } from './layout/WorkspaceManager.js';
@@ -115,6 +114,11 @@ async function bootSecondary({ store, actions }) {
     services.appDispatch = appDispatch;
     const { ConsoleLogManager } = await import('./log/ConsoleLogManager.js');
     services.consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
+    
+    // Ensure the logger is ready before creating services that depend on it
+    if (!window.APP.services.log) {
+        throw new Error("Logging service not available on window.APP.services.log");
+    }
     const globalFetchLogger = window.APP.services.log.createLogger('API', 'globalFetch');
     window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
     log.info('SERVICE_INJECTED', 'Injected logger into globalFetch service.');
@@ -393,13 +397,13 @@ async function registerComponents(store, componentDefs) {
     for (const def of componentDefs) {
         if (failedComponents.has(def.name)) continue;
         try {
-            // The isRegistered check was removed as it's buggy and redundant.
-            // The componentManager itself handles re-registration warnings.
-            componentManager.register({
-                name: def.name,
-                mount: () => mountManagedComponent(def, store),
-                destroy: () => destroyManagedComponent(def)
+            // Store component definition for direct mounting
+            componentRegistry.set(def.name, {
+                definition: def,
+                store: store,
+                mounted: false
             });
+            log.info('REGISTERED', `✅ Registered component: ${def.name}`);
         } catch (error) {
             log.error('REGISTER_FAILED', `❌ Failed to register ${def.name}: ${error.message}`, error);
             if (def.required) throw error;
@@ -408,11 +412,18 @@ async function registerComponents(store, componentDefs) {
     }
 }
 
-function initializeComponents(store, componentDefs) {
+async function initializeComponents(store, componentDefs) {
     log.info('INITIALIZING', `🧩 Initializing ${componentDefs.length} components...`);
     try {
-        const componentNames = componentDefs.map(c => c.name);
-        componentManager.init(componentNames);
+        // Mount components directly instead of using componentManager
+        for (const def of componentDefs) {
+            if (failedComponents.has(def.name)) continue;
+            
+            const registryEntry = componentRegistry.get(def.name);
+            if (registryEntry && !registryEntry.mounted) {
+                await mountManagedComponent(def, store);
+            }
+        }
     } catch (error) {
         log.error('INIT_FAILED', `❌ Component initialization failed: ${error.message}`, error);
         throw error;
@@ -435,7 +446,7 @@ async function mountManagedComponent(componentDef, store) {
             const factory = module[componentDef.factoryFunction];
             if (!factory) throw new Error(`Factory ${componentDef.factoryFunction} not found in ${componentDef.modulePath}.`);
             const targetElement = document.getElementById(componentDef.targetElementId);
-if (!targetElement) throw new Error(`Target element '${componentDef.targetElementId}' not found.`);
+            if (!targetElement) throw new Error(`Target element '${componentDef.targetElementId}' not found.`);
             const instance = factory(componentDef.targetElementId);
             if (instance && typeof instance.mount === 'function') {
                 const mountResult = instance.mount();
@@ -455,7 +466,12 @@ if (!targetElement) throw new Error(`Target element '${componentDef.targetElemen
             }
         }
         if (component) {
-            componentRegistry.set(componentDef.name, component);
+            // Update the registry entry with the mounted instance
+            const registryEntry = componentRegistry.get(componentDef.name);
+            if (registryEntry) {
+                registryEntry.instance = component;
+                registryEntry.mounted = true;
+            }
         }
         return component;
     } catch (error) {
@@ -492,7 +508,24 @@ function checkDependencies(dependencies) {
 
 function shutdown() {
     log.info('SHUTDOWN', '🛑 Shutting down application...');
-    componentManager.destroyAll();
+    
+    // Clean up mounted components
+    for (const [name, entry] of componentRegistry) {
+        if (entry.mounted) {
+            try {
+                // Call destroy if component has one
+                if (entry.instance && typeof entry.instance.destroy === 'function') {
+                    entry.instance.destroy();
+                }
+                entry.mounted = false;
+                log.info('DESTROYED', `✅ Destroyed component: ${name}`);
+            } catch (error) {
+                log.error('DESTROY_FAILED', `❌ Failed to destroy component ${name}:`, error);
+            }
+        }
+    }
+    
+    componentRegistry.clear();
     eventBus.emit('app:shutdown');
     log.info('SHUTDOWN_COMPLETE', '✅ Application shutdown complete');
 }

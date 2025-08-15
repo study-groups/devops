@@ -2,6 +2,7 @@ import { appStore } from '/client/appState.js'; // Assuming settings are in appS
 import { appStore } from "/client/appState.js";
 import { api } from '/client/api.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure pathJoin is imported
+import { storageService } from '/client/services/storageService.js';
 // REMOVED: messageQueue import (file deleted)
 
 // Get a dedicated logger for this module
@@ -26,7 +27,7 @@ export function init(config = {}) {
     const state = appStore.getState();
     if (state.settings?.preview?.enableRootCss === undefined) {
         try {
-            const savedState = localStorage.getItem('enableRootCss');
+            const savedState = storageService.getItem('enableRootCss');
             if (savedState === null) {
                 // First time - set default to false (using theme system instead)
                 dispatch({ 

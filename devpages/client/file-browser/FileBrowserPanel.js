@@ -7,6 +7,7 @@
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
+import { fileThunks } from '/client/thunks/fileThunks.js';
 
 const log = window.APP.services.log.createLogger('FileBrowserPanel');
 
@@ -147,14 +148,7 @@ export class FileBrowserPanel extends BasePanel {
 
     handleFileClick(file) {
         log.info('FILE_BROWSER', 'FILE_CLICK', `File clicked: ${file.path}`);
-        const mockStatus = {
-            notes: Math.random() > 0.5,
-            spaces: Math.random() > 0.5,
-        };
-        appStore.dispatch({
-            type: 'FILE_SET_PUBLISH_STATUS',
-            payload: mockStatus
-        });
+        appStore.dispatch(fileThunks.loadFileContent(file.path));
     }
 
     handleDirectoryClick(dir) {

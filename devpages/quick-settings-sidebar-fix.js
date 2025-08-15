@@ -24,20 +24,17 @@ console.log('📋 Registering settings panels to settings-dock in sidebar...');
 settingsPanels.forEach(panelId => {
     try {
         // Register as sidebar panel first
-        store.dispatch({
-            type: 'panels/registerPanel',
-            payload: {
-                panelId: panelId,
-                config: {
-                    title: panelId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                    visible: false, // Hidden by default, show in dock
-                    collapsed: false,
-                    order: 50,
-                    dockId: 'settings-dock',
-                    zone: 'sidebar'
-                }
+        store.dispatch(panelActions.createPanel({
+            id: panelId,
+            dockId: 'settings-dock',
+            title: panelId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            config: {
+                isVisible: false, // Hidden by default, show in dock
+                isCollapsed: false,
+                order: 50,
+                zone: 'sidebar'
             }
-        });
+        }));
         
         // Also create in main panels for dock system
         store.dispatch({

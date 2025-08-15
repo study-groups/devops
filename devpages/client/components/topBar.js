@@ -1,6 +1,7 @@
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { fileThunks } from '/client/thunks/fileThunks.js';
+import { storageService } from '/client/services/storageService.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('TopBar');
@@ -285,17 +286,8 @@ async function executeExistingRefreshHandlers() {
  */
 function clearCaches() {
     // Clear localStorage cache keys
-    const cacheKeys = Object.keys(localStorage).filter(key => 
-        key.includes('cache') || 
-        key.includes('timestamp') || 
-        key.includes('devpages_css') ||
-        key.includes('preview') ||
-        key.includes('panel')
-    );
-    cacheKeys.forEach(key => {
-        localStorage.removeItem(key);
-        log.info('TOP_BAR', 'CACHE_CLEARED', `Cleared cache key: ${key}`);
-    });
+    storageService.clearAll();
+    log.info('TOP_BAR', 'CACHE_CLEARED', 'Cleared all managed localStorage items.');
     
     // Clear sessionStorage cache keys
     const sessionCacheKeys = Object.keys(sessionStorage).filter(key => 

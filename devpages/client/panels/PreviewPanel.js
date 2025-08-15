@@ -82,3 +82,18 @@ export class PreviewPanel extends BasePanel {
         }
     }
 }
+
+export function createPreviewPanel(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`[createPreviewPanel] Container with id '${containerId}' not found.`);
+        return null;
+    }
+
+    const panel = new PreviewPanel({ id: 'preview' });
+    const panelElement = panel.render();
+    container.appendChild(panelElement);
+    panel.onMount(container);
+
+    return panel;
+}

@@ -96,9 +96,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // 2. Session & Authentication Middleware
-const sessionStore = process.env.NODE_ENV === 'production'
-    ? new FileStore({ path: path.join(pdataInstance.dataRoot, 'sessions'), ttl: 86400, reapInterval: 3600 })
-    : new session.MemoryStore();
+const sessionStore = new FileStore({ path: path.join(pdataInstance.dataRoot, 'sessions'), ttl: 86400, reapInterval: 3600 });
 
 app.use(session({
     store: sessionStore,
@@ -131,13 +129,13 @@ app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
 // 4. API Routes
 app.use('/api/config', configRoutes);
-    app.use('/api/auth', express.json(), authRoutes);
-    app.use('/api/capabilities', capabilityRoutes);
-    app.use('/api/users', authMiddleware, usersRouter);
-    app.use('/api/files', authMiddleware, filesRouter);
-    app.use('/api/save', express.text({ type: 'text/plain' }), express.json(), saveRoutes);
-    app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
-    app.use('/api/pdata', pdataRoutes);
+app.use('/api/auth', authMiddleware, express.json(), authRoutes);
+app.use('/api/capabilities', capabilityRoutes);
+app.use('/api/users', authMiddleware, usersRouter);
+app.use('/api/files', authMiddleware, filesRouter);
+app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), express.json(), saveRoutes);
+app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
+app.use('/api/pdata', authMiddleware, pdataRoutes);
 app.use('/api/nlp', authMiddleware, nlpRoutes);
 
 // 5. Application Routes (HTML serving, etc.)

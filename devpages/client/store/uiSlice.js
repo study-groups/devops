@@ -22,7 +22,26 @@ const defaultUIState = {
 };
 
 // --- Create Enhanced UI Slice with Auto-Persistence ---
-const uiSlice = createSettingsSlice('ui', defaultUIState);
+const uiSlice = createSettingsSlice('ui', defaultUIState, {
+    reducers: {
+        toggleLogVisibility: (state) => ({
+            ...state,
+            logVisible: !state.logVisible,
+        }),
+        toggleTextVisibility: (state) => ({
+            ...state,
+            textVisible: !state.textVisible,
+        }),
+        toggleContextManager: (state) => ({
+            ...state,
+            contextManagerVisible: !state.contextManagerVisible,
+        }),
+        toggleLogMenu: (state) => ({
+            ...state,
+            logMenuVisible: !state.logMenuVisible,
+        }),
+    }
+});
 
 // Export reducer and actions
 export const uiReducer = uiSlice.reducer;
@@ -37,37 +56,11 @@ export const uiThunks = {
         value: mode 
     }),
     
-    // Toggle log visibility (automatically persisted)
-    toggleLogVisibility: () => (dispatch, getState) => {
-        const { logVisible } = getState().ui;
-        dispatch(uiActions.updateSetting({ key: 'logVisible', value: !logVisible }));
-    },
-
-    toggleTextVisibility: () => (dispatch, getState) => {
-        const { textVisible } = getState().ui;
-        dispatch(uiActions.updateSetting({ key: 'textVisible', value: !textVisible }));
-    },
-    
-    // Toggle context manager visibility
-    toggleContextManager: () => (dispatch, getState) => {
-        const { contextManagerVisible } = getState().ui;
-        dispatch(uiActions.updateSetting({ key: 'contextManagerVisible', value: !contextManagerVisible }));
-    },
-
     // Set log height (automatically persisted)
     setLogHeight: (height) => uiActions.updateSetting({ 
         key: 'logHeight', 
         value: height 
     }),
-    
-    // Toggle log menu (automatically persisted)
-    toggleLogMenu: () => (dispatch, getState) => {
-        const currentState = getState().ui?.logMenuVisible || false;
-        dispatch(uiActions.updateSetting({ 
-            key: 'logMenuVisible', 
-            value: !currentState 
-        }));
-    },
     
     // Set theme (automatically persisted)
     setTheme: (theme) => uiActions.updateSetting({ 
@@ -83,11 +76,6 @@ export const uiThunks = {
             key: 'theme', 
             value: newTheme 
         }));
-    },
-    
-    // Legacy compatibility - auto-loaded now
-    applyInitialUIState: () => (dispatch) => {
-        console.log('[UISlice] Using enhanced auto-persistence - no manual loading needed');
     }
 };
 

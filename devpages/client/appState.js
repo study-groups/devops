@@ -17,7 +17,7 @@
 import { createStore, applyMiddleware, combineReducers, compose } from '/node_modules/redux/dist/redux.browser.mjs';
 import { authMiddleware } from '/client/store/authMiddleware.js';
 import { persistenceMiddleware, loadState } from '/client/store/persistenceMiddleware.js';
-import { commLoggerMiddleware } from '/client/store/commLoggerMiddleware.js';
+import { apiSlice } from '/client/store/apiSlice.js';
 
 // --- Slice Reducers ---
 import { authReducer, authThunks } from '/client/store/slices/authSlice.js';
@@ -56,7 +56,9 @@ const rootReducer = combineReducers({
     plugins: pluginReducer,
     publish: publishReducer,
     system: systemReducer,
-    communications: commReducer
+    communications: commReducer,
+    // RTK Query API slice
+    [apiSlice.reducerPath]: apiSlice.reducer
 });
 
 // --- Store Singleton ---
@@ -76,8 +78,8 @@ function initializeStore() {
     const preloadedState = loadState(); // CORRECT: Load persisted state
     const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
     
-    // CORRECT: Apply the new, robust persistence middleware
-    const middlewares = [thunk, authMiddleware, persistenceMiddleware, commLoggerMiddleware];
+    // CORRECT: Apply the new, robust persistence middleware + RTK Query middleware
+    const middlewares = [thunk, authMiddleware, persistenceMiddleware, apiSlice.middleware];
 
     appStore = createStore(
         rootReducer,

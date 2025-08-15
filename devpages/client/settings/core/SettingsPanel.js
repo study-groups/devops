@@ -7,6 +7,7 @@
  */
 
 import { settingsRegistry } from './settingsRegistry.js';
+import { storageService } from '/client/services/storageService.js';
 
 export class SettingsPanel {
     constructor() {
@@ -285,9 +286,8 @@ export class SettingsPanel {
         try {
             const state = {
                 collapsedSections: Array.from(this.collapsedSections),
-                timestamp: Date.now()
             };
-            localStorage.setItem('devpages_settings_panel_state', JSON.stringify(state));
+            storageService.setItem('settings_panel_state', state);
         } catch (error) {
             this.log.warn('SAVE_STATE', 'Failed to save state:', error);
         }
@@ -298,10 +298,9 @@ export class SettingsPanel {
      */
     loadState() {
         try {
-            const saved = localStorage.getItem('devpages_settings_panel_state');
-            if (saved) {
-                const state = JSON.parse(saved);
-                this.collapsedSections = new Set(state.collapsedSections || []);
+            const state = storageService.getItem('settings_panel_state');
+            if (state && state.collapsedSections) {
+                this.collapsedSections = new Set(state.collapsedSections);
             }
         } catch (error) {
             this.log.warn('LOAD_STATE', 'Failed to load state:', error);

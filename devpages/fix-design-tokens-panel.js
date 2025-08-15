@@ -14,19 +14,17 @@ console.log('📋 Registering Design Tokens panel in sidebar...');
 
 try {
     // Register the panel in sidebarPanels state
-    store.dispatch({
-        type: 'panels/registerPanel',
-        payload: {
-            panelId: 'settings-panel',
-            config: {
-                title: '🎨 Design Tokens',
-                visible: true,
-                collapsed: false,
-                order: 3,
-                group: 'sidebar'
-            }
+    store.dispatch(panelActions.createPanel({
+        id: 'settings-panel',
+        dockId: 'settings-dock',
+        title: '🎨 Design Tokens',
+        config: {
+            isVisible: true,
+            isCollapsed: false,
+            order: 3,
+            group: 'sidebar'
         }
-    });
+    }));
     
     console.log('✅ Design Tokens panel registered');
     

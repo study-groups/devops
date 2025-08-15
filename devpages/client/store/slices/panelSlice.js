@@ -1,8 +1,8 @@
 // redux/slices/panelSlice.js - Panel management slice for Redux-native panel system
 import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { storageService } from '/client/services/storageService.js';
 
-const PANELS_STORAGE_KEY = 'devpages_redux_panels_state';
-const STATE_VERSION = '2.2'; // Version bump for new actions
+const STATE_VERSION = '2.3'; // Version bump for new actions
 
 function getNextZIndex(state) {
     const computedStyle = getComputedStyle(document.documentElement);
@@ -15,12 +15,11 @@ function getNextZIndex(state) {
 
 function loadPersistedPanelState() {
     try {
-        const serializedState = localStorage.getItem('devpages_panel_state');
-        if (serializedState === null) return null;
+        const persistedState = storageService.getItem('panel_state');
+        if (!persistedState) return null;
         
-        const persistedState = JSON.parse(serializedState);
         if (persistedState.version !== STATE_VERSION) {
-            localStorage.removeItem('devpages_panel_state');
+            storageService.removeItem('panel_state');
             return null;
         }
         return persistedState;
@@ -40,7 +39,7 @@ function getInitialPanelState() {
         docks: {
             'sidebar-dock': { id: 'sidebar-dock', title: 'Sidebar Dock', isVisible: true, isCollapsed: false, panels: ['file-browser', 'code'], activePanel: null, zIndex: baseZIndex },
             'settings-dock': { id: 'settings-dock', title: '🎨 Settings & Style', isVisible: true, isCollapsed: false, panels: ['settings-panel'], activePanel: null, zIndex: baseZIndex },
-            'logs-dock': { id: 'logs-dock', title: '📋 Logs', isVisible: true, isCollapsed: false, panels: ['comm-panel'], activePanel: null, zIndex: baseZIndex },
+            'comm-dock': { id: 'comm-dock', title: 'Communications', isVisible: false, isCollapsed: false, panels: ['comm-panel'], activePanel: null, zIndex: baseZIndex }
         },
         panels: {},
         // ... other initial state properties
@@ -50,7 +49,7 @@ function getInitialPanelState() {
         return {
             ...defaultState,
             docks: { ...defaultState.docks, ...persistedState.docks },
-            panels: { ...defaultState.panels, ...persistedState.panels },
+            panels: { ...defaultState.panels, ...(persistedState.panels || {}) },
         };
     }
     
@@ -97,6 +96,26 @@ const panelSlice = createSlice({
                 }
             } else {
                 console.warn(`[PanelSlice] Dock not found for createPanel: ${dockId}`);
+            }
+        },
+
+        /**
+         * Update panel properties
+         */
+        updatePanel(state, action) {
+            const { id, updates } = action.payload;
+            if (state.panels[id]) {
+                Object.assign(state.panels[id], updates);
+            }
+        },
+
+        /**
+         * Toggle panel visibility
+         */
+        togglePanelVisibility(state, action) {
+            const { panelId } = action.payload;
+            if (state.panels[panelId]) {
+                state.panels[panelId].isVisible = !state.panels[panelId].isVisible;
             }
         },
         

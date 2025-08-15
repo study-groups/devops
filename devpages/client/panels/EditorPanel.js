@@ -175,3 +175,18 @@ export class EditorPanel extends BasePanel {
         }
     }
 }
+
+export function createEditorPanel(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`[createEditorPanel] Container with id '${containerId}' not found.`);
+        return null;
+    }
+
+    const panel = new EditorPanel({ id: 'editor' });
+    const panelElement = panel.render();
+    container.appendChild(panelElement);
+    panel.onMount(container);
+
+    return panel;
+}

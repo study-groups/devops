@@ -3,8 +3,10 @@ import { triggerActions } from '/client/actions.js'; // Assuming this is where a
 import { logInfo, logError, logDebug, logWarn } from './LogCore.js'; // For logging within this module
 import eventBus from '/client/eventBus.js'; // For emitting resize events
 import { uiThunks } from '/client/store/uiSlice.js';
+import { storageService } from '/client/services/storageService.js';
 import { _handleTagClick } from './LogFilterBar.js';
 import { executeRemoteCommand } from '/client/cli/handlers.js';
+import { uiActions } from '/client/store/uiSlice.js';
 
 // These might be better as part of logPanelInstance.config or passed in
 const MIN_LOG_HEIGHT = 80; // Or get from LogPanel constants
@@ -44,7 +46,7 @@ function updateMenuVisualIndicators() {
     const menuContainer = document.getElementById('log-menu-container');
     if (!menuContainer) return;
     
-    const currentOrder = localStorage.getItem('logOrder') || 'recent';
+    const currentOrder = storageService.getItem('logOrder') || 'recent';
     const menuItems = menuContainer.querySelectorAll('.log-menu-item');
     
     menuItems.forEach(item => {
@@ -149,7 +151,7 @@ export function attachLogPanelEventListeners(logPanelInstance) {
             switch (action) {
                 case 'toggleLogVisibility':
                 case 'minimizeLog':
-                    appStore.dispatch(uiThunks.toggleLogVisibility());
+                    appStore.dispatch(uiActions.toggleLogVisibility());
                     break;
                 case 'setLogOrderRecent':
                     if (typeof logPanelInstance.setLogOrder === 'function') logPanelInstance.setLogOrder('recent');
@@ -209,6 +211,9 @@ export function attachLogPanelEventListeners(logPanelInstance) {
                         // Update menu visual indicators
                         updateMenuVisualIndicators();
                     }
+                    break;
+                case 'toggleLogMenu':
+                    appStore.dispatch(uiActions.toggleLogMenu());
                     break;
                 default:
                     // Try triggerActions for other menu items

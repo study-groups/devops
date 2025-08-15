@@ -1,5 +1,6 @@
 import { appStore, dispatch } from '/client/appState.js';
 import { setActiveFilters, toggleFilter, clearEntries } from '/client/store/slices/logSlice.js';
+import { storageService } from '/client/services/storageService.js';
 
 /**
  * Utility function to extract emoji symbols from CSS variable tokens
@@ -192,7 +193,7 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         createCategoryGroup(filterGroupsContainer, 'Source', categories.sources, 'source', safeActiveFilters);
         const typeGroup = createCategoryGroup(filterGroupsContainer, 'Type', categories.types, 'type', safeActiveFilters);
         if (typeGroup) {
-            const shouldBeVisible = localStorage.getItem('logTypesVisible') !== 'false';
+            const shouldBeVisible = storageService.getItem('logTypesVisible') !== false;
             typeGroup.style.display = shouldBeVisible ? 'flex' : 'none'; // Use flex for proper group display
             toggleTypesButton.classList.toggle('active', shouldBeVisible);
         }
@@ -299,7 +300,7 @@ export function _handleTagClick(event) {
                 const isHidden = typeGroup.style.display === 'none';
                 typeGroup.style.display = isHidden ? 'flex' : 'none'; // Use flex to restore
                 targetButton.classList.toggle('active', isHidden);
-                localStorage.setItem('logTypesVisible', String(isHidden));
+                storageService.setItem('logTypesVisible', isHidden);
             }
             return;
         }
@@ -521,7 +522,7 @@ export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryC
 
 function saveFilterSnapshot(state) {
     try {
-        localStorage.setItem('logFilterSnapshot', JSON.stringify(state));
+        storageService.setItem('logFilterSnapshot', state);
     } catch (e) {
         console.warn('Could not save log filter snapshot to localStorage:', e);
     }
@@ -529,8 +530,7 @@ function saveFilterSnapshot(state) {
 
 function loadFilterSnapshot() {
     try {
-        const snapshot = localStorage.getItem('logFilterSnapshot');
-        return snapshot ? JSON.parse(snapshot) : null;
+        return storageService.getItem('logFilterSnapshot');
     } catch (e) {
         console.warn('Could not load log filter snapshot from localStorage:', e);
         return null;
@@ -539,7 +539,7 @@ function loadFilterSnapshot() {
 
 function saveFilterPreset(state) {
     try {
-        localStorage.setItem('logFilterPreset', JSON.stringify(state));
+        storageService.setItem('logFilterPreset', state);
     } catch (e) {
         console.warn('Could not save log filter preset to localStorage:', e);
     }
@@ -547,8 +547,7 @@ function saveFilterPreset(state) {
 
 function loadFilterPreset() {
     try {
-        const preset = localStorage.getItem('logFilterPreset');
-        return preset ? JSON.parse(preset) : [];
+        return storageService.getItem('logFilterPreset') || [];
     } catch (e) {
         console.warn('Could not load log filter preset from localStorage:', e);
         return [];

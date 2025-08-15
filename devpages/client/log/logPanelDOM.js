@@ -1,6 +1,7 @@
 // client/log/logPanelDOM.js
 // Manages the creation of the LogPanel's DOM structure.
 
+import { storageService } from '/client/services/storageService.js';
 /**
  * Creates a toolbar button.
  * @param {HTMLElement} toolbarEl - The toolbar element to append to (if !noAppend).
@@ -122,7 +123,7 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
         
         // Add visual indicator for current log order
         if (item.action === 'setLogOrderRecent' || item.action === 'setLogOrderPast') {
-            const currentOrder = localStorage.getItem('logOrder') || 'recent';
+            const currentOrder = storageService.getItem('logOrder') || 'recent';
             const isActive = (item.action === 'setLogOrderRecent' && currentOrder === 'recent') ||
                            (item.action === 'setLogOrderPast' && currentOrder === 'past');
             if (isActive) {

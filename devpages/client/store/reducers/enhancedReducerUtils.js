@@ -3,6 +3,7 @@
  * Provides unified state persistence through the reducer pattern
  * Eliminates multiple localStorage access patterns
  */
+import { storageService } from '/client/services/storageService.js';
 
 const log = window.APP.services.log.createLogger('ReducerUtils');
 
@@ -28,17 +29,15 @@ export const setGlobalDispatch = (dispatch) => {
  */
 export const loadFromStorage = (key, defaultValue, validator = null) => {
     try {
-        const storedValue = localStorage.getItem(key);
+        const storedValue = storageService.getItem(key);
         if (storedValue === null) return defaultValue;
         
-        const parsedValue = JSON.parse(storedValue);
-        
-        if (validator && !validator(parsedValue)) {
+        if (validator && !validator(storedValue)) {
             log.warn('REDUCER_UTILS', 'VALIDATION_FAILED', `Loaded value for ${key} failed validation, using default.`);
             return defaultValue;
         }
         
-        return parsedValue;
+        return storedValue;
     } catch (e) {
         log.error('REDUCER_UTILS', 'LOAD_FROM_STORAGE_ERROR', `Error loading ${key} from localStorage:`, e);
         return defaultValue;
@@ -55,7 +54,7 @@ export const createPersister = (key, selector) => {
     return (state) => {
         try {
             const dataToStore = selector(state);
-            localStorage.setItem(key, JSON.stringify(dataToStore));
+            storageService.setItem(key, dataToStore);
             return true;
         } catch (e) {
             log.error('REDUCER_UTILS', 'PERSIST_ERROR', `Failed to persist ${key} to localStorage:`, e);
@@ -84,7 +83,7 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
         if (stateKey) {
             // Persist entire state slice
             try {
-                localStorage.setItem(stateKey, JSON.stringify(state));
+                storageService.setItem(stateKey, state);
                 log.debug('REDUCER_UTILS', 'PERSIST_STATE_SLICE', `Persisted state slice: ${stateKey}`);
             } catch (e) {
                 log.error('REDUCER_UTILS', 'PERSIST_STATE_SLICE_ERROR', `Failed to persist state slice ${stateKey}:`, e);
@@ -96,7 +95,7 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
             Object.entries(persistSelectors).forEach(([key, selector]) => {
                 try {
                     const data = selector(state);
-                    localStorage.setItem(key, JSON.stringify(data));
+                    storageService.setItem(key, data);
                     log.debug('REDUCER_UTILS', 'PERSIST_STATE_PART', `Persisted state part: ${key}`);
                 } catch (e) {
                     log.error('REDUCER_UTILS', 'PERSIST_STATE_PART_ERROR', `Failed to persist state part ${key}:`, e);
@@ -160,10 +159,9 @@ export const createStateSlice = (sliceName, config) => {
     let loadedInitialState = initialState;
     if (persistenceConfig.stateKey) {
         try {
-            const stored = localStorage.getItem(persistenceConfig.stateKey);
+            const stored = storageService.getItem(persistenceConfig.stateKey);
             if (stored) {
-                const parsed = JSON.parse(stored);
-                loadedInitialState = { ...initialState, ...parsed };
+                loadedInitialState = { ...initialState, ...stored };
                 log.debug('REDUCER_UTILS', 'LOADED_INITIAL_STATE', `Loaded initial state for ${sliceName} from localStorage`);
             }
         } catch (e) {
@@ -255,18 +253,20 @@ export const createToggleSlice = (key, defaultValue = false) => {
  * @returns {object} Settings slice utilities with bound actions
  */
 export const createSettingsSlice = (sliceName, defaultSettings, schema = null) => {
-    const stateKey = `devpages_${sliceName}_settings`;
+    const stateKey = `settings_${sliceName}`;
+    const version = '1.0';
     
     // Load and validate initial state
     let initialState = defaultSettings;
     try {
-        const stored = localStorage.getItem(stateKey);
+        const stored = storageService.getItem(stateKey);
         if (stored) {
-            const parsed = JSON.parse(stored);
-            if (schema && !validateSettings(parsed, schema)) {
+            if (stored._version !== version) {
+                log.warn('REDUCER_UTILS', 'INVALID_SETTINGS_VERSION', `Invalid stored settings version for ${sliceName}, using defaults.`);
+            } else if (schema && !validateSettings(stored, schema)) {
                 log.warn('REDUCER_UTILS', 'INVALID_SETTINGS', `Invalid stored settings for ${sliceName}, using defaults`);
             } else {
-                initialState = { ...defaultSettings, ...parsed };
+                initialState = { ...defaultSettings, ...stored };
             }
         }
     } catch (e) {
@@ -278,20 +278,22 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
         reducers: {
             updateSetting: (state, action) => {
                 const { key, value } = action.payload;
-                return { ...state, [key]: value };
+                return { ...state, [key]: value, _version: version };
             },
             updateSettings: (state, action) => {
-                return { ...state, ...action.payload };
+                return { ...state, ...action.payload, _version: version };
             },
             resetSettings: () => {
-                return { ...defaultSettings };
+                return { ...defaultSettings, _version: version };
             },
             updateNestedSetting: (state, action) => {
                 const { path, value } = action.payload;
                 const newState = { ...state };
                 setNestedProperty(newState, path, value);
+                newState._version = version;
                 return newState;
-            }
+            },
+            ...(schema?.reducers || {}),
         },
         persistenceConfig: {
             stateKey,
@@ -299,7 +301,8 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
                 `${sliceName.toUpperCase()}_UPDATE_SETTING`,
                 `${sliceName.toUpperCase()}_UPDATE_SETTINGS`,
                 `${sliceName.toUpperCase()}_RESET_SETTINGS`,
-                `${sliceName.toUpperCase()}_UPDATE_NESTED_SETTING`
+                `${sliceName.toUpperCase()}_UPDATE_NESTED_SETTING`,
+                ...Object.keys(schema?.reducers || {}).map(key => `${sliceName.toUpperCase()}_${key.toUpperCase()}`)
             ]
         }
     });
@@ -333,7 +336,7 @@ export const createFluentSlice = (sliceName, initialState) => {
             reset: () => ({ ...initialState })
         },
         persistenceConfig: {
-            stateKey: `devpages_${sliceName}`,
+            stateKey: `fluent_${sliceName}`,
             persistOnActions: [
                 `${sliceName.toUpperCase()}_SET`,
                 `${sliceName.toUpperCase()}_UPDATE`,
@@ -480,9 +483,9 @@ export const migrationUtils = {
         const originalStateKey = restConfig.persistenceConfig?.stateKey;
         if (originalStateKey && migrations && version) {
             try {
-                const stored = localStorage.getItem(originalStateKey);
+                const stored = storageService.getItem(originalStateKey);
                 if (stored) {
-                    let parsed = JSON.parse(stored);
+                    let parsed = stored;
                     parsed = this.applyMigrations(parsed, migrations, version);
                     restConfig.initialState = { ...restConfig.initialState, ...parsed };
                 }
@@ -525,7 +528,7 @@ export const cleanupUtils = {
         }
         
         keysToRemove.forEach(key => {
-            localStorage.removeItem(key);
+            storageService.removeItem(key.replace('devpages_', ''));
             log.debug('REDUCER_UTILS', 'CLEANED_OLD_STATE', `Cleaned up old state: ${key}`);
         });
         
@@ -537,20 +540,7 @@ export const cleanupUtils = {
      * @param {string} prefix - Key prefix to clear
      */
     clearAllDevPagesState(prefix = 'devpages') {
-        const keysToRemove = [];
-        
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith(prefix)) {
-                keysToRemove.push(key);
-            }
-        }
-        
-        keysToRemove.forEach(key => {
-            localStorage.removeItem(key);
-        });
-        
-        log.debug('REDUCER_UTILS', 'CLEARED_DEVPAGES_STATE', `Cleared ${keysToRemove.length} DevPages state entries`);
-        return keysToRemove.length;
+        storageService.clearAll();
+        log.debug('REDUCER_UTILS', 'CLEARED_DEVPAGES_STATE', `Cleared DevPages state entries`);
     }
 }; 

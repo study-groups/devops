@@ -77,12 +77,13 @@ export function registerMissingPanels() {
     panelsToRegister.forEach(panelConfig => {
         if (!existingSidebarPanels[panelConfig.id]) {
             console.log(`[PanelRegistration] Registering panel: ${panelConfig.id}`);
-            dispatch(panelActions.registerPanel({
-                panelId: panelConfig.id,
+            dispatch(panelActions.createPanel({
+                id: panelConfig.id,
+                dockId: 'sidebar-dock', // Default to sidebar dock for these panels
+                title: panelConfig.title,
                 config: {
-                    title: panelConfig.title,
-                    visible: panelConfig.visible,
-                    collapsed: false,
+                    isVisible: panelConfig.visible,
+                    isCollapsed: false,
                     order: panelConfig.order
                 }
             }));

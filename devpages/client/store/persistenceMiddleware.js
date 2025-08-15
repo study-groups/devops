@@ -9,8 +9,9 @@
  * 3.  **Declarative Whitelist:** We explicitly declare which actions should trigger persistence. There is no magic or hidden behavior.
  * 4.  **Error Handling:** All localStorage operations are wrapped in try/catch blocks to prevent crashes.
  */
+import { storageService } from '/client/services/storageService.js';
 
-const PERSISTENCE_KEY = 'devpages_app_state';
+const PERSISTENCE_KEY = 'app_state';
 const STATE_VERSION = '3.0'; // Bump version to invalidate old, inconsistent state
 
 // --- Declarative Whitelist of Actions to Persist ---
@@ -29,12 +30,18 @@ const persistActionWhitelist = [
     'publish/setPublishMode',
     'plugins/updatePluginSettings',
     'plugins/setModuleLoaded',
+    'ui/updateSetting',
+    'ui/toggleLogVisibility',
+    'UI_TOGGLE_LOG_VISIBILITY',
+    'UI_TOGGLE_TEXT_VISIBILITY',
+    'UI_TOGGLE_CONTEXT_MANAGER',
+    'UI_TOGGLE_LOG_MENU'
 ];
 
 // --- State Slices to Persist ---
 // We only store a subset of the entire Redux state to avoid storing sensitive
 // or unnecessary data (like connection status or temporary UI state).
-const stateSlicesToPersist = ['panels', 'debugPanel', 'publish', 'plugins', 'settings'];
+const stateSlicesToPersist = ['panels', 'debugPanel', 'publish', 'plugins', 'settings', 'ui'];
 
 /**
  * Loads the entire application state from localStorage.
@@ -42,13 +49,13 @@ const stateSlicesToPersist = ['panels', 'debugPanel', 'publish', 'plugins', 'set
  */
 export function loadState() {
     try {
-        const serializedState = localStorage.getItem(PERSISTENCE_KEY);
-        if (serializedState === null) {
+        const state = storageService.getItem(PERSISTENCE_KEY);
+        if (!state) {
             return undefined; // No state saved
         }
-        const state = JSON.parse(serializedState);
+        
         if (state._version !== STATE_VERSION) {
-            console.warn(`[Persistence] Discarding outdated state (v${state._version}). Found v${STATE_VERSION}.`);
+            console.warn(`[Persistence] Discarding outdated state (v${state._version}). Expected v${STATE_VERSION}.`);
             return undefined; // Mismatched version
         }
         return state;
@@ -73,8 +80,7 @@ function saveState(state) {
                 stateToSave[sliceName] = state[sliceName];
             }
         }
-        const serializedState = JSON.stringify(stateToSave);
-        localStorage.setItem(PERSISTENCE_KEY, serializedState);
+        storageService.setItem(PERSISTENCE_KEY, stateToSave);
     } catch (err) {
         console.error('[Persistence] Failed to save state to localStorage:', err);
     }

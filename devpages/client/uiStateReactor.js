@@ -80,23 +80,29 @@ function init() {
 
 function handleAppStateChange(newState, prevState) {
     if (!prevState) return; // Guard against initial undefined state
-    // Determine if a change relevant to UIManager occurred
-    const authChanged = newState.auth !== prevState.auth;
-    const fileChanged = newState.file !== prevState.file;
-    const settingsPanelChanged = newState.settingsPanel !== prevState.settingsPanel;
+    const { auth, file, settingsPanel, ui } = newState;
+    const { auth: prevAuth, file: prevFile, settingsPanel: prevSettingsPanel, ui: prevUi } = prevState;
+
+    const authChanged = auth !== prevAuth;
+    const fileChanged = file !== prevFile;
+    const settingsPanelChanged = settingsPanel !== prevSettingsPanel;
+    const uiChanged = ui !== prevUi;
+
+    // React to log panel visibility change
+    if (uiChanged && ui.isLogVisible !== prevUi?.isLogVisible) {
+        applyLogVisibility(ui.isLogVisible);
+    }
     
     let uiManagerSpecificUiChange = false;
-    if (newState.ui !== prevState.ui) {
-        if (newState.ui.isLoading !== prevState.ui?.isLoading) { // Example specific interest
+    if (uiChanged) {
+        if (ui.isLoading !== prevUi?.isLoading) {
             uiManagerSpecificUiChange = true;
         }
-        // ADDED: Handle viewMode changes for body class application
-        if (newState.ui.viewMode !== prevState.ui?.viewMode) {
+        if (ui.viewMode !== prevUi?.viewMode) {
             uiManagerSpecificUiChange = true;
-            log.info('UI', 'VIEW_MODE_CHANGED', `View mode changed from '${prevState.ui?.viewMode}' to '${newState.ui.viewMode}'`);
-            applyViewMode(newState.ui.viewMode);
+            log.info('UI', 'VIEW_MODE_CHANGED', `View mode changed from '${prevUi?.viewMode}' to '${ui.viewMode}'`);
+            applyViewMode(ui.viewMode);
         }
-        // Add other checks for ui properties UIManager directly acts upon
     }
 
     const uimanagerRelevantChange = authChanged || fileChanged || settingsPanelChanged || uiManagerSpecificUiChange;
@@ -105,72 +111,51 @@ function handleAppStateChange(newState, prevState) {
         log.debug('UI', 'STATE_CHANGE_RELEVANT', `handleAppStateChange processing relevant changes.`, 
             { auth: authChanged, file: fileChanged, settingsPanel: settingsPanelChanged, uiRelevant: uiManagerSpecificUiChange });
     }
-    // No early return here, as individual handlers below still need to process their slices if they changed.
 
-    // --- Auth State Handling (existing logic) ---
     if (authChanged) {
-        log.info('UI', 'AUTH_STATE_CHANGED', `Auth state changed: isAuthenticated=${newState.auth.isAuthenticated}, isInitializing=${newState.auth.isInitializing}`);
-        // The fileManager now listens for auth changes internally.
-        // The uiManager's responsibility is just to react to UI-related state, not to orchestrate other modules.
-        // All logic for calling initializeFileManager, refreshFileManagerForUser, or resetFileManagerState has been removed.
+        log.info('UI', 'AUTH_STATE_CHANGED', `Auth state changed: isAuthenticated=${auth.isAuthenticated}, isInitializing=${auth.isInitializing}`);
         log.info('UI', 'AUTH_STATE_HANDLED', 'Auth state change handling finished.');
     }
 
-    // --- File System State Handling ---
     if (fileChanged) {
-        // Only log and react to STRUCTURAL file changes, not content changes
         const structuralChange = (
-            newState.file?.currentPathname !== prevState.file?.currentPathname ||
-            newState.file?.isDirectorySelected !== prevState.file?.isDirectorySelected ||
-            newState.file?.isLoading !== prevState.file?.isLoading ||
-            newState.file?.currentListing !== prevState.file?.currentListing ||
-            newState.file?.availableTopLevelDirs !== prevState.file?.availableTopLevelDirs
+            file?.currentPathname !== prevFile?.currentPathname ||
+            file?.isDirectorySelected !== prevFile?.isDirectorySelected ||
+            file?.isLoading !== prevFile?.isLoading ||
+            file?.currentListing !== prevFile?.currentListing ||
+            file?.availableTopLevelDirs !== prevFile?.availableTopLevelDirs
         );
         
-        // Don't react to content-only changes (from typing in editor)
         if (!structuralChange) {
-            // Skip updating UI for content-only changes
             return;
         }
         
-        log.info('UI', 'FILE_STATE_CHANGED', `File state changed structurally. isLoading: ${newState.file?.isLoading}, currentPathname: ${newState.file?.currentPathname}`);
+        log.info('UI', 'FILE_STATE_CHANGED', `File state changed structurally. isLoading: ${file?.isLoading}, currentPathname: ${file?.currentPathname}`);
+        updateActionButtonsState(file || {});
+        updateBreadcrumbs(file || {});
 
-        // Update UI components based on the new file state
-        updateActionButtonsState(newState.file || {});
-        updateBreadcrumbs(newState.file || {});
+        const currentUsername = auth.user?.username;
+        const isLoggedIn = auth.isAuthenticated;
+        const currentTopDir = file?.topLevelDirectory;
+        const availableTopDirs = file?.availableTopLevelDirs || [];
 
-        // Logic previously in handleFileManagerStateSettled for showing top-level selector
-        const currentAuthState = newState.auth; // Use the current auth state
-        const currentUsername = currentAuthState.user?.username;
-        const isLoggedIn = currentAuthState.isAuthenticated;
-        const currentTopDir = newState.file?.topLevelDirectory;
-        const availableTopDirs = newState.file?.availableTopLevelDirs || [];
-
-        // Condition to show the top-level selector (e.g., logged out or specific user at root)
         const showSelectorCondition = (!isLoggedIn || currentUsername?.toLowerCase() === 'mike') && !currentTopDir && availableTopDirs.length > 0;
 
         if (showSelectorCondition) {
             log.info('UI', 'RENDER_FILE_LIST', 'State changed to root/selector view. Emitting ui:renderFileList to show selector.');
-            // We might still need this specific event if PathManagerComponent doesn't subscribe to the store directly yet
             eventBus.emit('ui:renderFileList');
         } else {
             log.info('UI', 'STANDARD_LISTING_VIEW', 'State changed, standard listing/file view expected.');
-            // If PathManagerComponent subscribes, it will handle rendering the listing itself.
-            // If not, you might need to emit a different event here or pass data.
-            // For now, assume PathManagerComponent will handle it via store subscription.
         }
     }
 
-    // --- Settings Panel State Handling (Example) ---
     if (settingsPanelChanged) {
-        // Update settings panel UI if needed
         log.debug('UI', 'SETTINGS_PANEL_STATE_CHANGED', 'Settings Panel state changed.');
     }
 
-    // --- UI State Handling (Example for properties uiManager itself handles like global isLoading) ---
-     if (uiManagerSpecificUiChange) { 
-        log.debug('UI', 'GLOBAL_UI_PROPERTIES_CHANGED', `Global UI properties changed (e.g., isLoading: ${newState.ui.isLoading})`, { isLoading: newState.ui.isLoading });
-     }
+    if (uiManagerSpecificUiChange) { 
+       log.debug('UI', 'GLOBAL_UI_PROPERTIES_CHANGED', `Global UI properties changed (e.g., isLoading: ${ui.isLoading})`, { isLoading: ui.isLoading });
+    }
 }
 
 // --- UI Update Functions (Modified) ---

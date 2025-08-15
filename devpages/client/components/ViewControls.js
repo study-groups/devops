@@ -222,8 +222,8 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
 
         const logButton = element.querySelector('#log-toggle-btn');
         if (logButton) {
-            logButton.classList.toggle('active', state.ui.logVisible);
-            logButton.title = state.ui.logVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
+            logButton.classList.toggle('active', state.ui.isLogVisible);
+            logButton.title = state.ui.isLogVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
         }
     };
 
@@ -255,11 +255,11 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
 
             switch (action) {
                 case 'toggleLogVisibility':
-                    dispatch(uiActions.updateSetting({ key: 'logVisible', value: !appStore.getState().ui.logVisible }));
+                    dispatch(uiActions.toggleLogVisibility());
                     break;
                     
                 case 'toggleEdit':
-                    dispatch(uiActions.updateSetting({ key: 'textVisible', value: !appStore.getState().ui.textVisible }));
+                    dispatch(uiActions.toggleTextVisibility());
                     break;
                     
                 case 'refreshPreview':
