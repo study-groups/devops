@@ -571,16 +571,7 @@
     border-color: var(--color-red-900);
 }
 
-.log-tag-button.select-all-button {
-    background-color: var(--color-green-500);
-    border-color: var(--color-green-900);
-    color: var(--color-green-100);
-}
 
-.log-tag-button.select-all-button:hover {
-    background-color: var(--color-green-900);
-    border-color: var(--color-green-900);
-}
 
 .log-tag-button.clear-filters-button {
     background-color: var(--color-blue-500);

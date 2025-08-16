@@ -2,9 +2,9 @@
  * Centralized publish service - single source of truth for HTML generation and publishing
  */
 
-import { workspaceManager } from '../layout/WorkspaceManager.js';
+import { simplifiedWorkspaceManager } from '../layout/SimplifiedWorkspaceManager.js';
 import { appStore } from '/client/appState.js';
-import { marked } from '/client/vendor/scripts/marked.esm.js';
+import { renderMarkdown } from '/client/preview/renderer.js';
 
 class PublishService {
   /**
@@ -12,12 +12,18 @@ class PublishService {
    */
   async generatePublishHtml(markdownContent, filePath, options = {}) {
     const title = filePath?.replace(/\.md$/, '') || 'Document';
-    const htmlContent = marked.parse(markdownContent);
+    const fullHtmlDocument = await renderMarkdown(markdownContent, filePath);
+    
+    // Extract body content from the full HTML document
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fullHtmlDocument, 'text/html');
+    const htmlContent = doc.body.innerHTML;
+    
     const finalHtmlContent = await this.embedImagesAsBase64(htmlContent);
     const baseCSS = await this.getBaseCss();
 
     const panels = []; // TODO: Get panel state from Redux
-    const layout = 'sidebar-visible'; // TODO: Get layout state from workspaceManager/Redux
+    const layout = 'sidebar-visible'; // TODO: Get layout state from Redux
 
     return `<!DOCTYPE html>
 <html lang="en">

@@ -16,7 +16,7 @@ import './log/UnifiedLogging.js'; // Import for side effects: initializes window
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
-import { workspaceManager } from './layout/WorkspaceManager.js';
+import { simplifiedWorkspaceManager } from './layout/SimplifiedWorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
 import { initializeStore, thunks as appThunks, actions as appActions } from './appState.js';
 import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
@@ -172,7 +172,7 @@ async function bootSecondary({ store, actions }) {
     await initializeComponentSystem(store, postAuthComponents);
     
     
-    // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
+    // PANEL_REGISTRATION: Register missing panels before SimplifiedWorkspaceManager initialization
     try {
         // Temporarily disable panel registration fix
         // log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
@@ -181,14 +181,21 @@ async function bootSecondary({ store, actions }) {
         log.warn('PANEL_REGISTRATION_FAILED', '⚠️ Failed to register missing panels:', error);
     }
 
-    // ENHANCED: Initialize enhanced WorkspaceManager (single, consolidated system)
+    // SIMPLIFIED: Initialize SimplifiedWorkspaceManager only
     try {
-        workspaceManager.initialize();
-        window.APP.services.workspaceManager = workspaceManager;
-        log.info('WORKSPACE_INIT', '✅ Enhanced WorkspaceManager initialized with APP.workspace API');
-        log.info('WORKSPACE_HIERARCHY', '🎖️ Proper hierarchy: Log (most special) > Editor > Preview > Sidebar');
+        await simplifiedWorkspaceManager.initialize();
+
+        window.APP.services.simplifiedWorkspaceManager = simplifiedWorkspaceManager;
+        log.info('WORKSPACE_INIT', '✅ SimplifiedWorkspaceManager initialized - All panels working');
+        log.info('WORKSPACE_HIERARCHY', '🎖️ Clean system: SimplifiedWorkspaceManager only');
+        
+        // Initialize Sidebar Visibility Controller
+        const { sidebarVisibilityController } = await import('/client/layout/SidebarVisibilityController.js');
+        sidebarVisibilityController.initialize();
+        log.info('SIDEBAR_CONTROLLER', '✅ Sidebar visibility controller initialized');
+        
     } catch (error) {
-        log.error('WORKSPACE_INIT_FAILED', '❌ WorkspaceManager initialization failed:', error);
+        log.error('WORKSPACE_INIT_FAILED', '❌ Workspace initialization failed:', error);
         throw error;
     }
 
@@ -235,7 +242,7 @@ async function bootSecondary({ store, actions }) {
         log.error('KEYBOARD_SHORTCUTS_INIT_FAILED', '❌ Keyboard shortcuts initialization failed:', error);
     }
 
-    // Initialize debug panels now that WorkspaceManager is ready
+    // Initialize debug panels now that SimplifiedWorkspaceManager is ready
     if (bootState.isAuthenticated) {
         try {
             const { initializeDebugPanels } = await import('/packages/devpages-debug/index.js');
@@ -262,7 +269,7 @@ async function bootSecondary({ store, actions }) {
     if (!isProduction) {
         try {
             const { panelTestFramework } = await import('./tests/PanelTestFramework.js');
-            panelTestFramework.initialize(workspaceManager);
+            panelTestFramework.initialize(window.APP.services.simplifiedWorkspaceManager);
             
             // Auto-run health check
             setTimeout(() => {
@@ -479,7 +486,7 @@ async function mountManagedComponent(componentDef, store) {
         let component;
         if (componentDef.type === 'panel') {
             // For panels, we just register their definition for on-demand loading
-            // This is now handled by WorkspaceManager
+            // This is now handled by SimplifiedWorkspaceManager
             component = { name: componentDef.name, type: 'panel-definition' };
         } else if (componentDef.targetElementId) {
             const module = await import(componentDef.modulePath);

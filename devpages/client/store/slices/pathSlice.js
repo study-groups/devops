@@ -10,6 +10,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { apiSlice } from '../apiSlice.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
+import { getParentPath } from '/client/utils/pathUtils.js';
 
 // Initial state
 const initialState = {
@@ -117,7 +118,7 @@ export const pathSlice = createSlice({
         (state, action) => {
           state.status = 'succeeded';
           state.currentListing = {
-            pathname: action.meta.arg, // The pathname that was requested
+            pathname: action.payload.pathname,
             dirs: action.payload.dirs || [],
             files: action.payload.files || [],
           };
@@ -181,6 +182,20 @@ export const pathThunks = {
     // Dispatch the synchronous action to update the path immediately
     dispatch(_navigateToPath({ pathname, isDirectory }));
 
+    // Update the browser URL to reflect the current path
+    try {
+      const url = new URL(window.location);
+      if (pathname && pathname !== '/' && pathname !== '') {
+        url.searchParams.set('pathname', pathname);
+      } else {
+        url.searchParams.delete('pathname');
+      }
+      window.history.replaceState({}, '', url);
+      console.log(`[Path] Updated URL to: ${url.toString()}`);
+    } catch (error) {
+      console.error('[Path] Failed to update URL:', error);
+    }
+
     if (isDirectory) {
       // If it's a directory, fetch its listing
       try {
@@ -189,9 +204,13 @@ export const pathThunks = {
         console.error(`[Path] Failed to fetch directory listing for ${pathname}:`, error);
       }
     } else {
-      // If it's a file, load its content
+      // If it's a file, load its content and its parent directory listing
       try {
         await dispatch(fileThunks.loadFileContent(pathname));
+        const parentPath = getParentPath(pathname);
+        if (parentPath) {
+          await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath)).unwrap();
+        }
       } catch (error) {
         console.error(`[Path] Failed to load file content for ${pathname}:`, error);
       }

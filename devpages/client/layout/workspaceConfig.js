@@ -150,7 +150,7 @@ export const PANEL_DEFINITIONS = {
         id: 'log-display',
         type: 'DRAGGABLE_PANEL',
         title: 'Log Display',
-        factory: () => import('../log/LogPanel.js').then(m => m.LogPanel),
+        factory: () => import('../log/LogDisplay.js').then(m => m.LogDisplay),
         targetZone: 'sidebar',
         collapsible: true,
         draggable: true,

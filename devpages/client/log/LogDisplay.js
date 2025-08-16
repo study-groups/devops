@@ -6,19 +6,27 @@
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';
 import { clearEntries, selectFilteredEntries, addEntry } from '/client/store/slices/logSlice.js';
-import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logPanelDOM.js';
+import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logEntryDOM.js';
 import { updateTagsBar, applyFiltersToLogEntries, clearFilterCache } from './LogFilterBar.js';
-import { setLogPanelInstance } from './LogCore.js';
+import { setLogDisplayInstance } from './LogCore.js';
+import { expandLogEntry as expandLogEntryFunction, collapseLogEntry as collapseLogEntryFunction } from './logEntryExpansion.js';
 
 export class LogDisplay extends BasePanel {
     constructor(options) {
         super(options);
         this.logOrder = 'recent';
+        this.lastSortOrder = 'recent';
         this.maxEntries = options.maxEntries || 1000; // Limit entries to prevent memory issues
         this.entryCache = new Map(); // Cache for rendered entries
         this.renderQueue = []; // Queue for batch rendering
         this.isRendering = false;
         this.continuousLoggingEnabled = true; // Flag to control continuous logging
+        this.lastRenderedEntryCount = 0; // Track the number of entries rendered
+        
+        // Render mode constants for expansion functionality
+        this.RENDER_MODE_RAW = 'raw';
+        this.RENDER_MODE_MARKDOWN = 'markdown';
+        this.RENDER_MODE_HTML = 'html';
     }
 
     render() {
@@ -45,69 +53,33 @@ export class LogDisplay extends BasePanel {
             this.onStateChange(state);
         });
         
+        // Set up event delegation for log entry clicks (more efficient than individual listeners)
+        this.setupEventDelegation();
+        
         // Apply initial state
         const initialState = this.store.getState();
         this.onStateChange(initialState);
-        
+        this.lastRenderedEntryCount = selectFilteredEntries(initialState).length;
+
         // Initialize filter tags
         if (this.tagsBarElement) {
             updateTagsBar(this.tagsBarElement, this.logElement);
         }
 
         // Register this instance with LogCore so it can receive log entries
-        setLogPanelInstance(this);
+        setLogDisplayInstance(this);
         
-        // Make this instance globally available as LogDisplay (NOT LogPanel)
-        window.logDisplay = this;
-        window.logPanel = this; // Keep for backward compatibility temporarily
+        // Expose via proper APP namespace
+        this.exposeToApp();
+        
+        // Load buffered log entries from early boot process
+        this.loadBufferedEntries();
         
         // DISABLED: Add some test entries to verify the system is working
         // this.addTestEntries();
-        
-        // Add global test function for debugging
-        window.testLog = (message = 'Test log entry', level = 'INFO', type = 'TEST') => {
-            this.addEntry({
-                ts: Date.now(),
-                message,
-                level,
-                type,
-                source: 'CONSOLE'
-            });
-        };
-
-        // Add function to test LogCore with rate limiting bypass
-        window.testLogCore = (message = 'LogCore test', level = 'INFO', type = 'TEST') => {
-            import('./LogCore.js').then(({ log }) => {
-                log({ 
-                    message, 
-                    level, 
-                    type, 
-                    source: 'CONSOLE',
-                    forceConsole: true // Bypass rate limiting
-                });
-            });
-        };
-
-        // Add function to disable continuous logging for testing
-        window.disableContinuousLogging = () => {
-            this.continuousLoggingEnabled = false;
-            console.log('Continuous logging disabled');
-        };
-
-        // Add function to enable continuous logging
-        window.enableContinuousLogging = () => {
-            this.continuousLoggingEnabled = true;
-            console.log('Continuous logging enabled');
-        };
 
         // Immediately disable continuous logging since user requested it
         this.continuousLoggingEnabled = false;
-
-        // Add emergency stop function and immediate cleanup
-        window.emergencyStopLogging = () => {
-            this.continuousLoggingEnabled = false;
-            console.log('🚨 EMERGENCY STOP: All logging disabled');
-        };
 
         // IMMEDIATE CLEANUP - Remove any existing problematic event listeners
         this.cleanupEventListeners();
@@ -145,24 +117,198 @@ export class LogDisplay extends BasePanel {
                 import('/client/services/storageService.js').then(({ storageService }) => {
                     storageService.setItem('logOrder', this.logOrder);
                 });
-                // Re-render entries with new order
-                this.renderLogEntries();
+                // Trigger re-render by calling onStateChange with current state
+                const currentState = this.store.getState();
+                this.onStateChange(currentState);
             });
         }
         
-        // Add event listeners for header buttons (delegate to existing handlers)
+        // Add event listeners for header buttons
         const headerButtons = this.container.querySelectorAll('.log-header-button[data-action]');
+        console.log(`[LogDisplay] Found ${headerButtons.length} header buttons`);
+        
         headerButtons.forEach(button => {
+            console.log(`[LogDisplay] Adding listener to button with action: ${button.dataset.action}`);
             button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
-                if (action) {
-                    // Delegate to existing filter bar handler
+                console.log(`[LogDisplay] Button clicked with action: ${action}`);
+                
+                if (action === 'copy-log') {
+                    console.log('[LogDisplay] Calling copyLog method');
+                    try {
+                        this.copyLog();
+                        // Show feedback
+                        const originalContent = button.innerHTML;
+                        button.innerHTML = '✅ Copied';
+                        setTimeout(() => {
+                            button.innerHTML = originalContent;
+                        }, 2000);
+                    } catch (error) {
+                        console.error('[LogDisplay] Error in copyLog:', error);
+                    }
+                } else if (action === 'clear-log') {
+                    console.log('[LogDisplay] Calling clearLog method');
+                    try {
+                        this.clearLog();
+                    } catch (error) {
+                        console.error('[LogDisplay] Error in clearLog:', error);
+                    }
+                } else if (action === 'toggleLogMenu') {
+                    console.log('[LogDisplay] Toggling log menu');
+                    // Handle menu toggle directly
+                    const menuContainer = this.container.querySelector('#log-menu-container');
+                    if (menuContainer) {
+                        const isVisible = menuContainer.style.display !== 'none';
+                        menuContainer.style.display = isVisible ? 'none' : 'block';
+                    }
+                } else {
+                    console.log('[LogDisplay] Delegating to filter bar handler');
+                    // Delegate other actions to existing filter bar handler
                     import('./LogFilterBar.js').then(({ _handleTagClick }) => {
                         _handleTagClick(e);
                     });
                 }
             });
         });
+    }
+
+    /**
+     * Load buffered log entries from early boot process
+     */
+    loadBufferedEntries() {
+        console.log('[LogDisplay] Loading buffered entries from early boot process...');
+        
+        try {
+            // Try to get buffered entries from various log managers
+            const buffers = [];
+            
+            // 1. Try ConsoleLogManager buffer
+            const consoleLogManager = window.APP?.services?.consoleLogManager || window.consoleLogManager;
+            if (consoleLogManager && typeof consoleLogManager.getLogBuffer === 'function') {
+                const consoleEntries = consoleLogManager.getLogBuffer();
+                if (consoleEntries && consoleEntries.length > 0) {
+                    console.log(`[LogDisplay] Found ${consoleEntries.length} entries in ConsoleLogManager buffer`);
+                    buffers.push(...consoleEntries);
+                }
+            }
+            
+            // 2. Try generic LogManager buffer
+            const logManager = window.APP?.services?.logManager || window.logManager;
+            if (logManager && logManager !== consoleLogManager && typeof logManager.getLogBuffer === 'function') {
+                const logEntries = logManager.getLogBuffer();
+                if (logEntries && logEntries.length > 0) {
+                    console.log(`[LogDisplay] Found ${logEntries.length} entries in LogManager buffer`);
+                    buffers.push(...logEntries);
+                }
+            }
+            
+            // 3. Convert buffered entries to LogDisplay format and add them
+            if (buffers.length > 0) {
+                console.log(`[LogDisplay] Processing ${buffers.length} buffered entries...`);
+                
+                buffers.forEach(entry => {
+                    // Convert buffer entry format to LogDisplay format
+                    const displayEntry = {
+                        timestamp: entry.timestamp || entry.ts || Date.now(),
+                        message: entry.message || '',
+                        level: entry.level || 'INFO',
+                        type: entry.type || 'GENERAL',
+                        source: entry.source || 'SYSTEM',
+                        action: entry.action,
+                        details: entry.details,
+                        component: entry.component
+                    };
+                    
+                    // Add to Redux store
+                    this.store.dispatch(addEntry(displayEntry));
+                });
+                
+                console.log(`[LogDisplay] Successfully loaded ${buffers.length} buffered entries`);
+            } else {
+                console.log('[LogDisplay] No buffered entries found');
+            }
+            
+        } catch (error) {
+            console.error('[LogDisplay] Error loading buffered entries:', error);
+        }
+    }
+
+    /**
+     * Expose LogDisplay to proper APP namespace following project conventions
+     */
+    exposeToApp() {
+        if (typeof window === 'undefined') return;
+        
+        // Establish APP namespace
+        window.APP = window.APP || {};
+        window.APP.services = window.APP.services || {};
+        window.APP.log = window.APP.log || {};
+        
+        // Expose LogDisplay instance
+        window.APP.services.logDisplay = this;
+        
+        // Expose LogDisplay API functions
+        window.APP.log.display = {
+            // Core display functions
+            clearLog: () => this.clearLog(),
+            copyLog: () => this.copyLog(),
+            
+            // Entry management
+            addEntry: (entry) => this.addEntry(entry),
+            
+            // Configuration
+            setOrder: (order) => {
+                this.logOrder = order;
+                const currentState = this.store.getState();
+                this.onStateChange(currentState);
+            },
+            getOrder: () => this.logOrder,
+            
+            // Testing functions
+            testLog: (message = 'Test log entry', level = 'INFO', type = 'TEST') => {
+                this.addEntry({
+                    ts: Date.now(),
+                    message,
+                    level,
+                    type,
+                    source: 'CONSOLE'
+                });
+            },
+            
+            testLogCore: (message = 'LogCore test', level = 'INFO', type = 'TEST') => {
+                import('./LogCore.js').then(({ log }) => {
+                    log({ 
+                        message, 
+                        level, 
+                        type, 
+                        source: 'CONSOLE',
+                        forceConsole: true // Bypass rate limiting
+                    });
+                });
+            },
+            
+            // Control functions
+            enableContinuousLogging: () => {
+                this.continuousLoggingEnabled = true;
+                console.log('Continuous logging enabled');
+            },
+            
+            disableContinuousLogging: () => {
+                this.continuousLoggingEnabled = false;
+                console.log('Continuous logging disabled');
+            },
+            
+            emergencyStop: () => {
+                this.continuousLoggingEnabled = false;
+                console.log('🚨 EMERGENCY STOP: All logging disabled');
+            }
+        };
+        
+        // Legacy compatibility for filter bar (temporary)
+        window.APP.services.logPanel = this; // For LogFilterBar compatibility
     }
 
     // Required method for LogCore integration
@@ -316,24 +462,46 @@ export class LogDisplay extends BasePanel {
         if (!this.logElement || !state.log) return;
 
         const logState = state.log;
-        const filteredEntries = selectFilteredEntries({ log: logState });
-        
-        // Use optimized rendering based on entry count
-        if (filteredEntries.length > 50) {
-            // Use queue-based rendering for large datasets
-            this.logElement.innerHTML = '';
-            this.queueRender(filteredEntries);
-        } else if (filteredEntries.length > 10) {
-            // Use batch rendering for medium datasets
-            this.batchRenderEntries(filteredEntries);
-        } else {
-            // Use individual rendering for small datasets
-            this.logElement.innerHTML = '';
-            filteredEntries.forEach((entry, index) => {
-                this.renderLogEntry(entry, index);
-            });
+        const allEntries = selectFilteredEntries({ log: logState });
+
+        const sortOrderChanged = this.logOrder !== this.lastSortOrder;
+        this.lastSortOrder = this.logOrder;
+
+        // If the number of entries hasn't changed, and sort order is the same, do nothing.
+        if (allEntries.length === this.lastRenderedEntryCount && !sortOrderChanged) {
+            return;
         }
 
+        // Efficiently append only new entries
+        const newEntries = allEntries.slice(this.lastRenderedEntryCount);
+
+        if (newEntries.length > 0 && !sortOrderChanged) {
+            const fragment = document.createDocumentFragment();
+            newEntries.forEach(entry => {
+                const entryElement = this.createLogEntryElement(entry, allEntries.length - newEntries.length + fragment.children.length);
+                if (this.logOrder === 'recent') {
+                    fragment.insertBefore(entryElement, fragment.firstChild);
+                } else {
+                    fragment.appendChild(entryElement);
+                }
+            });
+
+            if (this.logOrder === 'recent') {
+                 this.logElement.insertBefore(fragment, this.logElement.firstChild);
+            } else {
+                 this.logElement.appendChild(fragment);
+            }
+        } else if (allEntries.length < this.lastRenderedEntryCount || sortOrderChanged) {
+            // This case handles clearing, filtering, or sorting, so a full re-render is needed.
+            this.logElement.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            allEntries.forEach((entry, index) => {
+                fragment.appendChild(this.createLogEntryElement(entry, index));
+            });
+            this.logElement.appendChild(fragment);
+        }
+
+        this.lastRenderedEntryCount = allEntries.length;
         this.updateEntryCount(logState);
     }
 
@@ -417,37 +585,23 @@ export class LogDisplay extends BasePanel {
     }
 
     expandLogEntry(logEntryDiv, entry) {
-        logEntryDiv.classList.add('expanded');
-        
-        // Create expanded content if it doesn't exist
-        if (!logEntryDiv.querySelector('.log-entry-expanded-content')) {
-            const expandedContent = document.createElement('div');
-            expandedContent.className = 'log-entry-expanded-content';
-            
-            const toolbar = document.createElement('div');
-            toolbar.className = 'log-entry-expanded-toolbar';
-            
-            const textWrapper = document.createElement('div');
-            textWrapper.className = 'log-entry-text-wrapper';
-            textWrapper.textContent = entry.message || '';
-            
-            expandedContent.appendChild(toolbar);
-            expandedContent.appendChild(textWrapper);
-            logEntryDiv.appendChild(expandedContent);
-            
-            // Create toolbar using existing function
-            createExpandedEntryToolbarDOM(logEntryDiv, {
-                logIndex: logEntryDiv.dataset.logIndex,
-                logTimestamp: entry.timestamp,
-                logType: entry.type,
-                logSubtype: entry.subtype,
-                rawOriginalMessage: entry.message
-            }, this);
+        try {
+            expandLogEntryFunction(logEntryDiv, this);
+        } catch (error) {
+            console.warn('[LogDisplay] Failed to expand entry:', error);
+            // Fallback to basic expansion
+            logEntryDiv.classList.add('expanded');
         }
     }
 
     collapseLogEntry(logEntryDiv) {
-        logEntryDiv.classList.remove('expanded');
+        try {
+            collapseLogEntryFunction(logEntryDiv, this);
+        } catch (error) {
+            console.warn('[LogDisplay] Failed to collapse entry:', error);
+            // Fallback to basic collapse
+            logEntryDiv.classList.remove('expanded');
+        }
     }
 
     // Utility methods for better logging experience
@@ -512,34 +666,122 @@ export class LogDisplay extends BasePanel {
         
         logEntryDiv.className = `log-entry log-level-${level}`;
         
-        // Format timestamp
-        const timestamp = entry.timestamp ? 
-            new Date(entry.timestamp).toLocaleTimeString('en-US', { 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            }) : 
-            '--:--:--';
+        // Optimized timestamp formatting - cache formatted timestamps
+        let timestamp = '--:--:--';
+        if (entry.timestamp) {
+            const cacheKey = Math.floor(entry.timestamp / 1000); // Cache by second
+            if (!this.timestampCache) this.timestampCache = new Map();
+            
+            if (this.timestampCache.has(cacheKey)) {
+                timestamp = this.timestampCache.get(cacheKey);
+            } else {
+                timestamp = new Date(entry.timestamp).toLocaleTimeString('en-US', { 
+                    hour12: false, 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+                this.timestampCache.set(cacheKey, timestamp);
+                
+                // Limit cache size
+                if (this.timestampCache.size > 100) {
+                    const firstKey = this.timestampCache.keys().next().value;
+                    this.timestampCache.delete(firstKey);
+                }
+            }
+        }
 
-        // Create structured content efficiently
-        logEntryDiv.innerHTML = `
-            <span class="log-entry-timestamp">${timestamp}</span>
-            <span class="log-entry-level">${entry.level || 'INFO'}</span>
-            <span class="log-entry-type">${type}</span>
-            <span class="log-entry-message">${this.sanitizeMessage(entry.message || '')}</span>
-        `;
+        // Create the basic structure that supports expansion
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'log-entry-timestamp';
+        timestampSpan.textContent = timestamp;
         
-        // Set data attributes for filtering
+        const levelSpan = document.createElement('span');
+        levelSpan.className = 'log-entry-level';
+        levelSpan.textContent = entry.level || 'INFO';
+        
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'log-entry-type';
+        typeSpan.textContent = type;
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'log-entry-message';
+        messageSpan.textContent = this.sanitizeMessage(entry.message || '');
+        
+        // Create the structure that expansion functionality expects
+        const textWrapper = document.createElement('div');
+        textWrapper.className = 'log-entry-text-wrapper';
+        
+        const textContent = document.createElement('div');
+        textContent.className = 'log-entry-text-content';
+        textContent.appendChild(messageSpan);
+        textWrapper.appendChild(textContent);
+        
+        // Create the expanded content container (hidden by default)
+        const expandedContent = document.createElement('div');
+        expandedContent.className = 'log-entry-expanded-content';
+        expandedContent.style.display = 'none';
+        
+        // Create the expanded toolbar (inside expanded content)
+        const expandedToolbar = document.createElement('div');
+        expandedToolbar.className = 'log-entry-expanded-toolbar';
+        
+        // Create expanded text wrapper (inside expanded content)
+        const expandedTextWrapper = document.createElement('div');
+        expandedTextWrapper.className = 'log-entry-expanded-text-wrapper';
+        
+        // Assemble expanded content
+        expandedContent.appendChild(expandedToolbar);
+        expandedContent.appendChild(expandedTextWrapper);
+        
+        // Append all elements in the correct structure
+        logEntryDiv.appendChild(timestampSpan);
+        logEntryDiv.appendChild(levelSpan);
+        logEntryDiv.appendChild(typeSpan);
+        logEntryDiv.appendChild(textWrapper);
+        logEntryDiv.appendChild(expandedContent);
+        
+        // Set data attributes for filtering and expansion
         logEntryDiv.dataset.logType = type;
         logEntryDiv.dataset.logLevel = entry.level || 'INFO';
         logEntryDiv.dataset.source = source;
         logEntryDiv.dataset.logIndex = index;
+        logEntryDiv.dataset.logTimestamp = timestamp;
+        logEntryDiv.dataset.logCoreMessage = entry.message || '';
+        logEntryDiv.dataset.rawOriginalMessage = entry.message || '';
 
-        // Add click handler for expansion
-        logEntryDiv.addEventListener('click', (e) => this.handleLogEntryClick(e, entry));
+        // Use event delegation instead of individual listeners (handled in container)
+        logEntryDiv.dataset.entryData = JSON.stringify(entry);
 
         return logEntryDiv;
+    }
+
+    /**
+     * Set up event delegation for log entry clicks (more efficient than individual listeners)
+     */
+    setupEventDelegation() {
+        if (!this.logElement) return;
+        
+        this.logElement.addEventListener('click', (e) => {
+            const logEntry = e.target.closest('.log-entry');
+            
+            if (logEntry && logEntry.dataset.entryData) {
+                try {
+                    const entry = JSON.parse(logEntry.dataset.entryData);
+                    // Create a new event object with the correct currentTarget
+                    const delegatedEvent = {
+                        ...e,
+                        currentTarget: logEntry,
+                        target: e.target,
+                        stopPropagation: () => e.stopPropagation(),
+                        preventDefault: () => e.preventDefault()
+                    };
+                    this.handleLogEntryClick(delegatedEvent, entry);
+                } catch (error) {
+                    console.warn('[LogDisplay] Failed to parse entry data for click handler:', error);
+                }
+            }
+        });
     }
 
     // Memory management methods
@@ -581,7 +823,7 @@ export class LogDisplay extends BasePanel {
         }
 
         this.isRendering = true;
-        const batchSize = 20;
+        const batchSize = 50; // Increased batch size since rendering is now faster
         const batch = this.renderQueue.splice(0, batchSize);
         
         requestAnimationFrame(() => {
@@ -727,10 +969,4 @@ export function createLogDisplay(containerId) {
     display.onMount(container);
 
     return display;
-}
-
-// Keep old function name for backward compatibility
-export function createLogPanel(containerId) {
-    console.warn('[DEPRECATED] createLogPanel is deprecated, use createLogDisplay instead');
-    return createLogDisplay(containerId);
 }

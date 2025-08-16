@@ -14,7 +14,7 @@ export class ConsoleCallerInfo {
   static skipPatterns = [
     'ConsoleLogManager.js',
     'ConsoleLogFilter.js', 
-    'ConsoleLogEntry.js',
+    'BaseLogEntry.js', // Consolidated from ConsoleLogEntry.js
     'ConsoleLogBuffer.js',
     'ConsoleCallerInfo.js',
     'log/core.js',
@@ -103,7 +103,7 @@ export class ConsoleCallerInfo {
     ConsoleCallerInfo.skipPatterns = [
       'ConsoleLogManager.js',
       'ConsoleLogFilter.js', 
-      'ConsoleLogEntry.js',
+      'BaseLogEntry.js', // Consolidated from ConsoleLogEntry.js
       'ConsoleLogBuffer.js',
       'ConsoleCallerInfo.js',
       'log/core.js',

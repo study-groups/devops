@@ -1,13 +1,14 @@
 /**
- * ConsoleLogEntry.js - Core console log entry structure
- * Represents a single console log entry with metadata
- * This is the renamed version of LogEntry.js for the console logging system
+ * BaseLogEntry.js - Core log entry structure
+ * Represents a single log entry with metadata
+ * Consolidated from AppLogEntry and ConsoleLogEntry classes
  */
 
 /**
- * ConsoleLogEntry class for structured console logging
+ * BaseLogEntry class for structured logging
+ * Can be used for both application and console logging
  */
-export class ConsoleLogEntry {
+export class BaseLogEntry {
   constructor(level, message, type = 'GENERAL', caller = null, details = null) {
     const timestamp = new Date();
     
@@ -19,7 +20,7 @@ export class ConsoleLogEntry {
     this.message = message;
     this.details = details;
     this.caller = caller;
-    this.sequence = ConsoleLogEntry.nextSequence();
+    this.sequence = BaseLogEntry.nextSequence();
   }
 
   /**
@@ -84,10 +85,10 @@ export class ConsoleLogEntry {
   /**
    * Create a clone of this entry with modified properties
    * @param {Object} overrides - Properties to override
-   * @returns {ConsoleLogEntry} - New console log entry
+   * @returns {BaseLogEntry} - New log entry
    */
   clone(overrides = {}) {
-    const newEntry = new ConsoleLogEntry(
+    const newEntry = new BaseLogEntry(
       overrides.level || this.level,
       overrides.message || this.message,
       overrides.type || this.type,
@@ -113,13 +114,16 @@ export class ConsoleLogEntry {
    * @returns {number} - Next sequence number
    */
   static nextSequence() {
-    return ConsoleLogEntry._sequenceCounter++;
+    return BaseLogEntry._sequenceCounter++;
   }
   
   /**
    * Reset sequence counter (mainly for testing)
    */
   static resetSequence() {
-    ConsoleLogEntry._sequenceCounter = 0;
+    BaseLogEntry._sequenceCounter = 0;
   }
-} 
+}
+
+// Initialize static counter
+BaseLogEntry._sequenceCounter = 0;

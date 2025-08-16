@@ -23,13 +23,11 @@ export function createPathManagerComponent(targetElementId) {
     // --- Rendering Logic ---
     const render = () => {
         if (!element) {
-            log.error('RENDER', 'ELEMENT_NULL', 'Render SKIPPED: component "element" is null or undefined.');
             console.error('[PathManager RENDER] CRITICAL: render() called but this.element is not set!', element);
             return;
         }
 
         if (!appStore) {
-            log.error('RENDER', 'STORE_UNAVAILABLE', 'CRITICAL: appStore not available in render!');
             return;
         }
 
@@ -106,28 +104,7 @@ export function createPathManagerComponent(targetElementId) {
         const listingForSelector = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
 
         const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/';
-        // Reduced verbosity - only log when needed
-        // log.debug('RENDER', 'STATIC_CONTENT_ROOT', `Using STATIC CONTENT_ROOT_PREFIX for test: '${CONTENT_ROOT_PREFIX}'`);
-
-        // Reduced verbosity - combine state logging into fewer entries
-        // log.debug('RENDER', 'STATE_SNAPSHOT', `State Snapshot - Relative Pathname: '${currentPathname}', isDirectorySelected: ${isDirectorySelected}`);
-        // log.debug('RENDER', 'AUTH_SNAPSHOT', `State Snapshot - Auth: User='${username}', Role=${userRole}, Org=${selectedOrg}`);
-        // log.debug('RENDER', 'COMPONENT_STATE', `Component State - activeSiblingDropdownPath: ${activeSiblingDropdownPath}, fetchingParentPath: ${fetchingParentPath}`);
-        // log.debug('RENDER', 'DERIVED_STATE', `Derived - selectedDirectoryPath: '${selectedDirectoryPath}', selectedFilename: '${selectedFilename}'`);
-
-        // Removed verbose debug block - only log when there are issues
-        // log.debug('RENDER', 'DEBUG_INFO_START', '=== RENDER DEBUG INFO ===');
-        // log.debug('RENDER', 'IS_AUTHENTICATED', `isAuthenticated: ${isAuthenticated}`);
-        // log.debug('RENDER', 'SELECTED_DIRECTORY_PATH', `selectedDirectoryPath: '${selectedDirectoryPath}'`);
-        // log.debug('RENDER', 'CURRENT_PATHNAME', `currentPathname: '${currentPathname}'`);
-        // log.debug('RENDER', 'IS_DIRECTORY_SELECTED', `isDirectorySelected: ${isDirectorySelected}`);
-        // log.debug('RENDER', 'CURRENT_LISTING_PATHNAME', `currentListing.pathname: '${pathState.currentListing?.pathname}'`);
-        // log.debug('RENDER', 'CURRENT_LISTING_DIRS', `currentListing.dirs: [${(pathState.currentListing?.dirs || []).join(', ')}]`);
-        // log.debug('RENDER', 'CURRENT_LISTING_FILES', `currentListing.files: [${(pathState.currentListing?.files || []).join(', ')}]`);
-        // log.debug('RENDER', 'IS_OVERALL_LOADING', `isOverallLoading: ${isOverallLoading}`);
-        // log.debug('RENDER', 'AVAILABLE_TOP_LEVEL_DIRS', `availableTopLevelDirs: [${(pathState.availableTopLevelDirs || []).join(', ')}]`);
-        // log.debug('RENDER', 'DEBUG_INFO_END', '=== END RENDER DEBUG ===');
-
+        
         // Generate breadcrumbs for the selected DIRECTORY path
         const breadcrumbsHTML = generateBreadcrumbsHTML(
             selectedDirectoryPath,
@@ -136,20 +113,10 @@ export function createPathManagerComponent(targetElementId) {
             isAuthenticated
         );
 
-        // CRITICAL DEBUG - Before primary selector logic
-        // log.debug('RENDER', 'ABOUT_TO_GENERATE_PRIMARY_SELECTOR', 'About to generate primary selector:', {
-        //     isAuthenticated,
-        //     selectedDirectoryPath,
-        //     pathLogic: `isAuthenticated=${isAuthenticated} && selectedDirectoryPath=${selectedDirectoryPath} (null or empty = ${selectedDirectoryPath === null || selectedDirectoryPath === ''})`
-        // });
-        
         // Generate primary selector
         let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
         
         if (isAuthenticated && selectedDirectoryPath !== null && selectedDirectoryPath !== '') {
-            // log.debug('RENDER', 'BRANCH_1', 'Directory path exists:', selectedDirectoryPath);
-            const listingForSelector = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
-
             if (listingForSelector) {
                 const dirs = listingForSelector.dirs || [];
                 const files = listingForSelector.files || [];
@@ -185,7 +152,6 @@ export function createPathManagerComponent(targetElementId) {
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Directory or File" disabled>${optionsHTML}</select>`;
             }
         } else if (!isAuthenticated) {
-            // log.debug('RENDER', 'BRANCH_2', 'Not authenticated');
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Login Required</option></select>`;
         } else if (isAuthenticated && (selectedDirectoryPath === null || selectedDirectoryPath === '')) {
             // Use the established window.APP convention 
@@ -203,16 +169,12 @@ export function createPathManagerComponent(targetElementId) {
                 primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>No directories found</option></select>`;
             }
         } else {
-            // log.debug('RENDER', 'BRANCH_4', 'Unexpected case:', { isAuthenticated, selectedDirectoryPath });
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
         }
 
         const isFileDirty = fileState.currentFile?.isDirty || false;
         const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null || !isFileDirty;
 
-        // Reduced verbosity
-        // log.debug('RENDER', 'SET_INNER_HTML', 'Render: About to set innerHTML.');
-        
         // Simplified layout: Breadcrumbs, then the selection row with buttons immediately adjacent
         element.innerHTML = `
             <div class="context-path-and-file-wrapper" style="display: flex !important; align-items: center !important; gap: 8px; flex-wrap: nowrap !important; width: 100%; box-sizing: border-box;">
@@ -230,8 +192,6 @@ export function createPathManagerComponent(targetElementId) {
             </div>
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
         `;
-        // Reduced verbosity
-        // log.debug('RENDER', 'INNER_HTML_SET', 'Render: innerHTML HAS BEEN SET.');
 
         // --- Attach Event Listeners (FIXED: No need to remove from fresh DOM elements) ---
         const primarySelectElement = element.querySelector('#context-primary-select');
@@ -272,9 +232,6 @@ export function createPathManagerComponent(targetElementId) {
         if (fileBrowserToggleButton) {
             fileBrowserToggleButton.addEventListener('click', handleFileBrowserToggleClick);
         }
-        
-        // CRITICAL DEBUG - Render function completed
-        // log.debug('RENDER', 'FUNCTION_COMPLETED', 'Render function completed successfully');
     };
 
     // --- Breadcrumb Generation Function ---
@@ -359,30 +316,18 @@ export function createPathManagerComponent(targetElementId) {
         const currentPathname = pathState.currentPathname;
         const isDirectorySelected = pathState.isDirectorySelected;
 
-        // DEBUG: Log the state we're working with
-        // log.debug('SELECT', 'DROPDOWN_SELECTION_DEBUG', 'DROPDOWN SELECTION DEBUG:', {
-        //     selectedValue,
-        //     selectedType,
-        //     currentPathname,
-        //     isDirectorySelected,
-        //     pathState
-        // });
-
         // Determine current directory for building new paths
         let currentDirectory = null;
         
         // Handle root directory case first
         if (currentPathname === '' || currentPathname === null) {
-            // log.debug('SELECT', 'ROOT_CASE', 'ROOT CASE: Using empty string as current directory');
             currentDirectory = '';
         } else {
             currentDirectory = isDirectorySelected ? currentPathname : getParentPath(currentPathname);
-            // log.debug('SELECT', 'CURRENT_DIRECTORY_CALCULATED', 'Current directory calculated:', currentDirectory);
         }
         
         // Final validation
         if (currentDirectory === null || currentDirectory === undefined) {
-            // log.debug('SELECT', 'FALLBACK', 'FALLBACK: Using empty string for undefined current directory');
             currentDirectory = '';
         }
 
@@ -510,16 +455,12 @@ export function createPathManagerComponent(targetElementId) {
     };
 
     const handleSidebarToggleClick = () => {
-        if (window.APP && window.APP.services && window.APP.services.workspaceManager) {
-            window.APP.services.workspaceManager.toggleLeftSidebar();
-        } else {
-            console.error('[PathManager] WorkspaceManager not found on window.APP.services.');
-        }
-    };
-
-    const handleFileBrowserToggleClick = () => {
+        // Use Redux store instead of deprecated WorkspaceManager
         appStore.dispatch(uiThunks.toggleLeftSidebar());
     };
+
+    // Alias for consistency - both buttons do the same thing
+    const handleFileBrowserToggleClick = handleSidebarToggleClick;
 
     // --- Component Lifecycle ---
     const mount = () => {

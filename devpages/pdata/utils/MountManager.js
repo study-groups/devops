@@ -49,10 +49,31 @@ class MountManager {
         const mounts = [];
         
         if (role === 'admin') {
-            // Admin gets full system access
-            mounts.push('~data', '~log', '~cache', '~uploads', '~system');
-            console.log(`[MountManager] Available mounts for '${username}':`, mounts);
-            return mounts;
+            // Admin gets access to all directories in the data folder
+            try {
+                const dataPath = path.join(this.dataRoot, 'data');
+                if (await this._mountExists(dataPath)) {
+                    const entries = await fs.readdir(dataPath);
+                    const dirs = [];
+                    
+                    for (const entry of entries) {
+                        const fullPath = path.join(dataPath, entry);
+                        const stats = await fs.stat(fullPath);
+                        if (stats.isDirectory() && !entry.startsWith('.')) {
+                            dirs.push(entry);
+                        }
+                    }
+                    
+                    console.log(`[MountManager] Available directories for admin '${username}':`, dirs);
+                    return dirs.sort();
+                } else {
+                    console.warn(`[MountManager] Data directory does not exist: ${dataPath}`);
+                    return [];
+                }
+            } catch (error) {
+                console.error(`[MountManager] Error reading data directory for admin '${username}':`, error);
+                return [];
+            }
         } else if (['user', 'project', 'dev'].includes(role)) {
             // Regular users get ONLY their specific home directory (Plan 9 isolation)
             // NO access to general ~data (that would expose all users/projects)

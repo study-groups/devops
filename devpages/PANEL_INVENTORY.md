@@ -8,7 +8,7 @@ This document provides a comprehensive inventory of all UI panel components in t
 | `client/panels/CodePanel.js` | `code` | Extends `BasePanel` | `panelRegistry.js` | Legacy panel, follows standard. |
 | `client/panels/EditorPanel.js` | `editor` | Extends `BasePanel` | `panelRegistry.js` | Legacy panel, follows standard. |
 | `client/panels/PreviewPanel.js` | `preview` | Extends `BasePanel` | `panelRegistry.js` | Legacy panel, follows standard. |
-| `client/log/LogPanel.js` | `log` | **Custom API** | `panelRegistry.js` | Complex custom panel with its own Redux integration. |
+| `client/log/LogDisplay.js` | `log` | **Custom API** | `panelRegistry.js` | Complex custom panel with its own Redux integration. |
 | `client/panels/NlpPanel.js` | `nlp-panel` | **Custom API** (creates `.element`) | `panelRegistry.js` | Simple custom panel. |
 | `client/settings/panels/css-design/DesignTokensPanel.js` | `settings-panel` | Extends `BasePanel` | `panelRegistry.js` | Used for the settings panel. Follows standard. |
 | `client/panels/JavaScriptPanel.js` | `javascript-panel` | Extends `BasePanel` | Dynamic (not in registry) | Specialized viewer for JS files. |

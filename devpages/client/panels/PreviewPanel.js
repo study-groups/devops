@@ -6,6 +6,7 @@
 
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';
+import { renderMarkdown } from '/client/preview/renderer.js';
 
 export class PreviewPanel extends BasePanel {
     constructor(options = {}) {
@@ -42,7 +43,7 @@ export class PreviewPanel extends BasePanel {
         super.onMount(container);
 
         this.stateUnsubscribe = appStore.subscribe(this.onStateChange.bind(this));
-        this.onStateChange(); // Set initial state
+        this.syncContent(); // Set initial state
     }
 
     onUnmount() {
@@ -53,25 +54,70 @@ export class PreviewPanel extends BasePanel {
     }
 
     onStateChange() {
-        const { auth, preview } = appStore.getState();
+        const { auth, editor } = appStore.getState();
         const isAuthenticated = auth.authChecked && auth.isAuthenticated;
 
-        // Render auth state
+        // Update auth state attribute
         if (this.element.dataset.isAuthenticated !== String(isAuthenticated)) {
             this.element.dataset.isAuthenticated = String(isAuthenticated);
-            const newElement = this.render();
-            if (this.element && this.element.parentNode) {
-                this.element.parentNode.replaceChild(newElement, this.element);
-                this.element = newElement;
+            
+            // Update content based on auth state instead of replacing element
+            if (!isAuthenticated) {
+                // Show login message
+                this.element.innerHTML = `<div class="preview-auth-required" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100%;
+                    color: #6c757d;
+                    font-size: 14px;
+                    text-align: center;
+                ">Login to preview content</div>`;
+            } else {
+                // Show content div
+                this.element.innerHTML = `<div class="preview-content"></div>`;
             }
         }
 
-        // Update content
+        // Update content using markdown-it plugin system
         if (isAuthenticated && this.element) {
             const contentDiv = this.element.querySelector('.preview-content');
-            if (contentDiv) {
-                contentDiv.innerHTML = preview.htmlContent || '';
+            if (contentDiv && editor.content) {
+                this.renderContent(editor.content, contentDiv);
             }
+        }
+    }
+
+    syncContent() {
+        const { editor } = appStore.getState();
+        if (this.element && editor.content) {
+            const contentDiv = this.element.querySelector('.preview-content');
+            if (contentDiv) {
+                this.renderContent(editor.content, contentDiv);
+            }
+        }
+    }
+
+    async renderContent(markdownContent, contentDiv) {
+        try {
+            // Get current file path from Redux state for proper plugin context
+            const { path } = appStore.getState();
+            const currentFilePath = path.currentPathname || 'preview.md';
+            
+            // Use the proper markdown-it rendering system with plugins
+            const result = await renderMarkdown(markdownContent, currentFilePath);
+            
+            // The renderMarkdown function returns an object with html property
+            if (result && result.html) {
+                contentDiv.innerHTML = result.html;
+                console.log('[PreviewPanel] Content rendered with markdown-it plugins');
+            } else {
+                throw new Error('No HTML content in render result');
+            }
+        } catch (error) {
+            console.error('[PreviewPanel] Failed to render markdown:', error);
+            // Fallback to simple text display
+            contentDiv.innerHTML = `<pre>${markdownContent}</pre>`;
         }
     }
 }

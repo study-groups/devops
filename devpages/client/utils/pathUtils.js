@@ -62,3 +62,13 @@ export function getFilename(pathname) {
 }
 
 // Remove duplicate pathJoin2 if it exists
+export function getDirectory(pathname) {
+    if (!pathname || typeof pathname !== 'string') {
+        return '';
+    }
+    const lastSlashIndex = pathname.lastIndexOf('/');
+    if (lastSlashIndex === -1) {
+        return '';
+    }
+    return pathname.substring(0, lastSlashIndex);
+}

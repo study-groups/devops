@@ -171,60 +171,6 @@ export const PANEL_CONFIGURATION = {
     // =================================================================
     // LOGS DOCK PANELS
     // =================================================================
-    'console-logs': {
-        id: 'console-logs',
-        title: 'Console Logs',
-        group: 'logs',
-        component: () => import('/client/log/panels/ConsoleLogPanel.js').then(m => m.ConsoleLogPanel),
-        order: 1,
-        defaultCollapsed: false,
-        icon: '📄',
-        description: 'Application console output and logging',
-        keywords: ['console', 'logs', 'output', 'debugging'],
-        metadata: {
-            category: 'logging',
-            features: ['console-output', 'log-filtering', 'log-export'],
-            dependencies: ['appStore', 'logSlice']
-        }
-    },
-
-    'error-logs': {
-        id: 'error-logs',
-        title: 'Error Logs',
-        group: 'logs',
-        component: () => import('/client/log/panels/ErrorLogPanel.js').then(m => m.ErrorLogPanel),
-        order: 2,
-        defaultCollapsed: true,
-        icon: '🚨',
-        description: 'Error tracking and debugging information',
-        keywords: ['errors', 'exceptions', 'debugging', 'troubleshooting'],
-        metadata: {
-            category: 'debugging',
-            features: ['error-tracking', 'exception-handling', 'debug-info'],
-            dependencies: ['appStore', 'errorTracker']
-        }
-    },
-
-    'system-logs': {
-        id: 'system-logs',
-        title: 'System Logs',
-        group: 'logs',
-        component: () => import('/client/log/panels/SystemLogPanel.js').then(m => m.SystemLogPanel),
-        order: 3,
-        defaultCollapsed: true,
-        icon: '📊',
-        description: 'System event logs and monitoring',
-        keywords: ['system', 'events', 'monitoring', 'performance'],
-        metadata: {
-            category: 'monitoring',
-            features: ['system-monitoring', 'event-logging', 'performance-tracking'],
-            dependencies: ['appStore', 'systemSlice']
-        }
-    },
-
-    // =================================================================
-    // DEBUG DOCK PANELS (from devpages-debug package)
-    // =================================================================
     'devtools': {
         id: 'devtools',
         title: 'DevTools',

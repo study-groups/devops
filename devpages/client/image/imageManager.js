@@ -89,6 +89,41 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Function specifically for handling the delete button click from the index page
+// Upload image function for EditorPanel
+export async function uploadImage(file, onProgress) {
+    if (!file) {
+        throw new Error('No file provided');
+    }
+
+    if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        throw new Error(`Unsupported image type: ${file.type}`);
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await window.APP.services.globalFetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Upload failed: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+        log.info('IMAGE', 'UPLOAD_SUCCESS', `Image uploaded: ${result.url}`);
+        
+        return result;
+    } catch (error) {
+        log.error('IMAGE', 'UPLOAD_FAILED', `Failed to upload image: ${error.message}`, error);
+        throw error;
+    }
+}
+
 export async function handleDeleteImageAction(actionData) {
     const imageName = actionData.imageName; // Get image name from data passed by domEvents
     if (!imageName) {

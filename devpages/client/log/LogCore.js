@@ -24,7 +24,7 @@ const getLogger = () => {
 };
 
 // Legacy variable kept for backward compatibility
-let logPanelInstance = null;
+let logDisplayInstance = null;
 
 // Rate limiting for excessive logging
 const logRateLimit = {
@@ -86,13 +86,17 @@ export const canonicalType = (raw = 'GENERAL') =>
     String(raw).trim().toUpperCase();
 
 /* 1.  LOG PANEL REGISTRATION --------------------------------- */
-export function setLogPanelInstance(instance) {
-    if (instance && typeof instance.addEntry === 'function') {
-        logPanelInstance = instance;
-        getLogger().info('LOG_PANEL_INSTANCE_SET', 'LogPanel instance set');
+/**
+ * Sets the LogDisplay instance for the logging system.
+ * This is called by the LogDisplay component when it mounts.
+ * @param {object} instance - The LogDisplay instance.
+ */
+export function setLogDisplayInstance(instance) {
+    logDisplayInstance = instance;
+    if (instance) {
+        getLogger().info('LOG_PANEL_INSTANCE_SET', 'LogDisplay instance set');
     } else {
-        console.error('[LogCore] Invalid LogPanel instance supplied');
-        logPanelInstance = null;
+        console.error('[LogCore] Invalid LogDisplay instance supplied');
     }
 }
 
@@ -125,9 +129,9 @@ export function log({ message,
 
     const entry = { ts, message, source: src, level: lvl, type: typ, action: act, details, component: comp };
 
-    // Add to LogPanel if it exists (for UI display)
-    if (logPanelInstance && typeof logPanelInstance.addEntry === 'function') {
-        logPanelInstance.addEntry(entry);
+    // Add to LogDisplay if it exists (for UI display)
+    if (logDisplayInstance) {
+        logDisplayInstance.addEntry(entry);
     }
 
     // Console output with format: [SOURCE][COMPONENT][TYPE][ACTION] message [LEVEL]
@@ -148,11 +152,11 @@ export function log({ message,
         const formattedMessage = `${prefix} ${message} [${lvl}]`;
         
         switch (lvl) {
-            case 'DEBUG': console.debug(formattedMessage); break;
-            case 'INFO':  console.info(formattedMessage);  break;
-            case 'WARN':  console.warn(formattedMessage);  break;
-            case 'ERROR': console.error(formattedMessage); break;
-            default:      console.log(formattedMessage);
+            case 'DEBUG': console.debug(formattedMessage, details); break;
+            case 'INFO':  console.info(formattedMessage, details);  break;
+            case 'WARN':  console.warn(formattedMessage, details);  break;
+            case 'ERROR': console.error(formattedMessage, details); break;
+            default:      console.log(formattedMessage, details);
         }
     }
 }

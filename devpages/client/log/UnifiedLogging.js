@@ -206,6 +206,9 @@ class Logger {
       this.logToPanel(logEntry);
     }
     
+    // BRIDGE: Also send to LogCore/LogDisplay system
+    this.bridgeToLogCore(logEntry);
+    
     return logEntry;
   }
 
@@ -221,6 +224,35 @@ class Logger {
     prefix += `[${action}]`;
     
     return `${prefix} ${message} [${level}]`;
+  }
+
+  /**
+   * Bridge UnifiedLogging messages to LogCore/LogDisplay system
+   */
+  bridgeToLogCore(logEntry) {
+    try {
+      // Dynamically import LogCore to avoid circular dependencies
+      import('./LogCore.js').then(({ log: logCoreFunction }) => {
+        // Convert UnifiedLogging format to LogCore format
+        logCoreFunction({
+          message: logEntry.message,
+          source: logEntry.source || 'SYSTEM',
+          level: logEntry.level,
+          type: logEntry.type,
+          action: logEntry.action,
+          details: logEntry.payload,
+          ts: logEntry.ts,
+          forceConsole: false,
+          component: this.source
+        });
+      }).catch(error => {
+        // Silently fail if LogCore isn't available yet
+        console.debug('[UnifiedLogging] LogCore bridge failed:', error.message);
+      });
+    } catch (error) {
+      // Silently fail if bridging fails
+      console.debug('[UnifiedLogging] LogCore bridge error:', error.message);
+    }
   }
 
   /**
@@ -252,11 +284,13 @@ class Logger {
   logToConsole(logEntry) {
     if (this.consoleManager && typeof this.consoleManager.handleConsoleMethod === 'function') {
       const consoleLevel = logEntry.level.toLowerCase();
-      this.consoleManager.handleConsoleMethod(consoleLevel, [logEntry.formatted]);
+      // Pass all relevant info to the console handler
+      this.consoleManager.handleConsoleMethod(consoleLevel, [logEntry.formatted, logEntry.payload]);
     } else {
       // Fallback to direct console
       const consoleMethod = console[logEntry.level.toLowerCase()] || console.log;
-      consoleMethod(logEntry.formatted);
+      // Pass both formatted message and the payload object
+      consoleMethod(logEntry.formatted, logEntry.payload);
     }
   }
 

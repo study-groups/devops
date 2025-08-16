@@ -36,6 +36,7 @@ import pluginReducer, { pluginThunks } from '/client/store/slices/pluginSlice.js
 import publishReducer from '/client/store/slices/publishSlice.js';
 import systemReducer, { initializeComponent } from '/client/store/slices/systemSlice.js';
 import { commReducer } from '/client/store/slices/commSlice.js';
+import { editorReducer } from './store/slices/editorSlice.js';
 
 // --- Custom Thunk Middleware ---
 // Provides a clean way to handle async logic in Redux.
@@ -60,6 +61,7 @@ const rootReducer = combineReducers({
     publish: publishReducer,
     system: systemReducer,
     communications: commReducer,
+    editor: editorReducer,
     // RTK Query API slice
     [apiSlice.reducerPath]: apiSlice.reducer
 });
@@ -108,6 +110,13 @@ function initializeStore() {
     };
     
     console.log('[AppState] ✅ Central Redux store initialized with robust persistence.');
+
+    // Expose the store to the window for debugging and easy access
+    if (typeof window !== 'undefined') {
+        window.APP = window.APP || {};
+        window.APP.store = appStore;
+    }
+
     return { appStore, dispatch };
 }
 

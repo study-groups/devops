@@ -47,15 +47,16 @@ function getInitialPanelState() {
     const defaultState = {
         version: STATE_VERSION,
         docks: {
-            'sidebar-dock': { id: 'sidebar-dock', title: 'Sidebar Dock', isVisible: true, isCollapsed: false, panels: ['file-browser', 'code'], activePanel: null, zIndex: baseZIndex },
-            'settings-dock': { id: 'settings-dock', title: '🎨 Settings & Style', isVisible: true, isCollapsed: false, panels: ['settings-panel'], activePanel: null, zIndex: baseZIndex },
-            'comm-dock': { id: 'comm-dock', title: 'Communications', isVisible: false, isCollapsed: false, panels: ['comm-panel'], activePanel: null, zIndex: baseZIndex },
+            'sidebar-dock': { id: 'sidebar-dock', title: 'Sidebar Dock', isVisible: true, isCollapsed: false, panels: ['file-browser', 'code'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
+            'settings-dock': { id: 'settings-dock', title: '🎨 Settings & Style', isVisible: true, isCollapsed: false, panels: ['settings-panel'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
+            'comm-dock': { id: 'comm-dock', title: 'Communications', isVisible: false, isCollapsed: false, panels: ['comm-panel'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
             'preview-dock': {
                 id: 'preview-dock',
-                panels: ['preview-panel'],
+                panels: ['editor-panel', 'preview-panel'],
                 activePanel: 'preview-panel',
                 isVisible: true,
-                isCollapsed: false
+                isCollapsed: false,
+                zone: 'preview'
             },
             'logs-dock': {
                 id: 'logs-dock',
@@ -63,6 +64,7 @@ function getInitialPanelState() {
                 activePanel: 'log-display',
                 isVisible: false, // Start hidden by default
                 isCollapsed: false,
+                zone: 'logs'
             },
             'debug-dock': {
                 id: 'debug-dock',
@@ -73,6 +75,7 @@ function getInitialPanelState() {
                 position: { x: 150, y: 150 },
                 size: { width: 500, height: 400 },
                 zIndex: baseZIndex + 1,
+                zone: 'debug'
             }
         },
         panels: {},

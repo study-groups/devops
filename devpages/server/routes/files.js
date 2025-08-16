@@ -97,23 +97,9 @@ function getEffectivePath(req, pathname) {
         return pathname;
     }
 
-    // Safely access session with explicit null checks and defensive programming
-    let org = (req.query && req.query.org) || (req.body && req.body.org);
-    if (!org && req.session && req.session.org) {
-        org = req.session.org;
-    }
-    
-    // Update session org if provided in request and session exists
-    if (req.session && ((req.query && req.query.org) || (req.body && req.body.org))) {
-        req.session.org = org;
-    }
-    
-    if (org && org !== '/') {
-        // Remove leading slash from org if present
-        const cleanOrg = org.replace(/^\/+/, '');
-        return `${cleanOrg}/${pathname}`;
-    }
-    
+    // For now, return the pathname as-is. Let the permission system handle access control.
+    // The old logic was automatically prefixing with username/org which breaks navigation.
+    // TODO: If we need org-based path prefixing in the future, it should be explicit, not automatic.
     return pathname;
 }
 
@@ -139,17 +125,24 @@ router.get('/list', authMiddleware, async (req, res) => {
             const authToken = await createAuthToken(req);
             result = await req.pdata.listDirectory(authToken, effectivePath);
         } else {
-            // Use legacy username-based authorization for relative paths
+            // Use username-based authorization for relative paths
             const userRole = req.pdata.getUserRole(username);
-            let legacyPath = effectivePath;
-            if (userRole === 'admin' && clientPathname === '/') {
-                const mounts = await req.pdata.getAvailableTopDirs(username);
-                return res.json({ pathname: '/', dirs: mounts, files: [] });
+            
+            // Special case: root path requests
+            if (clientPathname === '/') {
+                if (userRole === 'admin') {
+                    // Admin users get the top-level directory list
+                    const mounts = await req.pdata.getAvailableTopDirs(username);
+                    return res.json({ pathname: '/', dirs: mounts, files: [] });
+                } else {
+                    // Regular users get redirected to their home directory
+                    result = await req.pdata.listDirectory(username, username);
+                }
+            } else {
+                // For all other paths, use the effective path as-is
+                // The permission system will handle access control
+                result = await req.pdata.listDirectory(username, effectivePath);
             }
-            if (clientPathname === '/' && userRole !== 'admin') {
-                legacyPath = username;
-            }
-            result = await req.pdata.listDirectory(username, legacyPath);
         }
 
         console.log(`[API /list] Success for '${effectivePath}': ${result.dirs.length} dirs, ${result.files.length} files`);

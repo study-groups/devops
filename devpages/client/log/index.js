@@ -32,13 +32,12 @@ import {
 
 // Console Logging System (Console* prefixed)
 import { ConsoleLogManager } from './ConsoleLogManager.js';
-import { ConsoleLogEntry } from './ConsoleLogEntry.js';
 import { ConsoleLogFilter } from './ConsoleLogFilter.js';
 import { ConsoleLogBuffer } from './ConsoleLogBuffer.js';
 import { ConsoleCallerInfo } from './ConsoleCallerInfo.js';
 
-// Application Logging System (AppLog* prefixed for UI/application specific)
-import { AppLogEntry } from './AppLogEntry.js';
+// Consolidated Base Entry Class (replaces AppLogEntry and ConsoleLogEntry)
+import { BaseLogEntry } from './BaseLogEntry.js';
 import { AppLogFilter } from './AppLogFilter.js';
 import { AppLogBuffer } from './AppLogBuffer.js';
 // Note: Keep the old names for backward compatibility with UI components
@@ -56,7 +55,7 @@ import {
   logWarn, 
   logError,
   createLogger,
-  setLogPanelInstance,
+  setLogDisplayInstance,
   LEVELS,
   canonicalLevel,
   canonicalType
@@ -103,7 +102,7 @@ import {
 // Export console logging classes (Console* prefixed)
 export {
   ConsoleLogManager,
-  ConsoleLogEntry,
+  BaseLogEntry as ConsoleLogEntry, // Backward compatibility alias
   ConsoleLogFilter,
   ConsoleLogBuffer,
   ConsoleCallerInfo
@@ -111,7 +110,8 @@ export {
 
 // Export application logging classes (AppLog* prefixed and legacy)
 export {
-  AppLogEntry,
+  BaseLogEntry,
+  BaseLogEntry as AppLogEntry, // Backward compatibility alias
   AppLogFilter,
   AppLogBuffer,
   // Maintain backward compatibility exports (classes only, not instances)
@@ -148,7 +148,7 @@ export {
   logWarn,
   logError,
   createLogger as createLogCoreLogger,  // Renamed to avoid conflict
-  setLogPanelInstance,
+  setLogDisplayInstance,
   LEVELS,
   canonicalLevel,
   canonicalType

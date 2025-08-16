@@ -68,8 +68,20 @@ export const panelDefinitions = [
         title: 'Code',
         isDefault: true,
     },
-    // NOTE: EditorPanel and PreviewPanel are handled by ComponentManager, not WorkspaceManager
-    // They are core workspace areas, not dock panels
+    {
+        name: 'EditorPanel',
+        id: 'editor-panel',
+        factory: () => import('./EditorPanel.js').then(m => m.EditorPanel),
+        title: 'Editor',
+        isDefault: true,
+    },
+    {
+        name: 'PreviewPanel',
+        id: 'preview-panel',
+        factory: () => import('./PreviewPanel.js').then(m => m.PreviewPanel),
+        title: 'Preview',
+        isDefault: true,
+    },
     {
         name: 'NlpPanel',
         id: 'nlp-panel',

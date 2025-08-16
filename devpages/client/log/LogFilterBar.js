@@ -79,12 +79,8 @@ function createCategoryGroup(container, title, items, categoryType, activeFilter
         const filterKey = `${categoryType}:${item}`;
         let isCurrentlyActive = false;
         
-        // Special case: Clear All mode
-        if (activeFilters.includes('__CLEAR_ALL__')) {
-            isCurrentlyActive = false;
-        }
         // Normal filtering mode
-        else if (activeFilters.length > 0) {
+        if (activeFilters.length > 0) {
             isCurrentlyActive = activeFilters.includes(filterKey);
         }
         // Initial state (no filters) - default behavior
@@ -151,20 +147,7 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         clearLogButton.title = 'Clear All Log Entries';
         controlGroup.appendChild(clearLogButton);
 
-        // Select All button
-        const selectAllButton = document.createElement('button');
-        selectAllButton.className = 'log-tag-button select-all-button';
-        selectAllButton.textContent = 'Select All';
-        selectAllButton.dataset.action = 'select-all';
-        selectAllButton.title = 'Show All Log Types';
-        controlGroup.appendChild(selectAllButton);
 
-        // Hide All button (was Clear All)
-        const hideAllButton = document.createElement('button');
-        hideAllButton.textContent = 'Hide All';
-        hideAllButton.className = 'log-tag-button clear-all-button';
-        hideAllButton.dataset.action = 'clear-all';
-        controlGroup.appendChild(hideAllButton);
 
         // "Toggle Types" button
         const toggleTypesButton = document.createElement('button');
@@ -241,7 +224,7 @@ function _handleGlobalClick(event) {
 }
 
 /**
- * Handle filter button clicks (clear log, select all, clear all, individual filters)
+ * Handle filter button clicks (clear log, individual filters)
  * @param {Event} event - The click event
  */
 export function _handleTagClick(event) {
@@ -257,19 +240,22 @@ export function _handleTagClick(event) {
     try {
         // Handle Clear Log button
         if (action === 'clear-log') {
-            // Clear the main LogPanel
-            if (window.logPanel && typeof window.logPanel.clearLog === 'function') {
-                window.logPanel.clearLog();
+            // Clear the main LogDisplay using APP namespace
+            const logDisplay = window.APP?.services?.logDisplay || window.APP?.services?.logPanel || window.logPanel;
+            if (logDisplay && typeof logDisplay.clearLog === 'function') {
+                logDisplay.clearLog();
             }
             
-            // Clear the console log manager buffer
-            if (window.consoleLogManager && typeof window.consoleLogManager.clearLogBuffer === 'function') {
-                window.consoleLogManager.clearLogBuffer();
+            // Clear the console log manager buffer using APP namespace
+            const consoleLogManager = window.APP?.services?.consoleLogManager || window.consoleLogManager;
+            if (consoleLogManager && typeof consoleLogManager.clearLogBuffer === 'function') {
+                consoleLogManager.clearLogBuffer();
             }
             
             // Clear any other log manager that might exist
-            if (window.logManager && window.logManager !== window.consoleLogManager && typeof window.logManager.clearLogBuffer === 'function') {
-                window.logManager.clearLogBuffer();
+            const logManager = window.APP?.services?.logManager || window.logManager;
+            if (logManager && logManager !== consoleLogManager && typeof logManager.clearLogBuffer === 'function') {
+                logManager.clearLogBuffer();
             }
             
             // Also reset filters in the state
@@ -280,8 +266,10 @@ export function _handleTagClick(event) {
 
         // Handle Copy Log button
         if (action === 'copy-log') {
-            if (window.logPanel && typeof window.logPanel.copyLog === 'function') {
-                window.logPanel.copyLog();
+            // Try APP namespace first, then legacy
+            const logDisplay = window.APP?.services?.logDisplay || window.APP?.services?.logPanel || window.logPanel;
+            if (logDisplay && typeof logDisplay.copyLog === 'function') {
+                logDisplay.copyLog();
                 // Show feedback
                 const originalContent = targetButton.innerHTML;
                 targetButton.innerHTML = '✅';
@@ -303,17 +291,7 @@ export function _handleTagClick(event) {
             return;
         }
 
-        // Handle Select All button
-        if (action === 'select-all') {
-            dispatch(setActiveFilters([]));
-            return;
-        }
 
-        // Handle Hide All button
-        if (action === 'clear-all') {
-            dispatch(setActiveFilters(['__CLEAR_ALL__']));
-            return;
-        }
 
         // Handle Collapse All button
         if (action === 'collapse-all') {
@@ -464,10 +442,7 @@ export function updateTagsBar(element, logFilteringState) {
         return group;
     };
     
-    const controlButtons = [
-        { text: 'Select All', action: 'select-all' },
-        { text: 'Clear All', action: 'clear-all' }
-    ];
+    const controlButtons = [];
 
     const controlGroup = document.createElement('div');
     controlGroup.className = 'log-filter-control-group';
@@ -515,7 +490,7 @@ export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryC
     const hasActiveCategory = { source: false, type: false, subtype: false, level: false };
 
     // Parse filters into categories
-    if (activeFilters && activeFilters.length > 0 && !activeFilters.includes('__CLEAR_ALL__')) {
+    if (activeFilters && activeFilters.length > 0) {
         activeFilters.forEach(filter => {
             const separatorIndex = filter.indexOf(':');
             if (separatorIndex > -1) {
@@ -531,12 +506,11 @@ export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryC
 
     const allEntries = Array.from(logElement.children);
     let visibleCount = 0;
-    const shouldHideAll = activeFilters && activeFilters.includes('__CLEAR_ALL__');
     const filterResults = [];
 
     // Use requestAnimationFrame for better performance on large datasets
     if (allEntries.length > 100) {
-        processEntriesInBatches(allEntries, shouldHideAll, filtersByCategory, hasActiveCategory, 
+        processEntriesInBatches(allEntries, filtersByCategory, hasActiveCategory, 
             (results) => {
                 applyFilterResults(logElement, results);
                 const visible = results.filter(r => !r.hidden).length;
@@ -553,7 +527,7 @@ export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryC
         allEntries.forEach((entry, index) => {
             if (entry.nodeType !== 1) return;
 
-            const isHidden = shouldHideAll || !matchesFilters(entry, filtersByCategory, hasActiveCategory);
+            const isHidden = !matchesFilters(entry, filtersByCategory, hasActiveCategory);
             filterResults.push({ index, hidden: isHidden });
             
             entry.classList.toggle('log-entry-hidden-by-filter', isHidden);
@@ -586,7 +560,7 @@ function matchesFilters(entry, filtersByCategory, hasActiveCategory) {
     return sourceMatch && typeMatch && subtypeMatch && levelMatch;
 }
 
-function processEntriesInBatches(entries, shouldHideAll, filtersByCategory, hasActiveCategory, callback) {
+function processEntriesInBatches(entries, filtersByCategory, hasActiveCategory, callback) {
     const batchSize = 50;
     const results = [];
     let currentIndex = 0;
@@ -598,7 +572,7 @@ function processEntriesInBatches(entries, shouldHideAll, filtersByCategory, hasA
             const entry = entries[i];
             if (entry.nodeType !== 1) continue;
 
-            const isHidden = shouldHideAll || !matchesFilters(entry, filtersByCategory, hasActiveCategory);
+            const isHidden = !matchesFilters(entry, filtersByCategory, hasActiveCategory);
             results.push({ index: i, hidden: isHidden });
         }
 

@@ -8,17 +8,8 @@
 window.APP = window.APP || {};
 window.APP.services = window.APP.services || {};
 
-// Simple implementations for missing classes
-class ConsoleLogEntry {
-  constructor(level, message, type = 'GENERAL', caller = null, details = null) {
-    this.level = level;
-    this.message = message;
-    this.type = type;
-    this.caller = caller;
-    this.details = details;
-    this.timestamp = Date.now();
-  }
-}
+// Import the consolidated BaseLogEntry class
+import { BaseLogEntry } from './BaseLogEntry.js';
 
 class ConsoleLogFilter {
   constructor(config = {}) {
@@ -138,21 +129,21 @@ export class ConsoleLogManager {
       // Expose via APP.services instead of global window
       window.APP = window.APP || {};
       window.APP.services = window.APP.services || {};
-      window.APP.logging = window.APP.logging || {};
+      window.APP.log = window.APP.log || {};
       
       // Core manager instances
       window.APP.services.consoleLogManager = this;
       window.APP.services.logManager = this; // Legacy alias
       
       // Console logging control functions
-      window.APP.logging.isEnabled = () => this.isLoggingEnabled();
-      window.APP.logging.enable = (persist) => this.enableLogging(persist);
-      window.APP.logging.disable = (persist) => this.disableLogging(persist);
+      window.APP.log.isEnabled = () => this.isLoggingEnabled();
+      window.APP.log.enable = (persist) => this.enableLogging(persist);
+      window.APP.log.disable = (persist) => this.disableLogging(persist);
       
       // Buffer management functions
-      window.APP.logging.getBuffer = () => this.getLogBuffer();
-      window.APP.logging.getBufferSize = () => this.getLogBufferSize();
-      window.APP.logging.clearBuffer = () => this.clearLogBuffer();
+      window.APP.log.getBuffer = () => this.getLogBuffer();
+      window.APP.log.getBufferSize = () => this.getLogBufferSize();
+      window.APP.log.clearBuffer = () => this.clearLogBuffer();
       
       // Legacy window functions for backwards compatibility (deprecated)
       window.discoveredTypes = new Set();

@@ -100,7 +100,7 @@ function AuthDisplayComponent(targetElementId) {
         const { auth } = props;
         if (!auth) return;
 
-        log.info('AUTH', 'RENDER_CALLED', `[AuthDisplay] Render called. Auth state: isAuthenticated=${auth.isAuthenticated}, user=${JSON.stringify(auth.user)}, authChecked=${auth.authChecked}, isLoading=${auth.isLoading}`);
+        // Removed verbose render logging - now only logs when auth state actually changes
 
         if (!auth.authChecked || auth.isLoading) {
             element.innerHTML = `<div class="auth-status"><div>Checking authentication...</div></div>`;
@@ -211,7 +211,18 @@ function AuthDisplayComponent(targetElementId) {
     };
 
     const update = (newProps) => {
+        const oldProps = props;
         props = { ...props, ...newProps };
+        
+        // Only log when auth state actually changes, not on every render
+        const authChanged = oldProps.auth?.isAuthenticated !== props.auth?.isAuthenticated ||
+                           oldProps.auth?.user?.id !== props.auth?.user?.id ||
+                           oldProps.auth?.authChecked !== props.auth?.authChecked;
+        
+        if (authChanged) {
+            log.info('AUTH', 'STATE_CHANGED', `[AuthDisplay] Auth state changed: isAuthenticated=${props.auth?.isAuthenticated}, user=${JSON.stringify(props.auth?.user)}, authChecked=${props.auth?.authChecked}`);
+        }
+        
         render();
     };
 

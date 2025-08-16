@@ -65,7 +65,7 @@ export function diagnoseTopDirIssue() {
         
         // Check if bootloader completed
         console.log('🚀 Bootloader info:', {
-            hasWorkspaceManager: typeof window.APP.workspace !== 'undefined',
+            hasWorkspace: typeof window.APP.workspace !== 'undefined',
             hasEventBus: typeof window.APP.eventBus !== 'undefined',
             eventBusType: typeof window.APP.eventBus
         });

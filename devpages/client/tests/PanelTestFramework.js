@@ -14,11 +14,11 @@ export class PanelTestFramework {
     }
 
     /**
-     * Initialize test framework with workspace manager
+     * Initialize test framework with simplified workspace manager
      */
     initialize(workspaceManager) {
         this.workspaceManager = workspaceManager;
-        console.log('[PanelTestFramework] Initialized with WorkspaceManager');
+        console.log('[PanelTestFramework] Initialized with SimplifiedWorkspaceManager');
     }
 
     /**
@@ -85,7 +85,7 @@ export class PanelTestFramework {
         console.log('🗺️  Testing Zone Mappings...');
         
         if (!this.workspaceManager) {
-            this.fail('Zone Mappings', 'WorkspaceManager not available');
+            this.fail('Zone Mappings', 'SimplifiedWorkspaceManager not available');
             return;
         }
 
@@ -119,11 +119,11 @@ export class PanelTestFramework {
             this.assert(['sidebar', 'editor', 'preview', 'console'].includes(targetZone), 
                 `${testName} - Should resolve to valid semantic zone, got: ${targetZone}`);
 
-            // Verify WorkspaceManager can access this zone
+            // Verify SimplifiedWorkspaceManager can access this zone
             if (this.workspaceManager) {
                 const zoneElement = this.workspaceManager.getZoneBySemanticName(targetZone);
                 this.assert(zoneElement instanceof HTMLElement, 
-                    `${testName} - WorkspaceManager should provide valid element for zone: ${targetZone}`);
+                    `${testName} - SimplifiedWorkspaceManager should provide valid element for zone: ${targetZone}`);
             }
 
             this.pass(testName);
@@ -176,7 +176,7 @@ export class PanelTestFramework {
         console.log('🔧 Testing Panel Mounting...');
         
         if (!this.workspaceManager) {
-            this.fail('Panel Mounting', 'WorkspaceManager not available');
+            this.fail('Panel Mounting', 'SimplifiedWorkspaceManager not available');
             return;
         }
 
@@ -260,7 +260,7 @@ export class PanelTestFramework {
         console.log('🎛️  Testing UI Toggle Behavior...');
         
         if (!this.workspaceManager) {
-            this.fail('UI Toggle Behavior', 'WorkspaceManager not available');
+            this.fail('UI Toggle Behavior', 'SimplifiedWorkspaceManager not available');
             return;
         }
 
@@ -270,7 +270,7 @@ export class PanelTestFramework {
             const testName = `Toggle Method: ${methodName}`;
             
             this.assert(typeof this.workspaceManager[methodName] === 'function',
-                `${testName} - Method should exist on WorkspaceManager`);
+                `${testName} - Method should exist on SimplifiedWorkspaceManager`);
                 
             this.pass(testName);
         });
@@ -391,7 +391,7 @@ export class PanelTestFramework {
 
         // Check workspace manager
         if (!this.workspaceManager) {
-            issues.push('WorkspaceManager not initialized');
+            issues.push('SimplifiedWorkspaceManager not initialized');
         }
 
         if (issues.length === 0) {

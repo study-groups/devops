@@ -7,12 +7,15 @@ import { appStore } from '/client/appState.js';
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { uploadImage } from '/client/image/imageManager.js';
 import { setContent, setDirty } from '/client/store/slices/editorSlice.js';
+import { renderMarkdown } from '/client/store/slices/previewSlice.js';
+import { debounce } from '/client/utils/debounce.js';
 
 export class EditorPanel extends BasePanel {
     constructor(options = {}) {
         super(options);
         this.textarea = null;
         this.stateUnsubscribe = null;
+        this.debouncedRender = debounce(this.renderPreview.bind(this), 300);
     }
 
     render() {
@@ -64,7 +67,7 @@ export class EditorPanel extends BasePanel {
         }
 
         this.stateUnsubscribe = appStore.subscribe(this.onStateChange.bind(this));
-        this.onStateChange(); // Set initial state
+        this.syncContent(); // Set initial content
     }
 
     onUnmount() {
@@ -96,6 +99,13 @@ export class EditorPanel extends BasePanel {
         }
     }
 
+    syncContent() {
+        const { editor } = appStore.getState();
+        if (this.textarea && this.textarea.value !== editor.content) {
+            this.textarea.value = editor.content || '';
+        }
+    }
+
     loadCSS() {
         const cssPath = '/client/panels/styles/EditorPanel.css';
         if (!document.querySelector(`link[href="${cssPath}"]`)) {
@@ -120,6 +130,10 @@ export class EditorPanel extends BasePanel {
             }
         });
         this.textarea.addEventListener('paste', this.handlePaste.bind(this));
+    }
+
+    renderPreview(markdown) {
+        appStore.dispatch(renderMarkdown(markdown));
     }
 
     async handlePaste(e) {
@@ -159,6 +173,7 @@ export class EditorPanel extends BasePanel {
         const content = this.textarea.value;
         appStore.dispatch(setContent(content));
         appStore.dispatch(setDirty(true));
+        this.debouncedRender(content);
     }
 }
 

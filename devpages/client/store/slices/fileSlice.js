@@ -58,9 +58,9 @@ export const fileThunks = {
             if (!response.ok) {
                 throw new Error(`Failed to fetch file content: ${response.statusText}`);
             }
-            const data = await response.json();
-            dispatch(fileActions.loadFileSuccess({ pathname, content: data.content }));
-            dispatch(setContent(data.content));
+            const content = await response.text();
+            dispatch(fileActions.loadFileSuccess({ pathname, content }));
+            dispatch(setContent(content));
         } catch (error) {
             dispatch(fileActions.loadFileFailure(error.toString()));
         }

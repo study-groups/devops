@@ -1,5 +1,5 @@
-// client/log/logPanelDOM.js
-// Manages the creation of the LogPanel's DOM structure.
+// client/log/logEntryDOM.js
+// Manages the creation of log entry DOM structures and toolbars.
 
 import { storageService } from '/client/services/storageService.js';
 /**
@@ -30,24 +30,24 @@ function createToolbarButton(toolbarEl, id, text, action, title = null, noAppend
 }
 
 /**
- * Creates the main DOM structure for the LogPanel.
- * @param {LogPanel} logPanelInstance - The instance of the LogPanel.
- * @param {string} appVersion - The application version string.
+ * Creates the main DOM structure for the LogDisplay.
+ * @param {object} logDisplayInstance - The instance of the LogDisplay.
+ * @param {string} appVersion - The application version.
  */
-export function createLogPanelDOM(logPanelInstance, appVersion) {
-    const container = logPanelInstance.container;
+export function createLogPanelDOM(logDisplayInstance, appVersion) {
+    const container = logDisplayInstance.container;
     container.innerHTML = ''; // Clear existing content
 
     // Create Main Header with prominent controls
-    logPanelInstance.headerElement = document.createElement('div');
-    logPanelInstance.headerElement.id = 'log-header';
-    logPanelInstance.headerElement.className = 'log-header';
-    container.appendChild(logPanelInstance.headerElement);
+    logDisplayInstance.headerElement = document.createElement('div');
+    logDisplayInstance.headerElement.id = 'log-header';
+    logDisplayInstance.headerElement.className = 'log-header';
+    container.appendChild(logDisplayInstance.headerElement);
     
     // Left side - Title and controls
     const headerLeft = document.createElement('div');
     headerLeft.className = 'log-header-left';
-    logPanelInstance.headerElement.appendChild(headerLeft);
+    logDisplayInstance.headerElement.appendChild(headerLeft);
     
     const headerTitle = document.createElement('h3');
     headerTitle.textContent = 'Log Display';
@@ -76,7 +76,7 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     // Right side - Action buttons
     const headerRight = document.createElement('div');
     headerRight.className = 'log-header-right';
-    logPanelInstance.headerElement.appendChild(headerRight);
+    logDisplayInstance.headerElement.appendChild(headerRight);
     
     // Copy All button
     const copyAllButton = document.createElement('button');
@@ -103,16 +103,16 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     headerRight.appendChild(menuButton);
 
     // Create Toolbar (secondary controls)
-    logPanelInstance.toolbarElement = document.createElement('div');
-    logPanelInstance.toolbarElement.id = 'log-toolbar';
-    container.appendChild(logPanelInstance.toolbarElement);
-    const toolbarEl = logPanelInstance.toolbarElement; // convenience
+    logDisplayInstance.toolbarElement = document.createElement('div');
+    logDisplayInstance.toolbarElement.id = 'log-toolbar';
+    container.appendChild(logDisplayInstance.toolbarElement);
+    const toolbarEl = logDisplayInstance.toolbarElement; // convenience
     
-    logPanelInstance.cliInputElement = document.createElement('input');
-    logPanelInstance.cliInputElement.type = 'text';
-    logPanelInstance.cliInputElement.id = 'cli-input';
-    logPanelInstance.cliInputElement.placeholder = 'Enter command...';
-    toolbarEl.appendChild(logPanelInstance.cliInputElement);
+    logDisplayInstance.cliInputElement = document.createElement('input');
+    logDisplayInstance.cliInputElement.type = 'text';
+    logDisplayInstance.cliInputElement.id = 'cli-input';
+    logDisplayInstance.cliInputElement.placeholder = 'Enter command...';
+    toolbarEl.appendChild(logDisplayInstance.cliInputElement);
 
     const sendButton = document.createElement('button');
     sendButton.id = 'cli-send-button';
@@ -122,11 +122,11 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     createToolbarButton(toolbarEl, 'log-state-a-btn', 'A', 'setSelectionStateA', 'Store Editor Selection A');
     createToolbarButton(toolbarEl, 'log-state-b-btn', 'B', 'setSelectionStateB', 'Store Editor Selection B');
 
-    logPanelInstance.appInfoElement = document.createElement('span');
-    logPanelInstance.appInfoElement.id = 'app-info';
-    logPanelInstance.appInfoElement.className = 'app-info';
-    logPanelInstance.appInfoElement.dataset.action = 'showAppInfo';
-    toolbarEl.appendChild(logPanelInstance.appInfoElement);
+    logDisplayInstance.appInfoElement = document.createElement('span');
+    logDisplayInstance.appInfoElement.id = 'app-info';
+    logDisplayInstance.appInfoElement.className = 'app-info';
+    logDisplayInstance.appInfoElement.dataset.action = 'showAppInfo';
+    toolbarEl.appendChild(logDisplayInstance.appInfoElement);
 
     const rightWrapper = document.createElement('div');
     rightWrapper.style.marginLeft = 'auto';
@@ -135,33 +135,33 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     rightWrapper.style.gap = '0.5rem';
     toolbarEl.appendChild(rightWrapper);
 
-    logPanelInstance.appVersionElement = document.createElement('span');
-    logPanelInstance.appVersionElement.id = 'log-app-version';
-    logPanelInstance.appVersionElement.className = 'app-version log-version';
-    logPanelInstance.appVersionElement.textContent = `v${appVersion}`;
-    logPanelInstance.appVersionElement.title = `App Version: ${appVersion}`;
+    logDisplayInstance.appVersionElement = document.createElement('span');
+    logDisplayInstance.appVersionElement.id = 'log-app-version';
+    logDisplayInstance.appVersionElement.className = 'app-version log-version';
+    logDisplayInstance.appVersionElement.textContent = `v${appVersion}`;
+    logDisplayInstance.appVersionElement.title = `App Version: ${appVersion}`;
     // Appended via _createToolbarButton or directly to wrapper later if needed
 
-    logPanelInstance.statusElement = document.createElement('span');
-    logPanelInstance.statusElement.id = 'log-status';
-    logPanelInstance.statusElement.textContent = '0 entries';
-    rightWrapper.appendChild(logPanelInstance.statusElement);
+    logDisplayInstance.statusElement = document.createElement('span');
+    logDisplayInstance.statusElement.id = 'log-status';
+    logDisplayInstance.statusElement.textContent = '0 entries';
+    rightWrapper.appendChild(logDisplayInstance.statusElement);
 
-    logPanelInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true);
-    if (logPanelInstance.minimizeButton) rightWrapper.appendChild(logPanelInstance.minimizeButton);
+    logDisplayInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true);
+    if (logDisplayInstance.minimizeButton) rightWrapper.appendChild(logDisplayInstance.minimizeButton);
  
-    logPanelInstance.tagsBarElement = document.createElement('div');
-    logPanelInstance.tagsBarElement.id = 'log-tags-bar';
-    container.appendChild(logPanelInstance.tagsBarElement);
+    logDisplayInstance.tagsBarElement = document.createElement('div');
+    logDisplayInstance.tagsBarElement.id = 'log-tags-bar';
+    container.appendChild(logDisplayInstance.tagsBarElement);
  
-    logPanelInstance.logElement = document.createElement('div');
-    logPanelInstance.logElement.id = 'log';
-    container.appendChild(logPanelInstance.logElement);
+    logDisplayInstance.logElement = document.createElement('div');
+    logDisplayInstance.logElement.id = 'log';
+    container.appendChild(logDisplayInstance.logElement);
 
-    logPanelInstance.resizeHandle = document.createElement('div');
-    logPanelInstance.resizeHandle.id = 'log-resize-handle';
-    logPanelInstance.resizeHandle.title = 'Resize Log';
-    container.appendChild(logPanelInstance.resizeHandle);
+    logDisplayInstance.resizeHandle = document.createElement('div');
+    logDisplayInstance.resizeHandle.id = 'log-resize-handle';
+    logDisplayInstance.resizeHandle.title = 'Resize Log';
+    container.appendChild(logDisplayInstance.resizeHandle);
     
     const menuContainer = document.createElement('div');
     menuContainer.id = 'log-menu-container';
@@ -203,18 +203,16 @@ export function createLogPanelDOM(logPanelInstance, appVersion) {
     versionInfo.title = `App Version: ${appVersion}`;
     menuContainer.appendChild(versionInfo);
     
-    container.insertBefore(menuContainer, logPanelInstance.logElement);
+    container.insertBefore(menuContainer, logDisplayInstance.logElement);
 }
 
 /**
  * Creates the toolbar for an expanded log entry.
- * @param {HTMLElement} logEntryDiv - The log entry's main div.
- * @param {object} entryData - Dataset from the log entry (logIndex, logTimestamp, etc.).
- * @param {LogPanel} logPanelInstance - The LogPanel instance for accessing render modes.
- * @returns {HTMLElement} The created toolbar element.
+ * This is used to switch between different rendering modes (raw, markdown, html).
+ * @param {object} logDisplay- The LogDisplay instance for accessing render modes.
  */
-export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelInstance) {
-    const expandedToolbar = logEntryDiv.querySelector('.log-entry-expanded-toolbar');
+export function createExpandedEntryToolbarDOM(logEntry, logDisplay) {
+    const expandedToolbar = logEntry.querySelector('.log-entry-expanded-toolbar');
     if (!expandedToolbar || expandedToolbar.dataset.toolbarBuilt) {
         // If no toolbar div or already built, something is wrong or it's a redundant call
         if(!expandedToolbar) logPanelInternalDebug('Expanded toolbar div not found in createExpandedEntryToolbarDOM', 'warn');
@@ -222,7 +220,7 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
     }
 
     expandedToolbar.innerHTML = ''; // Clear previous content
-    const { logIndex, logTimestamp, logType, logSubtype, rawOriginalMessage } = entryData;
+    const { logIndex, logTimestamp, logType, logSubtype, rawOriginalMessage } = logEntry;
 
     const createToken = (text, className) => {
         const token = document.createElement('span');
@@ -272,18 +270,20 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
     expandedToolbar.dataset.toolbarBuilt = 'true';
 
     // Attach internal listeners for MD/HTML toggles (specific to this toolbar)
-    markdownToggleButton.addEventListener('click', (mdEvent) => {
+    markdownToggleButton.addEventListener('click', async (mdEvent) => {
         mdEvent.stopPropagation();
-        const currentMode = logEntryDiv.dataset.renderMode;
-        const newMode = currentMode === logPanelInstance.RENDER_MODE_MARKDOWN ? logPanelInstance.RENDER_MODE_RAW : logPanelInstance.RENDER_MODE_MARKDOWN;
-        logPanelInstance._updateLogEntryDisplay(logEntryDiv, newMode); // Assumes _updateLogEntryDisplay is method on instance
+        const currentMode = logEntry.dataset.renderMode;
+        const newMode = currentMode === logDisplay.RENDER_MODE_MARKDOWN ? logDisplay.RENDER_MODE_RAW : logDisplay.RENDER_MODE_MARKDOWN;
+        const { updateLogEntryDisplay } = await import('./logEntryRenderer.js');
+        updateLogEntryDisplay(logEntry, newMode, false, logDisplay);
     });
 
-    htmlToggleButton.addEventListener('click', (htmlEvent) => {
+    htmlToggleButton.addEventListener('click', async (htmlEvent) => {
         htmlEvent.stopPropagation();
-        const currentMode = logEntryDiv.dataset.renderMode;
-        const newMode = currentMode === logPanelInstance.RENDER_MODE_HTML ? logPanelInstance.RENDER_MODE_RAW : logPanelInstance.RENDER_MODE_HTML;
-        logPanelInstance._updateLogEntryDisplay(logEntryDiv, newMode); // Assumes _updateLogEntryDisplay is method on instance
+        const currentMode = logEntry.dataset.renderMode;
+        const newMode = currentMode === logDisplay.RENDER_MODE_HTML ? logDisplay.RENDER_MODE_RAW : logDisplay.RENDER_MODE_HTML;
+        const { updateLogEntryDisplay } = await import('./logEntryRenderer.js');
+        updateLogEntryDisplay(logEntry, newMode, false, logDisplay);
     });
     
     return expandedToolbar;
@@ -295,5 +295,5 @@ export function createExpandedEntryToolbarDOM(logEntryDiv, entryData, logPanelIn
 // If not, define a local simple console.warn for this module.
 function logPanelInternalDebug(message, level = 'debug') {
     const logFunc = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
-    logFunc(`[logPanelDOM] ${message}`);
+    logFunc(`[logEntryDOM] ${message}`);
 }
