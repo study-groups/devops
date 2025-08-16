@@ -5,7 +5,23 @@
  */
 import { storageService } from '/client/services/storageService.js';
 
-const log = window.APP.services.log.createLogger('ReducerUtils');
+let log;
+const getLogger = () => {
+    if (log) {
+        return log;
+    }
+    if (window.APP && window.APP.services && window.APP.services.log && window.APP.services.log.createLogger) {
+        log = window.APP.services.log.createLogger('ReducerUtils');
+        return log;
+    }
+    const dummyLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: (...args) => console.warn('[ReducerUtils-early]', ...args),
+        error: (...args) => console.error('[ReducerUtils-early]', ...args),
+    };
+    return dummyLogger;
+};
 
 // Global dispatch function - will be set by the store
 let globalDispatch = null;
@@ -17,7 +33,7 @@ let globalDispatch = null;
  */
 export const setGlobalDispatch = (dispatch) => {
     globalDispatch = dispatch;
-    log.debug('REDUCER_UTILS', 'SET_GLOBAL_DISPATCH', 'Global dispatch function set');
+    getLogger().debug('REDUCER_UTILS', 'SET_GLOBAL_DISPATCH', 'Global dispatch function set');
 };
 
 /**
@@ -33,13 +49,13 @@ export const loadFromStorage = (key, defaultValue, validator = null) => {
         if (storedValue === null) return defaultValue;
         
         if (validator && !validator(storedValue)) {
-            log.warn('REDUCER_UTILS', 'VALIDATION_FAILED', `Loaded value for ${key} failed validation, using default.`);
+            getLogger().warn('REDUCER_UTILS', 'VALIDATION_FAILED', `Loaded value for ${key} failed validation, using default.`);
             return defaultValue;
         }
         
         return storedValue;
     } catch (e) {
-        log.error('REDUCER_UTILS', 'LOAD_FROM_STORAGE_ERROR', `Error loading ${key} from localStorage:`, e);
+        getLogger().error('REDUCER_UTILS', 'LOAD_FROM_STORAGE_ERROR', `Error loading ${key} from localStorage:`, e);
         return defaultValue;
     }
 };
@@ -57,7 +73,7 @@ export const createPersister = (key, selector) => {
             storageService.setItem(key, dataToStore);
             return true;
         } catch (e) {
-            log.error('REDUCER_UTILS', 'PERSIST_ERROR', `Failed to persist ${key} to localStorage:`, e);
+            getLogger().error('REDUCER_UTILS', 'PERSIST_ERROR', `Failed to persist ${key} to localStorage:`, e);
             return false;
         }
     };
@@ -84,9 +100,9 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
             // Persist entire state slice
             try {
                 storageService.setItem(stateKey, state);
-                log.debug('REDUCER_UTILS', 'PERSIST_STATE_SLICE', `Persisted state slice: ${stateKey}`);
+                getLogger().debug('REDUCER_UTILS', 'PERSIST_STATE_SLICE', `Persisted state slice: ${stateKey}`);
             } catch (e) {
-                log.error('REDUCER_UTILS', 'PERSIST_STATE_SLICE_ERROR', `Failed to persist state slice ${stateKey}:`, e);
+                getLogger().error('REDUCER_UTILS', 'PERSIST_STATE_SLICE_ERROR', `Failed to persist state slice ${stateKey}:`, e);
             }
         }
 
@@ -96,9 +112,9 @@ export const createPersistedReducer = (initialState, actionHandlers, persistence
                 try {
                     const data = selector(state);
                     storageService.setItem(key, data);
-                    log.debug('REDUCER_UTILS', 'PERSIST_STATE_PART', `Persisted state part: ${key}`);
+                    getLogger().debug('REDUCER_UTILS', 'PERSIST_STATE_PART', `Persisted state part: ${key}`);
                 } catch (e) {
-                    log.error('REDUCER_UTILS', 'PERSIST_STATE_PART_ERROR', `Failed to persist state part ${key}:`, e);
+                    getLogger().error('REDUCER_UTILS', 'PERSIST_STATE_PART_ERROR', `Failed to persist state part ${key}:`, e);
                 }
             });
         }
@@ -130,7 +146,7 @@ export const createBoundActions = (actionCreators) => {
     Object.entries(actionCreators).forEach(([key, actionCreator]) => {
         boundActions[key] = (...args) => {
             if (!globalDispatch) {
-                log.error('REDUCER_UTILS', 'DISPATCH_ERROR', `Cannot dispatch ${key}: global dispatch not set. Call setGlobalDispatch() first.`);
+                getLogger().error('REDUCER_UTILS', 'DISPATCH_ERROR', `Cannot dispatch ${key}: global dispatch not set. Call setGlobalDispatch() first.`);
                 return;
             }
             
@@ -162,10 +178,10 @@ export const createStateSlice = (sliceName, config) => {
             const stored = storageService.getItem(persistenceConfig.stateKey);
             if (stored) {
                 loadedInitialState = { ...initialState, ...stored };
-                log.debug('REDUCER_UTILS', 'LOADED_INITIAL_STATE', `Loaded initial state for ${sliceName} from localStorage`);
+                getLogger().debug('REDUCER_UTILS', 'LOADED_INITIAL_STATE', `Loaded initial state for ${sliceName} from localStorage`);
             }
         } catch (e) {
-            log.error('REDUCER_UTILS', 'LOAD_INITIAL_STATE_ERROR', `Failed to load initial state for ${sliceName}:`, e);
+            getLogger().error('REDUCER_UTILS', 'LOAD_INITIAL_STATE_ERROR', `Failed to load initial state for ${sliceName}:`, e);
         }
     }
 
@@ -262,15 +278,15 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
         const stored = storageService.getItem(stateKey);
         if (stored) {
             if (stored._version !== version) {
-                log.warn('REDUCER_UTILS', 'INVALID_SETTINGS_VERSION', `Invalid stored settings version for ${sliceName}, using defaults.`);
+                getLogger().warn('REDUCER_UTILS', 'INVALID_SETTINGS_VERSION', `Invalid stored settings version for ${sliceName}, using defaults.`);
             } else if (schema && !validateSettings(stored, schema)) {
-                log.warn('REDUCER_UTILS', 'INVALID_SETTINGS', `Invalid stored settings for ${sliceName}, using defaults`);
+                getLogger().warn('REDUCER_UTILS', 'INVALID_SETTINGS', `Invalid stored settings for ${sliceName}, using defaults`);
             } else {
                 initialState = { ...defaultSettings, ...stored };
             }
         }
     } catch (e) {
-        log.error('REDUCER_UTILS', 'LOAD_SETTINGS_ERROR', `Failed to load settings for ${sliceName}:`, e);
+        getLogger().error('REDUCER_UTILS', 'LOAD_SETTINGS_ERROR', `Failed to load settings for ${sliceName}:`, e);
     }
 
     const slice = createStateSlice(sliceName, {
@@ -279,9 +295,6 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
             updateSetting: (state, action) => {
                 const { key, value } = action.payload;
                 return { ...state, [key]: value, _version: version };
-            },
-            updateSettings: (state, action) => {
-                return { ...state, ...action.payload, _version: version };
             },
             resetSettings: () => {
                 return { ...defaultSettings, _version: version };
@@ -293,22 +306,26 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
                 newState._version = version;
                 return newState;
             },
+            cssSettingsChanged: (state) => {
+                // This action doesn't need to change the state directly.
+                // Its purpose is to trigger the persistence middleware.
+                return state;
+            },
             ...(schema?.reducers || {}),
         },
         persistenceConfig: {
             stateKey,
             persistOnActions: [
                 `${sliceName.toUpperCase()}_UPDATE_SETTING`,
-                `${sliceName.toUpperCase()}_UPDATE_SETTINGS`,
                 `${sliceName.toUpperCase()}_RESET_SETTINGS`,
                 `${sliceName.toUpperCase()}_UPDATE_NESTED_SETTING`,
+                `${sliceName.toUpperCase()}_CSS_SETTINGS_CHANGED`,
                 ...Object.keys(schema?.reducers || {}).map(key => `${sliceName.toUpperCase()}_${key.toUpperCase()}`)
             ]
         }
     });
 
     // Add convenience methods with cleaner API
-    slice.update = slice.boundActions.updateSettings;
     slice.set = (key, value) => slice.boundActions.updateSetting({ key, value });
     slice.setNested = (path, value) => slice.boundActions.updateNestedSetting({ path, value });
     slice.reset = slice.boundActions.resetSettings;
@@ -454,13 +471,13 @@ export const migrationUtils = {
         const stateVersion = state._version || 1;
         
         if (stateVersion < currentVersion) {
-            log.debug('REDUCER_UTILS', 'MIGRATING_STATE', `Migrating state from v${stateVersion} to v${currentVersion}`);
+            getLogger().debug('REDUCER_UTILS', 'MIGRATING_STATE', `Migrating state from v${stateVersion} to v${currentVersion}`);
             
             for (let v = stateVersion; v < currentVersion; v++) {
                 const migrationKey = `${v}_to_${v + 1}`;
                 if (migrations[migrationKey]) {
                     state = migrations[migrationKey](state);
-                    log.debug('REDUCER_UTILS', 'APPLIED_MIGRATION', `Applied migration: ${migrationKey}`);
+                    getLogger().debug('REDUCER_UTILS', 'APPLIED_MIGRATION', `Applied migration: ${migrationKey}`);
                 }
             }
             
@@ -490,7 +507,7 @@ export const migrationUtils = {
                     restConfig.initialState = { ...restConfig.initialState, ...parsed };
                 }
             } catch (e) {
-                log.error('REDUCER_UTILS', 'MIGRATE_STATE_ERROR', `Failed to load and migrate state for ${sliceName}:`, e);
+                getLogger().error('REDUCER_UTILS', 'MIGRATE_STATE_ERROR', `Failed to load and migrate state for ${sliceName}:`, e);
             }
         }
         
@@ -529,7 +546,7 @@ export const cleanupUtils = {
         
         keysToRemove.forEach(key => {
             storageService.removeItem(key.replace('devpages_', ''));
-            log.debug('REDUCER_UTILS', 'CLEANED_OLD_STATE', `Cleaned up old state: ${key}`);
+            getLogger().debug('REDUCER_UTILS', 'CLEANED_OLD_STATE', `Cleaned up old state: ${key}`);
         });
         
         return keysToRemove.length;
@@ -541,6 +558,6 @@ export const cleanupUtils = {
      */
     clearAllDevPagesState(prefix = 'devpages') {
         storageService.clearAll();
-        log.debug('REDUCER_UTILS', 'CLEARED_DEVPAGES_STATE', `Cleared DevPages state entries`);
+        getLogger().debug('REDUCER_UTILS', 'CLEARED_DEVPAGES_STATE', `Cleared DevPages state entries`);
     }
 }; 

@@ -11,8 +11,10 @@ import { panelRegistry } from '/client/panels/panelRegistry.js';
 // TODO: Fix import paths in modular components
 
 export class CssFilesPanel {
-  constructor(containerElement) {
-    this.containerElement = containerElement;
+    static id = 'css-files-panel';
+    
+  constructor() {
+    this.element = null;
     this.cssFiles = new Map();
     this.categories = { 
       theme: new Map(), 
@@ -31,7 +33,6 @@ export class CssFilesPanel {
     this.zIndexAnalyzer = new ZIndexAnalyzer();
     
     this.isLoaded = false;
-    this.init();
   }
 
   async init() {
@@ -43,8 +44,21 @@ export class CssFilesPanel {
     this.refresh();
   }
 
+  render() {
+      if (this.element) return this.element;
+      this.element = document.createElement('div');
+      this.element.className = 'css-files-panel';
+      this.renderInitialState();
+      return this.element;
+  }
+
+  onMount(container) {
+      this.container = container;
+      this.setupInitialEventListeners();
+  }
+
   renderInitialState() {
-    this.containerElement.innerHTML = `
+    this.element.innerHTML = `
       <div class="css-panel-content" style="
         font-family: var(--font-family-sans, system-ui);
         color: var(--color-foreground);
@@ -72,11 +86,10 @@ export class CssFilesPanel {
         </button>
       </div>
     `;
-    this.setupInitialEventListeners();
   }
   
   setupInitialEventListeners() {
-    const loadBtn = this.containerElement.querySelector('.load-css-panel-btn');
+    const loadBtn = this.element.querySelector('.load-css-panel-btn');
     if (loadBtn) {
       loadBtn.addEventListener('click', () => this.loadPanel(), { once: true });
     }
@@ -109,7 +122,7 @@ export class CssFilesPanel {
   render() {
     const stats = this.generateStats();
     
-    this.containerElement.innerHTML = `
+    this.element.innerHTML = `
       <div class="css-panel-content" style="
         font-family: var(--font-family-sans, system-ui);
         color: var(--color-foreground);
@@ -130,7 +143,7 @@ export class CssFilesPanel {
    * Fallback render function if modular components fail
    */
   renderFallback() {
-    this.containerElement.innerHTML = `
+    this.element.innerHTML = `
       <div class="css-panel-content" style="font-family: var(--font-family-sans, system-ui);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border, #e1e5e9);">
           <div>
@@ -169,7 +182,7 @@ export class CssFilesPanel {
    */
   setupEventListeners() {
     // Use event delegation to handle dynamic content
-    this.containerElement.addEventListener('click', (e) => {
+    this.element.addEventListener('click', (e) => {
       // Refresh button
       const refreshBtn = e.target.closest('.refresh-css-btn');
       if (refreshBtn) {
@@ -212,7 +225,7 @@ export class CssFilesPanel {
     });
 
     // Setup Z-Index analyzer event listeners
-    this.zIndexAnalyzer.setupEventListeners(this.containerElement);
+    this.zIndexAnalyzer.setupEventListeners(this.element);
     
     // Listen for refresh events from Z-Index analyzer
     document.addEventListener('css-files-refresh', () => {

@@ -18,8 +18,10 @@ import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
 import { workspaceManager } from './layout/WorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
-import { initializeStore, thunks as appThunks } from './appState.js';
+import { initializeStore, thunks as appThunks, actions as appActions } from './appState.js';
 import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
+import { initializeKeyboardShortcuts } from './keyboardShortcuts.js';
+import { pathThunks } from './store/slices/pathSlice.js';
 
 // Define log variable, but do not initialize it yet.
 let log;
@@ -31,7 +33,7 @@ const allComponentDefinitions = [
     { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: '/client/components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
     { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: '/client/components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
     { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: '/client/components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
-    { name: 'uiComponents', type: 'service', priority: 4, required: true, modulePath: '/client/components/uiComponentsManager.js', factoryFunction: 'initializeUIComponents', dependencies: ['coreServices'], description: 'UI popup and modal components' },
+    { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: '/client/components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
     // Panel Components
     ...staticPanelDefinitions.map(p => ({
         ...p,
@@ -89,6 +91,12 @@ async function bootCore() {
         log.warn('LOAD_SETTINGS_FAILED', '⚠️ Failed to load saved settings, using defaults', error);
     }
     const { appStore, dispatch } = initializeStore(preloadedState);
+    
+    // CRITICAL FIX: Set global dispatch for enhanced reducer utils
+    const { setGlobalDispatch } = await import('/client/store/reducers/enhancedReducerUtils.js');
+    setGlobalDispatch(dispatch);
+    log.info('GLOBAL_DISPATCH', '✅ Global dispatch set for enhanced reducer utils');
+    
     if (!preloadedState.settings) {
         dispatch(appThunks.settings.loadInitialSettings());
     }
@@ -137,7 +145,9 @@ async function bootSecondary({ store, actions }) {
     await initializeAuthSystem(store, actions);
 
     // 2.5. Load essential data now that we are authenticated
-    if (store.getState().auth.isAuthenticated) {
+    // Wait for auth to be checked before proceeding
+    const authState = store.getState().auth;
+    if (authState.authChecked && authState.isAuthenticated) {
         log.info('DATA_FETCH_PRE_UI', '🚀 Fetching initial data post-authentication...');
         
         // Load top-level directories for file browser and path manager
@@ -151,31 +161,22 @@ async function bootSecondary({ store, actions }) {
             log.error('FILE_SYSTEM_INIT_FAILED', `❌ Failed to load file system: ${error.message}`, error);
         }
         
-        // Load root directory listing
-        await store.dispatch(actions.path.fetchListingByPath({ pathname: '/', isDirectory: true }));
+        // Load root directory listing - REMOVED, as it's redundant with loadTopLevelDirectories
+        // await store.dispatch(actions.path.fetchListingByPath({ pathname: '/', isDirectory: true }));
         log.info('DATA_FETCH_COMPLETE', '✅ Initial data fetched.');
         
-        // Initialize debug panels (only when authenticated)
-        try {
-            const { initializeDebugPanels } = await import('../packages/devpages-debug/index.js');
-            await initializeDebugPanels();
-            log.info('DEBUG_PANELS_INIT', '🔧 Debug panels initialized successfully');
-        } catch (error) {
-            log.error('DEBUG_PANELS_INIT_FAILED', `❌ Failed to initialize debug panels: ${error.message}`, error);
-        }
     }
 
     // 3. Initialize components that DO need auth
     log.info('INIT_COMPONENTS_POST_AUTH', '🧩 Initializing post-authentication components...');
     await initializeComponentSystem(store, postAuthComponents);
     
-    await initializeEventListeners(store, actions);
     
     // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
     try {
-        const { registerMissingPanels } = await import('./panels/panelRegistrationFix.js');
-        log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
-        // Note: registerMissingPanels() is called automatically on import
+        // Temporarily disable panel registration fix
+        // log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
+        // // Note: registerMissingPanels() is called automatically on import
     } catch (error) {
         log.warn('PANEL_REGISTRATION_FAILED', '⚠️ Failed to register missing panels:', error);
     }
@@ -189,6 +190,60 @@ async function bootSecondary({ store, actions }) {
     } catch (error) {
         log.error('WORKSPACE_INIT_FAILED', '❌ WorkspaceManager initialization failed:', error);
         throw error;
+    }
+
+    console.log('[BOOTLOADER] About to initialize log display...');
+    
+    // Initialize Log Display - FULL FEATURED APPROACH
+    try {
+        // Use the existing log-container from HTML
+        const logContainer = document.getElementById('log-container');
+        if (logContainer) {
+            console.log('[BOOTLOADER] Found log-container, attempting to create LogDisplay...');
+            
+            // Import and create the full-featured LogDisplay
+            const { LogDisplay } = await import('/client/log/LogDisplay.js');
+            console.log('[BOOTLOADER] LogDisplay imported successfully');
+            
+            // Create the log display instance
+            const logDisplay = new LogDisplay({
+                id: 'log-display',
+                title: 'Log Display',
+                store: store
+            });
+            console.log('[BOOTLOADER] LogDisplay instance created');
+            
+            // Mount the log display directly in the container
+            // The LogDisplay will create its own internal structure
+            logDisplay.onMount(logContainer);
+            console.log('[BOOTLOADER] LogDisplay mounted directly in log-container');
+            
+            log.info('LOG_DISPLAY_INIT', '✅ Full-featured log display created and ready');
+        } else {
+            log.error('LOG_DISPLAY_INIT', '❌ log-container not found in DOM');
+        }
+    } catch (error) {
+        console.error('[BOOTLOADER] Log display initialization error:', error);
+        log.error('LOG_DISPLAY_INIT', '❌ Failed to initialize log display:', error);
+    }
+
+    // Initialize keyboard shortcuts
+    try {
+        initializeKeyboardShortcuts();
+        log.info('KEYBOARD_SHORTCUTS_INIT', '✅ Keyboard shortcuts initialized');
+    } catch (error) {
+        log.error('KEYBOARD_SHORTCUTS_INIT_FAILED', '❌ Keyboard shortcuts initialization failed:', error);
+    }
+
+    // Initialize debug panels now that WorkspaceManager is ready
+    if (bootState.isAuthenticated) {
+        try {
+            const { initializeDebugPanels } = await import('/packages/devpages-debug/index.js');
+            await initializeDebugPanels();
+            log.info('DEBUG_PANELS_INIT', '🔧 Debug panels initialized successfully');
+        } catch (error) {
+            log.error('DEBUG_PANELS_INIT_FAILED', `❌ Failed to initialize debug panels: ${error.message}`, error);
+        }
     }
 
     // SAFETY: Override window.APP.panels with safe stub to prevent Redux conflicts
@@ -261,7 +316,8 @@ async function bootFinalize() {
         
         // Small delay to ensure all components are ready for the event
         setTimeout(() => {
-            eventBus.emit('navigate:pathname', { pathname, isDirectory });
+            const { store } = systemAPIs;
+            store.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
         }, 100);
     }
     
@@ -318,15 +374,32 @@ async function initializeReduxSystem() {
 async function initializeAuthSystem(store, actions) {
     log.info('INIT', '🔐 Initializing authentication...');
     const { auth } = actions;
-    await store.dispatch(auth.checkAuth());
-    const authState = store.getState().auth;
-    bootState.isAuthenticated = authState.isAuthenticated || false;
-    bootState.authChecked = true;
-    if (bootState.isAuthenticated) {
-        log.info('AUTHENTICATED', `✅ User authenticated: ${authState.user?.username}`);
-    } else {
-        log.info('NOT_AUTHENTICATED', 'ℹ️ User not authenticated');
+    
+    // Use the new RTK Query-based auth initialization
+    await store.dispatch(auth.initializeAuth());
+    
+    // Wait for authentication to be fully checked
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds max wait
+    while (attempts < maxAttempts) {
+        const authState = store.getState().auth;
+        if (authState.authChecked) {
+            bootState.isAuthenticated = authState.isAuthenticated || false;
+            bootState.authChecked = true;
+            if (bootState.isAuthenticated) {
+                log.info('AUTHENTICATED', `✅ User authenticated: ${authState.user?.username}`);
+            } else {
+                log.info('NOT_AUTHENTICATED', 'ℹ️ User not authenticated');
+            }
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+        attempts++;
     }
+    
+    log.warn('AUTH_TIMEOUT', '⚠️ Authentication initialization timed out');
+    bootState.isAuthenticated = false;
+    bootState.authChecked = true;
 }
 
 async function initializeComponentSystem(store, componentDefs) {
@@ -334,39 +407,6 @@ async function initializeComponentSystem(store, componentDefs) {
     await verifyDOMElements(componentDefs);
     await registerComponents(store, componentDefs);
     await initializeComponents(store, componentDefs);
-}
-
-async function initializeEventListeners(store, actions) {
-    log.info('INIT', '📡 Setting up global event listeners...');
-    const { path } = actions;
-    const { fileThunks } = await import('/client/thunks/fileThunks.js');
-    
-    eventBus.on('navigate:pathname', async ({ pathname, isDirectory }) => {
-        log.info('NAVIGATE', `📡 Navigate to pathname: '${pathname}', isDirectory: ${isDirectory}`);
-        
-        const params = new URLSearchParams(window.location.search);
-        params.delete('pathname');
-        let searchString = params.toString();
-        if (searchString) {
-            searchString += '&';
-        }
-        searchString += `pathname=${pathname}`;
-
-        const newUrl = `${window.location.origin}${window.location.pathname}?${searchString}${window.location.hash}`;
-        window.history.pushState({ path: pathname }, '', newUrl);
-
-        store.dispatch(actions.path.fetchListingByPath({ pathname, isDirectory }));
-
-        if (!isDirectory) {
-            try {
-                await store.dispatch(fileThunks.loadFileContent(pathname));
-                log.info('FILE_CONTENT_LOAD', `Dispatched loadFileContent for: ${pathname}`);
-            } catch (error) {
-                log.error('FILE_CONTENT_LOAD_FAILED', `❌ Failed to load file content for ${pathname}: ${error.message}`, error);
-            }
-        }
-    });
-    log.info('KEYBOARD_SHORTCUTS', '⌨️ Keyboard shortcuts will be initialized by WorkspaceManager');
 }
 
 function waitDOMReady() {

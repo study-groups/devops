@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .debug-section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Log Display Debug</h1>
+    
+    <div class="debug-section">
+        <h2>1. Check if log-container exists</h2>
+        <div id="container-check"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>2. Check CSS classes</h2>
+        <div id="css-check"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>3. Check computed styles</h2>
+        <div id="style-check"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>4. Check Redux state</h2>
+        <div id="redux-check"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>5. Manual toggle test</h2>
+        <button onclick="toggleLog()">Toggle Log Visibility</button>
+        <button onclick="forceShow()">Force Show Log</button>
+        <div id="toggle-result"></div>
+    </div>
+
+    <script type="module">
+        function debugLog(message, type = 'info') {
+            console.log(`[DEBUG] ${message}`);
+        }
+        
+        function checkContainer() {
+            const container = document.getElementById('log-container');
+            const result = document.getElementById('container-check');
+            
+            if (container) {
+                result.innerHTML = `<span class="success">✓ log-container found</span><br>
+                    Classes: ${container.className}<br>
+                    Style.height: ${container.style.height}<br>
+                    Style.display: ${container.style.display}<br>
+                    Children: ${container.children.length}`;
+            } else {
+                result.innerHTML = `<span class="error">✗ log-container NOT found</span>`;
+            }
+        }
+        
+        function checkCSS() {
+            const container = document.getElementById('log-container');
+            const result = document.getElementById('css-check');
+            
+            if (container) {
+                const computed = getComputedStyle(container);
+                result.innerHTML = `
+                    Computed height: ${computed.height}<br>
+                    Computed display: ${computed.display}<br>
+                    Computed visibility: ${computed.visibility}<br>
+                    Computed opacity: ${computed.opacity}<br>
+                    Computed position: ${computed.position}<br>
+                    CSS variable --log-height: ${getComputedStyle(document.documentElement).getPropertyValue('--log-height')}
+                `;
+            } else {
+                result.innerHTML = `<span class="error">No container to check</span>`;
+            }
+        }
+        
+        function checkRedux() {
+            const result = document.getElementById('redux-check');
+            
+            if (window.appStore) {
+                const state = window.appStore.getState();
+                result.innerHTML = `
+                    <span class="success">✓ Redux store found</span><br>
+                    logVisible: ${state.ui?.logVisible}<br>
+                    logHeight: ${state.ui?.logHeight}<br>
+                    Full UI state: ${JSON.stringify(state.ui, null, 2)}
+                `;
+            } else {
+                result.innerHTML = `<span class="error">✗ Redux store not found</span>`;
+            }
+        }
+        
+        window.toggleLog = function() {
+            const result = document.getElementById('toggle-result');
+            
+            if (window.appStore && window.dispatch) {
+                try {
+                    const oldState = window.appStore.getState().ui.logVisible;
+                    window.dispatch({type: 'ui/toggleLogVisibility'});
+                    const newState = window.appStore.getState().ui.logVisible;
+                    result.innerHTML = `<span class="info">Toggled: ${oldState} → ${newState}</span>`;
+                    
+                    // Recheck everything
+                    setTimeout(() => {
+                        checkContainer();
+                        checkCSS();
+                        checkRedux();
+                    }, 100);
+                } catch (e) {
+                    result.innerHTML = `<span class="error">Error: ${e.message}</span>`;
+                }
+            } else {
+                result.innerHTML = `<span class="error">Redux not available</span>`;
+            }
+        }
+        
+        window.forceShow = function() {
+            const container = document.getElementById('log-container');
+            const result = document.getElementById('toggle-result');
+            
+            if (container) {
+                container.classList.add('log-visible');
+                container.classList.remove('log-hidden');
+                container.style.height = '200px';
+                container.style.visibility = 'visible';
+                container.style.opacity = '1';
+                
+                result.innerHTML = `<span class="success">Forced log to show with inline styles</span>`;
+                
+                setTimeout(() => {
+                    checkContainer();
+                    checkCSS();
+                }, 100);
+            } else {
+                result.innerHTML = `<span class="error">No container to force show</span>`;
+            }
+        }
+        
+        // Run checks on load
+        setTimeout(() => {
+            checkContainer();
+            checkCSS();
+            checkRedux();
+        }, 1000);
+        
+        // Also check every 2 seconds
+        setInterval(() => {
+            checkContainer();
+            checkCSS();
+            checkRedux();
+        }, 2000);
+    </script>
+</body>
+</html>

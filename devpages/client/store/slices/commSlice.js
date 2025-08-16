@@ -1,5 +1,5 @@
 // client/store/slices/commSlice.js
-import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     reduxActions: [],

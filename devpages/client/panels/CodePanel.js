@@ -5,8 +5,8 @@
 
 import { BasePanel } from './BasePanel.js';
 import { appStore } from '/client/appState.js';
-import eventBus from '/client/eventBus.js';
 import { getCurrentPathname } from '../store/selectors.js';
+import { navigateToPath } from '../store/slices/pathSlice.js';
 
 export class CodePanel extends BasePanel {
     constructor(options = {}) {
@@ -51,7 +51,6 @@ export class CodePanel extends BasePanel {
             prevState = newState;
         });
 
-        eventBus.on('path:changed', this.handleExternalPathChange.bind(this));
         this.element.addEventListener('click', this.handleClick.bind(this));
     }
 
@@ -60,20 +59,11 @@ export class CodePanel extends BasePanel {
         if (this.storeUnsubscribe) {
             this.storeUnsubscribe();
         }
-        eventBus.off('path:changed', this.handleExternalPathChange.bind(this));
     }
 
     handleFileChange(newPath) {
         this.codeState.currentPath = newPath || '';
         this.loadFiles();
-    }
-
-    handleExternalPathChange(eventData) {
-        const newPath = eventData?.path || '';
-        if (newPath !== this.codeState.currentPath) {
-            this.codeState.currentPath = newPath;
-            this.loadFiles();
-        }
     }
 
     getCurrentPath() {
@@ -179,13 +169,13 @@ export class CodePanel extends BasePanel {
     handleDirectoryClick(dirName) {
         const currentPath = this.getCurrentPath();
         const newPath = currentPath ? `${currentPath}/${dirName}` : dirName;
-        eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: true });
+        appStore.dispatch(navigateToPath(newPath));
     }
 
     handleFileClick(fileName) {
         const currentPath = this.getCurrentPath();
         const newPath = currentPath ? `${currentPath}/${fileName}` : fileName;
-        eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: false });
+        appStore.dispatch(navigateToPath(newPath));
     }
 
     initializeFileTypeHandlers() {

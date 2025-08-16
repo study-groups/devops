@@ -4,9 +4,9 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { eventBus } from '/client/eventBus.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { updatePreview, resetPreview } from '/client/store/slices/settingsSlice.js';
+import { renderMarkdown, clearCache } from '/client/store/slices/previewSlice.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('PreviewSettingsPanel');
@@ -302,42 +302,21 @@ export class PreviewSettingsPanel {
         this.container.querySelector('#preview-reset-settings')?.addEventListener('click', () => {
             this.resetSettings();
         });
-
-        // Listen for preview events to update status
-        if (eventBus) {
-            eventBus.on('preview:updated', this.updateStatus.bind(this));
-            eventBus.on('preview:error', this.updateStatus.bind(this));
-        }
     }
 
     updateSetting(key, value) {
         appStore.dispatch(updatePreview({ [key]: value }));
-
-        // Emit event for preview system to react
-        if (eventBus) {
-            eventBus.emit('preview:settingsChanged', { [key]: value });
-        }
-
         log.debug('SETTINGS', 'UPDATE', `Preview setting updated: ${key} = ${value}`);
     }
 
     forceRefresh() {
-        if (eventBus) {
-            eventBus.emit('preview:forceRefresh');
-        }
+        const { editor } = appStore.getState();
+        appStore.dispatch(renderMarkdown(editor.content));
         log.info('ACTIONS', 'FORCE_REFRESH', 'Force refresh triggered');
     }
 
     clearCache() {
-        // Clear any cached preview data
-        if (window.previewCache) {
-            window.previewCache.clear();
-        }
-        
-        if (eventBus) {
-            eventBus.emit('preview:clearCache');
-        }
-        
+        appStore.dispatch(clearCache());
         log.info('ACTIONS', 'CLEAR_CACHE', 'Preview cache cleared');
     }
 
@@ -395,17 +374,19 @@ export class PreviewSettingsPanel {
         if (JSON.stringify(newSettings) !== JSON.stringify(oldSettings)) {
             this.render();
         }
+        
+        const newPreview = newState.preview;
+        const oldPreview = prevState.preview;
+        
+        if (JSON.stringify(newPreview) !== JSON.stringify(oldPreview)) {
+            this.updateStatus(newPreview);
+        }
     }
 
     destroy() {
         if (this.stateUnsubscribe) {
             this.stateUnsubscribe();
             this.stateUnsubscribe = null;
-        }
-
-        if (eventBus) {
-            eventBus.off('preview:updated', this.updateStatus.bind(this));
-            eventBus.off('preview:error', this.updateStatus.bind(this));
         }
 
         log.info('PANEL_DESTROY', 'DESTROYED', 'PreviewSettingsPanel destroyed');

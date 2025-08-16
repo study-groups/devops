@@ -10,7 +10,7 @@
  * 4.  **Thunks for Async Logic:** Thunks are used for asynchronous operations like dynamically loading modules.
  */
 
-import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     plugins: {},

@@ -18,7 +18,6 @@ import { appStore, dispatch } from '/client/appState.js';
 import { panelActions, selectDocks } from '/client/store/slices/panelSlice.js';
 import { SidebarHeader } from './SidebarHeader.js';
 import { SettingsDock } from './docks/SettingsDock.js';
-import { LogsDock } from './docks/LogsDock.js';
 import { panelRegistry } from '../panels/panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
 
@@ -86,12 +85,8 @@ export class Sidebar {
             });
         }
         
-        // Subsequent renders can update docks if needed (e.g., from Redux state)
-        for (const dock of this.docks.values()) {
-            if (typeof dock.update === 'function') {
-                dock.update();
-            }
-        }
+        // Docks will handle their own updates via Redux subscriptions
+        // No need to call update() on every render - this was causing the message flood
         
         logMessage('INFO', 'SIDEBAR_RENDER', '✅ Sidebar layout rendered');
     }
@@ -108,7 +103,6 @@ export class Sidebar {
 
         const dockClasses = {
             'settings-dock': SettingsDock,
-            'logs-dock': LogsDock,
         };
 
         const docksFromState = selectDocks(appStore.getState());
@@ -158,13 +152,7 @@ export class Sidebar {
      * @param {string} dockId - The dock ID to toggle
      */
     toggleDock(dockId) {
-        const dock = this.getDock(dockId);
-        if (dock && typeof dock.toggleVisibility === 'function') {
-            dock.toggleVisibility();
-            logMessage('INFO', 'DOCK_TOGGLE', `🔄 Toggled dock: ${dockId}`);
-        } else {
-            console.warn(`[Sidebar] Dock not found or has no toggle method: ${dockId}`);
-        }
+        // No-op - visibility is now managed by WorkspaceManager
     }
     
     /**
@@ -172,15 +160,8 @@ export class Sidebar {
      * @returns {Object} Current sidebar state
      */
     getState() {
-        const state = appStore.getState();
-        return {
-            visible: state.ui?.leftSidebarVisible !== false,
-            docks: Array.from(this.docks.keys()),
-            docksInitialized: this.docksInitialized,
-            activeDocks: Array.from(this.docks.entries())
-                .filter(([, dock]) => dock.isExpanded && dock.isExpanded())
-                .map(([id]) => id)
-        };
+        // No-op - state is now managed by WorkspaceManager
+        return {};
     }
     
     addStyles() {

@@ -1,6 +1,7 @@
 import { appStore, dispatch } from '/client/appState.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { logMessage } from '/client/log/index.js';
+import { renderMarkdown } from '/client/store/slices/previewSlice.js';
 
 /**
  * Reload all CSS stylesheets by appending a timestamp to force cache busting
@@ -222,8 +223,8 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
 
         const logButton = element.querySelector('#log-toggle-btn');
         if (logButton) {
-            logButton.classList.toggle('active', state.ui.isLogVisible);
-            logButton.title = state.ui.isLogVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
+            logButton.classList.toggle('active', state.ui.logVisible);
+            logButton.title = state.ui.logVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
         }
     };
 
@@ -252,10 +253,16 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
             const action = button.dataset.action;
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation(); // Prevent other handlers from firing
+            
+            // Mark event as handled to prevent global DOM handler from processing it
+            e.alreadyHandled = true;
 
             switch (action) {
                 case 'toggleLogVisibility':
+                    console.log('[ViewControls] Dispatching toggleLogVisibility action');
                     dispatch(uiActions.toggleLogVisibility());
+                    console.log('[ViewControls] Action dispatched, new state:', appStore.getState().ui.logVisible);
                     break;
                     
                 case 'toggleEdit':
@@ -272,15 +279,10 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
                     
                     reloadAllCssSilent();
                     
-                    if (window.eventBus && typeof window.eventBus.emit === 'function') {
-                        try {
-                            window.eventBus.emit('preview:forceRefresh');
-                        } catch (error) {
-                            logMessage(`Preview force refresh event failed: ${error.message}`, 'error', 'VIEW_CONTROLS');
-                        }
-                    } 
+                    const { editor } = appStore.getState();
+                    dispatch(renderMarkdown(editor.content));
                     
-                    logMessage('🔄 Full refresh triggered: CSS reload + Preview update via eventBus', 'info', 'VIEW_CONTROLS');
+                    logMessage('🔄 Full refresh triggered: CSS reload + Preview update via Redux', 'info', 'VIEW_CONTROLS');
                     break;
             }
         });

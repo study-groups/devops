@@ -1,10 +1,15 @@
+/**
+ * New Authentication Routes - Clean PData Integration
+ * 
+ * This replaces the old auth.js routes with clean PData integration:
+ * 1. Uses PData for all user validation
+ * 2. Generates PData tokens instead of custom tokens
+ * 3. Provides unified authentication flow
+ */
+
 import express from 'express';
-import path from 'path';
-import { createRequire } from 'module'; // Import createRequire
-import session from 'express-session'; // Assuming session is used here for login
-import passport from 'passport';
-import { authMiddleware, generateApiToken, revokeApiToken, getUserTokens } from '../middleware/auth.js';
-import { env, uploadsDirectory, imagesDirectory } from '../config.js';
+import { createRequire } from 'module';
+import { authMiddleware, generatePDataToken, requireAdmin } from '../middleware/auth.js';
 
 // Create a require function for JSON import
 const require = createRequire(import.meta.url);
@@ -12,21 +17,12 @@ const pkg = require('../../package.json');
 
 const router = express.Router();
 
-// Public routes (no auth required)
-// --- REMOVED /salt route as getUserSalt is no longer exported and validation handles it ---
-// router.get('/salt', (req, res) => { ... }); // Removed this entire route
+// ===== PUBLIC ROUTES (NO AUTH REQUIRED) =====
 
-// Middleware to check if user is admin
-const isAdmin = (req, res, next) => {
-    // Check if the request is authenticated (via Passport session)
-    // AND if the authenticated user has the 'admin' role according to PData.
-    if (req.isAuthenticated() && req.pdata && req.pdata.getUserRole(req.user?.username) === 'admin') {
-        return next(); // Allow access
-    }
-    // Deny otherwise
-    res.status(403).json({ error: 'Forbidden: Admin privileges required' });
-};
-
+/**
+ * Login with username/password
+ * Creates a Passport session and returns user info
+ */
 router.post('/login', (req, res, next) => {
     console.log('[AUTH DEBUG] Login request received. Body:', req.body);
     console.log('[AUTH DEBUG] Content-Type:', req.get('Content-Type'));
@@ -46,7 +42,7 @@ router.post('/login', (req, res, next) => {
 
     console.log(`${logPrefix} Validating credentials using PData instance...`);
     try {
-        // 1. Validate password using your custom PData logic
+        // 1. Validate password using PData
         const isValid = req.pdata.validateUser(username, password);
 
         if (isValid) {
@@ -55,20 +51,17 @@ router.post('/login', (req, res, next) => {
             const user = { username: username };
 
             // 2. Establish Passport session
-            // `req.login` is provided by Passport. It calls `passport.serializeUser`
-            // to store the user identifier ('username') in the session.
             req.login(user, (err) => {
                 if (err) {
-                    // This typically catches errors during serialization
                     console.error(`${logPrefix} Error during req.login (serialization):`, err);
                     return next(err);
                 }
-                // 3. Login and serialization successful - Session cookie should be set on the response now.
+                
                 console.log(`${logPrefix} Session established via req.login.`);
                 const role = req.pdata.getUserRole(user.username);
 
-                // 4. Send success response to client
-                return res.json({ // Status 200 OK (default)
+                // 3. Send success response to client
+                return res.json({
                     user: {
                         username: user.username,
                         role: role
@@ -76,17 +69,18 @@ router.post('/login', (req, res, next) => {
                 });
             });
         } else {
-            // Password validation failed
             console.log(`${logPrefix} Invalid credentials.`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
     } catch (error) {
-        // Catch errors during pdata.validateUser or other synchronous issues
         console.error(`${logPrefix} UNEXPECTED ERROR during login process:`, error);
         return res.status(500).json({ error: 'An internal error occurred during login.' });
     }
 });
 
+/**
+ * Verify credentials without creating a session
+ */
 router.post('/verify', (req, res) => {
     console.log('[AUTH DEBUG] Verify request received. Body:', req.body);
     
@@ -106,7 +100,6 @@ router.post('/verify', (req, res) => {
         if (isValid) {
             console.log(`${logPrefix} Verification successful.`);
             const role = req.pdata.getUserRole(username);
-            // Return user data without creating a session
             return res.json({
                 success: true,
                 user: {
@@ -124,7 +117,11 @@ router.post('/verify', (req, res) => {
     }
 });
 
-// Protected routes (auth required)
+// ===== PROTECTED ROUTES (AUTH REQUIRED) =====
+
+/**
+ * Get current user authentication status
+ */
 router.get('/user', (req, res) => {
     if (req.isAuthenticated() && req.user) {
         const role = req.pdata ? req.pdata.getUserRole(req.user.username) : 'unknown';
@@ -141,7 +138,6 @@ router.get('/user', (req, res) => {
                 authMethod: req.authMethod || 'session'
             },
             session: sessionInfo
-
         });
     } else {
         // User is not authenticated. Send a 200 OK with isAuthenticated: false.
@@ -149,19 +145,23 @@ router.get('/user', (req, res) => {
     }
 });
 
-// Token management routes (require authentication)
-router.post('/token/generate', authMiddleware, (req, res) => {
+/**
+ * Generate a PData API token for the authenticated user
+ */
+router.post('/token/generate', async (req, res) => {
     try {
-        const username = req.user.username;
+        // Check if user is authenticated via session
+        if (!req.isAuthenticated() || !req.user) {
+            return res.status(401).json({ error: 'Authentication required - please log in first' });
+        }
+        
         const { expiryHours = 24, description = 'API Access Token' } = req.body;
         
-        // Convert hours to milliseconds
-        const expiryMs = expiryHours * 60 * 60 * 1000;
+        // Generate PData token
+        console.log(`[AUTH /token/generate] Generating token for user: ${req.user.username}`);
+        const tokenData = await generatePDataToken(req, expiryHours, description);
         
-        // Generate token
-        const tokenData = generateApiToken(username, expiryMs);
-        
-        console.log(`[AUTH /token/generate] Generated token for user: ${username}, expires in ${expiryHours} hours`);
+        console.log(`[AUTH /token/generate] Generated PData token for user: ${req.user.username}, expires in ${expiryHours} hours`);
         
         res.json({
             success: true,
@@ -170,140 +170,87 @@ router.post('/token/generate', authMiddleware, (req, res) => {
             expiresIn: tokenData.expiresIn,
             description,
             usage: {
-                curl: `curl -H "Authorization: Bearer ${tokenData.token}" ${req.protocol}://${req.get('host')}/api/files/content?pathname=themes/classic/core.css`,
-                javascript: `fetch('/api/files/content?pathname=themes/classic/core.css', { headers: { 'Authorization': 'Bearer ${tokenData.token}' } })`
+                curl: `curl -H "Authorization: Bearer ${tokenData.token}" ${req.protocol}://${req.get('host')}/api/files/content?pathname=example.md`,
+                javascript: `fetch('/api/files/content?pathname=example.md', { headers: { 'Authorization': 'Bearer ${tokenData.token}' } })`
             }
         });
     } catch (error) {
         console.error('[AUTH /token/generate] Error:', error);
-        res.status(500).json({ error: 'Failed to generate token' });
+        res.status(500).json({ error: error.message || 'Failed to generate token' });
     }
 });
 
-router.get('/tokens', authMiddleware, (req, res) => {
-    try {
-        const username = req.user.username;
-        const tokens = getUserTokens(username);
-        
-        res.json({
-            success: true,
-            tokens,
-            count: tokens.length
-        });
-    } catch (error) {
-        console.error('[AUTH /tokens] Error:', error);
-        res.status(500).json({ error: 'Failed to retrieve tokens' });
-    }
-});
-
-router.delete('/token/:tokenPreview', authMiddleware, (req, res) => {
-    try {
-        const username = req.user.username;
-        const tokenPreview = req.params.tokenPreview;
-        
-        // Find the full token by preview (first 8 characters)
-        const userTokens = getUserTokens(username);
-        const tokenToRevoke = userTokens.find(t => t.tokenPreview.startsWith(tokenPreview));
-        
-        if (!tokenToRevoke) {
-            return res.status(404).json({ error: 'Token not found' });
-        }
-        
-        // Note: This is a simplified approach. In production, you'd want to store
-        // token IDs or have a more secure way to identify tokens for revocation.
-        res.json({
-            success: true,
-            message: 'Token revocation endpoint available but requires full token for security',
-            hint: 'Use POST /auth/token/revoke with the full token in the body'
-        });
-    } catch (error) {
-        console.error('[AUTH /token/revoke] Error:', error);
-        res.status(500).json({ error: 'Failed to revoke token' });
-    }
-});
-
-router.post('/token/revoke', authMiddleware, (req, res) => {
-    try {
-        const { token } = req.body;
-        
-        if (!token) {
-            return res.status(400).json({ error: 'Token is required' });
-        }
-        
-        const revoked = revokeApiToken(token);
-        
-        if (revoked) {
-            res.json({ success: true, message: 'Token revoked successfully' });
-        } else {
-            res.status(404).json({ error: 'Token not found or already expired' });
-        }
-    } catch (error) {
-        console.error('[AUTH /token/revoke] Error:', error);
-        res.status(500).json({ error: 'Failed to revoke token' });
-    }
-});
-
-const activeUsers = new Map(); // Store active users and their last activity
-
-// Update active users
-function updateActiveUser(username) {
-    activeUsers.set(username, Date.now());
-    // Simple cleanup for inactive users (more than 1 hour old)
-    const hourAgo = Date.now() - 60 * 60 * 1000;
-    for (const [user, lastSeen] of activeUsers.entries()) {
-        if (lastSeen < hourAgo) {
-            activeUsers.delete(user);
-        }
-    }
-}
-
-// Add this route to get detailed system info
+/**
+ * Get system status (authenticated users only)
+ */
 router.get('/system', authMiddleware, (req, res) => {
     res.json({
         message: "System status OK.",
         timestamp: Date.now(),
-        pdataDbRoot: req.pdata.dbRoot,
         pdataDataRoot: req.pdata.dataRoot,
-        pdataUploadsDir: req.pdata.uploadsDir
+        pdataUploadsDir: req.pdata.uploadsDir,
+        authMethod: req.authMethod,
+        user: {
+            username: req.user.username,
+            role: req.pdata.getUserRole(req.user.username)
+        }
     });
 });
 
-// Logout route
+/**
+ * Logout and destroy session
+ */
 router.post('/logout', (req, res, next) => {
     const username = req.user?.username || 'unknown user';
     console.log(`[AUTH /logout] User='${username}' - Received logout request.`);
+    
     req.logout((err) => {
         if (err) {
             console.error(`[AUTH /logout] Error during req.logout for user '${username}':`, err);
             return next(err);
         }
+        
         req.session.destroy((destroyErr) => {
-             if (destroyErr) {
-                 console.error(`[AUTH /logout] Error destroying session for user '${username}':`, destroyErr);
-             }
-             console.log(`[AUTH /logout] User='${username}' logged out successfully.`);
-             res.clearCookie('connect.sid'); // Or your session cookie name
-             res.json({ success: true, message: 'Logged out successfully' });
+            if (destroyErr) {
+                console.error(`[AUTH /logout] Error destroying session for user '${username}':`, destroyErr);
+            }
+            console.log(`[AUTH /logout] User='${username}' logged out successfully.`);
+            res.clearCookie('devpages.sid'); // Clear the session cookie
+            res.json({ success: true, message: 'Logged out successfully' });
         });
     });
 });
 
-// TODO: Add routes for adding/deleting/managing users if needed, using userUtils
-// Example: Add user (requires admin)
-// router.post('/users', isAdmin, async (req, res) => {
-//    try {
-//        const { username, password, role } = req.body;
-//        const success = await userUtils.addUser(req.pdata, username, password, role);
-//        if (success) {
-//            res.status(201).json({ success: true });
-//        } else {
-//            res.status(409).json({ error: 'User already exists or invalid input' });
-//        }
-//    } catch (error) {
-//        console.error("[AUTH /users POST] Error:", error);
-//        res.status(500).json({ error: 'Failed to add user' });
-//    }
-// });
+// ===== ADMIN ROUTES =====
 
-// module.exports = router; // Old CommonJS export
-export default router; // New ESM export 
+/**
+ * Get detailed system information (admin only)
+ */
+router.get('/admin/system', authMiddleware, requireAdmin, (req, res) => {
+    try {
+        const systemStatus = req.pdata.getSystemStatus();
+        const userCount = req.pdata.listUsers().length;
+        const usersWithRoles = req.pdata.listUsersWithRoles();
+        
+        res.json({
+            message: "Admin system status",
+            timestamp: Date.now(),
+            pdata: systemStatus,
+            users: {
+                count: userCount,
+                roles: usersWithRoles
+            },
+            server: {
+                version: pkg.version,
+                nodeVersion: process.version,
+                platform: process.platform,
+                uptime: process.uptime()
+            }
+        });
+    } catch (error) {
+        console.error('[AUTH /admin/system] Error:', error);
+        res.status(500).json({ error: 'Failed to retrieve system information' });
+    }
+});
+
+export default router;

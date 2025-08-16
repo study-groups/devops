@@ -5,7 +5,23 @@
  */
 
 // Get a dedicated logger for this module
-const logCoreLogger = window.APP.services.log.createLogger('LogCore');
+let logCoreLogger;
+const getLogger = () => {
+    if (logCoreLogger) {
+        return logCoreLogger;
+    }
+    if (window.APP && window.APP.services && window.APP.services.log && window.APP.services.log.createLogger) {
+        logCoreLogger = window.APP.services.log.createLogger('LogCore');
+        return logCoreLogger;
+    }
+    const dummyLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: (...args) => console.warn('[LogCore-early]', ...args),
+        error: (...args) => console.error('[LogCore-early]', ...args),
+    };
+    return dummyLogger;
+};
 
 // Legacy variable kept for backward compatibility
 let logPanelInstance = null;
@@ -48,13 +64,13 @@ let suppressDebugDuringInit = true;
 // Auto-disable suppression after 10 seconds
 setTimeout(() => {
     suppressDebugDuringInit = false;
-    logCoreLogger.info('DEBUG_LOGGING_ENABLED', 'Debug logging suppression disabled after initialization period');
+    getLogger().info('DEBUG_LOGGING_ENABLED', 'Debug logging suppression disabled after initialization period');
 }, 10000);
 
 // Allow manual control
 window.toggleLogSuppression = (enabled) => {
     suppressDebugDuringInit = enabled;
-    logCoreLogger.info('DEBUG_LOGGING_SUPPRESSION', `Debug logging suppression ${enabled ? 'enabled' : 'disabled'}`);
+    getLogger().info('DEBUG_LOGGING_SUPPRESSION', `Debug logging suppression ${enabled ? 'enabled' : 'disabled'}`);
 };
 
 /* 0.  CONSTANTS & HELPERS ------------------------------------ */
@@ -73,7 +89,7 @@ export const canonicalType = (raw = 'GENERAL') =>
 export function setLogPanelInstance(instance) {
     if (instance && typeof instance.addEntry === 'function') {
         logPanelInstance = instance;
-        logCoreLogger.info('LOG_PANEL_INSTANCE_SET', 'LogPanel instance set');
+        getLogger().info('LOG_PANEL_INSTANCE_SET', 'LogPanel instance set');
     } else {
         console.error('[LogCore] Invalid LogPanel instance supplied');
         logPanelInstance = null;

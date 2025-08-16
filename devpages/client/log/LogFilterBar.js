@@ -125,6 +125,24 @@ function _updateDisplay(discoveredTypes, activeFilters) {
         const controlGroup = document.createElement('div');
         controlGroup.className = 'log-filter-control-group';
 
+        // Search input
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.id = 'log-search-input';
+        searchInput.className = 'log-search-input';
+        searchInput.placeholder = 'Search logs...';
+        searchInput.title = 'Search log messages (supports regex)';
+        controlGroup.appendChild(searchInput);
+
+        // Clear search button
+        const clearSearchButton = document.createElement('button');
+        clearSearchButton.className = 'log-tag-button clear-search-button';
+        clearSearchButton.innerHTML = '✕';
+        clearSearchButton.dataset.action = 'clear-search';
+        clearSearchButton.title = 'Clear Search';
+        clearSearchButton.style.display = 'none'; // Hidden by default
+        controlGroup.appendChild(clearSearchButton);
+
         // Clear Log button
         const clearLogButton = document.createElement('button');
         clearLogButton.className = 'log-tag-button clear-log-button';
@@ -274,6 +292,17 @@ export function _handleTagClick(event) {
             return;
         }
 
+        // Handle Clear Search button
+        if (action === 'clear-search') {
+            const searchInput = document.getElementById('log-search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                targetButton.style.display = 'none';
+            }
+            return;
+        }
+
         // Handle Select All button
         if (action === 'select-all') {
             dispatch(setActiveFilters([]));
@@ -340,6 +369,9 @@ export function initializeLogFilterBar(element) {
 
     // Attach click handler using event delegation
     tagsBarElementRef.addEventListener('click', _handleTagClick);
+    
+    // Setup search functionality
+    setupSearchFunctionality();
     
     // Subscribe to appStore state changes for logFiltering
     if (storeUnsubscribe) {
@@ -459,13 +491,30 @@ export function updateTagsBar(element, logFilteringState) {
  * @param {Array} activeFilters - Array of active filter strings like "type:API", "level:INFO"
  * @param {Function} updateEntryCountCallback - Function to call after filtering to update entry count
  */
+// Performance optimized filtering with caching
+let filterCache = new Map();
+let lastFilterState = null;
+
 export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryCountCallback) {
     if (!logElement) return;
+
+    // Cache key for this filter state
+    const filterKey = JSON.stringify(activeFilters);
+    
+    // Check if we can use cached results
+    if (lastFilterState === filterKey && filterCache.has(filterKey)) {
+        const cachedResult = filterCache.get(filterKey);
+        applyCachedFilters(logElement, cachedResult);
+        if (typeof updateEntryCountCallback === 'function') {
+            updateEntryCountCallback(cachedResult.totalCount, cachedResult.visibleCount);
+        }
+        return;
+    }
 
     const filtersByCategory = { source: [], type: [], subtype: [], level: [] };
     const hasActiveCategory = { source: false, type: false, subtype: false, level: false };
 
-    // If filters are active, parse them into categories.
+    // Parse filters into categories
     if (activeFilters && activeFilters.length > 0 && !activeFilters.includes('__CLEAR_ALL__')) {
         activeFilters.forEach(filter => {
             const separatorIndex = filter.indexOf(':');
@@ -483,41 +532,106 @@ export function applyFiltersToLogEntries(logElement, activeFilters, updateEntryC
     const allEntries = Array.from(logElement.children);
     let visibleCount = 0;
     const shouldHideAll = activeFilters && activeFilters.includes('__CLEAR_ALL__');
+    const filterResults = [];
 
-    allEntries.forEach(entry => {
-        // Ensure we're only processing element nodes
-        if (entry.nodeType !== 1) return;
+    // Use requestAnimationFrame for better performance on large datasets
+    if (allEntries.length > 100) {
+        processEntriesInBatches(allEntries, shouldHideAll, filtersByCategory, hasActiveCategory, 
+            (results) => {
+                applyFilterResults(logElement, results);
+                const visible = results.filter(r => !r.hidden).length;
+                if (typeof updateEntryCountCallback === 'function') {
+                    updateEntryCountCallback(results.length, visible);
+                }
+                
+                // Cache results
+                filterCache.set(filterKey, { results, totalCount: results.length, visibleCount: visible });
+                lastFilterState = filterKey;
+            });
+    } else {
+        // Process smaller datasets synchronously
+        allEntries.forEach((entry, index) => {
+            if (entry.nodeType !== 1) return;
 
-        let isHidden = false;
-        if (shouldHideAll) {
-            isHidden = true;
-        } else {
-            const entrySource = (entry.dataset.source || '').toUpperCase();
-            const entryType = (entry.dataset.logType || '').toUpperCase();
-            const entrySubtype = (entry.dataset.logSubtype || '').toUpperCase();
-            const entryLevel = (entry.dataset.logLevel || '').toUpperCase();
-
-            // An entry is visible if it matches the active filters for each category.
-            // If a category has no active filters, it's considered a match.
-            const sourceMatch = !hasActiveCategory.source || filtersByCategory.source.includes(entrySource);
-            const typeMatch = !hasActiveCategory.type || filtersByCategory.type.includes(entryType);
-            const subtypeMatch = !hasActiveCategory.subtype || filtersByCategory.subtype.includes(entrySubtype);
-            const levelMatch = !hasActiveCategory.level || filtersByCategory.level.includes(entryLevel);
-
-            if (!(sourceMatch && typeMatch && subtypeMatch && levelMatch)) {
-                isHidden = true;
+            const isHidden = shouldHideAll || !matchesFilters(entry, filtersByCategory, hasActiveCategory);
+            filterResults.push({ index, hidden: isHidden });
+            
+            entry.classList.toggle('log-entry-hidden-by-filter', isHidden);
+            if (!isHidden) {
+                visibleCount++;
             }
+        });
+
+        // Cache results
+        filterCache.set(filterKey, { results: filterResults, totalCount: allEntries.length, visibleCount });
+        lastFilterState = filterKey;
+
+        if (typeof updateEntryCountCallback === 'function') {
+            updateEntryCountCallback(allEntries.length, visibleCount);
+        }
+    }
+}
+
+function matchesFilters(entry, filtersByCategory, hasActiveCategory) {
+    const entrySource = (entry.dataset.source || '').toUpperCase();
+    const entryType = (entry.dataset.logType || '').toUpperCase();
+    const entrySubtype = (entry.dataset.logSubtype || '').toUpperCase();
+    const entryLevel = (entry.dataset.logLevel || '').toUpperCase();
+
+    const sourceMatch = !hasActiveCategory.source || filtersByCategory.source.includes(entrySource);
+    const typeMatch = !hasActiveCategory.type || filtersByCategory.type.includes(entryType);
+    const subtypeMatch = !hasActiveCategory.subtype || filtersByCategory.subtype.includes(entrySubtype);
+    const levelMatch = !hasActiveCategory.level || filtersByCategory.level.includes(entryLevel);
+
+    return sourceMatch && typeMatch && subtypeMatch && levelMatch;
+}
+
+function processEntriesInBatches(entries, shouldHideAll, filtersByCategory, hasActiveCategory, callback) {
+    const batchSize = 50;
+    const results = [];
+    let currentIndex = 0;
+
+    function processBatch() {
+        const endIndex = Math.min(currentIndex + batchSize, entries.length);
+        
+        for (let i = currentIndex; i < endIndex; i++) {
+            const entry = entries[i];
+            if (entry.nodeType !== 1) continue;
+
+            const isHidden = shouldHideAll || !matchesFilters(entry, filtersByCategory, hasActiveCategory);
+            results.push({ index: i, hidden: isHidden });
         }
 
-        entry.classList.toggle('log-entry-hidden-by-filter', isHidden);
-        if (!isHidden) {
-            visibleCount++;
+        currentIndex = endIndex;
+
+        if (currentIndex < entries.length) {
+            requestAnimationFrame(processBatch);
+        } else {
+            callback(results);
+        }
+    }
+
+    requestAnimationFrame(processBatch);
+}
+
+function applyFilterResults(logElement, results) {
+    const entries = Array.from(logElement.children);
+    results.forEach(result => {
+        const entry = entries[result.index];
+        if (entry) {
+            entry.classList.toggle('log-entry-hidden-by-filter', result.hidden);
         }
     });
+}
 
-    if (typeof updateEntryCountCallback === 'function') {
-        updateEntryCountCallback(allEntries.length, visibleCount);
-    }
+function applyCachedFilters(logElement, cachedResult) {
+    applyFilterResults(logElement, cachedResult.results);
+}
+
+// Clear cache when needed (e.g., when log entries change significantly)
+export function clearFilterCache() {
+    filterCache.clear();
+    lastFilterState = null;
 }
 
 function saveFilterSnapshot(state) {
@@ -551,5 +665,129 @@ function loadFilterPreset() {
     } catch (e) {
         console.warn('Could not load log filter preset from localStorage:', e);
         return [];
+    }
+}
+
+let searchTimeout = null;
+
+function setupSearchFunctionality() {
+    // Setup search input listener with debouncing
+    document.addEventListener('input', (event) => {
+        if (event.target.id === 'log-search-input') {
+            const searchTerm = event.target.value.trim();
+            const clearButton = document.querySelector('[data-action="clear-search"]');
+            
+            // Show/hide clear button
+            if (clearButton) {
+                clearButton.style.display = searchTerm ? 'inline-block' : 'none';
+            }
+            
+            // Debounce search to avoid excessive filtering
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performLogSearch(searchTerm);
+            }, 300);
+        }
+    });
+    
+    // Setup Enter key handling for immediate search
+    document.addEventListener('keydown', (event) => {
+        if (event.target.id === 'log-search-input' && event.key === 'Enter') {
+            clearTimeout(searchTimeout);
+            performLogSearch(event.target.value.trim());
+        }
+    });
+}
+
+function performLogSearch(searchTerm) {
+    const logElement = document.getElementById('log');
+    if (!logElement) return;
+    
+    const entries = logElement.querySelectorAll('.log-entry');
+    let visibleCount = 0;
+    
+    if (!searchTerm) {
+        // No search term - show all entries (respect other filters)
+        entries.forEach(entry => {
+            entry.classList.remove('log-entry-hidden-by-search');
+            if (!entry.classList.contains('log-entry-hidden-by-filter')) {
+                visibleCount++;
+            }
+        });
+    } else {
+        // Perform search
+        let searchRegex;
+        try {
+            // Try to use the search term as a regex
+            searchRegex = new RegExp(searchTerm, 'i');
+        } catch (e) {
+            // If regex is invalid, escape special characters and use as literal string
+            const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            searchRegex = new RegExp(escapedTerm, 'i');
+        }
+        
+        entries.forEach(entry => {
+            const messageElement = entry.querySelector('.log-entry-message');
+            const typeElement = entry.querySelector('.log-entry-type');
+            const levelElement = entry.querySelector('.log-entry-level');
+            
+            const message = messageElement?.textContent || '';
+            const type = typeElement?.textContent || '';
+            const level = levelElement?.textContent || '';
+            
+            // Search in message, type, and level
+            const searchText = `${message} ${type} ${level}`;
+            const matches = searchRegex.test(searchText);
+            
+            if (matches) {
+                entry.classList.remove('log-entry-hidden-by-search');
+                // Highlight matching text
+                highlightSearchTerm(messageElement, searchTerm);
+            } else {
+                entry.classList.add('log-entry-hidden-by-search');
+            }
+            
+            // Count visible entries (not hidden by search OR filter)
+            if (!entry.classList.contains('log-entry-hidden-by-search') && 
+                !entry.classList.contains('log-entry-hidden-by-filter')) {
+                visibleCount++;
+            }
+        });
+    }
+    
+    // Update entry count
+    updateSearchResultCount(visibleCount, entries.length);
+}
+
+function highlightSearchTerm(element, searchTerm) {
+    if (!element || !searchTerm) return;
+    
+    const originalText = element.textContent;
+    let highlightedText;
+    
+    try {
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        highlightedText = originalText.replace(regex, '<mark class="search-highlight">$1</mark>');
+    } catch (e) {
+        // If regex fails, use simple string replacement
+        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedTerm})`, 'gi');
+        highlightedText = originalText.replace(regex, '<mark class="search-highlight">$1</mark>');
+    }
+    
+    element.innerHTML = highlightedText;
+}
+
+function updateSearchResultCount(visibleCount, totalCount) {
+    const statusElement = document.getElementById('log-status');
+    if (statusElement) {
+        const searchInput = document.getElementById('log-search-input');
+        const hasSearch = searchInput && searchInput.value.trim();
+        
+        if (hasSearch) {
+            statusElement.textContent = `${visibleCount} of ${totalCount} entries (filtered)`;
+        } else {
+            statusElement.textContent = `${totalCount} entries`;
+        }
     }
 }

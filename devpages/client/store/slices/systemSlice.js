@@ -3,7 +3,7 @@
  * Tracks component readiness and prevents premature rendering
  */
 
-import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { createSlice } from '@reduxjs/toolkit';
 
 // --- Initial State ---
 const initialState = {

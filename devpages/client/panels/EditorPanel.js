@@ -6,8 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { uploadImage } from '/client/image/imageManager.js';
-import { fileActions } from '/client/store/reducers/fileReducer.js';
-import { updatePreviewContent } from '/client/store/slices/previewSlice.js';
+import { setContent, setDirty } from '/client/store/slices/editorSlice.js';
 
 export class EditorPanel extends BasePanel {
     constructor(options = {}) {
@@ -76,7 +75,7 @@ export class EditorPanel extends BasePanel {
     }
 
     onStateChange() {
-        const { auth, file } = appStore.getState();
+        const { auth, editor } = appStore.getState();
         const isAuthenticated = auth.authChecked && auth.isAuthenticated;
 
         // Render auth state
@@ -92,8 +91,8 @@ export class EditorPanel extends BasePanel {
         }
 
         // Update content
-        if (this.textarea && file.currentFile) {
-            this.setValue(file.currentFile.content);
+        if (this.textarea && this.textarea.value !== editor.content) {
+            this.textarea.value = editor.content || '';
         }
     }
 
@@ -158,21 +157,8 @@ export class EditorPanel extends BasePanel {
 
     handleInput() {
         const content = this.textarea.value;
-        // Dispatch the new action to update the file content in the main file state
-        appStore.dispatch(fileActions.updateFileContent(content));
-        
-        // Also update the preview so it remains in sync
-        appStore.dispatch(updatePreviewContent({ content: content }));
-    }
-
-    setValue(content) {
-        if (this.textarea) {
-            this.textarea.value = content || '';
-            // The crucial diagnostic log
-            console.log('%c[EditorPanel] Textarea value updated. Inspect the element below:', 'color: #28a745; font-weight: bold;', this.textarea);
-        } else {
-            console.error('[EditorPanel] setValue called, but this.textarea is null!');
-        }
+        appStore.dispatch(setContent(content));
+        appStore.dispatch(setDirty(true));
     }
 }
 

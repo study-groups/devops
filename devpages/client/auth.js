@@ -20,14 +20,14 @@ const log = window.APP.services.log.createLogger('Auth');
  */
 export function initAuth() {
     log.info('AUTH', 'INIT_SYSTEM', '[AUTH] Initializing authentication system...');
-    appStore.dispatch(authThunks.checkAuth());
+    appStore.dispatch(authThunks.initializeAuth());
     
     // Listen for login requests from UI components
     // Avoid adding listener multiple times if initAuth is called again
     if (!window.APP?.authLoginListenerAttached) {
         eventBus.on('auth:loginRequested', ({ username, password }) => {
             log.info('AUTH', 'LOGIN_REQUESTED', `[AUTH] Received auth:loginRequested for user: ${username}`);
-            appStore.dispatch(authThunks.login({ username, password })); 
+            appStore.dispatch(authThunks.loginWithCredentials({ username, password })); 
         });
         window.APP = window.APP || {};
         window.APP.authLoginListenerAttached = true; // Set flag

@@ -10,7 +10,7 @@
  * 4.  **Consistent Naming:** Actions follow a clear `verbNoun` pattern.
  */
 
-import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     mode: 'local',

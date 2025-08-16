@@ -5,7 +5,7 @@
 
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore } from '/client/appState.js';
-import { refreshPanels } from '/client/store/slices/panelSlice.js';
+import { panelActions } from '/client/store/slices/panelSlice.js';
 
 export class KeyboardShortcutManager {
     constructor() {
@@ -92,20 +92,9 @@ export class KeyboardShortcutManager {
      * @param {string} panelId - The ID of the panel to toggle.
      */
     togglePanelVisibility(panelId) {
-        const panel = panelRegistry.getPanel(panelId);
-        if (!panel) {
-            console.warn(`Shortcut triggered for non-existent panel: ${panelId}`);
-            return;
-        }
-
-        // The panel object in the registry is a shared reference, so we can modify it directly.
-        panel.isVisible = !panel.isVisible;
-        
-        console.log(`Toggling visibility for ${panelId} to ${panel.isVisible}`);
-
-        // We need to tell the active PanelManager to re-render.
-        // Using the global for now, but a proper event system would be better.
-        appStore.dispatch(refreshPanels());
+        // Dispatch the Redux action to toggle visibility.
+        // The panelSlice reducer will handle the state update, and React will re-render.
+        appStore.dispatch(panelActions.togglePanelVisibility({ panelId }));
     }
 
     /**

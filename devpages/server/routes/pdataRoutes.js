@@ -2,6 +2,7 @@
 
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.js';
+import { createAuthToken } from './routeUtils.js';
 
 const router = express.Router();
 
@@ -30,6 +31,28 @@ router.get('/mount-info', isAdmin, (req, res) => {
     } catch (error) {
         console.error('[API /pdata/mount-info] Error:', error);
         res.status(500).json({ error: 'Failed to retrieve mount information' });
+    }
+});
+
+/**
+ * GET /api/pdata/debug-info
+ * Get a comprehensive debug object for the currently authenticated user.
+ * Admin only.
+ */
+router.get('/debug-info', isAdmin, async (req, res) => {
+    try {
+        const authToken = await createAuthToken(req);
+        res.json({
+            user: {
+                username: authToken.username,
+                roles: authToken.roles,
+            },
+            capabilities: authToken.caps,
+            mounts: authToken.mounts,
+        });
+    } catch (error) {
+        console.error('[API /pdata/debug-info] Error:', error);
+        res.status(500).json({ error: 'Failed to retrieve debug information' });
     }
 });
 

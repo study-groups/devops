@@ -1,7 +1,9 @@
 // client/settings/panels/context/ContextManagerPanel.js
 import { BasePanel } from '/client/panels/BasePanel.js';
+import { appStore } from '/client/appState.js';
+import { navigateToPath } from '/client/store/slices/pathSlice.js';
 
-export class MountInfoPanel extends BasePanel {
+export class ContextManagerPanel extends BasePanel {
     constructor(panelId, store, options = {}) {
         super({
             id: panelId,
@@ -128,7 +130,7 @@ export class MountInfoPanel extends BasePanel {
             row.addEventListener('click', (e) => {
                 const mountName = e.currentTarget.dataset.mountName;
                 if (mountName) {
-                    window.APP.eventBus.emit('navigate:pathname', { pathname: mountName, isDirectory: true });
+                    appStore.dispatch(navigateToPath(mountName));
                 }
             });
         });

@@ -8,83 +8,12 @@
  */
 import { appStore, dispatch } from '/client/appState.js';
 import { authThunks } from '/client/store/slices/authSlice.js';
+import { uiActions } from '/client/store/uiSlice.js';
 import { showFatalError } from '/client/utils/uiError.js';
+import { connect } from '/client/store/connect.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('AuthDisplay');
-
-/**
- * Performs a shallow comparison between two objects to see if they are equivalent.
- * @param {object} objA
- * @param {object} objB
- * @returns {boolean}
- */
-function shallowEqual(objA, objB) {
-    if (objA === objB) return true;
-    if (!objA || !objB) return false;
-
-    const keysA = Object.keys(objA);
-    const keysB = Object.keys(objB);
-
-    if (keysA.length !== keysB.length) return false;
-
-    for (let i = 0; i < keysA.length; i++) {
-        if (!objB.hasOwnProperty(keysA[i]) || objA[keysA[i]] !== objB[keysA[i]]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
- * A simplified "connect" utility for vanilla JS components.
- * It subscribes a component to the Redux store and injects state and dispatch
- * functions as props.
- * @param {Function} mapStateToProps - Maps store state to component props.
- * @param {Function} mapDispatchToProps - Maps dispatch to component props.
- * @returns {Function} A function that takes a component factory and returns
- * a "connected" component factory.
- */
-function connect(mapStateToProps, mapDispatchToProps) {
-    return function(Component) {
-        return function(targetElementId, props = {}) {
-            const component = Component(targetElementId, props);
-            let lastMappedState = null;
-
-            const handleChange = () => {
-                const state = appStore.getState();
-                const mappedState = mapStateToProps(state);
-
-                if (lastMappedState && shallowEqual(lastMappedState, mappedState)) {
-                    return; // Don't re-render if state is the same
-                }
-                lastMappedState = mappedState;
-
-                const mappedDispatch = mapDispatchToProps(appStore.dispatch);
-
-                component.update({
-                    ...props,
-                    ...mappedState,
-                    ...mappedDispatch,
-                });
-            };
-
-            const unsubscribe = appStore.subscribe(handleChange);
-            handleChange();
-
-            // Enhance the component's destroy method to include unsubscribing
-            const originalDestroy = component.destroy;
-            component.destroy = () => {
-                unsubscribe();
-                if (originalDestroy) {
-                    originalDestroy();
-                }
-            };
-            
-            return component;
-        };
-    };
-}
 
 /**
  * The factory function for the authentication display component.
@@ -95,7 +24,6 @@ function connect(mapStateToProps, mapDispatchToProps) {
  */
 function AuthDisplayComponent(targetElementId) {
     let element = null;
-    let dropdownVisible = false;
     let props = {};
 
     // --- Event Handlers ---
@@ -115,7 +43,7 @@ function AuthDisplayComponent(targetElementId) {
 
         try {
             if (passwordInput) passwordInput.value = '';
-            log.info('AUTH', 'LOGIN_ATTEMPT', `[AuthDisplay] Calling authThunks.login for user: ${username}`);
+            log.info('AUTH', 'LOGIN_ATTEMPT', `[AuthDisplay] Calling authThunks.loginWithCredentials for user: ${username}`);
             await props.login({ username, password });
             render();
         } catch (error) {
@@ -142,24 +70,22 @@ function AuthDisplayComponent(targetElementId) {
         event.preventDefault();
         event.stopPropagation();
         log.info('AUTH', 'USER_DROPDOWN_CLICKED', '[AuthDisplay] User dropdown clicked');
-        toggleDropdown();
+        props.toggleAuthDropdown();
     };
 
     /**
      * Toggles the visibility of the user dropdown menu.
      */
     const toggleDropdown = () => {
-        dropdownVisible = !dropdownVisible;
-        renderDropdown();
+        props.toggleAuthDropdown();
     };
 
     /**
      * Hides the user dropdown menu if it is currently visible.
      */
     const hideDropdown = () => {
-        if (dropdownVisible) {
-            dropdownVisible = false;
-            renderDropdown();
+        if (props.ui.isAuthDropdownVisible) {
+            props.toggleAuthDropdown();
         }
     };
 
@@ -223,7 +149,7 @@ function AuthDisplayComponent(targetElementId) {
         const existingBackdrop = document.querySelector('.user-dropdown-backdrop');
         if (existingBackdrop) existingBackdrop.remove();
 
-        if (!dropdownVisible) return;
+        if (!props.ui.isAuthDropdownVisible) return;
 
         const { auth } = props;
         if (!auth || !auth.isAuthenticated || !auth.user) return;
@@ -297,12 +223,14 @@ function AuthDisplayComponent(targetElementId) {
 }
 
 const mapStateToProps = state => ({
-    auth: state.auth
+    auth: state.auth,
+    ui: state.ui,
 });
 
 const mapDispatchToProps = dispatch => ({
-    login: (credentials) => dispatch(authThunks.login(credentials)),
-    logout: () => dispatch(authThunks.logoutAsync())
+    login: (credentials) => dispatch(authThunks.loginWithCredentials(credentials)),
+    logout: () => dispatch(authThunks.logoutAsync()),
+    toggleAuthDropdown: () => dispatch(uiActions.toggleAuthDropdown()),
 });
 
 const ConnectedAuthDisplay = connect(mapStateToProps, mapDispatchToProps)(AuthDisplayComponent);

@@ -6,7 +6,8 @@
  */
 
 import { BasePanel } from './BasePanel.js';
-import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
+import { panelActions } from '/client/store/slices/panelSlice.js';
 
 export class PanelControlCenter extends BasePanel {
     constructor(options = {}) {
@@ -420,10 +421,11 @@ export class PanelControlCenter extends BasePanel {
         this.saveControlState();
         this.render();
         
-        // Emit reorder event
-        eventBus.emit('panels:reordered', {
-            order: this.cardOrder.slice()
-        });
+        // Dispatch reorder action
+        const dockId = this.managedPanels.get(draggedId)?.panel.state.dockId;
+        if (dockId) {
+            appStore.dispatch(panelActions.reorderPanels({ dockId, panelOrder: this.cardOrder.slice() }));
+        }
     }
 
     /**

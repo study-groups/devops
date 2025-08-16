@@ -5,11 +5,14 @@
  */
 import { appStore, dispatch } from '../appState.js';
 import { panelActions, selectDocks } from '../store/slices/panelSlice.js';
-import { uiActions, uiThunks } from '../store/uiSlice.js';
+import { uiActions } from '../store/uiSlice.js';
 import { storageService } from '/client/services/storageService.js';
 import { panelDefinitions } from '../panels/panelRegistry.js';
 import { Sidebar } from './Sidebar.js';
 import '../libs/Sortable.min.js';
+import { shortcutTriggered } from '/client/store/slices/shortcutSlice.js';
+import { fileThunks } from '/client/store/slices/fileSlice.js';
+import { renderMarkdown } from '/client/store/slices/previewSlice.js';
 
 class WorkspaceManager {
     constructor() {
@@ -40,6 +43,7 @@ class WorkspaceManager {
         // Initialize the new Sidebar component
         this.sidebar = new Sidebar();
         this.sidebarInitialized = false;
+        this.lastSidebarVisible = null;
     }
 
     initialize() {
@@ -48,6 +52,9 @@ class WorkspaceManager {
         
         this.registerPanelsFromDefinitions();
         
+        // Initialize sidebar once during setup, not in render loop
+        this.sidebarInitialized = true;
+        
         // Subscribe to store changes and trigger re-render
         appStore.subscribe(this.render.bind(this));
         
@@ -55,10 +62,12 @@ class WorkspaceManager {
         
         // Expose clean API
         this.exposeWorkspaceAPI();
+        
+        // Debug functions for workspace management
+        if (!window.APP.debug) window.APP.debug = {};
 
         this.initDragAndDrop();
         this.initResizers();
-        this.initKeyboardShortcuts();
     }
     
     registerPanelsFromDefinitions() {
@@ -95,14 +104,37 @@ class WorkspaceManager {
     }
     
     /**
-     * Ensure sidebar is properly initialized (async)
+     * Dynamically registers a new panel definition.
+     * This is used by plugins or debug modules to add panels at runtime.
+     * @param {string} panelId - The unique ID for the panel.
+     * @param {function} factory - A function that returns a new instance of the panel class.
      */
-    async ensureSidebarInitialized() {
-        if (!this.sidebarInitialized) {
-            await this.sidebar.initialize();
-            this.sidebarInitialized = true;
+    registerPanel(panelId, factory) {
+        if (panelDefinitions.some(p => p.id === panelId)) {
+            console.warn(`[WorkspaceManager] Panel '${panelId}' is already registered.`);
+            return;
         }
+
+        console.log(`[WorkspaceManager] Dynamically registering panel: ${panelId}`);
+        const panelDef = {
+            id: panelId,
+            title: panelId, // Title can be updated later by the panel itself
+            factory: factory,
+            dockId: 'debug-dock', // Default to debug dock
+            isDefault: false,
+        };
+        panelDefinitions.push(panelDef);
+
+        // Register the panel with the Redux store
+        dispatch(panelActions.createPanel({
+            id: panelDef.id,
+            title: panelDef.title,
+            dockId: panelDef.dockId,
+            config: { factory: panelDef.factory }
+        }));
     }
+
+
 
     validateSemanticZones() {
         const missingZones = [];
@@ -165,6 +197,7 @@ class WorkspaceManager {
 
     render() {
         const state = appStore.getState();
+
         const docks = selectDocks(state);
         const allPanels = state.panels.panels || {};
 
@@ -174,12 +207,11 @@ class WorkspaceManager {
         if (sidebarElement) {
             sidebarElement.dataset.visible = sidebarVisible;
             
-            // Render the new Sidebar component when visible
-            if (sidebarVisible) {
-                this.ensureSidebarInitialized().then(() => {
-                    this.sidebar.render(sidebarElement);
-                });
+            // Only render sidebar when visibility changes, not on every state change
+            if (sidebarVisible && this.lastSidebarVisible !== sidebarVisible) {
+                this.sidebar.render(sidebarElement);
             }
+            this.lastSidebarVisible = sidebarVisible;
         }
 
         // Apply editor visibility from textVisible state
@@ -188,6 +220,9 @@ class WorkspaceManager {
         if (editorElement) {
             editorElement.style.display = editorVisible ? 'flex' : 'none';
         }
+
+        // Log display visibility is now handled by the LogDisplay component itself
+        // WorkspaceManager no longer manipulates log CSS classes directly
 
         // SIMPLIFIED: Sidebar now handles all dock and panel management
         // WorkspaceManager only handles non-sidebar zones (editor, preview)
@@ -428,94 +463,9 @@ class WorkspaceManager {
         }
     }
 
-    initKeyboardShortcuts() {
-        // Keyboard shortcut definitions - integrated into WorkspaceManager
-        const shortcuts = [
-            // Debug Panel Toggle
-            { key: 'D', ctrl: true, shift: true, alt: false, action: () => this.togglePanel('pdata-panel') },
-            // Settings Dock Toggle
-            { key: 'S', ctrl: true, shift: true, alt: false, action: () => this.toggleDock('settings-dock') },
-            // Save File 
-            { key: 's', ctrl: 'optional', shift: false, alt: false, action: () => this.handleSaveFile() },
-            // Refresh Preview
-            { key: 'r', ctrl: 'optional', shift: false, alt: true, action: () => this.handleRefreshPreview() },
-            // Comprehensive Refresh
-            { key: 'r', ctrl: true, shift: true, alt: false, action: () => this.handleComprehensiveRefresh() },
-            // View Mode Changes
-            { key: '1', ctrl: false, shift: false, alt: true, action: () => this.setViewMode('editor') },
-            { key: '2', ctrl: false, shift: false, alt: true, action: () => this.setViewMode('preview') },
-            { key: '3', ctrl: false, shift: false, alt: true, action: () => this.setViewMode('split') },
-            // Smart Copy (simplified for now)
-            { key: 'A', ctrl: true, shift: true, alt: false, action: () => this.handleSmartCopyA() },
-            { key: 'B', ctrl: true, shift: true, alt: false, action: () => this.handleSmartCopyB() },
-        ];
-
-        this.keyboardHandler = (event) => {
-            for (const shortcut of shortcuts) {
-                if (this.matchesShortcut(event, shortcut)) {
-                    event.preventDefault();
-                    shortcut.action();
-                    return;
-                }
-            }
-        };
-
-        document.addEventListener('keydown', this.keyboardHandler);
-        console.log('[WorkspaceManager] Keyboard shortcuts initialized');
-    }
-
-    matchesShortcut(event, shortcut) {
-        const key = event.key;
-        if (!key) return false; // Handle undefined/null key
-        const keyMatches = key.toLowerCase() === shortcut.key.toLowerCase();
-        
-        if (!keyMatches) return false;
-
-        // Check modifiers
-        const ctrlPressed = event.ctrlKey || event.metaKey;
-        const shiftPressed = event.shiftKey;
-        const altPressed = event.altKey;
-
-        const ctrlMatch = shortcut.ctrl === 'optional' ? true : 
-                         shortcut.ctrl === true ? ctrlPressed : 
-                         shortcut.ctrl === false ? !ctrlPressed : true;
-
-        const shiftMatch = shortcut.shift === true ? shiftPressed : 
-                          shortcut.shift === false ? !shiftPressed : true;
-
-        const altMatch = shortcut.alt === true ? altPressed : 
-                        shortcut.alt === false ? !altPressed : true;
-
-        return ctrlMatch && shiftMatch && altMatch;
-    }
-
     // Keyboard shortcut handlers
     togglePanel(panelId) {
         console.log(`[WorkspaceManager] Toggling panel: ${panelId}`);
-        
-        // First ensure the panel is registered in Redux state if it isn't already
-        const state = appStore.getState();
-        
-        // Check if panel exists in Redux panels state or sidebarPanels state
-        const panelInPanels = state.panels?.panels?.[panelId];
-        const panelInSidebar = state.panels?.sidebarPanels?.[panelId];
-        
-        if (!panelInPanels && !panelInSidebar) {
-            console.log(`[WorkspaceManager] Panel ${panelId} not registered, registering now...`);
-            // Register the panel with default config
-            dispatch(panelActions.createPanel({ 
-                id: panelId,
-                dockId: 'sidebar-dock', // Default to sidebar dock
-                title: panelId === 'pdata-panel' ? 'Debug Panel' : 
-                       panelId === 'settings-panel' ? 'Settings Panel' : panelId,
-                config: {
-                    isVisible: true,
-                    isCollapsed: false
-                }
-            }));
-        }
-        
-        // Now toggle visibility
         dispatch(panelActions.togglePanelVisibility({ panelId }));
     }
 
@@ -563,36 +513,16 @@ class WorkspaceManager {
     }
 
     handleSaveFile() {
-        // Delegate to active editor panel
-        const activeEditorPanel = this.getActivePanelOfType('editor');
-        if (activeEditorPanel && activeEditorPanel.save) {
-            activeEditorPanel.save();
-        } else {
-            // Fallback to eventBus for legacy compatibility
-            import('../eventBus.js').then(({ eventBus }) => {
-                eventBus.emit('shortcut:saveFile');
-            });
-        }
+        dispatch(fileThunks.saveFile());
     }
 
     handleRefreshPreview() {
-        // Delegate to preview panel
-        const previewPanel = this.getPanelInstance('preview');
-        if (previewPanel && previewPanel.refresh) {
-            previewPanel.refresh();
-        } else {
-            // Fallback to eventBus
-            import('../eventBus.js').then(({ eventBus }) => {
-                eventBus.emit('shortcut:refreshPreview');
-            });
-        }
+        const { editor } = appStore.getState();
+        dispatch(renderMarkdown(editor.content));
     }
 
     handleComprehensiveRefresh() {
-        // Full application refresh
-        import('../eventBus.js').then(({ eventBus }) => {
-            eventBus.emit('shortcut:comprehensiveRefresh');
-        });
+        dispatch(shortcutTriggered('comprehensiveRefresh'));
     }
 
     setViewMode(mode) {
@@ -678,11 +608,6 @@ class WorkspaceManager {
     }
 
     destroy() {
-        // Cleanup keyboard shortcuts
-        if (this.keyboardHandler) {
-            document.removeEventListener('keydown', this.keyboardHandler);
-        }
-        
         // Cleanup other resources
         this.loadedPanelInstances.clear();
         for (const sortable of this.sortableInstances.values()) {
@@ -701,7 +626,7 @@ class WorkspaceManager {
             toggleLogArea: () => {
                 try {
                     if (appStore) {
-                        dispatch(uiThunks.toggleLogVisibility());
+                        dispatch(uiActions.toggleLogVisibility());
                         return true;
                     }
                     return false;
@@ -710,12 +635,14 @@ class WorkspaceManager {
                     return false;
                 }
             },
+            toggleDebugDock: () => this.toggleDock('debug-dock'),
             
             // Zone Controls
             toggleZone: (zoneId) => this.toggleZone(zoneId),
             
             // Panel Controls  
             togglePanel: (panelId) => this.togglePanel(panelId),
+            registerPanel: (panelId, factory) => this.registerPanel(panelId, factory),
             
             // Sidebar Controls (SIMPLIFIED - main control is now window.APP.sidebar)
             toggleSidebar: () => this.toggleSidebar(),

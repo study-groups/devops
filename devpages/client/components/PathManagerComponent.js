@@ -2,8 +2,10 @@
 // Standardized Redux store access
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import { appStore } from '/client/appState.js';
-import { fileThunks } from '/client/thunks/fileThunks.js';
+import { fileThunks } from '/client/store/slices/fileSlice.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
+import { uiThunks } from '/client/store/uiSlice.js';
 
 const log = window.APP.services.log.createLogger('PathManagerComponent');
 
@@ -214,7 +216,7 @@ export function createPathManagerComponent(targetElementId) {
         // Simplified layout: Breadcrumbs, then the selection row with buttons immediately adjacent
         element.innerHTML = `
             <div class="context-path-and-file-wrapper" style="display: flex !important; align-items: center !important; gap: 8px; flex-wrap: nowrap !important; width: 100%; box-sizing: border-box;">
-                <div id="sidebar-toggle-btn" class="sidebar-toggle" title="Toggle Sidebar" style="flex-shrink: 0 !important; display: inline-flex !important; align-items: center; justify-content: center;">
+                <div id="file-browser-toggle-btn" class="sidebar-toggle" title="Toggle File Browser" style="flex-shrink: 0 !important; display: inline-flex !important; align-items: center; justify-content: center;">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                         <path d="M4 4h6v6H4V4zm8 0h6v6h-6V4zM4 14h6v6H4v-6zm8 0h6v6h-6v-6z"/>
                     </svg>
@@ -242,22 +244,10 @@ export function createPathManagerComponent(targetElementId) {
             saveButton.addEventListener('click', handleSaveButtonClick);
         }
 
-        // --- Context Settings Trigger Event Listener ---
-        const settingsTrigger = element.querySelector('#context-settings-trigger');
-        if (settingsTrigger) {
-            settingsTrigger.addEventListener('click', handleRootBreadcrumbClick);
-            // Reduced verbosity - only log errors
-            // log.debug('RENDER', 'SETTINGS_TRIGGER_LISTENER_ATTACHED', 'Settings trigger event listener attached.');
-        } else {
-            log.error('RENDER', 'SETTINGS_TRIGGER_NOT_FOUND', 'Settings trigger element not found in DOM.');
-        }
-
         // --- Breadcrumb Navigation Event Listener ---
         const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
         if (breadcrumbContainer) {
             breadcrumbContainer.addEventListener('click', handleBreadcrumbClick);
-            // Reduced verbosity - only log errors
-            // log.debug('RENDER', 'BREADCRUMB_NAV_LISTENER_ATTACHED', 'Breadcrumb navigation event listener attached.');
         } else {
             log.error('RENDER', 'BREADCRUMB_CONTAINER_NOT_FOUND', 'Breadcrumb container element not found in DOM.');
         }
@@ -278,9 +268,9 @@ export function createPathManagerComponent(targetElementId) {
         }
 
         // Sidebar toggle button event listener - keep the branded four boxes
-        const sidebarToggleButton = element.querySelector('#sidebar-toggle-btn');
-        if (sidebarToggleButton) {
-            sidebarToggleButton.addEventListener('click', handleSidebarToggleClick);
+        const fileBrowserToggleButton = element.querySelector('#file-browser-toggle-btn');
+        if (fileBrowserToggleButton) {
+            fileBrowserToggleButton.addEventListener('click', handleFileBrowserToggleClick);
         }
         
         // CRITICAL DEBUG - Render function completed
@@ -291,17 +281,17 @@ export function createPathManagerComponent(targetElementId) {
     const generateBreadcrumbsHTML = (selectedDirectoryPath, selectedOrg, username, isAuthenticated) => {
         let breadcrumbHTML = '';
         
-        // Settings trigger (/) - always clickable
+        // Settings trigger (/) - now navigates to root
         breadcrumbHTML += `
             <span id="context-settings-trigger"
                   class="breadcrumb-item breadcrumb-separator root-settings-trigger clickable"
-                  title="Click: Open Settings | Current Org: ${selectedOrg}">
+                  title="Navigate to Root | Current Org: ${selectedOrg}">
                 /
                 <div class="technical-info-tooltip">
                     <strong>Context Information:</strong><br>
                     <code>User:</code> ${username || 'Not logged in'}<br>
                     <code>Org:</code> ${selectedOrg}<br>
-                    <small>Click to open Context Manager Settings</small>
+                    <small>Click to navigate to the root directory</small>
                 </div>
             </span>`;
 
@@ -336,28 +326,29 @@ export function createPathManagerComponent(targetElementId) {
     
     // Hybrid breadcrumb navigation handler
     const handleBreadcrumbClick = (event) => {
-        const target = event.target;
+        event.preventDefault();
+        event.stopPropagation();
+        const target = event.target.closest('.clickable'); // Find the nearest clickable parent
+        if (!target) return;
         
-        // Handle settings trigger click (don't navigate)
+        // Handle root breadcrumb click (navigates to top-level dirs)
         if (target.id === 'context-settings-trigger') {
-            return; // Let handleRootBreadcrumbClick handle this
+            log.info('BREADCRUMB', 'NAVIGATE_ROOT', 'Breadcrumb navigation to root.');
+            appStore.dispatch(pathThunks.navigateToPath({ pathname: '', isDirectory: true }));
+            return;
         }
         
-        // Handle path navigation clicks
-        if (target.classList.contains('clickable') && target.hasAttribute('data-navigate-path')) {
-            event.preventDefault();
-            event.stopPropagation();
-            
+        // Handle other path navigation clicks
+        if (target.hasAttribute('data-navigate-path')) {
             const pathname = target.dataset.navigatePath;
-            
             log.info('BREADCRUMB', 'NAVIGATE', `Breadcrumb navigation: '${pathname}'`);
-            
-            // Use established eventBus pattern
-            window.APP.eventBus.emit('navigate:pathname', { pathname, isDirectory: true });
+            appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory: true }));
         }
     };
 
     const handlePrimarySelectChange = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const selectedOption = event.target.selectedOptions[0];
         if (!selectedOption || !selectedOption.value) return;
 
@@ -399,19 +390,18 @@ export function createPathManagerComponent(targetElementId) {
         if (selectedType === 'parent') {
             const parentPath = selectedOption.dataset.parentPath;
             log.info('SELECT', 'NAVIGATE_PARENT', `Navigating to parent directory: '${parentPath}'`);
-            window.APP.eventBus.emit('navigate:pathname', { pathname: parentPath, isDirectory: true });
+            appStore.dispatch(pathThunks.navigateToPath({ pathname: parentPath, isDirectory: true }));
             return;
         }
 
         const newRelativePath = pathJoin(currentDirectory, selectedValue);
         log.info('SELECT', 'PRIMARY_SELECT_CHANGE', `Primary select change: Base Dir='${currentDirectory}', Selected='${selectedValue}', Type='${selectedType}', New Path='${newRelativePath}'`);
 
-        // Primary navigation - let the bootloader's navigate:pathname handler do the heavy lifting
+        // Primary navigation uses the new thunk
         if (selectedType === 'dir') {
-            window.APP.eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: true });
+            appStore.dispatch(pathThunks.navigateToPath({ pathname: newRelativePath, isDirectory: true }));
         } else if (selectedType === 'file') {
-            window.APP.eventBus.emit('navigate:pathname', { pathname: newRelativePath, isDirectory: false });
-            appStore.dispatch(fileThunks.loadFile(newRelativePath));
+            appStore.dispatch(pathThunks.navigateToPath({ pathname: newRelativePath, isDirectory: false }));
         }
     };
 
@@ -437,63 +427,8 @@ export function createPathManagerComponent(targetElementId) {
         appStore.dispatch(fileThunks.saveFile());
     };
 
-    const handleRootBreadcrumbClick = (event) => {
-        event.preventDefault();
-        log.info('BREADCRUMB', 'ROOT_CLICK', 'Toggling mount info panel.');
-        console.log("Toggling mount info panel is disabled for now.");
-    };
-
-    const handleSettingsClick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const isFromSidebar = event.target.closest('#panel-content');
-        const isFromBreadcrumb = event.target.id === 'context-settings-trigger';
-
-        log.info('SETTINGS', 'CLICK', `Settings click: fromSidebar=${!!isFromSidebar}, fromBreadcrumb=${isFromBreadcrumb}`);
-
-        // Existing logic for opening the popup from the sidebar can remain.
-        // The breadcrumb click is now handled by handleRootBreadcrumbClick.
-        if (isFromSidebar) {
-            // Sidebar click: Show popup
-            log.info('SETTINGS', 'SHOW_POPUP_SIDEBAR', 'Sidebar settings click: showing popup');
-            
-            if (typeof window.APP?.services?.uiComponents?.showPopup === 'function') {
-                log.info('SETTINGS', 'SHOW_POPUP_IMMEDIATE', 'UI Components system available, showing popup immediately');
-                
-                const state = appStore.getState();
-                const pathState = state.path || {};
-                const settingsState = state.settings || {};
-                const availableTopDirs = pathState.availableTopLevelDirs || ['data'];
-                
-                const popupProps = {
-                    pdDirBase: '/root/pj/pd/',
-                    contentSubDir: settingsState.currentContentSubDir || 'data',
-                    availableSubDirs: availableTopDirs,
-                    displayPathname: pathState.currentPathname || '',
-                    doEnvVars: settingsState.doEnvVars || []
-                };
-                
-                log.info('SETTINGS', 'POPUP_PROPS', `Showing context settings popup with props: ${JSON.stringify(popupProps)}`);
-                
-                const success = window.APP?.services?.uiComponents.showPopup('contextSettings', popupProps);
-                if (success) {
-                    log.info('SETTINGS', 'POPUP_SUCCESS', 'Context settings popup displayed successfully');
-                } else {
-                    log.error('SETTINGS', 'POPUP_FAILED', 'Failed to display context settings popup');
-                    alert('Unable to open settings panel. Please check console for details.');
-                }
-            } else {
-                log.error('SETTINGS', 'NO_UI_COMPONENTS', 'UI Components system not available yet');
-                alert('Settings panel is not ready yet. Please wait for the app to finish loading.');
-            }
-        } else if (isFromBreadcrumb) {
-            // This case is now handled by the dedicated root breadcrumb handler.
-            // We can just log it for now or remove this block.
-            log.info('SETTINGS', 'BREADCRUMB_CLICK_HANDLED', 'Breadcrumb settings click is now handled by handleRootBreadcrumbClick.');
-            // To prevent accidental double-handling, we do nothing here.
-        }
-    };
+    // DEPRECATED: handleRootBreadcrumbClick and handleSettingsClick are no longer used.
+    // The main handleBreadcrumbClick now manages all breadcrumb interactions.
 
     const handleNoteButtonClick = async (event) => {
         event.preventDefault();
@@ -582,6 +517,10 @@ export function createPathManagerComponent(targetElementId) {
         }
     };
 
+    const handleFileBrowserToggleClick = () => {
+        appStore.dispatch(uiThunks.toggleLeftSidebar());
+    };
+
     // --- Component Lifecycle ---
     const mount = () => {
         log.info('MOUNT', 'START', `Mount_CM: Initializing for targetElementId: ${targetElementId}`);
@@ -626,8 +565,6 @@ export function createPathManagerComponent(targetElementId) {
             if (saveBtn) saveBtn.removeEventListener('click', handleSaveButtonClick);
             const publishBtn = element.querySelector('#publish-btn');
             if (publishBtn) publishBtn.removeEventListener('click', handlePublishButtonClick);
-            const settingsTrigger = element.querySelector('#context-settings-trigger');
-            if (settingsTrigger) settingsTrigger.removeEventListener('click', handleRootBreadcrumbClick);
             const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
             if (breadcrumbContainer) breadcrumbContainer.removeEventListener('click', handleBreadcrumbClick);
 

@@ -2,7 +2,8 @@
  * buttons.js
  * Handles button registration and event handling
  */
-import { eventBus } from '/client/eventBus.js';
+import { appStore } from '/client/appState.js';
+import { buttonClicked } from '/client/store/slices/buttonSlice.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('Buttons');
@@ -48,11 +49,8 @@ export function registerButtonHandler(buttonId, handler, description = '') {
         // Log button click
         log.info('BUTTONS', 'BUTTON_CLICKED', `Button clicked: ${buttonId}`);
         
-        // Dispatch button event
-        eventBus.emit('button:clicked', {
-            buttonId,
-            description
-        });
+        // Dispatch button action
+        appStore.dispatch(buttonClicked(buttonId));
         
         // Call the handler
         try {

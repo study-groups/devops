@@ -18,6 +18,30 @@ class FileManager {
         });
     }
 
+    _resolveVirtualPath(token, virtualPath) {
+        if (!virtualPath.startsWith('~')) {
+            // This is not a virtual path, return as is for legacy handling.
+            return virtualPath;
+        }
+    
+        const segments = virtualPath.split('/');
+        const mountAlias = segments[0]; // e.g., '~data'
+    
+        if (token.mounts && token.mounts[mountAlias]) {
+            const mountPoint = token.mounts[mountAlias];
+            const subPath = segments.slice(1).join('/');
+            const resolvedPath = path.resolve(path.join(mountPoint, subPath));
+    
+            // Security check: ensure the resolved path is within the mount point
+            if (!resolvedPath.startsWith(mountPoint)) {
+                throw new Error(`Path escape attempt detected in virtual path: ${virtualPath}`);
+            }
+            return resolvedPath;
+        }
+    
+        throw new Error(`Unknown mount alias '${mountAlias}' in path '${virtualPath}'`);
+    }
+
     async ensureUserDirectory(username) {
         const userRoles = this.userManager.getUserRoles(username);
         if (userRoles.length === 0) {
@@ -39,7 +63,7 @@ class FileManager {
         if (isToken) {
             // UNIFIED MOUNTING: Use token-based namespace resolution
             try {
-                absolutePathToList = this.authSrv.resolvePath(subject, relativePath);
+                absolutePathToList = this._resolveVirtualPath(subject, relativePath);
             } catch (error) {
                 throw new Error(`Invalid path '${relativePath}': ${error.message}`);
             }
@@ -129,7 +153,7 @@ class FileManager {
         if (isToken) {
             // UNIFIED MOUNTING: Use token-based namespace resolution
             try {
-                absolutePath = this.authSrv.resolvePath(subject, relativePath);
+                absolutePath = this._resolveVirtualPath(subject, relativePath);
             } catch (error) {
                 throw new Error(`Invalid path '${relativePath}': ${error.message}`);
             }
@@ -187,7 +211,7 @@ class FileManager {
         if (isToken) {
             // UNIFIED MOUNTING: Use token-based namespace resolution
             try {
-                absoluteFilePath = this.authSrv.resolvePath(subject, relativePath);
+                absoluteFilePath = this._resolveVirtualPath(subject, relativePath);
             } catch (error) {
                 throw new Error(`Invalid path '${relativePath}': ${error.message}`);
             }
@@ -250,7 +274,7 @@ class FileManager {
         if (isToken) {
             // UNIFIED MOUNTING: Use token-based namespace resolution
             try {
-                absolutePath = this.authSrv.resolvePath(subject, relativePath);
+                absolutePath = this._resolveVirtualPath(subject, relativePath);
             } catch (error) {
                 throw new Error(`Invalid path '${relativePath}': ${error.message}`);
             }

@@ -129,7 +129,7 @@ app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
 // 4. API Routes
 app.use('/api/config', configRoutes);
-app.use('/api/auth', authMiddleware, express.json(), authRoutes);
+app.use('/api/auth', express.json(), authRoutes);
 app.use('/api/capabilities', capabilityRoutes);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/files', authMiddleware, filesRouter);

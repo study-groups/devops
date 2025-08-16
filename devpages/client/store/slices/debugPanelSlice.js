@@ -9,7 +9,7 @@
  *     Actions that should trigger a save are added to the middleware's whitelist.
  */
 
-import { createSlice } from '/client/vendor/scripts/redux-toolkit.mjs';
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     visible: false,

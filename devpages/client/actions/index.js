@@ -44,7 +44,7 @@ export const triggerActions = {
     refreshPreview: uiActionHandlers.refreshPreview,
     copyLog: uiActionHandlers.copyLog,
     clearLog: uiActionHandlers.clearLog,
-    toggleLogVisibility: uiActionHandlers.toggleLogVisibility,
+    // toggleLogVisibility: handled directly by ViewControls component
     minimizeLog: uiActionHandlers.minimizeLog,
     showSystemInfo: uiActionHandlers.showSystemInfo,
     toggleLogMenu: uiActionHandlers.toggleLogMenu,

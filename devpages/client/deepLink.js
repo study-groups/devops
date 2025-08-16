@@ -3,6 +3,7 @@
  */
 import { logMessage } from '/client/log/index.js';
 import { appStore } from '/client/appState.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 import eventBus from '/client/eventBus.js';
 import { storageService } from '/client/services/storageService.js';
 
@@ -72,24 +73,18 @@ export function restoreDeepLinkNavigation() {
     
     log.info('DEEP_LINK', 'RESTORING_NAVIGATION', `Restoring navigation to pathname: '${savedRequest.pathname}'`);
     
-    // Use the eventBus to navigate to the saved pathname
-    if (window.eventBus && typeof window.eventBus.emit === 'function') {
-        // The isDirectory flag will be determined by handleNavigateToPathname
-        const isDirectory = !/\.[^/]+$/.test(savedRequest.pathname);
-        log.info('DEEP_LINK', 'EMITTING_NAVIGATION', `Emitting navigate:pathname with isDirectory=${isDirectory}`);
-        
-        window.eventBus.emit('navigate:pathname', {
-            pathname: savedRequest.pathname,
-            isDirectory: isDirectory
-        });
-        
-        // Clear the saved request after navigation
-        clearSavedDeepLinkRequest();
-        return true;
-    }
+    // Use the Redux thunk to navigate to the saved pathname
+    const isDirectory = !/\.[^/]+$/.test(savedRequest.pathname);
+    log.info('DEEP_LINK', 'DISPATCHING_NAVIGATION', `Dispatching navigateToPath with isDirectory=${isDirectory}`);
     
-    log.warn('DEEP_LINK', 'EVENTBUS_UNAVAILABLE', 'EventBus not available, cannot restore navigation');
-    return false;
+    appStore.dispatch(pathThunks.navigateToPath({
+        pathname: savedRequest.pathname,
+        isDirectory: isDirectory
+    }));
+    
+    // Clear the saved request after navigation
+    clearSavedDeepLinkRequest();
+    return true;
 }
 
 /**

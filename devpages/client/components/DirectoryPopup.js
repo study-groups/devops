@@ -11,10 +11,11 @@
 
 import { pathJoin } from '/client/utils/pathUtils.js';
 import { logContext } from '/client/logging/logContext.js';
+import { appStore } from '/client/appState.js';
+import { pathThunks } from '/client/store/slices/pathSlice.js';
 
 export class DirectoryPopup {
-    constructor(eventBus) {
-        this.eventBus = eventBus;
+    constructor() {
         this.popupElement = null;
         this.cleanupHandlers = null;
     }
@@ -163,7 +164,7 @@ export class DirectoryPopup {
             e.stopPropagation();
             const newPath = parentPath ? pathJoin(parentPath, dirName) : dirName;
             logContext(`Directory popup navigation: '${newPath}'`, 'EVENT');
-            this.eventBus.emit('navigate:pathname', { pathname: newPath, isDirectory: true });
+            appStore.dispatch(pathThunks.navigateToPath({ pathname: newPath, isDirectory: true }));
             this.hide();
         });
 
@@ -234,9 +235,8 @@ export class DirectoryPopup {
 
 /**
  * Factory function to create a DirectoryPopup instance
- * @param {Object} eventBus - The event bus for navigation
  * @returns {DirectoryPopup} New DirectoryPopup instance
  */
-export function createDirectoryPopup(eventBus) {
-    return new DirectoryPopup(eventBus);
+export function createDirectoryPopup() {
+    return new DirectoryPopup();
 } 

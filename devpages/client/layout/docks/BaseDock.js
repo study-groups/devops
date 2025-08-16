@@ -7,6 +7,7 @@
 import { appStore, dispatch } from '/client/appState.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { logMessage } from '/client/log/index.js';
+import { panelActions } from '/client/store/slices/panelSlice.js';
 
 export class BaseDock {
     constructor(dockId, title, panelGroup, isFloating = false) {
@@ -19,11 +20,12 @@ export class BaseDock {
         this.panelInstances = new Map();
         this.sectionInstances = {}; // For compatibility with current DebugPanelManager
         
-        // State management
-        this.isVisible = false;
+        // State management - DEPRECATED: State is now managed by Redux
+        // this.isVisible = false; 
         this.collapsedSections = new Set();
         
-        // For floating docks
+        // For floating docks - DEPRECATED, state is now managed in Redux
+        /*
         if (this.isFloating) {
             this.currentPos = { x: 150, y: 150 };
             this.currentSize = { width: 500, height: 400 };
@@ -32,6 +34,7 @@ export class BaseDock {
             this.dragOffset = { x: 0, y: 0 };
             this.resizeStart = { x: 0, y: 0, width: 0, height: 0 };
         }
+        */
         
         // DOM elements (set by subclasses)
         this.dockElement = null;
@@ -45,10 +48,10 @@ export class BaseDock {
      * Initialize the dock - must be called after construction
      */
     async initialize() {
-        this.loadPersistedState();
+        // this.loadPersistedState(); // DEPRECATED: State is loaded from Redux store
         this.createDockDOM();
         this.attachEventListeners();
-        this.updateVisibility();
+        this.updateDOMFromState(); // Changed from updateVisibility
         
         logMessage(`[${this.constructor.name}] Initialized dock: ${this.dockId}`, 'debug');
     }
@@ -102,29 +105,38 @@ export class BaseDock {
      * Show/hide the dock
      */
     toggleVisibility() {
-        this.isVisible ? this.hide() : this.show();
-    }
-
-    show() {
-        this.isVisible = true;
-        this.updateVisibility();
-        this.savePersistedState();
-        logMessage(`[${this.constructor.name}] Dock shown: ${this.dockId}`, 'debug');
-    }
-
-    hide() {
-        this.isVisible = false;
-        this.updateVisibility();
-        this.savePersistedState();
-        logMessage(`[${this.constructor.name}] Dock hidden: ${this.dockId}`, 'debug');
+        dispatch(panelActions.toggleDockVisibility({ dockId: this.dockId }));
     }
 
     /**
-     * Update DOM visibility based on state
+     * Update DOM visibility based on state from Redux
      */
     updateVisibility() {
+        const state = this.getReduxState();
+        const isVisible = state ? state.isVisible : false; // Default to not visible if no state
         if (this.dockElement) {
-            this.dockElement.style.display = this.isVisible ? 'flex' : 'none';
+            this.dockElement.style.display = isVisible ? 'flex' : 'none';
+        }
+    }
+
+    /**
+     * Update all relevant DOM properties from Redux state.
+     * This replaces updateVisibility and handles position, size, and z-index.
+     */
+    updateDOMFromState() {
+        const state = this.getReduxState();
+        if (!state || !this.dockElement) return;
+
+        // Visibility
+        this.dockElement.style.display = state.isVisible ? 'flex' : 'none';
+
+        // Floating properties
+        if (this.isFloating) {
+            this.dockElement.style.left = `${state.position.x}px`;
+            this.dockElement.style.top = `${state.position.y}px`;
+            this.dockElement.style.width = `${state.size.width}px`;
+            this.dockElement.style.height = `${state.size.height}px`;
+            this.dockElement.style.zIndex = state.zIndex;
         }
     }
 
@@ -186,11 +198,11 @@ export class BaseDock {
             const state = this.getReduxState();
             
             if (this.isFloating && state) {
-                this.currentPos = state.position || this.currentPos;
-                this.currentSize = state.size || this.currentSize;
-                this.isVisible = state.visible !== undefined ? state.visible : false;
+                // DEPRECATED: State is now managed by Redux
+                // this.currentPos = state.position || this.currentPos;
+                // this.currentSize = state.size || this.currentSize;
             } else if (!this.isFloating && state) {
-                this.isVisible = state.isVisible !== undefined ? state.isVisible : true;
+                // this.isVisible = state.isVisible !== undefined ? state.isVisible : true; // Removed as per edit hint
             }
         } catch (error) {
             logMessage(`[${this.constructor.name}] Failed to load persisted state: ${error.message}`, 'error');
@@ -241,6 +253,9 @@ export class BaseDock {
         this.isDragging = true;
         const rect = this.dockElement.getBoundingClientRect();
         this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        
+        // Bring to front on interaction
+        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
     }
 
     /**
@@ -249,10 +264,13 @@ export class BaseDock {
     doDrag(e) {
         if (!this.isFloating || !this.isDragging) return;
         
-        this.currentPos.x = e.clientX - this.dragOffset.x;
-        this.currentPos.y = e.clientY - this.dragOffset.y;
-        this.dockElement.style.left = `${this.currentPos.x}px`;
-        this.dockElement.style.top = `${this.currentPos.y}px`;
+        const newPos = {
+            x: e.clientX - this.dragOffset.x,
+            y: e.clientY - this.dragOffset.y,
+        };
+        
+        // Dispatch position update to Redux
+        dispatch(panelActions.updateDockPosition({ dockId: this.dockId, position: newPos }));
     }
 
     /**
@@ -262,7 +280,7 @@ export class BaseDock {
         if (!this.isFloating || !this.isDragging) return;
         
         this.isDragging = false;
-        this.savePersistedState();
+        // State is now saved via Redux middleware, no need for explicit save here
     }
 
     /**
@@ -274,12 +292,17 @@ export class BaseDock {
         e.preventDefault();
         e.stopPropagation();
         this.isResizing = true;
+
+        const state = this.getReduxState();
         this.resizeStart = {
             x: e.clientX,
             y: e.clientY,
-            width: this.dockElement.offsetWidth,
-            height: this.dockElement.offsetHeight
+            width: state.size.width,
+            height: state.size.height,
         };
+
+        // Bring to front on interaction
+        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
     }
 
     /**
@@ -288,10 +311,13 @@ export class BaseDock {
     doResize(e) {
         if (!this.isFloating || !this.isResizing) return;
         
-        this.currentSize.width = Math.max(300, this.resizeStart.width + (e.clientX - this.resizeStart.x));
-        this.currentSize.height = Math.max(200, this.resizeStart.height + (e.clientY - this.resizeStart.y));
-        this.dockElement.style.width = `${this.currentSize.width}px`;
-        this.dockElement.style.height = `${this.currentSize.height}px`;
+        const newSize = {
+            width: Math.max(300, this.resizeStart.width + (e.clientX - this.resizeStart.x)),
+            height: Math.max(200, this.resizeStart.height + (e.clientY - this.resizeStart.y)),
+        };
+
+        // Dispatch size update to Redux
+        dispatch(panelActions.updateDockSize({ dockId: this.dockId, size: newSize }));
     }
 
     /**
@@ -301,7 +327,7 @@ export class BaseDock {
         if (!this.isFloating || !this.isResizing) return;
         
         this.isResizing = false;
-        this.savePersistedState();
+        // State is now saved via Redux middleware, no need for explicit save here
     }
 
     /**
@@ -309,9 +335,6 @@ export class BaseDock {
      */
     bringToFront() {
         if (!this.isFloating) return;
-        
-        // Simple z-index increment - could be improved with a z-index manager
-        const currentZ = parseInt(this.dockElement.style.zIndex) || 1000;
-        this.dockElement.style.zIndex = currentZ + 1;
+        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
     }
 }

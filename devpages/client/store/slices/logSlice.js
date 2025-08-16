@@ -53,7 +53,12 @@ export const setSearchTerm = (payload) => ({ type: SET_SEARCH_TERM, payload });
 
 // --- Thunks ---
 export const logThunks = {
-    // Add any async log operations here if needed
+    addEntry: (entry) => (dispatch) => {
+        dispatch(addEntry(entry));
+    },
+    clearLog: () => (dispatch) => {
+        dispatch(clearEntries());
+    }
 };
 
 // --- Selectors ---

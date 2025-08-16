@@ -27,14 +27,10 @@ if (!document.head.querySelector('link[href="/client/styles/icons.css"]')) {
 }
 
 export class DevToolsPanel {
-    constructor(container) {
-        console.log('[DevToolsPanel] Constructor called.');
-        this.container = container;
-        if (!this.container) {
-            console.error('[DevToolsPanel] Constructor: container is null!');
-            return;
-        }
-        
+    static id = 'devtools-panel';
+
+    constructor() {
+        this.element = null;
         this.isInitialized = false;
         this.activeTab = 'statekit';
         this.devTools = null;
@@ -46,14 +42,24 @@ export class DevToolsPanel {
         this.performanceMonitor = null;
         this.devToolsUtilities = null;
         this.cacheManager = null;
-        
+    }
+
+    render() {
+        if (this.element) return this.element;
+        this.element = document.createElement('div');
+        this.element.className = 'devtools-panel-container';
         this.createUI();
+        return this.element;
+    }
+
+    onMount(container) {
+        this.container = container;
         this.setupEventHandlers();
         this.initialize();
     }
 
     createUI() {
-        this.container.innerHTML = `
+        this.element.innerHTML = `
             <div class="devtools-panel">
                 <div class="panel-header">
                     <h3>DevTools</h3>
@@ -244,27 +250,27 @@ export class DevToolsPanel {
                 height: 12px;
             }
         `;
-        this.container.appendChild(style);
+        this.element.appendChild(style);
     }
 
     setupEventHandlers() {
         // Tab navigation
-        this.container.querySelectorAll('.tab-btn').forEach(btn => {
+        this.element.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.switchTab(e.target.dataset.tab);
             });
         });
 
         // Control buttons
-        this.container.querySelector('#refresh-devtools').addEventListener('click', () => {
+        this.element.querySelector('#refresh-devtools').addEventListener('click', () => {
             this.refreshAllData();
         });
 
-        this.container.querySelector('#export-devtools').addEventListener('click', () => {
+        this.element.querySelector('#export-devtools').addEventListener('click', () => {
             this.exportDevToolsData();
         });
 
-        this.container.querySelector('#clear-devtools').addEventListener('click', () => {
+        this.element.querySelector('#clear-devtools').addEventListener('click', () => {
             this.clearDevToolsData();
         });
     }
@@ -292,38 +298,38 @@ export class DevToolsPanel {
             
         } catch (error) {
             console.error('[DevToolsPanel] Error initializing DevTools panel:', error);
-            this.container.querySelector('.tab-content').innerHTML = 
+            this.element.querySelector('.tab-content').innerHTML = 
                 `<div class="error">Error initializing: ${error.message}</div>`;
         }
     }
 
     initializeComponents() {
         // Initialize StateInspector
-        const stateInspectorContainer = this.container.querySelector('#state-inspector-container');
+        const stateInspectorContainer = this.element.querySelector('#state-inspector-container');
         if (stateInspectorContainer) {
             this.stateInspector = new StateInspector(stateInspectorContainer, appStore);
         }
 
         // Initialize ActionHistory
-        const actionHistoryContainer = this.container.querySelector('#action-history-container');
+        const actionHistoryContainer = this.element.querySelector('#action-history-container');
         if (actionHistoryContainer) {
             this.actionHistory = new ActionHistory(actionHistoryContainer, this.devTools);
         }
 
         // Initialize PerformanceMonitor
-        const performanceMonitorContainer = this.container.querySelector('#performance-monitor-container');
+        const performanceMonitorContainer = this.element.querySelector('#performance-monitor-container');
         if (performanceMonitorContainer) {
             this.performanceMonitor = new PerformanceMonitor(performanceMonitorContainer, this.devTools);
         }
 
         // Initialize DevToolsUtilities
-        const devToolsUtilitiesContainer = this.container.querySelector('#devtools-utilities-container');
+        const devToolsUtilitiesContainer = this.element.querySelector('#devtools-utilities-container');
         if (devToolsUtilitiesContainer) {
             this.devToolsUtilities = new DevToolsUtilities(devToolsUtilitiesContainer);
         }
 
         // Initialize CacheManager
-        const cacheManagerContainer = this.container.querySelector('#cache-manager-container');
+        const cacheManagerContainer = this.element.querySelector('#cache-manager-container');
         if (cacheManagerContainer) {
             this.cacheManager = new CacheManager(cacheManagerContainer);
         }
@@ -331,12 +337,12 @@ export class DevToolsPanel {
 
     switchTab(tabName) {
         // Update tab buttons
-        this.container.querySelectorAll('.tab-btn').forEach(btn => {
+        this.element.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tabName);
         });
 
         // Update tab content
-        this.container.querySelectorAll('.tab-pane').forEach(pane => {
+        this.element.querySelectorAll('.tab-pane').forEach(pane => {
             pane.classList.toggle('active', pane.id === `${tabName}-tab`);
         });
 

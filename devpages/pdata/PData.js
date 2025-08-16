@@ -97,6 +97,20 @@ class PData {
     }
 
     /**
+     * Create a token for an already authenticated user (bypasses password validation)
+     * Used when user is authenticated via session
+     */
+    async createTokenForAuthenticatedUser(username) {
+        const roles = this.userManager.getUserRoles(username);
+        const caps = this.capabilityManager.expandRolesToCapabilities(roles);
+        
+        // UNIFIED MOUNTING: Single mount based on user role
+        const mounts = await this._createUnifiedMounts(username, roles);
+        
+        return this.authSrv.createToken({ username, roles, caps, mounts });
+    }
+
+    /**
      * Create unified mount namespace for a user based on their role
      * Three-tier system: ~data (userspace), ~log/~cache (system), ~/data/* (user-specific)
      */

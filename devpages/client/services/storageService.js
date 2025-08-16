@@ -7,7 +7,24 @@
  * It gracefully handles storage availability and parsing errors.
  */
 
-const log = window.APP.services.log.createLogger('StorageService');
+let log;
+const getLogger = () => {
+    if (log) {
+        return log;
+    }
+    if (window.APP && window.APP.services && window.APP.services.log && window.APP.services.log.createLogger) {
+        log = window.APP.services.log.createLogger('StorageService');
+        return log;
+    }
+    const dummyLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: (...args) => console.warn('[StorageService-early]', ...args),
+        error: (...args) => console.error('[StorageService-early]', ...args),
+    };
+    return dummyLogger;
+};
+
 const STORAGE_PREFIX = 'devpages_';
 const METADATA_VERSION = '1.1'; // Internal version for the wrapper format itself
 
@@ -18,7 +35,7 @@ try {
     localStorage.removeItem(testKey);
     isStorageAvailable = true;
 } catch (e) {
-    log.warn('STORAGE_UNAVAILABLE', 'localStorage is not available. Persistence will be disabled.', e);
+    getLogger().warn('STORAGE_UNAVAILABLE', 'localStorage is not available. Persistence will be disabled.', e);
 }
 
 /**
@@ -39,20 +56,20 @@ function getItem(key) {
         const parsed = JSON.parse(storedValue);
 
         if (typeof parsed !== 'object' || parsed === null || !parsed.hasOwnProperty('wrapperVersion')) {
-             log.warn('GET_ITEM_INVALID', `Item '${key}' has an invalid format. Discarding.`);
+             getLogger().warn('GET_ITEM_INVALID', `Item '${key}' has an invalid format. Discarding.`);
              localStorage.removeItem(fullKey);
              return null;
         }
         
         if (parsed.wrapperVersion !== METADATA_VERSION) {
-            log.warn('GET_ITEM_MISMATCH', `Item '${key}' has a mismatched wrapper version (got ${parsed.wrapperVersion}, expected ${METADATA_VERSION}). Discarding.`);
+            getLogger().warn('GET_ITEM_MISMATCH', `Item '${key}' has a mismatched wrapper version (got ${parsed.wrapperVersion}, expected ${METADATA_VERSION}). Discarding.`);
             localStorage.removeItem(fullKey);
             return null;
         }
 
         return parsed.payload;
     } catch (error) {
-        log.error('GET_ITEM_FAILED', `Failed to retrieve or parse item '${key}' from localStorage.`, error);
+        getLogger().error('GET_ITEM_FAILED', `Failed to retrieve or parse item '${key}' from localStorage.`, error);
         localStorage.removeItem(fullKey); // Clean up corrupted data
         return null;
     }
@@ -75,7 +92,7 @@ function setItem(key, value) {
         };
         localStorage.setItem(fullKey, JSON.stringify(dataToStore));
     } catch (error) {
-        log.error('SET_ITEM_FAILED', `Failed to save item '${key}' to localStorage.`, error);
+        getLogger().error('SET_ITEM_FAILED', `Failed to save item '${key}' to localStorage.`, error);
     }
 }
 
@@ -98,7 +115,7 @@ function clearAll() {
     Object.keys(localStorage)
         .filter(key => key.startsWith(STORAGE_PREFIX))
         .forEach(key => localStorage.removeItem(key));
-    log.info('CLEAR_ALL', 'Cleared all managed localStorage items.');
+    getLogger().info('CLEAR_ALL', 'Cleared all managed localStorage items.');
 }
 
 export const storageService = {

@@ -5,115 +5,82 @@
  * and tracks the overall state of the preview panel.
  */
 
-import { createSlice, createAsyncThunk } from '/client/vendor/scripts/redux-toolkit.mjs';
-
-let log = null;
-
-function getLogger() {
-    if (!log) {
-        log = window.APP.services.log.createLogger('PreviewSlice');
-    }
-    return log;
-}
-
-// --- Thunks ---
-
-/**
- * Thunk for initializing the preview system.
- * It loads the renderer and initializes all enabled plugins.
- */
-export const initializePreviewSystem = createAsyncThunk(
-    'preview/initialize',
-    async (_, { dispatch, getState }) => {
-        const logger = getLogger();
-        logger.info('PREVIEW_INIT', 'START', 'Initializing preview system...');
-        dispatch(previewSlice.actions.setInitializationStatus('loading'));
-
-        try {
-            // Dynamically import the renderer and plugin manager
-            const { PreviewRenderer } = await import('/client/preview/PreviewRenderer.js');
-            const { pluginManager } = await import('/client/preview/PluginManager.js');
-
-            const renderer = new PreviewRenderer();
-
-            // Get enabled plugins from the settings
-            const settings = getState().settings.preview;
-            const enabledPlugins = settings.enabledPlugins || ['mermaid', 'highlight'];
-
-            // Initialize plugins
-            for (const pluginName of enabledPlugins) {
-                try {
-                    await pluginManager.loadPlugin(pluginName, settings[pluginName] || {});
-                } catch (error) {
-                    logger.warn('PREVIEW_INIT', 'PLUGIN_LOAD_FAILED', `Failed to load plugin ${pluginName}: ${error.message}`, error);
-                }
-            }
-
-            dispatch(previewSlice.actions.setInitializationStatus('ready'));
-            logger.info('PREVIEW_INIT', 'SUCCESS', 'Preview system initialized successfully.');
-
-            return { renderer, pluginManager };
-        } catch (error) {
-            logger.error('PREVIEW_INIT', 'FAILED', `Preview system initialization failed: ${error.message}`, error);
-            dispatch(previewSlice.actions.setInitializationStatus('error'));
-            throw error;
-        }
-    }
-);
-
-// --- Slice Definition ---
+// Action Types
+const SET_HTML_CONTENT = 'preview/setHtmlContent';
+const RENDER_MARKDOWN_PENDING = 'preview/renderMarkdown/pending';
+const RENDER_MARKDOWN_FULFILLED = 'preview/renderMarkdown/fulfilled';
+const RENDER_MARKDOWN_REJECTED = 'preview/renderMarkdown/rejected';
+const CLEAR_CACHE = 'preview/clearCache';
 
 const initialState = {
-    status: 'idle', // 'idle', 'loading', 'ready', 'error'
-    theme: 'light',
-    plugins: {
-        // Example plugin state
-        // 'mermaid': { status: 'idle', config: {} },
-        // 'katex': { status: 'idle', config: {} }
-    },
-    currentContent: '',
-    frontMatter: {},
+    htmlContent: '',
+    status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
+    error: null,
 };
 
-export const previewSlice = createSlice({
-    name: 'preview',
-    initialState,
-    reducers: {
-        setInitializationStatus: (state, action) => {
-            state.status = action.payload;
-        },
-        setTheme: (state, action) => {
-            state.theme = action.payload;
-        },
-        setPluginState: (state, action) => {
-            const { pluginName, status, config } = action.payload;
-            if (!state.plugins[pluginName]) {
-                state.plugins[pluginName] = {};
-            }
-            if (status) {
-                state.plugins[pluginName].status = status;
-            }
-            if (config) {
-                state.plugins[pluginName].config = config;
-            }
-        },
-        updatePreviewContent: (state, action) => {
-            const { content, frontMatter } = action.payload;
-            state.currentContent = content;
-            state.frontMatter = frontMatter || {};
-        },
-        resetPreview: () => initialState,
-    },
+// Action Creators
+export const setHtmlContent = (htmlContent) => ({
+    type: SET_HTML_CONTENT,
+    payload: htmlContent,
 });
 
-export const {
-    setInitializationStatus,
-    setTheme,
-    setPluginState,
-    updatePreviewContent,
-    resetPreview,
-} = previewSlice.actions;
+export const clearCache = () => ({
+    type: CLEAR_CACHE,
+});
 
-// Note: The final log message is removed as it would execute on module load
-// and cause the same error. Logging for slice creation should be done
-// from the part of the code that imports and uses the slice. 
+// Thunks
+export const renderMarkdown = (markdown) => async (dispatch) => {
+    dispatch({ type: RENDER_MARKDOWN_PENDING });
+    try {
+        // In the future, this will call the markdown rendering service
+        // For now, it's a placeholder
+        const html = `<p>${markdown}</p>`;
+        dispatch({ type: RENDER_MARKDOWN_FULFILLED, payload: html });
+    } catch (error) {
+        dispatch({ type: RENDER_MARKDOWN_REJECTED, payload: error.message });
+    }
+};
+
+export const initializePreviewSystem = () => (dispatch) => {
+    // This is a placeholder for a more complex initialization process
+    // that might involve loading plugins, setting up event listeners, etc.
+    console.log('Preview system initialized');
+};
+
+
+// Reducer
+export const previewReducer = (state = initialState, action) => {
+    switch (action.type) {
+        case SET_HTML_CONTENT:
+            return {
+                ...state,
+                htmlContent: action.payload,
+            };
+        case RENDER_MARKDOWN_PENDING:
+            return {
+                ...state,
+                status: 'loading',
+            };
+        case RENDER_MARKDOWN_FULFILLED:
+            return {
+                ...state,
+                status: 'succeeded',
+                htmlContent: action.payload,
+            };
+        case RENDER_MARKDOWN_REJECTED:
+            return {
+                ...state,
+                status: 'failed',
+                error: action.payload,
+            };
+        case CLEAR_CACHE:
+            return {
+                ...state,
+                htmlContent: '',
+                status: 'idle',
+                error: null,
+            };
+        default:
+            return state;
+    }
+}; 

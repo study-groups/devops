@@ -63,7 +63,7 @@ The left zone is organized into 4 main docks:
 - **ID**: `utilities-dock`
 - **Purpose**: Secondary tools and utilities
 - **Height**: 20% of available space
-- **Panels**: `mount-info-panel`, `log-panel`, `plugins-panel`
+- **Panels**: `mount-info-panel`, `log-display`, `plugins-panel`
 - **Collapsible**: Yes (default collapsed)
 
 ## Panel Registration

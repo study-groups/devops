@@ -13,6 +13,7 @@ const log = window.APP.services.log.createLogger('SYSTEM', 'AppDispatch');
 import { authThunks } from '/client/store/slices/authSlice.js';
 import { logThunks } from '/client/store/slices/logSlice.js';
 import { pathThunks } from '/client/store/slices/pathSlice.js';
+import { fileThunks } from '/client/store/slices/fileSlice.js';
 
 /**
  * Enhanced dispatch function that wraps appStore.dispatch
@@ -50,10 +51,9 @@ export const appDispatch = (action) => {
 export const dispatchers = {
     // Authentication actions
     auth: {
-        login: (credentials) => appDispatch(authThunks.login(credentials)),
+        login: (credentials) => appDispatch(authThunks.loginWithCredentials(credentials)),
         logout: () => appDispatch(authThunks.logoutAsync()),
-        checkAuth: () => appDispatch(authThunks.checkAuth()),
-        refreshSession: () => appDispatch(authThunks.refreshSession()),
+        initializeAuth: () => appDispatch(authThunks.initializeAuth()),
     },
     
     // Path/File system actions  
@@ -75,13 +75,7 @@ export const dispatchers = {
         openSettingsPanel: () => appDispatch(uiThunks.toggleContextManager()),
         
         // File actions (until they're migrated to thunks)
-        saveFile: () => {
-            // For now, use the eventBus until file slice is fully implemented
-            return import('/client/eventBus.js').then(({ eventBus }) => {
-                eventBus.emit('file:save');
-                return { success: true, action: 'file:save' };
-            });
-        },
+        saveFile: () => appDispatch(fileThunks.saveFile()),
     }
 };
 

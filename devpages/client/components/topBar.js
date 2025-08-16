@@ -1,7 +1,8 @@
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
-import { fileThunks } from '/client/thunks/fileThunks.js';
+import { fileThunks } from '/client/store/slices/fileSlice.js';
 import { storageService } from '/client/services/storageService.js';
+import { renderMarkdown } from '/client/store/slices/previewSlice.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('TopBar');
@@ -434,7 +435,7 @@ async function refreshPanels() {
                 '.settings-panel',
                 '.debug-panel',
                 '.preview-panel',
-                '.log-panel'
+                '.log-display'
             ];
             
             panelSelectors.forEach(selector => {
@@ -463,56 +464,9 @@ async function refreshPanels() {
 async function refreshPreview() {
     return new Promise((resolve) => {
         try {
-            // Try multiple preview refresh methods
-            const previewMethods = [
-                () => {
-                    if (window.eventBus && typeof window.eventBus.emit === 'function') {
-                        window.eventBus.emit('preview:forceRefresh');
-                        return true;
-                    }
-                    return false;
-                },
-                () => {
-                    if (eventBus && typeof eventBus.emit === 'function') {
-                        eventBus.emit('preview:forceRefresh');
-                        return true;
-                    }
-                    return false;
-                },
-                () => {
-                    if (window.refreshPreview && typeof window.refreshPreview === 'function') {
-                        window.refreshPreview();
-                        return true;
-                    }
-                    return false;
-                },
-                () => {
-                    if (window.updateMarkdownPreview && typeof window.updateMarkdownPreview === 'function') {
-                        window.updateMarkdownPreview();
-                        return true;
-                    }
-                    return false;
-                }
-            ];
-            
-            let previewRefreshed = false;
-            for (const method of previewMethods) {
-                try {
-                    if (method()) {
-                        previewRefreshed = true;
-                        break;
-                    }
-                } catch (error) {
-                    log.warn('TOP_BAR', 'PREVIEW_REFRESH_METHOD_FAILED', `Preview refresh method failed: ${error.message}`);
-                }
-            }
-            
-            if (previewRefreshed) {
-                log.info('TOP_BAR', 'PREVIEW_REFRESHED', 'Preview refreshed');
-            } else {
-                log.warn('TOP_BAR', 'NO_PREVIEW_REFRESH_METHOD', 'No preview refresh method available');
-            }
-            
+            const { editor } = appStore.getState();
+            appStore.dispatch(renderMarkdown(editor.content));
+            log.info('TOP_BAR', 'PREVIEW_REFRESHED', 'Preview refreshed');
         } catch (error) {
             log.error('TOP_BAR', 'PREVIEW_REFRESH_ERROR', `Preview refresh error: ${error.message}`, error);
         }
@@ -526,8 +480,6 @@ async function refreshPreview() {
 function emitRefreshEvents() {
     const events = [
         'ui:refresh',
-        'preview:forceRefresh', 
-        'preview:cssSettingsChanged',
         'css:changed',
         'panel:refresh',
         'components:refresh'

@@ -185,39 +185,6 @@ export const navigationHelpers = {
         // Calculate new path for normal selections
         const newPath = currentDirectory ? `${currentDirectory}/${selectedValue}` : selectedValue;
         
-        if (selectedType === 'dir') {
-            // Directory selection - needs server listing
-            const result = await pathUtils.loadDirectory(newPath);
-            
-            // HYBRID: Emit legacy events for editor integration
-            if (typeof window.eventBus?.emit === 'function') {
-                window.eventBus.emit('file:selected', { 
-                    filename: selectedValue, 
-                    directory: true 
-                });
-            }
-            
-            return result;
-        } else if (selectedType === 'file') {
-            // File selection - update path and ensure parent listing
-            const result = await pathUtils.smartNavigate(newPath, false);
-            
-            // HYBRID: Emit legacy events for editor integration
-            if (typeof window.eventBus?.emit === 'function') {
-                window.eventBus.emit('file:selected', { 
-                    filename: selectedValue, 
-                    directory: false 
-                });
-                window.eventBus.emit('file:loaded', { 
-                    content: '', // Content will be loaded separately
-                    pathname: newPath 
-                });
-            }
-            
-            // HYBRID: Update file state with simple action
-            appStore.dispatch(pathActions.setCurrentPath(newPath, false));
-            
-            return result;
-        }
+        return appDispatch(pathThunks.navigateToPath({ pathname: newPath, isDirectory: selectedType === 'dir' }));
     }
 }; 

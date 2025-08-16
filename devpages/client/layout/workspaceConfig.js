@@ -146,10 +146,10 @@ export const PANEL_DEFINITIONS = {
         validation: (config) => validatePanelConfig(config)
     },
     
-    'log-panel': {
-        id: 'log-panel',
+    'log-display': {
+        id: 'log-display',
         type: 'DRAGGABLE_PANEL',
-        title: 'Log Panel',
+        title: 'Log Display',
         factory: () => import('../log/LogPanel.js').then(m => m.LogPanel),
         targetZone: 'sidebar',
         collapsible: true,

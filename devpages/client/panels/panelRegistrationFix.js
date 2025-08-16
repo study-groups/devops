@@ -58,8 +58,8 @@ export function registerMissingPanels() {
                 "order": 30
         },
         {
-                "id": "log-panel",
-                "title": "Log Panel",
+                "id": "log-display",
+                "title": "Log Display",
                 "visible": false,
                 "order": 31
         },

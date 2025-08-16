@@ -9,19 +9,27 @@ import { appStore } from "/client/appState.js";
 // REMOVED: messageQueue import (file deleted)
 
 export class DomInspectorDebugPanel {
-    constructor(container) {
-        console.log('[DomInspectorDebugPanel] Constructor called.');
-        this.container = container;
-        if (!this.container) {
-            console.error('[DomInspectorDebugPanel] Constructor: container is null!');
-        }
+    static id = 'dom-inspector-debug-panel';
+
+    constructor() {
+        this.element = null;
         this.domInspector = window.devPages?.domInspector || null;
         this.isInitialized = !!this.domInspector;
         this.currentElement = null;
-        
-        this.createUI();
-        this.setupEventHandlers();
+        this.updateInterval = null;
+    }
 
+    render() {
+        if (this.element) return this.element;
+        this.element = document.createElement('div');
+        this.element.className = 'dom-inspector-debug-panel-container';
+        this.createUI();
+        return this.element;
+    }
+
+    onMount(container) {
+        this.container = container;
+        this.setupEventHandlers();
         if (this.isInitialized) {
             this.updateStatus('Ready');
             this.updateInfo();
@@ -34,7 +42,7 @@ export class DomInspectorDebugPanel {
     }
 
     createUI() {
-        this.container.innerHTML = `
+        this.element.innerHTML = `
             <div class="dom-inspector-debug-panel">
                 <div class="panel-header">
                     <h3>DOM Inspector</h3>
@@ -282,7 +290,7 @@ export class DomInspectorDebugPanel {
 
     setupEventHandlers() {
         console.log('[DomInspectorDebugPanel] setupEventHandlers called.');
-        const openButton = this.container.querySelector('#open-dom-inspector');
+        const openButton = this.element.querySelector('#open-dom-inspector');
         
         if (openButton) {
             console.log('[DomInspectorDebugPanel] Found #open-dom-inspector button. Attaching listener.', openButton);
@@ -291,19 +299,19 @@ export class DomInspectorDebugPanel {
             });
         } else {
             console.error('[DomInspectorDebugPanel] Could not find #open-dom-inspector button to attach listener.');
-            console.log('[DomInspectorDebugPanel] Container contents:', this.container.innerHTML);
+            console.log('[DomInspectorDebugPanel] Container contents:', this.element.innerHTML);
         }
 
         // Quick action buttons
-        this.container.querySelector('#inspect-body').addEventListener('click', () => {
+        this.element.querySelector('#inspect-body').addEventListener('click', () => {
             this.inspectElement('body');
         });
 
-        this.container.querySelector('#inspect-main').addEventListener('click', () => {
+        this.element.querySelector('#inspect-main').addEventListener('click', () => {
             this.inspectElement('main');
         });
 
-        this.container.querySelector('#inspect-header').addEventListener('click', () => {
+        this.element.querySelector('#inspect-header').addEventListener('click', () => {
             this.inspectElement('header');
         });
     }
@@ -311,8 +319,8 @@ export class DomInspectorDebugPanel {
 
 
     updateStatus(status) {
-        const statusElement = this.container.querySelector('#dom-inspector-status');
-        const statusIndicator = this.container.querySelector('.status-indicator');
+        const statusElement = this.element.querySelector('#dom-inspector-status');
+        const statusIndicator = this.element.querySelector('.status-indicator');
         
         if (statusElement) statusElement.textContent = status;
         if (statusIndicator) statusIndicator.textContent = status;
@@ -329,7 +337,7 @@ export class DomInspectorDebugPanel {
 
         try {
             // Update current element info
-            const currentElementSpan = this.container.querySelector('#current-element');
+            const currentElementSpan = this.element.querySelector('#current-element');
             if (currentElementSpan) {
                 const currentElement = this.domInspector.currentElement;
                 if (currentElement) {
@@ -343,7 +351,7 @@ export class DomInspectorDebugPanel {
             }
 
             // Update highlight status
-            const highlightStatusSpan = this.container.querySelector('#highlight-status');
+            const highlightStatusSpan = this.element.querySelector('#highlight-status');
             if (highlightStatusSpan) {
                 const isHighlighted = this.domInspector.highlightOverlay && 
                                     this.domInspector.highlightOverlay.isVisible;
@@ -351,7 +359,7 @@ export class DomInspectorDebugPanel {
             }
 
             // Update inspector status
-            const inspectorStatusSpan = this.container.querySelector('#inspector-status');
+            const inspectorStatusSpan = this.element.querySelector('#inspector-status');
             if (inspectorStatusSpan) {
                 const isVisible = this.domInspector.panel && 
                                 this.domInspector.panel.style.display !== 'none';
@@ -366,8 +374,8 @@ export class DomInspectorDebugPanel {
     }
 
     updateElementSummary() {
-        const summaryContainer = this.container.querySelector('#element-summary');
-        const detailsContainer = this.container.querySelector('#element-details');
+        const summaryContainer = this.element.querySelector('#element-summary');
+        const detailsContainer = this.element.querySelector('#element-details');
         
         if (!summaryContainer || !detailsContainer) return;
 
@@ -477,8 +485,8 @@ export class DomInspectorDebugPanel {
             clearInterval(this.updateInterval);
         }
         
-        if (this.container) {
-            this.container.innerHTML = '';
+        if (this.element) {
+            this.element.innerHTML = '';
         }
     }
 } 

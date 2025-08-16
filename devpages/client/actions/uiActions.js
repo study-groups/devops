@@ -33,7 +33,7 @@ export const uiActionHandlers = {
     copyLog: () => {
         log.info('ACTION', 'COPY_LOG', 'Triggering copyLog action...');
         try {
-            const logPanel = document.querySelector('#log-panel');
+            const logPanel = document.querySelector('#log-display');
             if (logPanel) {
                 const logContent = logPanel.textContent || logPanel.innerText;
                 navigator.clipboard.writeText(logContent).then(() => {
@@ -55,7 +55,7 @@ export const uiActionHandlers = {
     clearLog: () => {
         log.info('ACTION', 'CLEAR_LOG', 'Triggering clearLog action...');
         try {
-            const logPanel = document.querySelector('#log-panel');
+            const logPanel = document.querySelector('#log-display');
             if (logPanel) {
                 logPanel.innerHTML = '';
                 log.info('ACTION', 'CLEAR_LOG_SUCCESS', 'Log panel cleared');
@@ -68,20 +68,12 @@ export const uiActionHandlers = {
     },
 
     /**
-     * Toggles log visibility using thunks
-     */
-    toggleLogVisibility: () => {
-        log.info('ACTION', 'TOGGLE_LOG_VISIBILITY', 'Triggering toggleLogVisibility action...');
-        dispatch(uiActions.toggleLogVisibilityAsync());
-    },
-
-    /**
      * Minimizes the log panel
      */
     minimizeLog: () => {
         log.info('ACTION', 'MINIMIZE_LOG', 'Triggering minimizeLog action...');
         try {
-            const logPanel = document.querySelector('#log-panel');
+            const logPanel = document.querySelector('#log-display');
             if (logPanel) {
                 logPanel.style.height = '30px';
                 logPanel.style.overflow = 'hidden';
@@ -148,7 +140,7 @@ export const uiActionHandlers = {
         log.info('ACTION', 'PASTE_LOG_ENTRY', 'Triggering pasteLogEntry action...');
         try {
             navigator.clipboard.readText().then(text => {
-                const logPanel = document.querySelector('#log-panel');
+                const logPanel = document.querySelector('#log-display');
                 if (logPanel) {
                     const entry = document.createElement('div');
                     entry.textContent = `[PASTED] ${text}`;

@@ -72,7 +72,7 @@ export class SplashScreen {
             }
 
             try {
-                await this.dispatch(authThunks.login({ username, password }));
+                await this.dispatch(authThunks.loginWithCredentials({ username, password }));
             } catch (error) {
                 errorP.textContent = error.message || 'Login failed. Please check your credentials.';
             }

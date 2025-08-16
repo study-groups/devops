@@ -3,7 +3,7 @@
 
 // Import individual slice reducers
 // REMOVED: authReducer - now handled by authSlice in appState.js
-import uiReducer from './uiSlice.js';
+import uiReducer, { uiThunks } from './uiSlice.js';
 import { pathReducer } from './slices/pathSlice.js';
 import { pluginReducer } from './slices/pluginSlice.js';
 import { settingsReducer } from './slices/settingsSlice.js';
@@ -12,8 +12,16 @@ import { panelReducer } from './slices/panelSlice.js';
 import { domInspectorReducer } from './slices/domInspectorSlice.js';
 import { workspaceReducer } from './reducers/workspaceReducer.js';
 import { debugPanelReducer } from './slices/debugPanelSlice.js';
-import { previewSlice } from './slices/previewSlice.js';
+import { previewSlice, initializePreviewSystem } from './slices/previewSlice.js';
 import systemReducer from './slices/systemSlice.js';
+import { editorReducer } from './slices/editorSlice.js';
+import { previewReducer } from './slices/previewSlice.js';
+import { imageReducer } from './slices/imageSlice.js';
+import { buttonReducer } from './slices/buttonSlice.js';
+import { cliReducer } from './slices/cliSlice.js';
+import { shortcutReducer } from './slices/shortcutSlice.js';
+import { fileReducer } from './slices/fileSlice.js';
+import { contextSettingsReducer } from './slices/contextSettingsSlice.js';
 
 // Remove legacy localStorage keys that are now managed by the log slice
 const LOG_VISIBLE_KEY = 'logVisible';
@@ -39,7 +47,12 @@ const sliceReducers = {
     domInspector: domInspectorReducer,
     workspace: workspaceReducer,
     debugPanel: debugPanelReducer,
-    preview: previewSlice.reducer,
+    preview: previewReducer,
+    editor: editorReducer,
+    image: imageReducer,
+    button: buttonReducer,
+    cli: cliReducer,
+    shortcut: shortcutReducer,
     system: systemReducer, // System coordination for initialization
     // REMOVED: logFiltering: logFilteringReducer - now in log slice
 };

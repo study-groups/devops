@@ -14,21 +14,23 @@
  * 4.  **Export Store:** Exports a singleton `appStore` instance for use throughout the application.
  */
 
-import { createStore, applyMiddleware, combineReducers, compose } from '/node_modules/redux/dist/redux.browser.mjs';
+import { createStore, applyMiddleware, combineReducers, compose } from 'redux';
 import { authMiddleware } from '/client/store/authMiddleware.js';
-import { persistenceMiddleware, loadState } from '/client/store/persistenceMiddleware.js';
 import { apiSlice } from '/client/store/apiSlice.js';
+import panelPersistenceMiddleware from '/client/store/middleware/panelPersistenceMiddleware.js';
+import { dockManager } from '/client/layout/docks/dockManager.js';
 
 // --- Slice Reducers ---
-import { authReducer, authThunks } from '/client/store/slices/authSlice.js';
-import { pathReducer, pathThunks } from '/client/store/slices/pathSlice.js';
+import authReducer, { authThunks } from '/client/store/slices/authSlice.js';
+import pathReducer, { pathThunks, pathSlice } from '/client/store/slices/pathSlice.js';
 import { settingsReducer, settingsThunks } from '/client/store/slices/settingsSlice.js';
 import { panelReducer } from '/client/store/slices/panelSlice.js';
 import { logReducer } from '/client/store/slices/logSlice.js';
 import { domInspectorReducer } from '/client/store/slices/domInspectorSlice.js';
-import { uiReducer, uiThunks } from '/client/store/uiSlice.js';
-import { fileReducer } from '/client/store/reducers/fileReducer.js';
-import { previewSlice, initializePreviewSystem } from '/client/store/slices/previewSlice.js';
+import { uiReducer } from '/client/store/uiSlice.js';
+import { fileReducer } from '/client/store/slices/fileSlice.js';
+import { contextSettingsReducer } from '/client/store/slices/contextSettingsSlice.js';
+import { previewReducer, initializePreviewSystem } from '/client/store/slices/previewSlice.js';
 import debugPanelReducer from '/client/store/slices/debugPanelSlice.js';
 import pluginReducer, { pluginThunks } from '/client/store/slices/pluginSlice.js';
 import publishReducer from '/client/store/slices/publishSlice.js';
@@ -37,7 +39,7 @@ import { commReducer } from '/client/store/slices/commSlice.js';
 
 // --- Custom Thunk Middleware ---
 // Provides a clean way to handle async logic in Redux.
-const thunk = store => next => action =>
+const thunkMiddleware = store => next => action =>
     typeof action === 'function' ? action(store.dispatch, store.getState) : next(action);
 
 // --- Root Reducer ---
@@ -50,8 +52,9 @@ const rootReducer = combineReducers({
     log: logReducer,
     domInspector: domInspectorReducer,
     ui: uiReducer,
+    contextSettings: contextSettingsReducer,
     file: fileReducer,
-    preview: previewSlice.reducer,
+    preview: previewReducer,
     debugPanel: debugPanelReducer,
     plugins: pluginReducer,
     publish: publishReducer,
@@ -75,11 +78,11 @@ function initializeStore() {
         return { appStore, dispatch };
     }
 
-    const preloadedState = loadState(); // CORRECT: Load persisted state
+    const preloadedState = undefined; // CORRECT: Load persisted state
     const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
     
     // CORRECT: Apply the new, robust persistence middleware + RTK Query middleware
-    const middlewares = [thunk, authMiddleware, persistenceMiddleware, apiSlice.middleware];
+    const middlewares = [thunkMiddleware, authMiddleware, panelPersistenceMiddleware, apiSlice.middleware];
 
     appStore = createStore(
         rootReducer,
@@ -89,6 +92,21 @@ function initializeStore() {
 
     dispatch = appStore.dispatch;
     
+    // Initialize the Dock Manager after the store is created
+    dockManager.initialize();
+
+    // Grouped thunks are now initialized here, after the store is created
+    // This breaks the circular dependency race condition
+    thunks = {
+        auth: authThunks,
+        path: { ...pathThunks, navigateToPath: pathSlice.actions.navigateToPath },
+        settings: settingsThunks,
+        // ui: removed - using direct actions now
+        preview: { initializePreviewSystem },
+        plugins: pluginThunks,
+        system: { initializeComponent },
+    };
+    
     console.log('[AppState] ✅ Central Redux store initialized with robust persistence.');
     return { appStore, dispatch };
 }
@@ -96,14 +114,9 @@ function initializeStore() {
 // --- Exports ---
 export { appStore, dispatch, initializeStore };
 
-// Grouped thunks for easier access elsewhere
-export const thunks = {
-    auth: authThunks,
-    path: pathThunks,
-    settings: settingsThunks,
-    // panelThunks removed as they are no longer used
-    ui: uiThunks,
-    preview: { initializePreviewSystem },
-    plugins: pluginThunks,
-    system: { initializeComponent },
+export const actions = {
+    path: pathSlice.actions,
 };
+
+// Grouped thunks for easier access elsewhere
+export let thunks = {};

@@ -10,7 +10,7 @@
 import { authThunks } from './slices/authSlice.js';
 
 /**
- * Creates a middleware that triggers the `checkAuth` thunk on initialization.
+ * Creates a middleware that triggers the `initializeAuth` thunk on initialization.
  *
  * @param {object} store - The Redux store instance.
  * @returns {function} The middleware function.
@@ -18,8 +18,8 @@ import { authThunks } from './slices/authSlice.js';
 export const authMiddleware = store => next => action => {
   // We only want to run this once on initialization
   if (action.type === '@@redux/INIT') {
-    // Dispatch the checkAuth thunk to verify the user's session
-    store.dispatch(authThunks.checkAuth());
+    // Dispatch the initializeAuth thunk to verify the user's session
+store.dispatch(authThunks.initializeAuth());
   }
   return next(action);
 };

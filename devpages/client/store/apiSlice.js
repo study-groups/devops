@@ -5,29 +5,12 @@
  * for all server communication with proper PData token-based authentication.
  */
 
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query';
 
 // Base query configuration with PData token authentication
 const baseQuery = fetchBaseQuery({
   baseUrl: '/api',
   credentials: 'include', // Always include session cookies
-  prepareHeaders: (headers, { getState }) => {
-    // Get the current auth state
-    const state = getState();
-    const token = state.auth?.token;
-    
-    // If we have a PData token, use it for API authentication
-    if (token) {
-      headers.set('authorization', `Bearer ${token}`);
-    }
-    
-    // Always set content type for JSON requests
-    if (!headers.has('content-type')) {
-      headers.set('content-type', 'application/json');
-    }
-    
-    return headers;
-  },
 });
 
 // Enhanced base query with error handling and token refresh
@@ -36,8 +19,9 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   
   // If we get a 401, the user needs to re-authenticate
   if (result.error && result.error.status === 401) {
+    console.log('[API] 401 Unauthorized - clearing auth state');
     // Clear the auth state to force re-login
-    api.dispatch({ type: 'auth/logout' });
+    api.dispatch({ type: 'auth/clearAuth' });
   }
   
   return result;

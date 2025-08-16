@@ -1,14 +1,13 @@
 // client/cli/index.js - Main CLI integration
 import { logInfo } from '../log/index.js';
-import EventBus from '../eventBus.js';
 import { CLI_EVENTS } from './cliEvents.js';
 // Remove unused registry imports
 // import { registerCliCommand, executeCliCommand } from './registry.js';
-import { eventBus } from '../eventBus.js';
 // Import the new remote execution function
 import { executeRemoteCommand } from './handlers.js';
 // Import SmartCopy keys and appStore
 import { appStore } from '/client/appState.js';
+import { cliReady } from '/client/store/slices/cliSlice.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('CLI');
@@ -292,8 +291,8 @@ export async function initializeCLI() {
         // });
         // console.log(`[CLI] Listening for ${CLI_EVENTS.EXECUTE_COMMAND} events on EventBus`);
 
-        // Emit ready event
-        eventBus.emit(CLI_EVENTS.CLI_READY, { timestamp: Date.now() });
+        // Dispatch ready action
+        appStore.dispatch(cliReady());
 
         console.log('[CLI] Initialization complete (YOLO mode with Button)');
         return true;

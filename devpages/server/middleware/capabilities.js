@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { validateApiToken } from './auth.js';
+import { validatePDataToken } from './auth.js';
 
 // Enhanced token store with capabilities
 const capabilityTokenStore = new Map();

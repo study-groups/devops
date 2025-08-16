@@ -62,7 +62,20 @@
 
     <script src="/client/errorTracker.js"></script>
 
-
+    <!-- Import Map for ES Module Resolution -->
+    <script type="importmap">
+    {
+        "imports": {
+            "@reduxjs/toolkit": "/node_modules/@reduxjs/toolkit/dist/redux-toolkit.browser.mjs",
+            "@reduxjs/toolkit/query": "/node_modules/@reduxjs/toolkit/dist/query/rtk-query.browser.mjs",
+            "@standard-schema/utils": "/node_modules/@standard-schema/utils/dist/index.js",
+            "redux": "/node_modules/redux/dist/redux.browser.mjs",
+            "redux-thunk": "/node_modules/redux-thunk/dist/redux-thunk.mjs",
+            "immer": "/node_modules/immer/dist/immer.production.mjs",
+            "reselect": "/node_modules/reselect/dist/reselect.browser.mjs"
+        }
+    }
+    </script>
 
 </head>
 <body class="splash-active">
@@ -100,7 +113,7 @@
         </div>
     </main>
 
-    <div id="log-panel-container"></div>
+    <div id="log-container" class="log-hidden"></div>
 
     <script src="/client/index.js" type="module"></script>
 

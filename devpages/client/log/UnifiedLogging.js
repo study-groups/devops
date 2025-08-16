@@ -5,6 +5,9 @@
  * It is exposed globally via the `window.APP.services.log` namespace.
  */
 
+import { appStore } from '/client/appState.js';
+import { logThunks } from '/client/store/slices/logSlice.js';
+
 // Establish the global namespace
 window.APP = window.APP || {};
 window.APP.services = window.APP.services || {};
@@ -261,8 +264,7 @@ class Logger {
    * Route to panel logging system
    */
   logToPanel(logEntry) {
-    if (this.logPanel && typeof this.logPanel.addEntry === 'function') {
-      // Convert to LogPanel format
+    if (this.logPanel) {
       const panelEntry = {
         ts: logEntry.ts,
         message: logEntry.message,
@@ -272,7 +274,7 @@ class Logger {
         action: logEntry.action,
         details: logEntry.payload
       };
-      this.logPanel.addEntry(panelEntry);
+      appStore.dispatch(logThunks.addEntry(panelEntry));
     }
   }
 

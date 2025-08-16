@@ -7,7 +7,7 @@
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
-import { fileThunks } from '/client/thunks/fileThunks.js';
+import { fileThunks } from '/client/store/slices/fileSlice.js';
 
 const log = window.APP.services.log.createLogger('FileBrowserPanel');
 

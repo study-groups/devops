@@ -79,7 +79,7 @@ export function diagnoseTopDirIssue() {
         }
         
         // Check if fileThunks are available
-        import('/client/thunks/fileThunks.js').then(module => {
+        import('/client/store/slices/fileSlice.js').then(module => {
             console.log('📦 FileThunks module available:', !!module.fileThunks);
             console.log('📦 Available thunks:', Object.keys(module.fileThunks || {}));
         }).catch(error => {

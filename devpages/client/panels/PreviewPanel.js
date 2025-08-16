@@ -6,7 +6,6 @@
 
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';
-import { marked } from '/client/vendor/scripts/marked.esm.js';
 
 export class PreviewPanel extends BasePanel {
     constructor(options = {}) {
@@ -54,7 +53,7 @@ export class PreviewPanel extends BasePanel {
     }
 
     onStateChange() {
-        const { auth, file } = appStore.getState();
+        const { auth, preview } = appStore.getState();
         const isAuthenticated = auth.authChecked && auth.isAuthenticated;
 
         // Render auth state
@@ -68,16 +67,10 @@ export class PreviewPanel extends BasePanel {
         }
 
         // Update content
-        if (isAuthenticated && file.currentFile) {
-            this.updateContent(file.currentFile.content);
-        }
-    }
-
-    updateContent(markdownContent) {
-        if (this.element) {
+        if (isAuthenticated && this.element) {
             const contentDiv = this.element.querySelector('.preview-content');
             if (contentDiv) {
-                contentDiv.innerHTML = marked(markdownContent || '');
+                contentDiv.innerHTML = preview.htmlContent || '';
             }
         }
     }

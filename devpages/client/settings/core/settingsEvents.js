@@ -4,6 +4,9 @@
  * Used with the main eventBus - no separate panel event bus needed!
  */
 
+import { appStore } from '/client/appState.js';
+import { settingsActions } from '/client/store/slices/settingsSlice.js';
+
 export const SettingsEvents = {
   // CSS-related events (the main ones we actually use)
   CSS_FILES_UPDATED: 'settings:css:files:updated',
@@ -20,7 +23,7 @@ export const SettingsEvents = {
 
 // Simple helper to emit CSS-related events with debouncing
 let cssEventTimeout;
-export function emitCssSettingsChanged(eventBus, reason = 'unknown', data = null) {
+export function emitCssSettingsChanged(reason = 'unknown', data = null) {
   // Clear any pending emission
   if (cssEventTimeout) {
     clearTimeout(cssEventTimeout);
@@ -28,14 +31,14 @@ export function emitCssSettingsChanged(eventBus, reason = 'unknown', data = null
   
   // Debounce the emission
   cssEventTimeout = setTimeout(() => {
-    eventBus.emit('preview:cssSettingsChanged', { reason, data });
+    appStore.dispatch(settingsActions.cssSettingsChanged({ reason, data }));
     cssEventTimeout = null;
   }, 100);
 }
 
 // Simple helper to emit theme changes
-export function emitThemeChanged(eventBus, themeData) {
-  eventBus.emit(SettingsEvents.THEME_CHANGED, themeData);
+export function emitThemeChanged(themeData) {
+  appStore.dispatch(settingsActions.updateSetting({ key: 'theme', value: themeData }));
   // Also emit the CSS change since theme affects CSS
-  emitCssSettingsChanged(eventBus, 'theme_changed', themeData);
+  emitCssSettingsChanged('theme_changed', themeData);
 } 

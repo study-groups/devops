@@ -253,6 +253,10 @@ export function addCodeFenceMenu(targetElement, contentToCopy, logEntryIndex, bl
     // Global click listener to hide the menu if clicked outside
     // Ensure this listener is only added once or managed properly to avoid multiple listeners
     const clickOutsideListener = (event) => {
+        const pathManager = document.getElementById('context-manager-container');
+        if (pathManager && pathManager.contains(event.target)) {
+            return;
+        }
         if (!dropdown.contains(event.target) && event.target !== menuButton) {
             dropdown.dataset.visible = 'false';
         }

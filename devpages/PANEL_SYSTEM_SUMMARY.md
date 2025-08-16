@@ -40,7 +40,7 @@
 8. **design-tokens** - Design Tokens
 9. **api-tokens** - API Tokens
 10. **nlp-panel** - NLP Panel
-11. **log-panel** - Log Panel
+11. **log-display** - Log Display
 12. **mount-info-panel** - Mount Info
 
 ## 🎯 What's Working Now

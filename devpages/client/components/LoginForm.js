@@ -3,7 +3,7 @@
  * Responsible for displaying login form and handling authentication
  */
 import { appStore } from '/client/appState.js';
-import { eventBus } from '/client/eventBus.js';
+import { authThunks } from '/client/store/slices/authSlice.js';
 
 class LoginForm {
   constructor(container, options = {}) {
@@ -120,9 +120,9 @@ class LoginForm {
       return;
     }
     
-    // Emit an event instead of calling handleLogin directly
-    eventBus.emit('auth:loginRequested', { username, password });
-    console.log(`[LoginForm] Emitted auth:loginRequested for user: ${username}`);
+    // Dispatch the login thunk
+    appStore.dispatch(authThunks.loginWithCredentials({ username, password }));
+    console.log(`[LoginForm] Dispatched loginWithCredentials for user: ${username}`);
   }
   
   updateVisibility(isLoggedIn) {
