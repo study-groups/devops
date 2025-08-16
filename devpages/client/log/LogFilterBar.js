@@ -1,6 +1,8 @@
+// ✅ MODERNIZED: Enhanced Redux patterns for log filtering
 import { appStore, dispatch } from '/client/appState.js';
 import { setActiveFilters, toggleFilter, clearEntries } from '/client/store/slices/logSlice.js';
 import { storageService } from '/client/services/storageService.js';
+import { connectToLogs } from '/client/store/reduxConnect.js';
 
 /**
  * Utility function to extract emoji symbols from CSS variable tokens

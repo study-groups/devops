@@ -1,11 +1,12 @@
 /**
  * ThemeSelectorPanel.js - Theme, Scheme, and Variant Selection Panel
- * REFACTORED to use the new PanelInterface.
+ * ✅ MODERNIZED: Enhanced Redux patterns with optimized selectors
  */
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';
 // REMOVED: messageQueue import (file deleted)
 import { ActionTypes } from '/client/messaging/actionTypes.js';
+import { getUIState, getSettingsState } from '/client/store/enhancedSelectors.js';
 
 export class ThemeSelectorPanel extends BasePanel {
   constructor(options) {
@@ -39,9 +40,12 @@ export class ThemeSelectorPanel extends BasePanel {
   }
   
   onStateChange(state) {
-      const designTokens = state.settings?.designTokens || {};
+      // ✅ MODERNIZED: Use enhanced selectors instead of direct state access
+      const uiState = getUIState(state);
+      const settingsState = getSettingsState(state);
+      const designTokens = settingsState.designTokens || {};
       const newSettings = {
-          colorScheme: state.ui?.colorScheme || 'system',
+          colorScheme: uiState.colorScheme || 'system',
           themeVariant: designTokens.themeVariant || 'light',
           spacingDensity: designTokens.spacingVariant || 'normal',
           currentTheme: designTokens.activeTheme || 'system'
@@ -62,10 +66,12 @@ export class ThemeSelectorPanel extends BasePanel {
   }
 
   loadCurrentSettings() {
-    const state = appStore.getState();
-    const designTokens = state.settings?.designTokens || {};
+    // ✅ MODERNIZED: Use enhanced selectors instead of direct state access
+    const uiState = getUIState(appStore.getState());
+    const settingsState = getSettingsState(appStore.getState());
+    const designTokens = settingsState.designTokens || {};
     
-    this.themeSettings.colorScheme = state.ui?.colorScheme || 'system';
+    this.themeSettings.colorScheme = uiState.colorScheme || 'system';
     this.themeSettings.themeVariant = designTokens.themeVariant || 'light';
     this.themeSettings.spacingDensity = designTokens.spacingVariant || 'normal';
     this.themeSettings.currentTheme = designTokens.activeTheme || 'system';

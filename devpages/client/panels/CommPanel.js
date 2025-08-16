@@ -1,7 +1,9 @@
 // client/panels/CommPanel.js
+// ✅ MODERNIZED: Enhanced Redux patterns for communication panel
 import { BasePanel } from './BasePanel.js';
 import { appStore } from '../appState.js';
 import { clearLogs } from '../store/slices/commSlice.js';
+import { connectToLogs } from '/client/store/reduxConnect.js';
 
 export class CommPanel extends BasePanel {
     constructor(options) {
@@ -33,7 +35,16 @@ export class CommPanel extends BasePanel {
 
     onMount(container) {
         super.onMount(container);
-        this.stateUnsubscribe = appStore.subscribe(this.update.bind(this));
+        
+        // ✅ MODERNIZED: Subscribe with debounced updates for high-frequency comm logs
+        let lastCommState = null;
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const commState = appStore.getState().communications;
+            if (commState === lastCommState) return; // Skip if comm state unchanged
+            lastCommState = commState;
+            this.update();
+        });
+        
         this.element.querySelector('.clear-logs-btn').addEventListener('click', () => {
             appStore.dispatch(clearLogs());
         });

@@ -1,13 +1,13 @@
 /**
  * client/file-browser/FileBrowserPanel.js
- * A panel that displays the file system tree.
- * REFACTORED to use the new PanelInterface.
+ * ✅ MODERNIZED: A panel that displays the file system tree with enhanced Redux patterns
  */
 
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { FileTreeManager } from './FileTreeManager.js';
 import { appStore } from '/client/appState.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
+import { getFileState, getAuthState } from '/client/store/enhancedSelectors.js';
 
 const log = window.APP.services.log.createLogger('FileBrowserPanel');
 
@@ -67,9 +67,14 @@ export class FileBrowserPanel extends BasePanel {
             this.cwdPathContainer.addEventListener('click', () => this.loadTree(), { once: true });
         }
 
+        // ✅ MODERNIZED: Subscribe with enhanced selectors and memoization
+        let lastFileState = null;
         this.unsubscribe = appStore.subscribe(() => {
-            const state = appStore.getState();
-            const publishStatus = state.file?.publishStatus || {};
+            const fileState = getFileState(appStore.getState());
+            if (fileState === lastFileState) return; // Skip if file state unchanged
+            lastFileState = fileState;
+            
+            const publishStatus = fileState.publishStatus || {};
             this.updatePublishingBadges(publishStatus);
         });
     }
@@ -143,7 +148,12 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     fetchCwd() {
-        return '';
+        // ✅ MODERNIZED: Use enhanced selector instead of direct state access
+        const fileState = getFileState(appStore.getState());
+        const currentPathname = fileState.currentPathname;
+        const isDirectorySelected = fileState.isDirectorySelected;
+        
+        return isDirectorySelected ? currentPathname : '';
     }
 
     handleFileClick(file) {

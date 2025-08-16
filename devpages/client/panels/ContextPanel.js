@@ -58,15 +58,16 @@ export class ContextPanel extends BasePanel {
 
     /**
      * Handle app store changes
+     * ✅ MODERNIZED: Use enhanced selectors for better performance
      */
     handleStoreChange(newState, prevState) {
-        const newAuthState = newState.auth;
-        const newFileState = newState.file;
-        const newSettingsState = newState.settings;
+        const newAuthState = getAuthState(newState);
+        const newFileState = getFileState(newState);
+        const newSettingsState = getSettingsState(newState);
         
-        const prevAuthState = prevState.auth || {};
-        const prevFileState = prevState.file || {};
-        const prevSettingsState = prevState.settings || {};
+        const prevAuthState = getAuthState(prevState);
+        const prevFileState = getFileState(prevState);
+        const prevSettingsState = getSettingsState(prevState);
 
         const authRelevantChanged =
             newAuthState?.isInitializing !== prevAuthState?.isInitializing ||

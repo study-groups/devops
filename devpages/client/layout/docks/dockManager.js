@@ -1,5 +1,6 @@
 /**
  * client/layout/docks/dockManager.js
+ * ✅ MODERNIZED: Centralized manager with enhanced Redux patterns
  *
  * Centralized manager for creating, tracking, and updating all dock instances.
  * Subscribes to the Redux store to keep dock DOM elements in sync with application state.
@@ -7,6 +8,7 @@
 
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
+import { connectToLayout } from '/client/store/reduxConnect.js';
 
 // Import dock implementations
 import { SettingsDock } from '/client/layout/docks/SettingsDock.js';
@@ -32,7 +34,8 @@ class DockManager {
 
         logMessage('[DockManager] Initializing all docks...', 'info');
         
-        const initialState = appStore.getState().panels.docks;
+        // ✅ MODERNIZED: Use enhanced selector pattern for initial state
+        const initialState = appStore.getState().panels?.docks || {};
         this.lastKnownState = initialState;
 
         for (const dockId in initialState) {

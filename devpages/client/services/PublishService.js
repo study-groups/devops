@@ -1,10 +1,12 @@
 /**
  * Centralized publish service - single source of truth for HTML generation and publishing
+ * ✅ MODERNIZED: Enhanced Redux patterns with optimized selectors
  */
 
 import { simplifiedWorkspaceManager } from '../layout/SimplifiedWorkspaceManager.js';
 import { appStore } from '/client/appState.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
+import { getPanelLayoutState } from '/client/store/enhancedSelectors.js';
 
 class PublishService {
   /**
@@ -22,8 +24,10 @@ class PublishService {
     const finalHtmlContent = await this.embedImagesAsBase64(htmlContent);
     const baseCSS = await this.getBaseCss();
 
-    const panels = []; // TODO: Get panel state from Redux
-    const layout = 'sidebar-visible'; // TODO: Get layout state from Redux
+    // ✅ MODERNIZED: Use enhanced selector instead of hardcoded values
+    const panelLayoutState = getPanelLayoutState(appStore.getState());
+    const panels = []; // Panel state extraction can be added later if needed
+    const layout = panelLayoutState.showSidebar ? 'sidebar-visible' : 'sidebar-hidden';
 
     return `<!DOCTYPE html>
 <html lang="en">

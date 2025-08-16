@@ -1,9 +1,10 @@
 /**
  * SidebarVisibilityController.js
- * Bridges Redux UI state to DOM sidebar visibility
+ * ✅ MODERNIZED: Bridges Redux UI state to DOM sidebar visibility with enhanced selectors
  */
 
 import { appStore } from '/client/appState.js';
+import { getUIState } from '/client/store/enhancedSelectors.js';
 
 export class SidebarVisibilityController {
     constructor() {
@@ -23,8 +24,12 @@ export class SidebarVisibilityController {
             return;
         }
 
-        // Subscribe to Redux store changes
+        // ✅ MODERNIZED: Subscribe with memoized state comparison
+        let lastUIState = null;
         this.storeUnsubscribe = appStore.subscribe(() => {
+            const uiState = getUIState(appStore.getState());
+            if (uiState === lastUIState) return; // Skip if UI state unchanged
+            lastUIState = uiState;
             this.updateSidebarVisibility();
         });
 
@@ -37,8 +42,9 @@ export class SidebarVisibilityController {
     updateSidebarVisibility() {
         if (!this.sidebarElement) return;
 
-        const state = appStore.getState();
-        const isVisible = state.ui?.leftSidebarVisible !== false; // Default to true if undefined
+        // ✅ MODERNIZED: Use enhanced selector instead of direct state access
+        const uiState = getUIState(appStore.getState());
+        const isVisible = uiState.sidebarVisible; // Enhanced selector handles defaults
 
         // Only update if visibility changed
         if (this.currentVisibility === isVisible) return;

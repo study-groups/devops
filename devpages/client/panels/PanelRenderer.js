@@ -1,5 +1,6 @@
 import { appStore } from '/client/appState.js';
 import { BasePanel } from './BasePanel.js';
+import { getPanelState } from '/client/store/enhancedSelectors.js';
 
 class PanelRenderer {
     constructor(container, group) {
@@ -20,15 +21,16 @@ class PanelRenderer {
     }
 
     render() {
-        const state = appStore.getState();
+        // ✅ MODERNIZED: Use enhanced selector instead of direct state access
+        const panelState = getPanelState(appStore.getState());
         
         // Handle the actual state structure from panelsReducer
         let panelsToRender = [];
         
         if (this.group === 'sidebar') {
             // Get panels from sidebarPanels and filter by group/visibility
-            const sidebarPanels = state.panels.sidebarPanels || {};
-            const registry = state.panels.registry || {};
+            const sidebarPanels = panelState.sidebarPanels || {};
+            const registry = panelState.registry || {};
             
             // Convert to array format expected by rest of method
             panelsToRender = Object.keys(sidebarPanels)
@@ -47,20 +49,20 @@ class PanelRenderer {
                 });
         } else {
             // For other groups, check if the old structure exists
-            const panelGroupState = state.panels[this.group];
+            const panelGroupState = panelState[this.group];
             if (!panelGroupState || !panelGroupState.order) {
                 return; // No panels for this group
             }
             panelsToRender = panelGroupState.order.filter(panelId => {
-                const panelState = panelGroupState.panels[panelId];
-                return panelState && panelState.isVisible;
+                const panelStateItem = panelGroupState.panels[panelId];
+                return panelStateItem && panelStateItem.isVisible;
             });
         }
 
         this.container.innerHTML = '';
 
         panelsToRender.forEach(panelId => {
-            const panelConfig = state.panels.registry[panelId];
+            const panelConfig = panelState.registry[panelId];
             if (panelConfig) {
                 let panelInstance = panelConfig.instance;
                 if (!panelInstance && panelConfig.panelClass) {
@@ -70,21 +72,21 @@ class PanelRenderer {
 
                 if (panelInstance instanceof BasePanel) {
                     // Get the panel state for this group
-                    let panelState;
+                    let panelStateItem;
                     if (this.group === 'sidebar') {
-                        panelState = state.panels.sidebarPanels[panelId];
+                        panelStateItem = panelState.sidebarPanels[panelId];
                         panelInstance.setState({
-                            isVisible: panelState.visible,
-                            isCollapsed: panelState.collapsed,
-                            order: panelState.order,
+                            isVisible: panelStateItem.visible,
+                            isCollapsed: panelStateItem.collapsed,
+                            order: panelStateItem.order,
                         });
                     } else {
                         // Legacy structure for other groups
-                        const panelGroupState = state.panels[this.group];
-                        panelState = panelGroupState.panels[panelId];
+                        const panelGroupState = panelState[this.group];
+                        panelStateItem = panelGroupState.panels[panelId];
                         panelInstance.setState({
-                            isVisible: panelState.isVisible,
-                            isCollapsed: panelState.isCollapsed,
+                            isVisible: panelStateItem.isVisible,
+                            isCollapsed: panelStateItem.isCollapsed,
                             order: panelGroupState.order.indexOf(panelId),
                         });
                     }

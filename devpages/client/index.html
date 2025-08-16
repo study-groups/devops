@@ -15,13 +15,27 @@
     <link rel="stylesheet" href="/client/styles/reset.css">
     <link rel="stylesheet" href="/client/styles/preview/core.css">
 
-    <!-- Non-critical CSS - load asynchronously -->
+    <!-- CSS Loading Strategy: Bundled for Performance -->
+    <!-- Core Bundle: Critical foundation styles (load immediately) -->
+    <link rel="stylesheet" href="/css/bundles/core.bundle.css">
+    
+    <!-- Layout Bundle: Critical workspace layout (load immediately) -->
+    <link rel="stylesheet" href="/css/bundles/layout.bundle.css">
+    
+    <!-- Features Bundle: Major features (load async) -->
+    <link rel="stylesheet" href="/css/bundles/features.bundle.css" media="print" onload="this.media='all'">
+    
+    <!-- Panels Bundle: Panel-specific styles (load async) -->
+    <link rel="stylesheet" href="/css/bundles/panels.bundle.css" media="print" onload="this.media='all'">
+    
+    <!-- Development Mode: Uncomment for individual file loading -->
+    <!-- 
     <link rel="stylesheet" href="/client/styles/typography.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/design-system.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/utilities.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/client/styles/components-base.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/icons.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/layout/workspace-layout.css" media="print" onload="this.media='all'">
-
     <link rel="stylesheet" href="/client/log/log.css" media="print" onload="this.media='all'"> 
     <link rel="stylesheet" href="/client/components/auth-display.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/components/context-manager.css" media="print" onload="this.media='all'">
@@ -29,35 +43,20 @@
     <link rel="stylesheet" href="/client/styles/viewControls.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/settings/core/settings.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/file-browser/file-browser.css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/client/styles/panels.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/panels/scrollbars.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/subpanel.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/splash-screen.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/sidebar/panels/PublishedSummaryPanel.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/client/styles/components/panel-manager-header.css" media="print" onload="this.media='all'">
+    -->
 
     <!-- Fallback for browsers that don't support onload -->
     <noscript>
-        <link rel="stylesheet" href="/client/styles/typography.css">
-        <link rel="stylesheet" href="/client/styles/design-system.css">
-        <link rel="stylesheet" href="/client/styles/utilities.css">
-        <link rel="stylesheet" href="/client/styles/icons.css">
-        <link rel="stylesheet" href="/client/layout/workspace-layout.css">
-        <link rel="stylesheet" href="/client/log/log.css">
-        <link rel="stylesheet" href="/client/components/auth-display.css">
-        <link rel="stylesheet" href="/client/components/context-manager.css">
-        <link rel="stylesheet" href="/client/components/topBar.css">
-        <link rel="stylesheet" href="/client/styles/viewControls.css">
-        <link rel="stylesheet" href="/client/settings/core/settings.css">
-        <link rel="stylesheet" href="/client/file-browser/file-browser.css">
-        <link rel="stylesheet" href="/client/styles/panels.css">
-        <link rel="stylesheet" href="/client/styles/panels/scrollbars.css">
-        <link rel="stylesheet" href="/client/styles/subpanel.css">
-        <link rel="stylesheet" href="/client/dom-inspector/domInspector-core.css">
-        <link rel="stylesheet" href="/client/styles/splash-screen.css">
-        <link rel="stylesheet" href="/client/sidebar/panels/PublishedSummaryPanel.css">
-        <link rel="stylesheet" href="/client/styles/components/panel-manager-header.css">
+        <link rel="stylesheet" href="/css/bundles/core.bundle.css">
+        <link rel="stylesheet" href="/css/bundles/layout.bundle.css">
+        <link rel="stylesheet" href="/css/bundles/features.bundle.css">
+        <link rel="stylesheet" href="/css/bundles/panels.bundle.css">
     </noscript>
 
     <script src="/client/errorTracker.js"></script>

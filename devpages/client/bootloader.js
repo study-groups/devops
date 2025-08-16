@@ -328,6 +328,17 @@ async function bootFinalize() {
         }, 100);
     }
     
+    // Initialize clean panels auto-loader
+    try {
+        log.info('CLEAN_PANELS', '🧹 Initializing clean panels auto-loader...');
+        const { cleanPanelAutoLoader } = await import('./panels/auto-load-clean-panels.js');
+        await cleanPanelAutoLoader.initialize();
+        log.info('CLEAN_PANELS', '✅ Clean panels auto-loaded successfully');
+    } catch (error) {
+        log.warn('CLEAN_PANELS_FAILED', '⚠️ Failed to auto-load clean panels:', error);
+        // Don't fail the entire boot process for this
+    }
+    
     log.info('APP_READY', '🎉 Application ready for use');
 }
 

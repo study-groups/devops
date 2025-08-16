@@ -1,9 +1,12 @@
 /**
  * Login Form Component
+ * ✅ MODERNIZED: Enhanced Redux patterns for authentication
  * Responsible for displaying login form and handling authentication
  */
 import { appStore } from '/client/appState.js';
 import { authThunks } from '/client/store/slices/authSlice.js';
+import { getAuthState } from '/client/store/enhancedSelectors.js';
+import { connectToAuth } from '/client/store/reduxConnect.js';
 
 class LoginForm {
   constructor(container, options = {}) {
@@ -74,35 +77,32 @@ class LoginForm {
     // Hide login form initially, let state dictate visibility
     this.form.style.display = 'none';
 
-    let prevState = appStore.getState(); // Initialize previous state
-    // Update visibility based on current auth state using appStore subscribe
+    // ✅ MODERNIZED: Enhanced selector with memoized auth state comparison
+    let lastAuthState = null;
     const unsubscribe = appStore.subscribe(() => {
-        const newState = appStore.getState();
-        const newIsAuthenticated = newState.auth.isAuthenticated;
-        const oldIsAuthenticated = prevState.auth.isAuthenticated;
+        const authState = getAuthState(appStore.getState());
+        if (authState === lastAuthState) return; // Skip if auth state unchanged
+        lastAuthState = authState;
         
-        if (newIsAuthenticated !== oldIsAuthenticated) {
-            this.form.style.display = newIsAuthenticated ? 'none' : 'block';
-        }
-        prevState = newState; // Update previous state
+        this.form.style.display = authState.isAuthenticated ? 'none' : 'block';
     });
 
-    // Initial visibility check
-    if (!appStore.getState().auth.isAuthenticated) {
-      this.updateVisibility(false);
-    } else {
-      this.updateVisibility(true);
-    }
+    // ✅ MODERNIZED: Initial visibility check with enhanced selector
+    const initialAuthState = getAuthState(appStore.getState());
+    this.updateVisibility(initialAuthState.isAuthenticated);
 
-    // Update visibility based on current auth state using appStore subscribe
-    // The subscription will call updateVisibility immediately with the current state
-    const unsubscribe2 = appStore.subscribe((newState, prevState) => {
-        const authState = newState.auth;
+    // ✅ MODERNIZED: Enhanced subscription with memoized state comparison
+    let lastAuthStateForUpdates = null;
+    const unsubscribe2 = appStore.subscribe(() => {
+        const authState = getAuthState(appStore.getState());
+        if (authState === lastAuthStateForUpdates) return; // Skip if auth state unchanged
+        lastAuthStateForUpdates = authState;
+        
         this.updateVisibility(authState.isAuthenticated);
         this.updateErrorMessage(authState.error);
     });
     // Store the unsubscribe function to call it on destroy
-    this.unsubscribeHandlers.push(unsubscribe2);
+    this.unsubscribeHandlers.push(unsubscribe, unsubscribe2);
   }
   
   handleSubmit(event) {

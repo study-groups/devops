@@ -9,6 +9,7 @@ import { uploadImage } from '/client/image/imageManager.js';
 import { setContent, setDirty } from '/client/store/slices/editorSlice.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
 import { debounce } from '/client/utils/debounce.js';
+import { getEditorState, getAuthState } from '/client/store/enhancedSelectors.js';
 
 export class EditorPanel extends BasePanel {
     constructor(options = {}) {
@@ -22,7 +23,8 @@ export class EditorPanel extends BasePanel {
         this.element = document.createElement('div');
         this.element.className = 'editor-panel';
         
-        const authState = appStore.getState()?.auth || {};
+        // ✅ MODERNIZED: Use enhanced selectors instead of direct state access
+        const authState = getAuthState(appStore.getState());
         const isAuthenticated = authState.authChecked && authState.isAuthenticated;
         
         const contentElement = this.renderContent(isAuthenticated);
@@ -78,8 +80,10 @@ export class EditorPanel extends BasePanel {
     }
 
     onStateChange() {
-        const { auth, editor } = appStore.getState();
-        const isAuthenticated = auth.authChecked && auth.isAuthenticated;
+        // ✅ MODERNIZED: Use enhanced selectors for better performance
+        const authState = getAuthState(appStore.getState());
+        const editorState = getEditorState(appStore.getState());
+        const isAuthenticated = authState.authChecked && authState.isAuthenticated;
 
         // Render auth state
         if (this.element.dataset.isAuthenticated !== String(isAuthenticated)) {
@@ -93,16 +97,17 @@ export class EditorPanel extends BasePanel {
             }
         }
 
-        // Update content
-        if (this.textarea && this.textarea.value !== editor.content) {
-            this.textarea.value = editor.content || '';
+        // Update content using enhanced editor state
+        if (this.textarea && this.textarea.value !== editorState.content) {
+            this.textarea.value = editorState.content;
         }
     }
 
     syncContent() {
-        const { editor } = appStore.getState();
-        if (this.textarea && this.textarea.value !== editor.content) {
-            this.textarea.value = editor.content || '';
+        // ✅ MODERNIZED: Use enhanced selector for editor state
+        const editorState = getEditorState(appStore.getState());
+        if (this.textarea && this.textarea.value !== editorState.content) {
+            this.textarea.value = editorState.content;
         }
     }
 

@@ -1,0 +1,305 @@
+/**
+ * Modern Panel System Styles
+ * Provides consistent, beautiful styling for all modernized panels
+ */
+
+/* =================================================================
+   BASE PANEL STYLES
+   ================================================================= */
+
+.modern-panel {
+    background: var(--panel-bg, #ffffff);
+    border: 1px solid var(--panel-border, #e1e5e9);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.modern-panel:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-color: var(--panel-border-hover, #d1d9e0);
+}
+
+.modern-panel.panel-mounted {
+    animation: panelMountIn 0.3s ease-out;
+}
+
+@keyframes panelMountIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =================================================================
+   PANEL HEADER
+   ================================================================= */
+
+.modern-panel .panel-header {
+    background: var(--panel-header-bg, #f8f9fa);
+    border-bottom: 1px solid var(--panel-border, #e1e5e9);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    cursor: default;
+}
+
+.modern-panel .panel-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--panel-title-color, #2c3e50);
+    flex: 1;
+    user-select: none;
+}
+
+.modern-panel .panel-collapse-btn {
+    background: none;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--panel-control-color, #6c757d);
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+}
+
+.modern-panel .panel-collapse-btn:hover {
+    background: var(--panel-control-hover-bg, #e9ecef);
+    color: var(--panel-control-hover-color, #495057);
+}
+
+.modern-panel .panel-collapse-btn:active {
+    transform: scale(0.95);
+}
+
+/* =================================================================
+   PANEL CONTENT
+   ================================================================= */
+
+.modern-panel .panel-content {
+    padding: 16px;
+    background: var(--panel-content-bg, #ffffff);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.modern-panel.panel-collapsed .panel-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.modern-panel.panel-collapsed .panel-collapse-btn {
+    transform: rotate(90deg);
+}
+
+/* =================================================================
+   PANEL STATES
+   ================================================================= */
+
+.modern-panel.panel-hidden {
+    display: none !important;
+}
+
+.modern-panel.panel-error {
+    border-color: var(--error-color, #dc3545);
+    background: var(--error-bg, #f8d7da);
+}
+
+.modern-panel.panel-error .panel-header {
+    background: var(--error-header-bg, #f5c6cb);
+    color: var(--error-color, #721c24);
+}
+
+.modern-panel.panel-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.modern-panel.panel-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =================================================================
+   RESPONSIVE DESIGN
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .modern-panel {
+        margin-bottom: 6px;
+        border-radius: 6px;
+    }
+    
+    .modern-panel .panel-header {
+        padding: 10px 12px;
+        min-height: 40px;
+    }
+    
+    .modern-panel .panel-title {
+        font-size: 13px;
+    }
+    
+    .modern-panel .panel-content {
+        padding: 12px;
+    }
+}
+
+/* =================================================================
+   DARK MODE SUPPORT
+   ================================================================= */
+
+@media (prefers-color-scheme: dark) {
+    .modern-panel {
+        --panel-bg: #2d3748;
+        --panel-border: #4a5568;
+        --panel-border-hover: #718096;
+        --panel-header-bg: #1a202c;
+        --panel-title-color: #e2e8f0;
+        --panel-content-bg: #2d3748;
+        --panel-control-color: #a0aec0;
+        --panel-control-hover-bg: #4a5568;
+        --panel-control-hover-color: #e2e8f0;
+    }
+}
+
+/* =================================================================
+   PANEL SPECIFIC OVERRIDES
+   ================================================================= */
+
+/* File Browser Panel */
+.modern-panel.panel-file-browser .panel-content {
+    padding: 8px;
+}
+
+/* Context Panel */
+.modern-panel.panel-context .panel-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.modern-panel.panel-context .panel-title {
+    color: white;
+}
+
+.modern-panel.panel-context .panel-collapse-btn {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.modern-panel.panel-context .panel-collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Settings Panel */
+.modern-panel.panel-settings-panel .panel-header {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.modern-panel.panel-settings-panel .panel-title {
+    color: white;
+}
+
+.modern-panel.panel-settings-panel .panel-collapse-btn {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.modern-panel.panel-settings-panel .panel-collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Debug/Development Panels */
+.modern-panel.panel-pdata-panel .panel-header,
+.modern-panel.panel-dom-inspector .panel-header,
+.modern-panel.panel-log-display .panel-header {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.modern-panel.panel-pdata-panel .panel-title,
+.modern-panel.panel-dom-inspector .panel-title,
+.modern-panel.panel-log-display .panel-title {
+    color: white;
+}
+
+.modern-panel.panel-pdata-panel .panel-collapse-btn,
+.modern-panel.panel-dom-inspector .panel-collapse-btn,
+.modern-panel.panel-log-display .panel-collapse-btn {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.modern-panel.panel-pdata-panel .panel-collapse-btn:hover,
+.modern-panel.panel-dom-inspector .panel-collapse-btn:hover,
+.modern-panel.panel-log-display .panel-collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* =================================================================
+   ANIMATIONS & TRANSITIONS
+   ================================================================= */
+
+.modern-panel * {
+    transition: inherit;
+}
+
+.modern-panel .panel-content > * {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.modern-panel.panel-collapsed .panel-content > * {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+/* =================================================================
+   ACCESSIBILITY
+   ================================================================= */
+
+.modern-panel:focus-within {
+    outline: 2px solid var(--focus-color, #007bff);
+    outline-offset: 2px;
+}
+
+.modern-panel .panel-collapse-btn:focus {
+    outline: 2px solid var(--focus-color, #007bff);
+    outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .modern-panel,
+    .modern-panel *,
+    .modern-panel .panel-content,
+    .modern-panel .panel-collapse-btn {
+        transition: none !important;
+        animation: none !important;
+    }
+}

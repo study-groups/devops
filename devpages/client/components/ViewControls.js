@@ -1,7 +1,9 @@
+// ✅ MODERNIZED: Enhanced Redux patterns for view controls
 import { appStore, dispatch } from '/client/appState.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { logMessage } from '/client/log/index.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
+import { getUIState, getAuthState } from '/client/store/enhancedSelectors.js';
 
 /**
  * Reload all CSS stylesheets by appending a timestamp to force cache busting

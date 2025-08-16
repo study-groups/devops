@@ -1,0 +1,376 @@
+/**
+ * Modern Context Panel Styles
+ */
+
+/* =================================================================
+   CONTEXT PANEL CONTENT
+   ================================================================= */
+
+.context-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+}
+
+/* =================================================================
+   MODE TOGGLE
+   ================================================================= */
+
+.context-mode-toggle {
+    display: flex;
+    background: var(--panel-toggle-bg, #f8f9fa);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.context-mode-toggle .mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--panel-toggle-color, #6c757d);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.context-mode-toggle .mode-btn:hover {
+    background: var(--panel-toggle-hover-bg, #e9ecef);
+    color: var(--panel-toggle-hover-color, #495057);
+}
+
+.context-mode-toggle .mode-btn.active {
+    background: var(--panel-toggle-active-bg, #007bff);
+    color: var(--panel-toggle-active-color, #ffffff);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+/* =================================================================
+   CONTEXT CONTENT
+   ================================================================= */
+
+.context-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* =================================================================
+   PATH SECTION
+   ================================================================= */
+
+.context-path-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--panel-section-title-color, #495057);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.path-display {
+    background: var(--panel-path-bg, #f8f9fa);
+    border: 1px solid var(--panel-path-border, #e9ecef);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.path-part {
+    color: var(--panel-path-color, #495057);
+    transition: color 0.2s ease;
+}
+
+.path-part.clickable {
+    color: var(--panel-path-link-color, #007bff);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.path-part.clickable:hover {
+    color: var(--panel-path-link-hover-color, #0056b3);
+    text-decoration-color: currentColor;
+}
+
+.path-part.current {
+    color: var(--panel-path-current-color, #28a745);
+    font-weight: 600;
+}
+
+.path-separator {
+    color: var(--panel-path-separator-color, #6c757d);
+    margin: 0 2px;
+}
+
+/* =================================================================
+   CONTEXT ITEMS SECTION
+   ================================================================= */
+
+.context-items-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--panel-section-title-color, #495057);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.context-items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.context-item {
+    background: var(--panel-item-bg, #ffffff);
+    border: 1px solid var(--panel-item-border, #e9ecef);
+    border-radius: 4px;
+    padding: 8px 10px;
+    transition: all 0.2s ease;
+}
+
+.context-item:hover {
+    background: var(--panel-item-hover-bg, #f8f9fa);
+    border-color: var(--panel-item-hover-border, #dee2e6);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.item-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--panel-item-name-color, #212529);
+}
+
+.item-type {
+    font-size: 11px;
+    color: var(--panel-item-type-color, #6c757d);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.item-description {
+    font-size: 12px;
+    color: var(--panel-item-description-color, #6c757d);
+    line-height: 1.3;
+}
+
+.empty-message {
+    text-align: center;
+    color: var(--panel-empty-color, #6c757d);
+    font-style: italic;
+    font-size: 12px;
+    padding: 20px;
+    margin: 0;
+}
+
+/* =================================================================
+   ACTIONS SECTION
+   ================================================================= */
+
+.context-actions-section {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--panel-section-border, #e9ecef);
+}
+
+.context-action-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.context-action-btn.primary {
+    background: var(--panel-btn-primary-bg, #007bff);
+    border-color: var(--panel-btn-primary-border, #007bff);
+    color: var(--panel-btn-primary-color, #ffffff);
+}
+
+.context-action-btn.primary:hover {
+    background: var(--panel-btn-primary-hover-bg, #0056b3);
+    border-color: var(--panel-btn-primary-hover-border, #0056b3);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.context-action-btn.secondary {
+    background: var(--panel-btn-secondary-bg, #ffffff);
+    border-color: var(--panel-btn-secondary-border, #6c757d);
+    color: var(--panel-btn-secondary-color, #6c757d);
+}
+
+.context-action-btn.secondary:hover {
+    background: var(--panel-btn-secondary-hover-bg, #6c757d);
+    color: var(--panel-btn-secondary-hover-color, #ffffff);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.context-action-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* =================================================================
+   SETTINGS CONTENT
+   ================================================================= */
+
+.context-settings-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.context-settings-content .settings-section {
+    margin-bottom: 20px;
+}
+
+.context-settings-content .settings-section:last-child {
+    margin-bottom: 0;
+}
+
+.context-settings-content .settings-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--panel-section-title-color, #495057);
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.context-settings-content .settings-item {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-settings-content .settings-item label {
+    font-size: 12px;
+    color: var(--panel-label-color, #495057);
+    cursor: pointer;
+    flex: 1;
+}
+
+.context-settings-content .settings-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.context-settings-content .settings-item select {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-input-border, #ced4da);
+    border-radius: 4px;
+    font-size: 12px;
+    background: var(--panel-input-bg, #ffffff);
+    color: var(--panel-input-color, #495057);
+    cursor: pointer;
+}
+
+.context-settings-content .settings-item select:focus {
+    outline: none;
+    border-color: var(--panel-input-focus-border, #007bff);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* =================================================================
+   RESPONSIVE DESIGN
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .context-panel-content {
+        gap: 12px;
+    }
+    
+    .context-mode-toggle .mode-btn {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+    
+    .context-actions-section {
+        flex-direction: column;
+    }
+    
+    .context-action-btn {
+        padding: 10px 12px;
+    }
+}
+
+/* =================================================================
+   DARK MODE SUPPORT
+   ================================================================= */
+
+@media (prefers-color-scheme: dark) {
+    .context-panel-content {
+        --panel-toggle-bg: #343a40;
+        --panel-toggle-color: #adb5bd;
+        --panel-toggle-hover-bg: #495057;
+        --panel-toggle-hover-color: #f8f9fa;
+        --panel-toggle-active-bg: #007bff;
+        --panel-toggle-active-color: #ffffff;
+        
+        --panel-section-title-color: #adb5bd;
+        --panel-path-bg: #343a40;
+        --panel-path-border: #495057;
+        --panel-path-color: #adb5bd;
+        --panel-path-link-color: #66b3ff;
+        --panel-path-link-hover-color: #4da3ff;
+        --panel-path-current-color: #51d788;
+        --panel-path-separator-color: #6c757d;
+        
+        --panel-item-bg: #343a40;
+        --panel-item-border: #495057;
+        --panel-item-hover-bg: #495057;
+        --panel-item-hover-border: #6c757d;
+        --panel-item-name-color: #f8f9fa;
+        --panel-item-type-color: #adb5bd;
+        --panel-item-description-color: #adb5bd;
+        --panel-empty-color: #6c757d;
+        
+        --panel-section-border: #495057;
+        --panel-btn-primary-bg: #007bff;
+        --panel-btn-primary-border: #007bff;
+        --panel-btn-primary-color: #ffffff;
+        --panel-btn-primary-hover-bg: #0056b3;
+        --panel-btn-primary-hover-border: #0056b3;
+        --panel-btn-secondary-bg: #343a40;
+        --panel-btn-secondary-border: #6c757d;
+        --panel-btn-secondary-color: #adb5bd;
+        --panel-btn-secondary-hover-bg: #6c757d;
+        --panel-btn-secondary-hover-color: #ffffff;
+        
+        --panel-label-color: #adb5bd;
+        --panel-input-border: #495057;
+        --panel-input-bg: #343a40;
+        --panel-input-color: #f8f9fa;
+        --panel-input-focus-border: #007bff;
+    }
+}

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Panel System Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .demo-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .panel-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Modern Panel System Test</h1>
+            <p>Testing the modernized panel architecture with Redux integration</p>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔧 System Status</h2>
+            <div id="system-status">Loading...</div>
+            <button class="test-button" onclick="checkSystemStatus()">Refresh Status</button>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎯 Quick Tests</h2>
+            <button class="test-button" onclick="testModernBasePanel()">Test Modern Base Panel</button>
+            <button class="test-button" onclick="testContextPanel()">Test Modern Context Panel</button>
+            <button class="test-button" onclick="testMigrationHelper()">Test Migration Helper</button>
+            <button class="test-button" onclick="runPerformanceTest()">Performance Test</button>
+            <button class="test-button" onclick="clearOutput()">Clear Output</button>
+            <div id="console-output" class="console-output"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>📱 Live Panel Demo</h2>
+            <div class="panel-container" id="panel-container">
+                <!-- Panels will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script type="module">
+        // Mock Redux store for testing
+        window.mockStore = {
+            state: {
+                panels: {
+                    sidebarPanels: {}
+                },
+                file: {
+                    currentPathname: '/test/example.js'
+                }
+            },
+            subscribers: [],
+            subscribe(callback) {
+                this.subscribers.push(callback);
+                return () => {
+                    const index = this.subscribers.indexOf(callback);
+                    if (index > -1) this.subscribers.splice(index, 1);
+                };
+            },
+            getState() {
+                return this.state;
+            },
+            dispatch(action) {
+                console.log('Mock dispatch:', action);
+                // Simulate state update
+                if (action.type === 'panels/createPanel') {
+                    this.state.panels.sidebarPanels[action.payload.id] = action.payload;
+                } else if (action.type === 'panels/updatePanel') {
+                    const existing = this.state.panels.sidebarPanels[action.payload.id];
+                    if (existing) {
+                        Object.assign(existing, action.payload);
+                    }
+                }
+                // Notify subscribers
+                this.subscribers.forEach(callback => callback());
+            }
+        };
+
+        // Mock appState
+        window.appStore = window.mockStore;
+
+        // Mock event bus
+        window.eventBus = {
+            listeners: {},
+            on(event, callback) {
+                if (!this.listeners[event]) this.listeners[event] = [];
+                this.listeners[event].push(callback);
+            },
+            off(event, callback) {
+                if (this.listeners[event]) {
+                    const index = this.listeners[event].indexOf(callback);
+                    if (index > -1) this.listeners[event].splice(index, 1);
+                }
+            },
+            emit(event, data) {
+                if (this.listeners[event]) {
+                    this.listeners[event].forEach(callback => callback(data));
+                }
+            }
+        };
+
+        // Mock Redux Toolkit
+        window.createSelector = (selectors, resultFunc) => {
+            return (state) => {
+                const inputs = selectors.map(selector => selector(state));
+                return resultFunc(...inputs);
+            };
+        };
+
+        // Mock panelActions
+        window.panelActions = {
+            createPanel: (payload) => ({ type: 'panels/createPanel', payload }),
+            updatePanel: (payload) => ({ type: 'panels/updatePanel', payload }),
+            removePanel: (id) => ({ type: 'panels/removePanel', payload: { id } })
+        };
+
+        // Mock path utils
+        window.getParentPath = (path) => {
+            const parts = path.split('/');
+            parts.pop();
+            return parts.join('/') || '/';
+        };
+        
+        window.getFilename = (path) => {
+            return path.split('/').pop() || '';
+        };
+        
+        window.pathJoin = (...parts) => {
+            return parts.join('/').replace(/\/+/g, '/');
+        };
+
+        // Console output helper
+        window.logToOutput = (message, type = 'info') => {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        };
+
+        window.clearOutput = () => {
+            document.getElementById('console-output').innerHTML = '';
+        };
+
+        // Override console methods to show in UI
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = (...args) => {
+            originalLog(...args);
+            window.logToOutput(args.join(' '), 'info');
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            window.logToOutput(args.join(' '), 'error');
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            window.logToOutput(args.join(' '), 'error');
+        };
+
+        // Load modern panel system
+        async function loadModernPanelSystem() {
+            try {
+                window.logToOutput('Loading modern panel system...', 'info');
+                
+                // Load CSS
+                const modernPanelCSS = document.createElement('link');
+                modernPanelCSS.rel = 'stylesheet';
+                modernPanelCSS.href = '/client/panels/modern-panels.css';
+                document.head.appendChild(modernPanelCSS);
+
+                const modernContextCSS = document.createElement('link');
+                modernContextCSS.rel = 'stylesheet';
+                modernContextCSS.href = '/client/panels/modern-context-panel.css';
+                document.head.appendChild(modernContextCSS);
+
+                // Import modules
+                const { ModernBasePanel } = await import('/client/panels/ModernBasePanel.js');
+                const { ModernContextPanel } = await import('/client/panels/ModernContextPanel.js');
+                const { PanelMigrationHelper } = await import('/client/panels/PanelMigrationHelper.js');
+
+                // Make available globally
+                window.ModernBasePanel = ModernBasePanel;
+                window.ModernContextPanel = ModernContextPanel;
+                window.PanelMigrationHelper = PanelMigrationHelper;
+
+                window.logToOutput('✅ Modern panel system loaded successfully!', 'success');
+                checkSystemStatus();
+                
+            } catch (error) {
+                window.logToOutput(`❌ Failed to load modern panel system: ${error.message}`, 'error');
+                console.error('Load error:', error);
+            }
+        }
+
+        // System status check
+        window.checkSystemStatus = () => {
+            const status = document.getElementById('system-status');
+            const checks = [
+                { name: 'ModernBasePanel', available: !!window.ModernBasePanel },
+                { name: 'ModernContextPanel', available: !!window.ModernContextPanel },
+                { name: 'PanelMigrationHelper', available: !!window.PanelMigrationHelper },
+                { name: 'Mock Redux Store', available: !!window.appStore },
+                { name: 'Event Bus', available: !!window.eventBus }
+            ];
+
+            let html = '<ul>';
+            checks.forEach(check => {
+                const icon = check.available ? '✅' : '❌';
+                html += `<li>${icon} ${check.name}</li>`;
+            });
+            html += '</ul>';
+            status.innerHTML = html;
+        };
+
+        // Test functions
+        window.testModernBasePanel = async () => {
+            try {
+                window.logToOutput('Testing ModernBasePanel...', 'info');
+                
+                class TestPanel extends window.ModernBasePanel {
+                    constructor() {
+                        super({
+                            id: 'test-panel',
+                            title: '🧪 Test Panel',
+                            collapsible: true
+                        });
+                    }
+                    
+                    renderContent() {
+                        const content = document.createElement('div');
+                        content.innerHTML = `
+                            <div style="padding: 16px;">
+                                <h4>Modern Panel Features:</h4>
+                                <ul>
+                                    <li>✅ Redux Integration</li>
+                                    <li>✅ Performance Optimized</li>
+                                    <li>✅ Standardized Lifecycle</li>
+                                    <li>✅ Beautiful Styling</li>
+                                </ul>
+                                <p>Panel ID: ${this.id}</p>
+                                <p>Initialized: ${this.isInitialized}</p>
+                                <p>Mounted: ${this.isMounted}</p>
+                            </div>
+                        `;
+                        return content;
+                    }
+                }
+                
+                const panel = new TestPanel();
+                await panel.initialize();
+                
+                // Render panel
+                const container = document.getElementById('panel-container');
+                const panelElement = panel.render();
+                container.appendChild(panelElement);
+                
+                // Mount panel
+                await panel.onMount(panelElement);
+                
+                window.logToOutput('✅ ModernBasePanel test completed successfully!', 'success');
+                
+            } catch (error) {
+                window.logToOutput(`❌ ModernBasePanel test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testContextPanel = async () => {
+            try {
+                window.logToOutput('Testing ModernContextPanel...', 'info');
+                
+                const panel = new window.ModernContextPanel();
+                await panel.initialize();
+                
+                // Render panel
+                const container = document.getElementById('panel-container');
+                const panelElement = panel.render();
+                container.appendChild(panelElement);
+                
+                // Mount panel
+                await panel.onMount(panelElement);
+                
+                window.logToOutput('✅ ModernContextPanel test completed successfully!', 'success');
+                
+            } catch (error) {
+                window.logToOutput(`❌ ModernContextPanel test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testMigrationHelper = () => {
+            try {
+                window.logToOutput('Testing PanelMigrationHelper...', 'info');
+                
+                const helper = new window.PanelMigrationHelper();
+                
+                // Create a mock legacy panel
+                class MockLegacyPanel {
+                    constructor(options) {
+                        this.id = options.id || 'mock-legacy';
+                        this.title = 'Mock Legacy Panel';
+                    }
+                    
+                    render() {
+                        const div = document.createElement('div');
+                        div.innerHTML = '<p>Legacy panel content</p>';
+                        return div;
+                    }
+                }
+                
+                // Migrate it
+                const config = window.PanelMigrationHelper.createMigrationConfig('context');
+                const ModernizedPanel = helper.migratePanel(MockLegacyPanel, config);
+                
+                const panel = new ModernizedPanel({ id: 'migrated-test' });
+                
+                window.logToOutput('✅ PanelMigrationHelper test completed successfully!', 'success');
+                window.logToOutput(`Migrated panel ID: ${panel.id}`, 'info');
+                
+            } catch (error) {
+                window.logToOutput(`❌ PanelMigrationHelper test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.runPerformanceTest = async () => {
+            try {
+                window.logToOutput('Running performance test...', 'info');
+                
+                const iterations = 100;
+                const start = performance.now();
+                
+                for (let i = 0; i < iterations; i++) {
+                    const panel = new window.ModernBasePanel({
+                        id: `perf-test-${i}`,
+                        title: `Performance Test ${i}`
+                    });
+                    await panel.initialize();
+                }
+                
+                const end = performance.now();
+                const totalTime = end - start;
+                const avgTime = totalTime / iterations;
+                
+                window.logToOutput(`✅ Performance test completed!`, 'success');
+                window.logToOutput(`Total time: ${totalTime.toFixed(2)}ms`, 'info');
+                window.logToOutput(`Average per panel: ${avgTime.toFixed(2)}ms`, 'info');
+                window.logToOutput(`Panels per second: ${(1000 / avgTime).toFixed(0)}`, 'info');
+                
+            } catch (error) {
+                window.logToOutput(`❌ Performance test failed: ${error.message}`, 'error');
+            }
+        };
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadModernPanelSystem();
+        });
+    </script>
+</body>
+</html>

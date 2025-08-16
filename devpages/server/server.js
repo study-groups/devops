@@ -26,6 +26,7 @@ import capabilityRoutes from './routes/capabilities.js';
 import { PData } from '../pdata/PData.js';
 import pdataRoutes from './routes/pdataRoutes.js';
 import nlpRoutes from './routes/nlpRoutes.js';
+import cssRoutes from './routes/css.js';
 
 // --- Setup: Constants & Paths ---
 const __filename = fileURLToPath(import.meta.url);
@@ -137,6 +138,7 @@ app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), expre
 app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 app.use('/api/pdata', authMiddleware, pdataRoutes);
 app.use('/api/nlp', authMiddleware, nlpRoutes);
+app.use('/css', cssRoutes);
 
 // 5. Application Routes (HTML serving, etc.)
 app.get('/', (req, res) => {

@@ -1,15 +1,11 @@
 /**
- * Log Slice - Manages application log entries for Redux
+ * @file logSlice.js
+ * @description Log state management slice - MODERNIZED
+ * ✅ MODERNIZED: Converted from legacy manual pattern to RTK createSlice
  */
 
-// --- Action Types ---
-const ADD_ENTRY = 'log/addEntry';
-const CLEAR_ENTRIES = 'log/clearEntries';
-const SET_ACTIVE_FILTERS = 'log/setActiveFilters';
-const TOGGLE_FILTER = 'log/toggleFilter';
-const SET_SEARCH_TERM = 'log/setSearchTerm';
+import { createSlice } from '@reduxjs/toolkit';
 
-// --- Initial State ---
 const initialState = {
     entries: [],
     discoveredTypes: [],
@@ -18,65 +14,95 @@ const initialState = {
     isInitialized: false,
 };
 
-// --- Reducer ---
-export function logReducer(state = initialState, action) {
-    switch (action.type) {
-        case ADD_ENTRY:
+// ✅ MODERNIZED: RTK createSlice pattern
+const logSlice = createSlice({
+    name: 'log',
+    initialState,
+    reducers: {
+        addEntry: (state, action) => {
             const newEntry = { ...action.payload, id: Date.now() + Math.random() };
-            const newEntries = [...state.entries, newEntry].slice(-1000);
-            const newDiscoveredTypes = Array.from(new Set(newEntries.map(e => e.type)));
-            return { ...state, entries: newEntries, discoveredTypes: newDiscoveredTypes, isInitialized: true };
-        case CLEAR_ENTRIES:
-            return { ...state, entries: [], discoveredTypes: [] };
-        case SET_ACTIVE_FILTERS:
-            return { ...state, activeFilters: action.payload };
-        case TOGGLE_FILTER:
+            state.entries.push(newEntry);
+            // Keep only last 1000 entries for performance
+            if (state.entries.length > 1000) {
+                state.entries = state.entries.slice(-1000);
+            }
+            // Update discovered types
+            const newTypes = Array.from(new Set(state.entries.map(e => e.type)));
+            state.discoveredTypes = newTypes;
+            state.isInitialized = true;
+        },
+        clearEntries: (state) => {
+            state.entries = [];
+            state.discoveredTypes = [];
+        },
+        setActiveFilters: (state, action) => {
+            state.activeFilters = action.payload;
+        },
+        toggleFilter: (state, action) => {
             const filterKey = action.payload;
             const currentFilters = state.activeFilters;
-            const newFilters = currentFilters.includes(filterKey)
-                ? currentFilters.filter(f => f !== filterKey)
-                : [...currentFilters, filterKey];
-            return { ...state, activeFilters: newFilters };
-        case SET_SEARCH_TERM:
-            return { ...state, searchTerm: action.payload };
-        default:
-            return state;
+            if (currentFilters.includes(filterKey)) {
+                state.activeFilters = currentFilters.filter(f => f !== filterKey);
+            } else {
+                state.activeFilters = [...currentFilters, filterKey];
+            }
+        },
+        setSearchTerm: (state, action) => {
+            state.searchTerm = action.payload;
+        }
     }
-}
+});
 
-// --- Action Creators ---
-export const addEntry = (payload) => ({ type: ADD_ENTRY, payload });
-export const clearEntries = () => ({ type: CLEAR_ENTRIES });
-export const setActiveFilters = (payload) => ({ type: SET_ACTIVE_FILTERS, payload });
-export const toggleFilter = (payload) => ({ type: TOGGLE_FILTER, payload });
-export const setSearchTerm = (payload) => ({ type: SET_SEARCH_TERM, payload });
+// ✅ MODERNIZED: Export RTK slice actions and reducer
+export const { addEntry, clearEntries, setActiveFilters, toggleFilter, setSearchTerm } = logSlice.actions;
+export const logReducer = logSlice.reducer;
+export default logReducer;
 
-// --- Thunks ---
+// Legacy exports for backward compatibility
+export const clearLogs = clearEntries;
+export const logActions = logSlice.actions;
+
+// ✅ MODERNIZED: Selectors for computed state
+export const selectFilteredEntries = (state) => {
+    const logState = state.log || {};
+    const { entries = [], activeFilters = [], searchTerm = '' } = logState;
+    
+    let filteredEntries = entries;
+    
+    // Apply type filters
+    if (activeFilters.length > 0) {
+        filteredEntries = filteredEntries.filter(entry => 
+            activeFilters.includes(entry.type)
+        );
+    }
+    
+    // Apply search term
+    if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        filteredEntries = filteredEntries.filter(entry => {
+            const message = (entry.message || '').toLowerCase();
+            const details = (entry.details || '').toLowerCase();
+            const type = (entry.type || '').toLowerCase();
+            return message.includes(searchLower) || 
+                   details.includes(searchLower) || 
+                   type.includes(searchLower);
+        });
+    }
+    
+    return filteredEntries;
+};
+
+// ✅ MODERNIZED: Thunks for async operations and complex logic
 export const logThunks = {
     addEntry: (entry) => (dispatch) => {
         dispatch(addEntry(entry));
+    },
+    addBulkEntries: (entries, options = {}) => (dispatch) => {
+        entries.forEach(entry => {
+            dispatch(addEntry(entry));
+        });
     },
     clearLog: () => (dispatch) => {
         dispatch(clearEntries());
     }
 };
-
-// --- Selectors ---
-export const selectLogEntries = (state) => state.log.entries;
-export const selectActiveFilters = (state) => state.log.activeFilters;
-export const selectSearchTerm = (state) => state.log.searchTerm;
-export const selectDiscoveredTypes = (state) => state.log.discoveredTypes;
-export const selectFilteredEntries = (state) => {
-    const { entries, activeFilters, searchTerm } = state.log;
-    // Filtering logic here...
-    return entries;
-};
-export const selectLogStats = (state) => {
-    const { entries } = state.log;
-    return {
-        totalEntries: entries.length,
-    };
-};
-
-
-console.log('[logSlice] Migrated to standard Redux pattern.'); 

@@ -1,8 +1,10 @@
+// ✅ MODERNIZED: Enhanced Redux patterns for top bar
 import { eventBus } from '/client/eventBus.js';
 import { appStore } from '/client/appState.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
 import { storageService } from '/client/services/storageService.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
+import { getAuthState } from '/client/store/enhancedSelectors.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('TopBar');
@@ -36,22 +38,26 @@ function init() {
 
     window.addEventListener('resize', updateContentHeight);
     
-    // Subscribe to the store to update button states
+    // ✅ MODERNIZED: Subscribe with enhanced selectors and memoization
     if (!unsubscribeFromStore) {
+        let lastAuthState = null;
         unsubscribeFromStore = appStore.subscribe(() => {
-            const { auth } = appStore.getState();
+            const authState = getAuthState(appStore.getState());
+            if (authState === lastAuthState) return; // Skip if auth state unchanged
+            lastAuthState = authState;
+            
             const saveBtn = document.getElementById('save-btn');
             const publishBtn = document.getElementById('publish-btn');
-            if (saveBtn) saveBtn.disabled = !auth.isAuthenticated;
-            if (publishBtn) publishBtn.disabled = !auth.isAuthenticated;
+            if (saveBtn) saveBtn.disabled = !authState.isAuthenticated;
+            if (publishBtn) publishBtn.disabled = !authState.isAuthenticated;
         });
     }
-    // Set initial button states
-    const { auth } = appStore.getState();
+    // Set initial button states using enhanced selector
+    const authState = getAuthState(appStore.getState());
     const saveBtn = document.getElementById('save-btn');
     const publishBtn = document.getElementById('publish-btn');
-    if (saveBtn) saveBtn.disabled = !auth.isAuthenticated;
-    if (publishBtn) publishBtn.disabled = !auth.isAuthenticated;
+    if (saveBtn) saveBtn.disabled = !authState.isAuthenticated;
+    if (publishBtn) publishBtn.disabled = !authState.isAuthenticated;
 
     isInitialized = true;
     log.info('TOP_BAR', 'INIT_COMPLETE', 'Top Bar Initialized.');

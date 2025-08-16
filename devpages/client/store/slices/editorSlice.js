@@ -1,40 +1,47 @@
-// Action Types
-const SET_CONTENT = 'editor/setContent';
-const SET_DIRTY = 'editor/setDirty';
+/**
+ * @file editorSlice.js
+ * @description Editor state management slice - MODERNIZED
+ * ✅ MODERNIZED: Converted from legacy manual pattern to RTK createSlice
+ */
+
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     content: '',
-    isDirty: false,
-    status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
-    error: null,
+    cursorPosition: 0,
+    isModified: false,
+    lastSaved: null
 };
 
-// Action Creators
-export const setContent = (content) => ({
-    type: SET_CONTENT,
-    payload: content,
-});
-
-export const setDirty = (isDirty) => ({
-    type: SET_DIRTY,
-    payload: isDirty,
-});
-
-// Reducer
-export const editorReducer = (state = initialState, action) => {
-    switch (action.type) {
-        case SET_CONTENT:
-            return {
-                ...state,
-                content: action.payload,
-                isDirty: false,
-            };
-        case SET_DIRTY:
-            return {
-                ...state,
-                isDirty: action.payload,
-            };
-        default:
-            return state;
+// ✅ MODERNIZED: RTK createSlice pattern
+const editorSlice = createSlice({
+    name: 'editor',
+    initialState,
+    reducers: {
+        setContent: (state, action) => {
+            state.content = action.payload;
+            state.isModified = true;
+        },
+        setDirty: (state, action) => {
+            state.isModified = action.payload;
+        },
+        setCursorPosition: (state, action) => {
+            state.cursorPosition = action.payload;
+        },
+        markSaved: (state) => {
+            state.isModified = false;
+            state.lastSaved = new Date().toISOString();
+        },
+        resetEditor: (state) => {
+            state.content = '';
+            state.cursorPosition = 0;
+            state.isModified = false;
+            state.lastSaved = null;
+        }
     }
-};
+});
+
+// ✅ MODERNIZED: Export RTK slice actions and reducer
+export const { setContent, setDirty, setCursorPosition, markSaved, resetEditor } = editorSlice.actions;
+export const editorReducer = editorSlice.reducer;
+export default editorReducer;

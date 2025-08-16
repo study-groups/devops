@@ -1,11 +1,12 @@
 // client/components/ContextManagerComponent.js
-// Standardized Redux store access
+// ✅ MODERNIZED: Enhanced Redux patterns with optimized selectors
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js';
 import { appStore } from '/client/appState.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
 import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 import { uiThunks } from '/client/store/uiSlice.js';
+import { getCommonAppState, getFileState, getAuthState, getUIState } from '/client/store/enhancedSelectors.js';
 
 const log = window.APP.services.log.createLogger('PathManagerComponent');
 
@@ -31,16 +32,16 @@ export function createPathManagerComponent(targetElementId) {
             return;
         }
 
-        const uiState = appStore.getState().ui || {};
+        // ✅ MODERNIZED: Use enhanced selectors instead of direct state access
+        const uiState = getUIState(appStore.getState());
         if (!uiState.contextManagerVisible) {
             element.style.display = 'none';
             return;
         }
         element.style.display = 'block';
 
-
         // Get auth state to check if we should show authentication-related content
-        const authState = appStore.getState().auth || {};
+        const authState = getAuthState(appStore.getState());
         
         // Show loading state during auth initialization
         if (!authState.authChecked || authState.isLoading) {
@@ -73,9 +74,9 @@ export function createPathManagerComponent(targetElementId) {
             return;
         }
         
-        // Now we know we're authenticated, get all necessary state
+        // ✅ MODERNIZED: Use enhanced selectors for better performance
         const pathState = appStore.getState().path || {};
-        const fileState = appStore.getState().file || {};
+        const fileState = getFileState(appStore.getState());
         const settingsStateFromStore = appStore.getState().settings || {};
         
         const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
@@ -88,9 +89,9 @@ export function createPathManagerComponent(targetElementId) {
         // Authentication status (needed for breadcrumbs and other logic)
         const isAuthenticated = authState.isAuthenticated;
         const isPathLoading = pathState.status === 'loading';
-        const isFileLoading = fileState.status === 'loading';
+        const isFileLoading = fileState.isLoading;
         const isOverallLoading = isPathLoading || isFileLoading;
-        const isSaving = fileState.status === 'saving'; // Correctly check file state for saving status
+        const isSaving = fileState.isSaving; // Use enhanced selector property
         
         const currentPathname = pathState.currentPathname || '';
         const isDirectorySelected = pathState.isDirectorySelected;
