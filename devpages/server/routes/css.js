@@ -8,11 +8,12 @@ const router = express.Router();
 const CSS_BUNDLES = {
     core: [
         'client/styles/reset.css',
-        'client/styles/design-system.css',
+        'client/styles/design-system.css',    // LEGACY: Load first so ui-system can override
         'client/styles/typography.css',
         'client/styles/components-base.css',
         'client/styles/utilities.css',
-        'client/styles/icons.css'
+        'client/styles/icons.css',
+        'client/styles/ui-system.css'         // NEW: Load last to ensure proper override
     ],
     layout: [
         'client/layout/workspace-layout.css',
@@ -56,7 +57,7 @@ async function bundleFiles(files) {
             const fileContent = await fs.readFile(filePath, 'utf8');
             content.push(`/* ${file} */\n${fileContent}\n`);
         } catch (error) {
-            console.warn(`CSS bundle: Could not read ${file}`);
+            console.warn(`CSS bundle: Could not read ${file}:`, error.message);
         }
     }
     

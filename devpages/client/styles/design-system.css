@@ -351,6 +351,11 @@ body {
   outline-offset: 2px;
 }
 
+.btn:focus:not(:focus-visible) {
+  outline: none;
+  border-color: var(--color-border);
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -394,16 +399,7 @@ body {
   background-color: var(--color-bg-alt);
 }
 
-.btn-ghost {
-  background-color: transparent;
-  border-color: transparent;
-  color: var(--color-fg-alt);
-}
-
-.btn-ghost:hover {
-  background-color: var(--color-bg-alt);
-  color: var(--color-fg);
-}
+/* .btn-ghost styles moved to ui-system.css for consistency */
 
 /* Legacy button support for non-migrated components */
 button {

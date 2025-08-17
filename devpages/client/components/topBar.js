@@ -144,31 +144,23 @@ function updateContentHeight() {
     log.info('TOP_BAR', 'UPDATE_CONTENT_HEIGHT', `Preview container height updated. Top bar: ${topBarHeight}px, Log height: ${logHeight}px`);
 }
 
-// RESTORED: Essential UI handler functions
+// MODERNIZED: Use unified TopBarController
 function attachTopBarHandlers() {
-    log.info('TOP_BAR', 'ATTACH_HANDLERS_START', 'Attaching top bar event handlers...');
+    log.info('TOP_BAR', 'ATTACH_HANDLERS_START', 'Initializing unified TopBarController...');
     
-    // Handle save button clicks
-    const saveBtn = document.getElementById('save-btn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            log.info('TOP_BAR', 'SAVE_BUTTON_CLICKED', 'Save button clicked, dispatching thunk.');
-            appStore.dispatch(fileThunks.saveFile());
-        });
-        log.info('TOP_BAR', 'SAVE_BUTTON_HANDLER_ATTACHED', 'Save button handler attached');
-    }
+    // Import and initialize the unified controller
+    import('./TopBarController.js').then(({ topBarController }) => {
+        if (!topBarController.initialized) {
+            topBarController.initialize();
+            log.info('TOP_BAR', 'CONTROLLER_INITIALIZED', 'TopBarController initialized successfully');
+        } else {
+            log.info('TOP_BAR', 'CONTROLLER_ALREADY_READY', 'TopBarController already initialized');
+        }
+    }).catch(error => {
+        log.error('TOP_BAR', 'CONTROLLER_INIT_FAILED', 'Failed to initialize TopBarController:', error);
+    });
     
-    // Handle publish button clicks - REMOVED: Integration layer handles this now
-    const publishBtn = document.getElementById('publish-btn');
-    if (publishBtn) {
-        // The click handling is now managed by PublishModalIntegration.js
-        // No direct attachment needed here to avoid double handling or conflicts.
-        log.info('TOP_BAR', 'PUBLISH_BUTTON_HANDLER_SKIPPED', 'Publish button handler will be managed by integration layer.');
-    }
-    
-    log.info('TOP_BAR', 'ATTACH_HANDLERS_COMPLETE', 'Top bar handlers attached successfully');
+    log.info('TOP_BAR', 'ATTACH_HANDLERS_COMPLETE', 'Top bar handlers setup complete');
 }
 
 /**

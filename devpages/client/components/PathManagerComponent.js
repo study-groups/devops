@@ -7,6 +7,7 @@ import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 import { uiThunks } from '/client/store/uiSlice.js';
 import { getCommonAppState, getFileState, getAuthState, getUIState } from '/client/store/enhancedSelectors.js';
+import { topBarController } from './TopBarController.js';
 
 const log = window.APP.services.log.createLogger('PathManagerComponent');
 
@@ -173,8 +174,8 @@ export function createPathManagerComponent(targetElementId) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
         }
 
-        const isFileDirty = fileState.currentFile?.isDirty || false;
-        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null || !isFileDirty;
+        const isFileModified = fileState.currentFile?.isModified || false;
+        const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null || !isFileModified;
 
         // Simplified layout: Breadcrumbs, then the selection row with buttons immediately adjacent
         element.innerHTML = `
@@ -200,10 +201,7 @@ export function createPathManagerComponent(targetElementId) {
             primarySelectElement.addEventListener('change', handlePrimarySelectChange);
         }
         
-        const saveButton = element.querySelector('#save-btn');
-        if (saveButton) {
-            saveButton.addEventListener('click', handleSaveButtonClick);
-        }
+        // Save button is handled by TopBarController - no need for separate handler
 
         // --- Breadcrumb Navigation Event Listener ---
         const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
@@ -232,6 +230,11 @@ export function createPathManagerComponent(targetElementId) {
         const fileBrowserToggleButton = element.querySelector('#file-browser-toggle-btn');
         if (fileBrowserToggleButton) {
             fileBrowserToggleButton.addEventListener('click', handleFileBrowserToggleClick);
+        }
+
+        // Initialize TopBarController for save button and other actions
+        if (!topBarController.initialized) {
+            topBarController.initialize();
         }
     };
 
@@ -351,27 +354,7 @@ export function createPathManagerComponent(targetElementId) {
         }
     };
 
-    const handleSaveButtonClick = (event) => {
-        event.preventDefault();
-        
-        const state = appStore.getState();
-        const { currentPathname, isDirectorySelected } = state.path;
-        const isDirty = state.file.currentFile.isDirty;
-
-        if (!currentPathname || isDirectorySelected) {
-            log.warn('SAVE', 'NO_FILE_SELECTED', 'Save button clicked but no file is selected.');
-            return;
-        }
-
-        if (!isDirty) {
-            log.info('SAVE', 'NOT_DIRTY', 'Save button clicked but no changes to save.');
-            // Optionally, provide feedback to the user that there's nothing to save.
-            return;
-        }
-        
-        log.info('SAVE', 'DISPATCHING_SAVE_THUNK', `Dispatching saveFile thunk for: ${currentPathname}`);
-        appStore.dispatch(fileThunks.saveFile());
-    };
+    // Save button handler moved to TopBarController for unified handling
 
     // DEPRECATED: handleRootBreadcrumbClick and handleSettingsClick are no longer used.
     // The main handleBreadcrumbClick now manages all breadcrumb interactions.
@@ -503,8 +486,7 @@ export function createPathManagerComponent(targetElementId) {
         if (element) {
             const primarySelect = element.querySelector('#context-primary-select');
             if (primarySelect) primarySelect.removeEventListener('change', handlePrimarySelectChange);
-            const saveBtn = element.querySelector('#save-btn');
-            if (saveBtn) saveBtn.removeEventListener('click', handleSaveButtonClick);
+            // Save button cleanup handled by TopBarController
             const publishBtn = element.querySelector('#publish-btn');
             if (publishBtn) publishBtn.removeEventListener('click', handlePublishButtonClick);
             const breadcrumbContainer = element.querySelector('.context-breadcrumbs');

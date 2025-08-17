@@ -306,31 +306,16 @@ export class ModernPanelIntegration {
      * Set up keyboard shortcuts
      */
     setupKeyboardShortcuts() {
-        console.log('⌨️ Setting up keyboard shortcuts...');
-
-        document.addEventListener('keydown', (event) => {
-            // Build shortcut string
-            const parts = [];
-            if (event.ctrlKey || event.metaKey) parts.push('ctrl');
-            if (event.shiftKey) parts.push('shift');
-            if (event.altKey) parts.push('alt');
-            parts.push(event.key.toLowerCase());
-
-            const shortcut = parts.join('+');
-
-            // Check if we have a handler for this shortcut
-            if (this.keyboardShortcuts.has(shortcut)) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const panelId = this.keyboardShortcuts.get(shortcut);
-                this.togglePanel(panelId);
-
-                console.log(`🎯 Triggered shortcut: ${shortcut} -> ${panelId}`);
-            }
-        });
-
-        console.log(`✅ Registered ${this.keyboardShortcuts.size} keyboard shortcuts`);
+        console.log('⌨️ Panel shortcuts delegated to centralized KeyboardShortcutManager');
+        
+        // Register this integration with the global keyboard manager
+        if (window.keyboardShortcutManager) {
+            // Make this integration available for the centralized shortcuts
+            window.modernPanelIntegration = this;
+            console.log('✅ Modern panel integration registered with global keyboard manager');
+        } else {
+            console.warn('⚠️ KeyboardShortcutManager not available, shortcuts may not work');
+        }
     }
 
     /**

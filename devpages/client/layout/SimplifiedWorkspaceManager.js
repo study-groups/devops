@@ -58,6 +58,9 @@ export class SimplifiedWorkspaceManager {
         // Subscribe to Redux state changes for dynamic panels
         appStore.subscribe(this.handleStateChange.bind(this));
 
+        // Set initial UI state on DOM elements
+        this.handleStateChange();
+
         // Initialize dynamic panels from Redux state
         this.initializeDynamicPanels();
 
@@ -139,8 +142,27 @@ export class SimplifiedWorkspaceManager {
     }
 
     handleStateChange() {
-        // Handle Redux state changes for dynamic panels
-        // Core areas don't need state-based rendering since they're always present
+        // Handle Redux state changes for core area visibility and dynamic panels
+        const state = appStore.getState();
+        const ui = state.ui || {};
+        
+        // Update editor visibility based on editorVisible state
+        const editorContainer = this.coreAreas.editor?.container;
+        if (editorContainer) {
+            editorContainer.setAttribute('data-editor-visible', String(ui.editorVisible !== false));
+        }
+        
+        // Update preview visibility based on previewVisible state
+        const previewContainer = this.coreAreas.preview?.container;
+        if (previewContainer) {
+            previewContainer.setAttribute('data-preview-visible', String(ui.previewVisible !== false));
+        }
+        
+        // Update right resizer visibility based on preview visibility
+        const rightResizer = document.getElementById('resizer-right');
+        if (rightResizer) {
+            rightResizer.setAttribute('data-preview-visible', String(ui.previewVisible !== false));
+        }
     }
 
     exposeAPI() {

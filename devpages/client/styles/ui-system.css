@@ -1,0 +1,511 @@
+/**
+ * ui-system.css - Unified UI Component System
+ * Consolidates all button, input, and form styling into one coherent system
+ * Replaces redundant patterns from design-system.css, system.css, viewControls.css
+ */
+
+/* ===== BUTTON SYSTEM ===== */
+
+/* Base Button - Foundation for all button variants */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+/* Button States */
+.btn:hover {
+  background-color: var(--color-bg-alt);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  background-color: var(--color-bg-active);
+  border-color: var(--color-border);
+  transform: translateY(0);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btn:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Button Size Variants */
+.btn-xs {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  gap: var(--space-0-5);
+}
+
+.btn-sm {
+  padding: var(--space-1-5) var(--space-3);
+  font-size: var(--font-size-sm);
+  gap: var(--space-0-5);
+}
+
+.btn-lg {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--font-size-base);
+  gap: var(--space-2);
+}
+
+/* Button Style Variants */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--color-primary-active);
+}
+
+.btn-secondary {
+  background-color: var(--color-bg);
+  color: var(--color-fg-alt);
+  border-color: var(--color-border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-fg);
+  border-color: var(--color-border-hover);
+}
+
+.btn-secondary:active {
+  background-color: var(--color-bg-alt);
+}
+
+button.btn-ghost,
+.btn.btn-ghost {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--color-fg-alt);
+  transition: all 0.15s ease;
+}
+
+/* Clean hover styles - proper CSS cascade */
+button.btn-ghost:hover,
+.btn.btn-ghost:hover {
+  background-color: var(--color-bg-alt);
+  border-color: var(--color-border-hover);
+  color: var(--color-fg);
+  transform: translateY(-1px);
+}
+
+button.btn-ghost:active,
+.btn.btn-ghost:active {
+  background-color: var(--color-bg-active);
+  border-color: transparent;
+}
+
+/* Removed specific preview-toggle rule - general btn-ghost:hover should work now */
+
+.btn-danger {
+  background-color: var(--color-error);
+  color: var(--color-error-foreground);
+  border-color: var(--color-error);
+}
+
+.btn-danger:hover {
+  background-color: var(--color-error-hover);
+  border-color: var(--color-error-hover);
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: var(--color-success-foreground);
+  border-color: var(--color-success);
+}
+
+.btn-success:hover {
+  background-color: var(--color-success-hover);
+  border-color: var(--color-success-hover);
+}
+
+.btn-warning {
+  background-color: var(--color-warning);
+  color: var(--color-warning-foreground);
+  border-color: var(--color-warning);
+}
+
+.btn-warning:hover {
+  background-color: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
+}
+
+/* Icon Button - Square button for icons */
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon.btn-sm {
+  width: 24px;
+  height: 24px;
+}
+
+.btn-icon.btn-lg {
+  width: 40px;
+  height: 40px;
+}
+
+/* Button Group */
+.btn-group {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-group.btn-group-attached {
+  gap: 0;
+}
+
+.btn-group.btn-group-attached .btn {
+  border-radius: 0;
+  border-right-width: 0;
+}
+
+.btn-group.btn-group-attached .btn:first-child {
+  border-top-left-radius: var(--radius-base);
+  border-bottom-left-radius: var(--radius-base);
+}
+
+.btn-group.btn-group-attached .btn:last-child {
+  border-top-right-radius: var(--radius-base);
+  border-bottom-right-radius: var(--radius-base);
+  border-right-width: 1px;
+}
+
+/* ===== FORM SYSTEM ===== */
+
+/* Form Group */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.form-group.form-group-horizontal {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.form-group.form-group-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* Form Labels */
+.form-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-1);
+}
+
+.form-label.required::after {
+  content: " *";
+  color: var(--color-error);
+}
+
+/* Form Controls Base */
+.form-control {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-background);
+}
+
+.form-control:disabled {
+  background: var(--color-bg-muted);
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-control.error {
+  border-color: var(--color-error);
+}
+
+.form-control.error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-error-background);
+}
+
+/* Input Variants */
+.form-control.form-control-sm {
+  padding: var(--space-1-5);
+  font-size: var(--font-size-xs);
+}
+
+.form-control.form-control-lg {
+  padding: var(--space-3);
+  font-size: var(--font-size-base);
+}
+
+/* Textarea */
+textarea.form-control {
+  resize: vertical;
+  min-height: 80px;
+  font-family: var(--font-family-mono);
+}
+
+/* Select */
+select.form-control {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 32px;
+}
+
+/* Checkbox and Radio */
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.form-check-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.form-check-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg);
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Form Help Text */
+.form-help {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  margin-top: var(--space-1);
+}
+
+.form-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: var(--space-1);
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+/* ViewControls Specific Button Active States - Higher specificity */
+button#edit-toggle.btn.active {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-success-foreground);
+}
+
+button#edit-toggle.btn.active:hover {
+  background-color: var(--color-success-hover);
+  border-color: var(--color-success-hover);
+}
+
+button#preview-toggle.btn.active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+button#preview-toggle.btn.active:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+button#log-toggle-btn.btn.active {
+  background-color: var(--color-warning);
+  border-color: var(--color-warning);
+  color: var(--color-warning-foreground);
+}
+
+button#log-toggle-btn.btn.active:hover {
+  background-color: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
+}
+
+/* Reload button special animation */
+#preview-reload-btn:hover {
+  transform: rotate(180deg) translateY(-1px);
+}
+
+/* Active States for Toggle Buttons */
+.btn.active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn.active:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* Specific Active Colors */
+.btn.active.btn-success {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-success-foreground);
+}
+
+.btn.active.btn-success:hover {
+  background-color: var(--color-success-hover);
+  border-color: var(--color-success-hover);
+}
+
+.btn.active.btn-warning {
+  background-color: var(--color-warning);
+  border-color: var(--color-warning);
+  color: var(--color-warning-foreground);
+}
+
+.btn.active.btn-warning:hover {
+  background-color: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
+}
+
+/* Loading State */
+.btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  color: var(--color-fg-alt);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 768px) {
+  .btn {
+    padding: var(--space-1-5) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+  
+  .btn-lg {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+  }
+  
+  .form-group.form-group-horizontal {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+}
+
+/* ===== LEGACY COMPATIBILITY ===== */
+
+/* Support for old button classes - gradually migrate away from these */
+button:not(.btn) {
+  /* Apply base button styles to naked button elements */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  font-family: inherit;
+}
+
+button:not(.btn):hover {
+  background-color: var(--color-bg-alt);
+  border-color: var(--color-border-hover);
+}
+
+button:not(.btn):active {
+  background-color: var(--color-bg-active);
+}
+
+button:not(.btn):focus {
+  outline: none;
+}
+
+button:not(.btn):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

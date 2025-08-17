@@ -12,7 +12,7 @@ const initialState = {
         pathname: null,
         content: '',
         originalContent: '', // Keep track of the original content to check for dirtiness
-        isDirty: false,
+        isModified: false,
         lastModified: null
     },
     status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
@@ -39,7 +39,7 @@ const fileSlice = createSlice({
                 ...state.currentFile,
                 ...action.payload,
                 originalContent: action.payload.content,
-                isDirty: false
+                isModified: false
             };
         },
         loadFileFailure: (state, action) => {
@@ -51,7 +51,7 @@ const fileSlice = createSlice({
                 pathname: null,
                 content: '',
                 originalContent: '',
-                isDirty: false,
+                isModified: false,
                 lastModified: null
             };
             state.status = 'idle';
@@ -59,7 +59,7 @@ const fileSlice = createSlice({
         },
         updateFileContent: (state, action) => {
             state.currentFile.content = action.payload.content;
-            state.currentFile.isDirty = state.currentFile.content !== state.currentFile.originalContent;
+            state.currentFile.isModified = state.currentFile.content !== state.currentFile.originalContent;
         }
     }
 });
@@ -90,7 +90,7 @@ export const fileThunks = {
 
     saveFile: () => async (dispatch, getState) => {
         const { currentFile } = getState().file;
-        if (!currentFile.isDirty) {
+        if (!currentFile.isModified) {
             return;
         }
         try {

@@ -1,4 +1,7 @@
-/* ViewControls Styles - Updated for Design System */
+/**
+ * ViewControls Styles - Unified UI System
+ * Uses the new ui-system.css for all button styling
+ */
 
 #view-controls {
     display: flex;
@@ -9,84 +12,7 @@
     border-bottom: 1px solid var(--color-border);
 }
 
-#view-controls button {
-    padding: var(--space-2) var(--space-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background-color: var(--color-bg);
-    color: var(--color-fg-alt);
-    font-size: var(--density-text-sm);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    transition: var(--transition-fast);
-    user-select: none;
-}
-
-#view-controls button:hover {
-    background-color: var(--color-bg-elevated);
-    border-color: var(--color-border);
-    color: var(--color-fg);
-}
-
-#view-controls button:active {
-    transform: translateY(1px);
-    background-color: var(--color-bg-alt);
-}
-
-#view-controls button.active {
-    background-color: var(--color-blue-500);
-    border-color: var(--color-blue-500);
-    color: white;
-    box-shadow: var(--shadow-sm);
-}
-
-#view-controls button.active:hover {
-    background-color: var(--color-blue-600);
-    border-color: var(--color-blue-600);
-}
-
-/* Specific button styles */
-#edit-toggle.active {
-    background-color: var(--color-green-500);
-    border-color: var(--color-green-500);
-}
-
-#edit-toggle.active:hover {
-    background-color: var(--color-green-600);
-    border-color: var(--color-green-600);
-}
-
-.preview-container-toggle.active {
-    background-color: var(--color-blue-500);
-    border-color: var(--color-blue-500);
-}
-
-.preview-container-toggle.active:hover {
-    background-color: var(--color-blue-600);
-    border-color: var(--color-blue-600);
-}
-
-#log-toggle-btn.active {
-    background-color: var(--color-yellow-500);
-    border-color: var(--color-yellow-500);
-    color: var(--color-gray-900);
-}
-
-#log-toggle-btn.active:hover {
-    background-color: var(--color-yellow-600);
-    border-color: var(--color-yellow-600);
-}
-
-.preview-container-reload-btn {
-    font-size: var(--font-size-base);
-    padding: var(--space-1-5) var(--space-3);
-    min-width: auto;
-}
-
-.preview-container-reload-btn:hover {
-    background-color: var(--color-bg-elevated);
-    transform: rotate(180deg);
-}
+/* ViewControls specific active button styles moved to ui-system.css for immediate loading */
 
 /* Responsive design */
 @media (max-width: 768px) {
@@ -94,15 +20,4 @@
         gap: var(--space-1);
         padding: var(--space-1-5);
     }
-    
-    #view-controls button {
-        padding: var(--space-1-5) var(--space-3);
-        font-size: var(--font-size-sm);
-    }
-    
-    .preview-container-reload-btn {
-        padding: var(--space-1) var(--space-2);
-    }
-}
-
-/* Theme-aware styling is now handled by CSS custom properties */ 
+} 

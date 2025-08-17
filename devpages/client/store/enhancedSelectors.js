@@ -69,19 +69,33 @@ export const getIsAuthenticatedAndChecked = createMemoizedSelector(
 export const getFileState = createMemoizedSelector(
     (state) => {
         const file = state.file || {};
+        const currentFile = file.currentFile || {};
+        const path = state.path || {};
+        
         return {
-            currentPathname: file.currentPathname || '',
-            isDirectorySelected: file.isDirectorySelected || false,
-            currentListing: file.currentListing || null,
-            parentListing: file.parentListing || null,
-            availableTopLevelDirs: file.availableTopLevelDirs || [],
+            // Get path info from path slice (source of truth for navigation)
+            isDirectorySelected: path.isDirectorySelected || false,
+            currentListing: path.currentListing || null,
+            parentListing: path.parentListing || null,
+            availableTopLevelDirs: path.availableTopLevelDirs || [],
+            
+            // Get file-specific info from file slice
             error: file.error || null,
-            isSaving: file.isSaving || false,
-            isLoading: file.isLoading || false,
-            content: file.content || ''
+            content: currentFile.content || '',
+            isModified: currentFile.isModified || false,
+            
+            // Include currentFile for backward compatibility
+            currentFile: currentFile,
+            
+            // COMBINED PATH INFO: Use file.currentFile.pathname as primary, fallback to path.currentPathname
+            currentPathname: currentFile.pathname || path.currentPathname || '',
+            
+            // STATUS INFO: Map file slice status to legacy boolean properties
+            isSaving: file.status === 'loading',
+            isLoading: file.status === 'loading'
         };
     },
-    (state) => state.file // Only recompute when file slice changes
+    (state) => `${state.file?.status}-${state.file?.currentFile?.pathname}-${state.path?.currentPathname}-${state.path?.isDirectorySelected}` // Recompute when relevant parts change
 );
 
 /**
@@ -156,7 +170,7 @@ export const getEditorState = createMemoizedSelector(
         
         return {
             content: editor.content || fileInfo.content || '',
-            isDirty: editor.isDirty || false,
+            isModified: editor.isModified || false,
             isReadOnly: !authState.isAuthenticated,
             canEdit: authState.isAuthenticated && fileInfo.isFile,
             currentFile: fileInfo.path,
@@ -164,7 +178,7 @@ export const getEditorState = createMemoizedSelector(
             isSaving: fileInfo.isSaving
         };
     },
-    (state) => `${state.editor?.content}-${state.editor?.isDirty}-${state.auth?.isAuthenticated}-${state.file?.currentPathname}`
+    (state) => `${state.editor?.content}-${state.editor?.isModified}-${state.auth?.isAuthenticated}-${state.file?.currentPathname}`
 );
 
 // ===== ENHANCED PREVIEW SELECTORS =====
@@ -225,16 +239,18 @@ export const getPanelLayoutState = createMemoizedSelector(
         const file = getCurrentFileInfo(state);
         
         return {
-            showEditor: auth.isAuthenticated && file.isFile,
-            showPreview: !!file.path,
+            showEditor: auth.isAuthenticated && file.isFile && ui.editorVisible,
+            showPreview: !!file.path && ui.previewVisible,
             showFileBrowser: auth.isAuthenticated,
             showLog: ui.logVisible,
-            showSidebar: ui.sidebarVisible,
+            showSidebar: ui.leftSidebarVisible,
             viewMode: ui.viewMode,
-            canEdit: auth.isAuthenticated
+            canEdit: auth.isAuthenticated,
+            editorVisible: ui.editorVisible,
+            previewVisible: ui.previewVisible
         };
     },
-    (state) => `${state.auth?.isAuthenticated}-${state.file?.currentPathname}-${state.ui?.viewMode}-${state.ui?.leftSidebarVisible}`
+    (state) => `${state.auth?.isAuthenticated}-${state.file?.currentPathname}-${state.ui?.viewMode}-${state.ui?.leftSidebarVisible}-${state.ui?.editorVisible}-${state.ui?.previewVisible}`
 );
 
 // ===== UTILITY FUNCTIONS =====

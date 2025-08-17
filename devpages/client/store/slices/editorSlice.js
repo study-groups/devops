@@ -22,7 +22,7 @@ const editorSlice = createSlice({
             state.content = action.payload;
             state.isModified = true;
         },
-        setDirty: (state, action) => {
+        setModified: (state, action) => {
             state.isModified = action.payload;
         },
         setCursorPosition: (state, action) => {
@@ -42,6 +42,6 @@ const editorSlice = createSlice({
 });
 
 // ✅ MODERNIZED: Export RTK slice actions and reducer
-export const { setContent, setDirty, setCursorPosition, markSaved, resetEditor } = editorSlice.actions;
+export const { setContent, setModified, setCursorPosition, markSaved, resetEditor } = editorSlice.actions;
 export const editorReducer = editorSlice.reducer;
 export default editorReducer;

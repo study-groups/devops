@@ -6,7 +6,7 @@
 import { appStore } from '/client/appState.js';
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { uploadImage } from '/client/image/imageManager.js';
-import { setContent, setDirty } from '/client/store/slices/editorSlice.js';
+import { setContent, setModified } from '/client/store/slices/editorSlice.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
 import { debounce } from '/client/utils/debounce.js';
 import { getEditorState, getAuthState } from '/client/store/enhancedSelectors.js';
@@ -177,7 +177,7 @@ export class EditorPanel extends BasePanel {
     handleInput() {
         const content = this.textarea.value;
         appStore.dispatch(setContent(content));
-        appStore.dispatch(setDirty(true));
+        appStore.dispatch(setModified(true));
         this.debouncedRender(content);
     }
 }

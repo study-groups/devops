@@ -31,7 +31,7 @@ const persistUIState = (state) => {
             logHeight: state.logHeight,
             logMenuVisible: state.logMenuVisible,
             leftSidebarVisible: state.leftSidebarVisible,
-            textVisible: state.textVisible,
+            editorVisible: state.editorVisible,
             previewVisible: state.previewVisible,
             contextManagerVisible: state.contextManagerVisible,
             colorScheme: state.colorScheme,
@@ -60,7 +60,7 @@ const defaultUIState = {
     logHeight: 120,             // pixels
     logMenuVisible: false,
     leftSidebarVisible: false,
-    textVisible: true,
+    editorVisible: true,
     previewVisible: true,
     contextManagerVisible: true, // PathManager should ALWAYS be visible
     colorScheme: 'system',      // 'light', 'dark', 'system'
@@ -87,8 +87,12 @@ const uiSlice = createSlice({
             console.log('[uiSlice] toggleLogVisibility new state:', state.logVisible);
             persistUIState(state);
         },
-        toggleTextVisibility: (state) => {
-            state.textVisible = !state.textVisible;
+        toggleEditorVisibility: (state) => {
+            state.editorVisible = !state.editorVisible;
+            persistUIState(state);
+        },
+        togglePreviewVisibility: (state) => {
+            state.previewVisible = !state.previewVisible;
             persistUIState(state);
         },
         toggleContextManager: (state) => {

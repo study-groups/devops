@@ -3,10 +3,25 @@
  * Handles persistence/loading of the filesystem context, prioritizing URL parameters.
  */
 import { pathJoin } from '/client/utils/pathUtils.js'; // Assuming path utils exist
-import { loadLastOpened } from '/client/store/reducers/fileReducer.js';
+// Legacy fileReducer.js no longer exists - implement loadLastOpened locally
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('FileSystemState');
+
+/**
+ * Load last opened file from localStorage (replaces legacy fileReducer function)
+ */
+function loadLastOpened() {
+    try {
+        const saved = localStorage.getItem('devpages_lastOpened');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (error) {
+        console.warn('[FileSystemState] Failed to load last opened from localStorage:', error);
+    }
+    return null;
+}
 
 // We might not store anything here anymore if URL is the primary source
 // const STATE_KEY = 'devpages_fsState'; // Keep key if needed for other settings later
@@ -36,7 +51,7 @@ export function loadState() {
         
         // If no URL parameter, try to restore from localStorage
         const lastOpened = loadLastOpened();
-        if (lastOpened.pathname) {
+        if (lastOpened && lastOpened.pathname) {
             console.log(`[FileSystemState] No URL parameter, restored from localStorage: "${lastOpened.pathname}" (${lastOpened.isDirectory ? 'directory' : 'file'})`);
             return {
                 initialPathname: lastOpened.pathname,

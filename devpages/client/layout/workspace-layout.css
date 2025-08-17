@@ -401,6 +401,16 @@
     flex-direction: column;
 }
 
+/* Hide editor when editor visibility is false */
+.workspace-editor[data-editor-visible="false"] {
+    display: none !important;
+}
+
+/* Hide left resizer when editor is hidden */
+.workspace-editor[data-editor-visible="false"] + .workspace-resizer {
+    display: none !important;
+}
+
 /* Preview: Output, rendered content display */
 .workspace-preview {
     flex: 0 0 250px; /* Initial width */
@@ -408,6 +418,17 @@
     max-width: 500px;
     background: var(--color-bg-alt);
     border-left: 1px solid var(--color-border);
+}
+
+/* Hide preview when preview visibility is false */
+.workspace-preview[data-preview-visible="false"] {
+    display: none !important;
+}
+
+/* Hide right resizer when preview is hidden */
+.workspace-preview[data-preview-visible="false"] + .workspace-resizer,
+#resizer-right[data-preview-visible="false"] {
+    display: none !important;
 }
 
 .workspace-resizer.vertical {

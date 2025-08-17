@@ -411,36 +411,19 @@ export class CleanPanelAutoLoader {
             keyboardShortcuts.set(shortcut, id);
         });
 
-        document.addEventListener('keydown', (event) => {
-            const parts = [];
-            if (event.ctrlKey || event.metaKey) parts.push('ctrl');
-            if (event.shiftKey) parts.push('shift');
-            if (event.altKey) parts.push('alt');
-            parts.push(event.key.toLowerCase());
-
-            const shortcut = parts.join('+');
-
-            if (keyboardShortcuts.has(shortcut)) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const panelId = keyboardShortcuts.get(shortcut);
-                const panelInfo = this.panels.find(p => p.id === panelId);
-
-                if (panelInfo) {
-                    const panelElement = panelInfo.panel.element;
-                    if (panelElement) {
-                        const isVisible = panelElement.style.display !== 'none';
-                        panelElement.style.display = isVisible ? 'none' : 'block';
-
-                        console.log(`[CleanPanelAutoLoader] 🎯 ${shortcut} -> ${panelId} (${isVisible ? 'hidden' : 'shown'})`);
-                    }
-                }
-            }
-        });
+        // DISABLED: Keyboard shortcuts now handled by centralized KeyboardShortcutManager
+        // This prevents conflicts with the main keyboard shortcut system
+        
+        // Register this loader with the global keyboard manager for panel access
+        if (window.keyboardShortcutManager) {
+            window.autoCleanPanelsLoader = this;
+            console.log('[CleanPanelAutoLoader] ✅ Registered with centralized KeyboardShortcutManager');
+        } else {
+            console.log('[CleanPanelAutoLoader] ⚠️ KeyboardShortcutManager not available, shortcuts delegated');
+        }
 
         this.keyboardShortcuts = keyboardShortcuts;
-        console.log(`[CleanPanelAutoLoader] ✅ Set up ${keyboardShortcuts.size} keyboard shortcuts`);
+        console.log(`[CleanPanelAutoLoader] ✅ Keyboard shortcuts delegated to centralized system (${keyboardShortcuts.size} shortcuts)`);
     }
 
     /**
