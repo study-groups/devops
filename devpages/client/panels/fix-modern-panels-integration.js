@@ -120,20 +120,6 @@
             };
         }
         
-        // Load CSS files
-        const loadCSS = (href) => {
-            if (!document.querySelector(`link[href="${href}"]`)) {
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = href;
-                document.head.appendChild(link);
-                console.log(`📄 Loaded CSS: ${href}`);
-            }
-        };
-        
-        loadCSS('/client/panels/modern-panels.css');
-        loadCSS('/client/panels/modern-context-panel.css');
-        
         // Create a simplified ModernBasePanel that works with window.APP
         class SimpleModernPanel {
             constructor(config) {

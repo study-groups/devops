@@ -22,6 +22,20 @@ import { cliReducer } from './slices/cliSlice.js';
 import { shortcutReducer } from './slices/shortcutSlice.js';
 import { fileReducer } from './slices/fileSlice.js';
 import { contextSettingsReducer } from './slices/contextSettingsSlice.js';
+import { combineReducers } from 'redux';
+import { undoable } from '../enhancers/undoable.js';
+import { appSettingsReducer } from './reducers/appSettings.js';
+import panelMetadataReducer from './reducers/panelMetadata.js';
+import panelSizesReducer from '../redux/panelSizes.js'; // Import the new reducer
+
+// Combine all reducers into a single root reducer
+const rootReducer = combineReducers({
+    appSettings: appSettingsReducer,
+    panelMetadata: undoable(panelMetadataReducer),
+    panelSizes: panelSizesReducer, // Add the new reducer to the root reducer
+});
+
+export default rootReducer;
 
 // Remove legacy localStorage keys that are now managed by the log slice
 const LOG_VISIBLE_KEY = 'logVisible';

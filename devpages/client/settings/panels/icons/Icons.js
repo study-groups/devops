@@ -39,7 +39,6 @@ export class Icons {
             }, {})
         });
         
-        this.loadCSS();
         this.createPanelContent(parentElement);
 
         // Defer listener attachment and initialization
@@ -71,19 +70,6 @@ export class Icons {
         this.enforceCustomIcons();
         
         log.info('PANEL_INIT', 'INITIALIZED', 'IconsPanel initialized');
-    }
-
-    loadCSS() {
-        const cssId = 'icons-panel-styles';
-        if (!document.getElementById(cssId)) {
-            const link = document.createElement('link');
-            link.id = cssId;
-            link.rel = 'stylesheet';
-            link.type = 'text/css';
-            link.href = '/client/settings/panels/icons/IconsPanel.css';
-            document.head.appendChild(link);
-            log.info('PANEL_INIT', 'CSS_LOADED', 'Loaded IconsPanel.css');
-        }
     }
 
     createPanelContent(parentElement) {

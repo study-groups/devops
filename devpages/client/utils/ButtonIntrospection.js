@@ -23,6 +23,7 @@ class ButtonIntrospectionSystem {
         
         // Log system initialization
         logMessage('Button Introspection System initialized - Shift+Click any button for debug info', 'info', 'INTROSPECTION');
+        logMessage('🔧 Debug interface: Type APP.debug.help() in console for system commands', 'info', 'INTROSPECTION');
     }
 
     handleShiftClick(event) {

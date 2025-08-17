@@ -8,6 +8,7 @@ const router = express.Router();
 const CSS_BUNDLES = {
     core: [
         'client/styles/reset.css',
+        'client/styles/preview/core.css', // Added for unified loading
         'client/styles/design-system.css',    // LEGACY: Load first so ui-system can override
         'client/styles/typography.css',
         'client/styles/components-base.css',
@@ -17,8 +18,9 @@ const CSS_BUNDLES = {
     ],
     layout: [
         'client/layout/workspace-layout.css',
-        'client/components/topBar.css',
-        'client/components/auth-display.css'
+        'client/styles/top-bar-minimal.css',
+        'client/components/auth-display.css',
+        'client/styles/resizable.css'
     ],
     features: [
         'client/log/log.css',

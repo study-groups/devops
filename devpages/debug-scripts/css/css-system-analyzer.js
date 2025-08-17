@@ -574,120 +574,6 @@ window.fixButtonHover = function() {
     console.log('✅ Button hover fix applied');
 };
 
-window.fixUISystemCSS = function() {
-    // Check if ui-system.css is already loaded
-    const existingLink = document.querySelector('link[href*="ui-system.css"]');
-    if (existingLink) {
-        console.log('✅ ui-system.css already loaded');
-    } else {
-        // Load ui-system.css directly
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = '/client/styles/ui-system.css';
-        link.id = 'ui-system-css-fix';
-        document.head.appendChild(link);
-        console.log('✅ ui-system.css loaded directly');
-    }
-    
-    // Create a more robust fix with higher specificity
-    const style = document.createElement('style');
-    style.id = 'ui-system-css-override';
-    style.textContent = `
-        /* Force ui-system styles with high specificity */
-        button.btn.btn-ghost,
-        .btn.btn-ghost {
-            background-color: transparent !important;
-            border-color: transparent !important;
-            color: var(--color-fg-alt) !important;
-            transition: all 0.15s ease !important;
-        }
-        
-        button.btn.btn-ghost:hover,
-        .btn.btn-ghost:hover {
-            background-color: var(--color-bg-alt) !important;
-            border-color: var(--color-border-hover) !important;
-            color: var(--color-fg) !important;
-            transform: translateY(-1px) !important;
-        }
-        
-        button.btn.btn-ghost:active,
-        .btn.btn-ghost:active {
-            background-color: var(--color-bg-active) !important;
-            border-color: transparent !important;
-            transform: translateY(0) !important;
-        }
-        
-        /* Specific fix for preview button */
-        #preview-toggle.btn.btn-ghost {
-            background-color: transparent !important;
-            border-color: transparent !important;
-        }
-        
-        #preview-toggle.btn.btn-ghost:hover {
-            border: 1px solid var(--color-border-hover) !important;
-            background-color: var(--color-bg-alt) !important;
-        }
-        
-        /* Ensure CSS variables are defined */
-        :root {
-            --color-bg-alt: rgba(0, 0, 0, 0.05) !important;
-            --color-border-hover: rgba(0, 0, 0, 0.2) !important;
-            --color-bg-active: rgba(0, 0, 0, 0.1) !important;
-            --color-fg-alt: rgba(0, 0, 0, 0.7) !important;
-            --color-fg: rgba(0, 0, 0, 0.9) !important;
-        }
-        
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --color-bg-alt: rgba(255, 255, 255, 0.05) !important;
-                --color-border-hover: rgba(255, 255, 255, 0.2) !important;
-                --color-bg-active: rgba(255, 255, 255, 0.1) !important;
-                --color-fg-alt: rgba(255, 255, 255, 0.7) !important;
-                --color-fg: rgba(255, 255, 255, 0.9) !important;
-            }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    console.log('✅ ui-system CSS override applied with high specificity and hover support');
-    
-    // Verify it loaded
-    setTimeout(() => {
-        const testElement = document.createElement('div');
-        testElement.className = 'btn btn-ghost';
-        testElement.style.position = 'absolute';
-        testElement.style.left = '-9999px';
-        document.body.appendChild(testElement);
-        
-        const computed = getComputedStyle(testElement);
-        const hasGhostStyles = computed.backgroundColor === 'rgba(0, 0, 0, 0)' || 
-                              computed.backgroundColor === 'transparent';
-        
-        console.log('🔍 ui-system.css verification:', {
-            loaded: hasGhostStyles,
-            backgroundColor: computed.backgroundColor,
-            borderColor: computed.borderColor,
-            color: computed.color,
-            transition: computed.transition
-        });
-        
-        // Test the actual preview button
-        const previewButton = document.getElementById('preview-toggle');
-        if (previewButton) {
-            const previewComputed = getComputedStyle(previewButton);
-            console.log('🔍 Preview button verification:', {
-                backgroundColor: previewComputed.backgroundColor,
-                borderColor: previewComputed.borderColor,
-                classes: previewButton.className,
-                transition: previewComputed.transition
-            });
-        }
-        
-        document.body.removeChild(testElement);
-    }, 200);
-};
-
 window.testButtonHover = function() {
     console.log('🧪 Testing button hover behavior...');
     
@@ -844,7 +730,6 @@ setTimeout(() => {
     console.log('\n💡 Available functions:');
     console.log('- window.cssAnalysis (full analysis results)');
     console.log('- fixButtonHover() (fix button hover issues)');
-    console.log('- fixUISystemCSS() (load ui-system.css directly)');
     console.log('- testButtonHover() (test hover behavior)');
     console.log('- diagnoseCSSConflicts() (find conflicting CSS rules)');
     console.log('- fixZIndexConflicts() (fix z-index conflicts)');

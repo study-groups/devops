@@ -9,17 +9,6 @@ import { PanelMigrationHelper } from './PanelMigrationHelper.js';
 import { BasePanel } from './BasePanel.js';
 import { ContextPanel } from './ContextPanel.js';
 
-// Load CSS for modern panels
-const modernPanelCSS = document.createElement('link');
-modernPanelCSS.rel = 'stylesheet';
-modernPanelCSS.href = '/client/panels/modern-panels.css';
-document.head.appendChild(modernPanelCSS);
-
-const modernContextCSS = document.createElement('link');
-modernContextCSS.rel = 'stylesheet';
-modernContextCSS.href = '/client/panels/modern-context-panel.css';
-document.head.appendChild(modernContextCSS);
-
 /**
  * Demo: Create a simple modern panel
  */

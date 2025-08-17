@@ -95,7 +95,6 @@ export class HtmlPanel extends BasePanel {
      */
     async onMount() {
         await super.onMount();
-        this.loadCSS();
         this.log('[PANEL_DEBUG] HtmlPanel onMount hook executed.', 'debug');
 
         // Get the HTML container

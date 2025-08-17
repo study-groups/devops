@@ -156,24 +156,6 @@ export class HighlightPlugin extends BasePlugin {
   }
 
   /**
-   * Load CSS file
-   * @private
-   */
-  async _loadCSS(url) {
-    if (document.querySelector(`link[href="${url}"]`)) {
-      log.warn('HIGHLIGHT', 'CSS_ALREADY_LOADED', 'CSS already loaded, skipping');
-      return;
-    }
-
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = url;
-    link.id = 'highlight-theme-css';
-    document.head.appendChild(link);
-    log.info('HIGHLIGHT', 'CSS_LINK_ADDED', `CSS link added: ${url}`);
-  }
-
-  /**
    * Load script file
    * @private
    */

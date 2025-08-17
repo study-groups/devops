@@ -103,17 +103,6 @@
         
         // Load CSS files
         console.log('🎨 Loading CSS files...');
-        const loadCSS = (href) => {
-            if (!document.querySelector(`link[href="${href}"]`)) {
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = href;
-                document.head.appendChild(link);
-            }
-        };
-        
-        loadCSS('/client/panels/modern-panels.css');
-        loadCSS('/client/panels/modern-context-panel.css');
         
         // Import the modern panel modules
         console.log('📦 Importing modern panel modules...');

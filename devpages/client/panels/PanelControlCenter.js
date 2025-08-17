@@ -480,19 +480,6 @@ export class PanelControlCenter extends BasePanel {
     }
 
     /**
-     * Load external CSS for the control center
-     */
-    loadControlCenterCSS() {
-        // Check if CSS is already loaded
-        if (document.querySelector('link[href*="panels.css"]')) return;
-
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = '/client/panels/styles/panels.css';
-        document.head.appendChild(link);
-    }
-
-    /**
      * Cleanup
      */
     destroy() {

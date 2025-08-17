@@ -52,26 +52,8 @@ export class SettingsPanel {
         // Add event listeners
         this.attachEventListeners();
         
-        // Load the CSS
-        this.loadCSS();
-        
         this.log.info('RENDER', 'Settings panel DOM created');
         return this.element;
-    }
-
-    /**
-     * Load CSS styles for the settings panel
-     */
-    loadCSS() {
-        const cssPath = '/client/settings/core/settings.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            link.onload = () => this.log.info('CSS', 'Settings CSS loaded');
-            link.onerror = () => this.log.error('CSS', 'Failed to load settings CSS');
-            document.head.appendChild(link);
-        }
     }
 
     /**

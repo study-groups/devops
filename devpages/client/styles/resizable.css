@@ -1,0 +1,61 @@
+/*
+ * resizable.css
+ *
+ * Defines the styles for the resizable panels and scrollbars
+ * to ensure a consistent look and feel with the application's color scheme.
+ */
+
+.resizer {
+    background-color: transparent;
+    cursor: ew-resize;
+    height: 100%;
+    width: 4px;
+    z-index: 100;
+    display: block;
+    flex: 0 0 4px;
+    opacity: 1;
+    visibility: visible;
+}
+
+.resizer:hover {
+    background-color: var(--accent-color, #999);
+}
+
+/* Ensure panels respect width changes */
+#workspace-sidebar {
+    flex: 0 0 auto;
+    min-width: 3em;
+    max-width: 30%;
+}
+
+#workspace-preview {
+    flex: 0 0 auto;
+    min-width: 10%;
+    max-width: 100%;
+}
+
+#workspace-editor {
+    flex: 1 1 auto;
+    min-width: 5rem;
+    max-width: 100%;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
+    border: 2px solid var(--background-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-color);
+}

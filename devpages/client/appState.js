@@ -74,13 +74,13 @@ let dispatch;
  * Initializes the Redux store. This function should only be called once.
  * It loads the persisted state from localStorage and applies all middleware.
  */
-function initializeStore() {
+function initializeStore(preloadedState = undefined) {
     if (appStore) {
         console.warn('[AppState] Store already initialized.');
         return { appStore, dispatch };
     }
 
-    const preloadedState = undefined; // CORRECT: Load persisted state
+    // Use provided preloadedState or undefined
     const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
     
     // CORRECT: Apply the new, robust persistence middleware + RTK Query middleware

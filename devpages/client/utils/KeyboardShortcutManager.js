@@ -22,6 +22,9 @@ class KeyboardShortcutManager {
         
         // Register default shortcuts
         this.registerDefaultShortcuts();
+
+        // Expose the debug interface so it's available immediately
+        this.exposeDebugInterface();
         
         logMessage('Keyboard Shortcut Manager initialized', 'info', 'SHORTCUTS');
     }
@@ -175,7 +178,7 @@ class KeyboardShortcutManager {
         if (event.metaKey) parts.push('meta');
         
         // Add the main key
-        let key = event.key.toLowerCase();
+        let key = event.key ? event.key.toLowerCase() : '';
         
         // Handle special keys
         if (key === ' ') key = 'space';
@@ -203,6 +206,182 @@ class KeyboardShortcutManager {
         logMessage('', 'info', 'SHORTCUTS');
         logMessage('💡 TIP: Use Ctrl+Shift+I to toggle button introspection', 'info', 'SHORTCUTS');
         logMessage('💡 TIP: Shift+Click any button for detailed debug info', 'info', 'SHORTCUTS');
+        logMessage('🔧 TIP: Type APP.debug.help() in console for system commands', 'info', 'SHORTCUTS');
+    }
+
+    // System-wide debug interface
+    exposeDebugInterface() {
+        // Ensure APP object exists
+        if (!window.APP) window.APP = {};
+        
+        if (!window.APP.debug) {
+            window.APP.debug = {
+                help: () => {
+                    console.log(`
+🔧 DEBUG SYSTEM COMMANDS:
+=========================
+APP.debug.shortcuts()     - Show all keyboard shortcuts
+APP.debug.buttons()        - List all buttons with actions  
+APP.debug.redux()          - Show Redux store state
+APP.debug.panels()         - Show panel system status
+APP.debug.css()            - Analyze CSS loading issues
+APP.debug.health()         - System health check
+APP.debug.export()         - Export debug data
+
+🎹 KEYBOARD SHORTCUTS:
+=====================
+Ctrl+Shift+D          - Debug panel
+Ctrl+Shift+S          - Settings panel
+Ctrl+Shift+I          - Toggle button introspection
+Shift+Click           - Inspect any button
+                    `);
+                },
+
+                shortcuts: () => {
+                    if (window.keyboardShortcutManager) {
+                        window.keyboardShortcutManager.showDebugInfo();
+                    } else {
+                        console.log('❌ KeyboardShortcutManager not available');
+                    }
+                },
+
+                buttons: () => {
+                    const buttons = document.querySelectorAll('button, .btn, [role="button"]');
+                    console.log(`🔍 Found ${buttons.length} buttons:`);
+                    buttons.forEach((btn, i) => {
+                        const id = btn.id || `button-${i}`;
+                        const action = btn.dataset.action || 'no-action';
+                        const text = btn.textContent?.trim() || 'no-text';
+                        console.log(`  ${i + 1}. #${id} | ${action} | "${text}"`);
+                    });
+                },
+
+                redux: () => {
+                    const state = window.keyboardShortcutManager?.getReduxState?.() || 
+                                 (window.APP?.store?.getState ? window.APP.store.getState() : null);
+                    if (state) {
+                        console.log('🏪 Redux State Keys:', Object.keys(state));
+                        console.log('📊 Full State:', state);
+                    } else {
+                        console.log('❌ Redux store not available');
+                    }
+                },
+
+                panels: () => {
+                    console.log('🗂️ Panel Systems Status:');
+                    console.log('  Auto Clean Panels:', !!window.autoCleanPanelsLoader);
+                    console.log('  Modern Panel Integration:', !!window.modernPanelIntegration);
+                    console.log('  Simplified Workspace:', !!window.APP?.workspace?.simplified);
+                    console.log('  Button Introspection:', !!window.buttonIntrospection);
+                },
+
+                css: () => {
+                    console.log('🎨 CSS LOADING ANALYSIS:');
+                    console.log('========================');
+                    
+                    // Get all stylesheet links
+                    const stylesheets = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+                    const preloads = Array.from(document.querySelectorAll('link[rel="preload"][as="style"]'));
+                    
+                    console.log(`📊 Total Stylesheets: ${stylesheets.length}`);
+                    console.log(`📊 Total Preloads: ${preloads.length}`);
+                    
+                    // Categorize stylesheets
+                    const bundles = stylesheets.filter(link => link.href.includes('bundle.css'));
+                    const individual = stylesheets.filter(link => !link.href.includes('bundle.css'));
+                    
+                    console.log('\n🎯 BUNDLES:');
+                    bundles.forEach(link => {
+                        const name = link.href.split('/').pop();
+                        const loaded = link.sheet ? '✅' : '❌';
+                        console.log(`  ${loaded} ${name}`);
+                    });
+                    
+                    console.log('\n📄 INDIVIDUAL FILES:');
+                    individual.forEach(link => {
+                        const name = link.href.split('/').pop();
+                        const loaded = link.sheet ? '✅' : '❌';
+                        const bundled = this.isFileBundled(name);
+                        const warning = bundled ? ' ⚠️ DUPLICATE (also in bundle)' : '';
+                        console.log(`  ${loaded} ${name}${warning}`);
+                    });
+                    
+                    console.log('\n🔍 PRELOADS:');
+                    preloads.forEach(link => {
+                        const name = link.href.split('/').pop();
+                        const used = stylesheets.some(s => s.href === link.href);
+                        const status = used ? '✅ USED' : '❌ UNUSED';
+                        console.log(`  ${status} ${name}`);
+                    });
+                    
+                    // Check for potential issues
+                    const issues = [];
+                    if (individual.some(link => this.isFileBundled(link.href.split('/').pop()))) {
+                        issues.push('Duplicate loading detected (files loaded both individually and in bundles)');
+                    }
+                    if (preloads.some(link => !stylesheets.some(s => s.href === link.href))) {
+                        issues.push('Unused preloads detected');
+                    }
+                    
+                    if (issues.length > 0) {
+                        console.log('\n⚠️ ISSUES FOUND:');
+                        issues.forEach(issue => console.log(`  • ${issue}`));
+                    } else {
+                        console.log('\n✅ No CSS loading issues detected');
+                    }
+                },
+
+                health: () => {
+                    console.log('🏥 System Health Check:');
+                    const checks = {
+                        'Keyboard Shortcuts': !!window.keyboardShortcutManager,
+                        'Button Introspection': !!window.buttonIntrospection,
+                        'Redux Store': !!(window.APP?.store?.getState),
+                        'Panel Systems': !!(window.autoCleanPanelsLoader || window.modernPanelIntegration),
+                        'Log System': !!window.APP?.services?.log
+                    };
+                    
+                    Object.entries(checks).forEach(([system, healthy]) => {
+                        console.log(`  ${healthy ? '✅' : '❌'} ${system}`);
+                    });
+                },
+
+                export: () => {
+                    const debugData = {
+                        timestamp: new Date().toISOString(),
+                        shortcuts: window.keyboardShortcutManager?.getShortcuts() || [],
+                        buttonsCount: document.querySelectorAll('button').length,
+                        systemHealth: {
+                            keyboardShortcuts: !!window.keyboardShortcutManager,
+                            buttonIntrospection: !!window.buttonIntrospection,
+                            reduxStore: !!(window.APP?.store?.getState),
+                            panelSystems: !!(window.autoCleanPanelsLoader || window.modernPanelIntegration)
+                        }
+                    };
+                    
+                    console.log('📤 Debug Data Export:', debugData);
+                    return debugData;
+                }
+            };
+            
+            console.log('🔧 Debug interface available! Type APP.debug.help() for commands');
+        }
+    }
+
+    // Helper method for CSS analysis
+    isFileBundled(filename) {
+        // Files that are included in bundles
+        const bundledFiles = [
+            'design-system.css', 'typography.css', 'components-base.css', 
+            'utilities.css', 'icons.css', 'ui-system.css',  // core bundle
+            'workspace-layout.css', 'topBar.css', 'auth-display.css',  // layout bundle
+            'log.css', 'file-browser.css', 'dom-inspector-core.css', 
+            'context-manager.css', 'splash-screen.css', 'viewControls.css',  // features bundle
+            'settings.css', 'BasePanel.css', 'EditorPanel.css', 'PreviewPanel.css',
+            'JavaScriptPanel.css', 'HtmlPanel.css', 'scrollbars.css', 'subpanel.css'  // panels bundle
+        ];
+        
+        return bundledFiles.some(bundled => filename.includes(bundled));
     }
 
     handleDebugPanel() {
@@ -314,10 +493,13 @@ class KeyboardShortcutManager {
 // Create global instance
 const keyboardShortcutManager = new KeyboardShortcutManager();
 
+// Initialize immediately
+keyboardShortcutManager.init();
+
 // Export for use in other modules
 export { keyboardShortcutManager };
 
 // Make available globally for console access
 window.keyboardShortcutManager = keyboardShortcutManager;
 
-logMessage('🎹 Keyboard Shortcut Manager loaded', 'info', 'SHORTCUTS');
+logMessage('🎹 Keyboard Shortcut Manager loaded and initialized', 'info', 'SHORTCUTS');

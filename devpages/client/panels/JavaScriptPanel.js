@@ -48,20 +48,6 @@ export class JavaScriptPanel extends BasePanel {
     }
 
     /**
-     * Dynamically load the panel's CSS
-     */
-    loadCSS() {
-        const cssPath = '/client/panels/styles/JavaScriptPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            document.head.appendChild(link);
-            this.log('JavaScriptPanel CSS loaded.', 'info');
-        }
-    }
-
-    /**
      * Render panel content
      */
     renderContent() {
@@ -95,7 +81,6 @@ export class JavaScriptPanel extends BasePanel {
      */
     async onMount() {
         await super.onMount();
-        this.loadCSS();
         this.log('[PANEL_DEBUG] JavaScriptPanel onMount hook executed.', 'debug');
 
         // Get the JavaScript container and elements

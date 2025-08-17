@@ -33,25 +33,17 @@ export class CssOptimizer {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = href;
-            link.media = critical ? 'all' : 'print';
+            link.media = 'all';
             
-            if (!critical) {
-                link.onload = () => {
-                    link.media = media;
-                    this.loadedFiles.add(href);
-                    this.loadingPromises.delete(href);
-                    resolve();
-                };
-                link.onerror = () => {
-                    this.loadingPromises.delete(href);
-                    reject(new Error(`Failed to load CSS: ${href}`));
-                };
-            } else {
-                // Critical CSS loads immediately
+            link.onload = () => {
                 this.loadedFiles.add(href);
                 this.loadingPromises.delete(href);
                 resolve();
-            }
+            };
+            link.onerror = () => {
+                this.loadingPromises.delete(href);
+                reject(new Error(`Failed to load CSS: ${href}`));
+            };
 
             document.head.appendChild(link);
         });

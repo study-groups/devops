@@ -328,8 +328,7 @@ async function reloadAllCssSilent() {
             return new Promise((linkResolve) => {
                 const originalHref = link.getAttribute('href');
                 if (originalHref) {
-                    const separator = originalHref.includes('?') ? '&' : '?';
-                    const newHref = `${originalHref}${separator}t=${timestamp}`;
+                    const newHref = originalHref.split('?')[0] + `?t=${timestamp}`;
                     
                     const newLink = document.createElement('link');
                     newLink.rel = 'stylesheet';
@@ -359,7 +358,7 @@ async function reloadAllCssSilent() {
                         linkResolve();
                     };
                     
-                    link.parentNode.insertBefore(newLink, link);
+                    link.parentNode.insertBefore(newLink, link.nextSibling);
                 } else {
                     linkResolve();
                 }

@@ -24,7 +24,6 @@ export class PreviewSettingsPanel {
         if (this.initialized) return;
 
         try {
-            this.loadCSS();
             this.render();
             this.attachEventListeners();
             this.subscribeToState();
@@ -37,17 +36,6 @@ export class PreviewSettingsPanel {
         } catch (error) {
             log.error('PANEL_INIT', 'FAILED', `PreviewSettingsPanel initialization failed: ${error.message}`, error);
             this.container.innerHTML = '<p style="color: var(--color-warning, #f59e0b); background-color: var(--color-warning-background, #fff3cd); padding: 1rem; border-radius: 0.375rem; border: 1px solid var(--color-warning, #f59e0b);">Error loading preview settings.</p>';
-        }
-    }
-
-    loadCSS() {
-        const cssPath = '/client/settings/panels/preview/PreviewSettingsPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            document.head.appendChild(link);
-            log.info('PANEL_INIT', 'CSS_LOADED', 'PreviewSettingsPanel CSS loaded.');
         }
     }
 

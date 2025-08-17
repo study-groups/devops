@@ -23,19 +23,7 @@ export class PanelNavBar {
         this.storeUnsubscribe = null;
         this.currentContext = '';
         
-        this.loadCSS();
         this.subscribeToStore();
-    }
-
-    loadCSS() {
-        const cssId = 'panel-navbar-styles';
-        if (!document.getElementById(cssId)) {
-            const link = document.createElement('link');
-            link.id = cssId;
-            link.rel = 'stylesheet';
-            link.href = '/client/panels/core/PanelNavBar.css';
-            document.head.appendChild(link);
-        }
     }
 
     subscribeToStore() {

@@ -81,9 +81,6 @@ export function createFileSummaryDisplay(containerId) {
         element.id = 'file-summary-overlay';
         element.className = 'file-summary-overlay';
         
-        // Load CSS
-        loadCSS();
-
         // Subscribe to app state changes
         appStateUnsubscribe = appStore.subscribe(() => {
             const newState = appStore.getState();
@@ -127,21 +124,6 @@ export function createFileSummaryDisplay(containerId) {
 
         element = null;
         console.log('[FileSummaryDisplay] Unmounted overlay');
-    };
-
-    /**
-     * Load CSS for the component
-     */
-    const loadCSS = () => {
-        const cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.href = '/client/styles/fileSummaryDisplay.css';
-        cssLink.id = 'file-summary-display-css';
-        
-        if (!document.getElementById('file-summary-display-css')) {
-            document.head.appendChild(cssLink);
-            console.log('[FileSummaryDisplay] CSS loaded');
-        }
     };
 
     return {

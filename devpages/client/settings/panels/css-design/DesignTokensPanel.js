@@ -38,26 +38,12 @@ export class DesignTokensPanel extends BasePanel {
 
     async onMount(container) {
         super.onMount(container);
-        this.loadComponentCSS();
         await this.loadDesignTokens();
         this.attachEventListeners();
     }
 
     // REMOVED: Custom inline styles that override the beautiful original CSS
     
-    loadComponentCSS() {
-        // Load the beautiful original CSS file
-        const cssPath = '/client/settings/panels/css-design/DesignTokensPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            link.onload = () => console.log('[DesignTokensPanel] Beautiful CSS loaded successfully!');
-            link.onerror = () => console.error('[DesignTokensPanel] Failed to load CSS');
-            document.head.appendChild(link);
-        }
-    }
-
     attachEventListeners() {
         this.element.querySelector('#refresh-tokens').addEventListener('click', () => this.loadDesignTokens());
         this.element.querySelectorAll('.view-mode-btn').forEach(btn => {

@@ -19,12 +19,15 @@ import { DevToolsUtilities } from './modules/DevToolsUtilities.js';
 import { CacheManager } from './modules/CacheManager.js';
 
 // Ensure icons.css is loaded
+// This is now handled by the core.bundle.css
+/*
 const iconsLink = document.createElement('link');
 iconsLink.rel = 'stylesheet';
 iconsLink.href = '/client/styles/icons.css';
 if (!document.head.querySelector('link[href="/client/styles/icons.css"]')) {
     document.head.appendChild(iconsLink);
 }
+*/
 
 export class DevToolsPanel {
     static id = 'devtools-panel';

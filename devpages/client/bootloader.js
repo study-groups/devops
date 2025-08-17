@@ -34,6 +34,7 @@ const allComponentDefinitions = [
     { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: '/client/components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
     { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: '/client/components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
     { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: '/client/components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
+    { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: '/client/layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages resizable panels' },
     // Panel Components
     ...staticPanelDefinitions.map(p => ({
         ...p,
@@ -521,6 +522,7 @@ async function mountManagedComponent(componentDef, store) {
             // If the factory returns a service object, attach it to the global namespace
             if (componentDef.type === 'service' && component) {
                 window.APP.services[componentDef.name] = component;
+                log.info(`SERVICE_ATTACHED`, `Attached ${componentDef.name} service to window.APP.services.`);
             }
         }
         if (component) {

@@ -59,9 +59,19 @@ export class EditorPanel extends BasePanel {
         return contentWrapper;
     }
 
-    onMount(container) {
+    async onMount(container) {
         super.onMount(container);
-        this.loadCSS();
+
+        // Load CSS if not already loaded
+        // This is now handled by the panels.bundle.css
+        /*
+        if (!document.querySelector('link[href*="EditorPanel.css"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/client/panels/styles/EditorPanel.css';
+            document.head.appendChild(link);
+        }
+        */
 
         this.textarea = this.element.querySelector('.editor-textarea');
         if (this.textarea) {
@@ -108,16 +118,6 @@ export class EditorPanel extends BasePanel {
         const editorState = getEditorState(appStore.getState());
         if (this.textarea && this.textarea.value !== editorState.content) {
             this.textarea.value = editorState.content;
-        }
-    }
-
-    loadCSS() {
-        const cssPath = '/client/panels/styles/EditorPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            document.head.appendChild(link);
         }
     }
 

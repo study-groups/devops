@@ -80,6 +80,29 @@ triggerSidebarToggle()
 startClickInterception() // Monitor all clicks
 ```
 
+### 5. `resizer-debugger-fixed.js` ⭐ **RECOMMENDED**
+**Purpose:** Bulletproof resizer system analysis and debugging
+**Use Case:** When workspace panel resizers aren't working or visible
+**Key Features:**
+- DOM element detection and analysis
+- CSS rule inspection
+- JavaScript manager verification
+- Redux integration checking
+- Automatic issue detection and fixes
+- Guaranteed function availability
+
+**Usage:**
+```javascript
+// Copy the ENTIRE script into console, then use:
+APP.debug.resizer.analyze() // Run full analysis
+APP.debug.resizer.fixIssues() // Apply automatic fixes
+APP.debug.resizer.testVisually() // Highlight resizer elements
+APP.debug.resizer.report // Access full analysis data
+```
+
+### 5b. `resizer-debugger.js` (Original - may have issues)
+**Note:** Use `resizer-debugger-fixed.js` instead if you encounter function availability issues.
+
 ## 🔧 Common Debugging Workflow
 
 1. **Start with Redux State Inspector**
@@ -109,6 +132,14 @@ startClickInterception() // Monitor all clicks
    triggerSidebarToggle()
    ```
 
+5. **Debug Resizer System**
+   ```javascript
+   // Comprehensive resizer analysis and fixes
+   APP.debug.resizer.analyze()
+   APP.debug.resizer.fixIssues()
+   APP.debug.resizer.testVisually()
+   ```
+
 ## 🐛 Common Issues & Solutions
 
 ### Issue: Sidebar toggle button not working
@@ -132,6 +163,15 @@ startClickInterception() // Monitor all clicks
 - Element exists in DOM
 - CSS display/visibility properties
 - CSS classes are correct
+
+### Issue: Resizer panels not working
+**Scripts to use:** `resizer-debugger.js`
+**Check:**
+- Resizer elements exist in DOM
+- CSS cursor and styling applied
+- JavaScript manager initialized
+- Redux integration working
+- Event listeners attached
 
 ## 💡 Tips
 
