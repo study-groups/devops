@@ -1,0 +1,39 @@
+{
+  "timestamp": "2025-08-28T12:45:33.571Z",
+  "fixes": [
+    {
+      "type": "MANUAL_REVIEW_NEEDED",
+      "files": [
+        "client/keyboard/KeyboardShortcutManager.js",
+        "client/utils/KeyboardShortcutManager.js"
+      ],
+      "reason": "Both files contain substantial code"
+    },
+    {
+      "type": "MANUAL_REVIEW_NEEDED",
+      "files": [
+        "client/utils/ZIndexManager.js",
+        "redux/utils/ZIndexManager.js"
+      ],
+      "reason": "Both implementations are substantial"
+    },
+    {
+      "type": "DEPRECATED",
+      "file": "redux/components/PDataPanel.js",
+      "reason": "Moved to debug package, marked as deprecated"
+    },
+    {
+      "type": "MANUAL_REVIEW_NEEDED",
+      "issue": "Global APP conflicts",
+      "reason": "32 files setting window.APP - needs centralized initialization strategy",
+      "recommendation": "Create single APP initialization in bootloader.js"
+    }
+  ],
+  "backups": [
+    {
+      "original": "redux/components/PDataPanel.js",
+      "backup": "redux/components/PDataPanel.js.backup-1756385133565",
+      "reason": "Modified"
+    }
+  ]
+}

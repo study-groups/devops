@@ -12,6 +12,9 @@
     gap: 8px;
     background: var(--color-bg);
     padding: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100vh;
 }
 
 /* Panel Manager Header */
@@ -368,8 +371,8 @@
 /* Sidebar: Navigation, panels, tools */
 .workspace-sidebar {
     flex: 0 0 250px; /* Initial width */
-    min-width: 200px;
-    max-width: 500px;
+    min-width: 0px;
+    max-width: 100%;
     background: var(--color-bg-alt);
     border-right: 1px solid var(--color-border);
 }
@@ -414,8 +417,8 @@
 /* Preview: Output, rendered content display */
 .workspace-preview {
     flex: 0 0 250px; /* Initial width */
-    min-width: 200px;
-    max-width: 500px;
+    min-width: 0px;
+    max-width: 100%;
     background: var(--color-bg-alt);
     border-left: 1px solid var(--color-border);
 }

@@ -56,6 +56,22 @@ const authSlice = createSlice({
       const { token, expiresAt } = action.payload;
       state.token = token;
       state.tokenExpiresAt = expiresAt;
+
+      // Also persist this change
+      try {
+        const stateToPersist = {
+          isAuthenticated: state.isAuthenticated,
+          user: state.user,
+          token: state.token,
+          tokenExpiresAt: state.tokenExpiresAt,
+          isLoading: state.isLoading,
+          error: state.error,
+          authChecked: state.authChecked
+        };
+        localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
+      } catch (e) {
+        console.warn('[Auth] Failed to save auth state to localStorage:', e);
+      }
     },
     
     // Mark auth as checked (for initial load)
@@ -86,10 +102,16 @@ const authSlice = createSlice({
           
           // Store auth state in localStorage for persistence
           try {
-            localStorage.setItem('devpages_auth_state', JSON.stringify({
-              isAuthenticated: true,
-              user: action.payload.user
-            }));
+            const stateToPersist = {
+              isAuthenticated: state.isAuthenticated,
+              user: state.user,
+              token: state.token,
+              tokenExpiresAt: state.tokenExpiresAt,
+              isLoading: state.isLoading,
+              error: state.error,
+              authChecked: state.authChecked
+            };
+            localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
           } catch (e) {
             console.warn('[Auth] Failed to save auth state to localStorage:', e);
           }
@@ -131,34 +153,30 @@ const authSlice = createSlice({
         apiSlice.endpoints.getCurrentUser.matchFulfilled,
         (state, action) => {
           state.isLoading = false;
+          state.isAuthenticated = action.payload.isAuthenticated;
+          state.user = action.payload.user;
           state.authChecked = true;
-          
-          if (action.payload.isAuthenticated) {
-            state.isAuthenticated = true;
-            state.user = action.payload.user;
-            state.error = null;
-            
-            // Update localStorage
-            try {
-              localStorage.setItem('devpages_auth_state', JSON.stringify({
-                isAuthenticated: true,
-                user: action.payload.user
-              }));
-            } catch (e) {
-              console.warn('[Auth] Failed to save auth state to localStorage:', e);
-            }
-          } else {
-            state.isAuthenticated = false;
-            state.user = null;
-            state.token = null;
-            state.tokenExpiresAt = null;
-            
-            // Clear localStorage
-            try {
+          state.error = null;
+
+          // Store auth state in localStorage for persistence
+          try {
+            if (action.payload.isAuthenticated) {
+              const stateToPersist = {
+                isAuthenticated: state.isAuthenticated,
+                user: state.user,
+                token: state.token,
+                tokenExpiresAt: state.tokenExpiresAt,
+                isLoading: state.isLoading,
+                error: state.error,
+                authChecked: state.authChecked
+              };
+              localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
+            } else {
+              // Clear localStorage if user is not authenticated
               localStorage.removeItem('devpages_auth_state');
-            } catch (e) {
-              console.warn('[Auth] Failed to clear auth state from localStorage:', e);
             }
+          } catch (e) {
+            console.warn('[Auth] Failed to save auth state to localStorage:', e);
           }
         }
       )

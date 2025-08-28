@@ -1,0 +1,85 @@
+/* === LOG HEADER === */
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+
+.log-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.log-header-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.log-sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.log-sort-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.log-sort-select {
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.log-sort-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-alpha);
+}
+
+.log-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.log-header-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.log-header-button:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-hover);
+}
+
+.log-header-button:active {
+    background: var(--color-bg-active);
+}
+
+.log-header-button .icon {
+    width: 14px;
+    height: 14px;
+}

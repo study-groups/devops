@@ -1,0 +1,100 @@
+/* ===== LOG MARKDOWN STYLES (merged from log-markdown.css) ===== */
+
+/* Styles specifically for rendered Markdown content within expanded log entries */
+
+/* Example: Style paragraphs inside rendered markdown */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered p {
+    margin-bottom: 0.5em; /* Add some space below paragraphs */
+    color: var(--color-fg); /* Slightly lighter text for paragraphs */
+    line-height: 1.5;
+}
+
+/* Example: Style code blocks */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre {
+    background-color: var(--color-bg-alt); /* Darker background for code blocks */
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.8em;
+    margin: 0.5em 0;
+    overflow-x: auto; /* Allow horizontal scrolling for long lines */
+}
+
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered code {
+    font-family: var(--font-family-mono); /* Consistent mono font */
+    color: var(--color-success); /* Example code color */
+}
+
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered pre code {
+    background-color: transparent; /* Code inside pre shouldn't have its own bg */
+    padding: 0;
+    border-radius: 0;
+    border: none;
+}
+
+/* --- Heading Resets --- */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h1,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h2,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h3,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h4,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h5,
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h6 {
+    font-size: 1.1em; /* Slightly larger than base text */
+    font-weight: bold;
+    color: var(--color-fg); /* Match paragraph color */
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    border-bottom: none; /* Remove any inherited borders */
+    padding-bottom: 0; /* Remove any inherited padding */
+}
+
+/* Slightly differentiate heading sizes */
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h1 { font-size: 1.2em; }
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h2 { font-size: 1.15em; }
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered h3 { font-size: 1.1em; }
+
+/* Add more rules here for blockquote, lists, etc. as needed */
+
+/* === LOG TOKENS === */
+
+.log-token {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-0-5) var(--space-1);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.log-token-index {
+    background-color: var(--color-bg-alt);
+    color: var(--color-fg-alt);
+}
+
+.log-token-time {
+    background-color: var(--color-blue-900);
+    color: var(--color-blue-100);
+}
+
+.log-token-type {
+    background-color: var(--color-bg-alt);
+    color: var(--color-fg-muted);
+}
+.log-token-type.log-type-info { background-color: var(--color-blue-900); color: var(--color-blue-100); }
+.log-token-type.log-type-debug { background-color: var(--color-gray-900); color: var(--color-gray-100); }
+.log-token-type.log-type-warning { background-color: var(--color-yellow-900); color: var(--color-yellow-100); }
+.log-token-type.log-type-error { background-color: var(--color-red-900); color: var(--color-red-100); }
+.log-token-type.log-type-success { background-color: var(--color-green-900); color: var(--color-green-100); }
+
+.log-token-level {
+    background-color: var(--color-purple-900);
+    color: var(--color-purple-100);
+}
+
+.log-token-origin {
+    background-color: var(--color-green-900);
+    color: var(--color-green-100);
+}
+
+/* .log-token-subtype - reserved for future use */

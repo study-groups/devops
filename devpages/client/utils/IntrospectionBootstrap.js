@@ -31,9 +31,9 @@ class IntrospectionBootstrap {
             this.systems.buttonIntrospection = buttonIntrospection;
             logMessage('✅ Button Introspection System ready', 'info', 'BOOTSTRAP');
 
-            // Initialize keyboard shortcuts
-            this.systems.keyboardShortcuts = keyboardShortcutManager;
-            logMessage('✅ Keyboard Shortcut Manager ready', 'info', 'BOOTSTRAP');
+            // Initialize keyboard shortcuts (disabled to prevent conflicts)
+            // this.systems.keyboardShortcuts = keyboardShortcutManager;
+            logMessage('⚠️ Keyboard Shortcut Manager disabled (preventing conflicts)', 'warn', 'BOOTSTRAP');
 
             // Add global introspection commands
             this.setupGlobalCommands();

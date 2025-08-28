@@ -238,3 +238,21 @@ export function createPerformanceMonitor(componentName) {
         }
     };
 }
+
+/**
+ * Simple Redux subscription utility
+ * @param {Function} selector - Function to extract state
+ * @param {Function} onChange - Callback when state changes
+ * @returns {Function} Unsubscribe function
+ */
+export function subscribeToState(selector, onChange) {
+    // Initial call to set up initial state
+    const initialState = selector(appStore.getState());
+    onChange(initialState);
+
+    // Subscribe to store changes
+    return appStore.subscribe(() => {
+        const newState = selector(appStore.getState());
+        onChange(newState);
+    });
+}

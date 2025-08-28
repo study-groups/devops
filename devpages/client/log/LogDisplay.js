@@ -6,10 +6,12 @@
 import { BasePanel } from '/client/panels/BasePanel.js';
 import { appStore } from '/client/appState.js';
 import { clearEntries, selectFilteredEntries, addEntry } from '/client/store/slices/logSlice.js';
+import { uiActions } from '/client/store/uiSlice.js';
 import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logEntryDOM.js';
 import { updateTagsBar, applyFiltersToLogEntries, clearFilterCache } from './LogFilterBar.js';
 import { setLogDisplayInstance } from './LogCore.js';
 import { expandLogEntry as expandLogEntryFunction, collapseLogEntry as collapseLogEntryFunction } from './logEntryExpansion.js';
+import { getRenderer } from './logRenderers.js';
 
 export class LogDisplay extends BasePanel {
     constructor(options) {
@@ -30,13 +32,24 @@ export class LogDisplay extends BasePanel {
     }
 
     render() {
-        // When mounted directly, we don't need to create a separate element
-        // The createLogPanelDOM will populate the container directly
-        return null;
+        // Create a container element for the log display
+        const container = document.createElement('div');
+        container.className = 'log-display-container';
+        return container;
+    }
+
+    renderContent() {
+        // For backward compatibility, return a simple container
+        const content = document.createElement('div');
+        content.className = 'log-display-content';
+        return content;
     }
 
     onMount(container) {
         super.onMount(container);
+        
+        // Ensure container is set properly
+        this.container = container;
         
         // Create DOM structure
         createLogPanelDOM(this, '1.0');
@@ -142,7 +155,7 @@ export class LogDisplay extends BasePanel {
                         this.copyLog();
                         // Show feedback
                         const originalContent = button.innerHTML;
-                        button.innerHTML = '✅ Copied';
+                        button.innerHTML = 'Copied';
                         setTimeout(() => {
                             button.innerHTML = originalContent;
                         }, 2000);
@@ -319,8 +332,9 @@ export class LogDisplay extends BasePanel {
             message: entry.message,
             level: entry.level || 'INFO',
             type: entry.type || 'GENERAL',
-            source: entry.source || 'SYSTEM',
-            action: entry.action,
+            source: entry.source || 'SYSTEM', // 'from' field
+            module: entry.module || 'NONE',
+            action: entry.action || (entry.type === 'SYSTEM' ? entry.message : ''),
             details: entry.details,
             component: entry.component
         };
@@ -334,31 +348,36 @@ export class LogDisplay extends BasePanel {
         const testEntries = [
             {
                 ts: Date.now() - 3000,
-                message: 'Log system initialized successfully',
+                message: 'Log system initialized',
                 level: 'INFO',
                 type: 'SYSTEM',
-                source: 'LOGDISPLAY'
+                module: 'BOOT',
+                source: 'LogDisplay'
             },
             {
                 ts: Date.now() - 2000,
-                message: 'User interface components loaded',
+                message: 'UI components loaded',
                 level: 'INFO',
-                type: 'UI',
-                source: 'BOOTSTRAP'
+                type: 'SYSTEM',
+                module: 'BOOT',
+                source: 'Bootstrap'
             },
             {
                 ts: Date.now() - 1000,
-                message: 'Search functionality enabled',
+                message: 'Search enabled',
                 level: 'DEBUG',
                 type: 'FEATURE',
-                source: 'LOGFILTER'
+                module: 'LOG_FILTER',
+                source: 'LogFilterBar',
+                action: 'ENABLE_SEARCH'
             },
             {
                 ts: Date.now(),
-                message: 'Ready to receive log entries',
+                message: 'Ready for entries',
                 level: 'INFO',
                 type: 'STATUS',
-                source: 'LOGDISPLAY'
+                module: 'LOG_DISPLAY',
+                source: 'LogDisplay'
             }
         ];
 
@@ -448,6 +467,12 @@ export class LogDisplay extends BasePanel {
             
             // Set CSS variable for height
             document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
+
+            // Apply column widths from state
+            const { logColumnWidths } = state.ui;
+            for (const column in logColumnWidths) {
+                document.documentElement.style.setProperty(`--log-column-width-${column}`, logColumnWidths[column]);
+            }
             
             // Apply visibility classes
             if (isVisible) {
@@ -506,6 +531,9 @@ export class LogDisplay extends BasePanel {
     }
 
     renderLogEntry(entry, index) {
+        // Remove emojis from message
+        const cleanMessage = entry.message ? entry.message.replace(/[\u{1F600}-\u{1F6FF}]/gu, '').trim() : '';
+        
         const logEntryDiv = document.createElement('div');
         const level = (entry.level || 'info').toLowerCase();
         const type = entry.type || 'GENERAL';
@@ -532,190 +560,36 @@ export class LogDisplay extends BasePanel {
         levelSpan.className = 'log-entry-level';
         levelSpan.textContent = entry.level || 'INFO';
         
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'log-entry-type';
-        typeSpan.textContent = type;
+        const contextSpan = document.createElement('span');
+        contextSpan.className = 'log-entry-context';
+        
+        // Combine context information into a single, more readable format
+        let contextParts;
+        
+        if (type === 'REDUX') {
+            // For REDUX entries, format the action more compactly
+            const action = entry.action || '';
+            const shortAction = action.includes('/') ? action.split('/').slice(-1)[0] : action;
+            contextParts = [
+                'REDUX',
+                shortAction,
+                entry.source || ''
+            ].filter(part => part && part !== 'NONE');
+        } else {
+            contextParts = [
+                type,
+                entry.module || '',
+                entry.action || '',
+                entry.source || ''
+            ].filter(part => part && part !== 'NONE');
+        }
+        
+        contextSpan.textContent = contextParts.join(' | ');
         
         const messageSpan = document.createElement('span');
         messageSpan.className = 'log-entry-message';
-        messageSpan.textContent = this.sanitizeMessage(entry.message || '');
-        
-        // Append elements
-        logEntryDiv.appendChild(timestampSpan);
-        logEntryDiv.appendChild(levelSpan);
-        logEntryDiv.appendChild(typeSpan);
-        logEntryDiv.appendChild(messageSpan);
-        
-        // Set data attributes for filtering
-        logEntryDiv.dataset.logType = type;
-        logEntryDiv.dataset.logLevel = entry.level || 'INFO';
-        logEntryDiv.dataset.source = source;
-        logEntryDiv.dataset.logIndex = index;
-
-        // Add click handler for expansion
-        logEntryDiv.addEventListener('click', (e) => this.handleLogEntryClick(e, entry));
-
-        // Insert based on order preference
-        if (this.logOrder === 'recent') {
-            this.logElement.insertBefore(logEntryDiv, this.logElement.firstChild);
-        } else {
-            this.logElement.appendChild(logEntryDiv);
-        }
-    }
-
-    sanitizeMessage(message) {
-        // Basic XSS protection - strip HTML tags and decode entities
-        return String(message)
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;')
-            .trim();
-    }
-
-    handleLogEntryClick(event, entry) {
-        const logEntryDiv = event.currentTarget;
-        const isExpanded = logEntryDiv.classList.contains('expanded');
-        
-        if (isExpanded) {
-            this.collapseLogEntry(logEntryDiv);
-        } else {
-            this.expandLogEntry(logEntryDiv, entry);
-        }
-    }
-
-    expandLogEntry(logEntryDiv, entry) {
-        try {
-            expandLogEntryFunction(logEntryDiv, this);
-        } catch (error) {
-            console.warn('[LogDisplay] Failed to expand entry:', error);
-            // Fallback to basic expansion
-            logEntryDiv.classList.add('expanded');
-        }
-    }
-
-    collapseLogEntry(logEntryDiv) {
-        try {
-            collapseLogEntryFunction(logEntryDiv, this);
-        } catch (error) {
-            console.warn('[LogDisplay] Failed to collapse entry:', error);
-            // Fallback to basic collapse
-            logEntryDiv.classList.remove('expanded');
-        }
-    }
-
-    // Utility methods for better logging experience
-    clearLog() {
-        if (this.logElement) {
-            this.logElement.innerHTML = '';
-        }
-        this.store.dispatch(clearEntries());
-    }
-
-    copyLog() {
-        const visibleEntries = this.logElement.querySelectorAll('.log-entry:not(.log-entry-hidden-by-filter)');
-        const logText = Array.from(visibleEntries).map(entry => {
-            const timestamp = entry.querySelector('.log-entry-timestamp')?.textContent || '';
-            const level = entry.querySelector('.log-entry-level')?.textContent || '';
-            const type = entry.querySelector('.log-entry-type')?.textContent || '';
-            const message = entry.querySelector('.log-entry-message')?.textContent || '';
-            return `[${timestamp}] ${level} ${type}: ${message}`;
-        }).join('\n');
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(logText).then(() => {
-                console.log('Log entries copied to clipboard');
-            }).catch(err => {
-                console.error('Failed to copy log entries:', err);
-            });
-        } else {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = logText;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-    }
-
-    hideAllEntries() {
-        const entries = this.logElement.querySelectorAll('.log-entry.expanded');
-        entries.forEach(entry => this.collapseLogEntry(entry));
-    }
-
-    // Performance optimization: batch DOM updates
-    batchRenderEntries(entries) {
-        const fragment = document.createDocumentFragment();
-        
-        entries.forEach((entry, index) => {
-            const entryElement = this.createLogEntryElement(entry, index);
-            fragment.appendChild(entryElement);
-        });
-        
-        // Clear and append all at once
-        this.logElement.innerHTML = '';
-        this.logElement.appendChild(fragment);
-    }
-
-    createLogEntryElement(entry, index) {
-        const logEntryDiv = document.createElement('div');
-        const level = (entry.level || 'info').toLowerCase();
-        const type = entry.type || 'GENERAL';
-        const source = entry.source || 'SYSTEM';
-        
-        logEntryDiv.className = `log-entry log-level-${level}`;
-        
-        // Optimized timestamp formatting - cache formatted timestamps
-        let timestamp = '--:--:--';
-        if (entry.timestamp) {
-            const cacheKey = Math.floor(entry.timestamp / 1000); // Cache by second
-            if (!this.timestampCache) this.timestampCache = new Map();
-            
-            if (this.timestampCache.has(cacheKey)) {
-                timestamp = this.timestampCache.get(cacheKey);
-            } else {
-                timestamp = new Date(entry.timestamp).toLocaleTimeString('en-US', { 
-                    hour12: false, 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-                this.timestampCache.set(cacheKey, timestamp);
-                
-                // Limit cache size
-                if (this.timestampCache.size > 100) {
-                    const firstKey = this.timestampCache.keys().next().value;
-                    this.timestampCache.delete(firstKey);
-                }
-            }
-        }
-
-        // Create the basic structure that supports expansion
-        const timestampSpan = document.createElement('span');
-        timestampSpan.className = 'log-entry-timestamp';
-        timestampSpan.textContent = timestamp;
-        
-        const levelSpan = document.createElement('span');
-        levelSpan.className = 'log-entry-level';
-        levelSpan.textContent = entry.level || 'INFO';
-        
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'log-entry-type';
-        typeSpan.textContent = type;
-        
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'log-entry-message';
-        messageSpan.textContent = this.sanitizeMessage(entry.message || '');
-        
-        // Create the structure that expansion functionality expects
-        const textWrapper = document.createElement('div');
-        textWrapper.className = 'log-entry-text-wrapper';
-        
-        const textContent = document.createElement('div');
-        textContent.className = 'log-entry-text-content';
-        textContent.appendChild(messageSpan);
-        textWrapper.appendChild(textContent);
+        // Safely set message, escaping HTML to prevent XSS
+        messageSpan.textContent = cleanMessage;
         
         // Create the expanded content container (hidden by default)
         const expandedContent = document.createElement('div');
@@ -725,6 +599,17 @@ export class LogDisplay extends BasePanel {
         // Create the expanded toolbar (inside expanded content)
         const expandedToolbar = document.createElement('div');
         expandedToolbar.className = 'log-entry-expanded-toolbar';
+        
+        // --- NEW: Add Default Expanded Header ---
+        const expandedHeader = document.createElement('div');
+        expandedHeader.className = 'log-entry-expanded-header';
+        expandedHeader.innerHTML = `
+            <strong>Type:</strong> ${type} | 
+            <strong>Source:</strong> ${source} | 
+            <strong>Level:</strong> ${entry.level || 'INFO'}
+        `;
+        expandedToolbar.appendChild(expandedHeader);
+        // --- END NEW ---
         
         // Create expanded text wrapper (inside expanded content)
         const expandedTextWrapper = document.createElement('div');
@@ -737,9 +622,49 @@ export class LogDisplay extends BasePanel {
         // Append all elements in the correct structure
         logEntryDiv.appendChild(timestampSpan);
         logEntryDiv.appendChild(levelSpan);
-        logEntryDiv.appendChild(typeSpan);
-        logEntryDiv.appendChild(textWrapper);
+        logEntryDiv.appendChild(contextSpan);
+        logEntryDiv.appendChild(messageSpan);
+        
+        const melvinSpan = document.createElement('span');
+        melvinSpan.className = 'log-entry-melvin';
+        for (let i = 0; i < 3; i++) {
+            const button = document.createElement('button');
+            button.className = 'melvin-button';
+            if (i === 0) {
+                button.textContent = 'C';
+                button.title = 'Copy message';
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(entry.message).then(() => {
+                        button.textContent = '✓';
+                        setTimeout(() => (button.textContent = 'C'), 2000);
+                    });
+                });
+            }
+            melvinSpan.appendChild(button);
+        }
+        logEntryDiv.appendChild(melvinSpan);
+
         logEntryDiv.appendChild(expandedContent);
+
+        const payloadDetails = entry.details;
+        if (payloadDetails && typeof payloadDetails === 'object' && Object.keys(payloadDetails).length > 0) {
+            const detailsWrapper = document.createElement('details');
+            detailsWrapper.className = 'log-entry-details-wrapper';
+            
+            const summary = document.createElement('summary');
+            summary.style.display = 'none'; // Hide summary, action click will toggle
+            detailsWrapper.appendChild(summary);
+
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = JSON.stringify(payloadDetails, null, 2);
+            pre.appendChild(code);
+            detailsWrapper.appendChild(pre);
+
+            // Don't add details wrapper for now - it breaks the flex layout
+            // TODO: Add details functionality that doesn't interfere with columns
+        }
         
         // Set data attributes for filtering and expansion
         logEntryDiv.dataset.logType = type;
@@ -753,7 +678,35 @@ export class LogDisplay extends BasePanel {
         // Use event delegation instead of individual listeners (handled in container)
         logEntryDiv.dataset.entryData = JSON.stringify(entry);
 
+        // This block is redundant and is causing the duplication.
+        // The details are already handled by the logic above.
+        // I am removing this block to fix the issue.
+        /*
+        const payload = entry.details; // The whole action is now in 'details'
+        if (type !== 'REDUX' && payload && typeof payload === 'object' && Object.keys(payload).length > 0) {
+            const detailsWrapper = document.createElement('details');
+            detailsWrapper.className = 'log-entry-details-wrapper';
+            
+            const summary = document.createElement('summary');
+            summary.textContent = `View Action: ${payload.type}`;
+            detailsWrapper.appendChild(summary);
+
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            // We can now safely stringify the payload part here
+            code.textContent = JSON.stringify(payload, null, 2);
+            pre.appendChild(code);
+            detailsWrapper.appendChild(pre);
+
+            logEntryDiv.appendChild(detailsWrapper);
+        }
+        */
+
         return logEntryDiv;
+    }
+
+    createLogEntryElement(entry, index) {
+        return this.renderLogEntry(entry, index);
     }
 
     /**
@@ -861,6 +814,9 @@ export class LogDisplay extends BasePanel {
 
     // Cleanup method for memory management
     cleanup() {
+        // Clean up resize handlers first
+        this.cleanupResizeHandlers();
+        
         // Clear caches
         this.entryCache.clear();
         this.renderQueue.length = 0;
@@ -895,58 +851,299 @@ export class LogDisplay extends BasePanel {
     }
 
     setupResizeHandlers() {
-        if (!this.resizeHandle) return;
+        // Clean up any existing resize handlers first
+        this.cleanupResizeHandlers();
         
         // Initialize resize state
-        this.isResizing = false;
-        this.resizeStartY = 0;
-        this.resizeStartHeight = 0;
-
-        // Mouse down on resize handle
-        this.resizeHandle.addEventListener('mousedown', (e) => {
+        this.resizeState = {
+            isResizingHeight: false,
+            isResizingColumn: false,
+            startY: 0,
+            startHeight: 0,
+            startX: 0,
+            startWidth: 0,
+            currentColumn: null
+        };
+        
+        // Set up height resizing
+        this.setupHeightResize();
+        
+        // Set up column resizing
+        this.setupColumnResize();
+        
+        // Load initial column widths from Redux store
+        this.loadColumnWidths();
+    }
+    
+    setupHeightResize() {
+        if (!this.resizeHandle) return;
+        
+        // Height resize mouse down handler
+        this.heightResizeMouseDown = (e) => {
             e.preventDefault();
             e.stopPropagation();
             
-            this.isResizing = true;
-            this.resizeStartY = e.clientY;
+            this.resizeState.isResizingHeight = true;
+            this.resizeState.startY = e.clientY;
             
             const logContainer = document.getElementById('log-container');
             if (logContainer) {
                 const rect = logContainer.getBoundingClientRect();
-                this.resizeStartHeight = rect.height;
+                this.resizeState.startHeight = rect.height;
             }
             
             document.body.style.cursor = 'ns-resize';
             document.body.style.userSelect = 'none';
-        });
-
-        // Global mouse move for resize
-        document.addEventListener('mousemove', (e) => {
-            if (!this.isResizing) return;
             
-            const deltaY = this.resizeStartY - e.clientY; // Inverted because log grows upward
-            const newHeight = Math.max(100, Math.min(600, this.resizeStartHeight + deltaY));
+            // Add global listeners
+            document.addEventListener('mousemove', this.heightResizeMouseMove);
+            document.addEventListener('mouseup', this.heightResizeMouseUp);
+        };
+        
+        // Height resize mouse move handler
+        this.heightResizeMouseMove = (e) => {
+            if (!this.resizeState.isResizingHeight) return;
             
-            // Update CSS variable
+            const deltaY = this.resizeState.startY - e.clientY; // Inverted because log grows upward
+            const newHeight = Math.max(100, Math.min(600, this.resizeState.startHeight + deltaY));
+            
+            // Update CSS variable immediately for smooth resizing
             document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
+        };
+        
+        // Height resize mouse up handler
+        this.heightResizeMouseUp = () => {
+            if (!this.resizeState.isResizingHeight) return;
             
-            // Update Redux state
-            import('/client/store/uiSlice.js').then(({ uiActions }) => {
-                this.store.dispatch(uiActions.updateSetting({
-                    key: 'logHeight',
-                    value: newHeight
-                }));
-            });
-        });
-
-        // Global mouse up to end resize
-        document.addEventListener('mouseup', () => {
-            if (!this.isResizing) return;
-            
-            this.isResizing = false;
+            this.resizeState.isResizingHeight = false;
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
+            
+            // Remove global listeners
+            document.removeEventListener('mousemove', this.heightResizeMouseMove);
+            document.removeEventListener('mouseup', this.heightResizeMouseUp);
+            
+            // Update Redux state with final height
+            const currentHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--log-height'));
+            if (!isNaN(currentHeight)) {
+                this.store.dispatch(uiActions.updateSetting({
+                    key: 'logHeight',
+                    value: currentHeight
+                }));
+            }
+        };
+        
+        // Attach height resize handler
+        this.resizeHandle.addEventListener('mousedown', this.heightResizeMouseDown);
+    }
+    
+    setupColumnResize() {
+        const header = this.container.querySelector('#log-column-header');
+        if (!header) return;
+        
+        const resizers = header.querySelectorAll('.resizer');
+        
+        // Column resize mouse down handler
+        this.columnResizeMouseDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const resizer = e.target;
+            const column = resizer.dataset.column;
+            if (!column) return;
+            
+            this.resizeState.isResizingColumn = true;
+            this.resizeState.currentColumn = column;
+            this.resizeState.startX = e.clientX;
+            
+            // Special handling for message/melvin resize
+            if (column === 'message') {
+                const messageEl = header.querySelector('.log-header-message');
+                const melvinEl = header.querySelector('.log-header-melvin');
+                
+                if (messageEl && melvinEl) {
+                    const messageRect = messageEl.getBoundingClientRect();
+                    const melvinRect = melvinEl.getBoundingClientRect();
+                    
+                    this.resizeState.startMessageWidth = messageRect.width;
+                    this.resizeState.startMelvinWidth = melvinRect.width;
+                    this.resizeState.totalWidth = messageRect.width + melvinRect.width;
+                }
+            } else {
+                // Get the column element (previous sibling of resizer)
+                const columnElement = resizer.previousElementSibling;
+                if (columnElement) {
+                    const rect = columnElement.getBoundingClientRect();
+                    this.resizeState.startWidth = rect.width;
+                }
+            }
+            
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            
+            // Add global listeners
+            document.addEventListener('mousemove', this.columnResizeMouseMove);
+            document.addEventListener('mouseup', this.columnResizeMouseUp);
+        };
+        
+        // Column resize mouse move handler
+        this.columnResizeMouseMove = (e) => {
+            if (!this.resizeState.isResizingColumn || !this.resizeState.currentColumn) return;
+            
+            const column = this.resizeState.currentColumn;
+            
+            if (column === 'message') {
+                const deltaX = e.clientX - this.resizeState.startX;
+                
+                // Calculate new widths
+                const newMessageWidth = Math.max(100, this.resizeState.startMessageWidth + deltaX);
+                const newMelvinWidth = this.resizeState.totalWidth - newMessageWidth;
+                
+                // Enforce minimum widths
+                if (newMessageWidth < 100 || newMelvinWidth < 30) return;
+                
+                // Update CSS variables
+                document.documentElement.style.setProperty('--log-column-width-message', `${newMessageWidth}px`);
+                document.documentElement.style.setProperty('--log-column-width-melvin', `${newMelvinWidth}px`);
+            } else {
+                const deltaX = e.clientX - this.resizeState.startX;
+                const newWidth = Math.max(30, this.resizeState.startWidth + deltaX); // Minimum 30px width
+                
+                // Update CSS variable immediately for smooth resizing
+                document.documentElement.style.setProperty(`--log-column-width-${column}`, `${newWidth}px`);
+            }
+        };
+        
+        // Column resize mouse up handler
+        this.columnResizeMouseUp = () => {
+            if (!this.resizeState.isResizingColumn) return;
+            
+            const column = this.resizeState.currentColumn;
+            this.resizeState.isResizingColumn = false;
+            this.resizeState.currentColumn = null;
+            
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            // Remove global listeners
+            document.removeEventListener('mousemove', this.columnResizeMouseMove);
+            document.removeEventListener('mouseup', this.columnResizeMouseUp);
+            
+            // Update Redux state with final width
+            if (column === 'message') {
+                const messageWidth = getComputedStyle(document.documentElement).getPropertyValue('--log-column-width-message');
+                const melvinWidth = getComputedStyle(document.documentElement).getPropertyValue('--log-column-width-melvin');
+                
+                if (messageWidth && melvinWidth) {
+                    this.store.dispatch(uiActions.setLogColumnWidth({ 
+                        column: 'message', 
+                        width: messageWidth 
+                    }));
+                    this.store.dispatch(uiActions.setLogColumnWidth({ 
+                        column: 'melvin', 
+                        width: melvinWidth 
+                    }));
+                }
+            } else if (column) {
+                const currentWidth = getComputedStyle(document.documentElement).getPropertyValue(`--log-column-width-${column}`);
+                if (currentWidth) {
+                    this.store.dispatch(uiActions.setLogColumnWidth({ 
+                        column, 
+                        width: currentWidth 
+                    }));
+                }
+            }
+        };
+        
+        // Attach column resize handlers to all resizers
+        resizers.forEach(resizer => {
+            resizer.addEventListener('mousedown', this.columnResizeMouseDown);
         });
+    }
+    
+    loadColumnWidths() {
+        const state = this.store.getState();
+        const { logColumnWidths } = state.ui || {};
+        
+        if (logColumnWidths) {
+            for (const column in logColumnWidths) {
+                document.documentElement.style.setProperty(`--log-column-width-${column}`, logColumnWidths[column]);
+            }
+        }
+    }
+    
+    cleanupResizeHandlers() {
+        // Remove height resize handlers
+        if (this.resizeHandle && this.heightResizeMouseDown) {
+            this.resizeHandle.removeEventListener('mousedown', this.heightResizeMouseDown);
+        }
+        
+        // Remove column resize handlers
+        const header = this.container.querySelector('#log-column-header');
+        if (header && this.columnResizeMouseDown) {
+            const resizers = header.querySelectorAll('.resizer');
+            resizers.forEach(resizer => {
+                resizer.removeEventListener('mousedown', this.columnResizeMouseDown);
+            });
+        }
+        
+        // Remove any lingering global listeners
+        if (this.heightResizeMouseMove) {
+            document.removeEventListener('mousemove', this.heightResizeMouseMove);
+        }
+        if (this.heightResizeMouseUp) {
+            document.removeEventListener('mouseup', this.heightResizeMouseUp);
+        }
+        if (this.columnResizeMouseMove) {
+            document.removeEventListener('mousemove', this.columnResizeMouseMove);
+        }
+        if (this.columnResizeMouseUp) {
+            document.removeEventListener('mouseup', this.columnResizeMouseUp);
+        }
+        
+        // Reset cursor and selection
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
+        // Clear resize state
+        this.resizeState = null;
+    }
+
+    copyLog() {
+        // Collect all log entries
+        const logEntries = this.logElement ? 
+            Array.from(this.logElement.querySelectorAll('.log-entry'))
+            .map(entry => {
+                const timestamp = entry.querySelector('.log-entry-timestamp')?.textContent || '';
+                const level = entry.querySelector('.log-entry-level')?.textContent || '';
+                const context = entry.querySelector('.log-entry-context')?.textContent || '';
+                const message = entry.querySelector('.log-entry-message')?.textContent || '';
+                
+                return `[${timestamp}] [${level}] ${context}: ${message}`;
+            })
+            .join('\n') : '';
+        
+        // Copy to clipboard
+        if (logEntries) {
+            navigator.clipboard.writeText(logEntries).then(() => {
+                console.log('[LogDisplay] Log entries copied to clipboard');
+            }).catch(err => {
+                console.error('[LogDisplay] Failed to copy log entries:', err);
+            });
+        }
+    }
+
+    clearLog() {
+        // Dispatch action to clear log entries in Redux store
+        this.store.dispatch(clearEntries());
+        
+        // Clear the log element
+        if (this.logElement) {
+            this.logElement.innerHTML = '';
+        }
+        
+        // Update entry count
+        this.updateEntryCount({ entries: [] });
     }
 
     // Override destroy method to include cleanup

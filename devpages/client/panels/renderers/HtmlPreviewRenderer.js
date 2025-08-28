@@ -2,9 +2,6 @@
  * HTML Renderer - Renders HTML content inside a sandboxed iframe with CSS debugging capabilities.
  */
 
-import { appStore } from '/client/appState.js';
-import { uiThunks } from '/client/store/uiSlice.js';
-
 const log = window.APP.services.log.createLogger('HtmlPreviewRenderer');
 
 export class HtmlPreviewRenderer {
@@ -49,7 +46,7 @@ export class HtmlPreviewRenderer {
         // Create iframe with enhanced isolation and debugging capabilities
         const iframeHtml = `
             <div class="html-renderer-container" data-file-path="${filePath}">
-                <div class="html-renderer-toolbar" data-visible="false">
+                <div class="html-renderer-toolbar" style="display: none;">
                     <button class="html-debug-btn" title="Debug CSS Issues">🔍 Debug CSS</button>
                     <button class="html-reload-btn" title="Reload Content">🔄 Reload</button>
                 </div>
@@ -99,10 +96,10 @@ export class HtmlPreviewRenderer {
             // Show toolbar on hover
             if (container && toolbar) {
                 container.addEventListener('mouseenter', () => {
-                    toolbar.dataset.visible = 'true';
+                    toolbar.style.display = 'flex';
                 });
                 container.addEventListener('mouseleave', () => {
-                    toolbar.dataset.visible = 'false';
+                    toolbar.style.display = 'none';
                 });
             }
         }
@@ -230,7 +227,23 @@ export class HtmlPreviewRenderer {
     createCssDebugPanel(iframe, filePath) {
         log.info('HTML_RENDERER', 'REDIRECT_TO_CSS_FILES_PANEL', 'Opening CSS debug - redirecting to CSS Files Panel');
         
-        appStore.dispatch(uiThunks.toggleContextManager());
+        // Import eventBus and emit event to open CSS Files Panel
+        import('/client/eventBus.js').then(({ eventBus }) => {
+            eventBus.emit('settings:openPanel', { 
+                panelId: 'CssFilesPanel',
+                source: 'html-renderer',
+                filePath: filePath
+            });
+        }).catch(error => {
+            log.error('HTML_RENDERER', 'OPEN_CSS_FILES_PANEL_FAILED', `Failed to open CSS Files Panel: ${error.message}`, error);
+            
+            // Fallback: show simple message
+            this.showSimpleMessage(
+                'CSS Debug',
+                'To debug CSS files, please open the CSS Files panel in Settings.',
+                'info'
+            );
+        });
     }
 
     /**

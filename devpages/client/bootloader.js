@@ -16,15 +16,16 @@ import './log/UnifiedLogging.js'; // Import for side effects: initializes window
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
 import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
-import { simplifiedWorkspaceManager } from './layout/SimplifiedWorkspaceManager.js';
+import { workspaceManager } from './layout/WorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
-import { initializeStore, thunks as appThunks, actions as appActions } from './appState.js';
+import { initializeStore, thunks as appThunks } from './appState.js';
 import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
 import { initializeKeyboardShortcuts } from './keyboardShortcuts.js';
 import { pathThunks } from './store/slices/pathSlice.js';
+// import { createLogger } from './log/UnifiedLogging.js'; // Removed direct import
 
 // Define log variable, but do not initialize it yet.
-let log;
+let log; // Reset log to be defined later
 
 // --- Unified Component & Panel Definitions ---
 
@@ -70,6 +71,7 @@ async function bootPreInit() {
     window.APP.services = window.APP.services || {};
     window.APP.eventBus = eventBus;
     window.APP.services.eventBus = eventBus;
+    // Initialize log here, after window.APP.services.log is guaranteed to be set by UnifiedLogging.js side effect
     log = window.APP.services.log.createLogger('BOOT', 'Bootloader');
     log.info('PHASE_1', '🚀 Phase 1: Pre-Initialization');
     window.APP.bootloader = {
@@ -173,22 +175,23 @@ async function bootSecondary({ store, actions }) {
     await initializeComponentSystem(store, postAuthComponents);
     
     
-    // PANEL_REGISTRATION: Register missing panels before SimplifiedWorkspaceManager initialization
+    // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
     try {
-        // Temporarily disable panel registration fix
-        // log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
-        // // Note: registerMissingPanels() is called automatically on import
+        log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
+        const registerPanels = await import('/client/panels/panelRegistrationFix.js');
+        registerPanels.default(store);
+        log.info('PANEL_REGISTRATION_COMPLETE', '✅ Panel registration script executed.');
     } catch (error) {
         log.warn('PANEL_REGISTRATION_FAILED', '⚠️ Failed to register missing panels:', error);
     }
 
-    // SIMPLIFIED: Initialize SimplifiedWorkspaceManager only
+    // Initialize WorkspaceManager
     try {
-        await simplifiedWorkspaceManager.initialize();
+        await workspaceManager.initialize();
 
-        window.APP.services.simplifiedWorkspaceManager = simplifiedWorkspaceManager;
-        log.info('WORKSPACE_INIT', '✅ SimplifiedWorkspaceManager initialized - All panels working');
-        log.info('WORKSPACE_HIERARCHY', '🎖️ Clean system: SimplifiedWorkspaceManager only');
+        window.APP.services.workspaceManager = workspaceManager;
+        log.info('WORKSPACE_INIT', '✅ WorkspaceManager initialized - All panels working');
+        log.info('WORKSPACE_HIERARCHY', '🎖️ Clean system: WorkspaceManager only');
         
         // Initialize Sidebar Visibility Controller
         const { sidebarVisibilityController } = await import('/client/layout/SidebarVisibilityController.js');
@@ -235,33 +238,15 @@ async function bootSecondary({ store, actions }) {
         log.error('LOG_DISPLAY_INIT', '❌ Failed to initialize log display:', error);
     }
 
-    // Initialize keyboard shortcuts
+    // Initialize debug utilities first (always available)
     try {
-        initializeKeyboardShortcuts();
-        log.info('KEYBOARD_SHORTCUTS_INIT', '✅ Keyboard shortcuts initialized');
+        const { initializeDebugUtils } = await import('/client/utils/debugUtils.js');
+        initializeDebugUtils();
+        log.info('DEBUG_UTILS_INIT', '🔧 Debug utilities initialized successfully');
     } catch (error) {
-        log.error('KEYBOARD_SHORTCUTS_INIT_FAILED', '❌ Keyboard shortcuts initialization failed:', error);
+        log.warn('DEBUG_UTILS_INIT_FAILED', '⚠️ Failed to initialize debug utilities:', error);
     }
-
-    // Initialize debug panels now that SimplifiedWorkspaceManager is ready
-    if (bootState.isAuthenticated) {
-        try {
-            const { initializeDebugPanels } = await import('/packages/devpages-debug/index.js');
-            await initializeDebugPanels();
-            log.info('DEBUG_PANELS_INIT', '🔧 Debug panels initialized successfully');
-        } catch (error) {
-            log.error('DEBUG_PANELS_INIT_FAILED', `❌ Failed to initialize debug panels: ${error.message}`, error);
-        }
-    }
-
-    // SAFETY: Override window.APP.panels with safe stub to prevent Redux conflicts
-    try {
-        await import('./fix-window-panels.js');
-        log.info('PANELS_STUB', '✅ window.APP.panels replaced with safe stub');
-    } catch (error) {
-        log.warn('PANELS_STUB_FAILED', '⚠️ Failed to load panels stub:', error);
-    }
-
+    
     // Initialize Panel Testing Framework in development
     // Browser-safe environment detection (instead of process.env.NODE_ENV)
     const isProduction = window.location.hostname.includes('pixeljamarcade.com') && 
@@ -270,7 +255,7 @@ async function bootSecondary({ store, actions }) {
     if (!isProduction) {
         try {
             const { panelTestFramework } = await import('./tests/PanelTestFramework.js');
-            panelTestFramework.initialize(window.APP.services.simplifiedWorkspaceManager);
+            panelTestFramework.initialize(window.APP.services.workspaceManager);
             
             // Auto-run health check
             setTimeout(() => {
@@ -290,6 +275,30 @@ async function bootSecondary({ store, actions }) {
             console.warn('[Bootloader] Failed to initialize panel testing framework:', error);
         }
     }
+    
+    // Initialize debug system (panels + DebugDock) now that WorkspaceManager is ready
+    try {
+        // Initialize debug panels first (registers them with panelRegistry)
+        const { initializeDebugPanels } = await import('/packages/devpages-debug/debugPanelInitializer.js');
+        const debugPanels = await initializeDebugPanels();
+        log.info('DEBUG_PANELS_INIT', '🔧 Debug panels registered successfully');
+        
+        // Initialize DebugDock
+        const { debugDock } = await import('/packages/devpages-debug/DebugDock.js');
+        
+        // Initialize the debug dock
+        await debugDock.initialize();
+        
+        // Make DebugDock available globally
+        window.APP.debugDock = debugDock;
+        
+        log.info('DEBUG_DOCK_INIT', '🔧 DebugDock initialized and integrated successfully');
+    } catch (error) {
+        log.error('DEBUG_SYSTEM_INIT_FAILED', `❌ Failed to initialize debug system: ${error.message}`, error);
+    }
+
+    // Remove keyboard shortcuts initialization
+    // initializeKeyboardShortcuts();
 }
 
 async function bootFinalize() {
@@ -330,6 +339,7 @@ async function bootFinalize() {
     }
     
     // Initialize clean panels auto-loader
+    /*
     try {
         log.info('CLEAN_PANELS', '🧹 Initializing clean panels auto-loader...');
         const { cleanPanelAutoLoader } = await import('./panels/auto-load-clean-panels.js');
@@ -339,6 +349,7 @@ async function bootFinalize() {
         log.warn('CLEAN_PANELS_FAILED', '⚠️ Failed to auto-load clean panels:', error);
         // Don't fail the entire boot process for this
     }
+    */
     
     log.info('APP_READY', '🎉 Application ready for use');
 }
@@ -498,7 +509,7 @@ async function mountManagedComponent(componentDef, store) {
         let component;
         if (componentDef.type === 'panel') {
             // For panels, we just register their definition for on-demand loading
-            // This is now handled by SimplifiedWorkspaceManager
+            // This is now handled by WorkspaceManager
             component = { name: componentDef.name, type: 'panel-definition' };
         } else if (componentDef.targetElementId) {
             const module = await import(componentDef.modulePath);

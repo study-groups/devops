@@ -11,11 +11,15 @@ const RENDER_MARKDOWN_PENDING = 'preview/renderMarkdown/pending';
 const RENDER_MARKDOWN_FULFILLED = 'preview/renderMarkdown/fulfilled';
 const RENDER_MARKDOWN_REJECTED = 'preview/renderMarkdown/rejected';
 const CLEAR_CACHE = 'preview/clearCache';
+const INITIALIZE_PREVIEW = 'preview/initialize';
 
 const initialState = {
     htmlContent: '',
     status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
+    isInitialized: false,
+    currentContent: null,
+    frontMatter: null,
 };
 
 // Action Creators
@@ -32,19 +36,31 @@ export const clearCache = () => ({
 export const renderMarkdown = (markdown) => async (dispatch) => {
     dispatch({ type: RENDER_MARKDOWN_PENDING });
     try {
-        // In the future, this will call the markdown rendering service
-        // For now, it's a placeholder
-        const html = `<p>${markdown}</p>`;
-        dispatch({ type: RENDER_MARKDOWN_FULFILLED, payload: html });
+        // Import the actual renderer to avoid circular dependencies
+        const { renderMarkdown: actualRenderer } = await import('/client/preview/renderer.js');
+        const result = await actualRenderer(markdown);
+        dispatch({ type: RENDER_MARKDOWN_FULFILLED, payload: result.html });
+        return result;
     } catch (error) {
         dispatch({ type: RENDER_MARKDOWN_REJECTED, payload: error.message });
+        throw error;
     }
 };
 
-export const initializePreviewSystem = () => (dispatch) => {
-    // This is a placeholder for a more complex initialization process
-    // that might involve loading plugins, setting up event listeners, etc.
-    console.log('Preview system initialized');
+export const initializePreviewSystem = (config = {}) => (dispatch) => {
+    try {
+        // Initialize the preview system with proper configuration
+        console.log('Preview system initializing with config:', config);
+        
+        // Set initial state
+        dispatch({ type: 'preview/initialize', payload: { status: 'initialized' } });
+        
+        return true;
+    } catch (error) {
+        console.error('Preview system initialization failed:', error);
+        dispatch({ type: RENDER_MARKDOWN_REJECTED, payload: error.message });
+        return false;
+    }
 };
 
 
@@ -77,6 +93,15 @@ export const previewReducer = (state = initialState, action) => {
             return {
                 ...state,
                 htmlContent: '',
+                status: 'idle',
+                error: null,
+                currentContent: null,
+                frontMatter: null,
+            };
+        case INITIALIZE_PREVIEW:
+            return {
+                ...state,
+                isInitialized: true,
                 status: 'idle',
                 error: null,
             };

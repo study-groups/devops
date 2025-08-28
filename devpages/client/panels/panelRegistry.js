@@ -1,106 +1,135 @@
 /**
- * @deprecated The panel registry is being replaced by a unified component system in bootloader.js.
- * This file is now a temporary, static list of panel definitions that will be consumed by the bootloader.
+ * Redux-compatible Panel Registry
+ * Manages panel definitions and provides registration/lookup functionality
  */
 
-// Panel registry object for backward compatibility
 class PanelRegistry {
     constructor() {
         this.panels = new Map();
+        this.initializeCorePanels();
     }
 
-    register(config) {
-        if (!config || !config.id) {
-            console.warn('[PanelRegistry] register() called with invalid config:', config);
-            return;
+    /**
+     * Register a panel definition
+     */
+    register(panelDef) {
+        if (!panelDef.id || !panelDef.factory) {
+            throw new Error('Panel must have id and factory');
         }
-        
-        this.panels.set(config.id, config);
-        console.log(`[PanelRegistry] Registered panel: ${config.id}`);
+        this.panels.set(panelDef.id, panelDef);
+        console.log(`[PanelRegistry] Registered panel: ${panelDef.id}`);
     }
 
-    unregister(panelId) {
-        if (!panelId) {
-            console.warn('[PanelRegistry] unregister() called with invalid panelId:', panelId);
-            return;
-        }
-        
-        const removed = this.panels.delete(panelId);
-        if (removed) {
-            console.log(`[PanelRegistry] Unregistered panel: ${panelId}`);
-        } else {
-            console.warn(`[PanelRegistry] Panel not found for unregister: ${panelId}`);
-        }
+    /**
+     * Get panel definition by ID
+     */
+    getPanel(id) {
+        return this.panels.get(id);
     }
 
-    getPanels() {
+    /**
+     * Get all panel definitions
+     */
+    getAllPanels() {
         return Array.from(this.panels.values());
     }
-    
-    // Alias for better compatibility
-    getAllPanels() {
-        return this.getPanels();
+
+    /**
+     * Get panels for a specific zone
+     */
+    getPanelsForZone(zone) {
+        return this.getAllPanels().filter(panel => 
+            !panel.allowedZones || panel.allowedZones.includes(zone)
+        );
     }
 
-    getPanel(panelId) {
-        return this.panels.get(panelId);
-    }
+    /**
+     * Initialize core panels that should always be available
+     */
+    initializeCorePanels() {
+        // Core editing panels
+        this.register({
+            name: 'CodePanel',
+            id: 'code-panel',
+            factory: () => import('./CodePanel.js').then(m => m.CodePanel),
+            title: 'Code Editor',
+            icon: 'code',
+            isDefault: true,
+            allowedZones: ['main', 'sidebar'],
+            defaultZone: 'main',
+        });
 
-    clear() {
-        this.panels.clear();
+        // Editor and Preview are now Views, not Panels
+        // They are managed directly by WorkspaceManager as core workspace areas
+
+        // Context and navigation panels
+        this.register({
+            name: 'ContextPanel',
+            id: 'context-panel',
+            factory: () => import('./ContextPanel.js').then(m => m.ContextPanel),
+            title: 'Context Browser',
+            icon: 'folder',
+            isDefault: true,
+            allowedZones: ['sidebar'],
+            defaultZone: 'sidebar',
+        });
+
+        this.register({
+            name: 'FileTreePanel',
+            id: 'file-tree-panel',
+            factory: () => import('./FileTreePanel.js').then(m => m.FileTreePanel),
+            title: 'File Tree',
+            icon: 'folder-tree',
+            isDefault: false,
+            allowedZones: ['sidebar'],
+            defaultZone: 'sidebar',
+        });
+
+        // Publishing and deployment - temporarily disabled until file exists
+        // this.register({
+        //     name: 'PublishSettingsPanel',
+        //     id: 'publish-settings-panel',
+        //     factory: () => import('../settings/panels/publish/PublishSettingsPanel.js').then(m => m.PublishSettingsPanel),
+        //     title: 'Digital Ocean Publishing',
+        //     icon: 'upload-cloud',
+        //     isDefault: false,
+        //     allowedZones: ['sidebar'],
+        //     defaultZone: 'sidebar',
+        // });
+
+        // Development panels
+        this.register({
+            name: 'HtmlPanel',
+            id: 'html-panel',
+            factory: () => import('./HtmlPanel.js').then(m => m.HtmlPanel),
+            title: 'HTML Viewer',
+            icon: 'code-2',
+            isDefault: false,
+            allowedZones: ['main', 'sidebar'],
+            defaultZone: 'main',
+        });
+
+        this.register({
+            name: 'JavaScriptPanel',
+            id: 'javascript-panel',
+            factory: () => import('./JavaScriptPanel.js').then(m => m.JavaScriptPanel),
+            title: 'JavaScript Console',
+            icon: 'terminal',
+            isDefault: false,
+            allowedZones: ['main', 'sidebar'],
+            defaultZone: 'sidebar',
+        });
+
+        // Debug panels are registered separately by debugPanelInitializer.js
+        // to avoid conflicts and ensure proper initialization
+
+        console.log(`[PanelRegistry] Initialized ${this.panels.size} core panels`);
     }
 }
 
-export const panelRegistry = new PanelRegistry();
+// Create singleton instance
+const panelRegistry = new PanelRegistry();
 
-export const panelDefinitions = [
-    {
-        name: 'FileBrowser',
-        id: 'file-browser',
-        factory: () => import('/client/file-browser/FileBrowserPanel.js').then(m => m.FileBrowserPanel),
-        title: 'File Browser',
-        isDefault: true,
-    },
-    {
-        name: 'CodePanel',
-        id: 'code',
-        factory: () => import('./CodePanel.js').then(m => m.CodePanel),
-        title: 'Code',
-        isDefault: true,
-    },
-    {
-        name: 'EditorPanel',
-        id: 'editor-panel',
-        factory: () => import('./EditorPanel.js').then(m => m.EditorPanel),
-        title: 'Editor',
-        isDefault: true,
-    },
-    {
-        name: 'PreviewPanel',
-        id: 'preview-panel',
-        factory: () => import('./PreviewPanel.js').then(m => m.PreviewPanel),
-        title: 'Preview',
-        isDefault: true,
-    },
-    {
-        name: 'NlpPanel',
-        id: 'nlp-panel',
-        factory: () => import('./NlpPanel.js').then(m => m.NlpPanel),
-        title: 'NLP',
-        isDefault: false,
-    },
-    {
-        name: 'DesignTokensPanel',
-        id: 'settings-panel',
-        factory: () => import('/client/settings/panels/css-design/DesignTokensPanel.js').then(m => m.DesignTokensPanel),
-        title: '🎨 Design Tokens',
-        isDefault: true,
-    },
-    {
-        name: 'CommPanel',
-        id: 'comm-panel',
-        factory: () => import('./CommPanel.js').then(m => m.CommPanel),
-        title: 'Communications',
-        isDefault: false,
-    },
-]; 
+// Export both the instance and the definitions for compatibility
+export { panelRegistry };
+export const panelDefinitions = panelRegistry.getAllPanels(); 

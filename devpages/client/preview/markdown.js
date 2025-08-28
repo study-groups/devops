@@ -1,5 +1,5 @@
-import fileManager from "/client/filesystem/fileManager.js";
-import { initPreview, updatePreview } from "./index.js";
+import { updatePreview } from "./index.js";
+import { appStore } from '/client/appState.js';
 
 // Get a dedicated logger for this module
 const log = window.APP.services.log.createLogger('Markdown');
@@ -12,15 +12,17 @@ let updateTimeout;
 let previewInitialized = false;
 
 // Initialize the markdown preview
-export function initMarkdownPreview() {
+export async function initMarkdownPreview() {
   try {
     if (previewInitialized) return true;
     
-    const result = initPreview({
+    // Initialize via Redux store dispatch using dynamic import
+    const { initializePreviewSystem } = await import('/client/store/slices/previewSlice.js');
+    const result = appStore.dispatch(initializePreviewSystem({
       container: '#md-preview',
       plugins: ['mermaid', 'katex', 'highlight', 'audioMD'],
       theme: 'light'
-    });
+    }));
     
     previewInitialized = result;
     return result;
@@ -64,10 +66,25 @@ export function updateMarkdownPreview(content) {
   return updatePreview(content);
 }
 
+// Helper to get the current directory from Redux store
+function getCurrentDirectory() {
+    try {
+        const fullPath = appStore.getState().file?.currentFile?.pathname;
+        if (!fullPath) return '';
+        const lastSlashIndex = fullPath.lastIndexOf('/');
+        if (lastSlashIndex === -1) return ''; // No directory part
+        return fullPath.substring(0, lastSlashIndex);
+    } catch (error) {
+        log.error('MARKDOWN', 'GET_CURRENT_DIR_FAILED', `Failed to get current directory: ${error.message}`, error);
+        return '';
+    }
+}
+
 // Backward compatibility with existing code
 export async function loadFile(filename) {
   try {
-    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(fileManager.getCurrentDirectory())}`);
+    const currentDirectory = getCurrentDirectory(); // Get directory from Redux store
+    const response = await globalFetch(`/api/files/get?name=${encodeURIComponent(filename)}&dir=${encodeURIComponent(currentDirectory)}`);
     if (!response.ok) throw new Error(`Server returned ${response.status}`);
     
     const data = await response.json();
@@ -79,8 +96,8 @@ export async function loadFile(filename) {
     }
     
     updateMarkdownPreview(data.content);
-    saveState(fileManager.getCurrentDirectory(), filename);
-    updateUrlState(fileManager.getCurrentDirectory(), filename);
+    saveState(currentDirectory, filename);
+    updateUrlState(currentDirectory, filename);
   } catch (error) {
     log.error('MARKDOWN', 'LOAD_FILE_FAILED', `Failed to load file: ${error.message}`, error);
   }

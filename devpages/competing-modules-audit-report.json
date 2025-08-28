@@ -1,0 +1,6542 @@
+{
+  "duplicateClasses": [
+    {
+      "className": "or",
+      "files": [
+        "client/components/PublishModalIntegration.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "PanelUI",
+      "files": [
+        "client/dom-inspector/core/PanelUI.js",
+        "redux/components/PanelUI.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "this",
+      "files": [
+        "client/dom-inspector/interaction/HighlightOverlay.js",
+        "client/panels/HtmlPanel.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "after",
+      "files": [
+        "client/dom-inspector/interaction/HighlightOverlay.js",
+        "client/panels/HtmlPanel.js",
+        "client/panels/JavaScriptPanel.js",
+        "client/preview/renderer.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "if",
+      "files": [
+        "client/dom-inspector/managers/SelectorManager.js",
+        "client/dom-inspector/utils/SelectorUtils.js",
+        "client/dom-inspector/utils/SelectorUtils.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "name",
+      "files": [
+        "client/dom-inspector/utils/ValidationUtils.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "fix-design-tokens-with-proper-css.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "KeyboardShortcutManager",
+      "files": [
+        "client/keyboard/KeyboardShortcutManager.js",
+        "client/utils/KeyboardShortcutManager.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "Sidebar",
+      "files": [
+        "client/layout/Sidebar.js",
+        "client/layout/Sidebar_backup.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "SidebarHeader",
+      "files": [
+        "client/layout/SidebarHeader.js",
+        "client/layout/SidebarHeader_backup.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "to",
+      "files": [
+        "client/log/AppLogBuffer.js",
+        "client/log/AppLogFilter.js",
+        "client/log/ConsoleLogFilter.js",
+        "client/log/LogFilter.js",
+        "client/log/logEntryExpansion.js",
+        "client/log/logEntryExpansion.js",
+        "client/panels/CodePanel.js",
+        "client/panels/SidebarManagerPanel.js",
+        "client/preview/plugins/audio-md.js",
+        "client/preview/renderer.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "for",
+      "files": [
+        "client/log/BaseLogEntry.js",
+        "client/log/ConsoleLogBuffer.js",
+        "client/log/LogBuffer.js",
+        "client/log/LogEntry.js",
+        "client/panels/BasePanel_backup.js",
+        "client/preview/plugins/mermaid/fullscreen.js",
+        "client/preview/renderers/MarkdownRenderer.js",
+        "client/settings/panels/icons/Icons.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "CallerInfo",
+      "files": [
+        "client/log/CallerInfo.js",
+        "client/log/LogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "ConsoleCallerInfo",
+      "files": [
+        "client/log/ConsoleCallerInfo.js",
+        "client/log/ConsoleLogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "ConsoleLogBuffer",
+      "files": [
+        "client/log/ConsoleLogBuffer.js",
+        "client/log/ConsoleLogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "ConsoleLogFilter",
+      "files": [
+        "client/log/ConsoleLogFilter.js",
+        "client/log/ConsoleLogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "that",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "LogBuffer",
+      "files": [
+        "client/log/LogBuffer.js",
+        "client/log/LogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "LogEntry",
+      "files": [
+        "client/log/LogEntry.js",
+        "client/log/LogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "LogFilter",
+      "files": [
+        "client/log/LogFilter.js",
+        "client/log/LogManager.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "BasePanel",
+      "files": [
+        "client/panels/BasePanel.js",
+        "client/panels/BasePanel_backup.js",
+        "client/panels/BasePanel_restored.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "render",
+      "files": [
+        "client/panels/BasePanel_backup.js",
+        "client/preview/renderer.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "FileTreePanel",
+      "files": [
+        "client/panels/FileTreePanel.js",
+        "notsure/panels/FileTreePanel.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "panelElement",
+      "files": [
+        "client/panels/PanelReorderManager.js",
+        "fix-design-tokens-with-proper-css.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "TreesPanel",
+      "files": [
+        "client/panels/TreesPanel.js",
+        "notsure/panels/TreesPanel.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "from",
+      "files": [
+        "client/preview/plugins/audio-md.js",
+        "client/settings/panels/css-design/DesignTokensPanel.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "Renderer",
+      "files": [
+        "client/preview/renderer.js",
+        "client/vendor/scripts/marked.esm.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "GameClient",
+      "files": [
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "method",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "const",
+      "files": [
+        "client/tests/PanelTestFramework.js",
+        "fix-design-tokens-with-proper-css.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "ZIndexManager",
+      "files": [
+        "client/utils/ZIndexManager.js",
+        "redux/utils/ZIndexManager.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "ActionValidationError",
+      "files": [
+        "client/validation/action-validators.js",
+        "meta-language/generated/action-validators.js",
+        "meta-language/tools/schema-codegen.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "struct",
+      "files": [
+        "client/vendor/scripts/highlight.min.js",
+        "client/vendor/scripts/highlight.min.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "interface",
+      "files": [
+        "client/vendor/scripts/highlight.min.js",
+        "client/vendor/scripts/highlight.min.js",
+        "client/vendor/scripts/highlight.min.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "className": "in",
+      "files": [
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "as",
+      "files": [
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "expected",
+      "files": [
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "must",
+      "files": [
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "should",
+      "files": [
+        "debug-scripts/css/button-hover-debugger.js",
+        "debug-scripts/css/button-hover-debugger.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "loaded",
+      "files": [
+        "fix-design-tokens-with-proper-css.js",
+        "test-redux-panel-system.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "PDataPanel",
+      "files": [
+        "packages/devpages-debug/panels/PDataPanel.js",
+        "redux/components/PDataPanel.js"
+      ],
+      "severity": "low"
+    },
+    {
+      "className": "CapabilityManager",
+      "files": [
+        "pdata/CapabilityManager.js",
+        "server/middleware/capabilities.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "className": "PData",
+      "files": [
+        "pdata/PData.js",
+        "pdata/PData.original.js",
+        "server/utils/pdata.js"
+      ],
+      "severity": "medium"
+    }
+  ],
+  "competingManagers": [
+    {
+      "baseName": "keyboardshortcut",
+      "implementations": [
+        {
+          "className": "KeyboardShortcutManager",
+          "file": "client/keyboard/KeyboardShortcutManager.js",
+          "type": "Manager"
+        },
+        {
+          "className": "KeyboardShortcutManager",
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "type": "Manager"
+        },
+        {
+          "className": "KeyboardShortcutHandler",
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "type": "Handler"
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "baseName": "zindex",
+      "implementations": [
+        {
+          "className": "ZIndexManager",
+          "file": "client/utils/ZIndexManager.js",
+          "type": "Manager"
+        },
+        {
+          "className": "ZIndexManager",
+          "file": "redux/utils/ZIndexManager.js",
+          "type": "Manager"
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "baseName": "capability",
+      "implementations": [
+        {
+          "className": "CapabilityManager",
+          "file": "pdata/CapabilityManager.js",
+          "type": "Manager"
+        },
+        {
+          "className": "CapabilityManager",
+          "file": "server/middleware/capabilities.js",
+          "type": "Manager"
+        }
+      ],
+      "severity": "high"
+    }
+  ],
+  "multipleInitializers": [
+    {
+      "domain": "actions",
+      "files": [
+        {
+          "file": "client/actions/index.js",
+          "patterns": []
+        },
+        {
+          "file": "client/actions/uiActions.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "client",
+      "files": [
+        {
+          "file": "client/actions.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/api.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/appDispatch.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/appState.js",
+          "patterns": [
+            "initialize()"
+          ]
+        },
+        {
+          "file": "client/auth.js",
+          "patterns": []
+        },
+        {
+          "file": "client/bootloader-selector.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/bootloader.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/buttons.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/debug-pathmanager-test.js",
+          "patterns": []
+        },
+        {
+          "file": "client/deepLink.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/domEvents.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/errorTracker.js",
+          "patterns": []
+        },
+        {
+          "file": "client/eventBus.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/handlers.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/keyboardShortcuts.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/main.js",
+          "patterns": []
+        },
+        {
+          "file": "client/refresh.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "cli",
+      "files": [
+        {
+          "file": "client/cli/cliEvents.js",
+          "patterns": []
+        },
+        {
+          "file": "client/cli/index.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "code",
+      "files": [
+        {
+          "file": "client/code/ast-parser.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/code/function-overview-component.js",
+          "patterns": [
+            "init()"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "components",
+      "files": [
+        {
+          "file": "client/components/AuthDisplay.js",
+          "patterns": []
+        },
+        {
+          "file": "client/components/ContextSettingsPopupComponent.js",
+          "patterns": []
+        },
+        {
+          "file": "client/components/FileSummaryDisplay.js",
+          "patterns": []
+        },
+        {
+          "file": "client/components/LoginForm.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/components/PathManagerComponent.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/components/PublishModalIntegration.js",
+          "patterns": []
+        },
+        {
+          "file": "client/components/TopBarController.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/components/ViewControls.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/components/topBar.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/dom-inspector/components/BoxModelComponent.js",
+          "patterns": []
+        },
+        {
+          "file": "client/dom-inspector/components/ElementDetailsRenderer.js",
+          "patterns": []
+        },
+        {
+          "file": "client/dom-inspector/components/IframeAnalyzer.js",
+          "patterns": []
+        },
+        {
+          "file": "redux/components/Dock.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "patterns": []
+        },
+        {
+          "file": "redux/components/SplashScreen.js",
+          "patterns": [
+            "init()"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "dom-inspector",
+      "files": [
+        {
+          "file": "client/dom-inspector/DomInspector.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorPanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/dom-inspector/domInspectorInitializer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "core",
+      "files": [
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "patterns": []
+        },
+        {
+          "file": "client/dom-inspector/core/StateManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/settings/core/settingsInitializer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/core/CssStateManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "examples",
+      "files": [
+        {
+          "file": "client/examples/thunkUsage.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "examples/debug-usage-example.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "image",
+      "files": [
+        {
+          "file": "client/image/imageEvents.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/image/imageIndex.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "layout",
+      "files": [
+        {
+          "file": "client/layout/Sidebar.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/SidebarVisibilityController.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/Sidebar_backup.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/WorkspaceManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/resizable.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/workspaceConfig.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "docks",
+      "files": [
+        {
+          "file": "client/layout/docks/BaseDock.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/layout/docks/DebugDock.js",
+          "patterns": [
+            "initialize()"
+          ]
+        },
+        {
+          "file": "client/layout/docks/dockManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "log",
+      "files": [
+        {
+          "file": "client/log/ConsoleLogManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/ConsoleTiming.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/LogCore.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/LogFilterBar.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/LogManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/index.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/log/logRenderers.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "panels",
+      "files": [
+        {
+          "file": "client/panels/CodePanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/ContextPanel.js",
+          "patterns": []
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/FileTreePanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/HtmlPanel.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/JavaScriptPanel.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/PanelReorderManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/PanelStateManager.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/PreviewPanel.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/TreesPanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/panelConfiguration.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/panelRegistrationFix.js",
+          "patterns": []
+        },
+        {
+          "file": "client/panels/panelRegistry.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/test-complete-panel-system.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/panels/verify-state-persistence.js",
+          "patterns": []
+        },
+        {
+          "file": "client/panels/verify-ui-state-persistence.js",
+          "patterns": []
+        },
+        {
+          "file": "notsure/panels/ApiTokenPanel.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "notsure/panels/FileTreePanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "notsure/panels/TreesPanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/PDataPanel.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "preview",
+      "files": [
+        {
+          "file": "client/preview/PluginManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/index.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/markdown.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/renderer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/settings/panels/preview/PreviewSettingsPanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "plugins",
+      "files": [
+        {
+          "file": "client/preview/plugins/BasePlugin.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/PluginLoader.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/audio-markdown-sdk.js",
+          "patterns": [
+            "initialize()"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/audio-md.js",
+          "patterns": [
+            "init()"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/css.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/graphviz.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/highlight.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/index.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/katex.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "mermaid",
+      "files": [
+        {
+          "file": "client/preview/plugins/mermaid/controls.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/mermaid/fullscreen.js",
+          "patterns": [
+            "init()"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/mermaid/index.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/preview/plugins/mermaid/renderer.js",
+          "patterns": [
+            "init()"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "redux",
+      "files": [
+        {
+          "file": "client/redux/panelSizes.js",
+          "patterns": []
+        },
+        {
+          "file": "debug-scripts/redux/verify-state-persistence.js",
+          "patterns": []
+        },
+        {
+          "file": "debug-scripts/redux/verify-ui-state-persistence.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "sdk",
+      "files": [
+        {
+          "file": "client/sdk/gameClient.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/sdk/pjaSdk.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/sdk/pjaSdk.module.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "utils",
+      "files": [
+        {
+          "file": "client/settings/utils/ExamplePanel.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/settings/utils/SettingsDomUtils.js",
+          "patterns": []
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/IntrospectionBootstrap.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/ZIndexManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/debugUtils.js",
+          "patterns": []
+        },
+        {
+          "file": "client/utils/migrationHelper.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/popup.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/staticHtmlGenerator.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/utils/topDirDiagnostic.js",
+          "patterns": []
+        },
+        {
+          "file": "client/utils/windowConsolidation.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/utils/CssScanner.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "redux/utils/ZIndexManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "server/utils/htmlGenerator.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "server/utils/pdata.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "store",
+      "files": [
+        {
+          "file": "client/store/PanelStatePersistence.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/apiSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/authMiddleware.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/commLoggerMiddleware.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/reducer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/reduxConnect.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/uiSlice.test.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "reducers",
+      "files": [
+        {
+          "file": "client/store/reducers/enhancedReducerUtils.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/reducers/reducerUtils.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "slices",
+      "files": [
+        {
+          "file": "client/store/slices/authSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/buttonSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/cliSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/commSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/contextSettingsSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/debugPanelSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/domInspectorSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/editorSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/fileSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/imageSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/logSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/panelSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/pathSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/pluginSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/previewSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/publishSlice.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/store/slices/shortcutSlice.js",
+          "patterns": []
+        },
+        {
+          "file": "client/store/slices/systemSlice.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "tests",
+      "files": [
+        {
+          "file": "client/tests/PanelTestFramework.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "pdata/tests/test-server.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "scripts",
+      "files": [
+        {
+          "file": "client/vendor/scripts/dompurify.es.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/vendor/scripts/katex.min.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/vendor/scripts/marked.esm.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "patterns": [
+            "initialize()",
+            "init()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "views",
+      "files": [
+        {
+          "file": "client/views/EditorView.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/views/PreviewView.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "css",
+      "files": [
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "debug-scripts/css/zindex-debugger.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "debug-scripts",
+      "files": [
+        {
+          "file": "debug-scripts/resizer-debugger-fixed.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "debug-scripts/resizer-debugger.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "debug-scripts/test-app-debug.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "root",
+      "files": [
+        {
+          "file": "emergency_stop_loop.js",
+          "patterns": []
+        },
+        {
+          "file": "test-architecture.js",
+          "patterns": []
+        },
+        {
+          "file": "test-basepanel-compatibility.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "test-debug-dock-fix.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "test-new-auth.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "test-panel-zones.js",
+          "patterns": []
+        },
+        {
+          "file": "test-workspace-harmonization.js",
+          "patterns": []
+        },
+        {
+          "file": "verify-fixes.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "tools",
+      "files": [
+        {
+          "file": "meta-language/tools/action-validator.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "meta-language/tools/schema-codegen.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "devpages-debug",
+      "files": [
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "patterns": [
+            "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/debugPanelInitializer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/index.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/modernIndex.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "devtools",
+      "files": [
+        {
+          "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools-panel.js",
+          "patterns": []
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools.js",
+          "patterns": []
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "modules",
+      "files": [
+        {
+          "file": "packages/devpages-debug/devtools/modules/CacheManager.js",
+          "patterns": [
+            "init()"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/StateInspector.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "analysis",
+      "files": [
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/CssAnalyzer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "pdata",
+      "files": [
+        {
+          "file": "pdata/PData.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "pdata/PData.original.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "pdata/index.js",
+          "patterns": []
+        },
+        {
+          "file": "pdata/manageUsers.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "pdata/test-production.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "lcov-report",
+      "files": [
+        {
+          "file": "pdata/coverage/lcov-report/block-navigation.js",
+          "patterns": [
+            "init()"
+          ]
+        },
+        {
+          "file": "pdata/coverage/lcov-report/prettify.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "routes",
+      "files": [
+        {
+          "file": "server/routes/css.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "server/routes/mediaProxy.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "server/routes/spaces.js",
+          "patterns": [
+            "constructor"
+          ]
+        }
+      ],
+      "severity": "medium"
+    }
+  ],
+  "conflictingGlobalExports": [
+    {
+      "globalName": "APP",
+      "files": [
+        "client/appState.js",
+        "client/auth.js",
+        "client/bootloader.js",
+        "client/components/topBar.js",
+        "client/components/topBar.js",
+        "client/fix-window-panels.js",
+        "client/keyboardShortcuts.js",
+        "client/layout/Sidebar.js",
+        "client/layout/Sidebar_backup.js",
+        "client/layout/WorkspaceManager.js",
+        "client/log/ConsoleLogManager.js",
+        "client/log/ConsoleLogManager.js",
+        "client/log/LogDisplay.js",
+        "client/log/UnifiedLogging.js",
+        "client/pubsub.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/utils/debug-panels.js",
+        "client/utils/KeyboardShortcutManager.js",
+        "client/utils/debugUtils.js",
+        "debug-scripts/log-alignment-debugger.js",
+        "debug-scripts/log-debugger.js",
+        "debug-scripts/panel-system-debugger.js",
+        "debug-scripts/resizer-debugger-fixed.js",
+        "debug-scripts/resizer-debugger.js",
+        "debug-scripts/resizer-debugger.js",
+        "debug-scripts/test-app-debug.js",
+        "packages/devpages-debug/DebugDock.js",
+        "redux/components/PDataPanel.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "markdownit",
+      "files": [
+        "client/components/publish/PublishRenderer.js",
+        "client/preview/renderer.js",
+        "client/preview/renderer.js",
+        "client/preview/renderer.js",
+        "client/preview/renderer.js",
+        "client/preview/renderer.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "devPages",
+      "files": [
+        "client/dom-inspector/domInspectorInitializer.js",
+        "client/settings/core/settingsInitializer.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "handleImageDelete",
+      "files": [
+        "client/domEvents.js",
+        "client/image/imageEvents.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "GAME_API_ACTIONS",
+      "files": [
+        "client/log/ApiLog.js",
+        "client/sdk/pjaSdk.js",
+        "client/sdk/pjaSdk.module.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "config",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "discoveredTypes",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "logManager",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/log/LogManager.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "isConsoleLoggingEnabled",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/log/LogCore.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "enableConsoleLogging",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "disableConsoleLogging",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "getLogBuffer",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "getLogBufferSize",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "clearLogBuffer",
+      "files": [
+        "client/log/ConsoleLogManager.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "Viz",
+      "files": [
+        "client/preview/plugins/graphviz.js",
+        "client/preview/plugins/graphviz.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "_mermaidActivePanSvg",
+      "files": [
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "_mermaidPanData",
+      "files": [
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "_mermaidResizeInProgress",
+      "files": [
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "gameClient",
+      "files": [
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "PJA",
+      "files": [
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "initializeGameClient",
+      "files": [
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js",
+        "client/sdk/pjaSdk.module.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "GameClient",
+      "files": [
+        "client/sdk/pjaSdk.js",
+        "client/sdk/pjaSdk.module.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "pjaSdk",
+      "files": [
+        "client/sdk/pjaSdk.js",
+        "client/sdk/pjaSdk.module.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "settingsRegistry",
+      "files": [
+        "client/settings/core/settingsInitializer.js",
+        "client/settings/core/settingsRegistry.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "registerOnBufferUpdate",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "setIncludeTypes",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "setExcludeTypes",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "setIncludeLevels",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "setExcludeLevels",
+      "files": [
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "iconsPanel",
+      "files": [
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js"
+      ],
+      "severity": "medium"
+    },
+    {
+      "globalName": "devpages",
+      "files": [
+        "client/settings/utils/PanelIntrospector.js",
+        "client/utils/ZIndexManager.js",
+        "client/utils/windowConsolidation.js"
+      ],
+      "severity": "high"
+    },
+    {
+      "globalName": "zIndexManager",
+      "files": [
+        "client/utils/ZIndexManager.js",
+        "redux/utils/ZIndexManager.js"
+      ],
+      "severity": "medium"
+    }
+  ],
+  "duplicateEventHandlers": [
+    {
+      "eventType": "click",
+      "files": [
+        "client/bootloader-selector.js",
+        "client/bootloader.js",
+        "client/buttons.js",
+        "client/buttons.js",
+        "client/cli/index.js",
+        "client/code/function-overview-component.js",
+        "client/components/AuthDisplay.js",
+        "client/components/AuthDisplay.js",
+        "client/components/AuthDisplay.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/DirectoryPopup.js",
+        "client/components/DirectoryPopup.js",
+        "client/components/PathManagerComponent.js",
+        "client/components/PathManagerComponent.js",
+        "client/components/PathManagerComponent.js",
+        "client/components/PathManagerComponent.js",
+        "client/components/PathManagerComponent.js",
+        "client/components/PublishModalIntegration.js",
+        "client/components/TopBarController.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/publish/PublishModal.js",
+        "client/components/topBar.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/components/BreadcrumbManager.js",
+        "client/dom-inspector/components/ComputedStylesComponent.js",
+        "client/dom-inspector/components/HighlightManager.js",
+        "client/dom-inspector/components/HistoryManager.js",
+        "client/dom-inspector/components/SectionManager.js",
+        "client/dom-inspector/components/SectionManager.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/interaction/ElementPicker.js",
+        "client/dom-inspector/managers/TreeManager.js",
+        "client/domEvents.js",
+        "client/file-browser/FileBrowserPanel.js",
+        "client/file-browser/FileTreeManager.js",
+        "client/image/imageEvents.js",
+        "client/layout/SidebarHeader_backup.js",
+        "client/layout/docks/BaseDock.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/libs/Sortable.min.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogFilterBar.js",
+        "client/log/LogFilterBar.js",
+        "client/log/UnifiedLogging.js",
+        "client/log/UnifiedLogging.js",
+        "client/log/logEntryDOM.js",
+        "client/log/logEntryDOM.js",
+        "client/panels/BasePanel.js",
+        "client/panels/BasePanel.js",
+        "client/panels/BasePanel_backup.js",
+        "client/panels/CommPanel.js",
+        "client/panels/FileTreePanel.js",
+        "client/panels/JavaScriptPanel.js",
+        "client/panels/NlpPanel.js",
+        "client/panels/NlpPanel.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/panels/PanelNavBar.js",
+        "client/panels/PanelNavBar.js",
+        "client/panels/PanelNavBar.js",
+        "client/panels/PanelNavBar.js",
+        "client/panels/SidebarManagerPanel.js",
+        "client/panels/SidebarManagerPanel.js",
+        "client/panels/SidebarManagerPanel.js",
+        "client/panels/SidebarManagerPanel.js",
+        "client/panels/SubPanel.js",
+        "client/panels/SubPanel.js",
+        "client/panels/TreesPanel.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/panels/simple-clean-panels.js",
+        "client/panels/simple-clean-panels.js",
+        "client/panels/test-flyout-system.js",
+        "client/preview/plugins/audio-md.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/fullscreen.js",
+        "client/refresh.js",
+        "client/refresh.js",
+        "client/settings/core/SettingsPanel.js",
+        "client/settings/core/SettingsPanel.js",
+        "client/settings/core/SettingsPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/css-design/DesignTokensPanel.js",
+        "client/settings/panels/css-design/DesignTokensPanel.js",
+        "client/settings/panels/css-design/DesignTokensPanel.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/publish/PublishSettingsPanel.js",
+        "client/settings/panels/themes/ThemeSelectorPanel.js",
+        "client/settings/utils/EventBusDemoPanel.js",
+        "client/settings/utils/EventBusDemoPanel.js",
+        "client/settings/utils/EventBusDemoPanel.js",
+        "client/settings/utils/ExamplePanel.js",
+        "client/settings/utils/PanelIntrospector.js",
+        "client/settings/utils/PanelIntrospector.js",
+        "client/settings/utils/PanelIntrospector.js",
+        "client/settings/utils/PanelIntrospector.js",
+        "client/sidebar/panels/PublishedSummaryPanel.js",
+        "client/utils/ButtonIntrospection.js",
+        "client/utils/EventManager.test.js",
+        "client/utils/popup.js",
+        "client/utils/uiError.js",
+        "client/utils/uiError.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "debug-scripts/event-listener-debugger.js",
+        "fix-design-tokens-with-proper-css.js",
+        "fix-design-tokens-with-proper-css.js",
+        "notsure/panels/ApiTokenPanel.js",
+        "notsure/panels/ApiTokenPanel.js",
+        "notsure/panels/ApiTokenPanel.js",
+        "notsure/panels/ApiTokenPanel.js",
+        "notsure/panels/ApiTokenPanel.js",
+        "notsure/panels/ContextManagerPanel.js",
+        "notsure/panels/FileTreePanel.js",
+        "notsure/panels/TreesPanel.js",
+        "operations.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "packages/devpages-debug/devtools/DevToolsPanel.js",
+        "packages/devpages-debug/devtools/DevToolsPanel.js",
+        "packages/devpages-debug/devtools/DevToolsPanel.js",
+        "packages/devpages-debug/devtools/DevToolsPanel.js",
+        "packages/devpages-debug/devtools/modules/CacheManager.js",
+        "packages/devpages-debug/devtools/modules/CacheManager.js",
+        "packages/devpages-debug/devtools/modules/CacheManager.js",
+        "packages/devpages-debug/devtools/modules/StateInspector.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+        "packages/devpages-debug/panels/CssFilesPanel/modules/CssFileModal.js",
+        "packages/devpages-debug/panels/CssFilesPanel/modules/CssFileModal.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+        "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+        "packages/devpages-debug/panels/JavaScriptInfoPanel.js",
+        "packages/devpages-debug/panels/JavaScriptInfoPanel.js",
+        "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+        "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+        "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+        "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+        "pdata/coverage/lcov-report/sorter.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/PDataPanel.js",
+        "redux/components/PanelUI.js",
+        "redux/components/PanelUI.js",
+        "redux/components/SplashScreen.js",
+        "redux/utils/ZIndexManager.js",
+        "test-resize.js"
+      ],
+      "count": 224,
+      "severity": "high"
+    },
+    {
+      "eventType": "keydown",
+      "files": [
+        "client/bootloader-selector.js",
+        "client/cli/index.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/DirectoryPopup.js",
+        "client/components/PublishModalIntegration.js",
+        "client/components/publish/PublishModal.js",
+        "client/dom-inspector/interaction/ElementPicker.js",
+        "client/image/imageManager.js",
+        "client/layout/SidebarHeader_backup.js",
+        "client/log/LogFilterBar.js",
+        "client/panels/CLIPanel.js",
+        "client/panels/EditorPanel.js",
+        "client/panels/simple-clean-panels.js",
+        "client/preview/plugins/mermaid/fullscreen.js",
+        "client/refresh.js",
+        "client/settings/core/SettingsPanel.js",
+        "client/settings/utils/PanelIntrospector.js",
+        "client/settings/utils/SettingsDomUtils.js",
+        "client/utils/KeyboardShortcutManager.js",
+        "client/views/EditorView.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/modules/CssFileModal.js",
+        "pdata/coverage/lcov-report/block-navigation.js",
+        "redux/components/KeyboardShortcutHandler.js",
+        "redux/utils/ZIndexManager.js"
+      ],
+      "count": 26,
+      "severity": "high"
+    },
+    {
+      "eventType": "DOMContentLoaded",
+      "files": [
+        "client/bootloader-selector.js",
+        "client/bootloader.js",
+        "client/bootloader.js",
+        "client/cli/logger.js",
+        "client/domEvents.js",
+        "client/handlers.js",
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js",
+        "client/utils/IntrospectionBootstrap.js",
+        "client/utils/debugUtils.js",
+        "client/vendor/scripts/highlight.min.js",
+        "debug-log-alignment.js",
+        "packages/devpages-debug/devtools/StateKitDevTools.js",
+        "packages/devpages-debug/panels/JavaScriptInfoPanel.js",
+        "redux/components/SplashScreen.js"
+      ],
+      "count": 15,
+      "severity": "high"
+    },
+    {
+      "eventType": "change",
+      "files": [
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ListContainer.js",
+        "client/components/PathManagerComponent.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/components/ComputedStylesComponent.js",
+        "client/log/LogDisplay.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/html-render/HtmlRenderSettingsPanel.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/settings/panels/plugins/PluginsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/preview/PreviewSettingsPanel.js",
+        "client/settings/panels/publish/PublishSettingsPanel.js",
+        "client/settings/panels/publish/PublishSettingsPanel.js",
+        "client/settings/panels/themes/ThemeSelectorPanel.js",
+        "client/settings/panels/themes/ThemeSelectorPanel.js",
+        "client/settings/panels/themes/ThemeSelectorPanel.js",
+        "client/settings/utils/ExamplePanel.js",
+        "client/settings/utils/ExamplePanel.js",
+        "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+        "test_fixes.js"
+      ],
+      "count": 39,
+      "severity": "high"
+    },
+    {
+      "eventType": "mousedown",
+      "files": [
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/layout/docks/DebugDock.js",
+        "client/layout/docks/DebugDock.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/resizable.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/panels/FileTreePanel.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/settings/utils/SettingsDomUtils.js",
+        "client/utils/popup.js",
+        "client/utils/popup.js",
+        "debug-scripts/resizer-debugger.js",
+        "notsure/panels/FileTreePanel.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/Dock.js",
+        "redux/components/PanelUI.js",
+        "redux/components/PanelUI.js",
+        "redux/components/PanelUI.js",
+        "redux/components/PanelUI.js"
+      ],
+      "count": 38,
+      "severity": "high"
+    },
+    {
+      "eventType": "mousemove",
+      "files": [
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/dom-inspector/interaction/ElementPicker.js",
+        "client/layout/docks/DebugDock.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/resizable.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/utils/popup.js",
+        "client/utils/popup.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "redux/components/Dock.js",
+        "redux/components/PanelUI.js"
+      ],
+      "count": 21,
+      "severity": "high"
+    },
+    {
+      "eventType": "mouseup",
+      "files": [
+        "client/components/ContextSettingsPopupComponent.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/dom-inspector/core/PanelUI.js",
+        "client/layout/docks/DebugDock.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/docks/DockFlyoutManager.js",
+        "client/layout/resizable.js",
+        "client/log/LogDisplay.js",
+        "client/log/LogDisplay.js",
+        "client/panels/FileTreePanel.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/panels/PanelFlyoutManager.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/settings/utils/SettingsDomUtils.js",
+        "client/utils/popup.js",
+        "client/utils/popup.js",
+        "notsure/panels/FileTreePanel.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugDock.js",
+        "packages/devpages-debug/DebugPanelManager.js",
+        "redux/components/Dock.js",
+        "redux/components/PanelUI.js"
+      ],
+      "count": 23,
+      "severity": "high"
+    },
+    {
+      "eventType": "mouseenter",
+      "files": [
+        "client/components/DirectoryPopup.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/panels/PanelReorderManager.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/fullscreen.js",
+        "debug-scripts/css/button-hover-debugger.js",
+        "debug-scripts/resizer-debugger.js"
+      ],
+      "count": 8,
+      "severity": "high"
+    },
+    {
+      "eventType": "mouseleave",
+      "files": [
+        "client/components/DirectoryPopup.js",
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/panels/FileTreePanel.js",
+        "client/panels/PanelReorderManager.js",
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/preview/plugins/mermaid/controls.js",
+        "client/preview/plugins/mermaid/fullscreen.js",
+        "client/settings/utils/SettingsDomUtils.js",
+        "debug-scripts/css/button-hover-debugger.js",
+        "debug-scripts/resizer-debugger.js",
+        "notsure/panels/FileTreePanel.js"
+      ],
+      "count": 11,
+      "severity": "high"
+    },
+    {
+      "eventType": "input",
+      "files": [
+        "client/dom-inspector/DomInspectorSettings.js",
+        "client/log/LogFilterBar.js",
+        "client/panels/EditorPanel.js",
+        "client/panels/PanelControlCenter.js",
+        "client/settings/panels/console/ConsoleLogPanel.js",
+        "client/settings/panels/icons/Icons.js",
+        "client/views/EditorView.js",
+        "client/views/EditorView.js",
+        "packages/devpages-debug/devtools/modules/StateInspector.js"
+      ],
+      "count": 9,
+      "severity": "high"
+    },
+    {
+      "eventType": "dragstart",
+      "files": [
+        "client/dom-inspector/components/SectionManager.js",
+        "client/panels/DragDropManager.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelReorderManager.js"
+      ],
+      "count": 4,
+      "severity": "medium"
+    },
+    {
+      "eventType": "dragend",
+      "files": [
+        "client/dom-inspector/components/SectionManager.js",
+        "client/panels/DragDropManager.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelReorderManager.js"
+      ],
+      "count": 4,
+      "severity": "medium"
+    },
+    {
+      "eventType": "dragover",
+      "files": [
+        "client/dom-inspector/components/SectionManager.js",
+        "client/panels/DragDropManager.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelReorderManager.js"
+      ],
+      "count": 4,
+      "severity": "medium"
+    },
+    {
+      "eventType": "drop",
+      "files": [
+        "client/dom-inspector/components/SectionManager.js",
+        "client/panels/DragDropManager.js",
+        "client/panels/PanelControlCenter.js",
+        "client/panels/PanelReorderManager.js"
+      ],
+      "count": 4,
+      "severity": "medium"
+    },
+    {
+      "eventType": "load",
+      "files": [
+        "client/panels/renderers/HtmlPreviewRenderer.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "client/vendor/scripts/mermaid.min.js",
+        "pdata/coverage/lcov-report/sorter.js"
+      ],
+      "count": 6,
+      "severity": "high"
+    }
+  ],
+  "overlappingFunctionality": [
+    {
+      "category": "auth",
+      "files": [
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 346
+        },
+        {
+          "file": "client/store/slices/authSlice.js",
+          "score": 271
+        },
+        {
+          "file": "client/components/AuthDisplay.js",
+          "score": 252
+        },
+        {
+          "file": "server/routes/auth.old.js",
+          "score": 228
+        },
+        {
+          "file": "server/routes/auth.js",
+          "score": 200
+        },
+        {
+          "file": "pdata/PData.js",
+          "score": 171
+        },
+        {
+          "file": "server/middleware/auth.js",
+          "score": 167
+        },
+        {
+          "file": "tests/auth-integration.test.js",
+          "score": 167
+        },
+        {
+          "file": "pdata/PData.original.js",
+          "score": 153
+        },
+        {
+          "file": "server/routes/files.js",
+          "score": 148
+        },
+        {
+          "file": "client/api.js",
+          "score": 143
+        },
+        {
+          "file": "pdata/UserManager.js",
+          "score": 138
+        },
+        {
+          "file": "pdata/manageUsers.js",
+          "score": 135
+        },
+        {
+          "file": "client/store/enhancedSelectors.js",
+          "score": 131
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 126
+        },
+        {
+          "file": "pdata/FileManager.js",
+          "score": 124
+        },
+        {
+          "file": "test-auth.js",
+          "score": 121
+        },
+        {
+          "file": "client/components/LoginForm.js",
+          "score": 99
+        },
+        {
+          "file": "server/middleware/auth.old.js",
+          "score": 99
+        },
+        {
+          "file": "server/routes/publish.js",
+          "score": 98
+        },
+        {
+          "file": "pdata/tests/test-server.js",
+          "score": 97
+        },
+        {
+          "file": "client/store/apiSlice.js",
+          "score": 86
+        },
+        {
+          "file": "tests/quick-auth-test.js",
+          "score": 86
+        },
+        {
+          "file": "pdata/tests/setupTestUsers.js",
+          "score": 85
+        },
+        {
+          "file": "pdata/utils/MountManager.js",
+          "score": 85
+        },
+        {
+          "file": "client/auth.js",
+          "score": 76
+        },
+        {
+          "file": "pdata/tests/capability.test.js",
+          "score": 75
+        },
+        {
+          "file": "client/components/PathManagerComponent.js",
+          "score": 70
+        },
+        {
+          "file": "server/routes/capabilities.js",
+          "score": 70
+        },
+        {
+          "file": "pdata/tests/api.test.js",
+          "score": 65
+        },
+        {
+          "file": "migrate-auth.js",
+          "score": 64
+        },
+        {
+          "file": "server/server.js",
+          "score": 62
+        },
+        {
+          "file": "client/panels/PreviewPanel.js",
+          "score": 54
+        },
+        {
+          "file": "client/domEvents.js",
+          "score": 51
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "score": 51
+        },
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 49
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 48
+        },
+        {
+          "file": "pdata/utils/PathManager.js",
+          "score": 47
+        },
+        {
+          "file": "server/routes/mediaProxy.js",
+          "score": 47
+        },
+        {
+          "file": "server/middleware/capabilities.js",
+          "score": 45
+        },
+        {
+          "file": "server/utils/pdata.js",
+          "score": 44
+        },
+        {
+          "file": "client/headers.js",
+          "score": 42
+        },
+        {
+          "file": "client/lifecycle/events.js",
+          "score": 41
+        },
+        {
+          "file": "client/utils/topDirDiagnostic.js",
+          "score": 40
+        },
+        {
+          "file": "server/routes/pdataRoutes.js",
+          "score": 39
+        },
+        {
+          "file": "test-new-auth.js",
+          "score": 39
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 35
+        },
+        {
+          "file": "client/examples/thunkUsage.js",
+          "score": 34
+        },
+        {
+          "file": "pdata/tests/path-security.test.js",
+          "score": 34
+        },
+        {
+          "file": "client/actions/index.js",
+          "score": 33
+        },
+        {
+          "file": "redux/components/SplashScreen.js",
+          "score": 33
+        },
+        {
+          "file": "pdata/tests/symlink.test.js",
+          "score": 31
+        },
+        {
+          "file": "debug-panel-warnings.js",
+          "score": 29
+        },
+        {
+          "file": "server/routes/users.js",
+          "score": 29
+        },
+        {
+          "file": "client/views/EditorView.js",
+          "score": 28
+        },
+        {
+          "file": "client/messaging/actionCreators.js",
+          "score": 26
+        },
+        {
+          "file": "client/store/selectors.js",
+          "score": 26
+        },
+        {
+          "file": "run-tests.js",
+          "score": 26
+        },
+        {
+          "file": "server/routes/routeUtils.js",
+          "score": 26
+        },
+        {
+          "file": "server/routes/spaces.js",
+          "score": 26
+        },
+        {
+          "file": "debug-scripts/redux/verify-auth-persistence.js",
+          "score": 25
+        },
+        {
+          "file": "client/actions/debugActions.js",
+          "score": 24
+        },
+        {
+          "file": "client/panels/BasePanel.js",
+          "score": 24
+        },
+        {
+          "file": "client/store/authMiddleware.js",
+          "score": 24
+        },
+        {
+          "file": "client/utils/CssManager.js",
+          "score": 24
+        },
+        {
+          "file": "scripts/codebase-health-check.js",
+          "score": 24
+        },
+        {
+          "file": "client/log/test-console-manager.js",
+          "score": 23
+        },
+        {
+          "file": "client/panels/verify-auth-persistence.js",
+          "score": 23
+        },
+        {
+          "file": "pdata/AuthSrv.js",
+          "score": 23
+        },
+        {
+          "file": "client/appState.js",
+          "score": 22
+        },
+        {
+          "file": "client/appDispatch.js",
+          "score": 20
+        },
+        {
+          "file": "client/deepLink.js",
+          "score": 20
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "score": 20
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 20
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 19
+        },
+        {
+          "file": "server/routes/admin.js",
+          "score": 19
+        },
+        {
+          "file": "client/sdk/gameClient.js",
+          "score": 18
+        },
+        {
+          "file": "client/sdk/pjaSdk.js",
+          "score": 18
+        },
+        {
+          "file": "test-editor-preview.js",
+          "score": 18
+        },
+        {
+          "file": "notsure/panels/ContextManagerPanel.js",
+          "score": 17
+        },
+        {
+          "file": "client/components/TopBarController.js",
+          "score": 16
+        },
+        {
+          "file": "server/routes/cli.js",
+          "score": 15
+        },
+        {
+          "file": "server/routes/save.js",
+          "score": 15
+        },
+        {
+          "file": "client/vendor/scripts/markdown-it.min.js",
+          "score": 14
+        },
+        {
+          "file": "pdata/test-production.js",
+          "score": 13
+        },
+        {
+          "file": "server/api/cli.js",
+          "score": 13
+        },
+        {
+          "file": "client/store/reducer.js",
+          "score": 12
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "score": 12
+        },
+        {
+          "file": "client/validation/action-validators.js",
+          "score": 12
+        },
+        {
+          "file": "debug-scripts/redux/run.js",
+          "score": 12
+        },
+        {
+          "file": "meta-language/generated/action-validators.js",
+          "score": 12
+        },
+        {
+          "file": "pdata/routes.js",
+          "score": 12
+        },
+        {
+          "file": "client/services/fetcher.js",
+          "score": 11
+        },
+        {
+          "file": "notsure/panels/ApiTokenPanel.js",
+          "score": 11
+        },
+        {
+          "file": "packages/devpages-debug/modernIndex.js",
+          "score": 11
+        },
+        {
+          "file": "pdata/test-mounts.js",
+          "score": 11
+        },
+        {
+          "file": "pdata/test-security.js",
+          "score": 11
+        },
+        {
+          "file": "client/log/ApiLog.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/reduxConnect.js",
+          "score": 10
+        },
+        {
+          "file": "client/eventBus.js",
+          "score": 9
+        },
+        {
+          "file": "client/vendor/scripts/dompurify.es.js",
+          "score": 8
+        },
+        {
+          "file": "server/routes/mediaUpload.js",
+          "score": 8
+        },
+        {
+          "file": "test_fixes.js",
+          "score": 8
+        },
+        {
+          "file": "client/settings/panels/themes/ThemeSelectorPanel.js",
+          "score": 7
+        },
+        {
+          "file": "packages/devpages-debug/debugPanelInitializer.js",
+          "score": 7
+        },
+        {
+          "file": ".eslintrc.codebase-standards.js",
+          "score": 6
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 6
+        },
+        {
+          "file": "client/preview/plugins/mermaid/controls.js",
+          "score": 6
+        },
+        {
+          "file": "packages/devpages-debug/panels/PDataPanel.js",
+          "score": 6
+        },
+        {
+          "file": "scripts/setup-mounts.js",
+          "score": 6
+        },
+        {
+          "file": "server/utils/fileUtils.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "debug",
+      "files": [
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 327
+        },
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 224
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 212
+        },
+        {
+          "file": "client/settings/panels/console/ConsoleLogPanel.js",
+          "score": 183
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 176
+        },
+        {
+          "file": "debug-scripts/resizer-debugger.js",
+          "score": 170
+        },
+        {
+          "file": "debug-scripts/panel-system-debugger.js",
+          "score": 153
+        },
+        {
+          "file": "client/log/ConsoleTiming.js",
+          "score": 152
+        },
+        {
+          "file": "debug-scripts/log-alignment-debugger.js",
+          "score": 138
+        },
+        {
+          "file": "packages/devpages-debug/modernIndex.js",
+          "score": 116
+        },
+        {
+          "file": "packages/devpages-debug/debugPanelInitializer.js",
+          "score": 108
+        },
+        {
+          "file": "client/log/test-console-manager.js",
+          "score": 107
+        },
+        {
+          "file": "debug-scripts/resizer-debugger-fixed.js",
+          "score": 103
+        },
+        {
+          "file": "debug-scripts/css/css-master-debugger.js",
+          "score": 102
+        },
+        {
+          "file": "client/utils/debugUtils.js",
+          "score": 97
+        },
+        {
+          "file": "client/panels/renderers/HtmlPreviewRenderer.js",
+          "score": 95
+        },
+        {
+          "file": "client/preview/renderer.js",
+          "score": 95
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 93
+        },
+        {
+          "file": "client/utils/ZIndexManager.js",
+          "score": 93
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+          "score": 92
+        },
+        {
+          "file": "debug-scripts/test-app-debug.js",
+          "score": 91
+        },
+        {
+          "file": "client/cli/index.js",
+          "score": 85
+        },
+        {
+          "file": "redux/utils/ZIndexManager.js",
+          "score": 83
+        },
+        {
+          "file": "debug-scripts/css/zindex-debugger.js",
+          "score": 82
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 79
+        },
+        {
+          "file": "client/preview/plugins/mermaid/controls.js",
+          "score": 77
+        },
+        {
+          "file": "debug-scripts/event-listener-debugger.js",
+          "score": 77
+        },
+        {
+          "file": "client/examples/thunkUsage.js",
+          "score": 75
+        },
+        {
+          "file": "debug-scripts/log-debugger.js",
+          "score": 74
+        },
+        {
+          "file": "client/layout/WorkspaceManager.js",
+          "score": 73
+        },
+        {
+          "file": "client/settings/utils/debug-panels.js",
+          "score": 73
+        },
+        {
+          "file": "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+          "score": 73
+        },
+        {
+          "file": "client/panels/test-complete-panel-system.js",
+          "score": 71
+        },
+        {
+          "file": "client/actions/debugActions.js",
+          "score": 70
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools-panel.js",
+          "score": 67
+        },
+        {
+          "file": "packages/devpages-debug/index.js",
+          "score": 67
+        },
+        {
+          "file": "client/settings/core/settingsInitializer.js",
+          "score": 66
+        },
+        {
+          "file": "debug-preview.js",
+          "score": 65
+        },
+        {
+          "file": "client/components/publish/PublishAPI.js",
+          "score": 64
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 64
+        },
+        {
+          "file": "client/log/LogCore.js",
+          "score": 64
+        },
+        {
+          "file": "debug-scripts/css/button-hover-debugger.js",
+          "score": 64
+        },
+        {
+          "file": "client/log/ConsoleLogManager.js",
+          "score": 63
+        },
+        {
+          "file": "debug-scripts/css/css-bundle-inspector.js",
+          "score": 63
+        },
+        {
+          "file": "client/panels/test-flyout-system.js",
+          "score": 61
+        },
+        {
+          "file": "client/store/slices/debugPanelSlice.js",
+          "score": 59
+        },
+        {
+          "file": "debug-scripts/redux-state-inspector.js",
+          "score": 59
+        },
+        {
+          "file": "test-workspace-harmonization.js",
+          "score": 58
+        },
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "score": 57
+        },
+        {
+          "file": "client/panels/panelConfiguration.js",
+          "score": 56
+        },
+        {
+          "file": "client/preview/plugins/css.js",
+          "score": 55
+        },
+        {
+          "file": "redux/middleware/persistenceMiddleware.js",
+          "score": 55
+        },
+        {
+          "file": "test-debug-dock-fix.js",
+          "score": 54
+        },
+        {
+          "file": "verify-fixes.js",
+          "score": 54
+        },
+        {
+          "file": "server/routes/publish.js",
+          "score": 53
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 52
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 52
+        },
+        {
+          "file": "client/api.js",
+          "score": 51
+        },
+        {
+          "file": "debug-scripts/dom-element-inspector.js",
+          "score": 51
+        },
+        {
+          "file": "client/layout/SidebarHeader_backup.js",
+          "score": 50
+        },
+        {
+          "file": "client/utils/migrationHelper.js",
+          "score": 50
+        },
+        {
+          "file": "debug-log-alignment.js",
+          "score": 47
+        },
+        {
+          "file": "client/actions/index.js",
+          "score": 46
+        },
+        {
+          "file": "client/debug-pathmanager-test.js",
+          "score": 46
+        },
+        {
+          "file": "debug-scripts/sidebar-toggle-debug.js",
+          "score": 46
+        },
+        {
+          "file": "server/routes/files.js",
+          "score": 46
+        },
+        {
+          "file": "tests/quick-auth-test.js",
+          "score": 46
+        },
+        {
+          "file": "client/utils.js",
+          "score": 45
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "score": 44
+        },
+        {
+          "file": "pdata/manageUsers.js",
+          "score": 44
+        },
+        {
+          "file": "debug-editor-preview-panels.js",
+          "score": 43
+        },
+        {
+          "file": "server/utils/htmlGenerator.js",
+          "score": 43
+        },
+        {
+          "file": "test-editor-preview.js",
+          "score": 43
+        },
+        {
+          "file": "diagnose_ui_visibility.js",
+          "score": 42
+        },
+        {
+          "file": "test-auth.js",
+          "score": 41
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "score": 40
+        },
+        {
+          "file": "debug-current-state.js",
+          "score": 40
+        },
+        {
+          "file": "server/routes/previewRoutes.js",
+          "score": 40
+        },
+        {
+          "file": "test-redux-panel-system.js",
+          "score": 40
+        },
+        {
+          "file": "client/panels/verify-ui-state-persistence.js",
+          "score": 39
+        },
+        {
+          "file": "debug-scripts/redux/verify-ui-state-persistence.js",
+          "score": 39
+        },
+        {
+          "file": "examples/debug-usage-example.js",
+          "score": 37
+        },
+        {
+          "file": "client/dom-inspector/domInspectorInitializer.js",
+          "score": 36
+        },
+        {
+          "file": "client/panels/simple-clean-panels.js",
+          "score": 36
+        },
+        {
+          "file": "debug-panel-warnings.js",
+          "score": 36
+        },
+        {
+          "file": "test-log.js",
+          "score": 35
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 33
+        },
+        {
+          "file": "client/preview/plugins/katex.js",
+          "score": 32
+        },
+        {
+          "file": "client/views/PreviewView.js",
+          "score": 32
+        },
+        {
+          "file": "server/routes/auth.old.js",
+          "score": 32
+        },
+        {
+          "file": "test-new-auth.js",
+          "score": 32
+        },
+        {
+          "file": "test-panel-rendering.js",
+          "score": 32
+        },
+        {
+          "file": "client/tests/PanelTestFramework.js",
+          "score": 31
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 31
+        },
+        {
+          "file": "test-sidebar-implementation.js",
+          "score": 31
+        },
+        {
+          "file": "debug-scripts/test-sidebar-fix.js",
+          "score": 30
+        },
+        {
+          "file": "diagnostic-panel-check.js",
+          "score": 30
+        },
+        {
+          "file": "meta-language/tools/test-system.js",
+          "score": 30
+        },
+        {
+          "file": "server/routes/auth.js",
+          "score": 30
+        },
+        {
+          "file": "test-panel-zones.js",
+          "score": 30
+        },
+        {
+          "file": "test_fixes.js",
+          "score": 30
+        },
+        {
+          "file": "client/utils/EventManager.test.js",
+          "score": 29
+        },
+        {
+          "file": "pdata/tests/test-server.js",
+          "score": 29
+        },
+        {
+          "file": "client/dom-inspector/managers/TreeManager.js",
+          "score": 28
+        },
+        {
+          "file": "client/log/index.js",
+          "score": 28
+        },
+        {
+          "file": "client/store/PanelStatePersistence.js",
+          "score": 28
+        },
+        {
+          "file": "client/utils/topDirDiagnostic.js",
+          "score": 27
+        },
+        {
+          "file": "client/log/ConsoleCallerInfo.js",
+          "score": 26
+        },
+        {
+          "file": "client/panels/panelRegistrationFix.js",
+          "score": 26
+        },
+        {
+          "file": "server/routes/cli.js",
+          "score": 26
+        },
+        {
+          "file": "client/preview/plugins/mermaid/index.js",
+          "score": 25
+        },
+        {
+          "file": "debug-scripts/log-panel-debugger.js",
+          "score": 25
+        },
+        {
+          "file": "scripts/codebase-health-check.js",
+          "score": 24
+        },
+        {
+          "file": "test-simple-sidebar-system.js",
+          "score": 24
+        },
+        {
+          "file": "tests/auth-integration.test.js",
+          "score": 24
+        },
+        {
+          "file": "client/log/LogFilterBar.js",
+          "score": 23
+        },
+        {
+          "file": "client/dom-inspector/managers/SelectorManager.js",
+          "score": 22
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools.js",
+          "score": 22
+        },
+        {
+          "file": "run-tests.js",
+          "score": 22
+        },
+        {
+          "file": "server/routes/images.js",
+          "score": 22
+        },
+        {
+          "file": "client/preview/renderers/MarkdownRenderer.js",
+          "score": 21
+        },
+        {
+          "file": "client/sdk/gameClient.js",
+          "score": 21
+        },
+        {
+          "file": "client/sdk/pjaSdk.js",
+          "score": 21
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 21
+        },
+        {
+          "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
+          "score": 21
+        },
+        {
+          "file": "client/fix-window-panels.js",
+          "score": 20
+        },
+        {
+          "file": "client/modules/cli/index.js",
+          "score": 20
+        },
+        {
+          "file": "client/panels/CodePanel.js",
+          "score": 20
+        },
+        {
+          "file": "client/store/reducers/enhancedReducerUtils.js",
+          "score": 20
+        },
+        {
+          "file": "debug-scripts/redux/run.js",
+          "score": 20
+        },
+        {
+          "file": "fix-design-tokens-with-proper-css.js",
+          "score": 20
+        },
+        {
+          "file": "migrate-auth.js",
+          "score": 20
+        },
+        {
+          "file": "packages/devpages-debug/panels/PDataPanel.js",
+          "score": 20
+        },
+        {
+          "file": "scripts/audit.js",
+          "score": 20
+        },
+        {
+          "file": "server/routes/spaces.js",
+          "score": 20
+        },
+        {
+          "file": "emergency_stop_loop.js",
+          "score": 19
+        },
+        {
+          "file": "force-panel-registration.js",
+          "score": 19
+        },
+        {
+          "file": "client/settings/panels/css-design/PageThemeManager.js",
+          "score": 18
+        },
+        {
+          "file": "client/store/reducers/panelMetadata.js",
+          "score": 18
+        },
+        {
+          "file": "debug-scripts/css/dom-observer.js",
+          "score": 18
+        },
+        {
+          "file": "debug-scripts/css/emergency-hover-fix.js",
+          "score": 18
+        },
+        {
+          "file": "fix-design-tokens-panel.js",
+          "score": 18
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 18
+        },
+        {
+          "file": "server/utils/pdata.js",
+          "score": 18
+        },
+        {
+          "file": "client/log/logEntryDOM.js",
+          "score": 17
+        },
+        {
+          "file": "client/store/slices/authSlice.js",
+          "score": 17
+        },
+        {
+          "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
+          "score": 17
+        },
+        {
+          "file": "test-panel-system.js",
+          "score": 17
+        },
+        {
+          "file": "test-resize.js",
+          "score": 17
+        },
+        {
+          "file": "client/layout/docks/dockManager.js",
+          "score": 16
+        },
+        {
+          "file": "client/utils/windowConsolidation.js",
+          "score": 16
+        },
+        {
+          "file": "meta-language/tools/action-validator.js",
+          "score": 16
+        },
+        {
+          "file": "server/middleware/auth.js",
+          "score": 16
+        },
+        {
+          "file": "server/server.js",
+          "score": 16
+        },
+        {
+          "file": "client/log/ApiLog.js",
+          "score": 15
+        },
+        {
+          "file": "client/panels/verify-state-persistence.js",
+          "score": 15
+        },
+        {
+          "file": "client/vendor/scripts/katex.min.js",
+          "score": 15
+        },
+        {
+          "file": "debug-scripts/redux/verify-state-persistence.js",
+          "score": 15
+        },
+        {
+          "file": "force_pathmanager_visible.js",
+          "score": 15
+        },
+        {
+          "file": "pdata/logger.js",
+          "score": 15
+        },
+        {
+          "file": "quick-settings-sidebar-fix.js",
+          "score": 15
+        },
+        {
+          "file": "test-clean-sidebar.js",
+          "score": 15
+        },
+        {
+          "file": "client/appState.js",
+          "score": 14
+        },
+        {
+          "file": "client/dom-inspector/core/StateManager.js",
+          "score": 14
+        },
+        {
+          "file": "pdata/utils/MountManager.js",
+          "score": 14
+        },
+        {
+          "file": "client/layout/Sidebar.js",
+          "score": 13
+        },
+        {
+          "file": "client/panels/TreesPanel.js",
+          "score": 13
+        },
+        {
+          "file": "notsure/panels/TreesPanel.js",
+          "score": 13
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+          "score": 13
+        },
+        {
+          "file": "pdata/tests/api.test.js",
+          "score": 13
+        },
+        {
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "score": 13
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "score": 13
+        },
+        {
+          "file": "server/routes/pdataRoutes.js",
+          "score": 13
+        },
+        {
+          "file": "test-basepanel-compatibility.js",
+          "score": 13
+        },
+        {
+          "file": "test-panel-registry-fix.js",
+          "score": 13
+        },
+        {
+          "file": "client/actions.js",
+          "score": 12
+        },
+        {
+          "file": "client/log/ConsoleLogBuffer.js",
+          "score": 12
+        },
+        {
+          "file": "server/middleware/auth.old.js",
+          "score": 12
+        },
+        {
+          "file": "clear-panel-state.js",
+          "score": 11
+        },
+        {
+          "file": "clear-panel-storage.js",
+          "score": 11
+        },
+        {
+          "file": "pdata/utils/logger.js",
+          "score": 11
+        },
+        {
+          "file": "scripts/setup-mounts.js",
+          "score": 11
+        },
+        {
+          "file": "server/routes/mediaProxy.js",
+          "score": 11
+        },
+        {
+          "file": "test-architecture.js",
+          "score": 11
+        },
+        {
+          "file": "client/layout/Sidebar_backup.js",
+          "score": 10
+        },
+        {
+          "file": "client/lifecycle/LifecycleManager.js",
+          "score": 10
+        },
+        {
+          "file": "client/panels/FileTreePanel.js",
+          "score": 10
+        },
+        {
+          "file": "client/panels/cleanPanelConfiguration.js",
+          "score": 10
+        },
+        {
+          "file": "client/panels/verify-panel-registration.js",
+          "score": 10
+        },
+        {
+          "file": "client/preview/utils/frontmatterParser.js",
+          "score": 10
+        },
+        {
+          "file": "client/views/EditorView.js",
+          "score": 10
+        },
+        {
+          "file": "notsure/panels/FileTreePanel.js",
+          "score": 10
+        },
+        {
+          "file": "pdata/test-production.js",
+          "score": 10
+        },
+        {
+          "file": "pdata/test-security.js",
+          "score": 10
+        },
+        {
+          "file": "redux/log/index.js",
+          "score": 10
+        },
+        {
+          "file": "client/cli/handlers.js",
+          "score": 9
+        },
+        {
+          "file": "client/preview/plugins/index.js",
+          "score": 9
+        },
+        {
+          "file": "client/store/reducer.js",
+          "score": 9
+        },
+        {
+          "file": "meta-language/tools/schema-codegen.js",
+          "score": 9
+        },
+        {
+          "file": "pdata/tests/setupTestUsers.js",
+          "score": 9
+        },
+        {
+          "file": "server/api/cli.js",
+          "score": 9
+        },
+        {
+          "file": "server/middleware/capabilities.js",
+          "score": 9
+        },
+        {
+          "file": "server/routes/mediaUpload.js",
+          "score": 9
+        },
+        {
+          "file": "client/code/ast-parser.js",
+          "score": 8
+        },
+        {
+          "file": "client/dom-inspector/managers/ElementManager.js",
+          "score": 8
+        },
+        {
+          "file": "client/layout/docks/DebugDock.js",
+          "score": 8
+        },
+        {
+          "file": "client/log/ConsoleLogFilter.js",
+          "score": 8
+        },
+        {
+          "file": "client/log/LogFilter.js",
+          "score": 8
+        },
+        {
+          "file": "client/utils/IntrospectionBootstrap.js",
+          "score": 8
+        },
+        {
+          "file": "client/utils/staticHtmlGenerator.js",
+          "score": 8
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/CacheManager.js",
+          "score": 8
+        },
+        {
+          "file": "pdata/test-mounts.js",
+          "score": 8
+        },
+        {
+          "file": "client/panels/HtmlPanel.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/JavaScriptPanel.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/PanelFlyoutManager.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/PanelMigrationHelper.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/panelRegistry.js",
+          "score": 7
+        },
+        {
+          "file": "client/settings/utils/FilterManager.js",
+          "score": 7
+        },
+        {
+          "file": "client/store/slices/panelSlice.js",
+          "score": 7
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/utils/CssFileManager.js",
+          "score": 7
+        },
+        {
+          "file": "pdata/coverage/lcov-report/prettify.js",
+          "score": 7
+        },
+        {
+          "file": "server/config.js",
+          "score": 7
+        },
+        {
+          "file": "server/routes/capabilities.js",
+          "score": 7
+        },
+        {
+          "file": "client/components/publish/PublishModalTemplate.js",
+          "score": 6
+        },
+        {
+          "file": "client/layout/docks/DockFlyoutManager.js",
+          "score": 6
+        },
+        {
+          "file": "client/logging/logContext.js",
+          "score": 6
+        },
+        {
+          "file": "client/panels/CLIPanel.js",
+          "score": 6
+        },
+        {
+          "file": "client/preview/markdown.js",
+          "score": 6
+        },
+        {
+          "file": "client/settings/core/SettingsSectionRenderer.js",
+          "score": 6
+        },
+        {
+          "file": "client/settings/utils/ExamplePanel.js",
+          "score": 6
+        },
+        {
+          "file": "client/store/slices/pathSlice.js",
+          "score": 6
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/utils/CssFileUtils.js",
+          "score": 6
+        },
+        {
+          "file": "pdata/PData.js",
+          "score": 6
+        },
+        {
+          "file": "server/nlp/LclNlpManager.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "panel",
+      "files": [
+        {
+          "file": "client/panels/PanelReorderManager.js",
+          "score": 618
+        },
+        {
+          "file": "client/layout/docks/DockFlyoutManager.js",
+          "score": 594
+        },
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 474
+        },
+        {
+          "file": "client/panels/test-complete-panel-system.js",
+          "score": 462
+        },
+        {
+          "file": "client/panels/PanelFlyoutManager.js",
+          "score": 426
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 394
+        },
+        {
+          "file": "debug-scripts/panel-system-debugger.js",
+          "score": 372
+        },
+        {
+          "file": "redux/components/Dock.js",
+          "score": 362
+        },
+        {
+          "file": "client/layout/Sidebar.js",
+          "score": 350
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 350
+        },
+        {
+          "file": "redux/components/LayoutManager.js",
+          "score": 332
+        },
+        {
+          "file": "client/settings/utils/PanelIntrospector.js",
+          "score": 322
+        },
+        {
+          "file": "client/panels/test-flyout-system.js",
+          "score": 310
+        },
+        {
+          "file": "client/store/PanelStatePersistence.js",
+          "score": 304
+        },
+        {
+          "file": "client/panels/PanelControlCenter.js",
+          "score": 302
+        },
+        {
+          "file": "notsure/panels/TreesPanel.js",
+          "score": 296
+        },
+        {
+          "file": "client/panels/TreesPanel.js",
+          "score": 294
+        },
+        {
+          "file": "client/store/slices/panelSlice.js",
+          "score": 280
+        },
+        {
+          "file": "client/panels/panelConfiguration.js",
+          "score": 232
+        },
+        {
+          "file": "test-redux-panel-system.js",
+          "score": 224
+        },
+        {
+          "file": "client/tests/PanelTestFramework.js",
+          "score": 218
+        },
+        {
+          "file": "client/layout/docks/BaseDock.js",
+          "score": 216
+        },
+        {
+          "file": "client/layout/WorkspaceManager.js",
+          "score": 212
+        },
+        {
+          "file": "client/settings/core/SettingsPanel.js",
+          "score": 194
+        },
+        {
+          "file": "packages/devpages-debug/debugPanelInitializer.js",
+          "score": 194
+        },
+        {
+          "file": "client/panels/simple-clean-panels.js",
+          "score": 188
+        },
+        {
+          "file": "client/store/slices/debugPanelSlice.js",
+          "score": 184
+        },
+        {
+          "file": "client/layout/Sidebar_backup.js",
+          "score": 174
+        },
+        {
+          "file": "redux/middleware/persistenceMiddleware.js",
+          "score": 172
+        },
+        {
+          "file": "client/layout/SidebarHeader_backup.js",
+          "score": 170
+        },
+        {
+          "file": "client/settings/panels/console/ConsoleLogPanel.js",
+          "score": 166
+        },
+        {
+          "file": "client/panels/PanelRenderer.js",
+          "score": 164
+        },
+        {
+          "file": "client/store/reducers/panelMetadata.js",
+          "score": 164
+        },
+        {
+          "file": "debug-editor-preview-panels.js",
+          "score": 162
+        },
+        {
+          "file": "client/panels/panelRegistrationFix.js",
+          "score": 154
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "score": 154
+        },
+        {
+          "file": "fix-design-tokens-with-proper-css.js",
+          "score": 148
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 144
+        },
+        {
+          "file": "client/settings/utils/debug-panels.js",
+          "score": 144
+        },
+        {
+          "file": "client/panels/cleanPanelConfiguration.js",
+          "score": 142
+        },
+        {
+          "file": "client/layout/docks/dockManager.js",
+          "score": 140
+        },
+        {
+          "file": "client/panels/panelRegistry.js",
+          "score": 140
+        },
+        {
+          "file": "packages/devpages-debug/index.js",
+          "score": 138
+        },
+        {
+          "file": "client/panels/PanelMigrationHelper.js",
+          "score": 136
+        },
+        {
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "score": 136
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 132
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 132
+        },
+        {
+          "file": "debug-current-state.js",
+          "score": 132
+        },
+        {
+          "file": "client/layout/workspaceConfig.js",
+          "score": 128
+        },
+        {
+          "file": "client/panels/BasePanel.js",
+          "score": 128
+        },
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "score": 126
+        },
+        {
+          "file": "client/panels/verify-panel-registration.js",
+          "score": 126
+        },
+        {
+          "file": "packages/devpages-debug/modernIndex.js",
+          "score": 120
+        },
+        {
+          "file": "force-panel-registration.js",
+          "score": 110
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+          "score": 108
+        },
+        {
+          "file": "client/panels/FileTreePanel.js",
+          "score": 106
+        },
+        {
+          "file": "client/panels/PanelStateManager.js",
+          "score": 106
+        },
+        {
+          "file": "client/settings/core/settingsInitializer.js",
+          "score": 106
+        },
+        {
+          "file": "notsure/panels/FileTreePanel.js",
+          "score": 106
+        },
+        {
+          "file": "client/panels/PanelNavBar.js",
+          "score": 104
+        },
+        {
+          "file": "client/panels/SidebarManagerPanel.js",
+          "score": 104
+        },
+        {
+          "file": "quick-settings-sidebar-fix.js",
+          "score": 102
+        },
+        {
+          "file": "client/panels/CodePanel.js",
+          "score": 98
+        },
+        {
+          "file": "test-workspace-harmonization.js",
+          "score": 98
+        },
+        {
+          "file": "client/panels/CLIPanel.js",
+          "score": 96
+        },
+        {
+          "file": "diagnostic-panel-check.js",
+          "score": 94
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools-panel.js",
+          "score": 92
+        },
+        {
+          "file": "test-panel-zones.js",
+          "score": 90
+        },
+        {
+          "file": "test-simple-sidebar-system.js",
+          "score": 88
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 86
+        },
+        {
+          "file": "client/panels/examples/PanelExample.js",
+          "score": 84
+        },
+        {
+          "file": "client/utils/popup.js",
+          "score": 82
+        },
+        {
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 80
+        },
+        {
+          "file": "client/panels/SubPanel.js",
+          "score": 78
+        },
+        {
+          "file": "test-panel-rendering.js",
+          "score": 78
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 74
+        },
+        {
+          "file": "debug-panel-warnings.js",
+          "score": 74
+        },
+        {
+          "file": "fix-design-tokens-panel.js",
+          "score": 70
+        },
+        {
+          "file": "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+          "score": 70
+        },
+        {
+          "file": "client/panels/renderers/HtmlPreviewRenderer.js",
+          "score": 68
+        },
+        {
+          "file": "debug-preview.js",
+          "score": 68
+        },
+        {
+          "file": "client/sidebar/panels/PublishedSummaryPanel.js",
+          "score": 64
+        },
+        {
+          "file": "client/eventBus.js",
+          "score": 62
+        },
+        {
+          "file": "client/settings/core/settingsRegistry.js",
+          "score": 62
+        },
+        {
+          "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
+          "score": 62
+        },
+        {
+          "file": "test-panel-registry-fix.js",
+          "score": 62
+        },
+        {
+          "file": "test-panel-system.js",
+          "score": 62
+        },
+        {
+          "file": "client/layout/docks/DebugDock.js",
+          "score": 60
+        },
+        {
+          "file": "test-basepanel-compatibility.js",
+          "score": 60
+        },
+        {
+          "file": "client/panels/HtmlPanel.js",
+          "score": 56
+        },
+        {
+          "file": "server/routes/css.js",
+          "score": 56
+        },
+        {
+          "file": "client/appState.js",
+          "score": 54
+        },
+        {
+          "file": "client/settings/core/panelOrder.js",
+          "score": 54
+        },
+        {
+          "file": "client/settings/utils/SettingsDomUtils.js",
+          "score": 54
+        },
+        {
+          "file": "test-clean-sidebar.js",
+          "score": 54
+        },
+        {
+          "file": "test-debug-dock-fix.js",
+          "score": 54
+        },
+        {
+          "file": "verify-fixes.js",
+          "score": 54
+        },
+        {
+          "file": "client/actions/uiActions.js",
+          "score": 48
+        },
+        {
+          "file": "client/layout/SidebarHeader.js",
+          "score": 48
+        },
+        {
+          "file": "client/layout/resizable.js",
+          "score": 48
+        },
+        {
+          "file": "client/panels/BasePanel_backup.js",
+          "score": 48
+        },
+        {
+          "file": "client/panels/JavaScriptPanel.js",
+          "score": 48
+        },
+        {
+          "file": "client/settings/utils/ExamplePanel.js",
+          "score": 46
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
+          "score": 46
+        },
+        {
+          "file": "client/panels/BasePanel_restored.js",
+          "score": 44
+        },
+        {
+          "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
+          "score": 44
+        },
+        {
+          "file": "client/settings/panels/plugins/PluginsPanel.js",
+          "score": 42
+        },
+        {
+          "file": "notsure/panels/ApiTokenPanel.js",
+          "score": 42
+        },
+        {
+          "file": "packages/devpages-debug/panels/PDataPanel.js",
+          "score": 42
+        },
+        {
+          "file": "clear-panel-state.js",
+          "score": 40
+        },
+        {
+          "file": "client/panels/PreviewPanel.js",
+          "score": 40
+        },
+        {
+          "file": "test-sidebar-implementation.js",
+          "score": 40
+        },
+        {
+          "file": "client/settings/panels/preview/PreviewSettingsPanel.js",
+          "score": 38
+        },
+        {
+          "file": "packages/devpages-debug/panels/JavaScriptInfoPanel.js",
+          "score": 38
+        },
+        {
+          "file": "client/fix-window-panels.js",
+          "score": 36
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "score": 36
+        },
+        {
+          "file": "client/panels/PanelInterface.js",
+          "score": 36
+        },
+        {
+          "file": "client/settings/panels/html-render/HtmlRenderSettingsPanel.js",
+          "score": 36
+        },
+        {
+          "file": "client/settings/utils/EventBusDemoPanel.js",
+          "score": 36
+        },
+        {
+          "file": "client/store/reducer.js",
+          "score": 36
+        },
+        {
+          "file": "client/settings/core/SettingsSectionRenderer.js",
+          "score": 32
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "score": 30
+        },
+        {
+          "file": "client/store/middleware/panelPersistenceMiddleware.js",
+          "score": 30
+        },
+        {
+          "file": "client/utils/EventManager.test.js",
+          "score": 30
+        },
+        {
+          "file": "examples/debug-usage-example.js",
+          "score": 30
+        },
+        {
+          "file": "test-editor-preview.js",
+          "score": 30
+        },
+        {
+          "file": "clear-panel-storage.js",
+          "score": 28
+        },
+        {
+          "file": "client/log/LogFilterBar.js",
+          "score": 28
+        },
+        {
+          "file": "debug-scripts/redux-state-inspector.js",
+          "score": 28
+        },
+        {
+          "file": "client/file-browser/FileBrowserPanel.js",
+          "score": 26
+        },
+        {
+          "file": "client/store/middleware/panelSizesPersistenceMiddleware.js",
+          "score": 26
+        },
+        {
+          "file": "client/panels/DragDropManager.js",
+          "score": 24
+        },
+        {
+          "file": "client/redux/panelSizes.js",
+          "score": 24
+        },
+        {
+          "file": "client/settings/panels/css-design/DesignTokensPanel.js",
+          "score": 24
+        },
+        {
+          "file": "notsure/panels/ContextManagerPanel.js",
+          "score": 24
+        },
+        {
+          "file": "client/panels/CommPanel.js",
+          "score": 22
+        },
+        {
+          "file": "client/settings/panels/publish/PublishSettingsPanel.js",
+          "score": 22
+        },
+        {
+          "file": "client/dom-inspector/DomInspector.js",
+          "score": 20
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettingsPanel.js",
+          "score": 20
+        },
+        {
+          "file": "debug-scripts/dom-element-inspector.js",
+          "score": 20
+        },
+        {
+          "file": "client/settings/panels/icons/IconsPanel.js",
+          "score": 18
+        },
+        {
+          "file": "client/store/enhancedSelectors.js",
+          "score": 18
+        },
+        {
+          "file": "client/utils/windowConsolidation.js",
+          "score": 18
+        },
+        {
+          "file": "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+          "score": 18
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorPanel.js",
+          "score": 16
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 16
+        },
+        {
+          "file": "client/panels/NlpPanel.js",
+          "score": 16
+        },
+        {
+          "file": "client/services/PublishService.js",
+          "score": 16
+        },
+        {
+          "file": "client/settings/panels/themes/ThemeSelectorPanel.js",
+          "score": 16
+        },
+        {
+          "file": "debug-scripts/css/button-hover-debugger.js",
+          "score": 16
+        },
+        {
+          "file": "client/panels/ContextPanel.js",
+          "score": 14
+        },
+        {
+          "file": "debug-scripts/resizer-debugger.js",
+          "score": 14
+        },
+        {
+          "file": "client/cli/index.js",
+          "score": 12
+        },
+        {
+          "file": "client/dom-inspector/core/StateManager.js",
+          "score": 12
+        },
+        {
+          "file": "packages/devpages-debug/devtools/test-devtools.js",
+          "score": 12
+        },
+        {
+          "file": "client/dom-inspector/domInspectorInitializer.js",
+          "score": 10
+        },
+        {
+          "file": "client/log/logEntryDOM.js",
+          "score": 10
+        },
+        {
+          "file": "client/settings/core/settingsEvents.js",
+          "score": 10
+        },
+        {
+          "file": "debug-scripts/log-debugger.js",
+          "score": 10
+        },
+        {
+          "file": "debug-scripts/resizer-debugger-fixed.js",
+          "score": 10
+        },
+        {
+          "file": "scripts/audit.js",
+          "score": 10
+        },
+        {
+          "file": "client/dom-inspector/IframeDetailsManager.js",
+          "score": 8
+        },
+        {
+          "file": "client/file-browser/FileTreeManager.js",
+          "score": 8
+        },
+        {
+          "file": "debug-scripts/log-panel-debugger.js",
+          "score": 8
+        },
+        {
+          "file": "test-architecture.js",
+          "score": 8
+        },
+        {
+          "file": "client/settings/panels/css-design/PageThemeManager.js",
+          "score": 6
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 6
+        },
+        {
+          "file": "client/views/PreviewView.js",
+          "score": 6
+        },
+        {
+          "file": "debug-scripts/css/css-bundle-inspector.js",
+          "score": 6
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/core/CssStateManager.js",
+          "score": 6
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/utils/CssFileManager.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "storage",
+      "files": [
+        {
+          "file": "client/store/PanelStatePersistence.js",
+          "score": 212
+        },
+        {
+          "file": "client/store/reducers/enhancedReducerUtils.js",
+          "score": 146
+        },
+        {
+          "file": "client/validation/action-validators.js",
+          "score": 136
+        },
+        {
+          "file": "meta-language/generated/action-validators.js",
+          "score": 136
+        },
+        {
+          "file": "client/log/ConsoleTiming.js",
+          "score": 87
+        },
+        {
+          "file": "client/services/storageService.js",
+          "score": 82
+        },
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 78
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 78
+        },
+        {
+          "file": "client/store/slices/debugPanelSlice.js",
+          "score": 75
+        },
+        {
+          "file": "client/store/slices/authSlice.js",
+          "score": 74
+        },
+        {
+          "file": "client/panels/test-complete-panel-system.js",
+          "score": 65
+        },
+        {
+          "file": "client/actions/fileActions.js",
+          "score": 57
+        },
+        {
+          "file": "client/settings/utils/FilterManager.js",
+          "score": 55
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 54
+        },
+        {
+          "file": "client/preview/renderer.js",
+          "score": 54
+        },
+        {
+          "file": "client/appState.js",
+          "score": 52
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "score": 52
+        },
+        {
+          "file": "client/preview/plugins/katex.js",
+          "score": 52
+        },
+        {
+          "file": "client/bootloader-selector.js",
+          "score": 50
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 50
+        },
+        {
+          "file": "client/examples/thunkUsage.js",
+          "score": 50
+        },
+        {
+          "file": "client/settings/core/SettingsPanel.js",
+          "score": 49
+        },
+        {
+          "file": "client/settings/panels/console/ConsoleLogPanel.js",
+          "score": 49
+        },
+        {
+          "file": "client/settings/utils/debug-panels.js",
+          "score": 49
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 48
+        },
+        {
+          "file": "client/deepLink.js",
+          "score": 47
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "score": 46
+        },
+        {
+          "file": "client/filesystem/fileSystemState.js",
+          "score": 45
+        },
+        {
+          "file": "client/panels/PanelControlCenter.js",
+          "score": 42
+        },
+        {
+          "file": "client/dom-inspector/components/SectionManager.js",
+          "score": 41
+        },
+        {
+          "file": "client/preview/plugins/PluginLoader.js",
+          "score": 41
+        },
+        {
+          "file": "client/utils/cssPerformanceMonitor.js",
+          "score": 41
+        },
+        {
+          "file": "redux/middleware/persistenceMiddleware.js",
+          "score": 41
+        },
+        {
+          "file": "meta-language/tools/schema-codegen.js",
+          "score": 40
+        },
+        {
+          "file": "client/panels/verify-ui-state-persistence.js",
+          "score": 38
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "score": 38
+        },
+        {
+          "file": "debug-scripts/redux/verify-ui-state-persistence.js",
+          "score": 38
+        },
+        {
+          "file": "client/log/LogFilterBar.js",
+          "score": 37
+        },
+        {
+          "file": "client/store/slices/pluginSlice.js",
+          "score": 37
+        },
+        {
+          "file": "client/dom-inspector/core/StateManager.js",
+          "score": 35
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 34
+        },
+        {
+          "file": "client/utils/cssOptimizer.js",
+          "score": 34
+        },
+        {
+          "file": "server/routes/mediaUpload.js",
+          "score": 34
+        },
+        {
+          "file": "client/store/slices/settingsSlice.js",
+          "score": 32
+        },
+        {
+          "file": "server/routes/images.js",
+          "score": 31
+        },
+        {
+          "file": "client/panels/verify-state-persistence.js",
+          "score": 30
+        },
+        {
+          "file": "client/views/EditorView.js",
+          "score": 30
+        },
+        {
+          "file": "debug-scripts/panel-system-debugger.js",
+          "score": 30
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 30
+        },
+        {
+          "file": "client/preview/plugins/highlight.js",
+          "score": 29
+        },
+        {
+          "file": "debug-scripts/redux/verify-state-persistence.js",
+          "score": 29
+        },
+        {
+          "file": "client/components/PathManagerComponent.js",
+          "score": 28
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/core/CssStateManager.js",
+          "score": 28
+        },
+        {
+          "file": "clear-panel-storage.js",
+          "score": 27
+        },
+        {
+          "file": "client/log/ConsoleLogManager.js",
+          "score": 27
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 27
+        },
+        {
+          "file": "server/utils/htmlGenerator.js",
+          "score": 27
+        },
+        {
+          "file": "client/cli/index.js",
+          "score": 26
+        },
+        {
+          "file": "client/components/TopBarController.js",
+          "score": 26
+        },
+        {
+          "file": "client/store/reducers/reducerUtils.js",
+          "score": 26
+        },
+        {
+          "file": "debug-scripts/redux/run.js",
+          "score": 26
+        },
+        {
+          "file": "server/routes/publish.js",
+          "score": 25
+        },
+        {
+          "file": "client/components/publish/PublishAPI.js",
+          "score": 24
+        },
+        {
+          "file": "client/panels/HtmlPanel.js",
+          "score": 24
+        },
+        {
+          "file": "client/preview/plugins/graphviz.js",
+          "score": 24
+        },
+        {
+          "file": "client/store/slices/imageSlice.js",
+          "score": 24
+        },
+        {
+          "file": "client/store/slices/pathSlice.js",
+          "score": 24
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 24
+        },
+        {
+          "file": "client/store/slices/fileSlice.js",
+          "score": 23
+        },
+        {
+          "file": "client/log/LogEntry.js",
+          "score": 22
+        },
+        {
+          "file": "client/settings/panels/preview/PreviewSettingsPanel.js",
+          "score": 22
+        },
+        {
+          "file": "client/utils.js",
+          "score": 22
+        },
+        {
+          "file": "client/preview/plugins/css.js",
+          "score": 21
+        },
+        {
+          "file": "client/store/slices/publishSlice.js",
+          "score": 21
+        },
+        {
+          "file": "client/utils/topDirDiagnostic.js",
+          "score": 21
+        },
+        {
+          "file": "pdata/PData.js",
+          "score": 21
+        },
+        {
+          "file": "client/cli/handlers.js",
+          "score": 20
+        },
+        {
+          "file": "client/panels/CodePanel.js",
+          "score": 20
+        },
+        {
+          "file": "client/panels/JavaScriptPanel.js",
+          "score": 20
+        },
+        {
+          "file": "server/routes/previewRoutes.js",
+          "score": 20
+        },
+        {
+          "file": "client/modules/cli/index.js",
+          "score": 19
+        },
+        {
+          "file": "client/components/publish/PublishRenderer.js",
+          "score": 18
+        },
+        {
+          "file": "client/preview/plugins/mermaid/index.js",
+          "score": 18
+        },
+        {
+          "file": "client/store/enhancedSelectors.js",
+          "score": 18
+        },
+        {
+          "file": "debug-scripts/redux/verify-auth-persistence.js",
+          "score": 18
+        },
+        {
+          "file": "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+          "score": 18
+        },
+        {
+          "file": "clear-panel-state.js",
+          "score": 17
+        },
+        {
+          "file": "client/api.js",
+          "score": 17
+        },
+        {
+          "file": "client/layout/WorkspaceManager.js",
+          "score": 17
+        },
+        {
+          "file": "client/panels/renderers/HtmlPreviewRenderer.js",
+          "score": 17
+        },
+        {
+          "file": "client/preview/markdown.js",
+          "score": 17
+        },
+        {
+          "file": "pdata/PData.original.js",
+          "score": 17
+        },
+        {
+          "file": "client/store/slices/systemSlice.js",
+          "score": 16
+        },
+        {
+          "file": "debug-scripts/css/css-bundle-inspector.js",
+          "score": 16
+        },
+        {
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 15
+        },
+        {
+          "file": "client/store/middleware/panelPersistenceMiddleware.js",
+          "score": 15
+        },
+        {
+          "file": "client/utils/pathManagerUtils.js",
+          "score": 15
+        },
+        {
+          "file": "pdata/tests/api.test.js",
+          "score": 15
+        },
+        {
+          "file": "client/debug-pathmanager-test.js",
+          "score": 14
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 14
+        },
+        {
+          "file": "client/settings/panels/publish/PublishSettingsPanel.js",
+          "score": 14
+        },
+        {
+          "file": "client/settings/utils/PanelIntrospector.js",
+          "score": 14
+        },
+        {
+          "file": "client/store/middleware/panelSizesPersistenceMiddleware.js",
+          "score": 14
+        },
+        {
+          "file": "client/image/imageManager.js",
+          "score": 13
+        },
+        {
+          "file": "client/preview/renderers/MarkdownRenderer.js",
+          "score": 13
+        },
+        {
+          "file": "notsure/panels/ApiTokenPanel.js",
+          "score": 13
+        },
+        {
+          "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
+          "score": 13
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/CacheManager.js",
+          "score": 13
+        },
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "score": 12
+        },
+        {
+          "file": "client/panels/verify-auth-persistence.js",
+          "score": 12
+        },
+        {
+          "file": "client/preview/PluginManager.js",
+          "score": 12
+        },
+        {
+          "file": "client/sdk/gameClient.js",
+          "score": 12
+        },
+        {
+          "file": "client/sdk/pjaSdk.js",
+          "score": 12
+        },
+        {
+          "file": "client/store/middleware/reduxLogMiddleware.js",
+          "score": 12
+        },
+        {
+          "file": "client/store/slices/panelSlice.js",
+          "score": 12
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "score": 12
+        },
+        {
+          "file": "server/routes/files.js",
+          "score": 12
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 11
+        },
+        {
+          "file": "client/eventBus.js",
+          "score": 11
+        },
+        {
+          "file": "client/image/imageEvents.js",
+          "score": 11
+        },
+        {
+          "file": "client/log/ApiLog.js",
+          "score": 11
+        },
+        {
+          "file": "client/panels/verify-settings-persistence.js",
+          "score": 11
+        },
+        {
+          "file": "debug-scripts/resizer-debugger.js",
+          "score": 11
+        },
+        {
+          "file": "client/file-browser/FileBrowserPanel.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/reducers/panelMetadata.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/slices/previewSlice.js",
+          "score": 10
+        },
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 10
+        },
+        {
+          "file": "pdata/coverage/lcov-report/sorter.js",
+          "score": 10
+        },
+        {
+          "file": "client/cli/commands.js",
+          "score": 9
+        },
+        {
+          "file": "client/dom-inspector/components/IframeAnalyzer.js",
+          "score": 9
+        },
+        {
+          "file": "client/domEvents.js",
+          "score": 9
+        },
+        {
+          "file": "client/panels/test-flyout-system.js",
+          "score": 9
+        },
+        {
+          "file": "client/settings/core/settingsInitializer.js",
+          "score": 9
+        },
+        {
+          "file": "client/settings/panels/themes/ThemeSelectorPanel.js",
+          "score": 9
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/utils/CssFileUtils.js",
+          "score": 9
+        },
+        {
+          "file": "pdata/AuthSrv.js",
+          "score": 9
+        },
+        {
+          "file": "pdata/routes.js",
+          "score": 9
+        },
+        {
+          "file": "server/utils/pdata.js",
+          "score": 9
+        },
+        {
+          "file": "client/actions/index.js",
+          "score": 8
+        },
+        {
+          "file": "client/appDispatch.js",
+          "score": 8
+        },
+        {
+          "file": "client/panels/FileTreePanel.js",
+          "score": 8
+        },
+        {
+          "file": "client/store/slices/editorSlice.js",
+          "score": 8
+        },
+        {
+          "file": "client/utils/staticHtmlGenerator.js",
+          "score": 8
+        },
+        {
+          "file": "client/vendor/scripts/dompurify.es.js",
+          "score": 8
+        },
+        {
+          "file": "debug-panel-warnings.js",
+          "score": 8
+        },
+        {
+          "file": "notsure/panels/FileTreePanel.js",
+          "score": 8
+        },
+        {
+          "file": "client/services/PublishService.js",
+          "score": 7
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 7
+        },
+        {
+          "file": "debug-current-state.js",
+          "score": 7
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+          "score": 7
+        },
+        {
+          "file": "packages/devpages-debug/panels/PDataPanel.js",
+          "score": 7
+        },
+        {
+          "file": "pdata/FileManager.js",
+          "score": 7
+        },
+        {
+          "file": "server/routes/nlpRoutes.js",
+          "score": 7
+        },
+        {
+          "file": "server/server.js",
+          "score": 7
+        },
+        {
+          "file": "client/file-browser/FileTreeManager.js",
+          "score": 6
+        },
+        {
+          "file": "client/log/logEntryDOM.js",
+          "score": 6
+        },
+        {
+          "file": "client/panels/TreesPanel.js",
+          "score": 6
+        },
+        {
+          "file": "client/settings/panels/css-design/DesignTokensPanel.js",
+          "score": 6
+        },
+        {
+          "file": "client/utils/virtualPathUtils.js",
+          "score": 6
+        },
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "score": 6
+        },
+        {
+          "file": "meta-language/tools/action-validator.js",
+          "score": 6
+        },
+        {
+          "file": "notsure/panels/TreesPanel.js",
+          "score": 6
+        },
+        {
+          "file": "pdata/CapabilityManager.js",
+          "score": 6
+        },
+        {
+          "file": "pdata/UserManager.js",
+          "score": 6
+        },
+        {
+          "file": "server/routes/mediaProxy.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "keyboard",
+      "files": [
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 443
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 278
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 214
+        },
+        {
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "score": 152
+        },
+        {
+          "file": "client/store/reducers/enhancedReducerUtils.js",
+          "score": 109
+        },
+        {
+          "file": "client/utils/IntrospectionBootstrap.js",
+          "score": 84
+        },
+        {
+          "file": "client/preview/utils/frontmatterParser.js",
+          "score": 69
+        },
+        {
+          "file": "client/settings/panels/console/ConsoleLogPanel.js",
+          "score": 50
+        },
+        {
+          "file": "client/panels/simple-clean-panels.js",
+          "score": 49
+        },
+        {
+          "file": "client/preview/renderer.js",
+          "score": 45
+        },
+        {
+          "file": "client/store/PanelStatePersistence.js",
+          "score": 40
+        },
+        {
+          "file": "client/settings/utils/FilterManager.js",
+          "score": 39
+        },
+        {
+          "file": "client/log/AppLogFilter.js",
+          "score": 38
+        },
+        {
+          "file": "client/log/LogFilter.js",
+          "score": 38
+        },
+        {
+          "file": "client/keyboardShortcuts.js",
+          "score": 35
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 35
+        },
+        {
+          "file": "client/services/storageService.js",
+          "score": 34
+        },
+        {
+          "file": "server/routes/publish.js",
+          "score": 34
+        },
+        {
+          "file": "client/log/ConsoleLogFilter.js",
+          "score": 32
+        },
+        {
+          "file": "server/routes/spaces.js",
+          "score": 30
+        },
+        {
+          "file": "client/dom-inspector/interaction/ElementPicker.js",
+          "score": 27
+        },
+        {
+          "file": "server/routes/mediaProxy.js",
+          "score": 26
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/CacheManager.js",
+          "score": 25
+        },
+        {
+          "file": "client/components/TopBarController.js",
+          "score": 24
+        },
+        {
+          "file": "client/layout/resizable.js",
+          "score": 24
+        },
+        {
+          "file": "client/libs/Sortable.min.js",
+          "score": 24
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 23
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/StateInspector.js",
+          "score": 22
+        },
+        {
+          "file": "client/cli/index.js",
+          "score": 21
+        },
+        {
+          "file": "client/store/reducers/panelMetadata.js",
+          "score": 21
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
+          "score": 20
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 19
+        },
+        {
+          "file": "client/log/LogFilterBar.js",
+          "score": 16
+        },
+        {
+          "file": "client/panels/panelConfiguration.js",
+          "score": 16
+        },
+        {
+          "file": "client/store/enhancedSelectors.js",
+          "score": 16
+        },
+        {
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 15
+        },
+        {
+          "file": "client/store/reducer.js",
+          "score": 15
+        },
+        {
+          "file": "client/store/reduxConnect.js",
+          "score": 15
+        },
+        {
+          "file": "pdata/coverage/lcov-report/prettify.js",
+          "score": 15
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 14
+        },
+        {
+          "file": "client/refresh.js",
+          "score": 14
+        },
+        {
+          "file": "client/settings/utils/debug-panels.js",
+          "score": 14
+        },
+        {
+          "file": "client/vendor/scripts/dompurify.es.js",
+          "score": 14
+        },
+        {
+          "file": "client/views/EditorView.js",
+          "score": 14
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 12
+        },
+        {
+          "file": "client/settings/panels/plugins/PluginsPanel.js",
+          "score": 12
+        },
+        {
+          "file": "client/store/reducers/reducerUtils.js",
+          "score": 12
+        },
+        {
+          "file": "client/utils/windowConsolidation.js",
+          "score": 12
+        },
+        {
+          "file": "diagnostic-panel-check.js",
+          "score": 12
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 12
+        },
+        {
+          "file": "test-panel-system.js",
+          "score": 12
+        },
+        {
+          "file": "client/code/ast-parser.js",
+          "score": 11
+        },
+        {
+          "file": "client/layout/SidebarHeader_backup.js",
+          "score": 11
+        },
+        {
+          "file": "client/settings/utils/SettingsDomUtils.js",
+          "score": 11
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 11
+        },
+        {
+          "file": "server/routes/mediaUpload.js",
+          "score": 11
+        },
+        {
+          "file": "client/keyboard/KeyboardShortcutManager.js",
+          "score": 10
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 10
+        },
+        {
+          "file": "client/settings/panels/publish/PublishSettingsPanel.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/connect.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/middleware/reduxLogMiddleware.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/slices/shortcutSlice.js",
+          "score": 10
+        },
+        {
+          "file": "clear-panel-storage.js",
+          "score": 9
+        },
+        {
+          "file": "client/panels/cleanPanelConfiguration.js",
+          "score": 9
+        },
+        {
+          "file": "debug-scripts/log-debugger.js",
+          "score": 9
+        },
+        {
+          "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
+          "score": 9
+        },
+        {
+          "file": "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
+          "score": 9
+        },
+        {
+          "file": "redux/middleware/persistenceMiddleware.js",
+          "score": 9
+        },
+        {
+          "file": "client/bootloader-selector.js",
+          "score": 8
+        },
+        {
+          "file": "client/utils/CssManager.js",
+          "score": 8
+        },
+        {
+          "file": "pdata/FileManager.js",
+          "score": 8
+        },
+        {
+          "file": "client/components/PublishModalIntegration.js",
+          "score": 7
+        },
+        {
+          "file": "client/image/imageManager.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/BasePanel.js",
+          "score": 7
+        },
+        {
+          "file": "client/panels/verify-state-persistence.js",
+          "score": 7
+        },
+        {
+          "file": "debug-scripts/redux/verify-state-persistence.js",
+          "score": 7
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 7
+        },
+        {
+          "file": "pdata/coverage/lcov-report/sorter.js",
+          "score": 7
+        },
+        {
+          "file": "clear-panel-state.js",
+          "score": 6
+        },
+        {
+          "file": "client/appState.js",
+          "score": 6
+        },
+        {
+          "file": "client/components/ContextSettingsPopupComponent.js",
+          "score": 6
+        },
+        {
+          "file": "client/components/DirectoryPopup.js",
+          "score": 6
+        },
+        {
+          "file": "client/dom-inspector/IframeDetailsManager.js",
+          "score": 6
+        },
+        {
+          "file": "client/dom-inspector/utils/DomUtils.js",
+          "score": 6
+        },
+        {
+          "file": "client/panels/verify-ui-state-persistence.js",
+          "score": 6
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "score": 6
+        },
+        {
+          "file": "client/vendor/scripts/markdown-it.min.js",
+          "score": 6
+        },
+        {
+          "file": "client/vendor/scripts/marked.esm.js",
+          "score": 6
+        },
+        {
+          "file": "debug-scripts/redux/verify-ui-state-persistence.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "ui",
+      "files": [
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 1131
+        },
+        {
+          "file": "client/vendor/scripts/katex.min.js",
+          "score": 340
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 179
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 146
+        },
+        {
+          "file": "client/panels/verify-ui-state-persistence.js",
+          "score": 108
+        },
+        {
+          "file": "debug-scripts/redux/verify-ui-state-persistence.js",
+          "score": 108
+        },
+        {
+          "file": "client/store/enhancedSelectors.js",
+          "score": 101
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "score": 90
+        },
+        {
+          "file": "server/routes/publish.js",
+          "score": 85
+        },
+        {
+          "file": "client/components/topBar.js",
+          "score": 68
+        },
+        {
+          "file": "client/store/slices/systemSlice.js",
+          "score": 68
+        },
+        {
+          "file": "client/utils/ButtonIntrospection.js",
+          "score": 63
+        },
+        {
+          "file": "client/dom-inspector/managers/TreeManager.js",
+          "score": 60
+        },
+        {
+          "file": "debug-scripts/css/css-bundle-inspector.js",
+          "score": 60
+        },
+        {
+          "file": "client/settings/panels/console/ConsoleLogPanel.js",
+          "score": 59
+        },
+        {
+          "file": "client/examples/thunkUsage.js",
+          "score": 50
+        },
+        {
+          "file": "client/panels/test-complete-panel-system.js",
+          "score": 48
+        },
+        {
+          "file": "client/tests/PanelTestFramework.js",
+          "score": 48
+        },
+        {
+          "file": "debug-scripts/css/css-master-debugger.js",
+          "score": 48
+        },
+        {
+          "file": "client/panels/panelConfiguration.js",
+          "score": 47
+        },
+        {
+          "file": "client/components/PathManagerComponent.js",
+          "score": 45
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "score": 42
+        },
+        {
+          "file": "client/panels/BasePanel.js",
+          "score": 39
+        },
+        {
+          "file": "client/components/AuthDisplay.js",
+          "score": 37
+        },
+        {
+          "file": "run-tests.js",
+          "score": 36
+        },
+        {
+          "file": "client/vendor/scripts/markdown-it.min.js",
+          "score": 35
+        },
+        {
+          "file": "client/dom-inspector/utils/SelectorUtils.js",
+          "score": 34
+        },
+        {
+          "file": "client/lifecycle/events.js",
+          "score": 34
+        },
+        {
+          "file": "client/log/LogDisplay.js",
+          "score": 32
+        },
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "score": 32
+        },
+        {
+          "file": "client/actions/index.js",
+          "score": 31
+        },
+        {
+          "file": "diagnose_ui_visibility.js",
+          "score": 31
+        },
+        {
+          "file": "client/components/TopBarController.js",
+          "score": 30
+        },
+        {
+          "file": "debug-scripts/redux-state-inspector.js",
+          "score": 30
+        },
+        {
+          "file": "server/routes/auth.old.js",
+          "score": 30
+        },
+        {
+          "file": "client/vendor/scripts/dompurify.es.js",
+          "score": 29
+        },
+        {
+          "file": "client/actions/uiActions.js",
+          "score": 28
+        },
+        {
+          "file": "client/log/logEntryDOM.js",
+          "score": 28
+        },
+        {
+          "file": "client/store/apiSlice.js",
+          "score": 28
+        },
+        {
+          "file": "meta-language/tools/schema-codegen.js",
+          "score": 28
+        },
+        {
+          "file": "redux/components/KeyboardShortcutHandler.js",
+          "score": 28
+        },
+        {
+          "file": "client/panels/cleanPanelConfiguration.js",
+          "score": 27
+        },
+        {
+          "file": "client/store/reduxConnect.js",
+          "score": 27
+        },
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "score": 26
+        },
+        {
+          "file": "client/layout/SidebarVisibilityController.js",
+          "score": 26
+        },
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 25
+        },
+        {
+          "file": "debug-scripts/sidebar-toggle-debug.js",
+          "score": 24
+        },
+        {
+          "file": "pdata/PData.original.js",
+          "score": 24
+        },
+        {
+          "file": "server/routes/auth.js",
+          "score": 24
+        },
+        {
+          "file": "client/settings/panels/themes/ThemeSelectorPanel.js",
+          "score": 23
+        },
+        {
+          "file": "tests/quick-auth-test.js",
+          "score": 22
+        },
+        {
+          "file": "client/components/publish/PublishAPI.js",
+          "score": 21
+        },
+        {
+          "file": "client/preview/plugins/index.js",
+          "score": 21
+        },
+        {
+          "file": "client/domEvents.js",
+          "score": 20
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 20
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+          "score": 20
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 19
+        },
+        {
+          "file": "client/panels/PanelStateManager.js",
+          "score": 18
+        },
+        {
+          "file": "client/utils/ZIndexManager.js",
+          "score": 18
+        },
+        {
+          "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
+          "score": 18
+        },
+        {
+          "file": "server/middleware/auth.js",
+          "score": 18
+        },
+        {
+          "file": "test-log.js",
+          "score": 18
+        },
+        {
+          "file": "client/eventBus.js",
+          "score": 17
+        },
+        {
+          "file": "client/layout/WorkspaceManager.js",
+          "score": 17
+        },
+        {
+          "file": "client/layout/workspaceConfig.js",
+          "score": 17
+        },
+        {
+          "file": "client/store/connect.js",
+          "score": 17
+        },
+        {
+          "file": "packages/devpages-debug/panels/dom-inspector/DomInspectorDebugPanel.js",
+          "score": 17
+        },
+        {
+          "file": "debug-scripts/panel-system-debugger.js",
+          "score": 16
+        },
+        {
+          "file": "debug-scripts/test-sidebar-fix.js",
+          "score": 16
+        },
+        {
+          "file": "packages/devpages-debug/debugPanelInitializer.js",
+          "score": 16
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 15
+        },
+        {
+          "file": "client/store/uiSlice.test.js",
+          "score": 14
+        },
+        {
+          "file": "client/vendor/scripts/marked.esm.js",
+          "score": 14
+        },
+        {
+          "file": "packages/devpages-debug/devtools/modules/StateInspector.js",
+          "score": 14
+        },
+        {
+          "file": "redux/components/Dock.js",
+          "score": 14
+        },
+        {
+          "file": "redux/utils/ZIndexManager.js",
+          "score": 14
+        },
+        {
+          "file": "server/middleware/capabilities.js",
+          "score": 14
+        },
+        {
+          "file": "server/routes/nlpRoutes.js",
+          "score": 14
+        },
+        {
+          "file": "test-resize.js",
+          "score": 14
+        },
+        {
+          "file": "client/utils/windowConsolidation.js",
+          "score": 13
+        },
+        {
+          "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
+          "score": 13
+        },
+        {
+          "file": "client/settings/utils/PanelIntrospector.js",
+          "score": 12
+        },
+        {
+          "file": "client/store/selectors.js",
+          "score": 12
+        },
+        {
+          "file": "debug-scripts/redux/run.js",
+          "score": 12
+        },
+        {
+          "file": "force_pathmanager_visible.js",
+          "score": 12
+        },
+        {
+          "file": "pdata/FileManager.js",
+          "score": 12
+        },
+        {
+          "file": "pdata/UserManager.js",
+          "score": 12
+        },
+        {
+          "file": "server/routes/files.js",
+          "score": 12
+        },
+        {
+          "file": "server/server.js",
+          "score": 12
+        },
+        {
+          "file": "client/appState.js",
+          "score": 11
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 11
+        },
+        {
+          "file": "client/debug-pathmanager-test.js",
+          "score": 11
+        },
+        {
+          "file": "client/file-browser/FileTreeManager.js",
+          "score": 11
+        },
+        {
+          "file": "client/preview/renderers/MarkdownRenderer.js",
+          "score": 11
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
+          "score": 11
+        },
+        {
+          "file": "client/dom-inspector/components/ComputedStylesComponent.js",
+          "score": 10
+        },
+        {
+          "file": "client/dom-inspector/components/HistoryManager.js",
+          "score": 10
+        },
+        {
+          "file": "client/messaging/actionCreators.js",
+          "score": 10
+        },
+        {
+          "file": "client/store/reducer.js",
+          "score": 10
+        },
+        {
+          "file": "client/utils/migrationHelper.js",
+          "score": 10
+        },
+        {
+          "file": "debug-scripts/css/emergency-hover-fix.js",
+          "score": 10
+        },
+        {
+          "file": "server/routes/admin.js",
+          "score": 10
+        },
+        {
+          "file": "server/routes/spaces.js",
+          "score": 10
+        },
+        {
+          "file": "server/utils/htmlGenerator.js",
+          "score": 10
+        },
+        {
+          "file": "client/log/UnifiedLogging.js",
+          "score": 9
+        },
+        {
+          "file": "client/settings/panels/publish/PublishSettingsPanel.js",
+          "score": 9
+        },
+        {
+          "file": "client/actions/debugActions.js",
+          "score": 8
+        },
+        {
+          "file": "client/appDispatch.js",
+          "score": 8
+        },
+        {
+          "file": "client/cli/commands.js",
+          "score": 8
+        },
+        {
+          "file": "client/dom-inspector/components/UIUtilities.js",
+          "score": 8
+        },
+        {
+          "file": "client/log/LogCore.js",
+          "score": 8
+        },
+        {
+          "file": "client/panels/BasePanel_restored.js",
+          "score": 8
+        },
+        {
+          "file": "client/panels/PanelNavBar.js",
+          "score": 8
+        },
+        {
+          "file": "client/store/slices/pathSlice.js",
+          "score": 8
+        },
+        {
+          "file": "client/validation/action-validators.js",
+          "score": 8
+        },
+        {
+          "file": "debug-scripts/log-debugger.js",
+          "score": 8
+        },
+        {
+          "file": "meta-language/eslint-rules/require-reducer.js",
+          "score": 8
+        },
+        {
+          "file": "meta-language/generated/action-validators.js",
+          "score": 8
+        },
+        {
+          "file": "meta-language/tools/action-validator.js",
+          "score": 8
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 8
+        },
+        {
+          "file": "server/routes/css.js",
+          "score": 8
+        },
+        {
+          "file": "server/utils/markdownUtils.js",
+          "score": 8
+        },
+        {
+          "file": "client/cli/index.js",
+          "score": 7
+        },
+        {
+          "file": "client/components/LoginForm.js",
+          "score": 7
+        },
+        {
+          "file": "client/settings/core/SettingsSectionRenderer.js",
+          "score": 7
+        },
+        {
+          "file": "client/views/EditorView.js",
+          "score": 7
+        },
+        {
+          "file": "redux/log/index.js",
+          "score": 7
+        },
+        {
+          "file": "scripts/audit.js",
+          "score": 7
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 6
+        },
+        {
+          "file": "client/panels/BasePanel_backup.js",
+          "score": 6
+        },
+        {
+          "file": "client/panels/EditorPanel.js",
+          "score": 6
+        },
+        {
+          "file": "client/preview/markdown.js",
+          "score": 6
+        },
+        {
+          "file": "client/preview/renderer.js",
+          "score": 6
+        },
+        {
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 6
+        },
+        {
+          "file": "client/store/slices/authSlice.js",
+          "score": 6
+        },
+        {
+          "file": "debug-scripts/css/zindex-debugger.js",
+          "score": 6
+        },
+        {
+          "file": "pdata/coverage/lcov-report/sorter.js",
+          "score": 6
+        },
+        {
+          "file": "pdata/routes.js",
+          "score": 6
+        },
+        {
+          "file": "scripts/codebase-health-check.js",
+          "score": 6
+        },
+        {
+          "file": "server/routes/capabilities.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "modal",
+      "files": [
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 178
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
+          "score": 84
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
+          "score": 74
+        },
+        {
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 60
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/modules/CssFileModal.js",
+          "score": 50
+        },
+        {
+          "file": "client/panels/PanelNavBar.js",
+          "score": 40
+        },
+        {
+          "file": "client/components/PublishModalIntegration.js",
+          "score": 24
+        },
+        {
+          "file": "client/components/publish/PublishModalTemplate.js",
+          "score": 24
+        },
+        {
+          "file": "client/panels/renderers/HtmlPreviewRenderer.js",
+          "score": 24
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/debug/CssDebugger.js",
+          "score": 18
+        },
+        {
+          "file": "redux/utils/ZIndexManager.js",
+          "score": 18
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 14
+        },
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "score": 14
+        },
+        {
+          "file": "client/main.js",
+          "score": 12
+        },
+        {
+          "file": "client/bootloader-selector.js",
+          "score": 8
+        }
+      ],
+      "severity": "high"
+    },
+    {
+      "category": "drag",
+      "files": [
+        {
+          "file": "client/libs/Sortable.min.js",
+          "score": 367
+        },
+        {
+          "file": "client/panels/PanelReorderManager.js",
+          "score": 204
+        },
+        {
+          "file": "client/vendor/scripts/mermaid.min.js",
+          "score": 202
+        },
+        {
+          "file": "client/dom-inspector/components/SectionManager.js",
+          "score": 60
+        },
+        {
+          "file": "client/panels/DragDropManager.js",
+          "score": 56
+        },
+        {
+          "file": "client/components/AuthDisplay.js",
+          "score": 54
+        },
+        {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 52
+        },
+        {
+          "file": "client/panels/PanelControlCenter.js",
+          "score": 45
+        },
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "score": 40
+        },
+        {
+          "file": "redux/components/PanelUI.js",
+          "score": 40
+        },
+        {
+          "file": "client/preview/plugins/mermaid/controls.js",
+          "score": 32
+        },
+        {
+          "file": "client/layout/workspaceConfig.js",
+          "score": 30
+        },
+        {
+          "file": "client/panels/PanelFlyoutManager.js",
+          "score": 24
+        },
+        {
+          "file": "redux/components/Dock.js",
+          "score": 24
+        },
+        {
+          "file": "redux/utils/ZIndexManager.js",
+          "score": 21
+        },
+        {
+          "file": "client/utils/popup.js",
+          "score": 17
+        },
+        {
+          "file": "packages/devpages-debug/DebugPanelManager.js",
+          "score": 17
+        },
+        {
+          "file": "client/components/ContextSettingsPopupComponent.js",
+          "score": 16
+        },
+        {
+          "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 16
+        },
+        {
+          "file": "client/layout/docks/DockFlyoutManager.js",
+          "score": 16
+        },
+        {
+          "file": "client/layout/docks/DebugDock.js",
+          "score": 11
+        },
+        {
+          "file": "client/store/slices/contextSettingsSlice.js",
+          "score": 9
+        },
+        {
+          "file": "client/vendor/scripts/highlight.min.js",
+          "score": 8
+        },
+        {
+          "file": "client/store/slices/panelSlice.js",
+          "score": 7
+        },
+        {
+          "file": "debug-scripts/css/css-system-analyzer.js",
+          "score": 7
+        },
+        {
+          "file": "client/components/publish/PublishModal.js",
+          "score": 6
+        },
+        {
+          "file": "client/store/uiSlice.js",
+          "score": 6
+        }
+      ],
+      "severity": "high"
+    }
+  ]
+}

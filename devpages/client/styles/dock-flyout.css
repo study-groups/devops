@@ -1,0 +1,410 @@
+/**
+ * @file dock-flyout.css
+ * @description Styles for dock flyout system - floating dock windows
+ */
+
+/* Floating Docks Container */
+.floating-docks-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 900;
+}
+
+/* Floating Dock Window */
+.floating-dock-window {
+    position: absolute;
+    background: var(--color-bg, white);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 8px;
+    box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    min-width: 250px;
+    min-height: 200px;
+    transition: box-shadow 0.2s ease;
+}
+
+.floating-dock-window:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+
+.floating-dock-window.dragging {
+    box-shadow: 0 10px 35px rgba(0,0,0,0.3);
+    transform: scale(1.01);
+    transition: transform 0.1s ease;
+}
+
+/* Floating Dock Header */
+.floating-dock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--color-bg-secondary, #f8f9fa);
+    border-bottom: 1px solid var(--color-border, #ddd);
+    border-radius: 7px 7px 0 0;
+    cursor: move;
+    user-select: none;
+    min-height: 36px;
+    position: relative;
+}
+
+.floating-dock-header:hover {
+    background: var(--color-bg-hover, #e9ecef);
+}
+
+.floating-dock-header::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 4px;
+    background: var(--color-text-secondary, #999);
+    border-radius: 2px;
+    opacity: 0.3;
+}
+
+/* Floating Dock Title */
+.floating-dock-title {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--color-text, #333);
+    flex: 1;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+}
+
+/* Floating Dock Controls */
+.floating-dock-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.floating-dock-controls button {
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--color-text-secondary, #666);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+}
+
+.floating-dock-controls button:hover {
+    background: var(--color-bg-hover, #e9ecef);
+    color: var(--color-text, #333);
+}
+
+.floating-dock-collapse-btn:hover {
+    background: var(--color-warning-light, #fff3cd);
+    color: var(--color-warning-dark, #856404);
+}
+
+.floating-dock-park-btn:hover {
+    background: var(--color-primary-light, #e3f2fd);
+    color: var(--color-primary, #1976d2);
+}
+
+.floating-dock-close-btn:hover {
+    background: var(--color-danger-light, #ffebee);
+    color: var(--color-danger, #d32f2f);
+}
+
+/* Floating Dock Content */
+.floating-dock-content {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg, white);
+    border-radius: 0 0 7px 7px;
+}
+
+/* Resize Handles */
+.floating-dock-resize-handle {
+    position: absolute;
+    background: transparent;
+    z-index: 10;
+    transition: background-color 0.2s ease;
+}
+
+.floating-dock-resize-handle:hover {
+    background: var(--color-primary-light, #e3f2fd);
+}
+
+/* Corner handles */
+.resize-se, .resize-sw, .resize-ne, .resize-nw {
+    width: 8px;
+    height: 8px;
+}
+
+.resize-se { bottom: 0; right: 0; cursor: nw-resize; }
+.resize-sw { bottom: 0; left: 0; cursor: ne-resize; }
+.resize-ne { top: 0; right: 0; cursor: sw-resize; }
+.resize-nw { top: 0; left: 0; cursor: se-resize; }
+
+/* Edge handles */
+.resize-n, .resize-s {
+    width: 100%;
+    height: 4px;
+    left: 0;
+}
+
+.resize-e, .resize-w {
+    width: 4px;
+    height: 100%;
+    top: 0;
+}
+
+.resize-n { top: 0; cursor: n-resize; }
+.resize-s { bottom: 0; cursor: s-resize; }
+.resize-e { right: 0; cursor: e-resize; }
+.resize-w { left: 0; cursor: w-resize; }
+
+/* Dock Float Button in Sidebar */
+.dock-float-btn {
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--color-text-secondary, #666);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dock-float-btn:hover {
+    background: var(--color-bg-hover, #e9ecef);
+    color: var(--color-primary, #1976d2);
+}
+
+.dock-float-btn.active {
+    background: var(--color-primary-light, #e3f2fd);
+    color: var(--color-primary, #1976d2);
+}
+
+/* Sidebar Dock Float Indicator */
+.dock-header .dock-float-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-primary-light, #e3f2fd);
+    color: var(--color-primary, #1976d2);
+    font-size: 10px;
+    margin-left: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.dock-header:hover .dock-float-indicator {
+    opacity: 1;
+}
+
+.dock-header.is-floating .dock-float-indicator {
+    opacity: 1;
+    background: var(--color-success-light, #e8f5e8);
+    color: var(--color-success, #2e7d32);
+}
+
+/* Floating Dock Animations */
+.floating-dock-window.entering {
+    animation: dockFloatEnter 0.3s ease-out;
+}
+
+.floating-dock-window.leaving {
+    animation: dockFloatLeave 0.2s ease-in;
+}
+
+@keyframes dockFloatEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes dockFloatLeave {
+    from {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+    }
+}
+
+/* Dock Collapse States */
+.floating-dock-window.collapsed .floating-dock-content {
+    display: none;
+}
+
+.floating-dock-window.collapsed {
+    height: auto !important;
+    min-height: auto;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .floating-dock-window {
+        background: var(--color-bg-dark, #1e1e1e);
+        border-color: var(--color-border-dark, #333);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.5);
+    }
+    
+    .floating-dock-header {
+        background: var(--color-bg-secondary-dark, #2d2d2d);
+        border-bottom-color: var(--color-border-dark, #333);
+    }
+    
+    .floating-dock-title {
+        color: var(--color-text-dark, #e0e0e0);
+    }
+    
+    .floating-dock-controls button {
+        color: var(--color-text-secondary-dark, #999);
+    }
+    
+    .floating-dock-controls button:hover {
+        background: var(--color-bg-hover-dark, #333);
+        color: var(--color-text-dark, #e0e0e0);
+    }
+    
+    .floating-dock-content {
+        background: var(--color-bg-dark, #1e1e1e);
+    }
+    
+    .floating-dock-resize-handle:hover {
+        background: var(--color-primary-dark, #1565c0);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .floating-dock-window {
+        min-width: 280px;
+        max-width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+    }
+    
+    .floating-dock-header {
+        padding: 6px 8px;
+        min-height: 32px;
+    }
+    
+    .floating-dock-title {
+        font-size: 13px;
+    }
+    
+    .floating-dock-controls button {
+        padding: 3px 5px;
+        font-size: 11px;
+        min-width: 20px;
+        height: 20px;
+    }
+    
+    .floating-dock-resize-handle {
+        opacity: 1; /* Always visible on mobile */
+    }
+    
+    .resize-se, .resize-sw, .resize-ne, .resize-nw {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .resize-n, .resize-s {
+        height: 6px;
+    }
+    
+    .resize-e, .resize-w {
+        width: 6px;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .floating-dock-window {
+        border-width: 2px;
+        border-color: var(--color-text, #000);
+    }
+    
+    .floating-dock-controls button {
+        border: 1px solid var(--color-text-secondary, #666);
+    }
+    
+    .floating-dock-controls button:hover {
+        border-color: var(--color-text, #000);
+    }
+    
+    .floating-dock-resize-handle:hover {
+        background: var(--color-text, #000);
+        opacity: 0.3;
+    }
+}
+
+/* Focus Styles for Accessibility */
+.floating-dock-controls button:focus {
+    outline: 2px solid var(--color-primary, #1976d2);
+    outline-offset: 2px;
+}
+
+.floating-dock-window:focus-within {
+    box-shadow: 0 6px 25px rgba(0,0,0,0.2), 0 0 0 2px var(--color-primary-light, #e3f2fd);
+}
+
+/* Dock Stacking Order */
+.floating-dock-window.front {
+    z-index: 999;
+}
+
+.floating-dock-window.behind {
+    z-index: 901;
+}
+
+/* Dock Snap Zones (for future enhancement) */
+.dock-snap-zone {
+    position: absolute;
+    background: var(--color-primary-light, #e3f2fd);
+    border: 2px dashed var(--color-primary, #1976d2);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.dock-snap-zone.active {
+    opacity: 0.7;
+}
+
+/* Dock Preview Shadow */
+.floating-dock-window.preview {
+    opacity: 0.7;
+    transform: scale(0.95);
+    pointer-events: none;
+}

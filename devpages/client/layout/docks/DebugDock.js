@@ -1,74 +1,105 @@
 /**
  * client/layout/docks/DebugDock.js
- * An implementation of BaseDock for a draggable, resizable floating window for debug tools.
+ * A floating, draggable, and resizable dock for debug tools, built on the modern BaseDock.
  */
 import { BaseDock } from './BaseDock.js';
-import { logMessage } from '/client/log/index.js';
+import { appStore, dispatch } from '/client/appState.js';
+import { panelActions } from '/client/store/slices/panelSlice.js';
 
 export class DebugDock extends BaseDock {
-    constructor(dockId, title, panelGroup) {
-        super(dockId, title, panelGroup, true); // true for isFloating
+    constructor(dockId) {
+        super(dockId);
+        this.isDragging = false;
+        this.isResizing = false;
     }
 
-    /**
-     * Create the DOM structure for the debug dock
-     */
-    createDockDOM() {
-        if (document.getElementById(this.dockId)) {
-            logMessage(`[${this.constructor.name}] Dock element with ID ${this.dockId} already exists. Re-using.`, 'warn');
-            this.dockElement = document.getElementById(this.dockId);
-            return;
-        }
+    async initialize(container) {
+        // Create a floating container instead of mounting in the provided one
+        const floatingContainer = document.createElement('div');
+        floatingContainer.id = `${this.dockId}-container`;
+        floatingContainer.className = 'floating-dock-container';
+        document.body.appendChild(floatingContainer);
 
-        this.dockElement = document.createElement('div');
-        this.dockElement.id = this.dockId;
-        this.dockElement.className = 'floating-dock'; // Keep class for styling
+        await super.initialize(floatingContainer);
 
-        this.dockElement.innerHTML = `
-            <div class="dock-header" draggable="true">
-                <span class="dock-title">${this.title}</span>
-                <div class="dock-controls">
-                    <button class="dock-close-btn" title="Close">&times;</button>
-                </div>
-            </div>
-            <div class="dock-content"></div>
-            <div class="dock-resize-handle"></div>
-        `;
-
-        document.body.appendChild(this.dockElement);
-
-        // Assign DOM elements to class properties
-        this.headerElement = this.dockElement.querySelector('.dock-header');
-        this.contentElement = this.dockElement.querySelector('.dock-content');
-        this.resizeHandle = this.dockElement.querySelector('.dock-resize-handle');
-        this.closeButton = this.dockElement.querySelector('.dock-close-btn');
-
-        logMessage(`[${this.constructor.name}] Created DOM for dock: ${this.dockId}`, 'debug');
+        this.makeFloatable();
     }
 
-    /**
-     * Attach event listeners for the debug dock
-     */
-    attachEventListeners() {
-        if (!this.dockElement) {
-            logMessage(`[${this.constructor.name}] Cannot attach listeners, dockElement is null for ${this.dockId}`, 'error');
-            return;
-        }
+    makeFloatable() {
+        const header = this.container.querySelector('.dock-header');
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'resize-handle';
+        this.container.querySelector('.base-dock').appendChild(resizeHandle);
 
         // Dragging
-        this.headerElement.addEventListener('mousedown', this.startDrag.bind(this));
-        document.addEventListener('mousemove', this.doDrag.bind(this));
-        document.addEventListener('mouseup', this.endDrag.bind(this));
+        header.addEventListener('mousedown', e => {
+            this.isDragging = true;
+            this.dragOffsetX = e.clientX - this.container.offsetLeft;
+            this.dragOffsetY = e.clientY - this.container.offsetTop;
+            dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
+        });
 
         // Resizing
-        this.resizeHandle.addEventListener('mousedown', this.startResize.bind(this));
-        document.addEventListener('mousemove', this.doResize.bind(this));
-        document.addEventListener('mouseup', this.endResize.bind(this));
+        resizeHandle.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            this.isResizing = true;
+        });
 
-        // Close button
-        this.closeButton.addEventListener('click', this.toggleVisibility.bind(this));
+        document.addEventListener('mousemove', e => {
+            if (this.isDragging) {
+                const x = e.clientX - this.dragOffsetX;
+                const y = e.clientY - this.dragOffsetY;
+                dispatch(panelActions.updateDockPosition({ dockId: this.dockId, position: { x, y } }));
+            }
+            if (this.isResizing) {
+                const width = e.clientX - this.container.offsetLeft;
+                const height = e.clientY - this.container.offsetTop;
+                dispatch(panelActions.updateDockSize({ dockId: this.dockId, size: { width, height } }));
+            }
+        });
 
-        // Bring to front on click
-        this.dockElement.addEventListener('mousedown', this.bringToFront.bind(this));
+        document.addEventListener('mouseup', () => {
+            this.isDragging = false;
+            this.isResizing = false;
+        });
+        
+        this.updatePositionAndSize();
+    }
+
+    handleStateChange() {
+        super.handleStateChange();
+        this.updatePositionAndSize();
+    }
+    
+    updatePositionAndSize() {
+        if (!this.container || !this.state.position || !this.state.size) return;
+        this.container.style.left = `${this.state.position.x}px`;
+        this.container.style.top = `${this.state.position.y}px`;
+        this.container.style.width = `${this.state.size.width}px`;
+        this.container.style.height = `${this.state.size.height}px`;
+    }
+
+    addStyles() {
+        super.addStyles();
+        const styleId = 'debug-dock-styles';
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            .floating-dock-container {
+                position: absolute;
+                z-index: 1000; /* Will be managed by Redux state later */
+            }
+            .resize-handle {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 10px;
+                height: 10px;
+                cursor: se-resize;
+            }
+        `;
+        document.head.appendChild(style);
     }
 }

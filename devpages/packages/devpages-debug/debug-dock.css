@@ -1,0 +1,35 @@
+/**
+ * Debug Dock Overlay Styles
+ * Ensures minimal disruption to existing layout
+ */
+
+.debug-dock-overlay {
+    /* Prevent layout shifts */
+    box-sizing: border-box;
+    
+    /* Ensure it doesn't affect other elements */
+    pointer-events: auto;
+    
+    /* Soft shadow for depth */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    
+    /* Responsive sizing */
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+/* Ensure top bar and other elements maintain their layout */
+.top-bar,
+.panel-navbar {
+    transition: none !important;
+}
+
+/* Prevent any unexpected resizing - removed body overflow change that was affecting button sizing */
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .debug-dock-overlay {
+        width: 95%;
+        left: 2.5%;
+    }
+}

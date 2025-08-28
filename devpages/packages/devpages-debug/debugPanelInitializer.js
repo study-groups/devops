@@ -9,7 +9,7 @@ import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';
 import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
 import { DevToolsPanel } from './devtools/DevToolsPanel.js';
 import { ExternalDependenciesPanel } from './panels/ExternalDependenciesPanel.js';
-import './DebugPanelManager.js';
+// OLD: import './DebugPanelManager.js'; // REMOVED - Using new DebugDock.js instead
 
 export async function initializeDebugPanels() {
     console.log('[DebugPanelInitializer] Starting debug panel registration...');
@@ -24,6 +24,7 @@ export async function initializeDebugPanels() {
             id: 'devtools',
             title: 'DevTools',
             group: 'debug',
+            factory: () => Promise.resolve(DevToolsPanel),
             component: DevToolsPanel,
             description: 'Comprehensive debugging tools for StateKit, panels, and performance',
             icon: 'icon-bug',
@@ -42,6 +43,7 @@ export async function initializeDebugPanels() {
             id: 'javascript-panel',
             title: 'JavaScript Info',
             group: 'debug',
+            factory: () => Promise.resolve(JavaScriptInfoPanel),
             component: JavaScriptInfoPanel,
             description: 'JavaScript environment information and debugging',
             icon: 'icon-code',
@@ -62,6 +64,7 @@ export async function initializeDebugPanels() {
             id: 'css-files',
             title: 'CSS Files',
             group: 'debug',
+            factory: () => Promise.resolve(CssFilesPanel),
             component: CssFilesPanel,
             description: 'CSS file management and inspection',
             icon: 'icon-css',
@@ -82,6 +85,7 @@ export async function initializeDebugPanels() {
             id: 'dom-inspector',
             title: 'DOM Inspector',
             group: 'debug',
+            factory: () => Promise.resolve(DomInspectorDebugPanel),
             component: DomInspectorDebugPanel,
             description: 'DOM structure inspection and debugging',
             icon: 'icon-dom',
@@ -102,6 +106,7 @@ export async function initializeDebugPanels() {
             id: 'pdata-panel',
             title: 'PData Panel',
             group: 'debug',
+            factory: () => Promise.resolve(PDataPanel),
             component: PDataPanel,
             description: 'Debug PData authentication, session, and API functionality',
             icon: 'icon-database',
@@ -121,6 +126,7 @@ export async function initializeDebugPanels() {
             id: 'external-dependencies',
             title: 'External Dependencies',
             group: 'debug',
+            factory: () => Promise.resolve(ExternalDependenciesPanel),
             component: ExternalDependenciesPanel,
             description: 'Monitor and audit all external JavaScript libraries and CSS dependencies',
             icon: 'icon-package',

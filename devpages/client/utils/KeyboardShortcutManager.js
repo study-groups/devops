@@ -269,8 +269,13 @@ Shift+Click           - Inspect any button
 
                 panels: () => {
                     console.log('🗂️ Panel Systems Status:');
-                    console.log('  Auto Clean Panels:', !!window.autoCleanPanelsLoader);
-                    console.log('  Modern Panel Integration:', !!window.modernPanelIntegration);
+                    
+                    // Use new DebugDock API for panel information
+                    if (window.APP?.debugDock) {
+                        const debugPanels = window.APP.debugDock.getPanels();
+                        console.log('  Debug Panels:', debugPanels);
+                    }
+
                     console.log('  Simplified Workspace:', !!window.APP?.workspace?.simplified);
                     console.log('  Button Introspection:', !!window.buttonIntrospection);
                 },
@@ -337,7 +342,7 @@ Shift+Click           - Inspect any button
                         'Keyboard Shortcuts': !!window.keyboardShortcutManager,
                         'Button Introspection': !!window.buttonIntrospection,
                         'Redux Store': !!(window.APP?.store?.getState),
-                        'Panel Systems': !!(window.autoCleanPanelsLoader || window.modernPanelIntegration),
+                        'Debug Dock': !!window.APP?.debugDock,
                         'Log System': !!window.APP?.services?.log
                     };
                     
@@ -355,7 +360,7 @@ Shift+Click           - Inspect any button
                             keyboardShortcuts: !!window.keyboardShortcutManager,
                             buttonIntrospection: !!window.buttonIntrospection,
                             reduxStore: !!(window.APP?.store?.getState),
-                            panelSystems: !!(window.autoCleanPanelsLoader || window.modernPanelIntegration)
+                            debugDock: !!window.APP?.debugDock
                         }
                     };
                     
@@ -387,38 +392,43 @@ Shift+Click           - Inspect any button
     handleDebugPanel() {
         logMessage('Debug panel shortcut triggered (Ctrl+Shift+D)', 'info', 'SHORTCUTS');
         
-        // Try auto-clean-panels loader first
-        if (window.autoCleanPanelsLoader) {
-            const panelInfo = window.autoCleanPanelsLoader.panels.find(p => p.shortcut === 'ctrl+shift+d');
-            if (panelInfo) {
-                const panelElement = panelInfo.panel.element;
-                if (panelElement) {
-                    const isVisible = panelElement.style.display !== 'none';
-                    panelElement.style.display = isVisible ? 'none' : 'block';
-                    logMessage(`Debug panel ${isVisible ? 'hidden' : 'shown'}`, 'info', 'SHORTCUTS');
-                    return;
+        // Fallback debug methods
+        const debugMethods = [
+            () => {
+                // Try to open debug dock directly
+                if (window.APP?.debugDock) {
+                    logMessage('Attempting to open debug dock directly', 'debug', 'SHORTCUTS');
+                    window.APP.debugDock.toggle();
+                    return true;
                 }
+                return false;
+            },
+            () => {
+                // Try workspace manager toggle
+                if (window.APP?.workspace?.simplified?.manager) {
+                    logMessage('Attempting to toggle debug panel via workspace manager', 'debug', 'SHORTCUTS');
+                    window.APP.workspace.simplified.manager.togglePanel('debug-panel');
+                    return true;
+                }
+                return false;
+            },
+            () => {
+                // Fallback: show debug info
+                logMessage('Falling back to debug info display', 'warn', 'SHORTCUTS');
+                this.showDebugInfo();
+                return true;
             }
-        }
-        
-        // Try workspace manager
-        if (window.APP?.workspace?.simplified?.manager) {
-            const workspace = window.APP.workspace.simplified.manager;
-            if (workspace.togglePanel) {
-                workspace.togglePanel('debug-panel');
+        ];
+
+        // Try each debug method until one succeeds
+        for (const method of debugMethods) {
+            if (method()) {
                 return;
             }
         }
-        
-        // Try modern panel integration
-        if (window.modernPanelIntegration) {
-            window.modernPanelIntegration.togglePanel('modern-debug');
-            return;
-        }
-        
-        // Fallback: Show debug info
-        this.showDebugInfo();
-        logMessage('Debug panel not found, showing keyboard shortcuts debug instead', 'warn', 'SHORTCUTS');
+
+        // If all methods fail
+        logMessage('Debug panel not found, no fallback methods worked', 'error', 'SHORTCUTS');
     }
 
     handleSettingsPanel() {
@@ -490,16 +500,13 @@ Shift+Click           - Inspect any button
     }
 }
 
-// Create global instance
+// Create global instance but don't auto-initialize
 const keyboardShortcutManager = new KeyboardShortcutManager();
-
-// Initialize immediately
-keyboardShortcutManager.init();
 
 // Export for use in other modules
 export { keyboardShortcutManager };
 
-// Make available globally for console access
+// Make available globally for console access (but don't initialize)
 window.keyboardShortcutManager = keyboardShortcutManager;
 
-logMessage('🎹 Keyboard Shortcut Manager loaded and initialized', 'info', 'SHORTCUTS');
+logMessage('🎹 Keyboard Shortcut Manager loaded (not initialized)', 'info', 'SHORTCUTS');

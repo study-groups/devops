@@ -301,8 +301,19 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
             },
             updateNestedSetting: (state, action) => {
                 const { path, value } = action.payload;
+                const keys = path.split('.');
+                
+                // Create a deeply immutable new state
                 const newState = { ...state };
-                setNestedProperty(newState, path, value);
+                let current = newState;
+
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    current[key] = { ...current[key] };
+                    current = current[key];
+                }
+
+                current[keys[keys.length - 1]] = value;
                 newState._version = version;
                 return newState;
             },
@@ -316,10 +327,10 @@ export const createSettingsSlice = (sliceName, defaultSettings, schema = null) =
         persistenceConfig: {
             stateKey,
             persistOnActions: [
-                `${sliceName.toUpperCase()}_UPDATE_SETTING`,
-                `${sliceName.toUpperCase()}_RESET_SETTINGS`,
-                `${sliceName.toUpperCase()}_UPDATE_NESTED_SETTING`,
-                `${sliceName.toUpperCase()}_CSS_SETTINGS_CHANGED`,
+                `${sliceName.toUpperCase()}_UPDATESETTING`,
+                `${sliceName.toUpperCase()}_RESETSETTINGS`,
+                `${sliceName.toUpperCase()}_UPDATENESTEDSETTING`,
+                `${sliceName.toUpperCase()}_CSSSETTINGSCHANGED`,
                 ...Object.keys(schema?.reducers || {}).map(key => `${sliceName.toUpperCase()}_${key.toUpperCase()}`)
             ]
         }

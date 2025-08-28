@@ -6,8 +6,7 @@
  */
 
 import { BasePanel } from './BasePanel.js';
-import { appStore } from '/client/appState.js';
-import { panelActions } from '/client/store/slices/panelSlice.js';
+import { eventBus } from '/client/eventBus.js';
 
 export class PanelControlCenter extends BasePanel {
     constructor(options = {}) {
@@ -421,11 +420,10 @@ export class PanelControlCenter extends BasePanel {
         this.saveControlState();
         this.render();
         
-        // Dispatch reorder action
-        const dockId = this.managedPanels.get(draggedId)?.panel.state.dockId;
-        if (dockId) {
-            appStore.dispatch(panelActions.reorderPanels({ dockId, panelOrder: this.cardOrder.slice() }));
-        }
+        // Emit reorder event
+        eventBus.emit('panels:reordered', {
+            order: this.cardOrder.slice()
+        });
     }
 
     /**
@@ -477,6 +475,19 @@ export class PanelControlCenter extends BasePanel {
         
         this.log('Panel Control Center mounted', 'info');
         return result;
+    }
+
+    /**
+     * Load external CSS for the control center
+     */
+    loadControlCenterCSS() {
+        // Check if CSS is already loaded
+        if (document.querySelector('link[href*="panels.css"]')) return;
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/client/panels/styles/panels.css';
+        document.head.appendChild(link);
     }
 
     /**

@@ -3,7 +3,7 @@
  * @description Utility to help migrate existing panels to ModernBasePanel
  */
 
-import { ModernBasePanel } from './ModernBasePanel.js';
+import { ModernBasePanel } from '/client/panels/BasePanel.js';
 import { BasePanel } from './BasePanel.js';
 
 export class PanelMigrationHelper {

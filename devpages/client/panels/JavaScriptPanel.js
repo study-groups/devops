@@ -48,6 +48,20 @@ export class JavaScriptPanel extends BasePanel {
     }
 
     /**
+     * Dynamically load the panel's CSS
+     */
+    loadCSS() {
+        const cssPath = '/client/panels/styles/JavaScriptPanel.css';
+        if (!document.querySelector(`link[href="${cssPath}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssPath;
+            document.head.appendChild(link);
+            this.log('JavaScriptPanel CSS loaded.', 'info');
+        }
+    }
+
+    /**
      * Render panel content
      */
     renderContent() {
@@ -66,7 +80,7 @@ export class JavaScriptPanel extends BasePanel {
                     </div>
                 </div>
                 <div id="javascript-preview" class="javascript-preview js-content" data-js-content>
-                    <div class="js-loading-state" data-visible="false">
+                    <div class="js-loading-state" style="display: none;">
                         <div class="loading-spinner"></div>
                         <div>Loading JavaScript...</div>
                     </div>
@@ -81,6 +95,7 @@ export class JavaScriptPanel extends BasePanel {
      */
     async onMount() {
         await super.onMount();
+        this.loadCSS();
         this.log('[PANEL_DEBUG] JavaScriptPanel onMount hook executed.', 'debug');
 
         // Get the JavaScript container and elements
@@ -286,7 +301,7 @@ export class JavaScriptPanel extends BasePanel {
         
         const loadingState = this.jsContainer.querySelector('.js-loading-state');
         if (loadingState) {
-            loadingState.dataset.visible = 'true';
+            loadingState.style.display = 'flex';
         }
         
         this.jsContainer.classList.add('js-updating');
@@ -329,7 +344,7 @@ export class JavaScriptPanel extends BasePanel {
         // Hide loading state
         const loadingState = this.jsContainer.querySelector('.js-loading-state');
         if (loadingState) {
-            loadingState.dataset.visible = 'false';
+            loadingState.style.display = 'none';
         }
         
         // Remove success class after animation

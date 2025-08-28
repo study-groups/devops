@@ -14,8 +14,8 @@ class ResizableManager {
         this.resizers = {};
         this.panels = {};
         this.minMaxWidths = {
-            sidebar: { min: 200, max: 500 },
-            preview: { min: 200, max: 500 },
+            sidebar: { min: 0, max: window.innerWidth },
+            preview: { min: 0, max: window.innerWidth },
         };
         this.currentResizerKey = null;
         this.boundOnMouseMove = this.onMouseMove.bind(this);
@@ -44,6 +44,12 @@ class ResizableManager {
                 resizer.addEventListener('mousedown', (e) => this.onMouseDown(resizerKey, e));
             }
         }
+
+        // Update max width on window resize
+        window.addEventListener('resize', () => {
+            this.minMaxWidths.sidebar.max = window.innerWidth;
+            this.minMaxWidths.preview.max = window.innerWidth;
+        });
 
         appStore.subscribe(this.updatePanelSizes.bind(this));
         this.updatePanelSizes();

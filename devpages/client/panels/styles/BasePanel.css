@@ -1,22 +1,163 @@
-/**
- * BasePanel.css - SIMPLIFIED
- * 
- * Reduced to only essential panel-specific overrides.
- * Most functionality moved to components-base.css
- */
-
-/* Legacy class compatibility - maps to new base classes */
+/* Base panel styles */
 .panel {
-    /* Use .panel-base instead for new components */
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     height: 100%;
     min-height: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
 }
 
-/* Specific editor/preview container sizing */
-.panel-content .editor-container,
-.panel-content .preview-panel-content {
-    height: 100%;
+/* Width states */
+.panel.width-full {
+    width: 100%;
+    flex-grow: 1;
+    flex-shrink: 0;
+}
+
+.panel.width-resized {
+    flex: 1;
+    min-width: 200px;
+    max-width: none;
+}
+
+/* Panel header */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
+    user-select: none;
+}
+
+.panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.panel-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.panel-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.panel-header-info {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    background: var(--color-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--color-border);
+}
+
+/* Header buttons */
+.panel-header-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1;
+    min-width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.panel-header-btn:hover {
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.panel-header-btn:active {
+    background: var(--color-border);
+}
+
+/* Content wrapper for collapse functionality */
+.panel-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+    overflow: hidden;
+}
+
+.panel-content-wrapper.expanded {
+    max-height: none;
+    opacity: 1;
+}
+
+.panel-content-wrapper.collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* Panel content */
+.panel-content {
+    flex-grow: 1;
+    overflow: auto;
+    padding: 12px;
+}
+
+/* Children container */
+.panel-children {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 8px 8px 8px;
+}
+
+/* Nested panels (children) */
+.panel-children .panel {
+    margin-bottom: 4px;
+    border-left: 2px solid var(--color-border);
+    border-radius: 0 4px 4px 0;
+}
+
+.panel-children .panel .panel-header {
+    background: var(--color-bg);
+    font-size: 12px;
+}
+
+.panel-children .panel .panel-title {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+    .panel.width-full,
+    .panel.width-resized {
+        width: 100%;
+        flex: none;
+    }
+    
+    .panel-header {
+        padding: 6px 8px;
+    }
+    
+    .panel-title {
+        font-size: 12px;
+    }
+    
+    .panel-header-btn {
+        padding: 3px 4px;
+        font-size: 11px;
+    }
 } 

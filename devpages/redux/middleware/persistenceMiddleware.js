@@ -36,7 +36,19 @@ const PERSISTENCE_ACTIONS = [
     
     // Shortcuts
     'panels/registerShortcut',
-    'panels/unregisterShortcut'
+    'panels/unregisterShortcut',
+    
+    // Debug panel actions
+    'debugPanel/toggleVisibility',
+    'debugPanel/setPosition',
+    'debugPanel/setSize',
+    'debugPanel/setActivePanel',
+    'debugPanel/toggleSection',
+    'debugPanel/togglePanelExpanded',
+    'debugPanel/setPanelExpanded',
+    'debugPanel/reorderPanels',
+    'debugPanel/updateDockPosition',
+    'debugPanel/updateDockSize'
 ];
 
 /**
@@ -50,8 +62,9 @@ export const persistenceMiddleware = (store) => (next) => (action) => {
     if (PERSISTENCE_ACTIONS.includes(action.type)) {
         try {
             const state = store.getState();
-            if (state.panels) {
-                // Only persist the essential state
+            
+            // Handle panels state persistence
+            if (state.panels && action.type.startsWith('panels/')) {
                 const stateToPersist = {
                     docks: state.panels.docks,
                     panels: state.panels.panels,
@@ -60,7 +73,23 @@ export const persistenceMiddleware = (store) => (next) => (action) => {
                 };
                 
                 storageService.setItem(PANELS_STORAGE_KEY, stateToPersist);
-                console.log(`[PersistenceMiddleware] Saved state after action: ${action.type}`);
+                console.log(`[PersistenceMiddleware] Saved panels state after action: ${action.type}`);
+            }
+            
+            // Handle debug panel state persistence
+            if (state.debugPanel && action.type.startsWith('debugPanel/')) {
+                const DEBUG_PANEL_STORAGE_KEY = 'debug_panel_state';
+                const debugStateToPersist = {
+                    visible: state.debugPanel.visible,
+                    position: state.debugPanel.position,
+                    size: state.debugPanel.size,
+                    panels: state.debugPanel.panels,
+                    activePanel: state.debugPanel.activePanel,
+                    collapsedSections: state.debugPanel.collapsedSections
+                };
+                
+                storageService.setItem(DEBUG_PANEL_STORAGE_KEY, debugStateToPersist);
+                console.log(`[PersistenceMiddleware] Saved debug panel state after action: ${action.type}`);
             }
         } catch (error) {
             console.warn(`[PersistenceMiddleware] Failed to persist state after ${action.type}:`, error);

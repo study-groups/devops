@@ -1,3 +1,6 @@
+// DEPRECATED: This PDataPanel has been moved to packages/devpages-debug/panels/PDataPanel.js
+// This file is kept for reference but should not be used.
+
 /**
  * PDataPanel.js - Beautiful Redux-integrated PData Panel
  * Features: Collapsible sub-panels, flyout mode, position persistence

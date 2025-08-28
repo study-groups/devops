@@ -36,8 +36,8 @@ async function fetchSpacesConfig() {
 }
 
 // 'isInitialized' should track if loadMarkdownItScript and other one-time setups are done.
-// let isBaseInitialized = false; // More descriptive name
-// The global 'md' instance that was cached should likely be removed.
+let isInitialized = false;
+let md; // Global markdown-it instance for legacy compatibility
 
 async function ensureBaseInitialized() {
     // This function replaces the old initializeRenderer's role of one-time setup
@@ -289,6 +289,11 @@ async function initializeRenderer() {
             typographer: false,
             highlight: null // Let highlight plugin handle this later if needed, or configure hljs here
         });
+
+        // Store the default fence renderer before overriding
+        const defaultFence = md.renderer.rules.fence || function(tokens, idx, options, env, self) {
+            return self.renderToken(tokens, idx, options);
+        };
 
         // Apply custom fence rule to the 'md' instance (used by initializeRenderer)
         // Note: This instance might not be the one used for actual rendering if getMarkdownItInstance() is called later.

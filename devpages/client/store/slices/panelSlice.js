@@ -1,290 +1,207 @@
-// redux/slices/panelSlice.js - Panel management slice for Redux-native panel system
-import { storageService } from '/client/services/storageService.js';
+/**
+ * Panel Slice - Redux state management for panels and docks
+ */
+import { createSlice } from '@reduxjs/toolkit';
 
-const STATE_VERSION = '2.3'; // Version bump for new actions
-
-// Action Types
-const TOGGLE_DOCK_VISIBILITY = 'panels/toggleDockVisibility';
-const UPDATE_DOCK_POSITION = 'panels/updateDockPosition';
-const UPDATE_DOCK_SIZE = 'panels/updateDockSize';
-const BRING_DOCK_TO_FRONT = 'panels/bringDockToFront';
-const UPDATE_DOCK = 'panels/updateDock';
-const CREATE_PANEL = 'panels/createPanel';
-const UPDATE_PANEL = 'panels/updatePanel';
-const TOGGLE_PANEL_VISIBILITY = 'panels/togglePanelVisibility';
-const REORDER_PANELS = 'panels/reorderPanels';
-
-function getNextZIndex(state) {
-    const computedStyle = getComputedStyle(document.documentElement);
-    const baseZIndex = parseInt(computedStyle.getPropertyValue('--z-toast')) || 1050;
-    if (!state.docks || Object.keys(state.docks).length === 0) {
-        return baseZIndex;
-    }
-    return Math.max(...Object.values(state.docks).map(d => d.zIndex || 0), baseZIndex) + 1;
-}
-
-function loadPersistedPanelState() {
-    try {
-        const persistedState = storageService.getItem('panel_state');
-        if (!persistedState) return null;
-        
-        if (persistedState.version !== STATE_VERSION) {
-            storageService.removeItem('panel_state');
-            return null;
+const initialState = {
+    docks: {
+        'debug-dock': {
+            id: 'debug-dock',
+            title: 'Debug Tools',
+            zone: 'floating',
+            panels: ['css-files', 'dom-inspector', 'devtools'],
+            position: { x: 100, y: 100 },
+            size: { width: 400, height: 600 },
+            isVisible: true,
+            isExpanded: true,
+            zIndex: 1000
+        },
+        'sidebar-dock': {
+            id: 'sidebar-dock',
+            title: 'Sidebar',
+            zone: 'sidebar',
+            panels: ['context-panel', 'file-browser', 'design-tokens'],
+            isVisible: true,
+            isExpanded: true
+        },
+        'main-dock': {
+            id: 'main-dock',
+            title: 'Main Content',
+            zone: 'main',
+            panels: [],
+            isVisible: true,
+            isExpanded: true
         }
-        return persistedState;
-    } catch (e) {
-        console.warn('[PanelSlice] Error loading persisted panel state:', e);
-        return null;
-    }
-}
+    },
+    panels: {
+        'context-panel': {
+            id: 'context-panel',
+            dockId: 'sidebar-dock',
+            isVisible: true,
+            order: 0
+        },
+        'file-browser': {
+            id: 'file-browser',
+            dockId: 'sidebar-dock',
+            isVisible: true,
+            order: 1
+        },
+        'design-tokens': {
+            id: 'design-tokens',
+            dockId: 'sidebar-dock',
+            isVisible: true,
+            order: 2
+        }
+    },
+    activePanel: 'context-panel',
+    dragState: null
+};
 
-function getInitialPanelState() {
-    const persistedState = loadPersistedPanelState();
-    const computedStyle = getComputedStyle(document.documentElement);
-    const baseZIndex = parseInt(computedStyle.getPropertyValue('--z-toast')) || 1050;
-    
-    const defaultState = {
-        version: STATE_VERSION,
-        docks: {
-            'sidebar-dock': { id: 'sidebar-dock', title: 'Sidebar Dock', isVisible: true, isCollapsed: false, panels: ['file-browser', 'code'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
-            'settings-dock': { id: 'settings-dock', title: '🎨 Settings & Style', isVisible: true, isCollapsed: false, panels: ['settings-panel'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
-            'comm-dock': { id: 'comm-dock', title: 'Communications', isVisible: false, isCollapsed: false, panels: ['comm-panel'], activePanel: null, zIndex: baseZIndex, zone: 'sidebar' },
-            'preview-dock': {
-                id: 'preview-dock',
-                panels: ['editor-panel', 'preview-panel'],
-                activePanel: 'preview-panel',
-                isVisible: true,
-                isCollapsed: false,
-                zone: 'preview'
-            },
-            'logs-dock': {
-                id: 'logs-dock',
-                panels: ['log-display'], // Assuming 'log-display' is the panel ID
-                activePanel: 'log-display',
-                isVisible: false, // Start hidden by default
-                isCollapsed: false,
-                zone: 'logs'
-            },
-            'debug-dock': {
-                id: 'debug-dock',
-                panels: [], // Panels will be added dynamically
-                activePanel: null,
-                isVisible: false, // Initially hidden
-                isCollapsed: false,
-                position: { x: 150, y: 150 },
-                size: { width: 500, height: 400 },
-                zIndex: baseZIndex + 1,
-                zone: 'debug'
+const panelSlice = createSlice({
+    name: 'panels',
+    initialState,
+    reducers: {
+        // Dock management
+        updateDockPosition: (state, action) => {
+            const { dockId, position } = action.payload;
+            if (state.docks[dockId]) {
+                state.docks[dockId].position = position;
             }
         },
-        panels: {},
-        // ... other initial state properties
-    };
-    
-    if (persistedState) {
-        return {
-            ...defaultState,
-            docks: { ...defaultState.docks, ...persistedState.docks },
-            panels: { ...defaultState.panels, ...(persistedState.panels || {}) },
-        };
-    }
-    
-    return defaultState;
-}
-
-const initialState = getInitialPanelState();
-
-// Action Creators
-export const panelActions = {
-    toggleDockVisibility: (payload) => ({ type: TOGGLE_DOCK_VISIBILITY, payload }),
-    updateDockPosition: (payload) => ({ type: UPDATE_DOCK_POSITION, payload }),
-    updateDockSize: (payload) => ({ type: UPDATE_DOCK_SIZE, payload }),
-    bringDockToFront: (payload) => ({ type: BRING_DOCK_TO_FRONT, payload }),
-    updateDock: (payload) => ({ type: UPDATE_DOCK, payload }),
-    createPanel: (payload) => ({ type: CREATE_PANEL, payload }),
-    updatePanel: (payload) => ({ type: UPDATE_PANEL, payload }),
-    togglePanelVisibility: (payload) => ({ type: TOGGLE_PANEL_VISIBILITY, payload }),
-    reorderPanels: (payload) => ({ type: REORDER_PANELS, payload }),
-};
-
-// Reducer
-export const panelReducer = (state = initialState, action) => {
-    switch (action.type) {
-        case TOGGLE_DOCK_VISIBILITY: {
-            const { dockId } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            isVisible: !dock.isVisible,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        case UPDATE_DOCK_POSITION: {
-            const { dockId, position } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            position,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        case UPDATE_DOCK_SIZE: {
+        
+        updateDockSize: (state, action) => {
             const { dockId, size } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            size,
-                        },
-                    },
-                };
+            if (state.docks[dockId]) {
+                state.docks[dockId].size = size;
             }
-            return state;
-        }
-        case BRING_DOCK_TO_FRONT: {
+        },
+        
+        toggleDockVisibility: (state, action) => {
             const { dockId } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            zIndex: getNextZIndex(state),
-                        },
-                    },
+            if (state.docks[dockId]) {
+                state.docks[dockId].isVisible = !state.docks[dockId].isVisible;
+            }
+        },
+        
+        expandDock: (state, action) => {
+            const { dockId } = action.payload;
+            if (state.docks[dockId]) {
+                state.docks[dockId].isExpanded = true;
+            }
+        },
+        
+        collapseDock: (state, action) => {
+            const { dockId } = action.payload;
+            if (state.docks[dockId]) {
+                state.docks[dockId].isExpanded = false;
+            }
+        },
+        
+        bringDockToFront: (state, action) => {
+            const { dockId } = action.payload;
+            if (state.docks[dockId]) {
+                // Find the highest z-index and add 1
+                const maxZIndex = Math.max(...Object.values(state.docks).map(dock => dock.zIndex || 0));
+                state.docks[dockId].zIndex = maxZIndex + 1;
+            }
+        },
+        
+        // Panel management
+        togglePanelVisibility: (state, action) => {
+            const { panelId } = action.payload;
+            if (state.panels[panelId]) {
+                state.panels[panelId].isVisible = !state.panels[panelId].isVisible;
+            }
+        },
+        
+        showPanel: (state, action) => {
+            const { panelId } = action.payload;
+            if (state.panels[panelId]) {
+                state.panels[panelId].isVisible = true;
+                state.activePanel = panelId;
+            }
+        },
+        
+        hidePanel: (state, action) => {
+            const { panelId } = action.payload;
+            if (state.panels[panelId]) {
+                state.panels[panelId].isVisible = false;
+            }
+        },
+        
+        // Drag and drop
+        startDrag: (state, action) => {
+            state.dragState = action.payload;
+        },
+        
+        endDrag: (state) => {
+            state.dragState = null;
+        },
+        
+        // Register new panel
+        registerPanel: (state, action) => {
+            const { id, dockId = 'sidebar-dock', config = {} } = action.payload;
+            
+            // Defensive checks
+            if (!id) {
+                console.warn('[PanelSlice] Attempted to register panel without ID', action.payload);
+                return state;
+            }
+            
+            // Ensure the panels object exists
+            if (!state.panels) {
+                state.panels = {};
+            }
+            
+            // Ensure the docks object exists
+            if (!state.docks) {
+                state.docks = {
+                    'sidebar-dock': {
+                        id: 'sidebar-dock',
+                        title: 'Sidebar',
+                        zone: 'sidebar',
+                        panels: [],
+                        isVisible: true,
+                        isExpanded: true
+                    }
                 };
             }
-            return state;
-        }
-        case UPDATE_DOCK: {
-            const { dockId, ...updates } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            ...updates,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        case CREATE_PANEL: {
-            const { id, dockId, title, config } = action.payload;
-            const newPanels = {
-                ...state.panels,
-                [id]: {
-                    id,
-                    title,
-                    dockId,
+            
+            // Ensure the specified dock exists
+            if (!state.docks[dockId]) {
+                state.docks[dockId] = {
+                    id: dockId,
+                    title: `${dockId} Dock`,
+                    zone: 'sidebar', // default zone
+                    panels: [],
                     isVisible: true,
-                    isCollapsed: false,
-                    ...config,
-                },
+                    isExpanded: true
+                };
+            }
+            
+            // Add or update panel
+            state.panels[id] = {
+                id,
+                dockId,
+                isVisible: config.isVisible !== false,
+                order: config.order || 0,
+                ...config
             };
+            
+            // Add to dock if not already there
             const dock = state.docks[dockId];
             if (dock && !dock.panels.includes(id)) {
-                const newDocks = {
-                    ...state.docks,
-                    [dockId]: {
-                        ...dock,
-                        panels: [...dock.panels, id],
-                    },
-                };
-                return { ...state, panels: newPanels, docks: newDocks };
+                dock.panels.push(id);
             }
-            return { ...state, panels: newPanels };
         }
-        case UPDATE_PANEL: {
-            const { id, updates } = action.payload;
-            const panel = state.panels[id];
-            if (panel) {
-                return {
-                    ...state,
-                    panels: {
-                        ...state.panels,
-                        [id]: {
-                            ...panel,
-                            ...updates,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        case TOGGLE_PANEL_VISIBILITY: {
-            const { panelId } = action.payload;
-            const panel = state.panels[panelId];
-            if (panel) {
-                return {
-                    ...state,
-                    panels: {
-                        ...state.panels,
-                        [panelId]: {
-                            ...panel,
-                            isVisible: !panel.isVisible,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        case REORDER_PANELS: {
-            const { dockId, panelOrder } = action.payload;
-            const dock = state.docks[dockId];
-            if (dock) {
-                return {
-                    ...state,
-                    docks: {
-                        ...state.docks,
-                        [dockId]: {
-                            ...dock,
-                            panels: panelOrder,
-                        },
-                    },
-                };
-            }
-            return state;
-        }
-        default:
-            return state;
     }
-};
+});
 
+// Export actions and reducer
+export const panelActions = panelSlice.actions;
+export default panelSlice.reducer;
 
 // Selectors
-export const selectDocks = (state) => state.panels.docks;
-export const selectPanelsByDock = (state, dockId) => {
-    const dock = state.panels.docks[dockId];
-    if (!dock) return [];
-    return dock.panels.map(panelId => state.panels.panels[panelId]);
-};
-
-console.log('[PanelSlice] ✅ Refactored Redux panel system ready');
+export const selectDocks = (state) => state.panels?.docks || {};
+export const selectPanels = (state) => state.panels?.panels || {};
+export const selectActivePanel = (state) => state.panels?.activePanel;

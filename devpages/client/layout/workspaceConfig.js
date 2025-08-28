@@ -65,8 +65,8 @@ export const WORKSPACE_ZONES = {
         resizable: true,
         collapsible: true, // Can hide preview
         defaultWidth: 300,
-        minWidth: 200,
-        maxWidth: 500,
+        minWidth: 0,
+        maxWidth: window.innerWidth || 2000,
         position: 'right',
         purpose: 'output_display',
         validation: (config) => validateZoneConfig(config)
@@ -80,8 +80,8 @@ export const WORKSPACE_ZONES = {
         resizable: true,
         collapsible: false,
         defaultWidth: 300,
-        minWidth: 200,
-        maxWidth: 500,
+        minWidth: 0,
+        maxWidth: window.innerWidth || 2000,
         position: 'left',
         purpose: 'draggable_panels',
         validation: (config) => validateZoneConfig(config)

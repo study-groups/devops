@@ -15,8 +15,16 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     render() {
+        if (this.element) {
+            return this.element;
+        }
+
+        // Use the proper theme-editor-panel class from DesignTokensPanel.css
         this.element = document.createElement('div');
         this.element.className = 'theme-editor-panel';
+        this.element.id = `panel-${this.id}`;
+        this.element.setAttribute('data-panel-id', this.id);
+        
         this.element.innerHTML = `
             <div class="theme-editor-header">
                 <h3>Design Tokens</h3>
@@ -33,8 +41,10 @@ export class DesignTokensPanel extends BasePanel {
             </div>
             <div class="token-categories" id="token-categories"></div>
         `;
+        
         return this.element;
     }
+
 
     async onMount(container) {
         super.onMount(container);

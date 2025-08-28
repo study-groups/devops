@@ -188,56 +188,113 @@ export class TopBarController {
     }
 
     updateButtonStates() {
+        const buttons = [
+            { selector: '#edit-toggle', name: 'Edit Toggle' },
+            { selector: '#preview-toggle', name: 'Preview Toggle' },
+            { selector: '#log-toggle-btn', name: 'Log Toggle' },
+            { selector: '#save-btn', name: 'Save Button' }
+        ];
+
+        buttons.forEach(({ selector, name }) => {
+            const button = document.querySelector(selector);
+            if (!button) return;
+
+            const rect = button.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(button);
+        });
+
         const state = appStore.getState();
         const ui = state.ui || {};
         const file = state.file || {};
         const auth = state.auth || {};
         
-        // TopBarController state update
-
-        // Update editor toggle
         const editToggle = document.querySelector('#edit-toggle');
         if (editToggle) {
             editToggle.classList.toggle('active', ui.editorVisible);
             editToggle.title = ui.editorVisible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
         }
 
-        // Update preview toggle
         const previewToggle = document.querySelector('#preview-toggle');
         if (previewToggle) {
             previewToggle.classList.toggle('active', ui.previewVisible);
             previewToggle.title = ui.previewVisible ? 'Hide Preview (Alt+P)' : 'Show Preview (Alt+P)';
         }
 
-        // Update log toggle
         const logButton = document.querySelector('#log-toggle-btn');
         if (logButton) {
             logButton.classList.toggle('active', ui.logVisible);
             logButton.title = ui.logVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
         }
 
-        // Update save button
         const saveButton = document.querySelector('#save-btn');
         if (saveButton) {
-            // Get the current path from path state (this is the source of truth)
             const path = state.path || {};
             const currentPathname = path.currentPathname;
             const isDirectorySelected = path.isDirectorySelected;
             
-            // Get editor state for dirty checking
             const editor = state.editor || {};
-            const isEditorModified = editor.isModified || false; // Use isModified from editorSlice
+            const isEditorModified = editor.isModified || false;
             
             const isAuthenticated = auth.authChecked && auth.isAuthenticated;
             const isOverallLoading = ui.isLoading;
             const isSaving = file.status === 'loading';
             const hasFile = currentPathname && !isDirectorySelected;
-            const isFileModified = isEditorModified; // Use editor modified state
+            const isFileModified = isEditorModified;
             
             const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || !hasFile || !isFileModified;
+            
             saveButton.disabled = saveDisabled;
             saveButton.textContent = isSaving ? 'Saving...' : 'Save';
         }
+    }
+
+    // New debug method to capture detailed button information
+    _getButtonDebugInfo(selector) {
+        const button = document.querySelector(selector);
+        if (!button) return null;
+
+        const computedStyle = window.getComputedStyle(button);
+        const boundingRect = button.getBoundingClientRect();
+
+        // Log extreme details about button
+        console.error(`🔍 BUTTON FORENSICS: ${selector}`, {
+            exists: !!button,
+            classList: Array.from(button.classList),
+            attributes: Array.from(button.attributes).map(attr => ({ 
+                name: attr.name, 
+                value: attr.value 
+            })),
+            computedStyle: {
+                width: computedStyle.width,
+                height: computedStyle.height,
+                minWidth: computedStyle.minWidth,
+                maxWidth: computedStyle.maxWidth,
+                padding: computedStyle.padding,
+                margin: computedStyle.margin,
+                display: computedStyle.display,
+                visibility: computedStyle.visibility,
+                opacity: computedStyle.opacity,
+                transform: computedStyle.transform,
+                transition: computedStyle.transition
+            },
+            boundingRect: {
+                width: boundingRect.width,
+                height: boundingRect.height,
+                top: boundingRect.top,
+                left: boundingRect.left
+            },
+            // Extreme tracking
+            offsetWidth: button.offsetWidth,
+            offsetHeight: button.offsetHeight,
+            clientWidth: button.clientWidth,
+            clientHeight: button.clientHeight
+        });
+
+        return {
+            exists: !!button,
+            width: boundingRect.width,
+            height: boundingRect.height
+        };
     }
 
     destroy() {

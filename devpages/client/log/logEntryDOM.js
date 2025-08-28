@@ -36,6 +36,10 @@ function createToolbarButton(toolbarEl, id, text, action, title = null, noAppend
  */
 export function createLogPanelDOM(logDisplayInstance, appVersion) {
     const container = logDisplayInstance.container;
+    if (!container) {
+        console.error('[LogDisplay] No container available for createLogPanelDOM');
+        return;
+    }
     container.innerHTML = ''; // Clear existing content
 
     // Create Main Header with prominent controls
@@ -150,10 +154,30 @@ export function createLogPanelDOM(logDisplayInstance, appVersion) {
     logDisplayInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true);
     if (logDisplayInstance.minimizeButton) rightWrapper.appendChild(logDisplayInstance.minimizeButton);
  
+    const headerContainer = document.createElement('div');
+    headerContainer.id = 'log-header-container';
+    container.appendChild(headerContainer);
+
     logDisplayInstance.tagsBarElement = document.createElement('div');
     logDisplayInstance.tagsBarElement.id = 'log-tags-bar';
-    container.appendChild(logDisplayInstance.tagsBarElement);
+    headerContainer.appendChild(logDisplayInstance.tagsBarElement);
  
+    const columnHeader = document.createElement('div');
+    columnHeader.id = 'log-column-header';
+    columnHeader.className = 'log-column-header';
+    columnHeader.innerHTML = `
+        <span class="log-header-timestamp">Timestamp</span>
+        <div class="resizer" data-column="timestamp"></div>
+        <span class="log-header-level">Level</span>
+        <div class="resizer" data-column="level"></div>
+        <span class="log-header-context">Context</span>
+        <div class="resizer" data-column="context"></div>
+        <span class="log-header-message">Message</span>
+        <div class="resizer" data-column="message"></div>
+        <span class="log-header-melvin">Melvin</span>
+    `;
+    headerContainer.appendChild(columnHeader);
+
     logDisplayInstance.logElement = document.createElement('div');
     logDisplayInstance.logElement.id = 'log';
     container.appendChild(logDisplayInstance.logElement);

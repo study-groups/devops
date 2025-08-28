@@ -24,19 +24,19 @@
 /* Ensure panels respect width changes */
 #workspace-sidebar {
     flex: 0 0 auto;
-    min-width: 3em;
-    max-width: 30%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 #workspace-preview {
     flex: 0 0 auto;
-    min-width: 10%;
+    min-width: 0;
     max-width: 100%;
 }
 
 #workspace-editor {
     flex: 1 1 auto;
-    min-width: 5rem;
+    min-width: 0;
     max-width: 100%;
 }
 

@@ -1,0 +1,175 @@
+/* === TOOLBAR === */
+
+#log-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-elevated);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+
+#log-toolbar button:not(#cli-send-button):not(.log-entry-button) {
+    background: transparent;
+    border: none;
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg);
+    padding: var(--space-0-5) var(--space-1-5);
+    cursor: pointer;
+    height: 3rem;
+    font-size: 12px;
+}
+
+#log-toolbar button:hover {
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-hover);
+}
+
+#log-toolbar .app-info {
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
+    font-size: 11px;
+    cursor: pointer;
+    margin-left: var(--space-1);
+}
+
+#log-toolbar .app-info:hover {
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
+}
+
+#log-status {
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* === LOG ENTRY BUTTONS === */
+
+.log-entry-button {
+    padding: var(--space-0-5) var(--space-1);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-button-secondary);
+    color: var(--color-fg-button-secondary);
+    border: 1px solid var(--color-border-button-secondary);
+    flex-shrink: 0;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.log-entry-button.original-button {
+    margin-left: var(--space-1-5);
+    background: transparent;
+    border-color: transparent;
+}
+
+.log-entry-button:hover {
+    background-color: var(--color-bg-button-secondary-hover);
+    border-color: var(--color-border-button-secondary-hover);
+    color: var(--color-fg-button-secondary-hover);
+}
+
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button {
+    padding: var(--space-px) var(--space-1);
+    font-size: 0.9em;
+    align-self: center;
+    cursor: pointer;
+}
+
+.log-entry.expanded .log-entry-expanded-toolbar .log-entry-button:hover {
+    opacity: 1;
+}
+
+.markdown-toggle-button.active {
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border-color: var(--color-primary);
+    opacity: 1;
+}
+
+/* === CLI INPUT === */
+
+#cli-input {
+    flex-grow: 1;
+    padding: var(--space-1) var(--space-2);
+    line-height: 1.1rem;
+    font-size: 14px;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-family: var(--font-family-code);
+}
+
+#cli-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+#cli-send-button {
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: var(--radius-base);
+    font-size: 12px;
+    transition: background-color var(--transition-fast);
+}
+
+#cli-send-button:hover {
+    background-color: var(--color-primary-hover);
+}
+
+/* === HELP TOGGLE BUTTON === */
+
+#log-help-toggle-btn {
+    padding: var(--space-px) var(--space-1-5);
+    font-weight: bold;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--color-border-secondary);
+    color: var(--color-fg-muted);
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+}
+
+#log-help-toggle-btn:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border);
+    color: var(--color-fg);
+}
+
+/* === STATE BUTTONS === */
+
+#log-state-a-btn, 
+#log-state-b-btn {
+    padding: var(--space-px) var(--space-1-5);
+    font-weight: bold;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--color-border-secondary);
+    color: var(--color-fg-muted);
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    margin-left: var(--space-1);
+}
+
+#log-state-a-btn:hover,
+#log-state-b-btn:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border);
+    color: var(--color-fg);
+}
+
+#log-state-a-btn.state-set,
+#log-state-b-btn.state-set {
+    background-color: var(--color-bg-primary-faded);
+    border-color: var(--color-primary);
+    color: var(--color-fg);
+}

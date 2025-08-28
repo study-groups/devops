@@ -1,0 +1,94 @@
+/**
+ * packages/devpages-debug/DebugDock.js
+ * Unified Debug Dock for managing and displaying debug panels
+ */
+import { BaseDock } from '/client/layout/docks/BaseDock.js';
+import { zIndexManager } from '/client/utils/ZIndexManager.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { logMessage } from '/client/log/index.js';
+
+export class DebugDock extends BaseDock {
+    constructor() {
+        super('debug-dock', 'Debug Tools', 'debug', true);
+        this.debugPanels = new Map();
+        this.initializeDebugDock();
+    }
+
+    async initializeDebugDock() {
+        // Load all debug panels from registry
+        const debugPanels = panelRegistry.getAllPanels()
+            .filter(panel => panel.group === 'debug');
+
+        for (const panelConfig of debugPanels) {
+            try {
+                const PanelClass = await panelConfig.factory();
+                const panelInstance = new PanelClass();
+                this.debugPanels.set(panelConfig.id, {
+                    config: panelConfig,
+                    instance: panelInstance
+                });
+            } catch (error) {
+                console.error(`Failed to load debug panel ${panelConfig.id}:`, error);
+            }
+        }
+
+        // Create dock UI
+        this.createDockUI();
+    }
+
+    createDockUI() {
+        // Create floating dock UI with panel tabs and content area
+        const container = document.createElement('div');
+        container.className = 'debug-dock-container';
+        
+        const tabContainer = document.createElement('div');
+        tabContainer.className = 'debug-dock-tabs';
+        
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'debug-dock-content';
+
+        // Create tabs for each panel
+        for (const [panelId, { config }] of this.debugPanels) {
+            const tab = document.createElement('button');
+            tab.textContent = config.title;
+            tab.dataset.panelId = panelId;
+            tab.addEventListener('click', () => this.switchToPanel(panelId));
+            tabContainer.appendChild(tab);
+        }
+
+        container.appendChild(tabContainer);
+        container.appendChild(contentContainer);
+        document.body.appendChild(container);
+    }
+
+    switchToPanel(panelId) {
+        const panel = this.debugPanels.get(panelId);
+        if (panel) {
+            // Render panel content
+            panel.instance.render();
+        }
+    }
+
+    // Public API methods
+    getPanels() {
+        return Array.from(this.debugPanels.keys());
+    }
+
+    getPanel(panelId) {
+        return this.debugPanels.get(panelId);
+    }
+
+    togglePanel(panelId) {
+        const panel = this.debugPanels.get(panelId);
+        if (panel) {
+            panel.instance.toggle();
+        }
+    }
+}
+
+// Singleton instance
+export const debugDock = new DebugDock();
+
+// Minimal global exposure
+window.APP = window.APP || {};
+window.APP.debugDock = debugDock;

@@ -1,259 +1,258 @@
 /**
- * client/layout/Sidebar.js 
- * SIDEBAR = DOCK MANAGER
- * 
- * Clear Chain of Command:
- * - Sidebar manages docks (loads, renders, coordinates docks)
- * - Docks manage panels (each dock handles its own panels)
- * - Panels manage content (just render their specific content)
- * 
- * Sidebar responsibilities:
- * - Load and initialize docks from dock registry
- * - Provide dock coordination and communication
- * - Render SidebarHeader (CLI interface)
- * - Expose dock management API
+ * Sidebar.js - Direct panel management without dock complexity
+ * Panels can be nested, expanded/collapsed, and dragged out
  */
 
-import { appStore, dispatch } from '/client/appState.js';
-import { panelActions, selectDocks } from '/client/store/slices/panelSlice.js';
+import { appStore } from '/client/appState.js';
 import { SidebarHeader } from './SidebarHeader.js';
-import { SettingsDock } from './docks/SettingsDock.js';
-import { panelRegistry } from '../panels/panelRegistry.js';
-import { logMessage } from '/client/log/index.js';
+import { CLIPanel } from '../panels/CLIPanel.js';
+import { BasePanel } from '../panels/BasePanel.js';
 
 export class Sidebar {
     constructor() {
         this.container = null;
-        this.sidebarHeader = new SidebarHeader();
-        this.docks = new Map();
-        this.docksInitialized = false;
+        this.header = new SidebarHeader();
+        this.panels = new Map();
+        this.panelOrder = [];
         
         this.initialize();
     }
-    
-    async initialize() {
-        // SIMPLIFIED: No store subscription to prevent render loops
-        // Sidebar renders on-demand when explicitly called
+
+    initialize() {
+        // Create default panels
+        this.createDefaultPanels();
         
-        // Expose global API
+        // Expose API
         this.exposeAPI();
-        
-        logMessage('INFO', 'SIDEBAR_INIT', '🏗️ Sidebar dock manager initialized');
     }
-    
-    // REMOVED: subscribeToStore - caused infinite render loops
-    // Sidebar now renders only on explicit calls (no reactive updates)
-    
-    // REMOVED: scheduleRender - no longer needed without store subscription
-    
-    // REMOVED: ensurePanelsRegistered - this is now the responsibility of each dock
-    // Following the chain of command: Sidebar manages docks, docks manage panels
-    
-    /**
-     * Render the complete sidebar layout
-     * @param {HTMLElement} container - The workspace-sidebar element
-     */
-    render(container) {
-        if (container) {
-            this.container = container;
-        }
-        
-        if (!this.container) {
-            console.warn('[Sidebar] No container provided for rendering');
-            return;
-        }
 
-        // Only create the initial DOM structure ONCE
-        if (!this.container.querySelector('.sidebar-layout')) {
-            this.container.innerHTML = `
-                <div class="sidebar-layout">
-                    <div class="sidebar-header-container"></div>
-                    <div class="sidebar-docks-container"></div>
-                </div>
-            `;
+    createDefaultPanels() {
+        // CLI Panel
+        const cliPanel = new CLIPanel();
+        this.registerPanel('cli-panel', cliPanel);
+        
+        // Context Panel (if it exists)
+        this.loadPanel('context-panel', 'Context Browser');
+        
+        // Settings Panel placeholder
+        this.createPlaceholderPanel('settings-panel', 'Settings', 'Configure DevPages settings');
+        
+        // Debug Panel placeholder  
+        this.createPlaceholderPanel('debug-panel', 'Debug Tools', 'Development and debugging tools');
+    }
+
+    async loadPanel(panelId, title) {
+        try {
+            // Try to load existing panel
+            const { panelRegistry } = await import('../panels/panelRegistry.js');
+            const panelConfig = panelRegistry.getPanel(panelId);
             
-            // Render header and add styles ONCE
-            this.renderSidebarHeader();
-            this.addStyles();
-        }
-        
-        // Initialize docks ONCE
-        const docksContainer = this.container.querySelector('.sidebar-docks-container');
-        if (docksContainer && !this.docksInitialized) {
-            this.initializeDocks(docksContainer).catch(error => {
-                console.error('[Sidebar] Failed to initialize docks:', error);
-            });
-        }
-        
-        // Docks will handle their own updates via Redux subscriptions
-        // No need to call update() on every render - this was causing the message flood
-        
-        logMessage('INFO', 'SIDEBAR_RENDER', '✅ Sidebar layout rendered');
-    }
-    
-    renderSidebarHeader() {
-        const headerContainer = this.container.querySelector('.sidebar-header-container');
-        if (headerContainer) {
-            this.sidebarHeader.render(headerContainer);
+            if (panelConfig && panelConfig.factory) {
+                const module = await panelConfig.factory();
+                const PanelClass = module.default || module;
+                const panel = new PanelClass({ id: panelId, title, store: appStore });
+                this.registerPanel(panelId, panel);
+            } else {
+                this.createPlaceholderPanel(panelId, title, `Panel ${panelId} not found`);
+            }
+        } catch (error) {
+            console.warn(`Failed to load panel ${panelId}:`, error);
+            this.createPlaceholderPanel(panelId, title, `Error loading panel: ${error.message}`);
         }
     }
-    
-    async initializeDocks(docksContainer) {
-        if (this.docksInitialized) return;
 
-        const dockClasses = {
-            'settings-dock': SettingsDock,
-        };
-
-        const docksFromState = selectDocks(appStore.getState());
-
-        for (const dockId in docksFromState) {
-            if (dockClasses[dockId]) {
-                try {
-                    const dock = new dockClasses[dockId]();
-                    this.docks.set(dockId, dock);
-                    
-                    const dockContainer = document.createElement('div');
-                    dockContainer.className = 'sidebar-dock-container';
-                    dockContainer.id = `${dockId}-container`;
-                    docksContainer.appendChild(dockContainer);
-                    
-                    if (typeof dock.mount === 'function') {
-                        await dock.mount(dockContainer);
-                    } else {
-                        if (typeof dock.initialize === 'function') dock.initialize();
-                        if (typeof dock.render === 'function') dock.render(dockContainer);
-                    }
-                    
-                    logMessage('INFO', 'DOCK_INIT', `✅ Initialized dock: ${dockId}`);
-                    
-                } catch (error) {
-                    console.error(`[Sidebar] Failed to initialize dock ${dockId}:`, error);
-                    logMessage('ERROR', 'DOCK_INIT_FAILED', `❌ Failed to initialize dock: ${dockId}`, error);
-                }
+    createPlaceholderPanel(panelId, title, description) {
+        class PlaceholderPanel extends BasePanel {
+            renderContent() {
+                return `
+                    <div style="padding: 16px; text-align: center; color: var(--color-text-secondary, #6c757d);">
+                        <div style="font-size: 14px; margin-bottom: 8px;">${title}</div>
+                        <div style="font-size: 12px;">${description}</div>
+                    </div>
+                `;
             }
         }
         
-        this.docksInitialized = true;
-        logMessage('INFO', 'DOCKS_INIT', `✅ All ${this.docks.size} docks initialized`);
+        const panel = new PlaceholderPanel({ id: panelId, title });
+        this.registerPanel(panelId, panel);
     }
-    
-    /**
-     * Get dock instance by ID
-     * @param {string} dockId - The dock ID
-     * @returns {BaseDock|null} The dock instance or null if not found
-     */
-    getDock(dockId) {
-        return this.docks.get(dockId) || null;
+
+    registerPanel(panelId, panel) {
+        this.panels.set(panelId, panel);
+        
+        if (!this.panelOrder.includes(panelId)) {
+            this.panelOrder.push(panelId);
+        }
+        
+        console.log(`[Sidebar] Registered panel: ${panelId}`);
     }
-    
-    /**
-     * Toggle dock visibility
-     * @param {string} dockId - The dock ID to toggle
-     */
-    toggleDock(dockId) {
-        // No-op - visibility is now managed by WorkspaceManager
+
+    render(container) {
+        this.container = container;
+        
+        // Create sidebar structure
+        container.innerHTML = `
+            <div class="simple-sidebar-layout">
+                <div class="simple-sidebar-header-container"></div>
+                <div class="simple-sidebar-panels-container"></div>
+            </div>
+        `;
+        
+        // Render header
+        const headerContainer = container.querySelector('.simple-sidebar-header-container');
+        if (headerContainer) {
+            this.header.render(headerContainer);
+        }
+        
+        // Render panels
+        this.renderPanels();
+        
+        // Add styles
+        this.addStyles();
+        
+        console.log('[Sidebar] Rendered with', this.panels.size, 'panels');
     }
-    
-    /**
-     * Get current sidebar state for debugging
-     * @returns {Object} Current sidebar state
-     */
-    getState() {
-        // No-op - state is now managed by WorkspaceManager
-        return {};
+
+    renderPanels() {
+        const panelsContainer = this.container?.querySelector('.simple-sidebar-panels-container');
+        if (!panelsContainer) return;
+        
+        // Clear existing panels
+        panelsContainer.innerHTML = '';
+        
+        // Render panels in order
+        this.panelOrder.forEach(panelId => {
+            const panel = this.panels.get(panelId);
+            if (panel) {
+                const panelElement = panel.render();
+                if (panelElement) {
+                    panelsContainer.appendChild(panelElement);
+                    
+                    // Call onMount if it exists
+                    if (typeof panel.onMount === 'function') {
+                        panel.onMount(panelElement);
+                    }
+                }
+            }
+        });
     }
-    
+
+    togglePanel(panelId) {
+        const panel = this.panels.get(panelId);
+        if (panel && panel.toggleCollapse) {
+            panel.toggleCollapse();
+        }
+    }
+
+    showPanel(panelId) {
+        const panel = this.panels.get(panelId);
+        if (panel) {
+            panel.isCollapsed = false;
+            this.renderPanels();
+        }
+    }
+
+    hidePanel(panelId) {
+        const panel = this.panels.get(panelId);
+        if (panel) {
+            panel.isCollapsed = true;
+            this.renderPanels();
+        }
+    }
+
+    getPanel(panelId) {
+        return this.panels.get(panelId);
+    }
+
+    listPanels() {
+        return Array.from(this.panels.entries()).map(([id, panel]) => ({
+            id,
+            title: panel.title,
+            visible: !panel.isCollapsed,
+            floating: panel.isFloating
+        }));
+    }
+
     addStyles() {
-        if (document.querySelector('style[data-sidebar-styles]')) return;
+        if (document.querySelector('style[data-simple-sidebar-styles]')) return;
         
         const style = document.createElement('style');
-        style.setAttribute('data-sidebar-styles', 'true');
+        style.setAttribute('data-simple-sidebar-styles', 'true');
         style.textContent = `
-            .sidebar-layout { display: flex; flex-direction: column; height: 100%; background: var(--color-bg-alt, #2a2a2a); }
-            .sidebar-header-container { flex-shrink: 0; border-bottom: 1px solid var(--color-border, #444); }
-            .sidebar-docks-container { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--color-border, #444) transparent; }
-            .sidebar-docks-container::-webkit-scrollbar { width: 6px; }
-            .sidebar-docks-container::-webkit-scrollbar-track { background: transparent; }
-            .sidebar-docks-container::-webkit-scrollbar-thumb { background: var(--color-border, #444); border-radius: 3px; }
-            .sidebar-dock-container:last-child { border-bottom: none; }
-            .workspace-sidebar[data-visible="false"] .sidebar-layout { display: none; }
-            @media (max-width: 768px) { .sidebar-layout { min-width: 280px; } }
+            .simple-sidebar-layout {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                background: var(--color-bg, #ffffff);
+            }
+            
+            .simple-sidebar-header-container {
+                flex-shrink: 0;
+            }
+            
+            .simple-sidebar-panels-container {
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 8px;
+            }
+            
+            .simple-sidebar-panels-container::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            .simple-sidebar-panels-container::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            
+            .simple-sidebar-panels-container::-webkit-scrollbar-thumb {
+                background: var(--color-border, #e1e5e9);
+                border-radius: 3px;
+            }
+            
+            .simple-sidebar-panels-container::-webkit-scrollbar-thumb:hover {
+                background: var(--color-text-secondary, #6c757d);
+            }
         `;
         document.head.appendChild(style);
     }
-    
-    /**
-     * Cleanup method
-     */
-    destroy() {
-        if (this.storeUnsubscribe) this.storeUnsubscribe();
-        
-        for (const dock of this.docks.values()) {
-            if (dock?.destroy) dock.destroy();
-        }
-        this.docks.clear();
-        
-        if (this.sidebarHeader?.destroy) this.sidebarHeader.destroy();
-        
-        if (this.container) this.container.innerHTML = '';
-        
-        logMessage('INFO', 'SIDEBAR_DESTROY', '🧹 Sidebar manager destroyed');
-    }
-    
-    /**
-     * Expose Sidebar API to window.APP
-     */
+
     exposeAPI() {
         if (typeof window === 'undefined') return;
         
         window.APP = window.APP || {};
         window.APP.sidebar = {
-            // PRIMARY: Dock Management (Sidebar's main responsibility)
-            toggle: () => {
-                window.APP?.services?.workspaceManager?.toggleSidebar();
-            },
-            getDock: (dockId) => this.getDock(dockId),
-            toggleDock: (dockId) => this.toggleDock(dockId),
-            getState: () => this.getState(),
-            
-            // DELEGATION: Panel Management (delegated to appropriate dock)
-            getPanel: (panelId) => {
-                for (const dock of this.docks.values()) {
-                    if (dock.getPanelInstance?.(panelId)) return dock.getPanelInstance(panelId);
-                }
-                return null;
-            },
-            togglePanel: (panelId) => {
-                for (const dock of this.docks.values()) {
-                    if (dock.hasPanel?.(panelId)) return dock.togglePanel(panelId);
-                }
-                return false;
-            },
-            
-            // System Information
+            togglePanel: (panelId) => this.togglePanel(panelId),
+            showPanel: (panelId) => this.showPanel(panelId),
+            hidePanel: (panelId) => this.hidePanel(panelId),
+            getPanel: (panelId) => this.getPanel(panelId),
+            listPanels: () => this.listPanels(),
             getSystemInfo: () => ({
-                architecture: 'SIDEBAR_DOCK_MANAGER',
-                version: '2.1',
-                chainOfCommand: ['Sidebar manages docks', 'Docks manage panels', 'Panels manage content'],
-                totalDocks: this.docks.size,
-                docksInitialized: this.docksInitialized,
-            }),
-            
-            // Debug and Development
-            listDocks: () => {
-                console.table(Array.from(this.docks.entries()).map(([id, dock]) => ({
-                    dockId: id,
-                    title: dock.title,
-                    isExpanded: dock.isExpanded ? dock.isExpanded() : 'N/A',
-                    panelCount: dock.panelInstances?.size || 0
-                })));
-            },
-            listPanels: () => {
-                console.table(Array.from(panelRegistry.getPanels()));
-            }
+                architecture: 'SIMPLE_PANEL_MANAGER',
+                version: '2.0',
+                totalPanels: this.panels.size,
+                panelOrder: [...this.panelOrder]
+            })
         };
         
-        logMessage('INFO', 'SIDEBAR_API', '🌐 Sidebar API exposed globally at window.APP.sidebar');
+        console.log('[Sidebar] API exposed at window.APP.sidebar');
+    }
+
+    destroy() {
+        // Clean up panels
+        for (const panel of this.panels.values()) {
+            if (panel.destroy) {
+                panel.destroy();
+            }
+        }
+        
+        this.panels.clear();
+        this.panelOrder = [];
+        
+        if (this.header?.destroy) {
+            this.header.destroy();
+        }
+        
+        console.log('[Sidebar] Destroyed');
     }
 }

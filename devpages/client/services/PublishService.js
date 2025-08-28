@@ -3,7 +3,7 @@
  * ✅ MODERNIZED: Enhanced Redux patterns with optimized selectors
  */
 
-import { simplifiedWorkspaceManager } from '../layout/SimplifiedWorkspaceManager.js';
+import { workspaceManager } from '../layout/WorkspaceManager.js';
 import { appStore } from '/client/appState.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
 import { getPanelLayoutState } from '/client/store/enhancedSelectors.js';

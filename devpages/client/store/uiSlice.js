@@ -23,8 +23,8 @@ const loadPersistedUIState = () => {
 // --- Persistence helper ---
 const persistUIState = (state) => {
     try {
-        // Create a plain object copy immediately while the proxy is still valid
-        const plainState = {
+        // Create a deep plain object copy immediately
+        const plainState = JSON.parse(JSON.stringify({
             theme: state.theme,
             viewMode: state.viewMode,
             logVisible: state.logVisible,
@@ -36,19 +36,14 @@ const persistUIState = (state) => {
             contextManagerVisible: state.contextManagerVisible,
             colorScheme: state.colorScheme,
             designDensity: state.designDensity,
-            isAuthDropdownVisible: state.isAuthDropdownVisible
-        };
+            isAuthDropdownVisible: state.isAuthDropdownVisible,
+            logColumnWidths: state.logColumnWidths // Persist column widths
+        }));
         
-        // Use setTimeout for async persistence but with the plain object
-        setTimeout(() => {
-            try {
-                storageService.setItem('settings_ui', plainState);
-            } catch (e) {
-                console.error('[uiSlice] Failed to persist UI state:', e);
-            }
-        }, 0);
+        // Synchronous save to prevent proxy revocation
+        storageService.setItem('settings_ui', plainState);
     } catch (e) {
-        console.error('[uiSlice] Failed to prepare UI state for persistence:', e);
+        console.error('[uiSlice] Failed to persist UI state:', e);
     }
 };
 
@@ -66,6 +61,7 @@ const defaultUIState = {
     colorScheme: 'system',      // 'light', 'dark', 'system'
     designDensity: 'normal',    // 'compact', 'normal', 'spacious'
     isAuthDropdownVisible: false,
+    logColumnWidths: {}, // Add column widths to initial state
 };
 
 // Merge default state with persisted state
@@ -79,6 +75,11 @@ const uiSlice = createSlice({
         updateSetting: (state, action) => {
             const { key, value } = action.payload;
             state[key] = value;
+            persistUIState(state);
+        },
+        setLogColumnWidth: (state, action) => {
+            const { column, width } = action.payload;
+            state.logColumnWidths = { ...state.logColumnWidths, [column]: width };
             persistUIState(state);
         },
         toggleLogVisibility: (state) => {

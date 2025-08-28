@@ -1,0 +1,188 @@
+/* === LOG LAYOUT & CONTAINER === */
+
+#log-container {
+    /* Position at bottom of viewport */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--z-layer-ui, 100);
+    
+    /* Layout - CRITICAL: Must be flex for children to work */
+    display: flex !important;
+    flex-direction: column !important;
+    
+    /* USE GLOBAL THEME VARIABLES */
+    background: var(--color-bg-alt);
+    border-top: 1px solid var(--color-border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Only top corners rounded */
+    margin: 0; /* No margin for fixed positioning */
+    
+    /* Default to hidden state */
+    height: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: height var(--transition-base), opacity var(--transition-base);
+}
+
+#log-header-container {
+    flex-shrink: 0;
+}
+
+#log-column-header {
+    display: flex;
+    align-items: stretch; /* FIX: Use stretch to ensure resizers have height */
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg-elevated);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    user-select: none;
+    width: 100%;
+}
+
+#log-column-header > span {
+    align-self: center; /* Vertically center header text */
+    padding: 0 var(--space-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#log-column-header > span:first-child {
+    padding-left: 0;
+}
+
+#log-column-header > span:last-child {
+    padding-right: 0;
+}
+
+/* --- Column Headers --- */
+
+/* Left-align all headers */
+.log-header-timestamp,
+.log-header-level,
+.log-header-context,
+.log-header-message,
+.log-header-melvin {
+    justify-content: flex-start;
+}
+
+/* --- Column Data Cells --- */
+
+/* Left-align all data columns */
+.log-entry-timestamp,
+.log-entry-level, 
+.log-entry-context,
+.log-entry-message,
+.log-entry-melvin {
+    text-align: left;
+}
+
+.log-header-timestamp, .log-entry-timestamp {
+    width: var(--log-column-width-timestamp, 70px);
+    flex-shrink: 0;
+}
+
+.log-header-level, .log-entry-level {
+    width: var(--log-column-width-level, 60px);
+    flex-shrink: 0;
+}
+
+.log-header-context, .log-entry-context {
+    width: var(--log-column-width-context, 300px);
+    flex-shrink: 0;
+}
+
+.log-header-message, .log-entry-message {
+    width: var(--log-column-width-message, 400px);
+    flex-shrink: 0;
+}
+
+.log-header-melvin, .log-entry-melvin {
+    width: var(--log-column-width-melvin, 60px);
+    flex-shrink: 0;
+}
+
+.resizer {
+    width: 6px;
+    height: auto; /* FIX: Let flexbox handle the height */
+    cursor: col-resize;
+    background-color: transparent;
+    flex-shrink: 0;
+    margin: 0 -3px;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.resizer:hover {
+    background-color: var(--color-primary-alpha);
+    border-left: 1px solid var(--color-primary);
+    border-right: 1px solid var(--color-primary);
+}
+
+#log-container.log-visible {
+    height: var(--log-height, 150px) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transition: height var(--transition-base), opacity var(--transition-base);
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Force proper layout for log content area */
+#log-container.log-visible #log {
+    flex: 1 1 auto !important;
+    min-height: 60px !important;
+    max-height: calc(var(--log-height, 120px) - 60px) !important;
+}
+
+#log-container.log-hidden {
+    height: 0;
+    visibility: hidden;
+    opacity: 0;
+    border-top: none;
+    margin: 0;
+}
+
+#log-resize-handle {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background-color: transparent;
+    cursor: ns-resize;
+    z-index: calc(var(--z-layer-ui, 100) + 1);
+    transition: background-color var(--transition-fast);
+    border-top: 2px solid transparent;
+}
+
+#log-resize-handle:hover {
+    background-color: var(--color-blue-500, #3b82f6);
+    border-top-color: var(--color-blue-600, #2563eb);
+}
+
+/* Make resize handle more visible when log is visible */
+#log-container.log-visible #log-resize-handle {
+    border-top-color: var(--color-border, #e2e8f0);
+}
+
+#log-container.log-visible #log-resize-handle:hover {
+    border-top-color: var(--color-blue-600, #2563eb);
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* === PREVIEW CONTAINER ADJUSTMENTS === */
+
+.preview-container.log-visible {
+    max-height: calc(100vh - var(--log-height, 120px) - 50px);
+    transition: max-height 0.3s ease;
+}
+
+.preview-container.log-hidden {
+    max-height: calc(100vh - 50px);
+    transition: max-height 0.3s ease;
+}

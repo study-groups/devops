@@ -1,0 +1,366 @@
+/* === LOG CONTENT === */
+
+#log {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    /* USE GLOBAL THEME VARIABLES */
+    color: var(--color-fg);
+    /* CRITICAL FIX: Ensure minimum height */
+    min-height: 80px;
+    height: auto;
+}
+
+#log::-webkit-scrollbar {
+    width: var(--space-2);
+}
+
+#log::-webkit-scrollbar-thumb {
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-border-secondary);
+    border-radius: var(--space-1);
+}
+
+#log::-webkit-scrollbar-track {
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg);
+}
+
+/* === LOG ENTRIES === */
+
+.log-entry {
+    display: flex;
+    align-items: flex-start; /* Align items to the top */
+    margin-bottom: var(--space-0-5);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-family-mono);
+    font-size: 12px;
+    line-height: 1.4; /* Increased line-height for readability */
+    color: var(--color-fg);
+    cursor: pointer;
+    min-height: 2rem;
+    transition: background-color var(--transition-fast);
+}
+
+.log-entry:hover {
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-hover);
+}
+
+.log-entry-text-wrapper {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1-5);
+}
+
+.log-entry:not(.expanded) .log-entry-text-wrapper {
+    white-space: pre;
+    text-overflow: ellipsis;
+}
+
+.log-entry-text-content {
+    display: block;
+}
+
+/* === EXPANDED ENTRIES === */
+
+.log-entry-expanded-content {
+    display: none;
+}
+
+.log-entry.expanded > .log-entry-timestamp,
+.log-entry.expanded > .log-entry-level,
+.log-entry.expanded > .log-entry-type {
+    display: none;
+}
+
+.log-entry.expanded > .log-entry-origin,
+.log-entry.expanded > .log-entry-message,
+.log-entry.expanded > .original-button {
+    display: none;
+}
+
+.log-entry.expanded .log-entry-expanded-content {
+    display: block;
+    width: 100%;
+}
+
+.log-entry.expanded {
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-primary);
+    padding: 0;
+    margin: var(--space-2) 0;
+    border-radius: var(--radius-sm);
+    cursor: default;
+    flex-direction: column;
+}
+
+.log-entry.expanded .log-entry-expanded-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    /* USE GLOBAL THEME VARIABLES */
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-1);
+    flex-wrap: wrap;
+    min-height: 24px;
+    flex-shrink: 0;
+}
+
+.log-entry-expanded-toolbar .token-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex-shrink: 0;
+}
+
+.log-entry-expanded-toolbar .button-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+}
+
+.log-entry:not(.expanded) .log-entry-expanded-toolbar {
+    display: none;
+}
+
+.log-entry.expanded .log-entry-text-wrapper {
+    padding: var(--space-1) var(--space-2);
+    display: block;
+    user-select: text;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+    overflow: visible;
+    text-overflow: clip;
+    color: var(--color-fg);
+}
+
+.log-entry.expanded .log-entry-text-wrapper.markdown-rendered {
+    white-space: normal;
+    word-wrap: normal;
+    word-break: normal;
+}
+
+/* === LOG MESSAGE TYPES === */
+
+.log-entry.log-error { color: var(--color-error); }
+.log-entry.log-warning { color: var(--color-warning); }
+
+.log-entry.log-config {
+    color: var(--color-info);
+    font-weight: bold;
+    font-family: var(--font-family-mono);
+}
+
+/* Log Separator */
+.log-entry.log-separator {
+    border-bottom: 2px solid var(--color-border-hover);
+    margin: var(--space-1) 0;
+    padding: 0;
+    height: 0;
+    min-height: 0;
+}
+
+.log-entry.log-entry-cli-local-echo {
+    color: var(--color-fg-muted);
+    font-style: italic;
+}
+
+/* === LOG ENTRY COLUMNS === */
+
+.log-entry > span {
+    padding: 0 var(--space-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-entry-timestamp {
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: var(--font-size-xs);
+    color: var(--color-fg-muted);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.log-entry-level {
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--color-fg-muted);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.log-entry-context {
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.75rem;
+    color: var(--color-fg-muted);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: var(--log-column-width-context, 300px);
+    min-width: var(--log-column-width-context, 300px);
+}
+
+.log-entry-type {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+    background-color: transparent;
+    transition: color var(--transition-fast);
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-entry-type:hover {
+    color: var(--color-primary-hover);
+    background-color: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+.redux-store {
+    font-weight: normal;
+    color: var(--color-fg-muted);
+}
+
+.redux-action {
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.redux-action.clickable {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.log-entry-melvin {
+    display: flex;
+    gap: 4px;
+}
+
+.melvin-button {
+    background: none;
+    border: 1px solid var(--color-border);
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-fg-muted);
+}
+
+.melvin-button:hover {
+    border-color: var(--color-primary);
+}
+
+.log-entry-origin {
+    font-weight: normal;
+    flex-shrink: 0;
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.7rem;
+    color: var(--color-fg-muted);
+    width: 5.5rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.log-entry-message {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: var(--space-2);
+    margin-right: var(--space-2);
+    font-family: var(--font-family-code);
+    font-size: 0.8rem;
+    color: var(--color-fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: hidden;
+}
+
+.log-entry-details-wrapper {
+    margin-top: 8px;
+    margin-left: 20px;
+    padding-left: 10px;
+    border-left: 2px solid var(--color-border);
+}
+
+.log-entry-details-wrapper summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--color-fg-muted);
+}
+
+.log-entry-details-wrapper pre {
+    background-color: var(--color-bg-inset);
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-entry-details-wrapper code {
+    font-family: var(--font-family-mono);
+    font-size: 0.9em;
+    color: var(--color-fg);
+}
+
+.redux-details-container {
+    padding: var(--space-2);
+    background-color: var(--color-bg-inset);
+    border-top: 1px solid var(--color-border);
+}
+
+.redux-detail-item {
+    margin-bottom: var(--space-2);
+}
+
+.redux-action-type {
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+.redux-detail-item pre {
+    background-color: var(--color-bg);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-entry-expanded-header {
+    padding: 4px 8px;
+    background-color: var(--color-bg-inset);
+    color: var(--color-fg-muted);
+    font-size: 0.9em;
+    border-bottom: 1px solid var(--color-border);
+}

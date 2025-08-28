@@ -1,0 +1,292 @@
+/* === FILTER TAGS BAR === */
+
+#log-tags-bar {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    gap: var(--space-2);
+}
+
+.log-controls-wrapper {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+
+.log-filter-groups-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2-5);
+    align-items: center;
+}
+
+.log-filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-right: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.log-filter-group-label {
+    font-size: 10px;
+    color: var(--color-fg-muted);
+    margin-right: var(--space-1);
+    white-space: nowrap;
+}
+
+/* === TAG BUTTONS === */
+
+.log-tag-button {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-base);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: 1px solid var(--color-border-secondary);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-fg-alt);
+    white-space: nowrap;
+}
+
+.log-tag-button:hover {
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border);
+}
+
+.log-tag-button.active {
+    background-color: var(--color-primary);
+    color: var(--color-fg-inverted);
+    border-color: var(--color-primary);
+}
+
+.log-tag-button.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Control buttons */
+.log-tag-button.clear-log-button {
+    background-color: var(--color-red-500);
+    border-color: var(--color-red-900);
+    color: var(--color-red-100);
+    margin-right: var(--space-2);
+}
+
+.log-tag-button.clear-log-button:hover {
+    background-color: var(--color-red-900);
+    border-color: var(--color-red-900);
+}
+
+.log-tag-button.clear-filters-button {
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-900);
+    color: var(--color-blue-100);
+    margin-right: var(--space-2);
+}
+
+.log-tag-button.clear-filters-button:hover {
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-900);
+}
+
+.log-tag-button.copy-button {
+    background-color: var(--color-gray-500);
+    color: var(--color-gray-100);
+    border: 1px solid var(--color-gray-900);
+}
+
+.log-tag-button.copy-button:hover {
+    background-color: var(--color-gray-900);
+}
+
+.log-tag-button.collapse-all-button {
+    background-color: var(--color-gray-500);
+    color: var(--color-gray-100);
+    border: 1px solid var(--color-gray-900);
+}
+
+.log-tag-button.collapse-all-button:hover {
+    background-color: var(--color-gray-900);
+}
+
+.log-filter-control-group {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.log-filter-copy-group {
+    display: flex;
+}
+
+.log-filter-control-group .copy-button,
+.log-filter-control-group .collapse-all-button {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    line-height: 1;
+}
+
+.log-filter-copy-group .copy-button .icon {
+    width: 16px;
+    height: 16px;
+}
+
+.log-filter-control-group .collapse-all-button {
+    font-size: 1.2rem;
+}
+
+.toggle-types-button {
+    background-color: var(--color-yellow-500);
+    border-color: var(--color-yellow-900);
+    color: var(--color-yellow-100);
+}
+
+.toggle-types-button:hover {
+    background-color: var(--color-yellow-900);
+    border-color: var(--color-yellow-900);
+}
+
+.toggle-types-button.active {
+    background-color: var(--color-yellow-500);
+    border-color: var(--color-yellow-900);
+    color: var(--color-yellow-100);
+}
+
+/* Category colors */
+.log-tag-button.filter-source {
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-900);
+    color: var(--color-blue-100);
+}
+
+.log-tag-button.filter-source:hover {
+    background-color: var(--color-blue-900);
+    border-color: var(--color-blue-500);
+}
+
+.log-tag-button.filter-source.active {
+    background-color: var(--color-blue-500);
+    border-color: var(--color-blue-100);
+    color: var(--color-white);
+    font-weight: bold;
+}
+
+.log-tag-button.filter-level {
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-900);
+    color: var(--color-green-100);
+}
+
+.log-tag-button.filter-level:hover {
+    background-color: var(--color-green-900);
+    border-color: var(--color-green-500);
+}
+
+.log-tag-button.filter-level.active {
+    background-color: var(--color-green-500);
+    border-color: var(--color-green-100);
+    color: var(--color-white);
+    font-weight: bold;
+}
+
+.log-tag-button.filter-type {
+    background-color: var(--color-purple-800);
+    border-color: var(--color-purple-700);
+    color: var(--color-purple-100);
+}
+
+.log-tag-button.filter-type:hover {
+    background-color: var(--color-purple-700);
+    border-color: var(--color-purple-600);
+}
+
+.log-tag-button.filter-type.active {
+    background-color: var(--color-purple-500);
+    border-color: var(--color-purple-400);
+    color: var(--color-white);
+    font-weight: bold;
+}
+
+.log-tag-button.filter-subtype {
+    background-color: var(--color-orange-800);
+    border-color: var(--color-orange-700);
+    color: var(--color-orange-100);
+}
+
+.log-tag-button.filter-subtype:hover {
+    background-color: var(--color-orange-700);
+    border-color: var(--color-orange-600);
+}
+
+.log-tag-button.filter-subtype.active {
+    background-color: var(--color-orange-500);
+    border-color: var(--color-orange-400);
+    color: var(--color-white);
+    font-weight: bold;
+}
+
+/* === SEARCH INPUT === */
+
+.log-search-input {
+    flex-grow: 1;
+    max-width: 300px;
+    padding: var(--space-1) var(--space-2);
+    margin-right: var(--space-1);
+    font-size: 12px;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-family: var(--font-family-code);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.log-search-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+    outline: none;
+}
+
+.log-search-input::placeholder {
+    color: var(--color-fg-muted);
+    font-style: italic;
+}
+
+.clear-search-button {
+    margin-left: -2rem !important;
+    margin-right: var(--space-2) !important;
+    padding: var(--space-0-5) !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--color-fg-muted) !important;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.clear-search-button:hover {
+    color: var(--color-fg) !important;
+    background: var(--color-bg-hover) !important;
+}
+
+/* Search highlighting */
+.search-highlight {
+    background-color: var(--color-yellow-200, #fef08a);
+    color: var(--color-yellow-900, #713f12);
+    padding: 1px 2px;
+    border-radius: 2px;
+    font-weight: bold;
+}
+
+/* Hide entries by search */
+.log-entry-hidden-by-search {
+    display: none !important;
+}

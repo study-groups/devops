@@ -23,7 +23,14 @@ const CSS_BUNDLES = {
         'client/styles/resizable.css'
     ],
     features: [
-        'client/log/log.css',
+        'client/log/log-layout.css',
+        'client/log/log-header.css',
+        'client/log/log-entries.css',
+        'client/log/log-controls.css',
+        'client/log/log-filters.css',
+        'client/log/log-tokens.css',
+        'client/log/log-menu.css',
+        'client/log/log-utilities.css',
         'client/file-browser/file-browser.css',
         'client/dom-inspector/domInspector-core.css',
         'client/components/context-manager.css',

@@ -1,99 +1,154 @@
 
-// Auto-generated panel registrations for missing panels
-// This ensures all implemented panels are available in the Redux state
-
-import { appStore, dispatch } from '/client/appState.js';
 import { panelActions } from '/client/store/slices/panelSlice.js';
 
-export function registerMissingPanels() {
-    console.log('[PanelRegistration] Registering missing panels...');
-    
-    const panelsToRegister = [
-        {
-                "id": "file-browser",
-                "title": "File Browser",
-                "visible": true,
-                "order": 1
-        },
-        {
-                "id": "context",
-                "title": "Context Panel",
-                "visible": true,
-                "order": 2
-        },
-        {
-                "id": "settings-panel",
-                "title": "🎨 Design Tokens",
-                "visible": true,
-                "order": 3
-        },
-        {
-                "id": "dom-inspector",
-                "title": "DOM Inspector",
-                "visible": false,
-                "order": 20
-        },
-        {
-                "id": "console-log-panel",
-                "title": "Console Log",
-                "visible": false,
-                "order": 21
-        },
-        {
-                "id": "plugins",
-                "title": "Plugins",
-                "visible": false,
-                "order": 22
-        },
-        {
-                "id": "api-tokens",
-                "title": "API Tokens",
-                "visible": false,
-                "order": 23
-        },
-        {
-                "id": "nlp-panel",
-                "title": "NLP Panel",
-                "visible": false,
-                "order": 30
-        },
-        {
-                "id": "log-display",
-                "title": "Log Display",
-                "visible": false,
-                "order": 31
-        },
-        {
-                "id": "mount-info-panel",
-                "title": "Mount Info",
-                "visible": false,
-                "order": 32
-        }
+// Auto-registration script for panels
+const panelsToRegister = [
+    { 
+        id: 'file-browser', 
+        name: 'File Browser', 
+        dockId: 'sidebar-dock',
+        config: { 
+            defaultVisible: true,
+            isVisible: true 
+        } 
+    },
+    { 
+        id: 'context-panel', 
+        name: 'Context Panel', 
+        dockId: 'sidebar-dock',
+        config: { 
+            defaultVisible: true,
+            isVisible: true 
+        } 
+    },
+    { 
+        id: 'pdata-panel', 
+        name: 'Debug Panel', 
+        dockId: 'debug-dock',
+        config: { 
+            shortcut: 'Ctrl+Shift+D',
+            isVisible: true 
+        } 
+    },
+    { 
+        id: 'settings-panel', 
+        name: 'Settings Panel', 
+        dockId: 'sidebar-dock',
+        config: { 
+            shortcut: 'Ctrl+Shift+S',
+            isVisible: true 
+        } 
+    },
+    { 
+        id: 'dom-inspector', 
+        name: 'DOM Inspector', 
+        dockId: 'debug-dock',
+        config: { isVisible: true } 
+    },
+    { 
+        id: 'console-log-panel', 
+        name: 'Console Log', 
+        dockId: 'debug-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'plugins', 
+        name: 'Plugins Panel', 
+        dockId: 'sidebar-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'design-tokens', 
+        name: 'Design Tokens', 
+        dockId: 'sidebar-dock',
+        config: { 
+            defaultVisible: true,
+            isVisible: true 
+        } 
+    },
+    { 
+        id: 'api-tokens', 
+        name: 'API Tokens', 
+        dockId: 'sidebar-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'nlp-panel', 
+        name: 'NLP Panel', 
+        dockId: 'sidebar-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'log-display', 
+        name: 'Log Display', 
+        dockId: 'debug-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'mount-info-panel', 
+        name: 'Mount Info', 
+        dockId: 'debug-dock',
+        config: { isVisible: false } 
+    },
+    { 
+        id: 'devtools', 
+        name: 'DevTools', 
+        dockId: 'debug-dock',
+        config: { isVisible: true } 
+    },
+    { 
+        id: 'css-files', 
+        name: 'CSS Files', 
+        dockId: 'debug-dock',
+        config: { isVisible: true } 
+    },
+    { 
+        id: 'javascript-panel', 
+        name: 'JavaScript Panel', 
+        dockId: 'debug-dock',
+        config: { isVisible: true } 
+    },
+    { 
+        id: 'external-dependencies', 
+        name: 'External Dependencies', 
+        dockId: 'debug-dock',
+        config: { isVisible: true } 
+    }
 ];
-    
-    const state = appStore.getState();
-    const existingSidebarPanels = state.panels?.sidebarPanels || {};
-    
-    panelsToRegister.forEach(panelConfig => {
-        if (!existingSidebarPanels[panelConfig.id]) {
-            console.log(`[PanelRegistration] Registering panel: ${panelConfig.id}`);
-            dispatch(panelActions.createPanel({
-                id: panelConfig.id,
-                dockId: 'sidebar-dock', // Default to sidebar dock for these panels
-                title: panelConfig.title,
+
+function registerPanels(store) {
+    if (!store || typeof store.dispatch !== 'function') {
+        console.error('[PanelRegistration] Invalid store provided');
+        return;
+    }
+
+    const panelAction = panelActions?.registerPanel;
+    if (!panelAction) {
+        console.error('[PanelRegistration] Panel registration action not found');
+        return;
+    }
+
+    panelsToRegister.forEach(panel => {
+        try {
+            // Ensure all required fields are present
+            if (!panel.id) {
+                console.warn(`[PanelRegistration] Skipping panel with missing ID:`, panel);
+                return;
+            }
+
+            store.dispatch(panelActions.registerPanel({
+                id: panel.id,
+                dockId: panel.dockId || 'sidebar-dock',
                 config: {
-                    isVisible: panelConfig.visible,
-                    isCollapsed: false,
-                    order: panelConfig.order
+                    ...panel.config,
+                    name: panel.name || panel.id
                 }
             }));
-        } else {
-            console.log(`[PanelRegistration] Panel already registered: ${panelConfig.id}`);
+        } catch (error) {
+            console.error(`[PanelRegistration] Failed to register panel ${panel.id}:`, error);
         }
     });
-    
-    console.log('[PanelRegistration] Panel registration complete');
 }
 
-// Auto-run on import (can be disabled by commenting out)
-registerMissingPanels();
+// Export for use in bootloader or other initialization scripts
+export default registerPanels;

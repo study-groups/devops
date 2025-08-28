@@ -1,340 +1,207 @@
 /**
- * client/layout/docks/BaseDock.js
- * Base class for all dock implementations (floating and embedded)
- * Extracted from DebugPanelManager to provide common dock functionality
+ * BaseDock.js - Simple, working dock component
+ * Restored and simplified from the original working system
  */
-
-import { appStore, dispatch } from '/client/appState.js';
+import { appStore } from '/client/appState.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
-import { logMessage } from '/client/log/index.js';
-import { panelActions } from '/client/store/slices/panelSlice.js';
 
 export class BaseDock {
-    constructor(dockId, title, panelGroup, isFloating = false) {
+    constructor(dockId) {
         this.dockId = dockId;
-        this.title = title;
-        this.panelGroup = panelGroup;
-        this.isFloating = isFloating;
-        
-        // Panel management
+        this.container = null;
         this.panelInstances = new Map();
-        this.sectionInstances = {}; // For compatibility with current DebugPanelManager
-        
-        // State management - DEPRECATED: State is now managed by Redux
-        // this.isVisible = false; 
-        this.collapsedSections = new Set();
-        
-        // For floating docks - DEPRECATED, state is now managed in Redux
-        /*
-        if (this.isFloating) {
-            this.currentPos = { x: 150, y: 150 };
-            this.currentSize = { width: 500, height: 400 };
-            this.isDragging = false;
-            this.isResizing = false;
-            this.dragOffset = { x: 0, y: 0 };
-            this.resizeStart = { x: 0, y: 0, width: 0, height: 0 };
-        }
-        */
-        
-        // DOM elements (set by subclasses)
-        this.dockElement = null;
-        this.headerElement = null;
-        this.contentElement = null;
-        this.resizeHandle = null;
-        this.closeButton = null;
+        this.isExpanded = true;
+
+        this.state = this.getDockState();
+        this.storeUnsubscribe = appStore.subscribe(this.handleStateChange.bind(this));
     }
 
-    /**
-     * Initialize the dock - must be called after construction
-     */
-    async initialize() {
-        // this.loadPersistedState(); // DEPRECATED: State is loaded from Redux store
-        this.createDockDOM();
-        this.attachEventListeners();
-        this.updateDOMFromState(); // Changed from updateVisibility
-        
-        logMessage(`[${this.constructor.name}] Initialized dock: ${this.dockId}`, 'debug');
-    }
-
-    /**
-     * Create the DOM structure for this dock
-     * Must be implemented by subclasses
-     */
-    createDockDOM() {
-        throw new Error(`${this.constructor.name} must implement createDockDOM()`);
-    }
-
-    /**
-     * Attach event listeners for this dock type
-     * Must be implemented by subclasses
-     */
-    attachEventListeners() {
-        throw new Error(`${this.constructor.name} must implement attachEventListeners()`);
-    }
-
-    /**
-     * Toggle collapse state of a panel section
-     */
-    toggleSectionCollapse(sectionId) {
-        // Update state in Redux
-        this.updatePanelInState(sectionId, { 
-            collapsed: !this.isPanelCollapsed(sectionId) 
-        });
-        
-        // Update UI
-        const container = this.dockElement.querySelector(`[data-panel-id="${sectionId}"]`);
-        if (container) {
-            const isCollapsed = this.isPanelCollapsed(sectionId);
-            const titleElement = container.querySelector('.dock-section-title');
-            
-            if (titleElement) {
-                // Apply collapsed state
-                container.classList.toggle('collapsed', isCollapsed);
-                
-                // Update indicator
-                const indicator = isCollapsed ? '+' : '-';
-                const titleText = titleElement.textContent.substring(2); // Remove old indicator
-                titleElement.textContent = `${indicator} ${titleText}`;
-            }
-        }
-        
-        logMessage(`[${this.constructor.name}] Toggled section ${sectionId} to ${this.isPanelCollapsed(sectionId) ? 'collapsed' : 'expanded'}`, 'debug');
-    }
-
-    /**
-     * Show/hide the dock
-     */
-    toggleVisibility() {
-        dispatch(panelActions.toggleDockVisibility({ dockId: this.dockId }));
-    }
-
-    /**
-     * Update DOM visibility based on state from Redux
-     */
-    updateVisibility() {
-        const state = this.getReduxState();
-        const isVisible = state ? state.isVisible : false; // Default to not visible if no state
-        if (this.dockElement) {
-            this.dockElement.style.display = isVisible ? 'flex' : 'none';
-        }
-    }
-
-    /**
-     * Update all relevant DOM properties from Redux state.
-     * This replaces updateVisibility and handles position, size, and z-index.
-     */
-    updateDOMFromState() {
-        const state = this.getReduxState();
-        if (!state || !this.dockElement) return;
-
-        // Visibility
-        this.dockElement.style.display = state.isVisible ? 'flex' : 'none';
-
-        // Floating properties
-        if (this.isFloating) {
-            this.dockElement.style.left = `${state.position.x}px`;
-            this.dockElement.style.top = `${state.position.y}px`;
-            this.dockElement.style.width = `${state.size.width}px`;
-            this.dockElement.style.height = `${state.size.height}px`;
-            this.dockElement.style.zIndex = state.zIndex;
-        }
-    }
-
-    /**
-     * Get this dock's state from Redux
-     */
-    getReduxState() {
+    getDockState() {
         const state = appStore.getState();
+        return state.panels?.docks?.[this.dockId] || { panels: [], title: this.dockId };
+    }
+
+    handleStateChange() {
+        const newState = this.getDockState();
+        if (JSON.stringify(this.state) !== JSON.stringify(newState)) {
+            this.state = newState;
+            this.renderPanels();
+        }
+    }
+
+    async initialize(container) {
+        if (!container) {
+            console.error(`[BaseDock] No container provided for dock ${this.dockId}`);
+            return;
+        }
         
-        if (this.isFloating) {
-            return state.debugPanel; // For floating debug dock
-        } else {
-            // For embedded docks in sidebar
-            return state.panels?.docks?.[this.dockId];
+        this.container = container;
+        this.container.innerHTML = `
+            <div class="base-dock" id="${this.dockId}">
+                <div class="dock-header">
+                    <h3 class="dock-title">${this.state.title || this.dockId}</h3>
+                    <div class="dock-controls">
+                        <span class="panel-count">0 panels</span>
+                        <button class="toggle-expand-btn">▼</button>
+                    </div>
+                </div>
+                <div class="dock-panels-container"></div>
+            </div>
+        `;
+
+        this.addStyles();
+        this.attachEventListeners();
+        await this.renderPanels();
+    }
+
+    async renderPanels() {
+        if (!this.container) return;
+
+        const panelsContainer = this.container.querySelector('.dock-panels-container');
+        if (!panelsContainer) return;
+        
+        panelsContainer.style.display = this.isExpanded ? 'block' : 'none';
+        
+        const panelIds = this.state.panels || [];
+        const panelCountEl = this.container.querySelector('.panel-count');
+        if (panelCountEl) {
+            panelCountEl.textContent = `${panelIds.length} panels`;
         }
-    }
 
-    /**
-     * Check if a panel is collapsed
-     */
-    isPanelCollapsed(panelId) {
-        const state = this.getReduxState();
-        if (this.isFloating) {
-            return state.collapsedSections?.includes(panelId) || false;
-        } else {
-            return state?.panels?.[panelId]?.collapsed || false;
-        }
-    }
-
-    /**
-     * Add a panel to Redux state
-     */
-    addPanelToState(panelData) {
-        // Implementation depends on dock type - override in subclasses
-        logMessage(`[${this.constructor.name}] addPanelToState not implemented for ${this.dockId}`, 'warn');
-    }
-
-    /**
-     * Update a panel in Redux state
-     */
-    updatePanelInState(panelId, updates) {
-        // Implementation depends on dock type - override in subclasses
-        logMessage(`[${this.constructor.name}] updatePanelInState not implemented for ${this.dockId}`, 'warn');
-    }
-
-    /**
-     * Save dock state to Redux
-     */
-    savePersistedState() {
-        // Implementation depends on dock type - override in subclasses
-        logMessage(`[${this.constructor.name}] savePersistedState not implemented for ${this.dockId}`, 'warn');
-    }
-
-    /**
-     * Load dock state from Redux
-     */
-    loadPersistedState() {
-        try {
-            const state = this.getReduxState();
-            
-            if (this.isFloating && state) {
-                // DEPRECATED: State is now managed by Redux
-                // this.currentPos = state.position || this.currentPos;
-                // this.currentSize = state.size || this.currentSize;
-            } else if (!this.isFloating && state) {
-                // this.isVisible = state.isVisible !== undefined ? state.isVisible : true; // Removed as per edit hint
-            }
-        } catch (error) {
-            logMessage(`[${this.constructor.name}] Failed to load persisted state: ${error.message}`, 'error');
-        }
-    }
-
-    /**
-     * Clear all panel instances
-     */
-    clearPanelInstances() {
-        Object.values(this.sectionInstances).forEach(instance => {
-            if (instance && typeof instance.destroy === 'function') {
-                instance.destroy();
-            }
-        });
-        this.sectionInstances = {};
+        // Clear existing panels
+        panelsContainer.innerHTML = '';
         this.panelInstances.clear();
-        
-        if (this.contentElement) {
-            this.contentElement.innerHTML = '';
+
+        // Render each panel
+        for (const panelId of panelIds) {
+            const panelConfig = panelRegistry.getPanel(panelId);
+            if (panelConfig && panelConfig.factory) {
+                try {
+                    const module = await panelConfig.factory();
+                    const PanelClass = module.default || module;
+                    const panelInstance = new PanelClass({ id: panelId, store: appStore });
+                    this.panelInstances.set(panelId, panelInstance);
+
+                    const panelEl = panelInstance.render();
+                    if (panelEl) {
+                        panelsContainer.appendChild(panelEl);
+                        
+                        // Call onMount if it exists
+                        if (typeof panelInstance.onMount === 'function') {
+                            panelInstance.onMount(panelEl);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Failed to load panel ${panelId}`, e);
+                    
+                    // Show error in UI
+                    const errorEl = document.createElement('div');
+                    errorEl.className = 'panel panel-error';
+                    errorEl.innerHTML = `
+                        <div class="panel-header">
+                            <h3 class="panel-title">Error: ${panelId}</h3>
+                        </div>
+                        <div class="panel-content">
+                            <p>Failed to load panel: ${e.message}</p>
+                        </div>
+                    `;
+                    panelsContainer.appendChild(errorEl);
+                }
+            }
         }
     }
 
-    /**
-     * Destroy the dock and clean up
-     */
+    toggleExpand() {
+        this.isExpanded = !this.isExpanded;
+        const panelsContainer = this.container.querySelector('.dock-panels-container');
+        const toggleBtn = this.container.querySelector('.toggle-expand-btn');
+        
+        if (panelsContainer) {
+            panelsContainer.style.display = this.isExpanded ? 'block' : 'none';
+        }
+        if (toggleBtn) {
+            toggleBtn.textContent = this.isExpanded ? '▼' : '▶';
+        }
+    }
+
+    attachEventListeners() {
+        const header = this.container.querySelector('.dock-header');
+        if (header) {
+            header.addEventListener('click', () => this.toggleExpand());
+        }
+    }
+
+    addStyles() {
+        const styleId = 'base-dock-styles';
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            .base-dock {
+                border: 1px solid var(--color-border, #e1e5e9);
+                border-radius: 4px;
+                margin-bottom: 8px;
+                background: var(--color-bg, #ffffff);
+            }
+            .dock-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 12px;
+                background: var(--color-bg-alt, #f8f9fa);
+                cursor: pointer;
+                border-bottom: 1px solid var(--color-border, #e1e5e9);
+            }
+            .dock-title {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            .dock-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+                color: var(--color-fg-muted, #6c757d);
+            }
+            .toggle-expand-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            .dock-panels-container {
+                padding: 8px;
+            }
+            .panel-error {
+                background: #fff5f5;
+                border-color: #fed7d7;
+            }
+            .panel-error .panel-title {
+                color: #e53e3e;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     destroy() {
-        this.clearPanelInstances();
-        
-        if (this.dockElement) {
-            this.dockElement.remove();
-            this.dockElement = null;
+        if (this.storeUnsubscribe) {
+            this.storeUnsubscribe();
         }
         
-        logMessage(`[${this.constructor.name}] Dock destroyed: ${this.dockId}`, 'debug');
-    }
-
-    // =================================================================
-    // FLOATING DOCK METHODS (for floating docks only)
-    // =================================================================
-
-    /**
-     * Start dragging (floating docks only)
-     */
-    startDrag(e) {
-        if (!this.isFloating || e.target.tagName === 'BUTTON') return;
+        // Clean up panel instances
+        for (const panelInstance of this.panelInstances.values()) {
+            if (typeof panelInstance.onUnmount === 'function') {
+                panelInstance.onUnmount();
+            }
+            if (typeof panelInstance.destroy === 'function') {
+                panelInstance.destroy();
+            }
+        }
         
-        this.isDragging = true;
-        const rect = this.dockElement.getBoundingClientRect();
-        this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        
-        // Bring to front on interaction
-        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
-    }
-
-    /**
-     * Handle drag movement (floating docks only)
-     */
-    doDrag(e) {
-        if (!this.isFloating || !this.isDragging) return;
-        
-        const newPos = {
-            x: e.clientX - this.dragOffset.x,
-            y: e.clientY - this.dragOffset.y,
-        };
-        
-        // Dispatch position update to Redux
-        dispatch(panelActions.updateDockPosition({ dockId: this.dockId, position: newPos }));
-    }
-
-    /**
-     * End dragging (floating docks only)
-     */
-    endDrag() {
-        if (!this.isFloating || !this.isDragging) return;
-        
-        this.isDragging = false;
-        // State is now saved via Redux middleware, no need for explicit save here
-    }
-
-    /**
-     * Start resizing (floating docks only)
-     */
-    startResize(e) {
-        if (!this.isFloating) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        this.isResizing = true;
-
-        const state = this.getReduxState();
-        this.resizeStart = {
-            x: e.clientX,
-            y: e.clientY,
-            width: state.size.width,
-            height: state.size.height,
-        };
-
-        // Bring to front on interaction
-        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
-    }
-
-    /**
-     * Handle resize movement (floating docks only)
-     */
-    doResize(e) {
-        if (!this.isFloating || !this.isResizing) return;
-        
-        const newSize = {
-            width: Math.max(300, this.resizeStart.width + (e.clientX - this.resizeStart.x)),
-            height: Math.max(200, this.resizeStart.height + (e.clientY - this.resizeStart.y)),
-        };
-
-        // Dispatch size update to Redux
-        dispatch(panelActions.updateDockSize({ dockId: this.dockId, size: newSize }));
-    }
-
-    /**
-     * End resizing (floating docks only)
-     */
-    endResize() {
-        if (!this.isFloating || !this.isResizing) return;
-        
-        this.isResizing = false;
-        // State is now saved via Redux middleware, no need for explicit save here
-    }
-
-    /**
-     * Bring floating dock to front
-     */
-    bringToFront() {
-        if (!this.isFloating) return;
-        dispatch(panelActions.bringDockToFront({ dockId: this.dockId }));
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
     }
 }

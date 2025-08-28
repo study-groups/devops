@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log Alignment Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .debug-section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .debug-output { background: #f5f5f5; padding: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Log Alignment Debug Tool</h1>
+    
+    <div class="debug-section">
+        <h2>Instructions</h2>
+        <p>1. Open your main application</p>
+        <p>2. Open browser console (F12)</p>
+        <p>3. Run: <code>debugLogAlignment()</code></p>
+        <p>4. Or load this script: <code>&lt;script src="/debug-log-alignment.js"&gt;&lt;/script&gt;</code></p>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Quick Test</h2>
+        <button onclick="runDebug()">Run Debug</button>
+        <div id="output" class="debug-output"></div>
+    </div>
+    
+    <script>
+        function runDebug() {
+            const output = document.getElementById('output');
+            output.textContent = 'Loading debug script...\n';
+            
+            // Try to load and run the debug script
+            fetch('/debug-log-alignment.js')
+                .then(response => response.text())
+                .then(code => {
+                    output.textContent += 'Debug script loaded. Check console for results.\n';
+                    // Execute the debug code
+                    eval(code);
+                    if (typeof debugLogAlignment === 'function') {
+                        debugLogAlignment();
+                        output.textContent += 'Debug function executed. Check console for detailed output.\n';
+                    }
+                })
+                .catch(err => {
+                    output.textContent += 'Error loading debug script: ' + err.message + '\n';
+                    output.textContent += 'Try running debugLogAlignment() directly in console.\n';
+                });
+        }
+        
+        // Auto-run if we're in the main app context
+        if (window.APP) {
+            setTimeout(runDebug, 1000);
+        }
+    </script>
+</body>
+</html>

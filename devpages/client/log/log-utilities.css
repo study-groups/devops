@@ -1,0 +1,15 @@
+/* === UTILITY CLASSES === */
+
+.log-entry-hidden-by-filter {
+    display: none;
+}
+
+.log-hiding {
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.log-showing {
+    opacity: 1;
+}

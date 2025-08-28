@@ -11,16 +11,13 @@ import { logMessage } from '/client/log/index.js';
 import { connectToLayout } from '/client/store/reduxConnect.js';
 
 // Import dock implementations
-import { SettingsDock } from '/client/layout/docks/SettingsDock.js';
+// import { SettingsDock } from '/client/layout/docks/SettingsDock.js';
 import { DebugDock } from '/client/layout/docks/DebugDock.js';
 
 class DockManager {
     constructor() {
         this.dockInstances = new Map();
         this.isInitialized = false;
-
-        // Store a reference to the last known state to compare against for updates
-        this.lastKnownState = null;
     }
 
     /**
@@ -34,19 +31,15 @@ class DockManager {
 
         logMessage('[DockManager] Initializing all docks...', 'info');
         
-        // ✅ MODERNIZED: Use enhanced selector pattern for initial state
         const initialState = appStore.getState().panels?.docks || {};
-        this.lastKnownState = initialState;
 
         for (const dockId in initialState) {
             const dockConfig = initialState[dockId];
             this.createDock(dockId, dockConfig);
         }
-
-        appStore.subscribe(this.handleStateChange.bind(this));
         
         this.isInitialized = true;
-        logMessage('[DockManager] All docks initialized and subscribed to state changes.', 'info');
+        logMessage('[DockManager] All docks initialized.', 'info');
     }
 
     /**
@@ -57,7 +50,7 @@ class DockManager {
         
         // Simple factory based on dockId prefix or properties
         if (dockId.startsWith('sidebar') || dockId === 'settings-dock') {
-            dockInstance = new SettingsDock(dockId, dockConfig.title);
+            // dockInstance = new SettingsDock(dockId, dockConfig.title); // Commented out as per edit hint
         } else if (dockId === 'debug-dock') { // Assuming 'debug-dock' is always floating
              dockInstance = new DebugDock(dockId, '🐛 Debug Tools', 'debug');
         } else {
@@ -73,30 +66,6 @@ class DockManager {
         } else {
             logMessage(`[DockManager] No implementation found for dock: ${dockId}`, 'warn');
         }
-    }
-
-    /**
-     * Handle Redux state changes and update docks accordingly
-     */
-    handleStateChange() {
-        const currentState = appStore.getState().panels.docks;
-
-        for (const dockId in currentState) {
-            const currentDockState = currentState[dockId];
-            const lastDockState = this.lastKnownState ? this.lastKnownState[dockId] : null;
-
-            // Simple object reference check; for more complex state, use deep comparison
-            if (currentDockState !== lastDockState) {
-                const dockInstance = this.dockInstances.get(dockId);
-                if (dockInstance) {
-                    // State has changed, so update the DOM
-                    dockInstance.updateDOMFromState();
-                }
-            }
-        }
-
-        // Update the last known state for the next comparison
-        this.lastKnownState = currentState;
     }
 
     /**

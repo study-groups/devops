@@ -3,8 +3,8 @@
  */
 
 import { appStore } from '/client/appState.js';
-import { uiThunks } from '/client/store/uiSlice.js';
-import { settingsThunks } from '/client/store/slices/settingsSlice.js';
+// REMOVED: messageQueue import (file deleted) - using Redux dispatch
+import { uiActions } from '/client/messaging/actionCreators.js';
 import { logMessage } from '/client/log/index.js';
 
 export class PanelNavBar {
@@ -23,7 +23,19 @@ export class PanelNavBar {
         this.storeUnsubscribe = null;
         this.currentContext = '';
         
+        this.loadCSS();
         this.subscribeToStore();
+    }
+
+    loadCSS() {
+        const cssId = 'panel-navbar-styles';
+        if (!document.getElementById(cssId)) {
+            const link = document.createElement('link');
+            link.id = cssId;
+            link.rel = 'stylesheet';
+            link.href = '/client/panels/core/PanelNavBar.css';
+            document.head.appendChild(link);
+        }
     }
 
     subscribeToStore() {
@@ -249,11 +261,11 @@ export class PanelNavBar {
             
             if (contextItem) {
                 const newContext = contextItem.dataset.context;
-                appStore.dispatch(settingsThunks.setCurrentContext(newContext));
+                appStore.dispatch(uiActions.setCurrentContext(newContext));
                 menu.remove();
             } else if (manageBtn) {
                 // Open settings panel to context management
-                appStore.dispatch(uiThunks.toggleContextManager());
+                appStore.dispatch(uiActions.openSettingsPanel('context-manager'));
                 menu.remove();
             }
         });
@@ -296,10 +308,7 @@ export class PanelNavBar {
     }
 
     handlePanelSettings() {
-        appStore.dispatch({
-            type: 'panels/togglePanelVisibility',
-            payload: { panelId: 'settings-panel' }
-        });
+        appStore.dispatch(uiActions.openPanelSettings(this.panelId));
     }
 
     handlePanelHelp() {

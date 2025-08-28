@@ -1,269 +1,612 @@
-/**
- * packages/devpages-debug/DebugDock.js
- * Debug dock implementation - manages debug panels in a floating window
- * Renamed from DebugPanelManager to follow proper dock naming conventions
- */
-
-import { BaseDock } from '/client/layout/docks/BaseDock.js';
-import { zIndexManager } from '/client/utils/ZIndexManager.js';
-import { logMessage } from '/client/log/index.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { appStore, dispatch } from '/client/appState.js';
-import { addPanel, setPanelVisibility, toggleSection, setPosition, setSize, toggleVisibility } from '/client/store/slices/debugPanelSlice.js';
+import { 
+    toggleVisibility, 
+    togglePanelExpanded, 
+    reorderPanels, 
+    updateDockPosition,
+    updateDockSize 
+} from '/client/store/slices/debugPanelSlice.js';
 
-export class DebugDock extends BaseDock {
-    constructor() {
-        super('debug-dock', 'Debug Tools', 'debug', true); // true = floating dock
-        
-        // Debug dock specific initialization
-        this.initializeDebugDock();
-    }
+// Import all panel classes
+import { PDataPanel } from './panels/PDataPanel.js';
+import { DevToolsPanel } from './devtools/DevToolsPanel.js';
+import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
+import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';
+import { JavaScriptInfoPanel } from './panels/JavaScriptInfoPanel.js';
+import { ExternalDependenciesPanel } from './panels/ExternalDependenciesPanel.js';
 
-    initializeDebugDock() {
-        // Delay initialization to allow logging system to be ready
-        setTimeout(() => {
-            this.initialize();
-        }, 0);
-    }
-
-    createDockDOM() {
-        // Create floating window structure
-        this.dockElement = document.createElement('div');
-        this.dockElement.id = 'debug-dock';
-        this.dockElement.className = 'settings-panel floating-dock debug-dock'; // Reuse styles
-        this.dockElement.style.cssText = `
+// Inject debug dock styles
+function injectDebugDockStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .debug-dock-container {
             position: fixed;
-            display: ${this.isVisible ? 'flex' : 'none'};
-            left: ${this.currentPos.x}px;
-            top: ${this.currentPos.y}px;
-            width: ${this.currentSize.width}px;
-            height: ${this.currentSize.height}px;
-            z-index: 1000;
-            flex-direction: column;
-            background: var(--color-bg, white);
-            border: 1px solid var(--color-border, #ddd);
+            top: 100px;
+            right: 20px;
+            width: 400px;
+            max-height: 80vh;
+            background: var(--color-background, white);
+            border: 1px solid var(--color-border, #e1e5e9);
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        `;
-
-        // Create header
-        this.headerElement = document.createElement('div');
-        this.headerElement.className = 'settings-panel-header dock-header';
-        this.headerElement.innerHTML = `
-            <span class="settings-panel-title dock-title">${this.title}</span>
-            <button class="settings-panel-close dock-close" aria-label="Close Debug Dock">×</button>
-        `;
-
-        // Create content area
-        this.contentElement = document.createElement('div');
-        this.contentElement.className = 'settings-panel-content dock-content';
-        this.contentElement.style.cssText = `
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-        `;
-
-        // Create resize handle
-        this.resizeHandle = document.createElement('div');
-        this.resizeHandle.className = 'settings-panel-resize-handle dock-resize-handle';
-        this.resizeHandle.innerHTML = '⋰';
-        this.resizeHandle.style.cssText = `
-            position: absolute;
-            bottom: 0;
-            right: 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 10000;
+            display: none;
+            /* Complete isolation */
+            contain: layout style size;
+            transform: translateZ(0);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        .debug-dock-container.visible {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .debug-dock-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--color-background-secondary, #f8f9fa);
+            border-bottom: 1px solid var(--color-border, #e1e5e9);
+            border-radius: 8px 8px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+        
+        .debug-dock-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--color-foreground, #333);
+        }
+        
+        .debug-dock-controls {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .debug-dock-btn {
             width: 20px;
             height: 20px;
-            cursor: se-resize;
+            border: none;
+            background: none;
+            border-radius: 4px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 12px;
-            color: var(--color-fg-muted, #999);
-        `;
-
-        // Assemble dock structure
-        this.dockElement.appendChild(this.headerElement);
-        this.dockElement.appendChild(this.contentElement);
-        this.dockElement.appendChild(this.resizeHandle);
-        document.body.appendChild(this.dockElement);
-
-        // Get close button reference
-        this.closeButton = this.headerElement.querySelector('.dock-close');
-        
-        // Debug: Check if close button was found
-        if (this.closeButton) {
-            logMessage('[DebugDock] Close button found successfully', 'debug');
-        } else {
-            logMessage('[DebugDock] Close button not found in DOM', 'error');
-        }
-    }
-
-    attachEventListeners() {
-        // Drag functionality
-        this.headerElement.addEventListener('mousedown', this.startDrag.bind(this));
-        
-        // Resize functionality  
-        this.resizeHandle.addEventListener('mousedown', this.startResize.bind(this));
-        
-        // Close button
-        if (this.closeButton) {
-            this.closeButton.addEventListener('click', () => this.hide());
+            color: var(--color-foreground-muted, #666);
         }
         
-        // Bring to front on interaction
-        this.dockElement.addEventListener('mousedown', () => this.bringToFront());
-
-        // Global mouse events for drag/resize
-        window.addEventListener('mousemove', (e) => {
-            if (this.isDragging) this.doDrag(e);
-            if (this.isResizing) this.doResize(e);
-        });
-        
-        window.addEventListener('mouseup', () => {
-            if (this.isDragging) this.endDrag();
-            if (this.isResizing) this.endResize();
-        });
-    }
-
-    // =================================================================
-    // DEBUG DOCK SPECIFIC REDUX INTEGRATION
-    // =================================================================
-
-    addPanelToState(panelData) {
-        appStore.dispatch(addPanel({
-            id: panelData.id,
-            title: panelData.title,
-            visible: panelData.visible,
-            enabled: true,
-            order: panelData.order
-        }));
-    }
-
-    updatePanelInState(panelId, updates) {
-        if (updates.hasOwnProperty('collapsed')) {
-            // Toggle section uses the existing debugPanelSlice action
-            appStore.dispatch(toggleSection(panelId));
+        .debug-dock-btn:hover {
+            background: var(--color-background-hover, #e9ecef);
         }
         
-        if (updates.hasOwnProperty('visible')) {
-            appStore.dispatch(setPanelVisibility({ 
-                panelId: panelId, 
-                visible: updates.visible 
-            }));
+        .debug-dock-content {
+            flex: 1;
+            overflow-y: auto;
+            max-height: calc(80vh - 50px);
         }
-    }
-
-    savePersistedState() {
-        // Update position, size, and visibility in debug panel state
-        appStore.dispatch(setPosition(this.currentPos));
-        appStore.dispatch(setSize(this.currentSize));
-        appStore.dispatch(toggleVisibility(this.isVisible));
-    }
-
-    // =================================================================
-    // Z-INDEX MANAGEMENT
-    // =================================================================
-
-    registerWithZIndexManager() {
-        if (this.dockElement && zIndexManager) {
-            zIndexManager.register(this.dockElement, 'UI', 60, { name: 'Debug Dock' });
+        
+        .debug-panel {
+            border-bottom: 1px solid var(--color-border, #e1e5e9);
         }
-    }
-
-    bringToFront() {
-        if (this.dockElement && zIndexManager) {
-            zIndexManager.bringToFront(this.dockElement);
-        } else {
-            super.bringToFront();
+        
+        .debug-panel:last-child {
+            border-bottom: none;
         }
-    }
-
-    // =================================================================
-    // PANEL MANAGEMENT OVERRIDES
-    // =================================================================
-
-    show() {
-        // Ensure panels are loaded every time the dock is shown
-        this.loadPanels();
-        super.show();
-        this.bringToFront();
-    }
-
-    // =================================================================
-    // LEGACY COMPATIBILITY METHODS
-    // =================================================================
-
-    /**
-     * Reopen a closed panel (legacy compatibility)
-     */
-    reopenSectionPanel(sectionId) {
-        this.updatePanelInState(sectionId, { visible: true });
-        this.loadPanels(); // Reload to show the reopened panel
-        logMessage(`[DebugDock] Reopened panel ${sectionId}`, 'debug');
-    }
-
-    /**
-     * Get closed panels (legacy compatibility)
-     */
-    getClosedPanels() {
-        const debugState = this.getReduxState();
-        return debugState.panels?.filter(panel => !panel.visible).map(panel => panel.id) || [];
-    }
-    
-    /**
-     * Get all panels (legacy compatibility)
-     */
-    getAllPanels() {
-        const debugState = this.getReduxState();
-        return debugState.panels || [];
-    }
-
-    // =================================================================
-    // INITIALIZATION OVERRIDE
-    // =================================================================
-
-    async initialize() {
-        await super.initialize();
-        this.registerWithZIndexManager();
-    }
+        
+        .debug-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--color-background, white);
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+        }
+        
+        .debug-panel-header:hover {
+            background: var(--color-background-hover, #f8f9fa);
+        }
+        
+        .debug-panel-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-foreground, #333);
+        }
+        
+        .debug-panel-toggle {
+            font-size: 12px;
+            color: var(--color-foreground-muted, #666);
+            transition: transform 0.2s ease;
+        }
+        
+        .debug-panel.expanded .debug-panel-toggle {
+            transform: rotate(90deg);
+        }
+        
+        .debug-panel-content {
+            display: none;
+            padding: 12px;
+            background: var(--color-background, white);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .debug-panel.expanded .debug-panel-content {
+            display: block;
+        }
+        
+        /* Dragging states */
+        .debug-dock-container.dragging {
+            opacity: 0.9;
+            z-index: 10001;
+        }
+        
+        .debug-panel.dragging {
+            opacity: 0.5;
+        }
+        
+        .debug-panel.drag-over {
+            border-top: 2px solid var(--color-primary, #007bff);
+        }
+    `;
+    document.head.appendChild(styleElement);
 }
 
-// Create and export singleton instance
-export const debugDock = new DebugDock();
+export const debugDock = {
+    isVisible: false,
+    container: null,
+    panels: [],
+    dragState: { isDragging: false, draggedPanel: null, startY: 0 },
 
-// Expose to window for global access from shortcuts or console
-window.debugDock = debugDock;
-window.debugPanelManager = debugDock; // Legacy compatibility
+    // Hardcoded panel classes for direct initialization
+    PANEL_CLASSES: [
+        { id: 'pdata-panel', title: 'PData Panel', component: PDataPanel },
+        { id: 'devtools', title: 'DevTools', component: DevToolsPanel },
+        { id: 'dom-inspector', title: 'DOM Inspector', component: DomInspectorDebugPanel },
+        { id: 'css-files', title: 'CSS Files', component: CssFilesPanel },
+        { id: 'javascript-panel', title: 'JavaScript Info', component: JavaScriptInfoPanel },
+        { id: 'external-dependencies', title: 'External Dependencies', component: ExternalDependenciesPanel }
+    ],
 
-// Add debug function to test dock functionality
-window.testDebugDock = function() {
-    console.log('=== DEBUG DOCK TEST ===');
-    
-    // Test main dock
-    console.log('Debug dock visible:', debugDock.isVisible);
-    console.log('Debug dock element:', debugDock.dockElement);
-    console.log('Close button element:', debugDock.closeButton);
-    
-    // Test section instances
-    console.log('Section instances:', debugDock.sectionInstances);
-    console.log('Available sections:', Object.keys(debugDock.sectionInstances));
-    
-    // Test panel states (from reducer)
-    console.log('All panels:', debugDock.getAllPanels());
-    console.log('Closed panels:', debugDock.getClosedPanels());
-    
-    console.log('=== END DEBUG DOCK TEST ===');
-};
+    initialize: async function() {
+        // Create container if not exists
+        if (!this.container) {
+            this.createContainer();
+        }
 
-// Legacy compatibility function
-window.testDebugPanel = window.testDebugDock;
+        // Inject styles
+        injectDebugDockStyles();
 
-// Add function to reopen closed panels
-window.reopenDebugPanel = function(panelId) {
-    if (panelId) {
-        debugDock.reopenSectionPanel(panelId);
-        console.log(`Reopened panel: ${panelId}`);
-    } else {
-        console.log('Available closed panels:', debugDock.getClosedPanels());
-        console.log('Usage: reopenDebugPanel("panel-id")');
+        // Register panels with panel registry
+        this.PANEL_CLASSES.forEach(panelConfig => {
+            panelRegistry.register({
+                id: panelConfig.id,
+                title: panelConfig.title,
+                group: 'debug',
+                component: panelConfig.component,
+                factory: () => Promise.resolve(panelConfig.component),
+                isVisible: true
+            });
+        });
+
+        // Setup drag and drop
+        this.setupDragAndDrop();
+
+        // Sync with Redux state on initialization
+        this.syncWithReduxState();
+        
+        return this;
+    },
+
+    createContainer: function() {
+        this.container = document.createElement('div');
+        this.container.id = 'debug-dock-container';
+        this.container.className = 'debug-dock-container';
+        
+        // Restore position from Redux state
+        const state = appStore.getState();
+        const debugState = state.debugPanel;
+        console.log('[DebugDock] Loading state from Redux:', debugState);
+        
+        if (debugState && debugState.position) {
+            console.log('[DebugDock] Restoring position:', debugState.position);
+            this.container.style.left = `${debugState.position.x}px`;
+            this.container.style.top = `${debugState.position.y}px`;
+            this.container.style.right = 'auto';
+        }
+        
+        // Restore size from Redux state
+        if (debugState && debugState.size) {
+            console.log('[DebugDock] Restoring size:', debugState.size);
+            this.container.style.width = `${debugState.size.width}px`;
+            this.container.style.maxHeight = `${debugState.size.height}px`;
+        }
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'debug-dock-header';
+        header.innerHTML = `
+            <div class="debug-dock-title">Debug Dock</div>
+            <div class="debug-dock-controls">
+                <button class="debug-dock-btn" data-action="close">×</button>
+            </div>
+        `;
+        
+        // Create content area
+        const content = document.createElement('div');
+        content.className = 'debug-dock-content';
+        
+        this.container.appendChild(header);
+        this.container.appendChild(content);
+        document.body.appendChild(this.container);
+        
+        // Setup header drag
+        this.setupDockDrag(header);
+        
+        // Setup close button
+        header.querySelector('[data-action="close"]').addEventListener('click', () => {
+            this.toggle();
+        });
+    },
+
+    setupDockDrag: function(header) {
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+        
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = this.container.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            this.container.classList.add('dragging');
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            this.container.style.left = `${startLeft + deltaX}px`;
+            this.container.style.top = `${startTop + deltaY}px`;
+            this.container.style.right = 'auto';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                this.container.classList.remove('dragging');
+                
+                // Save final position to Redux
+                const rect = this.container.getBoundingClientRect();
+                dispatch(updateDockPosition({ x: rect.left, y: rect.top }));
+            }
+        });
+    },
+
+    setupDragAndDrop: function() {
+        // Panel drag and drop will be implemented in render method
+    },
+
+    // Sync local state with Redux state
+    syncWithReduxState: function() {
+        if (appStore) {
+            const state = appStore.getState();
+            const debugPanelState = state.debugPanel;
+            
+            console.log('[DebugDock] Syncing with Redux state:', debugPanelState);
+            
+            if (debugPanelState) {
+                this.isVisible = debugPanelState.visible || false;
+                
+                console.log(`[DebugDock] Setting visibility to: ${this.isVisible}`);
+                
+                // Update UI to match Redux state
+                if (this.isVisible) {
+                    this.render(); // Render panels with their saved states
+                    this.container.classList.add('visible');
+                    this.container.style.display = 'flex';
+                    console.log('[DebugDock] Dock shown and rendered');
+                } else {
+                    this.container.classList.remove('visible');
+                    this.container.style.display = 'none';
+                    console.log('[DebugDock] Dock hidden');
+                }
+                
+                console.log(`[DebugDock] Synced with Redux state - visible: ${this.isVisible}`);
+            }
+        }
+    },
+
+    toggle: function() {
+        // Use Redux state for persistence
+        if (appStore) {
+            // Dispatch the toggleVisibility action to Redux
+            dispatch(toggleVisibility());
+            
+            // Get the updated state
+            const state = appStore.getState();
+            const isVisible = state.debugPanel?.visible || false;
+            
+            // Update the UI based on Redux state
+            if (isVisible) {
+                this.render();
+                this.container.classList.add('visible');
+                this.container.style.display = 'flex';
+            } else {
+                this.container.classList.remove('visible');
+                this.container.style.display = 'none';
+            }
+            
+            // Update local state to match Redux (for compatibility)
+            this.isVisible = isVisible;
+        } else {
+            // Fallback to original logic if Redux is not available
+            this.isVisible = !this.isVisible;
+
+            if (this.isVisible) {
+                this.render();
+                this.container.classList.add('visible');
+                this.container.style.display = 'flex';
+            } else {
+                this.container.classList.remove('visible');
+                this.container.style.display = 'none';
+            }
+        }
+
+        return this;
+    },
+
+
+
+    render: function() {
+        const content = this.container.querySelector('.debug-dock-content');
+        if (!content) return;
+
+        // Clear previous content
+        content.innerHTML = '';
+
+        // Get panels from Redux state, sorted by order
+        const state = appStore.getState();
+        const debugState = state.debugPanel;
+        const panels = debugState.panels ? [...debugState.panels].sort((a, b) => a.order - b.order) : [];
+
+        panels.forEach((panelState, index) => {
+            // Find the corresponding panel config
+            const panelConfig = this.PANEL_CLASSES.find(p => p.id === panelState.id);
+            if (panelConfig && panelState.visible) {
+                const panelElement = this.createCollapsiblePanel(panelConfig, panelState, index);
+                content.appendChild(panelElement);
+            }
+        });
+    },
+
+    createCollapsiblePanel: function(panelConfig, panelState, index) {
+        const panel = document.createElement('div');
+        panel.className = 'debug-panel';
+        panel.dataset.panelId = panelConfig.id;
+        panel.dataset.index = index;
+
+        // Set expanded state from Redux
+        if (panelState.expanded) {
+            panel.classList.add('expanded');
+        }
+
+        // Create panel header
+        const header = document.createElement('div');
+        header.className = 'debug-panel-header';
+        header.innerHTML = `
+            <div class="debug-panel-title">${panelConfig.title}</div>
+            <div class="debug-panel-toggle">${panelState.expanded ? '▼' : '▶'}</div>
+        `;
+
+        // Create panel content container
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'debug-panel-content';
+
+        // Load content if already expanded
+        if (panelState.expanded) {
+            this.loadPanelContent(panelConfig, contentContainer);
+        }
+
+        // Add click handler for expand/collapse
+        header.addEventListener('click', (e) => {
+            // Don't trigger if clicking on drag area
+            if (e.target.classList.contains('debug-panel-toggle')) {
+                e.stopPropagation();
+            }
+            
+            // Toggle expanded state in Redux
+            dispatch(togglePanelExpanded(panelConfig.id));
+            
+            // Update UI
+            panel.classList.toggle('expanded');
+            const toggle = header.querySelector('.debug-panel-toggle');
+            toggle.textContent = panel.classList.contains('expanded') ? '▼' : '▶';
+            
+            // Lazy load content when first expanded
+            if (panel.classList.contains('expanded') && !contentContainer.hasChildNodes()) {
+                this.loadPanelContent(panelConfig, contentContainer);
+            }
+        });
+
+        // Setup drag handle for reordering
+        this.setupPanelDrag(panel, header, index);
+
+        panel.appendChild(header);
+        panel.appendChild(contentContainer);
+
+        return panel;
+    },
+
+    loadPanelContent: function(panelConfig, container) {
+        try {
+            const PanelComponent = panelConfig.component;
+            let panelInstance;
+
+            // Special handling for panels with specific initialization
+            if (panelConfig.id === 'external-dependencies') {
+                panelInstance = new PanelComponent(container);
+            } else if (panelConfig.id === 'pdata-panel') {
+                panelInstance = new PanelComponent({ 
+                    id: panelConfig.id, 
+                    title: panelConfig.title 
+                });
+            } else {
+                panelInstance = new PanelComponent();
+            }
+            
+            // Check if panel has a render method
+            if (typeof panelInstance.render === 'function') {
+                const panelContent = panelInstance.render();
+                if (panelContent) {
+                    container.appendChild(panelContent);
+                }
+            } else {
+                // Fallback content
+                container.innerHTML = `<div>Panel content for ${panelConfig.title}</div>`;
+            }
+        } catch (error) {
+            console.error(`[DebugDock] Error loading panel ${panelConfig.id}:`, error);
+            container.innerHTML = `
+                <div style="color: var(--color-danger, red); padding: 8px; font-size: 11px;">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+    },
+
+    setupPanelDrag: function(panel, header, currentIndex) {
+        let isDragging = false;
+        let startY = 0;
+        let draggedElement = null;
+
+        header.addEventListener('mousedown', (e) => {
+            // Only drag if clicking on the header title, not the toggle button
+            if (e.target.classList.contains('debug-panel-toggle')) return;
+            
+            isDragging = true;
+            startY = e.clientY;
+            draggedElement = panel;
+            panel.classList.add('dragging');
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || !draggedElement) return;
+
+            const content = this.container.querySelector('.debug-dock-content');
+            const panels = Array.from(content.querySelectorAll('.debug-panel'));
+            
+            // Find the panel we're hovering over
+            const mouseY = e.clientY;
+            let targetPanel = null;
+
+            panels.forEach((p) => {
+                if (p === draggedElement) return;
+                
+                const rect = p.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                
+                if (mouseY >= rect.top && mouseY <= rect.bottom) {
+                    targetPanel = p;
+                }
+            });
+
+            // Clear previous drag-over states
+            panels.forEach(p => p.classList.remove('drag-over'));
+            
+            if (targetPanel) {
+                targetPanel.classList.add('drag-over');
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isDragging || !draggedElement) return;
+
+            const content = this.container.querySelector('.debug-dock-content');
+            const panels = Array.from(content.querySelectorAll('.debug-panel'));
+            const targetPanel = panels.find(p => p.classList.contains('drag-over'));
+
+            if (targetPanel && targetPanel !== draggedElement) {
+                // Get current indices
+                const draggedIndex = parseInt(draggedElement.dataset.index);
+                const targetIndex = parseInt(targetPanel.dataset.index);
+                
+                // Dispatch reorder action to Redux
+                dispatch(reorderPanels({ fromIndex: draggedIndex, toIndex: targetIndex }));
+                
+                // Re-render to reflect new order
+                this.render();
+            }
+
+            // Clean up
+            panels.forEach(p => {
+                p.classList.remove('dragging', 'drag-over');
+            });
+            
+            isDragging = false;
+            draggedElement = null;
+        });
+    },
+
+    // Method for external access (keyboard shortcuts, etc.)
+    getPanels: function() {
+        const state = appStore.getState();
+        const debugState = state.debugPanel;
+        return debugState.panels || [];
     }
 };
+
+// Ensure DebugDock is globally accessible
+if (!window.APP) {
+    window.APP = {};
+}
+if (!window.APP.debugDock) {
+    window.APP.debugDock = debugDock;
+}
+
+// Expose diagnose method for debugging
+debugDock.diagnose = function() {
+    console.log('🔍 DebugDock Diagnostic Report');
+    console.log('----------------------------');
+    console.log('Visibility:', this.isVisible);
+    console.log('Container exists:', !!this.container);
+    
+    console.log('\nPanel Details:');
+    const debugPanels = panelRegistry.getAllPanels().filter(p => p.group === 'debug');
+    debugPanels.forEach(panel => {
+        console.log(`- ${panel.id}:`);
+        console.log(`  Title: ${panel.title}`);
+        console.log(`  Component: ${panel.component ? panel.component.name : 'Not Available'}`);
+    });
+
+    console.log('\nContainer Details:');
+    if (this.container) {
+        console.log('  Display Style:', this.container.style.display);
+        console.log('  Visibility:', this.container.classList.contains('visible') ? 'Visible' : 'Hidden');
+    }
+};
+
+// Initialize debug dock when Redux store is ready
+const initializeWhenReady = () => {
+    if (appStore && appStore.getState) {
+        debugDock.initialize();
+        console.log('[DebugDock] Initialized with Redux store ready');
+    } else {
+        console.log('[DebugDock] Waiting for Redux store...');
+        setTimeout(initializeWhenReady, 100);
+    }
+};
+
+// Start initialization check
+initializeWhenReady();
