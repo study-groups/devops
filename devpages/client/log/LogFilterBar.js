@@ -1,7 +1,7 @@
 // ✅ MODERNIZED: Enhanced Redux patterns for log filtering
 import { appStore, dispatch } from '/client/appState.js';
-import { setActiveFilters, toggleFilter, clearEntries } from '/client/store/slices/logSlice.js';
-import { storageService } from '/client/services/storageService.js';
+import { logThunks } from '/client/store/slices/logSlice.js';
+import { storageService } from '../services/storageService.js';
 import { connectToLogs } from '/client/store/reduxConnect.js';
 
 /**
@@ -261,7 +261,7 @@ export function _handleTagClick(event) {
             }
             
             // Also reset filters in the state
-            dispatch(clearEntries());
+            dispatch(logThunks.clearEntries());
             
             return; // Exit after clearing
         }
@@ -320,7 +320,7 @@ export function _handleTagClick(event) {
         
         if (filterCategory && filterValue) {
             const filterKey = `${filterCategory}:${filterValue}`;
-            dispatch(toggleFilter(filterKey));
+            dispatch(logThunks.toggleFilter(filterKey));
         }
     } catch (error) {
         console.error('[LogFilterBar] Error in _handleTagClick:', error);
@@ -387,7 +387,7 @@ export function initializeLogFilterBar(element) {
     // Load initial filter state from snapshot if available
     const snapshot = loadFilterSnapshot();
     if (snapshot && snapshot.activeFilters) {
-        dispatch(setActiveFilters(snapshot.activeFilters));
+        dispatch(logThunks.setActiveFilters(snapshot.activeFilters));
     }
 
 

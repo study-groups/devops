@@ -3,10 +3,10 @@
  * Manages CSS files and provides comprehensive CSS debugging capabilities
  */
 
-import { BasePanel } from '/client/panels/BasePanel.js';
-import { eventBus } from '/client/eventBus.js';
+import { BasePanel } from '/panels/BasePanel.js';
+import { eventBus } from '/eventBus.js';
 import { ZIndexAnalyzer } from './analysis/ZIndexAnalyzer.js';
-import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { panelRegistry } from '/panels/panelRegistry.js';
 
 // Temporarily disable modular imports due to import errors
 // TODO: Fix import paths in modular components

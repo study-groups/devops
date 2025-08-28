@@ -54,7 +54,7 @@ try {
 	console.log('[Server] PData initialized successfully.');
 	
 	// Initialize Capability Manager
-	capabilityManager = new CapabilityManager(pdataInstance);
+	capabilityManager = new UnifiedCapabilityManager(pdataInstance);
 	console.log('[Server] CapabilityManager initialized successfully.');
 } catch (error) {
     console.error('[Server] CRITICAL: PData failed to initialize.', error);

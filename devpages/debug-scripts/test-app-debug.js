@@ -16,12 +16,16 @@ function initializeAPPDebug() {
     console.log('\n🔧 Initializing APP.debug structure...');
     
     if (!window.APP) {
-        window.APP = {};
+        import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP assignment
+// window.APP = {};
         console.log('✅ Created window.APP');
     }
     
     if (!window.APP.debug) {
-        window.APP.debug = {};
+        import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('debug', {});
         console.log('✅ Created window.APP.debug');
     }
     

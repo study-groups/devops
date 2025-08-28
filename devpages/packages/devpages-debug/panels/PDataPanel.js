@@ -3,8 +3,8 @@
  * Features: Authentication, session debug, API explorer, and more
  */
 
-import { BasePanel } from '/client/panels/BasePanel.js';
-import { apiSlice } from '/client/store/apiSlice.js';
+import { BasePanel } from '/panels/BasePanel.js';
+import { apiSlice } from '/store/apiSlice.js';
 
 // Extend the apiSlice to include our new endpoint
 const extendedApi = apiSlice.injectEndpoints({

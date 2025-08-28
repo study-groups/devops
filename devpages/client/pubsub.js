@@ -1,4 +1,5 @@
 // Simple pub/sub system
+
 const subscribers = {};
 
 export function publish(event, data) {

@@ -3,7 +3,7 @@
  * Handles DOM Inspector panel UI creation, dragging, resizing, and Z-index management
  */
 
-import { zIndexManager } from "/client/utils/ZIndexManager.js";
+import { zIndexManager } from "/utils/ZIndexManager.js";
 
 export class PanelUI {
     constructor(options = {}) {

@@ -1,7 +1,7 @@
 // client/log/logEntryDOM.js
 // Manages the creation of log entry DOM structures and toolbars.
 
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../services/storageService.js';
 /**
  * Creates a toolbar button.
  * @param {HTMLElement} toolbarEl - The toolbar element to append to (if !noAppend).

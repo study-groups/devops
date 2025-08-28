@@ -4,7 +4,7 @@
  * to localStorage. It listens for any action that modifies the panel state and saves
  * the updated state, ensuring UI state is preserved across sessions.
  */
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../../services/storageService.js';
 
 const PANEL_STATE_KEY = 'panel_state';
 

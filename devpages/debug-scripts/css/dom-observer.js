@@ -76,7 +76,9 @@
     }
     
     // Expose a manual report function
-    window.APP.debug = window.APP.debug || {};
+    import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('debug', window.APP.debug || {});
     window.APP.debug.printDomObserverReport = printReport;
     log('Run `APP.debug.printDomObserverReport()` to see the report manually.');
 

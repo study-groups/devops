@@ -22,7 +22,7 @@ import { cliReducer } from './slices/cliSlice.js';
 import { shortcutReducer } from './slices/shortcutSlice.js';
 import { fileReducer } from './slices/fileSlice.js';
 import { contextSettingsReducer } from './slices/contextSettingsSlice.js';
-import { combineReducers } from 'redux';
+import { combineReducers } from '/client/vendor/scripts/redux-toolkit.mjs';
 import { undoable } from '../enhancers/undoable.js';
 import { appSettingsReducer } from './reducers/appSettings.js';
 import panelMetadataReducer from './reducers/panelMetadata.js';

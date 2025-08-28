@@ -3,7 +3,7 @@
  * @description Manages cache-related utilities for the DevTools panel.
  */
 
-import { logMessage } from '/client/log/index.js';
+import { log } from '/log/LogCore.js';
 
 export class CacheManager {
     constructor(container) {

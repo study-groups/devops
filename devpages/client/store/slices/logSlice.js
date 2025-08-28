@@ -21,6 +21,17 @@ const logSlice = createSlice({
     reducers: {
         addEntry: (state, action) => {
             const newEntry = { ...action.payload, id: Date.now() + Math.random() };
+            
+            // Serialize Error objects to prevent Redux non-serializable warnings
+            if (newEntry.details && newEntry.details instanceof Error) {
+                newEntry.details = {
+                    name: newEntry.details.name,
+                    message: newEntry.details.message,
+                    stack: newEntry.details.stack,
+                    isError: true
+                };
+            }
+            
             state.entries.push(newEntry);
             // Keep only last 1000 entries for performance
             if (state.entries.length > 1000) {

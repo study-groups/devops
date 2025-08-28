@@ -1,5 +1,5 @@
 /**
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
  * Editor action handlers
  * Responsible for editor operations like text manipulation
  */

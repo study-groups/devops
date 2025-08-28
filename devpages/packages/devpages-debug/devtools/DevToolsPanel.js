@@ -7,9 +7,9 @@
  * - Application state inspection
  */
 
-import { appStore } from "/client/appState.js";
-import { logMessage } from "/client/log/index.js";
-import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { appStore } from "/appState.js";
+import { log } from "/log/LogCore.js";
+import { panelRegistry } from '/panels/panelRegistry.js';
 
 // Import modular components from the new location
 import { StateInspector } from './modules/StateInspector.js';

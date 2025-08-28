@@ -1,5 +1,5 @@
 /**
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
  * UI action handlers
  * Responsible for UI interactions like view modes, log panel, etc.
  */

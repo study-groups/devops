@@ -129,6 +129,17 @@ export function log({ message,
         return; // Drop debug logs during init
     }
 
+    // Serialize details if it's an Error object to prevent Redux warnings
+    let serializedDetails = details;
+    if (details && details instanceof Error) {
+        serializedDetails = {
+            name: details.name,
+            message: details.message,
+            stack: details.stack,
+            isError: true
+        };
+    }
+
     const entry = { 
         ts, 
         message: cleanMessage, 
@@ -136,7 +147,7 @@ export function log({ message,
         level: lvl, 
         type: typ, 
         action: act, 
-        details, 
+        details: serializedDetails, 
         component: comp 
     };
 
@@ -147,8 +158,8 @@ export function log({ message,
 
     // Console output with format: [SOURCE][COMPONENT][TYPE][ACTION] message [LEVEL]
     const isConsoleEnabled = typeof window !== 'undefined' && 
-                             typeof window.isConsoleLoggingEnabled === 'function' && 
-                             window.isConsoleLoggingEnabled();
+                             typeof window.APP.services.isConsoleLoggingEnabled === 'function' && 
+                             window.APP.services.isConsoleLoggingEnabled();
                              
     if (forceConsole || isConsoleEnabled) {
         let prefix = `[${src}]`;

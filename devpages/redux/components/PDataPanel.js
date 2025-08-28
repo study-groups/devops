@@ -1,13 +1,19 @@
 // DEPRECATED: This PDataPanel has been moved to packages/devpages-debug/panels/PDataPanel.js
 // This file is kept for reference but should not be used.
 
+// DEPRECATED: This PDataPanel has been moved to packages/devpages-debug/panels/PDataPanel.js
+// This file is kept for reference but should not be used.
+
+// DEPRECATED: This PDataPanel has been moved to packages/devpages-debug/panels/PDataPanel.js
+// This file is kept for reference but should not be used.
+
 /**
  * PDataPanel.js - Beautiful Redux-integrated PData Panel
  * Features: Collapsible sub-panels, flyout mode, position persistence
  */
 
-import { BasePanel } from '/client/panels/BasePanel.js';
-import { dispatch, thunks } from '/client/appState.js';
+import { BasePanel } from '/panels/BasePanel.js';
+import { dispatch, thunks } from '/appState.js';
 
 export class PDataPanel extends BasePanel {
     constructor(panelId, store, options = {}) {
@@ -362,7 +368,9 @@ export class PDataPanel extends BasePanel {
         setTimeout(() => this.refreshSessionData(), 100);
         
         // Make panel accessible for session debugging buttons
-        if (!window.APP) window.APP = {};
+        if (!window.APP) {
+            window.APP = {};
+        }
         window.APP.pdataPanel = this;
         
         const authState = this.store.getState().auth;

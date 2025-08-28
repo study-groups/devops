@@ -1,5 +1,5 @@
 /**
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
  * DomInspectorSettings.js - Settings panel for DOM Inspector configuration
  * 
  * Provides configuration options for:
@@ -9,9 +9,9 @@ import { appStore } from "/client/appState.js";
  * - Visual debugging options
  */
 
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
 // REMOVED: messageQueue import (file deleted)
-import { zIndexManager } from "/client/utils/ZIndexManager.js";
+import { zIndexManager } from "/utils/ZIndexManager.js";
 
 export class DomInspectorSettings {
     constructor(domInspector) {

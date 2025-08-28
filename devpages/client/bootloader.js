@@ -27,15 +27,29 @@ import { pathThunks } from './store/slices/pathSlice.js';
 // Define log variable, but do not initialize it yet.
 let log; // Reset log to be defined later
 
+// Initialize logger once UnifiedLogging is loaded
+function initializeLogger() {
+    if (window.APP?.services?.log?.createLogger) {
+        log = window.APP.services.log.createLogger('Bootloader');
+    } else {
+        // Fallback console logger
+        log = {
+            info: (tag, message, ...args) => console.log(`[${tag}] ${message}`, ...args),
+            warn: (tag, message, ...args) => console.warn(`[${tag}] ${message}`, ...args),
+            error: (tag, message, ...args) => console.error(`[${tag}] ${message}`, ...args)
+        };
+    }
+}
+
 // --- Unified Component & Panel Definitions ---
 
 const allComponentDefinitions = [
     // Core Components
-    { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: '/client/components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
-    { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: '/client/components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
-    { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: '/client/components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
-    { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: '/client/components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
-    { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: '/client/layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages resizable panels' },
+    { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: './components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
+    { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: './components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
+    { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
+    { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: './components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
+    { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: './layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages resizable panels' },
     // Panel Components
     ...staticPanelDefinitions.map(p => ({
         ...p,
@@ -67,19 +81,15 @@ let bootErrors = [];
 // =============================================================================
 
 async function bootPreInit() {
+    // Initialize logger first
+    initializeLogger();
+    
+    // APP initialization
     window.APP = window.APP || {};
-    window.APP.services = window.APP.services || {};
-    window.APP.eventBus = eventBus;
-    window.APP.services.eventBus = eventBus;
-    // Initialize log here, after window.APP.services.log is guaranteed to be set by UnifiedLogging.js side effect
-    log = window.APP.services.log.createLogger('BOOT', 'Bootloader');
-    log.info('PHASE_1', '🚀 Phase 1: Pre-Initialization');
-    window.APP.bootloader = {
-        start: () => initializeReduxSystem(),
-        instance: null,
-        isReady: () => !!systemAPIs,
-        type: 'redux'
-    };
+    window.APP.bootloader = window.APP.bootloader || {};
+    window.APP.bootloader.phase = 'pre-init';
+    
+    log.info('PRE_INIT', '✅ Pre-initialization completed');
 }
 
 async function bootCore() {
@@ -96,7 +106,7 @@ async function bootCore() {
     const { appStore, dispatch } = initializeStore(preloadedState);
     
     // CRITICAL FIX: Set global dispatch for enhanced reducer utils
-    const { setGlobalDispatch } = await import('/client/store/reducers/enhancedReducerUtils.js');
+    const { setGlobalDispatch } = await import('./store/reducers/enhancedReducerUtils.js');
     setGlobalDispatch(dispatch);
     log.info('GLOBAL_DISPATCH', '✅ Global dispatch set for enhanced reducer utils');
     
@@ -105,7 +115,7 @@ async function bootCore() {
     }
     // Store available via services for any remaining legacy code
     window.APP.services.store = appStore;
-    if (!window.APP.bootloader) window.APP.bootloader = {};
+    window.APP.bootloader = window.APP.bootloader || {};
     
     // Initialize system coordination
     dispatch(startInitialization());
@@ -127,11 +137,18 @@ async function bootSecondary({ store, actions }) {
     services.consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
     
     // Ensure the logger is ready before creating services that depend on it
-    if (!window.APP.services.log) {
-        throw new Error("Logging service not available on window.APP.services.log");
+    if (!window.APP?.services?.log?.createLogger) {
+        console.error('[BOOTLOADER] Logging service not available - using console fallback for globalFetch');
+        const globalFetchLogger = {
+            info: (tag, msg) => console.log(`[API-${tag}] ${msg}`),
+            warn: (tag, msg) => console.warn(`[API-${tag}] ${msg}`),
+            error: (tag, msg) => console.error(`[API-${tag}] ${msg}`)
+        };
+        window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
+    } else {
+        const globalFetchLogger = window.APP.services.log.createLogger('API', 'globalFetch');
+        window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
     }
-    const globalFetchLogger = window.APP.services.log.createLogger('API', 'globalFetch');
-    window.APP.services.globalFetch = createGlobalFetch(globalFetchLogger);
     log.info('SERVICE_INJECTED', 'Injected logger into globalFetch service.');
 
 
@@ -178,7 +195,7 @@ async function bootSecondary({ store, actions }) {
     // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
     try {
         log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
-        const registerPanels = await import('/client/panels/panelRegistrationFix.js');
+        const registerPanels = await import('./panels/panelRegistrationFix.js');
         registerPanels.default(store);
         log.info('PANEL_REGISTRATION_COMPLETE', '✅ Panel registration script executed.');
     } catch (error) {
@@ -194,7 +211,7 @@ async function bootSecondary({ store, actions }) {
         log.info('WORKSPACE_HIERARCHY', '🎖️ Clean system: WorkspaceManager only');
         
         // Initialize Sidebar Visibility Controller
-        const { sidebarVisibilityController } = await import('/client/layout/SidebarVisibilityController.js');
+        const { sidebarVisibilityController } = await import('./layout/SidebarVisibilityController.js');
         sidebarVisibilityController.initialize();
         log.info('SIDEBAR_CONTROLLER', '✅ Sidebar visibility controller initialized');
         
@@ -213,7 +230,7 @@ async function bootSecondary({ store, actions }) {
             console.log('[BOOTLOADER] Found log-container, attempting to create LogDisplay...');
             
             // Import and create the full-featured LogDisplay
-            const { LogDisplay } = await import('/client/log/LogDisplay.js');
+            const { LogDisplay } = await import('./log/LogDisplay.js');
             console.log('[BOOTLOADER] LogDisplay imported successfully');
             
             // Create the log display instance
@@ -240,7 +257,7 @@ async function bootSecondary({ store, actions }) {
 
     // Initialize debug utilities first (always available)
     try {
-        const { initializeDebugUtils } = await import('/client/utils/debugUtils.js');
+        const { initializeDebugUtils } = await import('./utils/debugUtils.js');
         initializeDebugUtils();
         log.info('DEBUG_UTILS_INIT', '🔧 Debug utilities initialized successfully');
     } catch (error) {
@@ -279,12 +296,12 @@ async function bootSecondary({ store, actions }) {
     // Initialize debug system (panels + DebugDock) now that WorkspaceManager is ready
     try {
         // Initialize debug panels first (registers them with panelRegistry)
-        const { initializeDebugPanels } = await import('/packages/devpages-debug/debugPanelInitializer.js');
+        const { initializeDebugPanels } = await import('../packages/devpages-debug/debugPanelInitializer.js');
         const debugPanels = await initializeDebugPanels();
         log.info('DEBUG_PANELS_INIT', '🔧 Debug panels registered successfully');
         
         // Initialize DebugDock
-        const { debugDock } = await import('/packages/devpages-debug/DebugDock.js');
+        const { debugDock } = await import('../packages/devpages-debug/DebugDock.js');
         
         // Initialize the debug dock
         await debugDock.initialize();

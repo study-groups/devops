@@ -1,7 +1,7 @@
 // client/settings/panels/context/ContextManagerPanel.js
-import { BasePanel } from '/client/panels/BasePanel.js';
-import { appStore } from '/client/appState.js';
-import { navigateToPath } from '/client/store/slices/pathSlice.js';
+import { BasePanel } from '/panels/BasePanel.js';
+import { appStore } from '/appState.js';
+import { navigateToPath } from '/store/slices/pathSlice.js';
 
 export class ContextManagerPanel extends BasePanel {
     constructor(panelId, store, options = {}) {

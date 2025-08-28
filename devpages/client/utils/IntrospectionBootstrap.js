@@ -5,7 +5,7 @@
  */
 
 import { buttonIntrospection } from './ButtonIntrospection.js';
-import { keyboardShortcutManager } from './KeyboardShortcutManager.js';
+import keyboardShortcutManager from './KeyboardShortcutManager.js';
 import { logMessage } from '/client/log/index.js';
 
 class IntrospectionBootstrap {

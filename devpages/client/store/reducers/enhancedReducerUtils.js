@@ -3,7 +3,7 @@
  * Provides unified state persistence through the reducer pattern
  * Eliminates multiple localStorage access patterns
  */
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../../services/storageService.js';
 
 let log;
 const getLogger = () => {

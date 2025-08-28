@@ -37,7 +37,7 @@ class PublishRenderer {
     }
 
     // Load markdown-it from CDN (same as preview)
-    if (typeof window.markdownit === 'undefined') {
+    if (typeof window.APP.services.markdownit === 'undefined') {
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = '/client/vendor/scripts/markdown-it.min.js';

@@ -4,8 +4,9 @@
  * Can be used standalone or within the panel system.
  */
 import { BasePanel } from '/client/panels/BasePanel.js';
-import { appStore } from '/client/appState.js';
-import { clearEntries, selectFilteredEntries, addEntry } from '/client/store/slices/logSlice.js';
+import { appStore, dispatch } from '/client/appState.js';
+import { connect } from '/client/store/connect.js';
+import { logThunks, selectFilteredEntries, addEntry, clearEntries } from '/client/store/slices/logSlice.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { createLogPanelDOM, createExpandedEntryToolbarDOM } from './logEntryDOM.js';
 import { updateTagsBar, applyFiltersToLogEntries, clearFilterCache } from './LogFilterBar.js';

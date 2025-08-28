@@ -3,7 +3,7 @@
  * @description This middleware is responsible for persisting the state of the 'panelSizes' slice
  * to localStorage. It listens for the SET_PANEL_SIZE action and saves the updated state.
  */
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../../services/storageService.js';
 
 const PANEL_SIZES_KEY = 'panel_sizes';
 

@@ -27,7 +27,7 @@ export async function initializeSettingsPanel() {
     }
     
     // Check if the global registry variables are set up correctly
-    if (window.settingsRegistry && window.settingsRegistry === settingsRegistry) {
+    if (window.settingsRegistry && window.APP.services.settingsRegistry === settingsRegistry) {
       log.debug('INIT', 'REGISTRY_SETUP_OK', '[DEBUG] window.settingsRegistry is correctly set up');
     } else {
       log.warn('INIT', 'REGISTRY_SETUP_WARN', '[WARN] window.settingsRegistry is not correctly set up!');

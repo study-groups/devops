@@ -76,7 +76,7 @@ export class WorkspaceManager {
         console.log('[WorkspaceManager] ✅ Initialization complete');
 
         // Expose API
-        this.exposeAPI();
+        this.exposeAPI(); // Temporarily disabled to debug
     }
 
     validateCoreContainers() {
@@ -88,9 +88,49 @@ export class WorkspaceManager {
         });
 
         if (missing.length > 0) {
-            console.error('[WorkspaceManager] Missing core containers:', missing);
-            throw new Error(`Missing required workspace containers: ${missing.join(', ')}`);
+            console.warn('[WorkspaceManager] Missing core containers, creating them:', missing);
+            this.createWorkspaceLayout();
+            
+            // Re-initialize container references after creation
+            this.coreViews.editor.container = document.getElementById('workspace-editor');
+            this.coreViews.preview.container = document.getElementById('workspace-preview');
+            this.dynamicZones.sidebar = document.getElementById('workspace-sidebar');
+            
+            // Verify they were created successfully
+            const stillMissing = [];
+            Object.entries(this.coreViews).forEach(([viewName, view]) => {
+                if (!view.container) {
+                    stillMissing.push(`workspace-${viewName}`);
+                }
+            });
+            
+            if (stillMissing.length > 0) {
+                throw new Error(`Failed to create required workspace containers: ${stillMissing.join(', ')}`);
+            }
         }
+    }
+
+    createWorkspaceLayout() {
+        console.log('[WorkspaceManager] Creating workspace layout...');
+        
+        const app = document.getElementById('app');
+        if (!app) {
+            throw new Error('App container not found');
+        }
+        
+        // Create the main workspace structure
+        app.innerHTML = `
+            <div class="workspace-container">
+                <div id="workspace-sidebar" class="workspace-sidebar"></div>
+                <div class="workspace-resizer vertical" id="resizer-left"></div>
+                <div id="workspace-editor" class="workspace-editor"></div>
+                <div class="workspace-resizer vertical" id="resizer-right"></div>
+                <div id="workspace-preview" class="workspace-preview"></div>
+            </div>
+            <div id="log-container" class="log-container"></div>
+        `;
+        
+        console.log('[WorkspaceManager] ✅ Workspace layout created');
     }
 
     async initializeCoreViews() {
@@ -193,24 +233,24 @@ export class WorkspaceManager {
     }
 
     exposeAPI() {
-        if (!window.APP) window.APP = {};
-        if (!window.APP.workspace) window.APP.workspace = {};
-
-        window.APP.workspace.simplified = {
-            manager: this,
-            getCoreView: (viewName) => this.coreViews[viewName],
-            getView: (viewId) => this.loadedViewInstances.get(viewId),
-            getPanel: (panelId) => this.loadedPanelInstances.get(panelId),
-            refresh: () => this.refreshCoreViews(),
-            debug: () => this.debugInfo()
-        };
-
-        // Also expose at the main workspace level for compatibility
-        if (!window.APP.workspace.registerPanel) {
-            window.APP.workspace.registerPanel = this.registerPanel.bind(this);
+        if (!window.APP) {
+            window.APP = {};
         }
 
-        console.log('[WorkspaceManager] ✅ API exposed to window.APP.workspace.simplified');
+        const workspaceAPI = {
+            simplified: {
+                manager: this,
+                getCoreView: (viewName) => this.coreViews[viewName],
+                getView: (viewId) => this.loadedViewInstances.get(viewId),
+                getPanel: (panelId) => this.loadedPanelInstances.get(panelId),
+                refresh: () => this.refreshCoreViews(),
+                debug: () => this.debugInfo()
+            },
+            registerPanel: this.registerPanel.bind(this),
+        };
+
+        window.APP.workspace = workspaceAPI;
+        console.log('[WorkspaceManager] API exposed to window.APP.workspace');
     }
 
     async refreshCoreViews() {

@@ -3,6 +3,23 @@
  * Semantic workspace layout: sidebar, editor, preview areas
  */
 
+/* Main workspace container */
+.workspace-container {
+    display: flex;
+    height: calc(100vh - 40px); /* Account for potential top bar */
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Log container at bottom */
+.log-container {
+    height: 150px;
+    min-height: 30px;
+    max-height: 500px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg);
+}
+
 /* ===== LEFT ZONE DOCKS STYLES (merged from left-zone-docks.css) ===== */
 
 /* Main sidebar container */

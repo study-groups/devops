@@ -5,7 +5,7 @@
  * within the debug panel system.
  */
 
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
 // REMOVED: messageQueue import (file deleted)
 
 export class DomInspectorDebugPanel {

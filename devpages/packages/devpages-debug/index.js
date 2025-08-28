@@ -5,7 +5,7 @@
 
 // packages/devpages-debug/index.js
 import { PDataPanel } from './panels/PDataPanel.js';
-import { panelActions } from '/client/store/slices/panelSlice.js';
+import { panelActions } from '../../client/store/slices/panelSlice.js';
 import { DevToolsPanel } from './devtools/DevToolsPanel.js';
 import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
 import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';

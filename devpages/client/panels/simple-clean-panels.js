@@ -402,7 +402,8 @@
         
         // Integrate with window.APP
         if (window.APP) {
-            window.APP.cleanPanels = cleanPanelsAPI;
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('cleanPanels', cleanPanelsAPI);
         }
         window.cleanPanels = cleanPanelsAPI;
         

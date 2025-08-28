@@ -19,7 +19,7 @@ export {
 };
 
 // Also make it available globally for non-module usage
-window.initializeGameClient = initializeGameClient;
+window.APP.services.initializeGameClient = initializeGameClient;
 window.GameClient = GameClient;
 window.GAME_API_ACTIONS = GAME_API_ACTIONS;
 

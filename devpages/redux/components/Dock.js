@@ -11,7 +11,7 @@
  */
 
 import * as panelActions from '../slices/panelSlice.js';
-import { uiActions } from '/client/store/uiSlice.js';
+import { uiActions } from '/store/uiSlice.js';
 
 export class Dock {
     constructor(dockId, dispatch, getState) {

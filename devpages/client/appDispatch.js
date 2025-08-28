@@ -11,6 +11,8 @@ const log = window.APP.services.log.createLogger('SYSTEM', 'AppDispatch');
 
 // Import all the slice actions and thunks for easy access
 import { authThunks } from '/client/store/slices/authSlice.js';
+import { pluginThunks } from '/client/store/slices/pluginSlice.js';
+
 import { logThunks } from '/client/store/slices/logSlice.js';
 import { pathThunks } from '/client/store/slices/pathSlice.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';

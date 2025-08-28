@@ -1,82 +1,13 @@
 {
+  "type": "module",
   "name": "devpages",
   "version": "1.0.0",
-  "description": "DevPages content management system",
-  "type": "module",
+  "description": "DevPages Development Environment",
+  "main": "index.js",
   "scripts": {
-    "health-check": "node scripts/codebase-health-check.js",
-    "dev": "node server/index.js",
-    "start": "node server/index.js",
-    "test": "jest",
-    "test:meta-system": "node meta-language/tools/test-system.js",
-    "validate-actions": "node meta-language/tools/action-validator.js",
-    "generate-types": "node meta-language/tools/schema-codegen.js",
-    "validate-schema": "npm run validate-actions && npm run generate-types",
-    "precommit": "npm run validate-schema",
-    "lint": "eslint client/ --ext .js",
-    "lint:actions": "eslint client/ --ext .js --rule 'custom-rules/require-reducer: error'"
+    "migrate:app-namespace": "node scripts/migrate-app-namespace.js"
   },
-  "dependencies": {
-    "@aws-sdk/s3-request-presigner": "^3.848.0",
-    "@reduxjs/toolkit": "^2.8.2",
-    "client-s3": "github:aws-sdk/client-s3",
-    "cookie-parser": "^1.4.7",
-    "dotenv": "^17.2.0",
-    "express": "^5.0.0-beta.1",
-    "express-session": "^1.18.2",
-    "glob": "^10.3.0",
-    "gray-matter": "^4.0.3",
-    "js-yaml": "^4.1.0",
-    "minimatch": "^10.0.3",
-    "multer": "^2.0.2",
-    "node-nlp": "^5.0.0-alpha.5",
-    "passport": "^0.7.0",
-    "pdata": "^0.0.0",
-    "session-file-store": "^1.5.0"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.28.3",
-    "@babel/plugin-transform-modules-commonjs": "^7.27.1",
-    "@babel/preset-env": "^7.28.3",
-    "babel-jest": "^30.0.5",
-    "eslint": "^8.0.0",
-    "jest": "^30.0.5",
-    "jest-environment-jsdom": "^30.0.5"
-  },
-  "eslintConfig": {
-    "extends": [
-      "eslint:recommended"
-    ],
-    "env": {
-      "browser": true,
-      "es2022": true,
-      "node": true
-    },
-    "parserOptions": {
-      "ecmaVersion": 2022,
-      "sourceType": "module"
-    },
-    "rules": {
-      "no-unused-vars": [
-        "error",
-        {
-          "argsIgnorePattern": "^_"
-        }
-      ],
-      "no-console": "off"
-    },
-    "plugins": [
-      "custom-rules"
-    ],
-    "overrides": [
-      {
-        "files": [
-          "client/**/*.js"
-        ],
-        "rules": {
-          "custom-rules/require-reducer": "error"
-        }
-      }
-    ]
-  }
+  "keywords": ["development", "tools"],
+  "author": "",
+  "license": "ISC"
 }

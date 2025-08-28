@@ -5,7 +5,7 @@
  * which dispatch Redux thunks to manage the application state.
  */
 
-import { createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk } from '/client/vendor/scripts/redux-toolkit.mjs';
 import { appStore } from '/client/appState.js';
 import { 
     renderMarkdown as renderMarkdownThunk,

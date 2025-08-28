@@ -23,7 +23,7 @@ export function initializeImageEvents() {
             const imageName = deleteBtn.getAttribute('data-image-name');
             if (imageName) {
                 // Use the already-defined global handler
-                if (typeof window.handleImageDelete === 'function') {
+                if (typeof window.APP.services.handleImageDelete === 'function') {
                     window.handleImageDelete(imageName);
                 }
             }

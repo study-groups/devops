@@ -7,7 +7,7 @@ import { handleDeleteImageAction } from '/client/image/imageManager.js'; // Upda
 import { appStore } from '/client/appState.js';
 // --- REMOVED: Import settings state for dynamic toolbar ---
  
-import { executeRemoteCommand } from '/client/cli/handlers.js'; // Import CLI handler
+import { executeRemoteCommand } from '/cli/handlers.js'; // Import CLI handler
 import { appVer } from '/config.js'; // Use absolute path
 // --- END ADDED ---
 
@@ -212,7 +212,7 @@ function handleFormSubmit(event) {
 // Connect global functions for backward compatibility
 function connectGlobalFunctions() {
     // For image deletion - key change is to make this a noop since direct handler works
-    window.handleImageDelete = function(imageName) {
+    window.APP.services.handleImageDelete = function(imageName) {
         log.warn('LEGACY_HANDLE_IMAGE_DELETE', 'Legacy handleImageDelete called');
         // Don't call triggerActions.deleteImage(imageName) again
         // The button's onclick already triggers our direct handler

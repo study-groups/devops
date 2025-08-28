@@ -1,5 +1,5 @@
 /**
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
  * Icons.js - Icons and icon design tokens management panel
  * Provides comprehensive icon management with design tokens for explicit icon specification
  */
@@ -57,8 +57,9 @@ export class Icons {
             // SAFETY: Work with the stub system instead of overriding
             // The fix-window-panels.js stub handles the assignment safely
             window.APP = window.APP || {};
-            if (window.APP.panels && typeof window.APP.panels === 'object') {
+            if (window.APP.panels && typeof window.APP.panels == 'object') {
                 // Only assign if the stub system is in place
+                window.APP.panels = window.APP.panels || {};
                 window.APP.panels.icons = this;
                 console.log('✅ Icons assigned to window.APP.panels stub system');
             } else {
@@ -211,7 +212,7 @@ export class Icons {
         this.renderIconGrid();
         
         dispatch({
-            type: // ActionTypes.SETTINGS_SET_ACTIVE_ICON_SET,
+            type: 'SETTINGS_SET_ACTIVE_ICON_SET', // ActionTypes.SETTINGS_SET_ACTIVE_ICON_SET,
             payload: setKey
         });
         
@@ -378,7 +379,7 @@ export class Icons {
         this.applyIconTokens();
         
         dispatch({
-            type: // ActionTypes.SETTINGS_UPDATE_ICON_TOKENS,
+            type: 'SETTINGS_UPDATE_ICON_TOKENS', // ActionTypes.SETTINGS_UPDATE_ICON_TOKENS,
             payload: { [tokenName]: value }
         });
         
@@ -495,7 +496,7 @@ export class Icons {
     saveCustomIcons() {
         const customIconsObj = Object.fromEntries(this.customIcons);
         dispatch({
-            type: // ActionTypes.SETTINGS_SAVE_CUSTOM_ICONS,
+            type: 'SETTINGS_SAVE_CUSTOM_ICONS', // ActionTypes.SETTINGS_SAVE_CUSTOM_ICONS,
             payload: customIconsObj
         });
     }
@@ -919,8 +920,8 @@ export class Icons {
         }
         
         // Clean up global references
-        if (window.iconsPanel === this) {
-            window.iconsPanel = null;
+        if (window.APP.components.iconsPanel === this) {
+            window.APP.components.iconsPanel = null;
         }
         
         // Clean up from devpages structure

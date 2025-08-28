@@ -4,7 +4,7 @@
  */
 
 import { BasePanel } from '/client/panels/BasePanel.js';
-import { e } from '/client/components/elements.js';
+import { e } from '/components/elements.js';
 import { appStore } from '/client/appState.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 

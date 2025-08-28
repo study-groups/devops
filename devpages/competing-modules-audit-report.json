@@ -10,14 +10,6 @@
       "severity": "medium"
     },
     {
-      "className": "PanelUI",
-      "files": [
-        "client/dom-inspector/core/PanelUI.js",
-        "redux/components/PanelUI.js"
-      ],
-      "severity": "low"
-    },
-    {
       "className": "this",
       "files": [
         "client/dom-inspector/interaction/HighlightOverlay.js",
@@ -55,30 +47,6 @@
       "severity": "high"
     },
     {
-      "className": "KeyboardShortcutManager",
-      "files": [
-        "client/keyboard/KeyboardShortcutManager.js",
-        "client/utils/KeyboardShortcutManager.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "className": "Sidebar",
-      "files": [
-        "client/layout/Sidebar.js",
-        "client/layout/Sidebar_backup.js"
-      ],
-      "severity": "low"
-    },
-    {
-      "className": "SidebarHeader",
-      "files": [
-        "client/layout/SidebarHeader.js",
-        "client/layout/SidebarHeader_backup.js"
-      ],
-      "severity": "low"
-    },
-    {
       "className": "to",
       "files": [
         "client/log/AppLogBuffer.js",
@@ -101,7 +69,6 @@
         "client/log/ConsoleLogBuffer.js",
         "client/log/LogBuffer.js",
         "client/log/LogEntry.js",
-        "client/panels/BasePanel_backup.js",
         "client/preview/plugins/mermaid/fullscreen.js",
         "client/preview/renderers/MarkdownRenderer.js",
         "client/settings/panels/icons/Icons.js"
@@ -174,43 +141,10 @@
       "severity": "low"
     },
     {
-      "className": "BasePanel",
-      "files": [
-        "client/panels/BasePanel.js",
-        "client/panels/BasePanel_backup.js",
-        "client/panels/BasePanel_restored.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "className": "render",
-      "files": [
-        "client/panels/BasePanel_backup.js",
-        "client/preview/renderer.js"
-      ],
-      "severity": "low"
-    },
-    {
-      "className": "FileTreePanel",
-      "files": [
-        "client/panels/FileTreePanel.js",
-        "notsure/panels/FileTreePanel.js"
-      ],
-      "severity": "low"
-    },
-    {
       "className": "panelElement",
       "files": [
         "client/panels/PanelReorderManager.js",
         "fix-design-tokens-with-proper-css.js"
-      ],
-      "severity": "low"
-    },
-    {
-      "className": "TreesPanel",
-      "files": [
-        "client/panels/TreesPanel.js",
-        "notsure/panels/TreesPanel.js"
       ],
       "severity": "low"
     },
@@ -231,14 +165,6 @@
       "severity": "low"
     },
     {
-      "className": "GameClient",
-      "files": [
-        "client/sdk/gameClient.js",
-        "client/sdk/pjaSdk.js"
-      ],
-      "severity": "low"
-    },
-    {
       "className": "method",
       "files": [
         "client/settings/panels/console/ConsoleLogPanel.js",
@@ -255,23 +181,6 @@
         "fix-design-tokens-with-proper-css.js"
       ],
       "severity": "low"
-    },
-    {
-      "className": "ZIndexManager",
-      "files": [
-        "client/utils/ZIndexManager.js",
-        "redux/utils/ZIndexManager.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "className": "ActionValidationError",
-      "files": [
-        "client/validation/action-validators.js",
-        "meta-language/generated/action-validators.js",
-        "meta-language/tools/schema-codegen.js"
-      ],
-      "severity": "medium"
     },
     {
       "className": "struct",
@@ -349,34 +258,12 @@
         "redux/components/PDataPanel.js"
       ],
       "severity": "low"
-    },
-    {
-      "className": "CapabilityManager",
-      "files": [
-        "pdata/CapabilityManager.js",
-        "server/middleware/capabilities.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "className": "PData",
-      "files": [
-        "pdata/PData.js",
-        "pdata/PData.original.js",
-        "server/utils/pdata.js"
-      ],
-      "severity": "medium"
     }
   ],
   "competingManagers": [
     {
       "baseName": "keyboardshortcut",
       "implementations": [
-        {
-          "className": "KeyboardShortcutManager",
-          "file": "client/keyboard/KeyboardShortcutManager.js",
-          "type": "Manager"
-        },
         {
           "className": "KeyboardShortcutManager",
           "file": "client/utils/KeyboardShortcutManager.js",
@@ -386,38 +273,6 @@
           "className": "KeyboardShortcutHandler",
           "file": "redux/components/KeyboardShortcutHandler.js",
           "type": "Handler"
-        }
-      ],
-      "severity": "high"
-    },
-    {
-      "baseName": "zindex",
-      "implementations": [
-        {
-          "className": "ZIndexManager",
-          "file": "client/utils/ZIndexManager.js",
-          "type": "Manager"
-        },
-        {
-          "className": "ZIndexManager",
-          "file": "redux/utils/ZIndexManager.js",
-          "type": "Manager"
-        }
-      ],
-      "severity": "high"
-    },
-    {
-      "baseName": "capability",
-      "implementations": [
-        {
-          "className": "CapabilityManager",
-          "file": "pdata/CapabilityManager.js",
-          "type": "Manager"
-        },
-        {
-          "className": "CapabilityManager",
-          "file": "server/middleware/capabilities.js",
-          "type": "Manager"
         }
       ],
       "severity": "high"
@@ -526,10 +381,7 @@
         },
         {
           "file": "client/keyboardShortcuts.js",
-          "patterns": [
-            "initialize()",
-            "constructor"
-          ]
+          "patterns": []
         },
         {
           "file": "client/main.js",
@@ -661,13 +513,73 @@
           ]
         },
         {
-          "file": "redux/components/PanelUI.js",
-          "patterns": []
-        },
-        {
           "file": "redux/components/SplashScreen.js",
           "patterns": [
             "init()"
+          ]
+        }
+      ],
+      "severity": "medium"
+    },
+    {
+      "domain": "core",
+      "files": [
+        {
+          "file": "client/core/AppInitializer.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/core/BootloaderIntegration.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/core/EventDelegationManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/core/InitializationManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/core/ModuleBoundaries.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/dom-inspector/core/PanelUI.js",
+          "patterns": []
+        },
+        {
+          "file": "client/dom-inspector/core/StateManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "client/settings/core/settingsInitializer.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
+          "file": "packages/devpages-debug/panels/CssFilesPanel/core/CssStateManager.js",
+          "patterns": [
+            "initialize()",
+            "constructor"
           ]
         }
       ],
@@ -710,27 +622,16 @@
       "severity": "medium"
     },
     {
-      "domain": "core",
+      "domain": "managers",
       "files": [
         {
-          "file": "client/dom-inspector/core/PanelUI.js",
-          "patterns": []
-        },
-        {
-          "file": "client/dom-inspector/core/StateManager.js",
-          "patterns": [
-            "initialize()",
-            "constructor"
-          ]
-        },
-        {
-          "file": "client/settings/core/settingsInitializer.js",
+          "file": "client/dom-inspector/managers/SelectorManager.js",
           "patterns": [
             "constructor"
           ]
         },
         {
-          "file": "packages/devpages-debug/panels/CssFilesPanel/core/CssStateManager.js",
+          "file": "client/managers/UnifiedManagerSystem.js",
           "patterns": [
             "initialize()",
             "constructor"
@@ -787,13 +688,6 @@
         },
         {
           "file": "client/layout/SidebarVisibilityController.js",
-          "patterns": [
-            "initialize()",
-            "constructor"
-          ]
-        },
-        {
-          "file": "client/layout/Sidebar_backup.js",
           "patterns": [
             "initialize()",
             "constructor"
@@ -1018,20 +912,6 @@
           ]
         },
         {
-          "file": "notsure/panels/FileTreePanel.js",
-          "patterns": [
-            "init()",
-            "constructor"
-          ]
-        },
-        {
-          "file": "notsure/panels/TreesPanel.js",
-          "patterns": [
-            "init()",
-            "constructor"
-          ]
-        },
-        {
           "file": "packages/devpages-debug/panels/ExternalDependenciesPanel.js",
           "patterns": [
             "constructor"
@@ -1204,30 +1084,6 @@
       "severity": "medium"
     },
     {
-      "domain": "sdk",
-      "files": [
-        {
-          "file": "client/sdk/gameClient.js",
-          "patterns": [
-            "constructor"
-          ]
-        },
-        {
-          "file": "client/sdk/pjaSdk.js",
-          "patterns": [
-            "constructor"
-          ]
-        },
-        {
-          "file": "client/sdk/pjaSdk.module.js",
-          "patterns": [
-            "constructor"
-          ]
-        }
-      ],
-      "severity": "medium"
-    },
-    {
       "domain": "utils",
       "files": [
         {
@@ -1310,20 +1166,7 @@
           ]
         },
         {
-          "file": "redux/utils/ZIndexManager.js",
-          "patterns": [
-            "init()",
-            "constructor"
-          ]
-        },
-        {
           "file": "server/utils/htmlGenerator.js",
-          "patterns": [
-            "constructor"
-          ]
-        },
-        {
-          "file": "server/utils/pdata.js",
           "patterns": [
             "constructor"
           ]
@@ -1530,6 +1373,12 @@
           ]
         },
         {
+          "file": "client/vendor/scripts/markdown-it-loader.js",
+          "patterns": [
+            "constructor"
+          ]
+        },
+        {
           "file": "client/vendor/scripts/marked.esm.js",
           "patterns": [
             "constructor"
@@ -1540,6 +1389,12 @@
           "patterns": [
             "initialize()",
             "init()",
+            "constructor"
+          ]
+        },
+        {
+          "file": "scripts/global-namespace-migration.js",
+          "patterns": [
             "constructor"
           ]
         }
@@ -1641,24 +1496,6 @@
         {
           "file": "verify-fixes.js",
           "patterns": []
-        }
-      ],
-      "severity": "medium"
-    },
-    {
-      "domain": "tools",
-      "files": [
-        {
-          "file": "meta-language/tools/action-validator.js",
-          "patterns": [
-            "constructor"
-          ]
-        },
-        {
-          "file": "meta-language/tools/schema-codegen.js",
-          "patterns": [
-            "constructor"
-          ]
         }
       ],
       "severity": "medium"
@@ -1773,12 +1610,6 @@
           ]
         },
         {
-          "file": "pdata/PData.original.js",
-          "patterns": [
-            "constructor"
-          ]
-        },
-        {
           "file": "pdata/index.js",
           "patterns": []
         },
@@ -1844,24 +1675,21 @@
     {
       "globalName": "APP",
       "files": [
-        "client/appState.js",
         "client/auth.js",
-        "client/bootloader.js",
         "client/components/topBar.js",
         "client/components/topBar.js",
+        "client/core/AppInitializer.js",
         "client/fix-window-panels.js",
-        "client/keyboardShortcuts.js",
         "client/layout/Sidebar.js",
-        "client/layout/Sidebar_backup.js",
         "client/layout/WorkspaceManager.js",
         "client/log/ConsoleLogManager.js",
         "client/log/ConsoleLogManager.js",
         "client/log/LogDisplay.js",
         "client/log/UnifiedLogging.js",
+        "client/managers/UnifiedManagerSystem.js",
         "client/pubsub.js",
         "client/settings/panels/icons/Icons.js",
         "client/settings/utils/debug-panels.js",
-        "client/utils/KeyboardShortcutManager.js",
         "client/utils/debugUtils.js",
         "debug-scripts/log-alignment-debugger.js",
         "debug-scripts/log-debugger.js",
@@ -1876,43 +1704,12 @@
       "severity": "high"
     },
     {
-      "globalName": "markdownit",
-      "files": [
-        "client/components/publish/PublishRenderer.js",
-        "client/preview/renderer.js",
-        "client/preview/renderer.js",
-        "client/preview/renderer.js",
-        "client/preview/renderer.js",
-        "client/preview/renderer.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "devPages",
-      "files": [
-        "client/dom-inspector/domInspectorInitializer.js",
-        "client/settings/core/settingsInitializer.js",
-        "client/settings/panels/console/ConsoleLogPanel.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "handleImageDelete",
-      "files": [
-        "client/domEvents.js",
-        "client/image/imageEvents.js"
-      ],
-      "severity": "medium"
-    },
-    {
       "globalName": "GAME_API_ACTIONS",
       "files": [
         "client/log/ApiLog.js",
-        "client/sdk/pjaSdk.js",
         "client/sdk/pjaSdk.module.js"
       ],
-      "severity": "high"
+      "severity": "medium"
     },
     {
       "globalName": "config",
@@ -1931,58 +1728,7 @@
       "severity": "medium"
     },
     {
-      "globalName": "logManager",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/log/LogManager.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "isConsoleLoggingEnabled",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/log/LogCore.js",
-        "client/settings/panels/console/ConsoleLogPanel.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "enableConsoleLogging",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "disableConsoleLogging",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "getLogBuffer",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/settings/panels/console/ConsoleLogPanel.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "high"
-    },
-    {
       "globalName": "getLogBufferSize",
-      "files": [
-        "client/log/ConsoleLogManager.js",
-        "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "clearLogBuffer",
       "files": [
         "client/log/ConsoleLogManager.js",
         "client/settings/panels/console/ConsoleLogPanel.js"
@@ -1998,77 +1744,10 @@
       "severity": "medium"
     },
     {
-      "globalName": "_mermaidActivePanSvg",
-      "files": [
-        "client/preview/plugins/mermaid/controls.js",
-        "client/preview/plugins/mermaid/controls.js",
-        "client/preview/plugins/mermaid/controls.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "_mermaidPanData",
-      "files": [
-        "client/preview/plugins/mermaid/controls.js",
-        "client/preview/plugins/mermaid/controls.js",
-        "client/preview/plugins/mermaid/controls.js"
-      ],
-      "severity": "high"
-    },
-    {
       "globalName": "_mermaidResizeInProgress",
       "files": [
         "client/preview/plugins/mermaid/controls.js",
         "client/preview/plugins/mermaid/controls.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "gameClient",
-      "files": [
-        "client/sdk/gameClient.js",
-        "client/sdk/pjaSdk.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "PJA",
-      "files": [
-        "client/sdk/gameClient.js",
-        "client/sdk/pjaSdk.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "initializeGameClient",
-      "files": [
-        "client/sdk/gameClient.js",
-        "client/sdk/pjaSdk.js",
-        "client/sdk/pjaSdk.module.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "GameClient",
-      "files": [
-        "client/sdk/pjaSdk.js",
-        "client/sdk/pjaSdk.module.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "pjaSdk",
-      "files": [
-        "client/sdk/pjaSdk.js",
-        "client/sdk/pjaSdk.module.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "settingsRegistry",
-      "files": [
-        "client/settings/core/settingsInitializer.js",
-        "client/settings/core/settingsRegistry.js"
       ],
       "severity": "medium"
     },
@@ -2109,31 +1788,6 @@
       "files": [
         "client/settings/panels/console/ConsoleLogPanel.js",
         "client/settings/panels/console/ConsoleLogPanel.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "iconsPanel",
-      "files": [
-        "client/settings/panels/icons/Icons.js",
-        "client/settings/panels/icons/Icons.js"
-      ],
-      "severity": "medium"
-    },
-    {
-      "globalName": "devpages",
-      "files": [
-        "client/settings/utils/PanelIntrospector.js",
-        "client/utils/ZIndexManager.js",
-        "client/utils/windowConsolidation.js"
-      ],
-      "severity": "high"
-    },
-    {
-      "globalName": "zIndexManager",
-      "files": [
-        "client/utils/ZIndexManager.js",
-        "redux/utils/ZIndexManager.js"
       ],
       "severity": "medium"
     }
@@ -2192,7 +1846,6 @@
         "client/file-browser/FileBrowserPanel.js",
         "client/file-browser/FileTreeManager.js",
         "client/image/imageEvents.js",
-        "client/layout/SidebarHeader_backup.js",
         "client/layout/docks/BaseDock.js",
         "client/layout/docks/DockFlyoutManager.js",
         "client/layout/docks/DockFlyoutManager.js",
@@ -2211,7 +1864,6 @@
         "client/log/logEntryDOM.js",
         "client/panels/BasePanel.js",
         "client/panels/BasePanel.js",
-        "client/panels/BasePanel_backup.js",
         "client/panels/CommPanel.js",
         "client/panels/FileTreePanel.js",
         "client/panels/JavaScriptPanel.js",
@@ -2308,8 +1960,6 @@
         "notsure/panels/ApiTokenPanel.js",
         "notsure/panels/ApiTokenPanel.js",
         "notsure/panels/ContextManagerPanel.js",
-        "notsure/panels/FileTreePanel.js",
-        "notsure/panels/TreesPanel.js",
         "operations.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugDock.js",
@@ -2361,13 +2011,10 @@
         "redux/components/Dock.js",
         "redux/components/Dock.js",
         "redux/components/PDataPanel.js",
-        "redux/components/PanelUI.js",
-        "redux/components/PanelUI.js",
         "redux/components/SplashScreen.js",
-        "redux/utils/ZIndexManager.js",
         "test-resize.js"
       ],
-      "count": 224,
+      "count": 217,
       "severity": "high"
     },
     {
@@ -2381,7 +2028,6 @@
         "client/components/publish/PublishModal.js",
         "client/dom-inspector/interaction/ElementPicker.js",
         "client/image/imageManager.js",
-        "client/layout/SidebarHeader_backup.js",
         "client/log/LogFilterBar.js",
         "client/panels/CLIPanel.js",
         "client/panels/EditorPanel.js",
@@ -2397,10 +2043,9 @@
         "packages/devpages-debug/panels/CssFilesPanel/CssFilesPanel.js",
         "packages/devpages-debug/panels/CssFilesPanel/modules/CssFileModal.js",
         "pdata/coverage/lcov-report/block-navigation.js",
-        "redux/components/KeyboardShortcutHandler.js",
-        "redux/utils/ZIndexManager.js"
+        "redux/components/KeyboardShortcutHandler.js"
       ],
-      "count": 26,
+      "count": 24,
       "severity": "high"
     },
     {
@@ -2410,10 +2055,9 @@
         "client/bootloader.js",
         "client/bootloader.js",
         "client/cli/logger.js",
+        "client/core/EventDelegationManager.js",
         "client/domEvents.js",
         "client/handlers.js",
-        "client/sdk/gameClient.js",
-        "client/sdk/pjaSdk.js",
         "client/utils/IntrospectionBootstrap.js",
         "client/utils/debugUtils.js",
         "client/vendor/scripts/highlight.min.js",
@@ -2422,7 +2066,7 @@
         "packages/devpages-debug/panels/JavaScriptInfoPanel.js",
         "redux/components/SplashScreen.js"
       ],
-      "count": 15,
+      "count": 14,
       "severity": "high"
     },
     {
@@ -2499,7 +2143,6 @@
         "client/utils/popup.js",
         "client/utils/popup.js",
         "debug-scripts/resizer-debugger.js",
-        "notsure/panels/FileTreePanel.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugPanelManager.js",
@@ -2507,13 +2150,9 @@
         "packages/devpages-debug/DebugPanelManager.js",
         "redux/components/Dock.js",
         "redux/components/Dock.js",
-        "redux/components/Dock.js",
-        "redux/components/PanelUI.js",
-        "redux/components/PanelUI.js",
-        "redux/components/PanelUI.js",
-        "redux/components/PanelUI.js"
+        "redux/components/Dock.js"
       ],
-      "count": 38,
+      "count": 33,
       "severity": "high"
     },
     {
@@ -2538,10 +2177,9 @@
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugPanelManager.js",
-        "redux/components/Dock.js",
-        "redux/components/PanelUI.js"
+        "redux/components/Dock.js"
       ],
-      "count": 21,
+      "count": 20,
       "severity": "high"
     },
     {
@@ -2564,14 +2202,12 @@
         "client/settings/utils/SettingsDomUtils.js",
         "client/utils/popup.js",
         "client/utils/popup.js",
-        "notsure/panels/FileTreePanel.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugDock.js",
         "packages/devpages-debug/DebugPanelManager.js",
-        "redux/components/Dock.js",
-        "redux/components/PanelUI.js"
+        "redux/components/Dock.js"
       ],
-      "count": 23,
+      "count": 21,
       "severity": "high"
     },
     {
@@ -2601,10 +2237,9 @@
         "client/preview/plugins/mermaid/fullscreen.js",
         "client/settings/utils/SettingsDomUtils.js",
         "debug-scripts/css/button-hover-debugger.js",
-        "debug-scripts/resizer-debugger.js",
-        "notsure/panels/FileTreePanel.js"
+        "debug-scripts/resizer-debugger.js"
       ],
-      "count": 11,
+      "count": 10,
       "severity": "high"
     },
     {
@@ -2716,10 +2351,6 @@
         {
           "file": "tests/auth-integration.test.js",
           "score": 167
-        },
-        {
-          "file": "pdata/PData.original.js",
-          "score": 153
         },
         {
           "file": "server/routes/files.js",
@@ -2842,14 +2473,6 @@
           "score": 47
         },
         {
-          "file": "server/middleware/capabilities.js",
-          "score": 45
-        },
-        {
-          "file": "server/utils/pdata.js",
-          "score": 44
-        },
-        {
           "file": "client/headers.js",
           "score": 42
         },
@@ -2934,6 +2557,10 @@
           "score": 24
         },
         {
+          "file": "client/core/ModuleBoundaries.js",
+          "score": 24
+        },
+        {
           "file": "client/panels/BasePanel.js",
           "score": 24
         },
@@ -2990,14 +2617,6 @@
           "score": 19
         },
         {
-          "file": "client/sdk/gameClient.js",
-          "score": 18
-        },
-        {
-          "file": "client/sdk/pjaSdk.js",
-          "score": 18
-        },
-        {
           "file": "test-editor-preview.js",
           "score": 18
         },
@@ -3018,8 +2637,16 @@
           "score": 15
         },
         {
+          "file": "client/core/InitializationManager.js",
+          "score": 14
+        },
+        {
           "file": "client/vendor/scripts/markdown-it.min.js",
           "score": 14
+        },
+        {
+          "file": "client/managers/UnifiedManagerSystem.js",
+          "score": 13
         },
         {
           "file": "pdata/test-production.js",
@@ -3043,10 +2670,6 @@
         },
         {
           "file": "debug-scripts/redux/run.js",
-          "score": 12
-        },
-        {
-          "file": "meta-language/generated/action-validators.js",
           "score": 12
         },
         {
@@ -3141,7 +2764,7 @@
         },
         {
           "file": "packages/devpages-debug/DebugDock.js",
-          "score": 224
+          "score": 235
         },
         {
           "file": "packages/devpages-debug/DebugPanelManager.js",
@@ -3150,10 +2773,6 @@
         {
           "file": "client/settings/panels/console/ConsoleLogPanel.js",
           "score": 183
-        },
-        {
-          "file": "client/utils/KeyboardShortcutManager.js",
-          "score": 176
         },
         {
           "file": "debug-scripts/resizer-debugger.js",
@@ -3220,20 +2839,16 @@
           "score": 91
         },
         {
+          "file": "client/bootloader.js",
+          "score": 89
+        },
+        {
           "file": "client/cli/index.js",
           "score": 85
         },
         {
-          "file": "redux/utils/ZIndexManager.js",
-          "score": 83
-        },
-        {
           "file": "debug-scripts/css/zindex-debugger.js",
           "score": 82
-        },
-        {
-          "file": "client/bootloader.js",
-          "score": 79
         },
         {
           "file": "client/preview/plugins/mermaid/controls.js",
@@ -3308,6 +2923,10 @@
           "score": 63
         },
         {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 63
+        },
+        {
           "file": "debug-scripts/css/css-bundle-inspector.js",
           "score": 63
         },
@@ -3372,12 +2991,20 @@
           "score": 51
         },
         {
-          "file": "client/layout/SidebarHeader_backup.js",
+          "file": "client/core/EventDelegationManager.js",
           "score": 50
         },
         {
           "file": "client/utils/migrationHelper.js",
           "score": 50
+        },
+        {
+          "file": "client/managers/UnifiedManagerSystem.js",
+          "score": 49
+        },
+        {
+          "file": "client/core/AppInitializer.js",
+          "score": 47
         },
         {
           "file": "debug-log-alignment.js",
@@ -3480,7 +3107,15 @@
           "score": 35
         },
         {
+          "file": "client/core/ModuleBoundaries.js",
+          "score": 33
+        },
+        {
           "file": "client/dom-inspector/DomInspectorSettings.js",
+          "score": 33
+        },
+        {
+          "file": "scripts/global-namespace-migration.js",
           "score": 33
         },
         {
@@ -3564,6 +3199,10 @@
           "score": 27
         },
         {
+          "file": "client/core/InitializationManager.js",
+          "score": 26
+        },
+        {
           "file": "client/log/ConsoleCallerInfo.js",
           "score": 26
         },
@@ -3584,6 +3223,18 @@
           "score": 25
         },
         {
+          "file": "scripts/manager-consolidation.js",
+          "score": 25
+        },
+        {
+          "file": "client/core/BootloaderIntegration.js",
+          "score": 24
+        },
+        {
+          "file": "redux/components/PDataPanel.js",
+          "score": 24
+        },
+        {
           "file": "scripts/codebase-health-check.js",
           "score": 24
         },
@@ -3594,6 +3245,10 @@
         {
           "file": "tests/auth-integration.test.js",
           "score": 24
+        },
+        {
+          "file": "client/appState.js",
+          "score": 23
         },
         {
           "file": "client/log/LogFilterBar.js",
@@ -3617,14 +3272,6 @@
         },
         {
           "file": "client/preview/renderers/MarkdownRenderer.js",
-          "score": 21
-        },
-        {
-          "file": "client/sdk/gameClient.js",
-          "score": 21
-        },
-        {
-          "file": "client/sdk/pjaSdk.js",
           "score": 21
         },
         {
@@ -3704,14 +3351,6 @@
           "score": 18
         },
         {
-          "file": "redux/components/PDataPanel.js",
-          "score": 18
-        },
-        {
-          "file": "server/utils/pdata.js",
-          "score": 18
-        },
-        {
           "file": "client/log/logEntryDOM.js",
           "score": 17
         },
@@ -3784,10 +3423,6 @@
           "score": 15
         },
         {
-          "file": "client/appState.js",
-          "score": 14
-        },
-        {
           "file": "client/dom-inspector/core/StateManager.js",
           "score": 14
         },
@@ -3804,10 +3439,6 @@
           "score": 13
         },
         {
-          "file": "notsure/panels/TreesPanel.js",
-          "score": 13
-        },
-        {
           "file": "packages/devpages-debug/panels/CssFilesPanel/renderers/FileListRenderer.js",
           "score": 13
         },
@@ -3817,10 +3448,6 @@
         },
         {
           "file": "redux/components/KeyboardShortcutHandler.js",
-          "score": 13
-        },
-        {
-          "file": "redux/components/PanelUI.js",
           "score": 13
         },
         {
@@ -3872,10 +3499,6 @@
           "score": 11
         },
         {
-          "file": "client/layout/Sidebar_backup.js",
-          "score": 10
-        },
-        {
           "file": "client/lifecycle/LifecycleManager.js",
           "score": 10
         },
@@ -3897,10 +3520,6 @@
         },
         {
           "file": "client/views/EditorView.js",
-          "score": 10
-        },
-        {
-          "file": "notsure/panels/FileTreePanel.js",
           "score": 10
         },
         {
@@ -3928,19 +3547,11 @@
           "score": 9
         },
         {
-          "file": "meta-language/tools/schema-codegen.js",
-          "score": 9
-        },
-        {
           "file": "pdata/tests/setupTestUsers.js",
           "score": 9
         },
         {
           "file": "server/api/cli.js",
-          "score": 9
-        },
-        {
-          "file": "server/middleware/capabilities.js",
           "score": 9
         },
         {
@@ -3982,6 +3593,10 @@
         {
           "file": "pdata/test-mounts.js",
           "score": 8
+        },
+        {
+          "file": "client/keyboardShortcuts.js",
+          "score": 7
         },
         {
           "file": "client/panels/HtmlPanel.js",
@@ -4087,7 +3702,7 @@
         },
         {
           "file": "packages/devpages-debug/DebugDock.js",
-          "score": 474
+          "score": 482
         },
         {
           "file": "client/panels/test-complete-panel-system.js",
@@ -4106,15 +3721,15 @@
           "score": 372
         },
         {
+          "file": "redux/components/PDataPanel.js",
+          "score": 368
+        },
+        {
           "file": "redux/components/Dock.js",
           "score": 362
         },
         {
           "file": "client/layout/Sidebar.js",
-          "score": 350
-        },
-        {
-          "file": "redux/components/PDataPanel.js",
           "score": 350
         },
         {
@@ -4136,10 +3751,6 @@
         {
           "file": "client/panels/PanelControlCenter.js",
           "score": 302
-        },
-        {
-          "file": "notsure/panels/TreesPanel.js",
-          "score": 296
         },
         {
           "file": "client/panels/TreesPanel.js",
@@ -4186,16 +3797,8 @@
           "score": 184
         },
         {
-          "file": "client/layout/Sidebar_backup.js",
-          "score": 174
-        },
-        {
           "file": "redux/middleware/persistenceMiddleware.js",
           "score": 172
-        },
-        {
-          "file": "client/layout/SidebarHeader_backup.js",
-          "score": 170
         },
         {
           "file": "client/settings/panels/console/ConsoleLogPanel.js",
@@ -4215,10 +3818,6 @@
         },
         {
           "file": "client/panels/panelRegistrationFix.js",
-          "score": 154
-        },
-        {
-          "file": "redux/components/PanelUI.js",
           "score": 154
         },
         {
@@ -4259,10 +3858,6 @@
         },
         {
           "file": "client/dom-inspector/DomInspectorSettings.js",
-          "score": 132
-        },
-        {
-          "file": "client/utils/KeyboardShortcutManager.js",
           "score": 132
         },
         {
@@ -4307,10 +3902,6 @@
         },
         {
           "file": "client/settings/core/settingsInitializer.js",
-          "score": 106
-        },
-        {
-          "file": "notsure/panels/FileTreePanel.js",
           "score": 106
         },
         {
@@ -4406,6 +3997,10 @@
           "score": 64
         },
         {
+          "file": "client/appState.js",
+          "score": 62
+        },
+        {
           "file": "client/eventBus.js",
           "score": 62
         },
@@ -4434,16 +4029,20 @@
           "score": 60
         },
         {
+          "file": "client/core/ModuleBoundaries.js",
+          "score": 58
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 58
+        },
+        {
           "file": "client/panels/HtmlPanel.js",
           "score": 56
         },
         {
           "file": "server/routes/css.js",
           "score": 56
-        },
-        {
-          "file": "client/appState.js",
-          "score": 54
         },
         {
           "file": "client/settings/core/panelOrder.js",
@@ -4478,10 +4077,6 @@
           "score": 48
         },
         {
-          "file": "client/panels/BasePanel_backup.js",
-          "score": 48
-        },
-        {
           "file": "client/panels/JavaScriptPanel.js",
           "score": 48
         },
@@ -4492,10 +4087,6 @@
         {
           "file": "packages/devpages-debug/panels/CssFilesPanel/analysis/ZIndexAnalyzer.js",
           "score": 46
-        },
-        {
-          "file": "client/panels/BasePanel_restored.js",
-          "score": 44
         },
         {
           "file": "packages/devpages-debug/devtools/StateKitDevTools.js",
@@ -4524,6 +4115,14 @@
         {
           "file": "test-sidebar-implementation.js",
           "score": 40
+        },
+        {
+          "file": "client/core/BootloaderIntegration.js",
+          "score": 38
+        },
+        {
+          "file": "client/managers/UnifiedManagerSystem.js",
+          "score": 38
         },
         {
           "file": "client/settings/panels/preview/PreviewSettingsPanel.js",
@@ -4678,6 +4277,10 @@
           "score": 16
         },
         {
+          "file": "client/core/InitializationManager.js",
+          "score": 14
+        },
+        {
           "file": "client/panels/ContextPanel.js",
           "score": 14
         },
@@ -4720,6 +4323,14 @@
         {
           "file": "scripts/audit.js",
           "score": 10
+        },
+        {
+          "file": "scripts/global-namespace-migration.js",
+          "score": 10
+        },
+        {
+          "file": "client/core/AppInitializer.js",
+          "score": 8
         },
         {
           "file": "client/dom-inspector/IframeDetailsManager.js",
@@ -4780,10 +4391,6 @@
           "score": 136
         },
         {
-          "file": "meta-language/generated/action-validators.js",
-          "score": 136
-        },
-        {
           "file": "client/log/ConsoleTiming.js",
           "score": 87
         },
@@ -4812,24 +4419,24 @@
           "score": 65
         },
         {
+          "file": "client/appState.js",
+          "score": 58
+        },
+        {
           "file": "client/actions/fileActions.js",
           "score": 57
+        },
+        {
+          "file": "client/bootloader.js",
+          "score": 56
         },
         {
           "file": "client/settings/utils/FilterManager.js",
           "score": 55
         },
         {
-          "file": "client/bootloader.js",
-          "score": 54
-        },
-        {
           "file": "client/preview/renderer.js",
           "score": 54
-        },
-        {
-          "file": "client/appState.js",
-          "score": 52
         },
         {
           "file": "client/log/UnifiedLogging.js",
@@ -4898,10 +4505,6 @@
         {
           "file": "redux/middleware/persistenceMiddleware.js",
           "score": 41
-        },
-        {
-          "file": "meta-language/tools/schema-codegen.js",
-          "score": 40
         },
         {
           "file": "client/panels/verify-ui-state-persistence.js",
@@ -4985,10 +4588,6 @@
         },
         {
           "file": "client/log/ConsoleLogManager.js",
-          "score": 27
-        },
-        {
-          "file": "client/utils/KeyboardShortcutManager.js",
           "score": 27
         },
         {
@@ -5076,6 +4675,10 @@
           "score": 20
         },
         {
+          "file": "client/core/BootloaderIntegration.js",
+          "score": 20
+        },
+        {
           "file": "client/panels/CodePanel.js",
           "score": 20
         },
@@ -5132,8 +4735,8 @@
           "score": 17
         },
         {
-          "file": "pdata/PData.original.js",
-          "score": 17
+          "file": "client/settings/panels/icons/Icons.js",
+          "score": 16
         },
         {
           "file": "client/store/slices/systemSlice.js",
@@ -5142,10 +4745,6 @@
         {
           "file": "debug-scripts/css/css-bundle-inspector.js",
           "score": 16
-        },
-        {
-          "file": "client/settings/panels/icons/Icons.js",
-          "score": 15
         },
         {
           "file": "client/store/middleware/panelPersistenceMiddleware.js",
@@ -5192,6 +4791,10 @@
           "score": 13
         },
         {
+          "file": "packages/devpages-debug/DebugDock.js",
+          "score": 13
+        },
+        {
           "file": "packages/devpages-debug/devtools/DevToolsPanel.js",
           "score": 13
         },
@@ -5212,23 +4815,11 @@
           "score": 12
         },
         {
-          "file": "client/sdk/gameClient.js",
-          "score": 12
-        },
-        {
-          "file": "client/sdk/pjaSdk.js",
-          "score": 12
-        },
-        {
           "file": "client/store/middleware/reduxLogMiddleware.js",
           "score": 12
         },
         {
           "file": "client/store/slices/panelSlice.js",
-          "score": 12
-        },
-        {
-          "file": "redux/components/PanelUI.js",
           "score": 12
         },
         {
@@ -5272,10 +4863,6 @@
           "score": 10
         },
         {
-          "file": "packages/devpages-debug/DebugDock.js",
-          "score": 10
-        },
-        {
           "file": "pdata/coverage/lcov-report/sorter.js",
           "score": 10
         },
@@ -5316,10 +4903,6 @@
           "score": 9
         },
         {
-          "file": "server/utils/pdata.js",
-          "score": 9
-        },
-        {
           "file": "client/actions/index.js",
           "score": 8
         },
@@ -5348,8 +4931,8 @@
           "score": 8
         },
         {
-          "file": "notsure/panels/FileTreePanel.js",
-          "score": 8
+          "file": "client/core/ModuleBoundaries.js",
+          "score": 7
         },
         {
           "file": "client/services/PublishService.js",
@@ -5400,6 +4983,10 @@
           "score": 6
         },
         {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 6
+        },
+        {
           "file": "client/utils/virtualPathUtils.js",
           "score": 6
         },
@@ -5409,14 +4996,6 @@
         },
         {
           "file": "meta-language/tools/action-validator.js",
-          "score": 6
-        },
-        {
-          "file": "notsure/panels/TreesPanel.js",
-          "score": 6
-        },
-        {
-          "file": "pdata/CapabilityManager.js",
           "score": 6
         },
         {
@@ -5442,12 +5021,16 @@
           "score": 278
         },
         {
-          "file": "client/utils/KeyboardShortcutManager.js",
-          "score": 214
-        },
-        {
           "file": "redux/components/KeyboardShortcutHandler.js",
           "score": 152
+        },
+        {
+          "file": "client/managers/UnifiedManagerSystem.js",
+          "score": 147
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
+          "score": 141
         },
         {
           "file": "client/store/reducers/enhancedReducerUtils.js",
@@ -5482,16 +5065,16 @@
           "score": 39
         },
         {
+          "file": "scripts/manager-consolidation.js",
+          "score": 39
+        },
+        {
           "file": "client/log/AppLogFilter.js",
           "score": 38
         },
         {
           "file": "client/log/LogFilter.js",
           "score": 38
-        },
-        {
-          "file": "client/keyboardShortcuts.js",
-          "score": 35
         },
         {
           "file": "client/utils/ButtonIntrospection.js",
@@ -5504,6 +5087,10 @@
         {
           "file": "server/routes/publish.js",
           "score": 34
+        },
+        {
+          "file": "client/keyboardShortcuts.js",
+          "score": 32
         },
         {
           "file": "client/log/ConsoleLogFilter.js",
@@ -5559,6 +5146,10 @@
         },
         {
           "file": "client/components/topBar.js",
+          "score": 19
+        },
+        {
+          "file": "client/core/InitializationManager.js",
           "score": 19
         },
         {
@@ -5642,10 +5233,6 @@
           "score": 11
         },
         {
-          "file": "client/layout/SidebarHeader_backup.js",
-          "score": 11
-        },
-        {
           "file": "client/settings/utils/SettingsDomUtils.js",
           "score": 11
         },
@@ -5658,7 +5245,11 @@
           "score": 11
         },
         {
-          "file": "client/keyboard/KeyboardShortcutManager.js",
+          "file": "client/core/BootloaderIntegration.js",
+          "score": 10
+        },
+        {
+          "file": "client/core/ModuleBoundaries.js",
           "score": 10
         },
         {
@@ -5734,6 +5325,10 @@
           "score": 7
         },
         {
+          "file": "client/vendor/scripts/markdown-it.min.js",
+          "score": 7
+        },
+        {
           "file": "debug-scripts/redux/verify-state-persistence.js",
           "score": 7
         },
@@ -5775,10 +5370,6 @@
         },
         {
           "file": "client/store/uiSlice.js",
-          "score": 6
-        },
-        {
-          "file": "client/vendor/scripts/markdown-it.min.js",
           "score": 6
         },
         {
@@ -5876,12 +5467,12 @@
           "score": 47
         },
         {
-          "file": "client/components/PathManagerComponent.js",
-          "score": 45
+          "file": "client/vendor/scripts/markdown-it.min.js",
+          "score": 47
         },
         {
-          "file": "redux/components/PanelUI.js",
-          "score": 42
+          "file": "client/components/PathManagerComponent.js",
+          "score": 45
         },
         {
           "file": "client/panels/BasePanel.js",
@@ -5896,16 +5487,16 @@
           "score": 36
         },
         {
-          "file": "client/vendor/scripts/markdown-it.min.js",
-          "score": 35
-        },
-        {
           "file": "client/dom-inspector/utils/SelectorUtils.js",
           "score": 34
         },
         {
           "file": "client/lifecycle/events.js",
           "score": 34
+        },
+        {
+          "file": "client/core/InitializationManager.js",
+          "score": 33
         },
         {
           "file": "client/log/LogDisplay.js",
@@ -5952,10 +5543,6 @@
           "score": 28
         },
         {
-          "file": "meta-language/tools/schema-codegen.js",
-          "score": 28
-        },
-        {
           "file": "redux/components/KeyboardShortcutHandler.js",
           "score": 28
         },
@@ -5968,6 +5555,10 @@
           "score": 27
         },
         {
+          "file": "client/core/AppInitializer.js",
+          "score": 26
+        },
+        {
           "file": "client/dom-inspector/core/PanelUI.js",
           "score": 26
         },
@@ -5977,14 +5568,14 @@
         },
         {
           "file": "packages/devpages-debug/DebugDock.js",
+          "score": 26
+        },
+        {
+          "file": "client/core/BootloaderIntegration.js",
           "score": 25
         },
         {
           "file": "debug-scripts/sidebar-toggle-debug.js",
-          "score": 24
-        },
-        {
-          "file": "pdata/PData.original.js",
           "score": 24
         },
         {
@@ -6022,6 +5613,10 @@
         {
           "file": "packages/devpages-debug/DebugPanelManager.js",
           "score": 19
+        },
+        {
+          "file": "client/managers/UnifiedManagerSystem.js",
+          "score": 18
         },
         {
           "file": "client/panels/PanelStateManager.js",
@@ -6076,10 +5671,6 @@
           "score": 16
         },
         {
-          "file": "client/utils/KeyboardShortcutManager.js",
-          "score": 15
-        },
-        {
           "file": "client/store/uiSlice.test.js",
           "score": 14
         },
@@ -6096,20 +5687,16 @@
           "score": 14
         },
         {
-          "file": "redux/utils/ZIndexManager.js",
-          "score": 14
-        },
-        {
-          "file": "server/middleware/capabilities.js",
-          "score": 14
-        },
-        {
           "file": "server/routes/nlpRoutes.js",
           "score": 14
         },
         {
           "file": "test-resize.js",
           "score": 14
+        },
+        {
+          "file": "client/core/ModuleBoundaries.js",
+          "score": 13
         },
         {
           "file": "client/utils/windowConsolidation.js",
@@ -6220,6 +5807,10 @@
           "score": 9
         },
         {
+          "file": "redux/components/PDataPanel.js",
+          "score": 9
+        },
+        {
           "file": "client/actions/debugActions.js",
           "score": 8
         },
@@ -6240,11 +5831,11 @@
           "score": 8
         },
         {
-          "file": "client/panels/BasePanel_restored.js",
+          "file": "client/panels/PanelNavBar.js",
           "score": 8
         },
         {
-          "file": "client/panels/PanelNavBar.js",
+          "file": "client/settings/panels/icons/Icons.js",
           "score": 8
         },
         {
@@ -6264,15 +5855,7 @@
           "score": 8
         },
         {
-          "file": "meta-language/generated/action-validators.js",
-          "score": 8
-        },
-        {
           "file": "meta-language/tools/action-validator.js",
-          "score": 8
-        },
-        {
-          "file": "redux/components/PDataPanel.js",
           "score": 8
         },
         {
@@ -6312,10 +5895,6 @@
           "score": 6
         },
         {
-          "file": "client/panels/BasePanel_backup.js",
-          "score": 6
-        },
-        {
           "file": "client/panels/EditorPanel.js",
           "score": 6
         },
@@ -6325,10 +5904,6 @@
         },
         {
           "file": "client/preview/renderer.js",
-          "score": 6
-        },
-        {
-          "file": "client/settings/panels/icons/Icons.js",
           "score": 6
         },
         {
@@ -6402,14 +5977,6 @@
           "score": 18
         },
         {
-          "file": "redux/utils/ZIndexManager.js",
-          "score": 18
-        },
-        {
-          "file": "client/utils/KeyboardShortcutManager.js",
-          "score": 14
-        },
-        {
           "file": "debug-scripts/css/css-system-analyzer.js",
           "score": 14
         },
@@ -6419,6 +5986,10 @@
         },
         {
           "file": "client/bootloader-selector.js",
+          "score": 8
+        },
+        {
+          "file": "client/utils/KeyboardShortcutManager.js",
           "score": 8
         }
       ],
@@ -6464,10 +6035,6 @@
           "score": 40
         },
         {
-          "file": "redux/components/PanelUI.js",
-          "score": 40
-        },
-        {
           "file": "client/preview/plugins/mermaid/controls.js",
           "score": 32
         },
@@ -6482,10 +6049,6 @@
         {
           "file": "redux/components/Dock.js",
           "score": 24
-        },
-        {
-          "file": "redux/utils/ZIndexManager.js",
-          "score": 21
         },
         {
           "file": "client/utils/popup.js",
@@ -6518,6 +6081,10 @@
         {
           "file": "client/vendor/scripts/highlight.min.js",
           "score": 8
+        },
+        {
+          "file": "client/core/EventDelegationManager.js",
+          "score": 7
         },
         {
           "file": "client/store/slices/panelSlice.js",

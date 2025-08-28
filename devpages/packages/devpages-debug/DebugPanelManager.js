@@ -3,11 +3,11 @@
  * Manages the floating debug panel which contains various debug-related sub-panels.
  */
 
-import { zIndexManager } from '/client/utils/ZIndexManager.js';
-import { panelRegistry } from '/client/panels/panelRegistry.js';
-import { logMessage } from '/client/log/index.js';
-import { appStore, dispatch } from '/client/appState.js';
-import { addPanel, setPanelVisibility, toggleSection, setPosition, setSize, toggleVisibility } from '/client/store/slices/debugPanelSlice.js';
+import { zIndexManager } from '/utils/ZIndexManager.js';
+import { panelRegistry } from '/panels/panelRegistry.js';
+import { log } from '/log/LogCore.js';
+import { appStore, dispatch } from '/appState.js';
+import { addPanel, setPanelVisibility, toggleSection, setPosition, setSize, toggleVisibility } from '/store/slices/debugPanelSlice.js';
 
 // DEPRECATED: Panels are now registered via debugPanelInitializer.js
 

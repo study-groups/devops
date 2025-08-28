@@ -10,7 +10,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 class CompetingModulesAuditor {
-    constructor() {
+    constructor(rootDir = process.cwd()) {
         this.results = {
             duplicateClasses: [],
             competingManagers: [],
@@ -19,7 +19,7 @@ class CompetingModulesAuditor {
             duplicateEventHandlers: [],
             overlappingFunctionality: []
         };
-        this.rootDir = process.cwd();
+        this.rootDir = path.resolve(rootDir);
     }
 
     async audit() {
@@ -327,7 +327,9 @@ class CompetingModulesAuditor {
             'dist',
             'build',
             '.DS_Store',
-            'package-lock.json'
+            'package-lock.json',
+            'backup',  // Add this line to skip entire backup directory
+            'backup/modules'  // Explicitly skip backup/modules
         ];
         
         return skipPatterns.some(pattern => path.includes(pattern));
@@ -498,7 +500,8 @@ class CompetingModulesAuditor {
 
 // Run the audit
 if (require.main === module) {
-    const auditor = new CompetingModulesAuditor();
+    const rootDir = process.env.ROOT_DIR || process.cwd();
+    const auditor = new CompetingModulesAuditor(rootDir);
     auditor.audit().catch(console.error);
 }
 

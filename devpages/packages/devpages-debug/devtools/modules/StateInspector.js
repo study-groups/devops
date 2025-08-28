@@ -5,7 +5,7 @@
  * with real-time updates, search capabilities, and detailed state exploration.
  */
 
-import { appStore } from "/client/appState.js";
+import { appStore } from "/appState.js";
 
 export class StateInspector {
     constructor(container, store) {

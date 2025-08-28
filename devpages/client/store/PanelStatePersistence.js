@@ -3,7 +3,7 @@
  * @description Enhanced state persistence for panels, docks, flyouts, and reordering
  */
 
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../services/storageService.js';
 import { appStore } from '/client/appState.js';
 
 export class PanelStatePersistence {

@@ -5,7 +5,7 @@
 
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
-import { e } from '/client/components/elements.js';
+import { e } from '/components/elements.js';
 import { panelRegistry } from '/client/panels/panelRegistry.js';
 import { settingsThunks } from '/client/store/slices/settingsSlice.js';
 

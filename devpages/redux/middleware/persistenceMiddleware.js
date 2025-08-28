@@ -3,7 +3,7 @@
  * Automatically saves panel state to localStorage when certain actions are dispatched
  */
 
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '/services/storageService.js';
 
 const PANELS_STORAGE_KEY = 'redux_panels_state';
 

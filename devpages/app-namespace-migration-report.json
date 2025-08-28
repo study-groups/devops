@@ -1,0 +1,138 @@
+{
+  "filesScanned": 477,
+  "filesModified": 33,
+  "modifications": [
+    {
+      "file": "/root/src/devops/devpages/client/auth.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/bootloader.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/components/topBar.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/core/AppInitializer.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/dom-inspector/domInspectorInitializer.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/fix-window-panels.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/layout/Sidebar.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/layout/WorkspaceManager.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/log/ConsoleLogManager.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/log/LogDisplay.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/log/UnifiedLogging.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/managers/UnifiedManagerSystem.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/panels/simple-clean-panels.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/panels/verify-panel-registration.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/pubsub.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/settings/core/settingsInitializer.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/settings/panels/console/ConsoleLogPanel.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/settings/panels/icons/Icons.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/settings/utils/PanelIntrospector.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/settings/utils/debug-panels.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/utils/ZIndexManager.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/utils/debugUtils.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/client/utils/windowConsolidation.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/css/dom-observer.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/log-alignment-debugger.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/log-debugger.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/panel-system-debugger.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/resizer-debugger-fixed.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/resizer-debugger.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/debug-scripts/test-app-debug.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/packages/devpages-debug/DebugDock.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/redux/components/PDataPanel.js",
+      "details": "Migrated window.APP assignments"
+    },
+    {
+      "file": "/root/src/devops/devpages/scripts/global-namespace-migration.js",
+      "details": "Migrated window.APP assignments"
+    }
+  ]
+}

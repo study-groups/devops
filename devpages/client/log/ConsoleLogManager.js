@@ -4,12 +4,12 @@
  * This service is exposed globally via the `window.APP.services.console` namespace.
  */
 
+// Import the consolidated BaseLogEntry class
+import { BaseLogEntry } from './BaseLogEntry.js';
+
 // Establish the global namespace
 window.APP = window.APP || {};
 window.APP.services = window.APP.services || {};
-
-// Import the consolidated BaseLogEntry class
-import { BaseLogEntry } from './BaseLogEntry.js';
 
 class ConsoleLogFilter {
   constructor(config = {}) {
@@ -148,13 +148,13 @@ export class ConsoleLogManager {
       // Legacy window functions for backwards compatibility (deprecated)
       window.discoveredTypes = new Set();
       window.consoleLogManager = this;
-      window.logManager = this;
-      window.isConsoleLoggingEnabled = () => this.isLoggingEnabled();
-      window.enableConsoleLogging = (persist) => this.enableLogging(persist);
-      window.disableConsoleLogging = (persist) => this.disableLogging(persist);
-      window.getLogBuffer = () => this.getLogBuffer();
+      window.APP.services.logManager = this;
+      window.APP.services.isConsoleLoggingEnabled = () => this.isLoggingEnabled();
+      window.APP.services.enableConsoleLogging = (persist) => this.enableLogging(persist);
+      window.APP.services.disableConsoleLogging = (persist) => this.disableLogging(persist);
+      window.APP.services.getLogBuffer = () => this.getLogBuffer();
       window.getLogBufferSize = () => this.getLogBufferSize();
-      window.clearLogBuffer = () => this.clearLogBuffer();
+      window.APP.services.clearLogBuffer = () => this.clearLogBuffer();
       
       // Type discovery sets (legacy - prefer using consoleLogManager.buffer methods)
       // window.getDiscoveredTypes = () => Array.from(window.discoveredTypes || new Set());

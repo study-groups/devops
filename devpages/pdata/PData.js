@@ -51,7 +51,7 @@ class PData {
             allowedRoles
         });
         
-        this.capabilityManager = new CapabilityManager({ dataRoot: this.dataRoot });
+        this.capabilityManager = new UnifiedCapabilityManager({ dataRoot: this.dataRoot });
 
         // Initialize AuthSrv before FileManager so it can be passed to constructor
         const assetSetsObj = Object.fromEntries(this.capabilityManager.assetSets);

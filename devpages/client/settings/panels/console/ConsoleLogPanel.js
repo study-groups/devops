@@ -72,9 +72,12 @@ export class ConsoleLogPanel extends BasePanel {
     this.log('PANEL_INIT', 'INITIALIZED', 'Console Log Panel initialized. UI created. Buffer update listener registered.');
     
     // Expose a way for ConsoleLogManager to directly trigger a UI update
-    if (typeof window.devPages === 'undefined') window.devPages = {};
-    if (typeof window.devPages.ui === 'undefined') window.devPages.ui = {};
-    window.devPages.ui.updateConsoleLogPanelStatus = this.updateStatusDisplay.bind(this);
+    window.APP = window.APP || {};
+    if (typeof window.APP.devPages === 'undefined') {
+        window.APP.devPages = {};
+    }
+    if (typeof window.APP.devPages.ui === 'undefined') window.APP.devPages.ui = {};
+    window.APP.devPages.ui.updateConsoleLogPanelStatus = this.updateStatusDisplay.bind(this);
     this.log('PANEL_INIT', 'STATUS_UPDATER_REGISTERED', 'Registered window.devPages.ui.updateConsoleLogPanelStatus');
 
     if (this.updateStatusDisplay) {
@@ -130,8 +133,8 @@ export class ConsoleLogPanel extends BasePanel {
             this.bufferViewArea.scrollTop = this.bufferViewArea.scrollHeight; // Auto-scroll to bottom
         } else {
             // Full refresh if no specific new entry (e.g., initial load or manual view click)
-            if (typeof window.getLogBuffer === 'function') {
-                const logs = window.getLogBuffer();
+            if (typeof window.APP.services.getLogBuffer === 'function') {
+                const logs = window.APP.services.getLogBuffer();
                 if (logs.length === 0) {
                     this.bufferViewArea.value = 'Log buffer is empty.';
                 } else {
@@ -288,8 +291,8 @@ export class ConsoleLogPanel extends BasePanel {
         '',
         () => {
           // Read state ONLY from ConsoleLogManager
-          if (typeof window.isConsoleLoggingEnabled === 'function') {
-            return window.isConsoleLoggingEnabled();
+          if (typeof window.APP.services.isConsoleLoggingEnabled === 'function') {
+            return window.APP.services.isConsoleLoggingEnabled();
           }
           // Return false if the function doesn't exist yet, to prevent errors.
           // The UI will be updated shortly after initialization anyway.
@@ -299,13 +302,13 @@ export class ConsoleLogPanel extends BasePanel {
           panelOriginalConsole.log(`[ConsoleLogPanel] Toggle changed to: ${checked ? 'ENABLED' : 'DISABLED'}`);
           
           if (checked) {
-            if (typeof window.enableConsoleLogging === 'function') {
+            if (typeof window.APP.services.enableConsoleLogging === 'function') {
               window.enableConsoleLogging(true); // true for persist
             } else {
               panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.enableConsoleLogging function not found!");
             }
           } else {
-            if (typeof window.disableConsoleLogging === 'function') {
+            if (typeof window.APP.services.disableConsoleLogging === 'function') {
               window.disableConsoleLogging(true); // true for persist
             } else {
               panelOriginalConsole.error("[ConsoleLogPanel_ERROR] window.disableConsoleLogging function not found!");
@@ -332,8 +335,8 @@ export class ConsoleLogPanel extends BasePanel {
     // Store updateStatusDisplay on the instance so it can be called from changeFn
     this.updateStatusDisplay = () => {
        let isEnabled = false;
-       if (typeof window.isConsoleLoggingEnabled === 'function') {
-         isEnabled = window.isConsoleLoggingEnabled();
+       if (typeof window.APP.services.isConsoleLoggingEnabled === 'function') {
+         isEnabled = window.APP.services.isConsoleLoggingEnabled();
        }
        // No fallback to localStorage. If function doesn't exist, isEnabled remains false.
 
@@ -583,8 +586,8 @@ export class ConsoleLogPanel extends BasePanel {
     clearBufferBtn.classList.add('settings-button');
     clearBufferBtn.textContent = 'Clear Buffer';
     clearBufferBtn.addEventListener('click', () => {
-      if (typeof window.clearLogBuffer === 'function') {
-        window.clearLogBuffer();
+      if (typeof window.APP.services.clearLogBuffer === 'function') {
+        window.APP.services.clearLogBuffer();
         this._updateBufferedViewAndStatus(); // Update displayed buffer content if visible
       }
     });
@@ -594,8 +597,8 @@ export class ConsoleLogPanel extends BasePanel {
     downloadBufferBtn.classList.add('settings-button');
     downloadBufferBtn.textContent = 'Download Buffer';
     downloadBufferBtn.addEventListener('click', () => {
-      if (typeof window.getLogBuffer === 'function') {
-        const logs = window.getLogBuffer();
+      if (typeof window.APP.services.getLogBuffer === 'function') {
+        const logs = window.APP.services.getLogBuffer();
         if (logs.length === 0) {
           log.warn('BUFFER', 'DOWNLOAD_EMPTY', 'No logs to download');
           return;

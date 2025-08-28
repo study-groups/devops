@@ -11,7 +11,9 @@ console.log('=====================================');
     if (typeof window === 'undefined') return;
     
     window.APP = window.APP || {};
-    window.APP.debug = window.APP.debug || {};
+    import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('debug', window.APP.debug || {});
     
     // Clear any existing broken resizer object
     if (window.APP.debug.resizer) {

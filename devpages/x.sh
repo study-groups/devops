@@ -1,0 +1,11 @@
+mv        app-initialization-migration-report.json /tmp
+mv        client/appState.js.backup-app-migration-1756385236654 /tmp
+mv        client/appState.js.backup-app-migration-1756386729889 /tmp
+mv        client/bootloader.js.backup-app-migration-1756385236651 /tmp
+mv        client/bootloader.js.backup-app-migration-1756386729885 /tmp
+mv        client/utils/KeyboardShortcutManager.js.backup-app-migration-1756385236660 /tmp
+mv        client/utils/KeyboardShortcutManager.js.backup-app-migration-1756386729895 /tmp
+ mv       packages/devpages-debug/DebugDock.js.backup-app-migration-1756385236656 /tmp
+ mv       packages/devpages-debug/DebugDock.js.backup-app-migration-1756386729890 /tmp
+ mv       redux/components/PDataPanel.js.backup-app-migration-1756385236658 /tmp
+ mv       redux/components/PDataPanel.js.backup-app-migration-1756386729892 /tmp

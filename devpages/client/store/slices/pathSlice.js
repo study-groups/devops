@@ -9,8 +9,8 @@
 
 import { createSlice } from '@reduxjs/toolkit';
 import { apiSlice } from '../apiSlice.js';
-import { fileThunks } from '/client/store/slices/fileSlice.js';
-import { getParentPath } from '/client/utils/pathUtils.js';
+import { fileThunks } from './fileSlice.js';
+import { getParentPath } from '../../utils/pathUtils.js';
 
 // Initial state
 const initialState = {

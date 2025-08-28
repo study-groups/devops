@@ -21,6 +21,25 @@
     <!-- Panels Bundle: Panel-specific styles (load async) -->
     <link rel="stylesheet" href="/css/bundles/panels.bundle.css?v=3" media="print" onload="this.media='all'">
     
+    <!-- Import Map for Clean Absolute Paths -->
+    <script type="importmap">
+    {
+        "imports": {
+            "/appState.js": "/client/appState.js",
+            "/eventBus.js": "/client/eventBus.js",
+            "/panels/": "/client/panels/",
+            "/store/": "/client/store/",
+            "/utils/": "/client/utils/",
+            "/log/": "/client/log/",
+            "/api/": "/client/api/",
+            "/services/": "/client/services/",
+            "/components/": "/client/components/",
+            "/layout/": "/client/layout/",
+            "/core/": "/client/core/"
+        }
+    }
+    </script>
+    
     <!-- Introspection System: Load for debugging and development -->
     <script type="module" src="/client/utils/IntrospectionBootstrap.js"></script>
     

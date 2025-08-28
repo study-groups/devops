@@ -14,48 +14,44 @@
  * 4.  **Export Store:** Exports a singleton `appStore` instance for use throughout the application.
  */
 
-import { createStore, combineReducers, compose, applyMiddleware } from 'redux';
+import { configureStore } from '/client/vendor/scripts/redux-toolkit.mjs';
 import { storageService } from '/client/services/storageService.js';
 
 // Reducers
-import authReducer from '/client/store/slices/authSlice.js';
-import pathReducer from '/client/store/slices/pathSlice.js';
-import { settingsReducer } from '/client/store/slices/settingsSlice.js';
-import panelReducer from '/client/store/slices/panelSlice.js';
-import logReducer from '/client/store/slices/logSlice.js';
-import { domInspectorReducer } from '/client/store/slices/domInspectorSlice.js';
-import { uiReducer } from '/client/store/uiSlice.js';
-import { contextSettingsReducer } from '/client/store/slices/contextSettingsSlice.js';
-import fileReducer from '/client/store/slices/fileSlice.js';
-import { previewReducer } from '/client/store/slices/previewSlice.js';
-import debugPanelReducer from '/client/store/slices/debugPanelSlice.js';
-import pluginReducer from '/client/store/slices/pluginSlice.js';
-import publishReducer from '/client/store/slices/publishSlice.js';
-import systemReducer from '/client/store/slices/systemSlice.js';
-import { commReducer } from '/client/store/slices/commSlice.js';
+import authReducer from './store/slices/authSlice.js';
+import pathReducer from './store/slices/pathSlice.js';
+import { settingsReducer } from './store/slices/settingsSlice.js';
+import panelReducer from './store/slices/panelSlice.js';
+import logReducer from './store/slices/logSlice.js';
+import { domInspectorReducer } from './store/slices/domInspectorSlice.js';
+import { uiReducer } from './store/uiSlice.js';
+import { contextSettingsReducer } from './store/slices/contextSettingsSlice.js';
+import fileReducer from './store/slices/fileSlice.js';
+import { previewReducer } from './store/slices/previewSlice.js';
+import debugPanelReducer from './store/slices/debugPanelSlice.js';
+import pluginReducer from './store/slices/pluginSlice.js';
+import publishReducer from './store/slices/publishSlice.js';
+import systemReducer from './store/slices/systemSlice.js';
+import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
 import panelSizesReducer from './redux/panelSizes.js';
 
 // Middleware
-import { reduxLogMiddleware } from '/client/store/middleware/reduxLogMiddleware.js';
-import panelPersistenceMiddleware from '/client/store/middleware/panelPersistenceMiddleware.js';
-import panelSizesPersistenceMiddleware from '/client/store/middleware/panelSizesPersistenceMiddleware.js';
-import { apiSlice } from '/client/store/apiSlice.js';
+import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
+import panelPersistenceMiddleware from './store/middleware/panelPersistenceMiddleware.js';
+import panelSizesPersistenceMiddleware from './store/middleware/panelSizesPersistenceMiddleware.js';
+import { apiSlice } from './store/apiSlice.js';
 
 // Thunks and Actions
-import { authThunks } from '/client/store/slices/authSlice.js';
-import { pathThunks, pathSlice } from '/client/store/slices/pathSlice.js';
-import { settingsThunks } from '/client/store/slices/settingsSlice.js';
-import { initializePreviewSystem } from '/client/store/slices/previewSlice.js';
-import { pluginThunks } from '/client/store/slices/pluginSlice.js';
-import { initializeComponent } from '/client/store/slices/systemSlice.js';
+import { authThunks } from './store/slices/authSlice.js';
+import { pathThunks, pathSlice } from './store/slices/pathSlice.js';
+import { settingsThunks } from './store/slices/settingsSlice.js';
+import { initializePreviewSystem } from './store/slices/previewSlice.js';
+import { pluginThunks } from './store/slices/pluginSlice.js';
+import { initializeComponent } from './store/slices/systemSlice.js';
 
-// Middleware and Thunk Imports
-const thunkMiddleware = store => next => action =>
-    typeof action === 'function' ? action(store.dispatch, store.getState) : next(action);
-
-// --- Root Reducer ---
-const rootReducer = combineReducers({
+// --- Root Reducer Configuration ---
+const rootReducer = {
     auth: authReducer,
     path: pathReducer,
     settings: settingsReducer,
@@ -75,7 +71,7 @@ const rootReducer = combineReducers({
     panelSizes: panelSizesReducer,
     // RTK Query API slice
     [apiSlice.reducerPath]: apiSlice.reducer
-});
+};
 
 // --- Store Singleton ---
 let appStore;
@@ -116,27 +112,28 @@ function initializeStore(preloadedState = {}) {
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
         panels: safeLoadPersistedState('panel_state', preloadedState.panels || {}),
         panelSizes: safeLoadPersistedState('panel_sizes', preloadedState.panelSizes || {}),
+        debugPanel: safeLoadPersistedState('debug_panel_state', preloadedState.debugPanel || {}),
         // Add more slice-specific state loading as needed
     };
 
-    // Use provided preloadedState or undefined
-    const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
-    
-    // CORRECT: Apply the new, robust persistence middleware + RTK Query middleware
-    const middlewares = [
-        thunkMiddleware, 
-        panelPersistenceMiddleware, 
-        panelSizesPersistenceMiddleware,
-        apiSlice.middleware, 
-        reduxLogMiddleware
-    ].filter(Boolean);
-
     try {
-        appStore = createStore(
-            rootReducer,
-            initialState,
-            composeEnhancers(applyMiddleware(...middlewares))
-        );
+        appStore = configureStore({
+            reducer: rootReducer,
+            preloadedState: initialState,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: {
+                        ignoredActions: [apiSlice.util.resetApiState.type],
+                    },
+                })
+                .concat(
+                    panelPersistenceMiddleware,
+                    panelSizesPersistenceMiddleware,
+                    apiSlice.middleware,
+                    reduxLogMiddleware
+                ),
+            devTools: true,
+        });
 
         dispatch = appStore.dispatch;
         
@@ -158,8 +155,9 @@ function initializeStore(preloadedState = {}) {
 
         // Expose the store to the window for debugging and easy access
         if (typeof window !== 'undefined') {
-            window.APP = window.APP || {};
-            window.APP.store = appStore;
+            import('./core/AppInitializer.js').then(module => {
+                module.default.setAppProperty("store", appStore);
+            }).catch(console.error);
         }
 
         return { appStore, dispatch };
@@ -167,7 +165,10 @@ function initializeStore(preloadedState = {}) {
         console.error('[AppState] ❌ Failed to initialize Redux store:', error);
         
         // Fallback store creation with minimal configuration
-        appStore = createStore(rootReducer);
+        appStore = configureStore({
+            reducer: rootReducer,
+            devTools: true,
+        });
         dispatch = appStore.dispatch;
         // Ensure thunks are available even in fallback path
         thunks = {

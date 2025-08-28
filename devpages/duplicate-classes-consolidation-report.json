@@ -1,0 +1,85 @@
+{
+  "timestamp": "2025-08-28T13:56:35.321Z",
+  "consolidations": [
+    {
+      "className": "PanelUI",
+      "action": "kept_first",
+      "kept": "client/dom-inspector/core/PanelUI.js",
+      "removed": [],
+      "reason": "DOM inspector version is more specialized"
+    },
+    {
+      "className": "Sidebar",
+      "action": "removed_backups",
+      "files": [
+        "client/layout/Sidebar_backup.js"
+      ],
+      "reason": "Remove backup file"
+    },
+    {
+      "className": "SidebarHeader",
+      "action": "removed_backups",
+      "files": [
+        "client/layout/SidebarHeader_backup.js"
+      ],
+      "reason": "Remove backup file"
+    },
+    {
+      "className": "BasePanel",
+      "action": "kept_main",
+      "kept": "client/panels/BasePanel.js",
+      "removed": [],
+      "reason": "Keep main implementation, remove backups"
+    },
+    {
+      "className": "FileTreePanel",
+      "action": "kept_first",
+      "kept": "client/panels/FileTreePanel.js",
+      "removed": [],
+      "reason": "Keep client version, notsure is experimental"
+    },
+    {
+      "className": "TreesPanel",
+      "action": "kept_first",
+      "kept": "client/panels/TreesPanel.js",
+      "removed": [],
+      "reason": "Keep client version, notsure is experimental"
+    },
+    {
+      "className": "ActionValidationError",
+      "action": "kept_first",
+      "kept": "client/validation/action-validators.js",
+      "removed": [],
+      "reason": "Keep client version, others are generated/tools"
+    },
+    {
+      "className": "PData",
+      "action": "kept_main",
+      "kept": "pdata/PData.js",
+      "removed": [],
+      "reason": "Keep main PData.js, remove original backup"
+    }
+  ],
+  "backups": [],
+  "manualReviews": [
+    {
+      "className": "GameClient",
+      "files": [
+        "client/sdk/gameClient.js",
+        "client/sdk/pjaSdk.js"
+      ],
+      "strategy": "manual_review",
+      "reason": "Both contain substantial game client logic"
+    },
+    {
+      "className": "CapabilityManager",
+      "files": [
+        "pdata/CapabilityManager.js",
+        "server/middleware/capabilities.js"
+      ],
+      "strategy": "manual_review",
+      "reason": "Client vs server implementations"
+    }
+  ],
+  "errors": []
+}

@@ -3,7 +3,7 @@
  * Simple function to debug why availableTopLevelDirs is empty
  */
 import { appStore } from '/client/appState.js';
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../services/storageService.js';
 
 export function diagnoseTopDirIssue() {
     console.log('🔍 TOP DIR DIAGNOSTIC - Starting analysis...');

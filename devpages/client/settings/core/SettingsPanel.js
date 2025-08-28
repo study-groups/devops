@@ -7,7 +7,7 @@
  */
 
 import { settingsRegistry } from './settingsRegistry.js';
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../../services/storageService.js';
 
 export class SettingsPanel {
     constructor() {

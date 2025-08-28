@@ -252,8 +252,8 @@ export class MermaidControls {
             event.stopPropagation();
             
             // Set global pan tracking state using window variables
-            window._mermaidActivePanSvg = svgElement;
-            window._mermaidPanData = {
+            window.APP.services._mermaidActivePanSvg = svgElement;
+            window.APP.services._mermaidPanData = {
                 lastX: event.clientX,
                 lastY: event.clientY,
                 currentPanX: svgState.panX,
@@ -303,8 +303,8 @@ export class MermaidControls {
         
         // Create a global registry for active panning
         if (!window._mermaidActivePanSvg) {
-            window._mermaidActivePanSvg = null;
-            window._mermaidPanData = {};
+            window.APP.services._mermaidActivePanSvg = null;
+            window.APP.services._mermaidPanData = {};
         }
         
         const globalMouseMoveHandler = (event) => {
@@ -338,8 +338,8 @@ export class MermaidControls {
             if (window._mermaidActivePanSvg) {
                 console.log('[MERMAID CONTROLS DEBUG] Global mouse up - ending pan');
                 window._mermaidActivePanSvg.style.cursor = 'grab';
-                window._mermaidActivePanSvg = null;
-                window._mermaidPanData = {};
+                window.APP.services._mermaidActivePanSvg = null;
+                window.APP.services._mermaidPanData = {};
             }
         };
         

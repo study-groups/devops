@@ -41,9 +41,9 @@ let md; // Global markdown-it instance for legacy compatibility
 
 async function ensureBaseInitialized() {
     // This function replaces the old initializeRenderer's role of one-time setup
-    if (typeof window.markdownit === 'undefined') {
+    if (typeof window.APP.services.markdownit === 'undefined') {
         await loadMarkdownItScript();
-        if (typeof window.markdownit === 'undefined') {
+        if (typeof window.APP.services.markdownit === 'undefined') {
             const errorMsg = 'markdown-it library failed to load.';
             log.error('PREVIEW', 'MARKDOWNIT_LOAD_FAILED', errorMsg);
             throw new Error(errorMsg);
@@ -64,25 +64,18 @@ async function ensureBaseInitialized() {
 
 // Function to dynamically load markdown-it script (keep this)
 async function loadMarkdownItScript() {
-    return new Promise((resolve, reject) => {
-        if (typeof window.markdownit !== 'undefined') {
-            log.info('PREVIEW', 'MARKDOWNIT_ALREADY_LOADED', 'markdown-it already loaded.');
-            resolve();
-            return;
+    if (typeof window.initMarkdownIt === 'function') {
+        try {
+            await window.initMarkdownIt();
+            log.info('PREVIEW', 'MARKDOWNIT_LOADED', 'markdown-it script loaded successfully.');
+        } catch (error) {
+            log.error('PREVIEW', 'MARKDOWNIT_LOAD_FAILED', 'Failed to load markdown-it script.', error);
+            throw error;
         }
-        const script = document.createElement('script');
-        script.src = '/client/vendor/scripts/markdown-it.min.js';
-        script.async = true;
-        script.onload = () => {
-            log.info('PREVIEW', 'MARKDOWNIT_LOADED', 'markdown-it script loaded successfully from CDN.');
-            resolve();
-        };
-        script.onerror = (err) => {
-            log.error('PREVIEW', 'MARKDOWNIT_LOAD_FAILED', 'Failed to load markdown-it script from CDN.', err);
-            reject(err);
-        };
-        document.head.appendChild(script);
-    });
+    } else {
+        log.error('PREVIEW', 'MARKDOWNIT_LOADER_MISSING', 'markdown-it loader script not found.');
+        throw new Error('markdown-it loader script not found');
+    }
 }
 
 // Function to preprocess content for KaTeX blocks
@@ -257,9 +250,9 @@ function parseBasicFrontmatter(markdownContent) {
  * Initialize the Markdown renderer with necessary extensions and options.
  */
 async function initializeRenderer() {
-    if (typeof window.markdownit === 'undefined') {
+    if (typeof window.APP.services.markdownit === 'undefined') {
         await loadMarkdownItScript();
-        if (typeof window.markdownit === 'undefined') {
+        if (typeof window.APP.services.markdownit === 'undefined') {
             const errorMsg = 'markdown-it library failed to load.';
             log.error('PREVIEW', 'MARKDOWNIT_LOAD_FAILED', errorMsg);
             throw new Error(errorMsg);
@@ -276,7 +269,7 @@ async function initializeRenderer() {
         log.info('PREVIEW', 'MARKDOWNIT_LIBS_LOADED', 'Highlight.js, markdown-it loaded.');
 
         // Check if markdown-it loaded successfully
-        if (typeof window.markdownit === 'undefined') {
+        if (typeof window.APP.services.markdownit === 'undefined') {
             throw new Error('markdown-it library failed to load or define window.markdownit.');
         }
 

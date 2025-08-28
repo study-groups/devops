@@ -31,3 +31,7 @@ data
 old
 colors.sh
 
+backup/modules/gameClient.js
+backup/modules/pjaSdk.js
+backup/modules/CapabilityManager.js
+backup/modules/capabilities.js

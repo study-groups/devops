@@ -90,8 +90,8 @@ if (fs.existsSync(appStatePath)) {
   
   // Replace the old authSlice import
   content = content.replace(
-    "import { authReducer, authThunks } from '/client/store/slices/authSlice.js';",
-    "import authReducer, { authThunks } from '/client/store/slices/authSlice.js';"
+    "import { authReducer, authThunks } from '/store/slices/authSlice.js';",
+    "import authReducer, { authThunks } from '/store/slices/authSlice.js';"
   );
   
   fs.writeFileSync(appStatePath, content);

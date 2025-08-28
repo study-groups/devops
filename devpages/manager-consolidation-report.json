@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-08-28T13:32:46.681Z",
+  "summary": {
+    "filesProcessed": 472,
+    "replacementsMade": 3,
+    "managersConsolidated": [
+      "KeyboardShortcutManager",
+      "CapabilityManager"
+    ],
+    "errorsCount": 0
+  },
+  "consolidations": [
+    {
+      "name": "CapabilityManager",
+      "description": "Consolidate CapabilityManager implementations"
+    },
+    {
+      "name": "KeyboardShortcutManager",
+      "description": "Consolidate keyboard shortcut managers"
+    }
+  ],
+  "errors": []
+}

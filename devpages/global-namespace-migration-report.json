@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-08-28T13:28:50.576Z",
+  "summary": {
+    "filesProcessed": 468,
+    "replacementsMade": 47,
+    "errorsCount": 0
+  },
+  "migrations": [
+    {
+      "name": "devPages",
+      "description": "Migrate devPages to APP.devPages",
+      "pattern": "/window\\.devPages\\s*=/g"
+    },
+    {
+      "name": "devpages",
+      "description": "Migrate devpages to APP.devpages",
+      "pattern": "/window\\.devpages\\s*=/g"
+    },
+    {
+      "name": "gameClient",
+      "description": "Migrate gameClient to APP.services.gameClient",
+      "pattern": "/window\\.gameClient\\s*=/g"
+    },
+    {
+      "name": "PJA",
+      "description": "Migrate PJA to APP.services.PJA",
+      "pattern": "/window\\.PJA\\s*=/g"
+    },
+    {
+      "name": "initializeGameClient",
+      "description": "Migrate initializeGameClient to APP.services",
+      "pattern": "/window\\.initializeGameClient\\s*=/g"
+    },
+    {
+      "name": "markdownit",
+      "description": "Migrate markdownit to APP.services.markdownit",
+      "pattern": "/window\\.markdownit\\s*=/g"
+    },
+    {
+      "name": "logManager",
+      "description": "Migrate logManager to APP.services.logManager",
+      "pattern": "/window\\.logManager\\s*=/g"
+    },
+    {
+      "name": "isConsoleLoggingEnabled",
+      "description": "Migrate isConsoleLoggingEnabled to APP.services",
+      "pattern": "/window\\.isConsoleLoggingEnabled\\s*=/g"
+    },
+    {
+      "name": "enableConsoleLogging",
+      "description": "Migrate enableConsoleLogging to APP.services",
+      "pattern": "/window\\.enableConsoleLogging\\s*=/g"
+    },
+    {
+      "name": "disableConsoleLogging",
+      "description": "Migrate disableConsoleLogging to APP.services",
+      "pattern": "/window\\.disableConsoleLogging\\s*=/g"
+    },
+    {
+      "name": "getLogBuffer",
+      "description": "Migrate getLogBuffer to APP.services",
+      "pattern": "/window\\.getLogBuffer\\s*=/g"
+    },
+    {
+      "name": "clearLogBuffer",
+      "description": "Migrate clearLogBuffer to APP.services",
+      "pattern": "/window\\.clearLogBuffer\\s*=/g"
+    },
+    {
+      "name": "settingsRegistry",
+      "description": "Migrate settingsRegistry to APP.services",
+      "pattern": "/window\\.settingsRegistry\\s*=/g"
+    },
+    {
+      "name": "_mermaidActivePanSvg",
+      "description": "Migrate _mermaidActivePanSvg to APP.services",
+      "pattern": "/window\\._mermaidActivePanSvg\\s*=/g"
+    },
+    {
+      "name": "_mermaidPanData",
+      "description": "Migrate _mermaidPanData to APP.services",
+      "pattern": "/window\\._mermaidPanData\\s*=/g"
+    },
+    {
+      "name": "handleImageDelete",
+      "description": "Migrate handleImageDelete to APP.services",
+      "pattern": "/window\\.handleImageDelete\\s*=/g"
+    },
+    {
+      "name": "iconsPanel",
+      "description": "Migrate iconsPanel to APP.components",
+      "pattern": "/window\\.iconsPanel\\s*=/g"
+    }
+  ],
+  "errors": []
+}

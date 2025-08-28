@@ -14,7 +14,8 @@ class DevPagesConsolidator {
     initialize() {
         // Initialize the main devpages namespace
         if (!window.devpages) {
-            window.devpages = {
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('devpages', {
                 version: '1.0.0',
                 initialized: new Date().toISOString(),
                 
@@ -44,7 +45,7 @@ class DevPagesConsolidator {
                     migrationMap: this.migrationMap,
                     getDeprecationWarnings: () => Array.from(this.deprecationWarnings)
                 }
-            };
+            });
         }
 
         this.setupMigrationMap();

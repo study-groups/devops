@@ -1,7 +1,7 @@
 import { appStore } from '/client/appState.js';
 import { api } from '/client/api.js';
 import { getParentPath, getFilename, pathJoin } from '/client/utils/pathUtils.js'; // Ensure pathJoin is imported
-import { storageService } from '/client/services/storageService.js';
+import { storageService } from '../../services/storageService.js';
 // REMOVED: messageQueue import (file deleted)
 
 // Get a dedicated logger for this module

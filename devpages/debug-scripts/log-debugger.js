@@ -7,8 +7,12 @@ console.log('🪵 LOG PANEL DEBUGGER');
 console.log('======================');
 
 // Ensure APP.debug exists
-if (!window.APP) window.APP = {};
-if (!window.APP.debug) window.APP.debug = {};
+if (!window.APP) import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP assignment
+// window.APP = {};
+if (!window.APP.debug) import appInitializer from '../client/core/AppInitializer.js';
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('debug', {});
 
 window.APP.debug.log = {
     report: {},

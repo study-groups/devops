@@ -85,5 +85,5 @@ export const settingsRegistry = new SettingsRegistry();
 
 // Expose globally for debugging
 if (typeof window !== 'undefined') {
-    window.settingsRegistry = settingsRegistry;
+    window.APP.services.settingsRegistry = settingsRegistry;
 }

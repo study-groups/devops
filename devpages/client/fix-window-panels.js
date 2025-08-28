@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') {
     window.APP.panels = {
         // Safe stub methods
         resetDefaults: () => {
-            console.log('🚫 resetDefaults() DISABLED - Redux panel system deprecated');
+            console.log('🚫 resetDefaults() DISABLED - Redux panel system deprecated'));
             console.log('🎯 Use Ctrl+Shift+D to access the unified debug system');
         },
         

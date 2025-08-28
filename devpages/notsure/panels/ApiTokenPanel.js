@@ -3,12 +3,12 @@
  * @description API Token Management Panel - Allows users to generate, view, and manage API tokens for authenticated access
  */
 
-import { BasePanel } from '/client/panels/BasePanel.js';
-import { appStore } from '/client/appState.js';
-import { e } from '/client/components/elements.js';
-import { api } from '/client/api/api.js';
-import { panelRegistry } from '/client/panels/panelRegistry.js';
-import { ApiTokenService } from '/client/services/ApiTokenService.js';
+import { BasePanel } from '/panels/BasePanel.js';
+import { appStore } from '/appState.js';
+import { e } from '/components/elements.js';
+import { api } from '/api/api.js';
+import { panelRegistry } from '/panels/panelRegistry.js';
+import { ApiTokenService } from '/services/ApiTokenService.js';
 
 const log = window.APP.services.log.createLogger('ApiTokenPanel');
 

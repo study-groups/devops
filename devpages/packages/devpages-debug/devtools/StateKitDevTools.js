@@ -3,8 +3,8 @@
  * Provides easy access to DevTools functionality in the browser console
  */
 
-import { appStore } from '/client/appState.js';
-import { logMessage } from '/client/log/index.js';
+import { appStore } from '/appState.js';
+import { log } from '/log/LogCore.js';
 import { DevToolsPanel } from './DevToolsPanel.js';
 
 // Check if DevTools are available

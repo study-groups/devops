@@ -68,7 +68,7 @@ export class LogManager {
 
   exposeToWindow() {
     if (typeof window !== 'undefined') {
-      window.logManager = this;
+      window.APP.services.logManager = this;
     }
     return this;
   }

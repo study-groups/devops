@@ -1,12 +1,12 @@
-import { panelRegistry } from '/client/panels/panelRegistry.js';
-import { appStore, dispatch } from '/client/appState.js';
+import { panelRegistry } from '/panels/panelRegistry.js';
+import { appStore, dispatch } from '/appState.js';
 import { 
     toggleVisibility, 
     togglePanelExpanded, 
     reorderPanels, 
     updateDockPosition,
     updateDockSize 
-} from '/client/store/slices/debugPanelSlice.js';
+} from '/store/slices/debugPanelSlice.js';
 
 // Import all panel classes
 import { PDataPanel } from './panels/PDataPanel.js';
@@ -219,6 +219,12 @@ export const debugDock = {
             this.container.style.left = `${debugState.position.x}px`;
             this.container.style.top = `${debugState.position.y}px`;
             this.container.style.right = 'auto';
+        } else {
+            console.log('[DebugDock] No saved position found, using default position');
+            // Set default position
+            this.container.style.left = '100px';
+            this.container.style.top = '100px';
+            this.container.style.right = 'auto';
         }
         
         // Restore size from Redux state
@@ -245,7 +251,7 @@ export const debugDock = {
         this.container.appendChild(header);
         this.container.appendChild(content);
         document.body.appendChild(this.container);
-        
+
         // Setup header drag
         this.setupDockDrag(header);
         
@@ -288,7 +294,15 @@ export const debugDock = {
                 
                 // Save final position to Redux
                 const rect = this.container.getBoundingClientRect();
-                dispatch(updateDockPosition({ x: rect.left, y: rect.top }));
+                const position = { x: rect.left, y: rect.top };
+                console.log('[DebugDock] Saving position to Redux:', position);
+                dispatch(updateDockPosition(position));
+                
+                // Verify it was saved
+                setTimeout(() => {
+                    const state = appStore.getState();
+                    console.log('[DebugDock] Position saved in Redux:', state.debugPanel.position);
+                }, 100);
             }
         });
     },
@@ -351,7 +365,7 @@ export const debugDock = {
             this.isVisible = isVisible;
         } else {
             // Fallback to original logic if Redux is not available
-            this.isVisible = !this.isVisible;
+        this.isVisible = !this.isVisible;
 
             if (this.isVisible) {
                 this.render();
@@ -568,10 +582,8 @@ export const debugDock = {
 };
 
 // Ensure DebugDock is globally accessible
-if (!window.APP) {
-    window.APP = {};
-}
-if (!window.APP.debugDock) {
+if (typeof window !== 'undefined') {
+    window.APP = window.APP || {};
     window.APP.debugDock = debugDock;
 }
 

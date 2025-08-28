@@ -1,121 +1,78 @@
 
 import { panelActions } from '/client/store/slices/panelSlice.js';
 
-// Auto-registration script for panels
-const panelsToRegister = [
-    { 
-        id: 'file-browser', 
-        name: 'File Browser', 
+// Centralized panel configuration
+const panelConfigurations = {
+    // Core Panels
+    'context-panel': {
+        id: 'context-panel',
+        name: 'Context Panel',
         dockId: 'sidebar-dock',
-        config: { 
-            defaultVisible: true,
-            isVisible: true 
-        } 
+        group: 'core',
+        isVisible: true,
+        order: 0
     },
-    { 
-        id: 'context-panel', 
-        name: 'Context Panel', 
+    'file-browser': {
+        id: 'file-browser',
+        name: 'File Browser',
         dockId: 'sidebar-dock',
-        config: { 
-            defaultVisible: true,
-            isVisible: true 
-        } 
+        group: 'core',
+        isVisible: true,
+        order: 1
     },
-    { 
-        id: 'pdata-panel', 
-        name: 'Debug Panel', 
-        dockId: 'debug-dock',
-        config: { 
-            shortcut: 'Ctrl+Shift+D',
-            isVisible: true 
-        } 
-    },
-    { 
-        id: 'settings-panel', 
-        name: 'Settings Panel', 
+    'design-tokens': {
+        id: 'design-tokens',
+        name: 'Design Tokens',
         dockId: 'sidebar-dock',
-        config: { 
-            shortcut: 'Ctrl+Shift+S',
-            isVisible: true 
-        } 
+        group: 'core',
+        isVisible: true,
+        order: 2
     },
-    { 
-        id: 'dom-inspector', 
-        name: 'DOM Inspector', 
-        dockId: 'debug-dock',
-        config: { isVisible: true } 
-    },
-    { 
-        id: 'console-log-panel', 
-        name: 'Console Log', 
-        dockId: 'debug-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'plugins', 
-        name: 'Plugins Panel', 
-        dockId: 'sidebar-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'design-tokens', 
-        name: 'Design Tokens', 
-        dockId: 'sidebar-dock',
-        config: { 
-            defaultVisible: true,
-            isVisible: true 
-        } 
-    },
-    { 
-        id: 'api-tokens', 
-        name: 'API Tokens', 
-        dockId: 'sidebar-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'nlp-panel', 
-        name: 'NLP Panel', 
-        dockId: 'sidebar-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'log-display', 
-        name: 'Log Display', 
-        dockId: 'debug-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'mount-info-panel', 
-        name: 'Mount Info', 
-        dockId: 'debug-dock',
-        config: { isVisible: false } 
-    },
-    { 
-        id: 'devtools', 
-        name: 'DevTools', 
-        dockId: 'debug-dock',
-        config: { isVisible: true } 
-    },
-    { 
-        id: 'css-files', 
-        name: 'CSS Files', 
-        dockId: 'debug-dock',
-        config: { isVisible: true } 
-    },
-    { 
-        id: 'javascript-panel', 
-        name: 'JavaScript Panel', 
-        dockId: 'debug-dock',
-        config: { isVisible: true } 
-    },
-    { 
-        id: 'external-dependencies', 
-        name: 'External Dependencies', 
-        dockId: 'debug-dock',
-        config: { isVisible: true } 
-    }
-];
 
+    // Debug Panels
+    'devtools': {
+        id: 'devtools',
+        name: 'DevTools',
+        dockId: 'debug-dock',
+        group: 'debug',
+        isVisible: true,
+        order: 0
+    },
+    'css-files': {
+        id: 'css-files',
+        name: 'CSS Files',
+        dockId: 'debug-dock',
+        group: 'debug',
+        isVisible: true,
+        order: 1
+    },
+    'javascript-panel': {
+        id: 'javascript-panel',
+        name: 'JavaScript Info',
+        dockId: 'debug-dock',
+        group: 'debug',
+        isVisible: true,
+        order: 2
+    },
+    'external-dependencies': {
+        id: 'external-dependencies',
+        name: 'External Dependencies',
+        dockId: 'debug-dock',
+        group: 'debug',
+        isVisible: true,
+        order: 3
+    },
+    'dom-inspector': {
+        id: 'dom-inspector',
+        name: 'DOM Inspector',
+        dockId: 'debug-dock',
+        group: 'debug',
+        isVisible: true,
+        order: 4
+    }
+};
+
+// Unified panel registration function
 function registerPanels(store) {
     if (!store || typeof store.dispatch !== 'function') {
         console.error('[PanelRegistration] Invalid store provided');
@@ -128,24 +85,31 @@ function registerPanels(store) {
         return;
     }
 
-    panelsToRegister.forEach(panel => {
-        try {
-            // Ensure all required fields are present
-            if (!panel.id) {
-                console.warn(`[PanelRegistration] Skipping panel with missing ID:`, panel);
-                return;
-            }
+    // Ensure debug dock exists
+    store.dispatch(panelActions.registerPanel({
+        id: 'debug-dock',
+        dockId: 'debug-dock',
+        config: {
+            title: 'Debug Tools',
+            zone: 'floating',
+            isVisible: true,
+            isExpanded: true
+        }
+    }));
 
-            store.dispatch(panelActions.registerPanel({
-                id: panel.id,
-                dockId: panel.dockId || 'sidebar-dock',
+    // Register each panel configuration
+    Object.values(panelConfigurations).forEach(panelConfig => {
+        try {
+            store.dispatch(panelAction({
+                id: panelConfig.id,
+                dockId: panelConfig.dockId || 'sidebar-dock',
                 config: {
-                    ...panel.config,
-                    name: panel.name || panel.id
+                    ...panelConfig,
+                    name: panelConfig.name || panelConfig.id
                 }
             }));
         } catch (error) {
-            console.error(`[PanelRegistration] Failed to register panel ${panel.id}:`, error);
+            console.error(`[PanelRegistration] Failed to register panel ${panelConfig.id}:`, error);
         }
     });
 }

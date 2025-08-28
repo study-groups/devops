@@ -77,7 +77,8 @@ export function verifyPanelRegistration() {
 
 // Expose to global scope for easy console testing
 if (window.APP) {
-    window.APP.verifyPanelRegistration = verifyPanelRegistration;
+// Migrated from direct window.APP property assignment
+appInitializer.setAppProperty('verifyPanelRegistration', verifyPanelRegistration);
 }
 
 // Auto-run verification

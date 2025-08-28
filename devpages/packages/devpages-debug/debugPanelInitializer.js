@@ -3,7 +3,7 @@
  * @description Initializes and registers all debug panels for the application.
  */
 
-import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { panelRegistry } from '../../client/panels/panelRegistry.js';
 import { JavaScriptInfoPanel } from './panels/JavaScriptInfoPanel.js';
 import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';
 import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
