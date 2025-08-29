@@ -31,7 +31,9 @@ import publishReducer from './store/slices/publishSlice.js';
 import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
-// Panel system removed - workspace dimensions now in UI slice
+import { imageReducer } from './store/slices/imageSlice.js';
+import panelReducer from './store/slices/panelSlice.js';
+// Panel system restored with modern architecture
 
 
 // Middleware
@@ -46,6 +48,7 @@ import { settingsThunks } from './store/slices/settingsSlice.js';
 import { initializePreviewSystem } from './store/slices/previewSlice.js';
 import { pluginThunks } from './store/slices/pluginSlice.js';
 import { initializeComponent } from './store/slices/systemSlice.js';
+import { panelThunks } from './store/slices/panelSlice.js';
 
 // --- Root Reducer Configuration ---
 const rootReducer = {
@@ -62,9 +65,11 @@ const rootReducer = {
     system: systemReducer,
     communications: commReducer,
     editor: editorReducer,
+    image: imageReducer,
+    panels: panelReducer,
     // RTK Query API slice
     [apiSlice.reducerPath]: apiSlice.reducer
-    // Panel system removed - workspace dimensions now in UI slice
+    // Panel system restored with modern architecture
 };
 
 // --- Store Singleton ---
@@ -140,6 +145,7 @@ function initializeStore(preloadedState = {}) {
             preview: { initializePreviewSystem },
             plugins: pluginThunks,
             system: { initializeComponent },
+            panels: panelThunks,
         };
         
         console.log('[AppState] ✅ Central Redux store initialized with robust persistence.');
@@ -169,6 +175,7 @@ function initializeStore(preloadedState = {}) {
             preview: { initializePreviewSystem },
             plugins: pluginThunks,
             system: { initializeComponent },
+            panels: panelThunks,
         };
 
         return { appStore, dispatch };

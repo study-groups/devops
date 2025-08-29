@@ -11,8 +11,10 @@ class WorkspaceManager {
         this.initialized = false;
         this.lastFileContent = null;
         this.lastFilePath = null;
+        this.sidebarTopBar = null;
         this.editorTopBar = null;
         this.previewTopBar = null;
+        this.sidebarTabs = new Map(); // Track sidebar content tabs
     }
 
     initialize() {
@@ -25,6 +27,9 @@ class WorkspaceManager {
             this.handleStateChange();
         });
         
+        // Set initial zone visibility
+        this.updateZoneVisibility(appStore.getState());
+        
         this.initialized = true;
         console.log('[WorkspaceManager] Initialized');
     }
@@ -33,6 +38,9 @@ class WorkspaceManager {
         const state = appStore.getState();
         const fileContent = state.file?.currentFile?.content;
         const filePath = state.file?.currentFile?.pathname;
+        
+        // Handle UI visibility changes
+        this.updateZoneVisibility(state);
         
         // Only act when file content changes
         if (fileContent && fileContent !== this.lastFileContent) {
@@ -43,26 +51,195 @@ class WorkspaceManager {
         }
     }
 
+    updateZoneVisibility(state) {
+        const ui = state.ui || {};
+        
+        // Update sidebar zone visibility
+        const sidebarZone = document.getElementById('workspace-sidebar');
+        if (sidebarZone) {
+            sidebarZone.style.display = ui.leftSidebarVisible ? 'flex' : 'none';
+        }
+        
+        // Update editor zone visibility
+        const editorZone = document.getElementById('workspace-editor');
+        if (editorZone) {
+            editorZone.style.display = ui.editorVisible ? 'flex' : 'none';
+        }
+        
+        // Update preview zone visibility
+        const previewZone = document.getElementById('workspace-preview');
+        if (previewZone) {
+            previewZone.style.display = ui.previewVisible ? 'flex' : 'none';
+        }
+    }
+
     setupWorkspaceForFile(content, filePath) {
         const state = appStore.getState();
         
         console.log('[WorkspaceManager] Setting up workspace for file...');
         
-        // Ensure editor and preview are visible
-        if (!state.ui?.editorVisible) {
-            console.log('[WorkspaceManager] Making editor visible...');
-            appStore.dispatch({ type: 'ui/toggleEditorVisibility' });
-        }
-        
-        if (!state.ui?.previewVisible) {
-            console.log('[WorkspaceManager] Making preview visible...');
-            appStore.dispatch({ type: 'ui/togglePreviewVisibility' });
-        }
+        // Respect user's persisted visibility preferences - don't force zones visible
         
         // Wait for UI state to update, then populate containers
         setTimeout(() => {
             this.populateWorkspaceContainers(content, filePath);
+            this.initializeZoneTopBars();
         }, 100);
+    }
+
+    initializeZoneTopBars() {
+        // Initialize sidebar with custom tab bar
+        if (!this.sidebarTopBar) {
+            const sidebarContainer = document.getElementById('workspace-sidebar');
+            if (sidebarContainer) {
+                this.createSidebarTabBar(sidebarContainer);
+                this.addSidebarTab('files', 'Files', '<div class="sidebar-content">File browser content</div>', true);
+                this.addSidebarTab('outline', 'Outline', '<div class="sidebar-content">Document outline</div>', false);
+            }
+        }
+
+        // Initialize editor top bar
+        if (!this.editorTopBar) {
+            const editorContainer = document.getElementById('workspace-editor');
+            if (editorContainer) {
+                this.editorTopBar = new ZoneTopBar(editorContainer, { title: 'Editor' });
+                editorContainer.prepend(this.editorTopBar.getElement());
+            }
+        }
+
+        // Initialize preview top bar
+        if (!this.previewTopBar) {
+            const previewContainer = document.getElementById('workspace-preview');
+            if (previewContainer) {
+                this.previewTopBar = new ZoneTopBar(previewContainer, { title: 'Preview' });
+                previewContainer.prepend(this.previewTopBar.getElement());
+            }
+        }
+    }
+
+    createSidebarTabBar(container) {
+        // Add basic CSS for tabs if not already added
+        if (!document.getElementById('sidebar-tab-styles')) {
+            const style = document.createElement('style');
+            style.id = 'sidebar-tab-styles';
+            style.textContent = `
+                .sidebar-tab-bar {
+                    height: 48px;
+                    border-bottom: 1px solid var(--color-border, #ddd);
+                    background: var(--color-bg-alt, #f8f9fa);
+                    display: flex;
+                    align-items: center;
+                }
+                .sidebar-tabs {
+                    display: flex;
+                    gap: 1px;
+                    padding: 8px 12px;
+                    height: 100%;
+                    align-items: center;
+                }
+                .sidebar-tab {
+                    padding: 2px 6px;
+                    border: 1px solid transparent;
+                    background: transparent;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 10px;
+                    font-weight: 400;
+                    color: var(--color-text-secondary, #666);
+                    white-space: nowrap;
+                    min-width: 0;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.15s ease;
+                }
+                .sidebar-tab:hover {
+                    border-color: rgba(0,0,0,0.1);
+                    background: rgba(255,255,255,0.8);
+                    color: var(--color-text, #333);
+                }
+                .sidebar-tab.active {
+                    border-color: rgba(0,0,0,0.15);
+                    background: rgba(255,255,255,0.9);
+                    color: var(--color-text, #333);
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+                .sidebar-content-area {
+                    flex: 1;
+                    padding: 12px;
+                    overflow-y: auto;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Create tab bar element
+        const tabBar = document.createElement('div');
+        tabBar.className = 'sidebar-tab-bar';
+        tabBar.innerHTML = `
+            <div class="sidebar-tabs"></div>
+        `;
+        
+        // Create content area
+        const contentArea = document.createElement('div');
+        contentArea.className = 'sidebar-content-area';
+        
+        // Clear container and add tab system
+        container.innerHTML = '';
+        container.appendChild(tabBar);
+        container.appendChild(contentArea);
+        
+        this.sidebarTabBar = tabBar;
+        this.sidebarContentArea = contentArea;
+    }
+
+    addSidebarTab(id, title, content, active = false) {
+        if (!this.sidebarTabBar) return;
+        
+        const tabsContainer = this.sidebarTabBar.querySelector('.sidebar-tabs');
+        if (!tabsContainer) return;
+        
+        // Create tab button
+        const tabButton = document.createElement('button');
+        tabButton.className = `sidebar-tab ${active ? 'active' : ''}`;
+        tabButton.dataset.tabId = id;
+        tabButton.textContent = title;
+        
+        // Add click handler
+        tabButton.addEventListener('click', () => {
+            this.activateSidebarTab(id);
+        });
+        
+        tabsContainer.appendChild(tabButton);
+        this.sidebarTabs.set(id, { title, content, active });
+        
+        if (active) {
+            this.setSidebarContent(content);
+        }
+    }
+
+    activateSidebarTab(id) {
+        // Deactivate all tabs
+        const allTabs = this.sidebarTabBar.querySelectorAll('.sidebar-tab');
+        allTabs.forEach(tab => tab.classList.remove('active'));
+        
+        // Activate selected tab
+        const selectedTab = this.sidebarTabBar.querySelector(`[data-tab-id="${id}"]`);
+        if (selectedTab) {
+            selectedTab.classList.add('active');
+        }
+        
+        // Show content
+        const tabData = this.sidebarTabs.get(id);
+        if (tabData) {
+            this.setSidebarContent(tabData.content);
+        }
+    }
+
+    setSidebarContent(content) {
+        if (this.sidebarContentArea) {
+            this.sidebarContentArea.innerHTML = content;
+        }
     }
 
     populateWorkspaceContainers(content, filePath) {

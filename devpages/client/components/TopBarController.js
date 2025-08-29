@@ -29,6 +29,11 @@ export class TopBarController {
             logMessage('Preview visibility toggled', 'info', 'TOP_BAR');
         });
 
+        this.actionHandlers.set('toggleSidebar', () => {
+            dispatch(uiActions.setLeftSidebarVisible(!appStore.getState().ui?.leftSidebarVisible));
+            logMessage('Sidebar visibility toggled', 'info', 'TOP_BAR');
+        });
+
         this.actionHandlers.set('toggleLogVisibility', () => {
             dispatch(uiActions.toggleLogVisibility());
             logMessage('Log visibility toggled', 'info', 'TOP_BAR');
@@ -189,6 +194,7 @@ export class TopBarController {
 
     updateButtonStates() {
         const buttons = [
+            { selector: '#sidebar-toggle', name: 'Sidebar Toggle' },
             { selector: '#edit-toggle', name: 'Edit Toggle' },
             { selector: '#preview-toggle', name: 'Preview Toggle' },
             { selector: '#log-toggle-btn', name: 'Log Toggle' },
@@ -207,6 +213,12 @@ export class TopBarController {
         const ui = state.ui || {};
         const file = state.file || {};
         const auth = state.auth || {};
+        
+        const sidebarToggle = document.querySelector('#sidebar-toggle');
+        if (sidebarToggle) {
+            sidebarToggle.classList.toggle('active', ui.leftSidebarVisible);
+            sidebarToggle.title = ui.leftSidebarVisible ? 'Hide Sidebar (Alt+S)' : 'Show Sidebar (Alt+S)';
+        }
         
         const editToggle = document.querySelector('#edit-toggle');
         if (editToggle) {

@@ -181,6 +181,24 @@ async function bootSecondary({ store, actions }) {
     // Initialize workspace manager for automatic UI setup
     try {
         const { workspaceManager } = await import('./components/WorkspaceManager.js');
+        window.APP.services.workspaceManager = workspaceManager;
+        
+        // Add console helpers for zone toggling
+        window.APP.debug = window.APP.debug || {};
+        window.APP.debug.toggleEditor = () => {
+            appStore.dispatch({ type: 'ui/toggleEditorVisibility' });
+            console.log('Editor toggled');
+        };
+        window.APP.debug.togglePreview = () => {
+            appStore.dispatch({ type: 'ui/togglePreviewVisibility' });
+            console.log('Preview toggled');
+        };
+        window.APP.debug.toggleSidebar = () => {
+            const currentlyVisible = appStore.getState().ui?.leftSidebarVisible !== false;
+            appStore.dispatch({ type: 'ui/setLeftSidebarVisible', payload: !currentlyVisible });
+            console.log('Sidebar toggled');
+        };
+        
         log.info('WORKSPACE_MANAGER_INIT', '✅ Workspace manager initialized for automatic UI setup');
     } catch (error) {
         log.warn('WORKSPACE_MANAGER_INIT_FAILED', '⚠️ Failed to initialize workspace manager:', error);

@@ -22,6 +22,7 @@ export function createViewControlsComponent(targetElementId, layoutManager = nul
 
         // Create the button HTML - TopBarController handles all interactions
         element.innerHTML = `
+            <button id="sidebar-toggle" class="btn btn-ghost btn-sm" title="Toggle Sidebar (Alt+S)" data-action="toggleSidebar">Sidebar</button>
             <button id="edit-toggle" class="btn btn-ghost btn-sm" title="Open Editor (Alt+T)" data-action="toggleEdit">Edit</button>
             <button id="preview-toggle" class="btn btn-ghost btn-sm" title="Show Preview (Alt+P)" data-action="togglePreview">Preview</button>
             <button id="log-toggle-btn" class="btn btn-ghost btn-sm" title="Show Log (Alt+L)" data-action="toggleLogVisibility">Log</button>
