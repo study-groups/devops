@@ -15,19 +15,18 @@
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
-import { panelDefinitions as staticPanelDefinitions } from './panels/panelRegistry.js';
+import { panelRegistry } from './panels/panelRegistry.js';
 import { workspaceManager } from './layout/WorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
 import { initializeStore, thunks as appThunks } from './appState.js';
 import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
 import { initializeKeyboardShortcuts } from './keyboardShortcuts.js';
 import { pathThunks } from './store/slices/pathSlice.js';
-// import { createLogger } from './log/UnifiedLogging.js'; // Removed direct import
+import { initializeDebugPanels } from '../packages/devpages-debug/debugPanelInitializer.js';
+import { initializeCorePanels } from './panels/corePanelInitializer.js';
 
-// Define log variable, but do not initialize it yet.
-let log; // Reset log to be defined later
+let log;
 
-// Initialize logger once UnifiedLogging is loaded
 function initializeLogger() {
     if (window.APP?.services?.log?.createLogger) {
         log = window.APP.services.log.createLogger('Bootloader');
@@ -41,6 +40,13 @@ function initializeLogger() {
     }
 }
 
+// Initialize logger immediately
+initializeLogger();
+
+// Initialize all panels
+initializeCorePanels();
+initializeDebugPanels();
+
 // --- Unified Component & Panel Definitions ---
 
 const allComponentDefinitions = [
@@ -50,8 +56,10 @@ const allComponentDefinitions = [
     { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
     { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: './components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
     { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: './layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages resizable panels' },
+    { name: 'debugDock', type: 'service', priority: 90, required: false, modulePath: '../packages/devpages-debug/DebugDock.js', factoryFunction: 'initializeDebugDock', dependencies: ['coreServices'], description: 'Debug Dock' },
+
     // Panel Components
-    ...staticPanelDefinitions.map(p => ({
+    ...panelRegistry.getAllPanels().map(p => ({
         ...p,
         type: 'panel',
         priority: 10, // Panels load after core components
@@ -81,9 +89,6 @@ let bootErrors = [];
 // =============================================================================
 
 async function bootPreInit() {
-    // Initialize logger first
-    initializeLogger();
-    
     // APP initialization
     window.APP = window.APP || {};
     window.APP.bootloader = window.APP.bootloader || {};
@@ -294,6 +299,7 @@ async function bootSecondary({ store, actions }) {
     }
     
     // Initialize debug system (panels + DebugDock) now that WorkspaceManager is ready
+    /*
     try {
         // Initialize debug panels first (registers them with panelRegistry)
         const { initializeDebugPanels } = await import('../packages/devpages-debug/debugPanelInitializer.js');
@@ -313,6 +319,7 @@ async function bootSecondary({ store, actions }) {
     } catch (error) {
         log.error('DEBUG_SYSTEM_INIT_FAILED', `❌ Failed to initialize debug system: ${error.message}`, error);
     }
+    */
 
     // Remove keyboard shortcuts initialization
     // initializeKeyboardShortcuts();

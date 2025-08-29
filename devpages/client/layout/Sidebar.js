@@ -14,50 +14,41 @@ export class Sidebar {
         this.header = new SidebarHeader();
         this.panels = new Map();
         this.panelOrder = [];
-        
-        this.initialize();
     }
 
-    initialize() {
-        // Create default panels
-        this.createDefaultPanels();
+    async initialize(container, panelCfgs) {
+        this.container = container;
         
+        // Load panels from config
+        await this.loadPanels(panelCfgs);
+        
+        // Render the sidebar structure and panels
+        this.render();
+
         // Expose API
         this.exposeAPI();
     }
 
-    createDefaultPanels() {
-        // CLI Panel
-        const cliPanel = new CLIPanel();
-        this.registerPanel('cli-panel', cliPanel);
-        
-        // Context Panel (if it exists)
-        this.loadPanel('context-panel', 'Context Browser');
-        
-        // Settings Panel placeholder
-        this.createPlaceholderPanel('settings-panel', 'Settings', 'Configure DevPages settings');
-        
-        // Debug Panel placeholder  
-        this.createPlaceholderPanel('debug-panel', 'Debug Tools', 'Development and debugging tools');
-    }
-
-    async loadPanel(panelId, title) {
-        try {
-            // Try to load existing panel
-            const { panelRegistry } = await import('../panels/panelRegistry.js');
-            const panelConfig = panelRegistry.getPanel(panelId);
-            
-            if (panelConfig && panelConfig.factory) {
-                const module = await panelConfig.factory();
-                const PanelClass = module.default || module;
-                const panel = new PanelClass({ id: panelId, title, store: appStore });
-                this.registerPanel(panelId, panel);
-            } else {
-                this.createPlaceholderPanel(panelId, title, `Panel ${panelId} not found`);
+    async loadPanels(panelCfgs) {
+        for (const panelConfig of panelCfgs) {
+            try {
+                if (panelConfig.factory) {
+                    const module = await panelConfig.factory();
+                    const exportName = Object.keys(module)[0];
+                    const PanelClass = module[exportName];
+                    const panel = new PanelClass({ 
+                        id: panelConfig.id, 
+                        title: panelConfig.title, 
+                        store: appStore 
+                    });
+                    this.registerPanel(panelConfig.id, panel);
+                } else {
+                    this.createPlaceholderPanel(panelConfig.id, panelConfig.title, `Panel ${panelConfig.id} has no factory.`);
+                }
+            } catch (error) {
+                console.warn(`Failed to load panel ${panelConfig.id}:`, error);
+                this.createPlaceholderPanel(panelConfig.id, panelConfig.title, `Error loading panel: ${error.message}`);
             }
-        } catch (error) {
-            console.warn(`Failed to load panel ${panelId}:`, error);
-            this.createPlaceholderPanel(panelId, title, `Error loading panel: ${error.message}`);
         }
     }
 
@@ -87,11 +78,14 @@ export class Sidebar {
         console.log(`[Sidebar] Registered panel: ${panelId}`);
     }
 
-    render(container) {
-        this.container = container;
+    render() {
+        if (!this.container) {
+            console.error('[Sidebar] Container not set. Cannot render.');
+            return;
+        }
         
         // Create sidebar structure
-        container.innerHTML = `
+        this.container.innerHTML = `
             <div class="simple-sidebar-layout">
                 <div class="simple-sidebar-header-container"></div>
                 <div class="simple-sidebar-panels-container"></div>
@@ -99,7 +93,7 @@ export class Sidebar {
         `;
         
         // Render header
-        const headerContainer = container.querySelector('.simple-sidebar-header-container');
+        const headerContainer = this.container.querySelector('.simple-sidebar-header-container');
         if (headerContainer) {
             this.header.render(headerContainer);
         }
@@ -124,14 +118,21 @@ export class Sidebar {
         this.panelOrder.forEach(panelId => {
             const panel = this.panels.get(panelId);
             if (panel) {
+                // Check if render returns an element or modifies its container
                 const panelElement = panel.render();
-                if (panelElement) {
+                
+                // If render returns an element, append it
+                if (panelElement instanceof HTMLElement) {
                     panelsContainer.appendChild(panelElement);
-                    
-                    // Call onMount if it exists
-                    if (typeof panel.onMount === 'function') {
-                        panel.onMount(panelElement);
-                    }
+                } 
+                // If panel has a containerElement, append that
+                else if (panel.containerElement instanceof HTMLElement) {
+                    panelsContainer.appendChild(panel.containerElement);
+                }
+                
+                // Call onMount if it exists
+                if (typeof panel.onMount === 'function') {
+                    panel.onMount(panel.containerElement || panelElement);
                 }
             }
         });

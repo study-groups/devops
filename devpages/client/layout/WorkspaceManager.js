@@ -7,6 +7,7 @@ import { appStore } from '/client/appState.js';
 import { EditorView } from '/client/views/EditorView.js';
 import { PreviewView } from '/client/views/PreviewView.js';
 import { Sidebar } from '/client/layout/Sidebar.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
 
 export class WorkspaceManager {
     constructor() {
@@ -60,6 +61,22 @@ export class WorkspaceManager {
         // Validate core containers exist
         this.validateCoreContainers();
 
+        // Get the debugDock instance
+        this.debugDock = window.APP.services.debugDock;
+
+        // Get all panel definitions
+        const allPanels = panelRegistry.getAllPanels();
+        
+        // Separate debug panels from core panels
+        const debugPanels = allPanels.filter(p => p.group === 'debug');
+        const corePanels = allPanels.filter(p => p.group !== 'debug');
+
+        // Initialize the debug dock with its panels
+        if (this.debugDock) {
+            this.debugDock.initialize(debugPanels);
+            console.log(`[WorkspaceManager] DebugDock initialized with ${debugPanels.length} panels.`);
+        }
+
         // Initialize core views first (editor and preview)
         await this.initializeCoreViews();
 
@@ -69,8 +86,8 @@ export class WorkspaceManager {
         // Set initial UI state on DOM elements
         this.handleStateChange();
 
-        // Initialize dynamic panels from Redux state
-        this.initializeDynamicPanels();
+        // Initialize sidebar with core panels
+        await this.initializeSidebar(corePanels);
 
         this.initialized = true;
         console.log('[WorkspaceManager] ✅ Initialization complete');
@@ -170,11 +187,11 @@ export class WorkspaceManager {
         }
     }
 
-    initializeDynamicPanels() {
+    async initializeSidebar(corePanels) {
         const sidebarContainer = this.dynamicZones.sidebar;
         if (sidebarContainer) {
-            this.sidebar.render(sidebarContainer);
-            console.log('[WorkspaceManager] Sidebar rendered with Redux-managed panels.');
+            await this.sidebar.initialize(sidebarContainer, corePanels);
+            console.log('[WorkspaceManager] Sidebar initialized with Redux-managed panels.');
         } else {
             console.error('[WorkspaceManager] Sidebar container not found.');
         }

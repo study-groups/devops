@@ -1,4 +1,6 @@
-md
+*report.txt
+*backup
+*.md
 notes
 notepads
 *.wip

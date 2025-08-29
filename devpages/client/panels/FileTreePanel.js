@@ -3,11 +3,16 @@
  * Context-aware panel that adapts behavior based on usage (standalone vs child panel)
  */
 
+import { BasePanel } from './BasePanel.js';
 import { logMessage } from '/client/log/index.js';
 
-export class FileTreePanel {
-  constructor(containerElement, options = {}) {
-    this.containerElement = containerElement;
+export class FileTreePanel extends BasePanel {
+  constructor(options = {}) {
+    super({
+      id: 'file-tree-panel',
+      title: 'File Tree',
+      ...options
+    });
     
     // Panel context - determines behavior and styling
     this.isChildPanel = options.isChildPanel || false;
@@ -25,17 +30,20 @@ export class FileTreePanel {
     this.showFullPath = !this.isChildPanel; // Standalone panels show full paths
     this.enableLongClick = true;
     
-    this.init();
     logMessage(`FileTreePanel instance created (${this.isChildPanel ? 'child' : 'standalone'} panel).`, 'debug', 'FILE_TREE_PANEL');
   }
 
+  async onMount(container) {
+    super.onMount(container);
+    await this.init();
+  }
+
   async init() {
-    this.createPanelStructure();
     await this.loadFileTree();
     this.render();
   }
 
-  createPanelStructure() {
+  renderContent() {
     // Adapt styling based on panel context
     const headerStyle = this.isChildPanel ? 
       'padding: 4px 8px; font-size: 12px; border-bottom: 1px solid var(--color-border-light, #f0f0f0);' :
@@ -44,7 +52,7 @@ export class FileTreePanel {
     const containerPadding = this.isChildPanel ? '2px' : '4px';
     const treeIndent = this.isChildPanel ? '12px' : '16px';
 
-    this.containerElement.innerHTML = `
+    return `
       <div class="file-tree-panel-container ${this.isChildPanel ? 'child-panel' : 'standalone-panel'}" style="
         font-family: var(--font-family-mono, 'Courier New', monospace);
         color: var(--color-foreground);
@@ -91,21 +99,47 @@ export class FileTreePanel {
           padding: 0 ${this.isChildPanel ? '4px' : '8px'};
           --tree-indent: ${treeIndent};
         ">
-          <div class="file-tree-loading" style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100px;
-            color: var(--color-foreground-muted, #666);
-            font-size: ${this.isChildPanel ? '11px' : '12px'};
-          ">
-            Loading file tree...
-          </div>
+          ${this.renderTreeContent()}
         </div>
       </div>
     `;
+  }
 
+  renderTreeContent() {
+    if (this.treeData?.error) {
+      return `
+        <div class="file-tree-error" style="
+          color: var(--color-error, #dc3545);
+          font-size: ${this.isChildPanel ? '11px' : '12px'};
+          padding: 8px;
+        ">
+          Error: ${this.treeData.error}
+        </div>
+      `;
+    }
+
+    if (!this.treeData) {
+      return `
+        <div class="file-tree-loading" style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100px;
+          color: var(--color-foreground-muted, #666);
+          font-size: ${this.isChildPanel ? '11px' : '12px'};
+        ">
+          Loading file tree...
+        </div>
+      `;
+    }
+
+    return this.renderTreeNode(this.treeData, 0);
+  }
+
+  render() {
+    super.render();
     this.setupEventListeners();
+    return this.element;
   }
 
   async loadFileTree() {
@@ -154,30 +188,6 @@ export class FileTreePanel {
         });
       }, 100);
     });
-  }
-
-  render() {
-    const contentContainer = this.containerElement.querySelector('.file-tree-content');
-    if (!contentContainer) return;
-
-    if (this.treeData?.error) {
-      contentContainer.innerHTML = `
-        <div class="file-tree-error" style="
-          color: var(--color-error, #dc3545);
-          font-size: ${this.isChildPanel ? '11px' : '12px'};
-          padding: 8px;
-        ">
-          Error: ${this.treeData.error}
-        </div>
-      `;
-      return;
-    }
-
-    if (!this.treeData) {
-      return; // Still loading
-    }
-
-    contentContainer.innerHTML = this.renderTreeNode(this.treeData, 0);
   }
 
   renderTreeNode(node, depth) {
@@ -240,9 +250,11 @@ export class FileTreePanel {
   }
 
   setupEventListeners() {
+    if (!this.element) return;
+
     let longClickTimer = null;
     
-    this.containerElement.addEventListener('click', (e) => {
+    this.element.addEventListener('click', (e) => {
       // Refresh button
       if (e.target.classList.contains('refresh-tree-btn')) {
         this.refresh();
@@ -270,7 +282,7 @@ export class FileTreePanel {
 
     // Long click support
     if (this.enableLongClick) {
-      this.containerElement.addEventListener('mousedown', (e) => {
+      this.element.addEventListener('mousedown', (e) => {
         const treeNode = e.target.closest('.tree-node');
         if (treeNode) {
           longClickTimer = setTimeout(() => {
@@ -279,14 +291,14 @@ export class FileTreePanel {
         }
       });
 
-      this.containerElement.addEventListener('mouseup', () => {
+      this.element.addEventListener('mouseup', () => {
         if (longClickTimer) {
           clearTimeout(longClickTimer);
           longClickTimer = null;
         }
       });
 
-      this.containerElement.addEventListener('mouseleave', () => {
+      this.element.addEventListener('mouseleave', () => {
         if (longClickTimer) {
           clearTimeout(longClickTimer);
           longClickTimer = null;
@@ -296,7 +308,7 @@ export class FileTreePanel {
 
     // Double-click for directories in standalone mode
     if (!this.collapseOnSingleClick) {
-      this.containerElement.addEventListener('dblclick', (e) => {
+      this.element.addEventListener('dblclick', (e) => {
         const treeNode = e.target.closest('.tree-node');
         if (treeNode && treeNode.dataset.type === 'directory') {
           this.toggleDirectory(treeNode.dataset.path);
@@ -342,5 +354,6 @@ export class FileTreePanel {
 
   destroy() {
     logMessage('FileTreePanel destroyed.', 'debug', 'FILE_TREE_PANEL');
+    super.destroy();
   }
-} 
+}

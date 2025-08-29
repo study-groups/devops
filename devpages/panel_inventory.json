@@ -1,0 +1,30 @@
+{
+  "panelInventory": {
+    "timestamp": "2025-08-28T16:48:11-07:00",
+    "categories": {
+      "core": {
+        "description": "Essential application functionality panels",
+        "manager": "client/layout/Sidebar.js",
+        "panels": []
+      },
+      "debug": {
+        "description": "Development and debugging tools",
+        "manager": "packages/devpages-debug/DebugDock.js",
+        "panels": []
+      },
+      "settings": {
+        "description": "Configuration and preference panels",
+        "manager": "client/settings/core/SettingsPanel.js",
+        "panels": []
+      },
+      "utility": {
+        "description": "Helper and tool panels",
+        "manager": "various",
+        "panels": []
+      }
+    },
+    "managers": [],
+    "registries": [],
+    "conflicts": []
+  }
+}

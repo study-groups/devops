@@ -1,20 +1,14 @@
-import { panelRegistry } from '/panels/panelRegistry.js';
-import { appStore, dispatch } from '/appState.js';
+import { panelRegistry } from '/client/panels/panelRegistry.js';
+import { appStore, dispatch } from '/client/appState.js';
 import { 
     toggleVisibility, 
     togglePanelExpanded, 
     reorderPanels, 
     updateDockPosition,
     updateDockSize 
-} from '/store/slices/debugPanelSlice.js';
+} from '/client/store/slices/debugPanelSlice.js';
 
-// Import all panel classes
-import { PDataPanel } from './panels/PDataPanel.js';
-import { DevToolsPanel } from './devtools/DevToolsPanel.js';
-import { DomInspectorDebugPanel } from './panels/dom-inspector/DomInspectorDebugPanel.js';
-import { CssFilesPanel } from './panels/CssFilesPanel/CssFilesPanel.js';
-import { JavaScriptInfoPanel } from './panels/JavaScriptInfoPanel.js';
-import { ExternalDependenciesPanel } from './panels/ExternalDependenciesPanel.js';
+// No longer importing panels directly, they will be passed in
 
 // Inject debug dock styles
 function injectDebugDockStyles() {
@@ -164,17 +158,7 @@ export const debugDock = {
     panels: [],
     dragState: { isDragging: false, draggedPanel: null, startY: 0 },
 
-    // Hardcoded panel classes for direct initialization
-    PANEL_CLASSES: [
-        { id: 'pdata-panel', title: 'PData Panel', component: PDataPanel },
-        { id: 'devtools', title: 'DevTools', component: DevToolsPanel },
-        { id: 'dom-inspector', title: 'DOM Inspector', component: DomInspectorDebugPanel },
-        { id: 'css-files', title: 'CSS Files', component: CssFilesPanel },
-        { id: 'javascript-panel', title: 'JavaScript Info', component: JavaScriptInfoPanel },
-        { id: 'external-dependencies', title: 'External Dependencies', component: ExternalDependenciesPanel }
-    ],
-
-    initialize: async function() {
+    initialize: function(panelCfgs) {
         // Create container if not exists
         if (!this.container) {
             this.createContainer();
@@ -183,17 +167,8 @@ export const debugDock = {
         // Inject styles
         injectDebugDockStyles();
 
-        // Register panels with panel registry
-        this.PANEL_CLASSES.forEach(panelConfig => {
-            panelRegistry.register({
-                id: panelConfig.id,
-                title: panelConfig.title,
-                group: 'debug',
-                component: panelConfig.component,
-                factory: () => Promise.resolve(panelConfig.component),
-                isVisible: true
-            });
-        });
+        // Load panels passed from workspace manager
+        this.panels = panelCfgs || [];
 
         // Setup drag and drop
         this.setupDragAndDrop();
@@ -365,7 +340,7 @@ export const debugDock = {
             this.isVisible = isVisible;
         } else {
             // Fallback to original logic if Redux is not available
-        this.isVisible = !this.isVisible;
+            this.isVisible = !this.isVisible;
 
             if (this.isVisible) {
                 this.render();
@@ -395,8 +370,8 @@ export const debugDock = {
         const panels = debugState.panels ? [...debugState.panels].sort((a, b) => a.order - b.order) : [];
 
         panels.forEach((panelState, index) => {
-            // Find the corresponding panel config
-            const panelConfig = this.PANEL_CLASSES.find(p => p.id === panelState.id);
+            // Find the corresponding panel config from the initialized list
+            const panelConfig = this.panels.find(p => p.id === panelState.id);
             if (panelConfig && panelState.visible) {
                 const panelElement = this.createCollapsiblePanel(panelConfig, panelState, index);
                 content.appendChild(panelElement);
@@ -462,33 +437,35 @@ export const debugDock = {
         return panel;
     },
 
-    loadPanelContent: function(panelConfig, container) {
+    async loadPanelContent(panelConfig, container) {
         try {
-            const PanelComponent = panelConfig.component;
-            let panelInstance;
-
-            // Special handling for panels with specific initialization
-            if (panelConfig.id === 'external-dependencies') {
-                panelInstance = new PanelComponent(container);
-            } else if (panelConfig.id === 'pdata-panel') {
-                panelInstance = new PanelComponent({ 
-                    id: panelConfig.id, 
-                    title: panelConfig.title 
-                });
-            } else {
-                panelInstance = new PanelComponent();
+            if (!panelConfig.factory) {
+                throw new Error(`Panel ${panelConfig.id} has no factory function.`);
             }
+
+            // Use the factory to get the panel class/module
+            const module = await panelConfig.factory();
+            const PanelComponent = module.default || module;
             
-            // Check if panel has a render method
+            // Instantiate the panel, passing necessary props
+            const panelInstance = new PanelComponent({
+                id: panelConfig.id,
+                title: panelConfig.title,
+                store: appStore
+            });
+
+            // Render the panel's content into the container
             if (typeof panelInstance.render === 'function') {
                 const panelContent = panelInstance.render();
-                if (panelContent) {
+                if (typeof panelContent === 'string') {
+                    container.innerHTML = panelContent;
+                } else if (panelContent instanceof HTMLElement) {
                     container.appendChild(panelContent);
                 }
             } else {
-                // Fallback content
-                container.innerHTML = `<div>Panel content for ${panelConfig.title}</div>`;
+                container.innerHTML = `<div>Content for ${panelConfig.title}</div>`;
             }
+
         } catch (error) {
             console.error(`[DebugDock] Error loading panel ${panelConfig.id}:`, error);
             container.innerHTML = `
@@ -581,6 +558,17 @@ export const debugDock = {
     }
 };
 
+export function initializeDebugDock() {
+    // This is the new entry point called by the bootloader
+    // It makes the debugDock globally available
+    if (typeof window !== 'undefined') {
+        window.APP = window.APP || {};
+        window.APP.services = window.APP.services || {};
+        window.APP.services.debugDock = debugDock;
+    }
+    return debugDock;
+}
+
 // Ensure DebugDock is globally accessible
 if (typeof window !== 'undefined') {
     window.APP = window.APP || {};
@@ -609,16 +597,6 @@ debugDock.diagnose = function() {
     }
 };
 
-// Initialize debug dock when Redux store is ready
-const initializeWhenReady = () => {
-    if (appStore && appStore.getState) {
-        debugDock.initialize();
-        console.log('[DebugDock] Initialized with Redux store ready');
-    } else {
-        console.log('[DebugDock] Waiting for Redux store...');
-        setTimeout(initializeWhenReady, 100);
-    }
-};
-
-// Start initialization check
-initializeWhenReady();
+// Removed the self-initializing logic:
+// const initializeWhenReady = () => { ... };
+// initializeWhenReady();

@@ -1,0 +1,383 @@
+/**
+ * Panel System CSS - Unified Design Token Architecture
+ * Provides consistent styling for all panel types across the application
+ */
+
+/* =================================================================
+   PANEL DESIGN TOKENS
+   ================================================================= */
+
+:root {
+  /* Panel Container Tokens */
+  --panel-bg: var(--color-background, #ffffff);
+  --panel-border: 1px solid var(--color-border, #e1e5e9);
+  --panel-border-radius: var(--border-radius-base, 4px);
+  --panel-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  /* Panel Header Tokens */
+  --panel-header-bg: var(--color-background-secondary, #f8f9fa);
+  --panel-header-border: 1px solid var(--color-border-light, #f0f0f0);
+  --panel-header-padding: var(--spacing-sm, 8px) var(--spacing-base, 12px);
+  --panel-header-font-size: var(--font-size-lg, 14px);
+  --panel-header-font-weight: 600;
+  --panel-header-text-color: var(--color-text-primary, #212529);
+  
+  /* Panel Content Tokens */
+  --panel-content-padding: var(--spacing-base, 12px);
+  --panel-content-font-size: var(--font-size-base, 12px);
+  --panel-content-line-height: 1.4;
+  --panel-content-text-color: var(--color-text-primary, #212529);
+  
+  /* Panel Typography Tokens */
+  --panel-font-family: var(--font-family-base, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --panel-font-family-mono: var(--font-family-monospace, 'SF Mono', Monaco, 'Cascadia Code', monospace);
+  
+  /* Panel Text Colors */
+  --panel-text-primary: var(--color-text-primary, #212529);
+  --panel-text-secondary: var(--color-text-secondary, #6c757d);
+  --panel-text-muted: var(--color-text-muted, #adb5bd);
+  
+  /* Panel Font Sizes */
+  --panel-font-size-xs: 10px;
+  --panel-font-size-sm: 11px;
+  --panel-font-size-base: 12px;
+  --panel-font-size-lg: 14px;
+  --panel-font-size-xl: 16px;
+  
+  /* Panel Spacing */
+  --panel-spacing-xs: 4px;
+  --panel-spacing-sm: 8px;
+  --panel-spacing-base: 12px;
+  --panel-spacing-lg: 16px;
+  --panel-spacing-xl: 24px;
+  
+  /* Panel Border Radius */
+  --panel-border-radius-sm: 3px;
+  --panel-border-radius-base: 4px;
+  --panel-border-radius-lg: 6px;
+  
+  /* Panel Button Tokens */
+  --panel-button-padding: var(--panel-spacing-xs, 4px) var(--panel-spacing-sm, 8px);
+  --panel-button-font-size: var(--panel-font-size-sm, 11px);
+  --panel-button-border-radius: var(--panel-border-radius-sm, 3px);
+  --panel-button-primary-bg: var(--color-primary, #007bff);
+  --panel-button-primary-hover: var(--color-primary-hover, #0056b3);
+  --panel-button-secondary-bg: var(--color-secondary, #6c757d);
+  --panel-button-secondary-hover: var(--color-secondary-hover, #545b62);
+}
+
+/* =================================================================
+   PANEL BASE CLASSES
+   ================================================================= */
+
+/* Panel Container Base */
+.panel-container {
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  border-radius: var(--panel-border-radius);
+  box-shadow: var(--panel-shadow);
+  font-family: var(--panel-font-family);
+  color: var(--panel-text-primary);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Panel Header */
+.panel-header {
+  padding: var(--panel-header-padding);
+  border-bottom: var(--panel-header-border);
+  background: var(--panel-header-bg);
+  font-size: var(--panel-header-font-size);
+  font-weight: var(--panel-header-font-weight);
+  color: var(--panel-header-text-color);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h3,
+.panel-header h4 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+/* Panel Content */
+.panel-content {
+  padding: var(--panel-content-padding);
+  font-size: var(--panel-content-font-size);
+  line-height: var(--panel-content-line-height);
+  color: var(--panel-content-text-color);
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Panel Controls */
+.panel-controls {
+  display: flex;
+  gap: var(--panel-spacing-sm);
+  align-items: center;
+}
+
+/* Panel Buttons */
+.panel-button {
+  padding: var(--panel-button-padding);
+  font-size: var(--panel-button-font-size);
+  border: none;
+  border-radius: var(--panel-button-border-radius);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s ease;
+}
+
+.panel-button.primary {
+  background: var(--panel-button-primary-bg);
+  color: white;
+}
+
+.panel-button.primary:hover {
+  background: var(--panel-button-primary-hover);
+}
+
+.panel-button.secondary {
+  background: var(--panel-button-secondary-bg);
+  color: white;
+}
+
+.panel-button.secondary:hover {
+  background: var(--panel-button-secondary-hover);
+}
+
+.panel-button.success {
+  background: var(--color-success, #28a745);
+  color: white;
+}
+
+.panel-button.success:hover {
+  background: var(--color-success-hover, #218838);
+}
+
+.panel-button.danger {
+  background: var(--color-danger, #dc3545);
+  color: white;
+}
+
+.panel-button.danger:hover {
+  background: var(--color-danger-hover, #c82333);
+}
+
+/* =================================================================
+   PANEL TYPE VARIANTS
+   ================================================================= */
+
+/* Debug Panels */
+.panel-container.debug-panel {
+  --panel-bg: var(--color-background-tertiary, #fafafa);
+  --panel-border: 1px solid var(--color-border-debug, #dee2e6);
+  --panel-header-bg: var(--color-background-secondary, #f8f9fa);
+}
+
+.debug-panel .panel-header {
+  border-bottom-color: var(--color-border-debug, #dee2e6);
+}
+
+/* Core App Panels */
+.panel-container.core-panel {
+  --panel-bg: var(--color-background, #ffffff);
+  --panel-border: 1px solid var(--color-border, #e1e5e9);
+}
+
+/* Settings Panels */
+.panel-container.settings-panel {
+  --panel-bg: var(--color-background-secondary, #f8f9fa);
+  --panel-border: 1px solid var(--color-border-light, #f0f0f0);
+}
+
+/* Child Panels (Nested) */
+.panel-container.child-panel {
+  --panel-border-radius: var(--panel-border-radius-sm);
+  --panel-content-padding: var(--panel-spacing-sm);
+  --panel-header-padding: var(--panel-spacing-xs) var(--panel-spacing-sm);
+  --panel-header-font-size: var(--panel-font-size-base);
+  font-size: var(--panel-font-size-sm);
+}
+
+/* =================================================================
+   PANEL CONTENT COMPONENTS
+   ================================================================= */
+
+/* Panel Sections */
+.panel-section {
+  margin-bottom: var(--panel-spacing-lg);
+}
+
+.panel-section:last-child {
+  margin-bottom: 0;
+}
+
+.panel-section-title {
+  font-size: var(--panel-font-size-lg);
+  font-weight: 600;
+  color: var(--panel-text-primary);
+  margin: 0 0 var(--panel-spacing-sm) 0;
+}
+
+.panel-section-content {
+  color: var(--panel-text-secondary);
+  line-height: 1.5;
+}
+
+/* Panel Stats/Metrics */
+.panel-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--panel-spacing-base);
+  margin-bottom: var(--panel-spacing-lg);
+}
+
+.panel-stat {
+  background: var(--color-background, white);
+  border: var(--panel-border);
+  border-radius: var(--panel-border-radius-sm);
+  padding: var(--panel-spacing-base);
+  text-align: center;
+}
+
+.panel-stat-value {
+  font-size: var(--panel-font-size-xl);
+  font-weight: 700;
+  margin-bottom: var(--panel-spacing-xs);
+}
+
+.panel-stat-label {
+  font-size: var(--panel-font-size-xs);
+  color: var(--panel-text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Panel Lists */
+.panel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.panel-list-item {
+  padding: var(--panel-spacing-sm);
+  border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+  display: flex;
+  align-items: center;
+  gap: var(--panel-spacing-sm);
+}
+
+.panel-list-item:last-child {
+  border-bottom: none;
+}
+
+.panel-list-item:hover {
+  background: var(--color-background-hover, #f8f9fa);
+}
+
+/* Panel Forms */
+.panel-form-group {
+  margin-bottom: var(--panel-spacing-base);
+}
+
+.panel-form-label {
+  display: block;
+  font-size: var(--panel-font-size-sm);
+  font-weight: 500;
+  color: var(--panel-text-primary);
+  margin-bottom: var(--panel-spacing-xs);
+}
+
+.panel-form-input {
+  width: 100%;
+  padding: var(--panel-spacing-sm);
+  border: 1px solid var(--color-border, #e1e5e9);
+  border-radius: var(--panel-border-radius-sm);
+  font-size: var(--panel-font-size-base);
+  font-family: inherit;
+}
+
+.panel-form-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #007bff);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* =================================================================
+   PANEL UTILITY CLASSES
+   ================================================================= */
+
+/* Text Utilities */
+.panel-text-primary { color: var(--panel-text-primary); }
+.panel-text-secondary { color: var(--panel-text-secondary); }
+.panel-text-muted { color: var(--panel-text-muted); }
+.panel-text-success { color: var(--color-success, #28a745); }
+.panel-text-warning { color: var(--color-warning, #ffc107); }
+.panel-text-danger { color: var(--color-danger, #dc3545); }
+.panel-text-info { color: var(--color-info, #17a2b8); }
+
+/* Font Size Utilities */
+.panel-text-xs { font-size: var(--panel-font-size-xs); }
+.panel-text-sm { font-size: var(--panel-font-size-sm); }
+.panel-text-base { font-size: var(--panel-font-size-base); }
+.panel-text-lg { font-size: var(--panel-font-size-lg); }
+.panel-text-xl { font-size: var(--panel-font-size-xl); }
+
+/* Font Family Utilities */
+.panel-font-mono { font-family: var(--panel-font-family-mono); }
+
+/* Spacing Utilities */
+.panel-mb-xs { margin-bottom: var(--panel-spacing-xs); }
+.panel-mb-sm { margin-bottom: var(--panel-spacing-sm); }
+.panel-mb-base { margin-bottom: var(--panel-spacing-base); }
+.panel-mb-lg { margin-bottom: var(--panel-spacing-lg); }
+.panel-mb-xl { margin-bottom: var(--panel-spacing-xl); }
+
+.panel-p-xs { padding: var(--panel-spacing-xs); }
+.panel-p-sm { padding: var(--panel-spacing-sm); }
+.panel-p-base { padding: var(--panel-spacing-base); }
+.panel-p-lg { padding: var(--panel-spacing-lg); }
+.panel-p-xl { padding: var(--panel-spacing-xl); }
+
+/* Background Utilities */
+.panel-bg-primary { background: var(--color-primary-background, #e3f2fd); }
+.panel-bg-secondary { background: var(--color-secondary-background, #e2e3e5); }
+.panel-bg-success { background: var(--color-success-background, #d4edda); }
+.panel-bg-warning { background: var(--color-warning-background, #fff3cd); }
+.panel-bg-danger { background: var(--color-danger-background, #f8d7da); }
+.panel-bg-info { background: var(--color-info-background, #d1ecf1); }
+
+/* Border Utilities */
+.panel-border-primary { border-left: 3px solid var(--color-primary, #007bff); }
+.panel-border-success { border-left: 3px solid var(--color-success, #28a745); }
+.panel-border-warning { border-left: 3px solid var(--color-warning, #ffc107); }
+.panel-border-danger { border-left: 3px solid var(--color-danger, #dc3545); }
+.panel-border-info { border-left: 3px solid var(--color-info, #17a2b8); }
+
+/* =================================================================
+   RESPONSIVE DESIGN
+   ================================================================= */
+
+@media (max-width: 768px) {
+  .panel-container {
+    --panel-content-padding: var(--panel-spacing-sm);
+    --panel-header-padding: var(--panel-spacing-xs) var(--panel-spacing-sm);
+  }
+  
+  .panel-stats {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: var(--panel-spacing-sm);
+  }
+  
+  .panel-controls {
+    flex-wrap: wrap;
+  }
+}

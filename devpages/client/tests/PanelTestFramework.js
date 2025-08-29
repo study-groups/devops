@@ -4,7 +4,7 @@
  */
 
 import { appStore } from '../appState.js';
-import { panelDefinitions } from '../panels/panelRegistry.js';
+import { panelRegistry } from '../panels/panelRegistry.js';
 import { getCurrentPathname } from '../store/selectors.js';
 
 export class PanelTestFramework {
@@ -54,6 +54,7 @@ export class PanelTestFramework {
         const validZones = ['sidebar', 'editor', 'preview', 'console', 'left', 'main', 'right', 'bottom'];
         const requiredFields = ['id', 'name', 'title', 'factory', 'defaultZone'];
         
+        const panelDefinitions = panelRegistry.getAllPanels();
         panelDefinitions.forEach(panelDef => {
             const testName = `Panel Definition: ${panelDef.id}`;
             
@@ -98,6 +99,7 @@ export class PanelTestFramework {
         });
 
         // Test semantic zone assignment (no more mapping indirection!)
+        const panelDefinitions = panelRegistry.getAllPanels();
         panelDefinitions.forEach(panelDef => {
             const testName = `Semantic Zone Assignment: ${panelDef.id}`;
             
@@ -139,6 +141,7 @@ export class PanelTestFramework {
         const state = appStore.getState();
         const docks = state.panels?.docks || {};
         
+        const panelDefinitions = panelRegistry.getAllPanels();
         panelDefinitions.forEach(panelDef => {
             const testName = `Panel Registration: ${panelDef.id}`;
             
@@ -181,6 +184,7 @@ export class PanelTestFramework {
         }
 
         // Test that panels can be instantiated
+        const panelDefinitions = panelRegistry.getAllPanels();
         for (const panelDef of panelDefinitions) {
             const testName = `Panel Mounting: ${panelDef.id}`;
             
@@ -385,6 +389,7 @@ export class PanelTestFramework {
         });
 
         // Check panel definitions
+        const panelDefinitions = panelRegistry.getAllPanels();
         if (panelDefinitions.length === 0) {
             issues.push('No panel definitions found');
         }

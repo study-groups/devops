@@ -14,6 +14,32 @@ function getLogger() {
     return log;
 }
 
+/**
+ * Recursively clones an action object and removes non-serializable values.
+ * @param {object} action - The Redux action.
+ * @returns {object} A sanitized, serializable action.
+ */
+function sanitizeAction(action) {
+    const sanitized = {};
+    for (const key in action) {
+        if (Object.prototype.hasOwnProperty.call(action, key)) {
+            const value = action[key];
+            if (value instanceof Request || value instanceof Response) {
+                // Omit Request/Response objects
+                continue;
+            }
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                // Recurse into nested objects
+                sanitized[key] = sanitizeAction(value);
+            } else {
+                sanitized[key] = value;
+            }
+        }
+    }
+    return sanitized;
+}
+
+
 // --- Aggregation Logic ---
 let lastActionType = null;
 let repeatCount = 0;
@@ -70,6 +96,8 @@ function flushLastAction() {
 export const reduxLogMiddleware = store => next => action => {
     if (typeof action === 'object' && action.type && !ignoreList.includes(action.type)) {
         
+        const sanitized = sanitizeAction(action);
+        
         if (action.type !== lastActionType) {
             // A new action has arrived. Flush the count of the previous one.
             flushLastAction();
@@ -79,7 +107,7 @@ export const reduxLogMiddleware = store => next => action => {
             repeatCount = 1;
 
             const message = `Action: ${action.type}${createSummary(action.payload)}`;
-            getLogger().info(action.type, message, action);
+            getLogger().info(action.type, message, sanitized);
 
         } else {
             // It's a repeated action.
@@ -87,7 +115,7 @@ export const reduxLogMiddleware = store => next => action => {
 
             if (repeatCount <= 2) {
                 const message = `Action: ${action.type}${createSummary(action.payload)}`;
-                getLogger().info(action.type, message, action);
+                getLogger().info(action.type, message, sanitized);
             }
             // For repeats > 2, we stay silent and wait for flushLastAction to be called.
         }

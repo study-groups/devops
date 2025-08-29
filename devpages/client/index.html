@@ -67,6 +67,23 @@
         }
     }
     </script>
+    
+    <!-- Markdown-it Loader: Required for the preview panel -->
+    <script>
+        function initMarkdownIt() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/client/vendor/scripts/markdown-it.min.js';
+                script.onload = () => {
+                    window.APP.services = window.APP.services || {};
+                    window.APP.services.markdownit = window.markdownit;
+                    resolve();
+                };
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+    </script>
 </head>
 <body class="splash-active">
     <div id="devpages-splash">
