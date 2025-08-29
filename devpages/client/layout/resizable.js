@@ -1,18 +1,18 @@
 /**
  * resizable.js
  * 
- * Manages the resizing of workspace panels (Sidebar, Editor, Preview)
+ * Manages the resizing of workspace zones (Sidebar, Editor, Preview)
  * and stores the positions in Redux.
  */
 
 import { appStore } from '../appState.js';
-import { setPanelSize } from '../redux/panelSizes.js';
+import { uiActions } from '../store/uiSlice.js';
 
 class ResizableManager {
     constructor() {
         this.initialized = false;
         this.resizers = {};
-        this.panels = {};
+        // Removed - using this.zones instead
         this.minMaxWidths = {
             sidebar: { min: 0, max: window.innerWidth },
             preview: { min: 0, max: window.innerWidth },
@@ -32,7 +32,7 @@ class ResizableManager {
             preview: document.querySelector('.resizer[data-resizer-for="preview"]'),
         };
 
-        this.panels = {
+        this.zones = {
             sidebar: document.getElementById('workspace-sidebar'),
             editor: document.getElementById('workspace-editor'),
             preview: document.getElementById('workspace-preview'),
@@ -51,23 +51,23 @@ class ResizableManager {
             this.minMaxWidths.preview.max = window.innerWidth;
         });
 
-        appStore.subscribe(this.updatePanelSizes.bind(this));
-        this.updatePanelSizes();
+        // Only update zone sizes on initial load, not on every state change
+        this.updateZoneSizes();
         
         this.initialized = true;
         return this;
     }
 
-    updatePanelSizes() {
+    updateZoneSizes() {
         const state = appStore.getState();
-        const { panelSizes } = state;
+        const { workspaceDimensions } = state.ui;
 
-        if (panelSizes) {
-            for (const panelKey in panelSizes) {
-                const panel = this.panels[panelKey];
-                if (panel && panelSizes[panelKey]) {
-                    panel.style.width = `${panelSizes[panelKey]}px`;
-                }
+        if (workspaceDimensions) {
+            if (this.zones.sidebar && workspaceDimensions.sidebarWidth) {
+                this.zones.sidebar.style.width = `${workspaceDimensions.sidebarWidth}px`;
+            }
+            if (this.zones.preview && workspaceDimensions.previewWidth) {
+                this.zones.preview.style.width = `${workspaceDimensions.previewWidth}px`;
             }
         }
     }
@@ -97,7 +97,7 @@ class ResizableManager {
         if (newWidth < min) newWidth = min;
         if (newWidth > max) newWidth = max;
 
-        this.panels[resizerKey].style.width = `${newWidth}px`;
+        this.zones[resizerKey].style.width = `${newWidth}px`;
     }
 
     onMouseUp() {
@@ -107,9 +107,21 @@ class ResizableManager {
         document.removeEventListener('mousemove', this.boundOnMouseMove);
         document.removeEventListener('mouseup', this.boundOnMouseUp);
 
-        const newWidth = this.panels[resizerKey].offsetWidth;
+        const newWidth = this.zones[resizerKey].offsetWidth;
 
-        appStore.dispatch(setPanelSize(resizerKey, newWidth));
+        // Save to UI slice workspaceDimensions instead of panelSizes
+        const state = appStore.getState();
+        const currentDimensions = state.ui.workspaceDimensions || {};
+        const dimensionKey = resizerKey === 'sidebar' ? 'sidebarWidth' : 'previewWidth';
+        
+        appStore.dispatch(uiActions.updateSetting({
+            key: 'workspaceDimensions',
+            value: {
+                ...currentDimensions,
+                [dimensionKey]: newWidth
+            }
+        }));
+        
         this.currentResizerKey = null;
     }
 }

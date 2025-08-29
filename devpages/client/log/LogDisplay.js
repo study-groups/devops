@@ -3,7 +3,7 @@
  * Full-featured log display component with filtering, search, and beautiful UI.
  * Can be used standalone or within the panel system.
  */
-import { BasePanel } from '/client/panels/BasePanel.js';
+// BasePanel removed - LogDisplay is standalone component
 import { appStore, dispatch } from '/client/appState.js';
 import { connect } from '/client/store/connect.js';
 import { logThunks, selectFilteredEntries, addEntry, clearEntries } from '/client/store/slices/logSlice.js';
@@ -14,9 +14,11 @@ import { setLogDisplayInstance } from './LogCore.js';
 import { expandLogEntry as expandLogEntryFunction, collapseLogEntry as collapseLogEntryFunction } from './logEntryExpansion.js';
 import { getRenderer } from './logRenderers.js';
 
-export class LogDisplay extends BasePanel {
+export class LogDisplay {
     constructor(options) {
-        super(options);
+        this.id = options.id || 'log-display';
+        this.title = options.title || 'Log Display';
+        this.store = options.store;
         this.logOrder = 'recent';
         this.lastSortOrder = 'recent';
         this.maxEntries = options.maxEntries || 1000; // Limit entries to prevent memory issues
@@ -47,7 +49,7 @@ export class LogDisplay extends BasePanel {
     }
 
     onMount(container) {
-        super.onMount(container);
+        this.container = container;
         
         // Ensure container is set properly
         this.container = container;

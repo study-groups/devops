@@ -407,39 +407,6 @@ export class InitializationManager {
             description: 'Settings management'
         });
 
-        // DOM inspector
-        this.registerModule('domInspector', {
-            domain: 'dom-inspector',
-            priority: 60,
-            required: false,
-            dependencies: ['logging', 'settings'],
-            initializer: '/client/dom-inspector/domInspectorInitializer.js',
-            description: 'DOM inspector tools'
-        });
-
-        // Keyboard shortcuts
-        this.registerModule('keyboardShortcuts', {
-            domain: 'ui',
-            priority: 50,
-            required: false,
-            dependencies: ['logging', 'eventBus'],
-            initializer: {
-                module: '/client/keyboardShortcuts.js',
-                function: 'initializeKeyboardShortcuts'
-            },
-            description: 'Keyboard shortcut system'
-        });
-
-        // Panel system
-        this.registerModule('panels', {
-            domain: 'panels',
-            priority: 40,
-            required: false,
-            dependencies: ['logging', 'auth', 'settings'],
-            initializer: '/client/panels/panelRegistry.js',
-            description: 'Panel management system'
-        });
-
         // Preview system
         this.registerModule('preview', {
             domain: 'preview',
@@ -448,16 +415,6 @@ export class InitializationManager {
             dependencies: ['logging'],
             initializer: '/client/preview/index.js',
             description: 'Content preview system'
-        });
-
-        // Debug tools
-        this.registerModule('debugTools', {
-            domain: 'debug',
-            priority: 10,
-            required: false,
-            dependencies: ['logging', 'panels'],
-            initializer: '/packages/devpages-debug/index.js',
-            description: 'Debug and development tools'
         });
     }
 

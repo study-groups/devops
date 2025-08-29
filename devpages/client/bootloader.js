@@ -15,15 +15,10 @@
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
-import { panelRegistry } from './panels/panelRegistry.js';
-import { workspaceManager } from './layout/WorkspaceManager.js';
 import { createGlobalFetch } from './services/fetcher.js';
 import { initializeStore, thunks as appThunks } from './appState.js';
 import { startInitialization, setComponentLoading, setComponentReady, setComponentError } from './store/slices/systemSlice.js';
-import { initializeKeyboardShortcuts } from './keyboardShortcuts.js';
 import { pathThunks } from './store/slices/pathSlice.js';
-import { initializeDebugPanels } from '../packages/devpages-debug/debugPanelInitializer.js';
-import { initializeCorePanels } from './panels/corePanelInitializer.js';
 
 let log;
 
@@ -43,9 +38,7 @@ function initializeLogger() {
 // Initialize logger immediately
 initializeLogger();
 
-// Initialize all panels
-initializeCorePanels();
-initializeDebugPanels();
+// Panel system removed - clean application without panels
 
 // --- Unified Component & Panel Definitions ---
 
@@ -53,21 +46,9 @@ const allComponentDefinitions = [
     // Core Components
     { name: 'authDisplay', type: 'component', priority: 1, required: true, targetElementId: 'auth-component-container', modulePath: './components/AuthDisplay.js', factoryFunction: 'initializeAuthDisplay', dependencies: ['coreServices'], description: 'Authentication status display' },
     { name: 'pathManager', type: 'component', priority: 2, required: true, targetElementId: 'context-manager-container', modulePath: './components/PathManagerComponent.js', factoryFunction: 'createPathManagerComponent', dependencies: ['coreServices', 'auth'], description: 'File path and context manager' },
-    { name: 'viewControls', type: 'component', priority: 3, required: false, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
+    { name: 'viewControls', type: 'component', priority: 3, required: true, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
     { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: './components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
-    { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: './layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages resizable panels' },
-    { name: 'debugDock', type: 'service', priority: 90, required: false, modulePath: '../packages/devpages-debug/DebugDock.js', factoryFunction: 'initializeDebugDock', dependencies: ['coreServices'], description: 'Debug Dock' },
-
-    // Panel Components
-    ...panelRegistry.getAllPanels().map(p => ({
-        ...p,
-        type: 'panel',
-        priority: 10, // Panels load after core components
-        required: p.isDefault,
-        factory: p.factory,
-        dependencies: ['coreServices', 'auth'],
-        description: p.title
-    }))
+    { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: './layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages workspace resizing' },
 ];
 
 const requiredDOMElements = allComponentDefinitions
@@ -197,33 +178,16 @@ async function bootSecondary({ store, actions }) {
     await initializeComponentSystem(store, postAuthComponents);
     
     
-    // PANEL_REGISTRATION: Register missing panels before WorkspaceManager initialization
+    // Initialize workspace manager for automatic UI setup
     try {
-        log.info('PANEL_REGISTRATION', '📋 Registering missing panels for proper sidebar display...');
-        const registerPanels = await import('./panels/panelRegistrationFix.js');
-        registerPanels.default(store);
-        log.info('PANEL_REGISTRATION_COMPLETE', '✅ Panel registration script executed.');
+        const { workspaceManager } = await import('./components/WorkspaceManager.js');
+        log.info('WORKSPACE_MANAGER_INIT', '✅ Workspace manager initialized for automatic UI setup');
     } catch (error) {
-        log.warn('PANEL_REGISTRATION_FAILED', '⚠️ Failed to register missing panels:', error);
+        log.warn('WORKSPACE_MANAGER_INIT_FAILED', '⚠️ Failed to initialize workspace manager:', error);
     }
-
-    // Initialize WorkspaceManager
-    try {
-        await workspaceManager.initialize();
-
-        window.APP.services.workspaceManager = workspaceManager;
-        log.info('WORKSPACE_INIT', '✅ WorkspaceManager initialized - All panels working');
-        log.info('WORKSPACE_HIERARCHY', '🎖️ Clean system: WorkspaceManager only');
-        
-        // Initialize Sidebar Visibility Controller
-        const { sidebarVisibilityController } = await import('./layout/SidebarVisibilityController.js');
-        sidebarVisibilityController.initialize();
-        log.info('SIDEBAR_CONTROLLER', '✅ Sidebar visibility controller initialized');
-        
-    } catch (error) {
-        log.error('WORKSPACE_INIT_FAILED', '❌ Workspace initialization failed:', error);
-        throw error;
-    }
+    
+    // Workspace and panel system removed - clean application
+    log.info('CLEAN_APP', '✅ Running clean application without panel system');
 
     console.log('[BOOTLOADER] About to initialize log display...');
     
@@ -269,60 +233,9 @@ async function bootSecondary({ store, actions }) {
         log.warn('DEBUG_UTILS_INIT_FAILED', '⚠️ Failed to initialize debug utilities:', error);
     }
     
-    // Initialize Panel Testing Framework in development
-    // Browser-safe environment detection (instead of process.env.NODE_ENV)
-    const isProduction = window.location.hostname.includes('pixeljamarcade.com') && 
-                        !window.location.hostname.includes('qa.') && 
-                        !window.location.hostname.includes('dev.');
-    if (!isProduction) {
-        try {
-            const { panelTestFramework } = await import('./tests/PanelTestFramework.js');
-            panelTestFramework.initialize(window.APP.services.workspaceManager);
-            
-            // Auto-run health check
-            setTimeout(() => {
-                console.log('\n🧪 Auto-running Panel Health Check...');
-                panelTestFramework.quickHealthCheck();
-            }, 2000);
-            
-            // Make test functions available via APP namespace
-            window.APP.testing = {
-                runPanelTests: () => panelTestFramework.runAllTests(),
-                panelHealthCheck: () => panelTestFramework.quickHealthCheck(),
-                framework: panelTestFramework
-            };
-            
-            console.log('[Bootloader] Panel testing framework initialized. Use APP.testing.runPanelTests() or APP.testing.panelHealthCheck() in console.');
-        } catch (error) {
-            console.warn('[Bootloader] Failed to initialize panel testing framework:', error);
-        }
-    }
+    // Panel testing framework removed - clean application
     
-    // Initialize debug system (panels + DebugDock) now that WorkspaceManager is ready
-    /*
-    try {
-        // Initialize debug panels first (registers them with panelRegistry)
-        const { initializeDebugPanels } = await import('../packages/devpages-debug/debugPanelInitializer.js');
-        const debugPanels = await initializeDebugPanels();
-        log.info('DEBUG_PANELS_INIT', '🔧 Debug panels registered successfully');
-        
-        // Initialize DebugDock
-        const { debugDock } = await import('../packages/devpages-debug/DebugDock.js');
-        
-        // Initialize the debug dock
-        await debugDock.initialize();
-        
-        // Make DebugDock available globally
-        window.APP.debugDock = debugDock;
-        
-        log.info('DEBUG_DOCK_INIT', '🔧 DebugDock initialized and integrated successfully');
-    } catch (error) {
-        log.error('DEBUG_SYSTEM_INIT_FAILED', `❌ Failed to initialize debug system: ${error.message}`, error);
-    }
-    */
-
-    // Remove keyboard shortcuts initialization
-    // initializeKeyboardShortcuts();
+    // Debug system and keyboard shortcuts removed - clean application
 }
 
 async function bootFinalize() {
@@ -357,23 +270,17 @@ async function bootFinalize() {
         
         // Small delay to ensure all components are ready for the event
         setTimeout(() => {
-            const { store } = systemAPIs;
-            store.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
+            try {
+                // Navigate to the deep link path using the proper thunk
+                services.appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
+                log.info('DEEP_LINK_NAVIGATION', `✅ Navigated to deep link: ${pathname} (${isDirectory ? 'directory' : 'file'})`);
+            } catch (error) {
+                log.error('DEEP_LINK_NAVIGATION_FAILED', `❌ Failed to navigate to deep link ${pathname}:`, error);
+            }
         }, 100);
     }
     
-    // Initialize clean panels auto-loader
-    /*
-    try {
-        log.info('CLEAN_PANELS', '🧹 Initializing clean panels auto-loader...');
-        const { cleanPanelAutoLoader } = await import('./panels/auto-load-clean-panels.js');
-        await cleanPanelAutoLoader.initialize();
-        log.info('CLEAN_PANELS', '✅ Clean panels auto-loaded successfully');
-    } catch (error) {
-        log.warn('CLEAN_PANELS_FAILED', '⚠️ Failed to auto-load clean panels:', error);
-        // Don't fail the entire boot process for this
-    }
-    */
+    // Clean panels auto-loader removed - clean application
     
     log.info('APP_READY', '🎉 Application ready for use');
 }
@@ -531,11 +438,7 @@ async function mountManagedComponent(componentDef, store) {
             throw new Error(`Dependencies not met for ${componentDef.name}.`);
         }
         let component;
-        if (componentDef.type === 'panel') {
-            // For panels, we just register their definition for on-demand loading
-            // This is now handled by WorkspaceManager
-            component = { name: componentDef.name, type: 'panel-definition' };
-        } else if (componentDef.targetElementId) {
+        if (componentDef.targetElementId) {
             const module = await import(componentDef.modulePath);
             const factory = module[componentDef.factoryFunction];
             if (!factory) throw new Error(`Factory ${componentDef.factoryFunction} not found in ${componentDef.modulePath}.`);

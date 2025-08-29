@@ -5,7 +5,7 @@
  */
 
 import { buttonIntrospection } from './ButtonIntrospection.js';
-import keyboardShortcutManager from './KeyboardShortcutManager.js';
+// KeyboardShortcutManager removed - clean application
 import { logMessage } from '/client/log/index.js';
 
 class IntrospectionBootstrap {

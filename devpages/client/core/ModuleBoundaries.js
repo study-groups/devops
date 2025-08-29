@@ -109,12 +109,12 @@ export const MODULE_BOUNDARIES = {
         ],
         owns: [
             'ZIndexManager',
-            'KeyboardShortcutManager',
+            // 'KeyboardShortcutManager', - removed
             'Debug utilities',
             'Common helpers'
         ],
         dependencies: ['core'],
-        exports: ['ZIndexManager', 'KeyboardShortcutManager', 'debugUtils']
+        exports: ['ZIndexManager', 'debugUtils'] // KeyboardShortcutManager removed
     },
 
     // Logging system

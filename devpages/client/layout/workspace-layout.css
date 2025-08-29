@@ -525,16 +525,59 @@
     padding: 0;
 }
 
-/* Editor Top Bar (when in editor mode) */
-.editor-top-bar {
+/* Zone Top Bar - Design token for workspace zones */
+.zone-top-bar {
     height: 36px;
     padding: 0 12px;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.zone-top-bar .zone-title {
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.zone-top-bar .zone-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+
+.zone-top-bar .zone-status {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.zone-top-bar .zone-status.ready {
+    background: var(--color-success-background, #e8f5e8);
+    color: var(--color-success, #2e7d32);
+}
+
+.zone-top-bar .zone-status.loading {
+    background: var(--color-warning-background, #fff3e0);
+    color: var(--color-warning, #f57c00);
+}
+
+.zone-top-bar .zone-status.error {
+    background: var(--color-error-background, #ffebee);
+    color: var(--color-error, #d32f2f);
+}
+
+/* Legacy compatibility */
+.editor-top-bar {
+    @extend .zone-top-bar;
 }
 
 .file-type-badge {

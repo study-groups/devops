@@ -37,7 +37,8 @@ const persistUIState = (state) => {
             colorScheme: state.colorScheme,
             designDensity: state.designDensity,
             isAuthDropdownVisible: state.isAuthDropdownVisible,
-            logColumnWidths: state.logColumnWidths // Persist column widths
+            logColumnWidths: state.logColumnWidths, // Persist column widths
+            workspaceDimensions: state.workspaceDimensions // Persist workspace dimensions
         }));
         
         // Synchronous save to prevent proxy revocation
@@ -62,6 +63,11 @@ const defaultUIState = {
     designDensity: 'normal',    // 'compact', 'normal', 'spacious'
     isAuthDropdownVisible: false,
     logColumnWidths: {}, // Add column widths to initial state
+    workspaceDimensions: {      // Workspace layout dimensions (replaces panel system)
+        sidebarWidth: 300,
+        previewWidth: 400,
+        editorWidth: 'auto'
+    },
 };
 
 // Merge default state with persisted state
@@ -110,6 +116,14 @@ const uiSlice = createSlice({
         },
         setLeftSidebarVisible: (state, action) => {
             state.leftSidebarVisible = action.payload;
+            persistUIState(state);
+        },
+
+        setWorkspaceDimensions: (state, action) => {
+            state.workspaceDimensions = {
+                ...state.workspaceDimensions,
+                ...action.payload
+            };
             persistUIState(state);
         },
     }

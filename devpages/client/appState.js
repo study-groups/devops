@@ -21,26 +21,23 @@ import { storageService } from '/client/services/storageService.js';
 import authReducer from './store/slices/authSlice.js';
 import pathReducer from './store/slices/pathSlice.js';
 import { settingsReducer } from './store/slices/settingsSlice.js';
-import panelReducer from './store/slices/panelSlice.js';
 import logReducer from './store/slices/logSlice.js';
-import { domInspectorReducer } from './store/slices/domInspectorSlice.js';
 import { uiReducer } from './store/uiSlice.js';
 import { contextSettingsReducer } from './store/slices/contextSettingsSlice.js';
 import fileReducer from './store/slices/fileSlice.js';
 import { previewReducer } from './store/slices/previewSlice.js';
-import debugPanelReducer from './store/slices/debugPanelSlice.js';
 import pluginReducer from './store/slices/pluginSlice.js';
 import publishReducer from './store/slices/publishSlice.js';
 import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
-import panelSizesReducer from './redux/panelSizes.js';
+// Panel system removed - workspace dimensions now in UI slice
+
 
 // Middleware
 import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
-import panelPersistenceMiddleware from './store/middleware/panelPersistenceMiddleware.js';
-import panelSizesPersistenceMiddleware from './store/middleware/panelSizesPersistenceMiddleware.js';
 import { apiSlice } from './store/apiSlice.js';
+// Panel middleware removed - clean application
 
 // Thunks and Actions
 import { authThunks } from './store/slices/authSlice.js';
@@ -55,22 +52,19 @@ const rootReducer = {
     auth: authReducer,
     path: pathReducer,
     settings: settingsReducer,
-    panels: panelReducer,
     log: logReducer,
-    domInspector: domInspectorReducer,
     ui: uiReducer,
     contextSettings: contextSettingsReducer,
     file: fileReducer,
     preview: previewReducer,
-    debugPanel: debugPanelReducer,
     plugins: pluginReducer,
     publish: publishReducer,
     system: systemReducer,
     communications: commReducer,
     editor: editorReducer,
-    panelSizes: panelSizesReducer,
     // RTK Query API slice
     [apiSlice.reducerPath]: apiSlice.reducer
+    // Panel system removed - workspace dimensions now in UI slice
 };
 
 // --- Store Singleton ---
@@ -110,9 +104,7 @@ function initializeStore(preloadedState = {}) {
     const initialState = {
         ...preloadedState,
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
-        panels: safeLoadPersistedState('panel_state', preloadedState.panels || {}),
-        panelSizes: safeLoadPersistedState('panel_sizes', preloadedState.panelSizes || {}),
-        debugPanel: safeLoadPersistedState('debug_panel_state', preloadedState.debugPanel || {}),
+        // Panel state loading removed - clean application
         // Add more slice-specific state loading as needed
     };
 
@@ -127,10 +119,9 @@ function initializeStore(preloadedState = {}) {
                     },
                 })
                 .concat(
-                    panelPersistenceMiddleware,
-                    panelSizesPersistenceMiddleware,
                     apiSlice.middleware,
                     reduxLogMiddleware
+                    // Panel middleware removed - clean application
                 ),
             devTools: true,
         });
