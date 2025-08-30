@@ -1,0 +1,41 @@
+panel:
+  id: "theme-settings"
+  name: "Theme Settings"
+  description: "Configure application theme and appearance"
+  
+  tags: ["settings", "appearance"]
+  
+  parents: []
+  children: ["color-picker", "font-settings"]
+  
+  size:
+    width: "300px"
+    height: "auto"
+    minWidth: 250
+    minHeight: 200
+  
+  placement:
+    dock: "left"
+    order: 1
+  
+  behavior:
+    collapsible: true
+    draggable: true
+    resizable: false
+    closable: false
+    persistent: true
+  
+  lifecycle:
+    autoMount: true
+    lazy: false
+    dependencies: ["settings"]
+  
+  component:
+    path: "./components/ThemePanel.js"
+    factory: "createThemePanel"
+    props:
+      defaultTheme: "light"
+  
+  state:
+    persist: ["selectedTheme", "customColors"]
+    reset: []

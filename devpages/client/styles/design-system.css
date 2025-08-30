@@ -159,6 +159,17 @@ h6 {
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
   --transition-all: all var(--transition-base);
+
+  /* === Panel System === */
+  --panel-bg: var(--color-bg-elevated);
+  --panel-border-color: var(--color-border);
+  --panel-shadow: var(--shadow-md);
+  --panel-header-bg: var(--color-bg-alt);
+  --panel-header-border-color: var(--color-border-secondary);
+  --panel-title-color: var(--color-fg);
+  --panel-control-color: var(--color-fg-muted);
+  --panel-control-hover-bg: var(--color-bg-hover);
+  --panel-resize-handle-color: var(--color-border-secondary);
 }
 
 /* ===== THEME DEFINITIONS ===== */

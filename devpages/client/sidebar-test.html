@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sidebar Test</title>
+    <link rel="stylesheet" href="./styles/design-system.css">
+    <link rel="stylesheet" href="./styles/panel-system.css">
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <script type="module">
+        import { createPanelSidebar } from './components/PanelSidebar.js';
+        
+        const sidebar = createPanelSidebar();
+        document.getElementById('sidebar-container').appendChild(sidebar.element);
+    </script>
+</body>
+</html>

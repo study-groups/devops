@@ -251,9 +251,8 @@ async function bootSecondary({ store, actions }) {
         log.warn('DEBUG_UTILS_INIT_FAILED', '⚠️ Failed to initialize debug utilities:', error);
     }
     
-    // Panel testing framework removed - clean application
-    
-    // Debug system and keyboard shortcuts removed - clean application
+    // Panel system initialization moved to WorkspaceManager for better separation of concerns
+    log.info('PANEL_SYSTEM', '✅ Panel system will be initialized by WorkspaceManager');
 }
 
 async function bootFinalize() {

@@ -1,0 +1,41 @@
+panel:
+  id: "deployment-settings"
+  name: "Deployment Settings"
+  description: "Configure deployment targets and publishing options"
+  
+  tags: ["publish", "deployment"]
+  
+  parents: []
+  children: ["build-config", "env-vars"]
+  
+  size:
+    width: "350px"
+    height: "400px"
+    minWidth: 300
+    minHeight: 250
+  
+  placement:
+    dock: "left"
+    order: 2
+  
+  behavior:
+    collapsible: true
+    draggable: true
+    resizable: true
+    closable: true
+    persistent: true
+  
+  lifecycle:
+    autoMount: false
+    lazy: true
+    dependencies: ["publish", "settings"]
+  
+  component:
+    path: "./components/DeploymentPanel.js"
+    factory: "createDeploymentPanel"
+    props:
+      defaultTarget: "staging"
+  
+  state:
+    persist: ["selectedTarget", "deploymentConfig"]
+    reset: ["lastDeployment"]

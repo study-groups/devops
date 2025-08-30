@@ -1,0 +1,23 @@
+{
+  "panels": {
+    "diagnostic-1756447757990": {
+      "id": "diagnostic-1756447757990",
+      "type": "diagnostic",
+      "title": "Test Diagnostic Panel",
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "size": {
+        "width": 400,
+        "height": 300
+      },
+      "visible": true,
+      "collapsed": false,
+      "config": {},
+      "createdAt": 1756447757990,
+      "lastUpdated": 1756447757990
+    }
+  },
+  "types": {}
+}

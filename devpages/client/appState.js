@@ -14,8 +14,9 @@
  * 4.  **Export Store:** Exports a singleton `appStore` instance for use throughout the application.
  */
 
-import { configureStore } from '/client/vendor/scripts/redux-toolkit.mjs';
-import { storageService } from '/client/services/storageService.js';
+import { configureStore } from '@reduxjs/toolkit';
+import panelReducer from './store/slices/panelSlice.js';
+import { storageService } from './services/storageService.js';
 
 // Reducers
 import authReducer from './store/slices/authSlice.js';
@@ -32,7 +33,6 @@ import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
 import { imageReducer } from './store/slices/imageSlice.js';
-import panelReducer from './store/slices/panelSlice.js';
 // Panel system restored with modern architecture
 
 
@@ -62,11 +62,11 @@ const rootReducer = {
     preview: previewReducer,
     plugins: pluginReducer,
     publish: publishReducer,
+    panels: panelReducer,
     system: systemReducer,
     communications: commReducer,
     editor: editorReducer,
     image: imageReducer,
-    panels: panelReducer,
     // RTK Query API slice
     [apiSlice.reducerPath]: apiSlice.reducer
     // Panel system restored with modern architecture
