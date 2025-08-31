@@ -1,0 +1,369 @@
+/**
+ * DevPages Panel Design System
+ * Compact, tight layout tokens for panel interfaces
+ * No emojis, ghost buttons, flexbox-focused
+ */
+
+:root {
+  /* === DevPages Panel Tokens === */
+  
+  /* Panel Layout */
+  --devpages-panel-padding: var(--space-1-5);         /* 6px - tight padding */
+  --devpages-panel-padding-sm: var(--space-0-5);      /* 2px - extra tight */
+  --devpages-panel-gap: var(--space-1);               /* 4px - compact gaps */
+  --devpages-panel-gap-sm: var(--space-0-5);          /* 2px - minimal gaps */
+  
+  /* Panel Colors */
+  --devpages-panel-bg: var(--color-bg-elevated);
+  --devpages-panel-bg-alt: #fafafa;
+  --devpages-panel-border: #e5e7eb;
+  --devpages-panel-border-light: #f3f4f6;
+  --devpages-panel-text: var(--color-fg);
+  --devpages-panel-text-muted: #6b7280;
+  --devpages-panel-text-subtle: #9ca3af;
+  
+  /* Panel Header */
+  --devpages-panel-header-height: 24px;               /* Ultra compact header */
+  --devpages-panel-header-bg: #f9fafb;
+  --devpages-panel-header-border: var(--devpages-panel-border);
+  --devpages-panel-header-text: var(--devpages-panel-text);
+  
+  /* Panel Toolbar */
+  --devpages-panel-toolbar-height: 26px;              /* Ultra minimal toolbar */
+  --devpages-panel-toolbar-bg: var(--devpages-panel-header-bg);
+  --devpages-panel-toolbar-border: var(--devpages-panel-border-light);
+  
+  /* Panel Table */
+  --devpages-panel-table-row-height: 18px;            /* Ultra compact rows */
+  --devpages-panel-table-header-height: 22px;         /* Ultra minimal header */
+  --devpages-panel-table-cell-padding: var(--space-0-5) var(--space-1);
+  --devpages-panel-table-border: var(--devpages-panel-border-light);
+  --devpages-panel-table-hover: #f8fafc;
+  --devpages-panel-table-stripe: #fdfdfd;
+  
+  /* Panel Buttons */
+  --devpages-panel-btn-height: 16px;                  /* Ultra compact buttons */
+  --devpages-panel-btn-padding: 0 var(--space-1);
+  --devpages-panel-btn-font-size: 10px;
+  --devpages-panel-btn-border-radius: var(--radius-sm);
+  
+  /* Ghost Button Variants */
+  --devpages-btn-ghost-bg: transparent;
+  --devpages-btn-ghost-border: transparent;
+  --devpages-btn-ghost-text: var(--devpages-panel-text-muted);
+  --devpages-btn-ghost-hover-bg: #f3f4f6;
+  --devpages-btn-ghost-hover-text: var(--devpages-panel-text);
+  --devpages-btn-ghost-active-bg: #e5e7eb;
+  
+  /* Panel Input Fields */
+  --devpages-panel-input-height: 18px;                /* Ultra compact inputs */
+  --devpages-panel-input-padding: 0 var(--space-1);
+  --devpages-panel-input-font-size: 10px;
+  --devpages-panel-input-border: var(--devpages-panel-border);
+  --devpages-panel-input-focus-border: #3b82f6;
+  --devpages-panel-input-bg: var(--color-bg-elevated);
+  
+  /* Panel Typography */
+  --devpages-panel-font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  --devpages-panel-font-size-micro: 10px;             /* Slightly larger text */
+  --devpages-panel-font-size-compact: 11px;
+  --devpages-panel-line-height-tight: 1.2;
+  
+  /* Panel States */
+  --devpages-panel-expanded-bg: #eff6ff;
+  --devpages-panel-collapsed-bg: var(--devpages-panel-bg);
+  --devpages-panel-selected-bg: #dbeafe;
+  --devpages-panel-selected-border: #3b82f6;
+  
+  /* Panel Badges */
+  --devpages-panel-badge-height: 16px;
+  --devpages-panel-badge-padding: 0 var(--space-1);
+  --devpages-panel-badge-font-size: 9px;
+  --devpages-panel-badge-border-radius: var(--radius-sm);
+  
+  /* Type-specific colors */
+  --devpages-type-string: #059669;
+  --devpages-type-number: #dc2626;
+  --devpages-type-boolean: #7c3aed;
+  --devpages-type-object: #1d4ed8;
+  --devpages-type-array: #be185d;
+  --devpages-type-null: #6b7280;
+  --devpages-type-undefined: #9ca3af;
+  
+  /* Type badge backgrounds */
+  --devpages-type-string-bg: #ecfdf5;
+  --devpages-type-number-bg: #fef2f2;
+  --devpages-type-boolean-bg: #f3e8ff;
+  --devpages-type-object-bg: #dbeafe;
+  --devpages-type-array-bg: #fce7f3;
+  --devpages-type-null-bg: #f3f4f6;
+  --devpages-type-undefined-bg: #f9fafb;
+  
+  /* Panel Animations */
+  --devpages-panel-transition: var(--transition-fast);
+  --devpages-panel-hover-transition: 100ms ease;
+}
+
+/* === DevPages Panel Base Classes === */
+
+.devpages-panel {
+  background: var(--devpages-panel-bg);
+  border: 1px solid var(--devpages-panel-border);
+  border-radius: var(--radius-base);
+  font-size: var(--devpages-panel-font-size-compact);
+  line-height: var(--devpages-panel-line-height-tight);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.devpages-panel-header {
+  height: var(--devpages-panel-header-height);
+  background: var(--devpages-panel-header-bg);
+  border-bottom: 1px solid var(--devpages-panel-header-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--devpages-panel-padding);
+  font-weight: var(--font-weight-medium);
+  color: var(--devpages-panel-header-text);
+  flex-shrink: 0;
+}
+
+.devpages-panel-toolbar {
+  height: var(--devpages-panel-toolbar-height);
+  background: var(--devpages-panel-toolbar-bg);
+  border-bottom: 1px solid var(--devpages-panel-toolbar-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--devpages-panel-padding);
+  gap: var(--devpages-panel-gap);
+  flex-shrink: 0;
+}
+
+.devpages-panel-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Ghost Buttons === */
+
+.devpages-btn-ghost {
+  height: var(--devpages-panel-btn-height);
+  padding: var(--devpages-panel-btn-padding);
+  background: var(--devpages-btn-ghost-bg);
+  border: 1px solid var(--devpages-btn-ghost-border);
+  border-radius: var(--devpages-panel-btn-border-radius);
+  color: var(--devpages-btn-ghost-text);
+  font-size: var(--devpages-panel-btn-font-size);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--devpages-panel-hover-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--devpages-panel-gap-sm);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.devpages-btn-ghost:hover {
+  background: var(--devpages-btn-ghost-hover-bg);
+  color: var(--devpages-btn-ghost-hover-text);
+}
+
+.devpages-btn-ghost:active {
+  background: var(--devpages-btn-ghost-active-bg);
+}
+
+.devpages-btn-ghost.active {
+  background: var(--devpages-panel-selected-bg);
+  color: var(--devpages-panel-selected-border);
+  border-color: var(--devpages-panel-selected-border);
+}
+
+/* === Compact Inputs === */
+
+.devpages-input-compact {
+  height: var(--devpages-panel-input-height);
+  padding: var(--devpages-panel-input-padding);
+  background: var(--devpages-panel-input-bg);
+  border: 1px solid var(--devpages-panel-input-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--devpages-panel-input-font-size);
+  color: var(--devpages-panel-text);
+  transition: var(--devpages-panel-transition);
+}
+
+.devpages-input-compact:focus {
+  outline: none;
+  border-color: var(--devpages-panel-input-focus-border);
+  box-shadow: 0 0 0 1px var(--devpages-panel-input-focus-border);
+}
+
+.devpages-input-compact::placeholder {
+  color: var(--devpages-panel-text-subtle);
+}
+
+/* === Compact Table === */
+
+.devpages-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--devpages-panel-font-size-compact);
+  font-family: var(--devpages-panel-font-mono);
+}
+
+.devpages-table th {
+  height: var(--devpages-panel-table-header-height);
+  padding: var(--devpages-panel-table-cell-padding);
+  background: var(--devpages-panel-header-bg);
+  border-bottom: 1px solid var(--devpages-panel-table-border);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--devpages-panel-font-size-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--devpages-panel-text-muted);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.devpages-table td {
+  height: var(--devpages-panel-table-row-height);
+  padding: var(--devpages-panel-table-cell-padding);
+  border-bottom: 1px solid var(--devpages-panel-table-border);
+  vertical-align: middle;
+  font-size: var(--devpages-panel-font-size-compact);
+}
+
+.devpages-table tr:hover td {
+  background: var(--devpages-panel-table-hover);
+}
+
+.devpages-table tr:nth-child(even) td {
+  background: var(--devpages-panel-table-stripe);
+}
+
+.devpages-table tr:nth-child(even):hover td {
+  background: var(--devpages-panel-table-hover);
+}
+
+/* === Type Badges === */
+
+.devpages-type-badge {
+  height: var(--devpages-panel-badge-height);
+  padding: var(--devpages-panel-badge-padding);
+  border-radius: var(--devpages-panel-badge-border-radius);
+  font-size: var(--devpages-panel-badge-font-size);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.devpages-type-badge.type-string {
+  background: var(--devpages-type-string-bg);
+  color: var(--devpages-type-string);
+}
+
+.devpages-type-badge.type-number {
+  background: var(--devpages-type-number-bg);
+  color: var(--devpages-type-number);
+}
+
+.devpages-type-badge.type-boolean {
+  background: var(--devpages-type-boolean-bg);
+  color: var(--devpages-type-boolean);
+}
+
+.devpages-type-badge.type-object {
+  background: var(--devpages-type-object-bg);
+  color: var(--devpages-type-object);
+}
+
+.devpages-type-badge.type-array {
+  background: var(--devpages-type-array-bg);
+  color: var(--devpages-type-array);
+}
+
+.devpages-type-badge.type-null {
+  background: var(--devpages-type-null-bg);
+  color: var(--devpages-type-null);
+}
+
+.devpages-type-badge.type-undefined {
+  background: var(--devpages-type-undefined-bg);
+  color: var(--devpages-type-undefined);
+}
+
+/* === Panel States === */
+
+.devpages-panel-row {
+  transition: var(--devpages-panel-transition);
+}
+
+.devpages-panel-row.expanded {
+  background: var(--devpages-panel-expanded-bg);
+}
+
+.devpages-panel-row.selected {
+  background: var(--devpages-panel-selected-bg);
+  border-color: var(--devpages-panel-selected-border);
+}
+
+/* === Utility Classes === */
+
+.devpages-text-mono {
+  font-family: var(--devpages-panel-font-mono);
+}
+
+.devpages-text-micro {
+  font-size: var(--devpages-panel-font-size-micro);
+}
+
+.devpages-text-muted {
+  color: var(--devpages-panel-text-muted);
+}
+
+.devpages-text-subtle {
+  color: var(--devpages-panel-text-subtle);
+}
+
+.devpages-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.devpages-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.devpages-flex-gap {
+  gap: var(--devpages-panel-gap);
+}
+
+.devpages-flex-gap-sm {
+  gap: var(--devpages-panel-gap-sm);
+}
+
+/* === Responsive Adjustments === */
+
+@media (max-width: 768px) {
+  :root {
+    --devpages-panel-padding: var(--space-1-5);
+    --devpages-panel-gap: var(--space-1);
+    --devpages-panel-table-cell-padding: var(--space-0-5) var(--space-1-5);
+  }
+}

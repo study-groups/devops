@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Persistence</title>
+</head>
+<body>
+    <h1>Debug Panel Persistence</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${message}</strong>`;
+            if (data) {
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(data, null, 2);
+                div.appendChild(pre);
+            }
+            output.appendChild(div);
+        }
+        
+        // Check localStorage keys
+        const devpagesKeys = Object.keys(localStorage).filter(k => k.startsWith('devpages_'));
+        log('DevPages localStorage keys:', devpagesKeys);
+        
+        // Check panels state
+        const panelsKey = 'devpages_panels';
+        if (localStorage.getItem(panelsKey)) {
+            try {
+                const panelsData = JSON.parse(localStorage.getItem(panelsKey));
+                log('Raw panels localStorage data:', panelsData);
+                
+                if (panelsData.payload) {
+                    log('Panels payload:', panelsData.payload);
+                    log('Active sidebar category:', panelsData.payload.activeSidebarCategory);
+                    log('Sidebar panels:', panelsData.payload.sidebarPanels);
+                }
+            } catch (e) {
+                log('Error parsing panels data:', e.message);
+            }
+        } else {
+            log('No panels data found in localStorage');
+        }
+        
+        // Check UI state
+        const uiKey = 'devpages_ui';
+        if (localStorage.getItem(uiKey)) {
+            try {
+                const uiData = JSON.parse(localStorage.getItem(uiKey));
+                log('UI localStorage data:', uiData);
+            } catch (e) {
+                log('Error parsing UI data:', e.message);
+            }
+        } else {
+            log('No UI data found in localStorage');
+        }
+        
+        // Test setting and getting a value
+        const testKey = 'devpages_test';
+        const testValue = { test: true, timestamp: Date.now() };
+        localStorage.setItem(testKey, JSON.stringify({
+            wrapperVersion: '1.1',
+            timestamp: new Date().toISOString(),
+            payload: testValue
+        }));
+        
+        log('Test value set and retrieved:', JSON.parse(localStorage.getItem(testKey)));
+    </script>
+</body>
+</html>

@@ -3,11 +3,28 @@
   "name": "devpages",
   "version": "1.0.0",
   "description": "DevPages Development Environment",
-  "main": "index.js",
   "scripts": {
-    "migrate:app-namespace": "node scripts/migrate-app-namespace.js"
+    "debug:token": "node debug-scripts/generate-token.js",
+    "debug:chrome": "node debug-scripts/chrome-debugger.js",
+    "test": "playwright test",
+    "test:ui": "playwright test tests/sidebar.spec.js"
   },
-  "keywords": ["development", "tools"],
-  "author": "",
-  "license": "ISC"
+  "imports": {
+    "#client/*": "./client/*",
+    "#pdata/*": "./pdata/*",
+    "#services/*": "./client/services/*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@reduxjs/toolkit": "^2.0.1",
+    "immer": "^10.0.3",
+    "playwright": "^1.55.0",
+    "redux": "^5.0.0",
+    "redux-thunk": "^3.1.0",
+    "reselect": "^5.1.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "minimatch": "^9.0.3"
+  }
 }

@@ -20,18 +20,25 @@ export class TopBarController {
     setupActionHandlers() {
         // UI Toggle Actions
         this.actionHandlers.set('toggleEdit', () => {
+            const currentState = appStore.getState().ui?.editorVisible;
+            console.log(`[TopBarController] Toggling editor: ${currentState} → ${!currentState}`);
             dispatch(uiActions.toggleEditorVisibility());
             logMessage('Editor visibility toggled', 'info', 'TOP_BAR');
         });
 
         this.actionHandlers.set('togglePreview', () => {
+            const currentState = appStore.getState().ui?.previewVisible;
+            console.log(`[TopBarController] Toggling preview: ${currentState} → ${!currentState}`);
             dispatch(uiActions.togglePreviewVisibility());
             logMessage('Preview visibility toggled', 'info', 'TOP_BAR');
         });
 
         this.actionHandlers.set('toggleSidebar', () => {
-            dispatch(uiActions.setLeftSidebarVisible(!appStore.getState().ui?.leftSidebarVisible));
-            logMessage('Sidebar visibility toggled', 'info', 'TOP_BAR');
+            const currentState = appStore.getState().ui?.leftSidebarVisible;
+            const newState = currentState === false; // If false, make true; if true/undefined, make false
+            console.log(`[TopBarController] Toggling sidebar: ${currentState} → ${newState}`);
+            dispatch(uiActions.setLeftSidebarVisible(newState));
+            logMessage(`Sidebar visibility toggled: ${currentState} → ${newState}`, 'info', 'TOP_BAR');
         });
 
         this.actionHandlers.set('toggleLogVisibility', () => {
@@ -144,8 +151,8 @@ export class TopBarController {
             return;
         }
 
-        // Subscribe to state changes for button updates
-        this.stateUnsubscribe = appStore.subscribe(this.updateButtonStates.bind(this));
+        // Subscribe to state changes for button updates with selective monitoring
+        this.setupSelectiveStateSubscription();
         
         // Attach global click handler
         this.attachGlobalHandler();
@@ -160,6 +167,64 @@ export class TopBarController {
         logMessage('TopBarController initialized with keyboard shortcuts', 'info', 'TOP_BAR');
     }
 
+    setupSelectiveStateSubscription() {
+        let lastRelevantState = null;
+        let updateTimeout = null;
+        
+        this.stateUnsubscribe = appStore.subscribe(() => {
+            const state = appStore.getState();
+            
+            // Only track UI-related state that affects button appearance
+            const currentRelevantState = {
+                leftSidebarVisible: state.ui?.leftSidebarVisible,
+                editorVisible: state.ui?.editorVisible,
+                previewVisible: state.ui?.previewVisible,
+                logVisible: state.ui?.logVisible,
+                isAuthenticated: state.auth?.isAuthenticated,
+                isLoading: state.ui?.isLoading,
+                fileStatus: state.file?.status,
+                currentPathname: state.path?.currentPathname,
+                isDirectorySelected: state.path?.isDirectorySelected,
+                isModified: state.editor?.isModified
+            };
+            
+            // Only update if relevant state actually changed
+            if (!lastRelevantState || JSON.stringify(currentRelevantState) !== JSON.stringify(lastRelevantState)) {
+                // Debug: Log what changed
+                if (lastRelevantState) {
+                    const changes = Object.keys(currentRelevantState).filter(key => 
+                        currentRelevantState[key] !== lastRelevantState[key]
+                    );
+                    console.log('[TopBarController] State changed:', changes);
+                    
+                    // CRITICAL FIX: Only update if changes are actually view-control related
+                    const viewControlChanges = changes.filter(change => 
+                        ['leftSidebarVisible', 'editorVisible', 'previewVisible', 'logVisible'].includes(change)
+                    );
+                    
+                    if (viewControlChanges.length === 0) {
+                        console.log('[TopBarController] Ignoring non-view-control changes:', changes);
+                        lastRelevantState = currentRelevantState;
+                        return;
+                    }
+                    
+                    console.log('[TopBarController] Processing view control changes:', viewControlChanges);
+                }
+                
+                lastRelevantState = currentRelevantState;
+                
+                // Debounce button updates to prevent rapid-fire changes
+                if (updateTimeout) {
+                    clearTimeout(updateTimeout);
+                }
+                updateTimeout = setTimeout(() => {
+                    this.updateButtonStates();
+                    updateTimeout = null;
+                }, 5); // 5ms debounce
+            }
+        });
+    }
+
     setupKeyboardShortcuts() {
         // REMOVED: Keyboard shortcuts now handled by centralized KeyboardShortcutManager
         // This prevents conflicts and ensures consistent behavior
@@ -169,6 +234,9 @@ export class TopBarController {
     attachGlobalHandler() {
         // Single delegated event handler for all top bar buttons
         document.addEventListener('click', (e) => {
+            // Skip if event was already handled by another component
+            if (e.alreadyHandled) return;
+            
             const button = e.target.closest('button[data-action]');
             if (!button) return;
 
@@ -176,10 +244,11 @@ export class TopBarController {
             const handler = this.actionHandlers.get(action);
             
             if (handler) {
+                // Mark event as handled to prevent other handlers
+                e.alreadyHandled = true;
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                e.alreadyHandled = true;
                 
                 try {
                     handler(e, button);
@@ -193,51 +262,58 @@ export class TopBarController {
     }
 
     updateButtonStates() {
-        const buttons = [
-            { selector: '#sidebar-toggle', name: 'Sidebar Toggle' },
-            { selector: '#edit-toggle', name: 'Edit Toggle' },
-            { selector: '#preview-toggle', name: 'Preview Toggle' },
-            { selector: '#log-toggle-btn', name: 'Log Toggle' },
-            { selector: '#save-btn', name: 'Save Button' }
-        ];
-
-        buttons.forEach(({ selector, name }) => {
-            const button = document.querySelector(selector);
-            if (!button) return;
-
-            const rect = button.getBoundingClientRect();
-            const computedStyle = window.getComputedStyle(button);
-        });
-
         const state = appStore.getState();
         const ui = state.ui || {};
         const file = state.file || {};
         const auth = state.auth || {};
         
-        const sidebarToggle = document.querySelector('#sidebar-toggle');
-        if (sidebarToggle) {
-            sidebarToggle.classList.toggle('active', ui.leftSidebarVisible);
-            sidebarToggle.title = ui.leftSidebarVisible ? 'Hide Sidebar (Alt+S)' : 'Show Sidebar (Alt+S)';
-        }
+        // CRITICAL FIX: Use proper defaults when state is undefined
+        const buttonUpdates = [
+            {
+                selector: '#sidebar-toggle',
+                active: ui.leftSidebarVisible !== false, // Default to true
+                title: (ui.leftSidebarVisible !== false) ? 'Hide Sidebar (Alt+S)' : 'Show Sidebar (Alt+S)'
+            },
+            {
+                selector: '#edit-toggle',
+                active: ui.editorVisible !== false, // Default to true
+                title: (ui.editorVisible !== false) ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)'
+            },
+            {
+                selector: '#preview-toggle',
+                active: ui.previewVisible !== false, // Default to true
+                title: (ui.previewVisible !== false) ? 'Hide Preview (Alt+P)' : 'Show Preview (Alt+P)'
+            },
+            {
+                selector: '#log-toggle-btn',
+                active: ui.logVisible !== false, // Default to true
+                title: (ui.logVisible !== false) ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)'
+            }
+        ];
         
-        const editToggle = document.querySelector('#edit-toggle');
-        if (editToggle) {
-            editToggle.classList.toggle('active', ui.editorVisible);
-            editToggle.title = ui.editorVisible ? 'Hide Editor Panel (Alt+T)' : 'Show Editor Panel (Alt+T)';
-        }
+        console.log('[TopBarController] Button states:', {
+            leftSidebarVisible: ui.leftSidebarVisible,
+            editorVisible: ui.editorVisible,
+            previewVisible: ui.previewVisible,
+            logVisible: ui.logVisible,
+            buttonStates: buttonUpdates.map(b => ({ selector: b.selector, active: b.active }))
+        });
 
-        const previewToggle = document.querySelector('#preview-toggle');
-        if (previewToggle) {
-            previewToggle.classList.toggle('active', ui.previewVisible);
-            previewToggle.title = ui.previewVisible ? 'Hide Preview (Alt+P)' : 'Show Preview (Alt+P)';
-        }
+        buttonUpdates.forEach(({ selector, active, title }) => {
+            const button = document.querySelector(selector);
+            if (button) {
+                const currentlyActive = button.classList.contains('active');
+                if (currentlyActive !== active) {
+                    console.log(`[TopBarController] BUTTON UPDATE: ${selector} from ${currentlyActive} to ${active}`);
+                    button.classList.toggle('active', active);
+                }
+                if (button.title !== title) {
+                    button.title = title;
+                }
+            }
+        });
 
-        const logButton = document.querySelector('#log-toggle-btn');
-        if (logButton) {
-            logButton.classList.toggle('active', ui.logVisible);
-            logButton.title = ui.logVisible ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)';
-        }
-
+        // Handle save button separately as it has different logic
         const saveButton = document.querySelector('#save-btn');
         if (saveButton) {
             const path = state.path || {};
@@ -254,9 +330,14 @@ export class TopBarController {
             const isFileModified = isEditorModified;
             
             const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || !hasFile || !isFileModified;
+            const saveText = isSaving ? 'Saving...' : 'Save';
             
-            saveButton.disabled = saveDisabled;
-            saveButton.textContent = isSaving ? 'Saving...' : 'Save';
+            if (saveButton.disabled !== saveDisabled) {
+                saveButton.disabled = saveDisabled;
+            }
+            if (saveButton.textContent !== saveText) {
+                saveButton.textContent = saveText;
+            }
         }
     }
 
@@ -321,3 +402,8 @@ export class TopBarController {
 
 // Create singleton instance
 export const topBarController = new TopBarController();
+
+// Expose to window for debugging
+if (typeof window !== 'undefined') {
+    window.topBarController = topBarController;
+}

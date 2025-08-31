@@ -7,15 +7,18 @@ import { appStore } from '/client/appState.js';
 import { ZoneTopBar } from './ZoneTopBar.js';
 import { panelRegistry } from '../panels/BasePanel.js';
 import { DiagnosticPanel } from '../panels/DiagnosticPanel.js';
-import { ReduxInspectorPanel } from '../panels/debug/ReduxInspectorPanel.js';
+import { ReduxInspectorPanel } from '../panels/dev/ReduxInspectorPanel.js';
 import { ThemePanel } from '../panels/settings/ThemePanel.js';
-import { sidebarManager } from './SidebarManager.js';
+import { PublishPanel } from '../panels/publish/PublishPanel.js';
+import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
+
 
 class WorkspaceManager {
     constructor() {
         this.initialized = false;
         this.lastFileContent = null;
         this.lastFilePath = null;
+        this.lastUIState = null; // Track UI state changes
         this.sidebarTopBar = null;
         this.editorTopBar = null;
         this.previewTopBar = null;
@@ -42,6 +45,9 @@ class WorkspaceManager {
         // Initialize sidebar system
         this.initializeSidebarSystem();
         
+        // Initialize sidebar visibility controller
+        this.initializeSidebarVisibility();
+        
         this.initialized = true;
         console.log('[WorkspaceManager] Initialized');
     }
@@ -51,8 +57,19 @@ class WorkspaceManager {
         const fileContent = state.file?.currentFile?.content;
         const filePath = state.file?.currentFile?.pathname;
         
-        // Handle UI visibility changes
-        this.updateZoneVisibility(state);
+        // CRITICAL FIX: Only handle UI visibility changes when they actually change
+        // Don't call updateZoneVisibility on every state change
+        const currentUI = {
+            leftSidebarVisible: state.ui?.leftSidebarVisible,
+            editorVisible: state.ui?.editorVisible,
+            previewVisible: state.ui?.previewVisible
+        };
+        
+        if (!this.lastUIState || JSON.stringify(currentUI) !== JSON.stringify(this.lastUIState)) {
+            console.log('[WorkspaceManager] UI visibility changed, updating zones');
+            this.updateZoneVisibility(state);
+            this.lastUIState = currentUI;
+        }
         
         // Only act when file content changes
         if (fileContent && fileContent !== this.lastFileContent) {
@@ -69,10 +86,19 @@ class WorkspaceManager {
         console.log('[WorkspaceManager] Initializing panel system...');
         
         try {
-            // Register panel types
-            panelRegistry.registerType('diagnostic', DiagnosticPanel);
+            // Register panel types (moved from debug dock to sidebar)
+            panelRegistry.registerType('system-diagnostics', DiagnosticPanel);
             panelRegistry.registerType('redux-inspector', ReduxInspectorPanel);
-            panelRegistry.registerType('theme-settings', ThemePanel);
+            panelRegistry.registerType('theme-editor', ThemePanel);
+            panelRegistry.registerType('design-tokens', ThemePanel); // Use ThemePanel for design tokens
+            panelRegistry.registerType('file-browser', DiagnosticPanel); // Use DiagnosticPanel for file browser
+            panelRegistry.registerType('publish-manager', PublishPanel);
+            
+            // Register debug panels (from debug dock)
+            panelRegistry.registerType('panel-browser', DiagnosticPanel); // Use DiagnosticPanel as base
+            panelRegistry.registerType('state-monitor', DiagnosticPanel);
+            panelRegistry.registerType('performance-panel', DiagnosticPanel);
+            panelRegistry.registerType('log-viewer', DiagnosticPanel);
             
             // Expose panel system globally with unified API
             window.APP = window.APP || {};
@@ -122,52 +148,8 @@ class WorkspaceManager {
     }
 
     loadPanelDebugUtilities() {
-        const debugScript = document.createElement('script');
-        debugScript.src = '/debug-scripts/panels/panel-browser-debug.js';
-        debugScript.type = 'module';  // Use module type for better loading
-        debugScript.onload = () => {
-            console.log('[WorkspaceManager] Panel debug utilities loaded');
-            // Ensure panel system is fully initialized after script load
-            this.initializePanelSystem();
-        };
-        debugScript.onerror = (error) => {
-            console.warn('[WorkspaceManager] Failed to load panel debug utilities:', error);
-            // Fallback initialization without debug utilities
-            this.initializePanelSystem();
-        };
-        document.head.appendChild(debugScript);
-    }
-
-    initializePanelSystem() {
-        try {
-            // Ensure panel system is initialized even without debug utilities
-            window.APP = window.APP || {};
-            window.APP.panels = window.APP.panels || {
-                createPanel: (type, config) => {
-                    console.warn(`[WorkspaceManager] Fallback panel creation for type: ${type}`, config);
-                    // Basic panel creation fallback
-                    return {
-                        id: config.id || `panel-${Date.now()}`,
-                        title: config.title || 'Untitled Panel',
-                        mount: () => this,
-                        show: () => this,
-                        close: () => this
-                    };
-                },
-                help: () => console.log('Panel help not available'),
-                list: () => [],
-                registry: {
-                    createPanel: (type, config) => {
-                        console.warn(`[WorkspaceManager] Fallback registry panel creation for type: ${type}`, config);
-                        return this.panels.createPanel(type, config);
-                    }
-                }
-            };
-
-            console.log('[WorkspaceManager] ✅ Panel system initialized successfully');
-        } catch (error) {
-            console.warn('[WorkspaceManager] ⚠️ Failed to initialize panel system:', error);
-        }
+        console.log('[WorkspaceManager] Debug utilities disabled - script not found');
+        // Skip loading debug utilities - they don't exist
     }
 
     addPanelManagementTab() {
@@ -213,61 +195,35 @@ class WorkspaceManager {
     }
 
     initializeSidebarSystem() {
-        console.log('[WorkspaceManager] Initializing sidebar system...');
+        console.log('[WorkspaceManager] Initializing SidebarManager...');
+        
+        const sidebarZone = document.getElementById('workspace-sidebar');
+        if (sidebarZone) {
+            // Import and initialize SidebarManager
+            import('../layout/SidebarManager.js').then(async ({ SidebarManager }) => {
+                this.sidebarManager = new SidebarManager();
+                await this.sidebarManager.initialize(sidebarZone);
+                
+                // Expose to global APP for external access
+                window.APP = window.APP || {};
+                window.APP.services = window.APP.services || {};
+                window.APP.services.sidebarManager = this.sidebarManager;
+                
+                console.log('[WorkspaceManager] ✅ SidebarManager initialized');
+            }).catch(error => {
+                console.warn('[WorkspaceManager] Failed to load SidebarManager:', error);
+            });
+        }
+    }
+
+    initializeSidebarVisibility() {
+        console.log('[WorkspaceManager] Initializing SidebarVisibilityController...');
         
         try {
-            // Initialize the sidebar manager
-            sidebarManager.initialize();
-            
-            // Expose sidebar API globally
-            window.APP = window.APP || {};
-            window.APP.sidebar = {
-                // Core methods
-                switchToTag: (tag) => sidebarManager.switchToTag(tag),
-                getCurrentTag: () => sidebarManager.getCurrentTag(),
-                getTagPanels: (tag) => sidebarManager.getTagPanels(tag),
-                addPanel: (config) => sidebarManager.addPanel(config),
-                removePanel: (id) => sidebarManager.removePanel(id),
-                
-                // State management
-                hidePanel: (id, tag) => sidebarManager.hidePanelFromTag(id, tag),
-                showPanel: (id, tag) => sidebarManager.showPanelInTag(id, tag),
-                getTagState: (tag) => sidebarManager.tagStates.get(tag || sidebarManager.currentTag),
-                resetTagState: (tag) => {
-                    const tagState = sidebarManager.tagStates.get(tag || sidebarManager.currentTag);
-                    if (tagState) {
-                        Object.assign(tagState, {
-                            panelOrder: [],
-                            hiddenPanels: new Set(),
-                            viewMode: 'grid',
-                            sortBy: 'name',
-                            filterText: '',
-                            expanded: true
-                        });
-                        sidebarManager.saveTagStates();
-                        if (tag === sidebarManager.currentTag) {
-                            sidebarManager.updateTagContent(tag);
-                        }
-                    }
-                },
-
-                // Context management
-                getTagContext: (tag) => sidebarManager.tagContexts.get(tag || sidebarManager.currentTag),
-                setContextMode: (tag, mode) => sidebarManager.setContextDisplayMode(tag || sidebarManager.currentTag, mode),
-                getActivePanels: (tag) => {
-                    const context = sidebarManager.tagContexts.get(tag || sidebarManager.currentTag);
-                    return context ? Array.from(context.activePanels.keys()) : [];
-                },
-                returnAllToSidebar: (tag) => sidebarManager.returnAllPanelsToSidebar(tag || sidebarManager.currentTag),
-                convertToFloating: (panelId) => sidebarManager.convertStackToFloating(panelId),
-                
-                // Manager access for advanced usage
-                manager: sidebarManager
-            };
-            
-            console.log('[WorkspaceManager] ✅ Sidebar system initialized successfully');
+            sidebarVisibilityController.initialize();
+            console.log('[WorkspaceManager] ✅ SidebarVisibilityController initialized');
         } catch (error) {
-            console.warn('[WorkspaceManager] ⚠️ Failed to initialize sidebar system:', error);
+            console.warn('[WorkspaceManager] Failed to initialize SidebarVisibilityController:', error);
         }
     }
 
@@ -308,7 +264,7 @@ class WorkspaceManager {
     }
 
     initializeZoneTopBars() {
-        // Sidebar is now managed by SidebarManager with tag-based organization
+        // Simple sidebar - no complex management needed
         // Skip old tab bar creation
 
         // Initialize editor top bar
@@ -535,7 +491,7 @@ class WorkspaceManager {
         }
         
         // Update button states
-        this.updateButtonStates();
+        // Button states are now managed by TopBarController
     }
 
     shouldPopulateContainer(container) {
@@ -678,18 +634,7 @@ class WorkspaceManager {
         console.log('[WorkspaceManager] Fallback preview rendered');
     }
 
-    updateButtonStates() {
-        const editButton = document.querySelector('#edit-toggle');
-        const previewButton = document.querySelector('#preview-toggle');
-        
-        if (editButton) {
-            editButton.classList.add('active');
-        }
-        
-        if (previewButton) {
-            previewButton.classList.add('active');
-        }
-    }
+
 
     async loadPanelConfigurations() {
         // Log any API request attempts
@@ -713,15 +658,7 @@ class WorkspaceManager {
                 const mockConfig = this.createMockPanelConfig(config.id);
                 this.panelConfigs.set(config.id, mockConfig);
                 
-                // Organize by tags
-                if (mockConfig.tags) {
-                    mockConfig.tags.forEach(tag => {
-                        const tagConfig = this.sidebarManager.tags.get(tag);
-                        if (tagConfig) {
-                            tagConfig.panels.push(mockConfig);
-                        }
-                    });
-                }
+                // Simple panel config - no complex tag organization needed
             } catch (error) {
                 console.error(`[WorkspaceManager] Failed to load panel config ${config.id}:`, error);
             }

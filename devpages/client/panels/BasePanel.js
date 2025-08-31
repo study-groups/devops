@@ -41,19 +41,27 @@ export class BasePanel {
         this.element = null;
         this.mounted = false;
         
-        // Default configuration
+        // Enhanced configuration with panel state
         this.config = {
             resizable: true,
             draggable: true,
             collapsible: true,
             closable: true,
             modal: false,
-            zIndex: 1000,
+            zIndex: 'var(--z-popover)', // Use design token for z-index
             minWidth: 200,
             minHeight: 150,
             defaultWidth: 400,
             defaultHeight: 300,
             defaultPosition: { x: 100, y: 100 },
+            // New state parameters
+            isDocked: true,  // Default to docked in sidebar
+            isOpen: false,   // Whether the panel is currently open
+            floatingState: {
+                position: { x: 100, y: 100 },
+                size: { width: 400, height: 300 },
+                zIndex: 'var(--z-popover)' // Use design token
+            },
             ...config
         };
 
@@ -68,27 +76,65 @@ export class BasePanel {
     }
 
     initializeState() {
-        const existingState = this.getState();
-        if (!existingState) {
-            appStore.dispatch(panelActions.createPanel({
-                id: this.id,
-                title: this.title,
-                type: this.type,
+        // Create a comprehensive panel state with robust default values
+        appStore.dispatch(panelActions.createPanel({
+            id: this.id,
+            title: this.title,
+            type: this.type,
+            isDocked: this.config.isDocked,
+            isOpen: this.config.isOpen,
+            position: this.config.defaultPosition,
+            size: { 
+                width: this.config.defaultWidth, 
+                height: this.config.defaultHeight 
+            },
+            floatingState: {
                 position: this.config.defaultPosition,
                 size: { 
                     width: this.config.defaultWidth, 
                     height: this.config.defaultHeight 
                 },
-                visible: false,
-                collapsed: false,
-                zIndex: this.config.zIndex,
-                config: this.config
-            }));
-        }
+                zIndex: this.config.zIndex
+            },
+            visible: false,
+            collapsed: false,
+            zIndex: this.config.zIndex,
+            config: this.config
+        }));
     }
 
     getState() {
-        return appStore.getState().panels.panels[this.id];
+        // This method should now reliably return the state, as it's created on construction.
+        const state = appStore.getState().panels?.panels?.[this.id];
+        if (state) {
+            return state;
+        }
+        // Fallback for race conditions during initial render.
+        return {
+            id: this.id,
+            title: this.title,
+            type: this.type,
+            isDocked: true,
+            isOpen: false,
+            position: this.config.defaultPosition,
+            size: { 
+                width: this.config.defaultWidth, 
+                height: this.config.defaultHeight 
+            },
+            floatingState: {
+                position: this.config.defaultPosition,
+                size: { 
+                    width: this.config.defaultWidth, 
+                    height: this.config.defaultHeight 
+                },
+                zIndex: 1000
+            },
+            visible: false,
+            collapsed: false,
+            zIndex: this.config.zIndex,
+            config: this.config,
+            mounted: false
+        };
     }
 
     updateState(updates) {
@@ -96,6 +142,32 @@ export class BasePanel {
             id: this.id,
             updates
         }));
+    }
+
+    // Method to toggle between docked and floating states
+    togglePanelMode() {
+        const currentState = this.getState();
+        const newIsDocked = !currentState.isDocked;
+
+        this.updateState({
+            isDocked: newIsDocked,
+            // If becoming floating, update floating state
+            ...(newIsDocked ? {} : { 
+                floatingState: {
+                    position: this.element ? {
+                        x: parseInt(this.element.style.left || '100'),
+                        y: parseInt(this.element.style.top || '100')
+                    } : { x: 100, y: 100 },
+                    size: this.element ? {
+                        width: parseInt(this.element.style.width || '400'),
+                        height: parseInt(this.element.style.height || '300')
+                    } : { width: 400, height: 300 },
+                    zIndex: this.config.zIndex
+                }
+            })
+        });
+
+        return this;
     }
 
     /**
@@ -125,6 +197,9 @@ export class BasePanel {
         this.element.id = this.id;
         this.element.setAttribute('data-panel-id', this.id);
 
+        // Add base panel styles
+        this.addBaseStyles();
+
         const state = this.getState();
         
         this.element.innerHTML = `
@@ -152,20 +227,93 @@ export class BasePanel {
         return '<div class="panel-placeholder">Panel content goes here</div>';
     }
 
+    // Override show method to manage open state
+    show() {
+        this.updateState({ 
+            visible: true,
+            isOpen: true,
+            zIndex: appStore.getState().panels.maxZIndex + 1
+        });
+        this.applyStateToElement();
+        this.bringToFront();
+        this.onShow();
+        return this;
+    }
+
+    // Override hide method to manage open state
+    hide() {
+        this.element.classList.remove('is-visible');
+        
+        // Wait for animation to finish before hiding
+        setTimeout(() => {
+            this.updateState({ 
+                visible: false,
+                isOpen: false
+            });
+            this.applyStateToElement();
+            this.onHide();
+        }, 200); // Should match transition duration
+
+        return this;
+    }
+
+    /**
+     * Toggles the collapsed state of the panel.
+     * @returns {BasePanel} The panel instance for chaining.
+     */
+    toggleCollapse() {
+        const state = this.getState();
+        this.updateState({ collapsed: !state.collapsed });
+        this.applyStateToElement();
+        return this;
+    }
+
+    // Modify existing methods to work with new state structure
     applyStateToElement() {
         if (!this.element) return;
 
         const state = this.getState();
-        if (!state) return;
+        if (!state) {
+            console.warn(`[BasePanel] No state found for panel ${this.id}`);
+            return;
+        }
 
-        // Position and size
-        this.element.style.left = `${state.position.x}px`;
-        this.element.style.top = `${state.position.y}px`;
-        this.element.style.width = `${state.size.width}px`;
-        this.element.style.height = `${state.size.height}px`;
-        this.element.style.zIndex = state.zIndex;
+        // Ensure floatingState exists with default values
+        const floatingState = state.floatingState || {
+            position: this.config.defaultPosition,
+            size: { 
+                width: this.config.defaultWidth, 
+                height: this.config.defaultHeight 
+            },
+            zIndex: 1000
+        };
 
-        // Visibility
+        // Determine which position/size to use based on docked state
+        const position = state.isDocked 
+            ? this.config.defaultPosition 
+            : (floatingState.position || this.config.defaultPosition);
+        const size = state.isDocked 
+            ? { width: this.config.defaultWidth, height: this.config.defaultHeight }
+            : (floatingState.size || { 
+                width: this.config.defaultWidth, 
+                height: this.config.defaultHeight 
+            });
+
+        // Safely apply position and size
+        this.element.style.left = `${position.x || 100}px`;
+        this.element.style.top = `${position.y || 100}px`;
+        this.element.style.width = `${size.width || 400}px`;
+        this.element.style.height = `${size.height || 300}px`;
+        
+        // Apply z-index, with multiple fallback mechanisms
+        const zIndex = floatingState.zIndex || state.zIndex || this.config.zIndex || 1000;
+        const computedZIndex = typeof zIndex === 'string' && zIndex.startsWith('var(')
+            ? parseInt(getComputedStyle(document.documentElement).getPropertyValue(zIndex.slice(4, -1))) || 1000
+            : (typeof zIndex === 'number' ? zIndex : 1000);
+        
+        this.element.style.zIndex = computedZIndex;
+
+        // Visibility and open state
         this.element.style.display = state.visible ? 'flex' : 'none';
         if (state.visible) {
             // Use a timeout to allow the element to be rendered before adding the class
@@ -176,16 +324,9 @@ export class BasePanel {
             this.element.classList.remove('is-visible');
         }
 
-        // Collapsed state
-        if (state.collapsed) {
-            this.element.classList.add('collapsed');
-            const body = this.element.querySelector('.panel-body');
-            if (body) body.style.display = 'none';
-        } else {
-            this.element.classList.remove('collapsed');
-            const body = this.element.querySelector('.panel-body');
-            if (body) body.style.display = 'block';
-        }
+        // Additional styling for docked vs floating
+        this.element.classList.toggle('is-docked', state.isDocked);
+        this.element.classList.toggle('is-floating', !state.isDocked);
     }
 
     /**
@@ -213,6 +354,46 @@ export class BasePanel {
         document.addEventListener('mousemove', this.handleMouseMove);
         document.addEventListener('mouseup', this.handleMouseUp);
         document.addEventListener('keydown', this.handleKeyDown);
+    }
+
+    /**
+     * Brings the panel to the front by increasing its z-index.
+     */
+    bringToFront() {
+        const allPanels = appStore.getState().panels.panels;
+        
+        // Safely calculate max z-index with fallback to design tokens
+        const maxZ = allPanels ? 
+            Math.max(...Object.values(allPanels)
+                .map(p => {
+                    // Safely extract zIndex, with multiple fallback levels
+                    const zIndex = p?.floatingState?.zIndex || 
+                                   p?.zIndex || 
+                                   'var(--z-popover)';
+                    
+                    // If it's a CSS variable, convert to numeric value
+                    if (typeof zIndex === 'string' && zIndex.startsWith('var(')) {
+                        return parseInt(getComputedStyle(document.documentElement).getPropertyValue(zIndex.slice(4, -1))) || 1000;
+                    }
+                    
+                    // If it's already a number, return it
+                    return typeof zIndex === 'number' ? zIndex : 1000;
+                })
+            ) : parseInt(getComputedStyle(document.documentElement).getPropertyValue('--z-popover')) || 1000;
+
+        // Get current panel state
+        const currentState = this.getState();
+        
+        // Safely update state with new z-index
+        this.updateState({ 
+            floatingState: {
+                ...(currentState.floatingState || {}),
+                zIndex: maxZ + 1
+            }
+        });
+
+        this.applyStateToElement();
+        return this;
     }
 
     /**
@@ -290,55 +471,19 @@ export class BasePanel {
         }
     }
 
-    /**
-     * Shows the panel and brings it to the front.
-     * @returns {BasePanel} The panel instance for chaining.
-     */
-    show() {
-        this.updateState({ visible: true });
-        this.applyStateToElement();
-        this.bringToFront();
-        this.onShow();
-        return this;
-    }
-
-    /**
-     * Hides the panel.
-     * @returns {BasePanel} The panel instance for chaining.
-     */
-    hide() {
-        this.element.classList.remove('is-visible');
+    // Modify bringToFront to update floating state
+    // bringToFront() {
+    //     const allPanels = appStore.getState().panels.panels;
+    //     const maxZ = Math.max(...Object.values(allPanels).map(p => p.floatingState.zIndex || 1000));
         
-        // Wait for animation to finish before hiding
-        setTimeout(() => {
-            this.updateState({ visible: false });
-            this.applyStateToElement();
-            this.onHide();
-        }, 200); // Should match transition duration
-
-        return this;
-    }
-
-    /**
-     * Toggles the collapsed state of the panel.
-     * @returns {BasePanel} The panel instance for chaining.
-     */
-    toggleCollapse() {
-        const state = this.getState();
-        this.updateState({ collapsed: !state.collapsed });
-        this.applyStateToElement();
-        return this;
-    }
-
-    /**
-     * Brings the panel to the front by increasing its z-index.
-     */
-    bringToFront() {
-        const allPanels = appStore.getState().panels.panels;
-        const maxZ = Math.max(...Object.values(allPanels).map(p => p.zIndex || 1000));
-        this.updateState({ zIndex: maxZ + 1 });
-        this.applyStateToElement();
-    }
+    //     this.updateState({ 
+    //         floatingState: {
+    //             ...this.getState().floatingState,
+    //             zIndex: maxZ + 1
+    //         }
+    //     });
+    //     this.applyStateToElement();
+    // }
 
     /**
      * Removes the panel from the DOM and cleans up its state.
@@ -368,6 +513,89 @@ export class BasePanel {
             state: this.getState(),
             config: this.config
         };
+    }
+
+    addBaseStyles() {
+        const styleId = 'base-panel-styles';
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            .base-panel {
+                position: fixed;
+                display: flex;
+                flex-direction: column;
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                overflow: hidden;
+                transition: opacity 0.2s, transform 0.2s;
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            .base-panel.is-visible {
+                opacity: 1;
+                transform: scale(1);
+            }
+            .panel-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 12px;
+                background: #f7f7f7;
+                border-bottom: 1px solid #ddd;
+                cursor: move;
+                height: 40px;
+            }
+            .panel-title {
+                font-weight: 600;
+            }
+            .panel-controls {
+                display: flex;
+                gap: 4px;
+            }
+            .panel-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+            }
+            .panel-btn:hover {
+                background: #eee;
+            }
+            .panel-body {
+                flex: 1;
+                padding: 12px;
+                overflow: auto;
+            }
+            .base-panel.collapsed .panel-body {
+                display: none;
+            }
+            .panel-resize-handle {
+                position: absolute;
+                right: 0;
+                bottom: 0;
+                width: 12px;
+                height: 12px;
+                cursor: se-resize;
+                background: repeating-linear-gradient(
+                    -45deg,
+                    #ccc,
+                    #ccc 1px,
+                    transparent 1px,
+                    transparent 4px
+                );
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 

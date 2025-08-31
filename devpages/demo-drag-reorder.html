@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Drag & Drop Demo - DevPages</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .demo-header {
+            background: #2563eb;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .demo-content {
+            padding: 20px;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .check {
+            color: #10b981;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        
+        .usage-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .storage-demo {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🎯 Panel Drag & Drop Reordering</h1>
+            <p>Draggable panel reordering with category-specific persistence</p>
+        </div>
+        
+        <div class="demo-content">
+            <h2>✅ Implementation Complete</h2>
+            
+            <ul class="feature-list">
+                <li><span class="check">✓</span> Drag and drop functionality for panel items</li>
+                <li><span class="check">✓</span> Visual drag handles (⋮⋮) on each panel</li>
+                <li><span class="check">✓</span> Drop indicators showing insertion point</li>
+                <li><span class="check">✓</span> Panel order persistence per category in localStorage</li>
+                <li><span class="check">✓</span> Redux state integration for panel ordering</li>
+                <li><span class="check">✓</span> Separate panel lists for each category (dev, settings, publish)</li>
+            </ul>
+
+            <div class="usage-section">
+                <h3>🎮 How to Use</h3>
+                <ol>
+                    <li><strong>Open the sidebar</strong> in your DevPages application</li>
+                    <li><strong>Switch between categories</strong> using the tabs (dev, settings, publish)</li>
+                    <li><strong>Drag panels</strong> by clicking and holding the drag handle (⋮⋮)</li>
+                    <li><strong>Drop panels</strong> at the desired position (blue line shows drop zone)</li>
+                    <li><strong>Order is saved automatically</strong> and persists between sessions</li>
+                </ol>
+            </div>
+
+            <div class="storage-demo">
+                <h4>💾 Storage Keys</h4>
+                <p>Panel orders are stored in localStorage with these keys:</p>
+                <div class="code-block">
+devpages_panel_order_dev      → ["system-diagnostics", "redux-inspector", "file-browser"]
+devpages_panel_order_settings → ["design-tokens", "theme-editor"]  
+devpages_panel_order_publish  → ["publish-manager"]
+                </div>
+            </div>
+
+            <h3>🔧 Technical Implementation</h3>
+            
+            <h4>Redux State Structure</h4>
+            <div class="code-block">
+// Added to panelSlice.js
+panelOrders: {
+    dev: [],
+    settings: [],
+    publish: []
+}
+
+// New actions:
+- setPanelOrder(category, panelIds)
+- reorderPanel(category, fromIndex, toIndex)  
+- initializePanelOrder(category, panelIds)
+            </div>
+
+            <h4>SidebarManager Updates</h4>
+            <div class="code-block">
+// New methods added:
+- getPanelOrder(category)        → Load from localStorage
+- savePanelOrder(category, ids)  → Save to localStorage + Redux
+- orderPanels(panels, order)     → Sort panels by saved order
+- setupDragAndDrop()             → Add drag/drop event listeners
+- reorderPanel(from, to)         → Handle reordering logic
+            </div>
+
+            <h4>Visual Enhancements</h4>
+            <div class="code-block">
+// Added drag handle to each panel header:
+&lt;div class="panel-drag-handle" title="Drag to reorder"&gt;⋮⋮&lt;/div&gt;
+
+// CSS for drag feedback:
+.panel-drag-handle:hover { background: var(--color-bg-hover); }
+.panel-item.dragging { opacity: 0.5; transform: rotate(2deg); }
+.drop-indicator { background: var(--color-primary); animation: pulse; }
+            </div>
+
+            <div class="usage-section">
+                <h3>🚀 Ready to Test</h3>
+                <p>The implementation is complete and ready for testing. Open your DevPages application and try dragging panels around in the sidebar!</p>
+                
+                <p><strong>Note:</strong> Each category (dev, settings, publish) maintains its own independent panel order, so you can customize the layout for each workflow.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

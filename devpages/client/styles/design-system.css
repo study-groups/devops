@@ -170,6 +170,47 @@ h6 {
   --panel-control-color: var(--color-fg-muted);
   --panel-control-hover-bg: var(--color-bg-hover);
   --panel-resize-handle-color: var(--color-border-secondary);
+
+  /* === DevPages Panel Tokens === */
+  --devpages-panel-bg: var(--color-bg-elevated);
+  --devpages-panel-border: 1px solid var(--color-border);
+  --devpages-panel-radius: var(--radius-base);
+  --devpages-panel-shadow: var(--shadow-sm);
+  
+  /* Panel Toolbar */
+  --devpages-panel-toolbar-bg: var(--color-bg-alt);
+  --devpages-panel-toolbar-border: 1px solid var(--color-border);
+  --devpages-panel-toolbar-height: 2rem;
+  --devpages-panel-toolbar-padding: var(--space-1) var(--space-2);
+  
+  /* Panel Table */
+  --devpages-panel-table-header-bg: var(--color-bg-alt);
+  --devpages-panel-table-header-height: 1.75rem;
+  --devpages-panel-table-row-height: 1.5rem;
+  --devpages-panel-table-cell-padding: var(--space-1) var(--space-2);
+  --devpages-panel-table-border: 1px solid var(--color-border);
+  --devpages-panel-table-hover-bg: var(--color-bg-hover);
+  
+  /* Panel Controls */
+  --devpages-panel-control-size: 1.25rem;
+  --devpages-panel-control-padding: var(--space-0-5);
+  --devpages-panel-control-border: 1px solid transparent;
+  --devpages-panel-control-radius: var(--radius-sm);
+  --devpages-panel-control-hover-bg: var(--color-bg-hover);
+  --devpages-panel-control-hover-border: var(--color-border);
+  
+  /* Panel Typography */
+  --devpages-panel-font-size: var(--font-size-xs);
+  --devpages-panel-font-size-sm: 0.6875rem; /* 11px */
+  --devpages-panel-font-weight: var(--font-weight-normal);
+  --devpages-panel-font-weight-medium: var(--font-weight-medium);
+  --devpages-panel-line-height: 1.2;
+  
+  /* Panel Spacing */
+  --devpages-panel-gap: var(--space-1);
+  --devpages-panel-gap-sm: var(--space-0-5);
+  --devpages-panel-padding: var(--space-2);
+  --devpages-panel-padding-sm: var(--space-1);
 }
 
 /* ===== THEME DEFINITIONS ===== */
@@ -332,159 +373,9 @@ body {
 
 /* ===== COMPONENT BASE CLASSES ===== */
 
-/* === Button Component === */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--density-space-y) var(--density-space-x);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-base);
-  background-color: var(--color-bg-elevated);
-  color: var(--color-fg);
-  font-size: var(--density-text-sm);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  cursor: pointer;
-  transition: var(--transition-all);
-  user-select: none;
-  white-space: nowrap;
-}
+/* Button styles moved to ui-system.css for consistency and to eliminate redundancy */
 
-.btn:hover {
-  background-color: var(--color-bg-alt);
-  border-color: var(--color-border);
-}
-
-.btn:focus-visible {
-  outline: 2px solid var(--color-blue-500);
-  outline-offset: 2px;
-}
-
-.btn:focus:not(:focus-visible) {
-  outline: none;
-  border-color: var(--color-border);
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* Button Size Variants */
-.btn-sm {
-  padding: var(--density-space-xs) var(--density-space-sm);
-  font-size: var(--font-size-xs);
-  gap: var(--space-0-5);
-}
-
-.btn-primary {
-  background-color: var(--color-blue-500);
-  color: white;
-  border-color: var(--color-blue-500);
-}
-
-.btn-primary:hover {
-  background-color: var(--color-blue-900);
-  border-color: var(--color-blue-900);
-}
-
-.btn-primary:active {
-  background-color: var(--color-blue-900);
-}
-
-.btn-secondary {
-  background-color: var(--color-bg);
-  color: var(--color-fg-alt);
-  border-color: var(--color-border);
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-bg-elevated);
-  color: var(--color-fg);
-}
-
-.btn-secondary:active {
-  background-color: var(--color-bg-alt);
-}
-
-/* .btn-ghost styles moved to ui-system.css for consistency */
-
-/* Legacy button support for non-migrated components */
-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-base);
-  background-color: var(--color-bg-elevated);
-  color: var(--color-fg);
-  font-size: var(--density-text-sm);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  user-select: none;
-}
-
-button:hover {
-  background-color: var(--color-bg-alt);
-  border-color: var(--color-border);
-}
-
-button:focus-visible {
-  outline: 2px solid var(--color-blue-500);
-  outline-offset: 1px;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-button.active {
-  background-color: var(--color-blue-500);
-  color: white;
-  border-color: var(--color-blue-500);
-}
-
-button.active:hover {
-  background-color: var(--color-blue-900);
-  border-color: var(--color-blue-900);
-}
-
-/* Button loading state */
-button.loading {
-  position: relative;
-  color: transparent;
-  pointer-events: none;
-}
-
-button.loading::after {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  top: 50%;
-  left: 50%;
-  margin-top: -8px;
-  margin-left: -8px;
-  border-radius: 50%;
-  border: 2px solid var(--color-bg-alt);
-  border-top-color: var(--color-blue-500);
-  animation: button-loading-spinner 0.6s linear infinite;
-}
-
-@keyframes button-loading-spinner {
-  from {
-    transform: rotate(0turn);
-  }
-  to {
-    transform: rotate(1turn);
-  }
-}
+/* Legacy button styles moved to ui-system.css to eliminate redundancy */
 
 /* Input Components */
 .input {

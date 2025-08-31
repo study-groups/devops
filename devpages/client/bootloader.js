@@ -80,23 +80,30 @@ async function bootPreInit() {
 
 async function bootCore() {
     log.info('PHASE_2', '📦 Phase 2: Core Initialization - Creating Redux store...');
-    let preloadedState = {};
-    try {
-        const savedSettings = localStorage.getItem('devpages-settings');
-        if (savedSettings) {
-            preloadedState.settings = JSON.parse(savedSettings);
-        }
-    } catch (error) {
-        log.warn('LOAD_SETTINGS_FAILED', '⚠️ Failed to load saved settings, using defaults', error);
-    }
-    const { appStore, dispatch } = initializeStore(preloadedState);
+    // Let initializeStore handle all state loading from the proper storage service
+    const { appStore, dispatch } = initializeStore();
+    
+    // Debug: Check what state was loaded
+    const loadedState = appStore.getState();
+    log.info('STATE_LOADED', '🔍 Loaded state:', {
+        panels: {
+            _initialized: loadedState.panels?._initialized,
+            activeSidebarCategory: loadedState.panels?.activeSidebarCategory,
+            sidebarPanelsCount: Object.keys(loadedState.panels?.sidebarPanels || {}).length,
+            panelsCount: Object.keys(loadedState.panels?.panels || {}).length
+        },
+        ui: Object.keys(loadedState.ui || {}),
+        settings: Object.keys(loadedState.settings || {})
+    });
     
     // CRITICAL FIX: Set global dispatch for enhanced reducer utils
     const { setGlobalDispatch } = await import('./store/reducers/enhancedReducerUtils.js');
     setGlobalDispatch(dispatch);
     log.info('GLOBAL_DISPATCH', '✅ Global dispatch set for enhanced reducer utils');
     
-    if (!preloadedState.settings) {
+    // Settings are now loaded by initializeStore, no need to check preloadedState
+    const state = appStore.getState();
+    if (!state.settings || Object.keys(state.settings).length === 0) {
         dispatch(appThunks.settings.loadInitialSettings());
     }
     // Store available via services for any remaining legacy code
@@ -107,6 +114,9 @@ async function bootCore() {
     dispatch(startInitialization());
     window.APP.bootloader.phase = 'initializing';
     log.info('SYSTEM_COORDINATION', '✅ System coordination initialized');
+    
+    // Panel states are now handled directly by SidebarManager - no Redux complexity needed
+    log.info('PANEL_RESTORATION', '✅ Panel restoration delegated to SidebarManager');
     
     log.info('STORE_INITIALIZED', '✅ Redux store initialized and available via direct imports');
     return { store: appStore, actions: appThunks };
@@ -146,6 +156,17 @@ async function bootSecondary({ store, actions }) {
     // 1. Initialize components that DON'T need auth
     log.info('INIT_COMPONENTS_PRE_AUTH', '🧩 Initializing pre-authentication components...');
     await initializeComponentSystem(store, preAuthComponents);
+    
+    // 1.5. Ensure TopBarController is initialized early
+    try {
+        const { topBarController } = await import('./components/TopBarController.js');
+        if (!topBarController.initialized) {
+            topBarController.initialize();
+            log.info('TOPBAR_INIT', '🎛️ TopBarController initialized during bootloader');
+        }
+    } catch (error) {
+        log.error('TOPBAR_INIT_FAILED', 'Failed to initialize TopBarController:', error);
+    }
 
     // 2. Initialize auth system
     await initializeAuthSystem(store, actions);
@@ -199,13 +220,13 @@ async function bootSecondary({ store, actions }) {
             console.log('Sidebar toggled');
         };
         
+        // ACTUALLY INITIALIZE THE PANEL SYSTEM
+        workspaceManager.initialize();
+        
         log.info('WORKSPACE_MANAGER_INIT', '✅ Workspace manager initialized for automatic UI setup');
     } catch (error) {
         log.warn('WORKSPACE_MANAGER_INIT_FAILED', '⚠️ Failed to initialize workspace manager:', error);
     }
-    
-    // Workspace and panel system removed - clean application
-    log.info('CLEAN_APP', '✅ Running clean application without panel system');
 
     console.log('[BOOTLOADER] About to initialize log display...');
     

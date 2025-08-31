@@ -52,7 +52,8 @@ const CSS_BUNDLES = {
         'client/sidebar/panels/PublishedSummaryPanel.css',
         'client/styles/panels/scrollbars.css',
         'client/styles/subpanel.css',
-        'client/styles/components/panel-manager-header.css'
+        'client/styles/components/panel-manager-header.css',
+        'client/styles/panel-system.css'
     ]
 };
 

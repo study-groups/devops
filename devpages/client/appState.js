@@ -17,6 +17,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import panelReducer from './store/slices/panelSlice.js';
 import { storageService } from './services/storageService.js';
+import { persistenceMiddleware } from './store/middleware/persistenceMiddleware.js';
 
 // Reducers
 import authReducer from './store/slices/authSlice.js';
@@ -88,6 +89,11 @@ export { appStore, dispatch, initializeStore };
 function safeLoadPersistedState(key, defaultState = {}) {
     try {
         const persistedState = storageService.getItem(key);
+        console.log(`[AppState] Loading persisted state for ${key}:`, {
+            persistedState,
+            defaultState,
+            merged: persistedState ? { ...defaultState, ...persistedState } : defaultState
+        });
         return persistedState ? { ...defaultState, ...persistedState } : defaultState;
     } catch (error) {
         console.warn(`[AppState] Failed to load persisted state for ${key}:`, error);
@@ -109,8 +115,8 @@ function initializeStore(preloadedState = {}) {
     const initialState = {
         ...preloadedState,
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
-        // Panel state loading removed - clean application
-        // Add more slice-specific state loading as needed
+        panels: safeLoadPersistedState('panels', preloadedState.panels || {}),
+        ui: safeLoadPersistedState('ui', preloadedState.ui || {}),
     };
 
     try {
@@ -125,8 +131,8 @@ function initializeStore(preloadedState = {}) {
                 })
                 .concat(
                     apiSlice.middleware,
-                    reduxLogMiddleware
-                    // Panel middleware removed - clean application
+                    reduxLogMiddleware,
+                    persistenceMiddleware
                 ),
             devTools: true,
         });

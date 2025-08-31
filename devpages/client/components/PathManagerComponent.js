@@ -287,6 +287,7 @@ export function createPathManagerComponent(targetElementId) {
     
     // Hybrid breadcrumb navigation handler
     const handleBreadcrumbClick = (event) => {
+        event.alreadyHandled = true;
         event.preventDefault();
         event.stopPropagation();
         const target = event.target.closest('.clickable'); // Find the nearest clickable parent
@@ -308,6 +309,7 @@ export function createPathManagerComponent(targetElementId) {
     };
 
     const handlePrimarySelectChange = async (event) => {
+        event.alreadyHandled = true;
         event.preventDefault();
         event.stopPropagation();
         const selectedOption = event.target.selectedOptions[0];
@@ -360,6 +362,7 @@ export function createPathManagerComponent(targetElementId) {
     // The main handleBreadcrumbClick now manages all breadcrumb interactions.
 
     const handleNoteButtonClick = async (event) => {
+        event.alreadyHandled = true;
         event.preventDefault();
         event.stopPropagation();
         log.info('NOTE', 'BUTTON_CLICK', 'Note button clicked - adding to context');
@@ -438,7 +441,14 @@ export function createPathManagerComponent(targetElementId) {
         }
     };
 
-    const handleSidebarToggleClick = () => {
+    const handleSidebarToggleClick = (e) => {
+        // Mark event as handled to prevent TopBarController from also handling it
+        if (e) {
+            e.alreadyHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
         // Use Redux store instead of deprecated WorkspaceManager
         appStore.dispatch(uiThunks.toggleLeftSidebar());
     };

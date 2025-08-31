@@ -1,61 +1,20 @@
 /**
  * @file uiSlice.js
  * @description UI slice for Redux with standard Redux Toolkit patterns
- * Manages UI state (viewMode, log visibility, theme) with manual persistence
+ * Manages UI state (viewMode, log visibility, theme).
+ * Persistence is handled by the central persistenceMiddleware.
  */
 
 import { createSlice } from '@reduxjs/toolkit';
-import { storageService } from '/client/services/storageService.js';
-
-// --- Load persisted state from localStorage ---
-const loadPersistedUIState = () => {
-    try {
-        const stored = storageService.getItem('settings_ui');
-        if (stored && typeof stored === 'object') {
-            return stored;
-        }
-    } catch (e) {
-        console.warn('[uiSlice] Failed to load persisted UI state:', e);
-    }
-    return {};
-};
-
-// --- Persistence helper ---
-const persistUIState = (state) => {
-    try {
-        // Create a deep plain object copy immediately
-        const plainState = JSON.parse(JSON.stringify({
-            theme: state.theme,
-            viewMode: state.viewMode,
-            logVisible: state.logVisible,
-            logHeight: state.logHeight,
-            logMenuVisible: state.logMenuVisible,
-            leftSidebarVisible: state.leftSidebarVisible,
-            editorVisible: state.editorVisible,
-            previewVisible: state.previewVisible,
-            contextManagerVisible: state.contextManagerVisible,
-            colorScheme: state.colorScheme,
-            designDensity: state.designDensity,
-            isAuthDropdownVisible: state.isAuthDropdownVisible,
-            logColumnWidths: state.logColumnWidths, // Persist column widths
-            workspaceDimensions: state.workspaceDimensions // Persist workspace dimensions
-        }));
-        
-        // Synchronous save to prevent proxy revocation
-        storageService.setItem('settings_ui', plainState);
-    } catch (e) {
-        console.error('[uiSlice] Failed to persist UI state:', e);
-    }
-};
 
 // --- Default UI Settings ---
-const defaultUIState = {
+const initialState = {
     theme: 'light',
-    viewMode: 'preview',        // 'preview', 'split', 'editor'
+    // Remove viewMode
     logVisible: true,
     logHeight: 120,             // pixels
     logMenuVisible: false,
-    leftSidebarVisible: false,
+    leftSidebarVisible: true,
     editorVisible: true,
     previewVisible: true,
     contextManagerVisible: true, // PathManager should ALWAYS be visible
@@ -68,10 +27,8 @@ const defaultUIState = {
         previewWidth: 400,
         editorWidth: 'auto'
     },
+    // Panel states moved to panelSlice for unified management
 };
-
-// Merge default state with persisted state
-const initialState = { ...defaultUIState, ...loadPersistedUIState() };
 
 // --- Create Standard Redux Toolkit Slice ---
 const uiSlice = createSlice({
@@ -81,51 +38,41 @@ const uiSlice = createSlice({
         updateSetting: (state, action) => {
             const { key, value } = action.payload;
             state[key] = value;
-            persistUIState(state);
         },
         setLogColumnWidth: (state, action) => {
             const { column, width } = action.payload;
             state.logColumnWidths = { ...state.logColumnWidths, [column]: width };
-            persistUIState(state);
         },
         toggleLogVisibility: (state) => {
-            console.log('[uiSlice] toggleLogVisibility called, current state:', state.logVisible);
             state.logVisible = !state.logVisible;
-            console.log('[uiSlice] toggleLogVisibility new state:', state.logVisible);
-            persistUIState(state);
         },
         toggleEditorVisibility: (state) => {
             state.editorVisible = !state.editorVisible;
-            persistUIState(state);
         },
         togglePreviewVisibility: (state) => {
             state.previewVisible = !state.previewVisible;
-            persistUIState(state);
         },
         toggleContextManager: (state) => {
             state.contextManagerVisible = !state.contextManagerVisible;
-            persistUIState(state);
         },
         toggleLogMenu: (state) => {
             state.logMenuVisible = !state.logMenuVisible;
-            persistUIState(state);
         },
         toggleAuthDropdown: (state) => {
             state.isAuthDropdownVisible = !state.isAuthDropdownVisible;
-            persistUIState(state);
         },
         setLeftSidebarVisible: (state, action) => {
             state.leftSidebarVisible = action.payload;
-            persistUIState(state);
         },
-
         setWorkspaceDimensions: (state, action) => {
             state.workspaceDimensions = {
                 ...state.workspaceDimensions,
                 ...action.payload
             };
-            persistUIState(state);
         },
+        // Panel actions moved to panelSlice - these are deprecated
+        // Use panelActions.toggleSidebarPanel, setSidebarPanelExpanded, 
+        // startFloatingPanel, stopFloatingPanel instead
     }
 });
 
@@ -133,13 +80,9 @@ const uiSlice = createSlice({
 export const uiReducer = uiSlice.reducer;
 export const uiActions = uiSlice.actions;
 
-// --- UI Thunks ---
+// Update UI Thunks to remove viewMode
 export const uiThunks = {
-    // Set view mode
-    setViewMode: (mode) => uiActions.updateSetting({ 
-        key: 'viewMode', 
-        value: mode 
-    }),
+    // Remove setViewMode
     
     // Set log height
     setLogHeight: (height) => uiActions.updateSetting({ 
@@ -177,6 +120,4 @@ export const uiThunks = {
 export const { setTheme, toggleTheme } = {
     setTheme: uiThunks.setTheme,
     toggleTheme: uiThunks.toggleTheme
-};
-
-console.log('[uiSlice] ✅ Migrated to standard Redux Toolkit pattern with manual persistence.'); 
+}; 
