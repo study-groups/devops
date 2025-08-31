@@ -51,27 +51,182 @@ const ignoreList = [
 ];
 
 /**
- * Creates a concise summary from a Redux action payload.
- * @param {object} payload - The action's payload.
- * @returns {string} A readable summary string.
+ * Creates a clean, readable summary from a Redux action.
+ * @param {object} action - The complete Redux action.
+ * @returns {string} A formatted action description.
  */
-function createSummary(payload) {
-    if (!payload) return '';
-    if (typeof payload !== 'object') return ` - ${String(payload)}`;
-
-    const keys = Object.keys(payload);
-    if (keys.length === 0) return '';
+function formatReduxAction(action) {
+    const { type, payload } = action;
     
-    // Create a summary of the payload's top-level keys
-    let summary = keys.slice(0, 3).map(key => {
-        const value = payload[key];
-        if (typeof value === 'object' && value !== null) return key;
-        return `${key}: ${String(value)}`;
-    }).join(', ');
-
-    if (keys.length > 3) summary += ', ...';
+    // Handle async thunks first (they can apply to any domain)
+    if (type.includes('/pending') || type.includes('/fulfilled') || type.includes('/rejected')) {
+        return formatAsyncThunkAction(type, payload);
+    }
     
-    return ` - { ${summary} }`;
+    // Extract meaningful info based on action domain
+    if (type.includes('panels/')) {
+        return formatPanelAction(type, payload);
+    }
+    
+    if (type.includes('file/')) {
+        return formatFileAction(type, payload);
+    }
+    
+    if (type.includes('ui/')) {
+        return formatUIAction(type, payload);
+    }
+    
+    if (type.includes('auth/')) {
+        return formatAuthAction(type, payload);
+    }
+    
+    if (type.includes('api/') || type.includes('Api')) {
+        return formatApiAction(type, payload);
+    }
+    
+    // Default formatting for other actions
+    return formatDefaultAction(type, payload);
+}
+
+function formatAsyncThunkAction(type, payload) {
+    // Parse the base action and state
+    const isPending = type.includes('/pending');
+    const isFulfilled = type.includes('/fulfilled');
+    const isRejected = type.includes('/rejected');
+    
+    const baseAction = type.replace(/\/(pending|fulfilled|rejected)$/, '');
+    const domain = baseAction.split('/')[0] || 'unknown';
+    const action = baseAction.split('/').slice(1).join('/').replace(/([A-Z])/g, ' $1').trim();
+    
+    // Domain-specific formatting
+    if (domain.includes('file')) {
+        const path = payload?.meta?.arg?.path || payload?.meta?.arg || '';
+        if (isPending) return `⏳ Loading file: ${path}`;
+        if (isFulfilled) return `📄 File loaded: ${path}`;
+        if (isRejected) return `❌ File load failed: ${path}`;
+    }
+    
+    if (domain.includes('auth')) {
+        if (isPending) return `🔐 Authenticating...`;
+        if (isFulfilled) return `✅ Authentication successful`;
+        if (isRejected) return `❌ Authentication failed: ${payload?.error?.message || 'Unknown error'}`;
+    }
+    
+    if (domain.includes('api')) {
+        const endpoint = payload?.meta?.arg?.url || payload?.meta?.arg?.endpoint || '';
+        if (isPending) return `🌐 API call: ${endpoint}`;
+        if (isFulfilled) return `✅ API success: ${endpoint}`;
+        if (isRejected) return `❌ API failed: ${endpoint}`;
+    }
+    
+    // Generic async thunk formatting
+    if (isPending) return `⏳ ${action || domain} starting...`;
+    if (isFulfilled) return `✅ ${action || domain} completed`;
+    if (isRejected) return `❌ ${action || domain} failed: ${payload?.error?.message || 'Unknown error'}`;
+    
+    return `⚡ ${action || domain}`;
+}
+
+function formatAuthAction(type, payload) {
+    const action = type.split('/')[1];
+    
+    switch (action) {
+        case 'login':
+            return `🔐 Login attempt: ${payload?.username || 'unknown user'}`;
+        case 'logout':
+            return `🚪 User logout`;
+        case 'checkAuth':
+            return `🔍 Checking authentication status`;
+        default:
+            return `🔐 Auth ${action}`;
+    }
+}
+
+function formatApiAction(type, payload) {
+    const action = type.split('/')[1];
+    const endpoint = payload?.endpoint || payload?.url || '';
+    
+    switch (action) {
+        case 'request':
+            return `🌐 API Request: ${endpoint}`;
+        case 'success':
+            return `✅ API Success: ${endpoint}`;
+        case 'error':
+            return `❌ API Error: ${endpoint}`;
+        default:
+            return `🌐 API ${action}: ${endpoint}`;
+    }
+}
+
+function formatPanelAction(type, payload) {
+    const action = type.split('/')[1];
+    
+    switch (action) {
+        case 'createPanel':
+            return `📋 Create Panel: ${payload?.title || payload?.id || 'unknown'} (${payload?.type || 'generic'})`;
+        case 'updatePanel':
+            return `🔄 Update Panel: ${payload?.id || 'unknown'}`;
+        case 'removePanel':
+            return `❌ Remove Panel: ${payload?.id || 'unknown'}`;
+        case 'activatePanel':
+            return `✅ Activate Panel: ${payload?.id || 'unknown'}`;
+        default:
+            return `🎛️ Panel ${action}: ${payload?.id || ''}`;
+    }
+}
+
+function formatFileAction(type, payload) {
+    const action = type.split('/')[1];
+    
+    switch (action) {
+        case 'loadFile':
+            return `📄 Load File: ${payload?.path || 'unknown'}`;
+        case 'saveFile':
+            return `💾 Save File: ${payload?.path || 'unknown'}`;
+        case 'createFile':
+            return `➕ Create File: ${payload?.path || 'unknown'}`;
+        default:
+            return `📁 File ${action}: ${payload?.path || ''}`;
+    }
+}
+
+function formatUIAction(type, payload) {
+    const action = type.split('/')[1];
+    
+    switch (action) {
+        case 'toggleSidebar':
+            return `🔀 Toggle Sidebar: ${payload?.visible ? 'show' : 'hide'}`;
+        case 'setActiveView':
+            return `👁️ Switch View: ${payload?.view || 'unknown'}`;
+        default:
+            return `🎨 UI ${action}`;
+    }
+}
+
+function formatDefaultAction(type, payload) {
+    // Clean up the action type for display
+    const cleanType = type.replace(/^.*\//, '').replace(/([A-Z])/g, ' $1').trim();
+    
+    // Add key info if available
+    if (payload && typeof payload === 'object') {
+        const keyInfo = extractKeyInfo(payload);
+        return keyInfo ? `⚡ ${cleanType}: ${keyInfo}` : `⚡ ${cleanType}`;
+    }
+    
+    return `⚡ ${cleanType}`;
+}
+
+function extractKeyInfo(payload) {
+    // Extract the most important piece of info from payload
+    const priorityKeys = ['id', 'name', 'title', 'path', 'type', 'action'];
+    
+    for (const key of priorityKeys) {
+        if (payload[key] && typeof payload[key] === 'string') {
+            return payload[key];
+        }
+    }
+    
+    return null;
 }
 
 /**
@@ -80,7 +235,7 @@ function createSummary(payload) {
 function flushLastAction() {
     if (repeatCount > 2) {
         const badgeCount = repeatCount - 2;
-        getLogger().info(lastActionType, `... and ${badgeCount} more`, { aggregated: true, count: badgeCount });
+        getLogger().info('REDUX', `🔄 Repeated ${badgeCount} more times`, { aggregated: true, count: badgeCount, actionType: lastActionType });
     }
     lastActionType = null;
     repeatCount = 0;
@@ -106,16 +261,16 @@ export const reduxLogMiddleware = store => next => action => {
             lastActionType = action.type;
             repeatCount = 1;
 
-            const message = `Action: ${action.type}${createSummary(action.payload)}`;
-            getLogger().info(action.type, message, sanitized);
+            const message = formatReduxAction(action);
+            getLogger().info('REDUX', message, sanitized);
 
         } else {
             // It's a repeated action.
             repeatCount++;
 
             if (repeatCount <= 2) {
-                const message = `Action: ${action.type}${createSummary(action.payload)}`;
-                getLogger().info(action.type, message, sanitized);
+                const message = formatReduxAction(action);
+                getLogger().info('REDUX', message, sanitized);
             }
             // For repeats > 2, we stay silent and wait for flushLastAction to be called.
         }

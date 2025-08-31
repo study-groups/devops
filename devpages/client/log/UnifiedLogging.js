@@ -30,7 +30,8 @@ const config = {
     STATE: ['IDLE', 'SET_VOLUME', 'SUBMIT_SCORE', 'ACTIVE', 'PAUSED'],
     API: ['REQUEST', 'RESPONSE', 'ERROR', 'TIMEOUT'],
     SYSTEM: ['INIT', 'CONFIG', 'ERROR', 'SHUTDOWN'],
-    USER: ['LOGIN', 'LOGOUT', 'ACTION', 'ERROR']
+    USER: ['LOGIN', 'LOGOUT', 'ACTION', 'ERROR'],
+    REDUX: ['ACTION', 'DISPATCH', 'STATE_CHANGE', 'MIDDLEWARE']
   }
 };
 
@@ -124,6 +125,26 @@ const typeHandlersConfig = {
           details: payload
         };
       }
+      return {
+        formatted: message,
+        details: payload
+      };
+    }
+  },
+  
+  // REDUX Type Handler - Clean Redux action formatting
+  REDUX: {
+    name: 'Redux Actions Parser',
+    parse: function(message, payload) {
+      // If this is an aggregated message, handle it specially
+      if (payload && payload.aggregated) {
+        return {
+          formatted: `${message} (${payload.actionType})`,
+          details: payload
+        };
+      }
+      
+      // For regular Redux actions, the message is already formatted by the middleware
       return {
         formatted: message,
         details: payload
@@ -259,11 +280,10 @@ class Logger {
    * Validate type and action against standard taxonomy (005.5.md)
    */
   validateTypeAction(action) {
-    const type = this.type;
     const config = window.APP.services.log.config;
-    if (config.standardTypes[type]) {
-      if (!config.standardTypes[type].includes(action)) {
-        console.warn(`[DevPages.logging] Non-standard ACTION '${action}' for TYPE '${type}'. Consider using: ${config.standardTypes[type].join(', ')}`);
+    if (config.standardTypes[this.type]) {
+      if (!config.standardTypes[this.type].includes(action)) {
+        console.warn(`[DevPages.logging] Non-standard ACTION '${action}' for TYPE '${this.type}'. Consider using: ${config.standardTypes[this.type].join(', ')}`);
       }
     }
   }
@@ -338,14 +358,14 @@ const loggingService = {
   createLogger(type, source = null, options = {}) {
     return new loggingService.Logger(type, source, options);
   },
-  directLog(level, from, to, type, action, message, data = null) {
+  directLog(level, from, type, action, message, data = null) {
     // Create temporary logger if none exists
     const logger = new loggingService.Logger(from || 'GLOBAL', null, {
       enableConsole: true,
       enablePanel: true
     });
     
-    return logger.log(level, type, action, message, data);
+    return logger.log(level, action, message, data);
   },
   setupControls(loggerInstance, controlsConfig = {}) {
     if (!loggerInstance.options.containerId) return;
@@ -353,7 +373,6 @@ const loggingService = {
     const containerId = loggerInstance.options.containerId;
     const {
       clearButtonSelector = `[data-action="${containerId}-clear"]`,
-      toggleOrderButtonSelector = `[data-action="${containerId}-toggle-order"]`,
       copyButtonSelector = `[data-action="${containerId}-copy"]`
     } = controlsConfig;
     
