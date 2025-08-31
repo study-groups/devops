@@ -1,4 +1,4 @@
-import { BasePanel } from './BasePanel.js';
+import { BasePanel, panelRegistry } from './BasePanel.js';
 import { appStore } from '../appState.js';
 import { JsonViewer } from '../components/JsonViewer.js';
 
@@ -1676,3 +1676,5 @@ export class UIInspectorPanel extends BasePanel {
 export function createUIInspectorPanel(config = {}) {
     return new UIInspectorPanel(config);
 }
+
+panelRegistry.registerType('ui-inspector', UIInspectorPanel);

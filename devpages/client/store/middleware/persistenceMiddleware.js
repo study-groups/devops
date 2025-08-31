@@ -26,6 +26,8 @@ export const persistenceMiddleware = store => next => action => {
                 
                 // Special handling for panels to preserve important state
                 if (sliceName === 'panels') {
+                    console.log('PersistenceMiddleware: Saving panels state:', JSON.stringify(plainState, null, 2));
+                    
                     // Ensure panels are not lost during state updates
                     const currentPersistedState = storageService.getItem('panels') || {};
                     
@@ -39,6 +41,7 @@ export const persistenceMiddleware = store => next => action => {
                         }
                     };
 
+                    console.log('PersistenceMiddleware: Merged state to save:', JSON.stringify(mergedState, null, 2));
                     storageService.setItem('panels', mergedState);
                 } else {
                     // For other slices, use standard persistence

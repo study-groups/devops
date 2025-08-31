@@ -601,28 +601,88 @@ export class BasePanel {
 
 // Panel Registry
 /**
- * Manages the registration and lifecycle of panel types and instances.
+ * Unified panel registry that integrates with PanelConfigLoader.
+ * Manages both panel type registration and instance lifecycle.
  */
 export class PanelRegistry {
     constructor() {
         this.panels = new Map();
         this.types = new Map();
+        this.configLoader = null; // Will be injected
     }
 
     /**
-     * Registers a new panel type.
+     * Initialize the registry with the config loader
+     * @param {PanelConfigLoader} configLoader 
+     */
+    initialize(configLoader) {
+        this.configLoader = configLoader;
+        console.log('[PanelRegistry] Initialized with config loader');
+    }
+
+    /**
+     * Registers a new panel type with its class constructor.
      * @param {string} type - The name of the panel type.
      * @param {typeof BasePanel} panelClass - The class constructor for the panel.
      */
     registerType(type, panelClass) {
         this.types.set(type, panelClass);
+        console.log(`[PanelRegistry] Registered panel type: ${type}`);
     }
 
-    createPanel(type, config) {
+    /**
+     * Creates a panel instance using both type registration and config.
+     * @param {string} type - Panel type identifier
+     * @param {Object} config - Panel configuration overrides
+     */
+    async createPanel(type, config = {}) {
+        // Get panel class from type registry
         const PanelClass = this.types.get(type) || BasePanel;
-        const panel = new PanelClass({ ...config, type });
+        
+        // Get panel config from config loader if available
+        let panelConfig = {};
+        if (this.configLoader) {
+            try {
+                panelConfig = await this.configLoader.getPanel(type) || {};
+            } catch (error) {
+                console.warn(`[PanelRegistry] Could not load config for ${type}:`, error);
+                panelConfig = {};
+            }
+        }
+        
+        // Merge configurations: config loader defaults + runtime overrides
+        const finalConfig = {
+            ...panelConfig,
+            ...config,
+            type,
+            id: config.id || type // Use provided id or fallback to type
+        };
+        
+        console.log(`[PanelRegistry] Creating panel ${type} with config:`, finalConfig);
+        
+        const panel = new PanelClass(finalConfig);
         this.panels.set(panel.id, panel);
         return panel;
+    }
+
+    /**
+     * Gets all registered panel types from both sources
+     */
+    getRegisteredTypes() {
+        const registryTypes = Array.from(this.types.keys());
+        const configTypes = this.configLoader ? 
+            Object.keys(this.configLoader.config.panels) : [];
+        
+        // Combine and deduplicate
+        return [...new Set([...registryTypes, ...configTypes])];
+    }
+
+    /**
+     * Checks if a panel type is available (either registered or in config)
+     */
+    isTypeAvailable(type) {
+        return this.types.has(type) || 
+               (this.configLoader && this.configLoader.config.panels[type]);
     }
 
     getPanel(id) {
@@ -644,8 +704,10 @@ export class PanelRegistry {
     getDebugInfo() {
         return {
             totalPanels: this.panels.size,
-            types: Array.from(this.types.keys()),
-            panels: Array.from(this.panels.values()).map(p => p.getDebugInfo())
+            registeredTypes: Array.from(this.types.keys()),
+            configTypes: this.configLoader ? Object.keys(this.configLoader.config.panels) : [],
+            allAvailableTypes: this.getRegisteredTypes(),
+            panels: Array.from(this.panels.values()).map(p => p.getDebugInfo?.() || { id: p.id, type: p.type })
         };
     }
 }
@@ -653,11 +715,29 @@ export class PanelRegistry {
 // Global registry instance
 export const panelRegistry = new PanelRegistry();
 
+// Initialize registry with config loader when available
+let configLoaderInitialized = false;
+export function initializePanelRegistry() {
+    if (configLoaderInitialized) return;
+    
+    // Dynamic import to avoid circular dependencies
+    import('../config/PanelConfigLoader.js').then(({ panelConfigLoader }) => {
+        panelRegistry.initialize(panelConfigLoader);
+        configLoaderInitialized = true;
+    }).catch(error => {
+        console.warn('[PanelRegistry] Could not initialize with config loader:', error);
+    });
+}
+
+// Auto-initialize when this module loads
+initializePanelRegistry();
+
 // Expose to window for debugging
 if (typeof window !== 'undefined') {
     window.APP = window.APP || {};
     window.APP.panels = {
         registry: panelRegistry,
-        BasePanel
+        BasePanel,
+        initializePanelRegistry
     };
 }

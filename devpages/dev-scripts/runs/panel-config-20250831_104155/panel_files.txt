@@ -1,0 +1,8 @@
+client/panels/dev/FileBrowserPanel.js
+client/panels/pdata/components/PDataAuthPanel.js
+client/panels/DesignTokensPanel.js
+client/panels/BasePanel.js
+client/panels/settings/ThemePanel.js
+client/panels/UIInspectorPanel.js
+client/panels/publish/PublishPanel.js
+client/panels/DiagnosticPanel.js

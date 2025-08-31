@@ -12,6 +12,7 @@ import { panelActions } from '/client/store/slices/panelSlice.js';
 import { panelConfigLoader } from '/client/config/PanelConfigLoader.js';
 import { panelRegistry } from '/client/panels/BasePanel.js';
 import { DragDropManager } from './DragDropManager.js';
+import '/client/panels/index.js'; // Import to register all panels
 
 let log;
 const getLogger = () => {
@@ -108,7 +109,7 @@ export class SidebarManager {
                 this.activeCategory = relevantState.activeCategory || 'dev';
                 
                 // Use setTimeout to allow the Redux state to update before re-rendering
-                setTimeout(() => this.render(), 0);
+                setTimeout(async () => await this.render(), 0);
             }
         });
     }
@@ -116,7 +117,7 @@ export class SidebarManager {
     /**
      * Main render method - renders tabbed sidebar interface
      */
-    render() {
+    async render() {
         if (!this.container || !this.configLoaded) {
             return;
         }
@@ -140,10 +141,10 @@ export class SidebarManager {
             </div>
         `;
 
-        this.renderPanelsForCategory();
+        await this.renderPanelsForCategory();
         this.addSidebarStyles();
         this.attachTabEventListeners();
-        this.restoreFloatingPanels();
+        await this.restoreFloatingPanels();
     }
 
     attachTabEventListeners() {
@@ -304,7 +305,7 @@ export class SidebarManager {
         });
     }
 
-    renderPanelsForCategory() {
+    async renderPanelsForCategory() {
         const container = this.container.querySelector('#panels-list');
         if (!container) return;
 
@@ -331,10 +332,7 @@ export class SidebarManager {
         const orderedPanels = this.orderPanels(categoryPanels, savedOrder);
 
         container.innerHTML = `
-            <div class="panels-reorder-hint">
-                <span class="hint-icon">↕</span>
-                <span class="hint-text">Drag panel headers to reorder • Use ↗ to float panels (${orderedPanels.length} panels)</span>
-            </div>
+            
         `;
         
         // Create separate sortable container
@@ -354,18 +352,16 @@ export class SidebarManager {
                              data-panel-id="${panelId}" 
                              data-index="${index}"
                              draggable="false">
-                            <div class="panel-header" data-action="toggle-panel" data-panel-id="${panelId}" draggable="true" title="Click to expand/collapse • Drag to reorder">
-                                <div class="panel-drag-indicator">⋮⋮</div>
+                            <div class="panel-header" data-action="toggle-panel" data-panel-id="${panelId}" draggable="false">
                                 <span class="panel-title">${config.title} ${isFloating ? '(floating)' : ''}</span>
                                 <div class="panel-controls">
                                     ${isFloating ? 
                                         `<button class="panel-control-btn" data-action="close-floating" data-panel-id="${panelId}" title="Close floating panel">↙</button>` :
-                                        `<button class="panel-control-btn" data-action="float-panel" data-panel-id="${panelId}" title="Float panel">□</button>`
+                                        `<button class="panel-control-btn" data-action="float-panel" data-panel-id="${panelId}" title="Float panel">↗</button>`
                                     }
                                 </div>
                             </div>
                             <div class="panel-content" style="display: ${isExpanded ? 'block' : 'none'};" id="panel-content-${panelId}">
-                                <div class="panel-description">${config.description}</div>
                                 <div class="panel-instance-container" id="panel-instance-${panelId}"></div>
                             </div>
                         </div>
@@ -379,13 +375,13 @@ export class SidebarManager {
         this.setupEventListeners();
 
         // Render actual panel instances for expanded panels
-        orderedPanels.forEach(([panelId, config]) => {
+        for (const [panelId, config] of orderedPanels) {
             const panelState = sidebarPanels[panelId] || {};
             const isExpanded = panelState.expanded || config.default_expanded;
             if (isExpanded) {
-                this.renderPanelInstance(panelId, config);
+                await this.renderPanelInstance(panelId, config);
             }
-        });
+        }
 
         // Reinitialize drag-drop after rendering
         this.initializeDragDrop();
@@ -412,17 +408,44 @@ export class SidebarManager {
     /**
      * Render actual panel instance content
      */
-    renderPanelInstance(panelId, config) {
+    async renderPanelInstance(panelId, config) {
         const container = this.container.querySelector(`#panel-instance-${panelId}`);
         if (!container) return;
 
+        // Check if panel is floating
+        const state = appStore.getState();
+        const floatingPanelState = state.panels?.panels?.[panelId];
+        const isFloating = floatingPanelState?.isFloating && !floatingPanelState?.isDocked;
+
         try {
+            // If panel is floating, show minimized version
+            if (isFloating) {
+                container.innerHTML = `
+                    <div class="panel-minimized" style="
+                        padding: 12px;
+                        background: var(--color-bg-alt);
+                        border: 1px solid var(--color-border);
+                        border-radius: 4px;
+                        text-align: center;
+                        color: var(--color-text-secondary);
+                        font-size: 11px;
+                    ">
+                        <div style="margin-bottom: 8px;">Panel is floating</div>
+                        <button onclick="window.APP.services.sidebarManager.focusFloatingPanel('${panelId}')" 
+                                class="btn btn-sm" style="font-size: 10px;">
+                            Focus Floating Panel
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
             // Check if panel already exists to prevent creation loop
             let panel = this.panelInstances.get(panelId);
 
             if (!panel) {
-                // Create panel instance using the registry if it doesn't exist
-                panel = panelRegistry.createPanel(panelId, {
+                // Create panel instance using the unified registry (now async)
+                panel = await panelRegistry.createPanel(panelId, {
                     id: panelId,
                     title: config.title,
                     type: panelId // Use panelId as type to match registration
@@ -437,7 +460,7 @@ export class SidebarManager {
                 
                 // Call onMount if available
                 if (typeof panel.onMount === 'function') {
-                    panel.onMount(container);
+                    await panel.onMount(container);
                 }
                 
             } else {
@@ -461,24 +484,60 @@ export class SidebarManager {
         appStore.dispatch(panelActions.hidePanel(panelId));
     }
 
-    createFloatingPanel(panelId) {
+    async createFloatingPanel(panelId) {
         const config = this.panelConfigs[panelId];
         if (!config) {
             getLogger().error(`Panel configuration not found for id: ${panelId}`);
             return;
         }
+
+        // Ensure panel exists in Redux state first
+        const state = appStore.getState();
+        if (!state.panels?.panels?.[panelId]) {
+            getLogger().info(`[SidebarManager] Creating panel ${panelId} in Redux state before floating`);
+            // Create panel in Redux state first
+            appStore.dispatch(panelActions.createPanel({
+                id: panelId,
+                title: config.title,
+                type: panelId,
+                visible: false,
+                collapsed: false,
+                position: { x: 100, y: 100 },
+                size: { width: 400, height: 300 }
+            }));
+        }
+
+        // Now start floating the panel
         appStore.dispatch(panelActions.startFloatingPanel({ panelId }));
+        getLogger().info(`[SidebarManager] Started floating panel: ${panelId}`);
     }
 
     closeFloatingPanel(panelId) {
-        // Remove the floating panel from DOM
-        const floatingPanel = document.getElementById(`floating-panel-${panelId}`);
-        if (floatingPanel) {
-            floatingPanel.remove();
-        }
+        // Remove all floating panels with this ID (in case there are duplicates)
+        const panels = document.querySelectorAll(`[id^="floating-panel-${panelId}"]`);
+        panels.forEach(panel => panel.remove());
         
         // Dispatch Redux action to update state
         appStore.dispatch(panelActions.stopFloatingPanel(panelId));
+    }
+
+    focusFloatingPanel(panelId) {
+        const floatingPanel = document.getElementById(`floating-panel-${panelId}`);
+        if (floatingPanel) {
+            // Bring to front by updating z-index
+            const state = appStore.getState();
+            const maxZ = Math.max(...Object.values(state.panels?.panels || {}).map(p => p.zIndex || 0));
+            floatingPanel.style.zIndex = maxZ + 1;
+            
+            // Update Redux state
+            appStore.dispatch(panelActions.bringToFront(panelId));
+            
+            // Optional: add a brief highlight effect
+            floatingPanel.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.5)';
+            setTimeout(() => {
+                floatingPanel.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            }, 1000);
+        }
     }
 
     makeDraggable(panel) {
@@ -510,27 +569,86 @@ export class SidebarManager {
                 // Save position when drag ends
                 const rect = panel.getBoundingClientRect();
                 const position = { x: rect.left, y: rect.top };
+                console.log('Saving position:', panelId, position);
                 appStore.dispatch(panelActions.movePanel({ id: panelId, position }));
             }
             isDragging = false;
         });
     }
 
-    restoreFloatingPanels() {
-        const state = appStore.getState();
-        const panels = state.panels.panels || {};
-        
-        Object.values(panels).forEach(panelState => {
-            if (panelState.isFloating) {
-                this.mountFloatingPanel(panelState);
+    makeResizable(panel) {
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+        const panelId = panel.id.replace('floating-panel-', '');
+
+        const resizeHandle = panel.querySelector('.resize-handle-se');
+        if (!resizeHandle) return;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(panel).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(panel).height, 10);
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isResizing) {
+                const newWidth = Math.max(200, startWidth + e.clientX - startX);
+                const newHeight = Math.max(150, startHeight + e.clientY - startY);
+                panel.style.width = newWidth + 'px';
+                panel.style.height = newHeight + 'px';
             }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                // Save size when resize ends
+                const rect = panel.getBoundingClientRect();
+                const size = { width: rect.width, height: rect.height };
+                console.log('Saving size:', panelId, size);
+                appStore.dispatch(panelActions.resizePanel({ id: panelId, size }));
+            }
+            isResizing = false;
         });
     }
 
-    mountFloatingPanel(panelState) {
-        const { id: panelId, position, size } = panelState;
+    async restoreFloatingPanels() {
+        const state = appStore.getState();
+        const panels = state.panels.panels || {};
+        
+        console.log('SidebarManager: Checking for floating panels to restore...', Object.keys(panels));
+        
+        for (const panelState of Object.values(panels)) {
+            console.log(`Panel ${panelState.id}:`, {
+                isFloating: panelState.isFloating,
+                isDocked: panelState.isDocked,
+                x: panelState.x,
+                y: panelState.y,
+                width: panelState.width,
+                height: panelState.height
+            });
+            
+            if (panelState.isFloating && !panelState.isDocked) {
+                console.log('SidebarManager: Restoring floating panel', panelState.id);
+                await this.mountFloatingPanel(panelState);
+            }
+        }
+    }
+
+    async mountFloatingPanel(panelState) {
+        const { id: panelId, x, y, width, height } = panelState;
         const config = this.panelConfigs[panelId];
         if (!config) return;
+
+        // Check if floating panel already exists
+        const existingPanel = document.getElementById(`floating-panel-${panelId}`);
+        if (existingPanel) {
+            console.log('Floating panel already exists, skipping:', panelId);
+            return;
+        }
 
         // Create simple floating panel HTML
         const panel = document.createElement('div');
@@ -538,10 +656,10 @@ export class SidebarManager {
         panel.className = 'floating-panel';
         panel.style.cssText = `
             position: fixed;
-            top: ${position.y}px;
-            left: ${position.x}px;
-            width: ${size.width}px;
-            height: ${size.height}px;
+            top: ${y}px;
+            left: ${x}px;
+            width: ${width}px;
+            height: ${height}px;
             background: var(--color-bg);
             border: 1px solid var(--color-border);
             border-radius: 6px;
@@ -561,7 +679,7 @@ export class SidebarManager {
                 align-items: center;
                 cursor: move;
             ">
-                <span style="font-size: 12px; font-weight: 500;">${config.title}</span>
+                <span style="font-size: 12px; font-weight: 500;">${config.title} (floating)</span>
                 <button data-action="close-floating" data-panel-id="${panelId}"
                         style="background: none; border: none; cursor: pointer; font-size: 16px; color: var(--color-text-secondary);">×</button>
             </div>
@@ -571,10 +689,20 @@ export class SidebarManager {
             " id="floating-panel-content-${panelId}">
                 <!-- Panel content will be rendered here -->
             </div>
+            <div class="resize-handle resize-handle-se" style="
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 12px;
+                height: 12px;
+                cursor: se-resize;
+                background: linear-gradient(-45deg, transparent 0%, transparent 30%, var(--color-border) 30%, var(--color-border) 35%, transparent 35%, transparent 65%, var(--color-border) 65%, var(--color-border) 70%, transparent 70%);
+            "></div>
         `;
 
-        // Make it draggable
+        // Make it draggable and resizable
         this.makeDraggable(panel);
+        this.makeResizable(panel);
         
         // Add close button event listener
         const closeButton = panel.querySelector('[data-action="close-floating"]');
@@ -590,7 +718,7 @@ export class SidebarManager {
         
         // Render the actual panel content in the floating panel
         try {
-            const panelInstance = panelRegistry.createPanel(panelId, {
+            const panelInstance = await panelRegistry.createPanel(panelId, {
                 id: panelId,
                 title: config.title,
                 type: panelId
@@ -603,7 +731,7 @@ export class SidebarManager {
                     floatingContent.innerHTML = content;
                     
                     if (typeof panelInstance.onMount === 'function') {
-                        panelInstance.onMount(floatingContent);
+                        await panelInstance.onMount(floatingContent);
                     }
                 }
             }
@@ -1082,6 +1210,107 @@ export class SidebarManager {
                 background: var(--color-bg);
                 border: 1px solid var(--color-border);
                 border-radius: var(--radius-base);
+                width: 100%;
+                max-width: 100%;
+                overflow: hidden;
+                box-sizing: border-box;
+            }
+
+            /* Ensure panel content respects container bounds */
+            .panel-instance-container * {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            /* Design tokens panel specific constraints */
+            .panel-instance-container .design-tokens-header {
+                flex-direction: column;
+                gap: var(--space-2);
+            }
+
+            .panel-instance-container .header-actions {
+                flex-direction: column;
+                gap: var(--space-1);
+                width: 100%;
+            }
+
+            .panel-instance-container .token-search-input {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            .panel-instance-container .view-toggle {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .panel-instance-container .tokens-container {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .panel-instance-container .token-row {
+                font-size: 10px;
+                padding: 4px;
+            }
+
+            .panel-instance-container .design-tokens-filters {
+                padding: 8px;
+            }
+
+            .panel-instance-container .category-filters {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .panel-instance-container .category-filter {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+
+            .panel-instance-container .tokens-container.grid-view {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: var(--space-1) var(--space-3);
+                align-items: center;
+            }
+
+            .panel-instance-container .token-row {
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);
+                padding: var(--space-2) 0;
+                border-bottom: 1px solid var(--color-border);
+            }
+            
+            .panel-instance-container .tokens-container.list-view .token-row:last-child {
+                border-bottom: none;
+            }
+            
+            .panel-instance-container .token-color-swatch {
+                width: 16px;
+                height: 16px;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--color-border);
+                flex-shrink: 0;
+            }
+
+            .panel-instance-container .token-info {
+                font-size: 10px;
+            }
+
+            .panel-instance-container .token-name {
+                font-weight: var(--font-weight-medium);
+            }
+
+            .panel-instance-container .token-value {
+                color: var(--color-fg-muted);
+            }
+
+            .panel-instance-container .tokens-container.grid-view .token-value {
+                text-align: right;
+                font-family: var(--font-mono);
             }
 
             .panel-fallback, .panel-error {

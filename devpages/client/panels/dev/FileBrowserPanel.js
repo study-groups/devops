@@ -8,7 +8,7 @@
  * - File type icons
  */
 
-import { BasePanel } from '../BasePanel.js';
+import { BasePanel, panelRegistry } from '../BasePanel.js';
 import { appStore } from '../../appState.js';
 
 export class FileBrowserPanel extends BasePanel {
@@ -308,3 +308,5 @@ export class FileBrowserPanel extends BasePanel {
         this.loadFileTree();
     }
 }
+
+panelRegistry.registerType('file-browser', FileBrowserPanel);

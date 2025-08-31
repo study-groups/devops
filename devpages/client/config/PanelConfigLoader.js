@@ -6,6 +6,8 @@
  * external files like YAML and removing any asynchronous loading.
  */
 
+import { IconCategories } from './icon-system.js';
+
 const panelConfig = {
     panels: {
         'system-diagnostics': {
@@ -91,18 +93,15 @@ const panelConfig = {
     },
     categories: {
         dev: {
-            color: '#ff6b6b',
-            icon: '🔧',
+            ...IconCategories.dev,
             description: 'Development and debugging tools'
         },
         settings: {
-            color: '#4ecdc4',
-            icon: '⚙️',
+            ...IconCategories.settings,
             description: 'Configuration and system settings'
         },
         publish: {
-            color: '#45b7d1',
-            icon: '🚀',
+            ...IconCategories.publish,
             description: 'Publishing and deployment tools'
         }
     }

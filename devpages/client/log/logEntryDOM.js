@@ -151,7 +151,7 @@ export function createLogPanelDOM(logDisplayInstance, appVersion) {
     logDisplayInstance.statusElement.textContent = '0 entries';
     rightWrapper.appendChild(logDisplayInstance.statusElement);
 
-    logDisplayInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', '✕', 'minimizeLog', 'Minimize Log', true);
+    logDisplayInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', 'X', 'minimizeLog', 'Minimize Log', true);
     if (logDisplayInstance.minimizeButton) rightWrapper.appendChild(logDisplayInstance.minimizeButton);
  
     const headerContainer = document.createElement('div');

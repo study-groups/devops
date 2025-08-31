@@ -4,7 +4,7 @@
  * Demonstrates how to extend BasePanel for specific functionality
  */
 
-import { BasePanel } from './BasePanel.js';
+import { BasePanel, panelRegistry } from './BasePanel.js';
 import { appStore } from '../appState.js';
 import { JsonViewer } from '../components/JsonViewer.js';
 
@@ -1215,6 +1215,8 @@ export class DiagnosticPanel extends BasePanel {
         super.onDestroy();
     }
 }
+
+panelRegistry.registerType('system-diagnostics', DiagnosticPanel);
 
 // Factory function for bootloader compatibility
 export function createDiagnosticPanel(config = {}) {

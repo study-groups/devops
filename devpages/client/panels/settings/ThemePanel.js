@@ -4,7 +4,7 @@
  * Provides theme switching and appearance customization
  */
 
-import { BasePanel } from '../BasePanel.js';
+import { BasePanel, panelRegistry } from '../BasePanel.js';
 import { appStore } from '../../appState.js';
 
 export class ThemePanel extends BasePanel {
@@ -51,9 +51,31 @@ export class ThemePanel extends BasePanel {
         };
         
         this.currentTheme = 'light';
+        this.container = null; // Store reference to the mounted container
+    }
+
+    render() {
+        try {
+            this.element = document.createElement('div');
+            this.element.className = 'theme-panel';
+            this.element.innerHTML = this.renderPanelContent();
+            return this.element;
+        } catch (error) {
+            console.error('[ThemePanel] Rendering failed:', error);
+            return null;
+        }
     }
 
     renderContent() {
+        try {
+            return this.renderPanelContent();
+        } catch (error) {
+            console.error('[ThemePanel] renderContent failed:', error);
+            return '<div class="panel-error">Failed to render theme panel</div>';
+        }
+    }
+
+    renderPanelContent() {
         return `
             <div class="theme-panel-content">
                 <div class="theme-section">
@@ -132,15 +154,19 @@ export class ThemePanel extends BasePanel {
         `;
     }
 
-    onMount() {
-        super.onMount();
+    onMount(container) {
+        super.onMount(container);
+        this.container = container;
         this.attachThemeListeners();
         this.loadCurrentTheme();
+        console.log("ThemePanel mounted in:", container);
     }
 
     attachThemeListeners() {
+        if (!this.container) return;
+
         // Theme selection
-        this.element.addEventListener('click', (e) => {
+        this.container.addEventListener('click', (e) => {
             const themeOption = e.target.closest('.theme-option');
             if (themeOption) {
                 this.selectTheme(themeOption.dataset.theme);
@@ -148,25 +174,32 @@ export class ThemePanel extends BasePanel {
         });
 
         // Color controls
-        const colorInputs = this.element.querySelectorAll('input[type="color"]');
+        const colorInputs = this.container.querySelectorAll('input[type="color"]');
         colorInputs.forEach(input => {
             input.addEventListener('change', () => this.updateCustomColors());
         });
 
         // Font controls
-        const fontControls = this.element.querySelectorAll('#font-size, #font-family');
+        const fontControls = this.container.querySelectorAll('#font-size, #font-family');
         fontControls.forEach(control => {
             control.addEventListener('change', () => this.updateFontSettings());
         });
 
         // Action buttons
-        const applyBtn = this.element.querySelector('#apply-theme');
-        const resetBtn = this.element.querySelector('#reset-theme');
-        const exportBtn = this.element.querySelector('#export-theme');
+        const applyBtn = this.container.querySelector('#apply-theme');
+        const resetBtn = this.container.querySelector('#reset-theme');
+        const exportBtn = this.container.querySelector('#export-theme');
 
         applyBtn?.addEventListener('click', () => this.applyTheme());
         resetBtn?.addEventListener('click', () => this.resetTheme());
         exportBtn?.addEventListener('click', () => this.exportTheme());
+    }
+
+    /**
+     * Get the active container element (either mounted container or this.element)
+     */
+    getContainer() {
+        return this.container || this.element;
     }
 
     selectTheme(themeKey) {
@@ -175,21 +208,37 @@ export class ThemePanel extends BasePanel {
         this.currentTheme = themeKey;
         
         // Update UI
-        this.element.querySelectorAll('.theme-option').forEach(option => {
+        const container = this.getContainer();
+        if (!container) return;
+        
+        container.querySelectorAll('.theme-option').forEach(option => {
             option.classList.toggle('active', option.dataset.theme === themeKey);
         });
         
         // Update color inputs
         const theme = this.themes[themeKey];
-        this.element.querySelector('#primary-color').value = theme.colors.primary;
-        this.element.querySelector('#secondary-color').value = theme.colors.secondary;
-        this.element.querySelector('#background-color').value = theme.colors.background;
+        const primaryInput = container.querySelector('#primary-color');
+        const secondaryInput = container.querySelector('#secondary-color');
+        const backgroundInput = container.querySelector('#background-color');
+        
+        if (primaryInput) primaryInput.value = theme.colors.primary;
+        if (secondaryInput) secondaryInput.value = theme.colors.secondary;
+        if (backgroundInput) backgroundInput.value = theme.colors.background;
     }
 
     updateCustomColors() {
-        const primaryColor = this.element.querySelector('#primary-color').value;
-        const secondaryColor = this.element.querySelector('#secondary-color').value;
-        const backgroundColor = this.element.querySelector('#background-color').value;
+        const container = this.getContainer();
+        if (!container) return;
+        
+        const primaryColorInput = container.querySelector('#primary-color');
+        const secondaryColorInput = container.querySelector('#secondary-color');
+        const backgroundColorInput = container.querySelector('#background-color');
+        
+        if (!primaryColorInput || !secondaryColorInput || !backgroundColorInput) return;
+        
+        const primaryColor = primaryColorInput.value;
+        const secondaryColor = secondaryColorInput.value;
+        const backgroundColor = backgroundColorInput.value;
         
         // Update current theme
         this.themes[this.currentTheme].colors.primary = primaryColor;
@@ -201,8 +250,16 @@ export class ThemePanel extends BasePanel {
     }
 
     updateFontSettings() {
-        const fontSize = this.element.querySelector('#font-size').value;
-        const fontFamily = this.element.querySelector('#font-family').value;
+        const container = this.getContainer();
+        if (!container) return;
+        
+        const fontSizeSelect = container.querySelector('#font-size');
+        const fontFamilySelect = container.querySelector('#font-family');
+        
+        if (!fontSizeSelect || !fontFamilySelect) return;
+        
+        const fontSize = fontSizeSelect.value;
+        const fontFamily = fontFamilySelect.value;
         
         // Apply font settings immediately
         document.documentElement.style.setProperty('--font-size', fontSize);
@@ -210,7 +267,10 @@ export class ThemePanel extends BasePanel {
     }
 
     updateThemePreview() {
-        const activeOption = this.element.querySelector('.theme-option.active');
+        const container = this.getContainer();
+        if (!container) return;
+        
+        const activeOption = container.querySelector('.theme-option.active');
         if (!activeOption) return;
         
         const theme = this.themes[this.currentTheme];
@@ -236,10 +296,13 @@ export class ThemePanel extends BasePanel {
         console.log(`Applied ${theme.name} theme`);
         
         // Dispatch theme change event
-        this.element.dispatchEvent(new CustomEvent('theme:changed', {
-            detail: { theme: this.currentTheme, colors: theme.colors },
-            bubbles: true
-        }));
+        const container = this.getContainer();
+        if (container) {
+            container.dispatchEvent(new CustomEvent('theme:changed', {
+                detail: { theme: this.currentTheme, colors: theme.colors },
+                bubbles: true
+            }));
+        }
     }
 
     resetTheme() {
@@ -250,16 +313,27 @@ export class ThemePanel extends BasePanel {
         // Reset font settings
         document.documentElement.style.removeProperty('--font-size');
         document.documentElement.style.removeProperty('--font-family');
-        this.element.querySelector('#font-size').value = '14px';
-        this.element.querySelector('#font-family').value = 'sans-serif';
+        
+        const container = this.getContainer();
+        if (container) {
+            const fontSizeSelect = container.querySelector('#font-size');
+            const fontFamilySelect = container.querySelector('#font-family');
+            
+            if (fontSizeSelect) fontSizeSelect.value = '14px';
+            if (fontFamilySelect) fontFamilySelect.value = 'sans-serif';
+        }
     }
 
     exportTheme() {
+        const container = this.getContainer();
+        const fontSize = container?.querySelector('#font-size')?.value || '14px';
+        const fontFamily = container?.querySelector('#font-family')?.value || 'sans-serif';
+        
         const themeData = {
             name: this.themes[this.currentTheme].name,
             colors: this.themes[this.currentTheme].colors,
-            fontSize: this.element.querySelector('#font-size').value,
-            fontFamily: this.element.querySelector('#font-family').value
+            fontSize: fontSize,
+            fontFamily: fontFamily
         };
         
         const dataStr = JSON.stringify(themeData, null, 2);
@@ -292,6 +366,8 @@ export class ThemePanel extends BasePanel {
         }
     }
 }
+
+panelRegistry.registerType('theme-editor', ThemePanel);
 
 // Factory function
 export function createThemePanel(config = {}) {

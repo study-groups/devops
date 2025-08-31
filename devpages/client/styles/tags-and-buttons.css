@@ -1,0 +1,37 @@
+/* Tag and Button Styles */
+.tag-button {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid transparent;
+    background-color: transparent;
+    color: var(--text-color-secondary);
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag-button:hover {
+    background-color: var(--hover-background);
+    border-color: var(--border-color-light);
+}
+
+.tag-button.active {
+    background-color: var(--primary-color-light);
+    border-color: var(--primary-color);
+    color: var(--primary-color-dark);
+    font-weight: bold;
+}
+
+.panel-control-btn {
+    background: none;
+    border: none;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    transition: color 0.2s ease;
+}
+
+.panel-control-btn:hover {
+    color: var(--primary-color);
+}

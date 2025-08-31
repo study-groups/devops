@@ -60,3 +60,25 @@
 .icon-collapse-all { -webkit-mask-image: url('/client/styles/icons/collapse-all.svg'); mask-image: url('/client/styles/icons/collapse-all.svg'); } 
 .icon-settings { -webkit-mask-image: url('/client/styles/icons/settings.svg'); mask-image: url('/client/styles/icons/settings.svg'); }
 .icon-reset { -webkit-mask-image: url('/client/styles/icons/reset.svg'); mask-image: url('/client/styles/icons/reset.svg'); }
+
+/* Themed Icon Support */
+.icon-themed-dev { color: #ff6b6b; }
+.icon-themed-settings { color: #4ecdc4; }
+.icon-themed-publish { color: #45b7d1; }
+
+/* Icon Sizes */
+.icon-xs { font-size: 0.75rem; }
+.icon-sm { font-size: 1rem; }
+.icon-md { font-size: 1.25rem; }
+.icon-lg { font-size: 1.5rem; }
+.icon-xl { font-size: 2rem; }
+
+/* Hover and Active States */
+.icon:hover {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.icon:active {
+    opacity: 0.6;
+}

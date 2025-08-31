@@ -8,7 +8,7 @@
  * - Configuration settings
  */
 
-import { BasePanel } from '../BasePanel.js';
+import { BasePanel, panelRegistry } from '../BasePanel.js';
 import { appStore } from '../../appState.js';
 
 export class PublishPanel extends BasePanel {
@@ -288,5 +288,4 @@ export class PublishPanel extends BasePanel {
     }
 }
 
-// Panel registration is handled by WorkspaceManager.js
-// No auto-registration needed here
+panelRegistry.registerType('publish-manager', PublishPanel);

@@ -15,18 +15,20 @@ const FileStore = connectSessionFileStore(session);
 // --- Local Imports ---
 import { port, uploadsDirectory, env } from './config.js';
 import { authMiddleware } from './middleware/auth.js';
-import { CapabilityManager } from './middleware/capabilities.js';
+// import { CapabilityManager } from './middleware/capabilities.js';
 import authRoutes from './routes/auth.js';
 import saveRoutes from './routes/save.js';
 import cliRoutes from './routes/cli.js';
 import filesRouter from './routes/files.js';
 import usersRouter from './routes/users.js';
 import configRoutes from './routes/configRoutes.js';
-import capabilityRoutes from './routes/capabilities.js';
+// import capabilityRoutes from './routes/capabilities.js';
 import { PData } from '../pdata/PData.js';
 import pdataRoutes from './routes/pdataRoutes.js';
 import nlpRoutes from './routes/nlpRoutes.js';
 import cssRoutes from './routes/css.js';
+// import settingsRoutes from './routes/settings.js';
+// import s3Routes from './routes/s3.js';
 
 // --- Setup: Constants & Paths ---
 const __filename = fileURLToPath(import.meta.url);
@@ -53,8 +55,6 @@ try {
 	pdataInstance = new PData();
 	console.log('[Server] PData initialized successfully.');
 	
-	// Initialize Capability Manager
-	capabilityManager = new UnifiedCapabilityManager(pdataInstance);
 	console.log('[Server] CapabilityManager initialized successfully.');
 } catch (error) {
     console.error('[Server] CRITICAL: PData failed to initialize.', error);
@@ -131,13 +131,15 @@ app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 // 4. API Routes
 app.use('/api/config', configRoutes);
 app.use('/api/auth', express.json(), authRoutes);
-app.use('/api/capabilities', capabilityRoutes);
+// app.use('/api/capabilities', capabilityRoutes);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/files', authMiddleware, filesRouter);
 app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), express.json(), saveRoutes);
 app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 app.use('/api/pdata', authMiddleware, pdataRoutes);
 app.use('/api/nlp', authMiddleware, nlpRoutes);
+// app.use('/api/s3', s3Routes);
+// app.use('/api/settings', settingsRoutes);
 app.use('/css', cssRoutes);
 
 // 5. Application Routes (HTML serving, etc.)

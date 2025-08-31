@@ -13,6 +13,7 @@
 
 import { createSlice } from '@reduxjs/toolkit';
 import { panelConfigLoader } from '../../config/PanelConfigLoader.js';
+import { panelRegistry } from '../../panels/BasePanel.js';
 
 const initialState = {
     // Runtime panel instances with full state
@@ -63,32 +64,33 @@ const panelSlice = createSlice({
                 state.panels = {};
             }
 
+            // Don't overwrite existing panel state - just update what's needed
+            if (state.panels[id]) {
+                console.log('Panel already exists, not overwriting:', id);
+                return;
+            }
+
             // Get panel config from PanelConfigLoader for defaults
             const panelConfig = panelConfigLoader.config.panels[id] || {};
 
             state.panels[id] = {
                 id,
                 title: title || panelConfig.title || 'Untitled Panel',
-                type: type || id, // Use id as type if not specified
-                position: position || { x: 100, y: 100 },
-                size: size || { width: 400, height: 300 },
+                type: type || id,
+                x: (position && position.x) || 100,
+                y: (position && position.y) || 100,
+                width: (size && size.width) || 400,
+                height: (size && size.height) || 300,
                 visible,
                 collapsed,
                 zIndex: zIndex || state.maxZIndex + 1,
-                config: { ...panelConfig, ...config }, // Merge config with defaults
-                mounted: false,
-                createdAt: Date.now(),
-                lastUpdated: Date.now(),
-                
-                // New unified state properties
-                isDocked: true, // Default to docked
                 isFloating: false,
+                isDocked: true,
+                mounted: false,
                 sidebarExpanded: panelConfig.default_expanded || false,
-                floatingState: {
-                    position: position || { x: 100, y: 100 },
-                    size: size || { width: 400, height: 300 },
-                    zIndex: zIndex || state.maxZIndex + 1
-                }
+                config: { ...panelConfig, ...config },
+                createdAt: Date.now(),
+                lastUpdated: Date.now()
             };
             
             if (zIndex && zIndex > state.maxZIndex) {
@@ -205,7 +207,9 @@ const panelSlice = createSlice({
             const panel = state.panels[id];
             
             if (panel) {
-                panel.position = position;
+                console.log('Redux movePanel:', id, 'from', panel.x, panel.y, 'to', position.x, position.y);
+                panel.x = position.x;
+                panel.y = position.y;
                 panel.lastUpdated = Date.now();
             }
         },
@@ -215,8 +219,11 @@ const panelSlice = createSlice({
             const panel = state.panels[id];
             
             if (panel) {
-                panel.size = size;
+                console.log('Redux resizePanel:', id, 'from', panel.width, panel.height, 'to', size.width, size.height);
+                panel.width = size.width;
+                panel.height = size.height;
                 panel.lastUpdated = Date.now();
+                console.log('Panel state after resize:', JSON.stringify(panel, null, 2));
             }
         },
 
@@ -429,9 +436,45 @@ export const selectPanelsByType = (state, type) =>
     Object.values(state.panels.panels).filter(panel => panel.type === type);
 export const selectGlobalSettings = (state) => state.panels.globalSettings;
 
-// Thunks for complex operations with PanelConfigLoader integration
+// Thunks for complex operations with unified panel system
 export const panelThunks = {
-    // Create panel from PanelConfigLoader definition
+    // Create panel using unified registry (PREFERRED METHOD)
+    createPanelUnified: (panelType, overrides = {}) => async (dispatch) => {
+        try {
+            // Check if panel type is available in unified registry
+            if (!panelRegistry.isTypeAvailable(panelType)) {
+                console.error(`[panelThunks] Panel type not available: ${panelType}`);
+                return null;
+            }
+
+            // Create panel instance using unified registry
+            const panelInstance = await panelRegistry.createPanel(panelType, overrides);
+            
+            if (!panelInstance) {
+                console.error(`[panelThunks] Failed to create panel instance: ${panelType}`);
+                return null;
+            }
+
+            // Create Redux state for the panel
+            const config = {
+                id: panelInstance.id,
+                title: panelInstance.title,
+                type: panelInstance.type,
+                visible: false,
+                collapsed: false,
+                ...overrides
+            };
+
+            dispatch(panelActions.createPanel(config));
+            console.log(`[panelThunks] Created unified panel: ${panelType} (${panelInstance.id})`);
+            return panelInstance.id;
+        } catch (error) {
+            console.error(`[panelThunks] Error creating unified panel ${panelType}:`, error);
+            return null;
+        }
+    },
+
+    // Legacy method - Create panel from PanelConfigLoader definition
     createPanelFromConfig: (panelId, overrides = {}) => async (dispatch) => {
         const panelConfig = await panelConfigLoader.getPanel(panelId);
         if (!panelConfig) {
@@ -452,7 +495,16 @@ export const panelThunks = {
         return panelId;
     },
 
-    // Create and show panel with config integration
+    // Create and show panel using unified registry (PREFERRED METHOD)
+    createAndShowPanelUnified: (panelType, overrides = {}) => async (dispatch) => {
+        const id = await dispatch(panelThunks.createPanelUnified(panelType, overrides));
+        if (id) {
+            dispatch(panelActions.showPanel(id));
+        }
+        return id;
+    },
+
+    // Legacy method - Create and show panel with config integration
     createAndShowPanel: (panelId, overrides = {}) => async (dispatch) => {
         const id = await dispatch(panelThunks.createPanelFromConfig(panelId, overrides));
         if (id) {
@@ -485,8 +537,14 @@ export const panelThunks = {
             for (const [panelId, panelConfig] of Object.entries(sidebarPanels)) {
                 // Only create if doesn't exist
                 if (!existingPanels[panelId]) {
-                    console.log(`[panelThunks] Initializing sidebar panel: ${panelId}`);
-                    await dispatch(panelThunks.createPanelFromConfig(panelId));
+                    console.log(`[panelThunks] Initializing sidebar panel: ${panelId} using unified registry`);
+                    // Use unified registry if panel type is available, fallback to legacy method
+                    if (panelRegistry.isTypeAvailable(panelId)) {
+                        await dispatch(panelThunks.createPanelUnified(panelId, { id: panelId }));
+                    } else {
+                        console.warn(`[panelThunks] Panel type ${panelId} not in registry, using legacy method`);
+                        await dispatch(panelThunks.createPanelFromConfig(panelId));
+                    }
                     createdCount++;
                 }
             }
@@ -509,6 +567,15 @@ export const panelThunks = {
             // Find any panels that were floating before reload
             let restoredCount = 0;
             for (const [panelId, panel] of Object.entries(panels)) {
+                console.log(`[panelThunks] Checking panel ${panelId}:`, {
+                    isFloating: panel.isFloating,
+                    isDocked: panel.isDocked,
+                    visible: panel.visible,
+                    x: panel.x,
+                    y: panel.y,
+                    width: panel.width,
+                    height: panel.height
+                });
                 if (panel.isFloating && !panel.isDocked) {
                     console.log(`[panelThunks] Restoring floating panel: ${panelId}`);
                     dispatch(panelActions.startFloatingPanel({ panelId }));

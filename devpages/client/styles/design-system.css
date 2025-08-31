@@ -732,10 +732,7 @@ nav,
     font-weight: 500;
 }
 
-.design-tokens-panel .token-value {
-    font-size: 0.9em;
-    color: var(--color-text-secondary);
-}
+/* Removed - conflicts with design-tokens-panel.css */
 
 .design-tokens-panel .token-preview {
     width: 16px;

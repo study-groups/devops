@@ -1,0 +1,77 @@
+{
+  "timestamp": "2025-08-31T10:41:55-07:00",
+  "total_files": 8,
+  "panels": [
+    {
+      "file": "client/panels/dev/FileBrowserPanel.js",
+      "class_name": "FileBrowserPanel",
+      "title": "FileBrowserPanel",
+      "description": "FileBrowserPanel.js - Compact file browser and navigator",
+      "type": "development",
+      "index": 0
+    }
+,
+    {
+      "file": "client/panels/pdata/components/PDataAuthPanel.js",
+      "class_name": "PDataAuthPanel",
+      "title": "PDataAuthPanel",
+      "description": "No description",
+      "type": "data",
+      "index": 1
+    }
+,
+    {
+      "file": "client/panels/DesignTokensPanel.js",
+      "class_name": "DesignTokensPanel",
+      "title": "DesignTokensPanel",
+      "description": "Design Tokens Panel for exploring and managing design system tokens",
+      "type": "core",
+      "index": 2
+    }
+,
+    {
+      "file": "client/panels/BasePanel.js",
+      "class_name": "for",
+      "title": "for",
+      "description": "BasePanel.js - Core panel system with Redux integration",
+      "type": "core",
+      "index": 3
+    }
+,
+    {
+      "file": "client/panels/settings/ThemePanel.js",
+      "class_name": "ThemePanel",
+      "title": "ThemePanel",
+      "description": "ThemePanel.js - Theme and appearance settings panel",
+      "type": "settings",
+      "index": 4
+    }
+,
+    {
+      "file": "client/panels/UIInspectorPanel.js",
+      "class_name": "UIInspectorPanel",
+      "title": "UIInspectorPanel",
+      "description": "No description",
+      "type": "core",
+      "index": 5
+    }
+,
+    {
+      "file": "client/panels/publish/PublishPanel.js",
+      "class_name": "PublishPanel",
+      "title": "PublishPanel",
+      "description": "PublishPanel.js - Publishing and deployment management panel",
+      "type": "publish",
+      "index": 6
+    }
+,
+    {
+      "file": "client/panels/DiagnosticPanel.js",
+      "class_name": "DiagnosticPanel",
+      "title": "DiagnosticPanel",
+      "description": "DiagnosticPanel.js - Example diagnostic panel implementation",
+      "type": "core",
+      "index": 7
+    }
+  ]
+}

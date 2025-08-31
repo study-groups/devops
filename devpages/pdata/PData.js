@@ -5,6 +5,11 @@ import { FileManager } from './FileManager.js';
 import { CapabilityManager } from './CapabilityManager.js';
 import { AuthSrv } from './AuthSrv.js';
 import { MountManager } from './utils/MountManager.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class PData {
     constructor(config = {}) {
@@ -51,7 +56,7 @@ class PData {
             allowedRoles
         });
         
-        this.capabilityManager = new UnifiedCapabilityManager({ dataRoot: this.dataRoot });
+        this.capabilityManager = new CapabilityManager({ dataRoot: this.dataRoot });
 
         // Initialize AuthSrv before FileManager so it can be passed to constructor
         const assetSetsObj = Object.fromEntries(this.capabilityManager.assetSets);

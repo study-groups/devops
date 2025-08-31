@@ -8,6 +8,7 @@ import { ZoneTopBar } from './ZoneTopBar.js';
 import { panelRegistry } from '../panels/BasePanel.js';
 import { DiagnosticPanel } from '../panels/DiagnosticPanel.js';
 import { ThemePanel } from '../panels/settings/ThemePanel.js';
+import { DesignTokensPanel } from '../panels/DesignTokensPanel.js';
 import { PublishPanel } from '../panels/publish/PublishPanel.js';
 import { FileBrowserPanel } from '../panels/dev/FileBrowserPanel.js';
 import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
@@ -84,32 +85,36 @@ class WorkspaceManager {
     initializePanelSystem() {
         if (this.panelsInitialized) return;
         
-        console.log('[WorkspaceManager] Initializing panel system...');
+        console.log('[WorkspaceManager] Initializing unified panel system...');
         
         try {
-            // Register panel types (moved from debug dock to sidebar)
+            // Register panel type classes with the unified registry
+            // The registry will automatically use PanelConfigLoader for configuration
             panelRegistry.registerType('system-diagnostics', DiagnosticPanel);
-            panelRegistry.registerType('design-tokens', ThemePanel); // Use ThemePanel for design tokens
+            panelRegistry.registerType('design-tokens', DesignTokensPanel);
             panelRegistry.registerType('theme-editor', ThemePanel);
             panelRegistry.registerType('publish-manager', PublishPanel);
             panelRegistry.registerType('file-browser', FileBrowserPanel);
             panelRegistry.registerType('ui-inspector', UIInspectorPanel);
             
-            // Register debug panels (from debug dock)
-            panelRegistry.registerType('panel-browser', DiagnosticPanel); // Use DiagnosticPanel as base
+            // Register debug panels
+            panelRegistry.registerType('panel-browser', DiagnosticPanel);
             panelRegistry.registerType('state-monitor', DiagnosticPanel);
             panelRegistry.registerType('performance-panel', DiagnosticPanel);
             panelRegistry.registerType('log-viewer', DiagnosticPanel);
             
-            // Expose panel system globally with unified API
+            // Expose unified panel system globally
             window.APP = window.APP || {};
             window.APP.panels = {
-                // Core API methods
-                createPanel: (type, config) => panelRegistry.createPanel(type, config),
+                // Unified registry methods (PREFERRED)
+                registry: panelRegistry,
+                createPanel: async (type, config) => await panelRegistry.createPanel(type, config),
                 getPanel: (id) => panelRegistry.getPanel(id),
                 getAllPanels: () => panelRegistry.getAllPanels(),
                 destroyPanel: (id) => panelRegistry.destroyPanel(id),
                 getDebugInfo: () => panelRegistry.getDebugInfo(),
+                isTypeAvailable: (type) => panelRegistry.isTypeAvailable(type),
+                getRegisteredTypes: () => panelRegistry.getRegisteredTypes(),
                 
                 // Utility methods (will be populated by debug utilities)
                 list: null,
