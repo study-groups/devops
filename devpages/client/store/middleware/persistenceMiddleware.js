@@ -21,34 +21,38 @@ export const persistenceMiddleware = store => next => action => {
         try {
             const stateToPersist = state[sliceName];
             if (stateToPersist) {
-                // Deep clone to handle complex nested states
+                // Robust deep clone to handle complex nested states
                 const plainState = JSON.parse(JSON.stringify(stateToPersist));
                 
                 // Special handling for panels to preserve important state
                 if (sliceName === 'panels') {
                     // Ensure panels are not lost during state updates
                     const currentPersistedState = storageService.getItem('panels') || {};
-                    // Merge the entire panels state, not just the panels.panels property
+                    
+                    // More robust merging of panel states
                     const mergedState = {
                         ...currentPersistedState,
                         ...plainState,
-                        // Specifically merge the nested panels object
                         panels: {
-                            ...currentPersistedState.panels,
-                            ...plainState.panels
+                            ...(currentPersistedState.panels || {}),
+                            ...(plainState.panels || {})
                         }
                     };
-                    Object.assign(plainState, mergedState);
+
+                    storageService.setItem('panels', mergedState);
+                } else {
+                    // For other slices, use standard persistence
+                    storageService.setItem(sliceName, plainState);
                 }
 
-                // Log detailed state before persisting
-                console.log(`[PersistenceMiddleware] Persisting ${sliceName} state:`, plainState);
-
-                storageService.setItem(sliceName, plainState);
                 console.log(`[PersistenceMiddleware] Persisted state for slice: ${sliceName}`);
             }
         } catch (error) {
-            console.warn(`[PersistenceMiddleware] Failed to persist state for slice ${sliceName}:`, error);
+            console.error(`[PersistenceMiddleware] Failed to persist state for slice ${sliceName}:`, {
+                error: error.message,
+                stack: error.stack,
+                state: state[sliceName]
+            });
         }
     }
 

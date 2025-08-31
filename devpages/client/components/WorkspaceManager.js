@@ -7,9 +7,10 @@ import { appStore } from '/client/appState.js';
 import { ZoneTopBar } from './ZoneTopBar.js';
 import { panelRegistry } from '../panels/BasePanel.js';
 import { DiagnosticPanel } from '../panels/DiagnosticPanel.js';
-import { ReduxInspectorPanel } from '../panels/dev/ReduxInspectorPanel.js';
 import { ThemePanel } from '../panels/settings/ThemePanel.js';
 import { PublishPanel } from '../panels/publish/PublishPanel.js';
+import { FileBrowserPanel } from '../panels/dev/FileBrowserPanel.js';
+import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
 import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
 
 
@@ -88,11 +89,11 @@ class WorkspaceManager {
         try {
             // Register panel types (moved from debug dock to sidebar)
             panelRegistry.registerType('system-diagnostics', DiagnosticPanel);
-            panelRegistry.registerType('redux-inspector', ReduxInspectorPanel);
-            panelRegistry.registerType('theme-editor', ThemePanel);
             panelRegistry.registerType('design-tokens', ThemePanel); // Use ThemePanel for design tokens
-            panelRegistry.registerType('file-browser', DiagnosticPanel); // Use DiagnosticPanel for file browser
+            panelRegistry.registerType('theme-editor', ThemePanel);
             panelRegistry.registerType('publish-manager', PublishPanel);
+            panelRegistry.registerType('file-browser', FileBrowserPanel);
+            panelRegistry.registerType('ui-inspector', UIInspectorPanel);
             
             // Register debug panels (from debug dock)
             panelRegistry.registerType('panel-browser', DiagnosticPanel); // Use DiagnosticPanel as base

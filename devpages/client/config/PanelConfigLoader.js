@@ -18,23 +18,23 @@ const panelConfig = {
             content_type: 'dynamic',
             data_sources: ['redux_state', 'system_metrics']
         },
-        'redux-inspector': {
-            title: 'Redux Inspector',
-            description: 'Redux state inspection and debugging',
+        'ui-inspector': {
+            title: 'UI Inspector',
+            description: 'Component and Redux state inspection',
             category: 'dev',
             sidebar: true,
             floating: true,
             default_expanded: false,
             content_type: 'dynamic',
-            data_sources: ['redux_state', 'action_history']
+            data_sources: ['redux_state', 'component_tree']
         },
         'file-browser': {
-            title: 'File Browser',
-            description: 'Navigate and manage files',
+            title: 'Files',
+            description: 'Compact file navigator',
             category: 'dev',
             sidebar: true,
             floating: true,
-            default_expanded: true,
+            default_expanded: false,
             content_type: 'tree',
             data_sources: ['file_system']
         },
@@ -82,10 +82,10 @@ const panelConfig = {
         sidebar_state_persistence: {
             description: 'Test sidebar panel state persistence',
             commands: [
-                'node test/cli/sidebar-test.js expand redux-inspector',
-                'node test/cli/sidebar-test.js verify-state redux-inspector expanded',
-                'node test/cli/sidebar-test.js collapse redux-inspector',
-                'node test/cli/sidebar-test.js verify-state redux-inspector collapsed'
+                'node test/cli/sidebar-test.js expand ui-inspector',
+                'node test/cli/sidebar-test.js verify-state ui-inspector expanded',
+                'node test/cli/sidebar-test.js collapse ui-inspector',
+                'node test/cli/sidebar-test.js verify-state ui-inspector collapsed'
             ]
         }
     },
@@ -174,7 +174,7 @@ class PanelConfigLoader {
             }
         }
 
-        const validCategories = ['debug', 'design', 'navigation', 'content'];
+        const validCategories = ['dev', 'settings', 'publish'];
         if (panelConfigToValidate.category && !validCategories.includes(panelConfigToValidate.category)) {
             warnings.push(`Unknown category: ${panelConfigToValidate.category}`);
         }

@@ -11,6 +11,23 @@ import { uiActions } from '/client/store/uiSlice.js';
 import { panelActions } from '/client/store/slices/panelSlice.js';
 import { panelConfigLoader } from '/client/config/PanelConfigLoader.js';
 import { panelRegistry } from '/client/panels/BasePanel.js';
+import { DragDropManager } from './DragDropManager.js';
+
+let log;
+const getLogger = () => {
+    if (log) return log;
+    if (window.APP?.services?.log) {
+        log = window.APP.services.log.createLogger('SidebarManager');
+    } else {
+        log = {
+            info: (...args) => console.log('[SidebarManager]', ...args),
+            warn: (...args) => console.warn('[SidebarManager]', ...args),
+            error: (...args) => console.error('[SidebarManager]', ...args),
+            debug: (...args) => console.log('[SidebarManager]', ...args)
+        };
+    }
+    return log;
+};
 
 export class SidebarManager {
     constructor() {
@@ -21,7 +38,14 @@ export class SidebarManager {
         this.panelConfigs = null;
         this.configLoaded = false;
         this.categories = null;
-        this.activeCategory = null; // Will be loaded from Redux state
+        this.activeCategory = 'dev'; // Default category
+        this.panelInstances = new Map();
+        this.dragDropManager = null;
+        this.lastRenderedState = {
+            panels: {},
+            sidebarPanels: {},
+            panelOrders: {}
+        };
     }
 
     /**
@@ -43,7 +67,7 @@ export class SidebarManager {
         this.render();
         
         this.initialized = true;
-        console.log('[SidebarManager] ✅ Initialized');
+        getLogger().info('[SidebarManager] ✅ Initialized');
     }
 
     setupSidebarStructure() {
@@ -70,22 +94,21 @@ export class SidebarManager {
     }
 
     subscribeToStore() {
-        // CRITICAL FIX: SidebarManager uses direct localStorage, so it doesn't need Redux subscriptions
-        // that cause unnecessary re-renders and interfere with TopBarController
-        
-        // Only subscribe to very specific state changes that actually affect sidebar content
-        let lastFloatingPanelsCount = 0;
-        
         this.storeUnsubscribe = appStore.subscribe(() => {
             const state = appStore.getState();
-            const panels = state.panels?.panels || {};
-            const currentFloatingCount = Object.values(panels).filter(p => p.isFloating).length;
-            
-            // Only update panel count when floating panels change
-            if (currentFloatingCount !== lastFloatingPanelsCount) {
-                console.log('[SidebarManager] Floating panels count changed, updating display');
-                lastFloatingPanelsCount = currentFloatingCount;
-                this.updatePanelCount();
+            const relevantState = {
+                panels: state.panels.panels,
+                sidebarPanels: state.panels.sidebarPanels,
+                panelOrders: state.panels.panelOrders,
+                activeCategory: state.ui.activeSidebarCategory
+            };
+
+            if (JSON.stringify(relevantState) !== JSON.stringify(this.lastRenderedState)) {
+                this.lastRenderedState = JSON.parse(JSON.stringify(relevantState));
+                this.activeCategory = relevantState.activeCategory || 'dev';
+                
+                // Use setTimeout to allow the Redux state to update before re-rendering
+                setTimeout(() => this.render(), 0);
             }
         });
     }
@@ -94,31 +117,18 @@ export class SidebarManager {
      * Main render method - renders tabbed sidebar interface
      */
     render() {
-        if (!this.container) return;
-        
-        this.renderTabbedInterface();
-    }
-
-    renderTabbedInterface() {
-        if (!this.configLoaded || !this.categories) {
-            this.container.innerHTML = `
-                <div style="padding: 20px; text-align: center; color: var(--color-text-secondary);">
-                    Loading sidebar...
-                </div>
-            `;
+        if (!this.container || !this.configLoaded) {
             return;
         }
+        
+        const state = appStore.getState();
+        this.activeCategory = state.ui.activeSidebarCategory || 'dev';
 
-        // DIRECT localStorage load - fuck Redux complexity
-        this.activeCategory = localStorage.getItem('devpages_active_category') || 'dev';
-
-        // Create clean tabbed interface HTML without header
         this.container.innerHTML = `
             <div class="sidebar-category-tabs">
                 ${Object.entries(this.categories).map(([categoryId, category]) => `
                     <button class="btn btn-ghost btn-sm category-tab ${categoryId === this.activeCategory ? 'active' : ''}" 
-                            data-category="${categoryId}"
-                            onclick="window.APP.services.sidebarManager.switchCategory('${categoryId}')">
+                            data-category="${categoryId}">
                         <span class="tab-icon">${category.icon}</span>
                         <span class="tab-label">${categoryId}</span>
                     </button>
@@ -132,7 +142,18 @@ export class SidebarManager {
 
         this.renderPanelsForCategory();
         this.addSidebarStyles();
+        this.attachTabEventListeners();
         this.restoreFloatingPanels();
+    }
+
+    attachTabEventListeners() {
+        const tabs = this.container.querySelectorAll('.category-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const categoryId = tab.dataset.category;
+                appStore.dispatch(uiActions.updateSetting({ key: 'activeSidebarCategory', value: categoryId }));
+            });
+        });
     }
 
     renderPanelsList() {
@@ -155,7 +176,7 @@ export class SidebarManager {
                 ${activePanels.map(panel => `
                     <div style="padding: 6px 8px; margin-bottom: 2px; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 3px; font-size: 10px; display: flex; justify-content: space-between; align-items: center;">
                         <span>${panel.title}</span>
-                        <button onclick="window.APP.panels.getPanel('${panel.id}')?.hide()" 
+                        <button data-action="close-panel" data-panel-id="${panel.id}"
                                 style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; font-size: 12px;">×</button>
                     </div>
                 `).join('')}
@@ -165,58 +186,39 @@ export class SidebarManager {
 
     async loadPanelConfiguration() {
         try {
-            console.log('[SidebarManager] Loading panel configuration...');
+            getLogger().info('[SidebarManager] Loading panel configuration...');
             this.panelConfigs = await panelConfigLoader.getSidebarPanels();
-            console.log('[SidebarManager] Got panel configs:', this.panelConfigs);
+            getLogger().info('[SidebarManager] Got panel configs:', this.panelConfigs);
             
             this.categories = await panelConfigLoader.getCategories();
-            console.log('[SidebarManager] Got categories:', this.categories);
+            getLogger().info('[SidebarManager] Got categories:', this.categories);
             
             this.configLoaded = true;
-            console.log('[SidebarManager] ✅ Panel configuration loaded:', Object.keys(this.panelConfigs));
-            console.log('[SidebarManager] ✅ Categories loaded:', Object.keys(this.categories));
+            getLogger().info('[SidebarManager] ✅ Panel configuration loaded:', Object.keys(this.panelConfigs));
+            getLogger().info('[SidebarManager] ✅ Categories loaded:', Object.keys(this.categories));
             
             // Initialize sidebar panel states in Redux if they don't exist
             const state = appStore.getState();
             const currentSidebarPanels = state.panels?.sidebarPanels || {};
             
-            console.log('[SidebarManager] Current sidebar panels state:', currentSidebarPanels);
+            getLogger().info('[SidebarManager] Current sidebar panels state:', currentSidebarPanels);
             
             Object.keys(this.panelConfigs).forEach(panelId => {
                 if (!(panelId in currentSidebarPanels)) {
                     const config = this.panelConfigs[panelId];
-                    console.log(`[SidebarManager] Initializing panel ${panelId} with default expanded: ${config.default_expanded || false}`);
+                    getLogger().info(`[SidebarManager] Initializing panel ${panelId} with default expanded: ${config.default_expanded || false}`);
                     appStore.dispatch(panelActions.setSidebarPanelExpanded({
                         panelId,
                         expanded: config.default_expanded || false
                     }));
                 } else {
-                    console.log(`[SidebarManager] Panel ${panelId} already exists with expanded: ${currentSidebarPanels[panelId].expanded}`);
+                    getLogger().info(`[SidebarManager] Panel ${panelId} already exists with expanded: ${currentSidebarPanels[panelId].expanded}`);
                 }
             });
             
         } catch (error) {
-            console.error('[SidebarManager] Failed to load panel configuration:', error);
-            
-            // Fallback configuration to prevent infinite loading
-            this.panelConfigs = {
-                'debug-panel': {
-                    title: 'Debug Panel',
-                    description: 'Basic debug information',
-                    category: 'debug',
-                    default_expanded: false
-                }
-            };
-            this.categories = {
-                debug: {
-                    color: '#ff6b6b',
-                    icon: '🐛',
-                    description: 'Debug tools'
-                }
-            };
-            this.configLoaded = true; // Set to true so it renders
-            
-            console.log('[SidebarManager] ⚠️ Using fallback configuration');
+            getLogger().error('[SidebarManager] Failed to load panel configuration:', error);
+            throw error; // Re-throw to prevent broken state
         }
     }
 
@@ -237,7 +239,7 @@ export class SidebarManager {
         const state = appStore.getState();
         const sidebarPanels = state.panels?.sidebarPanels || {};
         const floatingPanels = state.panels?.panels || {};
-        console.log('[SidebarManager] Current sidebar panel states:', sidebarPanels);
+        getLogger().info('[SidebarManager] Current sidebar panel states:', sidebarPanels);
         
         const panelsHtml = Object.entries(this.panelConfigs).map(([panelId, config]) => {
             const isExpanded = sidebarPanels[panelId]?.expanded || config.default_expanded || false;
@@ -291,13 +293,7 @@ export class SidebarManager {
 
 
     switchCategory(categoryId) {
-        this.activeCategory = categoryId;
-        
-        // DIRECT localStorage save - fuck Redux complexity
-        localStorage.setItem('devpages_active_category', categoryId);
-        
-        this.renderPanelsForCategory();
-        this.updateTabStates();
+        appStore.dispatch(uiActions.updateSetting({ key: 'activeSidebarCategory', value: categoryId }));
     }
 
     updateTabStates() {
@@ -330,30 +326,42 @@ export class SidebarManager {
         }
 
         // Get saved order or initialize it
-        const savedOrder = this.getPanelOrder(this.activeCategory);
+        const panelOrders = state.panels?.panelOrders || {};
+        const savedOrder = panelOrders[this.activeCategory] || [];
         const orderedPanels = this.orderPanels(categoryPanels, savedOrder);
 
         container.innerHTML = `
-            <div class="panels-container" data-category="${this.activeCategory}">
-                ${orderedPanels.map(([panelId, config], index) => {
-                    // DIRECT localStorage read for expanded and floating state
-                    const isExpanded = localStorage.getItem(`devpages_panel_${panelId}_expanded`) === 'true' || 
-                                      (localStorage.getItem(`devpages_panel_${panelId}_expanded`) === null && config.default_expanded);
-                    const isFloating = localStorage.getItem(`devpages_panel_${panelId}_floating`) === 'true';
+            <div class="panels-reorder-hint">
+                <span class="hint-icon">↕</span>
+                <span class="hint-text">Drag panel headers to reorder • Use ↗ to float panels (${orderedPanels.length} panels)</span>
+            </div>
+        `;
+        
+        // Create separate sortable container
+        const sortableContainer = document.createElement('div');
+        sortableContainer.className = 'panels-container';
+        sortableContainer.setAttribute('data-category', this.activeCategory);
+        
+        sortableContainer.innerHTML = orderedPanels.map(([panelId, config], index) => {
+                    const panelState = sidebarPanels[panelId] || {};
+                    const isExpanded = panelState.expanded || config.default_expanded;
+                    const floatingPanelState = floatingPanels[panelId];
+                    const isFloating = floatingPanelState ? floatingPanelState.isFloating : false;
                     const categoryColor = this.categories[config.category]?.color || '#666';
                     
                     return `
                         <div class="panel-item ${isExpanded ? 'expanded' : ''} ${isFloating ? 'floating' : ''}" 
                              data-panel-id="${panelId}" 
                              data-index="${index}"
-                             draggable="true">
-                            <div class="panel-header" onclick="window.APP.services.sidebarManager.togglePanel('${panelId}')">
-                                <div class="panel-drag-handle" title="Drag to reorder">⋮⋮</div>
+                             draggable="false">
+                            <div class="panel-header" data-action="toggle-panel" data-panel-id="${panelId}" draggable="true" title="Click to expand/collapse • Drag to reorder">
+                                <div class="panel-drag-indicator">⋮⋮</div>
                                 <span class="panel-title">${config.title} ${isFloating ? '(floating)' : ''}</span>
                                 <div class="panel-controls">
-                                    <button class="panel-btn" 
-                                            onclick="event.stopPropagation(); window.APP.services.sidebarManager.createFloatingPanel('${panelId}')"
-                                            title="Float Panel">⧉</button>
+                                    ${isFloating ? 
+                                        `<button class="panel-control-btn" data-action="close-floating" data-panel-id="${panelId}" title="Close floating panel">↙</button>` :
+                                        `<button class="panel-control-btn" data-action="float-panel" data-panel-id="${panelId}" title="Float panel">□</button>`
+                                    }
                                 </div>
                             </div>
                             <div class="panel-content" style="display: ${isExpanded ? 'block' : 'none'};" id="panel-content-${panelId}">
@@ -362,21 +370,25 @@ export class SidebarManager {
                             </div>
                         </div>
                     `;
-                }).join('')}
-            </div>
-        `;
+                }).join('');
+        
+        // Append the sortable container to the main container
+        container.appendChild(sortableContainer);
 
-        // Add drag and drop event listeners
-        this.setupDragAndDrop();
+        // Setup event listeners
+        this.setupEventListeners();
 
         // Render actual panel instances for expanded panels
         orderedPanels.forEach(([panelId, config]) => {
-            const isExpanded = localStorage.getItem(`devpages_panel_${panelId}_expanded`) === 'true' || 
-                              (localStorage.getItem(`devpages_panel_${panelId}_expanded`) === null && config.default_expanded);
+            const panelState = sidebarPanels[panelId] || {};
+            const isExpanded = panelState.expanded || config.default_expanded;
             if (isExpanded) {
                 this.renderPanelInstance(panelId, config);
             }
         });
+
+        // Reinitialize drag-drop after rendering
+        this.initializeDragDrop();
     }
 
     updatePanelCount() {
@@ -392,14 +404,9 @@ export class SidebarManager {
     }
 
     togglePanel(panelId) {
-        // DIRECT localStorage for panel expanded state
-        const currentExpanded = localStorage.getItem(`devpages_panel_${panelId}_expanded`) === 'true';
-        const newExpanded = !currentExpanded;
-        
-        localStorage.setItem(`devpages_panel_${panelId}_expanded`, newExpanded.toString());
-        
-        // Re-render to show the change
-        this.renderPanelsForCategory();
+        const state = appStore.getState();
+        const currentExpanded = state.panels.sidebarPanels[panelId]?.expanded || false;
+        appStore.dispatch(panelActions.setSidebarPanelExpanded({ panelId, expanded: !currentExpanded }));
     }
 
     /**
@@ -410,12 +417,18 @@ export class SidebarManager {
         if (!container) return;
 
         try {
-            // Create panel instance using the registry
-            const panel = panelRegistry.createPanel(panelId, {
-                id: panelId,
-                title: config.title,
-                type: panelId // Use panelId as type to match registration
-            });
+            // Check if panel already exists to prevent creation loop
+            let panel = this.panelInstances.get(panelId);
+
+            if (!panel) {
+                // Create panel instance using the registry if it doesn't exist
+                panel = panelRegistry.createPanel(panelId, {
+                    id: panelId,
+                    title: config.title,
+                    type: panelId // Use panelId as type to match registration
+                });
+                this.panelInstances.set(panelId, panel);
+            }
 
             if (panel && typeof panel.renderContent === 'function') {
                 // Render panel content
@@ -427,140 +440,45 @@ export class SidebarManager {
                     panel.onMount(container);
                 }
                 
-                console.log(`[SidebarManager] Rendered panel instance: ${panelId}`);
             } else {
                 // Fallback to basic description
                 container.innerHTML = `<div class="panel-fallback">Panel content not available</div>`;
-                console.warn(`[SidebarManager] No renderContent method for panel: ${panelId}`);
+                getLogger().warn(`[SidebarManager] No renderContent method for panel: ${panelId}`);
             }
         } catch (error) {
-            console.error(`[SidebarManager] Failed to render panel ${panelId}:`, error);
+            getLogger().error(`[SidebarManager] Failed to render panel ${panelId}:`, error);
             container.innerHTML = `<div class="panel-error">Failed to load panel: ${error.message}</div>`;
         }
     }
 
     togglePanelFloating(panelId) {
-        console.log(`[SidebarManager] Toggling floating for panel: ${panelId}`);
+        getLogger().info(`[SidebarManager] Toggling floating for panel: ${panelId}`);
         appStore.dispatch(panelActions.togglePanelFloating(panelId));
     }
 
     closePanel(panelId) {
-        console.log(`[SidebarManager] Closing panel: ${panelId}`);
+        getLogger().info(`[SidebarManager] Closing panel: ${panelId}`);
         appStore.dispatch(panelActions.hidePanel(panelId));
     }
 
     createFloatingPanel(panelId) {
         const config = this.panelConfigs[panelId];
         if (!config) {
-            console.error(`[SidebarManager] Panel configuration not found for id: ${panelId}`);
+            getLogger().error(`Panel configuration not found for id: ${panelId}`);
             return;
         }
-
-        // DIRECT localStorage for floating state - fuck the complex BasePanel system
-        localStorage.setItem(`devpages_panel_${panelId}_floating`, 'true');
-
-        // Remove any existing floating panel
-        const existingPanel = document.getElementById(`floating-panel-${panelId}`);
-        if (existingPanel) {
-            existingPanel.remove();
-        }
-
-        // Restore saved position or use defaults
-        let position = { left: 300, top: 100 };
-        try {
-            const savedPosition = localStorage.getItem(`devpages_panel_${panelId}_position`);
-            if (savedPosition) {
-                position = JSON.parse(savedPosition);
-                console.log(`[SidebarManager] Restoring position for ${panelId}:`, position);
-            }
-        } catch (error) {
-            console.warn(`[SidebarManager] Failed to restore position for ${panelId}:`, error);
-        }
-
-        // Create simple floating panel HTML
-        const panel = document.createElement('div');
-        panel.id = `floating-panel-${panelId}`;
-        panel.className = 'floating-panel';
-        panel.style.cssText = `
-            position: fixed;
-            top: ${position.top}px;
-            left: ${position.left}px;
-            width: 400px;
-            height: 300px;
-            background: var(--color-bg);
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-        `;
-
-        panel.innerHTML = `
-            <div class="floating-panel-header" style="
-                padding: 8px 12px;
-                background: var(--color-bg-alt);
-                border-bottom: 1px solid var(--color-border);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: move;
-            ">
-                <span style="font-size: 12px; font-weight: 500;">${config.title}</span>
-                <button onclick="window.APP.services.sidebarManager.closeFloatingPanel('${panelId}')" 
-                        style="background: none; border: none; cursor: pointer; font-size: 16px; color: var(--color-text-secondary);">×</button>
-            </div>
-            <div class="floating-panel-content" style="
-                flex: 1;
-                overflow: hidden;
-            " id="floating-panel-content-${panelId}">
-                <!-- Panel content will be rendered here -->
-            </div>
-        `;
-
-        // Make it draggable
-        this.makeDraggable(panel);
-        document.body.appendChild(panel);
-        
-        // Render the actual panel content in the floating panel
-        try {
-            const panelInstance = panelRegistry.createPanel(panelId, {
-                id: panelId,
-                title: config.title,
-                type: panelId
-            });
-
-            if (panelInstance && typeof panelInstance.renderContent === 'function') {
-                const floatingContent = document.getElementById(`floating-panel-content-${panelId}`);
-                if (floatingContent) {
-                    const content = panelInstance.renderContent();
-                    floatingContent.innerHTML = content;
-                    
-                    // Call onMount if available
-                    if (typeof panelInstance.onMount === 'function') {
-                        panelInstance.onMount(floatingContent);
-                    }
-                    
-                    console.log(`[SidebarManager] Rendered floating panel content: ${panelId}`);
-                }
-            }
-        } catch (error) {
-            console.error(`[SidebarManager] Failed to render floating panel content for ${panelId}:`, error);
-        }
-        
-        // Re-render sidebar to show updated state
-        this.renderPanelsForCategory();
+        appStore.dispatch(panelActions.startFloatingPanel({ panelId }));
     }
 
     closeFloatingPanel(panelId) {
-        const panel = document.getElementById(`floating-panel-${panelId}`);
-        if (panel) {
-            panel.remove();
+        // Remove the floating panel from DOM
+        const floatingPanel = document.getElementById(`floating-panel-${panelId}`);
+        if (floatingPanel) {
+            floatingPanel.remove();
         }
-        // Clean up both floating state and position
-        localStorage.removeItem(`devpages_panel_${panelId}_floating`);
-        localStorage.removeItem(`devpages_panel_${panelId}_position`);
-        this.renderPanelsForCategory();
+        
+        // Dispatch Redux action to update state
+        appStore.dispatch(panelActions.stopFloatingPanel(panelId));
     }
 
     makeDraggable(panel) {
@@ -569,6 +487,7 @@ export class SidebarManager {
         const panelId = panel.id.replace('floating-panel-', '');
 
         const header = panel.querySelector('.floating-panel-header');
+        if (!header) return;
         header.addEventListener('mousedown', (e) => {
             isDragging = true;
             const rect = panel.getBoundingClientRect();
@@ -590,54 +509,121 @@ export class SidebarManager {
             if (isDragging) {
                 // Save position when drag ends
                 const rect = panel.getBoundingClientRect();
-                const position = {
-                    left: rect.left,
-                    top: rect.top
-                };
-                localStorage.setItem(`devpages_panel_${panelId}_position`, JSON.stringify(position));
-                console.log(`[SidebarManager] Saved position for ${panelId}:`, position);
+                const position = { x: rect.left, y: rect.top };
+                appStore.dispatch(panelActions.movePanel({ id: panelId, position }));
             }
             isDragging = false;
         });
     }
 
     restoreFloatingPanels() {
-        // Check localStorage for floating panels and restore them
-        if (!this.panelConfigs) return;
+        const state = appStore.getState();
+        const panels = state.panels.panels || {};
         
-        Object.keys(this.panelConfigs).forEach(panelId => {
-            const isFloating = localStorage.getItem(`devpages_panel_${panelId}_floating`) === 'true';
-            if (isFloating) {
-                // Restore the floating panel
-                this.createFloatingPanel(panelId);
+        Object.values(panels).forEach(panelState => {
+            if (panelState.isFloating) {
+                this.mountFloatingPanel(panelState);
             }
         });
     }
 
-    /**
-     * Get saved panel order for a category from localStorage
-     */
-    getPanelOrder(category) {
-        const key = `devpages_panel_order_${category}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (error) {
-                console.warn(`[SidebarManager] Failed to parse saved order for ${category}:`, error);
-            }
+    mountFloatingPanel(panelState) {
+        const { id: panelId, position, size } = panelState;
+        const config = this.panelConfigs[panelId];
+        if (!config) return;
+
+        // Create simple floating panel HTML
+        const panel = document.createElement('div');
+        panel.id = `floating-panel-${panelId}`;
+        panel.className = 'floating-panel';
+        panel.style.cssText = `
+            position: fixed;
+            top: ${position.y}px;
+            left: ${position.x}px;
+            width: ${size.width}px;
+            height: ${size.height}px;
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        `;
+
+        panel.innerHTML = `
+            <div class="floating-panel-header" style="
+                padding: 8px 12px;
+                background: var(--color-bg-alt);
+                border-bottom: 1px solid var(--color-border);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: move;
+            ">
+                <span style="font-size: 12px; font-weight: 500;">${config.title}</span>
+                <button data-action="close-floating" data-panel-id="${panelId}"
+                        style="background: none; border: none; cursor: pointer; font-size: 16px; color: var(--color-text-secondary);">×</button>
+            </div>
+            <div class="floating-panel-content" style="
+                flex: 1;
+                overflow: hidden;
+            " id="floating-panel-content-${panelId}">
+                <!-- Panel content will be rendered here -->
+            </div>
+        `;
+
+        // Make it draggable
+        this.makeDraggable(panel);
+        
+        // Add close button event listener
+        const closeButton = panel.querySelector('[data-action="close-floating"]');
+        if (closeButton) {
+            closeButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const panelId = closeButton.dataset.panelId;
+                this.closeFloatingPanel(panelId);
+            });
         }
-        return null;
+        
+        document.body.appendChild(panel);
+        
+        // Render the actual panel content in the floating panel
+        try {
+            const panelInstance = panelRegistry.createPanel(panelId, {
+                id: panelId,
+                title: config.title,
+                type: panelId
+            });
+
+            if (panelInstance && typeof panelInstance.renderContent === 'function') {
+                const floatingContent = document.getElementById(`floating-panel-content-${panelId}`);
+                if (floatingContent) {
+                    const content = panelInstance.renderContent();
+                    floatingContent.innerHTML = content;
+                    
+                    if (typeof panelInstance.onMount === 'function') {
+                        panelInstance.onMount(floatingContent);
+                    }
+                }
+            }
+        } catch (error) {
+            getLogger().error(`Failed to render floating panel content for ${panelId}:`, error);
+        }
     }
 
     /**
-     * Save panel order for a category to localStorage
+     * Get saved panel order for a category from Redux state
+     */
+    getPanelOrder(category) {
+        const state = appStore.getState();
+        return state.panels.panelOrders[category];
+    }
+
+    /**
+     * Save panel order for a category to Redux state
      */
     savePanelOrder(category, panelIds) {
-        const key = `devpages_panel_order_${category}`;
-        localStorage.setItem(key, JSON.stringify(panelIds));
-        
-        // Also update Redux state
         appStore.dispatch(panelActions.setPanelOrder({ category, panelIds }));
     }
 
@@ -674,9 +660,9 @@ export class SidebarManager {
             }
         });
 
-        // Update saved order if we added new panels
-        if (orderedPanels.length !== savedOrder.length) {
-            const newOrder = orderedPanels.map(([panelId]) => panelId);
+        // Update saved order if it's out of sync (new panels, stale IDs, etc.)
+        const newOrder = orderedPanels.map(([panelId]) => panelId);
+        if (newOrder.length !== savedOrder.length || newOrder.some((id, index) => id !== savedOrder[index])) {
             this.savePanelOrder(this.activeCategory, newOrder);
         }
 
@@ -684,141 +670,139 @@ export class SidebarManager {
     }
 
     /**
-     * Setup drag and drop event listeners for panel reordering
+     * Helper function to get element with closest method (handles SVG elements)
      */
-    setupDragAndDrop() {
+    getElementWithClosest(target) {
+        let element = target;
+        while (element && !element.closest) {
+            element = element.parentElement;
+        }
+        return element;
+    }
+
+    /**
+     * Initialize drag and drop functionality using DragDropManager
+     */
+    initializeDragDrop() {
         const container = this.container.querySelector('.panels-container');
-        if (!container) return;
+        if (!container) {
+            console.log('[SidebarManager] No .panels-container found for drag-drop');
+            return;
+        }
 
-        let draggedElement = null;
-        let draggedIndex = null;
-        let dropIndicator = null;
+        console.log('[SidebarManager] Initializing drag-drop for container:', container);
+        console.log('[SidebarManager] Container has', container.children.length, 'children');
 
-        // Create drop indicator element
-        const createDropIndicator = () => {
-            const indicator = document.createElement('div');
-            indicator.className = 'drop-indicator';
-            indicator.style.cssText = `
-                height: 2px;
-                background: var(--color-primary);
-                margin: 4px 0;
-                border-radius: 1px;
-                opacity: 0.8;
-            `;
-            return indicator;
-        };
+        // Clean up existing drag drop manager
+        if (this.dragDropManager) {
+            this.dragDropManager.destroy();
+        }
 
-        container.addEventListener('dragstart', (e) => {
-            const panelItem = e.target.closest('.panel-item');
-            if (!panelItem) return;
-
-            draggedElement = panelItem;
-            draggedIndex = parseInt(panelItem.dataset.index);
-            
-            // Add visual feedback
-            panelItem.style.opacity = '0.5';
-            
-            // Set drag data
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', panelItem.dataset.panelId);
+        // Create new drag drop manager with reorder callback
+        this.dragDropManager = new DragDropManager((fromIndex, toIndex) => {
+            this.reorderPanel(fromIndex, toIndex);
         });
 
-        container.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-
-            const panelItem = e.target.closest('.panel-item');
-            if (!panelItem || panelItem === draggedElement) {
-                if (dropIndicator) {
-                    dropIndicator.remove();
-                    dropIndicator = null;
-                }
-                return;
-            }
-
-            // Remove existing indicator
-            if (dropIndicator) {
-                dropIndicator.remove();
-            }
-
-            // Create new indicator
-            dropIndicator = createDropIndicator();
-            
-            // Determine drop position
-            const rect = panelItem.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            
-            if (e.clientY < midpoint) {
-                // Insert before
-                panelItem.parentNode.insertBefore(dropIndicator, panelItem);
-            } else {
-                // Insert after
-                panelItem.parentNode.insertBefore(dropIndicator, panelItem.nextSibling);
-            }
-        });
-
-        container.addEventListener('drop', (e) => {
-            e.preventDefault();
-            
-            if (!draggedElement || !dropIndicator) return;
-
-            const targetIndex = Array.from(container.children).indexOf(dropIndicator) - 1; // -1 because indicator is inserted
-            
-            if (targetIndex !== draggedIndex && targetIndex >= 0) {
-                this.reorderPanel(draggedIndex, targetIndex);
-            }
-
-            // Cleanup
-            if (dropIndicator) {
-                dropIndicator.remove();
-                dropIndicator = null;
-            }
-        });
-
-        container.addEventListener('dragend', (e) => {
-            // Reset visual feedback
-            if (draggedElement) {
-                draggedElement.style.opacity = '';
-                draggedElement = null;
-                draggedIndex = null;
-            }
-            
-            // Cleanup indicator
-            if (dropIndicator) {
-                dropIndicator.remove();
-                dropIndicator = null;
-            }
-        });
-
-        container.addEventListener('dragleave', (e) => {
-            // Only remove indicator if we're leaving the container entirely
-            if (!container.contains(e.relatedTarget)) {
-                if (dropIndicator) {
-                    dropIndicator.remove();
-                    dropIndicator = null;
-                }
-            }
-        });
+        // Initialize with the container
+        this.dragDropManager.initialize(container);
     }
 
     /**
      * Reorder a panel from one index to another
      */
     reorderPanel(fromIndex, toIndex) {
-        const savedOrder = this.getPanelOrder(this.activeCategory);
-        if (!savedOrder) return;
+        console.log(`[SidebarManager] Reordering panel from ${fromIndex} to ${toIndex}`);
+        
+        appStore.dispatch(panelActions.reorderPanel({
+            category: this.activeCategory,
+            fromIndex,
+            toIndex
+        }));
+        
+        // Don't re-render immediately - let the store subscription handle it
+        // The render will be triggered by the state change
+    }
 
-        const newOrder = [...savedOrder];
-        const [movedPanel] = newOrder.splice(fromIndex, 1);
-        newOrder.splice(toIndex, 0, movedPanel);
+    setupEventListeners() {
+        const container = this.container.querySelector('#panels-list');
+        if (!container) return;
 
-        // Save new order
-        this.savePanelOrder(this.activeCategory, newOrder);
+        container.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
 
-        // Re-render to show new order
-        this.renderPanelsForCategory();
+            const action = target.dataset.action;
+            const panelId = target.dataset.panelId;
 
-        console.log(`[SidebarManager] Reordered panel from ${fromIndex} to ${toIndex} in ${this.activeCategory}`);
+            if (action === 'toggle-panel') {
+                this.togglePanel(panelId);
+            } else if (action === 'float-panel') {
+                e.stopPropagation(); // Prevent toggling when floating
+                this.createFloatingPanel(panelId);
+            } else if (action === 'close-panel') {
+                this.closePanel(panelId);
+            } else if (action === 'close-floating') {
+                this.closeFloatingPanel(panelId);
+            }
+        });
+
+        // Drag and drop is now handled by initializeDragDrop()
+        
+        // Handle panel header clicks vs drags
+        let dragStartTime = 0;
+        let dragStartPos = { x: 0, y: 0 };
+        let isDragOperation = false;
+        
+        container.addEventListener('mousedown', (e) => {
+            const targetElement = this.getElementWithClosest(e.target);
+            const panelHeader = targetElement ? targetElement.closest('.panel-header') : null;
+            
+            if (panelHeader) {
+                dragStartTime = Date.now();
+                dragStartPos = { x: e.clientX, y: e.clientY };
+                isDragOperation = false;
+            }
+        });
+        
+        container.addEventListener('mousemove', (e) => {
+            if (dragStartTime > 0) {
+                const distance = Math.sqrt(
+                    Math.pow(e.clientX - dragStartPos.x, 2) + 
+                    Math.pow(e.clientY - dragStartPos.y, 2)
+                );
+                
+                // If moved more than 5px, consider it a drag
+                if (distance > 5) {
+                    isDragOperation = true;
+                }
+            }
+        });
+        
+        container.addEventListener('mouseup', (e) => {
+            dragStartTime = 0;
+            // Reset drag operation flag after a short delay to allow click event to fire
+            setTimeout(() => {
+                isDragOperation = false;
+            }, 10);
+        });
+        
+        container.addEventListener('click', (e) => {
+            const targetElement = this.getElementWithClosest(e.target);
+            const panelHeader = targetElement ? targetElement.closest('.panel-header') : null;
+            const controlBtn = targetElement ? targetElement.closest('.panel-control-btn') : null;
+            
+            // If clicking a control button, don't prevent the click
+            if (controlBtn) {
+                return;
+            }
+            
+            if (panelHeader && isDragOperation) {
+                // If this was a drag operation, prevent the click
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+            }
+        });
     }
 
     
@@ -877,6 +861,10 @@ export class SidebarManager {
                 flex: 1;
             }
 
+            .panels-container {
+                padding-bottom: 20px; /* Add space for dropping at the end */
+            }
+
             /* Panel Items */
             .panel-item {
                 margin-bottom: var(--space-3);
@@ -910,43 +898,129 @@ export class SidebarManager {
                 gap: var(--space-2);
             }
 
-            .panel-drag-handle {
+            .panel-header[draggable="true"] {
                 cursor: grab;
-                color: var(--color-fg-muted);
-                font-size: var(--font-size-xs);
-                padding: var(--space-1);
-                border-radius: var(--radius-base);
-                transition: var(--transition-fast);
                 user-select: none;
-                line-height: 1;
             }
 
-            .panel-drag-handle:hover {
-                color: var(--color-fg);
+            .panel-header[draggable="true"]:hover {
                 background: var(--color-bg-hover);
             }
 
-            .panel-item[draggable="true"]:active .panel-drag-handle {
+            .panel-header[draggable="true"]:active {
                 cursor: grabbing;
             }
 
-            .panel-item.dragging {
+            .panel-drag-indicator {
+                color: var(--color-fg-muted);
+                font-size: 10px;
                 opacity: 0.5;
+                transition: opacity 0.2s ease;
+                line-height: 1;
+            }
+
+            .panel-header:hover .panel-drag-indicator {
+                opacity: 1;
+                color: var(--color-primary);
+            }
+
+            .panel-controls {
+                display: flex;
+                align-items: center;
+                gap: var(--space-1);
+            }
+
+            .panel-control-btn {
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                font-size: 10px;
+                color: var(--color-fg-muted);
+                padding: 2px;
+                border-radius: var(--radius-sm);
+                transition: all 0.2s ease;
+                line-height: 1;
+                width: 14px;
+                height: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.6;
+            }
+
+            .panel-control-btn:hover {
+                color: var(--color-primary);
+                background: transparent;
+                opacity: 1;
+                transform: scale(1.2);
+            }
+
+            .panel-control-btn:active {
+                transform: scale(0.9);
+                opacity: 0.8;
+            }
+
+            .panel-item.dragging {
+                opacity: 0.8;
+                transform: rotate(1deg) scale(1.05);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+                z-index: 1000;
+                border: 2px solid var(--color-primary);
+                background: var(--color-bg-elevated);
+            }
+
+            /* SortableJS Classes */
+            .sortable-ghost {
+                opacity: 0.4;
+                background: var(--color-primary-background);
+                border: 2px dashed var(--color-primary);
+            }
+
+            .sortable-chosen {
+                opacity: 0.9;
+                transform: scale(1.02);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+
+            .sortable-drag {
+                opacity: 1;
                 transform: rotate(2deg);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                z-index: 1000;
             }
 
             .drop-indicator {
-                height: 2px;
+                height: 3px;
                 background: var(--color-primary);
-                margin: 4px 0;
-                border-radius: 1px;
-                opacity: 0.8;
+                margin: 6px 8px;
+                border-radius: 2px;
+                opacity: 1;
+                box-shadow: 0 0 4px var(--color-primary);
                 animation: pulse 1s infinite;
             }
 
             @keyframes pulse {
                 0%, 100% { opacity: 0.8; }
                 50% { opacity: 0.4; }
+            }
+
+            .panels-reorder-hint {
+                display: flex;
+                align-items: center;
+                gap: var(--space-1);
+                padding: var(--space-2);
+                margin-bottom: var(--space-2);
+                background: var(--color-bg-alt);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-base);
+                font-size: var(--font-size-xs);
+                color: var(--color-fg-muted);
+                opacity: 0.8;
+            }
+
+            .panels-reorder-hint .hint-icon {
+                color: var(--color-primary);
+                font-weight: bold;
             }
 
             .panel-header:hover {
@@ -1082,6 +1156,10 @@ export class SidebarManager {
         }
         if (this.header) {
             this.header.destroy();
+        }
+        if (this.dragDropManager) {
+            this.dragDropManager.destroy();
+            this.dragDropManager = null;
         }
         this.initialized = false;
     }
