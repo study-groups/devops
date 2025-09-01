@@ -8,10 +8,10 @@ export class JsonViewer {
 
     render(data) {
         if (data === undefined || data === null) {
-            return `<pre class="dp-slice-json"><span class="dp-json-null">${String(data)}</span></pre>`;
+            return `<pre class="devpages-slice-json"><span class="devpages-json-null">${String(data)}</span></pre>`;
         }
         const jsonString = JSON.stringify(data, null, 2);
-        return `<pre class="dp-slice-json">${this.syntaxHighlight(jsonString)}</pre>`;
+        return `<pre class="devpages-slice-json">${this.syntaxHighlight(jsonString)}</pre>`;
     }
 
     syntaxHighlight(json) {
@@ -32,7 +32,7 @@ export class JsonViewer {
             } else if (/null/.test(match)) {
                 cls = 'null';
             }
-            return `<span class="dp-json-${cls}">${match}</span>`;
+            return `<span class="devpages-json-${cls}">${match}</span>`;
         });
     }
 
@@ -43,12 +43,12 @@ export class JsonViewer {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
-            .dp-slice-json {
-                font-family: var(--font-family-mono);
-                font-size: 10px;
-                line-height: 1.4;
-                background: var(--color-bg-alt);
-                border: 1px solid var(--color-border);
+            .devpages-slice-json {
+                font-family: var(--devpages-panel-font-mono);
+                font-size: var(--devpages-panel-font-size-micro);
+                line-height: var(--devpages-panel-line-height-tight);
+                background: var(--devpages-panel-bg-alt);
+                border: 1px solid var(--devpages-panel-border);
                 border-radius: var(--radius-sm);
                 padding: var(--space-2);
                 margin: 0;
@@ -56,11 +56,11 @@ export class JsonViewer {
                 max-height: 300px;
                 overflow-y: auto;
             }
-            .dp-json-key { color: var(--color-text, #111); }
-            .dp-json-string { color: var(--color-success, #28a745); }
-            .dp-json-number { color: var(--color-primary, #007bff); }
-            .dp-json-boolean { color: var(--color-warning, #ffc107); }
-            .dp-json-null { color: var(--color-text-secondary, #6c757d); font-style: italic; }
+            .devpages-json-key { color: var(--color-text, #111); }
+            .devpages-json-string { color: var(--color-success, #28a745); }
+            .devpages-json-number { color: var(--color-primary, #007bff); }
+            .devpages-json-boolean { color: var(--color-warning, #ffc107); }
+            .devpages-json-null { color: var(--color-text-secondary, #6c757d); font-style: italic; }
         `;
         document.head.appendChild(style);
     }

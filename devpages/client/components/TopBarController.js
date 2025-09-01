@@ -42,8 +42,9 @@ export class TopBarController {
         });
 
         this.actionHandlers.set('toggleLogVisibility', () => {
+            const currentState = appStore.getState().ui?.logVisible;
             dispatch(uiActions.toggleLogVisibility());
-            logMessage('Log visibility toggled', 'info', 'TOP_BAR');
+            logMessage(`Log visibility toggled: ${currentState} → ${!currentState}`, 'info', 'TOP_BAR');
         });
 
         // File Actions

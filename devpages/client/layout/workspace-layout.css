@@ -11,14 +11,8 @@
     overflow: hidden;
 }
 
-/* Log container at bottom */
-.log-container {
-    height: 150px;
-    min-height: 30px;
-    max-height: 500px;
-    border-top: 1px solid var(--color-border);
-    background: var(--color-bg);
-}
+/* REMOVED: Log container styles moved to log-layout.css */
+/* The log is NOT part of workspace layout - it's a fixed positioned display */
 
 /* ===== LEFT ZONE DOCKS STYLES (merged from left-zone-docks.css) ===== */
 
@@ -888,9 +882,7 @@
         height: 50vh; /* Give them some height */
     }
 
-    .log-container {
-        height: 200px;
-    }
+    /* REMOVED: Log container is not part of workspace layout */
 }
 
 /* Panel Resize Handle */

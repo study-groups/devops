@@ -177,6 +177,8 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     addStyles() {
+        // Note: FileBrowserPanel uses specific fb- prefixed CSS classes that are not in external CSS
+        // This is acceptable since it doesn't cause the race condition seen in UIInspectorPanel
         if (document.getElementById('file-browser-styles')) return;
 
         const style = document.createElement('style');

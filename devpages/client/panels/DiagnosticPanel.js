@@ -25,67 +25,67 @@ export class DiagnosticPanel extends BasePanel {
 
     renderContent() {
         return `
-            <div class="dp-container">
+            <div class="devpages-panel-content">
                 <!-- Panel Toolbar -->
-                <div class="dp-toolbar">
-                    <button id="refresh-diagnostics" class="dp-btn dp-btn-primary">
-                        <span class="dp-btn-icon">↻</span>
-                        <span class="dp-btn-text">Refresh</span>
+                <div class="devpages-panel-toolbar">
+                    <button id="refresh-diagnostics" class="devpages-btn-ghost devpages-btn-primary">
+                        <span>↻</span>
+                        <span>Refresh</span>
                     </button>
-                    <label class="dp-toggle">
-                        <input type="checkbox" id="auto-refresh" class="dp-toggle-input" />
-                        <span class="dp-toggle-label">Auto-refresh (5s)</span>
+                    <label class="devpages-flex-center devpages-flex-gap-sm">
+                        <input type="checkbox" id="auto-refresh" class="devpages-input-compact" />
+                        <span class="devpages-text-muted">Auto-refresh (5s)</span>
                     </label>
                 </div>
 
                 <!-- Diagnostic Sections -->
-                <div class="dp-sections">
+                <div class="devpages-panel-sections">
                     <!-- System Overview Section -->
-                    <div class="dp-section collapsed" data-section="system">
-                        <div class="dp-section-header" data-toggle="system">
-                            <span class="dp-section-icon">▶</span>
-                            <span class="dp-section-title">System Overview</span>
-                            <span class="dp-section-badge" id="system-badge">●</span>
+                    <div class="devpages-panel-row collapsed" data-section="system">
+                        <div class="devpages-panel-row-header" data-toggle="system">
+                            <span class="devpages-panel-row-icon">▶</span>
+                            <span class="devpages-panel-row-title">System Overview</span>
+                            <span class="devpages-type-badge" id="system-badge">●</span>
                         </div>
-                        <div class="dp-section-content" id="system-content">
-                            <div class="dp-subsection collapsed">
-                                <div class="dp-subsection-header" data-toggle="system-status">
-                                    <span class="dp-subsection-icon">▶</span>
-                                    <span class="dp-subsection-title">Status</span>
+                        <div class="devpages-panel-row-content" id="system-content">
+                            <div class="devpages-panel-subsection collapsed">
+                                <div class="devpages-panel-subsection-header" data-toggle="system-status">
+                                    <span class="devpages-panel-subsection-icon">▶</span>
+                                    <span class="devpages-panel-subsection-title">Status</span>
                                 </div>
-                                <div class="dp-subsection-content collapsed" id="system-status">Loading...</div>
+                                <div class="devpages-panel-subsection-content collapsed" id="system-status">Loading...</div>
                             </div>
-                            <div class="dp-subsection collapsed">
-                                <div class="dp-subsection-header" data-toggle="system-health">
-                                    <span class="dp-subsection-icon">▶</span>
-                                    <span class="dp-subsection-title">Health Checks</span>
+                            <div class="devpages-panel-subsection collapsed">
+                                <div class="devpages-panel-subsection-header" data-toggle="system-health">
+                                    <span class="devpages-panel-subsection-icon">▶</span>
+                                    <span class="devpages-panel-subsection-title">Health Checks</span>
                                 </div>
-                                <div class="dp-subsection-content collapsed" id="system-health">Loading...</div>
+                                <div class="devpages-panel-subsection-content collapsed" id="system-health">Loading...</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Performance Section -->
-                    <div class="dp-section collapsed" data-section="performance">
-                        <div class="dp-section-header" data-toggle="performance">
-                            <span class="dp-section-icon">▶</span>
-                            <span class="dp-section-title">Performance</span>
-                            <span class="dp-section-badge" id="performance-badge">●</span>
+                    <div class="devpages-panel-row collapsed" data-section="performance">
+                        <div class="devpages-panel-row-header" data-toggle="performance">
+                            <span class="devpages-panel-row-icon">▶</span>
+                            <span class="devpages-panel-row-title">Performance</span>
+                            <span class="devpages-type-badge" id="performance-badge">●</span>
                         </div>
-                        <div class="dp-section-content" id="performance-content">
-                            <div class="dp-subsection collapsed">
-                                <div class="dp-subsection-header" data-toggle="performance-metrics">
-                                    <span class="dp-subsection-icon">▶</span>
-                                    <span class="dp-subsection-title">Metrics</span>
+                        <div class="devpages-panel-row-content" id="performance-content">
+                            <div class="devpages-panel-subsection collapsed">
+                                <div class="devpages-panel-subsection-header" data-toggle="performance-metrics">
+                                    <span class="devpages-panel-subsection-icon">▶</span>
+                                    <span class="devpages-panel-subsection-title">Metrics</span>
                                 </div>
-                                <div class="dp-subsection-content collapsed" id="performance-metrics">Loading...</div>
+                                <div class="devpages-panel-subsection-content collapsed" id="performance-metrics">Loading...</div>
                             </div>
-                            <div class="dp-subsection collapsed">
-                                <div class="dp-subsection-header" data-toggle="performance-memory">
-                                    <span class="dp-subsection-icon">▶</span>
-                                    <span class="dp-subsection-title">Memory Usage</span>
+                            <div class="devpages-panel-subsection collapsed">
+                                <div class="devpages-panel-subsection-header" data-toggle="performance-memory">
+                                    <span class="devpages-panel-subsection-icon">▶</span>
+                                    <span class="devpages-panel-subsection-title">Memory Usage</span>
                                 </div>
-                                <div class="dp-subsection-content collapsed" id="performance-memory">Loading...</div>
+                                <div class="devpages-panel-subsection-content collapsed" id="performance-memory">Loading...</div>
                             </div>
                         </div>
                     </div>
@@ -188,12 +188,12 @@ export class DiagnosticPanel extends BasePanel {
     attachSliceAccordionListeners(container) {
         container.addEventListener('click', (e) => {
             // Handle slice header clicks
-            const sliceHeader = e.target.closest('.dp-slice-header');
+            const sliceHeader = e.target.closest('.devpages-slice-header');
             if (sliceHeader) {
                 const sliceKey = sliceHeader.dataset.toggleSlice;
-                const sliceItem = sliceHeader.closest('.dp-slice-item');
-                const sliceContent = sliceItem.querySelector('.dp-slice-content');
-                const sliceIcon = sliceHeader.querySelector('.dp-slice-icon');
+                const sliceItem = sliceHeader.closest('.devpages-slice-item');
+                const sliceContent = sliceItem.querySelector('.devpages-slice-content');
+                const sliceIcon = sliceHeader.querySelector('.devpages-slice-icon');
 
                 const isCollapsed = sliceContent.classList.contains('collapsed');
                 
@@ -225,10 +225,10 @@ export class DiagnosticPanel extends BasePanel {
 
         // Section collapse/expand
         container.addEventListener('click', (e) => {
-            const sectionHeader = e.target.closest('.dp-section-header');
+            const sectionHeader = e.target.closest('.devpages-panel-row-header');
             if (sectionHeader) {
-                const section = sectionHeader.closest('.dp-section');
-                const icon = sectionHeader.querySelector('.dp-section-icon');
+                const section = sectionHeader.closest('.devpages-panel-row');
+                const icon = sectionHeader.querySelector('.devpages-panel-row-icon');
                 
                 section.classList.toggle('collapsed');
                 icon.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
@@ -236,11 +236,11 @@ export class DiagnosticPanel extends BasePanel {
             }
 
             // Subsection collapse/expand
-            const subsectionHeader = e.target.closest('.dp-subsection-header');
+            const subsectionHeader = e.target.closest('.devpages-panel-subsection-header');
             if (subsectionHeader) {
-                const subsection = subsectionHeader.closest('.dp-subsection');
-                const content = subsection.querySelector('.dp-subsection-content');
-                const icon = subsectionHeader.querySelector('.dp-subsection-icon');
+                const subsection = subsectionHeader.closest('.devpages-panel-subsection');
+                const content = subsection.querySelector('.devpages-panel-subsection-content');
+                const icon = subsectionHeader.querySelector('.devpages-panel-subsection-icon');
                 
                 subsection.classList.toggle('collapsed');
                 content.classList.toggle('collapsed');
@@ -394,18 +394,18 @@ export class DiagnosticPanel extends BasePanel {
             /* === Diagnostic Panel Design System === */
             
             /* Container */
-            .dp-container {
+            .devpages-panel-content {
                 height: 100%;
                 display: flex;
                 flex-direction: column;
-                font-size: var(--font-size-sm);
-                font-family: var(--font-family-mono, 'SF Mono', Consolas, monospace);
-                line-height: 1.4;
+                font-size: var(--devpages-panel-font-size-compact);
+                font-family: var(--devpages-panel-font-mono);
+                line-height: var(--devpages-panel-line-height-tight);
                 background: var(--devpages-panel-bg);
             }
 
             /* Toolbar */
-            .dp-toolbar {
+            .devpages-panel-toolbar {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -416,64 +416,15 @@ export class DiagnosticPanel extends BasePanel {
                 gap: var(--devpages-panel-gap);
             }
 
-            .dp-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: var(--devpages-panel-gap-sm);
-                padding: var(--devpages-panel-control-padding);
-                border: var(--devpages-panel-control-border);
-                border-radius: var(--devpages-panel-control-radius);
-                background: transparent;
-                color: var(--color-text);
-                font-size: var(--devpages-panel-font-size-sm);
-                font-weight: var(--devpages-panel-font-weight-medium);
-                cursor: pointer;
-                transition: all 0.15s ease;
-            }
-
-            .dp-btn:hover {
-                background: var(--devpages-panel-control-hover-bg);
-                border-color: var(--devpages-panel-control-hover-border);
-            }
-
-            .dp-btn-primary {
-                background: var(--color-primary);
-                color: white;
-                border-color: var(--color-primary);
-            }
-
-            .dp-btn-primary:hover {
-                background: var(--color-primary-dark);
-                border-color: var(--color-primary-dark);
-            }
-
-            .dp-btn-icon {
-                font-size: 10px;
-                line-height: 1;
-            }
-
-            .dp-toggle {
-                display: flex;
-                align-items: center;
-                gap: var(--devpages-panel-gap-sm);
-                font-size: var(--devpages-panel-font-size-sm);
-                cursor: pointer;
-            }
-
-            .dp-toggle-input {
-                width: 12px;
-                height: 12px;
-            }
-
-            /* Sections Container */
-            .dp-sections {
+            /* Sections */
+            .devpages-panel-sections {
                 flex: 1;
                 overflow-y: auto;
                 padding: var(--space-3);
             }
 
-            /* Section */
-            .dp-section {
+            /* Panel Rows */
+            .devpages-panel-row {
                 margin-bottom: var(--space-3);
                 border: var(--devpages-panel-border);
                 border-radius: var(--radius-lg);
@@ -482,11 +433,11 @@ export class DiagnosticPanel extends BasePanel {
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             }
 
-            .dp-section:last-child {
+            .devpages-panel-row:last-child {
                 margin-bottom: 0;
             }
 
-            .dp-section-header {
+            .devpages-panel-row-header {
                 display: flex;
                 align-items: center;
                 gap: var(--space-2);
@@ -499,11 +450,11 @@ export class DiagnosticPanel extends BasePanel {
                 min-height: 40px;
             }
 
-            .dp-section-header:hover {
+            .devpages-panel-row-header:hover {
                 background: var(--devpages-panel-table-hover-bg);
             }
 
-            .dp-section-icon {
+            .devpages-panel-row-icon {
                 font-size: 8px;
                 line-height: 1;
                 width: 10px;
@@ -511,52 +462,36 @@ export class DiagnosticPanel extends BasePanel {
                 transition: transform 0.15s ease;
             }
 
-            .dp-section.collapsed .dp-section-icon {
+            .devpages-panel-row.collapsed .devpages-panel-row-icon {
                 transform: rotate(-90deg);
             }
 
-            .dp-section-title {
+            .devpages-panel-row-title {
                 flex: 1;
                 font-weight: var(--font-weight-semibold);
                 font-size: var(--font-size-base);
                 color: var(--color-text);
             }
 
-            .dp-section-badge {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--color-success);
-                font-size: 0;
-            }
-
-            .dp-section-badge.warning {
-                background: var(--color-warning);
-            }
-
-            .dp-section-badge.error {
-                background: var(--color-danger);
-            }
-
-            .dp-section-content {
+            .devpages-panel-row-content {
                 padding: var(--space-3);
                 transition: all 0.2s ease;
             }
 
-            .dp-section.collapsed .dp-section-content {
+            .devpages-panel-row.collapsed .devpages-panel-row-content {
                 display: none;
             }
 
-            /* Subsection */
-            .dp-subsection {
+            /* Subsections */
+            .devpages-panel-subsection {
                 margin-bottom: var(--space-3);
             }
 
-            .dp-subsection:last-child {
+            .devpages-panel-subsection:last-child {
                 margin-bottom: 0;
             }
 
-            .dp-subsection-header {
+            .devpages-panel-subsection-header {
                 display: flex;
                 align-items: center;
                 gap: var(--space-2);
@@ -568,11 +503,11 @@ export class DiagnosticPanel extends BasePanel {
                 min-height: 32px;
             }
 
-            .dp-subsection-header:hover {
+            .devpages-panel-subsection-header:hover {
                 background: var(--color-bg-hover);
             }
 
-            .dp-subsection-icon {
+            .devpages-panel-subsection-icon {
                 font-size: 7px;
                 line-height: 1;
                 width: 8px;
@@ -581,17 +516,17 @@ export class DiagnosticPanel extends BasePanel {
                 opacity: 0.7;
             }
 
-            .dp-subsection.collapsed .dp-subsection-icon {
+            .devpages-panel-subsection.collapsed .devpages-panel-subsection-icon {
                 transform: rotate(-90deg);
             }
 
-            .dp-subsection-title {
+            .devpages-panel-subsection-title {
                 font-size: var(--font-size-sm);
                 font-weight: var(--font-weight-medium);
                 color: var(--color-text);
             }
 
-            .dp-subsection-content {
+            .devpages-panel-subsection-content {
                 padding-left: calc(8px + var(--space-2) + var(--space-2));
                 margin-top: var(--space-2);
                 font-size: var(--font-size-sm);
@@ -599,7 +534,7 @@ export class DiagnosticPanel extends BasePanel {
                 transition: all 0.2s ease;
             }
 
-            .dp-subsection-content.collapsed {
+            .devpages-panel-subsection-content.collapsed {
                 display: none;
             }
 
@@ -704,20 +639,20 @@ export class DiagnosticPanel extends BasePanel {
             }
 
             /* Scrollbar */
-            .dp-sections::-webkit-scrollbar {
+            .devpages-panel-sections::-webkit-scrollbar {
                 width: 4px;
             }
 
-            .dp-sections::-webkit-scrollbar-track {
+            .devpages-panel-sections::-webkit-scrollbar-track {
                 background: transparent;
             }
 
-            .dp-sections::-webkit-scrollbar-thumb {
+            .devpages-panel-sections::-webkit-scrollbar-thumb {
                 background: var(--color-border);
                 border-radius: 2px;
             }
 
-            .dp-sections::-webkit-scrollbar-thumb:hover {
+            .devpages-panel-sections::-webkit-scrollbar-thumb:hover {
                 background: var(--color-text-secondary);
             }
 
@@ -738,7 +673,7 @@ export class DiagnosticPanel extends BasePanel {
             }
 
             /* Slice Item Container */
-            .dp-slice-item {
+            .devpages-slice-item {
                 border: 1px solid var(--color-border);
                 border-radius: var(--radius-base);
                 background: var(--color-bg);
@@ -746,18 +681,18 @@ export class DiagnosticPanel extends BasePanel {
                 transition: all 0.2s ease;
             }
 
-            .dp-slice-item:hover {
+            .devpages-slice-item:hover {
                 border-color: var(--color-border-hover, var(--color-primary-light));
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             }
 
-            .dp-slice-item.expanded {
+            .devpages-slice-item.expanded {
                 border-color: var(--color-primary);
                 box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             }
 
             /* Slice Header */
-            .dp-slice-header {
+            .devpages-slice-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -768,16 +703,16 @@ export class DiagnosticPanel extends BasePanel {
                 min-height: 56px;
             }
 
-            .dp-slice-header:hover {
+            .devpages-slice-header:hover {
                 background: var(--color-bg-hover);
             }
 
-            .dp-slice-item.expanded .dp-slice-header {
+            .devpages-slice-item.expanded .devpages-slice-header {
                 background: var(--color-bg-alt);
                 border-bottom: 1px solid var(--color-border);
             }
 
-            .dp-slice-main {
+            .devpages-slice-main {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
@@ -785,21 +720,21 @@ export class DiagnosticPanel extends BasePanel {
                 min-width: 0;
             }
 
-            .dp-slice-name {
+            .devpages-slice-name {
                 font-weight: var(--font-weight-bold);
                 font-size: var(--font-size-base);
                 color: var(--color-text);
                 line-height: 1.2;
             }
 
-            .dp-slice-meta {
+            .devpages-slice-meta {
                 display: flex;
                 align-items: center;
                 gap: var(--space-2);
                 flex-wrap: wrap;
             }
 
-            .dp-slice-type {
+            .devpages-slice-type {
                 font-size: var(--font-size-xs);
                 color: var(--color-text-secondary);
                 background: var(--color-bg-alt);
@@ -809,50 +744,50 @@ export class DiagnosticPanel extends BasePanel {
                 font-weight: var(--font-weight-medium);
             }
 
-            .dp-slice-size {
+            .devpages-slice-size {
                 font-size: var(--font-size-xs);
                 color: var(--color-text-secondary);
                 font-family: var(--font-family-mono);
                 opacity: 0.8;
             }
 
-            .dp-slice-count {
+            .devpages-slice-count {
                 font-size: var(--font-size-xs);
                 color: var(--color-primary);
                 font-weight: var(--font-weight-medium);
             }
 
-            .dp-slice-controls {
+            .devpages-slice-controls {
                 display: flex;
                 align-items: center;
                 gap: var(--space-2);
             }
 
-            .dp-slice-status {
+            .devpages-slice-status {
                 width: 8px;
                 height: 8px;
                 border-radius: 50%;
                 background: var(--color-success);
             }
 
-            .dp-slice-status.loading {
+            .devpages-slice-status.loading {
                 background: var(--color-warning);
                 animation: pulse 1.5s ease-in-out infinite;
             }
 
-            .dp-slice-status.error {
+            .devpages-slice-status.error {
                 background: var(--color-danger);
             }
 
-            .dp-slice-status.pending {
+            .devpages-slice-status.pending {
                 background: var(--color-text-secondary);
             }
 
-            .dp-slice-status.empty {
+            .devpages-slice-status.empty {
                 background: var(--color-border);
             }
 
-            .dp-slice-icon {
+            .devpages-slice-icon {
                 font-size: 10px;
                 color: var(--color-text-secondary);
                 transition: transform 0.2s ease;
@@ -860,31 +795,31 @@ export class DiagnosticPanel extends BasePanel {
                 text-align: center;
             }
 
-            .dp-slice-item.expanded .dp-slice-icon {
+            .devpages-slice-item.expanded .devpages-slice-icon {
                 transform: rotate(90deg);
             }
 
             /* Slice Content */
-            .dp-slice-content {
+            .devpages-slice-content {
                 padding: var(--space-3);
                 border-top: 1px solid var(--color-border);
                 background: var(--color-bg);
                 transition: all 0.2s ease;
             }
 
-            .dp-slice-content.collapsed {
+            .devpages-slice-content.collapsed {
                 display: none;
             }
 
             /* Slice Properties Grid */
-            .dp-slice-props-grid {
+            .devpages-slice-props-grid {
                 display: flex;
                 flex-direction: column;
                 gap: var(--space-1);
                 margin-bottom: var(--space-3);
             }
 
-            .dp-slice-prop {
+            .devpages-slice-prop {
                 display: grid;
                 grid-template-columns: 1fr auto 1fr;
                 gap: var(--space-2);
@@ -896,7 +831,7 @@ export class DiagnosticPanel extends BasePanel {
                 min-height: 28px;
             }
 
-            .dp-slice-prop-key {
+            .devpages-slice-prop-key {
                 font-weight: var(--font-weight-medium);
                 color: var(--color-text);
                 overflow: hidden;
@@ -904,7 +839,7 @@ export class DiagnosticPanel extends BasePanel {
                 white-space: nowrap;
             }
 
-            .dp-slice-prop-type {
+            .devpages-slice-prop-type {
                 font-size: 10px;
                 color: var(--color-text-secondary);
                 background: var(--color-bg);
@@ -916,7 +851,7 @@ export class DiagnosticPanel extends BasePanel {
                 min-width: 50px;
             }
 
-            .dp-slice-prop-value {
+            .devpages-slice-prop-value {
                 font-family: var(--font-family-mono);
                 color: var(--color-text-secondary);
                 text-align: right;
@@ -925,7 +860,7 @@ export class DiagnosticPanel extends BasePanel {
                 white-space: nowrap;
             }
 
-            .dp-slice-more {
+            .devpages-slice-more {
                 font-size: var(--font-size-xs);
                 color: var(--color-text-secondary);
                 text-align: center;
@@ -933,8 +868,8 @@ export class DiagnosticPanel extends BasePanel {
                 font-style: italic;
             }
 
-            .dp-slice-primitive,
-            .dp-slice-empty {
+            .devpages-slice-primitive,
+            .devpages-slice-empty {
                 font-family: var(--font-family-mono);
                 font-size: var(--font-size-xs);
                 color: var(--color-text-secondary);
@@ -946,11 +881,11 @@ export class DiagnosticPanel extends BasePanel {
             }
 
             /* Raw Data Section */
-            .dp-slice-raw {
+            .devpages-slice-raw {
                 margin-top: var(--space-2);
             }
 
-            .dp-slice-raw summary {
+            .devpages-slice-raw summary {
                 font-size: var(--font-size-xs);
                 color: var(--color-text-secondary);
                 cursor: pointer;
@@ -959,7 +894,7 @@ export class DiagnosticPanel extends BasePanel {
                 transition: background-color 0.15s ease;
             }
 
-            .dp-slice-raw summary:hover {
+            .devpages-slice-raw summary:hover {
                 background: var(--color-bg-hover);
             }
 

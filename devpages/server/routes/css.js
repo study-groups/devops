@@ -23,6 +23,14 @@ const CSS_BUNDLES = {
     ],
     features: [
         'client/log/log.css',
+        'client/log/log-layout.css',
+        'client/log/log-header.css',
+        'client/log/log-controls.css',
+        'client/log/log-entries.css',
+        'client/log/log-filters.css',
+        'client/log/log-tokens.css',
+        'client/log/log-menu.css',
+        'client/log/log-utilities.css',
         'client/file-browser/file-browser.css',
         'client/components/context-manager.css',
         'client/styles/splash-screen.css',
@@ -30,7 +38,8 @@ const CSS_BUNDLES = {
     ],
     panels: [
         'client/styles/panel-system.css',
-        'client/styles/design-tokens-panel.css'
+        'client/styles/design-tokens-panel.css',
+        'client/styles/ui-inspector.css'
     ]
 };
 

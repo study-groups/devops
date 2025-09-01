@@ -197,13 +197,12 @@ export class BasePanel {
         this.element.id = this.id;
         this.element.setAttribute('data-panel-id', this.id);
 
-        // Add base panel styles
-        this.addBaseStyles();
+        // Base panel styles now loaded via CSS bundles
 
         const state = this.getState();
         
         this.element.innerHTML = `
-            <div class="panel-header" data-action="drag">
+            <div class="base-panel-header" data-action="drag">
                 <div class="panel-title">${this.title}</div>
                 <div class="panel-controls">
                     ${this.config.collapsible ? '<button class="panel-btn collapse-btn" data-action="collapse" title="Collapse">−</button>' : ''}
@@ -515,88 +514,6 @@ export class BasePanel {
         };
     }
 
-    addBaseStyles() {
-        const styleId = 'base-panel-styles';
-        if (document.getElementById(styleId)) return;
-
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
-            .base-panel {
-                position: fixed;
-                display: flex;
-                flex-direction: column;
-                background: white;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                overflow: hidden;
-                transition: opacity 0.2s, transform 0.2s;
-                opacity: 0;
-                transform: scale(0.95);
-            }
-            .base-panel.is-visible {
-                opacity: 1;
-                transform: scale(1);
-            }
-            .panel-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 12px;
-                background: #f7f7f7;
-                border-bottom: 1px solid #ddd;
-                cursor: move;
-                height: 40px;
-            }
-            .panel-title {
-                font-weight: 600;
-            }
-            .panel-controls {
-                display: flex;
-                gap: 4px;
-            }
-            .panel-btn {
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px;
-                width: 24px;
-                height: 24px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 4px;
-            }
-            .panel-btn:hover {
-                background: #eee;
-            }
-            .panel-body {
-                flex: 1;
-                padding: 12px;
-                overflow: auto;
-            }
-            .base-panel.collapsed .panel-body {
-                display: none;
-            }
-            .panel-resize-handle {
-                position: absolute;
-                right: 0;
-                bottom: 0;
-                width: 12px;
-                height: 12px;
-                cursor: se-resize;
-                background: repeating-linear-gradient(
-                    -45deg,
-                    #ccc,
-                    #ccc 1px,
-                    transparent 1px,
-                    transparent 4px
-                );
-            }
-        `;
-        document.head.appendChild(style);
-    }
 }
 
 // Panel Registry

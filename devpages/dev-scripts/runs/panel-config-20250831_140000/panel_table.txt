@@ -1,0 +1,23 @@
+PANEL CONFIGURATION TABLE
+=========================
+Generated: Sun Aug 31 14:00:00 PDT 2025
+Total Panel Files: 9
+
+BY TYPE:
+  core: 5
+  data: 1
+  development: 1
+  publish: 1
+  settings: 1
+
+FILE                           | CLASS                | TITLE                     | TYPE           
+-------------------------------+----------------------+---------------------------+----------------
+FileBrowserPanel.js            | FileBrowserPanel     | FileBrowserPanel          | development    
+PDataAuthPanel.js              | PDataAuthPanel       | PDataAuthPanel            | data           
+DesignTokensPanel.js           | DesignTokensPanel    | DesignTokensPanel         | core           
+index.js                       | index                | index                     | core           
+BasePanel.js                   | for                  | for                       | core           
+ThemePanel.js                  | ThemePanel           | ThemePanel                | settings       
+UIInspectorPanel.js            | UIInspectorPanel     | UIInspectorPanel          | core           
+PublishPanel.js                | PublishPanel         | PublishPanel              | publish        
+DiagnosticPanel.js             | DiagnosticPanel      | DiagnosticPanel           | core           

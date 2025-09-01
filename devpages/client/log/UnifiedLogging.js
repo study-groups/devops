@@ -350,7 +350,7 @@ class Logger {
   }
 }
 
-// --- Public API ---
+// Create the logging service object
 const loggingService = {
   config,
   typeHandlers: typeHandlersConfig,
@@ -359,7 +359,6 @@ const loggingService = {
     return new loggingService.Logger(type, source, options);
   },
   directLog(level, from, type, action, message, data = null) {
-    // Create temporary logger if none exists
     const logger = new loggingService.Logger(from || 'GLOBAL', null, {
       enableConsole: true,
       enablePanel: true
@@ -470,20 +469,60 @@ const loggingService = {
         authenticate: (token) => logger.send('AUTHENTICATE', 'SERVER', { token })
       };
     }
+  },
+  // Define testLoggingSystem directly in the object
+  testLoggingSystem() {
+    console.log('[DevPages.logging] Running comprehensive logging system test...');
+    
+    const logger = new Logger('TEST', 'LOGGING_SYSTEM');
+    
+    // Test 1: Standard string message
+    logger.log('INFO', 'TEST_ACTION', 'This is a standard string message');
+    
+    // Test 2: Object message
+    logger.log('INFO', 'TEST_ACTION', { key: 'value', nested: { deep: 'object' } });
+    
+    // Test 3: Number message
+    logger.log('INFO', 'TEST_ACTION', 42);
+    
+    // Test 4: Boolean message
+    logger.log('INFO', 'TEST_ACTION', true);
+    
+    // Test 5: Null message
+    logger.log('INFO', 'TEST_ACTION', null);
+    
+    // Test 6: Undefined message
+    logger.log('INFO', 'TEST_ACTION', undefined);
+    
+    // Test 7: Complex object with toString method
+    const complexObj = {
+      toString() {
+        return 'Custom toString representation';
+      }
+    };
+    logger.log('INFO', 'TEST_ACTION', complexObj);
+    
+    console.log('[DevPages.logging] Logging system test completed.');
   }
 };
 
-// Expose the logging service via the new, standardized namespace
+// Expose the logging service globally
 window.APP.services.log = loggingService;
 
-// For backward compatibility, we can also expose it via the old namespaces.
-// This should be removed once the entire application has been refactored.
+// For backward compatibility
 window.DevPages = window.DevPages || {};
 window.DevPages.logging = loggingService;
 window.PjaGames = window.PjaGames || {};
 window.PjaGames.logging = loggingService;
 
-export const { createLogger, setupControls, pjaGameApi } = loggingService;
+// Export the logging service components
+export const { 
+  createLogger, 
+  setupControls, 
+  pjaGameApi,
+  testLoggingSystem
+} = loggingService;
+
 export { Logger };
 export const typeHandlers = typeHandlersConfig;
 

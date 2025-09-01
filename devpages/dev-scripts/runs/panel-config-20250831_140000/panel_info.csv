@@ -1,0 +1,10 @@
+FILE,CLASS_NAME,TITLE,DESCRIPTION,TYPE
+client/panels/dev/FileBrowserPanel.js,FileBrowserPanel,FileBrowserPanel,FileBrowserPanel.js - Compact file browser and navigator,development
+client/panels/pdata/components/PDataAuthPanel.js,PDataAuthPanel,PDataAuthPanel,No description,data
+client/panels/DesignTokensPanel.js,DesignTokensPanel,DesignTokensPanel,Design Tokens Panel for exploring and managing design system tokens,core
+client/panels/index.js,index,index,Panel Index,core
+client/panels/BasePanel.js,for,for,BasePanel.js - Core panel system with Redux integration,core
+client/panels/settings/ThemePanel.js,ThemePanel,ThemePanel,ThemePanel.js - Theme and appearance settings panel,settings
+client/panels/UIInspectorPanel.js,UIInspectorPanel,UIInspectorPanel,No description,core
+client/panels/publish/PublishPanel.js,PublishPanel,PublishPanel,PublishPanel.js - Publishing and deployment management panel,publish
+client/panels/DiagnosticPanel.js,DiagnosticPanel,DiagnosticPanel,DiagnosticPanel.js - Example diagnostic panel implementation,core
