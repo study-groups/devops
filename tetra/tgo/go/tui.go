@@ -2,191 +2,139 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-type focus int
-
-const (
-	focusTree focus = iota
-	focusEdit
-)
-
-// TUI holds all the UI components and state.
-type TUI struct {
-	app    *tview.Application
-	core   *Core
-	root   *tview.Flex
-	tree   *tview.TreeView
-	editor *tview.TextArea
-	status *tview.TextView
-	focus  focus
-	mode   string // "NAV" or "INS"
+// Panel is a generic interface for all our panel types.
+type Panel interface {
+	tview.Primitive
+	Render(state State)
+	TabLabel(state State) string
 }
 
-// NewTUI creates and initializes all UI components.
-func NewTUI(app *tview.Application, core *Core) *TUI {
-	tui := &TUI{
-		app:   app,
-		core:  core,
-		focus: focusEdit,
-		mode:  "NAV",
+type TUI struct {
+	app   *tview.Application
+	store *Store
+
+	root	*tview.Pages
+	status  *tview.TextView
+	leftDock  *DockView
+	rightDock *DockView
+}
+
+func NewTUI(app *tview.Application, store *Store, config *Config) *TUI {
+	store.InitializePanelStates(config)
+
+	var leftConfigs, rightConfigs []PanelConfig
+	for _, p := range config.Panels {
+		if p.Dock == "left" {
+			leftConfigs = append(leftConfigs, p)
+		} else {
+			rightConfigs = append(rightConfigs, p)
+		}
 	}
 
-	// Status Bar
-	tui.status = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignLeft)
-	tui.status.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	tui := &TUI{
+		app:   app,
+		store: store,
+	}
 
-	// File Tree
-	rootNode := tview.NewTreeNode(filepath.Base(core.pwd)).SetReference(core.pwd)
-	tui.tree = tview.NewTreeView().SetRoot(rootNode).SetCurrentNode(rootNode)
-	// FIX: The SetGraphics() call must be on the TreeView object, not chained after SetTitle().
-	tui.tree.SetBorder(true).SetTitle(" Files ")
-	tui.tree.SetGraphics(true)
-	tui.populateNode(rootNode)
+	tui.status = tview.NewTextView().SetDynamicColors(true)
+	tui.leftDock = NewDockView(store, DockLeft, leftConfigs)
+	tui.rightDock = NewDockView(store, DockRight, rightConfigs)
 
-	tui.tree.SetSelectedFunc(tui.onTreeSelect)
+	body := tview.NewFlex().
+		AddItem(tui.leftDock, 0, 1, true).
+		AddItem(tui.rightDock, 0, 1, false)
 
-	// Editor
-	tui.editor = tview.NewTextArea()
-	tui.editor.SetBorder(true).SetTitle(" Editor ")
-	tui.editor.SetChangedFunc(func() {
-		tui.core.SetEditorContent(tui.editor.GetText())
-		tui.UpdateStatus()
-	})
+	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tui.status, 1, 0, false).
+		AddItem(body, 0, 1, true)
 
-	// Layout
-	body := tview.NewFlex().AddItem(tui.tree, 30, 0, true).AddItem(tui.editor, 0, 1, false)
-	tui.root = tview.NewFlex().SetDirection(tview.FlexRow).AddItem(tui.status, 1, 0, false).AddItem(body, 0, 1, true)
-
-	core.Subscribe(tui.refresh)
-	tui.refresh() // Initial render
-
+	tui.root = tview.NewPages().AddPage("main", mainLayout, true, true)
+	tui.setKeybinds()
 	return tui
 }
 
-// refresh is called when the core state changes.
-func (t *TUI) refresh() {
-	_, content, _ := t.core.CurrentState()
-	if t.editor.GetText() != content {
-		t.editor.SetText(content, false)
-	}
-	t.UpdateStatus()
+// Subscribe starts the main render loop.
+func (t *TUI) Subscribe() {
+	go func() {
+		for range t.store.Events() {
+			t.app.QueueUpdateDraw(func() {
+				t.Render()
+			})
+		}
+	}()
 }
 
-// UpdateStatus redraws the status bar based on the current core state.
-func (t *TUI) UpdateStatus() {
-	path, _, isDirty := t.core.CurrentState()
+// Render is the master render function, called whenever the state changes.
+func (t *TUI) Render() {
+	state := t.store.GetState()
 
-	focusStr := map[focus]string{focusTree: "tree", focusEdit: "editor"}[t.focus]
-	dirtyStr := ""
-	if isDirty {
-		dirtyStr = " *"
+	// Render each dock, which in turn renders its panels.
+	t.leftDock.Render(state)
+	t.rightDock.Render(state)
+
+	// Set focus based on the active dock.
+	if state.ActiveDock == DockLeft {
+		t.app.SetFocus(t.leftDock)
+	} else {
+		t.app.SetFocus(t.rightDock)
 	}
-	if path == "" {
-		path = "(none)"
+
+	// Render the status bar.
+	fileName := "(none)"
+	if state.CurrentFile != "" {
+		fileName = filepath.Base(state.CurrentFile)
 	}
-	statusText := fmt.Sprintf(
-		" Selected: %s  |  Mode: %s  |  Focus: %s%s  |  (Tab: Switch, Ctrl-S: Save, q: Quit)",
-		path, t.mode, focusStr, dirtyStr)
+	statusText := fmt.Sprintf(" ActiveDock: %s | File: %s", state.ActiveDock, fileName)
 	t.status.SetText(statusText)
 }
 
-// onTreeSelect handles user selection in the file tree.
-func (t *TUI) onTreeSelect(node *tview.TreeNode) {
-	ref, _ := node.GetReference().(string)
-	if ref == "" {
-		return
-	}
-
-	// Always update the core's concept of the selected path.
-	t.core.SelectPath(ref)
-
-	st, err := os.Stat(ref)
-	if err != nil {
-		return
-	}
-
-	if st.IsDir() {
-		if !node.IsExpanded() && len(node.GetChildren()) == 0 {
-			t.populateNode(node)
-		}
-		node.SetExpanded(!node.IsExpanded())
-	} else {
-		t.core.LoadFile(ref) // LoadFile also updates the selected path internally.
-		t.focus = focusEdit
-		t.setFocus()
-	}
-	t.UpdateStatus() // Update status after any selection.
-}
-
-// populateNode asks the core for file entries and adds them to the tree.
-func (t *TUI) populateNode(node *tview.TreeNode) {
-	ref, _ := node.GetReference().(string)
-	entries, err := t.core.ListFiles(ref) // This now calls the correct method.
-	if err != nil {
-		return
-	}
-	for _, entry := range entries {
-		name := entry.Name
-		if entry.IsDir {
-			name += "/"
-		}
-		child := tview.NewTreeNode(name).SetReference(entry.Path)
-		node.AddChild(child)
-	}
-}
-
-func (t *TUI) setFocus() {
-	if t.focus == focusTree {
-		t.app.SetFocus(t.tree)
-	} else {
-		t.app.SetFocus(t.editor)
-	}
-}
-
-func (t *TUI) GetRoot() *tview.Flex {
+func (t *TUI) GetRoot() tview.Primitive {
 	return t.root
 }
 
-func (t *TUI) SetKeybinds() {
+func (t *TUI) setKeybinds() {
 	t.app.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
-		if ev.Key() == tcell.KeyCtrlC || ev.Rune() == 'q' {
+		// Global quit.
+		if ev.Key() == tcell.KeyCtrlC {
+			// Cleanly stop any running terminal panels before quitting.
+			for _, p := range t.leftDock.panels {
+				if stoppable, ok := p.(interface{ Stop() }); ok {
+					stoppable.Stop()
+				}
+			}
+			for _, p := range t.rightDock.panels {
+				if stoppable, ok := p.(interface{ Stop() }); ok {
+					stoppable.Stop()
+				}
+			}
 			t.app.Stop()
 			return nil
 		}
-		if ev.Key() == tcell.KeyTab {
-			if t.focus == focusTree {
-				t.focus = focusEdit
-			} else {
-				t.focus = focusTree
-			}
-			t.setFocus()
-			t.UpdateStatus()
+
+		// Dispatch actions based on key press.
+		switch ev.Key() {
+		// Switch focus between docks.
+		case tcell.KeyTab, tcell.KeyEsc:
+			t.store.Dispatch(SwitchDockAction{})
 			return nil
-		}
-		if t.focus == focusEdit {
-			switch ev.Key() {
-			case tcell.KeyEsc:
-				t.mode = "NAV"
-				t.UpdateStatus()
-				return nil
-			case tcell.KeyCtrlS:
-				t.core.SaveFile()
-				return nil
-			}
-			if ev.Rune() == 'i' && t.mode == "NAV" {
-				t.mode = "INS"
-				t.UpdateStatus()
-				return nil
-			}
-			if t.mode == "NAV" {
-				return nil
-			}
+		// Cycle to the next tab in the current dock.
+		case tcell.KeyCtrlN:
+			t.store.Dispatch(CycleTabAction{Delta: 1})
+			return nil
+		// Cycle to the previous tab in the current dock (Shift+Tab).
+		case tcell.KeyBacktab, tcell.KeyCtrlP:
+			t.store.Dispatch(CycleTabAction{Delta: -1})
+			return nil
+		// Save the current file.
+		case tcell.KeyCtrlS:
+			t.store.Dispatch(SaveFileAction{})
+			return nil
 		}
 		return ev
 	})

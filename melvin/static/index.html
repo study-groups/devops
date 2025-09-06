@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go YouTube Transcriber</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>YouTube Video Transcriber</h1>
+            <p>Enter a YouTube video URL below to get its transcript.</p>
+        </header>
+
+        <div class="input-area">
+            <input type="text" id="youtube-url" placeholder="e.g., https://www.youtube.com/watch?v=8enXRDlWguU">
+            <button id="get-transcript-btn">Get Transcript</button>
+        </div>
+
+        <div class="result-area">
+            <div id="loader" class="hidden"></div>
+            <div id="error-message" class="hidden"></div>
+            <div class="transcript-container">
+                <button id="copy-btn" class="hidden">Copy Text</button>
+                <pre id="transcript-output"></pre>
+            </div>
+        </div>
+
+        <footer>
+            <p>Powered by <a href="https://golang.org/" target="_blank">Go</a></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

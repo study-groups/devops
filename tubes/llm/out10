@@ -1,0 +1,622 @@
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes
+# file: STATUS
+# notes: Root cause is re-entrant message sends and heavy synchronous updates on Enter. Fixes: (1) remove Program.Send in hot paths; (2) introduce non-blocking log queue with periodic draining via tea.Tick; (3) cap log size; (4) ensure server logs use queue not Program.Send; (5) keep header visible by rendering even before first WindowSizeMsg. Includes updates to messages.go, model.go, server.go, view.go, util.go.
+#MULTICAT_END
+{
+  "files": [
+    "/Users/mricos/src/mricos/demos/tubes/STATUS",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/messages.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/model.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/server.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/view.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/util.go"
+  ],
+  "previous_names": [],
+  "current_names": [
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/messages.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/model.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/server.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/view.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/util.go"
+  ]
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: messages.go
+# notes: Non-blocking log pipeline + tick
+#MULTICAT_END
+package tui
+
+// Periodic UI tick to drain queued logs without blocking input.
+type tickMsg struct{}
+
+// Structured log entry from background goroutines.
+type logTarget int
+
+const (
+	logToLeft logTarget = iota
+	logToRight
+)
+
+type logEntry struct {
+	target  logTarget
+	content string
+}
+
+// serverLogMsg/mainLogMsg kept for compatibility, but no longer used by server.go.
+// They are still handled in view.go to avoid breaking external senders.
+type serverLogMsg struct{ content string }
+type mainLogMsg struct{ content string }
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: util.go
+# notes: Helpers: join, append with cap
+#MULTICAT_END
+package tui
+
+import "strings"
+
+func joinLines(xs []string) string { return strings.Join(xs, "\n") }
+
+func appendCapped(lines []string, s string, capN int) []string {
+	lines = append(lines, s)
+	if capN > 0 && len(lines) > capN {
+		// drop oldest excess
+		lines = lines[len(lines)-capN:]
+	}
+	return lines
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: model.go
+# notes: Add log queue + helpers; init tick and queue; small header pre-width default
+#MULTICAT_END
+package tui
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
+)
+
+type pane int
+
+const (
+	leftPane pane = iota
+	rightPane
+	replPane
+)
+
+type mode int
+
+const (
+	modeSelf mode = iota
+	modeTasks
+)
+
+type Command struct {
+	Name        string
+	Description string
+	Executor    func(m *Model, args []string) (string, error)
+}
+
+type Model struct {
+	// panes
+	leftVP     viewport.Model
+	rightVP    viewport.Model
+	repl       textarea.Model
+	activePane pane
+
+	// data
+	leftContent  []string // tree/log text
+	rightContent string   // rendered doc/source
+
+	// size
+	width     int
+	height    int
+	col1Ratio float64
+	headerH   int
+	cliH      int
+	statusH   int
+	footerH   int
+
+	// behavior
+	commands map[string]Command
+	apiPort  string
+	program  *tea.Program
+
+	// HTTP API server
+	httpServer *http.Server
+
+	// theming
+	themes       map[string]Theme
+	currentTheme Theme
+	themeName    string
+
+	// completer
+	suggestions []string
+	footerHelp  string
+
+	// domain
+	curMode      mode
+	projectRoot  string
+	tubesDir     string
+	selectedPath string
+	lastCompile  string
+
+	// async logging
+	logCh        chan logEntry
+	logDrainRate int // entries per tick
+	logCap       int // max lines retained left pane
+}
+
+func initialModel(port string) Model {
+	ta := textarea.New()
+	ta.Placeholder = "Type a /command and press Enter..."
+	ta.Focus()
+	ta.Prompt = "┃ "
+	ta.CharLimit = 4096
+	ta.SetHeight(1)
+	ta.KeyMap.InsertNewline.SetEnabled(false)
+
+	cwd, _ := os.Getwd()
+	td := os.Getenv("TUBES_DIR")
+
+	themes := map[string]Theme{"default": defaultTheme()}
+	m := Model{
+		repl:         ta,
+		activePane:   replPane,
+		themes:       themes,
+		currentTheme: themes["default"],
+		themeName:    "default",
+		apiPort:      port,
+		footerHelp:   "Tab: cycle | ←/→: resize cols | ↑/↓ (Alt): resize bands | /mode | /open <path> | /run <action>",
+		col1Ratio:    0.38,
+		headerH:      1,
+		cliH:         3,
+		statusH:      1,
+		footerH:      1,
+		curMode:      modeSelf,
+		projectRoot:  cwd,
+		tubesDir:     td,
+		logCh:        make(chan logEntry, 1024),
+		logDrainRate: 64,
+		logCap:       2000,
+	}
+	// Provide a minimal initial width to ensure header renders before first WindowSizeMsg.
+	m.width = 80
+
+	m.reloadLeft()
+	m.renderRight(m.selectedPath)
+	m.loadCommands()
+	return m
+}
+
+// enqueueLog is safe to call from goroutines.
+func (m *Model) enqueueLog(target logTarget, s string) {
+	select {
+	case m.logCh <- logEntry{target: target, content: s}:
+	default:
+		// drop if queue is full to avoid blocking
+	}
+}
+
+// nextTick returns a Cmd that schedules a tick after d.
+func nextTick(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg { return tickMsg{} })
+}
+
+func (m *Model) reloadLeft() {
+	switch m.curMode {
+	case modeSelf:
+		tree := m.buildTree(m.projectRoot, func(path string, d os.DirEntry) bool {
+			if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+				return false
+			}
+			return true
+		})
+		m.leftContent = strings.Split(tree, "\n")
+		if m.selectedPath == "" {
+			m.selectedPath = filepath.Join(m.projectRoot, "project.tubes")
+		}
+	case modeTasks:
+		root := m.tubesDir
+		if root == "" {
+			m.leftContent = []string{"TUBES_DIR not set."}
+			return
+		}
+		tree := m.buildTree(root, func(path string, d os.DirEntry) bool { return true })
+		m.leftContent = strings.Split(tree, "\n")
+		if m.selectedPath == "" {
+			m.selectedPath = root
+		}
+	}
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+}
+
+func (m *Model) renderRight(path string) {
+	if path == "" {
+		m.rightContent = ""
+		m.rightVP.SetContent("")
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		m.rightContent = fmt.Sprintf("Error: %v", err)
+		m.rightVP.SetContent(m.rightContent)
+		return
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".md", ".markdown", ".tubes":
+		r, _ := glamour.NewTermRenderer(glamour.WithAutoStyle())
+		out, _ := r.Render(string(data))
+		m.rightContent = out
+	default:
+		m.rightContent = string(data)
+	}
+	m.rightVP.SetContent(m.rightContent)
+}
+
+func (m *Model) adjustColRatio(delta float64) {
+	m.col1Ratio += delta
+	if m.col1Ratio < 0.15 {
+		m.col1Ratio = 0.15
+	}
+	if m.col1Ratio > 0.85 {
+		m.col1Ratio = 0.85
+	}
+}
+
+func (m *Model) adjustBand(which string, delta int) {
+	switch which {
+	case "header":
+		m.headerH += delta
+		if m.headerH < 1 {
+			m.headerH = 1
+		}
+	case "cli":
+		m.cliH += delta
+		if m.cliH < 1 {
+			m.cliH = 1
+		}
+	case "status":
+		m.statusH += delta
+		if m.statusH < 1 {
+			m.statusH = 1
+		}
+	case "footer":
+		m.footerH += delta
+		if m.footerH < 1 {
+			m.footerH = 1
+		}
+	}
+}
+
+func (m *Model) buildTree(root string, allow func(string, os.DirEntry) bool) string {
+	var b strings.Builder
+	prefix := ""
+	var walk func(string, string)
+	walk = func(dir, pref string) {
+		ents, _ := os.ReadDir(dir)
+		for i, e := range ents {
+			if !allow(filepath.Join(dir, e.Name()), e) {
+				continue
+			}
+			last := i == len(ents)-1
+			conn := "├─ "
+			nextPref := pref + "│  "
+			if last {
+				conn = "└─ "
+				nextPref = pref + "   "
+			}
+			b.WriteString(pref + conn + e.Name())
+			if e.Name() == "project.tubes" {
+				b.WriteString("  *")
+			}
+			b.WriteString("\n")
+			if e.IsDir() {
+				walk(filepath.Join(dir, e.Name()), nextPref)
+			}
+		}
+	}
+	b.WriteString(filepath.Base(root) + "/\n")
+	walk(root, prefix)
+	return b.String()
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: server.go
+# notes: Server logs go through enqueueLog; no Program.Send from goroutines
+#MULTICAT_END
+package tui
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func (m *Model) startServerCmd() tea.Cmd {
+	return func() tea.Msg {
+		mux := http.NewServeMux()
+
+		logServer := func(msg string) {
+			ts := time.Now().Format("15:04:05")
+			m.enqueueLog(logToLeft, fmt.Sprintf("[%s] %s", ts, msg))
+		}
+		logMain := func(msg string) {
+			m.enqueueLog(logToRight, msg)
+		}
+
+		mux.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
+			logServer("GET /api/list")
+			w.Header().Set("Content-Type", "application/json")
+			desc := "N/A"
+			if c, ok := m.commands["/api"]; ok && c.Executor != nil {
+				if d, err := c.Executor(m, nil); err == nil {
+					desc = d
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]string{"description": desc})
+		})
+
+		mux.HandleFunc("/fzf/api", func(w http.ResponseWriter, r *http.Request) {
+			logServer("GET /fzf/api")
+			w.Header().Set("Content-Type", "application/json")
+			info, _ := getFZFInfo(m, nil)
+			_ = json.NewEncoder(w).Encode(map[string]string{"description": info})
+		})
+
+		mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			var body struct {
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, "Invalid JSON", http.StatusBadRequest)
+				return
+			}
+			logServer(fmt.Sprintf("POST /log - msg: '%s'", body.Message))
+			logMain("[API] " + body.Message)
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "logged"})
+		})
+
+		m.httpServer = &http.Server{
+			Addr:    ":" + m.apiPort,
+			Handler: mux,
+		}
+
+		// Run server; block here without affecting UI (Cmd runs in its own goroutine).
+		if err := m.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("API server failed: %v", err)
+		}
+		return nil
+	}
+}
+
+func (m *Model) shutdownServerCmd() tea.Cmd {
+	return func() tea.Msg {
+		if m.httpServer != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = m.httpServer.Shutdown(ctx)
+		}
+		return nil
+	}
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: view.go
+# notes: Add periodic draining of logs; keep Tab/Enter behavior; header always visible
+#MULTICAT_END
+package tui
+
+import (
+	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+func (m *Model) Init() tea.Cmd {
+	// Start textarea blink, HTTP server, and periodic log drain tick.
+	return tea.Batch(
+		textBlink(),
+		m.startServerCmd(),
+		nextTick(100*time.Millisecond),
+	)
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resizeLayout()
+
+	case tea.KeyMsg:
+		// REPL typing path
+		if m.activePane == replPane && msg.Type != tea.KeyEnter && msg.Type != tea.KeyTab {
+			m.repl, cmd = m.repl.Update(msg)
+			m.updateSuggestions()
+			cmds = append(cmds, cmd)
+		}
+
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			return m, tea.Quit
+
+		case "tab":
+			if m.activePane == replPane {
+				m.applySuggestion()
+			} else {
+				m.cyclePane()
+			}
+
+		case "enter":
+			if m.activePane == replPane {
+				m.handleInput()
+			}
+
+		case "left":
+			m.adjustColRatio(-0.02)
+
+		case "right":
+			m.adjustColRatio(+0.02)
+
+		case "alt+up":
+			m.adjustBand("status", +1)
+
+		case "alt+down":
+			m.adjustBand("status", -1)
+		}
+
+		// Scroll for active non-REPL viewport.
+		if m.activePane != replPane {
+			switch m.activePane {
+			case leftPane:
+				m.leftVP, cmd = m.leftVP.Update(msg)
+				cmds = append(cmds, cmd)
+			case rightPane:
+				m.rightVP, cmd = m.rightVP.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		}
+
+	case tickMsg:
+		// Drain up to N log entries to avoid starvation.
+		drained := 0
+		for drained < m.logDrainRate {
+			select {
+			case e := <-m.logCh:
+				switch e.target {
+				case logToLeft:
+					m.leftContent = appendCapped(m.leftContent, e.content, m.logCap)
+					m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+				case logToRight:
+					m.rightContent = e.content + "\n" + m.rightContent
+					m.rightVP.SetContent(m.rightContent)
+				}
+				drained++
+			default:
+				drained = m.logDrainRate
+			}
+		}
+		cmds = append(cmds, nextTick(100*time.Millisecond))
+
+	case serverLogMsg:
+		// Back-compat: treat like queued left log.
+		m.leftContent = appendCapped(m.leftContent, msg.content, m.logCap)
+		m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+
+	case mainLogMsg:
+		m.rightContent = msg.content + "\n" + m.rightContent
+		m.rightVP.SetContent(m.rightContent)
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) View() string {
+	// Render a header even before first WindowSizeMsg.
+	if m.width <= 0 {
+		return "Tubes — initializing..."
+	}
+	s := buildStyles(m)
+	l := m.computeLayout()
+
+	// header
+	title := "Tubes — mode: self"
+	if m.curMode == modeTasks {
+		title = "Tubes — mode: tasks"
+	}
+	header := s.header.Width(m.width).Render(title)
+
+	// columns
+	leftStyle := s.colBox
+	rightStyle := s.colBox
+	if m.activePane == leftPane {
+		leftStyle = s.colBoxAct
+	}
+	if m.activePane == rightPane {
+		rightStyle = s.colBoxAct
+	}
+
+	left := leftStyle.
+		Width(l.LeftW - 2).
+		Height(l.ColsH).
+		Render(strings.Join(m.leftContent, "\n"))
+
+	right := rightStyle.
+		Width(l.RightW - 2).
+		Height(l.ColsH).
+		Render(m.rightVP.View())
+
+	cols := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+
+	// cli
+	cli := s.cli.Width(m.width - 2).Height(m.cliH).Render(m.repl.View())
+
+	// status
+	statusText := "Ready"
+	if m.lastCompile != "" {
+		statusText = "Last: " + m.lastCompile
+	}
+	status := s.status.Width(m.width - 2).Height(m.statusH).Render(statusText)
+
+	// footer
+	footer := m.renderFooter(s, m.width)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		cols,
+		cli,
+		status,
+		footer,
+	)
+}
+
+func (m *Model) resizeLayout() {
+	l := m.computeLayout()
+	m.leftVP.Width = l.LeftW - 2
+	m.leftVP.Height = l.ColsH
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+
+	m.rightVP.Width = l.RightW - 2
+	m.rightVP.Height = l.ColsH
+	m.rightVP.SetContent(m.rightContent)
+
+	m.repl.SetWidth(m.width - 2)
+}
+
+func (m *Model) cyclePane() {
+	m.activePane = (m.activePane + 1) % 3
+	if m.activePane == replPane {
+		m.repl.Focus()
+	} else {
+		m.repl.Blur()
+	}
+}

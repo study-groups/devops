@@ -1,0 +1,32 @@
+# panels.toml
+# This file defines the TUI layout. Each [[panel]] block represents one tab.
+# The order of the blocks determines the order of the tabs in each dock.
+
+[[panel]]
+name = "Files"
+kind = "fileTree"
+dock = "left"
+
+[[panel]]
+name = "Editor"
+kind = "editor"
+dock = "right"
+
+[[panel]]
+name = "Shell"
+kind = "terminal"
+dock = "right"
+command = "bash" # This will run an interactive bash shell.
+
+[[panel]]
+name = "Vim"
+kind = "terminal"
+dock = "right"
+# This now runs the actual vim program inside the terminal panel.
+command = "vim $TGO_FILE" 
+
+[[panel]]
+name = "Markdown"
+kind = "textView"
+dock = "right"
+command = "glow --style dark --width 100 $TGO_FILE"

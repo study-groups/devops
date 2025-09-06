@@ -1,0 +1,3 @@
+// placeholder retained to mark prior CLI entrypoint existence.
+// The new main.go reintroduces a REPL and command dispatch as described in MELVIN.txt.
+

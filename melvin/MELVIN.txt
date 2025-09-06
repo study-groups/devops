@@ -1,0 +1,80 @@
+MELVIN MODULE SPEC v0.2
+
+1) Required environment
+- MELVIN_DIR (fatal if unset)
+  layout:
+    $MELVIN_DIR/
+      data/                         # generic data dumps
+      transcripts/                  # persisted transcript records
+      prefs/                        # per-module prefs, JSON
+        <module>.json
+      tags/
+        <tag>/*.json                # tagged data notes
+      modules/
+        <module>/**                 # module-private storage
+
+2) Context
+  struct Context {
+    HTTPAddr string
+    Mux      *http.ServeMux
+    Logger   *log.Logger
+    Vars     map[string]string      // env + runtime vars (includes MELVIN_DIR)
+    YT       *youtube.Client
+    Store    *Store                 // fs-backed persistence helpers
+  }
+
+3) Persistence helpers (filesystem, atomic)
+  type Store struct {
+    Root string // MELVIN_DIR
+  }
+  Methods:
+    Ensure() error
+    WriteJSON(path string, v any) error
+    ReadJSON(path string, out any) error
+    ModulePath(module, rel string) string
+    PrefsGet(module, key string) (string, bool, error)
+    PrefsSet(module, key, val string) error
+    TagNote(tag, text string) (string, error)
+
+4) CLI
+- Prompt with color; status line printed in dim color after each command.
+- Supports "/" commands:
+    /help
+    /vars                      # dump ctx.Vars
+    /mods                      # list modules
+    /cmds                      # list command keys
+    /pref get <module> <key>
+    /pref set <module> <key> <value>
+    /tag note <tag> <text...>
+- Regular commands remain module-provided (e.g., transcribe).
+
+5) HTTP
+- GET /api/transcript?videoID=<id|url>&lang=<xx>&store=1
+  Response: { ok:true, transcript:"...", meta:{ id, url, title, lang, ts } }
+  If store=1, persist JSON record to $MELVIN_DIR/transcripts/<unix>.transcript
+
+6) Transcript record format (.transcript)
+  JSON object:
+  {
+    "ts": 1735990000,            // unix seconds
+    "id": "VIDEOID11",
+    "url": "https://youtube.com/watch?v=VIDEOID11",
+    "title": "Video Title",
+    "lang": "en",
+    "text": "<full transcript>"
+  }
+
+7) Module prefs (per-module)
+- File: $MELVIN_DIR/prefs/<module>.json
+- Flat string map. Access via Store.PrefsGet/PrefsSet and /pref CLI.
+
+8) Tagged data
+- File: $MELVIN_DIR/tags/<tag>/<ts>-<rand>.json
+  { "ts": <unix>, "tag": "<tag>", "text": "<note>" }
+
+9) UI notes
+- "Bring back color": ANSI colors for prompt/status.
+- "Status line in dim color at bottom": printed after each command with faint attribute.
+- "Put cli on line above cli": REPL prints prompt, then status line after execution (visually grouping input above status).
+- "/ commands": as listed above.
+

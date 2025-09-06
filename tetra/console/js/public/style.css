@@ -111,8 +111,15 @@ button:disabled {
     padding: 10px;
     border: 1px solid #333;
     border-radius: 8px;
-    height: 50vh; 
+    height: 50vh;
+    overflow: hidden;
 }
+
+#terminal {
+    width: 100%;
+    height: 100%;
+}
+
 body {
     font-family: 'Menlo', 'Consolas', 'monospace';
     background-color: #1e1e1e;
