@@ -96,7 +96,13 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // 2. Session & Authentication Middleware
-const sessionStore = new FileStore({ path: path.join(pdataInstance.dataRoot, 'sessions'), ttl: 86400, reapInterval: 3600 });
+const sessionStore = new FileStore({ 
+    path: path.join(pdataInstance.dataRoot, 'sessions'), 
+    ttl: 86400, 
+    reapInterval: 3600,
+    retries: 5,
+    retryDelay: 100
+});
 
 app.use(session({
     store: sessionStore,
