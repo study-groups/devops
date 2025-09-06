@@ -37,6 +37,10 @@ export const getCurrentDirectoryPath = (state) =>
   getIsDirectorySelected(state) ? getCurrentPathname(state) : 
     (getCurrentListing(state)?.pathname || null);
 
+// ===== EDITOR SELECTORS =====
+export const getCurrentFileContent = (state) => state.editor?.content || '';
+export const getIsEditorModified = (state) => state.editor?.isModified || false;
+
 // ===== SETTINGS SELECTORS =====
 export const getPreviewCssFiles = (state) => state.settings.preview.cssFiles;
 export const getActiveCssFiles = (state) => state.settings.preview.activeCssFiles;
