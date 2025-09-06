@@ -33,8 +33,7 @@
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
     "minimatch": "^9.0.3",
-    "multer": "^1.4.5-lts.1",
-    "node-nlp": "^4.23.0",
+    "multer": "^2.0.2",
     "passport": "^0.6.0",
     "session-file-store": "^1.5.0"
   }
