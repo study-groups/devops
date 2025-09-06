@@ -1,151 +1,149 @@
-#!/bin/bash
-pb() {
-    local action=$1
-    shift
+#!/usr/bin/env bash
+# pb.sh — PM2 helper with safeguards against process storms and fork exhaustion.
+# Usage: source this file, then run: pb <cmd> [args...]
 
-    # If no arguments provided, show quick help
-    if [ -z "$action" ]; then
-        echo "Usage: pb <command>"
-        echo "Commands: ls|(re)start|stop|kill|logs|ports|help"
-        echo "Example: pb ls"
-        #pb ls
-        return 0
-    fi
-
-    case "$action" in
-        start)
-            local script=$1
-            local extra=$2
-            if [ -z "$script" ]; then
-                echo "Usage: pb start <path/to/scriptname.sh> [custom_name]"
-                return 1
-            fi
-            
-            # Use filename as default name if no extra name provided
-            local script_basename=$(basename "$script" .sh)
-            local process_name="${extra:-$script_basename}"
-            
-            # Check for PORT in environment first, then in script file
-            if [ -z "$PORT" ]; then
-                # Try to find PORT= or export PORT= in the script
-                FOUND_PORT=$(grep -E "^(export )?PORT=" "$script" | head -n 1)
-                if [ -n "$FOUND_PORT" ]; then
-                    # Handle both PORT=value and export PORT=value formats
-                    eval "$FOUND_PORT"
-                    echo "Found and using PORT definition from script: $FOUND_PORT"
-                else
-                    echo "Error: PORT environment variable is not set and no PORT= or export PORT= found in script."
-                    return 1
-                fi
-            fi
-            # Start the script with PM2, using the process name and port
-            pm2 start "$script" --name "$process_name-$PORT"
-            ;;
-            
-        ls)
-            echo "PM2_HOME=$PM2_HOME"
-	    pm2 ls
-            ;;
-            
-        stop)
-            if [ $# -eq 0 ]; then
-                echo "Usage: pb stop <process1 process2 ... | *>"
-                return 1
-            fi
-            if [ "$1" = "*" ]; then
-                pm2 stop all
-            else
-                for process in "$@"; do
-                    pm2 stop "$process"
-                done
-            fi
-            ;;
-            
-        delete|del|kill)
-            if [ $# -eq 0 ]; then
-                echo "Usage: pb delete|kill <process1 process2 ... | *>"
-                return 1
-            fi
-            if [ "$1" = "*" ]; then
-                pm2 delete all
-            else
-                for process in "$@"; do
-                    pm2 delete "$process"
-                done
-            fi
-            ;;
-            
-        logs)
-            if [ $# -eq 0 ]; then
-                echo "Usage: pb logs <process1 process2 ... | *>"
-                return 1
-            fi
-            if [ "$1" = "*" ]; then
-                pm2 logs
-            else
-                for process in "$@"; do
-                    pm2 logs "$process"
-                done
-            fi
-            ;;
-            
-        restart)
-            if [ $# -eq 0 ]; then
-                echo "Usage: pb restart <process1 process2 ... | *>"
-                return 1
-            fi
-            if [ "$1" = "*" ]; then
-                pm2 restart all
-            else
-                for process in "$@"; do
-                    pm2 restart "$process"
-                done
-            fi
-            ;;
-            
-        ports)
-            # List all running PM2 processes with their names and ports
-            pm2 jlist | jq -r '.[] | select(.pm2_env.status == "online") | "\(.name)"' | grep -E ".*-[0-9]+$" | while read process; do
-                port=$(echo "$process" | grep -oE "[0-9]+$")
-                name=$(echo "$process" | sed "s/-$port$//")
-                echo "Process: $name, Port: $port"
-            done
-            ;;
-            
-        help)
-            cat <<EOF
-PM2 Port Process Manager Helper
-
-Usage:
-  pb start <path/to/scriptname.sh> [custom_name] - Start a script with PM2
-  pb stop <process1 process2 ... | *>            - Stop processes
-  pb delete|kill <process1 process2 ... | *>     - Delete processes
-  pb restart <process1 process2 ... | *>         - Restart processes
-  pb ls                                          - List all PM2 processes
-  pb logs <process1 process2 ... | *>            - Show logs for processes
-  pb ports                                       - List all running scripts with ports
-  pb help                                        - Show this help message
-
-Examples:
-  pb start path/to/scriptname.sh                 - Start script with default name (scriptname-PORT)
-  pb start path/to/scriptname.sh myapp           - Start script with custom name (myapp-PORT)
-  pb stop scriptname-8080                        - Stop process
-  pb stop *                                      - Stop all processes
-  pb kill *                                      - Delete all processes
-  pb logs scriptname-8080                        - Show logs for process
-
-PORT Detection:
-  The script will look for PORT in the following order:
-  1. Environment variable: PORT=8080
-  2. Script file: PORT=8080 or export PORT=8080
-EOF
-            ;;
-            
-        *)
-            #pb list
-            #echo "Unknown command: $action"
-            echo "Use 'pb help' for usage information"
-            return 0
-            ;;
-    esac
+# --- portable single-instance lock (avoids concurrent pb invocations) ---
+__pb_lockdir="${PB_LOCKDIR:-/tmp/pb.lockdir}"
+__pb_acquire_lock() {
+  if mkdir "${__pb_lockdir}" 2>/dev/null; then
+    trap '__pb_release_lock' EXIT INT TERM
+    return 0
+  else
+    echo "pb: busy (another invocation is running)" >&2
+    return 1
+  fi
 }
+__pb_release_lock() { rm -rf "${__pb_lockdir}" 2>/dev/null || true; }
+
+# --- hard fails & predictable word-splitting inside pb() only ---
+pb() {
+  # shellcheck disable=SC2034 # we intentionally localize IFS
+  local IFS=$' \t\n'
+  set -o nounset
+  set -o errexit
+  set -o pipefail
+
+  __pb_acquire_lock || return 2
+
+  # --- deps ---
+  command -v pm2 >/dev/null 2>&1 || { echo "pb: pm2 not found in PATH" >&2; return 127; }
+
+  # --- helpers ---
+  _usage() {
+    cat <<'EOF'
+Usage: pb <command> [args]
+Commands:
+  ls
+  start <path/to/script.sh> [name]
+  stop   <id|name ... | *>
+  delete <id|name ... | *>
+  kill   <id|name ... | *>
+  restart <id|name ... | *>
+  logs   <id|name ... | *>
+  ports
+  help
+Notes:
+  - 'restart/stop/delete/logs' forward all args to pm2 in a single call.
+  - 'start' extracts PORT from environment or from the script (PORT= / export PORT=).
+EOF
+  }
+
+  _is_uint() { [[ "$1" =~ ^[0-9]+$ ]]; }
+  _valid_port() { _is_uint "$1" && (( $1 >= 1 && $1 <= 65535 )); }
+
+  _extract_port_from_script() {
+    # No eval. Parse the first assignment safely: PORT=... or export PORT=...
+    local script="$1" line val
+    line="$(grep -E '^(export[[:space:]]+)?PORT=' "$script" | head -n1 || true)"
+    [[ -z "${line}" ]] && return 1
+    # strip leading "export ", take after first "=", strip quotes and spaces
+    val="${line#*=}"
+    val="${val%%#*}"
+    val="${val//\"/}"
+    val="${val//\'/}"
+    val="${val//[[:space:]]/}"
+    if _valid_port "${val}"; then
+      printf '%s' "${val}"
+      return 0
+    fi
+    return 2
+  }
+
+  _pm2_all_or_forward() {
+    # $1 is subcommand, rest are args
+    local sub="$1"; shift || true
+    if (($# == 0)); then echo "pb: ${sub} requires args or '*'" >&2; return 64; fi
+    if [[ "$1" == "*" ]]; then
+      pm2 "${sub}" all
+    else
+      # Single pm2 invocation with all targets to avoid per-target forks.
+      pm2 "${sub}" "$@"
+    fi
+  }
+
+  # --- dispatch ---
+  local action="${1:-}"
+  if [[ -z "${action}" ]]; then _usage; return 0; fi
+  shift || true
+
+  case "${action}" in
+    ls)
+      printf 'PM2_HOME=%s\n' "${PM2_HOME:-}"
+      pm2 ls
+      ;;
+
+    start)
+      local script="${1:-}"; local custom="${2:-}"
+      [[ -n "${script}" ]] || { echo "pb: start <script.sh> [name]" >&2; return 64; }
+      [[ -f "${script}" && -x "${script}" ]] || { echo "pb: '${script}' not found or not executable" >&2; return 66; }
+
+      # Determine PORT: env overrides, else parse script.
+      local port="${PORT:-}"
+      if [[ -z "${port:-}" ]]; then
+        port="$(_extract_port_from_script "${script}")" || {
+          echo "pb: PORT not set; no PORT= found in script" >&2; return 65;
+        }
+      fi
+      _valid_port "${port}" || { echo "pb: invalid PORT '${port}'" >&2; return 65; }
+
+      local script_basename; script_basename="$(basename "${script}" .sh)"
+      local name="${custom:-${script_basename}}-${port}"
+
+      # Single spawn; disable watch unless explicitly wanted via env.
+      # Allow caller to pass PM2_EXTRA (e.g., '--update-env').
+      pm2 start "${script}" --name "${name}" ${PM2_EXTRA:-} --instances 1
+      ;;
+
+    stop)    _pm2_all_or_forward stop "$@";;
+    delete|del|kill) _pm2_all_or_forward delete "$@";;
+    restart) _pm2_all_or_forward restart "$@";;
+    logs)    _pm2_all_or_forward logs "$@";;
+
+    ports)
+      # Prefer jq if available; fall back to name parsing.
+      if command -v jq >/dev/null 2>&1; then
+        pm2 jlist \
+          | jq -r '.[] | select(.pm2_env.status=="online") | .name' \
+          | awk '
+              match($0,/-([0-9]+)$/,m){ port=m[1]; name=substr($0,1,RSTART-1); print "Process: " name ", Port: " port }
+            '
+      else
+        pm2 jlist \
+          | grep -Eo '"name":[^,]+' \
+          | sed -E 's/.*"name":"?([^",}]+)".*/\1/' \
+          | awk '
+              match($0,/-([0-9]+)$/,m){ port=m[1]; name=substr($0,1,RSTART-1); print "Process: " name ", Port: " port }
+            '
+      fi
+      ;;
+
+    help) _usage ;;
+
+    *)
+      echo "pb: unknown command '${action}'" >&2
+      _usage
+      return 64
+      ;;
+  esac
+}
+
