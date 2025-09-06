@@ -3,7 +3,7 @@
 
 import crypto from 'crypto';
 import path from 'path';
-import { minimatch } from 'minimatch';
+import minimatch from 'minimatch';
 
 class AuthSrv {
   constructor(options = {}) {
