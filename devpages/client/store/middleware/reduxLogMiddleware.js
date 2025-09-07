@@ -9,7 +9,7 @@ let log;
 
 function getLogger() {
     if (!log) {
-        log = window.APP.services.log.createLogger('REDUX', 'ACTION');
+        log = window.APP.services.log.createLogger('DATA', 'Redux');
     }
     return log;
 }
@@ -48,6 +48,13 @@ let aggregationTimer = null;
 const FLUSH_DELAY = 2000; // After 2s of silence, flush the last count
 const ignoreList = [
     'log/addEntry', // Prevents recursive logging
+    // Reduce API call noise during startup
+    'api/executeQuery/pending',
+    'api/executeQuery/fulfilled',
+    'authApi/executeQuery/pending', 
+    'authApi/executeQuery/fulfilled',
+    'pathApi/executeQuery/pending',
+    'pathApi/executeQuery/fulfilled',
 ];
 
 /**
@@ -235,7 +242,7 @@ function extractKeyInfo(payload) {
 function flushLastAction() {
     if (repeatCount > 2) {
         const badgeCount = repeatCount - 2;
-        getLogger().info('REDUX', `🔄 Repeated ${badgeCount} more times`, { aggregated: true, count: badgeCount, actionType: lastActionType });
+        getLogger().info('REPEAT_COUNT', `🔄 Repeated ${badgeCount} more times`, { aggregated: true, count: badgeCount, actionType: lastActionType });
     }
     lastActionType = null;
     repeatCount = 0;
@@ -262,7 +269,7 @@ export const reduxLogMiddleware = store => next => action => {
             repeatCount = 1;
 
             const message = formatReduxAction(action);
-            getLogger().info('REDUX', message, sanitized);
+            getLogger().info('ACTION', message, sanitized);
 
         } else {
             // It's a repeated action.
@@ -270,7 +277,7 @@ export const reduxLogMiddleware = store => next => action => {
 
             if (repeatCount <= 2) {
                 const message = formatReduxAction(action);
-                getLogger().info('REDUX', message, sanitized);
+                getLogger().info('ACTION', message, sanitized);
             }
             // For repeats > 2, we stay silent and wait for flushLastAction to be called.
         }

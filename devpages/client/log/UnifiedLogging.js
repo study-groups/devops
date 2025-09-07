@@ -219,7 +219,11 @@ class Logger {
     };
     
     // Route to existing systems
-    if (this.options.enableConsole && this.consoleManager) {
+    // Check if LogCore is available to avoid duplicate console output
+    const isLogCoreAvailable = typeof window.APP?.bootloader?.phase === 'string' && window.APP.bootloader.phase !== 'early';
+    
+    if (this.options.enableConsole && this.consoleManager && !isLogCoreAvailable) {
+      // Only output to console if LogCore is NOT available
       this.logToConsole(logEntry);
     }
     
@@ -227,15 +231,15 @@ class Logger {
       this.logToPanel(logEntry);
     }
     
-    // BRIDGE: Also send to LogCore/LogDisplay system
+    // BRIDGE: Send to LogCore/LogDisplay system (this will handle console output)
     this.bridgeToLogCore(logEntry);
     
     return logEntry;
   }
 
   /**
-   * Format message according to 005.5.md standard:
-   * [SOURCE-Component][TYPE][ACTION] message [LEVEL]
+   * Format message according to updated standard:
+   * [TYPE][MODULE][ACTION] message [LEVEL]
    */
   formatMessage(level, type, action, message) {
     let prefix = `[${this.type}]`;

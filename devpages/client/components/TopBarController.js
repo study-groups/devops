@@ -7,7 +7,19 @@ import { appStore, dispatch } from '/client/appState.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
-import { logMessage } from '/client/log/index.js';
+// Use unified logging system
+let log;
+function getLogger() {
+    if (!log && window.APP?.services?.log) {
+        log = window.APP.services.log.createLogger('UI', 'TopBarController');
+    }
+    return log || {
+        info: (action, msg) => console.log(`[UI][TopBarController][${action}] ${msg}`),
+        warn: (action, msg) => console.warn(`[UI][TopBarController][${action}] ${msg}`),
+        debug: (action, msg) => console.debug(`[UI][TopBarController][${action}] ${msg}`),
+        error: (action, msg) => console.error(`[UI][TopBarController][${action}] ${msg}`)
+    };
+}
 
 export class TopBarController {
     constructor() {
@@ -21,30 +33,29 @@ export class TopBarController {
         // UI Toggle Actions
         this.actionHandlers.set('toggleEdit', () => {
             const currentState = appStore.getState().ui?.editorVisible;
-            console.log(`[TopBarController] Toggling editor: ${currentState} → ${!currentState}`);
+            getLogger().info('TOGGLE_EDITOR', `Toggling editor: ${currentState} → ${!currentState}`);
             dispatch(uiActions.toggleEditorVisibility());
-            logMessage('Editor visibility toggled', 'info', 'TOP_BAR');
         });
 
         this.actionHandlers.set('togglePreview', () => {
             const currentState = appStore.getState().ui?.previewVisible;
-            console.log(`[TopBarController] Toggling preview: ${currentState} → ${!currentState}`);
+            getLogger().info('TOGGLE_PREVIEW', `Toggling preview: ${currentState} → ${!currentState}`);
             dispatch(uiActions.togglePreviewVisibility());
-            logMessage('Preview visibility toggled', 'info', 'TOP_BAR');
+            getLogger().info('TOGGLE_PREVIEW', 'Preview visibility toggled');
         });
 
         this.actionHandlers.set('toggleSidebar', () => {
             const currentState = appStore.getState().ui?.leftSidebarVisible;
             const newState = currentState === false; // If false, make true; if true/undefined, make false
-            console.log(`[TopBarController] Toggling sidebar: ${currentState} → ${newState}`);
+            getLogger().info('TOGGLE_SIDEBAR', `Toggling sidebar: ${currentState} → ${newState}`);
             dispatch(uiActions.setLeftSidebarVisible(newState));
-            logMessage(`Sidebar visibility toggled: ${currentState} → ${newState}`, 'info', 'TOP_BAR');
+            getLogger().info('TOGGLE_SIDEBAR', `Sidebar visibility: ${currentState} → ${newState}`);
         });
 
         this.actionHandlers.set('toggleLogVisibility', () => {
             const currentState = appStore.getState().ui?.logVisible;
             dispatch(uiActions.toggleLogVisibility());
-            logMessage(`Log visibility toggled: ${currentState} → ${!currentState}`, 'info', 'TOP_BAR');
+            getLogger().info('TOGGLE_LOG', `Log visibility: ${currentState} → ${!currentState}`);
         });
 
         // File Actions
@@ -76,18 +87,18 @@ export class TopBarController {
 
             if (!currentPathname || isDirectorySelected) {
                 console.warn('[TopBarController] Save blocked - no file selected');
-                logMessage('Save button clicked but no file is selected', 'warn', 'TOP_BAR');
+                getLogger().warn('SAVE_NO_FILE', 'Save button clicked but no file is selected');
                 return;
             }
 
             if (!isModified) {
                 console.warn('[TopBarController] Save blocked - no changes detected');
-                logMessage('Save button clicked but no changes to save', 'info', 'TOP_BAR');
+                getLogger().info('SAVE_NO_CHANGES', 'Save button clicked but no changes to save');
                 return;
             }
             
             console.log('[TopBarController] Dispatching saveFile thunk...');
-            logMessage(`Dispatching saveFile thunk for: ${currentPathname}`, 'info', 'TOP_BAR');
+            getLogger().info('SAVE_FILE', `Dispatching saveFile thunk for: ${currentPathname}`);
             dispatch(fileThunks.saveFile());
         });
 
@@ -110,7 +121,7 @@ export class TopBarController {
             const { editor } = appStore.getState();
             dispatch(renderMarkdown(editor.content));
             
-            logMessage('Full refresh triggered: CSS reload + Preview update', 'info', 'TOP_BAR');
+            getLogger().info('FULL_REFRESH', 'CSS reload + Preview update triggered');
         });
     }
 
@@ -152,7 +163,7 @@ export class TopBarController {
                         };
                         
                         newLink.onerror = () => {
-                            logMessage(`Failed to reload CSS: ${originalHref}`, 'warn', 'TOP_BAR');
+                            getLogger().warn('CSS_RELOAD_FAILED', `Failed to reload CSS: ${originalHref}`);
                             linkResolve();
                         };
                         
@@ -169,7 +180,7 @@ export class TopBarController {
 
     initialize() {
         if (this.initialized) {
-            logMessage('TopBarController already initialized', 'warn', 'TOP_BAR');
+            getLogger().warn('ALREADY_INITIALIZED', 'TopBarController already initialized');
             return;
         }
 
@@ -178,7 +189,7 @@ export class TopBarController {
         
         // Attach global click handler
         this.attachGlobalHandler();
-        console.log(`[TopBarController] Global click handler attached`);
+        getLogger().info('HANDLER_ATTACHED', 'Global click handler attached');
         
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();
@@ -187,10 +198,10 @@ export class TopBarController {
         this.updateButtonStates();
         
         // Debug: Log all registered action handlers
-        console.log(`[TopBarController] Registered action handlers:`, Array.from(this.actionHandlers.keys()));
+        getLogger().info('HANDLERS_REGISTERED', `Registered ${this.actionHandlers.size} action handlers: ${Array.from(this.actionHandlers.keys()).join(', ')}`);
         
         this.initialized = true;
-        logMessage('TopBarController initialized with keyboard shortcuts', 'info', 'TOP_BAR');
+        getLogger().info('INIT_COMPLETE', 'TopBarController initialized with keyboard shortcuts');
     }
 
     setupSelectiveStateSubscription() {
@@ -231,7 +242,7 @@ export class TopBarController {
     setupKeyboardShortcuts() {
         // REMOVED: Keyboard shortcuts now handled by centralized KeyboardShortcutManager
         // This prevents conflicts and ensures consistent behavior
-        logMessage('Keyboard shortcuts delegated to centralized KeyboardShortcutManager', 'info', 'TOP_BAR');
+        getLogger().info('SHORTCUTS_DELEGATED', 'Keyboard shortcuts delegated to centralized KeyboardShortcutManager');
     }
 
     attachGlobalHandler() {
@@ -285,7 +296,7 @@ export class TopBarController {
                     button.blur();
                 } catch (error) {
                     console.error(`[TopBarController] Handler error for ${action}:`, error);
-                    logMessage(`Error handling action ${action}: ${error.message}`, 'error', 'TOP_BAR');
+                    getLogger().error('ACTION_ERROR', `Error handling action ${action}: ${error.message}`);
                 }
             } else {
                 console.warn(`[TopBarController] No handler found for action: ${action}`);
@@ -456,7 +467,7 @@ export class TopBarController {
             this.stateUnsubscribe = null;
         }
         this.initialized = false;
-        logMessage('TopBarController destroyed', 'info', 'TOP_BAR');
+        getLogger().info('DESTROYED', 'TopBarController destroyed');
     }
 
     // Debug helper to manually test save button functionality

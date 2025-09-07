@@ -18,13 +18,13 @@ let log;
 const getLogger = () => {
     if (log) return log;
     if (window.APP?.services?.log) {
-        log = window.APP.services.log.createLogger('SidebarManager');
+        log = window.APP.services.log.createLogger('UI', 'SidebarManager');
     } else {
         log = {
-            info: (...args) => console.log('[SidebarManager]', ...args),
-            warn: (...args) => console.warn('[SidebarManager]', ...args),
-            error: (...args) => console.error('[SidebarManager]', ...args),
-            debug: (...args) => console.log('[SidebarManager]', ...args)
+            info: (action, msg) => console.log(`[UI][SidebarManager][${action}] ${msg}`),
+            warn: (action, msg) => console.warn(`[UI][SidebarManager][${action}] ${msg}`),
+            error: (action, msg) => console.error(`[UI][SidebarManager][${action}] ${msg}`),
+            debug: (action, msg) => console.debug(`[UI][SidebarManager][${action}] ${msg}`)
         };
     }
     return log;
@@ -68,7 +68,7 @@ export class SidebarManager {
         this.render();
         
         this.initialized = true;
-        getLogger().info('[SidebarManager] ✅ Initialized');
+        getLogger().info('INIT_COMPLETE', 'SidebarManager initialized');
     }
 
     setupSidebarStructure() {
@@ -193,38 +193,38 @@ export class SidebarManager {
 
     async loadPanelConfiguration() {
         try {
-            getLogger().info('[SidebarManager] Loading panel configuration...');
+            getLogger().debug('LOAD_CONFIG', 'Loading panel configuration');
             this.panelConfigs = await panelConfigLoader.getSidebarPanels();
-            getLogger().info('[SidebarManager] Got panel configs:', this.panelConfigs);
+            getLogger().debug('CONFIG_RECEIVED', 'Panel configurations loaded');
             
             this.categories = await panelConfigLoader.getCategories();
-            getLogger().info('[SidebarManager] Got categories:', this.categories);
+            getLogger().debug('CATEGORIES_RECEIVED', 'Panel categories loaded');
             
             this.configLoaded = true;
-            getLogger().info('[SidebarManager] ✅ Panel configuration loaded:', Object.keys(this.panelConfigs));
-            getLogger().info('[SidebarManager] ✅ Categories loaded:', Object.keys(this.categories));
+            getLogger().info('CONFIG_LOADED', `${Object.keys(this.panelConfigs).length} panels loaded: ${Object.keys(this.panelConfigs).join(', ')}`);
+            getLogger().info('CATEGORIES_LOADED', `${Object.keys(this.categories).length} categories loaded: ${Object.keys(this.categories).join(', ')}`);
             
             // Initialize sidebar panel states in Redux if they don't exist
             const state = appStore.getState();
             const currentSidebarPanels = state.panels?.sidebarPanels || {};
             
-            getLogger().info('[SidebarManager] Current sidebar panels state:', currentSidebarPanels);
+            getLogger().debug('PANELS_STATE', 'Current sidebar panels state loaded');
             
             Object.keys(this.panelConfigs).forEach(panelId => {
                 if (!(panelId in currentSidebarPanels)) {
                     const config = this.panelConfigs[panelId];
-                    getLogger().info(`[SidebarManager] Initializing panel ${panelId} with default expanded: ${config.default_expanded || false}`);
+                    getLogger().info('PANEL_INIT', `Initializing panel ${panelId} with expanded: ${config.default_expanded || false}`);
                     appStore.dispatch(panelActions.setSidebarPanelExpanded({
                         panelId,
                         expanded: config.default_expanded || false
                     }));
                 } else {
-                    getLogger().info(`[SidebarManager] Panel ${panelId} already exists with expanded: ${currentSidebarPanels[panelId].expanded}`);
+                    getLogger().debug('PANEL_EXISTS', `Panel ${panelId} already exists with expanded: ${currentSidebarPanels[panelId].expanded}`);
                 }
             });
             
         } catch (error) {
-            getLogger().error('[SidebarManager] Failed to load panel configuration:', error);
+            getLogger().error('CONFIG_ERROR', `Failed to load panel configuration: ${error.message}`);
             throw error; // Re-throw to prevent broken state
         }
     }
@@ -246,7 +246,7 @@ export class SidebarManager {
         const state = appStore.getState();
         const sidebarPanels = state.panels?.sidebarPanels || {};
         const floatingPanels = state.panels?.panels || {};
-        getLogger().info('[SidebarManager] Current sidebar panel states:', sidebarPanels);
+        getLogger().info('RENDER_STATE', 'Rendering sidebar with current panel states');
         
         const panelsHtml = Object.entries(this.panelConfigs).map(([panelId, config]) => {
             const isExpanded = sidebarPanels[panelId]?.expanded || config.default_expanded || false;
@@ -417,7 +417,7 @@ export class SidebarManager {
     async renderPanelInstance(panelId, config) {
         const container = this.container.querySelector(`#panel-instance-${panelId}`);
         if (!container) {
-            getLogger().warn(`[SidebarManager] Panel instance container not found for ${panelId}`);
+            getLogger().warn('CONTAINER_MISSING', `Panel instance container not found for ${panelId}`);
             return;
         }
 
@@ -467,21 +467,21 @@ export class SidebarManager {
             } else {
                 // Fallback to basic description
                 container.innerHTML = `<div class="panel-fallback">Panel content not available</div>`;
-                getLogger().warn(`[SidebarManager] No renderContent method for panel: ${panelId}`);
+                getLogger().warn('RENDER_METHOD_MISSING', `No renderContent method for panel: ${panelId}`);
             }
         } catch (error) {
-            getLogger().error(`[SidebarManager] Failed to render panel ${panelId}:`, error);
+            getLogger().error('RENDER_ERROR', `Failed to render panel ${panelId}: ${error.message}`);
             container.innerHTML = `<div class="panel-error">Failed to load panel: ${error.message}</div>`;
         }
     }
 
     togglePanelFloating(panelId) {
-        getLogger().info(`[SidebarManager] Toggling floating for panel: ${panelId}`);
+        getLogger().info('TOGGLE_FLOATING', `Toggling floating for panel: ${panelId}`);
         appStore.dispatch(panelActions.togglePanelFloating(panelId));
     }
 
     closePanel(panelId) {
-        getLogger().info(`[SidebarManager] Closing panel: ${panelId}`);
+        getLogger().info('CLOSE_PANEL', `Closing panel: ${panelId}`);
         appStore.dispatch(panelActions.hidePanel(panelId));
     }
 
@@ -489,7 +489,7 @@ export class SidebarManager {
         console.log(`[SidebarManager] createFloatingPanel called for: ${panelId}`);
         const config = this.panelConfigs[panelId];
         if (!config) {
-            getLogger().error(`Panel configuration not found for id: ${panelId}`);
+            getLogger().error('CONFIG_NOT_FOUND', `Panel configuration not found for id: ${panelId}`);
             return;
         }
 
@@ -498,7 +498,7 @@ export class SidebarManager {
         console.log(`[SidebarManager] Current panel state for ${panelId}:`, state.panels?.panels?.[panelId]);
         
         if (!state.panels?.panels?.[panelId]) {
-            getLogger().info(`[SidebarManager] Creating panel ${panelId} in Redux state before floating`);
+            getLogger().info('CREATE_PANEL_STATE', `Creating panel ${panelId} in Redux state before floating`);
             // Create panel in Redux state first
             appStore.dispatch(panelActions.createPanel({
                 id: panelId,
@@ -519,7 +519,7 @@ export class SidebarManager {
         const newState = appStore.getState();
         console.log(`[SidebarManager] Panel state after startFloatingPanel:`, newState.panels?.panels?.[panelId]);
         
-        getLogger().info(`[SidebarManager] Started floating panel: ${panelId}`);
+        getLogger().info('PANEL_FLOATING', `Started floating panel: ${panelId}`);
     }
 
     closeFloatingPanel(panelId) {
@@ -745,7 +745,7 @@ export class SidebarManager {
                 }
             }
         } catch (error) {
-            getLogger().error(`Failed to render floating panel content for ${panelId}:`, error);
+            getLogger().error('FLOATING_RENDER_ERROR', `Failed to render floating panel content for ${panelId}: ${error.message}`);
         }
     }
 

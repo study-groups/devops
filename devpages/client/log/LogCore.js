@@ -111,7 +111,7 @@ export function log({ message,
                       forceConsole = false,
                       component = null }) {
     // Remove emojis from message
-    const cleanMessage = message ? message.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : '';
+    const cleanMessage = message && typeof message === 'string' ? message.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : String(message || '');
 
     const src = String(source).toUpperCase();
     const lvl = canonicalLevel(level);
@@ -156,17 +156,16 @@ export function log({ message,
         logDisplayInstance.addEntry(entry);
     }
 
-    // Console output with format: [SOURCE][COMPONENT][TYPE][ACTION] message [LEVEL]
+    // Console output with format: [TYPE][MODULE][ACTION] message [LEVEL]
     const isConsoleEnabled = typeof window !== 'undefined' && 
                              typeof window.APP.services.isConsoleLoggingEnabled === 'function' && 
                              window.APP.services.isConsoleLoggingEnabled();
                              
     if (forceConsole || isConsoleEnabled) {
-        let prefix = `[${src}]`;
-        if (comp) {
-            prefix += `[${comp}]`;
+        let prefix = `[${typ}]`;
+        if (src !== 'DEVPAGES') {
+            prefix += `[${src}]`;
         }
-        prefix += `[${typ}]`;
         if (act) {
             prefix += `[${act}]`;
         }

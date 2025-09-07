@@ -5,7 +5,7 @@
 import { openPublishModal } from './publish/PublishModal.js';
 import eventBus from '../eventBus.js';
 
-const log = window.APP.services.log.createLogger('SYSTEM', 'PublishIntegration');
+const log = window.APP.services.log.createLogger('UI', 'PublishIntegration');
 
 // Replace the existing publish functionality
 export function initializePublishModalIntegration() {
@@ -14,11 +14,11 @@ export function initializePublishModalIntegration() {
     const originalPublishToSpaces = window.triggerActions.publishToSpaces;
     
     window.triggerActions.publishToSpaces = function() {
-      log.info('TRIGGER_ACTION_REPLACED', 'Publishing via modal interface');
+      log.info('REPLACE_ACTION', 'Publishing via modal interface');
       openPublishModal();
     };
     
-    log.debug('REPLACE_SUCCESS', 'Replaced publishToSpaces with modal interface');
+    log.debug('REPLACE', 'Replaced publishToSpaces with modal interface');
   }
 
   // Handle publish button clicks
@@ -51,17 +51,11 @@ export function initializePublishModalIntegration() {
 
   // Listen for publish requests from event bus
   eventBus.on('publish:request', (data) => {
-    log.debug('EVENT_BUS_REQUEST', 'Received publish request via event bus');
+    log.debug('EVENT_REQUEST', 'Received publish request via event bus');
     openPublishModal(data?.pathname);
   });
 
-  // Add keyboard shortcut (Ctrl+Shift+P)
-  document.addEventListener('keydown', (event) => {
-    if (event.ctrlKey && event.shiftKey && event.key === 'P') {
-      event.preventDefault();
-      openPublishModal();
-    }
-  });
+  // Keyboard shortcuts are handled by KeyboardShortcutManager
 
-  log.info('INITIALIZED', 'Publish modal integration initialized');
+  log.info('INIT', 'Publish modal integration initialized');
 } 

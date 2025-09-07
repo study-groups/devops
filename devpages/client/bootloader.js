@@ -49,6 +49,7 @@ const allComponentDefinitions = [
     { name: 'viewControls', type: 'component', priority: 3, required: true, targetElementId: 'view-controls-container', modulePath: './components/ViewControls.js', factoryFunction: 'createViewControlsComponent', dependencies: ['coreServices'], description: 'View mode controls' },
     { name: 'contextSettingsPopup', type: 'service', priority: 4, required: true, modulePath: './components/ContextSettingsPopupComponent.js', factoryFunction: 'initializeContextSettingsPopup', dependencies: ['coreServices'], description: 'Context settings popup component' },
     { name: 'resizableManager', type: 'service', priority: 5, required: true, modulePath: './layout/resizable.js', factoryFunction: 'initializeResizableManager', dependencies: ['coreServices'], description: 'Manages workspace resizing' },
+    { name: 'keyboardShortcuts', type: 'service', priority: 1, required: false, modulePath: './utils/KeyboardShortcutManager.js', factoryFunction: 'initializeKeyboardShortcuts', dependencies: [], description: 'Global keyboard shortcut management' },
 ];
 
 const requiredDOMElements = allComponentDefinitions
