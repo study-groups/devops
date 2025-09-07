@@ -11,8 +11,8 @@
 const TEST_CONFIG = {
   baseUrl: 'https://devpages.qa.pixeljamarcade.com',
   testUser: {
-    username: 'mike',
-    password: 'nigelt'
+    username: process.env.user || 'mike',
+    password: process.env.password || 'nigelt'
   }
 };
 

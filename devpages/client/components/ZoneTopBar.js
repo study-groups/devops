@@ -16,6 +16,8 @@ export class ZoneTopBar {
         this.stats = {};
         this.status = 'ready';
         this.element = null;
+        this.statusDebounceTimeout = null;
+        this.statsDebounceTimeout = null;
         
         this.create();
     }
@@ -25,7 +27,7 @@ export class ZoneTopBar {
         this.element.className = 'zone-top-bar';
         
         this.element.innerHTML = `
-            <div class="zone-title">${this.options.title}</div>
+            ${this.options.title ? `<div class="zone-title">${this.options.title}</div>` : ''}
             <div class="zone-stats">
                 ${this.options.showStats ? '<span class="stats-content"></span>' : ''}
                 ${this.options.showStatus ? '<span class="zone-status ready">Ready</span>' : ''}
@@ -56,12 +58,21 @@ export class ZoneTopBar {
     setStats(stats) {
         this.stats = { ...this.stats, ...stats };
         
-        if (this.statsElement) {
-            const statsText = Object.entries(this.stats)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(' • ');
-            this.statsElement.textContent = statsText;
+        // Debounce stats updates to prevent flickering
+        if (this.statsDebounceTimeout) {
+            clearTimeout(this.statsDebounceTimeout);
         }
+        
+        this.statsDebounceTimeout = setTimeout(() => {
+            if (this.statsElement) {
+                const statsHTML = Object.entries(this.stats)
+                    .map(([key, value]) => `<div class="stats-item">${key}: <span>${value}</span></div>`)
+                    .join('');
+                this.statsElement.innerHTML = statsHTML;
+            }
+            this.statsDebounceTimeout = null;
+        }, 100); // 100ms debounce
+        
         return this;
     }
 
@@ -71,18 +82,36 @@ export class ZoneTopBar {
      * @param {string} message - Optional status message
      */
     setStatus(status, message = null) {
-        this.status = status;
+        const newStatus = status;
+        const statusText = message || status.charAt(0).toUpperCase() + status.slice(1);
         
-        if (this.statusElement) {
-            // Remove old status classes
-            this.statusElement.classList.remove('ready', 'loading', 'error');
-            // Add new status class
-            this.statusElement.classList.add(status);
-            
-            // Set status text
-            const statusText = message || status.charAt(0).toUpperCase() + status.slice(1);
-            this.statusElement.textContent = statusText;
+        // Don't update if status is the same to prevent unnecessary DOM changes
+        if (this.status === newStatus && this.statusElement && this.statusElement.textContent === statusText) {
+            return this;
         }
+        
+        this.status = newStatus;
+        
+        // Debounce status updates, but allow immediate updates for 'ready' state
+        const updateDelay = (status === 'ready') ? 0 : 150;
+        
+        if (this.statusDebounceTimeout) {
+            clearTimeout(this.statusDebounceTimeout);
+        }
+        
+        this.statusDebounceTimeout = setTimeout(() => {
+            if (this.statusElement) {
+                // Remove old status classes
+                this.statusElement.classList.remove('ready', 'loading', 'error');
+                // Add new status class
+                this.statusElement.classList.add(newStatus);
+                
+                // Set status text
+                this.statusElement.textContent = statusText;
+            }
+            this.statusDebounceTimeout = null;
+        }, updateDelay);
+        
         return this;
     }
 
@@ -118,6 +147,16 @@ export class ZoneTopBar {
      * Destroy the top bar
      */
     destroy() {
+        // Clear any pending timeouts
+        if (this.statusDebounceTimeout) {
+            clearTimeout(this.statusDebounceTimeout);
+            this.statusDebounceTimeout = null;
+        }
+        if (this.statsDebounceTimeout) {
+            clearTimeout(this.statsDebounceTimeout);
+            this.statsDebounceTimeout = null;
+        }
+        
         if (this.element && this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);
         }

@@ -8,7 +8,7 @@ import { clearError, setLoading, clearAuth, setToken, setAuthChecked, authThunks
 import { fileActions } from '/client/store/slices/fileSlice.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { settingsActions } from '/client/store/slices/settingsSlice.js';
-import { setContent, setModified } from '/client/store/slices/editorSlice.js';
+import { setContent, setContentSaved, setModified } from '/client/store/slices/editorSlice.js';
 
 // Import from pluginSlice - individual actions
 import { setPluginsState, updatePluginSettings, registerPlugin, unregisterPlugin, setModuleLoaded, resetPluginState } from '/client/store/slices/pluginSlice.js';
@@ -41,6 +41,7 @@ export { settingsActions };
 // Create editorActions object from individual editor actions
 export const editorActions = {
     setContent,
+    setContentSaved,
     setModified
 };
 

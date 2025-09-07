@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Final Robot Test Console</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .console { background: #000; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+        .instructions { background: #333; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        pre { background: #222; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🤖 Final Robot Test Console</h1>
+    
+    <div class="instructions">
+        <h2>Instructions:</h2>
+        <ol>
+            <li><strong>Open devpages in another tab:</strong> <a href="http://localhost:4000" target="_blank">http://localhost:4000</a></li>
+            <li><strong>Log in</strong> if needed</li>
+            <li><strong>Open browser dev console</strong> (F12)</li>
+            <li><strong>Load the robot:</strong> Copy and paste the script below into the console</li>
+            <li><strong>Run tests:</strong> Use the commands shown below</li>
+        </ol>
+    </div>
+
+    <div class="console">
+        <h3>📋 Robot Loading Script (Copy to devpages console):</h3>
+        <pre id="robotScript">
+// Load final-robot.js dynamically
+const script = document.createElement('script');
+script.type = 'module';
+script.textContent = `
+// Final Robot inline loader - paste this in devpages console
+${await fetch('/roundtrip/final-robot.js').then(r => r.text()).catch(() => 'console.error("Could not load robot - make sure you are on devpages")')}
+`;
+document.head.appendChild(script);
+console.log('🤖 Final Robot loaded!');
+        </pre>
+    </div>
+
+    <div class="console">
+        <h3>🎮 Robot Commands (Run in devpages console):</h3>
+        <pre>
+// Test save button functionality
+runRobotTest()
+
+// Test save button only  
+testSave()
+
+// Extract cookies for curl
+getCookies()
+
+// Show current Redux state
+finalRobot.logState()
+
+// Manual cookie extraction
+extractCookiesForCurl()
+        </pre>
+    </div>
+
+    <div class="console">
+        <h3>🍪 Cookie Extraction for curl:</h3>
+        <pre>
+// 1. Run in devpages console:
+const cookies = extractCookiesForCurl();
+
+// 2. Create cookie file:
+echo '# Netscape HTTP Cookie File' > /tmp/devpages-cookies.txt
+echo 'localhost	FALSE	/	FALSE	0	devpages.sid	YOUR_SESSION_ID' >> /tmp/devpages-cookies.txt
+
+// 3. Test with curl:
+./roundtrip/test-curl-save.sh
+        </pre>
+    </div>
+
+    <div class="console">
+        <h3>🔧 Manual curl save test:</h3>
+        <pre id="curlExample">
+curl -b /tmp/devpages-cookies.txt \
+     -H "Content-Type: application/json" \
+     -X POST \
+     -d '{"pathname":"users/mike/robot-test.md","content":"# Robot Test\n\nThis file was saved via curl bypass."}' \
+     http://localhost:4000/api/files/save
+        </pre>
+    </div>
+
+    <script>
+        // Auto-select script content for easy copying
+        document.getElementById('robotScript').addEventListener('click', function() {
+            const range = document.createRange();
+            range.selectNodeContents(this);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        });
+
+        document.getElementById('curlExample').addEventListener('click', function() {
+            const range = document.createRange();
+            range.selectNodeContents(this);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        });
+    </script>
+</body>
+</html>

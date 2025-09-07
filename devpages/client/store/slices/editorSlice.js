@@ -22,6 +22,11 @@ const editorSlice = createSlice({
             state.content = action.payload;
             state.isModified = true;
         },
+        setContentSaved: (state, action) => {
+            state.content = action.payload;
+            state.isModified = false;
+            state.lastSaved = new Date().toISOString();
+        },
         setModified: (state, action) => {
             state.isModified = action.payload;
         },
@@ -42,6 +47,6 @@ const editorSlice = createSlice({
 });
 
 // ✅ MODERNIZED: Export RTK slice actions and reducer
-export const { setContent, setModified, setCursorPosition, markSaved, resetEditor } = editorSlice.actions;
+export const { setContent, setContentSaved, setModified, setCursorPosition, markSaved, resetEditor } = editorSlice.actions;
 export const editorReducer = editorSlice.reducer;
 export default editorReducer;

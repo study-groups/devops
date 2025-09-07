@@ -37,22 +37,9 @@ export class DirectoryPopup {
         // Create popup element
         logContext(`Creating popup DOM element`, 'EVENT');
         this.popupElement = document.createElement('div');
-        this.popupElement.className = 'directory-context-popup';
-        this.popupElement.style.cssText = `
-            position: fixed;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            min-width: 220px;
-            max-width: 300px;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 4px 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 14px;
-        `;
+        // Remove inline styles, use CSS classes instead
+        this.popupElement.className = 'directory-context-popup base-popup';
+        // Remove hardcoded styles
 
         // Add header
         this._createHeader(parentPath);

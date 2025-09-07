@@ -19,7 +19,9 @@ const CSS_BUNDLES = {
         'client/layout/workspace-layout.css',
         'client/styles/top-bar-minimal.css',
         'client/components/auth-display.css',
-        'client/styles/resizable.css'
+        'client/styles/resizable.css',
+        'client/styles/editor.css',
+        'client/styles/sidebar.css'
     ],
     features: [
         'client/log/log.css',
@@ -34,10 +36,15 @@ const CSS_BUNDLES = {
         'client/file-browser/file-browser.css',
         'client/components/context-manager.css',
         'client/styles/splash-screen.css',
-        'client/styles/viewControls.css'
+        'client/styles/viewControls.css',
+        'client/components/publish/PublishModalStyles.css',
+        'client/preview/preview.css',
+        'client/styles/tags-and-buttons.css'
     ],
     panels: [
         'client/styles/panel-system.css',
+        'client/styles/floating-panels.css',
+        'client/styles/design-system-panels.css',
         'client/styles/design-tokens-panel.css',
         'client/styles/ui-inspector.css'
     ]

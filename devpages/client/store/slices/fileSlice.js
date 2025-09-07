@@ -5,7 +5,7 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
-import { setContent } from './editorSlice.js';
+import { setContent, setContentSaved } from './editorSlice.js';
 
 const initialState = {
     currentFile: {
@@ -89,33 +89,62 @@ export const fileThunks = {
     },
 
     saveFile: () => async (dispatch, getState) => {
-        const { currentFile } = getState().file;
-        if (!currentFile.isModified) {
+        const state = getState();
+        const { currentFile } = state.file;
+        const { currentPathname } = state.path;
+        const editorContent = state.editor?.content || currentFile.content;
+        
+        const pathname = currentFile.pathname || currentPathname;
+        if (!pathname) {
+            console.warn('[fileSlice] No file selected for saving');
             return;
         }
+
+        // Use editor content if available, fallback to file content
+        const contentToSave = editorContent || currentFile.content;
+        
         try {
             dispatch(fileActions.saveFilePending());
-            const response = await fetch('/api/files/content', {
+            console.log(`[fileSlice] Saving file: ${pathname} (${contentToSave.length} chars)`);
+            
+            // Use the correct API endpoint that we verified works
+            const response = await fetch('/api/files/save', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
                 credentials: 'include',
                 body: JSON.stringify({
-                    pathname: currentFile.pathname,
-                    content: currentFile.content
+                    pathname: pathname,
+                    content: contentToSave
                 })
             });
+            
             if (!response.ok) {
-                throw new Error(`Failed to save file: ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(errorData.error || `Failed to save file: ${response.statusText}`);
             }
+            
+            const result = await response.json();
+            console.log(`[fileSlice] File saved successfully: ${pathname}`, result);
+            
             // Mark as saved by updating original content
             dispatch(fileActions.loadFileSuccess({ 
-                pathname: currentFile.pathname, 
-                content: currentFile.content 
+                pathname: pathname, 
+                content: contentToSave 
             }));
-            dispatch(setContent(currentFile.content));
+            
+            // Update editor content and mark as saved (not modified)  
+            dispatch(setContentSaved(contentToSave));
+            
         } catch (error) {
             dispatch(fileActions.loadFileFailure(error.toString()));
             console.error('[fileSlice] Save failed:', error);
+            
+            // Show user-friendly error
+            if (typeof window !== 'undefined' && window.alert) {
+                window.alert(`Failed to save file: ${error.message}`);
+            }
         }
     }
 };

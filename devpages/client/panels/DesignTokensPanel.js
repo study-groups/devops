@@ -50,29 +50,25 @@ export class DesignTokensPanel extends BasePanel {
     renderContent() {
         return `
             <div class="design-tokens-panel">
-                <div class="dt-filters">
-                    <div id="token-category-filters" class="category-filters">
+                <div class="dt-toolbar">
+                    <div class="dt-filter-group" id="token-category-filters">
                         ${this.renderCategoryFilters()}
                     </div>
                 </div>
-                <div class="dt-content">
-                    <div class="tokens-wrapper">
-                        <div id="design-tokens-container" class="tokens-container">
-                            ${this.renderTokens()}
-                        </div>
-                    </div>
-                    <div class="tokens-footer">
-                        <span id="tokens-count">${this.filteredTokens.length} Tokens</span>
-                    </div>
+                <div class="dt-content" id="design-tokens-container">
+                    ${this.renderTokens()}
+                </div>
+                <div class="dt-stats">
+                    <span id="tokens-count">${this.filteredTokens.length} tokens</span>
                 </div>
             </div>
         `;
     }
 
     renderCategoryFilters() {
-        const categories = ['all', ...Array.from(this.categories)];
+        const categories = [...Array.from(this.categories), 'all'];
         return categories.map(category => `
-            <button class="category-filter ${category === this.currentFilter ? 'active' : ''}" 
+            <button class="dt-filter-btn ${category === this.currentFilter ? 'active' : ''}" 
                     data-category="${category}">
                 ${category}
             </button>
@@ -80,90 +76,270 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     renderTokens() {
-        const isColorGrid = this.currentFilter === 'Colors';
-        const isNameValueGrid = ['Spacing', 'Other', 'Z-Index'].includes(this.currentFilter);
-
-        if (isColorGrid) {
+        if (this.currentFilter === 'Colors') {
             return this.renderColorMatrix();
-        } else if (isNameValueGrid) {
-            return this.filteredTokens.map(token => `
-                <div class="token-name">${token.name}</div>
-                <div class="token-value">${token.value}</div>
-            `).join('');
         } else {
-            return this.filteredTokens.map(token => `
-                <div class="token-row">
-                    ${token.type === 'color' ? `<div class="token-color-swatch" style="background: ${token.value};"></div>` : ''}
-                    <div class="token-info">
-                        <div class="token-name">${token.name}</div>
-                        <div class="token-value">${token.value}</div>
-                    </div>
-                </div>
-            `).join('');
+            return this.renderTokenList();
         }
     }
 
+    renderTokenList() {
+        if (this.currentFilter === 'Typography') {
+            return this.renderTypographyGrid();
+        } else if (this.currentFilter === 'Spacing') {
+            return this.renderSpacingGrid();
+        } else if (this.currentFilter === 'Z-Index') {
+            return this.renderZIndexGrid();
+        } else {
+            return this.renderGenericTokenGrid();
+        }
+    }
+
+    renderGenericTokenGrid() {
+        return `
+            <div class="token-grid-container">
+                <div class="token-grid-header">
+                    <div class="tg-cell header type">T</div>
+                    <div class="tg-cell header name">Token</div>
+                    <div class="tg-cell header value">Value</div>
+                </div>
+                ${this.filteredTokens.map(token => `
+                    <div class="token-grid-row">
+                        <div class="tg-cell type">
+                            <span class="tg-type-badge ${token.type}">${token.type.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div class="tg-cell name">
+                            <span class="tg-token-name">${token.name}</span>
+                        </div>
+                        <div class="tg-cell value">
+                            <span class="tg-token-value">${token.value}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderTypographyGrid() {
+        return `
+            <div class="typography-grid">
+                <div class="typo-grid-header">
+                    <div class="tg-cell header name">Token</div>
+                    <div class="tg-cell header size">Size</div>
+                    <div class="tg-cell header weight">Wt</div>
+                    <div class="tg-cell header lh">LH</div>
+                    <div class="tg-cell header preview">Aa</div>
+                </div>
+                ${this.filteredTokens.map(token => {
+                    const props = this.parseTypographyToken(token);
+                    return `
+                        <div class="typo-grid-row">
+                            <div class="tg-cell name">
+                                <span class="tg-token-name">${token.name}</span>
+                            </div>
+                            <div class="tg-cell size">
+                                <span class="tg-size-value">${props.size || '—'}</span>
+                            </div>
+                            <div class="tg-cell weight">
+                                <span class="tg-weight-value">${props.weight || '—'}</span>
+                            </div>
+                            <div class="tg-cell lh">
+                                <span class="tg-lh-value">${props.lineHeight || '—'}</span>
+                            </div>
+                            <div class="tg-cell preview">
+                                <div class="tg-typo-preview" style="${this.getTypographyStyle(props)}">Aa</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    renderSpacingGrid() {
+        return `
+            <div class="spacing-grid">
+                <div class="spacing-grid-header">
+                    <div class="tg-cell header name">Token</div>
+                    <div class="tg-cell header value">Value</div>
+                    <div class="tg-cell header visual">Visual</div>
+                </div>
+                ${this.filteredTokens.map(token => `
+                    <div class="spacing-grid-row">
+                        <div class="tg-cell name">
+                            <span class="tg-token-name">${token.name}</span>
+                        </div>
+                        <div class="tg-cell value">
+                            <span class="tg-spacing-value">${token.value}</span>
+                        </div>
+                        <div class="tg-cell visual">
+                            <div class="tg-spacing-bar" style="width: ${this.getSpacingWidth(token.value)}"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderZIndexGrid() {
+        // Sort z-index tokens by numeric value
+        const sortedTokens = [...this.filteredTokens].sort((a, b) => {
+            const valueA = parseInt(a.value) || 0;
+            const valueB = parseInt(b.value) || 0;
+            return valueA - valueB;
+        });
+
+        return `
+            <div class="zindex-grid">
+                <div class="zindex-grid-header">
+                    <div class="tg-cell header level">Lvl</div>
+                    <div class="tg-cell header name">Token</div>
+                    <div class="tg-cell header value">Value</div>
+                    <div class="tg-cell header stack">Stack</div>
+                </div>
+                ${sortedTokens.map((token, index) => `
+                    <div class="zindex-grid-row">
+                        <div class="tg-cell level">
+                            <span class="tg-level-indicator">${index + 1}</span>
+                        </div>
+                        <div class="tg-cell name">
+                            <span class="tg-token-name">${token.name}</span>
+                        </div>
+                        <div class="tg-cell value">
+                            <span class="tg-zindex-value">${token.value}</span>
+                        </div>
+                        <div class="tg-cell stack">
+                            <div class="tg-stack-visual" style="height: ${Math.min(20, (index + 1) * 2)}px"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getSpacingWidth(value) {
+        // Convert spacing values to visual width (max 60px)
+        const numValue = parseFloat(value);
+        if (value.includes('rem')) {
+            return Math.min(numValue * 16, 60) + 'px';
+        } else if (value.includes('px')) {
+            return Math.min(numValue, 60) + 'px';
+        }
+        return '20px';
+    }
+
+    parseTypographyToken(token) {
+        const name = token.name.toLowerCase();
+        const value = token.value;
+        
+        // Parse different typography token types
+        if (name.includes('size')) {
+            return { size: value, type: 'size' };
+        } else if (name.includes('weight')) {
+            return { weight: value, type: 'weight' };
+        } else if (name.includes('family')) {
+            return { family: value, type: 'family' };
+        } else if (name.includes('line-height')) {
+            return { lineHeight: value, type: 'lineHeight' };
+        } else {
+            // Try to parse composite values
+            return this.parseCompositeTypography(value);
+        }
+    }
+
+    parseCompositeTypography(value) {
+        // For composite values like "16px/1.5 'Inter', sans-serif"
+        const parts = value.split(' ');
+        const result = {};
+        
+        parts.forEach(part => {
+            if (part.includes('px') || part.includes('rem') || part.includes('em')) {
+                result.size = part;
+            } else if (!isNaN(part) && parseFloat(part) > 0 && parseFloat(part) < 10) {
+                result.lineHeight = part;
+            } else if (!isNaN(part) && parseInt(part) >= 100 && parseInt(part) <= 900) {
+                result.weight = part;
+            } else if (part.includes("'") || part.includes('"')) {
+                result.family = part.replace(/['"]/g, '');
+            }
+        });
+        
+        return result;
+    }
+
+    getTypographyStyle(props) {
+        const styles = [];
+        if (props.size) styles.push(`font-size: ${props.size}`);
+        if (props.weight) styles.push(`font-weight: ${props.weight}`);
+        if (props.lineHeight) styles.push(`line-height: ${props.lineHeight}`);
+        if (props.family) styles.push(`font-family: ${props.family}`);
+        return styles.join('; ');
+    }
+
     renderColorMatrix() {
-        // Group ALL colors by family
-        const colorFamilies = {};
-        const allShades = new Set();
+        // Separate palette colors from semantic colors
+        const paletteColors = {};
+        const semanticColors = [];
         
         this.filteredTokens.forEach(token => {
             const parts = token.name.split('-');
             
+            // Palette colors: primary-500, neutral-200, etc.
             if (parts.length >= 2 && !isNaN(parts[1])) {
-                // Numbered shade like primary-500
                 const family = parts[0];
                 const shade = parts[1];
                 
-                if (!colorFamilies[family]) {
-                    colorFamilies[family] = {};
+                if (!paletteColors[family]) {
+                    paletteColors[family] = {};
                 }
-                colorFamilies[family][shade] = token;
-                allShades.add(shade);
-            } else if (parts[0] === 'accent' && parts.length >= 2) {
-                // Accent colors like accent-red
-                const family = `accent-${parts[1]}`;
-                const shade = 'base';
-                
-                if (!colorFamilies[family]) {
-                    colorFamilies[family] = {};
-                }
-                colorFamilies[family][shade] = token;
-                allShades.add(shade);
+                paletteColors[family][shade] = token;
             } else {
-                // Other colors like success, warning, error, info, text-*, background-*
-                const family = token.name;
-                const shade = 'base';
-                
-                if (!colorFamilies[family]) {
-                    colorFamilies[family] = {};
-                }
-                colorFamilies[family][shade] = token;
-                allShades.add(shade);
+                // Semantic colors: success, error, text-primary, background-default, etc.
+                semanticColors.push(token);
             }
         });
 
-        const families = Object.keys(colorFamilies).sort();
-        const numberedShades = Array.from(allShades).filter(s => !isNaN(s)).sort((a, b) => parseInt(b) - parseInt(a));
-        const otherShades = Array.from(allShades).filter(s => isNaN(s)).sort();
-        const shades = [...numberedShades, ...otherShades];
-
-        const gridCols = `80px repeat(${families.length}, 24px)`;
+        // Get all unique shade values and sort them
+        const allShades = new Set();
+        Object.values(paletteColors).forEach(family => {
+            Object.keys(family).forEach(shade => allShades.add(shade));
+        });
+        const shades = Array.from(allShades).sort((a, b) => parseInt(a) - parseInt(b));
         
+        // Get sorted families
+        const families = Object.keys(paletteColors).sort();
+
         return `
-            <div class="color-matrix" style="grid-template-columns: ${gridCols};">
-                <div class="matrix-corner"></div>
-                ${families.map(family => `<div class="matrix-col-label">${family}</div>`).join('')}
-                ${shades.map(shade => `
-                    <div class="matrix-row-label">${shade}</div>
-                    ${families.map(family => {
-                        const token = colorFamilies[family] && colorFamilies[family][shade];
-                        return token ? 
-                            `<div class="color-cell" style="background: ${token.value};" title="${token.name}: ${token.value}"></div>` :
-                            `<div class="color-cell empty"></div>`;
-                    }).join('')}
-                `).join('')}
+            <div class="color-section">
+                <div class="color-section-title">Color Palette</div>
+                <div class="color-matrix" style="grid-template-columns: 32px repeat(${families.length}, 16px);">
+                    <div class="matrix-corner">↘</div>
+                    ${families.map(family => `<div class="matrix-col-label">${family}</div>`).join('')}
+                    ${shades.map(shade => `
+                        <div class="matrix-row-label">${shade}</div>
+                        ${families.map(family => {
+                            const token = paletteColors[family] && paletteColors[family][shade];
+                            return token ? 
+                                `<div class="color-cell" style="background: ${token.value};" title="${token.name}: ${token.value}"></div>` :
+                                `<div class="color-cell empty"></div>`;
+                        }).join('')}
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="color-section">
+                <div class="color-section-title">Semantic Colors</div>
+                <div class="semantic-colors">
+                    ${semanticColors.map(token => `
+                        <div class="semantic-color-item">
+                            <div class="semantic-color-swatch" style="background: ${token.value};" title="${token.value}"></div>
+                            <div class="semantic-color-info">
+                                <div class="semantic-color-name">${token.name}</div>
+                                <div class="semantic-color-value">${token.value}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     }
@@ -190,7 +366,7 @@ export class DesignTokensPanel extends BasePanel {
         const filtersContainer = this.container.querySelector('#token-category-filters');
         if (filtersContainer) {
             filtersContainer.addEventListener('click', (e) => {
-                const button = e.target.closest('.category-filter');
+                const button = e.target.closest('.dt-filter-btn');
                 if (button) {
                     this.currentFilter = button.dataset.category;
                     this.updateTokensDisplay();
@@ -306,19 +482,6 @@ export class DesignTokensPanel extends BasePanel {
         `;
     }
 
-    renderTokenList() {
-        return this.filteredTokens.map(token => `
-            <div class="token-row ${token.type}">
-                ${token.type === 'color' ? 
-                    `<div class="color-preview" style="background-color: ${token.value};"></div>` : 
-                    ''
-                }
-                <span class="token-variable">${token.variable}</span>
-                <span class="token-value">${token.value}</span>
-                <span class="token-category">${token.category}</span>
-            </div>
-        `).join('');
-    }
 
     // Add a method to get debug info for panel registry
     getDebugInfo() {

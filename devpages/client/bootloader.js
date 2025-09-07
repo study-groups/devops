@@ -159,12 +159,28 @@ async function bootSecondary({ store, actions }) {
     
     // 1.5. Ensure TopBarController is initialized early
     try {
+        console.log('[Bootloader] Attempting to import and initialize TopBarController...');
         const { topBarController } = await import('./components/TopBarController.js');
+        console.log('[Bootloader] TopBarController imported, checking initialization state:', {
+            initialized: topBarController.initialized,
+            hasActionHandlers: topBarController.actionHandlers instanceof Map,
+            actionHandlerCount: topBarController.actionHandlers?.size
+        });
+        
         if (!topBarController.initialized) {
+            console.log('[Bootloader] Initializing TopBarController...');
             topBarController.initialize();
+            console.log('[Bootloader] TopBarController initialization completed:', {
+                initialized: topBarController.initialized,
+                actionHandlerCount: topBarController.actionHandlers?.size,
+                hasActionHandlers: topBarController.actionHandlers instanceof Map
+            });
             log.info('TOPBAR_INIT', '🎛️ TopBarController initialized during bootloader');
+        } else {
+            console.log('[Bootloader] TopBarController was already initialized');
         }
     } catch (error) {
+        console.error('[Bootloader] TopBarController initialization failed:', error);
         log.error('TOPBAR_INIT_FAILED', 'Failed to initialize TopBarController:', error);
     }
 

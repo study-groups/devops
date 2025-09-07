@@ -58,6 +58,7 @@ class WorkspaceManager {
         const state = appStore.getState();
         const fileContent = state.file?.currentFile?.content;
         const filePath = state.file?.currentFile?.pathname;
+        const editorContent = state.editor?.content;
         
         // CRITICAL FIX: Only handle UI visibility changes when they actually change
         // Don't call updateZoneVisibility on every state change
@@ -79,6 +80,13 @@ class WorkspaceManager {
             this.setupWorkspaceForFile(fileContent, filePath);
             this.lastFileContent = fileContent;
             this.lastFilePath = filePath;
+        }
+        
+        // Auto-update preview when editor content changes
+        if (editorContent && editorContent !== this.lastEditorContent && filePath) {
+            console.log(`[WorkspaceManager] Editor content changed, updating preview (${editorContent.length} chars)`);
+            this.updatePreviewFromEditor(editorContent, filePath);
+            this.lastEditorContent = editorContent;
         }
     }
 
@@ -173,13 +181,13 @@ class WorkspaceManager {
             <div class="panel-management">
                 <div class="panel-section">
                     <h4>Quick Actions</h4>
-                    <button class="panel-btn" onclick="window.APP.panels.createPanel('diagnostic', {title: 'System Diagnostics'}).mount().show()">
+                    <button class="btn btn-secondary btn-sm" onclick="window.APP.panels.createPanel('diagnostic', {title: 'System Diagnostics'}).mount().show()">
                         Create Diagnostic Panel
                     </button>
-                    <button class="panel-btn" onclick="window.APP.panels.list?.()">
+                    <button class="btn btn-secondary btn-sm" onclick="window.APP.panels.list?.()">
                         List All Panels
                     </button>
-                    <button class="panel-btn" onclick="window.APP.panels.cascade?.()">
+                    <button class="btn btn-secondary btn-sm" onclick="window.APP.panels.cascade?.()">
                         Cascade Panels
                     </button>
                 </div>
@@ -236,22 +244,35 @@ class WorkspaceManager {
     updateZoneVisibility(state) {
         const ui = state.ui || {};
         
+        // CRITICAL FIX: Apply proper default values when undefined
+        // These should match the defaults in uiSlice.js
+        const leftSidebarVisible = ui.leftSidebarVisible !== false; // Default to true
+        const editorVisible = ui.editorVisible !== false; // Default to true  
+        const previewVisible = ui.previewVisible !== false; // Default to true
+        
+        console.log('[WorkspaceManager] Updating zone visibility:', {
+            leftSidebarVisible,
+            editorVisible,
+            previewVisible,
+            uiState: ui
+        });
+        
         // Update sidebar zone visibility
         const sidebarZone = document.getElementById('workspace-sidebar');
         if (sidebarZone) {
-            sidebarZone.style.display = ui.leftSidebarVisible ? 'flex' : 'none';
+            sidebarZone.style.display = leftSidebarVisible ? 'flex' : 'none';
         }
         
         // Update editor zone visibility
         const editorZone = document.getElementById('workspace-editor');
         if (editorZone) {
-            editorZone.style.display = ui.editorVisible ? 'flex' : 'none';
+            editorZone.style.display = editorVisible ? 'flex' : 'none';
         }
         
         // Update preview zone visibility
         const previewZone = document.getElementById('workspace-preview');
         if (previewZone) {
-            previewZone.style.display = ui.previewVisible ? 'flex' : 'none';
+            previewZone.style.display = previewVisible ? 'flex' : 'none';
         }
     }
 
@@ -277,7 +298,7 @@ class WorkspaceManager {
         if (!this.editorTopBar) {
             const editorContainer = document.getElementById('workspace-editor');
             if (editorContainer) {
-                this.editorTopBar = new ZoneTopBar(editorContainer, { title: 'Editor' });
+                this.editorTopBar = new ZoneTopBar(editorContainer, { title: '', showStats: true, showStatus: false });
                 editorContainer.prepend(this.editorTopBar.getElement());
             }
         }
@@ -286,124 +307,19 @@ class WorkspaceManager {
         if (!this.previewTopBar) {
             const previewContainer = document.getElementById('workspace-preview');
             if (previewContainer) {
-                this.previewTopBar = new ZoneTopBar(previewContainer, { title: 'Preview' });
+                this.previewTopBar = new ZoneTopBar(previewContainer, { title: '' });
                 previewContainer.prepend(this.previewTopBar.getElement());
             }
         }
     }
 
     createSidebarTabBar(container) {
-        // Add basic CSS for tabs if not already added
-        if (!document.getElementById('sidebar-tab-styles')) {
-            const style = document.createElement('style');
-            style.id = 'sidebar-tab-styles';
-            style.textContent = `
-                .sidebar-tab-bar {
-                    height: 48px;
-                    border-bottom: 1px solid var(--color-border, #ddd);
-                    background: var(--color-bg-alt, #f8f9fa);
-                    display: flex;
-                    align-items: center;
-                }
-                .sidebar-tabs {
-                    display: flex;
-                    gap: 1px;
-                    padding: 8px 12px;
-                    height: 100%;
-                    align-items: center;
-                }
-                .sidebar-tab {
-                    padding: 2px 6px;
-                    border: 1px solid transparent;
-                    background: transparent;
-                    border-radius: 12px;
-                    cursor: pointer;
-                    font-size: 10px;
-                    font-weight: 400;
-                    color: var(--color-text-secondary, #666);
-                    white-space: nowrap;
-                    min-width: 0;
-                    height: 20px;
-                    display: flex;
-                    align-items: center;
-                    transition: all 0.15s ease;
-                }
-                .sidebar-tab:hover {
-                    border-color: rgba(0,0,0,0.1);
-                    background: rgba(255,255,255,0.8);
-                    color: var(--color-text, #333);
-                }
-                .sidebar-tab.active {
-                    border-color: rgba(0,0,0,0.15);
-                    background: rgba(255,255,255,0.9);
-                    color: var(--color-text, #333);
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                }
-                .sidebar-content-area {
-                    flex: 1;
-                    padding: 12px;
-                    overflow-y: auto;
-                }
-                .panel-management {
-                    font-size: 12px;
-                }
-                .panel-section {
-                    margin-bottom: 16px;
-                    padding-bottom: 12px;
-                    border-bottom: 1px solid var(--color-border, #eee);
-                }
-                .panel-section:last-child {
-                    border-bottom: none;
-                }
-                .panel-section h4 {
-                    margin: 0 0 8px 0;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: var(--color-text, #333);
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .panel-btn {
-                    display: block;
-                    width: 100%;
-                    padding: 6px 8px;
-                    margin-bottom: 4px;
-                    background: var(--color-bg-alt, #f8f9fa);
-                    border: 1px solid var(--color-border, #ddd);
-                    border-radius: 3px;
-                    font-size: 10px;
-                    color: var(--color-text, #333);
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                }
-                .panel-btn:hover {
-                    background: var(--color-bg-hover, #e9ecef);
-                    border-color: var(--color-border-hover, #ccc);
-                }
-                .panel-placeholder {
-                    color: var(--color-text-secondary, #666);
-                    font-style: italic;
-                    font-size: 10px;
-                    padding: 8px;
-                    text-align: center;
-                }
-                .debug-info {
-                    background: var(--color-bg-alt, #f8f9fa);
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 10px;
-                }
-                .debug-info code {
-                    display: block;
-                    margin-top: 4px;
-                    padding: 4px;
-                    background: var(--color-bg, #fff);
-                    border: 1px solid var(--color-border, #ddd);
-                    border-radius: 2px;
-                    font-family: monospace;
-                }
-            `;
-            document.head.appendChild(style);
+        // Load sidebar CSS
+        if (!document.querySelector('link[href="/client/styles/sidebar.css"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/client/styles/sidebar.css';
+            document.head.appendChild(link);
         }
         
         // Create tab bar element
@@ -434,7 +350,7 @@ class WorkspaceManager {
         
         // Create tab button
         const tabButton = document.createElement('button');
-        tabButton.className = `sidebar-tab ${active ? 'active' : ''}`;
+        tabButton.className = `btn btn-secondary btn-sm sidebar-tab ${active ? 'active' : ''}`;
         tabButton.dataset.tabId = id;
         tabButton.textContent = title;
         
@@ -522,9 +438,9 @@ class WorkspaceManager {
         
         // Create programmable top bar
         this.editorTopBar = new ZoneTopBar(container, {
-            title: 'Editor',
+            title: '',
             showStats: true,
-            showStatus: true
+            showStatus: false
         });
         
         // Insert top bar at the beginning
@@ -568,7 +484,7 @@ class WorkspaceManager {
         
         // Create programmable top bar
         this.previewTopBar = new ZoneTopBar(container, {
-            title: 'Preview',
+            title: '',
             showStats: true,
             showStatus: true
         });
@@ -638,6 +554,58 @@ class WorkspaceManager {
         
         previewDiv.innerHTML = `<p>${simpleHtml}</p>`;
         console.log('[WorkspaceManager] Fallback preview rendered');
+    }
+
+    async updatePreviewFromEditor(content, filePath) {
+        const previewContainer = document.getElementById('workspace-preview');
+        if (!previewContainer) return;
+        
+        const previewDiv = previewContainer.querySelector('.preview-container');
+        if (!previewDiv) return;
+        
+        // Update preview top bar status
+        if (this.previewTopBar) {
+            this.previewTopBar.setStatus('loading', 'Updating...');
+        }
+        
+        try {
+            // Try to use the proper preview system
+            const { updatePreview } = await import('/client/preview/index.js');
+            
+            appStore.dispatch(updatePreview({ content, filePath })).then(() => {
+                console.log('[WorkspaceManager] Preview updated from editor content');
+                
+                // Update the preview container with rendered content
+                setTimeout(() => {
+                    const previewState = appStore.getState().preview;
+                    if (previewState?.htmlContent) {
+                        previewDiv.innerHTML = previewState.htmlContent;
+                        
+                        // Update preview top bar
+                        if (this.previewTopBar) {
+                            this.previewTopBar
+                                .setStats({ 
+                                    'mode': 'markdown',
+                                    'size': `${Math.round(previewState.htmlContent.length / 1024)}kb`
+                                })
+                                .setStatus('ready');
+                        }
+                    }
+                }, 100);
+            }).catch(err => {
+                console.warn('[WorkspaceManager] Preview update failed, using fallback:', err.message);
+                if (this.previewTopBar) {
+                    this.previewTopBar.setStatus('error', 'Render failed');
+                }
+                this.renderFallbackPreview(previewDiv, content);
+            });
+        } catch (error) {
+            console.warn('[WorkspaceManager] Could not import preview system:', error.message);
+            if (this.previewTopBar) {
+                this.previewTopBar.setStatus('error', 'System error');
+            }
+            this.renderFallbackPreview(previewDiv, content);
+        }
     }
 
 

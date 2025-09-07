@@ -30,6 +30,11 @@ export class EditorView extends ViewInterface {
                 class="editor-textarea"
                 spellcheck="false"
             ></textarea>
+            <div class="editor-info-bar">
+                <div class="info-item line-info">Line: <span class="line-number">1</span></div>
+                <div class="info-item col-info">Col: <span class="col-number">1</span></div>
+                <div class="info-item char-info">Chars: <span class="char-count">0</span></div>
+            </div>
         `;
         
         return editorContainer;
@@ -48,6 +53,7 @@ export class EditorView extends ViewInterface {
 
         this.setupEditorFeatures();
         this.attachEventListeners();
+        this.setupInfoBar();
         this.checkAndRestoreAuthState();
         this.subscribeToStateChanges();
 
@@ -97,6 +103,13 @@ export class EditorView extends ViewInterface {
             if (newFile?.pathname !== prevFile?.pathname || 
                 newFile?.content !== prevFile?.content) {
                 this.updateEditorContent(newFile?.content || '');
+                
+                // Also sync the editor slice when file content changes
+                if (newFile?.content !== undefined) {
+                    import('/client/store/slices/editorSlice.js').then(({ setContentSaved }) => {
+                        appStore.dispatch(setContentSaved(newFile.content));
+                    });
+                }
             }
             
             prevState = newState;
@@ -139,6 +152,49 @@ export class EditorView extends ViewInterface {
         }
     }
 
+    setupInfoBar() {
+        if (!this.textarea) return;
+        
+        this.infoBar = {
+            lineNumber: this.element.querySelector('.line-number'),
+            colNumber: this.element.querySelector('.col-number'),
+            charCount: this.element.querySelector('.char-count')
+        };
+        
+        // Update info bar on cursor position change
+        this.updateInfoBar = this.updateInfoBar.bind(this);
+        this.textarea.addEventListener('input', this.updateInfoBar);
+        this.textarea.addEventListener('keyup', this.updateInfoBar);
+        this.textarea.addEventListener('mouseup', this.updateInfoBar);
+        this.textarea.addEventListener('focus', this.updateInfoBar);
+        
+        // Initial update
+        this.updateInfoBar();
+    }
+
+    updateInfoBar() {
+        if (!this.textarea || !this.infoBar.lineNumber) return;
+        
+        const content = this.textarea.value;
+        const cursorPos = this.textarea.selectionStart;
+        
+        // Calculate line and column
+        const textBeforeCursor = content.substring(0, cursorPos);
+        const lineNumber = textBeforeCursor.split('\n').length;
+        const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+        const colNumber = cursorPos - lastLineStart + 1;
+        
+        // Update the display
+        this.infoBar.lineNumber.textContent = lineNumber;
+        this.infoBar.colNumber.textContent = colNumber;
+        this.infoBar.charCount.textContent = content.length;
+        
+        // Update Redux state
+        import('/client/store/slices/editorSlice.js').then(({ setCursorPosition }) => {
+            appStore.dispatch(setCursorPosition(cursorPos));
+        });
+    }
+
     attachEventListeners() {
         if (!this.textarea) return;
 
@@ -161,9 +217,12 @@ export class EditorView extends ViewInterface {
     async handleInput(event) {
         const content = this.textarea.value;
         
-        // Update Redux state using the proper fileSlice action
+        // Update both file and editor slices to keep state consistent
         const { fileActions } = await import('/client/store/slices/fileSlice.js');
+        const { setContent } = await import('/client/store/slices/editorSlice.js');
+        
         appStore.dispatch(fileActions.updateFileContent({ content }));
+        appStore.dispatch(setContent(content));
 
         // Auto-save functionality could be added here
         this.scheduleAutoSave();

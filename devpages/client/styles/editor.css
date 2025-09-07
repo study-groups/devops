@@ -1,6 +1,7 @@
 /* client/styles/editor.css */
 
-#editor-container {
+#editor-container,
+.editor-container {
     height: 100%;
     width: 100%;
     display: flex;
@@ -23,4 +24,37 @@
 
 .editor-textarea:focus {
     outline: none;
+}
+
+.editor-info-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 4px 10px;
+    background-color: var(--color-bg-secondary, #f5f5f5);
+    border-top: 1px solid var(--color-border, #ddd);
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--color-text-muted, #666);
+    flex-shrink: 0;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    margin-right: 20px;
+    min-width: fit-content;
+    white-space: nowrap;
+}
+
+.info-item:last-child {
+    margin-right: 0;
+}
+
+.info-item span {
+    font-weight: 500;
+    color: var(--color-text, #333);
+    margin-left: 4px;
+    min-width: 20px;
+    text-align: left;
 } 

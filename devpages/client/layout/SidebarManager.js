@@ -74,14 +74,14 @@ export class SidebarManager {
     setupSidebarStructure() {
         this.container.innerHTML = `
             <div id="sidebar-header-container"></div>
-            <div id="sidebar-content" style="flex: 1; padding: 12px; overflow-y: auto;">
+            <div id="sidebar-content" class="sidebar-content">
                 <div class="sidebar-panel-list">
-                    <div style="text-align: center; color: var(--color-text-secondary); font-size: 12px; padding: 20px;">
+                    <div class="sidebar-loading">
                         Loading panels...
                     </div>
                 </div>
-                <div id="sidebar-panels-container" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
-                    <div style="margin-bottom: 8px; font-size: 11px; font-weight: 600; color: var(--color-text);">Available Panels</div>
+                <div id="sidebar-panels-container" class="sidebar-panels-container">
+                    <div class="sidebar-section-header">Available Panels</div>
                     <!-- Panels will be rendered here -->
                 </div>
             </div>
@@ -105,11 +105,19 @@ export class SidebarManager {
             };
 
             if (JSON.stringify(relevantState) !== JSON.stringify(this.lastRenderedState)) {
+                console.log('[SidebarManager] Store state changed, re-rendering...', {
+                    oldState: this.lastRenderedState,
+                    newState: relevantState
+                });
                 this.lastRenderedState = JSON.parse(JSON.stringify(relevantState));
                 this.activeCategory = relevantState.activeCategory || 'dev';
                 
                 // Use setTimeout to allow the Redux state to update before re-rendering
-                setTimeout(async () => await this.render(), 0);
+                setTimeout(async () => {
+                    console.log('[SidebarManager] Calling render and restoreFloatingPanels...');
+                    await this.render();
+                    await this.restoreFloatingPanels();
+                }, 0);
             }
         });
     }
@@ -130,8 +138,7 @@ export class SidebarManager {
                 ${Object.entries(this.categories).map(([categoryId, category]) => `
                     <button class="btn btn-ghost btn-sm category-tab ${categoryId === this.activeCategory ? 'active' : ''}" 
                             data-category="${categoryId}">
-                        <span class="tab-icon">${category.icon}</span>
-                        <span class="tab-label">${categoryId}</span>
+                        <span class="tab-label">${categoryId === 'dev' ? 'Dev' : categoryId === 'settings' ? 'Settings' : categoryId === 'publish' ? 'Publish' : categoryId}</span>
                     </button>
                 `).join('')}
             </div>
@@ -167,18 +174,17 @@ export class SidebarManager {
 
         if (activePanels.length === 0) {
             listContainer.innerHTML = `
-                <div style="text-align: center; color: var(--color-text-secondary); font-size: 12px; padding: 20px;">
+                <div class="sidebar-empty">
                     No panels active
                 </div>
             `;
         } else {
             listContainer.innerHTML = `
-                <div style="margin-bottom: 8px; font-size: 11px; font-weight: 600; color: var(--color-text);">Active Panels</div>
+                <div class="sidebar-section-header">Active Panels</div>
                 ${activePanels.map(panel => `
-                    <div style="padding: 6px 8px; margin-bottom: 2px; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 3px; font-size: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="active-panel-item">
                         <span>${panel.title}</span>
-                        <button data-action="close-panel" data-panel-id="${panel.id}"
-                                style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; font-size: 12px;">×</button>
+                        <button class="active-panel-close" data-action="close-panel" data-panel-id="${panel.id}">×</button>
                     </div>
                 `).join('')}
             `;
@@ -361,7 +367,7 @@ export class SidebarManager {
                                     }
                                 </div>
                             </div>
-                            <div class="panel-content" style="display: ${isExpanded ? 'block' : 'none'};" id="panel-content-${panelId}">
+                            <div class="panel-content ${isExpanded ? 'expanded' : 'collapsed'}" id="panel-content-${panelId}">
                                 <div class="panel-instance-container" id="panel-instance-${panelId}"></div>
                             </div>
                         </div>
@@ -410,7 +416,10 @@ export class SidebarManager {
      */
     async renderPanelInstance(panelId, config) {
         const container = this.container.querySelector(`#panel-instance-${panelId}`);
-        if (!container) return;
+        if (!container) {
+            getLogger().warn(`[SidebarManager] Panel instance container not found for ${panelId}`);
+            return;
+        }
 
         // Check if panel is floating
         const state = appStore.getState();
@@ -421,16 +430,8 @@ export class SidebarManager {
             // If panel is floating, show minimized version
             if (isFloating) {
                 container.innerHTML = `
-                    <div class="panel-minimized" style="
-                        padding: 12px;
-                        background: var(--color-bg-alt);
-                        border: 1px solid var(--color-border);
-                        border-radius: 4px;
-                        text-align: center;
-                        color: var(--color-text-secondary);
-                        font-size: 11px;
-                    ">
-                        <div style="margin-bottom: 8px;">Panel is floating</div>
+                    <div class="panel-minimized">
+                        <div class="panel-minimized-message">Panel is floating</div>
                         <button onclick="window.APP.services.sidebarManager.focusFloatingPanel('${panelId}')" 
                                 class="btn btn-sm" style="font-size: 10px;">
                             Focus Floating Panel
@@ -485,6 +486,7 @@ export class SidebarManager {
     }
 
     async createFloatingPanel(panelId) {
+        console.log(`[SidebarManager] createFloatingPanel called for: ${panelId}`);
         const config = this.panelConfigs[panelId];
         if (!config) {
             getLogger().error(`Panel configuration not found for id: ${panelId}`);
@@ -493,6 +495,8 @@ export class SidebarManager {
 
         // Ensure panel exists in Redux state first
         const state = appStore.getState();
+        console.log(`[SidebarManager] Current panel state for ${panelId}:`, state.panels?.panels?.[panelId]);
+        
         if (!state.panels?.panels?.[panelId]) {
             getLogger().info(`[SidebarManager] Creating panel ${panelId} in Redux state before floating`);
             // Create panel in Redux state first
@@ -508,7 +512,13 @@ export class SidebarManager {
         }
 
         // Now start floating the panel
+        console.log(`[SidebarManager] Dispatching startFloatingPanel for: ${panelId}`);
         appStore.dispatch(panelActions.startFloatingPanel({ panelId }));
+        
+        // Check state after dispatch
+        const newState = appStore.getState();
+        console.log(`[SidebarManager] Panel state after startFloatingPanel:`, newState.panels?.panels?.[panelId]);
+        
         getLogger().info(`[SidebarManager] Started floating panel: ${panelId}`);
     }
 
@@ -654,55 +664,51 @@ export class SidebarManager {
         const panel = document.createElement('div');
         panel.id = `floating-panel-${panelId}`;
         panel.className = 'floating-panel';
-        panel.style.cssText = `
-            position: fixed;
-            top: ${y}px;
-            left: ${x}px;
-            width: ${width}px;
-            height: ${height}px;
-            background: var(--color-bg);
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-        `;
+        // Only set position and size - let CSS handle all styling
+        panel.style.top = `${y}px`;
+        panel.style.left = `${x}px`;
+        panel.style.width = `${width}px`;
+        panel.style.height = `${height}px`;
 
         panel.innerHTML = `
-            <div class="floating-panel-header" style="
-                padding: 8px 12px;
-                background: var(--color-bg-alt);
-                border-bottom: 1px solid var(--color-border);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: move;
-            ">
-                <span style="font-size: 12px; font-weight: 500;">${config.title} (floating)</span>
-                <button data-action="close-floating" data-panel-id="${panelId}"
-                        style="background: none; border: none; cursor: pointer; font-size: 16px; color: var(--color-text-secondary);">×</button>
+            <div class="floating-panel-header">
+                <span class="floating-panel-title">${config.title}</span>
+                <div class="floating-panel-controls">
+                    <button class="floating-panel-collapse" data-action="collapse-floating" data-panel-id="${panelId}" title="Collapse">−</button>
+                    <button class="floating-panel-close" data-action="close-floating" data-panel-id="${panelId}" title="Close">×</button>
+                </div>
             </div>
-            <div class="floating-panel-content" style="
-                flex: 1;
-                overflow: hidden;
-            " id="floating-panel-content-${panelId}">
+            <div class="floating-panel-content" id="floating-panel-content-${panelId}">
                 <!-- Panel content will be rendered here -->
             </div>
-            <div class="resize-handle resize-handle-se" style="
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 12px;
-                height: 12px;
-                cursor: se-resize;
-                background: linear-gradient(-45deg, transparent 0%, transparent 30%, var(--color-border) 30%, var(--color-border) 35%, transparent 35%, transparent 65%, var(--color-border) 65%, var(--color-border) 70%, transparent 70%);
-            "></div>
+            <div class="resize-handle resize-handle-se"></div>
         `;
 
         // Make it draggable and resizable
         this.makeDraggable(panel);
         this.makeResizable(panel);
+        
+        // Add collapse functionality - collapse to header only
+        const collapseBtn = panel.querySelector('.floating-panel-collapse');
+        const content = panel.querySelector('.floating-panel-content');
+        if (collapseBtn && content) {
+            collapseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isCollapsed = panel.classList.contains('collapsed');
+                
+                if (isCollapsed) {
+                    // Expand
+                    panel.classList.remove('collapsed');
+                    content.style.display = 'block';
+                    collapseBtn.textContent = '−';
+                } else {
+                    // Collapse to header only
+                    panel.classList.add('collapsed');
+                    content.style.display = 'none';
+                    collapseBtn.textContent = '+';
+                }
+            });
+        }
         
         // Add close button event listener
         const closeButton = panel.querySelector('[data-action="close-floating"]');
@@ -715,6 +721,9 @@ export class SidebarManager {
         }
         
         document.body.appendChild(panel);
+        console.log(`[SidebarManager] Created floating panel DOM element:`, panel);
+        console.log(`[SidebarManager] Panel position: top=${panel.style.top}, left=${panel.style.left}, width=${panel.style.width}, height=${panel.style.height}`);
+        console.log(`[SidebarManager] Panel in DOM:`, document.getElementById(`floating-panel-${panelId}`));
         
         // Render the actual panel content in the floating panel
         try {
@@ -939,439 +948,7 @@ export class SidebarManager {
 
 
     addSidebarStyles() {
-        if (document.getElementById('sidebar-manager-styles')) return;
-
-        const style = document.createElement('style');
-        style.id = 'sidebar-manager-styles';
-        style.textContent = `
-            /* Category Tabs */
-            .sidebar-category-tabs {
-                display: flex;
-                gap: var(--space-1);
-                padding: var(--space-3) var(--space-2);
-                margin-bottom: var(--space-3);
-                flex-wrap: wrap;
-                border-bottom: 1px solid var(--color-border);
-            }
-
-            .category-tab {
-                display: flex;
-                align-items: center;
-                gap: var(--space-1);
-                padding: var(--space-1-5) var(--space-3);
-                border-radius: var(--radius-full);
-                font-size: var(--font-size-xs);
-                font-weight: var(--font-weight-medium);
-                text-transform: capitalize;
-                white-space: nowrap;
-                transition: var(--transition-fast);
-            }
-
-            .category-tab .tab-icon {
-                font-size: var(--font-size-sm);
-                opacity: 0.8;
-            }
-
-            .category-tab.active {
-                background-color: var(--color-primary);
-                color: var(--color-primary-foreground);
-                border-color: var(--color-primary);
-            }
-
-            .category-tab.active .tab-icon {
-                opacity: 1;
-            }
-
-            /* Sidebar Content */
-            .sidebar-content {
-                padding: 0 8px;
-                overflow-y: auto;
-                flex: 1;
-            }
-
-            .panels-container {
-                padding-bottom: 20px; /* Add space for dropping at the end */
-            }
-
-            /* Panel Items */
-            .panel-item {
-                margin-bottom: var(--space-3);
-                border-radius: var(--radius-lg);
-                overflow: hidden;
-                background: var(--color-bg-elevated);
-                border: 1px solid var(--color-border);
-                box-shadow: var(--shadow-sm);
-                transition: var(--transition-fast);
-            }
-
-            .panel-item:hover {
-                box-shadow: var(--shadow-md);
-                border-color: var(--color-border-hover);
-            }
-
-            .panel-item.floating .panel-header {
-                background: var(--color-bg-alt);
-                opacity: 0.9;
-            }
-
-            .panel-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: var(--space-3) var(--space-4);
-                background: var(--color-bg-alt);
-                cursor: pointer;
-                transition: var(--transition-fast);
-                border-bottom: 1px solid var(--color-border);
-                gap: var(--space-2);
-            }
-
-            .panel-header[draggable="true"] {
-                cursor: grab;
-                user-select: none;
-            }
-
-            .panel-header[draggable="true"]:hover {
-                background: var(--color-bg-hover);
-            }
-
-            .panel-header[draggable="true"]:active {
-                cursor: grabbing;
-            }
-
-            .panel-drag-indicator {
-                color: var(--color-fg-muted);
-                font-size: 10px;
-                opacity: 0.5;
-                transition: opacity 0.2s ease;
-                line-height: 1;
-            }
-
-            .panel-header:hover .panel-drag-indicator {
-                opacity: 1;
-                color: var(--color-primary);
-            }
-
-            .panel-controls {
-                display: flex;
-                align-items: center;
-                gap: var(--space-1);
-            }
-
-            .panel-control-btn {
-                background: transparent;
-                border: none;
-                cursor: pointer;
-                font-size: 10px;
-                color: var(--color-fg-muted);
-                padding: 2px;
-                border-radius: var(--radius-sm);
-                transition: all 0.2s ease;
-                line-height: 1;
-                width: 14px;
-                height: 14px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                opacity: 0.6;
-            }
-
-            .panel-control-btn:hover {
-                color: var(--color-primary);
-                background: transparent;
-                opacity: 1;
-                transform: scale(1.2);
-            }
-
-            .panel-control-btn:active {
-                transform: scale(0.9);
-                opacity: 0.8;
-            }
-
-            .panel-item.dragging {
-                opacity: 0.8;
-                transform: rotate(1deg) scale(1.05);
-                box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-                z-index: 1000;
-                border: 2px solid var(--color-primary);
-                background: var(--color-bg-elevated);
-            }
-
-            /* SortableJS Classes */
-            .sortable-ghost {
-                opacity: 0.4;
-                background: var(--color-primary-background);
-                border: 2px dashed var(--color-primary);
-            }
-
-            .sortable-chosen {
-                opacity: 0.9;
-                transform: scale(1.02);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            }
-
-            .sortable-drag {
-                opacity: 1;
-                transform: rotate(2deg);
-                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-                z-index: 1000;
-            }
-
-            .drop-indicator {
-                height: 3px;
-                background: var(--color-primary);
-                margin: 6px 8px;
-                border-radius: 2px;
-                opacity: 1;
-                box-shadow: 0 0 4px var(--color-primary);
-                animation: pulse 1s infinite;
-            }
-
-            @keyframes pulse {
-                0%, 100% { opacity: 0.8; }
-                50% { opacity: 0.4; }
-            }
-
-            .panels-reorder-hint {
-                display: flex;
-                align-items: center;
-                gap: var(--space-1);
-                padding: var(--space-2);
-                margin-bottom: var(--space-2);
-                background: var(--color-bg-alt);
-                border: 1px solid var(--color-border);
-                border-radius: var(--radius-base);
-                font-size: var(--font-size-xs);
-                color: var(--color-fg-muted);
-                opacity: 0.8;
-            }
-
-            .panels-reorder-hint .hint-icon {
-                color: var(--color-primary);
-                font-weight: bold;
-            }
-
-            .panel-header:hover {
-                background: var(--color-bg-hover);
-            }
-
-            .panel-title {
-                font-size: var(--font-size-sm);
-                font-weight: var(--font-weight-semibold);
-                color: var(--color-fg);
-                margin: 0;
-            }
-
-            .panel-controls {
-                display: flex;
-                align-items: center;
-                gap: var(--space-1);
-            }
-
-            .panel-btn {
-                background: transparent;
-                border: 1px solid transparent;
-                cursor: pointer;
-                padding: var(--space-1);
-                border-radius: var(--radius-base);
-                font-size: var(--font-size-xs);
-                color: var(--color-fg-muted);
-                transition: var(--transition-fast);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-            }
-
-            .panel-btn:hover {
-                background: var(--color-bg-hover);
-                border-color: var(--color-border);
-                color: var(--color-fg);
-            }
-
-            /* Panel Content */
-            .panel-content {
-                padding: var(--space-4);
-                background: var(--color-bg-elevated);
-            }
-
-            .panel-description {
-                font-size: var(--font-size-xs);
-                color: var(--color-fg-muted);
-                line-height: var(--line-height-normal);
-                margin: 0 0 var(--space-2) 0;
-            }
-
-            /* Panel Instance Styling */
-            .panel-instance-container {
-                margin-top: var(--space-2);
-                padding: var(--space-2);
-                background: var(--color-bg);
-                border: 1px solid var(--color-border);
-                border-radius: var(--radius-base);
-                width: 100%;
-                max-width: 100%;
-                overflow: hidden;
-                box-sizing: border-box;
-            }
-
-            /* Ensure panel content respects container bounds */
-            .panel-instance-container * {
-                max-width: 100%;
-                box-sizing: border-box;
-            }
-
-            /* Design tokens panel specific constraints */
-            .panel-instance-container .design-tokens-header {
-                flex-direction: column;
-                gap: var(--space-2);
-            }
-
-            .panel-instance-container .header-actions {
-                flex-direction: column;
-                gap: var(--space-1);
-                width: 100%;
-            }
-
-            .panel-instance-container .token-search-input {
-                width: 100%;
-                max-width: 100%;
-                box-sizing: border-box;
-            }
-
-            .panel-instance-container .view-toggle {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .panel-instance-container .tokens-container {
-                max-height: 300px;
-                overflow-y: auto;
-            }
-
-            .panel-instance-container .token-row {
-                font-size: 10px;
-                padding: 4px;
-            }
-
-            .panel-instance-container .design-tokens-filters {
-                padding: 8px;
-            }
-
-            .panel-instance-container .category-filters {
-                flex-wrap: wrap;
-                gap: 4px;
-            }
-
-            .panel-instance-container .category-filter {
-                font-size: 9px;
-                padding: 2px 6px;
-            }
-
-            .panel-instance-container .tokens-container.grid-view {
-                display: grid;
-                grid-template-columns: auto 1fr;
-                gap: var(--space-1) var(--space-3);
-                align-items: center;
-            }
-
-            .panel-instance-container .token-row {
-                display: flex;
-                align-items: center;
-                gap: var(--space-2);
-                padding: var(--space-2) 0;
-                border-bottom: 1px solid var(--color-border);
-            }
-            
-            .panel-instance-container .tokens-container.list-view .token-row:last-child {
-                border-bottom: none;
-            }
-            
-            .panel-instance-container .token-color-swatch {
-                width: 16px;
-                height: 16px;
-                border-radius: var(--radius-sm);
-                border: 1px solid var(--color-border);
-                flex-shrink: 0;
-            }
-
-            .panel-instance-container .token-info {
-                font-size: 10px;
-            }
-
-            .panel-instance-container .token-name {
-                font-weight: var(--font-weight-medium);
-            }
-
-            .panel-instance-container .token-value {
-                color: var(--color-fg-muted);
-            }
-
-            .panel-instance-container .tokens-container.grid-view .token-value {
-                text-align: right;
-                font-family: var(--font-mono);
-            }
-
-            .panel-fallback, .panel-error {
-                padding: var(--space-2);
-                text-align: center;
-                font-size: var(--font-size-xs);
-                color: var(--color-fg-muted);
-                font-style: italic;
-            }
-
-            .panel-error {
-                color: var(--color-error);
-                background: var(--color-error-background);
-                border-radius: var(--radius-base);
-            }
-
-            /* Publish Panel Specific Styles */
-            .publish-panel-content .publish-section {
-                margin-bottom: var(--space-3);
-            }
-
-            .publish-panel-content .section-title {
-                font-size: var(--font-size-sm);
-                font-weight: var(--font-weight-semibold);
-                margin-bottom: var(--space-2);
-                color: var(--color-fg);
-            }
-
-            .publish-actions {
-                display: flex;
-                gap: var(--space-2);
-                flex-wrap: wrap;
-            }
-
-            .deployment-status .status-item {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: var(--space-1);
-                font-size: var(--font-size-xs);
-            }
-
-            .status-ready { color: var(--color-success); }
-            .status-success { color: var(--color-success); }
-            .status-error { color: var(--color-error); }
-
-            .notification {
-                position: fixed;
-                top: var(--space-4);
-                right: var(--space-4);
-                padding: var(--space-2) var(--space-3);
-                border-radius: var(--radius-base);
-                font-size: var(--font-size-xs);
-                z-index: 9999;
-            }
-
-            .notification-info { background: var(--color-primary-background); color: var(--color-primary); }
-            .notification-success { background: var(--color-success-background); color: var(--color-success); }
-            .notification-warning { background: var(--color-warning-background); color: var(--color-warning); }
-            .notification-error { background: var(--color-error-background); color: var(--color-error); }
-        `;
-        document.head.appendChild(style);
+        // Styles are now in sidebar.css - no inline styles needed
     }
 
     addStyles() {

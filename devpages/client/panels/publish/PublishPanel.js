@@ -87,8 +87,9 @@ export class PublishPanel extends BasePanel {
     /**
      * Initialize panel after mounting
      */
-    onMount() {
-        super.onMount();
+    onMount(container) {
+        super.onMount(container);
+        this.container = container || this.element;
         this.loadPublishHistory();
         this.updateDeploymentStatus();
         this.bindEvents();
@@ -98,8 +99,10 @@ export class PublishPanel extends BasePanel {
      * Bind event handlers
      */
     bindEvents() {
-        const publishCurrentBtn = this.element.querySelector('button[onclick*="publishCurrent"]');
-        const publishAllBtn = this.element.querySelector('button[onclick*="publishAll"]');
+        if (!this.container) return;
+        
+        const publishCurrentBtn = this.container.querySelector('button[onclick*="publishCurrent"]');
+        const publishAllBtn = this.container.querySelector('button[onclick*="publishAll"]');
         
         if (publishCurrentBtn) {
             publishCurrentBtn.onclick = () => this.publishCurrent();
@@ -206,7 +209,8 @@ export class PublishPanel extends BasePanel {
      * Render publish history list
      */
     renderPublishHistory() {
-        const historyContainer = this.element.querySelector('#publish-history-list');
+        if (!this.container) return;
+        const historyContainer = this.container.querySelector('#publish-history-list');
         if (!historyContainer) return;
 
         if (this.publishHistory.length === 0) {
@@ -233,8 +237,9 @@ export class PublishPanel extends BasePanel {
      * Update deployment status display
      */
     updateDeploymentStatus() {
-        const lastDeployElement = this.element.querySelector('#last-deploy-time');
-        const statusElement = this.element.querySelector('#deploy-status');
+        if (!this.container) return;
+        const lastDeployElement = this.container.querySelector('#last-deploy-time');
+        const statusElement = this.container.querySelector('#deploy-status');
         
         if (this.publishHistory.length > 0) {
             const lastDeploy = this.publishHistory[0];
@@ -266,7 +271,9 @@ export class PublishPanel extends BasePanel {
         notification.textContent = message;
         
         // Add to panel
-        this.element.appendChild(notification);
+        if (this.container) {
+            this.container.appendChild(notification);
+        }
         
         // Auto-remove after 3 seconds
         setTimeout(() => {

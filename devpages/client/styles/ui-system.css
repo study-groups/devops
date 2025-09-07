@@ -57,6 +57,14 @@
 }
 
 /* Button Size Variants */
+.btn-badge {
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--font-size-xs);
+  gap: var(--space-0-5);
+  border-radius: var(--radius-full);
+  height: 22px;
+}
+
 .btn-xs {
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
@@ -118,7 +126,7 @@ button.btn-ghost,
 /* Clean hover styles - proper CSS cascade */
 button.btn-ghost:hover,
 .btn.btn-ghost:hover {
-  background-color: var(--color-bg-alt);
+  background-color: var(--color-bg-elevated); /* Changed for better visibility */
   border-color: var(--color-border-hover);
   color: var(--color-fg);
   transform: translateY(-1px);
@@ -508,4 +516,34 @@ button:not(.btn):focus {
 button:not(.btn):focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* ===== Save Button States ===== */
+
+/* Default (clean) state */
+#save-btn {
+  background-color: transparent;
+  border: 1px solid transparent; /* No border */
+  color: var(--color-fg-muted);
+}
+
+/* Dirty state */
+#save-btn.is-dirty {
+  background-color: transparent;
+  border: 1px solid var(--color-blue-500); /* Hairline ghost border */
+  color: var(--color-blue-500);
+}
+
+#save-btn.is-dirty:hover {
+  background-color: var(--color-blue-100);
+  color: var(--color-blue-900);
+}
+
+/* Disabled state should override others */
+#save-btn:disabled {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-fg-muted);
+  opacity: 0.5;
+  cursor: not-allowed;
 }
