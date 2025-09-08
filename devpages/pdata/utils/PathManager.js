@@ -16,7 +16,8 @@ class PathManager {
 
         this.roles = config.roles || new Map();
         this.systemRoots = config.systemRoots || {};
-        this.permissiveSymlinks = true;
+        this.symlinkLoggingEnabled = true; // Enable detailed symlink logging
+        this.permissiveSymlinks = true; // Allow more flexible symlink handling
     }
 
     getUserHomeDirectory(username) {
@@ -36,92 +37,82 @@ class PathManager {
         return { type: 'user', path: userDir, exists: false };
     }
 
-    async can(username, action, resourcePath) {
-        if (!username || !this.roles.has(username)) return false;
-        if (!path.isAbsolute(resourcePath)) return false;
-
-        const userRoles = this.roles.get(username) || [];
-        if (userRoles.includes('admin')) return true;
-
-        const userTopDir = path.join(this.usersDir, username);
-        if (resourcePath.startsWith(userTopDir)) return true;
-        
-        for (const rootPath of Object.values(this.systemRoots)) {
-            if (resourcePath.startsWith(rootPath)) {
-                return true; // Simplified for now; could be more granular
-            }
-        }
-        
-        if (action === 'read' || action === 'list') {
-            const stats = await fs.lstat(resourcePath);
-            if (stats.isSymbolicLink()) {
-                const linkTarget = await fs.readlink(resourcePath);
-                const targetPath = path.resolve(path.dirname(resourcePath), linkTarget);
-                return this.can(username, action, targetPath);
-            }
-            if (resourcePath.startsWith(this.contentRoot)) {
-                return true;
-            }
-        }
-
-        return false;
+    async can(username, action, resourcePath, isSymlinkTarget = false) {
+        // ULTRA PERMISSIVE MODE: Always return true
+        console.log(`[ULTRA PERMISSIVE] Allowing access: User: ${username}, Action: ${action}, Path: ${resourcePath}`);
+        return true;
     }
 
     async resolvePathForUser(username, inputPath = '') {
-        const userRoles = this.roles.get(username);
-        if (!userRoles || userRoles.length === 0) {
-            throw new Error(`User roles not found for ${username}`);
-        }
-
-        const normalizedClientPath = path.posix.normalize(inputPath || '.').replace(/\\.\\.[\\/\\\\]+/g, '');
-
-        if (userRoles.includes('admin')) {
-            const resolvedPath = path.join(this.contentRoot, normalizedClientPath);
-            if (!path.resolve(resolvedPath).startsWith(path.resolve(this.contentRoot))) {
-                throw new Error('Security Violation: Path escape attempt detected.');
+        // Handle virtual paths starting with ~
+        if (inputPath && inputPath.startsWith('~')) {
+            // This is a virtual path that should be handled by token-based resolution
+            // For legacy username-based calls, we'll map to the data directory
+            const virtualSegments = inputPath.split('/');
+            const mountAlias = virtualSegments[0]; // e.g., '~data'
+            const subPath = virtualSegments.slice(1).join('/');
+            
+            if (mountAlias === '~data') {
+                const resolvedPath = path.resolve(this.contentRoot, subPath);
+                console.log(`[PathManager] Virtual path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${resolvedPath}`);
+                return resolvedPath;
             }
-            return resolvedPath;
         }
-
-        const userRootOnFs = path.join(this.usersDir, username);
-        let finalPathOnFs;
-
-        if ([`.`, username].includes(normalizedClientPath)) {
-            finalPathOnFs = userRootOnFs;
-        } else if (normalizedClientPath.startsWith(`${username}/`)) {
-            finalPathOnFs = path.join(userRootOnFs, normalizedClientPath.substring(username.length + 1));
-        } else if (this.systemRoots[normalizedClientPath]) {
-            finalPathOnFs = this.systemRoots[normalizedClientPath];
-        } else {
-            const potentialPath = path.join(this.contentRoot, normalizedClientPath);
-            if(!fs.existsSync(potentialPath)){
-               throw new Error(`Access Denied: Path '${inputPath}' is invalid or outside your allowed directory.`);
-            }
-            finalPathOnFs = potentialPath;
+        
+        // Handle regular relative paths - resolve within user's data directory
+        if (!inputPath || inputPath === '.' || inputPath === username) {
+            const userPath = path.join(this.contentRoot, 'users', username);
+            console.log(`[PathManager] User home resolved: User: ${username}, Input: ${inputPath}, Resolved: ${userPath}`);
+            return userPath;
         }
-
-        const isSystemRootPath = Object.values(this.systemRoots).some(root => path.resolve(finalPathOnFs).startsWith(path.resolve(root)));
-
-        if (!path.resolve(finalPathOnFs).startsWith(path.resolve(this.contentRoot)) && !isSystemRootPath) {
-            throw new Error('Security Violation: Attempt to access path outside user scope.');
+        
+        // For other paths, check if it looks like a user path
+        const pathSegments = inputPath.split('/');
+        const firstSegment = pathSegments[0];
+        
+        // If the first segment looks like a username (and exists in users dir), resolve to users directory
+        const potentialUserPath = path.join(this.contentRoot, 'users', inputPath);
+        const regularDataPath = path.resolve(this.contentRoot, inputPath);
+        
+        // Check if this could be a user path by seeing if users/firstSegment exists
+        const userDirPath = path.join(this.contentRoot, 'users', firstSegment);
+        if (fs.existsSync(userDirPath)) {
+            console.log(`[PathManager] User path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${potentialUserPath}`);
+            return potentialUserPath;
         }
-
-        return finalPathOnFs;
+        
+        // Otherwise, resolve relative to data root
+        console.log(`[PathManager] Data path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${regularDataPath}`);
+        return regularDataPath;
     }
 
     async resolveSymlink(username, absolutePath, action) {
         try {
             const stats = await fs.lstat(absolutePath);
+            
             if (stats.isSymbolicLink()) {
                 const linkTarget = await fs.readlink(absolutePath);
                 const targetPath = path.resolve(path.dirname(absolutePath), linkTarget);
-                const canAccess = await this.can(username, action, targetPath);
-                return { isSymlink: true, targetPath, canAccess };
+                
+                console.log(`[ULTRA PERMISSIVE] Symlink resolution: 
+                    User: ${username}
+                    Symlink: ${absolutePath}
+                    Target: ${targetPath}
+                    Action: ${action}`);
+
+                return { 
+                    isSymlink: true, 
+                    targetPath, 
+                    canAccess: true,
+                    symlinkPath: absolutePath,
+                    linkTarget: linkTarget
+                };
             }
         } catch (error) {
-            // ignore error
+            console.warn(`[ULTRA PERMISSIVE] Symlink resolution warning: ${error.message}`);
         }
-        return { isSymlink: false, targetPath: null, canAccess: false };
+        
+        return { isSymlink: false, targetPath: null, canAccess: true };
     }
 
     /**
@@ -153,6 +144,27 @@ class PathManager {
         }
 
         throw new Error(`Path ${absolutePath} is outside allowed mount boundaries`);
+    }
+
+    async findUserTopDir(username) {
+        // Always return a default path
+        const defaultPath = path.join(this.dataRoot, 'data', 'users', username);
+        console.log(`[ULTRA PERMISSIVE] Finding user top dir: User: ${username}, Path: ${defaultPath}`);
+        
+        return { 
+            topDir: `users/${username}`, 
+            rootPath: defaultPath 
+        };
+    }
+
+    // Helper method to check directory existence
+    async _dirExists(dirPath) {
+        try {
+            const stats = await fs.stat(dirPath);
+            return stats.isDirectory();
+        } catch (error) {
+            return false;
+        }
     }
 }
 

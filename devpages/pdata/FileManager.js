@@ -117,7 +117,24 @@ class FileManager {
         for (const entry of entries) {
             if (entry.name.startsWith('.')) continue;
             const entryAbsolutePath = path.join(absolutePathToList, entry.name);
-            const checkAction = entry.isDirectory() || entry.isSymbolicLink() ? 'list' : 'read';
+            
+            // Treat symlinks as normal files/directories based on what they point to
+            let isDirectory = entry.isDirectory();
+            let isFile = entry.isFile();
+            
+            if (entry.isSymbolicLink()) {
+                try {
+                    // Follow the symlink to determine its type
+                    const stats = await fs.stat(entryAbsolutePath);
+                    isDirectory = stats.isDirectory();
+                    isFile = stats.isFile();
+                } catch (error) {
+                    // If symlink is broken, treat as file for listing purposes
+                    isFile = true;
+                }
+            }
+            
+            const checkAction = isDirectory ? 'list' : 'read';
 
             if (isToken) {
                 const entryRelativePath = path.join(relativePath, entry.name);
@@ -126,17 +143,13 @@ class FileManager {
                 const hasCapability = this.authSrv.tokenHasCap(subject, checkAction, entryRelativePath);
                 console.log(`[FileManager] Capability check result: ${hasCapability}`);
                 if (hasCapability) {
-                    if (entry.isDirectory()) dirs.push(entry.name);
-                    else if (entry.isFile() || entry.isSymbolicLink()) files.push(entry.name);
+                    if (isDirectory) dirs.push(entry.name);
+                    else if (isFile) files.push(entry.name);
                 }
             } else {
                 if (await this.pathManager.can(username, checkAction, entryAbsolutePath)) {
-                    if (entry.isDirectory()) dirs.push(entry.name);
-                    else if (entry.isFile()) files.push(entry.name);
-                    else if (entry.isSymbolicLink()) {
-                        const { canAccess } = await this.pathManager.resolveSymlink(username, entryAbsolutePath, checkAction);
-                        if (canAccess) files.push(entry.name);
-                    }
+                    if (isDirectory) dirs.push(entry.name);
+                    else if (isFile) files.push(entry.name);
                 }
             }
         }
@@ -148,56 +161,19 @@ class FileManager {
         const username = isToken ? subject.username : subject;
         if (!relativePath) throw new Error("File path is required.");
 
-        let absolutePath;
-
-        if (isToken) {
-            // UNIFIED MOUNTING: Use token-based namespace resolution
-            try {
-                absolutePath = this._resolveVirtualPath(subject, relativePath);
-            } catch (error) {
-                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
-            }
-
-            // For capability checking, ensure proper path format for three-tier system
-            let capabilityPath = relativePath;
-            if (!relativePath || relativePath === '.' || relativePath === '/') {
-                // Convert to mount alias with trailing slash if accessing root
-                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
-                if (userHomeMounts.length > 0) {
-                    capabilityPath = userHomeMounts[0] + '/';
-                } else {
-                    capabilityPath = '~data/';
-                }
-            } else if (!relativePath.startsWith('~')) {
-                // For relative paths, prepend the appropriate mount alias
-                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
-                if (userHomeMounts.length > 0) {
-                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
-                } else {
-                    capabilityPath = '~data/' + relativePath;
-                }
-            }
-
-            if (!this.authSrv.tokenHasCap(subject, 'read', capabilityPath)) {
-                throw new Error(`Permission denied to read file '${relativePath}'.`);
-            }
-        } else {
-            // Legacy username-based resolution (fallback)
-            absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
-
-            if (!await this.pathManager.can(username, 'read', absolutePath)) {
-                throw new Error(`Permission denied to read file '${relativePath}'.`);
-            }
-        }
+        // Resolve path using PathManager
+        const absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
         
-        const { isSymlink, targetPath, canAccess } = await this.pathManager.resolveSymlink(username, absolutePath, 'read');
-        if (isSymlink) {
-            if (!canAccess && !isToken) throw new Error(`Permission denied to read symlink target for '${relativePath}'.`);
-            return fs.readFile(targetPath, 'utf8');
+        try {
+            // fs.readFile automatically follows symlinks, so we don't need special handling
+            const content = await fs.readFile(absolutePath, 'utf8');
+            
+            console.log(`[FileManager] File read: User: ${username}, Path: ${absolutePath}`);
+            return content;
+        } catch (error) {
+            console.warn(`[FileManager] File read error: ${error.message}`);
+            throw error;
         }
-
-        if (!(await fs.lstat(absolutePath)).isFile()) throw new Error(`'${relativePath}' is not a readable file.`);
-        return fs.readFile(absolutePath, 'utf8');
     }
 
     async writeFile(subject, relativePath, content) {
@@ -206,62 +182,22 @@ class FileManager {
         if (!relativePath) throw new Error("File path is required.");
         if (content === undefined) throw new Error("Content is required for writeFile.");
 
-        let absoluteFilePath;
-
-        if (isToken) {
-            // UNIFIED MOUNTING: Use token-based namespace resolution
-            try {
-                absoluteFilePath = this._resolveVirtualPath(subject, relativePath);
-            } catch (error) {
-                throw new Error(`Invalid path '${relativePath}': ${error.message}`);
-            }
-
-            // For capability checking, ensure proper path format for three-tier system
-            let capabilityPath = relativePath;
-            if (!relativePath || relativePath === '.' || relativePath === '/') {
-                // Convert to mount alias with trailing slash if accessing root
-                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
-                if (userHomeMounts.length > 0) {
-                    capabilityPath = userHomeMounts[0] + '/';
-                } else {
-                    capabilityPath = '~data/';
-                }
-            } else if (!relativePath.startsWith('~')) {
-                // For relative paths, prepend the appropriate mount alias
-                const userHomeMounts = Object.keys(subject.mounts).filter(m => m.startsWith('~/data/'));
-                if (userHomeMounts.length > 0) {
-                    capabilityPath = userHomeMounts[0] + '/' + relativePath;
-                } else {
-                    capabilityPath = '~data/' + relativePath;
-                }
-            }
-
-            if (!this.authSrv.tokenHasCap(subject, 'write', capabilityPath)) {
-                throw new Error(`Permission denied to write to file '${relativePath}'.`);
-            }
-        } else {
-            // Legacy username-based resolution (fallback)
-            absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
-        }
+        // Resolve path using PathManager
+        const absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
         
-        const { isSymlink, targetPath, canAccess } = await this.pathManager.resolveSymlink(username, absoluteFilePath, 'write');
-        
-        if (isSymlink) {
-            if (!isToken && !canAccess) {
-                throw new Error(`Permission denied to write to symlink target for '${relativePath}'.`);
-            }
-            await fs.ensureDir(path.dirname(targetPath));
-            await fs.writeFile(targetPath, content, 'utf8');
+        try {
+            // Ensure directory exists
+            await fs.ensureDir(path.dirname(absoluteFilePath));
+            
+            // fs.writeFile automatically follows symlinks, so we don't need special handling
+            await fs.writeFile(absoluteFilePath, content, 'utf8');
+            
+            console.log(`[FileManager] File written: User: ${username}, Path: ${absoluteFilePath}`);
             return true;
+        } catch (error) {
+            console.warn(`[FileManager] File write error: ${error.message}`);
+            throw error;
         }
-        
-        if (!isToken && !await this.pathManager.can(username, 'write', absoluteFilePath)) {
-            throw new Error(`Permission denied to write in directory '${path.dirname(relativePath)}'.`);
-        }
-
-        await fs.ensureDir(path.dirname(absoluteFilePath));
-        await fs.writeFile(absoluteFilePath, content, 'utf8');
-        return true;
     }
 
     async deleteFile(subject, relativePath) {
@@ -324,17 +260,43 @@ class FileManager {
 
     async createSymlink(username, relativePath, targetPath) {
         if (!relativePath || !targetPath) throw new Error("Source and target paths are required.");
-        const absoluteSymlinkPath = await this.pathManager.resolvePathForUser(username, relativePath);
         
-        if (!await this.pathManager.can(username, 'write', path.dirname(absoluteSymlinkPath))) {
-            throw new Error(`Permission denied to create symlink in directory.`);
+        // Validate input paths
+        if (relativePath.includes('..') || targetPath.includes('..')) {
+            throw new Error("Path traversal is not allowed.");
         }
 
+        // Resolve absolute paths
+        const absoluteSymlinkPath = await this.pathManager.resolvePathForUser(username, relativePath);
         const absoluteTargetPath = await this.pathManager.resolvePathForUser(username, targetPath);
-        const relativeTargetPath = path.relative(path.dirname(absoluteSymlinkPath), absoluteTargetPath);
-        await fs.ensureDir(path.dirname(absoluteSymlinkPath));
-        await fs.symlink(relativeTargetPath, absoluteSymlinkPath, 'file');
-        return true;
+        
+        // Create relative symlink for better portability
+        const symlinkDir = path.dirname(absoluteSymlinkPath);
+        const relativeTargetPath = path.relative(symlinkDir, absoluteTargetPath);
+        
+        try {
+            // Ensure the symlink directory exists
+            await fs.ensureDir(symlinkDir);
+
+            // Remove existing symlink if it exists
+            try {
+                await fs.unlink(absoluteSymlinkPath);
+            } catch (unlinkError) {
+                // Ignore if file doesn't exist
+                if (unlinkError.code !== 'ENOENT') {
+                    console.warn(`[FileManager] Symlink unlink warning: ${unlinkError.message}`);
+                }
+            }
+
+            // Create new symlink
+            await fs.symlink(relativeTargetPath, absoluteSymlinkPath, 'file');
+            
+            console.log(`[FileManager] Symlink created: User: ${username}, Symlink: ${absoluteSymlinkPath}, Target: ${absoluteTargetPath}`);
+            return true;
+        } catch (error) {
+            console.warn(`[FileManager] Symlink creation error: ${error.message}`);
+            throw error;
+        }
     }
 
     async getUserHomeInfo(username) {

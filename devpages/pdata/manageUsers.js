@@ -177,7 +177,7 @@ async function runCommand(command, ...args) {
                 console.error('[USERS ERROR] Usage: node manageUsers.js add <username> <password> [role=user]');
                 return;
             }
-            await pdataInstance.addUser(username, password, role || 'user');
+            await pdataInstance.addUser(username, password, [role || 'user']);
             break;
         case 'update': // Changed command name to 'updatePassword' for clarity? Or keep 'update'? Keep 'update' for now.
             const [updateUser, newPassword] = args;

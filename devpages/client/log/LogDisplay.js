@@ -54,8 +54,9 @@ export class LogDisplay {
         // Ensure container is set properly
         this.container = container;
         
-        // Create DOM structure
-        createLogPanelDOM(this, '1.0');
+        // Create DOM structure - with fallback for version
+        const version = window.APP?.core?.getVersion ? window.APP.core.getVersion() : 'v0.0.0-dev';
+        createLogPanelDOM(this, version);
         
         // Initialize event listeners
         this.initializeEventListeners();
@@ -120,69 +121,67 @@ export class LogDisplay {
             this.clearButton.addEventListener('click', () => this.store.dispatch(clearEntries()));
         }
         
-        // Add event listeners for new header controls
-        const sortSelect = this.container.querySelector('#log-sort-select');
-        if (sortSelect) {
-            // Set initial value from storage
-            const currentOrder = this.logOrder || 'recent';
-            sortSelect.value = currentOrder;
-            
-            sortSelect.addEventListener('change', (e) => {
-                this.logOrder = e.target.value;
-                // Save to storage
-                import('/client/services/storageService.js').then(({ storageService }) => {
-                    storageService.setItem('logOrder', this.logOrder);
-                });
-                // Trigger re-render by calling onStateChange with current state
-                const currentState = this.store.getState();
-                this.onStateChange(currentState);
-            });
-        }
+        // Add console logging toggle control
+        this.addConsoleControls();
+
+        // Add event listeners for header buttons AND menu items
+        const interactiveElements = this.container.querySelectorAll('[data-action]');
+        console.log(`[LogDisplay] Found ${interactiveElements.length} interactive elements with data-action`);
         
-        // Add event listeners for header buttons
-        const headerButtons = this.container.querySelectorAll('.log-header-button[data-action]');
-        console.log(`[LogDisplay] Found ${headerButtons.length} header buttons`);
-        
-        headerButtons.forEach(button => {
-            console.log(`[LogDisplay] Adding listener to button with action: ${button.dataset.action}`);
-            button.addEventListener('click', (e) => {
+        interactiveElements.forEach(element => {
+            element.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
-                console.log(`[LogDisplay] Button clicked with action: ${action}`);
+                const action = e.currentTarget.dataset.action;
+                console.log(`[LogDisplay] Action triggered: ${action}`);
                 
                 if (action === 'copy-log') {
-                    console.log('[LogDisplay] Calling copyLog method');
-                    try {
-                        this.copyLog();
-                        // Show feedback
-                        const originalContent = button.innerHTML;
-                        button.innerHTML = 'Copied';
-                        setTimeout(() => {
-                            button.innerHTML = originalContent;
-                        }, 2000);
-                    } catch (error) {
-                        console.error('[LogDisplay] Error in copyLog:', error);
-                    }
+                    this.copyLog();
+                    const button = e.currentTarget;
+                    const originalContent = button.innerHTML;
+                    button.innerHTML = 'Copied ✓';
+                    button.disabled = true;
+                    setTimeout(() => {
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    }, 2000);
                 } else if (action === 'clear-log') {
-                    console.log('[LogDisplay] Calling clearLog method');
-                    try {
-                        this.clearLog();
-                    } catch (error) {
-                        console.error('[LogDisplay] Error in clearLog:', error);
-                    }
+                    this.clearLog();
                 } else if (action === 'toggleLogMenu') {
-                    console.log('[LogDisplay] Toggling log menu');
-                    // Handle menu toggle directly
                     const menuContainer = this.container.querySelector('#log-menu-container');
                     if (menuContainer) {
-                        const isVisible = menuContainer.style.display !== 'none';
+                        const isVisible = menuContainer.style.display === 'block';
                         menuContainer.style.display = isVisible ? 'none' : 'block';
+                    }
+                } else if (action === 'setLogOrderRecent' || action === 'setLogOrderPast') {
+                    this.logOrder = action === 'setLogOrderRecent' ? 'recent' : 'past';
+                    import('/client/services/storageService.js').then(({ storageService }) => {
+                        storageService.setItem('logOrder', this.logOrder);
+                    });
+                    const currentState = this.store.getState();
+                    this.onStateChange(currentState);
+
+                    // Visually update checkmark in menu
+                    const menuContainer = this.container.querySelector('#log-menu-container');
+                    if(menuContainer) {
+                        menuContainer.querySelectorAll('.log-menu-item').forEach(item => {
+                            const itemAction = item.dataset.action;
+                            if (itemAction === 'setLogOrderRecent' || itemAction === 'setLogOrderPast') {
+                                const isActive = (itemAction === 'setLogOrderRecent' && this.logOrder === 'recent') ||
+                                               (itemAction === 'setLogOrderPast' && this.logOrder === 'past');
+                                if (isActive) {
+                                    item.textContent = `✓ ${item.textContent.replace('✓ ', '')}`;
+                                    item.style.fontWeight = 'bold';
+                                } else {
+                                    item.textContent = item.textContent.replace('✓ ', '');
+                                    item.style.fontWeight = 'normal';
+                                }
+                            }
+                        });
                     }
                 } else {
                     console.log('[LogDisplay] Delegating to filter bar handler');
-                    // Delegate other actions to existing filter bar handler
                     import('./LogFilterBar.js').then(({ _handleTagClick }) => {
                         _handleTagClick(e);
                     });
@@ -266,6 +265,11 @@ export class LogDisplay {
         // Expose LogDisplay instance
         window.APP.services.logDisplay = this;
         
+        // Expose debug tools loader
+        window.APP.log.loadDebugTools = () => {
+            import('./load-debug.js');
+        };
+        
         // Expose LogDisplay API functions
         window.APP.log.display = {
             // Core display functions
@@ -336,7 +340,7 @@ export class LogDisplay {
             level: entry.level || 'INFO',
             type: entry.type || 'GENERAL',
             source: entry.source || 'SYSTEM', // 'from' field
-            module: entry.module || 'NONE',
+            module: entry.module || null,  // Changed to null instead of 'NONE'
             action: entry.action || (entry.type === 'SYSTEM' ? entry.message : ''),
             details: entry.details,
             component: entry.component
@@ -442,6 +446,113 @@ export class LogDisplay {
     }
 
     // Cleanup function to remove any problematic event listeners
+    // Add simple console logging controls
+    addConsoleControls() {
+        // Find the log header controls area
+        const logMenuContainer = this.container.querySelector('#log-menu-container');
+        if (!logMenuContainer) {
+            console.warn('[LogDisplay] No log menu container found for console controls');
+            return;
+        }
+        
+        // Create console control section
+        const consoleControlsDiv = document.createElement('div');
+        consoleControlsDiv.className = 'log-console-controls';
+        consoleControlsDiv.style.padding = '10px';
+        consoleControlsDiv.style.borderTop = '1px solid #ddd';
+        consoleControlsDiv.style.marginTop = '10px';
+        
+        // Console toggle
+        const consoleToggleLabel = document.createElement('label');
+        consoleToggleLabel.style.display = 'flex';
+        consoleToggleLabel.style.alignItems = 'center';
+        consoleToggleLabel.style.cursor = 'pointer';
+        consoleToggleLabel.style.marginBottom = '8px';
+        
+        const consoleToggle = document.createElement('input');
+        consoleToggle.type = 'checkbox';
+        consoleToggle.style.marginRight = '8px';
+        
+        const consoleToggleText = document.createElement('span');
+        consoleToggleText.textContent = 'Console Output';
+        consoleToggleText.style.fontSize = '14px';
+        
+        // Set initial state
+        if (typeof window.APP?.services?.isConsoleLoggingEnabled === 'function') {
+            consoleToggle.checked = window.APP.services.isConsoleLoggingEnabled();
+        }
+        
+        consoleToggle.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            if (enabled) {
+                if (typeof window.APP?.services?.enableConsoleLogging === 'function') {
+                    window.APP.services.enableConsoleLogging(true);
+                }
+            } else {
+                if (typeof window.APP?.services?.disableConsoleLogging === 'function') {
+                    window.APP.services.disableConsoleLogging(true);
+                }
+            }
+        });
+        
+        consoleToggleLabel.appendChild(consoleToggle);
+        consoleToggleLabel.appendChild(consoleToggleText);
+        
+        // Type filter quick toggles
+        const typeFiltersDiv = document.createElement('div');
+        typeFiltersDiv.style.marginTop = '8px';
+        
+        const filterLabel = document.createElement('div');
+        filterLabel.textContent = 'Quick Filters:';
+        filterLabel.style.fontSize = '12px';
+        filterLabel.style.marginBottom = '4px';
+        filterLabel.style.color = '#666';
+        
+        const filterButtons = document.createElement('div');
+        filterButtons.style.display = 'flex';
+        filterButtons.style.gap = '4px';
+        filterButtons.style.flexWrap = 'wrap';
+        
+        // Add filter buttons for main types
+        const filterTypes = ['REDUX', 'API', 'SYSTEM', 'USER'];
+        filterTypes.forEach(type => {
+            const btn = document.createElement('button');
+            btn.textContent = type;
+            btn.style.fontSize = '10px';
+            btn.style.padding = '2px 6px';
+            btn.style.border = '1px solid #ccc';
+            btn.style.borderRadius = '3px';
+            btn.style.backgroundColor = '#f8f9fa';
+            btn.style.cursor = 'pointer';
+            btn.dataset.filterType = type;
+            btn.dataset.filterActive = 'true';
+            
+            btn.addEventListener('click', () => {
+                const isActive = btn.dataset.filterActive === 'true';
+                btn.dataset.filterActive = isActive ? 'false' : 'true';
+                btn.style.backgroundColor = isActive ? '#dee2e6' : '#f8f9fa';
+                btn.style.textDecoration = isActive ? 'line-through' : 'none';
+                
+                // This would integrate with existing filtering if needed
+                // For now, it's just visual feedback
+            });
+            
+            filterButtons.appendChild(btn);
+        });
+        
+        typeFiltersDiv.appendChild(filterLabel);
+        typeFiltersDiv.appendChild(filterButtons);
+        
+        // Assemble controls
+        consoleControlsDiv.appendChild(consoleToggleLabel);
+        consoleControlsDiv.appendChild(typeFiltersDiv);
+        
+        // Add to menu container
+        logMenuContainer.appendChild(consoleControlsDiv);
+        
+        console.log('[LogDisplay] Console controls added to log menu');
+    }
+    
     cleanupEventListeners() {
         // Clone and replace document to remove ALL event listeners
         // This is the nuclear option to fix the sidebar issue
@@ -566,25 +677,36 @@ export class LogDisplay {
         const contextSpan = document.createElement('span');
         contextSpan.className = 'log-entry-context';
         
-        // Combine context information into a single, more readable format
-        let contextParts;
+        // Build context using systematic SOURCE | TYPE | MODULE | ACTION format
+        let contextParts = [];
         
-        if (type === 'REDUX') {
-            // For REDUX entries, format the action more compactly
-            const action = entry.action || '';
-            const shortAction = action.includes('/') ? action.split('/').slice(-1)[0] : action;
-            contextParts = [
-                'REDUX',
-                shortAction,
-                entry.source || ''
-            ].filter(part => part && part !== 'NONE');
-        } else {
+        // Add system location (CLIENT/SERVER) if available
+        if (entry.source && ['CLIENT', 'SERVER'].includes(entry.source)) {
+            contextParts.push(entry.source);
+        }
+        
+        // Always add the log type
+        contextParts.push(type);
+        
+        // Add module if available
+        if (entry.module) {
+            contextParts.push(entry.module);
+        }
+        
+        // Add action if available
+        if (entry.action) {
+            contextParts.push(entry.action);
+        }
+        
+        // Filter out empty parts and fallback to legacy format if needed
+        if (contextParts.length === 1) {
+            // Legacy fallback for entries without proper systematic format
             contextParts = [
                 type,
                 entry.module || '',
                 entry.action || '',
                 entry.source || ''
-            ].filter(part => part && part !== 'NONE');
+            ].filter(part => part && part !== 'NONE' && part !== null);
         }
         
         contextSpan.textContent = contextParts.join(' | ');
@@ -908,8 +1030,8 @@ export class LogDisplay {
             if (!this.resizeState.isResizingHeight) return;
             
             const deltaY = this.resizeState.startY - e.clientY; // Inverted because log grows upward
-            const newHeight = Math.max(100, Math.min(600, this.resizeState.startHeight + deltaY));
-            
+            const newHeight = Math.max(100, Math.min(800, this.resizeState.startHeight + deltaY));
+
             // Update CSS variable immediately for smooth resizing
             document.documentElement.style.setProperty('--log-height', `${newHeight}px`);
         };
@@ -1113,18 +1235,25 @@ export class LogDisplay {
     }
 
     copyLog() {
-        // Collect all log entries
-        const logEntries = this.logElement ? 
-            Array.from(this.logElement.querySelectorAll('.log-entry'))
-            .map(entry => {
-                const timestamp = entry.querySelector('.log-entry-timestamp')?.textContent || '';
-                const level = entry.querySelector('.log-entry-level')?.textContent || '';
-                const context = entry.querySelector('.log-entry-context')?.textContent || '';
-                const message = entry.querySelector('.log-entry-message')?.textContent || '';
-                
-                return `[${timestamp}] [${level}] ${context}: ${message}`;
-            })
-            .join('\n') : '';
+        // Collect all log entries from the Redux store's filtered view
+        const state = this.store.getState();
+        const logEntries = selectFilteredEntries(state).map(entry => {
+            const timestamp = entry.timestamp ? 
+                new Date(entry.timestamp).toLocaleTimeString('en-US', { 
+                    hour12: false, 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                }) : 
+                '--:--:--';
+            const level = entry.level || 'INFO';
+            const context = [entry.type, entry.module, entry.action, entry.source]
+                .filter(part => part && part !== 'NONE' && part !== null)
+                .join(' | ');
+            const message = entry.message || '';
+            
+            return `[${timestamp}] [${level}] ${context}: ${message}`;
+        }).join('\n');
         
         // Copy to clipboard
         if (logEntries) {

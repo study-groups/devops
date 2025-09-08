@@ -60,6 +60,16 @@ const panelConfig = {
             content_type: 'form',
             data_sources: ['theme_config', 'css_variables']
         },
+        'log-settings': {
+            title: 'Log Settings',
+            description: 'Configure logging system and console output',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'form',
+            data_sources: ['log_config', 'console_state']
+        },
         'publish-manager': {
             title: 'Publish Manager',
             description: 'Deploy and publish content',

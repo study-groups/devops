@@ -1,0 +1,83 @@
+/* Log Display CSS - Complete styling for log component */
+
+/* Log container */
+#log-column-header {
+    display: flex;
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Header columns - with CSS variables for resizing */
+.log-header-timestamp { width: var(--log-column-width-timestamp, 70px); min-width: var(--log-column-width-timestamp, 70px); max-width: var(--log-column-width-timestamp, 70px); flex-shrink: 0; }
+.log-header-level { width: var(--log-column-width-level, 50px); min-width: var(--log-column-width-level, 50px); max-width: var(--log-column-width-level, 50px); flex-shrink: 0; }
+.log-header-context { width: var(--log-column-width-context, 200px); min-width: var(--log-column-width-context, 200px); max-width: var(--log-column-width-context, 200px); flex-shrink: 0; }
+.log-header-message { flex: 1; min-width: 0; }
+.log-header-melvin { width: var(--log-column-width-melvin, 6rem); min-width: var(--log-column-width-melvin, 6rem); max-width: var(--log-column-width-melvin, 6rem); flex-shrink: 0; text-align: center; }
+
+/* All headers - simple left alignment */
+.log-header-timestamp,
+.log-header-level,
+.log-header-context,
+.log-header-message {
+    padding: 8px 4px;
+    text-align: left;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Log entries */
+.log-entry {
+    display: flex;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+/* Entry columns - match header widths exactly */
+.log-entry-timestamp { width: var(--log-column-width-timestamp, 70px); min-width: var(--log-column-width-timestamp, 70px); max-width: var(--log-column-width-timestamp, 70px); flex-shrink: 0; }
+.log-entry-level { width: var(--log-column-width-level, 50px); min-width: var(--log-column-width-level, 50px); max-width: var(--log-column-width-level, 50px); flex-shrink: 0; }
+.log-entry-context { width: var(--log-column-width-context, 200px); min-width: var(--log-column-width-context, 200px); max-width: var(--log-column-width-context, 200px); flex-shrink: 0; }
+.log-entry-message { flex: 1; min-width: 0; }
+.log-entry-melvin { width: var(--log-column-width-melvin, 6rem); min-width: var(--log-column-width-melvin, 6rem); max-width: var(--log-column-width-melvin, 6rem); flex-shrink: 0; }
+
+/* All entry columns - consistent styling */
+.log-entry-timestamp,
+.log-entry-level,
+.log-entry-context,
+.log-entry-message,
+.log-entry-melvin {
+    padding: 8px 4px;
+    text-align: left;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--color-fg);
+    line-height: 1.2;
+    vertical-align: baseline;
+}
+
+/* Melvin column - override text-align for centering */
+.log-entry-melvin {
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+}
+
+.melvin-button {
+    background: none;
+    border: 1px solid var(--color-border);
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-fg-muted);
+}

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1">
+    <meta name="app-version" content="v0.13m1">
     <title>DevPages</title>
     <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
     
@@ -23,6 +24,9 @@
     
     <!-- Design Tokens Panel CSS (fallback) -->
     <link rel="stylesheet" href="/client/styles/design-tokens-panel.css">
+    
+    <!-- Log CSS -->
+    <link rel="stylesheet" href="/client/log/log-display.css">
     
     <!-- Import Map for Clean Absolute Paths -->
     <script type="importmap">
@@ -92,14 +96,21 @@
     <div id="devpages-splash">
         <div class="splash-content">
             <div class="splash-logo">DevPages</div>
-            <div class="splash-version">v0.13</div>
+            <div class="splash-version">v0.13m1</div>
         </div>
     </div>
 
     <nav class="top-bar top-bar-full">
         <div id="context-manager-container" class="nav-group context-selector"></div>
-        <div id="view-controls-container" class="nav-group view-controls"></div>
+        <div id="view-controls-container" class="nav-group view-controls">
+            <button id="sidebar-toggle" class="top-bar-button" data-action="toggleSidebar" title="Toggle Sidebar"></button>
+            <button id="edit-toggle" class="top-bar-button" data-action="toggleEdit" title="Toggle Editor"></button>
+            <button id="preview-toggle" class="top-bar-button" data-action="togglePreview" title="Toggle Preview"></button>
+            <button id="log-toggle-btn" class="top-bar-button" data-action="toggleLogVisibility" title="Toggle Log"></button>
+            <button id="refresh-btn" class="top-bar-button" data-action="refreshPreview" title="Refresh Preview"></button>
+        </div>
         <div class="nav-group right-group">
+            <button id="save-btn" class="top-bar-button" data-action="saveFile" title="Save File (Ctrl+S)" disabled>Save</button>
             <div id="auth-component-container" class="auth-info"></div>
         </div>
     </nav>

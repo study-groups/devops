@@ -207,7 +207,7 @@ const authSlice = createSlice({
       // Handle logout
       .addMatcher(
         apiSlice.endpoints.logout.matchFulfilled,
-        (state) => {
+        (state, action) => {
           state.isAuthenticated = false;
           state.user = null;
           state.token = null;
@@ -221,6 +221,8 @@ const authSlice = createSlice({
           } catch (e) {
             console.warn('[Auth] Failed to clear auth state from localStorage:', e);
           }
+          
+          console.log('[Auth] Logout completed, clearing API cache');
         }
       );
   },
@@ -267,6 +269,29 @@ export const authThunks = {
           
           console.log('[Auth] Authentication initialized with PData token');
           dispatch(setAuthChecked(true));
+          
+          // For existing authenticated users, navigate to their home directory
+          setTimeout(async () => {
+            try {
+              const { pathThunks } = await import('./pathSlice.js');
+              const username = result.user.username;
+              const userRole = result.user.role || 'user';
+              
+              // For regular users, navigate to their home directory
+              if (userRole !== 'admin') {
+                const userHomePath = `users/${username}`;
+                console.log(`[Auth] Navigating authenticated user to home directory: ${userHomePath}`);
+                dispatch(pathThunks.navigateToPath({ pathname: userHomePath, isDirectory: true }));
+              } else {
+                // For admin users, load top-level directories
+                console.log('[Auth] Authenticated admin user - loading top-level directories');
+                dispatch(pathThunks.loadTopLevelDirectories());
+              }
+            } catch (navError) {
+              console.warn('[Auth] Failed to navigate after auth initialization:', navError);
+            }
+          }, 100);
+          
         } catch (tokenError) {
           console.warn('[Auth] Failed to generate PData token:', tokenError);
           // Continue without token - session auth will still work
@@ -303,6 +328,30 @@ export const authThunks = {
         }));
         
         console.log('[Auth] Login successful with PData token');
+        
+        // After successful login, navigate to user's home directory
+        // Import pathThunks dynamically to avoid circular dependency
+        setTimeout(async () => {
+          try {
+            const { pathThunks } = await import('./pathSlice.js');
+            const username = loginResult.user.username;
+            const userRole = loginResult.user.role || 'user';
+            
+            // For regular users, navigate to their home directory
+            if (userRole !== 'admin') {
+              const userHomePath = `users/${username}`;
+              console.log(`[Auth] Navigating to user home directory: ${userHomePath}`);
+              dispatch(pathThunks.navigateToPath({ pathname: userHomePath, isDirectory: true }));
+            } else {
+              // For admin users, load top-level directories
+              console.log('[Auth] Admin user - loading top-level directories');
+              dispatch(pathThunks.loadTopLevelDirectories());
+            }
+          } catch (navError) {
+            console.warn('[Auth] Failed to navigate after login:', navError);
+          }
+        }, 100);
+        
         return { success: true, user: loginResult.user };
       } catch (tokenError) {
         console.warn('[Auth] Login successful but failed to generate PData token:', tokenError);
@@ -319,12 +368,26 @@ export const authThunks = {
    */
   logoutAsync: () => async (dispatch) => {
     try {
+      // First, clear auth state immediately to prevent UI components from getting stuck
+      dispatch(clearAuth());
+      
+      // Then perform server logout
       await dispatch(apiSlice.endpoints.logout.initiate()).unwrap();
       console.log('[Auth] Logout successful');
+      
+      // Finally, clear all RTK Query cache after auth state is cleared
+      dispatch(apiSlice.util.resetApiState());
+      
       return { success: true };
     } catch (error) {
       console.warn('[Auth] Server logout failed, clearing local state anyway:', error);
+      
+      // Ensure auth state is cleared even if server logout fails
       dispatch(clearAuth());
+      
+      // Clear all RTK Query cache even if server logout failed
+      dispatch(apiSlice.util.resetApiState());
+      
       return { success: true };
     }
   },

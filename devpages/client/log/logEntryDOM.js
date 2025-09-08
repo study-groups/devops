@@ -42,118 +42,42 @@ export function createLogPanelDOM(logDisplayInstance, appVersion) {
     }
     container.innerHTML = ''; // Clear existing content
 
-    // Create Main Header with prominent controls
-    logDisplayInstance.headerElement = document.createElement('div');
-    logDisplayInstance.headerElement.id = 'log-header';
-    logDisplayInstance.headerElement.className = 'log-header';
-    container.appendChild(logDisplayInstance.headerElement);
-    
-    // Left side - Title and controls
-    const headerLeft = document.createElement('div');
-    headerLeft.className = 'log-header-left';
-    logDisplayInstance.headerElement.appendChild(headerLeft);
-    
-    const headerTitle = document.createElement('h3');
-    headerTitle.textContent = 'Log Display';
-    headerTitle.className = 'log-header-title';
-    headerLeft.appendChild(headerTitle);
-    
-    // Sort controls
-    const sortControls = document.createElement('div');
-    sortControls.className = 'log-sort-controls';
-    headerLeft.appendChild(sortControls);
-    
-    const sortLabel = document.createElement('span');
-    sortLabel.textContent = 'Sort:';
-    sortLabel.className = 'log-sort-label';
-    sortControls.appendChild(sortLabel);
-    
-    const sortSelect = document.createElement('select');
-    sortSelect.id = 'log-sort-select';
-    sortSelect.className = 'log-sort-select';
-    sortSelect.innerHTML = `
-        <option value="recent">Recent First</option>
-        <option value="past">Past First</option>
-    `;
-    sortControls.appendChild(sortSelect);
-    
-    // Right side - Action buttons
-    const headerRight = document.createElement('div');
-    headerRight.className = 'log-header-right';
-    logDisplayInstance.headerElement.appendChild(headerRight);
-    
-    // Copy All button
-    const copyAllButton = document.createElement('button');
-    copyAllButton.className = 'log-header-button';
-    copyAllButton.innerHTML = `<img src="/client/styles/icons/copy.svg" alt="Copy" class="icon" /> Copy All`;
-    copyAllButton.dataset.action = 'copy-log';
-    copyAllButton.title = 'Copy All Log Entries';
-    headerRight.appendChild(copyAllButton);
-    
-    // Clear button
-    const clearButton = document.createElement('button');
-    clearButton.className = 'log-header-button';
-    clearButton.textContent = 'Clear';
-    clearButton.dataset.action = 'clear-log';
-    clearButton.title = 'Clear All Log Entries';
-    headerRight.appendChild(clearButton);
-    
-    // Menu button (moved to right)
-    const menuButton = document.createElement('button');
-    menuButton.className = 'log-header-button';
-    menuButton.innerHTML = '☰';
-    menuButton.dataset.action = 'toggleLogMenu';
-    menuButton.title = 'Toggle Log Menu';
-    headerRight.appendChild(menuButton);
-
-    // Create Toolbar (secondary controls)
+    // Create Toolbar with all controls
     logDisplayInstance.toolbarElement = document.createElement('div');
     logDisplayInstance.toolbarElement.id = 'log-toolbar';
     container.appendChild(logDisplayInstance.toolbarElement);
     const toolbarEl = logDisplayInstance.toolbarElement; // convenience
-    
+
+    // Menu button on the far left
+    const menuButton = createToolbarButton(toolbarEl, '', '☰', 'toggleLogMenu', 'Toggle Log Menu');
+    if (menuButton) menuButton.className = 'log-header-button log-menu-grip';
+
+    // CLI input field
     logDisplayInstance.cliInputElement = document.createElement('input');
     logDisplayInstance.cliInputElement.type = 'text';
     logDisplayInstance.cliInputElement.id = 'cli-input';
     logDisplayInstance.cliInputElement.placeholder = 'Enter command...';
     toolbarEl.appendChild(logDisplayInstance.cliInputElement);
 
+    // Send button
     const sendButton = document.createElement('button');
     sendButton.id = 'cli-send-button';
     sendButton.textContent = 'Send';
     toolbarEl.appendChild(sendButton);
 
-    createToolbarButton(toolbarEl, 'log-state-a-btn', 'A', 'setSelectionStateA', 'Store Editor Selection A');
-    createToolbarButton(toolbarEl, 'log-state-b-btn', 'B', 'setSelectionStateB', 'Store Editor Selection B');
-
-    logDisplayInstance.appInfoElement = document.createElement('span');
-    logDisplayInstance.appInfoElement.id = 'app-info';
-    logDisplayInstance.appInfoElement.className = 'app-info';
-    logDisplayInstance.appInfoElement.dataset.action = 'showAppInfo';
-    toolbarEl.appendChild(logDisplayInstance.appInfoElement);
-
+    // Right side wrapper for status
     const rightWrapper = document.createElement('div');
     rightWrapper.style.marginLeft = 'auto';
-    rightWrapper.dataset.visible = 'true';
+    rightWrapper.style.display = 'flex';
     rightWrapper.style.alignItems = 'center';
     rightWrapper.style.gap = '0.5rem';
     toolbarEl.appendChild(rightWrapper);
-
-    logDisplayInstance.appVersionElement = document.createElement('span');
-    logDisplayInstance.appVersionElement.id = 'log-app-version';
-    logDisplayInstance.appVersionElement.className = 'app-version log-version';
-    logDisplayInstance.appVersionElement.textContent = `v${appVersion}`;
-    logDisplayInstance.appVersionElement.title = `App Version: ${appVersion}`;
-    // Appended via _createToolbarButton or directly to wrapper later if needed
 
     logDisplayInstance.statusElement = document.createElement('span');
     logDisplayInstance.statusElement.id = 'log-status';
     logDisplayInstance.statusElement.textContent = '0 entries';
     rightWrapper.appendChild(logDisplayInstance.statusElement);
-
-    logDisplayInstance.minimizeButton = createToolbarButton(null, 'minimize-log-btn', 'X', 'minimizeLog', 'Minimize Log', true);
-    if (logDisplayInstance.minimizeButton) rightWrapper.appendChild(logDisplayInstance.minimizeButton);
- 
+    
     const headerContainer = document.createElement('div');
     headerContainer.id = 'log-header-container';
     container.appendChild(headerContainer);
@@ -190,6 +114,17 @@ export function createLogPanelDOM(logDisplayInstance, appVersion) {
     const menuContainer = document.createElement('div');
     menuContainer.id = 'log-menu-container';
     
+    const menuActions = document.createElement('div');
+    menuActions.className = 'log-menu-actions';
+    
+    const copyButton = createToolbarButton(menuActions, '', 'Copy All', 'copy-log', 'Copy All Visible Log Entries');
+    if (copyButton) copyButton.className = 'log-menu-badge-button';
+    
+    const clearButton = createToolbarButton(menuActions, '', 'Clear', 'clear-log', 'Clear All Log Entries');
+    if (clearButton) clearButton.className = 'log-menu-badge-button';
+
+    menuContainer.appendChild(menuActions);
+
     const menuItems = [
         { text: 'Recent First', action: 'setLogOrderRecent' },
         { text: 'Past First', action: 'setLogOrderPast' },
@@ -223,7 +158,7 @@ export function createLogPanelDOM(logDisplayInstance, appVersion) {
 
     const versionInfo = document.createElement('div');
     versionInfo.className = 'log-menu-version';
-    versionInfo.textContent = `v${appVersion}`;
+    versionInfo.textContent = appVersion;
     versionInfo.title = `App Version: ${appVersion}`;
     menuContainer.appendChild(versionInfo);
     

@@ -4,3 +4,7 @@ anotheruser,user
 devuser,user,dev
 gridranger,project
 gamer,user
+user,cap:data:userspace;cap:home:basic
+admin,cap:system:admin
+dev,cap:data:userspace;cap:home:basic;cap:projects:access
+project,cap:data:userspace;cap:home:basic;cap:projects:access

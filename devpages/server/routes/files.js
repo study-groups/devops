@@ -137,11 +137,69 @@ router.get('/list', authMiddleware, async (req, res) => {
                 } else {
                     // Regular users get redirected to their home directory
                     result = await req.pdata.listDirectory(username, username);
+                    // Return the actual path that represents the user's home directory
+                    const actualPath = `users/${username}`;
+                    console.log(`[API /list] Regular user root request redirected to: '${actualPath}'`);
+                    console.log(`[API /list] Directory contents: dirs=${result.dirs?.length || 0}, files=${result.files?.length || 0}`);
+                    console.log(`[API /list] Dirs:`, result.dirs);
+                    console.log(`[API /list] Files:`, result.files);
+                    return res.json({
+                        pathname: actualPath,
+                        dirs: result.dirs || [],
+                        files: result.files || []
+                    });
                 }
             } else {
-                // For all other paths, use the effective path as-is
-                // The permission system will handle access control
-                result = await req.pdata.listDirectory(username, effectivePath);
+                // Special case: redirect 'user' (singular) to 'users' (plural)
+                if (effectivePath === 'user') {
+                    console.log(`[API /list] Redirecting 'user' to 'users' for user: '${username}'`);
+                    const userRole = req.pdata.getUserRole(username);
+                    if (userRole !== 'admin') {
+                        // Regular users should see their own directory
+                        const actualPath = `users/${username}`;
+                        result = await req.pdata.listDirectory(username, actualPath);
+                        console.log(`[API /list] Regular user 'user' request redirected to: '${actualPath}'`);
+                        return res.json({
+                            pathname: actualPath,
+                            dirs: result.dirs,
+                            files: result.files
+                        });
+                    } else {
+                        // Admin users can see the top-level users directory
+                        result = await req.pdata.listDirectory(username, 'users');
+                        console.log(`[API /list] Admin user 'user' request redirected to: 'users'`);
+                        return res.json({
+                            pathname: 'users',
+                            dirs: result.dirs,
+                            files: result.files
+                        });
+                    }
+                }
+                // Special case: if user requests 'users' directory, redirect to their own user directory
+                else if (effectivePath === 'users') {
+                    const userRole = req.pdata.getUserRole(username);
+                    if (userRole !== 'admin') {
+                        // Regular users should see their own directory when accessing 'users'
+                        const actualPath = `users/${username}`;
+                        result = await req.pdata.listDirectory(username, actualPath);
+                        console.log(`[API /list] Regular user 'users' request redirected to: '${actualPath}'`);
+                        return res.json({
+                            pathname: actualPath,
+                            dirs: result.dirs,
+                            files: result.files
+                        });
+                    } else {
+                        // Admin users can see the top-level users directory
+                        result = await req.pdata.listDirectory(username, effectivePath);
+                    }
+                } else {
+                    // For all other paths, use the effective path as-is
+                    // The permission system will handle access control
+                    result = await req.pdata.listDirectory(username, effectivePath);
+                    console.log(`[API /list] Regular path listing for '${effectivePath}': dirs=${result.dirs?.length || 0}, files=${result.files?.length || 0}`);
+                    console.log(`[API /list] Dirs:`, result.dirs);
+                    console.log(`[API /list] Files:`, result.files);
+                }
             }
         }
 

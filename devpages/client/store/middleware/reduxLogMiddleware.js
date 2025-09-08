@@ -9,9 +9,32 @@ let log;
 
 function getLogger() {
     if (!log) {
-        log = window.APP.services.log.createLogger('DATA', 'Redux');
+        // Create logger with proper parameters for UnifiedLogging compatibility
+        log = window.APP.services.log.createLogger('REDUX', 'CLIENT');
     }
     return log;
+}
+
+/**
+ * Extracts the slice name from a Redux action type.
+ * @param {string} actionType - The Redux action type (e.g., 'ui/toggleSidebar')
+ * @returns {string} The slice name (e.g., 'UI')
+ */
+function extractSliceName(actionType) {
+    if (!actionType || typeof actionType !== 'string') {
+        return 'UNKNOWN';
+    }
+    
+    // Split by '/' and take the first part as the slice name
+    const parts = actionType.split('/');
+    const sliceName = parts[0];
+    
+    // Convert to uppercase and handle special cases
+    if (!sliceName) {
+        return 'ROOT';
+    }
+    
+    return sliceName.toUpperCase();
 }
 
 /**
@@ -242,7 +265,24 @@ function extractKeyInfo(payload) {
 function flushLastAction() {
     if (repeatCount > 2) {
         const badgeCount = repeatCount - 2;
-        getLogger().info('REPEAT_COUNT', `🔄 Repeated ${badgeCount} more times`, { aggregated: true, count: badgeCount, actionType: lastActionType });
+        const sliceName = extractSliceName(lastActionType);
+        
+        // Use LogCore directly for consistent format
+        import('../../log/LogCore.js').then(({ log: logCore }) => {
+            logCore({
+                message: `🔄 Repeated ${badgeCount} more times`,
+                source: 'CLIENT',
+                type: 'REDUX',
+                module: sliceName,
+                action: 'REPEAT_COUNT',
+                level: 'INFO',
+                details: { aggregated: true, count: badgeCount, actionType: lastActionType },
+                forceConsole: false
+            });
+        }).catch(() => {
+            // Fallback to existing logger if LogCore unavailable
+            getLogger().info('REPEAT_COUNT', `🔄 Repeated ${badgeCount} more times`, { aggregated: true, count: badgeCount, actionType: lastActionType });
+        });
     }
     lastActionType = null;
     repeatCount = 0;
@@ -269,7 +309,24 @@ export const reduxLogMiddleware = store => next => action => {
             repeatCount = 1;
 
             const message = formatReduxAction(action);
-            getLogger().info('ACTION', message, sanitized);
+            const sliceName = extractSliceName(action.type);
+            
+            // Use LogCore directly for proper SOURCE|TYPE|MODULE|ACTION format
+            import('../../log/LogCore.js').then(({ log: logCore }) => {
+                logCore({
+                    message,
+                    source: 'CLIENT',
+                    type: 'REDUX',
+                    module: sliceName,
+                    action: 'DISPATCH',
+                    level: 'INFO',
+                    details: sanitized,
+                    forceConsole: false
+                });
+            }).catch(() => {
+                // Fallback to existing logger if LogCore unavailable
+                getLogger().info('DISPATCH', message, sanitized);
+            });
 
         } else {
             // It's a repeated action.
@@ -277,7 +334,24 @@ export const reduxLogMiddleware = store => next => action => {
 
             if (repeatCount <= 2) {
                 const message = formatReduxAction(action);
-                getLogger().info('ACTION', message, sanitized);
+                const sliceName = extractSliceName(action.type);
+                
+                // Use LogCore directly for proper SOURCE|TYPE|MODULE|ACTION format
+                import('../../log/LogCore.js').then(({ log: logCore }) => {
+                    logCore({
+                        message,
+                        source: 'CLIENT',
+                        type: 'REDUX',
+                        module: sliceName,
+                        action: 'DISPATCH',
+                        level: 'INFO',
+                        details: sanitized,
+                        forceConsole: false
+                    });
+                }).catch(() => {
+                    // Fallback to existing logger if LogCore unavailable
+                    getLogger().info('DISPATCH', message, sanitized);
+                });
             }
             // For repeats > 2, we stay silent and wait for flushLastAction to be called.
         }

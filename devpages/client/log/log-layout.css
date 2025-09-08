@@ -4,8 +4,9 @@
     /* Position at bottom of viewport */
     position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
+    left: 0; /* Anchor to the left */
+    width: var(--log-width, 100vw); /* Default to full viewport width */
+    min-width: 400px; /* Set min width */
     z-index: var(--z-layer-ui, 100);
     
     /* Layout - CRITICAL: Must be flex for children to work */
@@ -16,7 +17,7 @@
     background: var(--color-bg-alt);
     border-top: 1px solid var(--color-border);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Only top corners rounded */
-    margin: 0; /* No margin for fixed positioning */
+    margin: 0; /* Remove auto margin */
     
     /* Default to hidden state */
     height: 0;
@@ -35,6 +36,7 @@
     padding: var(--space-1) var(--space-2);
     border-bottom: 1px solid var(--color-border);
     background-color: var(--color-bg-elevated);
+    font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
     font-size: 11px;
     font-weight: 600;
     color: var(--color-fg-muted);
@@ -42,67 +44,137 @@
     width: 100%;
 }
 
-#log-column-header > span {
-    align-self: center; /* Vertically center header text */
-    padding: 0 var(--space-1);
+.log-header-message {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 !important;
+    margin: 0 !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: inherit;
+    text-align: left;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.log-menu-grip {
+    margin-right: var(--space-2);
+}
+
+.log-menu-actions {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.log-menu-badge-button {
+    background-color: var(--color-bg-muted);
+    color: var(--color-fg-default);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.log-menu-badge-button:hover {
+    background-color: var(--color-bg-subtle);
+    border-color: var(--color-border-hover);
+}
+
+#log-column-header > span {
+    display: flex;
+    align-items: center; /* Vertically center header text */
+    justify-content: flex-start;
+    padding: var(--space-1);
+    padding-left: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: inherit;
+    text-align: left;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 #log-column-header > span:first-child {
-    padding-left: 0;
+    padding-left: var(--space-2);
 }
 
 #log-column-header > span:last-child {
-    padding-right: 0;
+    padding-right: var(--space-2);
 }
 
 /* --- Column Headers --- */
 
-/* Left-align all headers */
+/* Left-align all headers except Melvin */
 .log-header-timestamp,
 .log-header-level,
 .log-header-context,
-.log-header-message,
-.log-header-melvin {
+.log-header-message {
     justify-content: flex-start;
+}
+
+.log-header-melvin {
+    justify-content: center;
 }
 
 /* --- Column Data Cells --- */
 
-/* Left-align all data columns */
+/* Left-align all data columns except Melvin */
 .log-entry-timestamp,
 .log-entry-level, 
 .log-entry-context,
-.log-entry-message,
-.log-entry-melvin {
+.log-entry-message {
     text-align: left;
+}
+
+.log-entry-melvin {
+    text-align: center;
 }
 
 .log-header-timestamp, .log-entry-timestamp {
     width: var(--log-column-width-timestamp, 70px);
+    max-width: var(--log-column-width-timestamp, 70px);
+    min-width: var(--log-column-width-timestamp, 70px);
     flex-shrink: 0;
 }
 
 .log-header-level, .log-entry-level {
-    width: var(--log-column-width-level, 60px);
+    width: var(--log-column-width-level, 50px);
+    max-width: var(--log-column-width-level, 50px);
+    min-width: var(--log-column-width-level, 50px);
     flex-shrink: 0;
 }
 
 .log-header-context, .log-entry-context {
-    width: var(--log-column-width-context, 300px);
+    width: var(--log-column-width-context, 200px);
+    max-width: var(--log-column-width-context, 200px);
+    min-width: var(--log-column-width-context, 200px);
     flex-shrink: 0;
 }
 
 .log-header-message, .log-entry-message {
-    width: var(--log-column-width-message, 400px);
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    padding-left: 0px !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
 }
 
 .log-header-melvin, .log-entry-melvin {
-    width: var(--log-column-width-melvin, 60px);
+    width: var(--log-column-width-melvin, 6rem);
+    max-width: var(--log-column-width-melvin, 6rem);
+    min-width: var(--log-column-width-melvin, 6rem);
     flex-shrink: 0;
+    justify-content: center;
+    text-align: center;
 }
 
 .resizer {

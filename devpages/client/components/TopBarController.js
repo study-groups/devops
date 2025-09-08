@@ -60,12 +60,6 @@ export class TopBarController {
 
         // File Actions
         this.actionHandlers.set('saveFile', (e) => {
-            console.log('[TopBarController] saveFile handler called with event:', {
-                eventType: e?.type,
-                target: e?.target?.tagName,
-                targetId: e?.target?.id
-            });
-            
             e.preventDefault();
             e.stopPropagation();
             
@@ -73,32 +67,17 @@ export class TopBarController {
             const { currentPathname, isDirectorySelected } = state.path;
             const isModified = state.editor?.isModified || false; // Use editor isModified state
 
-            console.log('[TopBarController] saveFile state check:', {
-                currentPathname,
-                isDirectorySelected,
-                isModified,
-                pathState: state.path,
-                editorState: state.editor,
-                authState: { 
-                    isAuthenticated: state.auth?.isAuthenticated, 
-                    authChecked: state.auth?.authChecked 
-                }
-            });
-
             if (!currentPathname || isDirectorySelected) {
-                console.warn('[TopBarController] Save blocked - no file selected');
                 getLogger().warn('SAVE_NO_FILE', 'Save button clicked but no file is selected');
                 return;
             }
 
             if (!isModified) {
-                console.warn('[TopBarController] Save blocked - no changes detected');
                 getLogger().info('SAVE_NO_CHANGES', 'Save button clicked but no changes to save');
                 return;
             }
             
-            console.log('[TopBarController] Dispatching saveFile thunk...');
-            getLogger().info('SAVE_FILE', `Dispatching saveFile thunk for: ${currentPathname}`);
+            getLogger().info('SAVE_FILE', `Dispatching saveFile for: ${currentPathname}`);
             dispatch(fileThunks.saveFile());
         });
 
@@ -209,33 +188,47 @@ export class TopBarController {
         let updateTimeout = null;
         
         this.stateUnsubscribe = appStore.subscribe(() => {
-            const state = appStore.getState();
-            
-            // Only track UI-related state that affects button appearance
-            const currentRelevantState = {
-                leftSidebarVisible: state.ui?.leftSidebarVisible,
-                editorVisible: state.ui?.editorVisible,
-                previewVisible: state.ui?.previewVisible,
-                logVisible: state.ui?.logVisible,
-                isAuthenticated: state.auth?.isAuthenticated,
-                isLoading: state.ui?.isLoading,
-                fileStatus: state.file?.status,
-                currentPathname: state.path?.currentPathname,
-                isDirectorySelected: state.path?.isDirectorySelected,
-                isModified: state.editor?.isModified
-            };
-            
-            // Always update button states on any tracked state change
-            lastRelevantState = currentRelevantState;
-            
-            // Debounce button updates to prevent rapid-fire changes
-            if (updateTimeout) {
-                clearTimeout(updateTimeout);
+            try {
+                const state = appStore.getState();
+                
+                // Guard against invalid state during logout
+                if (!state || typeof state !== 'object') {
+                    console.warn('[TopBarController] Invalid state during subscription update, skipping');
+                    return;
+                }
+                
+                // Only track UI-related state that affects button appearance
+                const currentRelevantState = {
+                    leftSidebarVisible: state.ui?.leftSidebarVisible,
+                    editorVisible: state.ui?.editorVisible,
+                    previewVisible: state.ui?.previewVisible,
+                    logVisible: state.ui?.logVisible,
+                    isAuthenticated: state.auth?.isAuthenticated,
+                    isLoading: state.ui?.isLoading,
+                    fileStatus: state.file?.status,
+                    currentPathname: state.path?.currentPathname,
+                    isDirectorySelected: state.path?.isDirectorySelected,
+                    isModified: state.editor?.isModified
+                };
+                
+                // Always update button states on any tracked state change
+                lastRelevantState = currentRelevantState;
+                
+                // Debounce button updates to prevent rapid-fire changes
+                if (updateTimeout) {
+                    clearTimeout(updateTimeout);
+                }
+                updateTimeout = setTimeout(() => {
+                    try {
+                        this.updateButtonStates();
+                    } catch (error) {
+                        console.warn('[TopBarController] Error updating button states:', error);
+                    }
+                    updateTimeout = null;
+                }, 200); // 200ms debounce to reduce flickering
+            } catch (error) {
+                console.error('[TopBarController] Error in state subscription:', error);
             }
-            updateTimeout = setTimeout(() => {
-                this.updateButtonStates();
-                updateTimeout = null;
-            }, 200); // 200ms debounce to reduce flickering
         });
     }
 
@@ -256,31 +249,12 @@ export class TopBarController {
                 // Debug: Log all button clicks to trace save button issues
                 const clickedButton = e.target.closest('button');
                 if (clickedButton) {
-                    console.log(`[TopBarController] Button clicked without data-action:`, {
-                        id: clickedButton.id,
-                        className: clickedButton.className,
-                        textContent: clickedButton.textContent?.trim(),
-                        hasDataAction: clickedButton.hasAttribute('data-action'),
-                        dataAction: clickedButton.dataset.action,
-                        allAttributes: Array.from(clickedButton.attributes).map(a => `${a.name}="${a.value}"`),
-                        parentElement: clickedButton.parentElement?.tagName
-                    });
                 }
                 return;
             }
 
             const action = button.dataset.action;
             const handler = this.actionHandlers.get(action);
-            
-            // Debug: Log all data-action button clicks
-            console.log(`[TopBarController] Button with data-action clicked:`, {
-                action,
-                buttonId: button.id,
-                hasHandler: !!handler,
-                handlerKeys: Array.from(this.actionHandlers.keys()),
-                buttonDisabled: button.disabled,
-                buttonText: button.textContent?.trim()
-            });
             
             if (handler) {
                 // Mark event as handled to prevent other handlers
@@ -290,7 +264,6 @@ export class TopBarController {
                 e.stopImmediatePropagation();
                 
                 try {
-                    console.log(`[TopBarController] Executing handler for action: ${action}`);
                     handler(e, button);
                     // Remove focus from button after click to prevent lingering border
                     button.blur();
@@ -334,20 +307,11 @@ export class TopBarController {
             }
         ];
         
-        console.log('[TopBarController] Button states:', {
-            leftSidebarVisible: ui.leftSidebarVisible,
-            editorVisible: ui.editorVisible,
-            previewVisible: ui.previewVisible,
-            logVisible: ui.logVisible,
-            buttonStates: buttonUpdates.map(b => ({ selector: b.selector, active: b.active }))
-        });
-
         buttonUpdates.forEach(({ selector, active, title }) => {
             const button = document.querySelector(selector);
             if (button) {
                 const currentlyActive = button.classList.contains('active');
                 if (currentlyActive !== active) {
-                    console.log(`[TopBarController] BUTTON UPDATE: ${selector} from ${currentlyActive} to ${active}`);
                     button.classList.toggle('active', active);
                 }
                 if (button.title !== title) {
@@ -375,40 +339,15 @@ export class TopBarController {
             const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || !hasFile || !isFileModified;
             const saveText = isSaving ? 'Saving...' : 'Save';
             
-            // Debug: Log save button state calculation
-            console.log('[TopBarController] Save button state:', {
-                buttonExists: !!saveButton,
-                currentPathname,
-                isDirectorySelected,
-                isEditorModified,
-                isAuthenticated,
-                authChecked: auth.authChecked,
-                isOverallLoading,
-                isSaving,
-                hasFile,
-                isFileModified,
-                saveDisabled,
-                saveText,
-                buttonCurrentlyDisabled: saveButton.disabled,
-                buttonCurrentText: saveButton.textContent?.trim(),
-                hasDataAction: saveButton.hasAttribute('data-action'),
-                dataAction: saveButton.dataset.action,
-                buttonId: saveButton.id
-            });
-            
             if (saveButton.disabled !== saveDisabled) {
-                console.log(`[TopBarController] Changing save button disabled state: ${saveButton.disabled} -> ${saveDisabled}`);
                 saveButton.disabled = saveDisabled;
             }
             if (saveButton.textContent !== saveText) {
-                console.log(`[TopBarController] Changing save button text: "${saveButton.textContent}" -> "${saveText}"`);
                 saveButton.textContent = saveText;
             }
 
             // Toggle dirty class for styling
             saveButton.classList.toggle('is-dirty', isFileModified && !saveDisabled);
-        } else {
-            console.warn('[TopBarController] Save button (#save-btn) not found in the DOM');
         }
     }
 

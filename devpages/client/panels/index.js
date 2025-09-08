@@ -9,6 +9,7 @@
 import './dev/FileBrowserPanel.js';
 import './publish/PublishPanel.js';
 import './settings/ThemePanel.js';
+import './settings/LogSettingsPanel.js';
 import './DesignTokensPanel.js';
 import './DiagnosticPanel.js';
 import './UIInspectorPanel.js';

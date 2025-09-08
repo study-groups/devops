@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "@reduxjs/toolkit": "^2.0.1",
+    "@reduxjs/toolkit": "2.0.1",
     "immer": "^10.0.3",
     "playwright": "^1.55.0",
     "redux": "^5.0.0",

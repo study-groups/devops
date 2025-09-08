@@ -12,7 +12,9 @@
  * 4. Finalization: Signal readiness, hide splash screen, etc.
  */
 
+import { appInitializer } from './core/AppInitializer.js'; // Ensure this runs first
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
+import { installConsoleReplacement } from './log/ConsoleReplacement.js'; // Console replacement with source location tracking
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
 import { createGlobalFetch } from './services/fetcher.js';
@@ -71,8 +73,7 @@ let bootErrors = [];
 // =============================================================================
 
 async function bootPreInit() {
-    // APP initialization
-    window.APP = window.APP || {};
+    // APP initialization is now handled by AppInitializer.js
     window.APP.bootloader = window.APP.bootloader || {};
     window.APP.bootloader.phase = 'pre-init';
     
@@ -86,16 +87,7 @@ async function bootCore() {
     
     // Debug: Check what state was loaded
     const loadedState = appStore.getState();
-    log.info('STATE_LOADED', '🔍 Loaded state:', {
-        panels: {
-            _initialized: loadedState.panels?._initialized,
-            activeSidebarCategory: loadedState.panels?.activeSidebarCategory,
-            sidebarPanelsCount: Object.keys(loadedState.panels?.sidebarPanels || {}).length,
-            panelsCount: Object.keys(loadedState.panels?.panels || {}).length
-        },
-        ui: Object.keys(loadedState.ui || {}),
-        settings: Object.keys(loadedState.settings || {})
-    });
+    log.info('STATE_LOADED', `Loaded state with keys: ui(${Object.keys(loadedState.ui || {}).length}), panels(${Object.keys(loadedState.panels?.panels || {}).length})`);
     
     // CRITICAL FIX: Set global dispatch for enhanced reducer utils
     const { setGlobalDispatch } = await import('./store/reducers/enhancedReducerUtils.js');
@@ -160,25 +152,10 @@ async function bootSecondary({ store, actions }) {
     
     // 1.5. Ensure TopBarController is initialized early
     try {
-        console.log('[Bootloader] Attempting to import and initialize TopBarController...');
         const { topBarController } = await import('./components/TopBarController.js');
-        console.log('[Bootloader] TopBarController imported, checking initialization state:', {
-            initialized: topBarController.initialized,
-            hasActionHandlers: topBarController.actionHandlers instanceof Map,
-            actionHandlerCount: topBarController.actionHandlers?.size
-        });
-        
         if (!topBarController.initialized) {
-            console.log('[Bootloader] Initializing TopBarController...');
             topBarController.initialize();
-            console.log('[Bootloader] TopBarController initialization completed:', {
-                initialized: topBarController.initialized,
-                actionHandlerCount: topBarController.actionHandlers?.size,
-                hasActionHandlers: topBarController.actionHandlers instanceof Map
-            });
             log.info('TOPBAR_INIT', '🎛️ TopBarController initialized during bootloader');
-        } else {
-            console.log('[Bootloader] TopBarController was already initialized');
         }
     } catch (error) {
         console.error('[Bootloader] TopBarController initialization failed:', error);
@@ -244,19 +221,14 @@ async function bootSecondary({ store, actions }) {
     } catch (error) {
         log.warn('WORKSPACE_MANAGER_INIT_FAILED', '⚠️ Failed to initialize workspace manager:', error);
     }
-
-    console.log('[BOOTLOADER] About to initialize log display...');
     
     // Initialize Log Display - FULL FEATURED APPROACH
     try {
         // Use the existing log-container from HTML
         const logContainer = document.getElementById('log-container');
         if (logContainer) {
-            console.log('[BOOTLOADER] Found log-container, attempting to create LogDisplay...');
-            
             // Import and create the full-featured LogDisplay
             const { LogDisplay } = await import('./log/LogDisplay.js');
-            console.log('[BOOTLOADER] LogDisplay imported successfully');
             
             // Create the log display instance
             const logDisplay = new LogDisplay({
@@ -264,12 +236,10 @@ async function bootSecondary({ store, actions }) {
                 title: 'Log Display',
                 store: store
             });
-            console.log('[BOOTLOADER] LogDisplay instance created');
             
             // Mount the log display directly in the container
             // The LogDisplay will create its own internal structure
             logDisplay.onMount(logContainer);
-            console.log('[BOOTLOADER] LogDisplay mounted directly in log-container');
             
             log.info('LOG_DISPLAY_INIT', '✅ Full-featured log display created and ready');
         } else {

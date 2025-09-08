@@ -75,16 +75,22 @@ class MountManager {
                 return [];
             }
         } else if (['user', 'project', 'dev'].includes(role)) {
-            // Regular users get ONLY their specific home directory (Plan 9 isolation)
-            // NO access to general ~data (that would expose all users/projects)
+            // Regular users get ONLY their specific home directory
+            // Return simple paths that the frontend can navigate to
             
-            // Add user-specific home mount based on their directory
-            // This would be something like ~/data/users/mike or ~/data/projects/gridranger
-            const userHomeMount = await this._getUserHomeMount(username);
-            if (userHomeMount) mounts.push(userHomeMount);
+            // Check if user has a directory in users/ or projects/
+            const userPath = path.join(this.dataRoot, 'data', 'users', username);
+            const projectPath = path.join(this.dataRoot, 'data', 'projects', username);
             
-            // Optionally add shared resources (if we want them)
-            // mounts.push('~shared'); // Only if we create a specific shared area
+            try {
+                if (await this._mountExists(userPath)) {
+                    mounts.push(`users/${username}`);
+                } else if (await this._mountExists(projectPath)) {
+                    mounts.push(`projects/${username}`);
+                }
+            } catch (error) {
+                console.error(`[MountManager] Error checking user directories for '${username}':`, error);
+            }
             
             console.log(`[MountManager] Available mounts for '${username}':`, mounts);
             return mounts;

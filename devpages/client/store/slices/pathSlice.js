@@ -123,6 +123,28 @@ export const pathSlice = createSlice({
             files: action.payload.files || [],
           };
           state.error = null;
+          
+          // Handle server redirects - if server returns a different path than requested,
+          // update our current path to match the server's response
+          const requestedPath = action.meta.arg; // The path we requested
+          const actualPath = action.payload.pathname; // The path the server returned data for
+          
+          if (requestedPath !== actualPath) {
+            console.log(`[PathSlice] Server redirect detected: requested '${requestedPath}' -> actual '${actualPath}'`);
+            state.currentPathname = actualPath;
+            state.isDirectorySelected = true; // Server redirects are always to directories
+          }
+          
+          // Debug logging
+          console.log('[PathSlice] Directory listing updated:', {
+            requestedPath,
+            actualPath,
+            currentPathname: state.currentPathname,
+            dirsCount: (action.payload.dirs || []).length,
+            filesCount: (action.payload.files || []).length,
+            dirs: action.payload.dirs,
+            files: action.payload.files
+          });
         }
       )
       .addMatcher(
@@ -156,6 +178,24 @@ export const pathSlice = createSlice({
         (state, action) => {
           state.isSaving = false;
           state.error = action.error?.message || 'Failed to save file';
+        }
+      )
+      
+      // Handle logout - clear path state
+      .addMatcher(
+        apiSlice.endpoints.logout.matchFulfilled,
+        (state) => {
+          console.log('[PathSlice] Clearing path state on logout');
+          state.currentPathname = null;
+          state.isDirectorySelected = false;
+          state.topLevelDirs = [];
+          state.currentListing = {
+            pathname: null,
+            dirs: [],
+            files: [],
+          };
+          state.status = 'idle';
+          state.error = null;
         }
       );
   },
@@ -196,6 +236,16 @@ export const pathThunks = {
       console.error('[Path] Failed to update URL:', error);
     }
 
+    // Check if user is authenticated before making API calls
+    const state = getState();
+    const isAuthenticated = state.auth?.isAuthenticated;
+    const authChecked = state.auth?.authChecked;
+    
+    if (!authChecked || !isAuthenticated) {
+      console.log('[Path] Skipping data fetch - user not authenticated');
+      return;
+    }
+
     if (isDirectory) {
       // If it's a directory, fetch its listing
       try {
@@ -230,7 +280,17 @@ export const pathThunks = {
    * Load top-level directories using RTK Query
    * This is a compatibility layer for existing code
    */
-  loadTopLevelDirectories: () => async (dispatch) => {
+  loadTopLevelDirectories: () => async (dispatch, getState) => {
+    // Check if user is authenticated before making API calls
+    const state = getState();
+    const isAuthenticated = state.auth?.isAuthenticated;
+    const authChecked = state.auth?.authChecked;
+    
+    if (!authChecked || !isAuthenticated) {
+      console.log('[Path] Skipping top-level directories fetch - user not authenticated');
+      return [];
+    }
+    
     try {
       const result = await dispatch(apiSlice.endpoints.getTopLevelDirectories.initiate()).unwrap();
       return result;

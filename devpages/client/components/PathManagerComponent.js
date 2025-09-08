@@ -44,6 +44,18 @@ export function createPathManagerComponent(targetElementId) {
         // Get auth state to check if we should show authentication-related content
         const authState = getAuthState(appStore.getState());
         
+        // Guard against invalid auth state during logout
+        if (!authState || typeof authState !== 'object') {
+            console.warn('[PathManager] Invalid auth state, showing loading');
+            element.innerHTML = `
+                <div class="path-manager-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Loading...</span>
+                </div>
+            `;
+            return;
+        }
+        
         // Show loading state during auth initialization
         if (!authState.authChecked || authState.isLoading) {
             element.innerHTML = `
@@ -103,7 +115,44 @@ export function createPathManagerComponent(targetElementId) {
         const selectedDirectoryPath = isDirectorySelected ? currentPathname : getParentPath(currentPathname);
         const selectedFilename = isDirectorySelected ? null : getFilename(currentPathname);
 
-        const listingForSelector = pathState.currentListing?.pathname === selectedDirectoryPath ? pathState.currentListing : null;
+        // Debug path matching
+        console.log('[PathManager] Debug path matching:', {
+            currentPathname,
+            isDirectorySelected,
+            selectedDirectoryPath,
+            currentListingPathname: pathState.currentListing?.pathname,
+            currentListingDirs: pathState.currentListing?.dirs?.length || 0,
+            currentListingFiles: pathState.currentListing?.files?.length || 0
+        });
+
+        // Handle path matching with normalization for root paths
+        let listingForSelector = null;
+        if (pathState.currentListing) {
+            const currentListingPath = pathState.currentListing.pathname;
+            const normalizedCurrentPath = currentListingPath === null || currentListingPath === '' ? '/' : currentListingPath;
+            const normalizedSelectedPath = selectedDirectoryPath === null || selectedDirectoryPath === '' ? '/' : selectedDirectoryPath;
+            
+            console.log('[PathManager] Path normalization:', {
+                originalCurrentPath: currentListingPath,
+                normalizedCurrentPath,
+                originalSelectedPath: selectedDirectoryPath,
+                normalizedSelectedPath,
+                pathsMatch: normalizedCurrentPath === normalizedSelectedPath
+            });
+            
+            if (normalizedCurrentPath === normalizedSelectedPath) {
+                listingForSelector = pathState.currentListing;
+            }
+        }
+        
+        // If we're viewing a file but don't have the parent directory listing, load it
+        if (!isDirectorySelected && selectedDirectoryPath && !listingForSelector && isAuthenticated) {
+            console.log(`[PathManager] Missing parent directory listing for '${selectedDirectoryPath}', loading...`);
+            // Use a timeout to avoid infinite re-renders
+            setTimeout(() => {
+                appStore.dispatch(pathThunks.navigateToPath({ pathname: selectedDirectoryPath, isDirectory: true }));
+            }, 0);
+        }
 
         const CONTENT_ROOT_PREFIX = '/root/pj/pd/data/';
         
@@ -117,6 +166,13 @@ export function createPathManagerComponent(targetElementId) {
 
         // Generate primary selector
         let primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading...</option></select>`;
+        
+        // Check for path errors and show appropriate message
+        const pathError = pathState.error;
+        if (pathError && pathState.status === 'failed') {
+            console.warn('[PathManager] Path error detected:', pathError);
+            primarySelectorHTML = `<select class="context-selector" title="Error loading directory" disabled><option>Error: ${pathError}</option></select>`;
+        }
         
         if (isAuthenticated && selectedDirectoryPath !== null && selectedDirectoryPath !== '') {
             if (listingForSelector) {
@@ -325,6 +381,14 @@ export function createPathManagerComponent(targetElementId) {
         // Determine current directory for building new paths
         let currentDirectory = null;
         
+        // Debug current state
+        console.log('[PathManager] Navigation debug:', {
+            currentPathname,
+            isDirectorySelected,
+            selectedValue,
+            selectedType
+        });
+        
         // Handle root directory case first
         if (currentPathname === '' || currentPathname === null) {
             currentDirectory = '';
@@ -336,6 +400,12 @@ export function createPathManagerComponent(targetElementId) {
         if (currentDirectory === null || currentDirectory === undefined) {
             currentDirectory = '';
         }
+        
+        console.log('[PathManager] Path building:', {
+            currentDirectory,
+            selectedValue,
+            willBecomeNewPath: pathJoin(currentDirectory, selectedValue)
+        });
 
         // Handle parent directory navigation
         if (selectedType === 'parent') {
@@ -474,7 +544,17 @@ export function createPathManagerComponent(targetElementId) {
         }
 
         storeUnsubscribe = appStore.subscribe(() => {
-            render();
+            try {
+                // Guard against invalid state during logout
+                const state = appStore.getState();
+                if (!state || typeof state !== 'object') {
+                    console.warn('[PathManager] Invalid state during subscription update, skipping render');
+                    return;
+                }
+                render();
+            } catch (error) {
+                console.error('[PathManager] Error in store subscription:', error);
+            }
         });
         log.info('MOUNT', 'SUBSCRIBE_SUCCESS', 'Mount_CM: Subscribed to appStore changes.');
         

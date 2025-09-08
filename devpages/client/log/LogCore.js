@@ -102,9 +102,10 @@ export function setLogDisplayInstance(instance) {
 
 /* 2.  PRIMARY LOG FUNCTION ----------------------------------- */
 export function log({ message,
-                      source  = 'DEVPAGES',
+                      source  = 'CLIENT',  // Changed default to CLIENT
                       level   = 'INFO',
                       type    = 'GENERAL',
+                      module  = null,      // Added module parameter
                       action  = null,
                       details = null,
                       ts      = Date.now(),
@@ -116,6 +117,7 @@ export function log({ message,
     const src = String(source).toUpperCase();
     const lvl = canonicalLevel(level);
     const typ = canonicalType(type);
+    const mod = module ? String(module).toUpperCase() : null;  // Added module processing
     const act = action ? String(action).toUpperCase() : null;
     const comp = component ? String(component).toUpperCase() : null;
 
@@ -146,6 +148,7 @@ export function log({ message,
         source: src, 
         level: lvl, 
         type: typ, 
+        module: mod,    // Added module to entry
         action: act, 
         details: serializedDetails, 
         component: comp 
@@ -156,21 +159,33 @@ export function log({ message,
         logDisplayInstance.addEntry(entry);
     }
 
-    // Console output with format: [TYPE][MODULE][ACTION] message [LEVEL]
+    // Console output with format: [SOURCE][TYPE][MODULE][ACTION] message [LEVEL]
     const isConsoleEnabled = typeof window !== 'undefined' && 
                              typeof window.APP.services.isConsoleLoggingEnabled === 'function' && 
                              window.APP.services.isConsoleLoggingEnabled();
                              
     if (forceConsole || isConsoleEnabled) {
-        let prefix = `[${typ}]`;
-        if (src !== 'DEVPAGES') {
+        let prefix = '';
+        
+        // Add system location (CLIENT/SERVER) if specified
+        if (src && ['CLIENT', 'SERVER'].includes(src)) {
             prefix += `[${src}]`;
         }
+        
+        // Always add type
+        prefix += `[${typ}]`;
+        
+        // Add module if specified
+        if (mod) {
+            prefix += `[${mod}]`;
+        }
+        
+        // Add action if specified
         if (act) {
             prefix += `[${act}]`;
         }
         
-        const formattedMessage = `${prefix} ${message} [${lvl}]`;
+        const formattedMessage = `${prefix} ${cleanMessage} [${lvl}]`;
         
         switch (lvl) {
             case 'DEBUG': console.debug(formattedMessage, details); break;

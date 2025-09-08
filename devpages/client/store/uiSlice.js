@@ -21,7 +21,14 @@ const initialState = {
     colorScheme: 'system',      // 'light', 'dark', 'system'
     designDensity: 'normal',    // 'compact', 'normal', 'spacious'
     isAuthDropdownVisible: false,
-    logColumnWidths: {}, // Add column widths to initial state
+    logColumnWidths: {
+        timestamp: '70px',
+        level: '50px',
+        context: '200px',
+        message: '1fr',
+        melvin: '6rem'
+    },
+    logWidth: '75vw', // Default log panel width
     workspaceDimensions: {      // Workspace layout dimensions (replaces panel system)
         sidebarWidth: 300,
         previewWidth: 400,

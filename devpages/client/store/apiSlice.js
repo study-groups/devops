@@ -11,10 +11,32 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query';
 const baseQuery = fetchBaseQuery({
   baseUrl: '/api',
   credentials: 'include', // Always include session cookies
+  timeout: 10000, // 10 second timeout to prevent hanging
 });
 
 // Enhanced base query with error handling and token refresh
 const baseQueryWithReauth = async (args, api, extraOptions) => {
+  // Check if user is authenticated for protected endpoints
+  const state = api.getState();
+  const isAuthenticated = state.auth?.isAuthenticated;
+  const authChecked = state.auth?.authChecked;
+  
+  // Skip auth check for login and public endpoints
+  const isAuthEndpoint = typeof args === 'string' ? 
+    args.includes('/auth/') : 
+    args.url?.includes('/auth/');
+  
+  // If auth has been checked and user is not authenticated, and this isn't an auth endpoint
+  if (authChecked && !isAuthenticated && !isAuthEndpoint) {
+    console.log('[API] Skipping API call - user not authenticated:', args);
+    return {
+      error: {
+        status: 401,
+        data: { message: 'User not authenticated' }
+      }
+    };
+  }
+  
   let result = await baseQuery(args, api, extraOptions);
   
   // If we get a 401, the user needs to re-authenticate

@@ -57,12 +57,20 @@ function AuthDisplayComponent(targetElementId) {
         event.stopPropagation();
         log.info('AUTH', 'LOGOUT_CLICKED', '[AuthDisplay] Logout clicked');
         try {
-            await props.logout();
+            // Hide dropdown first to prevent UI issues
             hideDropdown();
-            render();
+            
+            // Perform logout
+            await props.logout();
+            
+            // Don't call render() here - let the store subscription handle it
+            // This prevents race conditions during logout
+            log.info('AUTH', 'LOGOUT_SUCCESS', '[AuthDisplay] Logout completed successfully');
         } catch (error) {
             log.error('AUTH', 'LOGOUT_ERROR', `[AuthDisplay] Logout error: ${error.message}`, error);
             alert(`Logout failed: ${error.message}`);
+            // Only render on error to show the error state
+            render();
         }
     };
 
