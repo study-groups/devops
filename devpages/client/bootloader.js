@@ -289,20 +289,27 @@ async function bootFinalize() {
     const urlParams = new URLSearchParams(window.location.search);
     const pathname = urlParams.get('pathname');
     if (pathname) {
+        console.log(`[PATHXXX] Bootloader finalize - Found deep link pathname: ${pathname}`);
         log.info('DEEP_LINK', `Found deep link pathname: ${pathname}`);
         // Heuristic to determine if the path is a file or directory
         const isDirectory = !/.+\.[^/]+$/.test(pathname);
+        console.log(`[PATHXXX] Bootloader finalize - Determined isDirectory: ${isDirectory}`);
         
         // Small delay to ensure all components are ready for the event
         setTimeout(() => {
             try {
+                console.log(`[PATHXXX] Bootloader finalize - Dispatching navigateToPath for: '${pathname}' (${isDirectory ? 'directory' : 'file'})`);
                 // Navigate to the deep link path using the proper thunk
                 services.appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
+                console.log(`[PATHXXX] Bootloader finalize - Successfully dispatched navigateToPath`);
                 log.info('DEEP_LINK_NAVIGATION', `✅ Navigated to deep link: ${pathname} (${isDirectory ? 'directory' : 'file'})`);
             } catch (error) {
+                console.error(`[PATHXXX] Bootloader finalize - Failed to navigate to deep link:`, error);
                 log.error('DEEP_LINK_NAVIGATION_FAILED', `❌ Failed to navigate to deep link ${pathname}:`, error);
             }
         }, 100);
+    } else {
+        console.log(`[PATHXXX] Bootloader finalize - No pathname parameter found in URL`);
     }
     
     // Clean panels auto-loader removed - clean application

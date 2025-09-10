@@ -47,11 +47,13 @@ export const pathSlice = createSlice({
     // New reducer for navigation without fetching
     _navigateToPath: (state, action) => {
         const { pathname, isDirectory } = action.payload;
+        console.log(`[PATHXXX] _navigateToPath reducer - Setting path to '${pathname}', isDirectory: ${isDirectory}`);
         state.currentPathname = pathname;
         state.isDirectorySelected = isDirectory;
         // When navigating to the root, the listing is conceptually empty,
         // and the UI should use topLevelDirs instead.
         if (pathname === '' || pathname === '/') {
+            console.log(`[PATHXXX] _navigateToPath reducer - Clearing listing for root path`);
             state.currentListing = {
                 pathname: null,
                 dirs: [],
@@ -59,6 +61,11 @@ export const pathSlice = createSlice({
             };
         }
         state.status = 'idle'; // Reset status as no fetch is occurring
+        console.log(`[PATHXXX] _navigateToPath reducer - Path state updated:`, {
+            currentPathname: state.currentPathname,
+            isDirectorySelected: state.isDirectorySelected,
+            status: state.status
+        });
     },
     
     // Set saving state
@@ -116,6 +123,7 @@ export const pathSlice = createSlice({
       .addMatcher(
         apiSlice.endpoints.getDirectoryListing.matchFulfilled,
         (state, action) => {
+          console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Processing response`);
           state.status = 'succeeded';
           state.currentListing = {
             pathname: action.payload.pathname,
@@ -129,14 +137,21 @@ export const pathSlice = createSlice({
           const requestedPath = action.meta.arg; // The path we requested
           const actualPath = action.payload.pathname; // The path the server returned data for
           
-          if (requestedPath !== actualPath) {
-            console.log(`[PathSlice] Server redirect detected: requested '${requestedPath}' -> actual '${actualPath}'`);
+          console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Path comparison:`, {
+            requestedPath,
+            actualPath,
+            currentPathname: state.currentPathname,
+            isDirectorySelected: state.isDirectorySelected
+          });
+          
+          if (requestedPath !== actualPath && state.isDirectorySelected) {
+            console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Server redirect detected: requested '${requestedPath}' -> actual '${actualPath}'`);
             state.currentPathname = actualPath;
             state.isDirectorySelected = true; // Server redirects are always to directories
           }
           
           // Debug logging
-          console.log('[PathSlice] Directory listing updated:', {
+          console.log('[PATHXXX] getDirectoryListing.matchFulfilled - Directory listing updated:', {
             requestedPath,
             actualPath,
             currentPathname: state.currentPathname,
@@ -219,19 +234,30 @@ export const pathThunks = {
    * Universal navigation thunk. Updates path state and fetches relevant data.
    */
   navigateToPath: ({ pathname, isDirectory }) => async (dispatch, getState) => {
+    console.log(`[PATHXXX] navigateToPath called with pathname='${pathname}', isDirectory=${isDirectory}`);
+    
     // Dispatch the synchronous action to update the path immediately
     dispatch(_navigateToPath({ pathname, isDirectory }));
+    console.log(`[PATHXXX] Path state updated to pathname='${pathname}', isDirectory=${isDirectory}`);
 
     // Update the browser URL to reflect the current path
     try {
-      const url = new URL(window.location);
       if (pathname && pathname !== '/' && pathname !== '') {
-        url.searchParams.set('pathname', pathname);
+        // Manually construct URL to avoid encoding slashes
+        const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+        const cleanPathname = pathname.startsWith('/') ? pathname : `/${pathname}`;
+        const newUrl = `${baseUrl}?pathname=${cleanPathname}`;
+        
+        // Use replaceState to update the URL without creating a new history entry
+        window.history.replaceState({}, '', newUrl);
+        console.log(`[Path] Updated URL to: ${newUrl}`);
       } else {
+        // Remove pathname parameter
+        const url = new URL(window.location);
         url.searchParams.delete('pathname');
+        window.history.replaceState({}, '', url);
+        console.log(`[Path] Updated URL to: ${url.toString()}`);
       }
-      window.history.replaceState({}, '', url);
-      console.log(`[Path] Updated URL to: ${url.toString()}`);
     } catch (error) {
       console.error('[Path] Failed to update URL:', error);
     }
@@ -241,28 +267,38 @@ export const pathThunks = {
     const isAuthenticated = state.auth?.isAuthenticated;
     const authChecked = state.auth?.authChecked;
     
+    console.log(`[PATHXXX] Auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
+    
     if (!authChecked || !isAuthenticated) {
-      console.log('[Path] Skipping data fetch - user not authenticated');
+      console.log('[PATHXXX] Skipping data fetch - user not authenticated');
       return;
     }
 
     if (isDirectory) {
       // If it's a directory, fetch its listing
+      console.log(`[PATHXXX] Fetching directory listing for: '${pathname}'`);
       try {
-        await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname)).unwrap();
+        const result = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname)).unwrap();
+        console.log(`[PATHXXX] Directory listing fetched successfully:`, result);
       } catch (error) {
-        console.error(`[Path] Failed to fetch directory listing for ${pathname}:`, error);
+        console.error(`[PATHXXX] Failed to fetch directory listing for ${pathname}:`, error);
       }
     } else {
       // If it's a file, load its content and its parent directory listing
+      console.log(`[PATHXXX] Loading file content for: '${pathname}'`);
       try {
         await dispatch(fileThunks.loadFileContent(pathname));
+        console.log(`[PATHXXX] File content loaded successfully for: '${pathname}'`);
+        
         const parentPath = getParentPath(pathname);
+        console.log(`[PATHXXX] Parent path calculated as: '${parentPath}'`);
         if (parentPath) {
-          await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath)).unwrap();
+          console.log(`[PATHXXX] Fetching parent directory listing for: '${parentPath}'`);
+          const parentResult = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath)).unwrap();
+          console.log(`[PATHXXX] Parent directory listing fetched:`, parentResult);
         }
       } catch (error) {
-        console.error(`[Path] Failed to load file content for ${pathname}:`, error);
+        console.error(`[PATHXXX] Failed to load file content for ${pathname}:`, error);
       }
     }
   },
@@ -281,21 +317,27 @@ export const pathThunks = {
    * This is a compatibility layer for existing code
    */
   loadTopLevelDirectories: () => async (dispatch, getState) => {
+    console.log(`[PATHXXX] loadTopLevelDirectories called`);
+    
     // Check if user is authenticated before making API calls
     const state = getState();
     const isAuthenticated = state.auth?.isAuthenticated;
     const authChecked = state.auth?.authChecked;
     
+    console.log(`[PATHXXX] Top-level dirs auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
+    
     if (!authChecked || !isAuthenticated) {
-      console.log('[Path] Skipping top-level directories fetch - user not authenticated');
+      console.log('[PATHXXX] Skipping top-level directories fetch - user not authenticated');
       return [];
     }
     
     try {
+      console.log(`[PATHXXX] Fetching top-level directories...`);
       const result = await dispatch(apiSlice.endpoints.getTopLevelDirectories.initiate()).unwrap();
+      console.log(`[PATHXXX] Top-level directories fetched:`, result);
       return result;
     } catch (error) {
-      console.error('[Path] Failed to load top-level directories:', error);
+      console.error('[PATHXXX] Failed to load top-level directories:', error);
       // Error is handled by the extraReducers
       return [];
     }

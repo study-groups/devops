@@ -1,0 +1,236 @@
+#MULTICAT_START
+# dir: ./internal/tui
+# file: styles.go
+# notes: Fix undefined tea by importing bubbletea; file compiles
+#MULTICAT_END
+package tui
+
+import (
+	"strings"
+
+	"github.com/charmbracelet/bubbles/textarea"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+type Styles struct {
+	header           lipgloss.Style
+	footer           lipgloss.Style
+	completion       lipgloss.Style
+	paneBorder       lipgloss.Style
+	paneBorderActive lipgloss.Style
+	repl             lipgloss.Style
+}
+
+func buildStyles(m *Model) Styles {
+	return Styles{
+		header: lipgloss.NewStyle().
+			Background(m.currentTheme.HeaderBg).
+			Foreground(m.currentTheme.HeaderFg).
+			Padding(0, 1),
+		footer: lipgloss.NewStyle().
+			Background(m.currentTheme.FooterBg).
+			Foreground(m.currentTheme.FooterFg).
+			Padding(0, 1),
+		completion: lipgloss.NewStyle().
+			Foreground(m.currentTheme.ComplFg),
+		paneBorder: lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(m.currentTheme.PaneBorderInactive),
+		paneBorderActive: lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(m.currentTheme.PaneBorderActive),
+		repl: lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(m.currentTheme.PaneBorderActive),
+	}
+}
+
+type headerWrapper struct{ s lipgloss.Style }
+
+func lipHeader(m *Model) headerWrapper { return headerWrapper{s: buildStyles(m).header} }
+func (h headerWrapper) RenderHeight() int {
+	return lipgloss.Height(h.s.Render(""))
+}
+
+type footerWrapper struct{ s lipgloss.Style }
+
+func lipFooter(m *Model) footerWrapper { return footerWrapper{s: buildStyles(m).footer} }
+func (f footerWrapper) RenderHeight() int {
+	return lipgloss.Height(f.s.Render(""))
+}
+
+func (m *Model) renderFooter(s Styles) string {
+	var b strings.Builder
+	b.WriteString(m.footerHelp)
+	if len(m.suggestions) > 0 && m.activePane == replPane {
+		b.WriteString(" | Suggest: ")
+		b.WriteString(s.completion.Render(strings.Join(m.suggestions, ", ")))
+	}
+	return s.footer.Width(m.width).Render(b.String())
+}
+
+// Wrap textarea.Blink to a tea.Cmd-compatible func without import cycle issues.
+func textBlink() func() tea.Msg {
+	return textarea.Blink
+}
+
+func joinLines(xs []string) string { return strings.Join(xs, "\n") }
+
+#MULTICAT_START
+# dir: ./internal/tui
+# file: model.go
+# notes: Remove unused sort import; file compiles
+#MULTICAT_END
+package tui
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+type pane int
+
+const (
+	leftPane pane = iota
+	rightPane
+	replPane
+)
+
+type serverLogMsg struct{ content string }
+type mainLogMsg struct{ content string }
+
+type Command struct {
+	Name        string
+	Description string
+	Executor    func(m *Model, args []string) (string, error)
+}
+
+type Model struct {
+	// Panes
+	leftVP       viewport.Model
+	rightVP      viewport.Model
+	repl         textarea.Model
+	activePane   pane
+	leftContent  []string
+	rightContent []string
+
+	// Size
+	width  int
+	height int
+
+	// Behavior
+	commands   map[string]Command
+	apiPort    string
+	httpServer *http.Server
+	program    *tea.Program
+
+	// Theme/UI
+	themes       map[string]Theme
+	currentTheme Theme
+	themeName    string
+	suggestions  []string
+	footerHelp   string
+}
+
+func initialModel(port string) Model {
+	leftContent := []string{
+		"Welcome to Tubes!",
+		"This is the primary log pane.",
+	}
+
+	themes := make(map[string]Theme)
+	if th, err := loadTheme("dark_ocean.theme"); err != nil {
+		leftContent = append(leftContent, "Warning: could not load dark_ocean.theme, using default.")
+		themes["ocean"] = defaultTheme()
+	} else {
+		themes["ocean"] = th
+	}
+	if th, err := loadTheme("cyber_neon.theme"); err != nil {
+		leftContent = append(leftContent, "Warning: could not load cyber_neon.theme, using default.")
+		themes["neon"] = defaultTheme()
+	} else {
+		themes["neon"] = th
+	}
+
+	ta := textarea.New()
+	ta.Placeholder = "Type a /command and press Enter..."
+	ta.Focus()
+	ta.Prompt = "┃ "
+	ta.CharLimit = 280
+	ta.SetHeight(1)
+	ta.KeyMap.InsertNewline.SetEnabled(false)
+
+	m := Model{
+		repl:         ta,
+		activePane:   replPane,
+		themes:       themes,
+		currentTheme: themes["ocean"],
+		themeName:    "ocean",
+		apiPort:      port,
+		leftContent:  leftContent,
+		rightContent: []string{"API Log", fmt.Sprintf("API server starting on port %s", port)},
+		footerHelp:   "Tab: Cycle Panes | Up/Down: Scroll | Ctrl+C: Quit",
+	}
+	m.loadCommands()
+	return m
+}
+
+func (m *Model) cyclePane() {
+	m.activePane = (m.activePane + 1) % 3
+	if m.activePane == replPane {
+		m.repl.Focus()
+	} else {
+		m.repl.Blur()
+	}
+}
+
+func (m *Model) handleInput() {
+	input := strings.TrimSpace(m.repl.Value())
+	if input == "" {
+		return
+	}
+	m.leftContent = append(m.leftContent, "▶ "+input)
+	parts := strings.Fields(input)
+	cmdName := parts[0]
+	args := parts[1:]
+	if cmd, ok := m.commands[cmdName]; ok {
+		result, err := cmd.Executor(m, args)
+		if err != nil {
+			m.leftContent = append(m.leftContent, "Error: "+err.Error())
+		} else if result != "" {
+			m.leftContent = append(m.leftContent, result)
+		}
+	} else {
+		m.leftContent = append(m.leftContent, "Error: Unknown command '"+cmdName+"'")
+	}
+	m.repl.Reset()
+	m.updateSuggestions()
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+	m.leftVP.GotoBottom()
+}
+
+func (m *Model) resizeLayout() {
+	headerHeight := lipHeader(m).RenderHeight()
+	footerHeight := lipFooter(m).RenderHeight()
+	replHeight := 3
+
+	leftWidth := m.width / 3
+	rightWidth := m.width - leftWidth
+	paneHeight := m.height - headerHeight - footerHeight - replHeight
+
+	m.leftVP.Width = leftWidth - 2
+	m.leftVP.Height = paneHeight
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+
+	m.rightVP.Width = rightWidth - 2
+	m.rightVP.Height = paneHeight
+	m.rightVP.SetContent(strings.Join(m.rightContent, "\n"))
+
+	m.repl.SetWidth(m.width - 2)
+}

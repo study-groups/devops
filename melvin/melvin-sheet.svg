@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="2000" viewBox="0 0 1400 2000">
+  <defs>
+    <style>
+      /* ===== Design Tokens ===== */
+      :root{
+        /* colors */
+        --color-bg:#0f1115;
+        --color-surface:#141820;
+        --color-surface-2:#1a1f2a;
+        --color-border:#2a3242;
+        --color-text:#e6e8ee;
+        --color-muted:#a7afc2;
+
+        --color-accent-1:#f36f21; /* orange */
+        --color-accent-2:#3aa1ff; /* blue */
+        --color-accent-3:#30b37a; /* green */
+        --color-accent-4:#f5a623; /* yellow */
+
+        /* typography */
+        --font-sans:600 15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        --font-sans-lg:700 20px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        --font-cap:700 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        --font-mono:500 14px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        --font-kbd:600 13px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+
+        /* spacing (px) */
+        --s-1:4; --s-2:8; --s-3:12; --s-4:16; --s-5:20; --s-6:24; --s-7:28; --s-8:32;
+
+        /* radii and strokes */
+        --r-1:8;
+        --stroke-1:1.25;
+      }
+
+      /* ===== Utility Styles (use tokens) ===== */
+      .bg { fill: var(--color-bg); }
+      .panel { fill: var(--color-surface); stroke: var(--color-border); stroke-width: var(--stroke-1); }
+      .panel-2 { fill: var(--color-surface-2); stroke: var(--color-border); stroke-width: var(--stroke-1); }
+      .header-1 { fill: var(--color-accent-1); }
+      .header-2 { fill: var(--color-accent-2); }
+      .header-3 { fill: var(--color-accent-3); }
+      .header-4 { fill: var(--color-accent-4); }
+      .title { font: var(--font-sans-lg); fill:#fff; }
+      .text { font: var(--font-sans); fill: var(--color-text); }
+      .mono { font: var(--font-mono); fill: var(--color-text); }
+      .kbd { font: var(--font-kbd); fill: var(--color-text); }
+      .muted { fill: var(--color-muted); font: var(--font-sans); }
+      .cap { font: var(--font-cap); letter-spacing:.08em; text-transform:uppercase; fill: var(--color-muted); }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="2000"/>
+
+  <!-- Page header -->
+  <text x="40" y="42" class="cap">MELVIN Cheatsheet</text>
+  <text x="40" y="66" class="text" style="font-weight:700">Command reference</text>
+
+  <!-- ================= LEFT COLUMN ================= -->
+
+  <!-- Keyboard Shortcuts -->
+  <g transform="translate(40,100)">
+    <rect class="panel" x="0" y="0" width="640" height="390" rx="8"/>
+    <rect class="header-1" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">KEYBOARD SHORTCUTS</text>
+    <g class="text">
+      <text x="24"  y="78"><tspan class="kbd">!</tspan><tspan dx="24" class="muted">Bash mode prefix</tspan></text>
+      <text x="24"  y="108"><tspan class="kbd">@</tspan><tspan dx="24" class="muted">Mention files/folders</tspan></text>
+      <text x="24"  y="138"><tspan class="kbd">\</tspan><tspan dx="24" class="muted">Line break (backslash + Enter)</tspan></text>
+      <text x="24"  y="168"><tspan class="kbd">Esc</tspan><tspan dx="24" class="muted">Interrupt MELVIN</tspan></text>
+      <text x="24"  y="198"><tspan class="kbd">Ctrl+R</tspan><tspan dx="24" class="muted">Full output/context</tspan></text>
+      <text x="24"  y="228"><tspan class="kbd">Ctrl+V</tspan><tspan dx="24" class="muted">Paste image</tspan></text>
+      <text x="24"  y="258"><tspan class="kbd">Esc+Esc</tspan><tspan dx="24" class="muted">History navigation</tspan></text>
+      <text x="24"  y="288"><tspan class="kbd">Shift+Tab</tspan><tspan dx="24" class="muted">Auto-accept</tspan></text>
+      <text x="24"  y="318"><tspan class="kbd">Shift+Tab+Tab</tspan><tspan dx="24" class="muted">Plan mode</tspan></text>
+      <text x="24"  y="348"><tspan class="kbd">Cmd+Esc</tspan><tspan dx="24" class="muted">Quick launch in IDEs</tspan></text>
+      <text x="24"  y="378"><tspan class="kbd">Cmd+Opt+K</tspan><tspan dx="24" class="muted">Insert file refs</tspan></text>
+    </g>
+  </g>
+
+  <!-- Essential Commands -->
+  <g transform="translate(40,510)">
+    <rect class="panel" x="0" y="0" width="640" height="230" rx="8"/>
+    <rect class="header-4" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">ESSENTIAL COMMANDS</text>
+
+    <text class="mono" x="20" y="84">npm install -g melvin-cli</text>
+    <text class="muted" x="22" y="104">Install MELVIN globally</text>
+
+    <text class="mono" x="20" y="138">melvin update</text>
+    <text class="muted" x="22" y="158">Update to latest version</text>
+
+    <text class="mono" x="20" y="192">melvin config set model melvin-core-2025</text>
+    <text class="muted" x="22" y="212">Set default model</text>
+  </g>
+
+  <!-- Slash Commands -->
+  <g transform="translate(40,760)">
+    <rect class="panel" x="0" y="0" width="640" height="300" rx="8"/>
+    <rect class="header-1" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">SLASH COMMANDS</text>
+    <g class="mono">
+      <text x="20" y="84">/clear</text><text class="muted" x="160" y="84">Clear history</text>
+      <text x="20" y="114">/init</text><text class="muted" x="160" y="114">Initialize project</text>
+      <text x="20" y="144">/model</text><text class="muted" x="160" y="144">Change AI model</text>
+      <text x="20" y="174">/config</text><text class="muted" x="160" y="174">View/modify config</text>
+      <text x="20" y="204">/costs</text><text class="muted" x="160" y="204">Token usage</text>
+      <text x="20" y="234">/doctor</text><text class="muted" x="160" y="234">Health check</text>
+      <text x="20" y="264">/agents</text><text class="muted" x="160" y="264">Manage subagents</text>
+      <text x="20" y="294">/modules</text><text class="muted" x="160" y="294">Module manager</text>
+      <text x="20" y="324">/memory</text><text class="muted" x="160" y="324">Edit MELVIN.md</text>
+      <text x="20" y="354">/permissions</text><text class="muted" x="160" y="354">Security</text>
+      <text x="20" y="384">/review</text><text class="muted" x="160" y="384">Code review</text>
+      <text x="20" y="414">/vim</text><text class="muted" x="160" y="414">Vim mode</text>
+    </g>
+  </g>
+
+  <!-- Key File Locations -->
+  <g transform="translate(40,1090)">
+    <rect class="panel" x="0" y="0" width="640" height="220" rx="8"/>
+    <rect class="header-2" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">KEY FILE LOCATIONS</text>
+    <g class="mono">
+      <text x="20" y="84">~/.melvin/settings.json</text><text class="muted" x="320" y="84">User global settings</text>
+      <text x="20" y="114">.melvin/settings.json</text><text class="muted" x="320" y="114">Project settings</text>
+      <text x="20" y="144">.melvin/commands/</text><text class="muted" x="320" y="144">Custom slash commands</text>
+      <text x="20" y="174">.melvin/agents/</text><text class="muted" x="320" y="174">Project subagents</text>
+    </g>
+  </g>
+
+  <!-- ================= RIGHT COLUMN ================= -->
+
+  <!-- Configuration -->
+  <g transform="translate(720,100)">
+    <rect class="panel" x="0" y="0" width="640" height="210" rx="8"/>
+    <rect class="header-2" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">CONFIGURATION</text>
+
+    <text class="mono" x="20" y="84">melvin config list</text>
+    <text class="muted" x="22" y="104">View all settings</text>
+
+    <text class="mono" x="20" y="138">melvin config set &lt;key&gt; &lt;value&gt;</text>
+    <text class="muted" x="22" y="158">Change setting</text>
+
+    <text class="mono" x="20" y="192">melvin config add &lt;key&gt; &lt;value&gt;</text>
+    <text class="muted" x="22" y="212">Append to array</text>
+  </g>
+
+  <!-- Git Worktrees -->
+  <g transform="translate(720,330)">
+    <rect class="panel" x="0" y="0" width="640" height="210" rx="8"/>
+    <rect class="header-4" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">GIT WORKTREES</text>
+
+    <text class="mono" x="20" y="84">git worktree add ./app-feature -b feature/main</text>
+    <text class="muted" x="22" y="104">Create new worktree</text>
+
+    <text class="mono" x="20" y="138">git worktree list</text>
+    <text class="muted" x="22" y="158">List all worktrees</text>
+
+    <text class="mono" x="20" y="192">git worktree remove &lt;path&gt;</text>
+    <text class="muted" x="22" y="212">Remove worktree</text>
+  </g>
+
+  <!-- Modules (MCP + Hooks) -->
+  <g transform="translate(720,560)">
+    <rect class="panel" x="0" y="0" width="640" height="460" rx="8"/>
+    <rect class="header-3" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">MODULES</text>
+
+    <text class="cap" x="20" y="84">Add / manage</text>
+
+    <text class="mono" x="20" y="112">melvin module add playwright npx @playwright/mcp@latest</text>
+    <text class="muted" x="22" y="132">Browser automation</text>
+
+    <text class="mono" x="20" y="166">melvin module add http-server ./modules/http-server</text>
+    <text class="muted" x="22" y="186">Local HTTP server</text>
+
+    <text class="mono" x="20" y="220">melvin module add youtube-transcriber ./modules/youtube-transcriber</text>
+    <text class="muted" x="22" y="240">YouTube transcript ingestion</text>
+
+    <text class="mono" x="20" y="274">melvin module list</text>
+    <text class="muted" x="22" y="294">List installed modules</text>
+
+    <text class="cap" x="20" y="330">Hook events</text>
+    <text class="mono" x="20" y="356">PreToolUse   UserPromptSubmit   SessionStart</text>
+    <text class="mono" x="20" y="382">PostToolUse  Stop               SessionEnd</text>
+
+    <text class="cap" x="20" y="418">Settings location</text>
+    <text class="mono" x="20" y="444">~/.melvin/settings.json  or  .melvin/settings.json</text>
+  </g>
+
+  <!-- AI Models -->
+  <g transform="translate(720,1030)">
+    <rect class="panel" x="0" y="0" width="640" height="220" rx="8"/>
+    <rect class="header-2" x="0" y="0" width="640" height="44" rx="8"/>
+    <text class="title" x="16" y="28">AI MODELS</text>
+
+    <g>
+      <rect class="panel-2" x="20" y="68" width="600" height="40" rx="6"/>
+      <text class="mono" x="32" y="94">melvin-core-2025</text>
+      <text class="muted" x="220" y="94">General purpose</text>
+
+      <rect class="panel-2" x="20" y="118" width="600" height="40" rx="6"/>
+      <text class="mono" x="32" y="144">melvin-pro-2025</text>
+      <text class="muted" x="220" y="144">Balanced</text>
+
+      <rect class="panel-2" x="20" y="168" width="600" height="40" rx="6"/>
+      <text class="mono" x="32" y="194">melvin-lite-2025</text>
+      <text class="muted" x="220" y="194">Low latency</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <text class="muted" x="40" y="1960">Theme via CSS custom properties (design tokens).</text>
+</svg>

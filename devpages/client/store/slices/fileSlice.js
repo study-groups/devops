@@ -72,18 +72,27 @@ export default fileReducer;
 // --- Thunks ---
 export const fileThunks = {
     loadFileContent: (pathname) => async (dispatch, getState) => {
+        console.log(`[PATHXXX] fileThunks.loadFileContent - Loading file: '${pathname}'`);
         try {
             dispatch(fileActions.loadFilePending({ pathname }));
+            console.log(`[PATHXXX] fileThunks.loadFileContent - Dispatched loadFilePending`);
+            
             const response = await fetch(`/api/files/content?pathname=${pathname}`, {
                 credentials: 'include'
             });
+            console.log(`[PATHXXX] fileThunks.loadFileContent - Fetch response status: ${response.status}`);
+            
             if (!response.ok) {
                 throw new Error(`Failed to fetch file content: ${response.statusText}`);
             }
             const content = await response.text();
+            console.log(`[PATHXXX] fileThunks.loadFileContent - File content loaded, length: ${content.length}`);
+            
             dispatch(fileActions.loadFileSuccess({ pathname, content }));
             dispatch(setContent(content));
+            console.log(`[PATHXXX] fileThunks.loadFileContent - File successfully loaded and content set in editor`);
         } catch (error) {
+            console.error(`[PATHXXX] fileThunks.loadFileContent - Error loading file:`, error);
             dispatch(fileActions.loadFileFailure(error.toString()));
         }
     },

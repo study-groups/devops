@@ -8,6 +8,7 @@ import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 import { uiThunks } from '/client/store/uiSlice.js';
 import { getCommonAppState, getFileState, getAuthState, getUIState } from '/client/store/enhancedSelectors.js';
 import { topBarController } from './TopBarController.js';
+import { apiSlice } from '/client/store/apiSlice.js';
 
 const log = window.APP.services.log.createLogger('PathManagerComponent');
 
@@ -116,13 +117,15 @@ export function createPathManagerComponent(targetElementId) {
         const selectedFilename = isDirectorySelected ? null : getFilename(currentPathname);
 
         // Debug path matching
-        console.log('[PathManager] Debug path matching:', {
+        console.log('[PATHXXX] PathManager render - Debug path matching:', {
             currentPathname,
             isDirectorySelected,
             selectedDirectoryPath,
+            selectedFilename,
             currentListingPathname: pathState.currentListing?.pathname,
             currentListingDirs: pathState.currentListing?.dirs?.length || 0,
-            currentListingFiles: pathState.currentListing?.files?.length || 0
+            currentListingFiles: pathState.currentListing?.files?.length || 0,
+            listingForSelectorWillBeNull: !pathState.currentListing || pathState.currentListing.pathname !== selectedDirectoryPath
         });
 
         // Handle path matching with normalization for root paths
@@ -132,7 +135,7 @@ export function createPathManagerComponent(targetElementId) {
             const normalizedCurrentPath = currentListingPath === null || currentListingPath === '' ? '/' : currentListingPath;
             const normalizedSelectedPath = selectedDirectoryPath === null || selectedDirectoryPath === '' ? '/' : selectedDirectoryPath;
             
-            console.log('[PathManager] Path normalization:', {
+            console.log('[PATHXXX] PathManager render - Path normalization:', {
                 originalCurrentPath: currentListingPath,
                 normalizedCurrentPath,
                 originalSelectedPath: selectedDirectoryPath,
@@ -147,10 +150,12 @@ export function createPathManagerComponent(targetElementId) {
         
         // If we're viewing a file but don't have the parent directory listing, load it
         if (!isDirectorySelected && selectedDirectoryPath && !listingForSelector && isAuthenticated) {
-            console.log(`[PathManager] Missing parent directory listing for '${selectedDirectoryPath}', loading...`);
+            console.log(`[PATHXXX] PathManager render - Missing parent directory listing for '${selectedDirectoryPath}', loading...`);
             // Use a timeout to avoid infinite re-renders
             setTimeout(() => {
-                appStore.dispatch(pathThunks.navigateToPath({ pathname: selectedDirectoryPath, isDirectory: true }));
+                console.log(`[PATHXXX] PathManager render - Dispatching getDirectoryListing for: '${selectedDirectoryPath}'`);
+                // Only fetch the directory listing, don't change the current path
+                appStore.dispatch(apiSlice.endpoints.getDirectoryListing.initiate(selectedDirectoryPath));
             }, 0);
         }
 
@@ -215,6 +220,12 @@ export function createPathManagerComponent(targetElementId) {
             // Use the established window.APP convention 
             const topLevelDirs = pathState.topLevelDirs || [];
             
+            console.log(`[PATHXXX] PathManager render - Root directory case:`, {
+                topLevelDirsCount: topLevelDirs.length,
+                pathStatus: pathState.status,
+                topLevelDirs
+            });
+            
             if (pathState.status === 'loading') {
                 primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
             } else if (topLevelDirs.length > 0) {
@@ -224,7 +235,13 @@ export function createPathManagerComponent(targetElementId) {
                 });
                 primarySelectorHTML = `<select id="context-primary-select" class="context-selector" title="Select Base Directory">${optionsHTML}</select>`;
             } else {
-                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>No directories found</option></select>`;
+                // If we have no top-level directories and we're authenticated, try to load them
+                console.log(`[PATHXXX] PathManager render - No top-level directories found, attempting to load...`);
+                setTimeout(() => {
+                    console.log(`[PATHXXX] PathManager render - Dispatching loadTopLevelDirectories`);
+                    appStore.dispatch(pathThunks.loadTopLevelDirectories());
+                }, 0);
+                primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Loading directories...</option></select>`;
             }
         } else {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
@@ -351,6 +368,7 @@ export function createPathManagerComponent(targetElementId) {
         
         // Handle root breadcrumb click (navigates to top-level dirs)
         if (target.id === 'context-settings-trigger') {
+            console.log(`[PATHXXX] PathManager handleBreadcrumbClick - Navigating to root`);
             log.info('BREADCRUMB', 'NAVIGATE_ROOT', 'Breadcrumb navigation to root.');
             appStore.dispatch(pathThunks.navigateToPath({ pathname: '', isDirectory: true }));
             return;
@@ -359,6 +377,7 @@ export function createPathManagerComponent(targetElementId) {
         // Handle other path navigation clicks
         if (target.hasAttribute('data-navigate-path')) {
             const pathname = target.dataset.navigatePath;
+            console.log(`[PATHXXX] PathManager handleBreadcrumbClick - Navigating to path: '${pathname}'`);
             log.info('BREADCRUMB', 'NAVIGATE', `Breadcrumb navigation: '${pathname}'`);
             appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory: true }));
         }
@@ -382,7 +401,7 @@ export function createPathManagerComponent(targetElementId) {
         let currentDirectory = null;
         
         // Debug current state
-        console.log('[PathManager] Navigation debug:', {
+        console.log('[PATHXXX] PathManager handlePrimarySelectChange - Navigation debug:', {
             currentPathname,
             isDirectorySelected,
             selectedValue,
@@ -401,7 +420,7 @@ export function createPathManagerComponent(targetElementId) {
             currentDirectory = '';
         }
         
-        console.log('[PathManager] Path building:', {
+        console.log('[PATHXXX] PathManager handlePrimarySelectChange - Path building:', {
             currentDirectory,
             selectedValue,
             willBecomeNewPath: pathJoin(currentDirectory, selectedValue)
@@ -410,6 +429,7 @@ export function createPathManagerComponent(targetElementId) {
         // Handle parent directory navigation
         if (selectedType === 'parent') {
             const parentPath = selectedOption.dataset.parentPath;
+            console.log(`[PATHXXX] PathManager handlePrimarySelectChange - Navigating to parent directory: '${parentPath}'`);
             log.info('SELECT', 'NAVIGATE_PARENT', `Navigating to parent directory: '${parentPath}'`);
             appStore.dispatch(pathThunks.navigateToPath({ pathname: parentPath, isDirectory: true }));
             return;
@@ -420,8 +440,10 @@ export function createPathManagerComponent(targetElementId) {
 
         // Primary navigation uses the new thunk
         if (selectedType === 'dir') {
+            console.log(`[PATHXXX] PathManager handlePrimarySelectChange - Navigating to directory: '${newRelativePath}'`);
             appStore.dispatch(pathThunks.navigateToPath({ pathname: newRelativePath, isDirectory: true }));
         } else if (selectedType === 'file') {
+            console.log(`[PATHXXX] PathManager handlePrimarySelectChange - Navigating to file: '${newRelativePath}'`);
             appStore.dispatch(pathThunks.navigateToPath({ pathname: newRelativePath, isDirectory: false }));
         }
     };
@@ -528,14 +550,17 @@ export function createPathManagerComponent(targetElementId) {
 
     // --- Component Lifecycle ---
     const mount = () => {
+        console.log(`[PATHXXX] PathManager mount - Starting initialization for targetElementId: ${targetElementId}`);
         log.info('MOUNT', 'START', `Mount_CM: Initializing for targetElementId: ${targetElementId}`);
 
         element = document.getElementById(targetElementId);
         if (!element) {
+            console.error(`[PATHXXX] PathManager mount - Target element #${targetElementId} not found`);
             log.error('MOUNT', 'TARGET_NOT_FOUND', `Mount_CM FAILED: Target element with ID '${targetElementId}' not found in DOM.`);
             console.error(`[ContextManagerComponent] Mount failed: target element #${targetElementId} not found.`);
             return;
         }
+        console.log(`[PATHXXX] PathManager mount - Target element found`);
         log.info('MOUNT', 'TARGET_FOUND', 'Mount_CM: Target element found.');
 
         if (storeUnsubscribe) {
@@ -548,22 +573,38 @@ export function createPathManagerComponent(targetElementId) {
                 // Guard against invalid state during logout
                 const state = appStore.getState();
                 if (!state || typeof state !== 'object') {
-                    console.warn('[PathManager] Invalid state during subscription update, skipping render');
+                    console.warn('[PATHXXX] PathManager subscription - Invalid state during subscription update, skipping render');
                     return;
                 }
                 render();
             } catch (error) {
-                console.error('[PathManager] Error in store subscription:', error);
+                console.error('[PATHXXX] PathManager subscription - Error in store subscription:', error);
             }
         });
+        console.log(`[PATHXXX] PathManager mount - Subscribed to appStore changes`);
         log.info('MOUNT', 'SUBSCRIBE_SUCCESS', 'Mount_CM: Subscribed to appStore changes.');
+        
+        // URL parameter handling is done by the bootloader, so we don't need to duplicate it here
+        // Just log the current state for debugging
+        const currentState = appStore.getState();
+        const currentPathname = currentState.path?.currentPathname;
+        const authState = currentState.auth;
+        
+        console.log(`[PATHXXX] PathManager mount - Current state on mount:`, {
+            currentPathname,
+            isAuthenticated: authState?.isAuthenticated,
+            authChecked: authState?.authChecked,
+            pathStatus: currentState.path?.status
+        });
         
         // No need for navigate:pathname listener - we'll use direct actions
         log.info('MOUNT', 'DIRECT_ACTIONS', 'Mount_CM: Using direct file system actions.');
         
         // Initial render
+        console.log(`[PATHXXX] PathManager mount - Calling initial render`);
         log.info('MOUNT', 'INITIAL_RENDER', 'Mount_CM: Calling initial render.');
         render();
+        console.log(`[PATHXXX] PathManager mount - Initial render complete`);
         log.info('MOUNT', 'INITIAL_RENDER_COMPLETE', 'Mount_CM: Initial render complete.');
     };
 

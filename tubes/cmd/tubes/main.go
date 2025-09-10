@@ -1,27 +1,40 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"tubes/internal/tui"
 )
 
 func main() {
-	f, err := os.OpenFile("tubes.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	// Setup logging
+	logFile, err := os.OpenFile("tubes.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		log.Fatalln("Failed to open log file:", err)
 	}
-	defer f.Close()
-	log.SetOutput(f)
+	defer logFile.Close()
+	log.SetOutput(logFile)
 
-	port := flag.String("port", "8080", "Port for the API server")
-	flag.Parse()
+	// Create and initialize the TUI model
+	model, err := tui.NewModel()
+	if err != nil {
+		log.Fatalf("Failed to create model: %v", err)
+	}
 
-	app := tui.New(*port)
-	if err := app.Run(); err != nil {
-		log.Fatalf("Error running Tubes: %v", err)
+	// Create Bubbletea program with options
+	p := tea.NewProgram(
+		model,
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+		tea.WithOutput(os.Stderr),
+	)
+
+	// Start the program
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
+		os.Exit(1)
 	}
 }
-

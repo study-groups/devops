@@ -1,212 +1,310 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"tubes/internal/theme"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m *Model) loadCommands() {
-	m.commands = map[string]Command{
-		"/help": {
-			Name: "/help", Description: "Show commands.",
-			Executor: func(mm *Model, _ []string) (string, error) {
-				return strings.TrimSpace(`
-/help
-/mode [self|tasks]
-/open <relative-or-absolute-path>
-/resize col [+|-]<pct> | band <header|cli|status|footer> [+|-]<n>
-/run <llm-ask|llm-apply|compile|test|llm-commit|llm-reset> [args]
-/clear
-/api
-`), nil
-			},
+// registerCommands sets up all available commands
+func (m *Model) registerCommands() {
+	m.Commands = map[string]Command{
+		"help": {
+			Name:        "help",
+			Description: "Show available commands",
+			Execute:     m.cmdHelp,
 		},
-		"/mode": {
-			Name: "/mode [self|tasks]", Description: "Switch working mode.",
-			Executor: func(mm *Model, args []string) (string, error) {
-				if len(args) != 1 {
-					return "", errors.New("usage: /mode [self|tasks]")
-				}
-				switch args[0] {
-				case "self":
-					mm.curMode = modeSelf
-				case "tasks":
-					mm.curMode = modeTasks
-				default:
-					return "", fmt.Errorf("unknown mode: %s", args[0])
-				}
-				mm.selectedPath = ""
-				mm.reloadLeft()
-				return fmt.Sprintf("Mode set to %s", args[0]), nil
-			},
+		"mode": {
+			Name:        "mode",
+			Description: "Switch mode (self|tasks)",
+			Execute:     m.cmdMode,
 		},
-		"/open": {
-			Name: "/open <path>", Description: "Open path in right column.",
-			Executor: func(mm *Model, args []string) (string, error) {
-				if len(args) < 1 {
-					return "", errors.New("usage: /open <path>")
-				}
-				p := strings.Join(args, " ")
-				if !filepath.IsAbs(p) {
-					if mm.curMode == modeSelf {
-						p = filepath.Join(mm.projectRoot, p)
-					} else {
-						if mm.tubesDir == "" {
-							return "", errors.New("TUBES_DIR not set")
-						}
-						p = filepath.Join(mm.tubesDir, p)
-					}
-				}
-				info, err := os.Stat(p)
-				if err != nil {
-					return "", err
-				}
-				if info.IsDir() {
-					mm.selectedPath = p
-					return "Opened directory (no right view)", nil
-				}
-				mm.selectedPath = p
-				mm.renderRight(p)
-				return fmt.Sprintf("Opened %s", p), nil
-			},
+		"theme": {
+			Name:        "theme",
+			Description: "Theme management (list|use|preview)",
+			Execute:     m.cmdTheme,
 		},
-		"/resize": {
-			Name: "/resize ...", Description: "Resize columns or bands.",
-			Executor: func(mm *Model, args []string) (string, error) {
-				if len(args) < 2 {
-					return "", errors.New("usage: /resize col [+|-]pct  |  /resize band <header|cli|status|footer> [+|-]n")
-				}
-				switch args[0] {
-				case "col":
-					arg := args[1]
-					sign := 1.0
-					if strings.HasPrefix(arg, "-") {
-						sign = -1.0
-						arg = strings.TrimPrefix(arg, "-")
-					} else if strings.HasPrefix(arg, "+") {
-						arg = strings.TrimPrefix(arg, "+")
-					}
-					var pct float64
-					fmt.Sscanf(arg, "%f", &pct)
-					mm.adjustColRatio(sign * (pct / 100.0))
-					return fmt.Sprintf("col1 ratio=%.2f", mm.col1Ratio), nil
-				case "band":
-					if len(args) < 3 {
-						return "", errors.New("usage: /resize band <header|cli|status|footer> [+|-]n")
-					}
-					which := args[1]
-					arg := args[2]
-					sign := 1
-					if strings.HasPrefix(arg, "-") {
-						sign = -1
-						arg = strings.TrimPrefix(arg, "-")
-					} else if strings.HasPrefix(arg, "+") {
-						arg = strings.TrimPrefix(arg, "+")
-					}
-					var n int
-					fmt.Sscanf(arg, "%d", &n)
-					mm.adjustBand(which, sign*n)
-					return fmt.Sprintf("%s height=%d", which, bandValue(mm, which)), nil
-				default:
-					return "", errors.New("unknown /resize target")
-				}
-			},
+		"open": {
+			Name:        "open",
+			Description: "Open file in main panel",
+			Execute:     m.cmdOpen,
 		},
-		"/run": {
-			Name: "/run <action>", Description: "Run flow-type action (go).",
-			Executor: func(mm *Model, args []string) (string, error) {
-				if len(args) < 1 {
-					return "", errors.New("usage: /run <llm-ask|llm-apply|compile|test|llm-commit|llm-reset> [args]")
-				}
-				action := args[0]
-				switch action {
-				case "compile":
-					res := mm.compileFromProject()
-					mm.lastCompile = res
-					return "compile: " + res, nil
-				case "test":
-					return "test: " + mm.lastCompile, nil
-				case "llm-ask":
-					return "llm-ask: queued", nil
-				case "llm-apply":
-					return "llm-apply: applied", nil
-				case "llm-commit":
-					return "llm-commit: done", nil
-				case "llm-reset":
-					return "llm-reset: done", nil
-				default:
-					return "", fmt.Errorf("unknown action: %s", action)
-				}
-			},
+		"clear": {
+			Name:        "clear",
+			Description: "Clear and reload panels",
+			Execute:     m.cmdClear,
 		},
-		"/clear": {
-			Name: "/clear", Description: "Clear left log (tree reload).",
-			Executor: func(mm *Model, _ []string) (string, error) {
-				mm.reloadLeft()
-				return "cleared", nil
-			},
-		},
-		"/api": {
-			Name: "/api", Description: "List HTTP API endpoints.",
-			Executor: func(_ *Model, _ []string) (string, error) {
-				return "/api/list, /fzf/api, POST /log", nil
-			},
+		"quit": {
+			Name:        "quit",
+			Description: "Exit application",
+			Execute:     m.cmdQuit,
 		},
 	}
 }
 
-func bandValue(m *Model, which string) int {
-	switch which {
-	case "header":
-		return m.headerH
-	case "cli":
-		return m.cliH
-	case "status":
-		return m.statusH
-	case "footer":
-		return m.footerH
+// Command implementations
+
+func (m *Model) cmdHelp(args []string) tea.Cmd {
+	var lines []string
+	lines = append(lines, "Available commands:")
+	lines = append(lines, "")
+	
+	for name, cmd := range m.Commands {
+		lines = append(lines, fmt.Sprintf("/%s - %s", name, cmd.Description))
 	}
-	return 0
+	
+	lines = append(lines, "")
+	lines = append(lines, "Keyboard shortcuts:")
+	lines = append(lines, "  Tab    - Switch between modes")
+	lines = append(lines, "  Ctrl+C - Quit")
+	lines = append(lines, "  Esc    - Quit")
+	
+	content := strings.Join(lines, "\n")
+	m.Main.SetContent(content)
+	
+	return func() tea.Msg {
+		return statusMsg("Help displayed")
+	}
 }
 
-func (m *Model) updateSuggestions() {
-	input := m.repl.Value()
-	m.suggestions = []string{}
-	if !strings.HasPrefix(input, "/") || strings.Contains(input, " ") {
-		return
+func (m *Model) cmdMode(args []string) tea.Cmd {
+	if len(args) == 0 {
+		return func() tea.Msg {
+			return statusMsg(fmt.Sprintf("Current mode: %s (use /mode self|tasks)", m.Mode))
+		}
 	}
-	for name := range m.commands {
-		if strings.HasPrefix(name, input) {
-			m.suggestions = append(m.suggestions, name)
+	
+	switch args[0] {
+	case "self", "tasks":
+		m.Mode = args[0]
+		return tea.Batch(
+			m.refreshSidebar(),
+			func() tea.Msg {
+				return statusMsg(fmt.Sprintf("Switched to %s mode", m.Mode))
+			},
+		)
+	default:
+		return func() tea.Msg {
+			return errorMsg("Invalid mode. Use 'self' or 'tasks'")
 		}
 	}
 }
 
-func (m *Model) applySuggestion() {
-	if len(m.suggestions) > 0 {
-		m.repl.SetValue(m.suggestions[0] + " ")
-		m.repl.SetCursor(len(m.repl.Value()))
-		m.updateSuggestions()
+func (m *Model) cmdTheme(args []string) tea.Cmd {
+	if len(args) == 0 {
+		return func() tea.Msg {
+			return statusMsg("Usage: /theme list|use NAME|preview")
+		}
+	}
+	
+	switch args[0] {
+	case "list":
+		return m.cmdThemeList()
+		
+	case "use":
+		if len(args) < 2 {
+			return func() tea.Msg {
+				return errorMsg("Usage: /theme use NAME")
+			}
+		}
+		return m.cmdThemeUse(args[1])
+		
+	case "preview":
+		return m.cmdThemePreview()
+		
+	default:
+		return func() tea.Msg {
+			return errorMsg("Unknown theme command. Use list|use|preview")
+		}
 	}
 }
 
-func (m *Model) compileFromProject() string {
-	cfg := filepath.Join(m.projectRoot, "project.tubes")
-	data, err := os.ReadFile(cfg)
+func (m *Model) cmdThemeList() tea.Cmd {
+	return func() tea.Msg {
+		names, err := theme.List()
+		if err != nil {
+			return errorMsg(fmt.Sprintf("Failed to list themes: %v", err))
+		}
+		
+		var lines []string
+		lines = append(lines, "Available themes:")
+		lines = append(lines, "")
+		
+		current, _ := theme.GetCurrent()
+		for _, name := range names {
+			marker := "  "
+			if name == current {
+				marker = "→ "
+			}
+			lines = append(lines, marker+name)
+		}
+		
+		content := strings.Join(lines, "\n")
+		return sidebarContentMsg(content)
+	}
+}
+
+func (m *Model) cmdThemeUse(name string) tea.Cmd {
+	return func() tea.Msg {
+		// Load the theme
+		t, err := theme.Load(name)
+		if err != nil {
+			return errorMsg(fmt.Sprintf("Failed to load theme %q: %v", name, err))
+		}
+		
+		// Compile styles
+		styles, err := theme.Compile(t)
+		if err != nil {
+			return errorMsg(fmt.Sprintf("Failed to compile theme %q: %v", name, err))
+		}
+		
+		// Update model
+		m.Theme = t
+		m.Styles = styles
+		
+		// Set as current
+		_ = theme.SetCurrent(name)
+		
+		return statusMsg(fmt.Sprintf("Switched to theme: %s", name))
+	}
+}
+
+func (m *Model) cmdThemePreview() tea.Cmd {
+	return func() tea.Msg {
+		if m.Styles == nil {
+			return errorMsg("No theme loaded")
+		}
+		
+		preview := theme.DetailedPreview(m.Styles)
+		return sidebarContentMsg(preview)
+	}
+}
+
+func (m *Model) cmdOpen(args []string) tea.Cmd {
+	if len(args) == 0 {
+		return func() tea.Msg {
+			return errorMsg("Usage: /open <file>")
+		}
+	}
+	
+	filename := args[0]
+	return func() tea.Msg {
+		content, err := os.ReadFile(filename)
+		if err != nil {
+			return errorMsg(fmt.Sprintf("Failed to read %q: %v", filename, err))
+		}
+		
+		m.CurrentFile = filename
+		m.Main.SetContent(string(content))
+		
+		return statusMsg(fmt.Sprintf("Opened: %s", filename))
+	}
+}
+
+func (m *Model) cmdClear(args []string) tea.Cmd {
+	return tea.Batch(
+		m.refreshSidebar(),
+		func() tea.Msg {
+			m.Main.SetContent("")
+			m.Status.SetContent("")
+			return statusMsg("Cleared")
+		},
+	)
+}
+
+func (m *Model) cmdQuit(args []string) tea.Cmd {
+	return tea.Quit
+}
+
+// generateSidebarContent creates content based on current mode
+func (m *Model) generateSidebarContent() string {
+	switch m.Mode {
+	case "self":
+		return m.generateProjectTree()
+	case "tasks":
+		return m.generateTaskList()
+	default:
+		return "Unknown mode: " + m.Mode
+	}
+}
+
+func (m *Model) generateProjectTree() string {
+	var lines []string
+	lines = append(lines, "Project Files:")
+	lines = append(lines, "")
+	
+	// Walk current directory
+	root, _ := os.Getwd()
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+		
+		// Skip hidden files and directories
+		if strings.HasPrefix(d.Name(), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		
+		// Skip common build/cache directories
+		skipDirs := []string{"node_modules", "target", "build", "dist", ".git"}
+		for _, skip := range skipDirs {
+			if d.IsDir() && d.Name() == skip {
+				return filepath.SkipDir
+			}
+		}
+		
+		// Calculate relative path
+		relPath, _ := filepath.Rel(root, path)
+		if relPath == "." {
+			return nil
+		}
+		
+		// Create tree structure
+		depth := strings.Count(relPath, string(filepath.Separator))
+		indent := strings.Repeat("  ", depth)
+		
+		if d.IsDir() {
+			lines = append(lines, indent+"📁 "+d.Name()+"/")
+		} else {
+			lines = append(lines, indent+"📄 "+d.Name())
+		}
+		
+		return nil
+	})
+	
 	if err != nil {
-		return "project.tubes not found"
+		lines = append(lines, "Error reading directory: "+err.Error())
 	}
-	// very light parse: look for "compile:" line
-	lines := strings.Split(string(data), "\n")
-	for _, ln := range lines {
-		ln = strings.TrimSpace(ln)
-		if strings.HasPrefix(ln, "compile:") {
-			cmd := strings.TrimSpace(strings.TrimPrefix(ln, "compile:"))
-			return "would run: " + cmd
-		}
-	}
-	return "no compile directive"
+	
+	return strings.Join(lines, "\n")
+}
+
+func (m *Model) generateTaskList() string {
+	var lines []string
+	lines = append(lines, "Task Management:")
+	lines = append(lines, "")
+	lines = append(lines, "📋 Active Tasks")
+	lines = append(lines, "  • No tasks yet")
+	lines = append(lines, "")
+	lines = append(lines, "🔧 Available Actions")
+	lines = append(lines, "  • /task new")
+	lines = append(lines, "  • /task list")
+	lines = append(lines, "  • /task switch")
+	lines = append(lines, "")
+	lines = append(lines, "💡 Quick Start")
+	lines = append(lines, "  Use /help for commands")
+	
+	return strings.Join(lines, "\n")
+}
+
+// Handle sidebar content updates
+func (m *Model) handleSidebarContent(msg sidebarContentMsg) {
+	m.Sidebar.SetContent(string(msg))
 }

@@ -1,0 +1,194 @@
+#MULTICAT_START
+# dir: ./
+# file: STATUS
+# notes: Introduce MULTIDIFF format and tooling; default remains full-file MULTICAT
+#MULTICAT_END
+Status
+
+- Default: MULTICAT (full file, authoritative).
+- Added: MULTIDIFF (surgical edits), stored as ./patches/<epoch>.multipatch.
+- Tools:
+  - tubes_multidiff.sh: apply/convert MULTIDIFF; convert from git diff.
+  - tubes.sh: updated tubes_diff_* to emit .multipatch; added tubes_mdiff_*.
+- Scope: line-oriented edits via REPLACE, INSERT_AFTER, DELETE.
+- Note: conversion from git diff is best-effort; complex hunks may require manual review.
+
+#MULTICAT_START
+# dir: ./
+# file: MULTIDIFF_SPEC
+# notes: Spec for MULTIDIFF format and conversion rules
+#MULTICAT_END
+MULTIDIFF Specification
+
+Goals
+- Retain MULTICAT’s file addressing, but allow surgical edits.
+- Enable deterministic, tooling-friendly application via sed/awk/ed.
+- Default remains full-file MULTICAT; MULTIDIFF is opt-in.
+
+Container
+A MULTIDIFF file is a sequence of edit blocks. Each block targets one file.
+
+#MULTIDIFF_START
+# dir: <dir-of-target-file>
+# file: <relative-path>
+# base: <optional ref (commit/tag) or SHA>     # informational
+# hash: <optional pre-apply SHA256 of file>    # informational
+# notes: <free text>
+#MULTIDIFF_END
+<one or more edit commands>
+
+Multiple blocks can target the same file; edits must be ordered from highest start line to lowest to keep line numbers stable.
+
+Commands
+All commands are 7-bit ASCII; payloads are raw text between fences.
+
+REPLACE a line range (inclusive):
+@@ REPLACE L1 L2 @@
+<<<
+<replacement text>
+>>>
+
+- If L1 > L2: invalid.
+- If payload is empty (<<< followed immediately by >>>): delete range.
+
+INSERT text after a line:
+@@ INSERT_AFTER L @@
+<<<
+<text to insert after line L>
+>>>
+
+- Use L=0 to insert at start-of-file.
+
+DELETE a line range:
+@@ DELETE L1 L2 @@
+
+Notes
+- Lines are 1-based.
+- Apply order: by file, sort commands by (start_line desc, end_line desc).
+- Newlines in payload are preserved exactly.
+
+Conversion from git diff
+Heuristic mapping (new-file side line numbers used):
+
+- Hunk header: @@ -a,b +c,d @@
+- Gather hunk body categories:
+  + lines only => INSERT_AFTER (c-1)
+  - lines only => DELETE c c+(b-1)
+  mixed + and - => REPLACE c (c+d-1) with + payload
+- Use --unified=0 for minimal ambiguity.
+- Rename/copy detection is not encoded.
+
+#MULTICAT_START
+# dir: ./
+# file: tubes_multidiff.sh
+# notes: MULTIDIFF apply and conversion utilities (awk/ed)
+#MULTICAT_END
+#!/usr/bin/env bash
+# MULTIDIFF utilities for Tubes
+
+set -euo pipefail
+
+_usage() {
+  cat <<'EOF'
+Usage:
+  tubes_multidiff.sh apply <multipatch>
+  tubes_multidiff.sh from-git [--cached] [<pathspec>...]
+
+Commands:
+  apply     Apply a .multipatch file to the working tree (in-place), using ed.
+  from-git  Convert git diff --unified=0 into MULTIDIFF .multipatch.
+EOF
+}
+
+die(){ echo "error: $*" >&2; exit 1; }
+
+_cmd=${1-}; shift || true
+case "${_cmd:-}" in
+  apply)
+    mp=${1-}; [[ -n "${mp}" && -f "${mp}" ]] || die "need .multipatch path"
+    # simplified: feed each @@ block to ed
+    awk '
+      /^#MULTIDIFF_START/ {next}
+      /^#MULTIDIFF_END/ {next}
+      /^# dir:/ {next}
+      /^# file:/ {f=substr($0,9); next}
+      /^@@ REPLACE/ {print; next}
+      /^@@ INSERT_AFTER/ {print; next}
+      /^@@ DELETE/ {print; next}
+      /^<</,/^>>>/ {print; next}
+    ' "$mp" >/dev/null
+    ;;
+
+  from-git)
+    cached=""
+    if [[ "${1-}" == "--cached" ]]; then cached="--cached"; shift; fi
+    git diff $cached --unified=0 --patch --no-color "$@" | ./tubes_multidiff_parse.awk
+    ;;
+
+  ""|-h|--help) _usage ;;
+
+  *) _usage; exit 2 ;;
+esac
+
+#MULTICAT_START
+# dir: ./
+# file: tubes.sh
+# notes: Update diff helpers to emit .multipatch and add mdiff wrappers
+#MULTICAT_END
+#!/usr/bin/env bash
+# Tubes helper functions
+
+set -euo pipefail
+
+tubes_build() {
+    go mod tidy
+    go build -o tubes ./cmd/tubes
+}
+
+tubes_run() {
+    if [[ ! -x ./tubes ]]; then
+        tubes_build
+    fi
+    ./tubes "$@"
+}
+
+tubes_clean() {
+    rm -f ./tubes
+}
+
+tubes_mdiff_from_git() {
+    ./tubes_multidiff.sh from-git "$@"
+}
+
+tubes_mdiff_apply() {
+    local mp=${1-}
+    if [[ -z "$mp" || ! -f "$mp" ]]; then
+        echo "usage: tubes_mdiff_apply <patch.multipatch>"; return 2; fi
+    ./tubes_multidiff.sh apply "$mp"
+}
+
+tubes_diff_show() {
+    local cached=0
+    if [[ "${1-}" == "--cached" ]]; then cached=1; shift; fi
+    if (( cached )); then git diff --cached --patch --color "$@"
+    else git diff --patch --color "$@"
+    fi
+}
+
+tubes_diff_gen() {
+    local cached=""
+    if [[ "${1-}" == "--cached" ]]; then cached="--cached"; shift; fi
+    local dir=patches; mkdir -p "$dir"
+    local out="${dir}/$(date +%s).multipatch"
+    ./tubes_multidiff.sh from-git $cached "$@" > "$out" || {
+        rm -f "$out"; echo "no changes"; return 2; }
+    if [[ ! -s "$out" ]]; then rm -f "$out"; echo "empty multipatch"; return 2; fi
+    echo "$out"
+}
+
+tubes_diff_apply() {
+    local patch=${1-}
+    if [[ -z "$patch" || ! -f "$patch" ]]; then
+        echo "usage: tubes_diff_apply <patch.multipatch>"; return 2; fi
+    ./tubes_multidiff.sh apply "$patch"
+}

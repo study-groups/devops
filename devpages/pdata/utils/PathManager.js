@@ -67,8 +67,15 @@ class PathManager {
         }
         
         // For other paths, check if it looks like a user path
-        const pathSegments = inputPath.split('/');
+        const pathSegments = inputPath.split('/').filter(s => s); // Remove empty segments
         const firstSegment = pathSegments[0];
+        
+        // If the path already starts with 'users/', resolve directly to contentRoot
+        if (firstSegment === 'users') {
+            const regularDataPath = path.resolve(this.contentRoot, inputPath);
+            console.log(`[PathManager] User path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${regularDataPath}`);
+            return regularDataPath;
+        }
         
         // If the first segment looks like a username (and exists in users dir), resolve to users directory
         const potentialUserPath = path.join(this.contentRoot, 'users', inputPath);

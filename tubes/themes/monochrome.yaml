@@ -1,0 +1,19 @@
+version: 1
+name: monochrome
+updated: 2025-09-09T00:00:00Z
+tokens:
+  primary:   "#c3e88d"
+  surface:   "#1e1e1e"
+  surface_hi: "#2a2a2a"
+  surface_lo: "#151515"
+  text:      "#e0e0e0"
+  text_mute: "#a0a0a0"
+  accent:    "#82aaff"
+  info:      "#82aaff"
+  warn:      "#ffcb6b"
+  error:     "#f07178"
+  ok:        "#c3e88d"
+styles:
+  header:  { fg: "#111111", bg: "#c3e88d", bold: true }
+  sidebar: { fg: "#a0a0a0", bg: "#1e1e1e", border: "#2a2a2a", padding: [0,1,0,1] }
+  input:   { fg: "#e0e0e0", bg: "#202020", border: "#2a2a2a" }
