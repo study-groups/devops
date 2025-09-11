@@ -14,7 +14,7 @@ alias ttr='source $TETRA_DIR/tetra.sh'
 alias tps='MULTILINE=tiny'   # short aka tiny
 alias tpt='MULTILINE=tiny'   # tiny
 alias tpl='MULTILINE=true'   # should rename var
-alias tpm='MULTILINE=false'  # medium 
+ 
 alias phs="python -m http.server $1"
 tetra_remote_endpoint="$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR"
 tetra_remote_connector="$TETRA_REMOTE_USER@$TETRA_REMOTE"
