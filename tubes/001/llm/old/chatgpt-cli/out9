@@ -1,0 +1,244 @@
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes
+# file: STATUS
+# notes: Addressed freeze on Enter, missing header, and non-working Tab cycle. Changes: (1) start HTTP server in Init to avoid defer-start confusion, (2) remove Program.Send re-entry from handleInput to prevent update-loop stalls, (3) ensure REPL cursor/suggestions are reset cleanly after Enter, (4) minor defensive nil-guard in /api command access already added earlier.
+#MULTICAT_END
+{
+  "files": [
+    "/Users/mricos/src/mricos/demos/tubes/STATUS",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/view.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/repl.go"
+  ],
+  "previous_names": [],
+  "current_names": [
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/view.go",
+    "/Users/mricos/src/mricos/demos/tubes/internal/tui/repl.go"
+  ]
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: view.go
+# notes: Start server in Init; no functional changes to rendering logic. This also guarantees WindowSizeMsg-driven layout comes after Init, keeping header visible.
+#MULTICAT_END
+package tui
+
+import (
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+func (m *Model) Init() tea.Cmd {
+	// Start textarea blink and HTTP server concurrently.
+	return tea.Batch(
+		textBlink(),
+		m.startServerCmd(),
+	)
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resizeLayout()
+
+	case tea.KeyMsg:
+		// REPL typing path (let textarea handle all non-Enter/Tab keys)
+		if m.activePane == replPane && msg.Type != tea.KeyEnter && msg.Type != tea.KeyTab {
+			m.repl, cmd = m.repl.Update(msg)
+			m.updateSuggestions()
+			cmds = append(cmds, cmd)
+		}
+
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			return m, tea.Quit
+
+		case "tab":
+			if m.activePane == replPane {
+				m.applySuggestion()
+			} else {
+				m.cyclePane()
+			}
+
+		case "enter":
+			if m.activePane == replPane {
+				// Handle command line; avoid emitting Program.Send from this path.
+				m.handleInput()
+			}
+
+		case "left":
+			m.adjustColRatio(-0.02)
+
+		case "right":
+			m.adjustColRatio(+0.02)
+
+		case "alt+up":
+			m.adjustBand("status", +1)
+
+		case "alt+down":
+			m.adjustBand("status", -1)
+		}
+
+		// Pass scroll keys to active non-REPL viewport.
+		if m.activePane != replPane {
+			switch m.activePane {
+			case leftPane:
+				m.leftVP, cmd = m.leftVP.Update(msg)
+				cmds = append(cmds, cmd)
+			case rightPane:
+				m.rightVP, cmd = m.rightVP.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		}
+
+	case serverLogMsg:
+		m.leftContent = append(m.leftContent, msg.content)
+		m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+
+	case mainLogMsg:
+		// Prepend for visibility without blocking the UI loop.
+		m.rightContent = msg.content + "\n" + m.rightContent
+		m.rightVP.SetContent(m.rightContent)
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) View() string {
+	if m.width == 0 {
+		// Waiting for first WindowSizeMsg; keep a minimal placeholder.
+		return "Initializing..."
+	}
+	s := buildStyles(m)
+	l := m.computeLayout()
+
+	// header
+	title := "Tubes — mode: self"
+	if m.curMode == modeTasks {
+		title = "Tubes — mode: tasks"
+	}
+	header := s.header.Width(m.width).Render(title)
+
+	// columns
+	leftStyle := s.colBox
+	rightStyle := s.colBox
+	if m.activePane == leftPane {
+		leftStyle = s.colBoxAct
+	}
+	if m.activePane == rightPane {
+		rightStyle = s.colBoxAct
+	}
+
+	left := leftStyle.
+		Width(l.LeftW - 2).
+		Height(l.ColsH).
+		Render(strings.Join(m.leftContent, "\n"))
+
+	right := rightStyle.
+		Width(l.RightW - 2).
+		Height(l.ColsH).
+		Render(m.rightVP.View())
+
+	cols := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+
+	// cli
+	cli := s.cli.Width(m.width - 2).Height(m.cliH).Render(m.repl.View())
+
+	// status
+	statusText := "Ready"
+	if m.lastCompile != "" {
+		statusText = "Last: " + m.lastCompile
+	}
+	status := s.status.Width(m.width - 2).Height(m.statusH).Render(statusText)
+
+	// footer
+	footer := m.renderFooter(s, m.width)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		cols,
+		cli,
+		status,
+		footer,
+	)
+}
+
+func (m *Model) resizeLayout() {
+	l := m.computeLayout()
+	m.leftVP.Width = l.LeftW - 2
+	m.leftVP.Height = l.ColsH
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+
+	m.rightVP.Width = l.RightW - 2
+	m.rightVP.Height = l.ColsH
+	m.rightVP.SetContent(m.rightContent)
+
+	m.repl.SetWidth(m.width - 2)
+}
+
+func (m *Model) cyclePane() {
+	m.activePane = (m.activePane + 1) % 3
+	if m.activePane == replPane {
+		m.repl.Focus()
+	} else {
+		m.repl.Blur()
+	}
+}
+#MULTICAT_START
+# dir: /Users/mricos/src/mricos/demos/tubes/internal/tui
+# file: repl.go
+# notes: Remove Program.Send on Enter to avoid re-entrant update that can stall UI; reset cursor/suggestions deterministically.
+#MULTICAT_END
+package tui
+
+import (
+	"strings"
+)
+
+// handleInput parses the REPL line and executes commands of the form `/cmd args...`.
+// Non-command input is appended to the left log without emitting Program.Send.
+func (m *Model) handleInput() {
+	line := strings.TrimSpace(m.repl.Value())
+
+	// Clear input and suggestions before executing to keep UI responsive.
+	m.repl.SetValue("")
+	m.repl.SetCursor(0)
+	m.updateSuggestions()
+
+	if line == "" {
+		return
+	}
+
+	// Commands start with "/"
+	if !strings.HasPrefix(line, "/") {
+		m.leftContent = append(m.leftContent, line)
+		m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+		return
+	}
+
+	fields := strings.Fields(line)
+	name := fields[0]
+	args := []string{}
+	if len(fields) > 1 {
+		args = fields[1:]
+	}
+	if cmd, ok := m.commands[name]; ok && cmd.Executor != nil {
+		out, err := cmd.Executor(m, args)
+		if err != nil {
+			m.leftContent = append(m.leftContent, "ERR: "+err.Error())
+		} else if out != "" {
+			m.leftContent = append(m.leftContent, out)
+		}
+		m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+		return
+	}
+
+	m.leftContent = append(m.leftContent, "unknown command: "+name)
+	m.leftVP.SetContent(strings.Join(m.leftContent, "\n"))
+}
