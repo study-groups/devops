@@ -20,11 +20,11 @@
         <div id="context-panel">
             <h2>Context</h2>
             <div class="context-grid">
-                <label for="remote-user">Remote User:</label>
-                <input type="text" id="remote-user" value="dev-user">
-
-                <label for="remote-host">Remote Host:</label>
-                <input type="text" id="remote-host" value="dev.server.com">
+                <label for="ssh-private-key">SSH Private Key:</label>
+                <textarea id="ssh-private-key" rows="10" cols="50" placeholder="Paste your SSH Private Key here"></textarea>
+                
+                <label for="ssh-passphrase">Passphrase (if any):</label>
+                <input type="password" id="ssh-passphrase" value="">
                 
                 <label for="repo-dir">Repo:</label>
                 <input type="text" id="repo-dir" value="my-app-repo">
