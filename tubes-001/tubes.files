@@ -1,6 +1,0 @@
-internal/tui/messages.go
-internal/tui/repl.go
-internal/tui/fzf.go
-internal/tui/model.go
-internal/tui/view.go
-internal/tui/commands.go

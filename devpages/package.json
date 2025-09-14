@@ -7,7 +7,15 @@
     "debug:token": "node debug-scripts/generate-token.js",
     "debug:chrome": "node debug-scripts/chrome-debugger.js",
     "test": "playwright test",
-    "test:ui": "playwright test tests/sidebar.spec.js"
+    "test:ui": "playwright test tests/sidebar.spec.js",
+    "validate-imports": "node scripts/validate-imports.js",
+    "audit:circular": "node scripts/audit-circular-deps.js",
+    "audit:dead-code": "node scripts/audit-dead-code.js",
+    "audit:conventions": "node scripts/audit-conventions.js",
+    "audit:all": "node scripts/audit-all.js",
+    "audit": "npm run audit:all",
+    "serve:modules": "node scripts/serve-modules.js",
+    "dev": "npm run serve:modules"
   },
   "imports": {
     "#client/*": "./client/*",
@@ -17,6 +25,7 @@
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "@reduxjs/toolkit": "2.0.1",
+    "express": "^4.18.2",
     "immer": "^10.0.3",
     "playwright": "^1.55.0",
     "redux": "^5.0.0",
