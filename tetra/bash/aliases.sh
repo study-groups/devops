@@ -36,7 +36,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
     alias free='top -l 1 | grep PhysMem'
 else
     # Linux and other Unix-like systems
-    echo Standard Linux
+    [[ "${TETRA_DEBUG_LOADING:-false}" == "true" ]] && echo Standard Linux
     unalias date 2> /dev/null
     alias pbcopy='xclip -selection clipboard'
     alias pbpaste='xclip -selection clipboard -o'

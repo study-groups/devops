@@ -40,4 +40,6 @@ for var in $(compgen -v | grep '^TETRA_'); do
 done
 PROMPT_COMMAND="tetra_prompt"  # Bash uses this automatic
 ttr=$TETRA_REMOTE_USER@$TETRA_REMOTE:$TETRA_REMOTE_DIR
-tetra_status
+if [ -z "${TETRA_SILENT_STARTUP:-}" ]; then
+    tetra_status
+fi

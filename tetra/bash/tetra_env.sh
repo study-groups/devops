@@ -37,7 +37,7 @@ tetra_load_module() {
         return 1
     fi
     
-    echo "Loading module: $module_name" >&2
+    [[ "${TETRA_DEBUG_LOADING:-false}" == "true" ]] && echo "Loading module: $module_name" >&2
     
     # Check for includes.sh first, fallback to loading all .sh files
     if [[ -f "$loader_path/includes.sh" ]]; then
@@ -85,20 +85,13 @@ tetra_create_lazy_function() {
     "
 }
 
-# Register core modules
-tetra_register_module "utils" "$TETRA_SRC/bash/utils"
-tetra_register_module "tmod" "$TETRA_SRC/bash/tmod"
-tetra_register_module "pb" "$TETRA_SRC/bash/pb"
-tetra_register_module "tsm" "$TETRA_SRC/bash/tsm"
-tetra_register_module "tkm" "$TETRA_SRC/bash/tkm"
-tetra_register_module "prompt" "$TETRA_SRC/bash/prompt"
-tetra_register_module "nvm" "$TETRA_SRC/bash/nvm"
-tetra_register_module "python" "$TETRA_SRC/bash/python"
-tetra_register_module "sync" "$TETRA_SRC/bash/sync"
-tetra_register_module "ssh" "$TETRA_SRC/bash/ssh"
-tetra_register_module "node" "$TETRA_SRC/bash/node"
-tetra_register_module "enc" "$TETRA_SRC/bash/enc"
-tetra_register_module "deploy" "$TETRA_SRC/bash/deploy"
+# Source module config system
+source "$TETRA_SRC/bash/utils/module_config.sh"
+
+# Register modules based on persistent configuration
+while IFS= read -r module_name; do
+    [[ -n "$module_name" ]] && tetra_register_module "$module_name" "$TETRA_SRC/bash/$module_name"
+done < <(tetra_get_enabled_modules)
 
 # Register external modules (lazy loaded)
 tetra_register_module "rag" "$HOME/src/bash/rag/bash"

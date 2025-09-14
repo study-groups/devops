@@ -117,6 +117,9 @@ Commands:
   find|f <pattern> [-dev]    Search modules by name/description
   help|h [module]            Show help (general or for specific module)
   status|st                  Show module system status
+  enable|e|on <module>       Enable module for future sessions
+  disable|d|off <module>     Disable module for future sessions
+  config|c                   Show persistent module configuration
   dev                        Development module operations
   fix                        Fix missing includes.sh files
   index                      Rebuild module index
@@ -138,6 +141,9 @@ Examples:
   tmod load tsm              # Load tsm module
   tmod find "service"        # Find service-related modules
   tmod help tsm              # Get help for tsm module
+  tmod on tkm                # Enable tkm for future sessions
+  tmod off nvm               # Disable nvm for future sessions
+  tmod config                # Show current module configuration
 
 Interactive Mode:
   tmod repl                  # Start REPL

@@ -283,11 +283,13 @@ tetra_tkm_audit() { tkm_security_audit "$@"; }
 tetra_tkm_inspect() { tkm_ssh_inspect "$@"; }
 
 # Controlled auto-initialization with environment variable flag
-if [[ -n "$TETRA_DIR" && ! -d "$TKM_BASE_DIR" ]]; then
+# Only show warning once per session
+if [[ -n "$TETRA_DIR" && ! -d "$TKM_BASE_DIR" && -z "$TKM_INIT_WARNING_SHOWN" ]]; then
     if [[ "${TKM_AUTO_INIT:-false}" == "true" ]]; then
         echo "🔧 TKM not initialized. Initializing now..."
         tkm_init
     else
         echo "ℹ️ TKM not initialized. Run 'tkm init' or set TKM_AUTO_INIT=true" >&2
+        export TKM_INIT_WARNING_SHOWN=true
     fi
 fi

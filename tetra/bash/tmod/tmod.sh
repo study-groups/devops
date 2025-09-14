@@ -11,6 +11,9 @@ TMOD_HISTORY_FILE="${TETRA_DIR}/.tmod_history"
 source "$TMOD_DIR/tmod_core.sh"
 source "$TMOD_DIR/tmod_repl.sh"
 
+# Source module config system for persistent enable/disable
+source "$TETRA_SRC/bash/utils/module_config.sh"
+
 # Main tmod command interface
 tmod() {
     local cmd="${1:-help}"
@@ -37,6 +40,15 @@ tmod() {
             ;;
         status|st)
             tmod_status "$@"
+            ;;
+        enable|e|on)
+            tetra_module_enable "$@"
+            ;;
+        disable|d|off)
+            tetra_module_disable "$@"
+            ;;
+        config|c)
+            tetra_module_list "$@"
             ;;
         dev)
             tmod_dev "$@"

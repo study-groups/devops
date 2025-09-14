@@ -4,11 +4,15 @@
 # Defines modules with metadata, completions, and help strings
 
 # Module metadata storage
-declare -A TETRA_MODULE_META_DESCRIPTION
-declare -A TETRA_MODULE_META_COMMANDS
-declare -A TETRA_MODULE_META_COMPLETIONS
-declare -A TETRA_MODULE_META_CATEGORY
-declare -A TETRA_MODULE_META_STATUS
+# Only declare if not already declared to prevent array type conflicts
+if [[ -z "$TETRA_MODULE_META_INITIALIZED" ]]; then
+    declare -A TETRA_MODULE_META_DESCRIPTION
+    declare -A TETRA_MODULE_META_COMMANDS
+    declare -A TETRA_MODULE_META_COMPLETIONS
+    declare -A TETRA_MODULE_META_CATEGORY
+    declare -A TETRA_MODULE_META_STATUS
+    export TETRA_MODULE_META_INITIALIZED=true
+fi
 
 # Register module metadata
 tetra_register_module_meta() {
