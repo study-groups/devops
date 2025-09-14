@@ -83,12 +83,17 @@ tetra_create_lazy_function() {
             return 1
         fi
         
-        # Unset the stub function, as the real function should now be loaded
-        unset -f "$func_name"
-        
-        # If the real function now exists, call it with the original arguments
+        # Check if the real function now exists after loading
         if declare -f "$func_name" >/dev/null 2>&1; then
-            "$func_name" "${args[@]}"
+            # Check if it's still the stub (contains tetra_load_module)
+            if declare -f "$func_name" | grep -q "tetra_load_module"; then
+                echo "Error: Function $func_name not properly loaded from module $module_name" >&2
+                return 1
+            else
+                # Real function exists, unset stub and call it
+                unset -f "$func_name"
+                "$func_name" "${args[@]}"
+            fi
         else
             echo "Error: Real function $func_name not found after loading module $module_name" >&2
             return 1
