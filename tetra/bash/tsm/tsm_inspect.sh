@@ -205,7 +205,7 @@ tetra_tsm_scan_ports() {
         local id="${_tsm_procs_id[i]}"
         local port="${_tsm_procs_port[i]}"
         local pid="${_tsm_procs_pid[i]}"
-        local status="${_tsm_procs_status[i]}"
+        local proc_status="${_tsm_procs_status[i]}"
         
         [[ "$port" == "-" ]] && continue
         reported_ports[$port]=1
@@ -215,7 +215,7 @@ tetra_tsm_scan_ports() {
             local open_pid="${open_ports_pid[$port]}"
             local open_cmd="${open_ports_cmd[$port]}"
             
-            if [[ "$status" == "online" ]]; then
+            if [[ "$proc_status" == "online" ]]; then
                 if [[ "$pid" == "$open_pid" ]]; then
                     printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$pid" "$open_cmd" "Online (TSM: $name)"
                 else
@@ -226,7 +226,7 @@ tetra_tsm_scan_ports() {
             fi
         else
             # Port is not open
-            if [[ "$status" == "online" ]]; then
+            if [[ "$proc_status" == "online" ]]; then
                 printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$pid" "-" "ERROR (port not open)"
             fi
         fi
@@ -280,9 +280,9 @@ tetra_tsm_info() {
     local pid port start_time script tsm_id
     eval "$(cat "$metafile")"
 
-    local status uptime
+    local proc_status uptime
     if tetra_tsm_is_running "$name"; then
-        status="online"
+        proc_status="online"
         local current_time
         current_time=$(date +%s)
         local elapsed=$((current_time - start_time))
@@ -294,14 +294,14 @@ tetra_tsm_info() {
             uptime="$((elapsed / 3600))h"
         fi
     else
-        status="stopped"
+        proc_status="stopped"
         uptime="-"
     fi
 
     # --- Resource Usage ---
     local cpu_usage="-"
     local mem_usage="-"
-    if [[ "$status" == "online" ]]; then
+    if [[ "$proc_status" == "online" ]]; then
         # Memory (RSS in KB)
         local mem_kb
         mem_kb=$(ps -p "$pid" -o rss= | awk '{print $1}')
@@ -322,11 +322,16 @@ tetra_tsm_info() {
 
     # --- Output ---
     echo "───────── Process Info: $name (id: $resolved_id) ─────────"
-    printf "%12s: %s\n" "Status" "$status"
+    printf "%12s: %s\n" "Status" "$proc_status"
     printf "%12s: %s\n" "PID" "$pid"
     printf "%12s: %s\n" "Uptime" "$uptime"
     printf "%12s: %s\n" "Port" "$port"
     printf "%12s: %s\n" "Script" "$script"
+    
+    echo ""
+    echo "───────── Working Dirs ─────────"
+    printf "%12s: %s\n" "CWD@start" "${cwd:-unknown}"
+    printf "%12s: %s\n" "Start Dir" "${start_dir:-unknown}"
     
     echo ""
     echo "───────── Resource Usage ─────────"

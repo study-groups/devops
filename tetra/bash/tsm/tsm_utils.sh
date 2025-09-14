@@ -61,9 +61,9 @@ _tetra_tsm_get_all_processes() {
         
         eval "$(cat "$metafile")"
         
-        local status uptime
+        local proc_status uptime
         if tetra_tsm_is_running "$name"; then
-            status="online"
+            proc_status="online"
             local current_time
             current_time=$(date +%s)
             local elapsed=$((current_time - start_time))
@@ -75,7 +75,7 @@ _tetra_tsm_get_all_processes() {
                 uptime="$((elapsed / 3600))h"
             fi
         else
-            status="stopped"
+            proc_status="stopped"
             uptime="-"
         fi
         
@@ -83,7 +83,7 @@ _tetra_tsm_get_all_processes() {
         _tsm_procs_id+=("$tsm_id")
         _tsm_procs_pid+=("$pid")
         _tsm_procs_port+=("$port")
-        _tsm_procs_status+=("$status")
+        _tsm_procs_status+=("$proc_status")
         _tsm_procs_uptime+=("$uptime")
         _tsm_procs_script+=("$script")
     done

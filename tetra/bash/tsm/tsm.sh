@@ -18,7 +18,7 @@ Usage: tsm <command> [args]
 
 Commands:
   setup                      Setup tsm environment (macOS: adds util-linux PATH)
-  start [--env env.sh] <script.sh> [name]   Start a script as a daemon
+  start [--env env.sh] <script.sh|command> [name]   Start a script or command as a daemon
   stop <process|id|*>        Stop processes (by name, TSM ID, or all)
   delete|del|kill <process|id|*> Delete processes and logs
   restart <process|id|*>     Restart processes
@@ -34,6 +34,8 @@ Commands:
 
 Examples:
   tsm start server.sh        Start server.sh as server-3000 (if PORT=3000)
+  tsm start node server.js   Start command as node-3000 (port defaults to 3000)
+  tsm start --port 4000 node server.js api   Start as api-4000
   tsm stop server-3000       Stop by process name
   tsm stop 0                 Stop by TSM ID
   tsm logs 0 -f              Follow logs for TSM ID 0

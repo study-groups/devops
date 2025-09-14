@@ -14,6 +14,7 @@ DIRS=(
     "$TETRA_SRC/bash/utils"
     "$TETRA_SRC/bash/pb"
     "$TETRA_SRC/bash/tsm"
+    "$TETRA_SRC/bash/tkm"
     "$TETRA_SRC/bash/prompt"
     "$TETRA_SRC/bash/nvm"
     "$TETRA_SRC/bash/python"

@@ -1,156 +1,245 @@
-# Prompt settings
-ENABLE_GIT=true        # Enables Git branch display
-SHOW_PYTHON=true       # Shows 'p' if Python is available
-SHOW_NODE=true         # Shows 'n' if Node.js is available
-SHOW_LOGTIME=true      # Shows logtime if LT_PROMPT_ENABLE is set
-MULTILINE=false        # Set to true for a multi-line prompt
+# Simple, fast prompt system for tetra
+# Environment variables control behavior - no complex state management
 
-# Prompt codes for customization
-tetra_prompt_show_codes() {
-    cat <<EOF
-# Reference only
-promptUser="\u"
-promptHostShort="\h"
-promptHostFull="\H"
-promptDirShort="\W"
-promptDirFull="\w"
-promptTime24="\t"
-promptTime12="@"
-promptTime24Full="\T"
-promptDate="\d"
-promptHistoryNum="!"
-promptCmdNum="#"
-promptRootOrUser="\$"
-promptLastExit="?"
-u="\u"
-h="\h"
-H="\H"
-dir="\W"
-dirFull="\w"
-t24="\t"
-t12="@"
-t24full="\T"
-date="\d"
-historyNum="!"
-cmdNum="#"
-rootOrUser="\$"
-lastExit="?"
-EOF
+# Prompt style: tiny, compact, default, verbose
+export TETRA_PROMPT_STYLE="${TETRA_PROMPT_STYLE:-default}"
+
+# Multiline toggle
+export TETRA_PROMPT_MULTILINE="${TETRA_PROMPT_MULTILINE:-false}"
+
+# Individual section toggles (empty = auto-detect, "0" = force off, "1" = force on)
+export TETRA_PROMPT_GIT="${TETRA_PROMPT_GIT:-}"
+export TETRA_PROMPT_PYTHON="${TETRA_PROMPT_PYTHON:-}"
+export TETRA_PROMPT_NODE="${TETRA_PROMPT_NODE:-}"
+export TETRA_PROMPT_LOGTIME="${TETRA_PROMPT_LOGTIME:-}"
+
+# Colors
+_C_RESET='\[\e[0m\]'
+_C_YELLOW='\[\e[0;38;5;228m\]'
+_C_CYAN='\[\e[0;38;5;51m\]'
+_C_GREEN='\[\e[0;38;5;46m\]'
+_C_PURPLE='\[\e[0;38;5;129m\]'
+_C_GRAY='\[\e[0;38;5;240m\]'
+
+# Fast section generators - no function calls in main prompt
+_tetra_git_info() {
+    [[ "$TETRA_PROMPT_GIT" == "0" ]] && return
+    [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
+    git branch 2>/dev/null | grep "^\* " | colrm 1 2
 }
 
-# Check for Python and Node.js availability
-tetra_prompt_check_python() {
-    if command -v python >/dev/null 2>&1; then
-        echo "p"   # Display 'p' if Python is present
+_tetra_python_info() {
+    [[ "$TETRA_PROMPT_PYTHON" == "0" ]] && return
+    [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
+    
+    if [[ "$TETRA_PROMPT_PYTHON" == "1" ]] || command -v python >/dev/null 2>&1; then
+        # Check if tetra is in the python path/source
+        if [[ "$(which python)" == *"tetra"* ]]; then
+            echo "p"
+        else
+            echo "~p"
+        fi
     fi
 }
 
-tetra_prompt_check_node() {
-    if command -v node >/dev/null 2>&1; then
-        echo "n"   # Display 'n' if Node.js is present
+_tetra_node_info() {
+    [[ "$TETRA_PROMPT_NODE" == "0" ]] && return
+    [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
+    
+    if [[ "$TETRA_PROMPT_NODE" == "1" ]] || command -v node >/dev/null 2>&1; then
+        # Check if tetra is in the node path/source
+        if [[ "$(which node)" == *"tetra"* ]]; then
+            echo "n"
+        else
+            echo "~n"
+        fi
     fi
 }
 
-# Get the current Git branch
-tetra_prompt_git_branch() {
-    if [[ "${ENABLE_GIT}" == "true" ]]; then
-        git branch 2>/dev/null | grep "^\* " | colrm 1 2  # Get current git branch
-    fi
+_tetra_logtime_info() {
+    [[ "$TETRA_PROMPT_LOGTIME" == "0" ]] && return
+    [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
+    [[ "$TETRA_PROMPT_LOGTIME" == "1" ]] || command -v _logtime-elapsed-hms >/dev/null 2>&1 && _logtime-elapsed-hms
 }
 
-# Display logtime if available
-tetra_prompt_logtime() {
-    if [[ "${SHOW_LOGTIME}" == "true" ]] && command -v _logtime-elapsed-hms >/dev/null 2>&1; then
-        _logtime-elapsed-hms  # Display logtime if available
-    fi
-}
-
-# Build the prompt dynamically based on configuration
+# Main prompt function - optimized for speed
 tetra_prompt() {
-    local logtime
-    local status=""
-    local git_branch
-    local username="\u"
-    local hostname="\h"
-    local dirShort="[\W]"
-    local dirLong="[\w]"
-
-    logtime="$(tetra_prompt_logtime)"
-    git_branch="$(tetra_prompt_git_branch)"
-
-    [[ "${SHOW_PYTHON}" == "true" ]] && status+=$(tetra_prompt_check_python)
-    [[ "${SHOW_NODE}" == "true" ]] && status+=$(tetra_prompt_check_node)
-
-    if [[ -n "$status" ]]; then
-        status="($status)"  # Wrap indicators in parentheses
-    fi
-
-    if [[ -n "$logtime" ]]; then
-        logtime="[$logtime]"
-    fi
-
-    if [[ -n "$git_branch" ]]; then
-        git_branch="($git_branch)"
-    fi
-
-    local COLOR_RESET='\[\e[0m\]'
-    local COLOR_YELLOW='\[\e[0;38;5;228m\]'
-    local COLOR_CYAN='\[\e[0;38;5;51m\]'
+    local info=""
+    local git_branch python_status node_status logtime_info
     
-    # Multiline prompt construction
-    if [[ "${MULTILINE}" == "true" ]]; then
-        PS1="${COLOR_RESET}${logtime}$status${COLOR_CYAN}${dirLong}${COLOR_RESET}${git_branch}\n"
-        PS1+="${COLOR_YELLOW}${username}${COLOR_RESET}@${hostname}: "
-    else
-        PS1="${COLOR_RESET}$status${logtime}${COLOR_YELLOW}${username}@${COLOR_RESET}${hostname}"
-        PS1+="${COLOR_CYAN}${dirShort}${COLOR_RESET}${git_branch}: "
-    fi
-    if [[ "${MULTILINE}" == "tiny" ]]; then
-        PS1="${COLOR_YELLOW}${username}${COLOR_RESET}@${hostname}: "
-    fi 
+    case "$TETRA_PROMPT_STYLE" in
+        tiny)
+            PS1="${_C_YELLOW}\u${_C_RESET}@\h: "
+            return
+            ;;
+        compact)
+            git_branch="$(_tetra_git_info)"
+            local git_info=""
+            [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
+            PS1="${_C_RESET}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
+            ;;
+        verbose)
+            git_branch="$(_tetra_git_info)"
+            python_status="$(_tetra_python_info)"
+            node_status="$(_tetra_node_info)"
+            logtime_info="$(_tetra_logtime_info)"
+            
+            # Collect all status indicators
+            local status_indicators=()
+            [[ -n "$python_status" ]] && status_indicators+=("$python_status")
+            [[ -n "$node_status" ]] && status_indicators+=("$node_status")
+            
+            # Join indicators with commas in single bracket
+            if [[ ${#status_indicators[@]} -gt 0 ]]; then
+                local joined_status
+                IFS=',' joined_status="${status_indicators[*]}"
+                info+="${_C_GRAY}($joined_status)${_C_RESET}"
+            fi
+            
+            [[ -n "$logtime_info" ]] && info+="${_C_PURPLE}[$logtime_info]${_C_RESET}"
+            
+            local git_info=""
+            [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
+            
+            if [[ "$TETRA_PROMPT_MULTILINE" == "true" ]]; then
+                PS1="${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+            else
+                PS1="${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\w]${git_info}: "
+            fi
+            ;;
+        *)  # default
+            git_branch="$(_tetra_git_info)"
+            python_status="$(_tetra_python_info)"
+            node_status="$(_tetra_node_info)"
+            
+            # Collect all status indicators
+            local status_indicators=()
+            [[ -n "$python_status" ]] && status_indicators+=("$python_status")
+            [[ -n "$node_status" ]] && status_indicators+=("$node_status")
+            
+            # Join indicators with commas in single bracket
+            if [[ ${#status_indicators[@]} -gt 0 ]]; then
+                local joined_status
+                IFS=',' joined_status="${status_indicators[*]}"
+                info+="${_C_GRAY}($joined_status)${_C_RESET}"
+            fi
+            
+            local git_info=""
+            [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
+            
+            if [[ "$TETRA_PROMPT_MULTILINE" == "true" ]]; then
+                PS1="${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+            else
+                PS1="${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
+            fi
+            ;;
+    esac
 }
 
-# Activate the custom prompt dynamically
+# Internal control functions
+_tetra_prompt_style() {
+    case "$1" in
+        tiny|compact|default|verbose)
+            export TETRA_PROMPT_STYLE="$1"
+            ;;
+        *)
+            echo "Usage: tp style {tiny|compact|default|verbose}"
+            echo "Current: $TETRA_PROMPT_STYLE"
+            ;;
+    esac
+}
+
+_tetra_prompt_multiline() {
+    case "$1" in
+        on|true|1) export TETRA_PROMPT_MULTILINE="true" ;;
+        off|false|0) export TETRA_PROMPT_MULTILINE="false" ;;
+        *) 
+            if [[ "$TETRA_PROMPT_MULTILINE" == "true" ]]; then
+                export TETRA_PROMPT_MULTILINE="false"
+            else
+                export TETRA_PROMPT_MULTILINE="true"
+            fi
+            ;;
+    esac
+}
+
+_tetra_prompt_toggle() {
+    local section="$1"
+    local state="$2"
+    
+    case "$section" in
+        git|python|node|logtime)
+            local var_name="TETRA_PROMPT_${section^^}"
+            case "$state" in
+                on|1) export "$var_name"="1" ;;
+                off|0) export "$var_name"="0" ;;
+                auto|"") export "$var_name"="" ;;
+                *)
+                    local current_val
+                    current_val=$(eval echo "\$$var_name")
+                    if [[ "$current_val" == "0" ]]; then
+                        export "$var_name"=""
+                    else
+                        export "$var_name"="0"
+                    fi
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Usage: tp toggle {git|python|node|logtime} [on|off|auto]"
+            ;;
+    esac
+}
+
+_tetra_prompt_status() {
+    echo "Prompt Style: $TETRA_PROMPT_STYLE"
+    echo "Multiline: $TETRA_PROMPT_MULTILINE"
+    echo "Git: ${TETRA_PROMPT_GIT:-auto}"
+    echo "Python: ${TETRA_PROMPT_PYTHON:-auto}"
+    echo "Node: ${TETRA_PROMPT_NODE:-auto}"
+    echo "Logtime: ${TETRA_PROMPT_LOGTIME:-auto}"
+}
+
+# Command dispatcher
+tp() {
+    case "$1" in
+        style|s)
+            shift
+            _tetra_prompt_style "$@"
+            ;;
+        multiline|ml|m)
+            shift
+            _tetra_prompt_multiline "$@"
+            ;;
+        toggle|t)
+            shift
+            _tetra_prompt_toggle "$@"
+            ;;
+        status|st)
+            _tetra_prompt_status
+            ;;
+        help|h|"")
+            cat <<EOF
+tp - Tetra Prompt Control
+
+Usage:
+  tp style {tiny|compact|default|verbose}  - Set prompt style
+  tp multiline [on|off]                    - Toggle multiline prompt
+  tp toggle {git|python|node|logtime} [on|off|auto] - Toggle sections
+  tp status                                - Show current settings
+
+Shortcuts:
+  tp s {style}     - Set style
+  tp m [on|off]    - Multiline
+  tp t {section}   - Toggle section
+  tp st            - Status
+EOF
+            ;;
+        *)
+            echo "Unknown command: $1"
+            echo "Use 'tp help' for usage"
+            ;;
+    esac
+}
+
 PROMPT_COMMAND="tetra_prompt"
-
-# Define colors with 256-color support
-tetra_prompt_colors() {
-    # Reset
-    NO_COLOR='\[\e[0m\]'
-    
-    # Standard Colors (using 256 color palette)
-    local Red='\[\e[0;38;5;196m\]'    # Bright Red
-    local Green='\[\e[0;38;5;46m\]'   # Bright Green
-    local Yellow='\[\e[0;38;5;228m\]'  # Light Yellow
-    local Blue='\[\e[0;38;5;33m\]'     # Bright Blue
-    local Purple='\[\e[0;38;5;129m\]'  # Bright Purple
-    local Cyan='\[\e[0;38;5;51m\]'     # Bright Cyan
-    local White='\[\e[0;38;5;255m\]'   # Bright White
-    
-    # Bold Colors
-    local BBlack='\[\e[1;30m\]'         # Bold Black
-    local BRed='\[\e[1;31m\]'           # Bold Red
-    local BGreen='\[\e[1;32m\]'         # Bold Green
-    local BYellow='\[\e[1;33m\]'        # Bold Yellow
-    local BBlue='\[\e[1;34m\]'          # Bold Blue
-    local BPurple='\[\e[1;35m\]'        # Bold Purple
-    local BCyan='\[\e[1;36m\]'          # Bold Cyan
-    local BWhite='\[\e[1;37m\]'         # Bold White
-    
-    # Background Colors
-    local On_Black='\[\e[40m\]'         # Background Black
-    local On_Red='\[\e[41m\]'           # Background Red
-    local On_Green='\[\e[42m\]'         # Background Green
-    local On_Yellow='\[\e[43m\]'        # Background Yellow
-    local On_Blue='\[\e[44m\]'          # Background Blue
-    local On_Purple='\[\e[45m\]'        # Background Purple
-    local On_Cyan='\[\e[46m\]'          # Background Cyan
-    local On_White='\[\e[47m\]'         # Background White
-}
-
-# Call to set the colors
-tetra_prompt_colors
-
-# Activate the custom prompt
-# Call in bootstrap.sh
-#PROMPT_COMMAND="tetra_prompt"

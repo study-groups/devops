@@ -5,6 +5,7 @@
 
 # History management
 TSM_HISTORY_LOG="$TETRA_DIR/tsm/repl_history.log"
+TSM_HISTORY_FILE="$TETRA_DIR/tsm/.tsm_history"
 
 tsm_repl_help() {
     cat <<'EOF'
@@ -17,6 +18,7 @@ Built-in Commands:
   /list             List all processes  
   /kill <process>   Kill/delete process
   /last [n]         Show last command output (n=0 default, n=1 goes back one, etc.)
+  /history [n]      Show command history (default: 20 lines)
   /ps               Show system processes
   /disk             Show disk usage
   /mem              Show memory usage
@@ -151,12 +153,22 @@ tsm_repl_process_command() {
                 echo "$output"
                 ;;
             exit|quit)
-                echo "Goodbye!"
-                return 1
+                # Handled in main function
+                return 0
                 ;;
             list)
                 output=$(tsm list)
                 echo "$output"
+                ;;
+            history|hist)
+                local lines="${args:-20}"
+                if [[ -f "$TSM_HISTORY_FILE" ]]; then
+                    output=$(tail -n "$lines" "$TSM_HISTORY_FILE" | nl -w3 -s': ')
+                    echo "TSM Command History (last $lines commands):"
+                    echo "$output"
+                else
+                    echo "No command history found"
+                fi
                 ;;
             kill)
                 if [[ -n "$args" ]]; then
@@ -233,23 +245,42 @@ tsm_repl_completion() {
 
 tsm_repl_main() {
     echo "TSM Interactive REPL"
-    echo "Type /help for commands, /exit to quit"
+    echo "Type /help for commands, /exit or Ctrl-C to quit"
     echo
     
     # Setup completion
     complete -F tsm_repl_completion tsm_repl_process_command 2>/dev/null || true
     
-    while true; do
-        # Show prompt
-        echo -n "tsm> "
+    # Trap Ctrl-C to exit gracefully
+    trap 'echo -e "\nExiting TSM REPL..."; exit 0' SIGINT
+    
+    local exit_repl=false
+    while [[ "$exit_repl" == "false" ]]; do
+        # Read input with history support
+        if [[ -t 0 ]]; then
+            read -e -r -p "tsm> " input || break
+        else
+            echo -n "tsm> "
+            read -r input || break
+        fi
         
-        # Read input
-        read -r input
+        # Save to history
+        [[ -n "$input" ]] && echo "$input" >> "$TSM_HISTORY_FILE"
         
         # Process command
-        if ! tsm_repl_process_command "$input"; then
-            break
-        fi
+        case "$input" in
+            /exit|/quit)
+                echo "Goodbye!"
+                exit_repl=true
+                break
+                ;;
+            *)
+                if ! tsm_repl_process_command "$input"; then
+                    exit_repl=true
+                    break
+                fi
+                ;;
+        esac
         
         echo
     done
@@ -257,5 +288,6 @@ tsm_repl_main() {
 
 # If script is run directly, start REPL
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    source "$HOME/tetra/tetra.sh"
     tsm_repl_main "$@"
 fi
