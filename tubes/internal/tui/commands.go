@@ -10,6 +10,22 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Message types for command results
+type themeChangeMsg struct {
+	Theme  *theme.Theme
+	Styles *theme.Styles
+	Name   string
+}
+
+type previewThemeMsg struct{}
+
+type openFileMsg struct {
+	Filename string
+	Content  string
+}
+
+type clearMsg struct{}
+
 // registerCommands sets up all available commands
 func (m *Model) registerCommands() {
 	m.Commands = map[string]Command{
@@ -48,12 +64,12 @@ func (m *Model) registerCommands() {
 
 // Command implementations
 
-func (m *Model) cmdHelp(args []string) tea.Cmd {
+func (m *Model) cmdHelp(model *Model, args []string) tea.Cmd {
 	var lines []string
 	lines = append(lines, "Available commands:")
 	lines = append(lines, "")
 	
-	for name, cmd := range m.Commands {
+	for name, cmd := range model.Commands {
 		lines = append(lines, fmt.Sprintf("/%s - %s", name, cmd.Description))
 	}
 	
@@ -64,27 +80,27 @@ func (m *Model) cmdHelp(args []string) tea.Cmd {
 	lines = append(lines, "  Esc    - Quit")
 	
 	content := strings.Join(lines, "\n")
-	m.Main.SetContent(content)
+	model.Main.SetContent(content)
 	
 	return func() tea.Msg {
 		return statusMsg("Help displayed")
 	}
 }
 
-func (m *Model) cmdMode(args []string) tea.Cmd {
+func (m *Model) cmdMode(model *Model, args []string) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return statusMsg(fmt.Sprintf("Current mode: %s (use /mode self|tasks)", m.Mode))
+			return statusMsg(fmt.Sprintf("Current mode: %s (use /mode self|tasks)", model.Mode))
 		}
 	}
 	
 	switch args[0] {
 	case "self", "tasks":
-		m.Mode = args[0]
+		model.Mode = args[0]
 		return tea.Batch(
-			m.refreshSidebar(),
+			model.refreshSidebar(),
 			func() tea.Msg {
-				return statusMsg(fmt.Sprintf("Switched to %s mode", m.Mode))
+				return statusMsg(fmt.Sprintf("Switched to %s mode", model.Mode))
 			},
 		)
 	default:
@@ -94,7 +110,7 @@ func (m *Model) cmdMode(args []string) tea.Cmd {
 	}
 }
 
-func (m *Model) cmdTheme(args []string) tea.Cmd {
+func (m *Model) cmdTheme(model *Model, args []string) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
 			return statusMsg("Usage: /theme list|use NAME|preview")
@@ -162,29 +178,20 @@ func (m *Model) cmdThemeUse(name string) tea.Cmd {
 			return errorMsg(fmt.Sprintf("Failed to compile theme %q: %v", name, err))
 		}
 		
-		// Update model
-		m.Theme = t
-		m.Styles = styles
-		
 		// Set as current
 		_ = theme.SetCurrent(name)
 		
-		return statusMsg(fmt.Sprintf("Switched to theme: %s", name))
+		return themeChangeMsg{Theme: t, Styles: styles, Name: name}
 	}
 }
 
 func (m *Model) cmdThemePreview() tea.Cmd {
 	return func() tea.Msg {
-		if m.Styles == nil {
-			return errorMsg("No theme loaded")
-		}
-		
-		preview := theme.DetailedPreview(m.Styles)
-		return sidebarContentMsg(preview)
+		return previewThemeMsg{}
 	}
 }
 
-func (m *Model) cmdOpen(args []string) tea.Cmd {
+func (m *Model) cmdOpen(model *Model, args []string) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
 			return errorMsg("Usage: /open <file>")
@@ -198,25 +205,17 @@ func (m *Model) cmdOpen(args []string) tea.Cmd {
 			return errorMsg(fmt.Sprintf("Failed to read %q: %v", filename, err))
 		}
 		
-		m.CurrentFile = filename
-		m.Main.SetContent(string(content))
-		
-		return statusMsg(fmt.Sprintf("Opened: %s", filename))
+		return openFileMsg{Filename: filename, Content: string(content)}
 	}
 }
 
-func (m *Model) cmdClear(args []string) tea.Cmd {
-	return tea.Batch(
-		m.refreshSidebar(),
-		func() tea.Msg {
-			m.Main.SetContent("")
-			m.Status.SetContent("")
-			return statusMsg("Cleared")
-		},
-	)
+func (m *Model) cmdClear(model *Model, args []string) tea.Cmd {
+	return func() tea.Msg {
+		return clearMsg{}
+	}
 }
 
-func (m *Model) cmdQuit(args []string) tea.Cmd {
+func (m *Model) cmdQuit(model *Model, args []string) tea.Cmd {
 	return tea.Quit
 }
 

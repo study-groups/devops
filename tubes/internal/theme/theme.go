@@ -257,14 +257,16 @@ func Compile(t *Theme) (*Styles, error) {
 
 	// Default styles if not provided
 	def := map[string]StyleDef{
-		"header":  {FG: t.Tokens.Text, BG: t.Tokens.SurfaceHi, Bold: true},
-		"sidebar": {FG: t.Tokens.TextMute, BG: t.Tokens.Surface, Border: derived["border"]},
-		"main":    {FG: t.Tokens.Text, BG: t.Tokens.SurfaceLo},
-		"input":   {FG: t.Tokens.Text, BG: derived["input_bg"], Border: derived["border"]},
-		"error":   {FG: t.Tokens.Surface, BG: t.Tokens.Error, Bold: true},
-		"warn":    {FG: t.Tokens.Surface, BG: t.Tokens.Warn, Bold: true},
-		"ok":      {FG: t.Tokens.Surface, BG: t.Tokens.Ok, Bold: true},
-		"info":    {FG: t.Tokens.Surface, BG: t.Tokens.Info, Bold: true},
+		"top_status":   {FG: t.Tokens.TextMute, BG: t.Tokens.Surface, Faint: true},
+		"sidebar":      {FG: t.Tokens.TextMute, BG: t.Tokens.Surface},
+		"main":         {FG: t.Tokens.Text, BG: t.Tokens.Surface},
+		"input":        {FG: t.Tokens.Text, BG: t.Tokens.Surface, Border: derived["border"]},
+		"input_noborder": {FG: t.Tokens.Text, BG: t.Tokens.Surface},
+		"feedback":     {FG: t.Tokens.TextMute, BG: t.Tokens.Surface, Faint: true},
+		"error":        {FG: t.Tokens.Surface, BG: t.Tokens.Error, Bold: true},
+		"warn":         {FG: t.Tokens.Surface, BG: t.Tokens.Warn, Bold: true},
+		"ok":           {FG: t.Tokens.Surface, BG: t.Tokens.Ok, Bold: true},
+		"info":         {FG: t.Tokens.Surface, BG: t.Tokens.Info, Bold: true},
 	}
 
 	// Merge user overrides
