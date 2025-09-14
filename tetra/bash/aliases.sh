@@ -9,7 +9,7 @@ alias ttt='tetra-tmux-tetra'
 alias ttkt='tetra-tmux-kill-session tetra'
 alias tttk='tetra-tmux-kill-session tetra'
 alias tnlr='tetra_nginx_location_replace'
-# ttr is now defined in tetra_env.sh as tetra_reload function
+# ttr is now defined in bootloader.sh as tetra_reload function
 
 # Legacy prompt aliases - now use 'tp' command instead
 # alias tps='MULTILINE=tiny'   # Use: tp s tiny
@@ -25,7 +25,7 @@ alias ttl="ssh $TETRA_REMOTE_USER@$TETRA_REMOTE ls $TETRA_REMOTE_DIR"
 tte=$tetra_remote_endpoint
 # ttr is now the tetra_reload function, not remote connector
 
-# tna and tpa are now defined in tetra_env.sh with proper lazy loading
+# tna and tpa are now defined in bootloader.sh with proper lazy loading
 
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS uses a different syntax for 'date'

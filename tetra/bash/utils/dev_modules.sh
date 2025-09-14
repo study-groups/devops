@@ -43,7 +43,7 @@ tetra_list_dev_modules() {
                     local module_name=$(basename "$module_dir")
                     if [[ -f "$module_dir/includes.sh" ]] || [[ -f "$module_dir/$module_name.sh" ]]; then
                         local status="○"
-                        if [[ -v "TETRA_MODULE_LOADED[$module_name]" ]] && [[ "${TETRA_MODULE_LOADED[$module_name]}" == "true" ]]; then
+                        if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module_name]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module_name]}" == "true" ]]; then
                             status="✓"
                         fi
                         echo "    $status $module_name"

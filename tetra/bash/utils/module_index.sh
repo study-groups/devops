@@ -162,7 +162,7 @@ EOF
                 for module in $(tetra_get_available_modules); do
                     if [[ "${TETRA_MODULE_META_CATEGORY[$module]}" == "$category" ]]; then
                         local status="○"
-                        if [[ -v "TETRA_MODULE_LOADED[$module]" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+                        if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
                             status="✓"
                         fi
                         local desc="${TETRA_MODULE_META_DESCRIPTION[$module]:-No description}"
@@ -221,7 +221,7 @@ tetra_module_help() {
     fi
     
     # Show load status
-    if [[ -v "TETRA_MODULE_LOADED[$module]" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
         echo "Status: ✓ Loaded"
     else
         echo "Status: ○ Not loaded"
@@ -241,7 +241,7 @@ tetra_remove_module() {
         return 1
     fi
     
-    if [[ -v "TETRA_MODULE_LOADED[$module]" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
         TETRA_MODULE_LOADED["$module"]=false
         echo "Module '$module' marked as unloaded"
         
@@ -275,7 +275,7 @@ tetra_find_module() {
         local desc="${TETRA_MODULE_META_DESCRIPTION[$module]:-}"
         if [[ "$module" == *"$pattern"* ]] || [[ "$desc" == *"$pattern"* ]]; then
             local status="○"
-            if [[ -v "TETRA_MODULE_LOADED[$module]" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+            if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
                 status="✓"
             fi
             printf "  %s %-12s %s\n" "$status" "$module" "$desc"

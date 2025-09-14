@@ -7,7 +7,7 @@ TMOD_TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$TMOD_TEST_DIR" || exit 1
 
 # Source tetra environment and module system
-source "$TETRA_SRC/bash/tetra_env.sh"
+source "$TETRA_SRC/bash/bootloader.sh"
 
 # Run all test scripts
 echo "Running tmod Tests..."

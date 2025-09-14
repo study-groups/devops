@@ -4,7 +4,8 @@
 
 # Get all registered modules
 tetra_get_registered_modules() {
-    if [[ -v TETRA_MODULE_LOADERS ]]; then
+    # Check if array exists using declare
+    if declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
         # Safely extract keys to avoid bad substitution
         for key in "${!TETRA_MODULE_LOADERS[@]}"; do
             # Remove any extra quotes from the key
@@ -19,7 +20,7 @@ tetra_get_available_modules() {
     local modules=()
     
     # Add registered modules - work around the quoted keys issue
-    if [[ -v TETRA_MODULE_LOADERS ]]; then
+    if declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
         # Parse the array dump to extract clean module names
         while IFS= read -r line; do
             if [[ "$line" =~ \[\'?\"?([^\'\"]+)\'?\"?\] ]]; then
@@ -48,7 +49,8 @@ tetra_get_available_modules() {
 
 # Get loaded modules
 tetra_get_loaded_modules() {
-    if [[ -v TETRA_MODULE_LOADED ]]; then
+    # Check if array exists using declare
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
         for module in "${!TETRA_MODULE_LOADED[@]}"; do
             if [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
                 echo "$module"
@@ -88,7 +90,7 @@ tetra_smart_load_module() {
     fi
     
     # If already registered, use existing loader
-    if [[ -v "TETRA_MODULE_LOADERS[$module_name]" ]]; then
+    if declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADERS[$module_name]:-}" ]]; then
         tetra_load_module "$module_name"
         return $?
     fi

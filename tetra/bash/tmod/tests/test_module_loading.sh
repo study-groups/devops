@@ -71,7 +71,7 @@ override_module_loading_functions() {
 }
 
 # Source tetra environment and tmod core
-source "$TETRA_SRC/bash/tetra_env.sh"
+source "$TETRA_SRC/bash/bootloader.sh"
 source "$TETRA_SRC/bash/tmod/tmod_core.sh"
 
 # Override functions after sourcing - must be done after all sourcing
