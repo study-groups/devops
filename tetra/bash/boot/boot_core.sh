@@ -111,4 +111,8 @@ source "$TETRA_SRC/bash/utils/module_config.sh"
 tetra_load_module "utils"
 tetra_load_module "prompt"
 tetra_load_module "tmod"
-tetra_load_module "qa"
+
+# Load qa directly to avoid lazy loading conflicts
+if [[ -f "$TETRA_SRC/bash/qa/includes.sh" ]]; then
+    source "$TETRA_SRC/bash/qa/includes.sh"
+fi

@@ -14,13 +14,8 @@ rag_log() {
 # Get the directory where this script is located
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source qa.sh for core functions
-if [[ -f "$TOOLS_DIR/qa/qa.sh" ]]; then
-    rag_log "Sourcing qa.sh"
-    source "$TOOLS_DIR/qa/qa.sh"
-else
-    rag_log "Warning: qa/qa.sh not found in $TOOLS_DIR"
-fi
+# QA functions are now handled by the canonical tetra qa module
+# No need to source separate qa.sh here
 
 # Source other bash function files if they exist
 SPECIFIC_MODULES=(

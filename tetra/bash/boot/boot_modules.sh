@@ -35,8 +35,7 @@ tetra_register_module "tro" "$TETRA_BASH/tro"
 tetra_register_module "anthropic" "$TETRA_BASH/anthropic"
 tetra_register_module "reporting" "$TETRA_BASH/reporting"
 
-# Register internal modules for QA, RAG, and Melvin
-tetra_register_module "qa" "$TETRA_BASH/qa"
+# Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
 tetra_register_module "melvin" "$TETRA_BASH/melvin"
 
