@@ -1,4 +1,0 @@
-#!/bin/bash
-source $HOME/src/mricos/bash/qa/qa.sh
-echo "$@" | qa_query 2> /dev/null
-a
