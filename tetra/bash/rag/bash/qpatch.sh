@@ -13,7 +13,7 @@ set -euo pipefail
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
 # --- Configuration ---
-QA_DIR="${QA_DIR:-$HOME/.qa}"
+QA_DIR="${QA_DIR:-${TETRA_DIR}/qa}"
 DB_DIR="$QA_DIR/db"
 TRY_STRIPS="0 1 2 3"
 

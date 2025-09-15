@@ -8,7 +8,7 @@ set -euo pipefail
 # Don't execute main logic if script is being sourced
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
-QA_DIR="${QA_DIR:-$HOME/.qa}"
+QA_DIR="${QA_DIR:-${TETRA_DIR}/qa}"
 DB="$QA_DIR/db"
 DIR="."; TOOL="auto"
 TRY_STRIPS="0 1 2 3"
