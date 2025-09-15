@@ -1,0 +1,37 @@
+--- qpatch.sh.orig	2025-08-13 01:37:35
++++ qpatch.sh	2025-08-13 01:40:44
+@@ -93,13 +93,29 @@
+ 
+ diagnostics(){ local pf="$1" tool="$2" dir="$3"
+   printf '--- diagnostics ---\n' >&2
+-  printf 'type : %s\n' "$(patch_kind "$pf")" >&2
+-  printf 'first lines:\n' >&2; nl -ba "$pf" | sed -n '1,20p' >&2
++  printf 'type      : %s\n' "$(patch_kind "$pf")" >&2
++  printf 'tool used : %s\n' "$tool" >&2
++  printf 'dir tried : %s\n' "$dir" >&2
++  printf 'first lines:\n' >&2; nl -ba "$pf" | head -n 20 | sed 's/^/  /' >&2
+   printf 'headers:\n' >&2; list_headers "$pf" | sed 's/^/  /' >&2 || true
+   printf 'trial matrix:\n' >&2
+-  local p d ok; while read -r d; do printf '  [%s]\n' "$d" >&2; for p in $TRY_STRIPS; do
+-    if try_apply_check_dir "$tool" "$pf" "$p" "$d"; then ok=OK; else ok=FAIL; fi; printf '    -p%-2s %s\n' "$p" "$ok" >&2; done
+-  done < <(candidate_dirs)
++
++  # Start walking up from the directory that was actually used for the attempt
++  local p d ok
++  d="$dir"
++  while :; do
++    printf '  [%s]\n' "$d" >&2
++    for p in $TRY_STRIPS; do
++      if try_apply_check_dir "$tool" "$pf" "$p" "$d"; then
++        ok=OK
++      else
++        ok=FAIL
++      fi
++      printf '    -p%-2s %s\n' "$p" "$ok" >&2
++    done
++    [[ "$d" == "/" ]] && break # Stop at root
++    d="$(dirname "$d")"      # Go to parent
++  done
+ }
+ 
+ main(){

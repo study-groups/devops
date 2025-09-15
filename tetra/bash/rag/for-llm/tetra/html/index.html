@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetra Network Management</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/htmx.org/dist/htmx.min.js"></script>
+<style>
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    background-color: #e5e5e5; /* Slightly darker background */
+}
+
+.container {
+    width: 100%;
+    height: auto; /* Adjusted height */
+    overflow-y: auto; /* Allow vertical scrolling */
+    display: flex;
+    flex-direction: column;
+}
+
+.section {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 3% 8%; /* Adjusted padding */
+    background-color: #d0d0d0; /* Slightly darker background */
+    box-sizing: border-box; /* Ensure padding doesn't affect width */
+}
+
+.section:nth-child(even) {
+    background-color: #c0c0c0; /* Slightly darker background */
+}
+
+.section h2 {
+    font-size: 1.8rem; /* Smaller title font size */
+    margin-bottom: 1rem;
+    color: #333; /* Black color for titles */
+    position: relative; /* Relative positioning */
+}
+
+.section h2 .badge {
+    position: absolute;
+    top: -5px; /* Adjust vertical position */
+    right: -5px; /* Adjust horizontal position */
+    background-color: #007bff; /* Blue color for badge */
+    color: #fff;
+    padding: 3px 6px;
+    border-radius: 10px;
+    font-size: 0.8rem; /* Smaller font size for badge */
+}
+
+.section p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    color: #333; /* Close to black */
+    text-align: left;
+}
+
+.code {
+    font-family: 'Roboto Mono', monospace;
+    background-color: rgba(0, 0, 0, 0.1); /* Dark black with minimal opacity */
+    color: #8b4513; /* Burnt orange color for code */
+    padding: 0.1rem 0.5rem; /* Adjusted padding */
+    border-radius: 3px;
+    font-weight: bold; /* Bold code font */
+}
+
+.header, .footer {
+    position: sticky;
+    top: 0;
+    background-color: #333;
+    color: #fff;
+    padding: 0.5rem 0; /* Adjusted padding */
+    text-align: center;
+}
+
+.footer {
+    position: sticky;
+    bottom: 0;
+}
+
+.pill-button {
+    background-color: #007bff; /* Blue color for pill button */
+    color: #fff;
+    padding: 0.2rem; /* Smaller padding */
+    font-size: 0.6rem; /* Smaller font size */
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.login-section {
+    padding: 50px;
+    text-align: center;
+    background-color: #f9f9f9;
+    border-top: 1px solid #eee;
+}
+.login-section button {
+    background-color: #28a745; /* Green color for button */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+.login-section button:hover {
+    background-color: #218838;
+}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1 style="font-size: 1.5rem;">Tetra Network Management</h1> <!-- Smaller header text size -->
+</div>
+<div class="container">
+    <div class="section" id="example-section">
+        <h2>Example<span class="badge">New</span></h2>
+        <div class="pill-button" hx-get="example.html" onclick="fetchExample()">&#128269;</div>
+    </div>
+    <div class="login-section">
+        <h2>SSH Key Login</h2>
+        <textarea id="sshKeyInput" placeholder="Paste your SSH Public Key here" rows="10" cols="50"></textarea>
+        <button onclick="handleLogin()">Login with SSH Key</button>
+    </div>
+</div>
+<div class="footer">
+    <p><span class="code">tetra</span> | <span class="code">nodeholder</span></p>
+</div>
+
+<script>
+function fetchExample() {
+    // Perform fetch action here
+    console.log("Fetching example...");
+}
+
+function handleLogin() {
+    const sshKey = document.getElementById("sshKeyInput").value;
+    console.log("Attempting login with SSH Key:", sshKey);
+    // Placeholder for SSH key login logic
+}
+</script>
+
+</body>
+</html>

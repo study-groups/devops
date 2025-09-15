@@ -227,6 +227,6 @@ tmod_fix() {
 tmod_index() {
     echo "Rebuilding module index..."
     tetra_load_module_index
-    local count=$(echo "${!TETRA_MODULE_META_DESCRIPTION[@]}" | wc -w)
+    local count=$(tetra_list_all_modules_metadata | wc -l)
     echo "Module index rebuilt with $count modules"
 }

@@ -3,120 +3,26 @@
 # Tetra Module Index System
 # Defines modules with metadata, completions, and help strings
 
-# Module metadata storage
-# Only declare if not already declared to prevent array type conflicts
-if [[ -z "$TETRA_MODULE_META_INITIALIZED" ]]; then
-    declare -A TETRA_MODULE_META_DESCRIPTION
-    declare -A TETRA_MODULE_META_COMMANDS
-    declare -A TETRA_MODULE_META_COMPLETIONS
-    declare -A TETRA_MODULE_META_CATEGORY
-    declare -A TETRA_MODULE_META_STATUS
-    export TETRA_MODULE_META_INITIALIZED=true
-fi
+# Load custom module metadata system
+source "$TETRA_SRC/bash/utils/module_metadata.sh"
 
-# Register module metadata
+# Legacy compatibility wrapper for tetra_register_module_meta
 tetra_register_module_meta() {
     local module="$1"
     local description="$2"
     local commands="$3"
     local completions="$4"
     local category="${5:-core}"
-    local status="${6:-stable}"
+    local module_status="${6:-stable}"
     
-    TETRA_MODULE_META_DESCRIPTION["$module"]="$description"
-    TETRA_MODULE_META_COMMANDS["$module"]="$commands"
-    TETRA_MODULE_META_COMPLETIONS["$module"]="$completions"
-    TETRA_MODULE_META_CATEGORY["$module"]="$category"
-    TETRA_MODULE_META_STATUS["$module"]="$status"
+    # Use new custom data structure
+    tetra_add_module_metadata "$module" "$description" "$commands" "$completions" "$category" "$module_status"
 }
 
 # Load module index definitions
 tetra_load_module_index() {
-    # Core modules
-    tetra_register_module_meta "utils" \
-        "Core utilities and helper functions" \
-        "tetra_dns_whatsmyip tetra_linux_clean_path tetra_ufw_allow" \
-        "" \
-        "core" "stable"
-    
-    tetra_register_module_meta "prompt" \
-        "Configurable bash prompt system" \
-        "tp tetra_prompt" \
-        "tp:style|multiline|toggle|status|help" \
-        "core" "stable"
-    
-    tetra_register_module_meta "python" \
-        "Python environment management via pyenv" \
-        "tetra_python_activate tpa tetra_python_install tetra_python_list" \
-        "tetra_python_install:3.8|3.9|3.10|3.11|3.12" \
-        "core" "stable"
-    
-    tetra_register_module_meta "nvm" \
-        "Node.js version management via nvm" \
-        "tetra_nvm_activate tna" \
-        "tetra_nvm_activate:node|lts|latest" \
-        "core" "stable"
-    
-    tetra_register_module_meta "tsm" \
-        "Tetra Service Manager - native process management" \
-        "tsm" \
-        "tsm:start|stop|restart|list|logs|info|delete|scan-ports" \
-        "core" "stable"
-    
-    tetra_register_module_meta "tkm" \
-        "Tetra Key Manager - SSH key and deployment management" \
-        "tkm" \
-        "tkm:init|add|list|deploy|status|org" \
-        "deployment" "stable"
-    
-    tetra_register_module_meta "pb" \
-        "Process management with PM2 integration" \
-        "pb" \
-        "pb:start|stop|restart|list|logs|delete" \
-        "deployment" "stable"
-    
-    tetra_register_module_meta "sync" \
-        "File synchronization and remote operations" \
-        "tetra_sync tetra_remote_ls" \
-        "" \
-        "deployment" "stable"
-    
-    tetra_register_module_meta "ssh" \
-        "SSH utilities and connection management" \
-        "tetra_ssh_hosts" \
-        "" \
-        "deployment" "stable"
-    
-    tetra_register_module_meta "enc" \
-        "Encryption and certificate management" \
-        "tetra_enc_pem tetra_enc_cert" \
-        "" \
-        "security" "stable"
-    
-    tetra_register_module_meta "deploy" \
-        "Deployment orchestration and management" \
-        "tetra_deploy" \
-        "" \
-        "deployment" "stable"
-    
-    # External modules
-    tetra_register_module_meta "rag" \
-        "RAG (Retrieval Augmented Generation) tools" \
-        "rag_repl rag_load_tools" \
-        "" \
-        "ai" "stable"
-    
-    tetra_register_module_meta "qa" \
-        "Question-answering system with multiple engines" \
-        "qa_query qa_set_engine qa_status qa_help" \
-        "qa_set_engine:openai|anthropic|local" \
-        "ai" "stable"
-    
-    tetra_register_module_meta "logtime" \
-        "Time tracking and logging utilities" \
-        "_logtime-elapsed-hms" \
-        "" \
-        "productivity" "stable"
+    # Initialize the new metadata system
+    tetra_init_module_metadata
 }
 
 # Enhanced module listing with metadata
@@ -125,7 +31,7 @@ tetra_list_modules_enhanced() {
     local show_dev="${2:-false}"
     
     # Load index if not already loaded
-    if [[ ${#TETRA_MODULE_META_DESCRIPTION[@]} -eq 0 ]]; then
+    if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         tetra_load_module_index
     fi
     
@@ -160,12 +66,12 @@ EOF
             for category in core deployment security ai productivity; do
                 echo "[$category]"
                 for module in $(tetra_get_available_modules); do
-                    if [[ "${TETRA_MODULE_META_CATEGORY[$module]}" == "$category" ]]; then
+                    if [[ "$(tetra_get_module_metadata "$module" "category" 2>/dev/null)" == "$category" ]]; then
                         local status="○"
                         if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
                             status="✓"
                         fi
-                        local desc="${TETRA_MODULE_META_DESCRIPTION[$module]:-No description}"
+                        local desc="$(tetra_get_module_metadata "$module" "description" 2>/dev/null || echo "No description")"
                         printf "  %s %-12s %s\n" "$status" "$module" "$desc"
                     fi
                 done
@@ -196,29 +102,13 @@ tetra_module_help() {
     fi
     
     # Load index if not already loaded
-    if [[ ${#TETRA_MODULE_META_DESCRIPTION[@]} -eq 0 ]]; then
+    # Initialize metadata if needed
+    if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         tetra_load_module_index
     fi
     
-    local desc="${TETRA_MODULE_META_DESCRIPTION[$module]:-No description available}"
-    local commands="${TETRA_MODULE_META_COMMANDS[$module]:-No commands listed}"
-    local completions="${TETRA_MODULE_META_COMPLETIONS[$module]:-No completions defined}"
-    local category="${TETRA_MODULE_META_CATEGORY[$module]:-unknown}"
-    local status="${TETRA_MODULE_META_STATUS[$module]:-unknown}"
-    
-    echo "Module: $module"
-    echo "Description: $desc"
-    echo "Category: $category"
-    echo "Status: $status"
-    echo
-    echo "Commands:"
-    echo "  $commands" | tr ' ' '\n' | sed 's/^/  /'
-    echo
-    if [[ "$completions" != "No completions defined" ]]; then
-        echo "Tab Completions:"
-        echo "  $completions" | tr ' ' '\n' | sed 's/^/  /'
-        echo
-    fi
+    # Use new custom data structure
+    tetra_get_module_info "$module"
     
     # Show load status
     if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
@@ -264,7 +154,7 @@ tetra_find_module() {
     fi
     
     # Load index if not already loaded
-    if [[ ${#TETRA_MODULE_META_DESCRIPTION[@]} -eq 0 ]]; then
+    if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         tetra_load_module_index
     fi
     
@@ -272,7 +162,7 @@ tetra_find_module() {
     echo
     
     for module in $(tetra_get_available_modules); do
-        local desc="${TETRA_MODULE_META_DESCRIPTION[$module]:-}"
+        local desc="$(tetra_get_module_metadata "$module" "description" 2>/dev/null || echo "")"
         if [[ "$module" == *"$pattern"* ]] || [[ "$desc" == *"$pattern"* ]]; then
             local status="○"
             if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1 && [[ -n "${TETRA_MODULE_LOADED[$module]:-}" ]] && [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
@@ -296,7 +186,7 @@ _tetra_enhanced_completion() {
     local cmd="${COMP_WORDS[0]}"
     
     # Load index if not already loaded
-    if [[ ${#TETRA_MODULE_META_DESCRIPTION[@]} -eq 0 ]]; then
+    if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         tetra_load_module_index
     fi
     

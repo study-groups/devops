@@ -1,0 +1,17 @@
+--- a/multisplit.sh
++++ b/multisplit.sh
+@@
+-AWK_SCRIPT='
++AWK_SCRIPT='
++BEGIN { state="scan" }
+@@
+-        # Output the path, a null byte, the content, and another null byte.
+-        printf "%s\0%s\0", full_path, content_buffer
++        # Output path<NUL>content<NUL> (portable).
++        printf "%s%c%s%c", full_path, 0, content_buffer, 0
+     }
+ }
+@@
++/.\r?$/ { sub(/\r$/,"") }  # tolerate CRLF inputs
+@@
+ '
