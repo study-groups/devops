@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Prevent non-interactive bash startup files from interfering
+unset BASH_ENV ENV
+
+# Source QA and ensure required dirs/vars
+source "$HOME/src/bash/qa/qa.sh"
+[[ -d "${QA_DIR:-$HOME/.qa}/db" ]] || mkdir -p "${QA_DIR:-$HOME/.qa}/db"
+
+# Hard fail if functions are not present
+declare -F _qa_sanitize_index a >/dev/null || { echo "qa.sh not loaded"; exit 1; }
+
+a "${@:-}"
+
