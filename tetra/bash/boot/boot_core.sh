@@ -83,19 +83,39 @@ tetra_create_lazy_function() {
             return 1
         fi
         
-        # Unset the stub function first
-        unset -f \"$func_name\"
-        
-        # Check if the real function now exists after loading
-        if declare -f \"$func_name\" >/dev/null 2>&1; then
-            # Real function exists, call it
-            \"$func_name\" \"\${args[@]}\"
-        else
-            echo \"Error: Real function $func_name not found after loading module $module_name\" >&2
-            return 1
-        fi
+        # Function should now be the real one (tetra_load_module replaces the stub)
+        \"$func_name\" \"\${args[@]}\"
     }
     "
+}
+
+# Function to unload a module
+tetra_unload_module() {
+    local module_name="$1"
+
+    if [[ "${TETRA_MODULE_LOADED[$module_name]}" != "true" ]]; then
+        echo "Module '$module_name' is not loaded" >&2
+        return 1
+    fi
+
+    [[ "${TETRA_DEBUG_LOADING:-false}" == "true" ]] && echo "Unloading module: $module_name" >&2
+
+    # Mark module as unloaded
+    TETRA_MODULE_LOADED[$module_name]=false
+
+    # Note: We cannot actually undefine functions that were loaded from the module
+    # This would require tracking which functions belong to which module
+    echo "Module '$module_name' marked as unloaded (functions remain available)"
+}
+
+# List loaded modules
+tetra_list_modules() {
+    echo "=== Tetra Module Status ==="
+    for module in $(echo "${!TETRA_MODULE_LOADERS[@]}" | tr ' ' '\n' | sort); do
+        local status="${TETRA_MODULE_LOADED[$module]:-false}"
+        local path="${TETRA_MODULE_LOADERS[$module]}"
+        printf "%-15s %-8s %s\n" "$module" "[$status]" "$path"
+    done
 }
 
 # Register essential modules first
@@ -107,12 +127,11 @@ tetra_register_module "qa" "$TETRA_SRC/bash/qa"
 # Source module config system
 source "$TETRA_SRC/bash/utils/module_config.sh"
 
+# Source new function state tracking system
+source "$TETRA_SRC/bash/utils/module_state.sh"
+
 # Load essential modules immediately
 tetra_load_module "utils"
 tetra_load_module "prompt"
 tetra_load_module "tmod"
-
-# Load qa directly to avoid lazy loading conflicts
-if [[ -f "$TETRA_SRC/bash/qa/includes.sh" ]]; then
-    source "$TETRA_SRC/bash/qa/includes.sh"
-fi
+tetra_load_module "qa"

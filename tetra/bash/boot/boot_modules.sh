@@ -67,7 +67,7 @@ tetra_create_lazy_function "tetra_svg" "svg"
 tetra_create_lazy_function "tro" "tro"
 tetra_create_lazy_function "anthropic" "anthropic"
 
-# QA module functions - loaded immediately in boot_core.sh, no lazy loading needed
+# QA module functions - loaded directly in boot_core.sh (not lazy loaded)
 
 # Melvin module functions
 tetra_create_lazy_function "echo64" "melvin"
