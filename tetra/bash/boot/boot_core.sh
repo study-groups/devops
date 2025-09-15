@@ -76,26 +76,22 @@ tetra_create_lazy_function() {
     
     eval "
     $func_name() {
-        local args=("$@")
+        local args=(\"\$@\")
         
-        if ! tetra_load_module "$module_name"; then
-            echo "Error: Failed to load module $module_name for function $func_name" >&2
+        if ! tetra_load_module \"$module_name\"; then
+            echo \"Error: Failed to load module $module_name for function $func_name\" >&2
             return 1
         fi
         
+        # Unset the stub function first
+        unset -f \"$func_name\"
+        
         # Check if the real function now exists after loading
-        if declare -f "$func_name" >/dev/null 2>&1; then
-            # Check if it's still the stub (contains tetra_load_module)
-            if declare -f "$func_name" | grep -q "tetra_load_module"; then
-                echo "Error: Function $func_name not properly loaded from module $module_name" >&2
-                return 1
-            else
-                # Real function exists, unset stub and call it
-                unset -f "$func_name"
-                "$func_name" "${args[@]}"
-            fi
+        if declare -f \"$func_name\" >/dev/null 2>&1; then
+            # Real function exists, call it
+            \"$func_name\" \"\${args[@]}\"
         else
-            echo "Error: Real function $func_name not found after loading module $module_name" >&2
+            echo \"Error: Real function $func_name not found after loading module $module_name\" >&2
             return 1
         fi
     }
@@ -106,7 +102,7 @@ tetra_create_lazy_function() {
 tetra_register_module "utils" "$TETRA_SRC/bash/utils"
 tetra_register_module "prompt" "$TETRA_SRC/bash/prompt"
 tetra_register_module "tmod" "$TETRA_SRC/bash/tmod"
-# tetra_register_module "qa" "$TETRA_SRC/bash/qa"
+tetra_register_module "qa" "$TETRA_SRC/bash/qa"
 
 # Source module config system
 source "$TETRA_SRC/bash/utils/module_config.sh"
@@ -115,4 +111,4 @@ source "$TETRA_SRC/bash/utils/module_config.sh"
 tetra_load_module "utils"
 tetra_load_module "prompt"
 tetra_load_module "tmod"
-#tetra_load_module "qa"
+tetra_load_module "qa"
