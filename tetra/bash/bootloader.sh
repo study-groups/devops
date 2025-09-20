@@ -21,6 +21,39 @@ source "$BOOT_DIR/boot_modules.sh"   # Module registration and lazy loading
 source "$BOOT_DIR/boot_aliases.sh"   # Aliases and shortcuts
 source "$BOOT_DIR/boot_prompt.sh"    # Prompt and interactive setup
 
+# Auto-load enabled modules after all components are ready (prevent recursion)
+if [[ "${TETRA_AUTO_LOADING:-}" != "true" && "${TETRA_BOOTLOADER_LOADED:-}" != "$$" ]]; then
+    export TETRA_AUTO_LOADING=true
+    enabled_modules=$(tetra_get_enabled_modules 2>/dev/null || true)
+    if [[ -n "$enabled_modules" ]]; then
+        loaded_modules=()
+        failed_modules=()
+
+        # Read modules into array properly from newline-separated output
+        module_array=()
+        while IFS= read -r module; do
+            [[ -n "$module" ]] && module_array+=("$module")
+        done <<< "$enabled_modules"
+
+        for module in "${module_array[@]}"; do
+            current_module="$module"
+            if tetra_smart_load_module "$current_module" >/dev/null 2>&1; then
+                loaded_modules+=("$current_module")
+            else
+                failed_modules+=("$current_module")
+            fi
+        done
+
+        if [[ ${#loaded_modules[@]} -gt 0 ]]; then
+            echo "Loaded: $(IFS=','; echo "${loaded_modules[*]}")"
+        fi
+        if [[ ${#failed_modules[@]} -gt 0 ]]; then
+            echo "Failed: $(IFS=','; echo "${failed_modules[*]}")"
+        fi
+    fi
+    export TETRA_AUTO_LOADING=false
+fi
+
 # Mark bootloader as loaded for this shell session
 export TETRA_BOOTLOADER_LOADED=$$
 
@@ -48,36 +81,146 @@ tetra_reload() {
     for var in "${preserved_tetra_vars[@]}"; do
         backup_vars+=("$var=${!var}")
     done
-    
+
+    # Backup currently loaded modules state
+    local loaded_modules_backup=()
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+        for module in "${!TETRA_MODULE_LOADED[@]}"; do
+            if [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+                loaded_modules_backup+=("$module")
+            fi
+        done
+    fi
+
+    # Debug: show what modules were backed up
+    echo "DEBUG: Backed up ${#loaded_modules_backup[@]} modules: ${loaded_modules_backup[*]}" >&2
+
+    # Prevent auto-loading during reload by preserving TETRA_AUTO_LOADING state
+    local was_auto_loading="${TETRA_AUTO_LOADING:-}"
+    export TETRA_AUTO_LOADING=true
+
     # Reset bootloader flag
     TETRA_BOOTLOADER_LOADED=""
-    
-    # Reset module tracking arrays
+
+    # Properly reset module tracking arrays (global scope)
+    # First unset existing arrays completely
     if declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
-        TETRA_MODULE_LOADERS=()
+        unset TETRA_MODULE_LOADERS
     fi
     if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
-        TETRA_MODULE_LOADED=()
+        unset TETRA_MODULE_LOADED
     fi
+
+    # Recreate as global associative arrays
+    declare -gA TETRA_MODULE_LOADERS
+    declare -gA TETRA_MODULE_LOADED
     
-    # Remove lazy function stubs (but keep real functions)
-    local lazy_functions=("rag_repl" "rag_load_tools" "tmod" "tsm" "tkm" "tetra_python_activate" "tetra_nvm_activate" "tetra_ssh" "tetra_sync" "tetra_deploy" "tetra_git" "tetra_nginx" "pm" "tetra_service" "tetra_tmux" "tetra_user" "hotrod" "tetra_ml" "pb" "pbvm" "pico" "tetra_svg" "tro" "anthropic" "tetra_status")
-    for func in "${lazy_functions[@]}"; do
+    # Remove ALL module-related functions (both lazy stubs and actual loaded functions)
+    local all_functions=($(declare -F | cut -d' ' -f3))
+    local functions_to_remove=()
+
+    for func in "${all_functions[@]}"; do
+        # Skip absolutely essential functions that should never be removed
+        if [[ "$func" =~ ^(tetra_reload|ttr|declare|set|unset|export|source|cd|pwd|ls|echo|printf|read|test|\[|\[\[)$ ]]; then
+            continue
+        fi
+
+        # Remove functions that:
+        # 1. Are lazy loading stubs (contain tetra_load_module)
+        # 2. Are from specific module patterns (tmod_, rag_, tetra_cc_, _tetra_, etc.)
+        # 3. Are known module functions
         if declare -f "$func" >/dev/null 2>&1; then
-            if declare -f "$func" | grep -q "tetra_load_module"; then
-                unset -f "$func" 2>/dev/null
+            local should_remove=false
+
+            # Check for lazy loading pattern
+            if declare -f "$func" | grep -q "tetra_load_module\|tetra_smart_load_module"; then
+                should_remove=true
+            fi
+
+            # Check for module function patterns
+            if [[ "$func" =~ ^(tmod_|rag_|tetra_cc_|tetra_rag_|_tetra_|_rag_|_tmod_|_repl_|tsm|tkm|claude|anthropic).*$ ]]; then
+                should_remove=true
+            fi
+
+            # Check for specific known module functions
+            if [[ "$func" =~ ^(mc|ms|mi|mf|qpatch|replace|pb|pbvm|pico|hotrod|tro)$ ]]; then
+                should_remove=true
+            fi
+
+            # Also remove any function that was defined in module directories
+            # by checking if it's a function likely to be from modules
+            if [[ "$func" =~ ^tetra_.*_(activate|where|status|repl|help|load|init|setup)$ ]]; then
+                should_remove=true
+            fi
+
+            if [[ "$should_remove" == "true" ]]; then
+                functions_to_remove+=("$func")
             fi
         fi
+    done
+
+    # Remove detected module functions
+    for func in "${functions_to_remove[@]}"; do
+        unset -f "$func" 2>/dev/null
     done
     
     # Reload bootloader
     source "$TETRA_SRC/bash/bootloader.sh"
-    
+
     # Restore preserved variables
     for var_def in "${backup_vars[@]}"; do
         export "$var_def"
     done
-    
+
+    # Restore loaded modules state AFTER bootloader reload
+    # Ensure arrays exist before attempting restoration
+    if [[ ${#loaded_modules_backup[@]} -gt 0 ]]; then
+        # Verify arrays were properly recreated
+        if ! declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+            declare -gA TETRA_MODULE_LOADED
+        fi
+        if ! declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
+            declare -gA TETRA_MODULE_LOADERS
+        fi
+
+        # Force reload of backed up modules (don't just mark as loaded)
+        for module in "${loaded_modules_backup[@]}"; do
+            # First mark as unloaded to force fresh loading
+            TETRA_MODULE_LOADED["$module"]="false"
+
+            # Then force load the module to get fresh functions
+            if [[ -n "${TETRA_MODULE_LOADERS[$module]:-}" ]]; then
+                echo "Reloading module: $module" >&2
+                tetra_load_module "$module" 2>/dev/null || echo "Failed to reload: $module" >&2
+            fi
+        done
+    fi
+
+    # Clean up environment variable pollution
+    # Remove metadata field names and other artifacts that shouldn't be in environment
+    local metadata_vars=("category" "commands" "completions" "description" "status")
+    for var in "${metadata_vars[@]}"; do
+        unset "$var" 2>/dev/null || true
+    done
+
+    # Clean up any orphaned TETRA_* variables that aren't in our preserve list
+    while IFS= read -r var_line; do
+        if [[ "$var_line" =~ ^declare[[:space:]]+.*[[:space:]]([A-Z_]+)= ]]; then
+            local var_name="${BASH_REMATCH[1]}"
+            # Only clean up TETRA_* vars not in our preserve list
+            if [[ "$var_name" =~ ^TETRA_ ]] && ! [[ "$var_name" =~ ^(TETRA_DIR|TETRA_SRC|TETRA_AUTO_LOADING|TETRA_BOOTLOADER_LOADED|TETRA_MODULE_LOADERS|TETRA_MODULE_LOADED|TETRA_PROMPT_|TETRA_DEBUG_).*$ ]]; then
+                unset "$var_name" 2>/dev/null || true
+            fi
+        fi
+    done < <(declare -p 2>/dev/null | grep "^declare.*=" || true)
+
+    # Restore original auto-loading state
+    if [[ -z "$was_auto_loading" ]]; then
+        unset TETRA_AUTO_LOADING
+    else
+        export TETRA_AUTO_LOADING="$was_auto_loading"
+    fi
+
     echo "Tetra environment reloaded successfully"
 }
 

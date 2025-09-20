@@ -3,9 +3,16 @@
 # Deployment REPL with state tracking
 # Follows TSM script pattern for consistency
 
-# Ensure TETRA_DIR is set
-TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
-DEPLOY_RUNS_DIR="${TETRA_DIR}/deploy/runs"
+# Load shared REPL utilities
+source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
+
+# Deploy Directory Convention under TETRA_DIR
+# Following standard pattern: TETRA_DIR/deploy/{config,logs,runs,history}
+DEPLOY_DIR="${TETRA_DIR:-$HOME/tetra}/deploy"
+DEPLOY_RUNS_DIR="${DEPLOY_DIR}/runs"
+DEPLOY_CONFIG_DIR="${DEPLOY_DIR}/config"
+DEPLOY_LOGS_DIR="${DEPLOY_DIR}/logs"
+DEPLOY_HISTORY_DIR="${DEPLOY_DIR}/history"
 
 # Default configuration
 DEPLOY_CONFIG=(
@@ -43,7 +50,7 @@ EOF
 
 # Configuration Management
 tetra_deploy_edit_config() {
-    local config_file="${1:-$TETRA_DIR/deploy/deploy_config.sh}"
+    local config_file="${1:-$DEPLOY_CONFIG_DIR/deploy_config.sh}"
     
     # Create config file if it doesn't exist
     mkdir -p "$(dirname "$config_file")"
@@ -62,7 +69,7 @@ tetra_deploy_edit_config() {
 # Load Configuration
 tetra_deploy_load_config() {
     local target_env="${1:-staging}" # Default to staging
-    local config_file="$TETRA_DIR/deploy/deploy-${target_env}.sh"
+    local config_file="$DEPLOY_CONFIG_DIR/deploy-${target_env}.sh"
     
     # Check if config file exists
     if [[ ! -f "$config_file" ]]; then

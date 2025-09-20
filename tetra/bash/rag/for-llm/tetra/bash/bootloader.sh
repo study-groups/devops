@@ -48,16 +48,30 @@ tetra_reload() {
     for var in "${preserved_tetra_vars[@]}"; do
         backup_vars+=("$var=${!var}")
     done
-    
+
+    # Backup currently loaded modules state
+    local loaded_modules_backup=()
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+        for module in "${!TETRA_MODULE_LOADED[@]}"; do
+            if [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+                loaded_modules_backup+=("$module")
+            fi
+        done
+    fi
+
+    # Prevent auto-loading during reload by preserving TETRA_AUTO_LOADING state
+    local was_auto_loading="${TETRA_AUTO_LOADING:-}"
+    export TETRA_AUTO_LOADING=true
+
     # Reset bootloader flag
     TETRA_BOOTLOADER_LOADED=""
-    
+
     # Reset module tracking arrays
     if declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
-        TETRA_MODULE_LOADERS=()
+        declare -A TETRA_MODULE_LOADERS=()
     fi
     if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
-        TETRA_MODULE_LOADED=()
+        declare -A TETRA_MODULE_LOADED=()
     fi
     
     # Remove lazy function stubs (but keep real functions)
@@ -77,7 +91,23 @@ tetra_reload() {
     for var_def in "${backup_vars[@]}"; do
         export "$var_def"
     done
-    
+
+    # Restore loaded modules state AFTER bootloader reload
+    if [[ ${#loaded_modules_backup[@]} -gt 0 ]]; then
+        for module in "${loaded_modules_backup[@]}"; do
+            if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+                TETRA_MODULE_LOADED["$module"]="true"
+            fi
+        done
+    fi
+
+    # Restore original auto-loading state
+    if [[ -z "$was_auto_loading" ]]; then
+        unset TETRA_AUTO_LOADING
+    else
+        export TETRA_AUTO_LOADING="$was_auto_loading"
+    fi
+
     echo "Tetra environment reloaded successfully"
 }
 

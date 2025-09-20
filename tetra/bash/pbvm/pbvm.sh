@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Set default PBVM_ROOT if not set
 if [ -z "$PBVM_ROOT" ]; then
-    echo "Error: PBVM_ROOT is not set."
-    return 1
+    export PBVM_ROOT="$HOME/.pbvm"
 fi
 
 export PBVM_VERSIONS="$PBVM_ROOT/versions"

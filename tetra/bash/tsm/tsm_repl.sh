@@ -3,9 +3,12 @@
 # tsm_repl.sh - Interactive REPL for tetra service manager
 # Provides slash command syntax and custom commands
 
+# Load shared REPL utilities
+source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
+
 # History management
-TSM_HISTORY_LOG="$TETRA_DIR/tsm/repl_history.log"
-TSM_HISTORY_FILE="$TETRA_DIR/tsm/.tsm_history"
+TSM_HISTORY_LOG="$TSM_DIR/history/repl_history.log"
+TSM_HISTORY_FILE="$TSM_DIR/history/.tsm_history"
 
 tsm_repl_help() {
     cat <<'EOF'

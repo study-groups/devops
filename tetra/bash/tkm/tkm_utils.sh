@@ -352,7 +352,7 @@ tkm_validate_environment() {
     fi
     
     # Check TKM directories
-    local required_dirs=("$TKM_BASE_DIR" "$TKM_KEYS_DIR" "$TKM_CONFIG_DIR" "$TKM_LOGS_DIR")
+    local required_dirs=("$TKM_DIR" "$TKM_KEYS_DIR" "$TKM_CONFIG_DIR" "$TKM_LOGS_DIR")
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             echo "❌ Required directory missing: $dir"

@@ -4,12 +4,12 @@
 # Handles organization-level tracking and server imports
 
 # Source utilities
-TKM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$TKM_DIR/tkm_utils.sh"
+TKM_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TKM_SRC_DIR/tkm_utils.sh"
 
 # Organization configuration structure under TETRA_DIR
-TKM_ORGS_DIR="${TKM_BASE_DIR}/orgs"
-TKM_CURRENT_ORG_FILE="${TKM_BASE_DIR}/.current_org"
+TKM_ORGS_DIR="${TKM_DIR}/organizations"
+TKM_CURRENT_ORG_FILE="${TKM_DIR}/.current_org"
 
 # Resolve organization name (handle both primary names and aliases)
 tkm_org_resolve() {
@@ -620,7 +620,7 @@ tkm_org_remove() {
     fi
     
     # Create backup before removal
-    local backup_dir="$TKM_BASE_DIR/backups/organizations"
+    local backup_dir="$TKM_DIR/backups/organizations"
     mkdir -p "$backup_dir"
     local backup_file="$backup_dir/${org_name}_$(date +%Y%m%d_%H%M%S).tar.gz"
     

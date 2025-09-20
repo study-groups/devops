@@ -145,7 +145,7 @@ test_load_module_with_dev_flag() {
 # Run all tests
 run_tests() {
     # Reset module loading state before tests
-    TETRA_MODULE_LOADED=()
+    declare -A TETRA_MODULE_LOADED=()
     
     test_load_existing_module
     test_load_nonexistent_module

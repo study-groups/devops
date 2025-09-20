@@ -2,6 +2,9 @@
 
 # tmod REPL - Interactive module management interface
 
+# Load shared REPL utilities
+source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
+
 tmod_repl() {
     local session_start=$(date)
     local command_count=0

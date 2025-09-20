@@ -4,11 +4,15 @@
 # Provides command-line interface for key management
 
 # Source utilities
-TKM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$TKM_DIR/tkm_utils.sh"
+TKM_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TKM_SRC_DIR/tkm_utils.sh"
 
-TKM_HISTORY_LOG="$TKM_BASE_DIR/repl_history.log"
-TKM_HISTORY_FILE="$TKM_BASE_DIR/.tkm_history"
+# Load shared REPL utilities
+source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
+
+# Standardized history location
+TKM_HISTORY_LOG="$TKM_DIR/history/repl.log"
+TKM_HISTORY_FILE="$TKM_DIR/history/.tkm_history"
 
 # Help function now handled by tkm_help.sh module
 

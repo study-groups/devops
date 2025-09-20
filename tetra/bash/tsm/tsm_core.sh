@@ -41,6 +41,49 @@ _tsm_validate_script() {
     [[ -f "$script" && -x "$script" ]] || { echo "tsm: '$script' not found or not executable" >&2; return 66; }
 }
 
+_tsm_auto_detect_env() {
+    local script="$1"
+    local explicit_env="$2"
+
+    # If explicit env provided, handle it
+    if [[ -n "$explicit_env" ]]; then
+        # If it's just an environment name (no path), try env/{name}.env
+        if [[ "$explicit_env" != *"/"* && "$explicit_env" != *".env" ]]; then
+            local script_dir="$(dirname "$script")"
+            local project_root="$(dirname "$script_dir")"
+            local auto_env="$project_root/env/${explicit_env}.env"
+            if [[ -f "$auto_env" ]]; then
+                echo "$auto_env"
+                return 0
+            fi
+        fi
+
+        # Otherwise treat as direct file path
+        if [[ -f "$explicit_env" ]]; then
+            echo "$explicit_env"
+            return 0
+        fi
+
+        echo "tsm: env file '$explicit_env' not found" >&2
+        return 66
+    fi
+
+    # Auto-detect based on entrypoint path convention
+    local script_dir="$(dirname "$script")"
+    local project_root="$(dirname "$script_dir")"
+
+    # Default to env/local.env for any entrypoint (most common case)
+    local default_env="$project_root/env/local.env"
+    if [[ -f "$default_env" ]]; then
+        echo "$default_env"
+        return 0
+    fi
+
+    # No environment file found - this is okay, return empty
+    echo ""
+    return 0
+}
+
 _tsm_resolve_script_path() {
     local script_path="$1"
     
@@ -66,10 +109,27 @@ _tsm_generate_name() {
     local script="$1"
     local custom_name="$2"
     local port="$3"
-    
+    local env_file="$4"
+
     local base
     base="$(basename "$script" .sh)"
-    echo "${custom_name:-$base}-${port}"
+
+    # If custom name provided, use it as-is
+    if [[ -n "$custom_name" ]]; then
+        echo "${custom_name}-${port}"
+        return 0
+    fi
+
+    # Extract environment name from env file path
+    local env_name="local"  # default
+    if [[ -n "$env_file" ]]; then
+        local env_basename="$(basename "$env_file" .env)"
+        if [[ "$env_basename" != "env" ]]; then  # avoid using "env" as env name
+            env_name="$env_basename"
+        fi
+    fi
+
+    echo "${base}-${env_name}-${port}"
 }
 
 _tsm_save_metadata() {
@@ -80,20 +140,25 @@ _tsm_save_metadata() {
     local type="$5"
     local start_dir="${6:-}"
     local cwd="${7:-}"
-    
+    local preserve_id="${8:-}"
+
     local tsm_id
-    tsm_id=$(tetra_tsm_get_next_id)
-    
+    if [[ -n "$preserve_id" ]]; then
+        tsm_id="$preserve_id"
+    else
+        tsm_id=$(tetra_tsm_get_next_id)
+    fi
+
     local metafile="$TETRA_DIR/tsm/processes/$name.meta"
     local meta_content="script='$script' pid=$pid port=$port start_time=$(date +%s) type=$type tsm_id=$tsm_id"
     [[ -n "$start_dir" ]] && meta_content+=" start_dir='$start_dir'"
     [[ -n "$cwd" ]] && meta_content+=" cwd='$cwd'"
-    
+
     echo "$meta_content" > "$metafile"
-    
+
     # Save environment
     printenv > "$TETRA_DIR/tsm/processes/$name.env"
-    
+
     echo "$tsm_id"
 }
 
@@ -171,17 +236,30 @@ tetra_tsm_start_cli() {
     local script="${1:-}"
     local custom_name="${2:-}"
     local env_file="${3:-}"
-    
+
     _tsm_validate_script "$script" || return $?
-    
+
+    # Auto-detect environment file if not explicitly provided
+    local resolved_env_file
+    resolved_env_file="$(_tsm_auto_detect_env "$script" "$env_file")" || return $?
+
+    # If we found an env file, source it temporarily to get PORT
     local port
-    port="$(tetra_tsm_extract_port "$script")" || {
-        echo "tsm: PORT not set; no valid PORT= in script" >&2
-        return 65
-    }
-    
+    if [[ -n "$resolved_env_file" ]]; then
+        # Source env file in subshell to extract PORT or TETRA_PORT without affecting current environment
+        port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
+    fi
+
+    # Fallback to extracting PORT from script if not found in env
+    if [[ -z "$port" ]]; then
+        port="$(tetra_tsm_extract_port "$script")" || {
+            echo "tsm: PORT not set in env file or script" >&2
+            return 65
+        }
+    fi
+
     local pwd_at_start="$PWD"
-    _tsm_start_cli_internal "$script" "$custom_name" "$port" "$env_file" "$pwd_at_start"
+    _tsm_start_cli_internal "$script" "$custom_name" "$port" "$resolved_env_file" "$pwd_at_start"
 }
 
 _tsm_start_cli_internal() {
@@ -190,9 +268,9 @@ _tsm_start_cli_internal() {
     local port="$3"
     local env_file="$4"
     local pwd_at_start="$5"
-    
+
     local name
-    name=$(_tsm_generate_name "$script" "$custom_name" "$port")
+    name=$(_tsm_generate_name "$script" "$custom_name" "$port" "$env_file")
     
     tetra_tsm_is_running "$name" && {
         echo "tsm: process '$name' already running" >&2
@@ -377,7 +455,16 @@ tetra_tsm_start_command() {
 tetra_tsm_start() {
     local file="" env_file="" custom_name="" python_start=false python_cmd="" port="" dirname=""
     local command_mode=false command_args=()
-    
+
+    # Check if first argument is a registered service
+    if [[ $# -ge 1 && -f "$TETRA_SRC/bash/tsm/services.conf" ]]; then
+        local first_arg="$1"
+        if tsm_find_service "$first_arg" >/dev/null 2>&1; then
+            tsm_start_service "$@"
+            return $?
+        fi
+    fi
+
     # Special case for webserver with no arguments
     if [[ "$1" == "webserver" && $# -eq 1 ]]; then
         tetra_tsm_start_webserver
@@ -504,11 +591,8 @@ tetra_tsm_start() {
     # CLI start mode (executable files)
     [[ -n "$file" ]] || { echo "tsm: start [--env env.sh] <script.sh|command> [name]" >&2; return 64; }
     [[ -f "$file" ]] || { echo "tsm: '$file' not found" >&2; return 66; }
-    
-    if [[ -n "$env_file" ]]; then
-        [[ -f "$env_file" ]] || { echo "tsm: env file '$env_file' not found" >&2; return 66; }
-    fi
-    
+
+    # Let tetra_tsm_start_cli handle env file validation with auto-detection
     tetra_tsm_start_cli "$file" "$custom_name" "$env_file"
 }
 
@@ -728,16 +812,16 @@ tetra_tsm_restart_by_id() {
 tetra_tsm_restart_single() {
     local name="$1"
     local metafile="$TETRA_DIR/tsm/processes/$name.meta"
-    
+
     [[ -f "$metafile" ]] || { echo "tsm: process '$name' not found" >&2; return 1; }
-    
-    # Parse metadata
-    local script type port start_dir cwd
+
+    # Parse metadata and preserve the original TSM ID
+    local script type port start_dir cwd tsm_id
     eval "$(cat "$metafile")"
-    
-    # Stop current process
-    tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
-    
+
+    # Stop current process but don't delete metadata yet
+    tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
+
     # Extract original name (pre-port)
     local original_name
     if [[ "$name" =~ ^(.+)-[0-9]+$ ]]; then
@@ -745,23 +829,140 @@ tetra_tsm_restart_single() {
     else
         original_name="$name"
     fi
-    
-    # Restart based on type
+
+    # Restart based on type, preserving the TSM ID
     case "$type" in
         python)
-            tetra_tsm_start_python "$script" "$port" "$start_dir" "$original_name" "$cwd"
+            _tsm_restart_python "$script" "$port" "$start_dir" "$original_name" "$cwd" "$tsm_id"
             ;;
         cli)
             local script_path
             script_path=$(_tsm_resolve_script_path "$script") || return 1
             _tsm_validate_script "$script_path" || return $?
-            _tsm_start_cli_internal "$script_path" "$original_name" "$port" "" "$cwd"
+            _tsm_restart_cli_internal "$script_path" "$original_name" "$port" "" "$cwd" "$tsm_id"
+            ;;
+        command)
+            _tsm_restart_command "$script" "$original_name" "$port" "" "$cwd" "$tsm_id"
             ;;
         *)
             echo "tsm: unknown process type '$type'" >&2
             return 1
             ;;
     esac
+}
+
+# === RESTART HELPERS ===
+
+_tsm_restart_python() {
+    local python_cmd="$1"
+    local port="$2"
+    local dirname="$3"
+    local custom_name="$4"
+    local pwd_at_start_override="$5"
+    local preserve_id="$6"
+
+    tetra_python_activate
+
+    local name="${custom_name:-python-server}-${port}"
+
+    # Change to specified directory if provided
+    local start_dir="$PWD"
+    if [[ -n "$dirname" ]]; then
+        [[ -d "$dirname" ]] || { echo "tsm: directory '$dirname' not found" >&2; return 66; }
+        start_dir="$dirname"
+    fi
+
+    local setsid_cmd
+    setsid_cmd=$(tetra_tsm_get_setsid) || {
+        echo "tsm: setsid not available. Run 'tsm setup' or 'brew install util-linux' on macOS" >&2
+        return 1
+    }
+
+    local logdir="$TETRA_DIR/tsm/logs"
+    local piddir="$TETRA_DIR/tsm/pids"
+
+    (
+        $setsid_cmd bash -c "
+            cd '$start_dir'
+            export PYTHONUNBUFFERED=1
+            $python_cmd </dev/null >>'$logdir/$name.out' 2>>'$logdir/$name.err' &
+            echo \$! > '$piddir/$name.pid'
+        " &
+    )
+
+    sleep 0.5
+    if tetra_tsm_is_running "$name"; then
+        local pid
+        pid=$(cat "$piddir/$name.pid")
+
+        local cwd_value
+        if [[ -n "$pwd_at_start_override" ]]; then
+            cwd_value="$pwd_at_start_override"
+        else
+            cwd_value="$PWD"
+        fi
+
+        local tsm_id
+        tsm_id=$(_tsm_save_metadata "$name" "$python_cmd" "$pid" "$port" "python" "$start_dir" "$cwd_value" "$preserve_id")
+
+        echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+    else
+        echo "tsm: failed to restart '$name'" >&2
+        return 1
+    fi
+}
+
+_tsm_restart_cli_internal() {
+    local script="$1"
+    local custom_name="$2"
+    local port="$3"
+    local env_file="$4"
+    local pwd_at_start="$5"
+    local preserve_id="$6"
+
+    local name
+    name=$(_tsm_generate_name "$script" "$custom_name" "$port" "$env_file")
+
+    # CLI scripts run from their parent directory
+    local working_dir
+    working_dir="$(dirname "$(dirname "$script")")"
+
+    _tsm_start_process "$script" "$name" "$env_file" "$working_dir" || {
+        echo "tsm: failed to restart '$name'" >&2
+        return 1
+    }
+
+    local pid
+    pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+
+    local tsm_id
+    tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "cli" "" "$pwd_at_start" "$preserve_id")
+
+    echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid)"
+}
+
+_tsm_restart_command() {
+    local command_string="$1"
+    local custom_name="$2"
+    local port="$3"
+    local env_file="$4"
+    local working_dir="$5"
+    local preserve_id="$6"
+
+    local name="${custom_name}-${port}"
+
+    _tsm_start_command_process "$command_string" "$name" "$env_file" "$working_dir" || {
+        echo "tsm: failed to restart '$name'" >&2
+        return 1
+    }
+
+    local pid
+    pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+
+    local tsm_id
+    tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir" "$preserve_id")
+
+    echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
 }
 
 # === ID MANAGEMENT ===

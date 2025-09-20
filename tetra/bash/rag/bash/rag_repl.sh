@@ -18,38 +18,75 @@ rag_trace_call_stack() {
 }
 
 rag_repl() {
-    echo "Welcome to RAG Tools v001!"
-    echo "Commands: cursor, mcursor, cat, mcat, help, tutorial, exit"
-    echo "Use TAB for completion, '/help' for detailed help"
+    echo "🔧 Welcome to RAG Tools Interactive REPL!"
+    echo "Commands: mc, ms, mi, example, cursor, mcursor, qpatch, help, status, exit"
+    echo "Use TAB for completion, 'help' for detailed help"
     echo ""
-    
+
+    # Initialize RAG environment
+    [[ ! -d "$RAG_DIR" ]] && mkdir -p "$RAG_DIR"
+
     local input cmd args
     while true; do
         read -e -p "rag> " input
-        
+
         # Handle empty input
         [[ -z "$input" ]] && continue
-        
+
         # Add to history
         history -s "$input"
-        
+
         # Parse command and arguments
         read -r cmd args <<< "$input"
-        
+
         case "$cmd" in
+            # Core porcelain functions
+            mc)
+                _rag_repl_mc $args
+                ;;
+            ms)
+                _rag_repl_ms $args
+                ;;
+            mi)
+                _rag_repl_mi $args
+                ;;
+            mf)
+                _rag_repl_mf $args
+                ;;
+            qpatch)
+                _rag_repl_qpatch $args
+                ;;
+            replace)
+                _rag_repl_replace $args
+                ;;
+            example)
+                _rag_repl_example $args
+                ;;
+            # Cursor operations
             cursor)
                 _rag_repl_cursor $args
                 ;;
-            mcursor)  
+            mcursor)
                 _rag_repl_mcursor $args
                 ;;
+            # Legacy commands
             cat)
                 _rag_repl_cat $args
                 ;;
             mcat)
                 _rag_repl_mcat $args
                 ;;
-            help|/help)
+            # System commands
+            status)
+                _rag_repl_status
+                ;;
+            pwd)
+                pwd
+                ;;
+            ls)
+                ls $args
+                ;;
+            help|/help|h)
                 _rag_repl_help $args
                 ;;
             tutorial|/tutorial)
@@ -61,7 +98,7 @@ rag_repl() {
             clear)
                 clear
                 ;;
-            exit|quit|/exit|/quit)
+            exit|quit|/exit|/quit|q)
                 echo "Exiting RAG REPL. Happy coding!"
                 break
                 ;;
@@ -71,6 +108,63 @@ rag_repl() {
                 ;;
         esac
     done
+}
+
+# New porcelain command implementations for REPL
+_rag_repl_mc() {
+    echo "Creating MULTICAT: $*"
+    mc "$@"
+}
+
+_rag_repl_ms() {
+    echo "Splitting MULTICAT: $*"
+    ms "$@"
+}
+
+_rag_repl_mi() {
+    echo "MULTICAT info: $*"
+    mi "$@"
+}
+
+_rag_repl_mf() {
+    echo "Finding files: $*"
+    mf "$@"
+}
+
+_rag_repl_qpatch() {
+    echo "Applying patch: $*"
+    qpatch "$@"
+}
+
+_rag_repl_replace() {
+    echo "Replacing content: $*"
+    replace "$@"
+}
+
+_rag_repl_example() {
+    echo "📄 Generating MULTICAT example with 2 files..."
+    mc --example
+}
+
+_rag_repl_status() {
+    echo "RAG Tools Status:"
+    echo "================="
+    echo "RAG_DIR: ${RAG_DIR:-<not set>}"
+    echo "RAG_SRC: ${RAG_SRC:-<not set>}"
+    echo ""
+    echo "Available tools:"
+    for tool in mc ms mi mf qpatch replace; do
+        if command -v "$tool" >/dev/null 2>&1; then
+            echo "  ✓ $tool"
+        else
+            echo "  ✗ $tool"
+        fi
+    done
+    echo ""
+    echo "Storage directories:"
+    [[ -d "$RAG_DIR" ]] && echo "  ✓ $RAG_DIR" || echo "  ✗ $RAG_DIR (missing)"
+    [[ -d "$RAG_DIR/cursors" ]] && echo "  ✓ $RAG_DIR/cursors" || echo "  ○ $RAG_DIR/cursors (not created)"
+    [[ -d "$RAG_DIR/multicursors" ]] && echo "  ✓ $RAG_DIR/multicursors" || echo "  ○ $RAG_DIR/multicursors (not created)"
 }
 
 # REPL command implementations
@@ -217,21 +311,41 @@ EOF
             ;;
         *)
             cat <<EOF
-RAG Tools REPL Help:
+🔧 RAG Tools REPL Help:
 
-Core Commands:
-  cursor     - Individual cursor operations
-  mcursor    - Multicursor collection operations  
-  cat        - View MULTICAT files and blocks
-  mcat       - Create MULTICAT files
+Core Porcelain Commands:
+  mc <files...>        - Create MULTICAT from files/directories
+  ms <file.mc>         - Split MULTICAT back to files
+  mi <file.mc>         - Show MULTICAT file info
+  mf <pattern> <dir>   - Find files with ranking
+  qpatch <patch>       - Apply patches intelligently
+  replace <old> <new>  - Replace content in files
+  example              - Generate example MULTICAT with 2 sample files
 
-Utilities:
-  help <topic>    - Detailed help (cursor, mcursor, cat, mcat)
-  tutorial        - Interactive tutorials
-  functions       - List all available rag_* functions
-  demo            - Show example workflows
-  clear           - Clear screen
-  exit            - Exit REPL
+Cursor Operations:
+  cursor <cmd>         - Individual cursor operations
+  mcursor <cmd>        - Multicursor collection operations
+
+Legacy Commands:
+  cat <file>           - View MULTICAT files (alias for mi)
+  mcat <args>          - Create MULTICAT (alias for mc)
+
+System Commands:
+  status               - Show RAG system status
+  pwd                  - Show current directory
+  ls <args>            - List files
+  clear                - Clear screen
+  exit, quit, q        - Exit REPL
+
+Help Topics:
+  help <topic>         - Detailed help (mc, ms, cursor, mcursor)
+  functions            - List all available rag_* functions
+
+Examples:
+  example              - Generate sample MULTICAT to learn the format
+  mc -r src/           - Create MULTICAT from src directory
+  ms output.mc         - Extract files from MULTICAT
+  mi code.mc           - Show what's in a MULTICAT file
 
 Use TAB for auto-completion!
 EOF
@@ -256,10 +370,17 @@ _rag_repl_functions() {
 _rag_repl_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     case "$prev" in
         "rag>")
-            COMPREPLY=($(compgen -W "cursor mcursor cat mcat help tutorial demo exit" -- "$cur"))
+            COMPREPLY=($(compgen -W "mc ms mi mf qpatch replace example cursor mcursor cat mcat status pwd ls help tutorial functions clear exit quit q" -- "$cur"))
+            ;;
+        mc|mcat)
+            COMPREPLY=($(compgen -f -- "$cur"))
+            [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -d -- "$cur"))
+            ;;
+        ms|mi|cat)
+            COMPREPLY=($(compgen -f -X "!*.mc" -- "$cur"))
             ;;
         cursor)
             COMPREPLY=($(compgen -W "create list show delete" -- "$cur"))
@@ -267,13 +388,11 @@ _rag_repl_complete() {
         mcursor)
             COMPREPLY=($(compgen -W "create list show add remove" -- "$cur"))
             ;;
-        cat)
-            COMPREPLY=($(compgen -f -X "!*.mc" -- "$cur"))
-            [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -W "blocks info" -- "$cur"))
+        help)
+            COMPREPLY=($(compgen -W "mc ms mi cursor mcursor" -- "$cur"))
             ;;
-        mcat)
-            COMPREPLY=($(compgen -W "from-cursors from-files" -- "$cur"))
-            [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -d -- "$cur"))
+        ls)
+            COMPREPLY=($(compgen -f -- "$cur"))
             ;;
     esac
 }

@@ -34,6 +34,7 @@ tetra_register_module "svg" "$TETRA_BASH/svg"
 tetra_register_module "tro" "$TETRA_BASH/tro"
 tetra_register_module "anthropic" "$TETRA_BASH/anthropic"
 tetra_register_module "reporting" "$TETRA_BASH/reporting"
+tetra_register_module "claude" "$TETRA_BASH/claude"
 
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
@@ -45,6 +46,11 @@ tetra_register_module "logtime" "$HOME/src/bash/logtime"
 # Create lazy loading stubs for all module functions
 tetra_create_lazy_function "rag_repl" "rag"
 tetra_create_lazy_function "rag_load_tools" "rag"
+tetra_create_lazy_function "tetra_rag_search" "rag"
+tetra_create_lazy_function "tetra_rag_chunks" "rag"
+tetra_create_lazy_function "tetra_rag_context" "rag"
+tetra_create_lazy_function "tetra_rag_cite" "rag"
+tetra_create_lazy_function "tetra_rag_export_jsonl" "rag"
 tetra_create_lazy_function "tsm" "tsm"
 tetra_create_lazy_function "tkm" "tkm"
 tetra_create_lazy_function "tetra_python_activate" "python"
@@ -71,3 +77,12 @@ tetra_create_lazy_function "anthropic" "anthropic"
 
 # Melvin module functions
 tetra_create_lazy_function "echo64" "melvin"
+
+# Claude module functions
+tetra_create_lazy_function "tetra_cc_send" "claude"
+tetra_create_lazy_function "tetra_cc_loop" "claude"
+tetra_create_lazy_function "tetra_cc_save" "claude"
+tetra_create_lazy_function "tetra_cc_load" "claude"
+tetra_create_lazy_function "tetra_cc_sessions" "claude"
+tetra_create_lazy_function "tetra_cc_where" "claude"
+

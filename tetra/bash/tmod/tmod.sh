@@ -3,15 +3,15 @@
 # Tetra Module Manager (tmod) - Core module management system
 # Standalone module with REPL interface
 
-# tmod directory setup
-if [[ -z "$TMOD_DIR" ]]; then
-    TMOD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# tmod directory setup - fallback for direct usage
+if [[ -z "$TMOD_SRC" ]]; then
+    TMOD_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
-TMOD_HISTORY_FILE="${TETRA_DIR}/.tmod_history"
+TMOD_HISTORY_FILE="${TMOD_DIR:-$TETRA_DIR/tmod}/.tmod_history"
 
 # Source tmod components
-source "$TMOD_DIR/tmod_core.sh"
-source "$TMOD_DIR/tmod_repl.sh"
+source "$TMOD_SRC/tmod_core.sh"
+source "$TMOD_SRC/tmod_repl.sh"
 
 # Source module config system for persistent enable/disable
 source "$TETRA_SRC/bash/utils/module_config.sh"

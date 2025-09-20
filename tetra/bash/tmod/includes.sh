@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 
 # tmod module includes
-# Use TETRA_SRC if available, otherwise derive from script location
-if [[ -n "$TETRA_SRC" ]]; then
-    TMOD_DIR="$TETRA_SRC/bash/tmod"
-else
-    TMOD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-fi
+# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
+TMOD_DIR="${TMOD_DIR:-$TETRA_DIR/tmod}"
+TMOD_SRC="${TMOD_SRC:-$TETRA_SRC/bash/tmod}"
 
-source "$TMOD_DIR/tmod.sh"
+# Create data directory if it doesn't exist
+[[ ! -d "$TMOD_DIR" ]] && mkdir -p "$TMOD_DIR"
+
+# Export for subprocesses
+export TMOD_DIR TMOD_SRC
+
+source "$TMOD_SRC/tmod.sh"

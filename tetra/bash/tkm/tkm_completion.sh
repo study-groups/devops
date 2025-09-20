@@ -136,8 +136,8 @@ tkm_repl_completion() {
                 remove|set)
                     # Suggest existing organizations
                     local orgs=""
-                    if [[ -f "$TKM_BASE_DIR/organizations.conf" ]]; then
-                        orgs=$(grep -v '^#' "$TKM_BASE_DIR/organizations.conf" 2>/dev/null | cut -d: -f1 | tr '\n' ' ')
+                    if [[ -f "$TKM_DIR/organizations.conf" ]]; then
+                        orgs=$(grep -v '^#' "$TKM_DIR/organizations.conf" 2>/dev/null | cut -d: -f1 | tr '\n' ' ')
                     fi
                     COMPREPLY=($(compgen -W "$orgs" -- "$cur"))
                     ;;

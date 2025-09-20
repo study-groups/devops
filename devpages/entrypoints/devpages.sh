@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-source env.sh
+source "$(dirname "$0")/../env/local.env"
 node server/server.js

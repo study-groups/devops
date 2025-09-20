@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directory containing Q&A files
-QA_DIR="/home/mricos/.qa"
+#QA_DIR="/home/mricos/.qa"
 
 # Use fzf to select a file and display a preview on the right
 # --preview will display the content of the file in a preview window

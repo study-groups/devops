@@ -263,29 +263,52 @@ tetra_tsm_is_running() {
 tetra_tsm_extract_port() {
     local script="$1"
     local port="${PORT:-}"
-    
-    # If PORT is already set in environment, use it
+    local tetra_port="${TETRA_PORT:-}"
+
+    # If PORT is already set in environment, use it (many-valued)
     if [[ -n "$port" ]]; then
         echo "$port"
         return 0
     fi
-    
+
+    # If TETRA_PORT is set, use it (single value: 4444)
+    if [[ -n "$tetra_port" ]]; then
+        echo "$tetra_port"
+        return 0
+    fi
+
     # Extract PORT from script file
     local line val
     line="$(grep -E '^(export[[:space:]]+)?PORT=' "$script" | head -n1 || true)"
-    [[ -z "$line" ]] && return 1
-    
-    val="${line#*=}"
-    val="${val%%#*}"
-    val="${val//\"/}"
-    val="${val//\'/}"
-    val="${val//[[:space:]]/}"
-    
-    # Validate port range
-    if [[ "$val" =~ ^[0-9]+$ ]] && (( val >= 1024 && val <= 65535 )); then
-        echo "$val"
-        return 0
+    if [[ -n "$line" ]]; then
+        val="${line#*=}"
+        val="${val%%#*}"
+        val="${val//\"/}"
+        val="${val//\'/}"
+        val="${val//[[:space:]]/}"
+
+        # Validate port range
+        if [[ "$val" =~ ^[0-9]+$ ]] && (( val >= 1024 && val <= 65535 )); then
+            echo "$val"
+            return 0
+        fi
     fi
-    
+
+    # Try TETRA_PORT from script file
+    line="$(grep -E '^(export[[:space:]]+)?TETRA_PORT=' "$script" | head -n1 || true)"
+    if [[ -n "$line" ]]; then
+        val="${line#*=}"
+        val="${val%%#*}"
+        val="${val//\"/}"
+        val="${val//\'/}"
+        val="${val//[[:space:]]/}"
+
+        # Validate port range
+        if [[ "$val" =~ ^[0-9]+$ ]] && (( val >= 1024 && val <= 65535 )); then
+            echo "$val"
+            return 0
+        fi
+    fi
+
     return 1
 }

@@ -34,21 +34,51 @@ tmod_unload_module() {
     tetra_remove_module "$module"
 }
 
+# Format module list with checkmarks for loaded modules
+_tmod_format_module_list() {
+    local -n all_ref=$1
+    local -n loaded_ref=$2
+    local output=""
+
+    for module in "${all_ref[@]}"; do
+        if printf '%s\n' "${loaded_ref[@]}" | grep -Fxq "$module"; then
+            output+="✓ $module"$'\n'
+        else
+            output+="  $module"$'\n'
+        fi
+    done
+    echo "$output" | column
+}
+
+# Format simple module list in columns
+_tmod_format_simple_list() {
+    local module_list="$1"
+    local prefix="$2"
+
+    if [[ -n "$module_list" ]]; then
+        if command -v column >/dev/null 2>&1; then
+            echo "$module_list" | column -c 80 2>/dev/null || echo "$module_list" | sed "s/^/$prefix/"
+        else
+            echo "$module_list" | sed "s/^/$prefix/"
+        fi
+    fi
+}
+
 tmod_list_modules() {
     local filter="${1:-all}"
     local dev_flag="$2"
-    
-    if [[ "$filter" == "-dev" ]]; then
-        dev_flag="-dev"
-        filter="all"
-    fi
-    
+
+    [[ "$filter" == "-dev" ]] && { dev_flag="-dev"; filter="all"; }
+
     case "$filter" in
         all)
-            echo "Available Modules:"
-            local module_list=$(tetra_get_available_modules | sort)
-            if [[ -n "$module_list" ]]; then
-                echo "$module_list" | column -c 80 2>/dev/null || echo "$module_list" | sed 's/^/  /'
+            echo "Available Modules (✓ = loaded):"
+            local all_modules loaded_modules
+            readarray -t all_modules < <(tetra_get_available_modules | sort)
+            readarray -t loaded_modules < <(tetra_get_loaded_modules)
+
+            if [[ ${#all_modules[@]} -gt 0 ]]; then
+                _tmod_format_module_list all_modules loaded_modules
             else
                 echo "  (none found)"
             fi
@@ -56,30 +86,12 @@ tmod_list_modules() {
         loaded)
             echo "Loaded Modules:"
             local module_list=$(tetra_get_loaded_modules | sort)
-            if [[ -n "$module_list" ]]; then
-                # Use column if available, otherwise format with sed
-                if command -v column >/dev/null 2>&1; then
-                    echo "$module_list" | column -c 80 2>/dev/null || echo "$module_list" | sed 's/^/  /'
-                else
-                    echo "$module_list" | sed 's/^/  /'
-                fi
-            else
-                echo "  (none loaded)"
-            fi
+            _tmod_format_simple_list "$module_list" "  " || echo "  (none loaded)"
             ;;
         unloaded)
             echo "Unloaded Modules:"
             local module_list=$(tetra_get_unloaded_modules | sort)
-            if [[ -n "$module_list" ]]; then
-                # Use column if available, otherwise format with sed
-                if command -v column >/dev/null 2>&1; then
-                    echo "$module_list" | column -c 80 2>/dev/null || echo "$module_list" | sed 's/^/  /'
-                else
-                    echo "$module_list" | sed 's/^/  /'
-                fi
-            else
-                echo "  (all modules loaded)"
-            fi
+            _tmod_format_simple_list "$module_list" "  " || echo "  (all modules loaded)"
             ;;
         *)
             tetra_list_modules_enhanced "$filter" "$([[ "$dev_flag" == "-dev" ]] && echo "true" || echo "false")"
@@ -158,29 +170,34 @@ EOF
 }
 
 tmod_status() {
-    echo "Tetra Module Status"
-    echo "==================="
-    echo
-    
-    # Show what's actually working
-    echo "Core modules (always loaded):"
-    for module in utils tmod prompt python nvm tsm; do
+    _tetra_status_header "Module System"
+
+    # Only show environment issues if they exist
+    _tetra_status_validate_env "TETRA_DIR" "TETRA_SRC"
+
+    # Module statistics (compact)
+    local available_count=$(tetra_get_available_modules 2>/dev/null | wc -w)
+    local loaded_count=$(tetra_get_loaded_modules 2>/dev/null | wc -w)
+    local registered_count=${#TETRA_MODULE_LOADERS[@]}
+
+    echo "Modules: $loaded_count/$available_count loaded, $registered_count registered"
+
+    # Core modules (compact, one line)
+    local core_status=""
+    local core_modules=(utils tmod prompt python nvm tsm)
+    for module in "${core_modules[@]}"; do
         if command -v "tetra_${module}_activate" >/dev/null 2>&1 || \
            command -v "$module" >/dev/null 2>&1 || \
            [[ "$module" == "utils" ]] || [[ "$module" == "tmod" ]] || [[ "$module" == "prompt" ]]; then
-            echo "  ✓ $module"
+            core_status+="✓$module "
         else
-            echo "  ○ $module"
+            core_status+="○$module "
         fi
     done
-    
-    echo
-    echo "Available modules:"
-    local available_count=$(tetra_get_available_modules | wc -w)
-    echo "  Total discoverable: $available_count"
-    
-    echo
-    echo "Use 'tmod list' to see all modules"
+    echo "Core: $core_status"
+
+    echo ""
+    echo "Use 'tmod list' for detailed module info"
 }
 
 tmod_dev() {

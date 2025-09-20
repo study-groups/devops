@@ -4,29 +4,33 @@
 # Manages SSH keys for tetra deployment network
 
 # TKM Directory Convention under TETRA_DIR
-# Following pattern: TETRA_DIR/tkm/{keys,config,logs,runs,temp}
-TKM_BASE_DIR="${TETRA_DIR}/tkm"
-TKM_KEYS_DIR="${TKM_BASE_DIR}/keys"
-TKM_CONFIG_DIR="${TKM_BASE_DIR}/config"
-TKM_LOGS_DIR="${TKM_BASE_DIR}/logs"
-TKM_RUNS_DIR="${TKM_BASE_DIR}/runs"
-TKM_TEMP_DIR="${TKM_BASE_DIR}/temp"
+# Following standard pattern: TETRA_DIR/tkm/{keys,config,logs,runs,temp,history}
+TKM_DIR="${TETRA_DIR}/tkm"
+TKM_KEYS_DIR="${TKM_DIR}/keys"
+TKM_CONFIG_DIR="${TKM_DIR}/config"
+TKM_LOGS_DIR="${TKM_DIR}/logs"
+TKM_RUNS_DIR="${TKM_DIR}/runs"
+TKM_TEMP_DIR="${TKM_DIR}/temp"
 
 # Organization configuration
-TKM_ORGS_DIR="${TKM_BASE_DIR}/organizations"
-TKM_CURRENT_ORG_FILE="${TKM_BASE_DIR}/.current_org"
+TKM_ORGS_DIR="${TKM_DIR}/organizations"
+TKM_CURRENT_ORG_FILE="${TKM_DIR}/.current_org"
 
-# TKM Module Management
-TKM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# TKM Module Source Directory
+TKM_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Backward compatibility (deprecated)
+TKM_BASE_DIR="${TKM_DIR}"
 
 # Explicitly define TKM modules to source
 TKM_MODULES=(
-    "$TKM_DIR/tkm_utils.sh"
-    "$TKM_DIR/tkm_core.sh"
-    "$TKM_DIR/tkm_security.sh"
-    "$TKM_DIR/tkm_organizations.sh"
-    "$TKM_DIR/tkm_status.sh"
-    "$TKM_DIR/tkm_ssh_inspector.sh"
+    "$TKM_SRC_DIR/tkm_utils.sh"
+    "$TKM_SRC_DIR/tkm_core.sh"
+    "$TKM_SRC_DIR/tkm_security.sh"
+    "$TKM_SRC_DIR/tkm_organizations.sh"
+    "$TKM_SRC_DIR/tkm_status.sh"
+    "$TKM_SRC_DIR/tkm_ssh_inspector.sh"
+    "$TKM_SRC_DIR/tkm_repl.sh"
 )
 
 # Controlled module sourcing

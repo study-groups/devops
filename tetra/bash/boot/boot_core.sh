@@ -2,9 +2,13 @@
 
 # Boot Core - Core functions and module system
 
-# Lazy loading registry
-declare -A TETRA_MODULE_LOADERS
-declare -A TETRA_MODULE_LOADED
+# Lazy loading registry - only declare if not already exist to avoid reload conflicts
+if ! declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
+    declare -A TETRA_MODULE_LOADERS
+fi
+if ! declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+    declare -A TETRA_MODULE_LOADED
+fi
 
 # Function to register a module loader
 tetra_register_module() {

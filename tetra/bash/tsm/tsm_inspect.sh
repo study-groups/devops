@@ -2,24 +2,69 @@
 
 # tetra_tsm_ inspect - Inspection and debugging commands for tsm
 
+# Get system resource summary in watchdog format
+_tsm_get_resource_summary() {
+    case "$(uname)" in
+        "Linux")
+            _tsm_system_summary_linux
+            ;;
+        "Darwin")
+            _tsm_system_summary_macos
+            ;;
+        *)
+            echo "CPU: -, MEM: -, SWAP: -"
+            ;;
+    esac
+}
+
+# Linux system summary (from watchdog)
+_tsm_system_summary_linux() {
+    local cpu_us mem_used mem_total swap_used swap_total
+
+    # Simple CPU using top (faster than /proc/stat method)
+    cpu_us=$(top -bn1 | awk '/%Cpu\(s\):/ {print $2+$4}' | head -1)
+    [[ -z "$cpu_us" ]] && cpu_us="0"
+
+    # Memory info
+    read mem_used mem_total < <(free -m | awk '/Mem:/ {print $3, $2}')
+    read swap_used swap_total < <(free -m | awk '/Swap:/ {print $3, $2}')
+
+    echo "CPU: ${cpu_us}/100, MEM: ${mem_used}/${mem_total}, SWAP: ${swap_used}/${swap_total}"
+}
+
+# macOS system summary
+_tsm_system_summary_macos() {
+    local cpu_us mem_used mem_total swap_used
+
+    # CPU usage from top
+    cpu_us=$(top -l1 -n0 | awk '/CPU usage:/ {print $3}' | sed 's/%//')
+    [[ -z "$cpu_us" ]] && cpu_us="0"
+
+    # Memory info from vm_stat and system_profiler
+    local page_size=$(vm_stat | grep "page size" | awk '{print $8}')
+    [[ -z "$page_size" ]] && page_size=4096
+
+    local pages_free pages_active pages_inactive pages_wired
+    eval $(vm_stat | awk '
+        /Pages free:/ {print "pages_free=" $3}
+        /Pages active:/ {print "pages_active=" $3}
+        /Pages inactive:/ {print "pages_inactive=" $3}
+        /Pages wired down:/ {print "pages_wired=" $4}
+    ' | tr -d '.')
+
+    # Calculate memory in MB
+    mem_used=$(( (pages_active + pages_inactive + pages_wired) * page_size / 1024 / 1024 ))
+    mem_total=$(( (pages_free + pages_active + pages_inactive + pages_wired) * page_size / 1024 / 1024 ))
+
+    # macOS doesn't use traditional swap files, so simplified
+    swap_used="-"
+
+    echo "CPU: ${cpu_us}/100, MEM: ${mem_used}/${mem_total}, SWAP: ${swap_used}"
+}
+
 tetra_tsm_list() {
     _tetra_tsm_get_all_processes
-    
-    if [[ ${#_tsm_procs_name[@]} -eq 0 ]]; then
-        echo "No processes found"
-        return
-    fi
-    
-    echo "┌──────┬────────────────────┬─────────┬────────┬─────────┬──────────────────────┐"
-    echo "│ id   │ name               │ status  │ pid    │ port    │ uptime               │"
-    echo "├──────┼────────────────────┼─────────┼────────┼─────────┼──────────────────────┤"
-    
-    for i in "${!_tsm_procs_name[@]}"; do
-        printf "│ %-4s │ %-18s │ %-7s │ %-6s │ %-7s │ %-20s │\n" \
-            "${_tsm_procs_id[i]}" "${_tsm_procs_name[i]}" "${_tsm_procs_status[i]}" "${_tsm_procs_pid[i]}" "${_tsm_procs_port[i]}" "${_tsm_procs_uptime[i]}"
-    done
-    
-    echo "└──────┴────────────────────┴─────────┴────────┴─────────┴──────────────────────┘"
+    tsm_format_process_list
 }
 
 tetra_tsm_env() {
@@ -193,9 +238,7 @@ tetra_tsm_scan_ports() {
         open_ports_cmd[$port]=$cmd
     done < <(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | tail -n +2 | awk '{port=$9; sub(/.*:/, "", port); print $1, $2, port}')
 
-    echo "┌─────────┬─────────┬──────────────────┬──────────────────────────┐"
-    echo "│ Port    │ PID     │ Command          │ Status                   │"
-    echo "├─────────┼─────────┼──────────────────┼──────────────────────────┤"
+    tsm_format_port_scan
 
     declare -A reported_ports
     
@@ -217,17 +260,17 @@ tetra_tsm_scan_ports() {
             
             if [[ "$proc_status" == "online" ]]; then
                 if [[ "$pid" == "$open_pid" ]]; then
-                    printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$pid" "$open_cmd" "Online (TSM: $name)"
+                    tsm_format_port_line "$port" "$pid" "$open_cmd" "Online (TSM: $name)"
                 else
-                    printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$open_pid" "$open_cmd" "CONFLICT (TSM: $name)"
+                    tsm_format_port_line "$port" "$open_pid" "$open_cmd" "CONFLICT (TSM: $name)"
                 fi
             else # status is stopped
-                printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$open_pid" "$open_cmd" "LEAKED (TSM: $name)"
+                tsm_format_port_line "$port" "$open_pid" "$open_cmd" "LEAKED (TSM: $name)"
             fi
         else
             # Port is not open
             if [[ "$proc_status" == "online" ]]; then
-                printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$pid" "-" "ERROR (port not open)"
+                tsm_format_port_line "$port" "$pid" "-" "ERROR (port not open)"
             fi
         fi
     done
@@ -237,11 +280,11 @@ tetra_tsm_scan_ports() {
         if [[ -z "${reported_ports[$port]}" ]]; then
             local pid="${open_ports_pid[$port]}"
             local cmd="${open_ports_cmd[$port]}"
-            printf "│ %-7s │ %-7s │ %-16s │ %-24s │\n" "$port" "$pid" "$cmd" "Unmanaged"
+            tsm_format_port_line "$port" "$pid" "$cmd" "Unmanaged"
         fi
     done
 
-    echo "└─────────┴─────────┴──────────────────┴──────────────────────────┘"
+    tsm_format_port_scan_close
 }
 
 
@@ -327,17 +370,33 @@ tetra_tsm_info() {
     printf "%12s: %s\n" "Uptime" "$uptime"
     printf "%12s: %s\n" "Port" "$port"
     printf "%12s: %s\n" "Script" "$script"
-    
+
+    # Show which env file was loaded (if any)
+    local env_file="$TETRA_DIR/tsm/processes/$name.env"
+    if [[ -f "$env_file" ]]; then
+        # Try to determine the original env file from the script path
+        local original_env_file=""
+        if [[ -f "$script" ]]; then
+            original_env_file="$(grep -o "env/[^'\"]*\.env" "$script" 2>/dev/null | head -1)"
+        fi
+        if [[ -n "$original_env_file" ]]; then
+            printf "%12s: %s\n" "Env File" "$original_env_file"
+        else
+            printf "%12s: %s\n" "Env File" "detected"
+        fi
+    else
+        printf "%12s: %s\n" "Env File" "none"
+    fi
+
+    # One-line resource summary
+    local resources="$(_tsm_get_resource_summary)"
+    printf "%12s: %s\n" "Resources" "$resources"
+
     echo ""
     echo "───────── Working Dirs ─────────"
     printf "%12s: %s\n" "CWD@start" "${cwd:-unknown}"
     printf "%12s: %s\n" "Start Dir" "${start_dir:-unknown}"
     
-    echo ""
-    echo "───────── Resource Usage ─────────"
-    printf "%12s: %s\n" "CPU" "$cpu_usage"
-    printf "%12s: %s\n" "Memory" "$mem_usage"
-
     echo ""
     echo "───────── Paths ─────────"
     printf "%12s: %s\n" "Meta" "$TETRA_DIR/tsm/processes/$name.meta"
@@ -345,13 +404,6 @@ tetra_tsm_info() {
     printf "%12s: %s\n" "Env" "$TETRA_DIR/tsm/processes/$name.env"
     printf "%12s: %s\n" "Out Log" "$TETRA_DIR/tsm/logs/$name.out"
     printf "%12s: %s\n" "Err Log" "$TETRA_DIR/tsm/logs/$name.err"
-    
-    local env_file="$TETRA_DIR/tsm/processes/$name.env"
-    if [[ -f "$env_file" ]]; then
-        echo ""
-        echo "───────── Environment (first 10) ─────────"
-        cat "$env_file" | sort | head -n 10
-    fi
     
     if [[ -n "$port" && "$port" != "-" ]]; then
         echo ""

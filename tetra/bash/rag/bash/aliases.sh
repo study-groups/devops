@@ -1,9 +1,45 @@
-alias mc=$HOME/src/bash/rag/bin/mc
-alias ms=$HOME/src/bash/rag/bash/multisplit.sh
-alias mi=$HOME/src/bash/rag/bash/mcinfo.sh
-alias mf=$HOME/src/bash/rag/bash/multifind.sh
-alias replace=$HOME/src/bash/rag/bash/replace.sh
+# RAG Tools Porcelain Functions
+# These functions provide friendly wrappers around the core RAG tools
 
-getcode(){
-  $HOME/src/bash/rag/bash/getcode.sh
+# Use tetra convention paths
+RAG_CORE_DIR="$RAG_SRC/core"
+
+# Multicat (mc) - concatenate files into MULTICAT format
+mc() {
+    "$RAG_CORE_DIR/multicat/multicat.sh" "$@"
+}
+
+# Multisplit (ms) - split MULTICAT files back to individual files
+ms() {
+    "$RAG_CORE_DIR/multicat/multisplit.sh" "$@"
+}
+
+# MULTICAT info (mi) - show info about MULTICAT files
+mi() {
+    "$RAG_CORE_DIR/multicat/mcinfo.sh" "$@"
+}
+
+# Multifind (mf) - advanced file search with ranking
+mf() {
+    "$RAG_CORE_DIR/search/multifind.sh" "$@"
+}
+
+# Replace - file content replacement
+replace() {
+    "$RAG_CORE_DIR/utils/replace.sh" "$@"
+}
+
+# Get code utility
+getcode() {
+    "$RAG_CORE_DIR/utils/getcode.sh" "$@"
+}
+
+# Quick patch tool
+qpatch() {
+    "$RAG_CORE_DIR/patch/qpatch.sh" "$@"
+}
+
+# Interactive fuzzy grep
+fzgrep() {
+    "$RAG_CORE_DIR/search/fzfgrep.sh" "$@"
 }

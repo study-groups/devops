@@ -4,12 +4,12 @@
 # Generates status.json and HTML display for organization environments
 
 # Source utilities
-TKM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$TKM_DIR/tkm_utils.sh"
+TKM_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TKM_SRC_DIR/tkm_utils.sh"
 
 # Generate comprehensive status JSON for environments
 tkm_generate_status_json() {
-    local output_file="${1:-${TKM_BASE_DIR}/status.json}"
+    local output_file="${1:-${TKM_DIR}/status.json}"
     
     tkm_log "Generating status JSON for TKM environments" "INFO"
     
@@ -136,7 +136,7 @@ tkm_generate_status_json() {
             --arg known_hosts "${HOME}/.ssh/known_hosts" \
             --argjson agent_running "$(ssh-add -l >/dev/null 2>&1 && echo "true" || echo "false")" \
             --argjson keys_loaded "$(ssh-add -l 2>/dev/null | wc -l)" \
-            --arg tkm_base "${TKM_BASE_DIR}" \
+            --arg tkm_base "${TKM_DIR}" \
             --arg tkm_keys "${TKM_KEYS_DIR}" \
             --arg tkm_logs "${TKM_LOGS_DIR}" \
             --argjson active_keys "$(find "${TKM_KEYS_DIR}/active" -name "*.pub" 2>/dev/null | wc -l)" \
@@ -346,8 +346,8 @@ _tkm_generate_env_status() {
 
 # Generate HTML status display
 tkm_generate_status_html() {
-    local status_json="${1:-${TKM_BASE_DIR}/status.json}"
-    local output_file="${2:-${TKM_BASE_DIR}/status.html}"
+    local status_json="${1:-${TKM_DIR}/status.json}"
+    local output_file="${2:-${TKM_DIR}/status.html}"
     
     if [[ ! -f "$status_json" ]]; then
         echo "Status JSON not found: $status_json"
@@ -892,8 +892,8 @@ tkm_status_display() {
                 tkm_generate_status_html
                 echo
                 echo "Status display ready:"
-                echo "  JSON: ${TKM_BASE_DIR}/status.json"
-                echo "  HTML: ${TKM_BASE_DIR}/status.html"
+                echo "  JSON: ${TKM_DIR}/status.json"
+                echo "  HTML: ${TKM_DIR}/status.html"
                 echo
                 echo "Open status.html in a browser to view the display"
             fi

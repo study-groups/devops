@@ -26,6 +26,8 @@ Usage: multicat.sh [OPTIONS] [file|dir ...]
   -C <dir>               Root for relativizing paths (default: $PWD)
   --tree-only            Emit only FILETREE section (requires -m)
   --dryrun               Show files that would be included
+  --example              Generate example MULTICAT with two sample files
+  --example-long         Generate comprehensive MULTICAT specification example
   -h, --help             Show help
 Notes:
   * Exclude patterns are regex fragments matched against absolute paths.
@@ -73,6 +75,69 @@ apply_remap() {
     val="${val//$pat/${remap_patterns[$pat]}}"
   done
   echo "$val"
+}
+
+generate_example() {
+  cat <<'EOF'
+#MULTICAT_START
+# dir: ./scripts
+# file: deploy.sh
+# note: Simple deployment script showing MULTICAT usage
+#MULTICAT_END
+#!/usr/bin/env bash
+
+echo "MULTISPLIT: Use 'ms file.mc' to extract files from MULTICAT format"
+echo "Deploying application..."
+echo "MULTICAT format allows LLMs to generate multiple files in one response"
+
+#MULTICAT_START
+# dir: ./docs/guides
+# file: llm-instructions.md
+# note: Instructions for LLMs to generate clean MULTICAT output
+#MULTICAT_END
+# LLM MULTICAT Generation Instructions
+
+❌ WRONG - Do NOT do this:
+```bash
+#MULTICAT_START
+# dir: ./src
+# file: app.js
+#MULTICAT_END
+console.log("hello");
+```
+
+✅ CORRECT - Output EXACTLY this (no code blocks):
+#MULTICAT_START
+# dir: ./src
+# file: app.js
+#MULTICAT_END
+console.log("hello");
+
+**CRITICAL RULES:**
+- NEVER use ```language code blocks around MULTICAT
+- NEVER use markdown formatting
+- Start your response IMMEDIATELY with #MULTICAT_START
+- Do NOT explain or introduce the code
+- Output ONLY the raw MULTICAT format
+- Use ./relative/paths for relocatable structure
+
+**Template to follow:**
+#MULTICAT_START
+# dir: ./src
+# file: filename.ext
+# note: brief description
+#MULTICAT_END
+[raw file content - no formatting]
+
+#MULTICAT_START
+# dir: ./config
+# file: filename2.ext
+# note: brief description
+#MULTICAT_END
+[raw file content - no formatting]
+
+REMEMBER: Your entire response should be copy-pasteable as a single .mc file
+EOF
 }
 
 relpath() {
@@ -183,6 +248,8 @@ while [[ $# -gt 0 ]]; do
     -C) shift; root_dir="${1:-}"; [[ -n "$root_dir" ]] || { echo "Missing -C <dir>" >&2; exit 1; } ;;
     --tree-only) tree_only=1 ;;
     --dryrun) dryrun=1 ;;
+    --example) generate_example; exit 0 ;;
+    --example-long) cat "${RAG_SRC}/example-long.mc"; exit 0 ;;
     -h|--help) usage ;;
     -*)
       echo "Unknown option: $1" >&2
