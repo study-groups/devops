@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+# Simplified Tetra Daemon - Avoids bash function context issues
+# Designed for systemd service execution
+
+set -euo pipefail
+
+# Basic logging
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): $*" >&2
+}
+
+# Detect TETRA_SRC from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TETRA_SRC="$(dirname "$SCRIPT_DIR")"
+export TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
+
+log "Starting Tetra daemon (simplified)"
+log "TETRA_SRC: $TETRA_SRC"
+log "TETRA_DIR: $TETRA_DIR"
+
+# Check basic requirements
+if [[ ! -d "$TETRA_DIR" ]]; then
+    log "ERROR: TETRA_DIR not found: $TETRA_DIR"
+    exit 1
+fi
+
+# Create services directory structure
+mkdir -p "$TETRA_DIR/services/enabled"
+mkdir -p "$TETRA_DIR/tsm/logs"
+mkdir -p "$TETRA_DIR/tsm/pids"
+mkdir -p "$TETRA_DIR/tsm/processes"
+
+# Function to start enabled services
+start_enabled_services() {
+    local enabled_dir="$TETRA_DIR/services/enabled"
+    local started_count=0
+
+    log "Starting enabled services from $enabled_dir"
+
+    if [[ ! -d "$enabled_dir" ]]; then
+        log "No enabled services directory found"
+        return 0
+    fi
+
+    # Start each enabled service
+    for service_file in "$enabled_dir"/*.tsm.sh; do
+        [[ -f "$service_file" ]] || continue
+
+        local service_name
+        service_name=$(basename "$service_file" .tsm.sh)
+
+        log "Loading service: $service_name"
+
+        # Source service definition in subshell to avoid variable pollution
+        (
+            source "$service_file" 2>/dev/null || {
+                log "ERROR: Failed to load service definition: $service_file"
+                exit 1
+            }
+
+            # Validate required variables
+            if [[ -z "${TSM_NAME:-}" || -z "${TSM_COMMAND:-}" || -z "${TSM_CWD:-}" ]]; then
+                log "ERROR: Missing required service variables in $service_file"
+                exit 1
+            fi
+
+            # Change to service directory
+            cd "$TSM_CWD" || {
+                log "ERROR: Cannot change to directory: $TSM_CWD"
+                exit 1
+            }
+
+            # Load environment if specified
+            if [[ -n "${TSM_ENV:-}" && -f "$TSM_ENV" ]]; then
+                source "$TSM_ENV"
+                log "Loaded environment: $TSM_ENV"
+            fi
+
+            # Create log files
+            local log_dir="$TETRA_DIR/tsm/logs"
+            local out_log="$log_dir/${TSM_NAME}.out"
+            local err_log="$log_dir/${TSM_NAME}.err"
+
+            # Start the service in background
+            log "Starting service: $TSM_NAME with command: $TSM_COMMAND"
+
+            # Use nohup instead of setsid for simplicity
+            nohup bash -c "$TSM_COMMAND" > "$out_log" 2> "$err_log" &
+            local pid=$!
+
+            # Store PID
+            echo "$pid" > "$TETRA_DIR/tsm/pids/${TSM_NAME}.pid"
+
+            log "Started $TSM_NAME with PID: $pid"
+
+        ) && {
+            log "✓ Successfully started $service_name"
+            ((started_count++))
+        } || {
+            log "✗ Failed to start $service_name"
+        }
+    done
+
+    log "Started $started_count enabled services"
+}
+
+# Signal handlers
+cleanup() {
+    log "Received shutdown signal"
+    log "Stopping services..."
+
+    # Stop all services started by this daemon
+    local pid_dir="$TETRA_DIR/tsm/pids"
+    if [[ -d "$pid_dir" ]]; then
+        for pid_file in "$pid_dir"/*.pid; do
+            [[ -f "$pid_file" ]] || continue
+            local pid
+            pid=$(cat "$pid_file" 2>/dev/null || echo "")
+            if [[ -n "$pid" && "$pid" =~ ^[0-9]+$ ]]; then
+                if kill -0 "$pid" 2>/dev/null; then
+                    log "Stopping PID: $pid"
+                    kill "$pid" 2>/dev/null || true
+                fi
+            fi
+            rm -f "$pid_file"
+        done
+    fi
+
+    log "Daemon shutdown complete"
+    exit 0
+}
+
+# Set up signal traps
+trap cleanup TERM INT
+
+# Start enabled services
+start_enabled_services
+
+# Monitor loop
+log "Entering monitoring loop"
+while true; do
+    sleep 30
+
+    # Basic health check - verify some services are still running
+    local running_count=0
+    local pid_dir="$TETRA_DIR/tsm/pids"
+
+    if [[ -d "$pid_dir" ]]; then
+        for pid_file in "$pid_dir"/*.pid; do
+            [[ -f "$pid_file" ]] || continue
+            local pid
+            pid=$(cat "$pid_file" 2>/dev/null || echo "")
+            if [[ -n "$pid" && "$pid" =~ ^[0-9]+$ ]]; then
+                if kill -0 "$pid" 2>/dev/null; then
+                    ((running_count++))
+                else
+                    # Clean up stale PID file
+                    rm -f "$pid_file"
+                fi
+            fi
+        done
+    fi
+
+    log "Health check: $running_count services running"
+done
