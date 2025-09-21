@@ -45,42 +45,127 @@ _tsm_auto_detect_env() {
     local script="$1"
     local explicit_env="$2"
 
-    # If explicit env provided, handle it
-    if [[ -n "$explicit_env" ]]; then
-        # If it's just an environment name (no path), try env/{name}.env
-        if [[ "$explicit_env" != *"/"* && "$explicit_env" != *".env" ]]; then
-            local script_dir="$(dirname "$script")"
-            local project_root="$(dirname "$script_dir")"
-            local auto_env="$project_root/env/${explicit_env}.env"
-            if [[ -f "$auto_env" ]]; then
-                echo "$auto_env"
-                return 0
-            fi
-        fi
-
-        # Otherwise treat as direct file path
-        if [[ -f "$explicit_env" ]]; then
-            echo "$explicit_env"
-            return 0
-        fi
-
-        echo "tsm: env file '$explicit_env' not found" >&2
-        return 66
-    fi
-
-    # Auto-detect based on entrypoint path convention
     local script_dir="$(dirname "$script")"
     local project_root="$(dirname "$script_dir")"
 
-    # Default to env/local.env for any entrypoint (most common case)
-    local default_env="$project_root/env/local.env"
-    if [[ -f "$default_env" ]]; then
-        echo "$default_env"
-        return 0
+    # If explicit env provided, handle it with secure template integration
+    if [[ -n "$explicit_env" ]]; then
+        local target_env_file
+
+        # If it's just an environment name (no path), try env/{name}.env
+        if [[ "$explicit_env" != *"/"* && "$explicit_env" != *".env" ]]; then
+            target_env_file="$project_root/env/${explicit_env}.env"
+        else
+            target_env_file="$explicit_env"
+        fi
+
+        # Check if the environment file exists
+        if [[ -f "$target_env_file" ]]; then
+            # Validate environment file for security
+            if _tsm_validate_env_file "$target_env_file" "$explicit_env"; then
+                echo "$target_env_file"
+                return 0
+            else
+                return 66
+            fi
+        fi
+
+        # Environment file doesn't exist - offer template-based solution
+        local env_name=$(basename "$target_env_file" .env)
+        local template_file="$project_root/env/${env_name}.env.tmpl"
+
+        if [[ -f "$template_file" ]]; then
+            echo >&2
+            echo "tsm: Environment file not found: $target_env_file" >&2
+            echo "tsm: Template available: $template_file" >&2
+            echo >&2
+            echo "🔒 Create secure environment file:" >&2
+            echo "   tetra env init $env_name" >&2
+            echo "   # Edit $target_env_file with your real secrets" >&2
+            echo "   tsm start --env $env_name $script" >&2
+            echo >&2
+        else
+            echo "tsm: env file '$explicit_env' not found" >&2
+            echo "tsm: no template available at $template_file" >&2
+        fi
+        return 66
     fi
 
-    # No environment file found - this is okay, return empty
+    # Auto-detect: try common environment files in secure order
+    local env_candidates=("dev" "local")
+
+    for env_name in "${env_candidates[@]}"; do
+        local env_file="$project_root/env/${env_name}.env"
+        if [[ -f "$env_file" ]]; then
+            if _tsm_validate_env_file "$env_file" "$env_name"; then
+                echo "$env_file"
+                return 0
+            fi
+        fi
+    done
+
+    # No environment file found - check for templates and guide user
+    local template_files=("$project_root/env/dev.env.tmpl" "$project_root/env/local.env.tmpl")
+    local found_template=false
+
+    for template in "${template_files[@]}"; do
+        if [[ -f "$template" ]]; then
+            found_template=true
+            break
+        fi
+    done
+
+    if [[ "$found_template" == true ]]; then
+        echo >&2
+        echo "tsm: No environment files found" >&2
+        echo "🔒 Create secure environment file:" >&2
+        echo "   tetra env init dev    # Create env/dev.env from template" >&2
+        echo "   # Edit env/dev.env with your real secrets" >&2
+        echo "   tsm start $script" >&2
+        echo >&2
+        return 66
+    fi
+
+    # No environment file or template found - continue without environment
     echo ""
+    return 0
+}
+
+# Validate environment file for security and completeness
+_tsm_validate_env_file() {
+    local env_file="$1"
+    local env_name="$2"
+
+    # Check for placeholder values that weren't replaced
+    if grep -q "your_.*_here\|your-.*-name" "$env_file"; then
+        echo >&2
+        echo "tsm: Environment file contains placeholder values: $env_file" >&2
+        echo "❌ Found unreplaced placeholders:" >&2
+        grep "your_.*_here\|your-.*-name" "$env_file" | head -3 >&2
+        echo >&2
+        echo "🔧 Fix by editing $env_file and replacing placeholder values with real secrets" >&2
+        echo >&2
+        return 1
+    fi
+
+    # Check for required variables
+    local missing_vars=()
+    local required_vars=("PORT" "NODE_ENV")
+
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "^export $var=" "$env_file"; then
+            missing_vars+=("$var")
+        fi
+    done
+
+    if [[ ${#missing_vars[@]} -gt 0 ]]; then
+        echo >&2
+        echo "tsm: Environment file missing required variables: $env_file" >&2
+        echo "❌ Missing: ${missing_vars[*]}" >&2
+        echo >&2
+        return 1
+    fi
+
     return 0
 }
 

@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+# Tetra Daemon Process - System Service Entry Point
+# Runs as systemd service to manage tetra services
+
+set -euo pipefail
+
+# Detect TETRA_SRC from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TETRA_SRC="$(dirname "$SCRIPT_DIR")"
+
+# Set TETRA_DIR (data directory)
+export TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
+
+# Load tetra environment
+if [[ -f "$TETRA_DIR/tetra.sh" ]]; then
+    source "$TETRA_DIR/tetra.sh"
+else
+    echo "Error: tetra.sh not found at $TETRA_DIR/tetra.sh"
+    echo "Run tetra setup first to initialize tetra environment"
+    exit 1
+fi
+
+# Ensure tetra modules are loaded
+if ! declare -f tetra_load_module >/dev/null 2>&1; then
+    echo "Error: Tetra environment not properly loaded"
+    exit 1
+fi
+
+# Load required modules
+tetra_load_module "tsm" >/dev/null 2>&1 || {
+    echo "Error: Failed to load TSM module"
+    exit 1
+}
+
+# Main daemon process function
+tetra_daemon_process() {
+    echo "$(date): Starting Tetra daemon process..."
+    echo "TETRA_SRC: $TETRA_SRC"
+    echo "TETRA_DIR: $TETRA_DIR"
+
+    # Create services directory structure if it doesn't exist
+    mkdir -p "$TETRA_DIR/services/enabled"
+
+    # Start enabled services
+    tetra_startup_services
+
+    # Keep daemon alive and monitor services
+    tetra_daemon_loop
+}
+
+# Start enabled services from services/enabled/
+tetra_startup_services() {
+    local enabled_dir="$TETRA_DIR/services/enabled"
+    local started_count=0
+
+    echo "$(date): Starting enabled services from $enabled_dir"
+
+    if [[ ! -d "$enabled_dir" ]]; then
+        echo "$(date): No enabled services directory found"
+        return 0
+    fi
+
+    # Start each enabled service
+    for service_file in "$enabled_dir"/*.tsm.sh; do
+        [[ -f "$service_file" ]] || continue
+
+        local service_name
+        service_name=$(basename "$service_file" .tsm.sh)
+
+        echo "$(date): Starting service: $service_name"
+
+        # Source service definition
+        if source "$service_file"; then
+            # Use TSM to start the service
+            if tetra_daemon_start_service; then
+                echo "$(date): ✅ Started $service_name"
+                ((started_count++))
+            else
+                echo "$(date): ❌ Failed to start $service_name"
+            fi
+        else
+            echo "$(date): ❌ Failed to load service definition: $service_file"
+        fi
+
+        # Clear variables for next service
+        unset TSM_NAME TSM_COMMAND TSM_CWD TSM_ENV TSM_PORT TSM_DESCRIPTION
+    done
+
+    echo "$(date): Started $started_count enabled services"
+}
+
+# Start individual service using TSM
+tetra_daemon_start_service() {
+    # Validate required variables
+    if [[ -z "${TSM_NAME:-}" || -z "${TSM_COMMAND:-}" || -z "${TSM_CWD:-}" ]]; then
+        echo "$(date): Missing required service variables (TSM_NAME, TSM_COMMAND, TSM_CWD)"
+        return 1
+    fi
+
+    # Change to service directory
+    if ! cd "$TSM_CWD"; then
+        echo "$(date): Failed to change to service directory: $TSM_CWD"
+        return 1
+    fi
+
+    # Start service with TSM
+    local tsm_args=()
+
+    # Add environment file if specified
+    if [[ -n "${TSM_ENV:-}" ]]; then
+        tsm_args+=(--env "$TSM_ENV")
+    fi
+
+    # Add port if specified
+    if [[ -n "${TSM_PORT:-}" ]]; then
+        tsm_args+=(--port "$TSM_PORT")
+    fi
+
+    # Start the service
+    tsm_args+=($TSM_COMMAND "$TSM_NAME")
+
+    if tetra_tsm_start "${tsm_args[@]}"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Main daemon monitoring loop
+tetra_daemon_loop() {
+    echo "$(date): Entering daemon monitoring loop"
+
+    # Set up signal handlers
+    trap 'tetra_daemon_shutdown' TERM INT
+
+    # Monitor loop
+    while true; do
+        # Basic health check - ensure TSM is responsive
+        if ! tetra_tsm_list >/dev/null 2>&1; then
+            echo "$(date): ⚠️  TSM not responsive, attempting restart"
+            # Could implement TSM restart logic here if needed
+        fi
+
+        # Sleep for monitoring interval
+        sleep 30
+    done
+}
+
+# Graceful shutdown handler
+tetra_daemon_shutdown() {
+    echo "$(date): Received shutdown signal"
+    echo "$(date): Stopping all TSM services..."
+
+    # Stop all TSM services gracefully
+    tetra_tsm_stop "*" 2>/dev/null || true
+
+    echo "$(date): Tetra daemon shutdown complete"
+    exit 0
+}
+
+# Error handler
+tetra_daemon_error() {
+    echo "$(date): ❌ Daemon error on line $1"
+    tetra_daemon_shutdown
+}
+
+# Set error trap
+trap 'tetra_daemon_error $LINENO' ERR
+
+# Start daemon process
+tetra_daemon_process

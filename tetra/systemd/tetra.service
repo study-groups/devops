@@ -1,0 +1,35 @@
+[Unit]
+Description=Tetra Service Manager Daemon
+Documentation=https://github.com/pixeljam/tetra
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=%h/tetra
+ExecStart=/usr/bin/env bash %h/src/devops/tetra/bin/tetra-daemon
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tetra-daemon
+
+# Environment
+Environment=TETRA_DIR=%h/tetra
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/tetra %h/src
+
+# Process limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=default.target

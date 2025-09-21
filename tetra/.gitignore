@@ -3,3 +3,12 @@ service-report.txt
 docker
 gamepad
 gp2
+
+# Environment files containing secrets - NEVER COMMIT
+env/*.env
+!env/*.env.tmpl
+
+# Debug and temporary files
+*.tmp
+.env*
+!.env.example

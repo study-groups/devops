@@ -1,0 +1,131 @@
+# Tetra Configuration - Single Source of Truth
+# Integrates NH infrastructure discovery with environment management
+# Safe to commit (no secrets stored here)
+
+[infrastructure]
+# NH Infrastructure Data (populated by: tetra toml sync)
+# Source: ~/nh/pixeljam-arcade/digocean.env
+qa_server = "pxjam-arcade-qa01"
+qa_ip = "146.190.151.245"
+qa_private_ip = "10.124.0.2"
+qa_floating_ip = "24.199.72.22"
+qa_region = "sfo3"
+qa_memory = "2048MB"
+qa_disk = "50GB"
+
+dev_server = "pxjam-arcade-dev01"
+dev_ip = "137.184.226.163"
+dev_private_ip = "10.124.0.4"
+dev_region = "sfo3"
+dev_memory = "4096MB"
+dev_disk = "25GB"
+
+prod_server = "pxjam-arcade-prod01"
+prod_ip = "64.23.151.249"
+prod_private_ip = "10.124.0.3"
+prod_floating_ip = "164.90.247.44"
+prod_region = "sfo3"
+prod_memory = "8192MB"
+prod_disk = "160GB"
+
+[variables]
+# Shared configuration variables
+domain_base = "pixeljamarcade.com"
+default_port = 8000
+spaces_region = "sfo3"
+spaces_endpoint = "sfo3.digitaloceanspaces.com"
+pd_base_dir = "/home"
+ufw_ssh_port = 22
+node_version = "18"
+
+[environments.local]
+# Local development (laptops, home computers)
+node_env = "development"
+tetra_env = "local"
+port = "${variables.default_port}"
+domain_name = "localhost"
+pd_dir = "${variables.pd_base_dir}/dev/pj/pd"
+# Secrets injected via environment variables
+spaces_bucket = "var.LOCAL_SPACES_BUCKET"
+spaces_access_key = "var.LOCAL_SPACES_ACCESS_KEY"
+spaces_secret_key = "var.LOCAL_SPACES_SECRET_KEY"
+spaces_endpoint = "${variables.spaces_endpoint}"
+
+[environments.dev]
+# Development server environment
+node_env = "development"
+tetra_env = "dev"
+port = "${variables.default_port}"
+server_ip = "${infrastructure.dev_ip}"
+server_private_ip = "${infrastructure.dev_private_ip}"
+domain_name = "dev.${variables.domain_base}"
+pd_dir = "${variables.pd_base_dir}/dev/pj/pd"
+# UFW firewall rules
+ufw_rules = [
+  "${variables.ufw_ssh_port}/tcp",
+  "${variables.default_port}/tcp",
+  "80/tcp",
+  "443/tcp"
+]
+# Secrets injected via environment variables
+spaces_bucket = "var.DEV_SPACES_BUCKET"
+spaces_access_key = "var.DEV_SPACES_ACCESS_KEY"
+spaces_secret_key = "var.DEV_SPACES_SECRET_KEY"
+spaces_endpoint = "${variables.spaces_endpoint}"
+
+[environments.staging]
+# Staging/QA server environment
+node_env = "staging"
+tetra_env = "staging"
+port = "${variables.default_port}"
+server_ip = "${infrastructure.qa_ip}"
+server_private_ip = "${infrastructure.qa_private_ip}"
+server_floating_ip = "${infrastructure.qa_floating_ip}"
+domain_name = "staging.${variables.domain_base}"
+pd_dir = "${variables.pd_base_dir}/staging/pj/pd"
+# UFW firewall rules
+ufw_rules = [
+  "${variables.ufw_ssh_port}/tcp",
+  "${variables.default_port}/tcp",
+  "80/tcp",
+  "443/tcp"
+]
+# Secrets injected via environment variables
+spaces_bucket = "var.STAGING_SPACES_BUCKET"
+spaces_access_key = "var.STAGING_SPACES_ACCESS_KEY"
+spaces_secret_key = "var.STAGING_SPACES_SECRET_KEY"
+spaces_endpoint = "${variables.spaces_endpoint}"
+
+[environments.prod]
+# Production server environment
+node_env = "production"
+tetra_env = "prod"
+port = "${variables.default_port}"
+server_ip = "${infrastructure.prod_ip}"
+server_private_ip = "${infrastructure.prod_private_ip}"
+server_floating_ip = "${infrastructure.prod_floating_ip}"
+domain_name = "${variables.domain_base}"  # No subdomain for production
+pd_dir = "${variables.pd_base_dir}/prod/pj/pd"
+# UFW firewall rules (more restrictive for production)
+ufw_rules = [
+  "${variables.ufw_ssh_port}/tcp",
+  "${variables.default_port}/tcp",
+  "80/tcp",
+  "443/tcp"
+]
+# Secrets injected via environment variables
+spaces_bucket = "var.PROD_SPACES_BUCKET"
+spaces_access_key = "var.PROD_SPACES_ACCESS_KEY"
+spaces_secret_key = "var.PROD_SPACES_SECRET_KEY"
+spaces_endpoint = "${variables.spaces_endpoint}"
+
+[deployment]
+# Deployment configuration for TKM and Deploy modules
+ssh_key_type = "ed25519"
+ssh_key_bits = 4096
+deploy_user = "tetra"
+systemd_service_name = "tetra"
+nginx_config_name = "tetra"
+health_check_timeout = 30
+restart_policy = "on-failure"
+restart_delay = "15s"

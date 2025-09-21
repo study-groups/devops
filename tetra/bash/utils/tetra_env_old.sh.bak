@@ -1,0 +1,412 @@
+#!/usr/bin/env bash
+
+# Tetra Environment Management System
+# Implements the "tetra way" for environment variable promotion
+
+# DEBUG: Check bash version and enable tracing
+echo "DEBUG: tetra_env.sh loading, bash version: $BASH_VERSION"
+echo "DEBUG: Current shell: $0, PID: $$, PPID: $PPID"
+
+# Environment promotion mappings
+echo "DEBUG: Declaring associative arrays..."
+declare -A ENV_DOMAINS=(
+    ["dev"]="dev.pixeljamarcade.com"
+    ["staging"]="staging.pixeljamarcade.com"
+    ["prod"]="pixeljamarcade.com"
+)
+
+declare -A ENV_USERS=(
+    ["dev"]="dev"
+    ["staging"]="staging"
+    ["prod"]="prod"
+)
+
+declare -A ENV_NODE_ENVS=(
+    ["dev"]="development"
+    ["staging"]="staging"
+    ["prod"]="production"
+)
+
+# DEBUG: Verify arrays were created
+echo "DEBUG: Array sizes - ENV_DOMAINS: ${#ENV_DOMAINS[@]}, ENV_USERS: ${#ENV_USERS[@]}, ENV_NODE_ENVS: ${#ENV_NODE_ENVS[@]}"
+echo "DEBUG: Sample values - ENV_DOMAINS[staging]: '${ENV_DOMAINS[staging]}', ENV_NODE_ENVS[staging]: '${ENV_NODE_ENVS[staging]}'"
+
+# Main tetra env command
+tetra_env() {
+    local command="${1:-}"
+
+    case "$command" in
+        "promote")
+            tetra_env_promote "${2:-}" "${3:-}"
+            ;;
+        "list")
+            tetra_env_list
+            ;;
+        "validate")
+            tetra_env_validate "${2:-}"
+            ;;
+        "diff")
+            tetra_env_diff "${2:-}" "${3:-}"
+            ;;
+        *)
+            tetra_env_help
+            return 1
+            ;;
+    esac
+}
+
+# Environment promotion function
+tetra_env_promote() {
+    local source_env="$1"
+    local target_env="$2"
+
+    if [[ -z "$source_env" || -z "$target_env" ]]; then
+        echo "Usage: tetra env promote <source> <target>"
+        echo "Example: tetra env promote dev staging"
+        return 1
+    fi
+
+    # Validate environments
+    if ! tetra_env_validate_name "$source_env" || ! tetra_env_validate_name "$target_env"; then
+        return 1
+    fi
+
+    local source_file="env/${source_env}.env"
+    local target_file="env/${target_env}.env"
+
+    # Check if source file exists
+    if [[ ! -f "$source_file" ]]; then
+        echo "Error: Source environment file not found: $source_file"
+        return 1
+    fi
+
+    echo "Promoting environment: $source_env → $target_env"
+    echo "Source: $source_file"
+    echo "Target: $target_file"
+    echo
+
+    # Create backup if target exists
+    if [[ -f "$target_file" ]]; then
+        local backup_file="${target_file}.backup.$(date +%Y%m%d_%H%M%S)"
+        cp "$target_file" "$backup_file"
+        echo "Created backup: $backup_file"
+    fi
+
+    # Ensure env directory exists
+    mkdir -p "$(dirname "$target_file")"
+
+    # Perform promotion with adaptations
+    tetra_env_adapt "$source_file" "$target_file" "$target_env"
+
+    if [[ $? -eq 0 ]]; then
+        echo "✅ Environment promoted successfully!"
+        echo
+        echo "Review changes:"
+        echo "  diff $source_file $target_file"
+        echo
+        echo "Deploy to $target_env environment:"
+        echo "  tetra deploy $target_env"
+    else
+        echo "❌ Environment promotion failed"
+        return 1
+    fi
+}
+
+# Adapt environment variables for target environment
+tetra_env_adapt() {
+    local source_file="$1"
+    local target_file="$2"
+    local target_env="$3"
+
+    echo "Adapting environment variables for $target_env..."
+    echo "DEBUG: tetra_env_adapt - Array states before calling functions:"
+    echo "DEBUG: ENV_DOMAINS size: ${#ENV_DOMAINS[@]}, sample: '${ENV_DOMAINS[staging]}'"
+    echo "DEBUG: ENV_NODE_ENVS size: ${#ENV_NODE_ENVS[@]}, sample: '${ENV_NODE_ENVS[staging]}'"
+
+    # Start with source file content
+    cp "$source_file" "$target_file"
+
+    # Apply environment-specific adaptations
+    echo "DEBUG: Calling tetra_env_adapt_node_env..."
+    tetra_env_adapt_node_env "$target_file" "$target_env"
+    echo "DEBUG: Calling tetra_env_adapt_domains..."
+    tetra_env_adapt_domains "$target_file" "$target_env"
+    echo "DEBUG: Calling tetra_env_adapt_paths..."
+    tetra_env_adapt_paths "$target_file" "$target_env"
+    echo "DEBUG: Calling tetra_env_adapt_security..."
+    tetra_env_adapt_security "$target_file" "$target_env"
+    echo "DEBUG: Calling tetra_env_adapt_tetra_env..."
+    tetra_env_adapt_tetra_env "$target_file" "$target_env"
+
+    echo "Environment adaptations completed"
+}
+
+# Adapt NODE_ENV variable
+tetra_env_adapt_node_env() {
+    local file="$1"
+    local env="$2"
+
+    # Use case statement instead of associative array
+    local node_env
+    case "$env" in
+        "dev")
+            node_env="development"
+            ;;
+        "staging")
+            node_env="staging"
+            ;;
+        "prod")
+            node_env="production"
+            ;;
+        *)
+            echo "DEBUG: Invalid environment: $env"
+            return 1
+            ;;
+    esac
+
+    sed -i '' "s/^export NODE_ENV=.*/export NODE_ENV=$node_env/" "$file"
+    sed -i '' "s/^NODE_ENV=.*/NODE_ENV=$node_env/" "$file"
+    echo "  ✓ NODE_ENV → $node_env"
+}
+
+# Adapt domain names
+tetra_env_adapt_domains() {
+    local file="$1"
+    local env="$2"
+
+    # Use case statement instead of associative array
+    local domain
+    case "$env" in
+        "dev")
+            domain="dev.pixeljamarcade.com"
+            ;;
+        "staging")
+            domain="staging.pixeljamarcade.com"
+            ;;
+        "prod")
+            domain="pixeljamarcade.com"
+            ;;
+        *)
+            echo "DEBUG: Invalid environment: $env"
+            return 1
+            ;;
+    esac
+
+    sed -i '' "s/^export DOMAIN_NAME=.*/export DOMAIN_NAME=$domain/" "$file"
+    sed -i '' "s/^DOMAIN_NAME=.*/DOMAIN_NAME=$domain/" "$file"
+    echo "  ✓ DOMAIN_NAME → $domain"
+}
+
+# Adapt user paths
+tetra_env_adapt_paths() {
+    local file="$1"
+    local env="$2"
+
+    # Use case statement instead of associative array
+    local user
+    case "$env" in
+        "dev")
+            user="dev"
+            ;;
+        "staging")
+            user="staging"
+            ;;
+        "prod")
+            user="prod"
+            ;;
+        *)
+            echo "DEBUG: Invalid environment: $env"
+            return 1
+            ;;
+    esac
+
+    # Update home directory references
+    sed -i '' "s|/home/dev/|/home/$user/|g" "$file"
+    sed -i '' "s|/home/staging/|/home/$user/|g" "$file"
+    sed -i '' "s|/home/prod/|/home/$user/|g" "$file"
+
+    # Update USER variable
+    sed -i '' "s/^export USER=.*/export USER=$user/" "$file"
+    sed -i '' "s/^USER=.*/USER=$user/" "$file"
+
+    echo "  ✓ User paths → /home/$user/"
+}
+
+# Adapt security settings
+tetra_env_adapt_security() {
+    local file="$1"
+    local env="$2"
+
+    case "$env" in
+        "staging"|"prod")
+            # Remove debug flags
+            sed -i '' "/DEBUG.*=.*true/d" "$file"
+            sed -i '' "/VERBOSE.*=.*true/d" "$file"
+
+            # Ensure secure settings
+            if ! grep -q "^export SECURE_MODE=" "$file" && ! grep -q "^SECURE_MODE=" "$file"; then
+                echo "export SECURE_MODE=true" >> "$file"
+            fi
+
+            echo "  ✓ Security hardening applied"
+            ;;
+    esac
+}
+
+# Adapt TETRA_ENV variable
+tetra_env_adapt_tetra_env() {
+    local file="$1"
+    local env="$2"
+
+    sed -i '' "s/^export TETRA_ENV=.*/export TETRA_ENV=$env/" "$file"
+    sed -i '' "s/^TETRA_ENV=.*/TETRA_ENV=$env/" "$file"
+    echo "  ✓ TETRA_ENV → $env"
+}
+
+# Validate environment name
+tetra_env_validate_name() {
+    local env="$1"
+
+    case "$env" in
+        "dev"|"staging"|"prod")
+            return 0
+            ;;
+        *)
+            echo "Error: Invalid environment name: $env"
+            echo "Valid environments: dev, staging, prod"
+            return 1
+            ;;
+    esac
+}
+
+# List available environments
+tetra_env_list() {
+    echo "Available environment files:"
+    echo
+
+    for env_file in env/*.env; do
+        if [[ -f "$env_file" ]]; then
+            local env_name=$(basename "$env_file" .env)
+            local size=$(wc -l < "$env_file" 2>/dev/null || echo "0")
+            local modified=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$env_file" 2>/dev/null || echo "unknown")
+            printf "  %-10s %s (%d variables, modified: %s)\n" "$env_name" "$env_file" "$size" "$modified"
+        fi
+    done
+
+    if ! ls env/*.env >/dev/null 2>&1; then
+        echo "  No environment files found in env/ directory"
+        echo
+        echo "Create your first environment file:"
+        echo "  mkdir -p env"
+        echo "  echo 'export NODE_ENV=development' > env/dev.env"
+    fi
+}
+
+# Validate environment file
+tetra_env_validate() {
+    local env="${1:-dev}"
+    local env_file="env/${env}.env"
+
+    if [[ ! -f "$env_file" ]]; then
+        echo "Environment file not found: $env_file"
+        return 1
+    fi
+
+    echo "Validating environment file: $env_file"
+    echo
+
+    local errors=0
+    local warnings=0
+
+    # Check for required variables
+    local required_vars=("NODE_ENV" "PORT" "DOMAIN_NAME")
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "^export $var=" "$env_file" && ! grep -q "^$var=" "$env_file"; then
+            echo "❌ Missing required variable: $var"
+            ((errors++))
+        else
+            echo "✅ Required variable found: $var"
+        fi
+    done
+
+    # Check for potential issues
+    if grep -q "localhost" "$env_file" && [[ "$env" != "dev" ]]; then
+        echo "⚠️  Warning: localhost found in $env environment"
+        ((warnings++))
+    fi
+
+    if grep -q "development" "$env_file" && [[ "$env" == "prod" ]]; then
+        echo "⚠️  Warning: development settings in production environment"
+        ((warnings++))
+    fi
+
+    echo
+    echo "Validation summary:"
+    echo "  Errors: $errors"
+    echo "  Warnings: $warnings"
+
+    return $errors
+}
+
+# Compare two environment files
+tetra_env_diff() {
+    local env1="${1:-dev}"
+    local env2="${2:-staging}"
+    local file1="env/${env1}.env"
+    local file2="env/${env2}.env"
+
+    if [[ ! -f "$file1" ]]; then
+        echo "Environment file not found: $file1"
+        return 1
+    fi
+
+    if [[ ! -f "$file2" ]]; then
+        echo "Environment file not found: $file2"
+        return 1
+    fi
+
+    echo "Comparing environments: $env1 vs $env2"
+    echo
+    diff -u "$file1" "$file2" || echo "No differences found"
+}
+
+# Help function
+tetra_env_help() {
+    cat <<'EOF'
+Tetra Environment Management - The Tetra Way
+
+Usage: tetra env <command> [options]
+
+Commands:
+  promote <source> <target>   Promote environment variables between environments
+  list                        List all available environment files
+  validate [environment]      Validate environment file (default: dev)
+  diff <env1> <env2>         Compare two environment files
+
+Environment Promotion:
+  tetra env promote dev staging     Create staging.env from dev.env
+  tetra env promote staging prod    Create prod.env from staging.env
+
+Automatic Adaptations:
+  - NODE_ENV: development → staging → production
+  - DOMAIN_NAME: dev.pixeljamarcade.com → staging.pixeljamarcade.com → pixeljamarcade.com
+  - User paths: /home/dev/ → /home/staging/ → /home/prod/
+  - Security: Remove debug flags, enable production settings
+  - TETRA_ENV: dev → staging → prod
+
+Examples:
+  tetra env list                    Show all environment files
+  tetra env promote dev staging     Promote dev environment to staging
+  tetra env validate prod           Check production environment file
+  tetra env diff dev staging        Compare dev and staging environments
+
+The Tetra Way:
+  1. Developers build env/dev.env organically during development
+  2. Use promotion tools to create staging.env and prod.env with adaptations
+  3. No local.env in repo - developers manage local copies manually
+  4. Environment files align with git branches and deployment targets
+EOF
+}
+
+# Register the tetra env command
+alias env='tetra_env'

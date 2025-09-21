@@ -30,6 +30,7 @@ TKM_MODULES=(
     "$TKM_SRC_DIR/tkm_organizations.sh"
     "$TKM_SRC_DIR/tkm_status.sh"
     "$TKM_SRC_DIR/tkm_ssh_inspector.sh"
+    "$TKM_SRC_DIR/tkm_deploy.sh"
     "$TKM_SRC_DIR/tkm_repl.sh"
 )
 
@@ -180,10 +181,22 @@ tkm() {
             }
             ;;
         deploy)
-            tkm_deploy_keys "$@" || {
-                echo "❌ Key deployment failed for: $*" >&2
-                return 1
-            }
+            # Handle both key deployment and environment deployment
+            case "${1:-}" in
+                "keys"|"key")
+                    shift
+                    tkm_deploy_keys "$@" || {
+                        echo "❌ Key deployment failed for: $*" >&2
+                        return 1
+                    }
+                    ;;
+                "env"|"service"|"status"|"list"|*)
+                    tkm_deploy "$@" || {
+                        echo "❌ Environment deployment failed for: $*" >&2
+                        return 1
+                    }
+                    ;;
+            esac
             ;;
         rotate)
             tkm_rotate_keys "$@" || {
