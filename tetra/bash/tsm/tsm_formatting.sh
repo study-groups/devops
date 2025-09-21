@@ -53,7 +53,7 @@ _tsm_calculate_name_width() {
         # Normal: ID(4) + Name(flexible) + Status(9) + PID(6) + Port(6) + Uptime(10) + spaces(30) = 65 + name
         local available=$((width - 65))
         local name_width=$((available > max_name_len ? max_name_len : available))
-        echo $((name_width < 12 ? 12 : name_width))  # minimum 12 chars
+        echo $((name_width < 24 ? 24 : name_width))  # minimum 24 chars
     fi
 }
 
