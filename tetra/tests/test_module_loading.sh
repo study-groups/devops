@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
-# Test script for Tetra module loading system
-# Tests all registered modules for proper loading and basic functionality
+# Test Module Loading after TETRA_DIR reorganization
+# Tests module system with modules moved to $TETRA_DIR/modules/
+
+set -euo pipefail
+
+# Test configuration
+TEST_NAME="Module Loading Tests"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TETRA_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Initialize test results
 declare -A test_results
@@ -122,8 +129,14 @@ echo
 
 # Source the boot system
 echo "Loading boot system..."
-source /Users/mricos/src/devops/tetra/bash/boot/boot_core.sh
-source /Users/mricos/src/devops/tetra/bash/boot/boot_modules.sh
+
+# Setup test environment
+if [[ -f "$HOME/tetra/tetra.sh" ]]; then
+    source "$HOME/tetra/tetra.sh"
+else
+    echo "Cannot find tetra.sh"
+    exit 1
+fi
 
 echo "Found ${#TETRA_MODULE_LOADERS[@]} registered modules"
 echo

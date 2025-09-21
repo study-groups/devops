@@ -311,8 +311,9 @@ render_toml_system() {
 TOML Configuration Overview
 
 $(highlight_line "Active TOML: ${ACTIVE_TOML:-No TOML file detected}" "$(is_current_item 0)" "$YELLOW")
-$(highlight_line "Project: ${PROJECT_NAME:-Unknown}" "$(is_current_item 1)" "$CYAN")
-$(highlight_line "Sync Status: ${TOML_SYNC_STATUS:-Ready for sync}" "$(is_current_item 2)" "$GREEN")
+$(highlight_line "Organization: ${ACTIVE_ORG:-Local Project}" "$(is_current_item 1)" "$MAGENTA")
+$(highlight_line "Project: ${PROJECT_NAME:-Unknown}" "$(is_current_item 2)" "$CYAN")
+$(highlight_line "Sync Status: ${TOML_SYNC_STATUS:-Ready for sync}" "$(is_current_item 3)" "$GREEN")
 
 Infrastructure Summary:
   Dev: ${DEV_SERVER:-Unknown} (${DEV_IP:-Unknown})
@@ -635,13 +636,27 @@ highlight_line() {
 
 # Data loading functions
 detect_active_toml() {
-    local toml_files=(*.toml)
-    if [[ -f "${toml_files[0]}" ]]; then
-        ACTIVE_TOML="${toml_files[0]}"
-        PROJECT_NAME="$(basename "$ACTIVE_TOML" .toml)"
+    # Check for organization-based TOML first
+    local tetra_toml="$TETRA_DIR/config/tetra.toml"
+
+    if [[ -L "$tetra_toml" ]]; then
+        # Organization system is active
+        ACTIVE_TOML="$tetra_toml"
+        local target=$(readlink "$tetra_toml")
+        ACTIVE_ORG=$(basename "$(dirname "$target")")
+        PROJECT_NAME="$ACTIVE_ORG"
     else
-        ACTIVE_TOML=""
-        PROJECT_NAME=""
+        # Fallback to local TOML files
+        local toml_files=(*.toml)
+        if [[ -f "${toml_files[0]}" ]]; then
+            ACTIVE_TOML="${toml_files[0]}"
+            PROJECT_NAME="$(basename "$ACTIVE_TOML" .toml)"
+            ACTIVE_ORG=""
+        else
+            ACTIVE_TOML=""
+            PROJECT_NAME=""
+            ACTIVE_ORG=""
+        fi
     fi
 }
 

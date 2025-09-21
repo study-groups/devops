@@ -2,8 +2,7 @@
 
 # TDash Module Integration - Tetra Dashboard
 
-# Load dashboard components
-source "$TETRA_SRC/bash/tdash/repl_dashboard.sh"
+# Load new tdash REPL system
 source "$TETRA_SRC/bash/tdash/tdash_repl.sh"
 
 # Register dashboard command for standalone use
@@ -15,26 +14,22 @@ tdash() {
     shift
 
     case "$subcommand" in
-        "repl")
+        "repl"|""|*)
+            # Always use the new 4-mode REPL system
             tdash_repl "$@"
-            ;;
-        "overview"|"systems"|"env")
-            tetra_repl_dashboard "$subcommand" "$@"
             ;;
         "help"|"-h"|"--help")
             echo "Tetra Dashboard (TDash)"
-            echo "Usage: tdash <command>"
+            echo "Usage: tdash [repl]"
+            echo ""
+            echo "TDash uses a revolutionary 4-mode, 4-environment navigation:"
+            echo "  • Modes: TOML ← → TKM ← → TSM ← → DEPLOY (a,d keys)"
+            echo "  • Envs: SYSTEM ↕ LOCAL ↕ DEV ↕ STAGING ↕ PROD (w,s keys)"
+            echo "  • Items: Navigate within mode+env (j,i,k,l keys)"
             echo ""
             echo "Commands:"
-            echo "  repl        Interactive dashboard with 4-mode navigation (default)"
-            echo "  overview    System overview"
-            echo "  systems     Detailed system health"
-            echo "  env         Environment summary"
+            echo "  repl        Interactive dashboard (default)"
             echo "  help        Show this help"
-            ;;
-        *)
-            # Default to repl for unknown commands
-            tdash_repl "$@"
             ;;
     esac
 }

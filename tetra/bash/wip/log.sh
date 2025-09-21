@@ -23,7 +23,7 @@ tetra_logs(){
 
 alias tetra_log='tetra_log_via_gpt4'
 tetra_log_via_gpt4() {
-    local log_dir="$HOME/tetra/logs"
+    local log_dir="$TETRA_DIR/config/tetra/logs"
     local log_file="${log_dir}/tetra.log"
     local max_size=131072 # 128 KB in bytes
     local message=$1

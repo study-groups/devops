@@ -1,6 +1,83 @@
-# Next Steps - Systemd Integration and Testing
+# Next Steps - Advanced Organization Features and Infrastructure Integration
 
-## Immediate Testing Required
+## ✅ Recently Completed (2025-01-21)
+
+- **✅ Organization Management System** - Complete multi-client infrastructure support
+- **✅ TETRA_DIR Reorganization** - Clean structure with `tetra.sh` as only root file
+- **✅ TDash Organization Integration** - Dashboard shows organization context
+- **✅ Symlink-based Active Organization** - Seamless org switching via `$TETRA_DIR/config/tetra.toml`
+- **✅ Module Consolidation** - All module data organized in `$TETRA_DIR/modules/`
+- **✅ Comprehensive Testing** - Organization, TDash, and module loading test suites
+
+## High Priority: TDash 5th Mode Implementation
+
+### 1. **ORG Mode for TDash**
+Extend TDash with organization management capabilities:
+
+```bash
+# Enhanced navigation: 5 modes × 5 environments
+MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG")
+```
+
+**Implementation Required:**
+- Organization listing and management within TDash
+- Quick organization switching with visual confirmation
+- Organization creation and editing interface
+- Active organization status and switching history
+- Multi-org infrastructure overview and comparison
+
+### 2. **Config Push/Pull System**
+Implement deployment of organization configs to remote environments:
+
+```bash
+# Organization deployment commands
+tetra org push pixeljam_arcade dev    # Deploy org config to dev server
+tetra org pull pixeljam_arcade dev    # Sync org config from dev server
+tetra org sync                        # Bi-directional sync across environments
+```
+
+**Implementation Required:**
+- Remote config deployment via SSH
+- Config validation and backup before deployment
+- Environment-specific config adaptations
+- Rollback functionality for failed deployments
+
+### 3. **NH (NodeHolder) Integration**
+Integrate with DigitalOcean infrastructure discovery:
+
+```bash
+# NH integration for auto-discovery
+nh discover pixeljam_arcade           # Auto-populate TOML from DigitalOcean
+tetra org import --from-nh pixeljam_arcade  # Import NH data to tetra org
+```
+
+**Features Needed:**
+- Automatic TOML generation from DigitalOcean API
+- Server spec synchronization (IPs, memory, regions)
+- Domain and firewall rule discovery
+- Real-time infrastructure status integration
+
+## Medium Priority: TDash Enhancement
+
+### 4. **Enhanced Infrastructure Display**
+Improve TDash data presentation and functionality:
+
+**Features Needed:**
+- Real-time server metrics (CPU, memory, disk usage)
+- Service health monitoring integration
+- Log streaming capabilities within TDash
+- Infrastructure cost tracking and alerts
+
+### 5. **Advanced Navigation Features**
+Extend TDash navigation capabilities:
+
+**Features Needed:**
+- Search functionality across all modes
+- Bookmarking frequently accessed items
+- History navigation (back/forward through views)
+- Custom views and filtered displays
+
+## Testing Priority: Systemd Integration
 
 The new systemd daemon integration and TSM service management system needs comprehensive testing on Linux environments to ensure all components work together correctly.
 
