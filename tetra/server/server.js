@@ -7,11 +7,13 @@ const path = require('path');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { Server } = require('socket.io');
 
 // Environment configuration
 const TETRA_ENV = process.env.TETRA_ENV || 'local';
-const PORT = process.env.TETRA_PORT || 4444;
+const PORT = process.env.TETRA_PORT || 4443;
 const TETRA_DIR = process.env.TETRA_DIR || '/Users/mricos/tetra';
+const TETRA_SRC = process.env.TETRA_SRC || '/home/dev/src/devops/tetra';
 
 // JWT secret for session tokens (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
@@ -29,7 +31,15 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(TETRA_DIR, 'public')));
+app.use(express.static(path.join(TETRA_SRC, 'public')));
+
+// Socket.IO for local terminal
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // WebSocket server for SSH bridge
 const wss = new WebSocket.Server({
@@ -46,7 +56,66 @@ const FEATURES = {
 
 console.log('🔧 Feature flags:', FEATURES);
 
-// SSH Bridge (local/dev only)
+// Local Terminal (Socket.IO)
+if (FEATURES.console_access) {
+    // Create a simple terminal manager for local shell
+    const pty = require('node-pty');
+
+    let ptyProcess = null;
+
+    const startLocalTerminal = () => {
+        if (ptyProcess) return ptyProcess;
+
+        console.log('[PTY Manager] Starting terminal process...');
+        const defaultProjectDir = `${process.env.HOME}/src/pixeljam`;
+        ptyProcess = pty.spawn('bash', [], {
+            name: 'xterm-color',
+            cols: 80,
+            rows: 30,
+            cwd: process.env.HOME,
+            env: process.env,
+        });
+
+        ptyProcess.write('PS1="\\$ "\r\n');
+        ptyProcess.write('clear\r\n');
+        ptyProcess.write(`cd "${defaultProjectDir}" 2>/dev/null || echo "Note: ${defaultProjectDir} not found, staying in HOME"\r\n`);
+
+        ptyProcess.onExit(() => {
+            console.log('[PTY Manager] The shared terminal process has exited.');
+            ptyProcess = null;
+        });
+
+        return ptyProcess;
+    };
+
+    // Handle Socket.IO connections for local terminal
+    io.on('connection', (socket) => {
+        console.log(`[Socket.IO] Client connected: ${socket.id}`);
+
+        const terminal = startLocalTerminal();
+        socket.emit('output', '\r\n--- 🟢 Client connected to local shell 🟢 ---\r\n');
+
+        // Forward terminal output to client
+        terminal.onData((data) => {
+            socket.emit('output', data);
+        });
+
+        // Handle input from client
+        socket.on('input', (data) => {
+            if (terminal) {
+                terminal.write(data);
+            }
+        });
+
+        socket.on('disconnect', () => {
+            console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
+        });
+    });
+
+    console.log('🖥️ Local Terminal enabled');
+}
+
+// SSH Bridge (WebSocket)
 if (FEATURES.console_access) {
     require('./ssh-bridge')(wss, sshKeyStore, JWT_SECRET);
     console.log('🔗 SSH Bridge enabled');
@@ -126,6 +195,15 @@ app.use('/api/tsm', require('./api/tsm'));
 app.use('/api/deploy', require('./api/deploy'));
 app.use('/api/pbase', require('./api/pbase'));
 
+// Environment data for frontend
+app.get('/api/env', (req, res) => {
+    res.json({
+        USER: process.env.USER || 'dev',
+        HOME: process.env.HOME || '/home/dev',
+        defaultProjectDir: `${process.env.HOME || '/home/dev'}/src/pixeljam`
+    });
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({
@@ -151,7 +229,7 @@ app.get('/status', (req, res) => {
 
 // Default route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(TETRA_DIR, 'public', 'index.html'));
+    res.sendFile(path.join(TETRA_SRC, 'public', 'index.html'));
 });
 
 // Error handling
@@ -164,8 +242,8 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-server.listen(PORT, () => {
-    console.log(`✅ Tetra server running on http://localhost:${PORT}`);
+server.listen(PORT, '127.0.0.1', () => {
+    console.log(`✅ Tetra server running on http://127.0.0.1:${PORT}`);
     console.log(`📊 Environment: ${TETRA_ENV}`);
     console.log(`🔌 WebSocket SSH bridge: ${FEATURES.console_access ? 'enabled' : 'disabled'}`);
 });

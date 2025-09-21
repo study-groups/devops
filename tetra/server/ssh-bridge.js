@@ -18,6 +18,7 @@ module.exports = function(wss, sshKeyStore, JWT_SECRET) {
         ws.on('message', function message(data) {
             try {
                 const msg = JSON.parse(data);
+                console.log('🔍 SSH Bridge received message:', { ...msg, privateKey: msg.privateKey ? '[REDACTED]' : undefined, token: msg.token ? '[TOKEN]' : undefined });
 
                 switch (msg.type) {
                     case 'auth':
@@ -82,6 +83,15 @@ module.exports = function(wss, sshKeyStore, JWT_SECRET) {
 
             const { host: finalHost, username: finalUsername, privateKey: finalPrivateKey, passphrase: finalPassphrase } = sshCredentials;
 
+            // Validate that we have proper authentication credentials
+            if (!finalPrivateKey) {
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'SSH private key is required for authentication'
+                }));
+                return;
+            }
+
             sshClient = new Client();
 
             sshClient.on('ready', () => {
@@ -142,17 +152,19 @@ module.exports = function(wss, sshKeyStore, JWT_SECRET) {
                 console.log('🔌 SSH connection ended');
             });
 
-            // Connect to SSH server
+            // Connect to SSH server with required authentication
             const connectOptions = {
                 host: finalHost,
                 port,
                 username: finalUsername,
+                privateKey: finalPrivateKey,
                 keepaliveInterval: 30000,
-                keepaliveCountMax: 3
+                keepaliveCountMax: 3,
+                // Explicitly disable other auth methods for security
+                tryKeyboard: false,
+                authHandler: ['none', 'publickey']
             };
-            if (finalPrivateKey) {
-                connectOptions.privateKey = finalPrivateKey;
-            }
+
             if (finalPassphrase) {
                 connectOptions.passphrase = finalPassphrase;
             }
