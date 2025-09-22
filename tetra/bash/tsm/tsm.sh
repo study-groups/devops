@@ -42,7 +42,7 @@ Commands:
   stop <process|id|*>        Stop processes (by name, TSM ID, or all)
   delete|del|kill <process|id|*> Delete processes and logs
   restart <process|id|*>     Restart processes
-  list|ls                    List all processes with TSM IDs
+  list|ls [--json]           List all processes with TSM IDs
   services [-d|--detail]     List saved service definitions (.tsm.sh)
   save <name> <command>      Save current command as a service definition
   enable <service>           Enable service for automatic startup
@@ -128,7 +128,12 @@ EOF
             tetra_tsm_restart "$@"
             ;;
         list|ls)
-            tetra_tsm_list
+            # Check for --json flag
+            if [[ "$1" == "--json" ]]; then
+                tsm_processes_to_json
+            else
+                tetra_tsm_list "$@"
+            fi
             ;;
         services)
             tetra_tsm_list_services "$@"

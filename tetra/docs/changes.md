@@ -1,5 +1,40 @@
 # Current Changes
 
+## 2025-09-21 - TSM Error Handling and Diagnostic Improvements
+
+### 🛠️ **Enhanced TSM Error Reporting and Diagnostics**
+Implemented comprehensive error handling improvements based on TSM error report analysis:
+
+**Key Improvements:**
+1. **✅ Detailed Error Messages** - Specific failure reasons instead of generic "failed to start"
+2. **✅ Process Discovery** - Find and manage orphaned TSM processes
+3. **✅ JSON Output Support** - Machine-readable output for LLM agents
+4. **✅ Pre-flight Validation** - Validate commands before execution
+
+**New Diagnostic Commands:**
+```bash
+tsm doctor validate <command> --port <port> --env <file>  # Pre-flight validation
+tsm doctor orphans [--json]                              # Find orphaned processes
+tsm doctor clean                                          # Clean stale tracking files
+tsm list --json                                          # Machine-readable process list
+tsm start --json <command>                               # Structured startup results
+```
+
+**Enhanced Error Context:**
+- Port conflict detection with PID and process details
+- TSM-managed vs external process identification
+- Environment file validation and suggestions
+- Log analysis and recent error detection
+- Actionable remediation steps
+
+**LLM Agent Support:**
+- Structured JSON responses for programmatic parsing
+- Consistent error/success format across commands
+- Diagnostic information embedded in error responses
+- Pre-flight validation to prevent startup failures
+
+---
+
 ## 2025-09-21 - Completed High Priority Features and Testing Infrastructure
 
 ### 🎯 **Major Achievements**

@@ -459,6 +459,9 @@ tetra_tsm_start_python() {
         echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
     else
         echo "tsm: failed to start '$name'" >&2
+        echo >&2
+        # Run diagnostic to provide helpful error context
+        tsm_diagnose_startup_failure "$name" "$port" "$python_cmd" ""
         return 1
     fi
 }
@@ -482,8 +485,8 @@ tetra_tsm_start_webserver() {
 
 tetra_tsm_start_command() {
     local command_args=()
-    local port="" custom_name="" env_file=""
-    
+    local port="" custom_name="" env_file="" json_output=false
+
     # Parse command arguments and options - command args come first, then options
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -499,19 +502,23 @@ tetra_tsm_start_command() {
                 env_file="$2"
                 shift 2
                 ;;
+            --json)
+                json_output=true
+                shift
+                ;;
             *)
                 command_args+=("$1")
                 shift
                 ;;
         esac
     done
-    
+
     [[ ${#command_args[@]} -gt 0 ]] || { echo "tsm: command required" >&2; return 64; }
     [[ -n "$port" ]] || { echo "tsm: port required for command mode" >&2; return 64; }
-    
+
     # Generate command string
     local command_string="${command_args[*]}"
-    
+
     # Generate name from command
     local name
     if [[ -n "$custom_name" ]]; then
@@ -523,27 +530,48 @@ tetra_tsm_start_command() {
         base_name="${base_name##*/}"
         name="${base_name}-${port}"
     fi
-    
+
     tetra_tsm_is_running "$name" && {
         echo "tsm: process '$name' already running" >&2
         return 1
     }
-    
+
     # Commands run from current directory
     local working_dir="$PWD"
     
     _tsm_start_command_process "$command_string" "$name" "$env_file" "$working_dir" || {
-        echo "tsm: failed to start '$name'" >&2
+        if [[ "$json_output" == "true" ]]; then
+            # Get diagnostic info for JSON error
+            local diagnostic_info=""
+            local existing_pid=$(lsof -ti :$port 2>/dev/null)
+            if [[ -n "$existing_pid" ]]; then
+                local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+                diagnostic_info="Port $port is in use by PID $existing_pid ($process_cmd)"
+            else
+                diagnostic_info="Process failed to start - check logs at $TETRA_DIR/tsm/logs/$name.log"
+            fi
+            tsm_json_error "Failed to start '$name'" 1 "$diagnostic_info"
+        else
+            echo "tsm: failed to start '$name'" >&2
+            echo >&2
+            # Run diagnostic to provide helpful error context
+            tsm_diagnose_startup_failure "$name" "$port" "$command_string" "$env_file"
+        fi
         return 1
     }
-    
+
     local pid
     pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
-    
+
     local tsm_id
     tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir")
-    
-    echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+
+    if [[ "$json_output" == "true" ]]; then
+        local process_data="{\"tsm_id\": \"$tsm_id\", \"name\": \"$name\", \"pid\": \"$pid\", \"port\": \"$port\", \"command\": \"$(_tsm_json_escape "$command_string")\", \"working_dir\": \"$(_tsm_json_escape "$working_dir")\"}"
+        tsm_json_success "Started '$name'" "$process_data"
+    else
+        echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+    fi
 }
 
 # === MAIN START FUNCTION ===

@@ -2,6 +2,105 @@
 
 # tetra_tsm_ utils - Utility functions for tsm
 
+# === JSON OUTPUT UTILITIES ===
+
+# JSON escape string
+_tsm_json_escape() {
+    local str="$1"
+    # Escape quotes, backslashes, and newlines
+    echo "$str" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n' | sed 's/\\n$//'
+}
+
+# Output JSON error response
+tsm_json_error() {
+    local message="$1"
+    local code="${2:-1}"
+    local details="${3:-}"
+
+    echo "{"
+    echo "  \"success\": false,"
+    echo "  \"error\": {"
+    echo "    \"message\": \"$(_tsm_json_escape "$message")\","
+    echo "    \"code\": $code"
+    if [[ -n "$details" ]]; then
+        echo "    ,\"details\": \"$(_tsm_json_escape "$details")\""
+    fi
+    echo "  }"
+    echo "}"
+}
+
+# Output JSON success response
+tsm_json_success() {
+    local message="$1"
+    local data="${2:-{}}"
+
+    echo "{"
+    echo "  \"success\": true,"
+    echo "  \"message\": \"$(_tsm_json_escape "$message")\","
+    echo "  \"data\": $data"
+    echo "}"
+}
+
+# Convert process list to JSON
+tsm_processes_to_json() {
+    echo "{"
+    echo "  \"success\": true,"
+    echo "  \"data\": {"
+    echo "    \"processes\": ["
+
+    local first=true
+    local processes_dir="$TETRA_DIR/tsm/processes"
+
+    if [[ -d "$processes_dir" ]]; then
+        for process_file in "$processes_dir"/*; do
+            [[ -f "$process_file" ]] || continue
+
+            if [[ "$first" == true ]]; then
+                first=false
+            else
+                echo ","
+            fi
+
+            local process_name=$(basename "$process_file")
+            local TSM_ID="" PROCESS_NAME="" PID="" COMMAND="" PORT="" CWD="" ENV_FILE="" START_TIME="" STATUS=""
+
+            source "$process_file" 2>/dev/null || continue
+
+            # Check if process is actually running
+            local actual_status="stopped"
+            if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+                actual_status="running"
+            fi
+
+            # Calculate uptime
+            local uptime=""
+            if [[ -n "$START_TIME" && "$actual_status" == "running" ]]; then
+                local current_time=$(date +%s)
+                local uptime_seconds=$((current_time - START_TIME))
+                uptime="${uptime_seconds}s"
+            fi
+
+            echo -n "      {"
+            echo -n "\"tsm_id\": \"$(_tsm_json_escape "${TSM_ID:-}")\", "
+            echo -n "\"name\": \"$(_tsm_json_escape "${PROCESS_NAME:-$process_name}\")\", "
+            echo -n "\"pid\": \"$(_tsm_json_escape "${PID:-}\")\", "
+            echo -n "\"command\": \"$(_tsm_json_escape "${COMMAND:-}\")\", "
+            echo -n "\"port\": \"$(_tsm_json_escape "${PORT:-}\")\", "
+            echo -n "\"status\": \"$(_tsm_json_escape "$actual_status")\", "
+            echo -n "\"uptime\": \"$(_tsm_json_escape "$uptime")\", "
+            echo -n "\"cwd\": \"$(_tsm_json_escape "${CWD:-}\")\", "
+            echo -n "\"env_file\": \"$(_tsm_json_escape "${ENV_FILE:-}\")\""
+            echo -n "}"
+        done
+    fi
+
+    echo ""
+    echo "    ],"
+    echo "    \"count\": $(find "$processes_dir" -name "*" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    echo "  }"
+    echo "}"
+}
+
 tetra_tsm_get_setsid() {
     # Get the correct setsid command for the platform
     if [[ "$OSTYPE" == "darwin"* ]]; then
