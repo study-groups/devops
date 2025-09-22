@@ -1,5 +1,99 @@
 # Current Changes
 
+## 2025-09-22 - Enhanced SSH Configuration & Environment Mapping System
+
+### 🔧 **Flexible SSH Configuration Override System**
+Implemented comprehensive SSH configuration system that preserves user customizations across organization imports.
+
+**Key Features:**
+1. **✅ Customization Override Files** - Persistent user preferences in `.customizations.toml`
+2. **✅ Multiple SSH Users** - Support for multiple SSH users per environment (root, dev, staging, production)
+3. **✅ Domain-based SSH** - Prioritize domain connections over IP addresses (user@domain.com)
+4. **✅ Environment Mapping** - Flexible server assignments (staging on prod server)
+5. **✅ Import Preservation** - Customizations preserved during DigitalOcean JSON reimports
+
+**Implementation Details:**
+- **Override File Structure**: `[org_name].customizations.toml` never overwritten by imports
+- **Smart Import Process**: Automatic backup/restore of customizations during imports
+- **Enhanced TView Display**: Multiple SSH connection options displayed per environment
+- **Default Generation**: Sensible defaults created for new organizations
+
+**File Structure:**
+```toml
+[ssh_users]
+dev = ["root", "dev"]
+staging = ["root", "staging"]
+
+[ssh_config]
+dev_domain = "dev.pixeljamarcade.com"
+prefer_domain_ssh = true
+
+[environment_mapping]
+# staging_server_override = "prod_server"
+```
+
+**TView Display Enhancement:**
+- Shows all configured SSH users per environment
+- Displays both IP and domain connection options
+- Prioritizes domain-based SSH when enabled
+- Clean, bold formatting with proper indentation
+
+**System Benefits:**
+- ✅ Preserves manual SSH configurations across imports
+- ✅ Supports complex deployment scenarios (staging on prod)
+- ✅ Enables domain-based SSH workflows
+- ✅ Maintains backward compatibility with existing systems
+
+**Files Modified:**
+- `bash/tview/tview_data.sh` - Added customization loading logic
+- `bash/tview/tview_actions.sh` - Enhanced SSH display functions
+- `bash/org/tetra_org.sh` - Import preservation and default generation
+- Created: Organization customization override files
+
+---
+
+## 2025-09-22 - TSM Refactor Phase 1 & 2 Complete
+
+### 🏗️ **Comprehensive TSM Architecture Refactor**
+Completed systematic refactor of TSM (Tetra Service Manager) codebase addressing critical architectural issues and improving modularity.
+
+**Phase 1: Critical Function Deduplication**
+- **Duplicate Functions Removed**: Eliminated `_tsm_start_process()` duplication between tsm_core.sh and tsm_interface.sh
+- **Export Cleanup**: Removed conflicting function exports to prevent namespace collisions
+- **ID Algorithm**: Implemented lowest unused ID generation algorithm in tsm_utils.sh
+- **RAG Cache Issue**: Resolved function override conflicts by moving `/bash/rag/for-llm/` to `/tmp/`
+- **Backup Created**: Full system backup at `tsm_backup_20250921_231440/`
+
+**Phase 2: File Reorganization**
+- **Split tsm_interface.sh**: Reduced from 1,169 lines to 31 lines of coordination
+- **New Modules Created**:
+  - `tsm_validation.sh`: Validation and helper functions (8 functions)
+  - `tsm_process.sh`: Process lifecycle management (10 functions)
+  - `tsm_cli.sh`: CLI command handlers (7 functions)
+- **Updated Loading**: Modified tsm.sh with proper dependency-ordered loading
+- **Backup Preserved**: Original interface saved as `tsm_interface_old.sh`
+
+**Files Modified:**
+- `tsm.sh`: Updated module loading order
+- `tsm_interface.sh`: Reduced to coordination only
+- `tsm_core.sh`: Removed duplicate functions
+- `tsm_utils.sh`: Implemented lowest unused ID algorithm
+- Created: `tsm_validation.sh`, `tsm_process.sh`, `tsm_cli.sh`
+
+**System Impact:**
+- ✅ Backward compatibility maintained
+- ✅ All existing functionality preserved
+- ✅ Improved separation of concerns
+- ✅ Eliminated function conflicts
+- ✅ Clean modular architecture established
+
+**Testing:**
+- System loading verified with proper dependency order
+- All core TSM functions operational
+- Named port registry validation working as expected
+
+---
+
 ## 2025-09-21 - TSM Error Handling and Diagnostic Improvements
 
 ### 🛠️ **Enhanced TSM Error Reporting and Diagnostics**
