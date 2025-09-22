@@ -1,240 +1,258 @@
-# Next Steps - Advanced Organization Features and Infrastructure Integration
+# Next Steps - Advanced Features and Production Optimization
 
-## ✅ Recently Completed (2025-01-21)
+## ✅ **Recently Completed (2025-09-21)**
 
-- **✅ Organization Management System** - Complete multi-client infrastructure support
-- **✅ TETRA_DIR Reorganization** - Clean structure with `tetra.sh` as only root file
-- **✅ TDash Organization Integration** - Dashboard shows organization context
-- **✅ Symlink-based Active Organization** - Seamless org switching via `$TETRA_DIR/config/tetra.toml`
-- **✅ Module Consolidation** - All module data organized in `$TETRA_DIR/modules/`
-- **✅ Comprehensive Testing** - Organization, TDash, and module loading test suites
+All high-priority tasks from the previous roadmap have been successfully completed:
 
-## High Priority: TDash 5th Mode Implementation
+- **✅ TSM Service Start Functions Integration** - Named port registry fully integrated
+- **✅ Named Port Registry Management** - Complete command suite implemented
+- **✅ Service Definition Integration** - Auto-port resolution from named registry
+- **✅ TDash ORG Mode** - Modal dashboard interface
+- **✅ Systemd Integration Tests** - Production-ready test suite
 
-### 1. **ORG Mode for TDash**
-Extend TDash with organization management capabilities:
+## 🎯 **High Priority: Production Optimization**
 
-```bash
-# Enhanced navigation: 5 modes × 5 environments
-MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG")
-```
+### 1. **Enhanced Organization Management**
+Expand the organization system with deployment and synchronization capabilities:
 
 **Implementation Required:**
-- Organization listing and management within TDash
-- Quick organization switching with visual confirmation
-- Organization creation and editing interface
-- Active organization status and switching history
-- Multi-org infrastructure overview and comparison
+- **Config Push/Pull System** - Deploy organization configs to remote environments
+- **Organization Templates** - Standardized templates for new organizations
+- **Multi-Environment Synchronization** - Keep configs in sync across dev/staging/prod
+- **Organization Validation** - Validate configs before deployment
+- **Rollback Functionality** - Safe rollback for failed deployments
 
-### 2. **Config Push/Pull System**
-Implement deployment of organization configs to remote environments:
-
+**Commands to Add:**
 ```bash
-# Organization deployment commands
-tetra org push pixeljam_arcade dev    # Deploy org config to dev server
-tetra org pull pixeljam_arcade dev    # Sync org config from dev server
-tetra org sync                        # Bi-directional sync across environments
+tetra org push <org> <env>        # Deploy org config to environment
+tetra org pull <org> <env>        # Sync org config from environment
+tetra org template <name>         # Create org from template
+tetra org validate <org>          # Validate organization config
+tetra org rollback <org> <env>    # Rollback to previous config
 ```
+
+### 2. **TDash Advanced Features**
+Enhance the dashboard with interactive capabilities and real-time monitoring:
+
+**Features Needed:**
+- **Interactive Actions** - Execute commands directly from TDash
+- **Real-time Monitoring** - Live service status and resource usage
+- **Log Streaming** - Stream logs within TDash interface
+- **Service Control** - Start/stop/restart services from dashboard
+- **Organization Switching** - Quick org switching with visual confirmation
 
 **Implementation Required:**
-- Remote config deployment via SSH
-- Config validation and backup before deployment
-- Environment-specific config adaptations
-- Rollback functionality for failed deployments
+- Modal system for interactive commands
+- WebSocket-like real-time updates
+- Log tail integration with highlighting
+- Service action confirmations
+- Organization state management
 
-### 3. **NH (NodeHolder) Integration**
-Integrate with DigitalOcean infrastructure discovery:
+### 3. **Named Port Registry Persistence**
+Make the named port registry persistent and configurable:
 
-```bash
-# NH integration for auto-discovery
-nh discover pixeljam_arcade           # Auto-populate TOML from DigitalOcean
-tetra org import --from-nh pixeljam_arcade  # Import NH data to tetra org
+**Implementation Required:**
+- **Persistent Storage** - Save port assignments to configuration file
+- **Import/Export** - Import/export port registry configurations
+- **Conflict Detection** - Advanced port conflict resolution
+- **Service Discovery** - Auto-discovery of service port requirements
+- **Port Allocation** - Automatic port allocation for new services
+
+**Configuration File:**
+```toml
+# $TETRA_DIR/config/ports.toml
+[ports]
+devpages = 4000
+tetra = 4444
+arcade = 8400
+pbase = 2600
+
+[port_ranges]
+development = "3000-3999"
+staging = "4000-4999"
+production = "5000-5999"
 ```
+
+## 🚀 **High Priority: Enhanced Workflow Integration**
+
+### 4. **Environment Promotion Automation**
+Automate the environment promotion workflow with validation and rollback:
+
+**Implementation Required:**
+- **Automated Testing** - Run tests before promotion
+- **Validation Pipelines** - Multi-stage validation before deployment
+- **Rollback Triggers** - Automatic rollback on failure detection
+- **Promotion History** - Track promotion history and changes
+- **Approval Workflows** - Optional approval gates for production
+
+**Workflow Commands:**
+```bash
+tetra env promote dev staging --validate  # Promote with validation
+tetra env rollback staging                # Rollback staging to previous
+tetra env history staging                 # Show promotion history
+tetra env diff dev staging               # Show differences between environments
+```
+
+### 5. **Service Health Monitoring**
+Implement service health monitoring and alerting:
 
 **Features Needed:**
-- Automatic TOML generation from DigitalOcean API
-- Server spec synchronization (IPs, memory, regions)
-- Domain and firewall rule discovery
-- Real-time infrastructure status integration
+- **Health Check Definitions** - Define health checks in service files
+- **Monitoring Dashboard** - Real-time health status in TDash
+- **Alerting System** - Configurable alerts for service failures
+- **Auto-Recovery** - Automatic service restart on failure
+- **Performance Metrics** - CPU, memory, and response time tracking
 
-## Medium Priority: TDash Enhancement
+**Service Definition Enhancement:**
+```bash
+# In .tsm.sh files
+TSM_HEALTH_CHECK="curl -f http://localhost:${TSM_PORT}/health"
+TSM_HEALTH_INTERVAL="30s"
+TSM_RESTART_ON_FAILURE="true"
+TSM_MAX_RESTARTS="3"
+```
 
-### 4. **Enhanced Infrastructure Display**
-Improve TDash data presentation and functionality:
+## 🔧 **Medium Priority: Developer Experience**
+
+### 6. **CLI Enhancements**
+Improve command-line interface with better UX and productivity features:
+
+**Features to Add:**
+- **Command Completion** - Bash/zsh completion for all commands
+- **Interactive Wizards** - Setup wizards for common tasks
+- **Rich Output** - Better formatting and colors for command output
+- **Command History** - Track and replay command history
+- **Help System** - Context-aware help and examples
+
+### 7. **Template Engine**
+Implement template engine for service and configuration generation:
+
+**Implementation Required:**
+- **Variable Substitution** - Environment-aware variable replacement
+- **Conditional Logic** - Environment-specific template sections
+- **Template Inheritance** - Base templates with environment overrides
+- **Validation** - Template syntax and variable validation
+- **Generation Pipeline** - Automated template processing
+
+**Template Example:**
+```bash
+# templates/service.tsm.sh.tmpl
+TSM_NAME="{{service_name}}"
+TSM_COMMAND="{{command}}"
+TSM_PORT="{{port}}"
+{{#if production}}
+TSM_RESTART_POLICY="always"
+TSM_SECURITY_HARDENING="true"
+{{/if}}
+```
+
+### 8. **Integration Testing Automation**
+Automate integration testing with CI/CD pipeline integration:
+
+**Testing Infrastructure:**
+- **Automated Test Runs** - Trigger tests on code changes
+- **Environment Testing** - Test across different environments
+- **Performance Testing** - Load and performance testing
+- **Security Testing** - Security validation and scanning
+- **Regression Testing** - Ensure changes don't break existing functionality
+
+## 🌐 **Medium Priority: Infrastructure Integration**
+
+### 9. **Cloud Provider Integration**
+Integrate with major cloud providers for infrastructure management:
+
+**Providers to Support:**
+- **DigitalOcean** - Enhanced droplet and firewall management
+- **AWS** - EC2, VPC, and security group integration
+- **Google Cloud** - Compute Engine and networking
+- **Azure** - Virtual machines and resource groups
 
 **Features Needed:**
-- Real-time server metrics (CPU, memory, disk usage)
-- Service health monitoring integration
-- Log streaming capabilities within TDash
-- Infrastructure cost tracking and alerts
+- Infrastructure discovery and import
+- Automated provisioning from templates
+- Cost tracking and optimization
+- Security compliance checking
 
-### 5. **Advanced Navigation Features**
-Extend TDash navigation capabilities:
+### 10. **Container Integration**
+Add container support for modern deployment patterns:
 
-**Features Needed:**
-- Search functionality across all modes
-- Bookmarking frequently accessed items
-- History navigation (back/forward through views)
-- Custom views and filtered displays
+**Container Support:**
+- **Docker Integration** - Native Docker container management
+- **Docker Compose** - Multi-container application support
+- **Health Checks** - Container-aware health monitoring
+- **Log Aggregation** - Container log collection and viewing
+- **Resource Limits** - CPU and memory limit management
 
-## Testing Priority: Systemd Integration
+## 🔒 **Security and Compliance**
 
-The new systemd daemon integration and TSM service management system needs comprehensive testing on Linux environments to ensure all components work together correctly.
+### 11. **Security Hardening**
+Implement security features:
 
-## High Priority: Linux Environment Testing
+**Security Features:**
+- **Secret Management** - Secure secret storage and rotation
+- **Access Control** - Role-based access to environments
+- **Audit Logging** - Complete audit trail
+- **Compliance Checking** - Automated compliance validation
+- **Security Scanning** - Vulnerability scanning and reporting
 
-### 1. **Systemd Integration Tests**
-Test the complete systemd service workflow on Linux:
+### 12. **Backup and Recovery**
+Implement backup and disaster recovery:
 
-```bash
-tests/test_systemd_integration.sh
-```
+**Backup Features:**
+- **Configuration Backup** - Automated config backups
+- **Environment Snapshots** - Point-in-time environment snapshots
+- **Recovery Procedures** - Automated recovery workflows
+- **Cross-Region Backup** - Geographic distribution of backups
+- **Backup Validation** - Regular backup integrity checks
 
-**Test Coverage Needed:**
-- tetra-daemon executable startup and environment loading
-- Service discovery from services/enabled/ directory
-- Automatic service startup via TSM integration
-- Daemon monitoring loop and health checks
-- Graceful shutdown and service cleanup
-- systemd user service security restrictions
+## 📊 **Monitoring and Observability**
 
-### 2. **TSM Service Management Tests**
-Test the nginx-style service enable/disable system:
+### 13. **Metrics and Analytics**
+Implement metrics collection and analysis:
 
-```bash
-tests/test_tsm_service_management.sh
-```
+**Metrics System:**
+- **Custom Metrics** - Application-specific metrics collection
+- **Performance Analytics** - Performance trend analysis
+- **Usage Analytics** - Resource usage patterns
+- **Cost Analytics** - Infrastructure cost analysis
+- **Predictive Analytics** - Capacity planning and forecasting
 
-**Test Coverage Needed:**
-- Service definition creation with tsm save
-- Enable/disable functionality with symlinks
-- Service persistence across daemon restarts
-- Service configuration validation
-- Error handling for missing services
+### 14. **Advanced Alerting**
+Create sophisticated alerting and notification system:
 
-### 3. **Environment Management Tests**
-Create test suite for the new `tetra env` command system:
+**Alerting Features:**
+- **Multi-Channel Alerts** - Email, Slack, webhook notifications
+- **Alert Correlation** - Intelligent alert grouping
+- **Escalation Policies** - Tiered alerting based on severity
+- **Alert Suppression** - Prevent alert fatigue
+- **Custom Alert Rules** - Flexible alert condition definition
 
-```bash
-tests/test_tetra_env_management.sh
-```
+## 🎯 **Implementation Priority**
 
-**Test Coverage Needed:**
-- Environment promotion workflow (dev → staging → prod)
-- Automatic adaptations (domains, paths, NODE_ENV, security)
-- Validation and diff functionality
-- Error handling for missing files and invalid environments
-- Backup creation during promotion
+### Phase 1 (Next 2-4 weeks)
+1. **Enhanced Organization Management** - Config push/pull system
+2. **Named Port Registry Persistence** - Persistent port configurations
+3. **TDash Interactive Actions** - Command execution from dashboard
 
-### 4. **TKM Deploy Integration Tests**
-Create test suite for the enhanced TKM local command center:
+### Phase 2 (1-2 months)
+1. **Environment Promotion Automation** - Automated validation and rollback
+2. **Service Health Monitoring** - Health check implementation
+3. **CLI Enhancements** - Better UX and productivity features
 
-```bash
-tests/test_tkm_deploy_integration.sh
-```
+### Phase 3 (2-3 months)
+1. **Template Engine** - Configuration templating system
+2. **Cloud Provider Integration** - Infrastructure management
+3. **Security Hardening** - Comprehensive security features
 
-**Test Coverage Needed:**
-- Environment file deployment to mock servers
-- Service restart coordination
-- Status tracking and synchronization checks
-- SSH key integration with deployment
-- Error handling for connectivity issues
+## 🎉 **Success Metrics**
 
-### 5. **TSM Environment Detection Tests**
-Create test suite for updated TSM environment handling:
+- **Deployment Time** - Reduce deployment time by 50%
+- **System Reliability** - 99.9% uptime across all environments
+- **Developer Productivity** - Reduce setup time for new developers
+- **Error Rate** - Minimize configuration and deployment errors
+- **Security Compliance** - Meet all security and compliance requirements
 
-```bash
-tests/test_tsm_environment_detection.sh
-```
+---
 
-**Test Coverage Needed:**
-- Auto-detection of dev.env (new default)
-- Environment override functionality
-- Service registry integration
-- Entrypoint script handling with environments
-- Backward compatibility verification
-
-### 6. **End-to-End Workflow Tests**
-Create comprehensive integration test:
-
-```bash
-tests/test_complete_deployment_workflow.sh
-```
-
-**Test Coverage Needed:**
-- Complete workflow: create dev.env → promote → deploy → verify
-- Service template deployment
-- Nginx configuration generation
-- Multi-environment coordination
-- Rollback scenarios
-
-### 7. **Template Validation Tests**
-Create test suite for service templates:
-
-```bash
-tests/test_service_templates.sh
-```
-
-**Test Coverage Needed:**
-- SystemD service file validation
-- Nginx configuration syntax checking
-- Environment-specific template generation
-- Security setting verification
-- Template variable substitution
-
-## Testing Strategy
-
-### Mock Environment Setup
-Create isolated test environments that simulate:
-- Local development machine
-- Dev server (SSH accessible)
-- Staging server (shared with prod)
-- Production server (maximum security)
-
-### Test Data
-Generate sample environment files and configurations:
-- Realistic dev.env with common variables
-- Staging/prod variants with security adaptations
-- Service configurations for each environment
-- SSH key pairs for testing deployment
-
-### Validation Criteria
-- **Environment promotion** preserves data integrity
-- **Automatic adaptations** apply correctly
-- **Security hardening** progresses appropriately
-- **Service deployments** work across environments
-- **Error handling** provides clear feedback
-- **Status tracking** reports accurate synchronization
-
-## Implementation Priority
-
-1. **Systemd integration tests** (highest priority - requires Linux environment)
-2. **TSM service management tests** (core daemon functionality)
-3. **Environment management tests** (tetra.toml system)
-4. **TKM deploy tests** (deployment verification)
-5. **TSM environment detection** (backward compatibility)
-6. **Template validation** (configuration integrity)
-7. **End-to-end workflow** (complete system verification)
-
-## Success Metrics
-
-- **Systemd daemon** starts automatically and loads enabled services
-- **Service persistence** survives reboots via systemd integration
-- **TSM service management** enables/disables services correctly
-- All environment promotions work without data loss
-- Automatic adaptations apply correctly in all scenarios
-- Local command center successfully deploys to all environments
-- Service templates generate valid configurations
-- Complete workflow executes without manual intervention
-- Error conditions are handled gracefully with clear messaging
-
-## Post-Testing Actions
-
-Once testing is complete:
-1. **Update documentation** with any discovered edge cases
-2. **Create troubleshooting guides** based on test failures
-3. **Implement additional safety checks** identified during testing
-4. **Document production deployment procedures**
-5. **Create operator runbooks** for common scenarios
-
-The testing phase will validate that the Tetra Way implementation is production-ready and provide confidence for real-world deployment scenarios.
+*For current progress, see [changes.md](changes.md)*
+*For completed features, see [changes-past.md](changes-past.md)*

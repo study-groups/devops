@@ -1,19 +1,36 @@
 #!/usr/bin/env bash
 
-# tetra_tsm_ functions - Native service manager for tetra ecosystem
-# Preserves pb's PORT naming convention: basename-PORT
+# TSM - Tetra Service Manager
+# Main orchestrator with clean dependency-ordered loading
 
-# Source all the tsm components
-source "$TETRA_SRC/bash/tsm/tsm_utils.sh"
-source "$TETRA_SRC/bash/tsm/tsm_core.sh"
-source "$TETRA_SRC/bash/tsm/tsm_inspect.sh"
-source "$TETRA_SRC/bash/tsm/tsm_services.sh"
-source "$TETRA_SRC/bash/tsm/tsm_formatting.sh"
+# === MODULE LOADING WITH PROPER DEPENDENCIES ===
 
-# Main tsm command interface
+_tsm_load_components() {
+    local TSM_DIR="$(dirname "${BASH_SOURCE[0]}")"
+
+    # Load in strict dependency order - NO circular dependencies
+    source "$TSM_DIR/tsm_core.sh"        # Core functions, no dependencies
+    source "$TSM_DIR/tsm_config.sh"      # Configuration and global state
+    source "$TSM_DIR/tsm_ports.sh"       # Named port registry, depends on config
+    source "$TSM_DIR/tsm_utils.sh"       # Utility functions, depends on core
+    source "$TSM_DIR/tsm_service.sh"     # Service management, depends on core+utils
+    source "$TSM_DIR/tsm_inspect.sh"     # Process inspection, depends on core
+    source "$TSM_DIR/tsm_formatting.sh"  # Output formatting, depends on core
+    source "$TSM_DIR/tsm_doctor.sh"      # Diagnostics, depends on core+utils
+    source "$TSM_DIR/tsm_interface.sh"   # User-facing functions, depends on all above
+
+    # Initialize global state after all functions are loaded
+    _tsm_init_global_state
+}
+
+# Load components once
+_tsm_load_components
+
+# === MAIN TSM COMMAND INTERFACE ===
+
 tsm() {
     local action="${1:-}"
-    
+
     if [[ -z "$action" ]]; then
         cat <<'EOF'
 Usage: tsm <command> [args]
@@ -26,7 +43,7 @@ Commands:
   delete|del|kill <process|id|*> Delete processes and logs
   restart <process|id|*>     Restart processes
   list|ls                    List all processes with TSM IDs
-  services                   List all registered services
+  services [-d|--detail]     List saved service definitions (.tsm.sh)
   save <name> <command>      Save current command as a service definition
   enable <service>           Enable service for automatic startup
   disable <service>          Disable service from automatic startup
@@ -36,7 +53,8 @@ Commands:
   env <process|id>           Show sorted environment variables for a process
   paths <process|id>         Show paths for logs, pid, etc. for a process
   scan-ports                 Scan and report open ports and their owners
-  ports                      Show PORT mappings
+  ports [list|scan|validate|set|remove|export|conflicts] Named port registry and mappings
+  doctor [scan|port|kill|env] Port diagnostics and conflict resolution
   repl                       Start interactive REPL with /commands
   help                       Show this help
 
@@ -61,8 +79,8 @@ Examples:
   tsm start --env staging entrypoints/api.sh  Sources env/staging.env explicitly
   tsm start node server.js                    Auto-detects env/dev.env or env/local.env
   tsm start --port 4000 node server.js api    Start as api-4000
-  tsm start tetra                              Start tetra service (from registry)
-  tsm services                                 List all registered services
+  tsm start devpages                           Start devpages service (from .tsm.sh definition)
+  tsm services                                 List all saved service definitions
   tsm stop server-3000                         Stop by process name
   tsm stop 0                                   Stop by TSM ID
   tsm logs 0 -f                                Follow logs for TSM ID 0
@@ -75,9 +93,9 @@ Security Features:
 EOF
         return 0
     fi
-    
+
     shift || true
-    
+
     case "$action" in
         setup)
             tetra_tsm_setup
@@ -113,7 +131,7 @@ EOF
             tetra_tsm_list
             ;;
         services)
-            tetra_tsm_list_services
+            tetra_tsm_list_services "$@"
             ;;
         save)
             tetra_tsm_save "$@"
@@ -143,7 +161,58 @@ EOF
             tetra_tsm_scan_ports "$@"
             ;;
         ports)
-            tetra_tsm_ports
+            local subcommand="${1:-list}"
+            shift || true
+            case "$subcommand" in
+                "list"|"")
+                    tsm_list_named_ports table
+                    ;;
+                "scan")
+                    tsm_scan_named_ports
+                    ;;
+                "validate")
+                    if tsm_validate_port_registry; then
+                        echo "✅ Port registry validation passed"
+                    else
+                        echo "❌ Port registry validation failed"
+                        return 1
+                    fi
+                    ;;
+                "set")
+                    if [[ $# -lt 2 ]]; then
+                        echo "Usage: tsm ports set <service> <port>" >&2
+                        return 1
+                    fi
+                    tsm_set_named_port "$1" "$2"
+                    ;;
+                "remove")
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports remove <service>" >&2
+                        return 1
+                    fi
+                    tsm_remove_named_port "$1"
+                    ;;
+                "export")
+                    tsm_list_named_ports env
+                    ;;
+                "conflicts")
+                    tsm_validate_port_registry
+                    ;;
+                "env")
+                    tsm_list_named_ports env
+                    ;;
+                "json")
+                    tsm_list_named_ports json
+                    ;;
+                *)
+                    echo "Unknown ports subcommand: $subcommand" >&2
+                    echo "Usage: tsm ports [list|scan|validate|set|remove|export|conflicts|env|json]" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+        doctor)
+            tetra_tsm_doctor "$@"
             ;;
         repl)
             source "$TETRA_SRC/bash/tsm/tsm_repl.sh"
@@ -162,6 +231,3 @@ EOF
 
 # Ensure the tsm function takes precedence over any alias
 unalias tsm 2>/dev/null || true
-
-# Ensure zero exit when sourced
-true

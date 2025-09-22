@@ -1,5 +1,44 @@
 # Tetra Change Log
 
+## 2025-01-21 - TSM Architecture Refactor and Named Port Registry
+
+### Major Changes
+- **Complete TSM module loading refactor** - Fixed circular dependencies and loading order issues
+- **Named port registry system** - Standardized port assignments for known services
+- **Proper global state management** - Associative arrays now initialize correctly through bootloader
+- **Clean dependency-ordered loading** - No more circular dependencies or missing functions
+
+### TSM Named Port Registry
+Established standard port assignments:
+- **devpages: 4000** - Development pages application
+- **tetra: 4444** - Tetra system services
+- **arcade: 8400** - Arcade gaming platform
+- **pbase: 2600** - PocketBase database services
+
+### Port Resolution Priority System
+1. **Explicit --port flag** (highest priority)
+2. **PORT from environment file**
+3. **Named port registry** (new)
+4. **Default port 3000** (fallback)
+
+### Architecture Improvements
+- **Backup strategy** - Created timestamped backup before changes
+- **Dependency-ordered loading** - Core → Config → Utils → Service → Interface
+- **Global state initialization** - Proper associative array management
+- **Bootloader compatibility** - Works seamlessly with existing lazy loading
+
+### Commands Added
+- `tsm ports` - List named port registry
+- `tsm ports scan` - Show port status (free/used with PIDs)
+- `tsm ports validate` - Validate port registry for conflicts
+- `tsm doctor` - Port diagnostics and conflict resolution
+
+### Technical Debt Addressed
+- Fixed bootloader loading order problems (not papered over)
+- Resolved associative array scoping issues (proper global state)
+- Standardized module architecture (consistent loading pattern)
+- Eliminated hardcoded port defaults (intelligent resolution)
+
 ## 2025-01-21 - Organization Management System and TETRA_DIR Reorganization
 
 ### Major Changes
@@ -52,7 +91,7 @@ tdash                          # Launch with active org context
 - **Symlink management** - Automatic symlink updates for org switching
 - **Path reference updates** - All modules work with new organization system
 - **Module data preservation** - All module data safely moved and accessible
-- **Comprehensive testing** - Organization, TDash, and module loading tests
+- **Testing** - Organization, TDash, and module loading tests
 
 ### Breaking Changes
 - **TOML location changed** - From `$TETRA_DIR/tetra.toml` to `$TETRA_DIR/config/tetra.toml`
@@ -65,10 +104,10 @@ tdash                          # Launch with active org context
 - Organization system provides backward compatibility for single-org setups
 - TDash retains all navigation and functionality with new organization context
 
-## 2025-01-21 - TDash Revolutionary Dashboard with 4-Mode Navigation
+## 2025-01-21 - TDash Dashboard with 4-Mode Navigation
 
 ### Major Changes
-- **Complete TDash module refactor** - Revolutionary 4-mode, 4-environment navigation system
+- **Complete TDash module refactor** - 4-mode, 4-environment navigation system
 - **TOML infrastructure integration** - Parse and display real server data, IPs, memory, regions
 - **SSH connectivity detection** - Real-time server status with non-blocking connectivity checks
 - **Flicker elimination** - Perfect double-buffering for smooth navigation experience
@@ -77,7 +116,7 @@ tdash                          # Launch with active org context
 ### New Components
 - `bash/tdash/tdash_repl.sh` - Complete rewrite with matrix navigation system
 - `bash/tdash/includes.sh` - Updated module integration with new command interface
-- Revolutionary navigation: 4 modes × 5 environments = 20 unique views
+- Navigation: 4 modes × 5 environments = 20 unique views
 
 ### Navigation System
 - **Modes (A/D keys)**: TOML ← → TKM ← → TSM ← → DEPLOY
@@ -94,7 +133,7 @@ tdash                          # Launch with active org context
 ### Key Commands Added
 ```bash
 # TDash navigation
-tdash                    # Launch revolutionary dashboard
+tdash                    # Launch dashboard
 tdash repl              # Interactive navigation mode
 tdash help              # Show navigation help
 

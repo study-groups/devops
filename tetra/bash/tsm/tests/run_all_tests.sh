@@ -60,17 +60,47 @@ main() {
     local failed_tests=0
     local total_tests=0
     
-    # Test 1: Kill Debug Test (most important for your issue)
+    # Test 1: Service Definition Conventions
+    total_tests=$((total_tests + 1))
+    if ! run_test "$SCRIPT_DIR/test_service_conventions.sh" "Service Definition Conventions"; then
+        failed_tests=$((failed_tests + 1))
+    fi
+
+    echo ""
+    echo "========================================"
+    echo ""
+
+    # Test 2: Service Start/Restart Tests
+    total_tests=$((total_tests + 1))
+    if ! run_test "$SCRIPT_DIR/test_start_restart_services.sh" "Service Start/Restart Tests"; then
+        failed_tests=$((failed_tests + 1))
+    fi
+
+    echo ""
+    echo "========================================"
+    echo ""
+
+    # Test 3: Service Definitions (TSM_ENV_FILE integration)
+    total_tests=$((total_tests + 1))
+    if ! run_test "$SCRIPT_DIR/test_service_definitions.sh" "Service Definitions Integration"; then
+        failed_tests=$((failed_tests + 1))
+    fi
+
+    echo ""
+    echo "========================================"
+    echo ""
+
+    # Test 4: Kill Debug Test
     total_tests=$((total_tests + 1))
     if ! run_test "$SCRIPT_DIR/test_kill_debug.sh" "Kill Debug Test"; then
         failed_tests=$((failed_tests + 1))
     fi
-    
+
     echo ""
     echo "========================================"
     echo ""
-    
-    # Test 2: Full Lifecycle Test
+
+    # Test 5: Full Lifecycle Test
     total_tests=$((total_tests + 1))
     if ! run_test "$SCRIPT_DIR/test_lifecycle.sh" "Full Lifecycle Test"; then
         failed_tests=$((failed_tests + 1))

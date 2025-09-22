@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
-# TDash REPL - Tetra Dashboard with 4-Mode, 4-Environment Navigation
+# TDash REPL - Tetra Dashboard with 5-Mode, 5-Environment Navigation
 
 # Global state - New navigation paradigm
-CURRENT_MODE="TOML"      # TOML | TKM | TSM | DEPLOY
+CURRENT_MODE="TOML"      # TOML | TKM | TSM | DEPLOY | ORG
 CURRENT_ENV="LOCAL"      # LOCAL | DEV | STAGING | PROD
 CURRENT_ITEM=0           # Item within current mode+environment
 
 # Available modes and environments
-MODES=("TOML" "TKM" "TSM" "DEPLOY")
+MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG")
 ENVIRONMENTS=("SYSTEM" "LOCAL" "DEV" "STAGING" "PROD")
 
-# TDash REPL main function - Complete redesign for 4-mode navigation
+# TDash REPL main function - Complete redesign for 5-mode navigation
 tdash_repl() {
     local content_lines=0
     local terminal_lines=${LINES:-24}
@@ -214,6 +214,9 @@ get_max_items_for_current_context() {
         "DEPLOY:SYSTEM") echo 2 ;;   # Deploy status overview
         "DEPLOY:LOCAL") echo 3 ;;    # Git status, artifacts, deploy readiness
         "DEPLOY:"*) echo 3 ;;        # Deployment status, last deploy, actions
+        "ORG:SYSTEM") echo 2 ;;      # Organization overview, total orgs
+        "ORG:LOCAL") echo 3 ;;       # Create, switch, settings, sync
+        "ORG:"*) echo 2 ;;           # Push/pull config, sync status
         *) echo 1 ;;
     esac
 }
@@ -268,6 +271,11 @@ render_mode_environment_content() {
         "DEPLOY:DEV") render_deploy_dev ;;
         "DEPLOY:STAGING") render_deploy_staging ;;
         "DEPLOY:PROD") render_deploy_prod ;;
+        "ORG:SYSTEM") render_org_system ;;
+        "ORG:LOCAL") render_org_local ;;
+        "ORG:DEV") render_org_dev ;;
+        "ORG:STAGING") render_org_staging ;;
+        "ORG:PROD") render_org_prod ;;
         *) echo "Unknown mode/environment combination: $CURRENT_MODE:$CURRENT_ENV" ;;
     esac
 }
@@ -600,6 +608,101 @@ Production server deployment status.
 EOF
 }
 
+# ===== ORG MODE RENDER FUNCTIONS =====
+
+render_org_system() {
+    cat << EOF
+
+ORG - Organization Overview
+
+$(highlight_line "Active Organization: ${ACTIVE_ORG:-No active organization}" "$(is_current_item 0)" "$YELLOW")
+$(highlight_line "Total Organizations: ${TOTAL_ORGS:-0}" "$(is_current_item 1)" "$CYAN")
+$(highlight_line "Organization Status: ${ORG_STATUS:-Ready}" "$(is_current_item 2)" "$GREEN")
+
+Available Organizations:
+$(list_available_organizations)
+
+EOF
+}
+
+render_org_local() {
+    cat << EOF
+
+ORG - Local Organization Management
+
+$(highlight_line "Create New Organization" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Switch Organization" "$(is_current_item 1)" "$CYAN")
+$(highlight_line "Organization Settings" "$(is_current_item 2)" "$YELLOW")
+$(highlight_line "Sync Configuration" "$(is_current_item 3)" "$MAGENTA")
+
+Local organization management and configuration.
+
+EOF
+}
+
+render_org_dev() {
+    cat << EOF
+
+ORG - DEV Organization Sync
+
+$(highlight_line "Push Config to DEV" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Pull Config from DEV" "$(is_current_item 1)" "$CYAN")
+$(highlight_line "DEV Sync Status: ${DEV_ORG_SYNC:-Unknown}" "$(is_current_item 2)" "$YELLOW")
+
+Deploy organization configuration to dev environment.
+
+EOF
+}
+
+render_org_staging() {
+    cat << EOF
+
+ORG - STAGING Organization Sync
+
+$(highlight_line "Push Config to STAGING" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Pull Config from STAGING" "$(is_current_item 1)" "$CYAN")
+$(highlight_line "STAGING Sync Status: ${STAGING_ORG_SYNC:-Unknown}" "$(is_current_item 2)" "$YELLOW")
+
+Deploy organization configuration to staging environment.
+
+EOF
+}
+
+render_org_prod() {
+    cat << EOF
+
+ORG - PROD Organization Sync
+
+$(highlight_line "Push Config to PROD" "$(is_current_item 0)" "$RED")
+$(highlight_line "Pull Config from PROD" "$(is_current_item 1)" "$RED")
+$(highlight_line "PROD Sync Status: ${PROD_ORG_SYNC:-Unknown}" "$(is_current_item 2)" "$RED")
+
+Deploy organization configuration to production environment.
+
+EOF
+}
+
+# ===== ORG UTILITY FUNCTIONS =====
+
+list_available_organizations() {
+    if [[ -d "$TETRA_DIR/orgs" ]]; then
+        local org_list=""
+        for org_dir in "$TETRA_DIR/orgs"/*; do
+            if [[ -d "$org_dir" ]]; then
+                local org_name=$(basename "$org_dir")
+                if [[ "$org_name" == "${ACTIVE_ORG:-}" ]]; then
+                    org_list+="  → $org_name (active)\n"
+                else
+                    org_list+="    $org_name\n"
+                fi
+            fi
+        done
+        [[ -n "$org_list" ]] && echo -e "$org_list" || echo "  No organizations found"
+    else
+        echo "  Organization directory not found"
+    fi
+}
+
 # Utility functions
 is_current_item() {
     local item_index="$1"
@@ -768,12 +871,37 @@ load_environment_data() {
         GIT_CLEAN="○"
     fi
 
+    # Load Organization data
+    if [[ -f "$TETRA_DIR/config/tetra.toml" ]]; then
+        # Try to extract active organization from symlink target
+        local toml_target=$(readlink "$TETRA_DIR/config/tetra.toml" 2>/dev/null)
+        if [[ -n "$toml_target" ]]; then
+            ACTIVE_ORG=$(basename "$(dirname "$toml_target")")
+        else
+            ACTIVE_ORG="Local Project"
+        fi
+    else
+        ACTIVE_ORG="No active organization"
+    fi
+
+    # Count total organizations
+    if [[ -d "$TETRA_DIR/orgs" ]]; then
+        TOTAL_ORGS=$(find "$TETRA_DIR/orgs" -maxdepth 1 -type d | wc -l)
+        TOTAL_ORGS=$((TOTAL_ORGS - 1)) # Subtract 1 for the orgs directory itself
+    else
+        TOTAL_ORGS=0
+    fi
+
     # Set other defaults
     SSH_AGENT_STATUS="Unknown"
     TKM_KEY_COUNT="Unknown"
     TKM_KNOWN_HOSTS_COUNT="Unknown"
     DEPLOY_READINESS="Unknown"
     BUILD_STATUS="Unknown"
+    ORG_STATUS="Ready"
+    DEV_ORG_SYNC="Unknown"
+    STAGING_ORG_SYNC="Unknown"
+    PROD_ORG_SYNC="Unknown"
 }
 
 # Modal and command functions
@@ -804,7 +932,7 @@ show_tdash_help() {
 ╚══════════════════════════════════════════════════════════╝
 
 NEW NAVIGATION SYSTEM:
-  a, d        Switch between modes (TOML ← → TKM ← → TSM ← → DEPLOY)
+  a, d        Switch between modes (TOML ← → TKM ← → TSM ← → DEPLOY ← → ORG)
   w, s        Switch between environments (SYSTEM ↕ LOCAL ↕ DEV ↕ STAGING ↕ PROD)
   j, i, k, l  Navigate items within current mode+environment
 
@@ -823,6 +951,7 @@ MODES:
   TKM         SSH key management and server connectivity
   TSM         Service management (local and remote)
   DEPLOY      Deployment status and operations
+  ORG         Organization management and multi-client infrastructure
 
 ENVIRONMENTS:
   SYSTEM      Overview/summary across all environments

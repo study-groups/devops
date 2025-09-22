@@ -5,6 +5,15 @@
 
 # Save current TSM command as a service definition
 tetra_tsm_save() {
+    local first_arg="$1"
+
+    # Check if first argument is a process ID or name (numeric or existing process)
+    if [[ "$first_arg" =~ ^[0-9]+$ ]] || tetra_tsm_is_running "$first_arg" 2>/dev/null; then
+        _tsm_save_from_process "$@"
+        return $?
+    fi
+
+    # Original functionality: save from command line
     local service_name="$1"
     local command="$2"
     shift 2
@@ -12,6 +21,7 @@ tetra_tsm_save() {
 
     if [[ -z "$service_name" || -z "$command" ]]; then
         echo "Usage: tsm save <service-name> <command> [args...]"
+        echo "   or: tsm save <process-id|process-name> [new-service-name]"
         return 1
     fi
 
@@ -126,21 +136,55 @@ tetra_tsm_disable() {
 tetra_tsm_list_services() {
     local services_dir="$TETRA_DIR/services"
     local enabled_dir="$services_dir/enabled"
+    local detail="${1:-}"
 
-    echo "📋 Available Services:"
+    echo "📋 Saved Service Definitions:"
     if [[ -d "$services_dir" ]]; then
+        local found_services=false
         for service_file in "$services_dir"/*.tsm.sh; do
             [[ -f "$service_file" ]] || continue
+            found_services=true
+
             local service_name=$(basename "$service_file" .tsm.sh)
-            local enabled=""
+            local enabled_status=""
             if [[ -L "$enabled_dir/${service_name}.tsm.sh" ]]; then
-                enabled=" (enabled)"
+                enabled_status=" ✅"
+            else
+                enabled_status=" ⚪"
             fi
-            echo "  📄 $service_name$enabled"
+
+            # Source service definition to get details
+            local TSM_NAME="" TSM_COMMAND="" TSM_CWD="" TSM_ENV_FILE="" TSM_PORT="" TSM_DESCRIPTION=""
+            (source "$service_file" 2>/dev/null)
+            local cmd="$TSM_COMMAND"
+            local port="$TSM_PORT"
+            local env="$TSM_ENV_FILE"
+            local desc="$TSM_DESCRIPTION"
+
+            if [[ "$detail" == "--detail" || "$detail" == "-d" ]]; then
+                echo "  📄 $service_name$enabled_status"
+                echo "      Command: $cmd"
+                [[ -n "$port" ]] && echo "      Port: $port"
+                [[ -n "$env" ]] && echo "      Env: $env"
+                [[ -n "$desc" ]] && echo "      Description: $desc"
+                echo
+            else
+                local port_info=""
+                [[ -n "$port" ]] && port_info=" :$port"
+                echo "  📄 $service_name$enabled_status ($cmd$port_info)"
+            fi
         done
+
+        if [[ "$found_services" == "false" ]]; then
+            echo "  No saved services found"
+        fi
     else
-        echo "  No services found"
+        echo "  Services directory not found: $services_dir"
     fi
+
+    echo
+    echo "Legend: ✅ enabled for autostart, ⚪ disabled"
+    echo "Usage: tsm list-services [-d|--detail]"
 }
 
 # Show service details

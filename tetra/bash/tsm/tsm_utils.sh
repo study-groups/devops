@@ -38,6 +38,8 @@ _tsm_procs_port=()
 _tsm_procs_status=()
 _tsm_procs_uptime=()
 _tsm_procs_script=()
+_tsm_procs_env_file=()
+_tsm_procs_restarts=()
 
 _tetra_tsm_get_all_processes() {
     # Reset arrays
@@ -48,6 +50,8 @@ _tetra_tsm_get_all_processes() {
     _tsm_procs_status=()
     _tsm_procs_uptime=()
     _tsm_procs_script=()
+    _tsm_procs_env_file=()
+    _tsm_procs_restarts=()
 
     for metafile in "$TETRA_DIR/tsm/processes"/*.meta; do
         [[ -f "$metafile" ]] || continue
@@ -57,7 +61,20 @@ _tetra_tsm_get_all_processes() {
         local pid port start_time script tsm_id
         
         # In case a var is not in the file
-        pid="-" port="-" start_time="-" script="-" tsm_id="-"
+        pid="-" port="-" start_time="-" script="-" tsm_id="-" restart_count="0"
+
+        # Extract environment file info
+        local tsm_env_file="-"
+        local envfile="$TETRA_DIR/tsm/processes/$name.env"
+        if [[ -f "$envfile" ]]; then
+            local env_line
+            env_line=$(grep '^TSM_ENV_FILE=' "$envfile" 2>/dev/null | head -n1)
+            if [[ -n "$env_line" ]]; then
+                tsm_env_file="${env_line#TSM_ENV_FILE=}"
+                # Extract just the filename from the path
+                tsm_env_file="$(basename "$tsm_env_file")"
+            fi
+        fi
         
         eval "$(cat "$metafile")"
         
@@ -86,6 +103,8 @@ _tetra_tsm_get_all_processes() {
         _tsm_procs_status+=("$proc_status")
         _tsm_procs_uptime+=("$uptime")
         _tsm_procs_script+=("$script")
+        _tsm_procs_env_file+=("$tsm_env_file")
+        _tsm_procs_restarts+=("$restart_count")
     done
 }
 

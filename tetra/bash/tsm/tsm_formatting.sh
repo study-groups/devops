@@ -31,8 +31,8 @@ _tsm_get_format_mode() {
     fi
 }
 
-# Calculate optimal name column width based on terminal width and content
-_tsm_calculate_name_width() {
+# Calculate optimal column widths based on terminal width and content
+_tsm_calculate_column_widths() {
     local width=$(_tsm_get_terminal_width)
     local mode="$1"
 
@@ -44,16 +44,37 @@ _tsm_calculate_name_width() {
         fi
     done
 
+    # Find longest env file name
+    local max_env_len=3  # minimum for "Env" header
+    for env_file in "${_tsm_procs_env_file[@]}"; do
+        if [[ ${#env_file} -gt $max_env_len ]]; then
+            max_env_len=${#env_file}
+        fi
+    done
+
     if [[ "$mode" == "compact" ]]; then
-        # Compact: ID(4) + Name(flexible) + Status(9) + Port(6) + spaces(6) = 25 + name
-        local available=$((width - 25))
+        # Compact: ID(4) + Name(flexible) + Status(9) + Port(6) + Env(10) + spaces(8) = 37 + name
+        local available=$((width - 37))
         local name_width=$((available > max_name_len ? max_name_len : available))
-        echo $((name_width < 8 ? 8 : name_width))  # minimum 8 chars
+        echo "$((name_width < 8 ? 8 : name_width)) 8"  # name_width env_width
     else
-        # Normal: ID(4) + Name(flexible) + Status(9) + PID(6) + Port(6) + Uptime(10) + spaces(30) = 65 + name
-        local available=$((width - 65))
-        local name_width=$((available > max_name_len ? max_name_len : available))
-        echo $((name_width < 24 ? 24 : name_width))  # minimum 24 chars
+        # Normal mode: assume at least 80 columns
+        local min_width=80
+        if [[ $width -lt $min_width ]]; then
+            width=$min_width
+        fi
+
+        # Fixed columns: ID(4) + Status(9) + PID(6) + Port(6) + Restarts(4) + Uptime(10) + spaces(33) = 70
+        # Flexible: Name + Env
+        local available=$((width - 70))
+
+        # Give env column priority up to its max needed, then rest to name
+        local env_width=$((max_env_len > 12 ? 12 : max_env_len))  # max 12 chars for env
+        local remaining=$((available - env_width))
+        local name_width=$((remaining > max_name_len ? max_name_len : remaining))
+        name_width=$((name_width < 20 ? 20 : name_width))  # minimum 20 chars
+
+        echo "$name_width $env_width"
     fi
 }
 
@@ -78,15 +99,19 @@ tsm_format_process_list() {
 
 # Compact format: left-aligned, essential info only
 _tsm_format_list_compact() {
-    local name_width=$(_tsm_calculate_name_width "compact")
+    local widths=$(_tsm_calculate_column_widths "compact")
+    local name_width=${widths% *}
+    local env_width=${widths#* }
 
-    printf "%-2s  %-${name_width}s  %-7s  %-4s\n" "ID" "NAME" "STATUS" "PORT"
-    printf "%-2s  %-${name_width}s  %-7s  %-4s\n" "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "-------" "----"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" "ID" "NAME" "ENV" "PID" "PORT" "STATUS" "↻"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------" "---"
 
     for i in "${!_tsm_procs_name[@]}"; do
         local name="${_tsm_procs_name[i]}"
         local status="${_tsm_procs_status[i]}"
         local port="${_tsm_procs_port[i]}"
+        local env_file="${_tsm_procs_env_file[i]}"
+        local restarts="${_tsm_procs_restarts[i]}"
 
         # Truncate name if too long
         if [[ ${#name} -gt $name_width ]]; then
@@ -96,20 +121,26 @@ _tsm_format_list_compact() {
         if [[ ${#status} -gt 7 ]]; then
             status="${status:0:7}"
         fi
+        # Truncate env file if too long
+        if [[ ${#env_file} -gt $env_width ]]; then
+            env_file="${env_file:0:$((env_width-3))}..."
+        fi
 
-        printf "%-2s  %-${name_width}s  %-7s  %-4s\n" \
-            "${_tsm_procs_id[i]}" "$name" "$status" "$port"
+        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" \
+            "${_tsm_procs_id[i]}" "$name" "$env_file" "${_tsm_procs_pid[i]}" "$port" "$status" "$restarts"
     done
 }
 
 # Normal format: simple table without borders
 _tsm_format_list_normal() {
-    local name_width=$(_tsm_calculate_name_width "normal")
+    local widths=$(_tsm_calculate_column_widths "normal")
+    local name_width=${widths% *}
+    local env_width=${widths#* }
 
-    printf "%-2s  %-${name_width}s  %-7s  %-4s  %-4s  %-8s\n" \
-        "ID" "Name" "Status" "PID" "Port" "Uptime"
-    printf "%-2s  %-${name_width}s  %-7s  %-4s  %-4s  %-8s\n" \
-        "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "-------" "----" "----" "--------"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
+        "ID" "Name" "Env" "PID" "Port" "Status" "↻" "Uptime"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
+        "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------" "---" "--------"
 
     for i in "${!_tsm_procs_name[@]}"; do
         local name="${_tsm_procs_name[i]}"
@@ -117,6 +148,8 @@ _tsm_format_list_normal() {
         local pid="${_tsm_procs_pid[i]}"
         local port="${_tsm_procs_port[i]}"
         local uptime="${_tsm_procs_uptime[i]}"
+        local env_file="${_tsm_procs_env_file[i]}"
+        local restarts="${_tsm_procs_restarts[i]}"
 
         # Truncate fields if necessary
         if [[ ${#name} -gt $name_width ]]; then
@@ -134,64 +167,18 @@ _tsm_format_list_normal() {
         if [[ ${#uptime} -gt 8 ]]; then
             uptime="${uptime:0:5}..."
         fi
+        # Truncate env file if too long
+        if [[ ${#env_file} -gt $env_width ]]; then
+            env_file="${env_file:0:$((env_width-3))}..."
+        fi
 
-        printf "%-2s  %-${name_width}s  %-7s  %-4s  %-4s  %-8s\n" \
-            "${_tsm_procs_id[i]}" "$name" "$status" "$pid" "$port" "$uptime"
+        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
+            "${_tsm_procs_id[i]}" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
     done
 }
 
 
 # Format services list - responsive
-tsm_format_services_list() {
-    local mode=$(_tsm_get_format_mode)
-    local services_file="$TETRA_SRC/bash/tsm/services.conf"
-
-    [[ -f "$services_file" ]] || {
-        echo "tsm: services file not found: $services_file" >&2
-        return 1
-    }
-
-    case "$mode" in
-        compact)
-            echo "Available Services:"
-            printf "%-12s %-4s %-4s %s\n" "NAME" "TYPE" "PORT" "DESCRIPTION"
-            printf "%-12s %-4s %-4s %s\n" "────" "────" "────" "───────────"
-
-            while IFS= read -r line; do
-                [[ "$line" =~ ^#.*$ ]] && continue
-                [[ -z "$line" ]] && continue
-
-                local name type command port directory description
-                IFS=':' read -r name type command port directory description <<< "$line"
-
-                printf "%-12s %-4s %-4s %s\n" "$name" "$type" "$port" "$description"
-            done < "$services_file"
-            ;;
-        normal)
-            local width=$(_tsm_get_terminal_width)
-            local desc_width=$((width - 24))  # Leave room for name(12) + type(6) + port(6)
-
-            echo "Available Services:"
-            printf "%-12s  %-4s  %-4s  %s\n" "Name" "Type" "Port" "Description"
-            printf "%-12s  %-4s  %-4s  %s\n" "----" "----" "----" "-----------"
-
-            while IFS= read -r line; do
-                [[ "$line" =~ ^#.*$ ]] && continue
-                [[ -z "$line" ]] && continue
-
-                local name type command port directory description
-                IFS=':' read -r name type command port directory description <<< "$line"
-
-                # Truncate description if too long
-                if [[ ${#description} -gt $desc_width ]]; then
-                    description="${description:0:$((desc_width-3))}..."
-                fi
-
-                printf "%-12s  %-4s  %-4s  %s\n" "$name" "$type" "$port" "$description"
-            done < "$services_file"
-            ;;
-    esac
-}
 
 # Format port scan results - responsive
 tsm_format_port_scan() {
