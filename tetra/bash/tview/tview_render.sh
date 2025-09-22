@@ -4,45 +4,45 @@
 
 # Render the header with mode selector and current environment
 render_header() {
-    local header="${BOLD}${CYAN}TETRA VIEW${RESET}"
+    # Compact header - single line with key info
+    local header="${BOLD}${CYAN}TVIEW${RESET}"
 
-    # Show active TOML file if detected
-    if [[ -n "$ACTIVE_TOML" ]]; then
-        header+=" - ${BOLD}${YELLOW}${ACTIVE_TOML}${RESET}"
+    # Show org name instead of full path
+    if [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
+        header+=" ${BOLD}${YELLOW}$ACTIVE_ORG${RESET}"
+    elif [[ -n "$ACTIVE_TOML" ]]; then
+        local short_toml=$(basename "$ACTIVE_TOML")
+        header+=" ${BOLD}${YELLOW}$short_toml${RESET}"
+    fi
+
+    # Add drill indicator if active
+    if [[ $DRILL_LEVEL -eq 1 ]]; then
+        header+=" ${BOLD}${YELLOW}[DRILL]${RESET}"
     fi
 
     echo "$header"
-    echo
 
-    # Environment selector (top line)
-    local env_bar="Environment: "
+    # Compact environment and mode on one line
+    local nav_line="Env: "
     for env in "${ENVIRONMENTS[@]}"; do
         if [[ "$env" == "$CURRENT_ENV" ]]; then
-            env_bar+="[${BOLD}${BLUE}${env}${RESET}] "
+            nav_line+="[${BOLD}${BLUE}${env}${RESET}] "
         else
-            env_bar+="${env} "
+            nav_line+="${env} "
         fi
     done
 
-    # Add drill level indicator to environment line
-    if [[ $DRILL_LEVEL -eq 1 ]]; then
-        env_bar+="   ${BOLD}${YELLOW}[DRILLED IN]${RESET}"
-    fi
-
-    echo "$env_bar"
-
-    # Mode selector (bottom line, indented to align colons)
-    local mode_bar="     Mode: "
+    nav_line+="| Mode: "
     for mode in "${MODES[@]}"; do
         if [[ "$mode" == "$CURRENT_MODE" ]]; then
-            mode_bar+="[${BOLD}${GREEN}${mode}${RESET}] "
+            nav_line+="[${BOLD}${GREEN}${mode}${RESET}] "
         else
-            mode_bar+="${mode} "
+            nav_line+="${mode} "
         fi
     done
 
-    echo "$mode_bar"
-    echo "════════════════════════════════════════════════════════════════"
+    echo "$nav_line"
+    echo "────────────────────────────────────────────────────────────────────────────"
 }
 
 # Render content based on current environment and mode

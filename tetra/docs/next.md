@@ -255,10 +255,13 @@ server {
 ### Phase 1: File Structure Migration
 **Priority: Complete QA work and establish new naming conventions**
 1. ✅ **Complete QA environment integration** (DONE)
-2. **Rename organization files**: `pixeljam_arcade.toml` → `tetra.toml`
-3. **Rename customizations**: `.customizations.toml` → `custom.toml`
-4. **Update TView data loading** to use new filenames
-5. **Test environment cycling** with QA integration
+2. ✅ **TView Modular Architecture Refactor** (DONE - 73% code reduction)
+3. ✅ **Smart Drill System & Organization Management** (DONE - Context-aware drilling)
+4. ✅ **80x24 Terminal Optimization** (DONE - Compact display design)
+5. **Rename organization files**: `pixeljam_arcade.toml` → `tetra.toml`
+6. **Rename customizations**: `.customizations.toml` → `custom.toml`
+7. **Update TView data loading** to use new filenames
+8. **Test environment cycling** with QA integration
 
 ### Phase 2: NGM Core Development
 **Priority: Build foundational NGM module**

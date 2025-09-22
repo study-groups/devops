@@ -556,7 +556,14 @@ show_tkm_details() {
         "LOCAL")
             echo "    ├─ Local SSH Configuration"
             echo "    ├─ Key Generation and Management"
-            echo "    └─ SSH Agent Configuration"
+            echo "    ├─ SSH Agent Configuration"
+            echo "    └─ Deployment Testing Available"
+            echo
+            echo "    🧪 Local to Environment Testing:"
+            echo "    ├─ Test all environments: tkm deploy test"
+            echo "    ├─ Test specific env: tkm deploy test dev"
+            echo "    ├─ Test root+user SSH: Auto-detects from custom.toml"
+            echo "    └─ Port & nginx validation: Integrated with TSM"
             ;;
         *)
             local ip_var="${env}_IP"

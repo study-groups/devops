@@ -1,5 +1,132 @@
 # Current Changes
 
+## 2025-09-22 - TView Modular Architecture Refactor & Smart Drill System
+
+### 🏗️ **Complete TView Modular Architecture Refactor**
+**Problem Solved**: TView core was becoming unwieldy at 1072 lines with multiple responsibilities mixed together, making maintenance and extension difficult.
+
+**Implementation**:
+- **73% Code Reduction**: Reduced `tview_core.sh` from 1072 lines to 289 lines
+- **Modular Architecture**: Split into 7 focused modules with clear separation of concerns
+- **Preserved Functionality**: All existing features maintained while improving maintainability
+
+**New Modular Structure**:
+```
+tview/
+├── tview_core.sh        # 289 lines - Main loop + module loading
+├── tview_repl.sh        # 346 lines - All REPL interfaces
+├── tview_hooks.sh       # 145 lines - Context-triggered actions
+├── tview_navigation.sh  # 167 lines - Navigation & AWSD logic
+├── tview_render.sh      # (existing) - Display rendering
+├── tview_modes.sh       # (existing) - Mode content
+├── tview_data.sh        # (existing) - Data loading
+└── tview_actions.sh     # (existing) - Modal actions
+```
+
+**Module Responsibilities**:
+- **`tview_core.sh`**: Main loop, input handling, module coordination
+- **`tview_repl.sh`**: TSM REPL integration, organization selection, file editing
+- **`tview_hooks.sh`**: Smart drill behaviors and context-triggered actions
+- **`tview_navigation.sh`**: Environment/mode cycling, item navigation, AWSD contextual movement
+
+### 🎯 **Smart Drill System with Context-Triggered Actions**
+**Problem Solved**: Drill actions were generic and didn't provide meaningful interactions based on context.
+
+**Implementation**:
+- **Context-Aware Drilling**: Different drill actions based on mode+environment combination
+- **Organization Management**: Drilling into TOML/SYSTEM opens organization selection REPL
+- **File Editing**: Drilling into TOML/LOCAL opens organization file editor REPL
+- **Environment Actions**: Smart SSH connections and service management per environment
+
+**Smart Drill Behaviors**:
+```bash
+TOML:SYSTEM   → Organization selection REPL (switch, create, edit orgs)
+TOML:LOCAL    → File editor REPL (edit tetra.toml, custom.toml, validate)
+TOML:DEV      → SSH to development environment
+TSM:LOCAL     → Launch TSM REPL for service management
+TKM:DEV       → SSH as root for key management
+ORG:PROD      → Deploy organization config to production
+```
+
+### 🎮 **Enhanced Navigation & Input Handling**
+**Problem Solved**: Input mode switching between gamepad and REPL was causing UI hangs and poor transitions.
+
+**Implementation**:
+- **Vim-like ESC Behavior**: ESC always returns to gamepad navigation mode (idempotent)
+- **Dedicated REPL Key**: Backtick/tilde (`~`) enters REPL mode
+- **Improved Input Handling**: Better separation between single-character and line input modes
+- **Modal Timeout Fixes**: Simplified modal reader with 5-second auto-exit
+
+**Navigation Model**:
+- **ESC**: Always return to gamepad mode (like vim normal mode)
+- **`** or **~**: Enter REPL mode for command-line interface
+- **awsd**: Context-aware navigation (different behavior per mode)
+- **ijkl**: Preserved joystick-style navigation and drilling
+
+### 🖥️ **80x24 Terminal Optimization**
+**Problem Solved**: TView display was optimized for larger terminals but crowded on standard 80x24 terminals.
+
+**Implementation**:
+- **Compact Header**: Single-line title with organization name
+- **Combined Navigation**: Environment and Mode on one line separated by `|`
+- **Reduced Spacing**: Eliminated unnecessary empty lines from content sections
+- **Compact Help**: One-line navigation prompts with shorthand notation
+
+**Display Improvements**:
+```
+TVIEW pixeljam-arcade                           [Line 1]
+Env: SYSTEM [LOCAL] DEV | Mode: [TKM] TSM       [Line 2]
+────────────────────────────────────────────    [Line 3]
+[Content area - 18 lines available]             [Lines 4-21]
+Status: TKM - LOCAL (item 1/3)                  [Line 23]
+NAV> e/m=env/mode i/k=items l=drill | ESC=nav   [Line 24]
+```
+
+### 🔧 **Organization Selection & Management REPL**
+**Problem Solved**: No easy way to switch between organizations or manage organization files from within TView.
+
+**Implementation**:
+- **Organization Selection Interface**: List, switch, create, and manage organizations
+- **File Editor REPL**: Edit tetra.toml, custom.toml, and other org files with validation
+- **Symlink Management**: Create and manage symlinks for active organization
+- **TOML Validation**: Built-in syntax validation before saving changes
+
+**REPL Commands**:
+```bash
+# Organization Selection REPL (triggered by drilling into TOML:SYSTEM)
+org> 1                    # Switch to organization by number
+org> switch pixeljam      # Switch by name
+org> create neworg        # Create new organization
+org> edit pixeljam        # Open file editor for organization
+org> link pixeljam        # Create symlink to organization
+org> unlink               # Remove current symlink
+
+# File Editor REPL (triggered by drilling into TOML:LOCAL)
+edit:org> edit tetra.toml     # Edit main config file
+edit:org> view custom.toml    # View customization file
+edit:org> validate            # Validate TOML syntax
+edit:org> cd                  # Open shell in org directory
+```
+
+**Files Modified**:
+- `bash/tview/tview_core.sh` - Reduced to 289 lines with module loading
+- `bash/tview/tview_repl.sh` - NEW: All REPL interfaces and organization management
+- `bash/tview/tview_hooks.sh` - NEW: Smart drill actions and context triggers
+- `bash/tview/tview_navigation.sh` - NEW: Navigation functions and AWSD logic
+- `bash/tview/tview_render.sh` - Compact header and 80x24 optimization
+
+**System Benefits**:
+- ✅ 73% reduction in core file size (1072 → 289 lines)
+- ✅ Clear separation of concerns across modules
+- ✅ Smart context-aware drill behaviors
+- ✅ Vim-like ESC behavior for predictable navigation
+- ✅ Complete organization management from TView
+- ✅ Optimized display for standard 80x24 terminals
+- ✅ Improved modal timeout handling and input transitions
+- ✅ Maintained backward compatibility with all existing features
+
+---
+
 ## 2025-09-22 - SSH User Display Fix and QA Environment Integration
 
 ### 🔧 **SSH User Display Concatenation Fix**

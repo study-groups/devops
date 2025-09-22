@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 
-# TView Core - Main view logic and navigation
+# TView Core - Main view logic and navigation (refactored modular version)
+
+# Source all modules
+TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TVIEW_DIR/tview_data.sh"         # Data loading functions
+source "$TVIEW_DIR/tview_render.sh"       # Display rendering
+source "$TVIEW_DIR/tview_modes.sh"        # Mode content rendering
+source "$TVIEW_DIR/tview_actions.sh"      # Modal actions
+source "$TVIEW_DIR/tview_navigation.sh"   # Navigation functions
+source "$TVIEW_DIR/tview_hooks.sh"        # Context-triggered actions (drill behaviors)
+source "$TVIEW_DIR/tview_repl.sh"         # REPL interfaces
 
 # Global state - Hierarchical navigation paradigm
 CURRENT_ENV="LOCAL"      # SYSTEM | LOCAL | DEV | STAGING | PROD (primary navigation)
 CURRENT_MODE="TOML"      # TOML | TKM | TSM | DEPLOY | ORG (secondary navigation)
 CURRENT_ITEM=0           # Item within current environment+mode
 DRILL_LEVEL=0            # 0=normal view, 1=drilled into item
+TVIEW_MODE="gamepad"     # gamepad | repl (interaction mode)
 
 # Available environments and modes (reordered for new hierarchy)
 ENVIRONMENTS=("SYSTEM" "LOCAL" "DEV" "STAGING" "PROD" "QA")
@@ -59,8 +70,8 @@ tview_repl_main() {
         # Calculate content lines for padding
         content_lines=$(echo "$full_display" | wc -l)
 
-        # Add padding to push status to bottom (reserve 4 lines)
-        local padding_needed=$((terminal_lines - content_lines - 4))
+        # Add padding to push status to bottom (reserve 2 lines for compact design)
+        local padding_needed=$((terminal_lines - content_lines - 2))
         if [[ $padding_needed -gt 0 ]]; then
             for ((i=0; i<$padding_needed; i++)); do
                 full_display+=$'\n'
@@ -71,13 +82,13 @@ tview_repl_main() {
         full_display+=$(render_status_line)
         full_display+=$'\n'
 
-        # Add navigation prompt
-        if [[ $DRILL_LEVEL -eq 1 ]]; then
-            full_display+="[tview] DRILLED: i/k (up/down), j (back) | v (glow view)"$'\n'
-            full_display+="Commands: e (env), m (mode), i/k (up/down), l (drill), j (back), enter, r, q, h, t, g"$'\n'
+        # Add compact navigation prompt
+        if [[ "$TVIEW_MODE" == "repl" ]]; then
+            full_display+="REPL> /tview=gamepad /exit=quit /help=commands | TSM: list start stop"$'\n'
+        elif [[ $DRILL_LEVEL -eq 1 ]]; then
+            full_display+="DRILL> i/k=nav j=back enter=detail | ESC=nav \`=repl q=quit"$'\n'
         else
-            full_display+="[tview] e (env cycle), m (mode cycle), i/k (up/down), l (drill), j (back)"$'\n'
-            full_display+="Commands: enter, r, q, h, t, g, v (glow view)"$'\n'
+            full_display+="NAV> e/m=env/mode i/k=items l=drill awsd=context | ESC=nav \`=repl q=quit"$'\n'
         fi
 
         # Only clear and redraw if content actually changed
@@ -91,9 +102,25 @@ tview_repl_main() {
         ((data_refresh_counter--))
         ((ssh_check_counter--))
 
-        read -p "> " -n1 key
+        # Handle input based on current mode
+        if [[ "$TVIEW_MODE" == "repl" ]]; then
+            # REPL mode: read full line input
+            echo -n "tview> "
+            read -r input
+            handle_repl_input "$input"
+        else
+            # Gamepad mode: read single character
+            read -p "> " -n1 key
+            handle_gamepad_input "$key"
+        fi
+    done
+}
 
-        case "$key" in
+# Handle gamepad (single key) input
+handle_gamepad_input() {
+    local key="$1"
+
+    case "$key" in
             'e'|'E')
                 # Cycle through environments (left to right)
                 navigate_environment "right"
@@ -105,8 +132,10 @@ tview_repl_main() {
             'j'|'J')
                 drill_out
                 ;;
-            $'\e')  # ESC key for hierarchical navigation
-                drill_out
+            $'\e')  # ESC key - idempotent return to gamepad mode (like vim)
+                TVIEW_MODE="gamepad"
+                DRILL_LEVEL=0  # Always exit drill when hitting ESC
+                echo "ESC - returning to gamepad navigation mode"
                 ;;
             'i'|'I')
                 navigate_item "up"
@@ -121,8 +150,8 @@ tview_repl_main() {
                 show_item_modal
                 ;;
             'q'|'Q')
-                echo "Exiting tdash..."
-                break
+                echo "Exiting tview..."
+                exit 0
                 ;;
             'r'|'R')
                 # Force immediate data refresh
@@ -141,210 +170,44 @@ tview_repl_main() {
             'v'|'V')
                 view_with_glow
                 ;;
+            'a'|'A')
+                # Context-aware left navigation
+                awsd_navigate "left"
+                ;;
+            'd'|'D')
+                # Context-aware right navigation
+                awsd_navigate "right"
+                ;;
+            'w'|'W')
+                # Context-aware up navigation
+                awsd_navigate "up"
+                ;;
+            's'|'S')
+                # Context-aware down navigation
+                awsd_navigate "down"
+                ;;
+            '`'|'~')
+                # Backtick or tilde enters REPL mode
+                enter_repl_mode
+                ;;
             *)
                 # Silently ignore unknown keys to maintain display flow
                 ;;
         esac
-    done
 }
 
-# Navigate between modes (A/D keys)
-navigate_mode() {
-    local direction="$1"
-    local current_idx
+# Enhanced modal key reader - simplified and more reliable
+_tview_modal_read_key() {
+    local timeout="${1:-5}"  # Shorter timeout for better UX
 
-    # Find current mode index
-    for i in "${!MODES[@]}"; do
-        if [[ "${MODES[$i]}" == "$CURRENT_MODE" ]]; then
-            current_idx=$i
-            break
-        fi
-    done
+    echo "Press any key to continue (auto-exit in ${timeout}s)..."
 
-    if [[ "$direction" == "left" ]]; then
-        current_idx=$((current_idx - 1))
-        if [[ $current_idx -lt 0 ]]; then
-            current_idx=$((${#MODES[@]} - 1))
-        fi
+    # Simple read with timeout
+    if read -t "$timeout" -n1 -s; then
+        return 0  # Key pressed - exit modal
     else
-        current_idx=$((current_idx + 1))
-        if [[ $current_idx -ge ${#MODES[@]} ]]; then
-            current_idx=0
-        fi
+        return 0  # Timeout - also exit modal
     fi
-
-    CURRENT_MODE="${MODES[$current_idx]}"
-    CURRENT_ITEM=0  # Reset item when changing modes
-    DRILL_LEVEL=0   # Reset drill level when changing modes
-}
-
-# Navigate between environments (W/E keys)
-navigate_environment() {
-    local direction="$1"
-    local current_idx
-
-    # Find current environment index
-    for i in "${!ENVIRONMENTS[@]}"; do
-        if [[ "${ENVIRONMENTS[$i]}" == "$CURRENT_ENV" ]]; then
-            current_idx=$i
-            break
-        fi
-    done
-
-    if [[ "$direction" == "left" ]]; then
-        current_idx=$((current_idx - 1))
-        if [[ $current_idx -lt 0 ]]; then
-            current_idx=$((${#ENVIRONMENTS[@]} - 1))
-        fi
-    else
-        current_idx=$((current_idx + 1))
-        if [[ $current_idx -ge ${#ENVIRONMENTS[@]} ]]; then
-            current_idx=0
-        fi
-    fi
-
-    CURRENT_ENV="${ENVIRONMENTS[$current_idx]}"
-    CURRENT_ITEM=0  # Reset item when changing environments
-    DRILL_LEVEL=0   # Reset drill level when changing environments
-}
-
-# Navigate items within current mode+environment (J/I/K/L keys)
-navigate_item() {
-    local direction="$1"
-    local max_items=$(get_max_items_for_current_context)
-
-    if [[ $max_items -le 1 ]]; then
-        return  # No navigation needed for single items
-    fi
-
-    if [[ "$direction" == "down" || "$direction" == "right" ]]; then
-        CURRENT_ITEM=$((CURRENT_ITEM + 1))
-        if [[ $CURRENT_ITEM -ge $max_items ]]; then
-            CURRENT_ITEM=0
-        fi
-    else
-        CURRENT_ITEM=$((CURRENT_ITEM - 1))
-        if [[ $CURRENT_ITEM -lt 0 ]]; then
-            CURRENT_ITEM=$((max_items - 1))
-        fi
-    fi
-}
-
-# Drill into selected item (L key)
-drill_into() {
-    if [[ $DRILL_LEVEL -eq 0 ]]; then
-        DRILL_LEVEL=1
-    fi
-}
-
-# Drill out of item (J key)
-drill_out() {
-    if [[ $DRILL_LEVEL -eq 1 ]]; then
-        DRILL_LEVEL=0
-    fi
-}
-
-# Get maximum items for current environment+mode combination
-get_max_items_for_current_context() {
-    case "$CURRENT_ENV:$CURRENT_MODE" in
-        "SYSTEM:TOML") echo 4 ;;     # TOML file, organization, project, status
-        "LOCAL:TOML") echo 4 ;;      # Local config items
-        "DEV:TOML") echo 5 ;;        # Dev server infrastructure items
-        "STAGING:TOML") echo 5 ;;    # Staging server infrastructure items
-        "PROD:TOML") echo 5 ;;       # Prod server infrastructure items
-        "SYSTEM:TKM") echo 2 ;;      # Key status, known hosts
-        "LOCAL:TKM") echo 3 ;;       # Local keys, SSH config, status
-        *":TKM") echo 2 ;;           # SSH connectivity, key deployment
-        "SYSTEM:TSM") echo 2 ;;      # Service manager status
-        "LOCAL:TSM")
-            if [[ -n "$TSM_SERVICES" ]]; then
-                echo $(echo "$TSM_SERVICES" | wc -l)
-            else
-                echo 1
-            fi
-            ;;
-        *":TSM") echo 2 ;;           # Remote service status (if SSH connected)
-        "SYSTEM:DEPLOY") echo 2 ;;   # Deploy status overview
-        "LOCAL:DEPLOY") echo 3 ;;    # Git status, artifacts, deploy readiness
-        *":DEPLOY") echo 3 ;;        # Deployment status, last deploy, actions
-        "SYSTEM:ORG") echo 3 ;;      # Organization overview, total orgs, status
-        "LOCAL:ORG") echo 4 ;;       # Create, switch, templates, settings
-        *":ORG") echo 3 ;;           # Push/pull config, sync status
-        *) echo 1 ;;
-    esac
-}
-
-# Scrolling functionality
-scroll_content() {
-    local direction="$1"
-    local max_lines=${LINES:-24}
-    local content_lines=$((max_lines - 8))  # Reserve space for header and status
-
-    if [[ "$FILE_VIEW_MODE" == "true" ]]; then
-        # Scrolling in file view mode
-        if [[ "$direction" == "up" ]]; then
-            SCROLL_OFFSET=$((SCROLL_OFFSET - 3))
-            if [[ $SCROLL_OFFSET -lt 0 ]]; then
-                SCROLL_OFFSET=0
-            fi
-        else
-            local max_scroll=$((FILE_VIEW_LINES - content_lines))
-            if [[ $max_scroll -lt 0 ]]; then max_scroll=0; fi
-            SCROLL_OFFSET=$((SCROLL_OFFSET + 3))
-            if [[ $SCROLL_OFFSET -gt $max_scroll ]]; then
-                SCROLL_OFFSET=$max_scroll
-            fi
-        fi
-    else
-        # Regular content scrolling - for future implementation
-        # Currently just reset scroll when changing contexts
-        if [[ "$direction" == "up" ]]; then
-            SCROLL_OFFSET=$((SCROLL_OFFSET - 1))
-            if [[ $SCROLL_OFFSET -lt 0 ]]; then
-                SCROLL_OFFSET=0
-            fi
-        else
-            SCROLL_OFFSET=$((SCROLL_OFFSET + 1))
-            # Limit scrolling based on content
-            if [[ $SCROLL_OFFSET -gt 10 ]]; then
-                SCROLL_OFFSET=10
-            fi
-        fi
-    fi
-}
-
-# Enter full file view mode
-enter_file_view() {
-    local file_path="$1"
-    if [[ -f "$file_path" ]]; then
-        FILE_VIEW_MODE=true
-        FILE_VIEW_CONTENT=$(cat "$file_path")
-        FILE_VIEW_LINES=$(echo "$FILE_VIEW_CONTENT" | wc -l)
-        SCROLL_OFFSET=0
-    fi
-}
-
-# Exit file view mode
-exit_file_view() {
-    FILE_VIEW_MODE=false
-    FILE_VIEW_CONTENT=""
-    FILE_VIEW_LINES=0
-    SCROLL_OFFSET=0
-}
-
-# Drill mode navigation (AWSD controls)
-drill_navigate() {
-    local direction="$1"
-    case "$direction" in
-        "up"|"down")
-            # Scroll content in drill mode
-            scroll_content "$direction"
-            ;;
-        "left"|"right")
-            # Navigate between drill items if applicable
-            navigate_item "$direction"
-            ;;
-    esac
 }
 
 # Terminal state preservation functions
@@ -375,27 +238,6 @@ _tview_inline_syntax_highlight() {
         highlight -O ansi "$file" 2>/dev/null
     else
         cat "$file"
-    fi
-}
-
-# Enhanced modal key reader with multiple exit strategies
-_tview_modal_read_key() {
-    local timeout="${1:-30}"
-    local key=""
-
-    # Try to read a key with timeout
-    if read -t "$timeout" -n1 -s key 2>/dev/null; then
-        case "$key" in
-            $'\e'|'q'|'Q'|$'\x1b')
-                return 0  # Exit requested
-                ;;
-            *)
-                return 1  # Continue modal
-                ;;
-        esac
-    else
-        # Timeout or read failed - auto-exit
-        return 0
     fi
 }
 

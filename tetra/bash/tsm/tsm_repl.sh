@@ -31,6 +31,7 @@ Built-in Commands:
   /validate <cmd>   Validate command before running
   /doctor           Quick system health check
   /json <cmd>       Execute command with JSON output
+  /tview            Launch TView dashboard (gamepad navigation)
 
 TSM Commands (without prefix):
   start [--env env.sh] <script> [name]  Start a script
@@ -242,6 +243,16 @@ tsm_repl_process_command() {
                 ;;
             last)
                 tsm_repl_get_last "$args"
+                skip_save=true
+                ;;
+            tview)
+                echo "Launching TView dashboard..."
+                if command -v tview >/dev/null 2>&1; then
+                    source "$TETRA_SRC/bash/tview/tview.sh"
+                    tview dashboard
+                else
+                    echo "TView not available. Source tetra.sh first."
+                fi
                 skip_save=true
                 ;;
             *)

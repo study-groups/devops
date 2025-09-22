@@ -21,6 +21,9 @@ tkm_deploy() {
         "status")
             tkm_deploy_status "${@:2}"
             ;;
+        "test")
+            tkm_deploy_test "${@:2}"
+            ;;
         "list")
             tkm_deploy_list
             ;;
@@ -215,6 +218,130 @@ tkm_deploy_status_single() {
     echo
 }
 
+# Test local to environment deployment connectivity
+tkm_deploy_test() {
+    local environment="${1:-all}"
+
+    echo "=== Local to Environment Deployment Testing ==="
+    echo
+
+    if [[ "$environment" == "all" ]]; then
+        for env in dev staging prod qa; do
+            tkm_deploy_test_single "$env"
+            echo
+        done
+    else
+        tkm_deploy_test_single "$environment"
+    fi
+}
+
+# Test deployment connectivity for single environment
+tkm_deploy_test_single() {
+    local environment="$1"
+
+    # Load organization configuration
+    local current_org=$(tkm_org_current)
+    if [[ -z "$current_org" ]]; then
+        echo "❌ No organization selected. Run: tkm org set <org>"
+        return 1
+    fi
+
+    # Load tetra.toml (renamed from pixeljam_arcade.toml)
+    local org_config="$TKM_ORGS_DIR/$current_org/tetra.toml"
+    local custom_config="$TKM_ORGS_DIR/$current_org/custom.toml"
+
+    if [[ ! -f "$org_config" ]]; then
+        echo "❌ Organization config not found: $org_config"
+        return 1
+    fi
+
+    echo "🔍 Testing Environment: $(echo "$environment" | tr '[:lower:]' '[:upper:]')"
+
+    # Extract server info from tetra.toml
+    local server_ip=$(grep "${environment}_ip" "$org_config" 2>/dev/null | cut -d'"' -f2)
+    local server_hostname=$(grep "${environment}_server" "$org_config" 2>/dev/null | cut -d'"' -f2)
+
+    if [[ -z "$server_ip" ]]; then
+        echo "❌ No server IP configured for $environment"
+        return 1
+    fi
+
+    echo "  Server: $server_hostname ($server_ip)"
+
+    # Test SSH connectivity with both root and environment user
+    local ssh_users=("root" "$environment")
+
+    # Load custom SSH users if available
+    if [[ -f "$custom_config" ]]; then
+        local custom_users_line=$(grep -A1 "\[ssh_users\]" "$custom_config" | grep "$environment")
+        if [[ -n "$custom_users_line" ]]; then
+            # Parse TOML array format: dev = ["root", "dev"]
+            local users_array=$(echo "$custom_users_line" | sed 's/.*\[\(.*\)\].*/\1/' | tr -d '"' | tr ',' ' ')
+            read -ra ssh_users <<< "$users_array"
+        fi
+    fi
+
+    echo "  Testing SSH connectivity:"
+
+    for user in "${ssh_users[@]}"; do
+        user=$(echo "$user" | xargs)  # trim whitespace
+        [[ -z "$user" ]] && continue
+
+        echo -n "    ${user}@${server_ip}: "
+
+        # Test SSH connection with timeout
+        if timeout 5 ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=no \
+           "$user@$server_ip" "echo 'SSH connection successful'" >/dev/null 2>&1; then
+            echo "✅ Connected"
+
+            # Test deployment path access
+            echo -n "    ${user}@${server_ip} deployment path: "
+            if timeout 5 ssh -o ConnectTimeout=3 -o BatchMode=yes \
+               "$user@$server_ip" "test -w /var/www || test -w /home/$user" >/dev/null 2>&1; then
+                echo "✅ Writable"
+            else
+                echo "⚠️  Limited access"
+            fi
+        else
+            echo "❌ Connection failed"
+        fi
+    done
+
+    # Test named port availability via TSM integration
+    echo "  Testing service ports:"
+
+    # Check if TSM is available and get named ports
+    if command -v tsm >/dev/null 2>&1; then
+        local tsm_ports=$(tsm ports scan 2>/dev/null | grep -E "(devpages|arcade|tetra|pbase)" | head -4)
+        if [[ -n "$tsm_ports" ]]; then
+            echo "$tsm_ports" | while read -r line; do
+                local service=$(echo "$line" | awk '{print $1}')
+                local port=$(echo "$line" | awk '{print $2}')
+                local status=$(echo "$line" | awk '{print $3}')
+
+                echo "    $service:$port → $status"
+            done
+        else
+            echo "    ⚠️  No TSM named ports configured"
+        fi
+    else
+        echo "    ⚠️  TSM not available for port testing"
+    fi
+
+    # Test nginx configuration readiness
+    echo "  Testing nginx readiness:"
+    for user in "${ssh_users[@]}"; do
+        user=$(echo "$user" | xargs)
+        [[ -z "$user" ]] && continue
+
+        if timeout 5 ssh -o ConnectTimeout=3 -o BatchMode=yes \
+           "$user@$server_ip" "which nginx && test -d /etc/nginx/sites-enabled" >/dev/null 2>&1; then
+            echo "    ${user}@${server_ip}: ✅ nginx ready"
+            break
+        fi
+    done
+}
+
 # List deployable environments
 tkm_deploy_list() {
     echo "=== Deployable Environments ==="
@@ -296,12 +423,18 @@ Commands:
   env <environment> [server]      Deploy environment file to target server
   service <environment> [name]    Deploy environment and restart service
   status [environment]            Show deployment status for environments
+  test [environment]              Test local to environment connectivity (root/user SSH)
   list                           List deployable environments
 
 Environment Deployment:
   tkm deploy env staging          Deploy staging.env to staging server
   tkm deploy env prod             Deploy prod.env to production server
   tkm deploy service staging      Deploy and restart staging service
+
+Testing and Validation:
+  tkm deploy test                 Test connectivity to all environments
+  tkm deploy test dev             Test connectivity to dev environment
+  tkm deploy test staging         Test staging deployment readiness
 
 Status and Management:
   tkm deploy status               Show status for all environments

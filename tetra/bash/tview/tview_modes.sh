@@ -111,7 +111,6 @@ EOF
 
 render_tkm_local() {
     cat << EOF
-
 TKM - Local Key Management
 
 $(highlight_line "Local SSH Keys: ~/.ssh/ directory" "$(is_current_item 0)" "$CYAN")
@@ -119,7 +118,6 @@ $(highlight_line "SSH Config: ~/.ssh/config" "$(is_current_item 1)" "$CYAN")
 $(highlight_line "Key Agent: ${SSH_AGENT_STATUS:-Not running}" "$(is_current_item 2)" "$CYAN")
 
 Manage local SSH keys and configuration.
-
 EOF
 }
 
