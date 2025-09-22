@@ -68,6 +68,33 @@ load_customization_overrides() {
         QA_SSH_USERS=("root" "qa")
         PREFER_DOMAIN_SSH="false"
     fi
+
+    # Apply environment mapping overrides
+    apply_environment_mapping_overrides
+}
+
+# Apply environment mapping overrides (staging on prod server, etc.)
+apply_environment_mapping_overrides() {
+    # Handle staging_server_override = "prod_server"
+    if [[ "$STAGING_SERVER_OVERRIDE" == "prod_server" ]]; then
+        # Staging uses prod server's IP and hardware info, but keeps staging SSH config
+        STAGING_IP="$PROD_IP"
+        STAGING_PRIVATE_IP="$PROD_PRIVATE_IP"
+        STAGING_REGION="$PROD_REGION"
+        STAGING_SIZE="$PROD_SIZE"
+        STAGING_MEMORY="$PROD_MEMORY"
+        # Keep staging nickname and SSH users as configured
+        # This allows staging to be a user on the prod machine
+    fi
+
+    # Handle qa_server_override if configured
+    if [[ "$QA_SERVER_OVERRIDE" == "dev_server" ]]; then
+        QA_IP="$DEV_IP"
+        QA_PRIVATE_IP="$DEV_PRIVATE_IP"
+        QA_REGION="$DEV_REGION"
+        QA_SIZE="$DEV_SIZE"
+        QA_MEMORY="$DEV_MEMORY"
+    fi
 }
 
 load_toml_data() {
@@ -107,6 +134,16 @@ load_toml_data() {
             PROD_NICKNAME=$(toml_get "infrastructure" "prod_nickname" "TOML" 2>/dev/null || echo "prod-server")
             PROD_SSH_USER=$(toml_get "infrastructure" "prod_ssh_user" "TOML" 2>/dev/null || echo "production")
             PROD_SIZE=$(toml_get "infrastructure" "prod_size" "TOML" 2>/dev/null || echo "Unknown")
+
+            # QA Environment
+            QA_SERVER=$(toml_get "infrastructure" "qa_server" "TOML" 2>/dev/null || grep "^qa_server" "$ACTIVE_TOML" | cut -d'"' -f2 2>/dev/null || echo "Unknown")
+            QA_IP=$(toml_get "infrastructure" "qa_ip" "TOML" 2>/dev/null || grep "^qa_ip" "$ACTIVE_TOML" | cut -d'"' -f2 2>/dev/null || echo "Unknown")
+            QA_PRIVATE_IP=$(toml_get "infrastructure" "qa_private_ip" "TOML" 2>/dev/null || grep "^qa_private_ip" "$ACTIVE_TOML" | cut -d'"' -f2 2>/dev/null || echo "Unknown")
+            QA_MEMORY=$(toml_get "infrastructure" "qa_memory" "TOML" 2>/dev/null || grep "^qa_memory" "$ACTIVE_TOML" | cut -d'"' -f2 2>/dev/null || echo "Unknown")
+            QA_REGION=$(toml_get "infrastructure" "qa_region" "TOML" 2>/dev/null || grep "^qa_region" "$ACTIVE_TOML" | cut -d'"' -f2 2>/dev/null || echo "Unknown")
+            QA_NICKNAME=$(toml_get "infrastructure" "qa_nickname" "TOML" 2>/dev/null || echo "qa-server")
+            QA_SSH_USER=$(toml_get "infrastructure" "qa_ssh_user" "TOML" 2>/dev/null || echo "qa")
+            QA_SIZE=$(toml_get "infrastructure" "qa_size" "TOML" 2>/dev/null || echo "Unknown")
 
             # Extract domain configuration - multiple fallback strategies
             DOMAIN_BASE=$(toml_get "domains" "base_domain" "TOML" 2>/dev/null || \
