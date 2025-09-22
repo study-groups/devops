@@ -205,50 +205,7 @@ _tsm_load_environment() {
 
 # === CORE START FUNCTION ===
 
-_tsm_start_process() {
-    local command="$1"
-    shift
-    local args=("$@")
-    local process_name="$2"
-    local port="$3"
-    local cwd="$4"
-    local env_file="$5"
-
-    # Change to working directory
-    if [[ -n "$cwd" ]]; then
-        cd "$cwd" || return 1
-    fi
-
-    # Load environment if specified
-    if [[ -n "$env_file" ]]; then
-        _tsm_load_environment "$env_file" "$cwd"
-    fi
-
-    # Generate log file
-    local log_file="$(_tsm_get_log_file "$process_name")"
-    local pid_file="$(_tsm_get_pid_file "$process_name")"
-
-    # Start the process
-    if command -v setsid >/dev/null 2>&1; then
-        # Use setsid for proper process group management
-        setsid "$command" "${args[@]}" > "$log_file" 2>&1 &
-    else
-        # Fallback without setsid
-        "$command" "${args[@]}" > "$log_file" 2>&1 &
-    fi
-
-    local pid=$!
-    echo "$pid" > "$pid_file"
-
-    # Get TSM ID
-    local tsm_id="$(_tsm_get_next_id)"
-
-    # Write process info
-    _tsm_write_process_info "$tsm_id" "$process_name" "$pid" "$command" "$port" "$cwd" "$env_file"
-
-    echo "$pid"
-    return 0
-}
+# _tsm_start_process() moved to tsm_interface.sh to avoid duplication
 
 # Export core functions
 export -f tetra_tsm_setup
@@ -264,4 +221,4 @@ export -f _tsm_is_process_running
 export -f _tsm_get_process_by_name
 export -f _tsm_kill_process
 export -f _tsm_load_environment
-export -f _tsm_start_process
+# _tsm_start_process exported from tsm_interface.sh

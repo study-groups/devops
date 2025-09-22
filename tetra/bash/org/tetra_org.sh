@@ -761,7 +761,7 @@ dev_domain = "dev.${org_name}.com"
 staging_domain = "staging.${org_name}.com"
 prod_domain = "${org_name}.com"
 qa_domain = "qa.${org_name}.com"
-prefer_domain_ssh = true  # use domain instead of IP when available
+prefer_domain_ssh = false  # use IP addresses as primary, domains for reference
 
 [ssh_keys]
 # SSH key preferences per environment

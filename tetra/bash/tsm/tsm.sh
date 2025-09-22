@@ -17,7 +17,11 @@ _tsm_load_components() {
     source "$TSM_DIR/tsm_inspect.sh"     # Process inspection, depends on core
     source "$TSM_DIR/tsm_formatting.sh"  # Output formatting, depends on core
     source "$TSM_DIR/tsm_doctor.sh"      # Diagnostics, depends on core+utils
-    source "$TSM_DIR/tsm_interface.sh"   # User-facing functions, depends on all above
+    # Phase 2 refactor: Split interface into organized modules
+    source "$TSM_DIR/tsm_validation.sh"  # Validation & helpers, no dependencies
+    source "$TSM_DIR/tsm_process.sh"     # Process lifecycle, depends on validation+utils
+    source "$TSM_DIR/tsm_cli.sh"         # CLI commands, depends on process+validation
+    source "$TSM_DIR/tsm_interface.sh"   # Interface coordination, depends on all above
 
     # Initialize global state after all functions are loaded
     _tsm_init_global_state
@@ -53,7 +57,7 @@ Commands:
   env <process|id>           Show sorted environment variables for a process
   paths <process|id>         Show paths for logs, pid, etc. for a process
   scan-ports                 Scan and report open ports and their owners
-  ports [list|scan|validate|set|remove|export|conflicts] Named port registry and mappings
+  ports [list|scan|validate|set|remove|allocate|import|export|conflicts] Named port registry and mappings
   doctor [scan|port|kill|env] Port diagnostics and conflict resolution
   repl                       Start interactive REPL with /commands
   help                       Show this help
@@ -201,7 +205,33 @@ EOF
                     tsm_list_named_ports env
                     ;;
                 "conflicts")
-                    tsm_validate_port_registry
+                    if [[ "$1" == "--fix" ]]; then
+                        tsm_detect_conflicts true
+                    else
+                        tsm_detect_conflicts false
+                    fi
+                    ;;
+                "allocate")
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports allocate <service> [environment]" >&2
+                        return 1
+                    fi
+                    tsm_allocate_port "$1" "$2"
+                    ;;
+                "import")
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports import <file.toml>" >&2
+                        return 1
+                    fi
+                    tsm_import_ports "$1"
+                    ;;
+                "export")
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports export <file> [format]" >&2
+                        echo "Formats: toml, json, env" >&2
+                        return 1
+                    fi
+                    tsm_export_ports "$1" "$2"
                     ;;
                 "env")
                     tsm_list_named_ports env
@@ -211,7 +241,7 @@ EOF
                     ;;
                 *)
                     echo "Unknown ports subcommand: $subcommand" >&2
-                    echo "Usage: tsm ports [list|scan|validate|set|remove|export|conflicts|env|json]" >&2
+                    echo "Usage: tsm ports [list|scan|validate|set|remove|allocate|import|export|conflicts|env|json]" >&2
                     return 1
                     ;;
             esac

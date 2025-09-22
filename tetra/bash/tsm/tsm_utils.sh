@@ -41,25 +41,14 @@ tsm_json_success() {
     echo "}"
 }
 
-# Convert process list to JSON
+# Convert process list to JSON using jq
 tsm_processes_to_json() {
-    echo "{"
-    echo "  \"success\": true,"
-    echo "  \"data\": {"
-    echo "    \"processes\": ["
-
-    local first=true
     local processes_dir="$TETRA_DIR/tsm/processes"
+    local processes=()
 
     if [[ -d "$processes_dir" ]]; then
         for process_file in "$processes_dir"/*; do
             [[ -f "$process_file" ]] || continue
-
-            if [[ "$first" == true ]]; then
-                first=false
-            else
-                echo ","
-            fi
 
             local process_name=$(basename "$process_file")
             local TSM_ID="" PROCESS_NAME="" PID="" COMMAND="" PORT="" CWD="" ENV_FILE="" START_TIME="" STATUS=""
@@ -80,25 +69,54 @@ tsm_processes_to_json() {
                 uptime="${uptime_seconds}s"
             fi
 
-            echo -n "      {"
-            echo -n "\"tsm_id\": \"$(_tsm_json_escape "${TSM_ID:-}")\", "
-            echo -n "\"name\": \"$(_tsm_json_escape "${PROCESS_NAME:-$process_name}\")\", "
-            echo -n "\"pid\": \"$(_tsm_json_escape "${PID:-}\")\", "
-            echo -n "\"command\": \"$(_tsm_json_escape "${COMMAND:-}\")\", "
-            echo -n "\"port\": \"$(_tsm_json_escape "${PORT:-}\")\", "
-            echo -n "\"status\": \"$(_tsm_json_escape "$actual_status")\", "
-            echo -n "\"uptime\": \"$(_tsm_json_escape "$uptime")\", "
-            echo -n "\"cwd\": \"$(_tsm_json_escape "${CWD:-}\")\", "
-            echo -n "\"env_file\": \"$(_tsm_json_escape "${ENV_FILE:-}\")\""
-            echo -n "}"
+            # Build JSON object using jq
+            local process_json
+            process_json=$(jq -n \
+                --arg tsm_id "${TSM_ID:-}" \
+                --arg name "${PROCESS_NAME:-$process_name}" \
+                --arg pid "${PID:-}" \
+                --arg command "${COMMAND:-}" \
+                --arg port "${PORT:-}" \
+                --arg status "$actual_status" \
+                --arg uptime "$uptime" \
+                --arg cwd "${CWD:-}" \
+                --arg env_file "${ENV_FILE:-}" \
+                '{
+                    tsm_id: $tsm_id,
+                    name: $name,
+                    pid: $pid,
+                    command: $command,
+                    port: $port,
+                    status: $status,
+                    uptime: $uptime,
+                    cwd: $cwd,
+                    env_file: $env_file
+                }')
+
+            processes+=("$process_json")
         done
     fi
 
-    echo ""
-    echo "    ],"
-    echo "    \"count\": $(find "$processes_dir" -name "*" -type f 2>/dev/null | wc -l | tr -d ' ')"
-    echo "  }"
-    echo "}"
+    # Combine all process objects and build final response
+    local process_array=""
+    if [[ ${#processes[@]} -gt 0 ]]; then
+        process_array=$(printf '%s\n' "${processes[@]}" | jq -s '.')
+    else
+        process_array="[]"
+    fi
+
+    local count=$(find "$processes_dir" -name "*" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+    jq -n \
+        --argjson processes "$process_array" \
+        --arg count "$count" \
+        '{
+            success: true,
+            data: {
+                processes: $processes,
+                count: ($count | tonumber)
+            }
+        }'
 }
 
 tetra_tsm_get_setsid() {
@@ -117,15 +135,37 @@ tetra_tsm_get_setsid() {
 }
 
 tetra_tsm_get_next_id() {
-    local id_file="$TETRA_DIR/tsm/next_id"
-    mkdir -p "$(dirname "$id_file")"
-    
-    # Get current ID and increment it
-    local current_id=0
-    [[ -f "$id_file" ]] && current_id=$(cat "$id_file")
-    local next_id=$((current_id + 1))
-    echo "$next_id" > "$id_file"
-    echo "$current_id"
+    # Find the lowest unused ID by checking existing metadata files
+    local used_ids=()
+    local meta_files=("$TETRA_DIR/tsm/processes"/*.meta)
+
+    # Extract all currently used IDs
+    if [[ -f "${meta_files[0]}" ]]; then  # Check if any meta files exist
+        for meta_file in "${meta_files[@]}"; do
+            if [[ -f "$meta_file" ]]; then
+                local tsm_id
+                tsm_id=$(grep -o 'tsm_id=[0-9]*' "$meta_file" 2>/dev/null | cut -d= -f2)
+                [[ -n "$tsm_id" ]] && used_ids+=("$tsm_id")
+            fi
+        done
+    fi
+
+    # Sort the used IDs numerically
+    if [[ ${#used_ids[@]} -gt 0 ]]; then
+        used_ids=($(printf '%s\n' "${used_ids[@]}" | sort -n))
+    fi
+
+    # Find the lowest unused ID starting from 0
+    local next_id=0
+    for used_id in "${used_ids[@]}"; do
+        if [[ $next_id -eq $used_id ]]; then
+            next_id=$((next_id + 1))
+        else
+            break
+        fi
+    done
+
+    echo "$next_id"
 }
 
 # --- Process Info Gathering ---
