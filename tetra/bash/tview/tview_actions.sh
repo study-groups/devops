@@ -217,14 +217,19 @@ show_tsm_remote_details() {
 
     echo "    ${BOLD}Remote Service Manager - $env ($env_description)${RESET}"
     echo
-    echo "        Server: ${!server_var:-Unknown}"
+
+    # Check for environment mapping overrides
+    local server_note=""
+    if [[ "$env" == "STAGING" && "$STAGING_SERVER_OVERRIDE" == "prod_server" ]]; then
+        server_note=" (${env,,} user on prod machine)"
+    fi
+
+    echo "        Server: ${!server_var:-Unknown}${server_note}"
     echo "        Nickname: ${!nickname_var:-${env,,}-server}"
     echo "        SSH Users: ${ssh_users[*]}"
     echo "        Target IP: ${!ip_var:-Unknown}"
-    if [[ -n "$domain" && "$PREFER_DOMAIN_SSH" == "true" ]]; then
-        echo "        Domain: $domain (preferred)"
-    elif [[ -n "$domain" ]]; then
-        echo "        Domain: $domain"
+    if [[ -n "$domain" ]]; then
+        echo "        Domain: $domain (for reference)"
     fi
     echo "        SSH Status: ${!ssh_status_var:-Unknown}"
     echo "        Remote TSM: $(if [[ "${!ssh_status_var}" == *"Connected"* ]]; then echo "Available"; else echo "Not connected"; fi)"
@@ -234,19 +239,22 @@ show_tsm_remote_details() {
         echo "    ${BOLD}Connection Options${RESET}"
         echo
 
-        # Show connection options for each SSH user
+        # Show connection options for each SSH user (IP preferred)
         for ssh_user in "${ssh_users[@]}"; do
-            if [[ -n "$domain" && "$PREFER_DOMAIN_SSH" == "true" ]]; then
-                echo "        ${BOLD}$ssh_user:${RESET} ssh $ssh_user@$domain"
-            elif [[ "${!ip_var}" != "Unknown" ]]; then
+            if [[ "${!ip_var}" != "Unknown" ]]; then
                 echo "        ${BOLD}$ssh_user:${RESET} ssh $ssh_user@${!ip_var}"
+                if [[ -n "$domain" ]]; then
+                    echo "              (also: ssh $ssh_user@$domain)"
+                fi
+            elif [[ -n "$domain" ]]; then
+                echo "        ${BOLD}$ssh_user:${RESET} ssh $ssh_user@$domain"
             fi
         done
 
         echo
         echo "        ${BOLD}Service Commands${RESET}"
         local primary_user="${ssh_users[0]}"
-        local target="${domain:-${!ip_var}}"
+        local target="${!ip_var:-$domain}"
         if [[ -n "$target" ]]; then
             echo "        Remote TSM: ssh $primary_user@$target 'tsm list'"
             echo "        Service Status: ssh $primary_user@$target 'systemctl status'"
@@ -258,7 +266,7 @@ show_tsm_remote_details() {
         echo "    ${BOLD}Remote Services${RESET} (attempting connection...)"
         echo
         local primary_user="${ssh_users[0]}"
-        local target="${domain:-${!ip_var}}"
+        local target="${!ip_var:-$domain}"
         echo "        ssh $primary_user@$target 'tsm list' || echo 'Remote TSM not available'"
     else
         echo "    ${BOLD}Cannot connect to remote services${RESET}"
@@ -266,7 +274,7 @@ show_tsm_remote_details() {
         if [[ "${!ip_var}" != "Unknown" || -n "$domain" ]]; then
             echo
             local primary_user="${ssh_users[0]}"
-            local target="${domain:-${!ip_var}}"
+            local target="${!ip_var:-$domain}"
             echo "        ${BOLD}Try: ssh $primary_user@$target${RESET}"
         fi
     fi
@@ -280,16 +288,12 @@ show_tview_help() {
 ║                     TETRA VIEW HELP                     ║
 ╚══════════════════════════════════════════════════════════╝
 
-HIERARCHICAL NAVIGATION SYSTEM:
-  w, e        Switch environments (SYSTEM ← → LOCAL ← → DEV ← → STAGING ← → PROD)
-  a, d        Switch modes (TOML ← → TKM ← → TSM ← → DEPLOY ← → ORG)
-  i, k        Navigate items up/down within current context
-  l           Drill INTO selected item (detailed view)
-  j           Drill OUT of item (back to overview)
-
-DRILL MODE NAVIGATION (when drilled in):
-  w, a, s, d  Navigate within drilled view (up, left, down, right)
-  j           Return to overview
+NAVIGATION SYSTEM:
+  e           Cycle through environments (SYSTEM → LOCAL → DEV → STAGING → PROD → QA)
+  m           Cycle through modes (TOML → TKM → TSM → DEPLOY → ORG)
+  i, k        Navigate items up/down within current context (joystick)
+  l           Drill INTO selected item (detailed view) (joystick)
+  j           Drill OUT of item (back to overview) (joystick)
 
 ACTIONS:
   Enter       Show detailed modal for selected item
@@ -324,6 +328,7 @@ EOF
         fi
     done
 }
+
 
 execute_tsm_command() {
     echo "Executing: tsm list"
