@@ -18,7 +18,7 @@ TSM Interactive REPL
 Built-in Commands:
   /help, /?         Show this help
   /exit, /quit      Exit REPL
-  /list             List all processes  
+  /list             List all processes
   /kill <process>   Kill/delete process
   /last [n]         Show last command output (n=0 default, n=1 goes back one, etc.)
   /history [n]      Show command history (default: 20 lines)
@@ -26,6 +26,11 @@ Built-in Commands:
   /disk             Show disk usage
   /mem              Show memory usage
   /env              Show environment variables
+  /orphans          Find orphaned processes
+  /clean            Clean stale tracking files
+  /validate <cmd>   Validate command before running
+  /doctor           Quick system health check
+  /json <cmd>       Execute command with JSON output
 
 TSM Commands (without prefix):
   start [--env env.sh] <script> [name]  Start a script
@@ -35,6 +40,7 @@ TSM Commands (without prefix):
   logs <process> [--lines N]            Show process logs
   ports                                 Show PORT mappings
   setup                                 Setup tsm environment
+  doctor <subcommand>                   Diagnostic tools
 
 Bash Commands:
   !<command>        Execute bash command (e.g. !ls, !ps, !df -h)
@@ -197,6 +203,42 @@ tsm_repl_process_command() {
             env)
                 output=$(tsm_repl_custom_env)
                 echo "$output"
+                ;;
+            orphans)
+                output=$(tsm doctor orphans 2>&1)
+                echo "$output"
+                ;;
+            clean)
+                output=$(tsm doctor clean 2>&1)
+                echo "$output"
+                ;;
+            validate)
+                if [[ -n "$args" ]]; then
+                    output=$(tsm doctor validate "$args" 2>&1)
+                    echo "$output"
+                else
+                    output="Usage: /validate <command>"
+                    echo "$output"
+                fi
+                ;;
+            doctor)
+                if [[ -n "$args" ]]; then
+                    output=$(tsm doctor "$args" 2>&1)
+                    echo "$output"
+                else
+                    # Quick health check
+                    output=$(tsm doctor scan 2>&1)
+                    echo "$output"
+                fi
+                ;;
+            json)
+                if [[ -n "$args" ]]; then
+                    output=$(eval "tsm $args --json" 2>&1)
+                    echo "$output"
+                else
+                    output="Usage: /json <tsm-command>\nExample: /json list"
+                    echo "$output"
+                fi
                 ;;
             last)
                 tsm_repl_get_last "$args"

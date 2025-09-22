@@ -48,6 +48,73 @@ Each process captures its complete environment in `processes/{name}.env`, includ
 
 This allows processes to be started with the exact environment that was active when TSM launched them.
 
+## Enhanced Error Handling and Diagnostics
+
+### Diagnostic Commands
+
+TSM provides comprehensive diagnostic tools for troubleshooting startup failures and managing processes:
+
+#### Pre-flight Validation
+```bash
+tsm doctor validate <command> --port <port> --env <file> [--json]
+```
+Validates a command before execution, checking:
+- Command executable availability
+- Port availability and conflicts
+- Environment file existence and readability
+- Port range validation
+- Disk space availability
+
+**Example:**
+```bash
+tsm doctor validate "node server.js" --port 4000 --env env/dev.env
+```
+
+#### Process Discovery
+```bash
+tsm doctor orphans [--json]     # Find potentially orphaned processes
+tsm doctor clean                # Clean up stale process tracking files
+```
+
+Identifies Node.js and Python processes that TSM might have started but lost track of, showing:
+- Process ID and type
+- Ports in use
+- Full command line
+- Suggested actions
+
+#### Enhanced Error Messages
+
+When startup fails, TSM now provides detailed diagnostic information:
+- **Port Conflicts**: Specific PID and process using the port
+- **TSM vs External**: Whether process is TSM-managed or external
+- **Environment Issues**: Missing or unreadable environment files
+- **Recent Errors**: Analysis of recent log entries
+- **Suggested Actions**: Specific commands to resolve issues
+
+### JSON Output Support
+
+All diagnostic commands support `--json` flag for machine-readable output, ideal for LLM agents and automation:
+
+```bash
+tsm list --json                 # Process list in JSON format
+tsm start --json <command>      # Structured startup results
+tsm doctor orphans --json      # Orphan scan results
+```
+
+**JSON Response Format:**
+```json
+{
+  "success": true|false,
+  "message": "Description",
+  "data": { ... },
+  "error": {
+    "message": "Error description",
+    "code": 1,
+    "details": "Additional context"
+  }
+}
+```
+
 ## Process Lifecycle Management
 
 ### Starting Processes

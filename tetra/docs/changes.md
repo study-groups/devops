@@ -33,6 +33,58 @@ tsm start --json <command>                               # Structured startup re
 - Diagnostic information embedded in error responses
 - Pre-flight validation to prevent startup failures
 
+### 🌐 **HTTP-to-Bash API Architecture**
+Designed comprehensive REST API system for web interface control of all Tetra modules:
+
+**Universal Execution Engine:**
+- HTTP-to-Bash execution pattern for any Tetra module
+- Standardized JSON response format with error classification
+- Real-time monitoring via Server-Sent Events
+- WebSocket support for interactive sessions
+
+**Health & Monitoring System:**
+```bash
+GET /api/ping                    # Basic ping/pong response
+GET /api/health/deep            # Comprehensive system health
+GET /api/health/modules         # Module availability check
+GET /api/monitor/events         # Real-time process monitoring
+```
+
+**Error Classification Engine:**
+- PORT_CONFLICT → Specific remediation suggestions
+- COMMAND_NOT_FOUND → Installation guidance
+- PERMISSION_DENIED → Access troubleshooting
+- TIMEOUT → Resource optimization tips
+
+**Security & Performance:**
+- API key authentication for sensitive operations
+- Command sanitization preventing injection attacks
+- Rate limiting for resource-intensive operations
+- Module health checks with automatic monitoring
+
+### 🎮 **Enhanced TSM REPL Interface**
+Upgraded interactive REPL with comprehensive diagnostic capabilities:
+
+**New Diagnostic Commands:**
+```bash
+/orphans          # Find potentially orphaned processes
+/clean            # Clean up stale process tracking
+/validate <cmd>   # Pre-flight command validation
+/doctor [args]    # System health diagnostics
+/json <cmd>       # Execute commands with JSON output
+```
+
+**Improved Workflow:**
+- Real-time diagnostic feedback
+- Interactive exploration of system state
+- Built-in help for all new features
+- Command history and output caching
+
+**Documentation Integration:**
+- Updated TSM manual with comprehensive diagnostic coverage
+- Enhanced built-in help system
+- Layered documentation strategy (changes → manual → REPL help)
+
 ---
 
 ## 2025-09-21 - Completed High Priority Features and Testing Infrastructure
