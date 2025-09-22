@@ -282,6 +282,16 @@ load_ssh_connectivity() {
     else
         PROD_SSH_STATUS="○ No IP"
     fi
+
+    if [[ "$QA_IP" != "Unknown" ]]; then
+        if timeout 1 ssh -o ConnectTimeout=1 -o BatchMode=yes -o StrictHostKeyChecking=no tetra@"$QA_IP" exit 2>/dev/null; then
+            QA_SSH_STATUS="✓ Connected"
+        else
+            QA_SSH_STATUS="○ No SSH"
+        fi
+    else
+        QA_SSH_STATUS="○ No IP"
+    fi
 }
 
 load_environment_data() {

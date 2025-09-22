@@ -27,10 +27,13 @@ show_item_modal() {
         "TOML:PROD")
             show_toml_environment_details "PROD"
             ;;
+        "TOML:QA")
+            show_toml_environment_details "QA"
+            ;;
         "TSM:LOCAL")
             show_tsm_local_details
             ;;
-        "TSM:DEV"|"TSM:STAGING"|"TSM:PROD")
+        "TSM:DEV"|"TSM:STAGING"|"TSM:PROD"|"TSM:QA")
             show_tsm_remote_details "$CURRENT_ENV"
             ;;
         "ORG:SYSTEM")
@@ -39,7 +42,7 @@ show_item_modal() {
         "ORG:LOCAL")
             show_org_local_details
             ;;
-        "ORG:DEV"|"ORG:STAGING"|"ORG:PROD")
+        "ORG:DEV"|"ORG:STAGING"|"ORG:PROD"|"ORG:QA")
             show_org_environment_details "$CURRENT_ENV"
             ;;
         "TKM:"*)
@@ -226,7 +229,7 @@ show_tsm_remote_details() {
 
     echo "        Server: ${!server_var:-Unknown}${server_note}"
     echo "        Nickname: ${!nickname_var:-${env,,}-server}"
-    echo "        SSH Users: ${ssh_users[*]}"
+    echo "        SSH Users: ${ssh_users[@]}"
     echo "        Target IP: ${!ip_var:-Unknown}"
     if [[ -n "$domain" ]]; then
         echo "        Domain: $domain (for reference)"

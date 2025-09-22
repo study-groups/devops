@@ -9,7 +9,7 @@ CURRENT_ITEM=0           # Item within current environment+mode
 DRILL_LEVEL=0            # 0=normal view, 1=drilled into item
 
 # Available environments and modes (reordered for new hierarchy)
-ENVIRONMENTS=("SYSTEM" "LOCAL" "DEV" "STAGING" "PROD")
+ENVIRONMENTS=("SYSTEM" "LOCAL" "DEV" "STAGING" "PROD" "QA")
 MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG")
 
 # Scrolling state

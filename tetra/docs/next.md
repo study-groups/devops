@@ -1,265 +1,338 @@
-# Next Steps - Future Enhancements and Roadmap
+# Next Steps - NGM Architecture & Template System Refactoring
 
-## TSM Refactor - Deferred Phases
+## Immediate Priority: NGM (Nginx Manager) Implementation
 
-### Phase 3: Standardize Naming Conventions (Deferred)
-**Scope**: Unify function and variable naming across TSM modules
-- Standardize function prefixes (`tetra_tsm_`, `_tsm_`, `tsm_`)
-- Consistent variable naming patterns
-- Align with bash best practices
-- Update all exports and calls
+### Architecture Overview
+**Complete Service-to-Web Pipeline:**
+- **TSM** manages service lifecycle (start/stop/restart) with `.bundle.tsm` files
+- **NGM** generates nginx configs from service definitions
+- **Unified deployment** via `tetra.sh` orchestration script per environment
 
-### Phase 4: Unify Error Handling and Documentation (Deferred)
-**Error Handling**:
-- Standardize error return codes across modules
-- Consistent error message formatting
-- Unified logging patterns
-- Error propagation strategies
+### End-to-End Workflow Vision
+```bash
+# Developer workflow
+tsm save all dev.bundle.tsm         # Capture current service state
+ngm generate dev                     # Generate nginx config from TSM bundle
+ngm deploy dev                       # Push to dev.pixeljamarcade.com:/etc/nginx/sites-enabled/dev.conf
 
-**Documentation**:
-- Function documentation headers
-- Module interaction diagrams
-- Usage examples and workflows
-- Developer guide updates
+# Production deployment
+tetra-dev.service runs: ~/tetra/tetra.sh
+  ├─ tsm load dev.bundle.tsm         # Start all services
+  ├─ ngm deploy dev                  # Configure nginx routing
+  └─ systemctl reload nginx         # Apply routing changes
+```
 
 ---
 
-## TView Next Steps - Future Enhancements and Roadmap
+## File Structure Modernization
 
-## Immediate Priority Issues
-
-### ✅ **COMPLETED: Fix Glow Return Path**
-**Problem**: Users get stuck after viewing files with glow and cannot return to TView cleanly
-**Solution Implemented**:
-- ✅ Terminal state preservation with `stty` save/restore
-- ✅ Graceful fallback chain: glow → bat → less → inline highlighting
-- ✅ Proper terminal reset sequence with `tput reset`
-- ✅ Error handling for failed viewers
-- ✅ Success/failure feedback to user
-
-### ✅ **COMPLETED: Modal Dialog Exit Issues**
-**Problem**: Drill-down detailed views (Enter key modals) don't exit cleanly
-**Solution Implemented**:
-- ✅ Enhanced `_tview_modal_read_key()` function with multiple exit strategies
-- ✅ Support for ESC, q, Q keys to exit modals
-- ✅ 30-second auto-timeout to prevent stuck modals
-- ✅ Consistent exit messaging across all modal dialogs
-- ✅ Robust error handling for different terminal configurations
-
-## Short-term Enhancements (Next 2-4 weeks)
-
-### ✅ **COMPLETED: Enhanced Infrastructure Integration**
-**Populate Real DigitalOcean Data**:
-- ✅ Integrated with NodeHolder (NH) digocean.json for live data
-- ✅ Enhanced SSH configuration system with user customizations
-- ✅ Multiple SSH users per environment support
-- ✅ Domain-based SSH connections (user@domain.com)
-- ✅ Environment mapping overrides (staging on prod server)
-- ✅ Import preservation system for user customizations
-
-**Implementation Completed**:
-```bash
-# Import with customization preservation
-tetra org import nh ~/nh/pixeljam-arcade pixeljam_arcade
-# Enhanced TView with flexible SSH options
-tview  # Shows multiple SSH users and domain connections
+### Current vs Target Organization Structure
+**Current (verbose):**
+```
+~/tetra/orgs/pixeljam_arcade/
+├── pixeljam_arcade.toml                      # Too verbose
+├── pixeljam_arcade.customizations.toml       # Too verbose
 ```
 
-**Next Steps for Infrastructure Integration**:
-- Auto-refresh infrastructure status every 30 seconds
-- Add server health monitoring (CPU, memory, disk usage)
-- Display network connectivity between servers
+**Target (clean):**
+```
+~/tetra/orgs/pixeljam_arcade/
+├── tetra.toml                                # Infrastructure config
+├── custom.toml                               # User customizations
+├── dev.bundle.tsm                            # TSM service bundles
+├── staging.bundle.tsm
+├── prod.bundle.tsm
+├── qa.bundle.tsm
+├── dev.nginx.toml                            # NGM nginx definitions
+├── staging.nginx.toml
+├── prod.nginx.toml
+└── qa.nginx.toml
+```
 
-### 4. **Advanced Navigation Features**
-**Search and Filter**:
-- `/` key to search within current view
-- Filter environments by status (online/offline)
-- Quick-jump to specific servers by nickname
-- Bookmark frequently accessed views
+### Component Responsibility Matrix
+| Component | File Type | Purpose | Example |
+|-----------|-----------|---------|---------|
+| **Tetra** | `.toml` | Infrastructure (servers, IPs, domains) | `tetra.toml` |
+| **User** | `.toml` | SSH users, preferences, overrides | `custom.toml` |
+| **TSM** | `.tsm` | Service definitions and orchestration | `dev.bundle.tsm` |
+| **NGM** | `.toml` | Web routing and nginx configuration | `dev.nginx.toml` |
 
-**Multi-pane Support**:
-- Split-screen view for comparing environments
-- Side-by-side TOML diff between configurations
-- Picture-in-picture for monitoring while editing
+---
 
-### 5. **Service Management Integration**
-**TSM Deep Integration**:
-- Real-time service status updates in TView
-- Start/stop services directly from interface
-- Service log tailing within TView
-- Port conflict detection and resolution
+## NGM (Nginx Manager) Command Structure
 
-**Implementation Areas**:
-- Enhance `render_tsm_*` functions with live data
-- Add service action buttons in drill mode
-- Integrate with TSM port registry for conflict detection
+### Core NGM Operations
+```bash
+# Configuration Generation
+ngm generate dev                     # Generate dev.nginx.toml from current TSM state
+ngm template dev.nginx.toml          # Create from template
+ngm validate dev.nginx.toml          # Validate nginx syntax
 
-### 6. **Configuration Management**
-**Multi-file TOML Support**:
-- Display and edit services/, nginx/, deployment/ configs
-- Tabbed interface for switching between config types
-- Validation and syntax checking before saves
-- Configuration versioning and rollback
+# Deployment Operations
+ngm deploy dev                       # Push to /etc/nginx/sites-enabled/dev.conf
+ngm status dev                       # Check remote nginx status and health
+ngm reload dev                       # Reload nginx configuration
+ngm test dev                         # Test configuration before deployment
 
-**Template System**:
-- Interactive organization creation wizard
-- Template validation and customization
-- Import/export organization configurations
-- Configuration inheritance between environments
+# Debugging and Management
+ngm diff dev                         # Compare local vs deployed config
+ngm backup dev                       # Backup current remote config
+ngm restore dev <timestamp>          # Restore from backup
+ngm logs dev                         # Show nginx access/error logs
+```
 
-## Medium-term Goals (Next 1-3 months)
+### Service Discovery Integration
+**NGM reads TSM bundles to understand:**
+- Which services need web routing
+- Service ports for upstream configuration
+- Health check endpoints
+- SSL/domain requirements
+- Load balancing needs
 
-### 7. **Deployment Automation**
-**Integrated Deployment Pipeline**:
-- Deploy configurations directly from TView
-- Real-time deployment progress monitoring
-- Rollback capabilities with one-key restore
-- Deployment history and change tracking
+---
 
-**Features**:
-- `DEPLOY` mode becomes fully functional
-- Integration with git for configuration versioning
-- Automated testing before deployment
-- Blue-green deployment support
+## Template System Refactoring
 
-### 8. **Monitoring and Alerting**
-**Infrastructure Health Dashboard**:
-- Server metrics display (CPU, RAM, disk, network)
-- Service uptime monitoring
-- Alert notifications for issues
-- Historical performance data
+### Current Templates (to be modified)
+```
+templates/
+├── organizations/           # ✅ Keep and enhance
+│   ├── simple.toml
+│   ├── webapp.toml
+│   ├── services.toml
+│   └── shared-infrastructure.toml
+├── nginx/                   # 🔄 Refactor completely
+│   └── tetra.conf          # ❌ Remove (monolithic)
+└── systemd/                # ✅ Keep single template
+    └── tetra.service       # ✅ Single template for all environments
+```
 
-**Implementation**:
-- Integrate with monitoring tools (Prometheus, Grafana)
-- Custom health check definitions
-- Alerting rules and notification channels
-- Performance trend analysis
+### Target Template Structure
+```
+templates/
+├── organizations/           # Enhanced with port definitions
+│   ├── simple.toml         # + port sections
+│   ├── webapp.toml         # + port sections
+│   ├── services.toml       # + port sections
+│   └── shared-infrastructure.toml # ✅ Already updated with QA
+├── nginx/                   # Environment-specific templates
+│   ├── dev.nginx.toml      # 🆕 Development nginx config template
+│   ├── staging.nginx.toml  # 🆕 Staging nginx config template
+│   ├── prod.nginx.toml     # 🆕 Production nginx config template
+│   └── qa.nginx.toml       # 🆕 QA nginx config template
+└── systemd/                 # Single service template
+    └── tetra.service       # ✅ Runs ~/tetra/tetra.sh
+```
 
-### 9. **Multi-Organization Scaling**
-**Enterprise-Ready Features**:
-- Organization permissions and access control
-- Bulk operations across multiple organizations
-- Organization templates and standardization
-- Audit logging for all changes
+### Port Management Strategy
+**Remove from `config/ports.toml`:**
+```toml
+# ❌ Remove these port ranges
+[port_ranges]
+development = "3000-3999"
+staging = "4000-4999"
+production = "5000-5999"
+testing = "6000-6999"
+```
 
-**Team Collaboration**:
-- Shared organization configurations
-- Change approval workflows
-- Real-time collaboration indicators
-- Configuration locking and checkout
+**Centralize in org TOML files:**
+```toml
+# ✅ Define in organization templates
+[services.devpages]
+port = 4000
 
-### 10. **Advanced UI Features**
-**Enhanced Visual Experience**:
-- Custom color themes and layouts
-- Configurable keyboard shortcuts
-- Mouse support for navigation
-- Terminal size adaptation improvements
+[services.arcade]
+port = 8400
 
-**Accessibility**:
-- Screen reader compatibility
-- High contrast mode
-- Keyboard-only navigation optimization
-- Custom font size support
+[services.tetra]
+port = 4444
+```
 
-## Long-term Vision (3-6 months)
+---
 
-### 11. **TView Plugin System**
-**Extensible Architecture**:
-- Plugin API for custom modes and views
-- Third-party integrations (AWS, GCP, Azure)
-- Custom data source connectors
-- Community plugin marketplace
+## SystemD Integration Pattern
 
-### 12. **Advanced Automation**
-**AI-Powered Features**:
-- Intelligent infrastructure recommendations
-- Automated scaling suggestions
-- Anomaly detection and alerts
-- Configuration optimization hints
+### Single Service Template Strategy
+**Keep `templates/systemd/tetra.service`** as single template because:
+- Environment differences are runtime behavior, not configuration
+- Service file determines execution context, not specific services
+- `~/tetra/tetra.sh` script handles environment-specific logic
 
-**Workflow Automation**:
-- Scripted operation sequences
-- Event-driven automation triggers
-- Integration with CI/CD pipelines
-- Infrastructure as Code generation
+### Environment-Specific Service Files
+```bash
+# Production deployment creates:
+/etc/systemd/system/tetra-dev.service     # ExecStart=~/tetra/tetra.sh dev
+/etc/systemd/system/tetra-staging.service # ExecStart=~/tetra/tetra.sh staging
+/etc/systemd/system/tetra-prod.service    # ExecStart=~/tetra/tetra.sh prod
+/etc/systemd/system/tetra-qa.service      # ExecStart=~/tetra/tetra.sh qa
+```
 
-### 13. **Cloud-Native Integration**
-**Container and Kubernetes Support**:
-- Docker container monitoring
-- Kubernetes cluster management
-- Helm chart deployment tracking
-- Service mesh visualization
+### tetra.sh Orchestration Script
+```bash
+#!/usr/bin/env bash
+# ~/tetra/tetra.sh - Environment orchestration
 
-**Infrastructure Provisioning**:
-- Terraform integration
-- Cloud resource provisioning
-- Cost optimization tracking
-- Resource usage analytics
+ENV=${1:-dev}
 
-## Implementation Strategy
+echo "Starting Tetra environment: $ENV"
+cd ~/tetra/orgs/pixeljam_arcade
 
-### Phase 1: Stability (Immediate)
-1. Fix critical UX issues (glow return, modal exits)
-2. Improve error handling and recovery
-3. Add comprehensive testing suite
-4. Documentation and user guides
+# Load services for environment
+tsm load ${ENV}.bundle.tsm
 
-### Phase 2: Core Features (Short-term)
-1. Real-time data integration
-2. Enhanced navigation and search
-3. Service management capabilities
-4. Configuration file management
+# Configure nginx routing
+ngm deploy $ENV
 
-### Phase 3: Advanced Features (Medium-term)
-1. Deployment automation
-2. Monitoring and alerting
-3. Multi-organization scaling
-4. Advanced UI enhancements
+# Health check and monitoring
+while true; do
+    sleep 30
+    tsm health $ENV
+    ngm status $ENV
+done
+```
 
-### Phase 4: Platform Evolution (Long-term)
-1. Plugin ecosystem
-2. AI-powered automation
-3. Cloud-native integration
-4. Enterprise features
+---
 
-## Technical Debt and Architecture
+## NGM Configuration Format
 
-### Code Quality Improvements
-- **Comprehensive testing suite** for all modules
-- **Error handling standardization** across components
-- **Configuration validation** for TOML files
-- **Performance optimization** for large organizations
+### nginx.toml Structure
+```toml
+# dev.nginx.toml example
+[metadata]
+environment = "dev"
+domain = "dev.pixeljamarcade.com"
+target_server = "137.184.226.163"
 
-### Documentation Needs
-- **User manual** with screenshots and workflows
-- **Developer guide** for extending TView
-- **API documentation** for plugin development
-- **Troubleshooting guide** for common issues
+[ssl]
+enabled = true
+cert_path = "/etc/letsencrypt/live/dev.pixeljamarcade.com/fullchain.pem"
+key_path = "/etc/letsencrypt/live/dev.pixeljamarcade.com/privkey.pem"
 
-### Infrastructure Requirements
-- **CI/CD pipeline** for automated testing
-- **Release management** process
-- **Performance benchmarking** suite
-- **User feedback collection** system
+[[services]]
+name = "devpages"
+port = 4000
+path = "/"
+health_check = "/health"
 
-## Success Metrics
+[[services]]
+name = "arcade"
+port = 8400
+path = "/arcade"
+health_check = "/api/health"
 
-### User Experience
-- **Time to information** - How quickly users can find infrastructure details
-- **Task completion rate** - Percentage of common tasks completed successfully
-- **User satisfaction** - Feedback scores and adoption rates
-- **Error recovery** - Time to resolve issues and return to normal operation
+[nginx]
+sites_enabled_path = "/etc/nginx/sites-enabled"
+config_file = "dev.conf"
+reload_command = "systemctl reload nginx"
+```
 
-### Technical Performance
-- **Response time** - Interface responsiveness under load
-- **Memory usage** - Resource efficiency with large datasets
-- **Reliability** - Uptime and crash frequency
-- **Scalability** - Performance with multiple organizations
+### Generated nginx.conf Output
+```nginx
+# Generated by NGM from dev.nginx.toml
+server {
+    listen 443 ssl http2;
+    server_name dev.pixeljamarcade.com;
 
-### Business Impact
-- **Infrastructure visibility** - Improved monitoring and awareness
-- **Deployment efficiency** - Faster and more reliable deployments
-- **Team productivity** - Reduced time spent on infrastructure management
-- **Cost optimization** - Better resource utilization and cost tracking
+    ssl_certificate /etc/letsencrypt/live/dev.pixeljamarcade.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dev.pixeljamarcade.com/privkey.pem;
 
-This roadmap balances immediate stability needs with long-term strategic vision, ensuring TView evolves into a comprehensive infrastructure management platform while maintaining its core strength as an intuitive, keyboard-driven interface.
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        # Health check: GET /health
+    }
+
+    location /arcade {
+        proxy_pass http://127.0.0.1:8400;
+        # Health check: GET /api/health
+    }
+}
+```
+
+---
+
+## Implementation Phases
+
+### Phase 1: File Structure Migration
+**Priority: Complete QA work and establish new naming conventions**
+1. ✅ **Complete QA environment integration** (DONE)
+2. **Rename organization files**: `pixeljam_arcade.toml` → `tetra.toml`
+3. **Rename customizations**: `.customizations.toml` → `custom.toml`
+4. **Update TView data loading** to use new filenames
+5. **Test environment cycling** with QA integration
+
+### Phase 2: NGM Core Development
+**Priority: Build foundational NGM module**
+1. **Create NGM bash module** at `TETRA_SRC/bash/ngm/`:
+   - `ngm.sh` - Main entry point and CLI
+   - `ngm_core.sh` - Config generation logic
+   - `ngm_templates.sh` - Template processing
+   - `ngm_deploy.sh` - Remote deployment via SSH
+2. **Implement core commands**: `generate`, `validate`, `deploy`, `status`
+3. **TSM integration**: Read `.bundle.tsm` files for service discovery
+
+### Phase 3: Template System Refactoring
+**Priority: Create environment-specific nginx templates**
+1. **Remove monolithic template**: `templates/nginx/tetra.conf`
+2. **Create environment templates**: `dev.nginx.toml`, `staging.nginx.toml`, etc.
+3. **Remove port ranges**: Clean up `config/ports.toml`
+4. **Add service ports**: Update org templates with port definitions
+5. **Template validation**: Ensure all templates generate valid nginx configs
+
+### Phase 4: End-to-End Integration
+**Priority: Complete deployment pipeline**
+1. **Create tetra.sh orchestration**: Environment-aware startup script
+2. **SystemD service generation**: Per-environment service files
+3. **Remote deployment testing**: Full pipeline from local to server
+4. **Health monitoring**: Integrated TSM/NGM health checks
+5. **Documentation**: Complete workflow documentation
+
+### Phase 5: Production Deployment
+**Priority: Live deployment and testing**
+1. **Deploy to dev.pixeljamarcade.com**: Test complete pipeline
+2. **Verify nginx config generation**: Ensure proper routing
+3. **Test service orchestration**: TSM + NGM coordination
+4. **Monitor and iterate**: Performance and reliability testing
+
+---
+
+## Success Metrics & Validation
+
+### Technical Validation
+- ✅ **QA Environment**: Fully integrated with TView navigation and SSH connectivity
+- 🎯 **End-to-End Pipeline**: Local development → nginx config → live deployment
+- 🎯 **File Structure**: Clean organization with purpose-specific naming
+- 🎯 **Template System**: Environment-specific, maintainable configurations
+- 🎯 **Service Discovery**: Automatic nginx routing from TSM service definitions
+
+### Operational Benefits
+- **Infrastructure as Code**: All configs version-controlled and reproducible
+- **Environment Parity**: Consistent deployment across dev/staging/prod/qa
+- **Simplified Operations**: Single command deployment and updates
+- **Service Discovery**: Automatic nginx routing without manual configuration
+- **Health Monitoring**: Integrated service and web server health checks
+
+### Developer Experience
+- **Clear Separation**: Each tool (TSM/NGM/TView) has distinct, clear purpose
+- **Intuitive Commands**: `tsm` for services, `ngm` for web routing, `tview` for monitoring
+- **Environment Consistency**: Same commands work across all environments
+- **Rapid Deployment**: Fast iteration from development to production
+
+---
+
+## Risk Mitigation
+
+### Backwards Compatibility
+- **Gradual Migration**: Implement alongside existing system
+- **Fallback Options**: Keep existing configs during transition
+- **Testing Strategy**: Comprehensive testing before production deployment
+- **Rollback Plan**: Easy reversion to previous system if needed
+
+### Error Handling
+- **Config Validation**: Syntax checking before deployment
+- **Health Checks**: Automatic detection of failed deployments
+- **Backup Strategy**: Automatic backups before config changes
+- **Monitoring Integration**: Alert on deployment or service failures
+
+---
+
+This roadmap establishes NGM as the missing piece in the Tetra ecosystem, creating a complete infrastructure management solution from service orchestration through web routing to live deployment. The architecture prioritizes clarity, maintainability, and operational simplicity while providing enterprise-grade capabilities for multi-environment deployment management.

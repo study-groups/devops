@@ -94,12 +94,30 @@ node_env = "production"
 ssh_user = "tetra"
 ssh_key_path = "~/.ssh/id_rsa"
 
+[environments.qa]
+description = "QA/Testing environment"
+# Server configuration - dedicated QA server
+server_hostname = "${infrastructure.staging_server_hostname}"
+server_ip = "137.184.226.164"  # Dedicated QA server IP
+private_ip = "10.116.0.3"      # Dedicated QA private IP
+# Domain and routing
+domain = "qa.${domains.base_domain}"
+subdomain = "qa"
+url = "https://qa.${domains.base_domain}"
+# Service configuration
+app_port = 3002
+node_env = "testing"
+# SSH configuration
+ssh_user = "tetra"
+ssh_key_path = "~/.ssh/id_rsa"
+
 # Domain configuration for shared IP scenarios
 [domains]
 base_domain = "pixeljamarcade.com"
 dev = "dev.pixeljamarcade.com"
 staging = "staging.pixeljamarcade.com"
 prod = "pixeljamarcade.com"
+qa = "qa.pixeljamarcade.com"
 
 # SSL/TLS certificates per environment
 [ssl]
@@ -109,6 +127,8 @@ staging_cert_path = "/etc/letsencrypt/live/staging.pixeljamarcade.com/fullchain.
 staging_key_path = "/etc/letsencrypt/live/staging.pixeljamarcade.com/privkey.pem"
 prod_cert_path = "/etc/letsencrypt/live/pixeljamarcade.com/fullchain.pem"
 prod_key_path = "/etc/letsencrypt/live/pixeljamarcade.com/privkey.pem"
+qa_cert_path = "/etc/letsencrypt/live/qa.pixeljamarcade.com/fullchain.pem"
+qa_key_path = "/etc/letsencrypt/live/qa.pixeljamarcade.com/privkey.pem"
 
 # Nginx virtual host configuration for shared IP routing
 [nginx]
@@ -131,6 +151,12 @@ ssl_enabled = true
 server_name = "pixeljamarcade.com www.pixeljamarcade.com"
 root_path = "/var/www/pixeljamarcade.com"
 upstream_port = 80
+ssl_enabled = true
+
+[nginx.vhosts.qa]
+server_name = "qa.pixeljamarcade.com"
+root_path = "/var/www/qa.pixeljamarcade.com"
+upstream_port = 3002
 ssl_enabled = true
 
 # Environment variables that will be generated
@@ -176,10 +202,18 @@ ssh_user = "tetra"
 deploy_path = "/var/www/pixeljamarcade.com"
 app_port = 80
 
+[variables.qa]
+server_ip = "${infrastructure.qa_server_ip}"
+private_ip = "${infrastructure.qa_private_ip}"
+domain = "${domains.qa}"
+ssh_user = "tetra"
+deploy_path = "/var/www/qa.pixeljamarcade.com"
+app_port = 3002
+
 # Service definitions for TSM
 [services.app]
 type = "nodejs"
-environments = ["dev", "staging", "prod"]
+environments = ["dev", "staging", "prod", "qa"]
 
 [services.app.dev]
 port = 3000
@@ -198,6 +232,12 @@ port = 80
 path = "."
 start_command = "npm run start"
 env_file = "env/prod.env"
+
+[services.app.qa]
+port = 3002
+path = "."
+start_command = "npm run test"
+env_file = "env/qa.env"
 
 # Deployment configuration
 [deployment]
@@ -221,4 +261,10 @@ service_restart = "systemctl restart nginx"
 target_ip = "${infrastructure.prod_server_ip}"
 target_user = "tetra"
 deploy_path = "/var/www/pixeljamarcade.com"
+service_restart = "systemctl restart nginx"
+
+[deployment.qa]
+target_ip = "${infrastructure.qa_server_ip}"
+target_user = "tetra"
+deploy_path = "/var/www/qa.pixeljamarcade.com"
 service_restart = "systemctl restart nginx"

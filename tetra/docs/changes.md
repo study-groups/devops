@@ -1,5 +1,55 @@
 # Current Changes
 
+## 2025-09-22 - SSH User Display Fix and QA Environment Integration
+
+### 🔧 **SSH User Display Concatenation Fix**
+**Problem Solved**: SSH users were displaying as concatenated strings (e.g., "rootdev") instead of space-separated values (e.g., "root dev").
+
+**Implementation**:
+- **Array Expansion Fix**: Changed from `${ssh_users[*]}` to `${ssh_users[@]}` in `tview_actions.sh:229`
+- **Proper Space Separation**: SSH users now display correctly with spaces between each user
+- **Maintained Functionality**: All existing SSH user array functionality preserved
+
+**Files Modified**:
+- `bash/tview/tview_actions.sh` - Fixed SSH user array display format
+
+### 🌐 **QA Environment Full Integration**
+**Problem Solved**: QA environment was missing from TView navigation and not properly supported across the system.
+
+**Implementation**:
+- **Environment Array**: Added "QA" to `ENVIRONMENTS` array in `tview_core.sh`
+- **Case Statement Support**: Added QA to all relevant case statements in `tview_actions.sh`:
+  - `"TOML:QA"` → `show_toml_environment_details "QA"`
+  - `"TSM:DEV"|"TSM:STAGING"|"TSM:PROD"|"TSM:QA"`
+  - `"ORG:DEV"|"ORG:STAGING"|"ORG:PROD"|"ORG:QA"`
+- **SSH Connectivity**: Added QA SSH status checking in `tview_data.sh`
+- **Template Configuration**: Complete QA environment added to `shared-infrastructure.toml`:
+  - QA environment section with dedicated server configuration
+  - QA domain configuration (`qa.pixeljamarcade.com`)
+  - QA SSL certificate paths
+  - QA nginx virtual host configuration
+  - QA service definitions and deployment configuration
+
+**Navigation Enhancement**:
+- QA environment now appears in TView environment cycling: `SYSTEM → LOCAL → DEV → STAGING → PROD → QA`
+- Proper SSH user display and connectivity testing for QA environment
+- Complete infrastructure visibility for QA deployments
+
+**Files Modified**:
+- `bash/tview/tview_actions.sh` - Added QA case support, fixed SSH user display
+- `bash/tview/tview_core.sh` - Added QA to ENVIRONMENTS array
+- `bash/tview/tview_data.sh` - Added QA SSH connectivity check
+- `templates/organizations/shared-infrastructure.toml` - Complete QA environment configuration
+
+**System Benefits**:
+- ✅ Complete QA environment visibility in TView
+- ✅ Proper SSH user display across all environments
+- ✅ Full QA infrastructure configuration support
+- ✅ Consistent environment cycling with QA included
+- ✅ Ready for QA deployment automation
+
+---
+
 ## 2025-09-22 - TView Critical Stability Issues Resolved
 
 ### 🔧 **TView Glow Return Path Resolution**
