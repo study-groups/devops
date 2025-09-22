@@ -1,0 +1,72 @@
+# Multi-Service Organization Template
+# Organization: ${ORG_NAME}
+
+[metadata]
+name = "${ORG_NAME}"
+type = "services"
+description = "Multi-service architecture with API gateway and distributed services"
+created_from_template = "services"
+
+[services.gateway]
+type = "nodejs"
+port = 3000
+path = "gateway"
+start_command = "npm run dev"
+dependencies = ["auth", "api"]
+
+[services.auth]
+type = "nodejs"
+port = 8001
+path = "services/auth"
+start_command = "npm run dev"
+env_file = "services/auth/.env"
+
+[services.api]
+type = "nodejs"
+port = 8002
+path = "services/api"
+start_command = "npm run dev"
+env_file = "services/api/.env"
+dependencies = ["database"]
+
+[services.worker]
+type = "nodejs"
+port = 8003
+path = "services/worker"
+start_command = "npm run dev"
+env_file = "services/worker/.env"
+dependencies = ["queue"]
+
+[services.database]
+type = "postgres"
+port = 5432
+data_path = "data/postgres"
+
+[services.queue]
+type = "redis"
+port = 6379
+data_path = "data/redis"
+
+[environments.development]
+gateway_port = 3000
+auth_port = 8001
+api_port = 8002
+worker_port = 8003
+database_url = "postgresql://localhost:5432/${ORG_NAME}_dev"
+redis_url = "redis://localhost:6379/0"
+
+[environments.staging]
+gateway_port = 3001
+auth_port = 8011
+api_port = 8012
+worker_port = 8013
+database_url = "postgresql://localhost:5432/${ORG_NAME}_staging"
+redis_url = "redis://localhost:6379/1"
+
+[environments.production]
+gateway_port = 80
+auth_port = 8021
+api_port = 8022
+worker_port = 8023
+database_url = "postgresql://localhost:5432/${ORG_NAME}_prod"
+redis_url = "redis://localhost:6379/2"

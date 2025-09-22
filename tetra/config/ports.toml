@@ -1,0 +1,40 @@
+# TSM Named Port Registry Configuration
+# This file defines standard port assignments for known services
+
+[metadata]
+version = "1.0"
+last_updated = "2025-09-21T00:00:00Z"
+auto_updated = true
+
+[ports]
+# Development services
+devpages = 4000
+tetra = 4444
+arcade = 8400
+pbase = 2600
+
+[port_ranges]
+# Environment-specific port ranges
+development = "3000-3999"
+staging = "4000-4999"
+production = "5000-5999"
+testing = "6000-6999"
+
+[allocation]
+# Automatic port allocation settings
+auto_allocate = true
+allocation_strategy = "sequential"  # sequential, random, range-based
+avoid_system_ports = true
+min_port = 3000
+max_port = 9999
+
+[conflicts]
+# Port conflict resolution settings
+check_on_start = true
+auto_resolve = false
+prefer_named_services = true
+
+[reserved]
+# Reserved ports that should not be allocated
+system = [22, 80, 443, 3306, 5432, 6379, 27017]
+development = [3000, 8080, 9000]

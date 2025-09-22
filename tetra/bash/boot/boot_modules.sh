@@ -17,7 +17,7 @@ tetra_register_module "ssh" "$TETRA_BASH/ssh"
 tetra_register_module "sync" "$TETRA_BASH/sync"
 tetra_register_module "enc" "$TETRA_BASH/enc"
 tetra_register_module "deploy" "$TETRA_BASH/deploy"
-tetra_register_module "tdash" "$TETRA_BASH/tdash"
+tetra_register_module "tview" "$TETRA_BASH/tview"
 tetra_register_module "org" "$TETRA_BASH/org"
 tetra_register_module "git" "$TETRA_BASH/git"
 tetra_register_module "nginx" "$TETRA_BASH/nginx"
@@ -88,8 +88,8 @@ tetra_create_lazy_function "tetra_cc_load" "claude"
 tetra_create_lazy_function "tetra_cc_sessions" "claude"
 tetra_create_lazy_function "tetra_cc_where" "claude"
 
-# TDash module functions
-tetra_create_lazy_function "tdash" "tdash"
+# TView module functions
+tetra_create_lazy_function "tview" "tview"
 
 # Org module functions
 tetra_create_lazy_function "tetra_org" "org"

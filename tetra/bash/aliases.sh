@@ -11,7 +11,7 @@ alias tttk='tetra-tmux-kill-session tetra'
 alias tnlr='tetra_nginx_location_replace'
 # ttr is now defined in bootloader.sh as tetra_reload function
 
-# Tetra Master REPL
+# Tetra Console REPL
 alias trepl='$TETRA_SRC/bash/tetra_repl.sh'
 alias tetra-repl='$TETRA_SRC/bash/tetra_repl.sh'
 

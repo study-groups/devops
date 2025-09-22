@@ -26,14 +26,29 @@ tetra_org() {
         "create")
             org_create "$@"
             ;;
+        "validate")
+            org_validate "$@"
+            ;;
         "push")
             org_push "$@"
             ;;
         "pull")
             org_pull "$@"
             ;;
-        "sync")
-            org_sync "$@"
+        "rollback")
+            org_rollback "$@"
+            ;;
+        "template")
+            org_template "$@"
+            ;;
+        "templates")
+            org_list_templates "$@"
+            ;;
+        "history")
+            org_history "$@"
+            ;;
+        "import")
+            org_import "$@"
             ;;
         "help"|"-h"|"--help")
             echo "Tetra Organization Management"
@@ -44,9 +59,14 @@ tetra_org() {
             echo "  switch, sw <org>        Switch to organization"
             echo "  active, current         Show active organization"
             echo "  create <org>            Create new organization"
+            echo "  validate <org>          Validate organization configuration"
             echo "  push <org> <env>        Deploy org config to environment"
             echo "  pull <org> <env>        Sync org config from environment"
-            echo "  sync <org>              Bi-directional sync across environments"
+            echo "  rollback <org> <env>    Rollback to previous deployment"
+            echo "  template <name> [org]   Create org from template"
+            echo "  templates               List available templates"
+            echo "  history <org> [env]     Show deployment history"
+            echo "  import <type> <path> [org]  Import org from external source"
             echo "  help                    Show this help"
             ;;
         *)

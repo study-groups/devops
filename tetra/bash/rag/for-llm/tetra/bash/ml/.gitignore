@@ -1,3 +1,0 @@
-stdin
-stdout
-stderr

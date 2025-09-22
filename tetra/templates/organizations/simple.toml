@@ -1,0 +1,27 @@
+# Simple Single Service Organization Template
+# Organization: ${ORG_NAME}
+
+[metadata]
+name = "${ORG_NAME}"
+type = "simple"
+description = "Single service application"
+created_from_template = "simple"
+
+[services.app]
+type = "nodejs"
+port = 3000
+path = "."
+start_command = "npm run dev"
+env_file = ".env"
+
+[environments.development]
+app_port = 3000
+node_env = "development"
+
+[environments.staging]
+app_port = 3001
+node_env = "staging"
+
+[environments.production]
+app_port = 80
+node_env = "production"

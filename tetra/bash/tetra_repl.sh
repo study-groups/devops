@@ -28,7 +28,7 @@ tetra_repl_init() {
     # Initialize configuration if it doesn't exist
     if [[ ! -f "$TETRA_CONFIG_DIR/tetra.conf" ]]; then
         cat > "$TETRA_CONFIG_DIR/tetra.conf" <<EOF
-# Tetra Master REPL Configuration
+# Tetra Console REPL Configuration
 # Default settings for Configuration at Distance
 
 # Default environment for operations
@@ -50,7 +50,7 @@ tetra_repl_main() {
     # Initialize environment
     tetra_repl_init
 
-    echo "Tetra Master Console - Configuration at Distance"
+    echo "Tetra Console - Configuration at Distance"
     echo "Type 'help' for commands, 'functions' for all available functions"
     echo "Use 'exit' or Ctrl+C to quit"
     echo
@@ -257,7 +257,7 @@ tetra_repl_dispatch() {
 # Show categorized help
 tetra_repl_help() {
     cat <<'EOF'
-Tetra Master Console - Configuration at Distance
+Tetra Console - Configuration at Distance
 ===============================================
 
 Service Management:

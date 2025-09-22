@@ -1,7 +1,0 @@
-pja.config.sh
-*.wip*
-from-dev.sh
-cornhole
-from-dev.sh
-*.env
-*.conf

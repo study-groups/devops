@@ -92,7 +92,9 @@ tetra_prompt() {
             # Join indicators with commas in single bracket
             if [[ ${#status_indicators[@]} -gt 0 ]]; then
                 local joined_status
+                local old_ifs="$IFS"
                 IFS=',' joined_status="${status_indicators[*]}"
+                IFS="$old_ifs"
                 info+="${_C_GRAY}($joined_status)${_C_RESET}"
             fi
             
@@ -120,7 +122,9 @@ tetra_prompt() {
             # Join indicators with commas in single bracket
             if [[ ${#status_indicators[@]} -gt 0 ]]; then
                 local joined_status
+                local old_ifs="$IFS"
                 IFS=',' joined_status="${status_indicators[*]}"
+                IFS="$old_ifs"
                 info+="${_C_GRAY}($joined_status)${_C_RESET}"
             fi
             
