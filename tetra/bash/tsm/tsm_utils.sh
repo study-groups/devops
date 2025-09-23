@@ -210,6 +210,9 @@ _tetra_tsm_get_all_processes() {
             env_line=$(grep '^TSM_ENV_FILE=' "$envfile" 2>/dev/null | head -n1)
             if [[ -n "$env_line" ]]; then
                 tsm_env_file="${env_line#TSM_ENV_FILE=}"
+                # Remove quotes if present
+                tsm_env_file="${tsm_env_file%\"}"
+                tsm_env_file="${tsm_env_file#\"}"
                 # Extract just the filename from the path
                 tsm_env_file="$(basename "$tsm_env_file")"
             fi

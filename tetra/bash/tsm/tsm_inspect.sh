@@ -106,10 +106,10 @@ tetra_tsm_paths() {
 
     echo "Paths for process '$name' (ID: $resolved_id):"
     echo "  meta: $TETRA_DIR/tsm/runtime/processes/$name.meta"
-    echo "  pid:  $TETRA_DIR/tsm/pids/$name.pid"
+    echo "  pid:  $TETRA_DIR/tsm/runtime/pids/$name.pid"
     echo "  env:  $TETRA_DIR/tsm/runtime/processes/$name.env"
-    echo "  out:  $TETRA_DIR/tsm/logs/$name.out"
-    echo "  err:  $TETRA_DIR/tsm/logs/$name.err"
+    echo "  out:  $TETRA_DIR/tsm/runtime/logs/$name.out"
+    echo "  err:  $TETRA_DIR/tsm/runtime/logs/$name.err"
 }
 
 tetra_tsm_logs() {
@@ -193,8 +193,8 @@ tetra_tsm_logs_single() {
     [[ -f "$metafile" ]] || { echo "tsm: process '$name' not found" >&2; return 1; }
     
     # All processes use standard TSM log structure
-    local outlog="$TETRA_DIR/tsm/logs/$name.out"
-    local errlog="$TETRA_DIR/tsm/logs/$name.err"
+    local outlog="$TETRA_DIR/tsm/runtime/logs/$name.out"
+    local errlog="$TETRA_DIR/tsm/runtime/logs/$name.err"
     
     if [[ "$follow" == "true" ]]; then
         # Follow logs in real-time
