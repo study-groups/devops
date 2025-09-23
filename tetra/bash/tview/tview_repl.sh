@@ -162,7 +162,7 @@ org_selection_repl() {
     done
 }
 
-# Link to an organization (create symlink)
+# Set active organization (using TETRA_ACTIVE_ORG environment variable)
 link_organization() {
     local org_name="$1"
     local org_dir="$TETRA_DIR/orgs/$org_name"
@@ -181,12 +181,13 @@ link_organization() {
     # Create config directory if it doesn't exist
     mkdir -p "$TETRA_DIR/config"
 
-    # Remove existing symlink and create new one
-    rm -f "$TETRA_DIR/config/tetra.toml"
-    ln -sf "$toml_file" "$TETRA_DIR/config/tetra.toml"
+    # Set active org using environment variable + persistence
+    export TETRA_ACTIVE_ORG="$org_name"
+    echo "$org_name" > "$TETRA_DIR/config/active_org"
 
-    echo "✓ Linked to $org_name organization"
-    echo "✓ Symlink: $TETRA_DIR/config/tetra.toml → $toml_file"
+    echo "✓ Switched to $org_name organization"
+    echo "✓ Active org: $TETRA_ACTIVE_ORG"
+    echo "✓ Config path: orgs/$TETRA_ACTIVE_ORG/tetra.toml"
 
     # Reload data
     detect_active_toml
@@ -343,4 +344,13 @@ EOF
     echo "✓ Created organization structure"
     echo "✓ Created basic tetra.toml"
     echo "Edit the configuration files to customize your infrastructure"
+}
+
+# Main tview_repl function - entry point called from tview.sh
+tview_repl() {
+    # Source the core module which contains tview_repl_main
+    source "$TETRA_SRC/bash/tview/tview_core.sh"
+
+    # Call the main REPL function
+    tview_repl_main
 }

@@ -98,13 +98,22 @@ EOF
 render_tkm_system() {
     cat << EOF
 
-TKM - Tetra Key Manager Overview
+TKM - Four Amigos SSH Command Center
 
-$(highlight_line "SSH Keys: ${TKM_KEY_COUNT:-0} keys configured" "$(is_current_item 0)" "$GREEN")
-$(highlight_line "Known Hosts: ${TKM_KNOWN_HOSTS_COUNT:-0} hosts" "$(is_current_item 1)" "$GREEN")
+$(highlight_line "Four Amigos Quick Access:" "$(is_current_item 0)" "$CYAN")
+$(highlight_line "ssh root@localhost 'cmd'                    # machine=localhost (local)" "$(is_current_item 1)" "$GREEN")
+$(highlight_line "ssh root@${DEV_IP:-unknown} 'cmd'          # machine=${DEV_SERVER:-unknown} (dev)" "$(is_current_item 2)" "$GREEN")
+$(highlight_line "ssh root@${STAGING_IP:-unknown} 'cmd'      # machine=${STAGING_SERVER:-unknown} (staging)" "$(is_current_item 3)" "$YELLOW")
+$(highlight_line "ssh root@${PROD_IP:-unknown} 'cmd'         # machine=${PROD_SERVER:-unknown} (prod)" "$(is_current_item 4)" "$RED")
 
-Key management for secure server access.
-Use W/E to select environments for key deployment.
+Common Commands (replace 'cmd'):
+  systemctl status tetra.service
+  systemctl restart tetra.service
+  systemctl restart nginx
+  df -h | head -10
+  ps aux | grep node
+  tsm list
+  tail -f /var/log/nginx/access.log
 
 EOF
 }

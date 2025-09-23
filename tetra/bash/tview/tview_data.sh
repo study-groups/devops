@@ -4,27 +4,42 @@
 
 # Data loading functions
 detect_active_toml() {
-    # Check for organization-based TOML first
-    local tetra_toml="$TETRA_DIR/config/tetra.toml"
+    # Load active org from config file (TETRA_ACTIVE_ORG approach)
+    local active_org_file="$TETRA_DIR/config/active_org"
+    if [[ -f "$active_org_file" ]]; then
+        export TETRA_ACTIVE_ORG="$(cat "$active_org_file")"
 
+        # Set TOML path directly using environment variable
+        local org_toml="$TETRA_DIR/orgs/$TETRA_ACTIVE_ORG/tetra.toml"
+        if [[ -f "$org_toml" ]]; then
+            ACTIVE_TOML="$org_toml"
+            ACTIVE_ORG="$TETRA_ACTIVE_ORG"
+            PROJECT_NAME="$TETRA_ACTIVE_ORG"
+            return 0
+        fi
+    fi
+
+    # Fallback: Check for old symlink system (backward compatibility)
+    local tetra_toml="$TETRA_DIR/config/tetra.toml"
     if [[ -L "$tetra_toml" ]]; then
-        # Organization system is active
+        # Legacy organization system
         ACTIVE_TOML="$tetra_toml"
         local target=$(readlink "$tetra_toml")
         ACTIVE_ORG=$(basename "$(dirname "$target")")
         PROJECT_NAME="$ACTIVE_ORG"
+        return 0
+    fi
+
+    # Fallback to local TOML files
+    local toml_files=(*.toml)
+    if [[ -f "${toml_files[0]}" ]]; then
+        ACTIVE_TOML="${toml_files[0]}"
+        PROJECT_NAME="$(basename "$ACTIVE_TOML" .toml)"
+        ACTIVE_ORG=""
     else
-        # Fallback to local TOML files
-        local toml_files=(*.toml)
-        if [[ -f "${toml_files[0]}" ]]; then
-            ACTIVE_TOML="${toml_files[0]}"
-            PROJECT_NAME="$(basename "$ACTIVE_TOML" .toml)"
-            ACTIVE_ORG=""
-        else
-            ACTIVE_TOML=""
-            PROJECT_NAME=""
-            ACTIVE_ORG=""
-        fi
+        ACTIVE_TOML=""
+        PROJECT_NAME=""
+        ACTIVE_ORG=""
     fi
 }
 
@@ -32,12 +47,19 @@ detect_active_toml() {
 load_customization_overrides() {
     local customization_file
 
-    # Look for customization file in organization directory
-    if [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
+    # Look for customization file using TETRA_ACTIVE_ORG
+    if [[ -n "$TETRA_ACTIVE_ORG" ]]; then
+        customization_file="$TETRA_DIR/orgs/$TETRA_ACTIVE_ORG/custom.toml"
+        # Fallback to old naming convention for backward compatibility
+        if [[ ! -f "$customization_file" ]]; then
+            customization_file="$TETRA_DIR/orgs/$TETRA_ACTIVE_ORG/${TETRA_ACTIVE_ORG}.customizations.toml"
+        fi
+    elif [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
+        # Legacy fallback for old ACTIVE_ORG detection
         customization_file="$TETRA_DIR/orgs/$ACTIVE_ORG/${ACTIVE_ORG}.customizations.toml"
     else
         # Fallback to local directory
-        customization_file="$(dirname "${ACTIVE_TOML:-}")/../customizations.toml"
+        customization_file="./customizations.toml"
     fi
 
     if [[ -f "$customization_file" ]]; then
