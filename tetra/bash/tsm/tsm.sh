@@ -22,6 +22,7 @@ _tsm_load_components() {
     source "$TSM_DIR/tsm_process.sh"     # Process lifecycle, depends on validation+utils
     source "$TSM_DIR/tsm_cli.sh"         # CLI commands, depends on process+validation
     source "$TSM_DIR/tsm_interface.sh"   # Interface coordination, depends on all above
+    source "$TSM_DIR/tsm_tview.sh"       # TView integration functions
 
     # Initialize global state after all functions are loaded
     _tsm_init_global_state
@@ -52,6 +53,7 @@ Commands:
   enable <service>           Enable service for automatic startup
   disable <service>          Disable service from automatic startup
   show <service>             Show service configuration
+  startup                    Start all enabled services
   info <process|id>          Show detailed information for a process
   logs <process|id|*> [-f]   Show last 50 lines. Use -f to follow/stream logs.
   env <process|id>           Show sorted environment variables for a process
@@ -153,6 +155,9 @@ EOF
             ;;
         show)
             tetra_tsm_show_service "$@"
+            ;;
+        startup)
+            tetra_tsm_startup "$@"
             ;;
         info)
             tetra_tsm_info "$@"

@@ -4,9 +4,9 @@
 
 # Register TSM module metadata
 tetra_register_module_meta "tsm" \
-    "Tetra Service Manager - native process management with PORT naming" \
+    "Tetra Service Manager - native process management with PORT naming and service definitions" \
     "tsm" \
-    "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|webserver|ncserver|repl" \
+    "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|webserver|ncserver|repl|services|save|enable|disable|show|startup" \
     "core" "stable"
 
 # TSM-specific tab completion
@@ -40,6 +40,18 @@ _tsm_completion() {
             local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $2}' 2>/dev/null || echo "")
             COMPREPLY=($(compgen -W "$processes *" -- "$cur"))
             ;;
+        enable|disable|show)
+            # Complete with service names
+            local services=$(ls "$TETRA_DIR/tsm/services-available/"*.tsm 2>/dev/null | xargs -n1 basename | sed 's/\.tsm$//' || echo "")
+            COMPREPLY=($(compgen -W "$services" -- "$cur"))
+            ;;
+        save)
+            if [[ "$COMP_CWORD" -eq 2 ]]; then
+                # First argument: TSM ID or process name, or new service name
+                local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $1 " " $2}' 2>/dev/null || echo "")
+                COMPREPLY=($(compgen -W "$processes" -- "$cur"))
+            fi
+            ;;
         logs)
             if [[ "$cur" == "-"* ]]; then
                 COMPREPLY=($(compgen -W "-f" -- "$cur"))
@@ -49,7 +61,7 @@ _tsm_completion() {
             fi
             ;;
         *)
-            COMPREPLY=($(compgen -W "setup start stop delete restart list info logs env paths scan-ports webserver ncserver repl" -- "$cur"))
+            COMPREPLY=($(compgen -W "setup start stop delete restart list info logs env paths scan-ports webserver ncserver repl services save enable disable show startup" -- "$cur"))
             ;;
     esac
 }

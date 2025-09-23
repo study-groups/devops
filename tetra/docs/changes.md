@@ -1,5 +1,110 @@
 # Current Changes
 
+## 2025-09-23 - TSM Service Management System Implementation
+
+### 🚀 **Complete TSM Service Management Redesign**
+
+**Problem Solved**: TSM lacked declarative service management, environment-portable configurations, and proper startup automation similar to PM2/Docker patterns.
+
+**Implementation**:
+- **New File Structure**: Reorganized from scattered `$TETRA_DIR/services/` to organized `$TETRA_DIR/tsm/` structure
+- **Nginx-Style Service Management**: `services-available/` and `services-enabled/` with symlink activation
+- **Simplified Service Definitions**: Replaced complex bash exports with clean declarative format
+- **Port Validation**: Real-time port binding verification with `lsof` checks
+- **Environment Integration**: PORT extracted from environment files for process naming
+
+**New TSM Architecture**:
+```
+$TETRA_DIR/tsm/
+├── services-available/    # Service definitions (.tsm files)
+├── services-enabled/      # Symlinks for enabled services
+├── runtime/              # Process data (pids, logs, processes, next_id)
+└── startup.log           # Service startup log
+```
+
+**Enhanced Service Definition Format**:
+```bash
+#!/usr/bin/env bash
+# TSM Service: devpages
+
+TSM_NAME="devpages"
+TSM_COMMAND="node server/server.js"
+TSM_CWD="/Users/mricos/src/devops/devpages"
+TSM_ENV_FILE="env/local.env"  # PORT extracted from here
+```
+
+### 🔧 **New TSM Commands & Functionality**
+
+**Service Management Commands**:
+- `tsm save <id>` - Save running process to services-available/
+- `tsm enable <service>` - Create symlink in services-enabled/ (nginx-style)
+- `tsm disable <service>` - Remove symlink from services-enabled/
+- `tsm startup` - Start all enabled services with validation
+- `tsm show <service>` - Show detailed service configuration
+- `tsm services` - List all services with enabled status
+
+**Port Management & Validation**:
+- **Dynamic Process Naming**: `name-PORT` format (e.g., `devpages-4000`)
+- **Environment File Integration**: PORT automatically extracted from service env files
+- **Post-Start Validation**: `lsof -i :PORT` verification with clear success/failure messaging
+- **Startup Logging**: Complete startup process logged to `startup.log`
+
+**Example Workflow**:
+```bash
+# Save running process as service
+tsm save 0 devpages
+
+# Enable for automatic startup
+tsm enable devpages
+
+# Start all enabled services
+tsm startup
+
+# Check service status
+tsm services
+```
+
+### 🖥️ **TView Integration & Framework Support**
+
+**TView Integration Functions**:
+- `tview_tsm_get_services()` - List available services for TView display
+- `tview_tsm_get_enabled_services()` - List enabled services
+- `tview_tsm_service_status()` - Check running status for TView
+- `handle_tsm_execute()` - TView action handler for service operations
+- `tview_tsm_manage_menu()` - Interactive service enable/disable within TView
+- `tview_tsm_status()` - Status summary for TView dashboard
+
+**Tetra Module Contract Updates**:
+- **Enhanced Registration**: Updated module metadata with all new capabilities
+- **Tab Completion**: Full completion support for service names and TSM IDs
+- **Command Discovery**: `tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|services|save|enable|disable|show|startup`
+
+### 🏗️ **Implementation Details**
+
+**Files Created/Modified**:
+- `bash/tsm/tsm_service.sh` - Complete service management implementation
+- `bash/tsm/tsm_tview.sh` - NEW: TView integration functions
+- `bash/tsm/tsm_core.sh` - Updated directory structure and paths
+- `bash/tsm/tsm.sh` - Added startup command and TView module loading
+- `bash/tsm/index.sh` - Enhanced module registration and tab completion
+
+**Migration Process**:
+- Automated migration from old `$TETRA_DIR/services/` to new structure
+- Preserved existing service definitions with format conversion
+- Maintained backward compatibility during transition
+- Updated all internal path references
+
+**Technical Benefits**:
+- **Environment Portability**: Services work across local/dev/staging/prod with just env file changes
+- **Startup Integration**: SystemD/daemon compatibility with `tsm startup`
+- **Process Validation**: Real-world port binding verification prevents silent failures
+- **TView Dashboard**: Full service management within TView interface
+- **Nginx Familiarity**: Standard enable/disable pattern familiar to system administrators
+
+This implementation provides PM2/Docker-like declarative service management while maintaining TSM's bash-native simplicity and full integration with the Tetra ecosystem.
+
+---
+
 ## 2025-09-22 - TView Interface Stability & Enhanced REPL Implementation
 
 ### 🎯 **80x24 Terminal Compatibility & Layout System**

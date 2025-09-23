@@ -22,13 +22,13 @@ tetra_tsm_setup() {
     fi
 
     # Create TSM directories
-    local dirs=("$TETRA_DIR/tsm/logs" "$TETRA_DIR/tsm/pids" "$TETRA_DIR/tsm/processes")
+    local dirs=("$TETRA_DIR/tsm/runtime/logs" "$TETRA_DIR/tsm/runtime/pids" "$TETRA_DIR/tsm/runtime/processes" "$TETRA_DIR/tsm/services-available" "$TETRA_DIR/tsm/services-enabled")
     for dir in "${dirs[@]}"; do
         mkdir -p "$dir"
     done
 
     # Initialize ID counter
-    local id_file="$TETRA_DIR/tsm/next_id"
+    local id_file="$TETRA_DIR/tsm/runtime/next_id"
     [[ -f "$id_file" ]] || echo "0" > "$id_file"
 
     echo "tsm: setup complete"
@@ -37,7 +37,7 @@ tetra_tsm_setup() {
 # === CORE HELPERS ===
 
 _tsm_get_next_id() {
-    local id_file="$TETRA_DIR/tsm/next_id"
+    local id_file="$TETRA_DIR/tsm/runtime/next_id"
     local next_id
 
     if [[ -f "$id_file" ]]; then

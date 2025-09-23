@@ -27,7 +27,7 @@ DRILL_LEVEL=0            # 0=normal view, 1=drilled into item
 TVIEW_MODE="gamepad"     # gamepad | repl (interaction mode)
 
 # Available environments and modes (reordered for new hierarchy)
-ENVIRONMENTS=("SYSTEM" "LOCAL" "DEV" "STAGING" "PROD" "QA")
+ENVIRONMENTS=("TETRA" "LOCAL" "DEV" "STAGING" "PROD" "QA")
 MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG" "RCM")
 
 # Scrolling state

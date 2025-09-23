@@ -413,10 +413,13 @@ scroll_results() {
     render_results_window
 }
 
-# Full screen redraw
+# Full screen redraw (optimized to avoid flash)
 redraw_screen() {
-    clear
     calculate_layout_regions
+
+    # Clear only the content areas, not the entire screen
+    clear_region "$LAYOUT_HEADER_START" "$LAYOUT_STATUS_END"
+
     render_fixed_header
     render_action_list
     if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then

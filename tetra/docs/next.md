@@ -96,20 +96,49 @@ TView now features a robust top-down interface design with comprehensive error h
 
 ## Next Development Priorities
 
-### Phase 1: Content Enhancement
-- **Rich Service Views**: Detailed TSM service status displays
-- **SSH Connectivity Matrix**: Real-time connection testing across environments
-- **Configuration Validation**: Live TOML syntax checking and validation
+### Phase 1: TSM Service Management Enhancement (Based on New Implementation)
+- **Service Health Monitoring**: Real-time monitoring of TSM service status with health checks
+- **Dependency Management**: Service startup ordering and dependency resolution
+- **Environment-Specific Services**: Per-environment service configurations and deployments
+- **Service Templates**: Pre-configured service templates for common patterns (node apps, Python services, static servers)
 
-### Phase 2: Advanced Operations
-- **Bulk Operations**: Multi-environment command execution
-- **Configuration Deployment**: Push/pull config across environments
-- **Service Orchestration**: Start/stop services across multiple environments
+### Phase 2: Advanced Service Operations
+- **Bulk Service Operations**: Start/stop/restart multiple services across environments
+- **Service Orchestration**: Complex startup sequences with health verification
+- **Rolling Deployments**: Zero-downtime service updates with rollback capability
+- **Resource Management**: CPU/memory limits and monitoring for services
 
-### Phase 3: Monitoring Integration
-- **Real-time Status**: Live service health monitoring
-- **Log Streaming**: Tail logs from multiple environments
-- **Alert Integration**: System status and error notifications
+### Phase 3: TView TSM Integration Enhancements
+- **Rich Service Dashboard**: Live service status, port usage, and health metrics in TView
+- **Interactive Service Management**: Full TSM operations within TView interface
+- **Service Logs Streaming**: Real-time log viewing for services within TView
+- **Performance Metrics**: Service performance monitoring and alerting
+
+### Phase 4: Service Ecosystem Features
+- **Service Discovery**: Automatic service registration and discovery mechanisms
+- **Load Balancing**: Multi-instance service management with load distribution
+- **Configuration Management**: Dynamic configuration updates without service restart
+- **Backup and Recovery**: Service state backup and recovery procedures
+
+### TSM Service Management Roadmap
+
+#### Immediate Next Steps (Q4 2025)
+1. **Service Health Checks**: Implement configurable health check endpoints for services
+2. **Dependency Resolution**: Add `depends_on` field to service definitions for startup ordering
+3. **Environment Promotion**: Services that work across local → dev → staging → prod seamlessly
+4. **TView Service Dashboard**: Complete integration showing service status, logs, and controls
+
+#### Medium-term Goals (Q1 2026)
+1. **Service Templates**: Common patterns for Node.js, Python, static servers, databases
+2. **Multi-Instance Management**: Support for running multiple instances of the same service
+3. **Configuration Hot-Reload**: Update service configurations without restart
+4. **Service Metrics**: Built-in performance monitoring and resource usage tracking
+
+#### Long-term Vision (Q2-Q3 2026)
+1. **Distributed Service Management**: TSM services across multiple machines
+2. **Container Integration**: Docker/Podman support alongside native process management
+3. **Service Mesh**: Inter-service communication and discovery
+4. **Enterprise Features**: RBAC, audit logging, compliance reporting
 
 ## Quality Assurance
 
