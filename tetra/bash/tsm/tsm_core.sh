@@ -75,7 +75,7 @@ _tsm_generate_process_name() {
 
 _tsm_get_process_file() {
     local process_name="$1"
-    echo "$TETRA_DIR/tsm/processes/$process_name"
+    echo "$TETRA_DIR/tsm/runtime/processes/$process_name"
 }
 
 _tsm_get_pid_file() {

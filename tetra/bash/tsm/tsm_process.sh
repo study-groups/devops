@@ -12,8 +12,8 @@ _tsm_start_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TETRA_DIR/tsm/logs"
-    local piddir="$TETRA_DIR/tsm/pids"
+    local logdir="$TETRA_DIR/tsm/runtime/logs"
+    local piddir="$TETRA_DIR/tsm/runtime/pids"
 
     local setsid_cmd
     setsid_cmd=$(tetra_tsm_get_setsid) || {
@@ -45,8 +45,8 @@ _tsm_start_command_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TETRA_DIR/tsm/logs"
-    local piddir="$TETRA_DIR/tsm/pids"
+    local logdir="$TETRA_DIR/tsm/runtime/logs"
+    local piddir="$TETRA_DIR/tsm/runtime/pids"
 
     local setsid_cmd
     setsid_cmd=$(tetra_tsm_get_setsid) || {
@@ -110,8 +110,8 @@ tetra_tsm_start_python() {
         return 1
     }
 
-    local logdir="$TETRA_DIR/tsm/logs"
-    local piddir="$TETRA_DIR/tsm/pids"
+    local logdir="$TETRA_DIR/tsm/runtime/logs"
+    local piddir="$TETRA_DIR/tsm/runtime/pids"
 
     (
         $setsid_cmd bash -c "

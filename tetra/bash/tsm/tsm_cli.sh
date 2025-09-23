@@ -61,7 +61,7 @@ _tsm_start_cli_internal() {
     }
 
     local pid
-    pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+    pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
 
     local tsm_id
     tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "cli" "" "$pwd_at_start")
@@ -100,7 +100,38 @@ tetra_tsm_start_command() {
     done
 
     [[ ${#command_args[@]} -gt 0 ]] || { echo "tsm: command required" >&2; return 64; }
-    [[ -n "$port" ]] || { echo "tsm: port required for command mode" >&2; return 64; }
+
+    # Resolve environment file path and extract port if needed
+    local resolved_env_file=""
+    if [[ -n "$env_file" ]]; then
+        if [[ "$env_file" == /* ]]; then
+            resolved_env_file="$env_file"
+        else
+            # Try different variations: env/file, env/file.env, file, file.env
+            local candidates=(
+                "$PWD/env/${env_file}.env"
+                "$PWD/env/$env_file"
+                "$PWD/${env_file}.env"
+                "$PWD/$env_file"
+            )
+            for candidate in "${candidates[@]}"; do
+                if [[ -f "$candidate" ]]; then
+                    resolved_env_file="$candidate"
+                    break
+                fi
+            done
+        fi
+
+        # Extract port from resolved env file if port not provided
+        if [[ -z "$port" && -f "$resolved_env_file" ]]; then
+            port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
+        fi
+
+        # Use the resolved path going forward
+        env_file="$resolved_env_file"
+    fi
+
+    [[ -n "$port" ]] || { echo "tsm: port required for command mode (not found in env file or --port)" >&2; return 64; }
 
     # Generate command string
     local command_string="${command_args[*]}"
@@ -146,10 +177,10 @@ tetra_tsm_start_command() {
     }
 
     local pid
-    pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+    pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
 
     local tsm_id
-    tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir")
+    tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir" "" "false" "$env_file")
 
     if [[ "$json_output" == "true" ]]; then
         local process_data="{\"tsm_id\": \"$tsm_id\", \"name\": \"$name\", \"pid\": \"$pid\", \"port\": \"$port\", \"command\": \"$(_tsm_json_escape "$command_string")\", \"working_dir\": \"$(_tsm_json_escape "$working_dir")\"}"
@@ -221,7 +252,10 @@ tetra_tsm_start() {
                 elif [[ -z "$file" ]]; then
                     file="$1"
                     # Check if this is a command (not an executable file)
-                    if [[ ! -f "$file" && -n "$port" ]]; then
+                    # Command mode triggers if:
+                    # 1. File doesn't exist as executable AND port is set, OR
+                    # 2. File doesn't exist as executable AND env_file is set (port will be extracted)
+                    if [[ ! -f "$file" ]] && [[ -n "$port" || -n "$env_file" ]]; then
                         # This looks like command mode - collect all remaining args
                         command_mode=true
                         command_args=("$file")
@@ -247,7 +281,11 @@ tetra_tsm_start() {
 
     # Handle different start modes
     if [[ "$command_mode" == "true" ]]; then
-        tetra_tsm_start_command --port "$port" "${command_args[@]}"
+        local cmd_args=()
+        [[ -n "$port" ]] && cmd_args+=(--port "$port")
+        [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
+        [[ -n "$custom_name" ]] && cmd_args+=(--name "$custom_name")
+        tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
     elif [[ "$python_start" == "true" ]]; then
         tetra_tsm_start_python "$python_cmd" "$port" "$dirname" "$custom_name"
     elif [[ "$file" == "webserver" ]]; then

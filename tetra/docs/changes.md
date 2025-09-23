@@ -2,6 +2,35 @@
 
 ## 2025-09-23 - TSM Service Management System Implementation
 
+### 🔧 **TSM Start Command Grammar Fix**
+
+**Problem Solved**: TSM start command required `--port` flag even when environment files contained PORT definitions, breaking the documented grammar.
+
+**Root Cause**: Command mode detection logic required both non-executable file AND explicit port parameter, but `--env` flag didn't set port until after parsing.
+
+**Implementation**:
+- **Enhanced Argument Parsing**: Modified command detection to trigger when `--env` is provided, even without explicit `--port`
+- **Environment File Resolution**: Added robust path resolution supporting multiple variations (`env/file.env`, `env/file`, `file.env`, `file`)
+- **Runtime Environment Sourcing**: Fixed environment file sourcing in subprocess startup to properly load variables like `PD_DIR`
+- **Metadata Management**: Enhanced `_tsm_save_metadata` to store environment file paths correctly
+- **Directory Structure Fixes**: Updated all path references to use new `runtime/` organization
+
+**Technical Details**:
+```bash
+# Command detection logic (tsm_cli.sh:227)
+if [[ ! -f "$file" ]] && [[ -n "$port" || -n "$env_file" ]]; then
+    command_mode=true
+```
+
+**Files Modified**:
+- `bash/tsm/tsm_cli.sh` - Enhanced argument parsing and environment file handling
+- `bash/tsm/tsm_validation.sh` - Updated metadata saving with environment file parameter
+- `bash/tsm/tsm_core.sh`, `tsm_inspect.sh`, `tsm_utils.sh` - Fixed runtime directory paths
+
+**Result**: `tsm start --env local node server/server.js` now works correctly with proper environment variable loading.
+
+---
+
 ### 🚀 **Complete TSM Service Management Redesign**
 
 **Problem Solved**: TSM lacked declarative service management, environment-portable configurations, and proper startup automation similar to PM2/Docker patterns.
