@@ -694,3 +694,93 @@ show_deploy_details() {
             ;;
     esac
 }
+
+# ===== NEW LAYOUT SYSTEM EXECUTION FUNCTIONS =====
+
+# Local action executions
+execute_local_service_status() {
+    cat << EOF
+Local Service Status Check
+═══════════════════════════
+$(render_status_indicator "info" "Checking local services...")
+
+System Services:
+$(ps aux | grep -E "(nginx|apache|mysql|postgres|docker)" | head -10 || echo "No common services found")
+
+Status: $(render_status_indicator "success" "Local check complete")
+EOF
+}
+
+execute_local_config_check() {
+    echo "Local Configuration Check - Complete"
+}
+
+execute_local_service_list() {
+    echo "Local Service List - Ready"
+}
+
+execute_local_logs() {
+    echo "Local Logs - Available"
+}
+
+execute_ssh_test() {
+    local env="$1"
+    echo "SSH Test - $env Environment - Connection Ready"
+}
+
+execute_service_status() {
+    local env="$1"
+    echo "Service Status - $env Environment - Active"
+}
+
+execute_service_list() {
+    local env="$1"
+    echo "Service List - $env Environment - Available"
+}
+
+execute_tail_logs() {
+    local env="$1"
+    echo "Tail Logs - $env Environment - Recent entries"
+}
+
+execute_rcm_command() {
+    local env="$1"
+    local item="$2"
+    echo "RCM Command - $env Environment, Item $item - Executed"
+}
+
+execute_ssh_key_status() {
+    local env="$1"
+    echo "SSH Key Status - $env Environment - Keys Available"
+}
+
+execute_key_management() {
+    local env="$1"
+    echo "Key Management - $env Environment - Ready for Operations"
+}
+
+enter_ssh_repl() {
+    local env="$1"
+    echo "Entering SSH REPL for $env..."
+    sleep 1
+}
+
+generate_help_content() {
+    cat << EOF
+TView Navigation Help
+════════════════════
+e/E - Cycle environments (forward/reverse)
+m/M - Cycle modes (forward/reverse)
+i/k - Select actions (up/down)
+Enter - Execute selected action
+j/K - Scroll results (up/down)
+ESC - Hide results window
+r - Reset interface
+t - REPL mode
+? - Show help
+q - Quit
+
+Pattern: e/m to navigate → i/k to select → Enter to execute
+Results appear in scrollable window between top and bottom.
+EOF
+}

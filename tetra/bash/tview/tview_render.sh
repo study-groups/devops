@@ -2,47 +2,201 @@
 
 # TView Rendering - UI and display functions
 
-# Render the header with mode selector and current environment
+# Render 4-line header with proper width constraints
 render_header() {
-    # Compact header - single line with key info
-    local header="${BOLD}${CYAN}TVIEW${RESET}"
+    local terminal_width=${COLUMNS:-80}
 
-    # Show org name instead of full path
-    if [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
-        header+=" ${BOLD}${YELLOW}$ACTIVE_ORG${RESET}"
-    elif [[ -n "$ACTIVE_TOML" ]]; then
-        local short_toml=$(basename "$ACTIVE_TOML")
-        header+=" ${BOLD}${YELLOW}$short_toml${RESET}"
+    # Line 1: Compact brand + environment info
+    local line1=""
+    if [[ $terminal_width -le 80 ]]; then
+        # Compact for 80 columns
+        line1="${UI_BRAND_COLOR}${COLOR_BOLD}TVIEW${COLOR_RESET}"
+        if [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
+            line1+=" ${UI_ACCENT_COLOR}${ACTIVE_ORG:0:12}${COLOR_RESET}"  # Truncate org name
+        fi
+        line1+=" | ${CURRENT_MODE}:${CURRENT_ENV}"
+    else
+        # Full for wide terminals
+        line1="${UI_BRAND_COLOR}${COLOR_BOLD}TVIEW${COLOR_RESET}"
+        if [[ -n "$ACTIVE_ORG" && "$ACTIVE_ORG" != "No active organization" ]]; then
+            line1+=" ${UI_ACCENT_COLOR}${COLOR_BOLD}$ACTIVE_ORG${COLOR_RESET}"
+        elif [[ -n "$ACTIVE_TOML" ]]; then
+            local short_toml=$(basename "$ACTIVE_TOML")
+            line1+=" ${UI_ACCENT_COLOR}${COLOR_BOLD}$short_toml${COLOR_RESET}"
+        fi
+
+        if [[ $DRILL_LEVEL -eq 1 ]]; then
+            line1+=" ${STATUS_WARNING_COLOR}${COLOR_BOLD}[DRILL]${COLOR_RESET}"
+        fi
+
+        local status_content=$(get_current_selection_context)
+        local right_content="${TVIEW_HINT:-$status_content}"
+
+        # Right-align status if it fits
+        local left_length=$(echo -e "$line1" | sed 's/\x1b\[[0-9;]*m//g' | wc -c)
+        local right_length=$(echo -e "$right_content" | sed 's/\x1b\[[0-9;]*m//g' | wc -c)
+        if [[ $((left_length + right_length + 3)) -le $terminal_width ]]; then
+            local spacing=$((terminal_width - left_length - right_length))
+            line1=$(printf "%s%*s%s" "$line1" $spacing "" "$right_content")
+        fi
     fi
 
-    # Add drill indicator if active
-    if [[ $DRILL_LEVEL -eq 1 ]]; then
-        header+=" ${BOLD}${YELLOW}[DRILL]${RESET}"
-    fi
+    # Output line1 truncated to terminal width
+    truncate_line "$line1" $terminal_width
 
-    echo "$header"
-
-    # Compact environment and mode on one line
-    local nav_line="Env: "
+    # Line 2: Environment navigation - compact
+    local env_line="Env: "
     for env in "${ENVIRONMENTS[@]}"; do
         if [[ "$env" == "$CURRENT_ENV" ]]; then
-            nav_line+="[${BOLD}${BLUE}${env}${RESET}] "
+            env_line+="$(render_env_badge "$env" "true") "
         else
-            nav_line+="${env} "
+            env_line+="$(render_env_badge "$env" "false") "
         fi
     done
+    truncate_line "$env_line" $terminal_width
 
-    nav_line+="| Mode: "
+    # Line 3: Mode navigation with themed colors
+    local mode_line="Mode: "
     for mode in "${MODES[@]}"; do
         if [[ "$mode" == "$CURRENT_MODE" ]]; then
-            nav_line+="[${BOLD}${GREEN}${mode}${RESET}] "
+            mode_line+="$(render_mode_badge "$mode" "true") "
         else
-            nav_line+="${mode} "
+            mode_line+="$(render_mode_badge "$mode" "false") "
         fi
     done
+    truncate_line "$mode_line" $terminal_width
 
-    echo "$nav_line"
-    echo "────────────────────────────────────────────────────────────────────────────"
+    # Line 4: Action - compact semantic command
+    local action_line="Action: "
+    if [[ $terminal_width -le 80 ]]; then
+        action_line+=$(generate_compact_action)
+    else
+        action_line+=$(generate_semantic_action)
+    fi
+    truncate_line "$action_line" $terminal_width
+}
+
+# Utility function to truncate lines with color codes
+truncate_line() {
+    local text="$1"
+    local max_width="$2"
+
+    # Calculate actual display width (strip ANSI codes)
+    local display_text=$(echo -e "$text" | sed 's/\x1b\[[0-9;]*m//g')
+    local display_width=${#display_text}
+
+    if [[ $display_width -le $max_width ]]; then
+        echo "$text"
+    else
+        # Truncate display text and add ellipsis
+        local truncated_display="${display_text:0:$((max_width - 3))}..."
+        echo "$truncated_display"
+    fi
+}
+
+# Generate semantic action based on current cursor position
+generate_semantic_action() {
+    local env_lower=$(echo "$CURRENT_ENV" | tr '[:upper:]' '[:lower:]')
+
+    case "$CURRENT_MODE:$CURRENT_ENV" in
+        "RCM:SYSTEM")
+            echo "Navigate to environment to see available remote commands"
+            ;;
+        "RCM:LOCAL")
+            echo "tetra exec $(colorize_env "local" "LOCAL"): ${ACTION_VIEW_COLOR}direct execution${COLOR_RESET}"
+            ;;
+        "RCM:DEV"|"RCM:STAGING"|"RCM:PROD"|"RCM:QA")
+            local selected_commands=($(printf '%s\n' "${!RCM_COMMANDS[@]}" | sort))
+            if [[ $CURRENT_ITEM -lt ${#selected_commands[@]} ]]; then
+                local cmd_name="${selected_commands[$CURRENT_ITEM]}"
+                local ssh_prefix="${CURRENT_SSH_PREFIXES[${env_lower}_root]:-ssh root@${env_lower}.pixeljamarcade.com}"
+                echo "tetra ssh $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_SSH_COLOR}${ssh_prefix}${COLOR_RESET} '${RCM_COMMANDS[$cmd_name]}'"
+            else
+                echo "tetra ssh $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): No command selected"
+            fi
+            ;;
+        "TOML:"*)
+            echo "tetra config view $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_VIEW_COLOR}inspect configuration${COLOR_RESET}"
+            ;;
+        "TKM:SYSTEM")
+            echo "tetra keys overview: ${ACTION_VIEW_COLOR}show four amigos access${COLOR_RESET}"
+            ;;
+        "TKM:"*)
+            echo "tetra keys $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_SSH_COLOR}manage authentication${COLOR_RESET}"
+            ;;
+        "TSM:LOCAL")
+            case $CURRENT_ITEM in
+                0) echo "tetra service status $(colorize_env "LOCAL" "LOCAL"): ${ACTION_SERVICE_COLOR}local service manager${COLOR_RESET}" ;;
+                1) echo "tetra config validate $(colorize_env "LOCAL" "LOCAL"): ${ACTION_CONFIG_COLOR}check local configuration${COLOR_RESET}" ;;
+                2) echo "tetra service list $(colorize_env "LOCAL" "LOCAL"): ${ACTION_SERVICE_COLOR}show running services${COLOR_RESET}" ;;
+                3) echo "tetra logs view $(colorize_env "LOCAL" "LOCAL"): ${ACTION_VIEW_COLOR}local service logs${COLOR_RESET}" ;;
+                *) echo "tetra service manage $(colorize_env "LOCAL" "LOCAL"): ${ACTION_SERVICE_COLOR}local operations${COLOR_RESET}" ;;
+            esac
+            ;;
+        "TSM:DEV")
+            case $CURRENT_ITEM in
+                0) echo "tetra ssh test $(colorize_env "DEV" "DEV"): ${ACTION_SSH_COLOR}${CURRENT_SSH_PREFIXES[dev_root]#ssh }${COLOR_RESET}" ;;
+                1) echo "tetra service status $(colorize_env "DEV" "DEV"): ${ACTION_SERVICE_COLOR}systemctl status tetra.service${COLOR_RESET}" ;;
+                2) echo "tetra service list $(colorize_env "DEV" "DEV"): ${ACTION_SERVICE_COLOR}tsm list${COLOR_RESET}" ;;
+                3) echo "tetra logs tail $(colorize_env "DEV" "DEV"): ${ACTION_VIEW_COLOR}tail -20 /var/log/tetra/tetra.log${COLOR_RESET}" ;;
+                *) echo "tetra service manage $(colorize_env "DEV" "DEV"): ${ACTION_SERVICE_COLOR}service operations${COLOR_RESET}" ;;
+            esac
+            ;;
+        "TSM:STAGING")
+            case $CURRENT_ITEM in
+                0) echo "tetra ssh test $(colorize_env "STAGING" "STAGING"): ${ACTION_SSH_COLOR}${CURRENT_SSH_PREFIXES[staging_root]#ssh }${COLOR_RESET}" ;;
+                1) echo "tetra service status $(colorize_env "STAGING" "STAGING"): ${ACTION_SERVICE_COLOR}systemctl status tetra.service${COLOR_RESET}" ;;
+                2) echo "tetra service list $(colorize_env "STAGING" "STAGING"): ${ACTION_SERVICE_COLOR}tsm list${COLOR_RESET}" ;;
+                3) echo "tetra logs tail $(colorize_env "STAGING" "STAGING"): ${ACTION_VIEW_COLOR}tail -20 /var/log/tetra/tetra.log${COLOR_RESET}" ;;
+                *) echo "tetra service manage $(colorize_env "STAGING" "STAGING"): ${ACTION_SERVICE_COLOR}service operations${COLOR_RESET}" ;;
+            esac
+            ;;
+        "TSM:PROD")
+            case $CURRENT_ITEM in
+                0) echo "tetra ssh test $(colorize_env "PROD" "PROD"): ${ACTION_SSH_COLOR}${CURRENT_SSH_PREFIXES[prod_root]#ssh }${COLOR_RESET}" ;;
+                1) echo "tetra service status $(colorize_env "PROD" "PROD"): ${ACTION_SERVICE_COLOR}systemctl status tetra.service${COLOR_RESET}" ;;
+                2) echo "tetra service list $(colorize_env "PROD" "PROD"): ${ACTION_SERVICE_COLOR}tsm list${COLOR_RESET}" ;;
+                3) echo "tetra logs tail $(colorize_env "PROD" "PROD"): ${ACTION_VIEW_COLOR}tail -20 /var/log/tetra/tetra.log${COLOR_RESET}" ;;
+                *) echo "tetra service manage $(colorize_env "PROD" "PROD"): ${ACTION_SERVICE_COLOR}service operations${COLOR_RESET}" ;;
+            esac
+            ;;
+        "TSM:QA")
+            case $CURRENT_ITEM in
+                0) echo "tetra ssh test $(colorize_env "QA" "QA"): ${ACTION_SSH_COLOR}${CURRENT_SSH_PREFIXES[qa_root]#ssh }${COLOR_RESET}" ;;
+                1) echo "tetra service status $(colorize_env "QA" "QA"): ${ACTION_SERVICE_COLOR}systemctl status tetra.service${COLOR_RESET}" ;;
+                2) echo "tetra service list $(colorize_env "QA" "QA"): ${ACTION_SERVICE_COLOR}tsm list${COLOR_RESET}" ;;
+                3) echo "tetra logs tail $(colorize_env "QA" "QA"): ${ACTION_VIEW_COLOR}tail -20 /var/log/tetra/tetra.log${COLOR_RESET}" ;;
+                *) echo "tetra service manage $(colorize_env "QA" "QA"): ${ACTION_SERVICE_COLOR}service operations${COLOR_RESET}" ;;
+            esac
+            ;;
+        "TSM:"*)
+            echo "tetra service manage $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_SERVICE_COLOR}service operations${COLOR_RESET}"
+            ;;
+        "ORG:"*)
+            echo "tetra org manage $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_CONFIG_COLOR}${ACTIVE_ORG:-current org}${COLOR_RESET}"
+            ;;
+        "DEPLOY:LOCAL")
+            echo "tetra build validate $(colorize_env "LOCAL" "LOCAL"): ${ACTION_CONFIG_COLOR}prepare local deployment${COLOR_RESET}"
+            ;;
+        "DEPLOY:DEV")
+            echo "tetra deploy push $(colorize_env "DEV" "DEV"): ${ACTION_DEPLOY_COLOR}deploy to development${COLOR_RESET}"
+            ;;
+        "DEPLOY:STAGING")
+            echo "tetra deploy promote $(colorize_env "DEV" "DEV") $(colorize_env "STAGING" "STAGING"): ${ACTION_DEPLOY_COLOR}dev → staging${COLOR_RESET}"
+            ;;
+        "DEPLOY:PROD")
+            echo "tetra deploy promote $(colorize_env "STAGING" "STAGING") $(colorize_env "PROD" "PROD"): ${ACTION_DEPLOY_COLOR}staging → production${COLOR_RESET}"
+            ;;
+        "DEPLOY:QA")
+            echo "tetra deploy test $(colorize_env "QA" "QA"): ${ACTION_DEPLOY_COLOR}quality assurance deployment${COLOR_RESET}"
+            ;;
+        "DEPLOY:"*)
+            echo "tetra deploy manage $(colorize_env "$CURRENT_ENV" "$CURRENT_ENV"): ${ACTION_DEPLOY_COLOR}deployment operations${COLOR_RESET}"
+            ;;
+        *)
+            echo "Navigate: ${UI_MUTED_COLOR}i/k${COLOR_RESET} items, ${UI_MUTED_COLOR}e/m${COLOR_RESET} env/mode"
+            ;;
+    esac
 }
 
 # Render content based on current environment and mode
@@ -69,6 +223,7 @@ render_mode_environment_content() {
         "DEV:TSM") render_tsm_dev ;;
         "STAGING:TSM") render_tsm_staging ;;
         "PROD:TSM") render_tsm_prod ;;
+        "QA:TSM") render_tsm_qa ;;
         "SYSTEM:DEPLOY") render_deploy_system ;;
         "LOCAL:DEPLOY") render_deploy_local ;;
         "DEV:DEPLOY") render_deploy_dev ;;
@@ -79,6 +234,13 @@ render_mode_environment_content() {
         "DEV:ORG") render_org_dev ;;
         "STAGING:ORG") render_org_staging ;;
         "PROD:ORG") render_org_prod ;;
+        "QA:ORG") render_org_qa ;;
+        "SYSTEM:RCM") render_rcm_system ;;
+        "LOCAL:RCM") render_rcm_local ;;
+        "DEV:RCM") render_rcm_dev ;;
+        "STAGING:RCM") render_rcm_staging ;;
+        "PROD:RCM") render_rcm_prod ;;
+        "QA:RCM") render_rcm_qa ;;
         *) echo "Unknown environment/mode combination: $CURRENT_ENV:$CURRENT_MODE" ;;
     esac
 }
@@ -157,42 +319,107 @@ show_drilled_content() {
 
     case "$CURRENT_ENV:$CURRENT_MODE" in
         "SYSTEM:TOML")
-            show_toml_system_details
+            generate_toml_system_content | head -15
             ;;
         "LOCAL:TOML")
-            show_toml_local_details
+            generate_toml_local_content | head -15
             ;;
-        "DEV:TOML"|"STAGING:TOML"|"PROD:TOML")
-            show_toml_environment_details "$CURRENT_ENV"
+        "DEV:TOML"|"STAGING:TOML"|"PROD:TOML"|"QA:TOML")
+            cat << EOF
+TOML Configuration for $CURRENT_ENV
+
+Server: ${CURRENT_ENV}_SERVER variable
+IP: ${CURRENT_ENV}_IP variable
+SSH Status: Testing connectivity...
+Services: Checking service status...
+
+Configuration files:
+- Main TOML: ~/tetra/config/tetra.toml
+- Environment: $CURRENT_ENV specific settings
+- Services: Service definitions for $CURRENT_ENV
+
+Domain: ${CURRENT_ENV,,}.pixeljamarcade.com
+Status: $(rcm_test_ssh_connectivity "${CURRENT_ENV,,}_root" 2>/dev/null || echo "Connection pending...")
+EOF
             ;;
-        "LOCAL:TSM")
-            show_tsm_local_details
+        "SYSTEM:RCM")
+            echo "RCM System Overview - All Remote Command Environments"
+            echo
+            rcm_show_top_user_prefixes | head -12
             ;;
-        "DEV:TSM"|"STAGING:TSM"|"PROD:TSM")
-            show_tsm_remote_details "$CURRENT_ENV"
+        "LOCAL:RCM"|"DEV:RCM"|"STAGING:RCM"|"PROD:RCM"|"QA:RCM")
+            echo "RCM Commands for $CURRENT_ENV"
+            echo
+            echo "Environment: $CURRENT_ENV"
+            echo "SSH Prefix: ${CURRENT_SSH_PREFIXES[$CURRENT_RCM_ENV]:-Not configured}"
+            echo
+            echo "Available Commands:"
+            rcm_render_command_list "$CURRENT_RCM_ENV" | head -12
             ;;
-        "SYSTEM:ORG")
-            show_org_system_details
+        "SYSTEM:TKM"|"LOCAL:TKM"|"DEV:TKM"|"STAGING:TKM"|"PROD:TKM"|"QA:TKM")
+            generate_tkm_content "$CURRENT_ENV" | head -15
             ;;
-        "LOCAL:ORG")
-            show_org_local_details
+        "SYSTEM:TSM"|"LOCAL:TSM"|"DEV:TSM"|"STAGING:TSM"|"PROD:TSM"|"QA:TSM")
+            generate_tsm_content "$CURRENT_ENV" | head -15
             ;;
-        "DEV:ORG"|"STAGING:ORG"|"PROD:ORG")
-            show_org_environment_details "$CURRENT_ENV"
+        "SYSTEM:ORG"|"LOCAL:ORG"|"DEV:ORG"|"STAGING:ORG"|"PROD:ORG"|"QA:ORG")
+            cat << EOF
+Organization Management for $CURRENT_ENV
+
+Active Organization: ${ACTIVE_ORG:-Local Project}
+Environment: $CURRENT_ENV
+TOML Path: ${ACTIVE_TOML:-Not set}
+
+Organization Structure:
+- Config: ~/tetra/orgs/${ACTIVE_ORG:-current}/
+- Services: Service definitions and configurations
+- Nginx: Web server configurations
+- Deployment: Deployment scripts and configs
+
+Management Operations:
+- Switch organizations
+- Edit configurations
+- Deploy changes
+- View deployment history
+EOF
+            ;;
+        "SYSTEM:DEPLOY"|"LOCAL:DEPLOY"|"DEV:DEPLOY"|"STAGING:DEPLOY"|"PROD:DEPLOY"|"QA:DEPLOY")
+            cat << EOF
+Deployment Management for $CURRENT_ENV
+
+Environment: $CURRENT_ENV
+Deployment Target: ${CURRENT_ENV,,}.pixeljamarcade.com
+Last Deploy: ${CURRENT_ENV}_LAST_DEPLOY variable
+Status: ${CURRENT_ENV}_DEPLOY_STATUS variable
+
+Deployment Pipeline:
+1. Configuration validation
+2. Service deployment
+3. Nginx configuration
+4. Health checks
+5. Rollback capability
+
+Available Operations:
+- Deploy current configuration
+- Validate before deployment
+- View deployment logs
+- Rollback to previous version
+EOF
             ;;
         *)
-            echo "    ${BOLD}Detailed view for $CURRENT_ENV:$CURRENT_MODE${RESET}"
+            echo "Detailed view for $CURRENT_ENV:$CURRENT_MODE"
             echo
-            echo "        Environment: $CURRENT_ENV"
-            echo "        Mode: $CURRENT_MODE"
-            echo "        Selected Item: $((CURRENT_ITEM + 1))"
+            echo "Environment: $CURRENT_ENV"
+            echo "Mode: $CURRENT_MODE"
+            echo "Selected Item: $((CURRENT_ITEM + 1))"
             echo
-            echo "        Press 'j' to drill out"
+            echo "Drill view - shows focused details for current selection"
+            echo "Use 'j' to return to overview"
             ;;
     esac
 
     echo
-    echo "${BOLD}${YELLOW}Press 'j' to drill out${RESET}"
+    echo "${BOLD}Navigation: 'j'=back to overview 'ESC'=exit drill${RESET}"
 }
 
 # Render file view content with scrolling

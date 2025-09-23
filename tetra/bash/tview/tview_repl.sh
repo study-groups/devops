@@ -9,47 +9,187 @@ handle_repl_input() {
 
     case "$input" in
         /tview)
-            echo "Returning to gamepad mode..."
             TVIEW_MODE="gamepad"
+            # No output - just switch mode silently
             ;;
         /exit|/quit)
             echo "Exiting TView..."
             exit 0
             ;;
         /help)
-            echo "TView REPL Commands:"
-            echo "  /tview    Return to gamepad navigation mode"
-            echo "  /exit     Exit TView completely"
-            echo "  /help     Show this help"
-            echo "  <empty>   Show TSM process list"
-            echo "  <cmd>     Execute TSM command"
-            echo "  !<cmd>    Execute bash command"
+            local help_output="TView REPL Commands:
+  /tview    Return to gamepad navigation mode
+  /exit     Exit TView completely
+  /help     Show this help
+
+Mode Overviews:
+  /tsm      Show TSM (Service Manager) overview
+  /tkm      Show TKM (Key Manager) overview
+  /rcm      Show RCM (Remote Commands) overview
+
+Execution:
+  <empty>   Show current context info
+  <cmd>     Execute TSM command
+  !<cmd>    Execute bash command
+
+Navigation:
+  Type commands and see results above
+  j/k to scroll results, ESC to hide results
+  /tview to return to gamepad navigation"
+            show_repl_results "$help_output"
+            ;;
+        /tsm)
+            local tsm_output="TSM - Tetra Service Manager
+═══════════════════════════
+
+Current Environment: ${CURRENT_ENV}
+Service Status: $(systemctl is-active tetra.service 2>/dev/null || echo "Unknown")
+
+Available Commands:
+  list      List all services
+  status    Show service status
+  start     Start tetra service
+  stop      Stop tetra service
+  restart   Restart tetra service
+  logs      Show recent logs
+
+Usage: tsm <command> or !systemctl <args>"
+            show_repl_results "$tsm_output"
+            ;;
+        /tkm)
+            local tkm_output="TKM - Tetra Key Manager
+═══════════════════════════
+
+SSH Key Status:
+$(ssh-add -l 2>/dev/null || echo "No SSH keys loaded in agent")
+
+Available Keys:
+$(ls -la ~/.ssh/id_* 2>/dev/null | head -5 || echo "No SSH keys found")
+
+Current Environment: ${CURRENT_ENV}
+SSH Prefix: ${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}
+
+Key Operations:
+  ssh-add ~/.ssh/id_rsa    Load key to agent
+  ssh-copy-id user@host    Copy key to remote
+  ssh-keygen -t rsa        Generate new key"
+            show_repl_results "$tkm_output"
+            ;;
+        /rcm)
+            local rcm_output="RCM - Remote Command Manager
+═══════════════════════════
+
+Current Environment: ${CURRENT_ENV}
+$(if [[ "$CURRENT_ENV" != "LOCAL" ]]; then
+    echo "SSH Prefix: ${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}"
+    echo ""
+    echo "Available Remote Commands:"
+    printf '%s\n' "${!RCM_COMMANDS[@]}" | sort | while read cmd; do
+        echo "  $cmd: ${RCM_COMMANDS[$cmd]}"
+    done
+else
+    echo "Local execution mode - commands run directly"
+fi)
+
+Usage:
+  Execute via gamepad mode (navigate to RCM)
+  Or use: !ssh user@host 'command'"
+            show_repl_results "$rcm_output"
             ;;
         "")
             # Empty input - show current context info
-            echo "Current: $CURRENT_MODE/$CURRENT_ENV"
-            tsm list 2>/dev/null || echo "TSM not available"
+            local context_output="Current Context: $CURRENT_MODE/$CURRENT_ENV
+
+$(case "$CURRENT_MODE" in
+    "TSM")
+        echo "TSM Status:"
+        tsm list 2>/dev/null || echo "TSM not available"
+        ;;
+    "TKM")
+        echo "SSH Keys:"
+        ssh-add -l 2>/dev/null || echo "No keys in agent"
+        ;;
+    "RCM")
+        echo "Remote Commands Available: ${#RCM_COMMANDS[@]}"
+        ;;
+    *)
+        echo "Mode: $CURRENT_MODE - use /help for commands"
+        ;;
+esac)"
+            show_repl_results "$context_output"
             ;;
         !*)
-            # Bash command
+            # Bash command - use safe execution
             local bash_cmd="${input#!}"
             if [[ -n "$bash_cmd" ]]; then
-                eval "$bash_cmd" 2>&1
+                safe_execute "$bash_cmd" "Bash Command: $bash_cmd"
             fi
             ;;
         *)
-            # Regular TSM command
+            # Regular TSM command - use safe execution
             if [[ -n "$input" ]]; then
-                eval "tsm $input" 2>&1
+                safe_execute "tsm $input" "TSM Command: $input"
             fi
             ;;
     esac
 }
 
+# Display REPL command output in results window
+show_repl_results() {
+    local output="$1"
+
+    # Use the layout system to show results
+    show_results "$output"
+
+    # Force a redraw to update the display
+    redraw_screen
+}
+
+# Execute command safely and capture errors
+safe_execute() {
+    local command="$1"
+    local context="$2"
+
+    # Create temporary files for stdout and stderr
+    local stdout_file=$(mktemp)
+    local stderr_file=$(mktemp)
+
+    # Execute command and capture both stdout and stderr
+    if eval "$command" >"$stdout_file" 2>"$stderr_file"; then
+        # Success - show stdout
+        local output="$context
+═══════════════════════════
+
+$(cat "$stdout_file")"
+        show_repl_results "$output"
+    else
+        # Error - show both stdout and stderr
+        local error_output="$context - ERROR
+═══════════════════════════
+
+Command: $command
+
+$(if [[ -s "$stdout_file" ]]; then
+    echo "Output:"
+    cat "$stdout_file"
+    echo ""
+fi)$(if [[ -s "$stderr_file" ]]; then
+    echo "Error:"
+    cat "$stderr_file"
+else
+    echo "Command failed with no error message"
+fi)"
+        show_repl_results "$error_output"
+    fi
+
+    # Clean up temporary files
+    rm -f "$stdout_file" "$stderr_file"
+}
+
 # Enter REPL mode
 enter_repl_mode() {
     TVIEW_MODE="repl"
-    echo "Entering REPL mode (type /tview to return to gamepad mode)..."
+    # No output - just switch mode silently
 }
 
 # Organization selection REPL for switching/managing orgs

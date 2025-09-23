@@ -1,6 +1,120 @@
 # Current Changes
 
-## 2025-09-22 - TView Modular Architecture Refactor & Smart Drill System
+## 2025-09-22 - TView Interface Stability & Enhanced REPL Implementation
+
+### 🎯 **80x24 Terminal Compatibility & Layout System**
+
+**Problem Solved**: TView interface was breaking on standard 80x24 terminals with text wrapping, cursor positioning errors, and layout corruption.
+
+**Implementation**:
+- **Responsive Layout System**: Created `tview_layout.sh` with automatic terminal size detection
+  - Compact mode (≤80 columns): Abbreviated text, essential information only
+  - Verbose mode (>80 columns): Full descriptions, detailed status information
+- **Proper Line Truncation**: Added `truncate_line()` function respecting ANSI color codes
+- **Fixed Header Positioning**: Precise ANSI cursor positioning (`\033[line;1H`) for each element
+- **Layout Regions**:
+  - Lines 1-4: Fixed header (brand, environment, mode, action)
+  - Lines 5-21: Scrollable content (action list or results)
+  - Lines 22-24: Sticky bottom status and REPL prompt
+
+**Technical Details**:
+```bash
+# Layout calculation for 80x24
+TOP_HEADER_LINES=4
+BOTTOM_STATUS_LINES=3
+MIDDLE_REGION=17 lines (action list + results)
+```
+
+**Files Modified**:
+- `bash/tview/tview_layout.sh` - NEW: Complete layout management system
+- `bash/tview/tview_render.sh` - Fixed header truncation and responsive rendering
+- `bash/tview/tview_core.sh` - Updated to use new layout system
+
+### 🎮 **Enhanced REPL with Slash Commands & Results Integration**
+
+**Problem Solved**: REPL was basic with limited functionality and output appeared directly in terminal, disrupting layout.
+
+**Implementation**:
+- **Slash Command System**: Added comprehensive mode exploration commands
+  - `/help` - Complete command reference with categories
+  - `/tsm` - TSM Service Manager overview with available commands
+  - `/tkm` - TKM Key Manager status with SSH key information
+  - `/rcm` - RCM Remote Commands for current environment
+- **Results Window Integration**: All command output routed to scrollable results area
+- **Silent Mode Transitions**: Removed disruptive "Entering REPL mode..." messages
+- **Enhanced Command Execution**: Regular commands, bash commands (`!cmd`), context-aware help
+
+**Technical Details**:
+```bash
+# REPL command structure
+/help     -> show_repl_results(help_content)
+/tsm      -> show_repl_results(tsm_overview)
+command   -> safe_execute("tsm command", context)
+!command  -> safe_execute("command", bash_context)
+```
+
+**Files Modified**:
+- `bash/tview/tview_repl.sh` - Complete REPL enhancement with slash commands
+- `bash/tview/tview_core.sh` - Silent REPL transitions and cursor positioning
+
+### 🛡️ **Comprehensive Error Handling & Safe Execution**
+
+**Problem Solved**: Errors appeared in terminal breaking layout, missing functions caused crashes, no debugging context provided.
+
+**Implementation**:
+- **Function Bug Fixes**: Fixed `navigate_items` vs `navigate_item` function name mismatch
+- **Safe Command Execution**: Added `safe_execute()` wrapper with error capture
+  - Temporary files for stdout/stderr separation
+  - Formatted error display with context and suggestions
+  - Clean error recovery without terminal disruption
+- **Results Window Error Display**: All errors shown in content area with troubleshooting guidance
+- **Execution Error Wrapping**: Main action execution wrapped in error handlers
+
+**Technical Details**:
+```bash
+# Error handling pattern
+safe_execute() {
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+    if eval "$command" >"$stdout_file" 2>"$stderr_file"; then
+        show_success_results
+    else
+        show_error_results_with_context
+    fi
+    cleanup_temp_files
+}
+```
+
+**Files Modified**:
+- `bash/tview/tview_core.sh` - Fixed navigation function calls, added error wrapping
+- `bash/tview/tview_repl.sh` - Added safe_execute function and error handling
+- `bash/tview/tview_actions.sh` - Enhanced with execution functions
+
+### 📐 **Top-Down Interface Architecture Implementation**
+
+**Problem Solved**: Interface lacked consistent structure, elements overlapped, no clear hierarchy.
+
+**Implementation**:
+- **Strong Topness**: Fixed header always visible with current state
+- **Sticky Bottom Elements**: Status and REPL prompt anchored to bottom
+- **Scrollable Middle Region**: Content area with j/k navigation
+- **Consistent Navigation Pattern**: e/m (env/mode) → i/k (select) → Enter (execute)
+- **Reset Functionality**: 'r' key returns to clean initial state
+
+**User Experience Flow**:
+1. User navigates with e/m to change environment/mode
+2. Action list updates automatically for current context
+3. User selects actions with i/k keys
+4. Enter executes action, results appear in middle region
+5. j/k scrolls results, ESC hides results
+6. 't' enters REPL for advanced commands
+7. 'r' resets to clean state
+
+**Files Modified**:
+- `bash/tview/tview_layout.sh` - NEW: Complete layout management
+- `bash/tview/tview_core.sh` - Updated input handling for new architecture
+
+## Previous Changes (2025-09-22 - TView Modular Architecture Refactor & Smart Drill System)
 
 ### 🏗️ **Complete TView Modular Architecture Refactor**
 **Problem Solved**: TView core was becoming unwieldy at 1072 lines with multiple responsibilities mixed together, making maintenance and extension difficult.
@@ -48,497 +162,213 @@ TKM:DEV       → SSH as root for key management
 ORG:PROD      → Deploy organization config to production
 ```
 
-### 🎮 **Enhanced Navigation & Input Handling**
-**Problem Solved**: Input mode switching between gamepad and REPL was causing UI hangs and poor transitions.
+### 🗂️ **Organization Management Integration**
+**Problem Solved**: No streamlined way to manage multi-organization infrastructure from within TView.
 
 **Implementation**:
-- **Vim-like ESC Behavior**: ESC always returns to gamepad navigation mode (idempotent)
-- **Dedicated REPL Key**: Backtick/tilde (`~`) enters REPL mode
-- **Improved Input Handling**: Better separation between single-character and line input modes
-- **Modal Timeout Fixes**: Simplified modal reader with 5-second auto-exit
+- **Organization Selection REPL**: Interactive org switching with status display
+- **File Editor REPL**: Direct editing of organization configuration files
+- **Symlink Management**: Automatic tetra.toml symlink creation and management
+- **Template Integration**: Access to organization templates from within TView
 
-**Navigation Model**:
-- **ESC**: Always return to gamepad mode (like vim normal mode)
-- **`** or **~**: Enter REPL mode for command-line interface
-- **awsd**: Context-aware navigation (different behavior per mode)
-- **ijkl**: Preserved joystick-style navigation and drilling
+**REPL Features**:
+- Number-based organization selection (1, 2, 3)
+- Name-based switching (`switch pixeljam_arcade`)
+- File editing with syntax validation (`edit tetra.toml`)
+- Organization creation from templates (`create new_org`)
 
-### 🖥️ **80x24 Terminal Optimization**
-**Problem Solved**: TView display was optimized for larger terminals but crowded on standard 80x24 terminals.
+### 📐 **80x24 Terminal Optimization**
+**Problem Solved**: TView interface was not optimized for standard 80x24 terminal dimensions.
 
 **Implementation**:
-- **Compact Header**: Single-line title with organization name
-- **Combined Navigation**: Environment and Mode on one line separated by `|`
-- **Reduced Spacing**: Eliminated unnecessary empty lines from content sections
-- **Compact Help**: One-line navigation prompts with shorthand notation
+- **Compact Display Design**: Optimized content layout for 80-column width
+- **Vertical Space Efficiency**: Maximum information density in 24 lines
+- **Responsive Rendering**: Dynamic adjustment to terminal dimensions
+- **Clean Information Hierarchy**: Clear visual separation without excessive decoration
 
-**Display Improvements**:
+### ⚡ **QA Environment Integration**
+**Problem Solved**: Missing QA environment support for complete dev/staging/prod/qa pipeline.
+
+**Implementation**:
+- **Complete QA Environment Support**: Added QA to all TView modes and navigation
+- **Environment Cycling**: Updated to include QA in environment rotation
+- **SSH Connectivity**: QA environment SSH testing and connection support
+- **Organization Templates**: Updated shared-infrastructure template with QA configuration
+
+**QA Integration Points**:
+- **Environment Navigation**: SYSTEM → LOCAL → DEV → STAGING → PROD → QA
+- **Mode Support**: QA environment available in all modes (TOML, TKM, TSM, DEPLOY, ORG)
+- **SSH Configuration**: QA-specific SSH users, domains, and connection testing
+- **Service Management**: QA service definitions and deployment configurations
+
+---
+
+## 2025-09-22 - TETRA_ACTIVE_ORG Environment Variable Implementation
+
+### 🎯 **Simplified Organization Detection**
+**Problem Solved**: Complex symlink parsing was inelegant and hard to maintain.
+
+**Implementation**:
+- **Environment Variable Approach**: `TETRA_ACTIVE_ORG=pixeljam_arcade`
+- **Persistence File**: `config/active_org` for session restoration
+- **Direct Path Access**: `orgs/$TETRA_ACTIVE_ORG/tetra.toml`
+- **Backward Compatibility**: Falls back to old symlink system during transition
+
+**Benefits**:
+- **Elegance**: Direct variable access vs symlink path parsing
+- **Performance**: No `readlink` calls needed
+- **Future-Ready**: Clean access to bundle/nginx files
+- **Simplicity**: One source of truth for active org
+
+---
+
+## 2025-09-22 - TKM Four Amigos SSH Enhancement
+
+### 🚀 **Four Amigos SSH Command Center**
+**Problem Solved**: TKM was basic key management without operational SSH command visibility.
+
+**Implementation**:
+- **Four Amigos Overview**: Single view showing LOCAL, DEV, STAGING, PROD SSH commands
+- **Machine Name Annotations**: Commands show actual server names from TOML
+- **Environment-Specific Commands**: Context-aware command suggestions per environment
+- **Unified Service Model**: All environments use `tetra.service` with TSM distinction
+
+**TKM:SYSTEM Display**:
 ```
-TVIEW pixeljam-arcade                           [Line 1]
-Env: SYSTEM [LOCAL] DEV | Mode: [TKM] TSM       [Line 2]
-────────────────────────────────────────────    [Line 3]
-[Content area - 18 lines available]             [Lines 4-21]
-Status: TKM - LOCAL (item 1/3)                  [Line 23]
-NAV> e/m=env/mode i/k=items l=drill | ESC=nav   [Line 24]
+TKM - Four Amigos SSH Command Center
+
+Four Amigos Quick Access:
+ssh root@localhost 'cmd'                    # machine=localhost (local)
+ssh root@137.184.226.163 'cmd'          # machine=pxjam-arcade-dev01 (dev)
+ssh root@137.184.226.163 'cmd'      # machine=pxjam-arcade-qa01 (staging)
+ssh root@137.184.226.163 'cmd'         # machine=pxjam-arcade-prod01 (prod)
+
+Common Commands (replace 'cmd'):
+  systemctl status tetra.service
+  systemctl restart tetra.service
+  systemctl restart nginx
+  df -h | head -10
+  ps aux | grep node
+  tsm list
+  tail -f /var/log/nginx/access.log
 ```
 
-### 🔧 **Organization Selection & Management REPL**
-**Problem Solved**: No easy way to switch between organizations or manage organization files from within TView.
+**Environment-Specific Commands**:
+- **DEV**: `systemctl restart tetra.service`, `tsm list | grep dev`
+- **STAGING**: `systemctl status tetra.service`, `nginx -t && systemctl reload nginx`
+- **PROD**: `systemctl status tetra.service`, `top -bn1 | head -20`
+- **QA**: `systemctl restart tetra.service`, `tsm list | grep qa`
+
+---
+
+## 2025-09-22 - Configuration at a Distance: Named Command System
+
+### 🔧 **Named Command Building Blocks**
+**Problem Solved**: Need for standardized, reusable SSH command primitives for remote configuration.
 
 **Implementation**:
-- **Organization Selection Interface**: List, switch, create, and manage organizations
-- **File Editor REPL**: Edit tetra.toml, custom.toml, and other org files with validation
-- **Symlink Management**: Create and manage symlinks for active organization
-- **TOML Validation**: Built-in syntax validation before saving changes
+- **Associative Array Command Registry**: Global command definitions with names
+- **Configurable Tetra Path**: `TETRA_PATH` variable for different tetra versions
+- **Environment-Specific Templates**: Per-environment command variations
+- **SSH Integration Ready**: Commands designed for remote execution consistency
 
-**REPL Commands**:
+**Command Registry Architecture**:
 ```bash
-# Organization Selection REPL (triggered by drilling into TOML:SYSTEM)
-org> 1                    # Switch to organization by number
-org> switch pixeljam      # Switch by name
-org> create neworg        # Create new organization
-org> edit pixeljam        # Open file editor for organization
-org> link pixeljam        # Create symlink to organization
-org> unlink               # Remove current symlink
+# Global command registry with configurable tetra path
+declare -A TETRA_COMMANDS
+TETRA_PATH="${TETRA_PATH:-~/tetra/tetra.sh}"
 
-# File Editor REPL (triggered by drilling into TOML:LOCAL)
-edit:org> edit tetra.toml     # Edit main config file
-edit:org> view custom.toml    # View customization file
-edit:org> validate            # Validate TOML syntax
-edit:org> cd                  # Open shell in org directory
+# Command building blocks
+TETRA_COMMANDS["system_status"]="source $TETRA_PATH; systemctl status tetra.service"
+TETRA_COMMANDS["service_list"]="source $TETRA_PATH; tsm list"
+TETRA_COMMANDS["service_health"]="source $TETRA_PATH; tsm health"
+TETRA_COMMANDS["disk_usage"]="df -h | head -10"
+TETRA_COMMANDS["memory_info"]="free -h"
+TETRA_COMMANDS["nginx_test"]="nginx -t"
+TETRA_COMMANDS["nginx_reload"]="systemctl reload nginx"
+TETRA_COMMANDS["log_tail"]="tail -20 /var/log/nginx/error.log"
 ```
 
-**Files Modified**:
-- `bash/tview/tview_core.sh` - Reduced to 289 lines with module loading
-- `bash/tview/tview_repl.sh` - NEW: All REPL interfaces and organization management
-- `bash/tview/tview_hooks.sh` - NEW: Smart drill actions and context triggers
-- `bash/tview/tview_navigation.sh` - NEW: Navigation functions and AWSD logic
-- `bash/tview/tview_render.sh` - Compact header and 80x24 optimization
+**Environment-Specific Command Templates**:
+```bash
+# Per-environment command variations
+declare -A DEV_COMMANDS=(
+    ["restart_services"]="source $TETRA_PATH; tsm restart dev"
+    ["deploy_config"]="source $TETRA_PATH; ngm deploy dev"
+    ["view_logs"]="tail -f /var/log/tetra/dev.log"
+)
 
-**System Benefits**:
-- ✅ 73% reduction in core file size (1072 → 289 lines)
-- ✅ Clear separation of concerns across modules
-- ✅ Smart context-aware drill behaviors
-- ✅ Vim-like ESC behavior for predictable navigation
-- ✅ Complete organization management from TView
-- ✅ Optimized display for standard 80x24 terminals
-- ✅ Improved modal timeout handling and input transitions
-- ✅ Maintained backward compatibility with all existing features
+declare -A PROD_COMMANDS=(
+    ["restart_services"]="source $TETRA_PATH; systemctl restart tetra.service"
+    ["deploy_config"]="source $TETRA_PATH; ngm deploy prod"
+    ["view_logs"]="journalctl -u tetra.service -f"
+)
+```
 
 ---
 
-## 2025-09-22 - SSH User Display Fix and QA Environment Integration
+## 2025-09-22 - TView UI Architecture Refactor
 
-### 🔧 **SSH User Display Concatenation Fix**
-**Problem Solved**: SSH users were displaying as concatenated strings (e.g., "rootdev") instead of space-separated values (e.g., "root dev").
+### 🎨 **Two-Line Centered Header Design**
+**Problem Solved**: Single-line header was cramped and mode/environment info was hard to read.
 
 **Implementation**:
-- **Array Expansion Fix**: Changed from `${ssh_users[*]}` to `${ssh_users[@]}` in `tview_actions.sh:229`
-- **Proper Space Separation**: SSH users now display correctly with spaces between each user
-- **Maintained Functionality**: All existing SSH user array functionality preserved
+- **Two-Line Layout**: Mode and Environment on separate centered lines
+- **Clean Visual Hierarchy**: Clear separation without borders
+- **Improved Readability**: Centered text for better focus
+- **Space Efficiency**: More room for content below header
 
-**Files Modified**:
-- `bash/tview/tview_actions.sh` - Fixed SSH user array display format
+**New Header Format**:
+```
+                           TKM MODE
+                         DEV ENVIRONMENT
 
-### 🌐 **QA Environment Full Integration**
-**Problem Solved**: QA environment was missing from TView navigation and not properly supported across the system.
+▶ Four Amigos Quick Access:
+  ssh root@localhost 'cmd'           # machine=localhost
+  ssh root@137.184.226.163 'cmd'     # machine=dev-server
+
+ENTER:execute  ↑↓:navigate  ←→:environments  ESC:quit
+```
+
+### ⚡ **React-Like Command State System**
+**Problem Solved**: Need for inline SSH command execution with live results without losing navigation context.
 
 **Implementation**:
-- **Environment Array**: Added "QA" to `ENVIRONMENTS` array in `tview_core.sh`
-- **Case Statement Support**: Added QA to all relevant case statements in `tview_actions.sh`:
-  - `"TOML:QA"` → `show_toml_environment_details "QA"`
-  - `"TSM:DEV"|"TSM:STAGING"|"TSM:PROD"|"TSM:QA"`
-  - `"ORG:DEV"|"ORG:STAGING"|"ORG:PROD"|"ORG:QA"`
-- **SSH Connectivity**: Added QA SSH status checking in `tview_data.sh`
-- **Template Configuration**: Complete QA environment added to `shared-infrastructure.toml`:
-  - QA environment section with dedicated server configuration
-  - QA domain configuration (`qa.pixeljamarcade.com`)
-  - QA SSL certificate paths
-  - QA nginx virtual host configuration
-  - QA service definitions and deployment configuration
+- **Command State Management**: IDLE → EXECUTING → SUCCESS/ERROR → EXPANDED
+- **Async Background Execution**: Commands run without blocking navigation
+- **Inline Result Display**: Results appear within navigation context
+- **State Persistence**: Results remain visible while navigating
 
-**Navigation Enhancement**:
-- QA environment now appears in TView environment cycling: `SYSTEM → LOCAL → DEV → STAGING → PROD → QA`
-- Proper SSH user display and connectivity testing for QA environment
-- Complete infrastructure visibility for QA deployments
+**Command State Display**:
+```
+▶ [system_status]                    [EXECUTING...] ⟳
+  │ ● tetra.service - active (running) since Mon 2025-09-22
+  │   Loaded: loaded (/etc/systemd/system/tetra.service)
+  │   Main PID: 1234 (bash)
 
-**Files Modified**:
-- `bash/tview/tview_actions.sh` - Added QA case support, fixed SSH user display
-- `bash/tview/tview_core.sh` - Added QA to ENVIRONMENTS array
-- `bash/tview/tview_data.sh` - Added QA SSH connectivity check
-- `templates/organizations/shared-infrastructure.toml` - Complete QA environment configuration
+  [service_list]                     [SUCCESS] ✓
+  [disk_usage]                       [IDLE]
+```
 
-**System Benefits**:
-- ✅ Complete QA environment visibility in TView
-- ✅ Proper SSH user display across all environments
-- ✅ Full QA infrastructure configuration support
-- ✅ Consistent environment cycling with QA included
-- ✅ Ready for QA deployment automation
+**State Management System**:
+```bash
+# Global state arrays (React-like state)
+declare -A COMMAND_STATES        # command_id -> state
+declare -A COMMAND_RESULTS       # command_id -> output
+declare -A COMMAND_EXIT_CODES    # command_id -> exit code
+declare -A COMMAND_PIDS          # command_id -> background PID
+declare -A COMMAND_EXPANDED      # command_id -> true/false
+```
 
----
-
-## 2025-09-22 - TView Critical Stability Issues Resolved
-
-### 🔧 **TView Glow Return Path Resolution**
-**Problem Solved**: Users were getting stuck after viewing files with glow and could not return to TView cleanly.
-
+### 🔄 **Async SSH Execution Engine**
 **Implementation**:
-- **Terminal State Preservation**: Added `_tview_save_terminal_state()` and `_tview_restore_terminal_state()` functions using `stty` save/restore
-- **Graceful Fallback Chain**: Implemented robust viewer selection: glow → bat → less → inline highlighting
-- **Error Handling**: Added success/failure detection and user feedback for viewer operations
-- **Terminal Reset**: Proper `tput reset` sequence to restore terminal state after external viewers
-- **Inline Fallback**: Built-in syntax highlighting using `bat --style=plain` or `highlight` when external viewers fail
-
-**Files Modified**:
-- `tview_core.sh`: Enhanced `view_with_glow()` function with terminal state management
-
-### 🎯 **TView Modal Dialog Exit Enhancement**
-**Problem Solved**: Drill-down detailed views (Enter key modals) didn't exit cleanly, trapping users in modal dialogs.
-
-**Implementation**:
-- **Enhanced Exit Function**: New `_tview_modal_read_key()` with multiple exit strategies
-- **Multiple Exit Keys**: Support for ESC, q, Q keys to exit any modal
-- **Auto-timeout**: 30-second automatic exit prevents permanently stuck modals
-- **Consistent Messaging**: Updated all modal dialogs with clear exit instructions
-- **Robust Error Handling**: Handles different terminal configurations and read failures
-
-**Exit Mechanisms**:
-- ESC key (original)
-- q or Q keys (new)
-- 30-second timeout (new)
-- Read failure auto-exit (new)
-
-**Files Modified**:
-- `tview_core.sh`: Added `_tview_modal_read_key()` function
-- `tview_actions.sh`: Updated all modal dialog patterns
-
-**User Experience Improvements**:
-- ✅ 100% reliable return from file viewing operations
-- ✅ No more stuck modal dialogs under any terminal configuration
-- ✅ Clear user feedback with timeout warnings
-- ✅ Graceful degradation when external tools unavailable
-- ✅ Consistent UX across different terminal emulators
-
-### 🎮 **TView Navigation Simplification**
-**Problem Solved**: Complex w,a,s,d key navigation created cognitive overhead and interfered with joystick-style controls.
-
-**Implementation**:
-- **Simplified Environment Cycling**: `e` key cycles through environments (SYSTEM → LOCAL → DEV → STAGING → PROD → QA)
-- **Simplified Mode Cycling**: `m` key cycles through modes (TOML → TKM → TSM → DEPLOY → ORG)
-- **Joystick Controls Preserved**: i,k,j,l keys remain for item navigation and drilling
-- **Removed Complex Navigation**: Eliminated w,a,s,d keys to reduce complexity
-- **Updated Documentation**: Help system reflects simplified navigation model
-
-**Navigation Model**:
-- `e` - Environment cycling (left to right)
-- `m` - Mode cycling (left to right)
-- `i/k` - Item navigation up/down (joystick)
-- `l` - Drill into item (joystick)
-- `j` - Drill out/back (joystick)
-
-**Files Modified**:
-- `tview_core.sh`: Updated key handling to use only e/m for cycling, updated status line help
-- `tview_actions.sh`: Updated help documentation, removed old "tdash" terminology
-
-**User Experience Benefits**:
-- ✅ Reduced cognitive load with fewer navigation keys
-- ✅ Clear mental model: e/m for cycling, i/k/j/l for joystick navigation
-- ✅ Eliminated key conflicts and confusion
-- ✅ Faster navigation through environments and modes
-- ✅ Consistent terminology (tview vs tdash)
-
----
-
-## 2025-09-22 - Enhanced SSH Configuration & Environment Mapping System
-
-### 🔧 **Flexible SSH Configuration Override System**
-Implemented comprehensive SSH configuration system that preserves user customizations across organization imports.
-
-**Key Features:**
-1. **✅ Customization Override Files** - Persistent user preferences in `.customizations.toml`
-2. **✅ Multiple SSH Users** - Support for multiple SSH users per environment (root, dev, staging, production)
-3. **✅ Domain-based SSH** - Prioritize domain connections over IP addresses (user@domain.com)
-4. **✅ Environment Mapping** - Flexible server assignments (staging on prod server)
-5. **✅ Import Preservation** - Customizations preserved during DigitalOcean JSON reimports
-
-**Implementation Details:**
-- **Override File Structure**: `[org_name].customizations.toml` never overwritten by imports
-- **Smart Import Process**: Automatic backup/restore of customizations during imports
-- **Enhanced TView Display**: Multiple SSH connection options displayed per environment
-- **Default Generation**: Sensible defaults created for new organizations
-
-**File Structure:**
-```toml
-[ssh_users]
-dev = ["root", "dev"]
-staging = ["root", "staging"]
-
-[ssh_config]
-dev_domain = "dev.pixeljamarcade.com"
-prefer_domain_ssh = true
-
-[environment_mapping]
-# staging_server_override = "prod_server"
-```
-
-**TView Display Enhancement:**
-- Shows all configured SSH users per environment
-- Displays both IP and domain connection options
-- Prioritizes domain-based SSH when enabled
-- Clean, bold formatting with proper indentation
-
-**System Benefits:**
-- ✅ Preserves manual SSH configurations across imports
-- ✅ Supports complex deployment scenarios (staging on prod)
-- ✅ Enables domain-based SSH workflows
-- ✅ Maintains backward compatibility with existing systems
-
-**Files Modified:**
-- `bash/tview/tview_data.sh` - Added customization loading logic
-- `bash/tview/tview_actions.sh` - Enhanced SSH display functions
-- `bash/org/tetra_org.sh` - Import preservation and default generation
-- Created: Organization customization override files
-
----
-
-## 2025-09-22 - TSM Refactor Phase 1 & 2 Complete
-
-### 🏗️ **Comprehensive TSM Architecture Refactor**
-Completed systematic refactor of TSM (Tetra Service Manager) codebase addressing critical architectural issues and improving modularity.
-
-**Phase 1: Critical Function Deduplication**
-- **Duplicate Functions Removed**: Eliminated `_tsm_start_process()` duplication between tsm_core.sh and tsm_interface.sh
-- **Export Cleanup**: Removed conflicting function exports to prevent namespace collisions
-- **ID Algorithm**: Implemented lowest unused ID generation algorithm in tsm_utils.sh
-- **RAG Cache Issue**: Resolved function override conflicts by moving `/bash/rag/for-llm/` to `/tmp/`
-- **Backup Created**: Full system backup at `tsm_backup_20250921_231440/`
-
-**Phase 2: File Reorganization**
-- **Split tsm_interface.sh**: Reduced from 1,169 lines to 31 lines of coordination
-- **New Modules Created**:
-  - `tsm_validation.sh`: Validation and helper functions (8 functions)
-  - `tsm_process.sh`: Process lifecycle management (10 functions)
-  - `tsm_cli.sh`: CLI command handlers (7 functions)
-- **Updated Loading**: Modified tsm.sh with proper dependency-ordered loading
-- **Backup Preserved**: Original interface saved as `tsm_interface_old.sh`
-
-**Files Modified:**
-- `tsm.sh`: Updated module loading order
-- `tsm_interface.sh`: Reduced to coordination only
-- `tsm_core.sh`: Removed duplicate functions
-- `tsm_utils.sh`: Implemented lowest unused ID algorithm
-- Created: `tsm_validation.sh`, `tsm_process.sh`, `tsm_cli.sh`
-
-**System Impact:**
-- ✅ Backward compatibility maintained
-- ✅ All existing functionality preserved
-- ✅ Improved separation of concerns
-- ✅ Eliminated function conflicts
-- ✅ Clean modular architecture established
-
-**Testing:**
-- System loading verified with proper dependency order
-- All core TSM functions operational
-- Named port registry validation working as expected
-
----
-
-## 2025-09-21 - TSM Error Handling and Diagnostic Improvements
-
-### 🛠️ **Enhanced TSM Error Reporting and Diagnostics**
-Implemented comprehensive error handling improvements based on TSM error report analysis:
-
-**Key Improvements:**
-1. **✅ Detailed Error Messages** - Specific failure reasons instead of generic "failed to start"
-2. **✅ Process Discovery** - Find and manage orphaned TSM processes
-3. **✅ JSON Output Support** - Machine-readable output for LLM agents
-4. **✅ Pre-flight Validation** - Validate commands before execution
-
-**New Diagnostic Commands:**
-```bash
-tsm doctor validate <command> --port <port> --env <file>  # Pre-flight validation
-tsm doctor orphans [--json]                              # Find orphaned processes
-tsm doctor clean                                          # Clean stale tracking files
-tsm list --json                                          # Machine-readable process list
-tsm start --json <command>                               # Structured startup results
-```
-
-**Enhanced Error Context:**
-- Port conflict detection with PID and process details
-- TSM-managed vs external process identification
-- Environment file validation and suggestions
-- Log analysis and recent error detection
-- Actionable remediation steps
-
-**LLM Agent Support:**
-- Structured JSON responses for programmatic parsing
-- Consistent error/success format across commands
-- Diagnostic information embedded in error responses
-- Pre-flight validation to prevent startup failures
-
-### 🌐 **HTTP-to-Bash API Architecture**
-Designed comprehensive REST API system for web interface control of all Tetra modules:
-
-**Universal Execution Engine:**
-- HTTP-to-Bash execution pattern for any Tetra module
-- Standardized JSON response format with error classification
-- Real-time monitoring via Server-Sent Events
-- WebSocket support for interactive sessions
-
-**Health & Monitoring System:**
-```bash
-GET /api/ping                    # Basic ping/pong response
-GET /api/health/deep            # Comprehensive system health
-GET /api/health/modules         # Module availability check
-GET /api/monitor/events         # Real-time process monitoring
-```
-
-**Error Classification Engine:**
-- PORT_CONFLICT → Specific remediation suggestions
-- COMMAND_NOT_FOUND → Installation guidance
-- PERMISSION_DENIED → Access troubleshooting
-- TIMEOUT → Resource optimization tips
-
-**Security & Performance:**
-- API key authentication for sensitive operations
-- Command sanitization preventing injection attacks
-- Rate limiting for resource-intensive operations
-- Module health checks with automatic monitoring
-
-### 🎮 **Enhanced TSM REPL Interface**
-Upgraded interactive REPL with comprehensive diagnostic capabilities:
-
-**New Diagnostic Commands:**
-```bash
-/orphans          # Find potentially orphaned processes
-/clean            # Clean up stale process tracking
-/validate <cmd>   # Pre-flight command validation
-/doctor [args]    # System health diagnostics
-/json <cmd>       # Execute commands with JSON output
-```
-
-**Improved Workflow:**
-- Real-time diagnostic feedback
-- Interactive exploration of system state
-- Built-in help for all new features
-- Command history and output caching
-
-**Documentation Integration:**
-- Updated TSM manual with comprehensive diagnostic coverage
-- Enhanced built-in help system
-- Layered documentation strategy (changes → manual → REPL help)
-
----
-
-## 2025-09-21 - Completed High Priority Features and Testing Infrastructure
-
-### 🎯 **Major Achievements**
-All 5 high-priority tasks from `docs/next.md` have been successfully completed:
-
-1. **✅ TSM Service Start Functions Integration** - Complete integration with named port registry
-2. **✅ Named Port Registry Management** - Full command suite for port management
-3. **✅ Service Definition Integration** - Named ports integrated with .tsm.sh files
-4. **✅ TDash ORG Mode Implementation** - Modal interface system
-5. **✅ Systemd Integration Tests** - Production-ready test suite
-
-### 🔧 **TSM Named Port Registry System**
-**Complete Implementation of Port Priority Resolution:**
-- **Explicit --port flag** (highest priority)
-- **PORT from environment file** (second priority)
-- **Named port registry** (third priority - NEW)
-- **Default port 3000** (fallback)
-
-**New Commands Added:**
-```bash
-tsm ports list                    # List all named ports
-tsm ports set <service> <port>    # Add/update port assignment
-tsm ports remove <service>        # Remove service from registry
-tsm ports export                  # Generate environment files
-tsm ports conflicts               # Check for port conflicts
-tsm ports scan                    # Show port status with PIDs
-tsm ports validate               # Validate registry integrity
-```
-
-**Named Port Assignments:**
-- **devpages: 4000** - Development pages application
-- **tetra: 4444** - Tetra system services
-- **arcade: 8400** - Arcade gaming platform
-- **pbase: 2600** - PocketBase database services
-
-### 📊 **TDash Modal Interface**
-**Enhanced dashboard interface:**
-**TOML** ← → **TKM** ← → **TSM** ← → **DEPLOY** ← → **ORG**
-
-**New ORG Mode Features:**
-- **ORG:SYSTEM** - Organization overview and management
-- **ORG:LOCAL** - Create, switch, and configure organizations
-- **ORG:DEV/STAGING/PROD** - Organization config push/pull to environments
-- Organization listing with active indicator
-- Multi-client infrastructure support ready
-
-### 🧪 **Testing Infrastructure**
-**Complete test suite covering all systemd integration requirements:**
-
-**Test Suites Created:**
-- `test_systemd_simple.sh` - Basic systemd component validation (✅ 100%)
-- `test_tsm_service_management_comprehensive.sh` - Service management (✅ 83%)
-- `test_environment_management_comprehensive.sh` - Environment workflow
-- `test_template_validation_comprehensive.sh` - Template validation (✅ 71%)
-- `run_all_comprehensive_tests.sh` - Master test runner
-
-**Testing Coverage:**
-- 🔧 **Systemd Integration** - Daemon startup, service discovery, monitoring loop
-- ⚙️ **TSM Service Management** - Save, enable/disable, persistence, validation
-- 🌍 **Environment Management** - Promotion workflow, adaptations, backup creation
-- 📋 **Template Validation** - SystemD services, nginx configs, security settings
-- 🏢 **Organization System** - Multi-client infrastructure support
-- 📊 **TDash Integration** - Modal dashboard
-- 🔒 **Security Management** - Environment templates, secret handling
-
-### 🏗️ **Documentation Reorganization**
-**New Documentation Structure:**
-```
-docs/
-├── changes.md              # Current changes (this file)
-├── changes-past.md          # Historical changes (moved from change-log.md)
-├── next.md                 # Future roadmap and priorities
-├── index.md                # Documentation index and overview
-├── legacy/                 # Legacy documentation files
-├── reference/              # Reference materials and manual
-└── workflow/               # Workflow documentation
-```
-
-### 🔧 **Technical Improvements**
-- **Module Loading Refactor** - Dependency-ordered loading with no circular dependencies
-- **Global State Management** - Proper associative array initialization
-- **Port Resolution Integration** - Service definitions auto-resolve from named registry
-- **Cross-Platform Testing** - Mock mode for Darwin, native Linux systemd support
-- **Template Security** - Production templates with security hardening
-- **Error Handling** - Input validation and error messages
-
-### 🎉 **Production Readiness**
-The Tetra system is now production-ready with:
-- ✅ Complete systemd daemon integration
-- ✅ Robust service management with persistence
-- ✅ Environment promotion workflow (dev → staging → prod)
-- ✅ Testing suite
-- ✅ Multi-organization infrastructure support
-- ✅ Modal dashboard interface
-
-**Deployment Commands:**
-```bash
-# Install systemd service (Linux):
-sudo ln -s $TETRA_SRC/systemd/tetra.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable tetra.service
-sudo systemctl start tetra.service
-
-# Monitor service:
-sudo systemctl status tetra.service
-sudo journalctl -u tetra.service -f
-```
-
----
-
-*For historical changes, see [changes-past.md](changes-past.md)*
-*For future roadmap, see [next.md](next.md)*
+- **Background SSH Execution**: Non-blocking remote command execution
+- **Real-time State Updates**: Live progress and result display
+- **Cancellable Operations**: ESC to cancel long-running commands
+- **Connection Consistency**: SSH connection reuse and proper error handling
+
+**Benefits**:
+- **No Context Loss**: Stay in navigation mode, see results inline
+- **Operational Efficiency**: Quick SSH operations without terminal switching
+- **Live Operations Dashboard**: Real-time server monitoring within TView
+- **React-like Responsiveness**: Smooth, responsive interface with async operations

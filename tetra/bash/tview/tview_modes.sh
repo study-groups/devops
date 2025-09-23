@@ -2,6 +2,110 @@
 
 # TView Mode Renderers - Mode and environment specific content displays
 
+# ===== RCM MODE RENDER FUNCTIONS =====
+
+render_rcm_system() {
+    cat << EOF
+
+RCM - Remote Command Execution Overview
+
+Remote Access Profiles (Top 3 Per Environment):
+$(rcm_show_top_user_prefixes)
+
+Command Categories ($(echo "${!RCM_COMMANDS[@]}" | wc -w) total commands):
+$(highlight_line "File System: home_directory, log_directory, nginx_config_dir, tetra_workspace" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Configuration: active_config, nginx_main_config, system_hosts, user_profile" "$(is_current_item 1)" "$GREEN")
+$(highlight_line "Monitoring: nginx_errors, nginx_access, system_log, running_processes" "$(is_current_item 2)" "$GREEN")
+$(highlight_line "System Info: disk_usage, memory_info, network_connections, system_uptime" "$(is_current_item 3)" "$GREEN")
+
+Current Selection: $CURRENT_RCM_ENV
+$(highlight_line "${ENV_COMMENTS[$CURRENT_RCM_ENV]:-No description available}" "$(is_current_item 4)" "$YELLOW")
+
+EOF
+}
+
+render_rcm_local() {
+    cat << EOF
+
+RCM - Local Command Execution
+
+Current Environment: LOCAL (Direct execution)
+SSH Prefix: ${CURRENT_SSH_PREFIXES[local]:-"(none - direct execution)"}
+
+Available Commands:
+$(rcm_render_command_list "local")
+
+EOF
+}
+
+render_rcm_dev() {
+    cat << EOF
+
+RCM - DEV Environment Commands
+
+Current Environment: $CURRENT_RCM_ENV
+SSH Prefix: ${CURRENT_SSH_PREFIXES[$CURRENT_RCM_ENV]:-"Not configured"}
+$(if [[ "$RCM_EDITING_MODE" == "true" && "$RCM_EDIT_ENV" == "$CURRENT_RCM_ENV" ]]; then
+    echo "EDITING> $RCM_EDIT_BUFFER"
+fi)
+
+Available Commands:
+$(rcm_render_command_list "$CURRENT_RCM_ENV")
+
+EOF
+}
+
+render_rcm_staging() {
+    cat << EOF
+
+RCM - STAGING Environment Commands
+
+Current Environment: $CURRENT_RCM_ENV
+SSH Prefix: ${CURRENT_SSH_PREFIXES[$CURRENT_RCM_ENV]:-"Not configured"}
+$(if [[ "$RCM_EDITING_MODE" == "true" && "$RCM_EDIT_ENV" == "$CURRENT_RCM_ENV" ]]; then
+    echo "EDITING> $RCM_EDIT_BUFFER"
+fi)
+
+Available Commands:
+$(rcm_render_command_list "$CURRENT_RCM_ENV")
+
+EOF
+}
+
+render_rcm_prod() {
+    cat << EOF
+
+RCM - PROD Environment Commands
+
+Current Environment: $CURRENT_RCM_ENV
+SSH Prefix: ${CURRENT_SSH_PREFIXES[$CURRENT_RCM_ENV]:-"Not configured"}
+$(if [[ "$RCM_EDITING_MODE" == "true" && "$RCM_EDIT_ENV" == "$CURRENT_RCM_ENV" ]]; then
+    echo "EDITING> $RCM_EDIT_BUFFER"
+fi)
+
+Available Commands:
+$(rcm_render_command_list "$CURRENT_RCM_ENV")
+
+EOF
+}
+
+render_rcm_qa() {
+    cat << EOF
+
+RCM - QA Environment Commands
+
+Current Environment: $CURRENT_RCM_ENV
+SSH Prefix: ${CURRENT_SSH_PREFIXES[$CURRENT_RCM_ENV]:-"Not configured"}
+$(if [[ "$RCM_EDITING_MODE" == "true" && "$RCM_EDIT_ENV" == "$CURRENT_RCM_ENV" ]]; then
+    echo "EDITING> $RCM_EDIT_BUFFER"
+fi)
+
+Available Commands:
+$(rcm_render_command_list "$CURRENT_RCM_ENV")
+
+EOF
+}
+
 # ===== TOML MODE RENDER FUNCTIONS =====
 
 render_toml_system() {
@@ -98,22 +202,33 @@ EOF
 render_tkm_system() {
     cat << EOF
 
-TKM - Four Amigos SSH Command Center
+$(colorize_mode "TKM" "TKM") - Four Amigos SSH Access Matrix
 
-$(highlight_line "Four Amigos Quick Access:" "$(is_current_item 0)" "$CYAN")
-$(highlight_line "ssh root@localhost 'cmd'                    # machine=localhost (local)" "$(is_current_item 1)" "$GREEN")
-$(highlight_line "ssh root@${DEV_IP:-unknown} 'cmd'          # machine=${DEV_SERVER:-unknown} (dev)" "$(is_current_item 2)" "$GREEN")
-$(highlight_line "ssh root@${STAGING_IP:-unknown} 'cmd'      # machine=${STAGING_SERVER:-unknown} (staging)" "$(is_current_item 3)" "$YELLOW")
-$(highlight_line "ssh root@${PROD_IP:-unknown} 'cmd'         # machine=${PROD_SERVER:-unknown} (prod)" "$(is_current_item 4)" "$RED")
+$(highlight_line "$(colorize_env "LOCAL" "LOCAL") Environment: $(render_status_indicator "success" "Direct Access")" "$(is_current_item 0)" "$(get_env_color "LOCAL")")
+$(highlight_line "  ${ACTION_SSH_COLOR}mricos@m2.local${COLOR_RESET} ${UI_MUTED_COLOR}(direct connection)${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${UI_MUTED_COLOR}# Local development machine${COLOR_RESET}" "false" "$COLOR_WHITE")
 
-Common Commands (replace 'cmd'):
-  systemctl status tetra.service
-  systemctl restart tetra.service
-  systemctl restart nginx
-  df -h | head -10
-  ps aux | grep node
-  tsm list
-  tail -f /var/log/nginx/access.log
+$(highlight_line "$(colorize_env "DEV" "DEV") Environment: $(render_status_indicator "connected" "SSH Ready")" "$(is_current_item 1)" "$(get_env_color "DEV")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@dev.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_SERVICE_COLOR}tetra@dev.pixeljamarcade.com${COLOR_RESET}    ${UI_MUTED_COLOR}# Service user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@dev.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+
+$(highlight_line "$(colorize_env "STAGING" "STAGING") Environment: $(render_status_indicator "warning" "Staging Access")" "$(is_current_item 2)" "$(get_env_color "STAGING")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@staging.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@staging.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@staging.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+
+$(highlight_line "$(colorize_env "PROD" "PROD") Environment: $(render_status_indicator "error" "Production Access")" "$(is_current_item 3)" "$(get_env_color "PROD")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@prod.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@prod.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@prod.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+
+$(highlight_line "$(colorize_env "QA" "QA") Environment: $(render_status_indicator "info" "QA Access")" "$(is_current_item 4)" "$(get_env_color "QA")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@qa.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@qa.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# QA testing user${COLOR_RESET}" "false" "$COLOR_WHITE")
+
+$(highlight_line "Key Operations: $(render_status_indicator "pending" "Management Ready")" "$(is_current_item 5)" "$MODE_TKM_COLOR")
+$(highlight_line "  ${UI_MUTED_COLOR}SSH key rotation, authentication testing, access control${COLOR_RESET}" "false" "$UI_MUTED_COLOR")
 
 EOF
 }
@@ -185,61 +300,150 @@ EOF
 }
 
 render_tsm_local() {
+    # Check local service status
+    local service_result="$(render_status_indicator "info" "Local Services")"
+    local config_result="$(render_status_indicator "success" "Configuration Ready")"
+
     cat << EOF
 
-TSM - Local Services
+$(colorize_mode "TSM" "TSM") - $(colorize_env "LOCAL" "LOCAL") Services
+
+$(highlight_line "Service Manager: $service_result" "$(is_current_item 0)" "$ENV_LOCAL_COLOR")
+$(highlight_line "Configuration: $config_result" "$(is_current_item 1)" "$MODE_TSM_COLOR")
+$(highlight_line "Service List: $(render_status_indicator "pending" "Loading...")" "$(is_current_item 2)" "$ACTION_SERVICE_COLOR")
+$(highlight_line "Local Logs: $(render_status_indicator "info" "Ready")" "$(is_current_item 3)" "$ACTION_VIEW_COLOR")
+
+Environment: $(colorize_env "LOCAL" "LOCAL")
+Path: $(colorize_status "~/tetra/services/" "info")
+
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to run, ${COLOR_BOLD}t${COLOR_RESET} for TSM REPL
 
 EOF
-
-    if [[ -n "$TSM_SERVICES" ]]; then
-        local service_index=0
-        echo "$TSM_SERVICES" | while IFS= read -r line; do
-            highlight_line "$line" "$(is_current_item $service_index)" "$CYAN"
-            ((service_index++))
-        done
-    else
-        highlight_line "No services currently running" "$(is_current_item 0)" "$YELLOW"
-    fi
-
-    echo
-    echo "Local services managed by TSM."
 }
 
 render_tsm_dev() {
+    # Test SSH connectivity in real-time
+    local ssh_result=""
+    if timeout 2 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "echo 'ok'" >/dev/null 2>&1; then
+        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
+    else
+        ssh_result="$(render_status_indicator "disconnected" "SSH Failed")"
+    fi
+
+    # Get service status
+    local service_result=""
+    if [[ "$ssh_result" == *"SSH Ready"* ]]; then
+        local tetra_status=$(timeout 3 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "systemctl is-active tetra.service 2>/dev/null || echo 'inactive'")
+        if [[ "$tetra_status" == "active" ]]; then
+            service_result="$(render_status_indicator "active" "tetra.service running")"
+        else
+            service_result="$(render_status_indicator "inactive" "tetra.service $tetra_status")"
+        fi
+    else
+        service_result="$(render_status_indicator "error" "Cannot check (SSH failed)")"
+    fi
+
     cat << EOF
 
-TSM - DEV Services
+TSM - $(colorize_env "DEV" "DEV") Services
 
-$(highlight_line "SSH Status: ${DEV_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${DEV_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Remote Services: ${DEV_SERVICE_STATUS:-Unknown}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "SSH Status: $ssh_result" "$(is_current_item 0)" "$(get_status_color "info")")
+$(highlight_line "Service Status: $service_result" "$(is_current_item 1)" "$(get_status_color "info")")
+$(highlight_line "Quick Actions: $(colorize_status "tsm list" "info"), $(colorize_status "systemctl status tetra.service" "info")" "$(is_current_item 2)" "$(get_mode_color "TSM")")
+$(highlight_line "Service Logs: $(colorize_status "tail -f /var/log/tetra/tetra.log" "info")" "$(is_current_item 3)" "$(get_action_color "view")")
 
-Remote service management on development server.
+Server: $(colorize_env "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "DEV")
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to run, ${COLOR_BOLD}t${COLOR_RESET} for TSM REPL
 
 EOF
 }
 
 render_tsm_staging() {
+    # Test SSH connectivity and get service status
+    local ssh_result env_lower="staging"
+    local ssh_prefix="${CURRENT_SSH_PREFIXES[staging_root]:-ssh root@staging.pixeljamarcade.com}"
+
+    if timeout 2 ${ssh_prefix#ssh } "echo 'ok'" >/dev/null 2>&1; then
+        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
+    else
+        ssh_result="$(render_status_indicator "error" "SSH Failed")"
+    fi
+
+    local service_result="$(render_status_indicator "info" "Service Check")"
+
     cat << EOF
 
-TSM - STAGING Services
+$(colorize_mode "TSM" "TSM") - $(colorize_env "STAGING" "STAGING") Services
 
-$(highlight_line "SSH Status: ${STAGING_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${STAGING_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Remote Services: ${STAGING_SERVICE_STATUS:-Unknown}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "SSH Test: $ssh_result" "$(is_current_item 0)" "$ENV_STAGING_COLOR")
+$(highlight_line "Service Status: $service_result" "$(is_current_item 1)" "$MODE_TSM_COLOR")
+$(highlight_line "Service List: $(render_status_indicator "pending" "Loading...")" "$(is_current_item 2)" "$ACTION_SERVICE_COLOR")
+$(highlight_line "Log Tail: $(render_status_indicator "info" "Ready")" "$(is_current_item 3)" "$ACTION_VIEW_COLOR")
 
-Remote service management on staging server.
+Environment: $(colorize_env "STAGING" "STAGING")
+SSH: $(colorize_status "$ssh_prefix" "info")
+
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to run, ${COLOR_BOLD}t${COLOR_RESET} for TSM REPL
 
 EOF
 }
 
 render_tsm_prod() {
+    # Test SSH connectivity and get service status
+    local ssh_result env_lower="prod"
+    local ssh_prefix="${CURRENT_SSH_PREFIXES[prod_root]:-ssh root@prod.pixeljamarcade.com}"
+
+    if timeout 2 ${ssh_prefix#ssh } "echo 'ok'" >/dev/null 2>&1; then
+        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
+    else
+        ssh_result="$(render_status_indicator "error" "SSH Failed")"
+    fi
+
+    local service_result="$(render_status_indicator "warning" "Prod Check")"
+
     cat << EOF
 
-TSM - PROD Services
+$(colorize_mode "TSM" "TSM") - $(colorize_env "PROD" "PROD") Services
 
-$(highlight_line "SSH Status: ${PROD_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${PROD_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Remote Services: ${PROD_SERVICE_STATUS:-Unknown}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "SSH Test: $ssh_result" "$(is_current_item 0)" "$ENV_PROD_COLOR")
+$(highlight_line "Service Status: $service_result" "$(is_current_item 1)" "$MODE_TSM_COLOR")
+$(highlight_line "Service List: $(render_status_indicator "pending" "Loading...")" "$(is_current_item 2)" "$ACTION_SERVICE_COLOR")
+$(highlight_line "Log Tail: $(render_status_indicator "info" "Ready")" "$(is_current_item 3)" "$ACTION_VIEW_COLOR")
 
-Remote service management on production server.
+Environment: $(colorize_env "PROD" "PROD")
+SSH: $(colorize_status "$ssh_prefix" "warning")
+
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to run, ${COLOR_BOLD}t${COLOR_RESET} for TSM REPL
+
+EOF
+}
+
+render_tsm_qa() {
+    # Test SSH connectivity and get service status
+    local ssh_result env_lower="qa"
+    local ssh_prefix="${CURRENT_SSH_PREFIXES[qa_root]:-ssh root@qa.pixeljamarcade.com}"
+
+    if timeout 2 ${ssh_prefix#ssh } "echo 'ok'" >/dev/null 2>&1; then
+        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
+    else
+        ssh_result="$(render_status_indicator "error" "SSH Failed")"
+    fi
+
+    local service_result="$(render_status_indicator "info" "QA Check")"
+
+    cat << EOF
+
+$(colorize_mode "TSM" "TSM") - $(colorize_env "QA" "QA") Services
+
+$(highlight_line "SSH Test: $ssh_result" "$(is_current_item 0)" "$ENV_QA_COLOR")
+$(highlight_line "Service Status: $service_result" "$(is_current_item 1)" "$MODE_TSM_COLOR")
+$(highlight_line "Service List: $(render_status_indicator "pending" "Loading...")" "$(is_current_item 2)" "$ACTION_SERVICE_COLOR")
+$(highlight_line "Log Tail: $(render_status_indicator "info" "Ready")" "$(is_current_item 3)" "$ACTION_VIEW_COLOR")
+
+Environment: $(colorize_env "QA" "QA")
+SSH: $(colorize_status "$ssh_prefix" "info")
+
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to run, ${COLOR_BOLD}t${COLOR_RESET} for TSM REPL
 
 EOF
 }
