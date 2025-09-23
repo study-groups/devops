@@ -266,3 +266,86 @@ EOF
 
 # Ensure the tsm function takes precedence over any alias
 unalias tsm 2>/dev/null || true
+
+# ===== TVIEW INTEGRATION FUNCTIONS =====
+# These functions implement the Tetra Module Agreement for TView integration
+
+# Return available TView commands for this module
+tsm_tview_commands() {
+    cat << 'EOF'
+TSM Service Manager TView Commands:
+  list         List all running services
+  status       Show service status
+  start        Start a service
+  stop         Stop a service
+  restart      Restart a service
+  logs         Show service logs
+  doctor       Run diagnostics
+  ports        Show port assignments
+EOF
+}
+
+# Handle TView command routing for TSM
+tsm_tview_dispatch() {
+    local command="$1"
+    shift || true
+
+    case "$command" in
+        ""|"help")
+            tsm_tview_commands
+            ;;
+        "list"|"status"|"start"|"stop"|"restart"|"logs"|"doctor"|"ports")
+            # Route to main TSM function
+            tsm "$command" "$@"
+            ;;
+        *)
+            echo "TSM TView Error: Unknown command '$command'"
+            echo ""
+            tsm_tview_commands
+            return 1
+            ;;
+    esac
+}
+
+# TView-specific status command for enhanced display
+tsm_tview_status() {
+    echo "TSM Service Manager Status"
+    echo "=========================="
+    echo ""
+
+    # Show process count
+    local process_count=$(tsm list 2>/dev/null | grep -c "TSM ID" || echo "0")
+    echo "Active Services: $process_count"
+
+    # Show recent activity
+    if [[ -f "$TSM_DIR/logs/tsm.log" ]]; then
+        echo ""
+        echo "Recent Activity:"
+        tail -5 "$TSM_DIR/logs/tsm.log" 2>/dev/null || echo "No recent activity"
+    fi
+
+    echo ""
+    echo "Commands: Use '/tsm help' for available commands"
+}
+
+# TView-specific list command for compact display
+tsm_tview_list() {
+    echo "Active TSM Services:"
+    echo "==================="
+
+    if ! tsm list 2>/dev/null | grep -q "TSM ID"; then
+        echo "No services currently running"
+        echo ""
+        echo "Start services with: /tsm start <service>"
+        return 0
+    fi
+
+    # Show compact list
+    tsm list | head -20
+
+    local total=$(tsm list 2>/dev/null | grep -c "TSM ID" || echo "0")
+    if [[ $total -gt 20 ]]; then
+        echo "... and $((total - 20)) more services"
+        echo "Use 'tsm list' in full terminal for complete list"
+    fi
+}

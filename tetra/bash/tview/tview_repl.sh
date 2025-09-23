@@ -3,9 +3,19 @@
 # TView REPL - All REPL interfaces for TView
 # Contains: TSM REPL integration, Organization selection, File editing
 
-# Handle REPL (line) input for main tview REPL
+# Enhanced REPL dispatcher with module discovery and routing
 handle_repl_input() {
     local input="$1"
+
+    # Parse module and command from input
+    local module=""
+    local command=""
+    local args=""
+
+    if [[ "$input" =~ ^/([a-zA-Z]+)([[:space:]]+(.*))?$ ]]; then
+        module="${BASH_REMATCH[1]}"
+        command="${BASH_REMATCH[3]}"
+    fi
 
     case "$input" in
         /tview)
@@ -17,66 +27,291 @@ handle_repl_input() {
             exit 0
             ;;
         /help)
-            local help_output="TView REPL Commands:
-  /tview    Return to gamepad navigation mode
-  /exit     Exit TView completely
-  /help     Show this help
+            show_repl_help
+            ;;
+        /modules)
+            show_available_modules
+            ;;
+        /*)
+            # Route to module dispatcher
+            if [[ -n "$module" ]]; then
+                dispatch_to_module "$module" "$command" "$args"
+            else
+                show_repl_results "Error: Invalid command format. Use /help for available commands."
+            fi
+            ;;
+        "")
+            # Empty input - show current context info
+            show_current_context
+            ;;
+        !*)
+            # Bash command execution
+            local bash_cmd="${input#!}"
+            if [[ -n "$bash_cmd" ]]; then
+                local bash_result=$(eval "$bash_cmd" 2>&1)
+                show_repl_results "Bash: $bash_cmd
+════════════════════════════
+$bash_result"
+            fi
+            ;;
+        *)
+            # Try to route to current context module or TSM fallback
+            route_context_command "$input"
+            ;;
+    esac
+}
 
-Mode Overviews:
-  /tsm      Show TSM (Service Manager) overview
-  /tkm      Show TKM (Key Manager) overview
-  /rcm      Show RCM (Remote Commands) overview
+# Show enhanced help with dynamic module discovery
+show_repl_help() {
+    local help_output="TView REPL - Enhanced Module Router
+═══════════════════════════════════════
 
-Execution:
-  <empty>   Show current context info
-  <cmd>     Execute TSM command
-  !<cmd>    Execute bash command
+Core Commands:
+  /tview       Return to gamepad navigation mode
+  /exit        Exit TView completely
+  /help        Show this help
+  /modules     List all available modules
+
+Module Commands:
+$(discover_module_commands | head -10)
+
+Execution Patterns:
+  /module cmd args    Route to module command
+  <empty>            Show current context info
+  <cmd>              Execute in current context
+  !<cmd>             Execute bash command
+
+Context: ${CURRENT_MODE}/${CURRENT_ENV}
+Connection: $(get_connection_context)
 
 Navigation:
   Type commands and see results above
   j/k to scroll results, ESC to hide results
   /tview to return to gamepad navigation"
-            show_repl_results "$help_output"
+
+    show_repl_results "$help_output"
+}
+
+# Discover available module commands dynamically
+discover_module_commands() {
+    local modules=("tsm" "tkm" "deploy" "org")
+
+    for module in "${modules[@]}"; do
+        # Check if module has tview command discovery function
+        if declare -f "${module}_tview_commands" >/dev/null 2>&1; then
+            echo "  /${module}       $(${module}_tview_commands | head -1 || echo "Module commands")"
+        else
+            # Fallback to basic module info
+            case "$module" in
+                "tsm") echo "  /tsm         Service Manager (list, status, start, stop, logs)" ;;
+                "tkm") echo "  /tkm         Key Manager (keys, test, deploy, status)" ;;
+                "deploy") echo "  /deploy      Deployment commands (status, run, rollback)" ;;
+                "org") echo "  /org         Organization management (list, switch, create)" ;;
+            esac
+        fi
+    done
+}
+
+# Show available modules with their status
+show_available_modules() {
+    local modules_output="Available Tetra Modules
+══════════════════════════
+
+"
+
+    # Check registered modules from boot system
+    if declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
+        for module in "${!TETRA_MODULE_LOADED[@]}"; do
+            local status="loaded"
+            if [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+                status="✓ active"
+            else
+                status="○ available"
+            fi
+            modules_output+="  ${module}: ${status}
+"
+        done
+    fi
+
+    modules_output+="
+Usage: /${module} [command] [args]
+Example: /tsm list    or    /tkm status"
+
+    show_repl_results "$modules_output"
+}
+
+# Dispatch command to specific module
+dispatch_to_module() {
+    local module="$1"
+    local command="$2"
+    local args="$3"
+
+    # Try module-specific TView command handler first
+    local tview_handler="${module}_tview_${command}"
+    if [[ -n "$command" ]] && declare -f "$tview_handler" >/dev/null 2>&1; then
+        # Module has specific TView handler
+        local result=$($tview_handler $args 2>&1)
+        show_repl_results "/${module} ${command}:
+════════════════════════════
+$result"
+        return 0
+    fi
+
+    # Try module-specific command router
+    local module_router="${module}_tview_dispatch"
+    if declare -f "$module_router" >/dev/null 2>&1; then
+        local result=$($module_router "$command" $args 2>&1)
+        show_repl_results "/${module} ${command}:
+════════════════════════════
+$result"
+        return 0
+    fi
+
+    # Fallback to hardcoded module handlers
+    case "$module" in
+        "tsm")
+            handle_tsm_command "$command" "$args"
             ;;
-        /tsm)
-            local tsm_output="TSM - Tetra Service Manager
+        "tkm")
+            handle_tkm_command "$command" "$args"
+            ;;
+        "deploy")
+            handle_deploy_command "$command" "$args"
+            ;;
+        "rcm")
+            handle_rcm_command "$command" "$args"
+            ;;
+        *)
+            # Try direct module execution as last resort
+            if command -v "$module" >/dev/null 2>&1; then
+                tetra_load_module "$module" 2>/dev/null || true
+                local result=$($module $command $args 2>&1)
+                show_repl_results "/${module} ${command}:
+════════════════════════════
+$result"
+            else
+                show_repl_results "Error: Module '$module' not found or not available.
+Use /modules to see available modules."
+            fi
+            ;;
+    esac
+}
+
+# Handle TSM commands with enhanced context awareness
+handle_tsm_command() {
+    local command="$1"
+    local args="$2"
+
+    if [[ -z "$command" ]]; then
+        # Show TSM overview
+        local tsm_output="TSM - Tetra Service Manager
 ═══════════════════════════
 
 Current Environment: ${CURRENT_ENV}
+Connection: $(get_connection_context)
 Service Status: $(systemctl is-active tetra.service 2>/dev/null || echo "Unknown")
 
 Available Commands:
-  list      List all services
-  status    Show service status
-  start     Start tetra service
-  stop      Stop tetra service
-  restart   Restart tetra service
-  logs      Show recent logs
+  /tsm list        List all services
+  /tsm status      Show service status
+  /tsm start       Start tetra service
+  /tsm stop        Stop tetra service
+  /tsm restart     Restart tetra service
+  /tsm logs        Show recent logs
 
-Usage: tsm <command> or !systemctl <args>"
-            show_repl_results "$tsm_output"
-            ;;
-        /tkm)
-            local tkm_output="TKM - Tetra Key Manager
+Remote Execution: Commands run on $(get_connection_context)"
+        show_repl_results "$tsm_output"
+    else
+        # Execute specific TSM command
+        tetra_load_module "tsm" 2>/dev/null || true
+        if command -v tsm >/dev/null 2>&1; then
+            local result=$(tsm $command $args 2>&1)
+            show_repl_results "TSM ${command}:
+════════════════════════════
+$result"
+        else
+            show_repl_results "Error: TSM module not available. Try loading it first."
+        fi
+    fi
+}
+
+# Handle TKM commands
+handle_tkm_command() {
+    local command="$1"
+    local args="$2"
+
+    if [[ -z "$command" ]]; then
+        # Show TKM overview
+        local tkm_output="TKM - Tetra Key Manager
 ═══════════════════════════
 
 SSH Key Status:
 $(ssh-add -l 2>/dev/null || echo "No SSH keys loaded in agent")
 
-Available Keys:
-$(ls -la ~/.ssh/id_* 2>/dev/null | head -5 || echo "No SSH keys found")
-
 Current Environment: ${CURRENT_ENV}
 SSH Prefix: ${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}
 
+Available Commands:
+  /tkm keys        List available keys
+  /tkm test        Test SSH connectivity
+  /tkm deploy      Deploy keys to environment
+  /tkm status      Show connection status
+
 Key Operations:
   ssh-add ~/.ssh/id_rsa    Load key to agent
-  ssh-copy-id user@host    Copy key to remote
-  ssh-keygen -t rsa        Generate new key"
-            show_repl_results "$tkm_output"
-            ;;
-        /rcm)
-            local rcm_output="RCM - Remote Command Manager
+  ssh-copy-id user@host    Copy key to remote"
+        show_repl_results "$tkm_output"
+    else
+        # Execute specific TKM command
+        tetra_load_module "tkm" 2>/dev/null || true
+        if command -v tkm >/dev/null 2>&1; then
+            local result=$(tkm $command $args 2>&1)
+            show_repl_results "TKM ${command}:
+════════════════════════════
+$result"
+        else
+            show_repl_results "Error: TKM module not available."
+        fi
+    fi
+}
+
+# Handle Deploy commands
+handle_deploy_command() {
+    local command="$1"
+    local args="$2"
+
+    if [[ -z "$command" ]]; then
+        local deploy_output="Deploy - Deployment Manager
+═══════════════════════════
+
+Current Environment: ${CURRENT_ENV}
+Connection: $(get_connection_context)
+
+Available Commands:
+  /deploy status     Show deployment status
+  /deploy run        Execute deployment
+  /deploy rollback   Rollback deployment
+  /deploy logs       Show deployment logs"
+        show_repl_results "$deploy_output"
+    else
+        tetra_load_module "deploy" 2>/dev/null || true
+        if command -v tetra_deploy >/dev/null 2>&1; then
+            local result=$(tetra_deploy $command $args 2>&1)
+            show_repl_results "Deploy ${command}:
+════════════════════════════
+$result"
+        else
+            show_repl_results "Error: Deploy module not available."
+        fi
+    fi
+}
+
+# Handle RCM commands (legacy compatibility)
+handle_rcm_command() {
+    local command="$1"
+    local args="$2"
+
+    local rcm_output="RCM - Remote Command Manager
 ═══════════════════════════
 
 Current Environment: ${CURRENT_ENV}
@@ -84,9 +319,13 @@ $(if [[ "$CURRENT_ENV" != "LOCAL" ]]; then
     echo "SSH Prefix: ${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}"
     echo ""
     echo "Available Remote Commands:"
-    printf '%s\n' "${!RCM_COMMANDS[@]}" | sort | while read cmd; do
-        echo "  $cmd: ${RCM_COMMANDS[$cmd]}"
-    done
+    if declare -p RCM_COMMANDS >/dev/null 2>&1; then
+        printf '%s\n' "${!RCM_COMMANDS[@]}" | sort | while read cmd; do
+            echo "  $cmd: ${RCM_COMMANDS[$cmd]}"
+        done
+    else
+        echo "  No RCM commands defined"
+    fi
 else
     echo "Local execution mode - commands run directly"
 fi)
@@ -94,44 +333,8 @@ fi)
 Usage:
   Execute via gamepad mode (navigate to RCM)
   Or use: !ssh user@host 'command'"
-            show_repl_results "$rcm_output"
-            ;;
-        "")
-            # Empty input - show current context info
-            local context_output="Current Context: $CURRENT_MODE/$CURRENT_ENV
 
-$(case "$CURRENT_MODE" in
-    "TSM")
-        echo "TSM Status:"
-        tsm list 2>/dev/null || echo "TSM not available"
-        ;;
-    "TKM")
-        echo "SSH Keys:"
-        ssh-add -l 2>/dev/null || echo "No keys in agent"
-        ;;
-    "RCM")
-        echo "Remote Commands Available: ${#RCM_COMMANDS[@]}"
-        ;;
-    *)
-        echo "Mode: $CURRENT_MODE - use /help for commands"
-        ;;
-esac)"
-            show_repl_results "$context_output"
-            ;;
-        !*)
-            # Bash command - use safe execution
-            local bash_cmd="${input#!}"
-            if [[ -n "$bash_cmd" ]]; then
-                safe_execute "$bash_cmd" "Bash Command: $bash_cmd"
-            fi
-            ;;
-        *)
-            # Regular TSM command - use safe execution
-            if [[ -n "$input" ]]; then
-                safe_execute "tsm $input" "TSM Command: $input"
-            fi
-            ;;
-    esac
+    show_repl_results "$rcm_output"
 }
 
 # Display REPL command output in results window
@@ -184,6 +387,104 @@ fi)"
 
     # Clean up temporary files
     rm -f "$stdout_file" "$stderr_file"
+}
+
+# Show current context information
+show_current_context() {
+    local context_output="Current Context: $CURRENT_MODE/$CURRENT_ENV
+═══════════════════════════════════════
+
+Connection: $(get_connection_context)
+Environment: ${CURRENT_ENV}
+Mode: ${CURRENT_MODE}
+
+$(case "$CURRENT_MODE" in
+    "TSM")
+        echo "TSM Service Status:"
+        if command -v tsm >/dev/null 2>&1; then
+            tsm list 2>/dev/null || echo "TSM not available"
+        else
+            echo "TSM module not loaded"
+        fi
+        ;;
+    "TKM")
+        echo "SSH Key Status:"
+        ssh-add -l 2>/dev/null || echo "No keys in agent"
+        echo ""
+        echo "SSH Prefix: ${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}"
+        ;;
+    "RCM")
+        echo "Remote Commands Available: ${#RCM_COMMANDS[@]}"
+        echo "Current RCM Environment: ${CURRENT_RCM_ENV}"
+        ;;
+    "DEPLOY")
+        echo "Deployment Status: Checking..."
+        ;;
+    *)
+        echo "Use /help for available commands"
+        ;;
+esac)
+
+Available Commands: Use /help to see all commands"
+    show_repl_results "$context_output"
+}
+
+# Route command to current context module
+route_context_command() {
+    local input="$1"
+
+    case "$CURRENT_MODE" in
+        "TSM")
+            # Route to TSM
+            handle_tsm_command "$input" ""
+            ;;
+        "TKM")
+            # Route to TKM
+            handle_tkm_command "$input" ""
+            ;;
+        "DEPLOY")
+            # Route to Deploy
+            handle_deploy_command "$input" ""
+            ;;
+        *)
+            # Default fallback to TSM
+            if command -v tsm >/dev/null 2>&1; then
+                tetra_load_module "tsm" 2>/dev/null || true
+                local result=$(tsm $input 2>&1)
+                show_repl_results "TSM ${input}:
+════════════════════════════
+$result"
+            else
+                show_repl_results "Error: No handler for '$input' in $CURRENT_MODE mode.
+Try /help for available commands."
+            fi
+            ;;
+    esac
+}
+
+# Get connection context for current environment
+get_connection_context() {
+    case "$CURRENT_ENV" in
+        "LOCAL")
+            echo "Direct (mricos@m2.local)"
+            ;;
+        "DEV"|"STAGING"|"PROD"|"QA")
+            local ssh_prefix="${CURRENT_SSH_PREFIXES[${CURRENT_ENV,,}_root]:-Not configured}"
+            if [[ "$ssh_prefix" != "Not configured" ]]; then
+                # Extract user@host from SSH prefix
+                local connection=$(echo "$ssh_prefix" | sed 's/ssh //' | sed 's/ .*//')
+                echo "SSH via $connection"
+            else
+                echo "SSH (not configured)"
+            fi
+            ;;
+        "SYSTEM")
+            echo "Overview mode"
+            ;;
+        *)
+            echo "Unknown environment"
+            ;;
+    esac
 }
 
 # Enter REPL mode

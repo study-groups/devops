@@ -776,7 +776,7 @@ Enter - Execute selected action
 j/K - Scroll results (up/down)
 ESC - Hide results window
 r - Reset interface
-t - REPL mode
+/ - REPL mode
 ? - Show help
 q - Quit
 

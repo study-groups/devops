@@ -269,7 +269,14 @@ render_sticky_status() {
     # Compact status for 80 columns, more detail for wider terminals
     if [[ $terminal_width -le 80 ]]; then
         # Compact 80-column layout - position each line precisely
-        local short_context="${CURRENT_MODE}:${CURRENT_ENV}"
+        local connection_symbol=""
+        case "$CURRENT_ENV" in
+            "LOCAL") connection_symbol="⌂" ;;
+            "DEV"|"STAGING"|"PROD"|"QA") connection_symbol="→" ;;
+            "SYSTEM") connection_symbol="◉" ;;
+        esac
+
+        local short_context="${CURRENT_MODE}:${CURRENT_ENV}${connection_symbol}"
         printf "\033[${start_line};1H%s" "${short_context} | ${UI_MUTED_COLOR}e/m${COLOR_RESET}=env/mode ${UI_MUTED_COLOR}i/k${COLOR_RESET}=select ${UI_MUTED_COLOR}r${COLOR_RESET}=reset"
 
         # Line 2: Compact action
@@ -278,22 +285,23 @@ render_sticky_status() {
 
         # Line 3: Compact controls
         if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
-            printf "\033[$((start_line + 2));1H%s" "${UI_MUTED_COLOR}j/k${COLOR_RESET}=scroll ${UI_MUTED_COLOR}ESC${COLOR_RESET}=hide ${UI_MUTED_COLOR}Enter${COLOR_RESET}=exec ${UI_MUTED_COLOR}t${COLOR_RESET}=repl ${UI_MUTED_COLOR}q${COLOR_RESET}=quit"
+            printf "\033[$((start_line + 2));1H%s" "${UI_MUTED_COLOR}j/k${COLOR_RESET}=scroll ${UI_MUTED_COLOR}ESC${COLOR_RESET}=hide ${UI_MUTED_COLOR}Enter${COLOR_RESET}=exec ${UI_MUTED_COLOR}/${COLOR_RESET}=repl ${UI_MUTED_COLOR}q${COLOR_RESET}=quit"
         else
-            printf "\033[$((start_line + 2));1H%s" "${UI_MUTED_COLOR}Enter${COLOR_RESET}=execute ${UI_MUTED_COLOR}t${COLOR_RESET}=repl ${UI_MUTED_COLOR}?${COLOR_RESET}=help ${UI_MUTED_COLOR}q${COLOR_RESET}=quit"
+            printf "\033[$((start_line + 2));1H%s" "${UI_MUTED_COLOR}Enter${COLOR_RESET}=execute ${UI_MUTED_COLOR}/${COLOR_RESET}=repl ${UI_MUTED_COLOR}?${COLOR_RESET}=help ${UI_MUTED_COLOR}q${COLOR_RESET}=quit"
         fi
     else
         # Wide terminal layout with precise positioning
         local context=$(get_current_selection_context)
-        printf "\033[${start_line};1H%s" "Status: $context | Navigation: ${UI_MUTED_COLOR}e/m${COLOR_RESET} env/mode, ${UI_MUTED_COLOR}i/k${COLOR_RESET} actions, ${UI_MUTED_COLOR}r${COLOR_RESET} reset"
+        local connection_info="$(get_connection_context)"
+        printf "\033[${start_line};1H%s" "Status: $context | Connection: $connection_info | Navigation: ${UI_MUTED_COLOR}e/m${COLOR_RESET} env/mode, ${UI_MUTED_COLOR}i/k${COLOR_RESET} actions, ${UI_MUTED_COLOR}r${COLOR_RESET} reset"
 
         local action_command=$(generate_semantic_action)
         printf "\033[$((start_line + 1));1H%s" "Action: $action_command"
 
         if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
-            printf "\033[$((start_line + 2));1H%s" "Results: ${UI_MUTED_COLOR}j/k${COLOR_RESET} scroll, ${UI_MUTED_COLOR}ESC${COLOR_RESET} hide | ${UI_MUTED_COLOR}Enter${COLOR_RESET} execute, ${UI_MUTED_COLOR}t${COLOR_RESET} REPL"
+            printf "\033[$((start_line + 2));1H%s" "Results: ${UI_MUTED_COLOR}j/k${COLOR_RESET} scroll, ${UI_MUTED_COLOR}ESC${COLOR_RESET} hide | ${UI_MUTED_COLOR}Enter${COLOR_RESET} execute, ${UI_MUTED_COLOR}/${COLOR_RESET} REPL"
         else
-            printf "\033[$((start_line + 2));1H%s" "Ready: ${UI_MUTED_COLOR}Enter${COLOR_RESET} execute action, ${UI_MUTED_COLOR}t${COLOR_RESET} REPL mode, ${UI_MUTED_COLOR}?${COLOR_RESET} help"
+            printf "\033[$((start_line + 2));1H%s" "Ready: ${UI_MUTED_COLOR}Enter${COLOR_RESET} execute action, ${UI_MUTED_COLOR}/${COLOR_RESET} REPL mode, ${UI_MUTED_COLOR}?${COLOR_RESET} help"
         fi
     fi
 }

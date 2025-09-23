@@ -187,6 +187,10 @@ handle_gamepad_input() {
             'h'|'H')
                 show_modal_help
                 ;;
+            '/')
+                # Enter REPL mode (changed from t key)
+                enter_repl_mode
+                ;;
             't'|'T')
                 execute_tsm_command
                 ;;
@@ -280,9 +284,13 @@ handle_gamepad_input_with_layout() {
                 redraw_screen
             fi
             ;;
-        't'|'T')
-            # Enter REPL mode
+        '/')
+            # Enter REPL mode (changed from t key)
             enter_repl_mode
+            ;;
+        't'|'T')
+            # Execute TSM command (t key now available for TSM)
+            execute_tsm_command
             ;;
         '?')
             # Show help modal
@@ -352,7 +360,7 @@ This may be due to:
 - Permission problems
 - Invalid configuration
 
-Try switching to REPL mode (t) for debugging."
+Try switching to REPL mode (/) for debugging."
     }
 
     if [[ -n "$action_result" ]]; then
@@ -493,7 +501,7 @@ show_contextual_hint() {
     if [[ $DRILL_LEVEL -eq 1 ]]; then
         hint_text="DRILL MODE: $hint_text | 'j'=back to overview 'ESC'=navigation"
     else
-        hint_text="$hint_text | 'L'=hints '\`'=repl 'ESC'=navigation"
+        hint_text="$hint_text | 'L'=hints '/'=repl 'ESC'=navigation"
     fi
 
     # Set the hint globally for display in header

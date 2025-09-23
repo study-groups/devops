@@ -55,7 +55,7 @@ render_header() {
     done
     truncate_line "$env_line" $terminal_width
 
-    # Line 3: Mode navigation with themed colors
+    # Line 3: Mode navigation with connection context
     local mode_line="Mode: "
     for mode in "${MODES[@]}"; do
         if [[ "$mode" == "$CURRENT_MODE" ]]; then
@@ -64,6 +64,22 @@ render_header() {
             mode_line+="$(render_mode_badge "$mode" "false") "
         fi
     done
+
+    # Add connection context for non-LOCAL environments
+    if [[ "$CURRENT_ENV" != "LOCAL" && "$CURRENT_ENV" != "SYSTEM" ]]; then
+        local connection_info="$(get_connection_context)"
+        if [[ $terminal_width -gt 80 ]]; then
+            # Full connection info for wider terminals
+            mode_line+=" ${UI_ACCENT_COLOR}→ ${connection_info}${COLOR_RESET}"
+        else
+            # Compact connection indicator for narrow terminals
+            if [[ "$connection_info" =~ "SSH via" ]]; then
+                mode_line+=" ${UI_ACCENT_COLOR}→SSH${COLOR_RESET}"
+            elif [[ "$connection_info" =~ "Direct" ]]; then
+                mode_line+=" ${UI_ACCENT_COLOR}→Local${COLOR_RESET}"
+            fi
+        fi
+    fi
     truncate_line "$mode_line" $terminal_width
 
     # Line 4: Action - compact semantic command
@@ -88,9 +104,40 @@ truncate_line() {
     if [[ $display_width -le $max_width ]]; then
         echo "$text"
     else
-        # Truncate display text and add ellipsis
-        local truncated_display="${display_text:0:$((max_width - 3))}..."
-        echo "$truncated_display"
+        # Preserve colors while truncating - extract visible portion with colors intact
+        local target_length=$((max_width - 3))  # Reserve space for "..."
+        local truncated_with_colors=""
+        local visible_count=0
+        local i=0
+        local char
+
+        # Process character by character, preserving ANSI sequences
+        while [[ $i -lt ${#text} && $visible_count -lt $target_length ]]; do
+            char="${text:$i:1}"
+
+            # Check if we're starting an ANSI escape sequence
+            if [[ "$char" == $'\033' ]]; then
+                # Find the end of the ANSI sequence (ends with 'm')
+                local ansi_seq="$char"
+                ((i++))
+                while [[ $i -lt ${#text} ]]; do
+                    char="${text:$i:1}"
+                    ansi_seq+="$char"
+                    if [[ "$char" == "m" ]]; then
+                        break
+                    fi
+                    ((i++))
+                done
+                truncated_with_colors+="$ansi_seq"
+            else
+                # Regular character - count it and add it
+                truncated_with_colors+="$char"
+                ((visible_count++))
+            fi
+            ((i++))
+        done
+
+        echo "${truncated_with_colors}..."
     fi
 }
 
