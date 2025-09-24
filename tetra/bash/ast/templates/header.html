@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetra Module Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Tetra Module Documentation</h1>
+            <p>Interactive documentation generated from Module Discovery AST</p>
+            <input type="text" class="search-box" placeholder="Search modules or functions..." oninput="searchModules(this.value)">
+
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterByType('all')">All</button>
+                <button class="filter-btn core-btn" onclick="filterByType('core')">🔧 Core</button>
+                <button class="filter-btn extension-btn" onclick="filterByType('extension')">🔌 Extensions</button>
+                <button class="filter-btn plugin-btn" onclick="filterByType('plugin')">⚙️ Plugins</button>
+                <button class="filter-btn legacy-btn" onclick="filterByType('legacy')">📚 Legacy</button>
+                <button class="filter-btn experimental-btn" onclick="filterByType('experimental')">🧪 Experimental</button>
+                <button class="filter-btn deprecated-btn" onclick="filterByType('deprecated')">🗑️ Deprecated</button>
+                <button class="filter-btn tview-btn" onclick="filterByTView()">📺 TView Only</button>
+            </div>
+
+            <div class="stats" id="moduleStats">
+                <span id="totalModules">0</span> modules total,
+                <span id="visibleModules">0</span> visible
+            </div>
+        </div>
+        <div class="module-grid" id="moduleGrid">

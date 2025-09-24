@@ -96,7 +96,65 @@ TView now features a robust top-down interface design with comprehensive error h
 
 ## Next Development Priorities
 
-### Phase 1: TSM Service Management Enhancement (Based on New Implementation)
+### Phase 1: Module Discovery AST & Documentation Enhancement
+
+#### Immediate Priorities (Q4 2025)
+1. **TView Integration Expansion**: Add TView interfaces to core modules lacking integration
+   - **Missing TView Modules**: 30+ modules without `module/tview/` directories
+   - **Priority Modules**: `nginx`, `git`, `ssh`, `deploy`, `enc` need TView interfaces
+   - **Template Generation**: Create TView integration templates for rapid module enhancement
+
+2. **Enhanced Function Analysis**: Extend AST parsing for better code understanding
+   - **Call Graph Generation**: Track function calls between modules for deeper dependency analysis
+   - **Documentation Extraction**: Parse inline comments for function documentation
+   - **Configuration Detection**: Identify configurable parameters and environment variables
+   - **Export Analysis**: Detect public APIs and internal-only functions
+
+3. **Interactive Documentation Platform**: Transform documentation into operational dashboard
+   - **Live Module Status**: Real-time module health and availability checking
+   - **Function Testing**: Interactive function execution with parameter input
+   - **Dependency Visualization**: Interactive dependency graphs with drill-down
+   - **Usage Analytics**: Track most-used modules and functions for prioritization
+
+4. **Legacy Migration Assistant**: Automated migration tools for legacy module replacement
+   - **Migration Recommendations**: Suggest modern alternatives for legacy modules
+   - **Usage Impact Analysis**: Show which modules/functions depend on legacy code
+   - **Automated Refactoring**: Tools to update references when legacy modules are replaced
+   - **Backward Compatibility**: Maintain compatibility during transition periods
+
+#### Medium-term Module System Goals (Q1 2026)
+1. **Semantic Code Analysis**: Enhanced understanding of bash code relationships
+   - **Variable Flow Analysis**: Track variable usage across module boundaries
+   - **Configuration Dependencies**: Map environment variable requirements
+   - **Error Handling Analysis**: Identify error paths and recovery mechanisms
+   - **Performance Profiling**: Integration with timing and resource usage data
+
+2. **Module Ecosystem Management**: Tools for module lifecycle and maintenance
+   - **Version Management**: Semantic versioning for individual modules
+   - **Compatibility Testing**: Automated testing of module interactions
+   - **Module Templates**: Scaffolding for new module development
+   - **Quality Metrics**: Code quality scoring and improvement recommendations
+
+3. **Advanced Documentation Features**: Next-generation documentation capabilities
+   - **Interactive Tutorials**: Step-by-step guides for common tasks
+   - **API Documentation**: Auto-generated API docs from function signatures
+   - **Integration Examples**: Real-world usage examples with explanation
+   - **Video Documentation**: Embedded demonstrations of complex workflows
+
+#### Long-term Vision (Q2-Q3 2026)
+1. **AI-Powered Code Understanding**: Machine learning enhanced code analysis
+   - **Pattern Recognition**: Identify common patterns and suggest optimizations
+   - **Anomaly Detection**: Flag unusual code patterns that might indicate bugs
+   - **Natural Language Queries**: "Find all functions that manage SSH connections"
+   - **Code Generation**: AI-assisted module and function generation
+
+2. **Distributed Documentation System**: Multi-organization documentation sharing
+   - **Module Registry**: Shared registry of Tetra modules across organizations
+   - **Community Contributions**: Collaborative documentation and module improvement
+   - **Version Synchronization**: Keep documentation in sync across environments
+   - **Usage Telemetry**: Anonymous usage data to guide development priorities
+
+### Phase 2: TSM Service Management Enhancement (Based on New Implementation)
 - **Service Health Monitoring**: Real-time monitoring of TSM service status with health checks
 - **Dependency Management**: Service startup ordering and dependency resolution
 - **Environment-Specific Services**: Per-environment service configurations and deployments

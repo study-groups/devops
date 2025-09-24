@@ -1,5 +1,150 @@
 # Current Changes
 
+## 2025-09-23 - Module Discovery AST & Interactive Documentation System
+
+### 🚀 **Complete Module Discovery + Documentation AST**
+
+**Problem Solved**: Tetra's 68+ module bash codebase lacked discoverability, dependency mapping, and up-to-date documentation, making it difficult to understand module relationships and find functions across the system.
+
+**Implementation**:
+- **Module Discovery AST**: Focused 80/20 approach parsing bash for practical metadata without complex semantic analysis
+- **Function Inventory**: 207+ functions catalogued across 32 modules with export status detection
+- **Dependency Mapping**: Source statement parsing to build inter-module relationship graphs
+- **Legacy Classification**: Core/Extension/Legacy/Experimental/Deprecated module categorization
+- **TView Integration Detection**: Identifies modules with dedicated TView interface support
+
+**New AST Schema (JSON Output)**:
+```json
+{
+  "modules": {
+    "module_name": {
+      "path": "/path/to/module",
+      "type": "core|extension|legacy|experimental|deprecated|plugin",
+      "tview_integration": true|false,
+      "functions": [
+        {
+          "name": "function_name",
+          "line": 42,
+          "exported": true|false
+        }
+      ],
+      "dependencies": ["module1", "module2"]
+    }
+  }
+}
+```
+
+### 📊 **Interactive HTML Documentation with Advanced Filtering**
+
+**Problem Solved**: Static documentation quickly becomes outdated and lacks interactive exploration capabilities for large codebases.
+
+**Implementation**:
+- **Modular Template System**: Separated HTML generation into `header.html`, `footer.html`, `styles.css`, `app.js`
+- **Advanced Filter Buttons**: All/Core/Extensions/Plugins/Legacy/Experimental/Deprecated/TView Only
+- **Enhanced Search**: `type:core`, `func:tsm`, plain text, and keyboard shortcuts (Ctrl+1 for Core, Ctrl+T for TView)
+- **Visual Classification**: Color-coded module cards with special backgrounds for legacy/experimental status
+- **Live Statistics**: Real-time counts of visible/total modules, function counts per module
+- **TSM Web Server Integration**: Built-in serving with live-reload capability
+
+**Advanced Features**:
+```javascript
+// Enhanced search capabilities
+type:legacy        // Filter by module type
+func:tsm_start     // Search function names
+?                  // Show keyboard shortcuts help
+
+// Keyboard shortcuts
+Ctrl/Cmd + 1-5     // Quick type filters
+Ctrl/Cmd + T       // TView integration only
+Ctrl/Cmd + 0       // Show all modules
+```
+
+### 🏷️ **Module Classification & Legacy Management**
+
+**Problem Solved**: Need to organize and potentially relocate legacy modules without deletion, while clearly marking experimental code.
+
+**Implementation**:
+- **Legacy Module Identification**: `pb`, `node`, `pico`, `pm`, `tmux`, `user` marked as legacy
+- **Experimental Classification**: AI integration modules (`anthropic`, `claude`) and development tools
+- **Interactive Legacy Manager**: Tool for moving legacy modules to organized subdirectories
+- **Visual Indicators**: Orange cards for legacy, purple for experimental, with clear badges
+
+**Module Organization Results**:
+- **Core (8)**: `tsm`, `tview`, `git`, `ssh`, `enc`, `deploy`, `nginx`, `sync`
+- **Legacy (6)**: `pb`, `node`, `pico`, `pm`, `tmux`, `user`
+- **Experimental (7)**: `anthropic`, `claude`, `ml`, `nvm`, etc.
+- **TView Integration**: Only `tsm` and `span` modules currently have TView directories
+
+### 🧪 **Test Organization & Structure Analysis**
+
+**Problem Solved**: Test files scattered across directories without clear organization, making test execution and maintenance difficult.
+
+**Implementation**:
+- **Test Structure Analysis**: Identified 49+ module test files and 16+ misplaced tests in main directory
+- **Automated Organization**: Tool to move TSM tests to `tests/tsm/`, TView tests to `tests/tview/`, etc.
+- **Test Runner Generation**: Auto-generated `run_all.sh` scripts for each test category
+- **Category Documentation**: README files explaining test purposes and execution
+
+**Test Organization Structure**:
+```
+tests/
+├── tsm/           # Service management tests
+├── tview/         # Interface and navigation tests
+├── core/          # Module system and integration tests
+└── env/           # Environment and configuration tests
+```
+
+### 🌐 **TSM Web Server Documentation Serving**
+
+**Problem Solved**: Need easy way to serve and share interactive documentation using existing Tetra infrastructure.
+
+**Implementation**:
+```bash
+# Generate and serve documentation
+tetra_docs.sh serve 8080                    # Static server on port 8080
+tetra_docs.sh live 9000                     # Auto-refresh every 30s
+tetra_docs.sh html ~/custom-docs             # Generate to custom directory
+
+# TSM integration
+cd /path/to/docs && tsm start-webserver --port 8080
+```
+
+### 🔧 **New Tools & Commands**
+
+**Module Discovery**:
+- `module_discovery.sh discover` - Generate full AST JSON
+- `module_discovery.sh deps` - Show dependency graph
+- `module_discovery.sh functions` - Function index across all modules
+
+**Documentation Generation**:
+- `tetra_docs.sh browse` - Interactive terminal browser
+- `tetra_docs.sh html` - Generate filtered HTML documentation
+- `tetra_docs.sh serve` - Generate and serve with web server
+
+**Organization & Management**:
+- `tetra-legacy-manager.sh` - Interactive legacy module organization
+- `tetra-test-organizer.sh` - Automated test file reorganization
+- `tetra-pre-flight-check.sh` - Environment validation (TETRA_DIR=~/tetra, TETRA_SRC=~/src/devops/tetra)
+
+### 📈 **Discovery Results & Impact**
+
+**Scale Analysis**:
+- **32 modules** discovered and catalogued
+- **207 functions** with location and export status
+- **Clean dependency graph** with duplicates removed
+- **2 modules** with TView integration (TSM, span)
+- **6 legacy modules** identified for potential reorganization
+
+**Key Findings**:
+- **Largest modules**: `pico` (23 functions), `nginx` (10 functions), `pb`/`pbvm` (9 each)
+- **Core integration**: `tsm` and `span` are only modules with dedicated TView interfaces
+- **Legacy candidates**: Process management modules largely replaced by TSM
+- **Missing TView integration**: 30+ modules could benefit from TView interface support
+
+This implementation provides structured metadata about the Tetra bash codebase without complex semantic analysis complexity, enabling better discoverability, dependency understanding, and legacy code management while maintaining up-to-date interactive documentation.
+
+---
+
 ## 2025-09-23 - TSM Service Management System Implementation
 
 ### 🔧 **TSM Start Command Grammar Fix**

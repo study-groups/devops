@@ -1,0 +1,209 @@
+/* Tetra Module Documentation Styles */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #fafafa;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    background: #f5f5f7;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    margin: 0 0 10px 0;
+    color: #1d1d1f;
+}
+
+.header p {
+    margin: 0 0 15px 0;
+    color: #6e6e73;
+}
+
+.search-box {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.filter-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-btn.active {
+    background: #007AFF;
+    color: white;
+    border-color: #007AFF;
+}
+
+.core-btn.active { background: #007AFF; border-color: #007AFF; }
+.extension-btn.active { background: #FF9500; border-color: #FF9500; }
+.plugin-btn.active { background: #34C759; border-color: #34C759; }
+.legacy-btn.active { background: #FF6B35; border-color: #FF6B35; }
+.experimental-btn.active { background: #AF52DE; border-color: #AF52DE; }
+.deprecated-btn.active { background: #8E8E93; border-color: #8E8E93; }
+.tview-btn.active { background: #5856D6; border-color: #5856D6; }
+
+.stats {
+    font-size: 14px;
+    color: #6e6e73;
+    font-weight: 500;
+}
+
+.module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.module-card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 20px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.module-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.module-card.core { border-left: 4px solid #007AFF; }
+.module-card.extension { border-left: 4px solid #FF9500; }
+.module-card.plugin { border-left: 4px solid #34C759; }
+.module-card.legacy {
+    border-left: 4px solid #FF6B35;
+    background: linear-gradient(135deg, #FFF8F0 0%, #FFEEE5 100%);
+}
+.module-card.experimental {
+    border-left: 4px solid #AF52DE;
+    background: linear-gradient(135deg, #F8F0FF 0%, #F0E5FF 100%);
+}
+.module-card.deprecated {
+    border-left: 4px solid #8E8E93;
+    background: linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%);
+}
+
+.module-card.hidden {
+    display: none;
+}
+
+.module-title {
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.module-type {
+    font-size: 0.9em;
+    color: #6e6e73;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.function-list {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.function {
+    font-family: 'SF Mono', Monaco, monospace;
+    color: #FF6B35;
+    font-size: 13px;
+}
+
+.exported {
+    color: #007AFF;
+    font-weight: bold;
+}
+
+.deps {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.tview-badge, .legacy-badge, .experimental-badge, .deprecated-badge {
+    display: inline-block;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tview-badge { background: #007AFF; }
+.legacy-badge { background: #FF6B35; }
+.experimental-badge { background: #AF52DE; }
+.deprecated-badge { background: #8E8E93; }
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .module-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-buttons {
+        justify-content: center;
+    }
+
+    .filter-btn {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+
+/* Animation for filtering */
+.module-card {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
