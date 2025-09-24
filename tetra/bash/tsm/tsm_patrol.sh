@@ -3,33 +3,9 @@
 # TSM Patrol System - Automatic cleanup and port management
 # Handles stale process cleanup and port range validation
 
-# Port Range Definitions
-# dev:     5000-5999  (development services)
-# staging: 6000-6999  (staging services)
-# proxy:   7000-7999  (hotrod proxies)
-# prod:    8000-8999  (production services)
-
-declare -A TSM_PORT_RANGES=(
-    ["dev"]="5000-5999"
-    ["staging"]="6000-6999"
-    ["proxy"]="7000-7999"
-    ["prod"]="8000-8999"
-)
-
-declare -A TSM_SERVICE_PORTS=(
-    ["arcade-dev"]="5800"
-    ["arcade-staging"]="6800"
-    ["arcade-prod"]="8800"
-    ["devpages-dev"]="5000"
-    ["devpages-staging"]="6000"
-    ["devpages-prod"]="8000"
-    ["pbase-dev"]="5600"
-    ["pbase-staging"]="6600"
-    ["pbase-prod"]="8600"
-    ["tetra-dev"]="5444"
-    ["tetra-staging"]="6444"
-    ["tetra-prod"]="8444"
-)
+# Load services configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/tsm_services_config.sh"
 
 # Silent patrol - cleanup without output
 tsm_patrol_silent() {
@@ -153,16 +129,27 @@ tsm_get_service_port() {
 # Show port ranges
 tsm_show_port_ranges() {
     echo "TSM Port Ranges:"
-    echo "  dev (development):  5000-5999"
-    echo "  staging:           6000-6999"
-    echo "  proxy (hotrod):    7000-7999"
-    echo "  prod (production): 8000-8999"
+    for env in dev staging proxy prod; do
+        local range="${TSM_PORT_RANGES[$env]:-'not defined'}"
+        local label=""
+        case "$env" in
+            dev) label="dev (development)" ;;
+            staging) label="staging" ;;
+            proxy) label="proxy (hotrod)" ;;
+            prod) label="prod (production)" ;;
+        esac
+        printf "  %-20s %s\n" "$label:" "$range"
+    done
     echo ""
     echo "Standard Service Ports:"
-    for service in arcade devpages pbase tetra; do
+    for service in arcade devpages pbase tetra tserve; do
         echo "  $service:"
-        echo "    dev:     ${TSM_SERVICE_PORTS[$service-dev]:-'not defined'}"
-        echo "    staging: ${TSM_SERVICE_PORTS[$service-staging]:-'not defined'}"
-        echo "    prod:    ${TSM_SERVICE_PORTS[$service-prod]:-'not defined'}"
+        echo "    dev:     $(tsm_get_service_port "$service" "dev" || echo 'not defined')"
+        echo "    staging: $(tsm_get_service_port "$service" "staging" || echo 'not defined')"
+        echo "    prod:    $(tsm_get_service_port "$service" "prod" || echo 'not defined')"
     done
+
+    echo ""
+    echo "Ignored Ports (not managed by TSM):"
+    printf "  %s\n" "${TSM_IGNORE_PORTS[@]}"
 }

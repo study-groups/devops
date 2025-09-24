@@ -157,15 +157,18 @@ tetra_tsm_start_service() {
     # Source service definition
     source "$service_file"
 
-    # Extract port from environment file if specified
-    local port=""
-    if [[ -n "$TSM_ENV_FILE" && -f "$TSM_CWD/$TSM_ENV_FILE" ]]; then
+    # Extract port from service file or environment file
+    local port="$TSM_PORT"
+
+    # If no port in service file, try environment file
+    if [[ -z "$port" && -n "$TSM_ENV_FILE" && -f "$TSM_CWD/$TSM_ENV_FILE" ]]; then
         port=$(cd "$TSM_CWD" && source "$TSM_ENV_FILE" && echo "$PORT")
     fi
 
+    # If still no port, use a default or skip port validation
     if [[ -z "$port" ]]; then
-        echo "❌ Could not determine port for service $service_name"
-        return 1
+        echo "⚠️  No port specified for service $service_name, starting without port binding"
+        port="auto"
     fi
 
     # Generate process name
@@ -178,7 +181,11 @@ tetra_tsm_start_service() {
     fi
 
     # Start the service using TSM command mode
-    echo "Starting $service_name on port $port..."
+    if [[ "$port" == "auto" ]]; then
+        echo "Starting $service_name..."
+    else
+        echo "Starting $service_name on port $port..."
+    fi
 
     # Change to service directory and start
     (
@@ -187,18 +194,33 @@ tetra_tsm_start_service() {
             source "$TSM_ENV_FILE"
         fi
 
+        # Set port environment variable if specified
+        if [[ "$port" != "auto" ]]; then
+            export PORT="$port"
+            export TSM_PORT="$port"
+        fi
+
         # Use TSM command mode to start
-        tsm start --port "$port" --name "$TSM_NAME" $TSM_COMMAND
+        if [[ "$port" == "auto" ]]; then
+            tsm start --name "$TSM_NAME" $TSM_COMMAND
+        else
+            tsm start --port "$port" --name "$TSM_NAME" $TSM_COMMAND
+        fi
     )
 
-    # Validate port is open
-    sleep 2
-    if lsof -i ":$port" -t >/dev/null 2>&1; then
-        echo "✅ $process_name listening on port $port"
-        return 0
+    # Validate port is open (only if port is specified)
+    if [[ "$port" != "auto" ]]; then
+        sleep 2
+        if lsof -i ":$port" -t >/dev/null 2>&1; then
+            echo "✅ $process_name listening on port $port"
+            return 0
+        else
+            echo "❌ $process_name failed to open port $port"
+            return 1
+        fi
     else
-        echo "❌ $process_name failed to open port $port"
-        return 1
+        echo "✅ $process_name started"
+        return 0
     fi
 }
 
