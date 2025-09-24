@@ -82,14 +82,9 @@ tsm() {
             tetra_tsm_restart "$@"
             ;;
         list|ls)
-            # Patrol cleanup before listing
-            tsm_patrol_silent
-            # Check for --json flag
-            if [[ "$1" == "--json" ]]; then
-                tsm_processes_to_json
-            else
-                tetra_tsm_list "$@"
-            fi
+            # Route to new list command with running|available|all options
+            local TSM_DIR="$(dirname "${BASH_SOURCE[0]}")"
+            "$TSM_DIR/tsm_list.sh" "$@"
             ;;
         services)
             tetra_tsm_list_services "$@"
@@ -245,7 +240,7 @@ unalias tsm 2>/dev/null || true
 tsm_tview_commands() {
     cat << 'EOF'
 TSM Service Manager TView Commands:
-  list         List all running services
+  list         List services [running|available|all] (default: running)
   status       Show service status
   start        Start a service
   stop         Stop a service
@@ -330,8 +325,8 @@ TSM - Tetra Service Manager
 Usage: tsm <command> [args]
 
 Common Commands:
-  list|ls                    List running processes
-  start <service|command>    Start a service or command
+  list|ls [running|available|all]  List services (default: running)
+  start <service-name>       Start a service from services-available
   stop <process|id>          Stop a process
   services                   List available service definitions
   logs <process|id> [-f]     Show/follow process logs
@@ -341,8 +336,11 @@ Common Commands:
   help all                   Show detailed help
 
 Examples:
+  tsm start tserve           Start tserve service
   tsm start devpages         Start devpages service
-  tsm list                   Show all running processes
+  tsm start tetra            Start tetra service
+  tsm list                   Show running services (default)
+  tsm list available         Show all available services
   tsm logs 0 -f             Follow logs for process ID 0
   tsm ports overview         Show port usage
   tsm help all              Show complete help
@@ -358,11 +356,12 @@ Usage: tsm <command> [args]
 Commands:
   setup                      Setup tsm environment (macOS: adds util-linux PATH)
   init <env>                 Create environment file from template (shortcut for tetra env init)
-  start [--env env.sh] <script.sh|command|service> [name]   Start a script, command, or service
+  start <service-name>       Start a service from services-available
+  start [--env env.sh] <script.sh|command> [name]   Start a script or command
   stop <process|id|*>        Stop processes (by name, TSM ID, or all)
   delete|del|kill <process|id|*> Delete processes and logs
   restart <process|id|*>     Restart processes
-  list|ls [--json]           List all processes with TSM IDs
+  list|ls [running|available|all]  List services by status
   services [-d|--detail]     List saved service definitions (.tsm.sh)
   save <name> <command>      Save current command as a service definition
   enable <service>           Enable service for automatic startup
@@ -394,11 +393,15 @@ Examples:
   tsm start --env staging entrypoints/api.sh  Sources env/staging.env explicitly
   tsm start node server.js                    Auto-detects env/dev.env or env/local.env
   tsm start --port 4000 node server.js api    Start as api-4000
-  tsm start devpages                           Start devpages service (from .tsm.sh definition)
+  tsm start tserve                             Start tserve service
+  tsm start devpages                           Start devpages service
+  tsm start tetra                              Start tetra service
   tsm services                                 List all saved service definitions
   tsm stop server-3000                         Stop by process name
   tsm stop 0                                   Stop by TSM ID
   tsm logs 0 -f                                Follow logs for TSM ID 0
-  tsm list                                     Show all processes with IDs
+  tsm list                                     Show running services
+  tsm list available                           Show all available services
+  tsm list all                                 Show all services
 EOF
 }

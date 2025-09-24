@@ -223,13 +223,46 @@ tetra_tsm_start() {
     local file="" env_file="" custom_name="" python_start=false python_cmd="" port="" dirname=""
     local command_mode=false command_args=() debug=false
 
-    # Check if first argument is a .tsm.sh service definition
+    # Check if first argument is a service from services-available
     if [[ $# -ge 1 ]]; then
         local first_arg="$1"
-        local service_file="$TETRA_DIR/services/${first_arg}.tsm.sh"
-        if [[ -f "$service_file" ]]; then
+
+        # First priority: Check services-available directory for .tsm files
+        local new_service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
+        if [[ -f "$new_service_file" ]]; then
+            echo "🚀 Starting service: $first_arg"
+            tetra_tsm_start_service "$first_arg"
+            return $?
+        fi
+
+        # Fallback: Check old .tsm.sh service definitions
+        local old_service_file="$TETRA_DIR/services/${first_arg}.tsm.sh"
+        if [[ -f "$old_service_file" ]]; then
             _tsm_start_from_service_definition "$@"
             return $?
+        fi
+
+        # Service discovery: suggest available services if not found
+        if [[ ! -f "$first_arg" && ! -x "$first_arg" ]]; then
+            local available_services=()
+            if [[ -d "$TETRA_DIR/tsm/services-available" ]]; then
+                for service_file in "$TETRA_DIR/tsm/services-available"/*.tsm; do
+                    [[ -f "$service_file" ]] || continue
+                    local service_name=$(basename "$service_file" .tsm)
+                    available_services+=("$service_name")
+                done
+            fi
+
+            if [[ ${#available_services[@]} -gt 0 ]]; then
+                echo "❌ Service '$first_arg' not found."
+                echo ""
+                echo "Available services:"
+                printf "  %s\n" "${available_services[@]}"
+                echo ""
+                echo "Usage: tsm start <service-name>"
+                echo "   or: tsm start <command> [args...]"
+                return 1
+            fi
         fi
     fi
 

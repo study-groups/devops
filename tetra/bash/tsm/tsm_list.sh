@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+
+# TSM List - Service listing with running|available|all options
+# Default: running services only
+
+# Load TSM configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/tsm_services_config.sh"
+
+# Setup service directories
+TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"
+TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
+
+# Print table header
+print_table_header() {
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
+        "ID" "Name" "Env" "PID" "Port" "Status" "↻" "Uptime"
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
+        "--" "--------------------" "----------" "-----" "-----" "--------" "---" "--------"
+}
+
+# Get service info
+get_service_info() {
+    local service_file="$1"
+    local service_name=$(basename "$service_file" .tsm)
+
+    local env_file=""
+    local port=""
+    local pid=""
+    local status="stopped"
+    local restarts="-"
+    local uptime="-"
+
+    # Parse service file
+    while IFS= read -r line; do
+        if [[ "$line" =~ TSM_ENV_FILE= ]]; then
+            env_file=$(echo "$line" | cut -d'=' -f2 | tr -d '"' | xargs basename 2>/dev/null || echo "-")
+        elif [[ "$line" =~ TSM_PORT= ]]; then
+            port=$(echo "$line" | cut -d'=' -f2 | tr -d '"')
+        fi
+    done < "$service_file"
+
+    # Check if service is running
+    local process_file="$TETRA_DIR/tsm/runtime/processes/${service_name}.meta"
+    if [[ -f "$process_file" ]]; then
+        pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
+
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            status="online"
+
+            # Calculate uptime
+            if [[ -n "$pid" ]]; then
+                local start_time
+                if command -v ps >/dev/null 2>&1; then
+                    start_time=$(ps -o lstart= -p "$pid" 2>/dev/null | xargs)
+                    if [[ -n "$start_time" ]]; then
+                        local start_epoch=$(date -j -f "%a %b %d %H:%M:%S %Y" "$start_time" "+%s" 2>/dev/null || echo "")
+                        if [[ -n "$start_epoch" ]]; then
+                            local current_epoch=$(date "+%s")
+                            local uptime_seconds=$((current_epoch - start_epoch))
+
+                            # Format uptime
+                            if [[ $uptime_seconds -lt 60 ]]; then
+                                uptime="${uptime_seconds}s"
+                            elif [[ $uptime_seconds -lt 3600 ]]; then
+                                uptime="$((uptime_seconds / 60))m"
+                            elif [[ $uptime_seconds -lt 86400 ]]; then
+                                uptime="$((uptime_seconds / 3600))h"
+                            else
+                                uptime="$((uptime_seconds / 86400))d"
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+
+            # Get restart count if available
+            local restart_count=$(grep -o "restarts=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2 || echo "0")
+            restarts="$restart_count"
+        else
+            pid="-"
+        fi
+    else
+        pid="-"
+    fi
+
+    # Default values
+    [[ -z "$env_file" ]] && env_file="-"
+    [[ -z "$port" ]] && port="-"
+
+    # Return values via echo (bash array simulation)
+    echo "$service_name|$env_file|$pid|$port|$status|$restarts|$uptime"
+}
+
+# List running services only
+tsm_list_running() {
+    print_table_header
+
+    local id=0
+    local found_running=false
+
+    if [[ -d "$TSM_SERVICES_AVAILABLE" ]]; then
+        for service_file in "$TSM_SERVICES_AVAILABLE"/*.tsm; do
+            [[ -f "$service_file" ]] || continue
+
+            local service_info=$(get_service_info "$service_file")
+            IFS='|' read -r name env_file pid port status restarts uptime <<< "$service_info"
+
+            # Only show running services
+            if [[ "$status" == "online" ]]; then
+                printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
+                    "$id" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
+                id=$((id + 1))
+                found_running=true
+            fi
+        done
+    fi
+
+    if [[ "$found_running" == "false" ]]; then
+        echo ""
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+    fi
+}
+
+# List available services (all services)
+tsm_list_available() {
+    print_table_header
+
+    local id=0
+    if [[ -d "$TSM_SERVICES_AVAILABLE" ]]; then
+        for service_file in "$TSM_SERVICES_AVAILABLE"/*.tsm; do
+            [[ -f "$service_file" ]] || continue
+
+            local service_info=$(get_service_info "$service_file")
+            IFS='|' read -r name env_file pid port status restarts uptime <<< "$service_info"
+
+            printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
+                "$id" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
+            id=$((id + 1))
+        done
+    fi
+
+    if [[ $id -eq 0 ]]; then
+        echo ""
+        echo "No services available. Create services in $TSM_SERVICES_AVAILABLE"
+    fi
+}
+
+# List all services (same as available, but clearer naming)
+tsm_list_all() {
+    tsm_list_available
+}
+
+# Main command handler
+case "${1:-running}" in
+    "running"|"")
+        tsm_list_running
+        ;;
+    "available")
+        tsm_list_available
+        ;;
+    "all")
+        tsm_list_all
+        ;;
+    "help"|"-h"|"--help")
+        echo "Usage: tsm list [running|available|all]"
+        echo ""
+        echo "Options:"
+        echo "  running    - Show only running services (default)"
+        echo "  available  - Show all available services"
+        echo "  all        - Show all services (same as available)"
+        echo ""
+        echo "Examples:"
+        echo "  tsm list           # Show running services"
+        echo "  tsm list running   # Show running services"
+        echo "  tsm list available # Show all services"
+        echo "  tsm list all       # Show all services"
+        ;;
+    *)
+        echo "❌ Unknown option: $1"
+        echo "Usage: tsm list [running|available|all]"
+        echo "Run 'tsm list help' for more information"
+        exit 1
+        ;;
+esac
