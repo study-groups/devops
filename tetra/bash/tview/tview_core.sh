@@ -7,10 +7,68 @@ TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TVIEW_DIR/tview_keys.sh"         # Key bindings (MUST BE FIRST)
 source "$TVIEW_DIR/tview_data.sh"         # Data loading functions
 source "$TVIEW_DIR/background_manager.sh"   # Background process manager
+source "$TVIEW_DIR/action_line_selector.sh"  # Single-line action selector
 source "$TVIEW_DIR/tview_render.sh"       # Display rendering
 source "$TVIEW_DIR/tview_modes.sh"        # Mode content rendering
 source "$TVIEW_DIR/tview_actions.sh"      # Modal actions
-source "$TVIEW_DIR/tview_navigation.sh"   # Navigation functions
+# Navigation functions for environment and mode switching
+navigate_mode() {
+    local direction="$1"
+    local current_idx
+
+    # Find current mode index
+    for i in "${!MODES[@]}"; do
+        if [[ "${MODES[$i]}" == "$CURRENT_MODE" ]]; then
+            current_idx=$i
+            break
+        fi
+    done
+
+    if [[ "$direction" == "left" ]]; then
+        current_idx=$((current_idx - 1))
+        if [[ $current_idx -lt 0 ]]; then
+            current_idx=$((${#MODES[@]} - 1))
+        fi
+    else
+        current_idx=$((current_idx + 1))
+        if [[ $current_idx -ge ${#MODES[@]} ]]; then
+            current_idx=0
+        fi
+    fi
+
+    CURRENT_MODE="${MODES[$current_idx]}"
+    CURRENT_ITEM=0
+    DRILL_LEVEL=0
+}
+
+navigate_environment() {
+    local direction="$1"
+    local current_idx
+
+    # Find current environment index
+    for i in "${!ENVIRONMENTS[@]}"; do
+        if [[ "${ENVIRONMENTS[$i]}" == "$CURRENT_ENV" ]]; then
+            current_idx=$i
+            break
+        fi
+    done
+
+    if [[ "$direction" == "left" || "$direction" == "up" ]]; then
+        current_idx=$((current_idx - 1))
+        if [[ $current_idx -lt 0 ]]; then
+            current_idx=$((${#ENVIRONMENTS[@]} - 1))
+        fi
+    else
+        current_idx=$((current_idx + 1))
+        if [[ $current_idx -ge ${#ENVIRONMENTS[@]} ]]; then
+            current_idx=0
+        fi
+    fi
+
+    CURRENT_ENV="${ENVIRONMENTS[$current_idx]}"
+    CURRENT_ITEM=0
+    DRILL_LEVEL=0
+}
 source "$TVIEW_DIR/tview_hooks.sh"        # Context-triggered actions (drill behaviors)
 source "$TVIEW_DIR/tview_repl.sh"         # REPL interfaces
 source "$TVIEW_DIR/tview_rcm_registry.sh"   # RCM command definitions
@@ -29,6 +87,12 @@ CURRENT_ITEM=0           # Item within current environment+mode
 DRILL_LEVEL=0            # 0=normal view, 1=drilled into item
 TVIEW_MODE="gamepad"     # gamepad | repl (interaction mode)
 REPL_CONTEXT="tview"     # tview | tsm | tkm | deploy | span | etc (current REPL module context)
+
+# Set active organization
+if [[ -z "$ACTIVE_ORG" ]]; then
+    # Auto-detect from tetra/orgs directory
+    export ACTIVE_ORG=$(basename "$(find "${TETRA_DIR:-/Users/mricos/tetra}/orgs" -maxdepth 1 -type d 2>/dev/null | head -2 | tail -1)" 2>/dev/null || echo "pixeljam-arcade")
+fi
 
 # Available environments and modes (reordered for new hierarchy)
 ENVIRONMENTS=("TETRA" "LOCAL" "DEV" "STAGING" "PROD" "QA")
@@ -92,6 +156,7 @@ tview_repl_main() {
     setup_colors
     detect_active_toml
     init_state_system
+    init_action_line
 
     # Source the layout manager and actions
     source "$(dirname "${BASH_SOURCE[0]}")/tview_layout.sh"
@@ -102,14 +167,17 @@ tview_repl_main() {
     local ssh_check_counter=0
     local last_layout_hash=""
 
-    # Start background SSH checker for non-blocking status updates
-    start_background_ssh_checker
+    # Auto SSH checking disabled to prevent unwanted connections
+    # start_background_ssh_checker
+
+    # Exit flag for clean loop termination
+    declare -g tview_exit=false
 
     # Initial screen setup
     calculate_layout_regions
     redraw_screen
 
-    while true; do
+    while [[ "$tview_exit" != "true" ]]; do
         # Only refresh data periodically, not every keystroke
         if [[ $data_refresh_counter -eq 0 ]]; then
             load_toml_data
@@ -170,115 +238,7 @@ tview_repl_main() {
 }
 
 # Handle gamepad (single key) input
-handle_gamepad_input() {
-    local key="$1"
-
-    case "$key" in
-            'e')
-                # Cycle through environments (left to right)
-                navigate_environment "right"
-                ;;
-            'E')
-                # Shift+E: Cycle environments reverse (right to left)
-                navigate_environment "left"
-                ;;
-            'm')
-                # Cycle through modes (left to right)
-                navigate_mode "right"
-                ;;
-            'M')
-                # Shift+M: Cycle modes reverse (right to left)
-                navigate_mode "left"
-                ;;
-            'j'|'J')
-                drill_out
-                ;;
-            $'\e'|$'\033')  # ESC key - idempotent return to gamepad mode (like vim)
-                TVIEW_MODE="gamepad"
-                DRILL_LEVEL=0  # Always exit drill when hitting ESC
-                clear_hint     # Clear any active hints
-                # Don't echo in normal operation - just silently reset
-                ;;
-            'i'|'I')
-                navigate_item "up"
-                ;;
-            'k'|'K')
-                navigate_item "down"
-                ;;
-            $'\e[A')  # Up arrow
-                navigate_item "up"
-                ;;
-            $'\e[B')  # Down arrow
-                navigate_item "down"
-                ;;
-            $'\e[C')  # Right arrow
-                navigate_mode "right"
-                ;;
-            $'\e[D')  # Left arrow
-                navigate_environment "left"
-                ;;
-            'l')
-                echo "DEBUG: l key case reached, calling drill_into" >> /tmp/tview_debug.log
-                drill_into
-                echo "DEBUG: drill_into returned" >> /tmp/tview_debug.log
-                ;;
-            'L')
-                # Shift+L: Show contextual hints
-                show_contextual_hint
-                ;;
-            '')  # Enter key
-                handle_enter_key
-                ;;
-            'q'|'Q')
-                echo "Exiting tview..."
-                exit 0
-                ;;
-            'r'|'R')
-                # Force immediate data refresh
-                data_refresh_counter=0
-                ssh_check_counter=0
-                ;;
-            'h'|'H')
-                show_modal_help
-                ;;
-            '/')
-                # Enter REPL mode (changed from t key)
-                enter_repl_mode
-                ;;
-            't'|'T')
-                execute_tsm_command
-                ;;
-            'g'|'G')
-                execute_git_command
-                ;;
-            'v'|'V')
-                view_with_glow
-                ;;
-            'a'|'A')
-                # Context-aware left navigation
-                awsd_navigate "left"
-                ;;
-            'd'|'D')
-                # Context-aware right navigation
-                awsd_navigate "right"
-                ;;
-            'w'|'W')
-                # Context-aware up navigation
-                awsd_navigate "up"
-                ;;
-            's'|'S')
-                # Context-aware down navigation
-                awsd_navigate "down"
-                ;;
-            '`'|'~')
-                # Backtick or tilde enters REPL mode
-                enter_repl_mode
-                ;;
-            *)
-                # Silently ignore unknown keys to maintain display flow
-                ;;
-        esac
-}
+# Removed duplicate handle_gamepad_input - using handle_gamepad_input_with_layout instead
 
 # Handle gamepad input with new layout system
 handle_gamepad_input_with_layout() {
@@ -304,18 +264,51 @@ handle_gamepad_input_with_layout() {
             # Shift+M: Cycle modes reverse (right to left)
             navigate_mode "left"
             ;;
-        'i')
-            # Previous item in action list
-            navigate_item "up"
+        'd')
+            # Cycle through modes (left to right) - moDe
+            navigate_mode "right"
             ;;
-        'k')
-            # Next item in action list
-            navigate_item "down"
+        'D')
+            # Shift+D: Cycle modes reverse (right to left) - moDe
+            navigate_mode "left"
+            ;;
+        'a')
+            echo "DEBUG: About to call navigate_action_line down" >> /tmp/tview_debug.log
+            if command -v navigate_action_line >/dev/null 2>&1; then
+                navigate_action_line "down"
+                redraw_screen
+            else
+                echo "DEBUG: navigate_action_line function not found!" >> /tmp/tview_debug.log
+            fi
+            ;;
+        'A')
+            echo "DEBUG: About to call navigate_action_line up" >> /tmp/tview_debug.log
+            if command -v navigate_action_line >/dev/null 2>&1; then
+                navigate_action_line "up"
+                redraw_screen
+            else
+                echo "DEBUG: navigate_action_line function not found!" >> /tmp/tview_debug.log
+            fi
             ;;
         'l')
-            # Open modal for selected action
-            echo "DEBUG: l key pressed, opening modal for action" >> /tmp/tview_debug.log
-            open_action_modal
+            # Execute selected action from action line
+            echo "DEBUG: l key pressed, executing action from line" >> /tmp/tview_debug.log
+            if command -v execute_action_line >/dev/null 2>&1; then
+                execute_action_line
+                echo "DEBUG: action line execution returned" >> /tmp/tview_debug.log
+            else
+                echo "DEBUG: execute_action_line function not found!" >> /tmp/tview_debug.log
+            fi
+            ;;
+        $'\n'|$'\r')  # Enter key
+            # Execute selected action from action line
+            echo "DEBUG: Enter key pressed, executing action from line" >> /tmp/tview_debug.log
+            if command -v execute_action_line >/dev/null 2>&1; then
+                execute_action_line
+                echo "DEBUG: action line execution returned" >> /tmp/tview_debug.log
+            else
+                echo "DEBUG: execute_action_line function not found!" >> /tmp/tview_debug.log
+            fi
             ;;
         'j')
             # Scroll results up
@@ -334,11 +327,6 @@ handle_gamepad_input_with_layout() {
         'r'|'R')
             # Reset interface to initial state
             reset_interface
-            ;;
-        $'\n'|$'\r')
-            # Enter: Execute selected action
-            echo "DEBUG: Enter key detected, calling execute_current_action" >> /tmp/tview_debug.log
-            execute_current_action
             ;;
         $'\e'|$'\033')
             # ESC: Hide results if showing, otherwise do nothing
@@ -362,6 +350,7 @@ handle_gamepad_input_with_layout() {
         'q'|'Q')
             # Quit
             cleanup_and_exit
+            tview_exit=true
             ;;
         *)
             # Log unhandled keys for debugging
@@ -375,7 +364,7 @@ cleanup_and_exit() {
     # Clear screen and restore normal terminal
     clear
     echo "TView exited."
-    exit 0
+    return 0
 }
 
 # Execute the currently selected action with error handling
@@ -575,7 +564,7 @@ show_contextual_hint() {
             hint_text="Deployment management: Configuration deployment and validation."
             ;;
         *)
-            hint_text="Navigation: 'e'=environments 'm'=modes 'i/k'=items 'l'=drill 'h'=help 'q'=quit"
+            hint_text="Navigation: 'e'=environments 'm/d'=modes 'a/A'=actions 'l'=execute 'h'=help 'q'=quit"
             ;;
     esac
 
@@ -830,25 +819,7 @@ show_modal_help() {
 }
 
 # Enhanced input handling with state tracking
-handle_gamepad_input_with_state() {
-    local key="$1"
-
-    # Update input state
-    update_input_state "$key"
-
-    # Check for key sequences
-    local sequence_action=$(check_key_sequence)
-    if [[ "$sequence_action" != "none" ]]; then
-        handle_key_sequence "$sequence_action"
-        return
-    fi
-
-    # Update terminal dimensions on each input
-    update_terminal_dimensions
-
-    # Handle normal key input
-    handle_gamepad_input "$key"
-}
+# Removed unused handle_gamepad_input_with_state - consolidating to single handler
 
 # Handle key sequences (vim-like)
 handle_key_sequence() {

@@ -771,7 +771,8 @@ TView Navigation Help
 ════════════════════
 e/E - Cycle environments (forward/reverse)
 m/M - Cycle modes (forward/reverse)
-i/k - Navigate actions (up/down)
+d/D - Cycle modes (forward/reverse) - moDe
+a/A - Navigate actions (next/previous)
 Enter - Execute selected action
 j - Exit/Go back | ESC - Hide results window
 r - Reset interface
@@ -779,7 +780,7 @@ r - Reset interface
 ? - Show help
 q - Quit
 
-Pattern: e/m to navigate → i/k to select → Enter to execute
+Pattern: e=env m/d=mode → a/A=actions → Enter/l=execute
 Results appear in scrollable window between top and bottom.
 EOF
 }

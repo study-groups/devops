@@ -377,26 +377,19 @@ EOF
 }
 
 render_tsm_dev() {
-    # Test SSH connectivity in real-time
-    local ssh_result=""
-    if timeout 2 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "echo 'ok'" >/dev/null 2>&1; then
-        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
-    else
-        ssh_result="$(render_status_indicator "disconnected" "SSH Failed")"
-    fi
+    # Auto SSH connectivity disabled to prevent unwanted connections
+    local ssh_result="$(render_status_indicator "info" "SSH Not Auto-Tested")"
 
-    # Get service status
+    # Service status disabled - no auto SSH connections
     local service_result=""
-    if [[ "$ssh_result" == *"SSH Ready"* ]]; then
-        local tetra_status=$(timeout 3 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "systemctl is-active tetra.service 2>/dev/null || echo 'inactive'")
-        if [[ "$tetra_status" == "active" ]]; then
-            service_result="$(render_status_indicator "active" "tetra.service running")"
-        else
-            service_result="$(render_status_indicator "inactive" "tetra.service $tetra_status")"
-        fi
-    else
-        service_result="$(render_status_indicator "error" "Cannot check (SSH failed)")"
-    fi
+    # Disabled auto SSH test - use manual action to check status
+    # if timeout 2 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "echo 'ok'" >/dev/null 2>&1; then
+    #     ssh_result="$(render_status_indicator "connected" "SSH Ready")"
+    #     local tetra_status=$(timeout 3 ssh -o ConnectTimeout=1 -o BatchMode=yes "${CURRENT_SSH_PREFIXES[dev_root]#ssh }" "systemctl is-active tetra.service 2>/dev/null || echo 'inactive'")
+    #     if [[ "$tetra_status" == "active" ]]; then
+    #         service_result="$(render_status_indicator "active" "tetra.service running")"
+    #     else
+    service_result="$(render_status_indicator "info" "Use SSH action to check")"
 
     cat << EOF
 
@@ -414,17 +407,13 @@ EOF
 }
 
 render_tsm_staging() {
-    # Test SSH connectivity and get service status
+    # Auto SSH connectivity disabled to prevent unwanted connections
     local ssh_result env_lower="staging"
     local ssh_prefix="${CURRENT_SSH_PREFIXES[staging_root]:-ssh root@staging.pixeljamarcade.com}"
 
-    if timeout 2 ${ssh_prefix#ssh } "echo 'ok'" >/dev/null 2>&1; then
-        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
-    else
-        ssh_result="$(render_status_indicator "error" "SSH Failed")"
-    fi
-
-    local service_result="$(render_status_indicator "info" "Service Check")"
+    # Disabled auto SSH test - use manual SSH action to check
+    ssh_result="$(render_status_indicator "info" "SSH Not Auto-Tested")"
+    local service_result="$(render_status_indicator "info" "Use SSH action to check")"
 
     cat << EOF
 
@@ -444,17 +433,13 @@ EOF
 }
 
 render_tsm_prod() {
-    # Test SSH connectivity and get service status
+    # Auto SSH connectivity disabled to prevent unwanted connections
     local ssh_result env_lower="prod"
     local ssh_prefix="${CURRENT_SSH_PREFIXES[prod_root]:-ssh root@prod.pixeljamarcade.com}"
 
-    if timeout 2 ${ssh_prefix#ssh } "echo 'ok'" >/dev/null 2>&1; then
-        ssh_result="$(render_status_indicator "connected" "SSH Ready")"
-    else
-        ssh_result="$(render_status_indicator "error" "SSH Failed")"
-    fi
-
-    local service_result="$(render_status_indicator "warning" "Prod Check")"
+    # Disabled auto SSH test - use manual SSH action to check
+    ssh_result="$(render_status_indicator "info" "SSH Not Auto-Tested")"
+    local service_result="$(render_status_indicator "info" "Use SSH action to check")"
 
     cat << EOF
 

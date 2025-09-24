@@ -291,18 +291,9 @@ render_sticky_status() {
         fi
     else
         # Wide terminal layout with precise positioning
-        local context=$(get_current_selection_context)
-        local connection_info="$(get_connection_context)"
-        printf "\033[${start_line};1H    %s" "${UI_MUTED_COLOR}Status: $context | Connection: $connection_info | Navigation: e/m env/mode, i/k actions, r reset${COLOR_RESET}"
+        printf "\033[${start_line};1H    %s" "${UI_MUTED_COLOR}e/m=env/mode  a/A=actions  l=execute  q=quit${COLOR_RESET}"
 
-        local action_command=$(generate_semantic_action)
-        printf "\033[$((start_line + 1));1H    %s" "${UI_MUTED_COLOR}Action: $action_command${COLOR_RESET}"
 
-        if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
-            printf "\033[$((start_line + 2));1H    %s" "${UI_MUTED_COLOR}Results: j/k scroll, ESC hide | Enter execute, / REPL${COLOR_RESET}"
-        else
-            printf "\033[$((start_line + 2));1H    %s" "${UI_MUTED_COLOR}Ready: Enter execute action, / REPL mode, ? help${COLOR_RESET}"
-        fi
     fi
 }
 
@@ -421,16 +412,62 @@ redraw_screen() {
     clear_region "$LAYOUT_HEADER_START" "$LAYOUT_STATUS_END"
 
     render_fixed_header
-    render_action_list
-    if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
+    render_action_line
+
+    # Show action placeholder content in center if available
+    if [[ "$SHOW_ACTION_PLACEHOLDER" == "true" && -n "$ACTION_PLACEHOLDER_CONTENT" ]]; then
+        render_placeholder_content
+    elif [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
         render_results_window
     fi
+
     render_sticky_status
+}
+
+# Render action placeholder content in center area
+render_placeholder_content() {
+    local content_start=$((LAYOUT_ACTION_END + 2))
+    local content_height=$((LAYOUT_STATUS_START - content_start - 2))
+    local content_width=$((COLUMNS - 4))
+
+    # Center the content vertically
+    local padding_top=$((content_height / 3))
+
+    # Move to content area and add padding
+    for ((i=0; i<padding_top; i++)); do
+        tput cup $((content_start + i)) 0
+        echo ""
+    done
+
+    # Render placeholder content line by line
+    local line_num=0
+    while IFS= read -r line && [[ $line_num -lt $((content_height - padding_top)) ]]; do
+        tput cup $((content_start + padding_top + line_num)) 2
+
+        # Center the line horizontally
+        local line_len=${#line}
+        local padding_left=$(( (content_width - line_len) / 2 ))
+
+        # Add left padding
+        for ((j=0; j<padding_left; j++)); do
+            echo -n " "
+        done
+
+        echo "$line"
+        ((line_num++))
+    done <<< "$ACTION_PLACEHOLDER_CONTENT"
+}
+
+# Clear action placeholder
+clear_action_placeholder() {
+    export SHOW_ACTION_PLACEHOLDER="false"
+    export ACTION_PLACEHOLDER_CONTENT=""
 }
 
 # Reset to initial state
 reset_interface() {
     hide_results
+    clear_action_placeholder
     CURRENT_ITEM=0
     redraw_screen
 }

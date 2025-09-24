@@ -65,7 +65,15 @@ render_header() {
         fi
 
         local status_content=$(get_current_selection_context)
-        local right_content="${TVIEW_HINT:-$status_content}"
+        local right_content=""
+
+        # Priority: Status field > Hint > Selection context
+        if [[ -n "$TVIEW_STATUS_FIELD" ]]; then
+            # Purple status field matching Tetra theme
+            right_content="\033[35m${TVIEW_STATUS_FIELD}\033[0m"
+        else
+            right_content="${TVIEW_HINT:-$status_content}"
+        fi
 
         # Right-align status if it fits
         local left_length=$(echo -e "$line1" | sed 's/\x1b\[[0-9;]*m//g' | wc -c)
@@ -117,14 +125,6 @@ render_header() {
     fi
     truncate_line "$mode_line" $terminal_width
 
-    # Line 4: Action - compact semantic command
-    local action_line="Action: "
-    if [[ $terminal_width -le 80 ]]; then
-        action_line+=$(generate_compact_action)
-    else
-        action_line+=$(generate_semantic_action)
-    fi
-    truncate_line "$action_line" $terminal_width
 }
 
 # Utility function to truncate lines with color codes
