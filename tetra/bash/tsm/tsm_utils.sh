@@ -401,7 +401,7 @@ tetra_tsm_is_running_by_id() {
 # Check if process is running by name
 tetra_tsm_is_running_by_name() {
     local name="$1"
-    local pidfile="$TETRA_DIR/tsm/pids/$name.pid"
+    local pidfile="$TETRA_DIR/tsm/runtime/pids/$name.pid"
     
     [[ -f "$pidfile" ]] || return 1
     local pid=$(cat "$pidfile")
@@ -472,4 +472,23 @@ tetra_tsm_extract_port() {
     fi
 
     return 1
+}
+
+# Check if a TSM process is currently running
+tetra_tsm_is_running() {
+    local process_name="$1"
+
+    [[ -z "$process_name" ]] && return 1
+
+    # Check if process tracking file exists
+    local process_file="$TETRA_DIR/tsm/runtime/processes/$process_name.meta"
+    [[ ! -f "$process_file" ]] && return 1
+
+    # Extract PID from process file
+    local pid
+    pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
+    [[ -z "$pid" ]] && return 1
+
+    # Check if PID is actually running
+    kill -0 "$pid" 2>/dev/null
 }

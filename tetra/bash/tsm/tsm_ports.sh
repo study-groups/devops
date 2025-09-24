@@ -192,6 +192,32 @@ tsm_list_named_ports() {
                 printf "%-12s %s\n" "$service" "${TSM_NAMED_PORTS[$service]}"
             done | sort
             ;;
+        "detailed")
+            printf "%-15s %-8s %s\n" "SERVICE" "PORT" "DATA SOURCE"
+            printf "%-15s %-8s %s\n" "-------" "----" "-----------"
+            echo "# Port data stored in: $TSM_PORTS_CONFIG"
+            echo "# Last updated: $(stat -f "%Sm" "$TSM_PORTS_CONFIG" 2>/dev/null || echo "unknown")"
+            echo
+            for service in "${!TSM_NAMED_PORTS[@]}"; do
+                local port="${TSM_NAMED_PORTS[$service]}"
+                local source="ports.toml"
+                if [[ -z "$port" ]]; then
+                    port="(not set)"
+                    source="not configured"
+                fi
+                printf "%-15s %-8s %s\n" "$service" "$port" "$source"
+            done | sort
+
+            # Also show services that might exist but don't have ports configured
+            echo
+            echo "# Configuration file location: $TSM_PORTS_CONFIG"
+            if [[ -f "$TSM_PORTS_CONFIG" ]]; then
+                echo "# File exists: ✅"
+                echo "# File permissions: $(ls -l "$TSM_PORTS_CONFIG" | cut -d' ' -f1)"
+            else
+                echo "# File exists: ❌ (will be created on first port assignment)"
+            fi
+            ;;
         "env")
             for service in "${!TSM_NAMED_PORTS[@]}"; do
                 local upper_service=$(echo "$service" | tr '[:lower:]' '[:upper:]')
@@ -214,7 +240,7 @@ tsm_list_named_ports() {
             ;;
         *)
             echo "Unknown format: $format" >&2
-            echo "Supported formats: table, env, json" >&2
+            echo "Supported formats: table, detailed, env, json" >&2
             return 1
             ;;
     esac
@@ -359,30 +385,107 @@ tsm_resolve_service_port() {
 tsm_scan_named_ports() {
     local show_all="${1:-false}"
 
-    echo "Named Port Registry Status:"
+    echo "📋 Named Port Registry Status:"
     echo
-    printf "%-12s %-6s %-8s %-10s %s\n" "SERVICE" "PORT" "STATUS" "PID" "PROCESS"
-    printf "%-12s %-6s %-8s %-10s %s\n" "-------" "----" "------" "---" "-------"
+    printf "%-15s %-6s %-10s %-8s %-10s %-15s %s\n" "SERVICE" "PORT" "STATUS" "ENABLED" "PID" "TSM_STATUS" "PROCESS"
+    printf "%-15s %-6s %-10s %-8s %-10s %-15s %s\n" "-------" "----" "------" "-------" "---" "----------" "-------"
 
     for service in "${!TSM_NAMED_PORTS[@]}"; do
         local port="${TSM_NAMED_PORTS[$service]}"
-        local pid=$(lsof -ti :$port 2>/dev/null)
 
-        if [[ -n "$pid" ]]; then
-            local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-            printf "%-12s %-6s \033[0;31m%-8s\033[0m %-10s %s\n" "$service" "$port" "USED" "$pid" "$process"
-        else
-            printf "%-12s %-6s \033[0;32m%-8s\033[0m %-10s %s\n" "$service" "$port" "FREE" "-" "-"
+        # Skip empty ports
+        if [[ -z "$port" ]]; then
+            continue
         fi
+
+        local pid=$(lsof -ti :$port 2>/dev/null)
+        local status_color=""
+        local status=""
+        local process=""
+        local tsm_status=""
+        local enabled_status=""
+
+        # Check port availability
+        if [[ -n "$pid" ]]; then
+            status="🔴 USED"
+            status_color="\033[0;31m"
+            process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+        else
+            status="🟢 FREE"
+            status_color="\033[0;32m"
+            process="-"
+            pid="-"
+        fi
+
+        # Check if service is enabled for auto-start
+        if command -v tsm >/dev/null 2>&1; then
+            if tsm services 2>/dev/null | grep -q "$service.*✅"; then
+                enabled_status="✅ YES"
+            elif tsm services 2>/dev/null | grep -q "$service.*⚪"; then
+                enabled_status="⚪ NO"
+            else
+                enabled_status="❓ N/A"
+            fi
+
+            # Check if service is running in TSM
+            if tsm list 2>/dev/null | grep -q "$service"; then
+                tsm_status="🚀 RUNNING"
+            else
+                tsm_status="⏹️  STOPPED"
+            fi
+        else
+            enabled_status="❓ N/A"
+            tsm_status="❓ N/A"
+        fi
+
+        printf "%-15s %-6s ${status_color}%-10s\033[0m %-8s %-10s %-15s %s\n" \
+            "$service" "$port" "$status" "$enabled_status" "$pid" "$tsm_status" "$process"
     done | sort
 
     if [[ "$show_all" == "true" ]]; then
         echo
-        echo "All Development Ports:"
+        echo "📊 All Development Ports:"
         tetra_tsm_doctor scan 2>/dev/null || {
-            echo "Note: Run 'tsm doctor' for full port scan"
+            echo "Note: Run 'tsm doctor scan' for full port scan"
         }
     fi
+}
+
+# Enhanced ports overview combining named ports and services
+tsm_ports_overview() {
+    echo "🔍 TSM Ports & Services Overview"
+    echo "================================="
+    echo
+
+    # Show named ports status
+    tsm_scan_named_ports false
+
+    echo
+    echo "📋 Service Configuration Summary:"
+    echo
+
+    # Show services and their status
+    if command -v tsm >/dev/null 2>&1; then
+        local services_output
+        services_output=$(tsm services 2>/dev/null)
+
+        if [[ -n "$services_output" ]]; then
+            echo "$services_output"
+        else
+            echo "No services configured"
+        fi
+    else
+        echo "TSM command not available"
+    fi
+
+    echo
+    echo "💡 Legend:"
+    echo "  🟢 FREE - Port available for use"
+    echo "  🔴 USED - Port currently in use"
+    echo "  ✅ YES - Service enabled for auto-start"
+    echo "  ⚪ NO  - Service disabled for auto-start"
+    echo "  🚀 RUNNING - Service currently managed by TSM"
+    echo "  ⏹️  STOPPED - Service not currently running in TSM"
 }
 
 # Export functions for use in other TSM modules
@@ -394,6 +497,7 @@ export -f tsm_set_named_port
 export -f tsm_remove_named_port
 export -f tsm_resolve_service_port
 export -f tsm_scan_named_ports
+export -f tsm_ports_overview
 
 # Check if a port is reserved
 _tsm_is_port_reserved() {

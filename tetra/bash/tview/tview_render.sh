@@ -2,6 +2,41 @@
 
 # TView Rendering - UI and display functions
 
+# Render configuration status panel for parameter visibility
+render_parameter_dashboard() {
+    local terminal_width=${COLUMNS:-80}
+
+    # Source tview_data.sh to get parameter functions
+    if [[ -f "$(dirname "${BASH_SOURCE[0]}")/tview_data.sh" ]]; then
+        source "$(dirname "${BASH_SOURCE[0]}")/tview_data.sh"
+    fi
+
+    # Configuration status panel
+    echo "${UI_ACCENT_COLOR}┌─ Configuration Status ─────────────────────────────────────┐${COLOR_RESET}"
+
+    local org_status="${STATUS_SUCCESS_COLOR}$ACTIVE_ORG${COLOR_RESET}"
+    [[ -z "$ACTIVE_ORG" ]] && org_status="${STATUS_ERROR_COLOR}Not Set${COLOR_RESET}"
+
+    local toml_status="${STATUS_SUCCESS_COLOR}$(basename "$ACTIVE_TOML")${COLOR_RESET}"
+    [[ ! -f "$ACTIVE_TOML" ]] && toml_status="${STATUS_ERROR_COLOR}Missing${COLOR_RESET}"
+
+    local tetra_status="${STATUS_SUCCESS_COLOR}$TETRA_DIR${COLOR_RESET}"
+    [[ ! -d "$TETRA_DIR" ]] && tetra_status="${STATUS_ERROR_COLOR}Invalid${COLOR_RESET}"
+
+    printf "${UI_ACCENT_COLOR}│${COLOR_RESET} Active Org: %s\n" "$org_status"
+    printf "${UI_ACCENT_COLOR}│${COLOR_RESET} TOML File:  %s\n" "$toml_status"
+    printf "${UI_ACCENT_COLOR}│${COLOR_RESET} Tetra Dir:  %s\n" "$tetra_status"
+
+    # Show key TOML values if available
+    if [[ -f "$ACTIVE_TOML" ]]; then
+        local name_val=$(get_toml_value "metadata.name" 2>/dev/null || echo "N/A")
+        local type_val=$(get_toml_value "metadata.type" 2>/dev/null || echo "N/A")
+        printf "${UI_ACCENT_COLOR}│${COLOR_RESET} Project:    ${UI_MUTED_COLOR}%s (%s)${COLOR_RESET}\n" "$name_val" "$type_val"
+    fi
+
+    echo "${UI_ACCENT_COLOR}└─────────────────────────────────────────────────────────────┘${COLOR_RESET}"
+}
+
 # Render 4-line header with proper width constraints
 render_header() {
     local terminal_width=${COLUMNS:-80}
@@ -246,6 +281,39 @@ generate_semantic_action() {
     esac
 }
 
+# Generic TView render dispatcher - Auto-discover module integrations
+tview_render() {
+    local module="$1"
+    local env="$2"
+
+    if [[ -z "$module" || -z "$env" ]]; then
+        echo "Usage: tview_render <module> <environment>"
+        return 1
+    fi
+
+    # Convert to lowercase for module directory
+    local module_lower="${module,,}"
+    local env_lower="${env,,}"
+
+    # Source module's tview integration if it exists
+    local module_tview="$TETRA_SRC/bash/$module_lower/tview/render.sh"
+    if [[ -f "$module_tview" ]]; then
+        source "$module_tview"
+        local render_func="render_${module_lower}_${env_lower}"
+        if declare -f "$render_func" >/dev/null; then
+            "$render_func"
+        else
+            echo "No renderer function: $render_func"
+            echo "Module: $module_lower, Environment: $env_lower"
+            return 1
+        fi
+    else
+        echo "Module $module has no TView integration"
+        echo "Expected: $module_tview"
+        return 1
+    fi
+}
+
 # Render content based on current environment and mode
 render_mode_environment_content() {
     # Show drilled-in view if applicable
@@ -254,35 +322,41 @@ render_mode_environment_content() {
         return
     fi
 
+    # Try generic dispatcher first for modules with TView integration
+    if tview_render "$CURRENT_MODE" "$CURRENT_ENV" 2>/dev/null; then
+        return 0
+    fi
+
+    # Fall back to hardcoded case statement for core modules
     case "$CURRENT_ENV:$CURRENT_MODE" in
-        "SYSTEM:TOML") render_toml_system ;;
+        "TETRA:TOML") render_toml_tetra ;;
         "LOCAL:TOML") render_toml_local ;;
         "DEV:TOML") render_toml_dev ;;
         "STAGING:TOML") render_toml_staging ;;
         "PROD:TOML") render_toml_prod ;;
-        "SYSTEM:TKM") render_tkm_system ;;
+        "TETRA:TKM") render_tkm_tetra ;;
         "LOCAL:TKM") render_tkm_local ;;
         "DEV:TKM") render_tkm_dev ;;
         "STAGING:TKM") render_tkm_staging ;;
         "PROD:TKM") render_tkm_prod ;;
-        "SYSTEM:TSM") render_tsm_system ;;
+        "TETRA:TSM") render_tsm_tetra ;;
         "LOCAL:TSM") render_tsm_local ;;
         "DEV:TSM") render_tsm_dev ;;
         "STAGING:TSM") render_tsm_staging ;;
         "PROD:TSM") render_tsm_prod ;;
         "QA:TSM") render_tsm_qa ;;
-        "SYSTEM:DEPLOY") render_deploy_system ;;
+        "TETRA:DEPLOY") render_deploy_tetra ;;
         "LOCAL:DEPLOY") render_deploy_local ;;
         "DEV:DEPLOY") render_deploy_dev ;;
         "STAGING:DEPLOY") render_deploy_staging ;;
         "PROD:DEPLOY") render_deploy_prod ;;
-        "SYSTEM:ORG") render_org_system ;;
+        "TETRA:ORG") render_org_tetra ;;
         "LOCAL:ORG") render_org_local ;;
         "DEV:ORG") render_org_dev ;;
         "STAGING:ORG") render_org_staging ;;
         "PROD:ORG") render_org_prod ;;
         "QA:ORG") render_org_qa ;;
-        "SYSTEM:RCM") render_rcm_system ;;
+        "TETRA:RCM") render_rcm_tetra ;;
         "LOCAL:RCM") render_rcm_local ;;
         "DEV:RCM") render_rcm_dev ;;
         "STAGING:RCM") render_rcm_staging ;;
@@ -307,6 +381,13 @@ render_status_line() {
 # Get context-aware status for current selection
 get_current_selection_context() {
     case "$CURRENT_MODE:$CURRENT_ENV" in
+        "TOML:TETRA")
+            case $CURRENT_ITEM in
+                0) echo "View TOML Structure - ${ACTIVE_TOML:-No TOML file}" ;;
+                1) echo "Edit Configuration - Span-aware editing" ;;
+                2) echo "Analyze Dependencies - Cross-reference analysis" ;;
+                *) echo "TOML Span Analysis - ${ACTIVE_ORG:-Local Project}" ;;
+            esac ;;
         "TOML:SYSTEM")
             case $CURRENT_ITEM in
                 0) echo "Active TOML: ${ACTIVE_TOML:-No TOML file detected}" ;;

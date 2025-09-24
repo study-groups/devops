@@ -17,11 +17,13 @@ tetra_tsm_start_cli() {
     local resolved_env_file
     resolved_env_file="$(_tsm_auto_detect_env "$script" "$env_file")" || return $?
 
-    # If we found an env file, source it temporarily to get PORT
-    local port
+    # If we found an env file, source it temporarily to get PORT and NAME
+    local port env_name
     if [[ -n "$resolved_env_file" ]]; then
         # Source env file in subshell to extract PORT or TETRA_PORT without affecting current environment
         port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
+        # Also extract NAME or TETRA_NAME from environment file
+        env_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
     fi
 
     # Fallback to extracting PORT from script if not found in env
@@ -33,7 +35,7 @@ tetra_tsm_start_cli() {
     fi
 
     local pwd_at_start="$PWD"
-    _tsm_start_cli_internal "$script" "$custom_name" "$port" "$resolved_env_file" "$pwd_at_start"
+    _tsm_start_cli_internal "$script" "$custom_name" "$port" "$resolved_env_file" "$pwd_at_start" "$env_name"
 }
 
 _tsm_start_cli_internal() {
@@ -42,9 +44,12 @@ _tsm_start_cli_internal() {
     local port="$3"
     local env_file="$4"
     local pwd_at_start="$5"
+    local env_name="$6"
 
     local name
-    name=$(_tsm_generate_name "$script" "$custom_name" "$port" "$env_file")
+    # Use env_name from environment file if available, otherwise fall back to custom_name
+    local effective_name="${env_name:-$custom_name}"
+    name=$(_tsm_generate_name "$script" "$effective_name" "$port" "$env_file")
 
     tetra_tsm_is_running "$name" && {
         echo "tsm: process '$name' already running" >&2
@@ -71,7 +76,7 @@ _tsm_start_cli_internal() {
 
 tetra_tsm_start_command() {
     local command_args=()
-    local port="" custom_name="" env_file="" json_output=false
+    local port="" custom_name="" env_file="" json_output=false env_name="" debug=false
 
     # Parse command arguments and options - command args come first, then options
     while [[ $# -gt 0 ]]; do
@@ -90,6 +95,10 @@ tetra_tsm_start_command() {
                 ;;
             --json)
                 json_output=true
+                shift
+                ;;
+            --debug)
+                debug=true
                 shift
                 ;;
             *)
@@ -122,13 +131,29 @@ tetra_tsm_start_command() {
             done
         fi
 
-        # Extract port from resolved env file if port not provided
+        # Extract port and name from resolved env file if not provided
         if [[ -z "$port" && -f "$resolved_env_file" ]]; then
             port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
         fi
 
+        # Extract name from env file if no custom name provided
+        if [[ -z "$custom_name" && -f "$resolved_env_file" ]]; then
+            env_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
+        fi
+
         # Use the resolved path going forward
         env_file="$resolved_env_file"
+    fi
+
+    # Debug output if requested
+    if [[ "$debug" == "true" ]]; then
+        echo "🔍 TSM Command Debug Information:"
+        echo "  Env File Arg: ${2:-'(none)'}"  # Second arg after --env
+        echo "  Resolved Env File: ${resolved_env_file:-'(none)'}"
+        echo "  Extracted PORT: ${port:-'(none)'}"
+        echo "  Extracted NAME: ${env_name:-'(none)'}"
+        echo "  Command Args: ${command_args[*]}"
+        echo ""
     fi
 
     [[ -n "$port" ]] || { echo "tsm: port required for command mode (not found in env file or --port)" >&2; return 64; }
@@ -136,9 +161,11 @@ tetra_tsm_start_command() {
     # Generate command string
     local command_string="${command_args[*]}"
 
-    # Generate name from command
+    # Generate name from command, preferring env_name, then custom_name, then command base
     local name
-    if [[ -n "$custom_name" ]]; then
+    if [[ -n "$env_name" ]]; then
+        name="${env_name}-${port}"
+    elif [[ -n "$custom_name" ]]; then
         name="${custom_name}-${port}"
     else
         # Use first word of command as base name
@@ -194,7 +221,7 @@ tetra_tsm_start_command() {
 
 tetra_tsm_start() {
     local file="" env_file="" custom_name="" python_start=false python_cmd="" port="" dirname=""
-    local command_mode=false command_args=()
+    local command_mode=false command_args=() debug=false
 
     # Check if first argument is a .tsm.sh service definition
     if [[ $# -ge 1 ]]; then
@@ -230,6 +257,10 @@ tetra_tsm_start() {
             --dir)
                 dirname="$2"
                 shift 2
+                ;;
+            --debug)
+                debug=true
+                shift
                 ;;
             webserver)
                 file="webserver"
@@ -282,9 +313,54 @@ tetra_tsm_start() {
     # Handle different start modes
     if [[ "$command_mode" == "true" ]]; then
         local cmd_args=()
+
+        # Resolve environment file path
+        local resolved_env_file=""
+        if [[ -n "$env_file" ]]; then
+            if [[ "$env_file" == /* ]]; then
+                resolved_env_file="$env_file"
+            else
+                # Try different variations: env/file, env/file.env, file, file.env
+                local candidates=(
+                    "$PWD/env/${env_file}.env"
+                    "$PWD/env/$env_file"
+                    "$PWD/${env_file}.env"
+                    "$PWD/$env_file"
+                )
+                for candidate in "${candidates[@]}"; do
+                    if [[ -f "$candidate" ]]; then
+                        resolved_env_file="$candidate"
+                        break
+                    fi
+                done
+            fi
+        fi
+
+        # Extract port and name from resolved env file if not explicitly provided
+        if [[ -n "$resolved_env_file" && -z "$port" ]]; then
+            port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
+        fi
+        if [[ -n "$resolved_env_file" && -z "$custom_name" ]]; then
+            custom_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
+        fi
+
+        # Debug output if requested
+        if [[ "$debug" == "true" ]]; then
+            echo "🔍 TSM Debug Information:"
+            echo "  Command Mode: true"
+            echo "  Env File Arg: ${env_file:-'(none)'}"
+            echo "  Resolved Env File: ${resolved_env_file:-'(none)'}"
+            echo "  Extracted PORT: ${port:-'(none)'}"
+            echo "  Extracted NAME: ${custom_name:-'(none)'}"
+            echo "  Command Args: ${command_args[*]}"
+            echo "  Final Args: --port ${port:-'(none)'} --env ${env_file:-'(none)'} --name ${custom_name:-'(none)'}"
+            echo ""
+        fi
+
         [[ -n "$port" ]] && cmd_args+=(--port "$port")
         [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
         [[ -n "$custom_name" ]] && cmd_args+=(--name "$custom_name")
+        [[ "$debug" == "true" ]] && cmd_args+=(--debug)
         tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
     elif [[ "$python_start" == "true" ]]; then
         tetra_tsm_start_python "$python_cmd" "$port" "$dirname" "$custom_name"
@@ -293,7 +369,7 @@ tetra_tsm_start() {
     elif [[ -n "$file" ]]; then
         tetra_tsm_start_cli "$file" "$custom_name" "$env_file"
     else
-        echo "tsm: start [--env env.sh] <script.sh|command> [name]" >&2
+        echo "tsm: start [--env env.sh] [--debug] <script.sh|command> [name]" >&2
         return 64
     fi
 }

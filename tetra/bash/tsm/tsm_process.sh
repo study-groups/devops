@@ -165,7 +165,7 @@ tetra_tsm_start_webserver() {
 tetra_tsm_stop_single() {
     local name="$1"
     local force="${2:-false}"
-    local pidfile="$TETRA_DIR/tsm/pids/$name.pid"
+    local pidfile="$TETRA_DIR/tsm/runtime/pids/$name.pid"
 
     tetra_tsm_is_running "$name" || {
         echo "tsm: process '$name' not running"
@@ -249,11 +249,11 @@ tetra_tsm_delete_single() {
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
 
     # Remove all associated files
-    rm -f "$TETRA_DIR/tsm/pids/$name.pid"
-    rm -f "$TETRA_DIR/tsm/logs/$name.out"
-    rm -f "$TETRA_DIR/tsm/logs/$name.err"
-    rm -f "$TETRA_DIR/tsm/processes/$name.meta"
-    rm -f "$TETRA_DIR/tsm/processes/$name.env"
+    rm -f "$TETRA_DIR/tsm/runtime/pids/$name.pid"
+    rm -f "$TETRA_DIR/tsm/runtime/logs/$name.out"
+    rm -f "$TETRA_DIR/tsm/runtime/logs/$name.err"
+    rm -f "$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    rm -f "$TETRA_DIR/tsm/runtime/processes/$name.env"
 
     echo "tsm: deleted '$name'"
 }
@@ -276,7 +276,7 @@ tetra_tsm_restart_single() {
     local name="$1"
 
     # Get metadata before stopping
-    local metafile="$TETRA_DIR/tsm/processes/$name.meta"
+    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
     if [[ ! -f "$metafile" ]]; then
         echo "tsm: process '$name' not found" >&2
         return 1
@@ -324,8 +324,8 @@ _tsm_restart_unified() {
                 return 1
             }
 
-            local logdir="$TETRA_DIR/tsm/logs"
-            local piddir="$TETRA_DIR/tsm/pids"
+            local logdir="$TETRA_DIR/tsm/runtime/logs"
+            local piddir="$TETRA_DIR/tsm/runtime/pids"
 
             (
                 $setsid_cmd bash -c "
@@ -365,7 +365,7 @@ _tsm_restart_unified() {
             }
 
             local pid
-            pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+            pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
 
             local tsm_id
             tsm_id=$(_tsm_save_metadata "$name" "$script_path" "$pid" "$port" "cli" "" "$cwd" "$preserve_id" "true")
@@ -379,7 +379,7 @@ _tsm_restart_unified() {
             }
 
             local pid
-            pid=$(cat "$TETRA_DIR/tsm/pids/$name.pid")
+            pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
 
             local tsm_id
             tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "command" "" "$cwd" "$preserve_id" "true")

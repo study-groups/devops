@@ -31,7 +31,7 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(TETRA_SRC, 'public')));
+app.use(express.static(path.join(TETRA_DIR, 'dashboard')));
 
 // Socket.IO for local terminal
 const io = new Server(server, {

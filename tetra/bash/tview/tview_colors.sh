@@ -52,6 +52,20 @@ setup_color_palette() {
     export COLOR_PINK="$PINK" COLOR_GOLD="$GOLD" COLOR_STEEL="$STEEL" COLOR_CORAL="$CORAL"
     export COLOR_BOLD="$BOLD" COLOR_DIM="$DIM" COLOR_UNDERLINE="$UNDERLINE" COLOR_REVERSE="$REVERSE" COLOR_RESET="$RESET"
 
+    # ===== SEMANTIC COLOR PALETTES =====
+
+    # The 4 Amigos Colors - Classic rich palette for general UI
+    export AMIGOS_ORANGE="$ORANGE"         # Warm accent and highlights
+    export AMIGOS_TEAL="$TEAL"             # Cool secondary and info
+    export AMIGOS_LIME="$LIME"             # Success and active states
+    export AMIGOS_CORAL="$CORAL"           # Attention and warnings
+
+    # The 4 Tetra Colors - Tetra-specific brand palette
+    export TETRA_PURPLE="$PURPLE"          # Primary brand color (requested)
+    export TETRA_GOLD="$GOLD"              # Secondary brand color
+    export TETRA_STEEL="$STEEL"            # Neutral brand color
+    export TETRA_PINK="$PINK"              # Accent brand color
+
     # ===== SEMANTIC DESIGN TOKENS =====
 
     # Environment Color Assignments (distinct and meaningful)
@@ -161,6 +175,62 @@ colorize_status() {
     echo "${color}${text}${COLOR_RESET}"
 }
 
+# ===== PALETTE ACCESS FUNCTIONS =====
+
+# Get an amigos color by index (0-3) or name
+get_amigos_color() {
+    local selector="$1"
+    case "$selector" in
+        0|"orange") echo "$AMIGOS_ORANGE" ;;
+        1|"teal") echo "$AMIGOS_TEAL" ;;
+        2|"lime") echo "$AMIGOS_LIME" ;;
+        3|"coral") echo "$AMIGOS_CORAL" ;;
+        *) echo "$AMIGOS_ORANGE" ;; # Default to first color
+    esac
+}
+
+# Get a tetra color by index (0-3) or name
+get_tetra_color() {
+    local selector="$1"
+    case "$selector" in
+        0|"purple") echo "$TETRA_PURPLE" ;;
+        1|"gold") echo "$TETRA_GOLD" ;;
+        2|"steel") echo "$TETRA_STEEL" ;;
+        3|"pink") echo "$TETRA_PINK" ;;
+        *) echo "$TETRA_PURPLE" ;; # Default to primary brand color
+    esac
+}
+
+# Color text with amigos palette
+colorize_amigos() {
+    local text="$1"
+    local color_selector="$2"
+    local color=$(get_amigos_color "$color_selector")
+    echo "${color}${text}${COLOR_RESET}"
+}
+
+# Color text with tetra palette
+colorize_tetra() {
+    local text="$1"
+    local color_selector="$2"
+    local color=$(get_tetra_color "$color_selector")
+    echo "${color}${text}${COLOR_RESET}"
+}
+
+# Cycle through amigos colors for lists
+cycle_amigos_color() {
+    local index="$1"
+    local amigos_index=$((index % 4))
+    get_amigos_color "$amigos_index"
+}
+
+# Cycle through tetra colors for lists
+cycle_tetra_color() {
+    local index="$1"
+    local tetra_index=$((index % 4))
+    get_tetra_color "$tetra_index"
+}
+
 # ===== THEMED UI COMPONENTS =====
 
 # Render environment badge with appropriate color
@@ -212,6 +282,59 @@ render_status_indicator() {
             echo "${color}${text}${COLOR_RESET}"
             ;;
     esac
+}
+
+# ===== PALETTE-THEMED COMPONENTS =====
+
+# Render REPL prompt with tetra branding
+render_repl_prompt() {
+    local context="$1"
+    local prompt_color=$(get_tetra_color "purple")  # Use primary tetra color
+    echo "${prompt_color}${context}>${COLOR_RESET} "
+}
+
+# Render module list with alternating amigos colors
+render_module_list() {
+    local modules=("$@")
+    local index=0
+
+    for module in "${modules[@]}"; do
+        local color=$(cycle_amigos_color "$index")
+        echo "  ${color}${module}${COLOR_RESET}"
+        ((index++))
+    done
+}
+
+# Render tetra brand header
+render_tetra_header() {
+    local title="$1"
+    local purple=$(get_tetra_color "purple")
+    local gold=$(get_tetra_color "gold")
+
+    echo "${purple}${COLOR_BOLD}TETRA${COLOR_RESET} ${gold}${title}${COLOR_RESET}"
+}
+
+# Render amigos-themed action list
+render_action_list_amigos() {
+    local actions=("$@")
+    local index=0
+
+    for action in "${actions[@]}"; do
+        local color=$(cycle_amigos_color "$index")
+        echo "  ${COLOR_BOLD}${color}[$((index + 1))]${COLOR_RESET} ${action}"
+        ((index++))
+    done
+}
+
+# Render tetra-themed navigation breadcrumb
+render_tetra_breadcrumb() {
+    local env="$1"
+    local mode="$2"
+    local steel=$(get_tetra_color "steel")
+    local purple=$(get_tetra_color "purple")
+    local pink=$(get_tetra_color "pink")
+
+    echo "${purple}${env}${COLOR_RESET} ${steel}❯${COLOR_RESET} ${pink}${mode}${COLOR_RESET}"
 }
 
 # Initialize color system on load

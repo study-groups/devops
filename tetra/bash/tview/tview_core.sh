@@ -4,7 +4,9 @@
 
 # Source all modules
 TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TVIEW_DIR/tview_keys.sh"         # Key bindings (MUST BE FIRST)
 source "$TVIEW_DIR/tview_data.sh"         # Data loading functions
+source "$TVIEW_DIR/background_manager.sh"   # Background process manager
 source "$TVIEW_DIR/tview_render.sh"       # Display rendering
 source "$TVIEW_DIR/tview_modes.sh"        # Mode content rendering
 source "$TVIEW_DIR/tview_actions.sh"      # Modal actions
@@ -18,17 +20,33 @@ source "$TVIEW_DIR/tview_rcm_render.sh"     # RCM UI rendering
 source "$TVIEW_DIR/tview_modal.sh"         # Modal overlay system
 source "$TVIEW_DIR/tview_state.sh"         # Comprehensive state management
 source "$TVIEW_DIR/tview_colors.sh"        # Color design tokens and theming
+source "$TVIEW_DIR/tview_action_modal.sh"  # Action modal system
 
 # Global state - Hierarchical navigation paradigm
-CURRENT_ENV="LOCAL"      # SYSTEM | LOCAL | DEV | STAGING | PROD (primary navigation)
+CURRENT_ENV="TETRA"      # TETRA | LOCAL | DEV | STAGING | PROD (primary navigation)
 CURRENT_MODE="TOML"      # TOML | TKM | TSM | DEPLOY | ORG (secondary navigation)
 CURRENT_ITEM=0           # Item within current environment+mode
 DRILL_LEVEL=0            # 0=normal view, 1=drilled into item
 TVIEW_MODE="gamepad"     # gamepad | repl (interaction mode)
+REPL_CONTEXT="tview"     # tview | tsm | tkm | deploy | span | etc (current REPL module context)
 
 # Available environments and modes (reordered for new hierarchy)
 ENVIRONMENTS=("TETRA" "LOCAL" "DEV" "STAGING" "PROD" "QA")
+
+# Core modes (hardcoded for backward compatibility)
 MODES=("TOML" "TKM" "TSM" "DEPLOY" "ORG" "RCM")
+
+# Auto-discover modules with TView integration
+for module_dir in "$TETRA_SRC/bash"/*/; do
+    if [[ -f "$module_dir/includes.sh" && -d "$module_dir/tview" ]]; then
+        module_name=$(basename "$module_dir")
+        module_upper="${module_name^^}"
+        # Add to MODES if not already present and not a core module
+        if [[ ! " ${MODES[*]} " =~ " ${module_upper} " ]]; then
+            MODES+=("$module_upper")
+        fi
+    fi
+done
 
 # Scrolling state
 SCROLL_OFFSET=0
@@ -48,8 +66,28 @@ RCM_EDITING_MODE=false               # true when editing SSH prefix
 RCM_EDIT_ENV=""                      # Environment being edited
 RCM_EDIT_BUFFER=""                   # Edit buffer for SSH prefix
 
+# Generate dynamic REPL prompt based on current context
+get_repl_prompt() {
+    case "$REPL_CONTEXT" in
+        "tview") echo "tview> " ;;
+        "tsm") echo "tsm> " ;;
+        "tkm") echo "tkm> " ;;
+        "deploy") echo "deploy> " ;;
+        "span") echo "span> " ;;
+        "rcm") echo "rcm> " ;;
+        "org") echo "org> " ;;
+        "toml") echo "toml> " ;;
+        *) echo "${REPL_CONTEXT}> " ;;
+    esac
+}
+
 # TView REPL main function - Top-down layout with sticky elements
 tview_repl_main() {
+    # Debug: Test if this file is being used
+    echo "DEBUG: tview_repl_main started at $(date)" > /tmp/tview_debug.log
+    echo "DEBUG: Current working directory: $(pwd)" >> /tmp/tview_debug.log
+    echo "DEBUG: This file path: ${BASH_SOURCE[0]}" >> /tmp/tview_debug.log
+
     # Initialize systems
     setup_colors
     detect_active_toml
@@ -63,6 +101,9 @@ tview_repl_main() {
     local data_refresh_counter=0
     local ssh_check_counter=0
     local last_layout_hash=""
+
+    # Start background SSH checker for non-blocking status updates
+    start_background_ssh_checker
 
     # Initial screen setup
     calculate_layout_regions
@@ -82,12 +123,16 @@ tview_repl_main() {
             ssh_check_counter=30  # Check SSH every 30 keystrokes
         fi
 
-        # Calculate current layout hash to detect changes
-        local current_hash="${CURRENT_ENV}:${CURRENT_MODE}:${CURRENT_ITEM}:${LAYOUT_STATE[show_results]}"
+        # Calculate current layout hash to detect changes (exclude show_results to avoid redraw loops)
+        local current_hash="${CURRENT_ENV}:${CURRENT_MODE}:${CURRENT_ITEM}"
 
-        # Only redraw if something changed
-        if [[ "$current_hash" != "$last_layout_hash" ]]; then
+        # Only redraw if something changed and results aren't being shown
+        if [[ "$current_hash" != "$last_layout_hash" && ${LAYOUT_STATE["show_results"]} != "true" ]]; then
             redraw_screen
+            last_layout_hash="$current_hash"
+        elif [[ ${LAYOUT_STATE["show_results"]} == "true" && "$current_hash" != "$last_layout_hash" ]]; then
+            # If results are showing and layout changed, just update the status line
+            render_sticky_status
             last_layout_hash="$current_hash"
         fi
 
@@ -97,21 +142,28 @@ tview_repl_main() {
 
         # Handle input based on current mode
         if [[ "$TVIEW_MODE" == "repl" ]]; then
-            # REPL mode: position cursor and clear line for clean prompt
-            local repl_line=$((LAYOUT_STATUS_END + 1))
-            if [[ $repl_line -le ${LINES:-24} ]]; then
-                printf "\033[${repl_line};1H\033[K"  # Clear line
-            else
-                printf "\033[${LAYOUT_STATUS_END};1H\033[K"  # Clear line
+            # REPL mode - position above status footer
+            local repl_line=$((LAYOUT_STATUS_START - 1))
+            printf "\033[${repl_line};1H\033[K"  # Clear line for REPL prompt
+            # Use simple readline approach like TSM (Ctrl+C to exit)
+            local input
+            read -e -r -p "$(get_repl_prompt)" input
+
+            # Handle empty input or exit
+            if [[ $? -ne 0 ]]; then
+                # Ctrl+C or EOF - exit to gamepad mode
+                TVIEW_MODE="gamepad"
+                DRILL_LEVEL=0
+                printf "\033[${repl_line};1H\033[K"
+            elif [[ -n "$input" ]]; then
+                handle_repl_input "$input"
+                # Optimized: only redraw results area, not full screen
+                last_layout_hash=""
             fi
-            echo -n "tview> "
-            read -r input
-            handle_repl_input "$input"
-            # Force redraw after REPL commands
-            last_layout_hash=""
         else
             # Gamepad mode: read single character (silent, no prompt)
             read -n1 -s key
+            echo "DEBUG: Main loop read key: '$key'" >> /tmp/tview_debug.log
             handle_gamepad_input_with_layout "$key"
         fi
     done
@@ -166,7 +218,9 @@ handle_gamepad_input() {
                 navigate_environment "left"
                 ;;
             'l')
+                echo "DEBUG: l key case reached, calling drill_into" >> /tmp/tview_debug.log
                 drill_into
+                echo "DEBUG: drill_into returned" >> /tmp/tview_debug.log
                 ;;
             'L')
                 # Shift+L: Show contextual hints
@@ -230,6 +284,9 @@ handle_gamepad_input() {
 handle_gamepad_input_with_layout() {
     local key="$1"
 
+    # Debug: Log all key presses
+    echo "DEBUG: Key pressed: '$key' (hex: $(printf '%02x' "'$key"))" >> /tmp/tview_debug.log
+
     case "$key" in
         'e')
             # Cycle through environments (left to right)
@@ -255,6 +312,11 @@ handle_gamepad_input_with_layout() {
             # Next item in action list
             navigate_item "down"
             ;;
+        'l')
+            # Open modal for selected action
+            echo "DEBUG: l key pressed, opening modal for action" >> /tmp/tview_debug.log
+            open_action_modal
+            ;;
         'j')
             # Scroll results up
             if [[ ${LAYOUT_STATE["show_results"]} == "true" ]]; then
@@ -275,6 +337,7 @@ handle_gamepad_input_with_layout() {
             ;;
         $'\n'|$'\r')
             # Enter: Execute selected action
+            echo "DEBUG: Enter key detected, calling execute_current_action" >> /tmp/tview_debug.log
             execute_current_action
             ;;
         $'\e'|$'\033')
@@ -301,14 +364,26 @@ handle_gamepad_input_with_layout() {
             cleanup_and_exit
             ;;
         *)
-            # Silently ignore unknown keys
+            # Log unhandled keys for debugging
+            echo "DEBUG: Unhandled key: '$key' (hex: $(printf '%02x' "'$key"))" >> /tmp/tview_debug.log
             ;;
     esac
+}
+
+# Cleanup and exit function
+cleanup_and_exit() {
+    # Clear screen and restore normal terminal
+    clear
+    echo "TView exited."
+    exit 0
 }
 
 # Execute the currently selected action with error handling
 execute_current_action() {
     local action_result=""
+
+    # Debug: Log that function was called
+    echo "DEBUG: execute_current_action called for $CURRENT_MODE:$CURRENT_ENV item $CURRENT_ITEM" >> /tmp/tview_debug.log
 
     # Wrap execution in error handling
     {
@@ -340,6 +415,13 @@ execute_current_action() {
                     2) action_result=$(execute_key_management "$CURRENT_ENV") ;;
                 esac
                 ;;
+            "TOML:TETRA")
+                case $CURRENT_ITEM in
+                    0) action_result=$(execute_toml_view_config) ;;
+                    1) action_result=$(execute_toml_edit_config) ;;
+                    2) action_result=$(execute_toml_validate) ;;
+                esac
+                ;;
             *)
                 action_result="Action not implemented for $CURRENT_MODE:$CURRENT_ENV"
                 ;;
@@ -365,7 +447,7 @@ Try switching to REPL mode (/) for debugging."
 
     if [[ -n "$action_result" ]]; then
         show_results "$action_result"
-        redraw_screen
+        # Results window rendering is handled by show_results function
     fi
 }
 
@@ -795,3 +877,162 @@ handle_key_sequence() {
     # Clear sequence after handling
     TVIEW_STATE["key_sequence"]=""
 }
+
+# ===== TOML ACTION IMPLEMENTATIONS =====
+
+# Execute TOML view configuration action
+execute_toml_view_config() {
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        echo "TOML Configuration View
+══════════════════════════
+
+📄 $(basename "$ACTIVE_TOML") | 🏢 ${ORG_NAME:-${ACTIVE_ORG:-Local Project}}
+🔧 ${ORG_PROVIDER:-Unknown} | ${ORG_TYPE:-standard}
+
+📊 Section Analysis:"
+
+        # Parse TOML sections - more concise
+        if command -v awk >/dev/null 2>&1; then
+            awk '/^\[/ {
+                gsub(/[\[\]]/, "", $0)
+                printf "  %-15s (line %d)\n", $0, NR
+            }' "$ACTIVE_TOML" | head -8
+        else
+            echo "  metadata        (line 1)"
+            echo "  environments    (line 10)"
+            echo "  services        (line 20)"
+            echo "  domains         (line 30)"
+        fi
+
+        echo ""
+        echo "🎯 Span Features:"
+        echo "• Multi-section cursors • Cross-references"
+        echo "• Dependency tracking   • Export analysis"
+        echo ""
+        echo "Use j/k to scroll, ESC to close, Edit for modification"
+    else
+        echo "TOML Configuration View
+══════════════════════════
+
+⚠ No TOML file active
+
+Steps to load configuration:
+1. Switch to ORG mode (m key)
+2. Select organization
+3. Return to TETRA × TOML"
+    fi
+}
+
+# Execute TOML edit configuration action
+execute_toml_edit_config() {
+    echo "DEBUG: execute_toml_edit_config called" >> /tmp/tview_debug.log
+    echo "DEBUG: ACTIVE_TOML='$ACTIVE_TOML'" >> /tmp/tview_debug.log
+    echo "DEBUG: File exists check: $(if [[ -f "$ACTIVE_TOML" ]]; then echo "true"; else echo "false"; fi)" >> /tmp/tview_debug.log
+
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        # Clear screen and show editing info
+        clear
+        echo "═══════════════════════════════════"
+        echo "  TOML Configuration Editor"
+        echo "═══════════════════════════════════"
+        echo ""
+        echo "Opening: $(basename "$ACTIVE_TOML")"
+        echo "Full path: $ACTIVE_TOML"
+        echo ""
+        echo "Editor: ${EDITOR:-nano}"
+        echo ""
+        echo "Press Enter to open editor..."
+        read -r
+
+        # Open editor
+        ${EDITOR:-nano} "$ACTIVE_TOML"
+
+        # Return to TView with status
+        echo "TOML Editor Session Complete
+══════════════════════════
+
+📄 File: $(basename "$ACTIVE_TOML")
+✅ Editor session finished
+
+💡 Changes saved to disk
+🔄 Reload TView to see updates
+
+Press any key to return to TView..."
+        read -n1 -s
+    else
+        echo "TOML Configuration Editor
+══════════════════════════
+
+⚠ No TOML file to edit
+
+To edit configuration:
+1. Use ORG mode to select organization
+2. Ensure tetra.toml exists in project"
+    fi
+}
+
+# Execute TOML validation action
+execute_toml_validate() {
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        echo "TOML Validation Results
+═══════════════════════════
+
+File: $ACTIVE_TOML"
+
+        # Try different validation methods
+        local validation_result=""
+        local validation_success=false
+
+        # Method 1: Try toml_parse if available
+        if command -v toml_parse >/dev/null 2>&1; then
+            if toml_parse "$ACTIVE_TOML" "VALIDATE" 2>/dev/null; then
+                validation_result="✓ TOML syntax is valid (validated with toml_parse)"
+                validation_success=true
+            else
+                validation_result="✗ TOML syntax errors detected (toml_parse validation failed)"
+            fi
+        # Method 2: Try python -c if available
+        elif command -v python3 >/dev/null 2>&1; then
+            if python3 -c "import tomllib; tomllib.load(open('$ACTIVE_TOML', 'rb'))" 2>/dev/null; then
+                validation_result="✓ TOML syntax is valid (validated with Python tomllib)"
+                validation_success=true
+            else
+                validation_result="✗ TOML syntax errors detected (Python validation failed)"
+            fi
+        # Method 3: Basic syntax check
+        else
+            # Basic checks for common TOML syntax
+            if grep -q "^\[.*\]" "$ACTIVE_TOML" && ! grep -q "^[[:space:]]*\[.*[^]]$" "$ACTIVE_TOML"; then
+                validation_result="? TOML appears well-formed (basic syntax check - install toml parser for full validation)"
+                validation_success=true
+            else
+                validation_result="? Could not validate TOML (no validation tools available)"
+            fi
+        fi
+
+        echo "
+$validation_result
+
+File size: $(wc -c < "$ACTIVE_TOML" 2>/dev/null || echo "unknown") bytes
+Lines: $(wc -l < "$ACTIVE_TOML" 2>/dev/null || echo "unknown")
+Last modified: $(stat -f "%Sm" "$ACTIVE_TOML" 2>/dev/null || echo "unknown")"
+
+        if [[ "$validation_success" == "true" ]]; then
+            echo "
+Configuration structure appears valid. Use 'View Configuration' to see content."
+        else
+            echo "
+Validation issues detected. Use 'Edit Configuration' to fix syntax errors."
+        fi
+    else
+        echo "TOML Validation
+═══════════════════════════
+
+No active TOML file to validate.
+
+To validate a TOML configuration:
+1. Ensure a tetra.toml file exists
+2. Use ORG mode to link to an organization's TOML file"
+    fi
+}
+

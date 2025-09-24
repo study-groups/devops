@@ -4,7 +4,7 @@
 
 # ===== RCM MODE RENDER FUNCTIONS =====
 
-render_rcm_system() {
+render_rcm_tetra() {
     cat << EOF
 
 RCM - Remote Command Execution Overview
@@ -108,23 +108,78 @@ EOF
 
 # ===== TOML MODE RENDER FUNCTIONS =====
 
-render_toml_system() {
+render_toml_tetra() {
+    # Source span system if available
+    local span_available=false
+    if [[ -f "$TETRA_SRC/bash/span/tview/render.sh" ]]; then
+        source "$TETRA_SRC/bash/span/tview/render.sh" 2>/dev/null && span_available=true
+    fi
+
+    # Source render functions to get parameter dashboard
+    if [[ -f "$(dirname "${BASH_SOURCE[0]}")/tview_render.sh" ]]; then
+        source "$(dirname "${BASH_SOURCE[0]}")/tview_render.sh"
+    fi
+
     cat << EOF
 
-TOML Configuration Overview
+$(colorize_tetra "TETRA" "purple") × $(colorize_tetra "TOML" "gold") - Configuration Management
 
-$(highlight_line "Active TOML: ${ACTIVE_TOML:-No TOML file detected}" "$(is_current_item 0)" "$YELLOW")
-$(highlight_line "Organization: ${ORG_NAME:-${ACTIVE_ORG:-Local Project}}" "$(is_current_item 1)" "$MAGENTA")
-$(highlight_line "Provider: ${ORG_PROVIDER:-Unknown} | Type: ${ORG_TYPE:-standard}" "$(is_current_item 2)" "$CYAN")
-$(highlight_line "Parse Status: ${TOML_SYNC_STATUS:-Ready for sync}" "$(is_current_item 3)" "$GREEN")
+$(render_parameter_dashboard)
 
-TOML Structure:
-$(show_toml_structure)
+🎯 TOML Structure Analysis:
+EOF
 
-Services Configuration:
-$(show_services_summary)
+    if [[ "$span_available" == "true" ]]; then
+        cat << EOF
+$(span_render_toml_sections)
+
+🔍 Available Actions:
+$(highlight_line "View TOML Structure" "$(is_current_item 0)" "$ACTION_VIEW_COLOR")    ${UI_MUTED_COLOR}Parse sections and spans${COLOR_RESET}
+$(highlight_line "Edit Configuration" "$(is_current_item 1)" "$ACTION_EDIT_COLOR")    ${UI_MUTED_COLOR}Modify with span tracking${COLOR_RESET}
+$(highlight_line "Analyze Dependencies" "$(is_current_item 2)" "$ACTION_CONFIG_COLOR") ${UI_MUTED_COLOR}Cross-reference analysis${COLOR_RESET}
+
+📋 Active Multispan: $(span_get_active_multispan)
+$(span_render_toml_multispan_preview)
+EOF
+    else
+        cat << EOF
+$(highlight_line "View Configuration" "$(is_current_item 0)" "$ACTION_VIEW_COLOR")     ${UI_MUTED_COLOR}Show TOML content${COLOR_RESET}
+$(highlight_line "Edit Configuration" "$(is_current_item 1)" "$ACTION_EDIT_COLOR")     ${UI_MUTED_COLOR}Modify settings${COLOR_RESET}
+$(highlight_line "Validate TOML" "$(is_current_item 2)" "$ACTION_CONFIG_COLOR")       ${UI_MUTED_COLOR}Check syntax${COLOR_RESET}
+
+⚠ Span system not available - basic TOML operations only
+EOF
+    fi
+
+    cat << EOF
+
+Environment: $(colorize_env "TETRA" "TETRA") | Mode: $(colorize_mode "TOML" "TOML")
+Execute: ${COLOR_BOLD}Enter${COLOR_RESET} to analyze, ${COLOR_BOLD}1-9${COLOR_RESET} to load span slot
 
 EOF
+}
+
+# TOML Span Integration Helper Functions
+span_render_toml_sections() {
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        echo "   ├─ [metadata] Project metadata and organization"
+        echo "   ├─ [environments] Multi-environment configuration"
+        echo "   ├─ [services] Service definitions and ports"
+        echo "   ├─ [domains] Domain and routing configuration"
+        echo "   └─ [infrastructure] Provider and deployment settings"
+    else
+        echo "   No TOML file loaded - use ORG mode to select configuration"
+    fi
+}
+
+span_render_toml_multispan_preview() {
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        echo "   ├─ cursor_1: tetra.toml:1-8 (metadata section)"
+        echo "   ├─ cursor_2: tetra.toml:15-25 (environments.dev)"
+        echo "   └─ cursor_3: tetra.toml:45-52 (services configuration)"
+    else
+        echo "   No active spans - select TOML file to begin analysis"
+    fi
 }
 
 render_toml_local() {
@@ -199,7 +254,7 @@ EOF
 
 # ===== TKM MODE RENDER FUNCTIONS =====
 
-render_tkm_system() {
+render_tkm_tetra() {
     cat << EOF
 
 $(colorize_mode "TKM" "TKM") - Four Amigos SSH Access Matrix
@@ -286,7 +341,7 @@ EOF
 
 # ===== TSM MODE RENDER FUNCTIONS =====
 
-render_tsm_system() {
+render_tsm_tetra() {
     cat << EOF
 
 TSM - Tetra Service Manager Overview
@@ -450,7 +505,7 @@ EOF
 
 # ===== DEPLOY MODE RENDER FUNCTIONS =====
 
-render_deploy_system() {
+render_deploy_tetra() {
     cat << EOF
 
 DEPLOY - Deployment Overview
@@ -521,7 +576,7 @@ EOF
 
 # ===== ORG MODE RENDER FUNCTIONS =====
 
-render_org_system() {
+render_org_tetra() {
     cat << EOF
 
 ORG - Organization Overview

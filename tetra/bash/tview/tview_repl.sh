@@ -19,8 +19,41 @@ handle_repl_input() {
 
     case "$input" in
         /tview)
-            TVIEW_MODE="gamepad"
-            # No output - just switch mode silently
+            if [[ "$REPL_CONTEXT" == "tview" ]]; then
+                TVIEW_MODE="gamepad"
+                # No output - just switch mode silently
+            else
+                REPL_CONTEXT="tview"
+                show_repl_results "Switched to tview context. Use /tview again to exit to gamepad mode."
+            fi
+            ;;
+        /tsm)
+            REPL_CONTEXT="tsm"
+            show_repl_results "Switched to TSM context. All commands will now route to TSM module."
+            ;;
+        /tkm)
+            REPL_CONTEXT="tkm"
+            show_repl_results "Switched to TKM context. All commands will now route to TKM module."
+            ;;
+        /deploy)
+            REPL_CONTEXT="deploy"
+            show_repl_results "Switched to Deploy context. All commands will now route to Deploy module."
+            ;;
+        /span)
+            REPL_CONTEXT="span"
+            show_repl_results "Switched to Span context. All commands will now route to Span module."
+            ;;
+        /rcm)
+            REPL_CONTEXT="rcm"
+            show_repl_results "Switched to RCM context. All commands will now route to RCM module."
+            ;;
+        /org)
+            REPL_CONTEXT="org"
+            show_repl_results "Switched to Organization context. All commands will now route to Org module."
+            ;;
+        /toml)
+            REPL_CONTEXT="toml"
+            show_repl_results "Switched to TOML context. All commands will now route to TOML module."
             ;;
         /exit|/quit)
             echo "Exiting TView..."
@@ -67,10 +100,19 @@ show_repl_help() {
 ═══════════════════════════════════════
 
 Core Commands:
-  /tview       Return to gamepad navigation mode
+  /tview       Return to gamepad mode (or switch to tview context)
   /exit        Exit TView completely
   /help        Show this help
   /modules     List all available modules
+
+Context Switching:
+  /tsm         Switch to TSM context (prompt: tsm>)
+  /tkm         Switch to TKM context (prompt: tkm>)
+  /deploy      Switch to Deploy context (prompt: deploy>)
+  /span        Switch to Span context (prompt: span>)
+  /rcm         Switch to RCM context (prompt: rcm>)
+  /org         Switch to Organization context (prompt: org>)
+  /toml        Switch to TOML context (prompt: toml>)
 
 Module Commands:
 $(discover_module_commands | head -10)
@@ -81,13 +123,13 @@ Execution Patterns:
   <cmd>              Execute in current context
   !<cmd>             Execute bash command
 
-Context: ${CURRENT_MODE}/${CURRENT_ENV}
+Current Context: ${REPL_CONTEXT}> (Env: ${CURRENT_MODE}/${CURRENT_ENV})
 Connection: $(get_connection_context)
 
 Navigation:
   Type commands and see results above
   j/k to scroll results, ESC to hide results
-  /tview to return to gamepad navigation"
+  Switch contexts with /${module} commands"
 
     show_repl_results "$help_output"
 }
@@ -344,8 +386,11 @@ show_repl_results() {
     # Use the layout system to show results
     show_results "$output"
 
-    # Force a redraw to update the display
-    redraw_screen
+    # Optimized: only render the results window, not full screen
+    render_results_window
+
+    # Update status line without full redraw
+    render_sticky_status
 }
 
 # Execute command safely and capture errors
@@ -433,21 +478,53 @@ Available Commands: Use /help to see all commands"
 route_context_command() {
     local input="$1"
 
-    case "$CURRENT_MODE" in
-        "TSM")
+    case "$REPL_CONTEXT" in
+        "tsm")
             # Route to TSM
             handle_tsm_command "$input" ""
             ;;
-        "TKM")
+        "tkm")
             # Route to TKM
             handle_tkm_command "$input" ""
             ;;
-        "DEPLOY")
+        "deploy")
             # Route to Deploy
             handle_deploy_command "$input" ""
             ;;
-        *)
-            # Default fallback to TSM
+        "rcm")
+            # Route to RCM
+            handle_rcm_command "$input" ""
+            ;;
+        "span")
+            # Route to Span module
+            if command -v span >/dev/null 2>&1; then
+                tetra_load_module "span" 2>/dev/null || true
+                local result=$(span $input 2>&1)
+                show_repl_results "Span ${input}:
+════════════════════════════
+$result"
+            else
+                show_repl_results "Error: Span module not available."
+            fi
+            ;;
+        "org")
+            # Handle organization commands
+            if [[ "$input" == "repl" ]]; then
+                org_selection_repl
+            else
+                show_repl_results "Org context active. Try 'repl' for organization management."
+            fi
+            ;;
+        "toml")
+            # Route to TOML editing
+            if [[ "$input" == "edit" ]]; then
+                toml_editor_repl
+            else
+                show_repl_results "TOML context active. Try 'edit' for configuration editing."
+            fi
+            ;;
+        "tview"|*)
+            # Default tview context - try TSM fallback
             if command -v tsm >/dev/null 2>&1; then
                 tetra_load_module "tsm" 2>/dev/null || true
                 local result=$(tsm $input 2>&1)
@@ -455,8 +532,8 @@ route_context_command() {
 ════════════════════════════
 $result"
             else
-                show_repl_results "Error: No handler for '$input' in $CURRENT_MODE mode.
-Try /help for available commands."
+                show_repl_results "Error: No handler for '$input' in ${REPL_CONTEXT} context.
+Try /help for available commands or switch context with /${module}."
             fi
             ;;
     esac

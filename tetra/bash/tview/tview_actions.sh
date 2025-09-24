@@ -10,8 +10,8 @@ show_item_modal() {
     echo
 
     case "$CURRENT_MODE:$CURRENT_ENV" in
-        "TOML:SYSTEM")
-            show_toml_system_details
+        "TOML:TETRA")
+            show_toml_tetra_details
             ;;
         "TOML:LOCAL")
             show_toml_local_details
@@ -34,8 +34,8 @@ show_item_modal() {
         "TSM:DEV"|"TSM:STAGING"|"TSM:PROD"|"TSM:QA")
             show_tsm_remote_details "$CURRENT_ENV"
             ;;
-        "ORG:SYSTEM")
-            show_org_system_details
+        "ORG:TETRA")
+            show_org_tetra_details
             ;;
         "ORG:LOCAL")
             show_org_local_details
@@ -65,7 +65,7 @@ show_item_modal() {
 }
 
 # Detailed view functions for TOML deep dive
-show_toml_system_details() {
+show_toml_tetra_details() {
     case $CURRENT_ITEM in
         0)
             echo "    ${BOLD}TOML File Details:${RESET}"
@@ -322,7 +322,7 @@ show_tview_help() {
                      ${BOLD}TETRA VIEW HELP${RESET}
 
 NAVIGATION SYSTEM:
-  e           Cycle through environments (SYSTEM � LOCAL � DEV � STAGING � PROD � QA)
+  e           Cycle through environments (TETRA � LOCAL � DEV � STAGING � PROD � QA)
   m           Cycle through modes (TOML � TKM � TSM � DEPLOY � ORG)
   i, k        Navigate items up/down within current context (joystick)
   l           Drill INTO selected item (detailed view) (joystick)
@@ -347,7 +347,7 @@ MODES:
   ORG         Organization management and multi-client infrastructure
 
 ENVIRONMENTS:
-  SYSTEM      Overview/summary across all environments
+  TETRA       Overview/summary across all environments
   LOCAL       Your development machine
   DEV         Development server
   STAGING     Staging/QA server
@@ -433,7 +433,7 @@ view_toml_file() {
 }
 
 # ORG mode detailed views
-show_org_system_details() {
+show_org_tetra_details() {
     echo "     Organization System Overview:"
     echo "     Active Organization: ${ACTIVE_ORG:-No active organization}"
     echo "     Total Organizations: ${TOTAL_ORGS:-0}"
@@ -557,7 +557,7 @@ show_tkm_details() {
     echo "     SSH Key Management - $env:"
 
     case "$env" in
-        "SYSTEM")
+        "TETRA")
             echo "     SSH Keys Directory: ~/.ssh/"
             echo "     SSH Config: ~/.ssh/config"
             echo "     Known Hosts: ~/.ssh/known_hosts"
@@ -666,7 +666,7 @@ show_deploy_details() {
     echo "     Deployment Details - $env:"
 
     case "$env" in
-        "SYSTEM")
+        "TETRA")
             echo "     Git Repository: $(if git rev-parse --git-dir >/dev/null 2>&1; then echo "Detected"; else echo "Not a git repository"; fi)"
             echo "     Current Branch: ${GIT_BRANCH:-Unknown}"
             echo "     Working Tree: $(if [[ "$GIT_CLEAN" == "" ]]; then echo "Clean"; else echo "Modified files"; fi)"
@@ -771,10 +771,9 @@ TView Navigation Help
 ════════════════════
 e/E - Cycle environments (forward/reverse)
 m/M - Cycle modes (forward/reverse)
-i/k - Select actions (up/down)
+i/k - Navigate actions (up/down)
 Enter - Execute selected action
-j/K - Scroll results (up/down)
-ESC - Hide results window
+j - Exit/Go back | ESC - Hide results window
 r - Reset interface
 / - REPL mode
 ? - Show help

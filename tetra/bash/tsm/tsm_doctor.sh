@@ -628,17 +628,17 @@ tsm_clean_stale_processes() {
 
     log "Cleaning up stale TSM process tracking files..."
 
-    if [[ ! -d "$TETRA_DIR/tsm/processes" ]]; then
+    if [[ ! -d "$TETRA_DIR/tsm/runtime/processes" ]]; then
         success "No process tracking directory found"
         return 0
     fi
 
-    for process_file in "$TETRA_DIR/tsm/processes"/*; do
+    for process_file in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
         [[ -f "$process_file" ]] || continue
 
-        local process_name=$(basename "$process_file")
+        local process_name=$(basename "$process_file" .meta)
         local pid
-        pid=$(grep "^PID=" "$process_file" 2>/dev/null | cut -d'=' -f2)
+        pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
 
         if [[ -z "$pid" ]]; then
             warn "Invalid process file (no PID): $process_name"

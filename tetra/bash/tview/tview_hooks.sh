@@ -5,10 +5,15 @@
 
 # Drill into selected item (L key) - Smart contextual actions
 drill_into() {
+    echo "DEBUG: drill_into called, DRILL_LEVEL=$DRILL_LEVEL, MODE=$CURRENT_MODE, ENV=$CURRENT_ENV" >> /tmp/tview_debug.log
     if [[ $DRILL_LEVEL -eq 0 ]]; then
         # Execute context-specific action based on current mode and environment
+        echo "DEBUG: calling execute_drill_action $CURRENT_MODE $CURRENT_ENV" >> /tmp/tview_debug.log
         execute_drill_action "$CURRENT_MODE" "$CURRENT_ENV"
         DRILL_LEVEL=1
+        echo "DEBUG: drill_into completed, DRILL_LEVEL now $DRILL_LEVEL" >> /tmp/tview_debug.log
+    else
+        echo "DEBUG: drill_into skipped, already at DRILL_LEVEL=$DRILL_LEVEL" >> /tmp/tview_debug.log
     fi
 }
 
@@ -25,7 +30,15 @@ execute_drill_action() {
     local env="$2"
     local action_key="${mode}:${env}"
 
+    echo "DEBUG: execute_drill_action called with mode=$mode env=$env action_key=$action_key" >> /tmp/tview_debug.log
+
     case "$action_key" in
+        "TOML:TETRA")
+            # Drill into TETRA TOML mode opens span-based action execution
+            echo "DEBUG: TOML:TETRA case matched, executing action for item $CURRENT_ITEM" >> /tmp/tview_debug.log
+            echo "Executing TETRA TOML action: ${CURRENT_ITEM}"
+            execute_current_action
+            ;;
         "TOML:SYSTEM")
             # Drill into TOML system opens org selection REPL
             echo "Opening organization selection..."
@@ -166,6 +179,12 @@ drill_navigate() {
 # Get maximum items for current environment+mode combination
 get_max_items_for_current_context() {
     case "$CURRENT_ENV:$CURRENT_MODE" in
+        "TETRA:TOML") echo 3 ;;      # View configuration, Edit configuration, Validate TOML
+        "TETRA:TKM") echo 3 ;;       # SSH Key Status, Test Connection, Key Management
+        "TETRA:TSM") echo 4 ;;       # Service Status, Config Check, Service List, View Logs
+        "TETRA:DEPLOY") echo 4 ;;    # Deploy Status, Validate Config, Execute Deploy, Rollback
+        "TETRA:ORG") echo 3 ;;       # Organization Info, Switch Org, Sync Config
+        "TETRA:RCM") echo 2 ;;       # Direct Execution, Command History
         "SYSTEM:TOML") echo 4 ;;     # TOML file, organization, project, status
         "LOCAL:TOML") echo 4 ;;      # Local config items
         "DEV:TOML") echo 5 ;;        # Dev server infrastructure items

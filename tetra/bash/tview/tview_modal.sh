@@ -163,6 +163,12 @@ show_modal() {
     MODAL_STATE["title"]="$title"
     MODAL_STATE["content"]="$content"
 
+    # Initialize TOML editor if this is a toml_editor modal
+    if [[ "$type" == "toml_editor" && -f "$TETRA_BASH/tview/toml/modal_editor.sh" ]]; then
+        source "$TETRA_BASH/tview/toml/modal_editor.sh"
+        init_modal_editor "$ACTIVE_TOML" >/dev/null 2>&1
+    fi
+
     # Save current screen state
     printf "%b" "$ANSI_SAVE_CURSOR"
     printf "%b" "$ANSI_SAVE_SCREEN"
@@ -178,6 +184,10 @@ show_modal() {
         "help")
             width=70
             height=20
+            ;;
+        "toml_editor")
+            width=80
+            height=25
             ;;
         "keymap")
             width=60
@@ -223,6 +233,9 @@ show_modal() {
             "confirm")
                 printf "y/n to confirm, ESC to cancel"
                 ;;
+            "toml_editor")
+                printf "wasd/jikl navigation, Enter edit, ESC close"
+                ;;
             *)
                 printf "Press any key to close, ESC to cancel"
                 ;;
@@ -251,6 +264,37 @@ handle_modal_input() {
                         '') result="cancel"; break ;;  # Enter in confirm mode cancels
                     esac
                     ;;
+                "toml_editor")
+                    # TOML editor modal with standard TView keys
+                    case "$key" in
+                        $'\e'|$'\033') result="cancel"; break ;;  # ESC closes
+                        'i'|'I')
+                            handle_toml_modal_key "up"
+                            # Stay in modal - don't break
+                            ;;
+                        'k'|'K')
+                            handle_toml_modal_key "down"
+                            # Stay in modal - don't break
+                            ;;
+                        'l'|'L')
+                            handle_toml_modal_key "drill_in"
+                            # Stay in modal - don't break
+                            ;;
+                        'j'|'J') result="cancel"; break ;;       # J = EXIT/OUT
+                        '')
+                            handle_toml_modal_key "enter"
+                            # Stay in modal - don't break
+                            ;;
+                        'q'|'Q') result="cancel"; break ;;       # Q also closes
+                        'r'|'R')
+                            refresh_toml_modal
+                            # Stay in modal - don't break
+                            ;;
+                        *)
+                            # Ignore invalid keys silently in modal
+                            ;;
+                    esac
+                    ;;  # This was missing - causing infinite loop!
                 *)
                     # Any key closes non-confirm modals
                     case "$key" in
@@ -284,11 +328,72 @@ close_modal() {
     printf "%b" "$ANSI_RESTORE_SCREEN"
     printf "%b" "$ANSI_RESTORE_CURSOR"
     printf "%b" "$ANSI_SHOW_CURSOR"
+
+    # Force screen refresh when returning to main TView
+    if command -v redraw_screen >/dev/null 2>&1; then
+        redraw_screen
+    fi
 }
 
 # Check if modal is active
 is_modal_active() {
     [[ "${MODAL_STATE[active]}" == "true" ]]
+}
+
+# TOML Editor Modal Handlers
+handle_toml_modal_key() {
+    local key="$1"
+
+    # Load TOML provider and actions if not already loaded
+    if ! command -v handle_toml_action >/dev/null 2>&1; then
+        source "$TETRA_SRC/bash/tview/toml/toml_actions.sh"
+    fi
+
+    # Handle TOML navigation actions using standard TView keys
+    case "$key" in
+        "up")
+            # Move up navigation
+            handle_toml_action "navigate" "$CURRENT_ENV" "up" >/dev/null 2>&1
+            ;;
+        "down")
+            # Move down navigation
+            handle_toml_action "navigate" "$CURRENT_ENV" "down" >/dev/null 2>&1
+            ;;
+        "drill_in")
+            # Drill in - expand current section
+            handle_toml_action "expand" "$CURRENT_ENV" >/dev/null 2>&1
+            ;;
+        "enter")
+            # Enter edit mode - expand current section
+            handle_toml_action "expand" "$CURRENT_ENV" >/dev/null 2>&1
+            ;;
+        *)
+            ;;
+    esac
+}
+
+# Refresh TOML modal display
+refresh_toml_modal() {
+    # Load TOML provider and actions if not already loaded
+    if ! command -v handle_toml_action >/dev/null 2>&1; then
+        source "$TETRA_SRC/bash/tview/toml/toml_actions.sh"
+    fi
+
+    # Refresh the TOML editor state
+    if [[ -n "$ACTIVE_TOML" && -f "$ACTIVE_TOML" ]]; then
+        handle_toml_action "refresh" "${CURRENT_ENV:-TETRA}" >/dev/null 2>&1
+    fi
+
+    return 0
+}
+
+# Show help message for invalid keys
+show_toml_help_message() {
+    local invalid_key="$1"
+
+    # Could flash a help message or beep
+    # For now, just ignore invalid keys silently
+    return 0
 }
 
 # Convenience functions for common modal types
