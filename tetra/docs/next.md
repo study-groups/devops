@@ -218,3 +218,74 @@ TView now features a robust top-down interface design with comprehensive error h
 - ✅ Comprehensive help system
 
 The current TView implementation provides a solid foundation for infrastructure management with excellent usability across different terminal environments and robust error handling for real-world operations.
+
+## TView v010+: Demo/Basic Architecture Integration
+
+### Background: Clean TUI Patterns from Demo v009
+The demo/basic/009 implementation established clean TUI architecture patterns with proper separation of concerns:
+- **input.sh**: Pure interface concerns (key handling, navigation, mode switching)
+- **output.sh**: Screen positioning and layout management
+- **repl.sh**: CLI interface management positioned at bottom
+- **demo.sh**: Business logic and content generation only
+
+### Phase 1: Production TView Migration (Q4 2025)
+
+#### Apply Demo Patterns to bash/tview/
+1. **Architectural Separation**: Refactor bash/tview/ to match demo/basic separation
+   - Extract TUI concerns from business logic
+   - Implement clean input/output/repl module pattern
+   - Remove mixed responsibilities from existing files
+
+2. **Module Action Interface Standardization**
+   - Enforce `get_actions_for_env()` and `execute_action()` pattern across all modules
+   - Implement module/actions.sh discovery system
+   - Create action registry for cross-module operations
+
+3. **CLI REPL Enhancement**
+   - Port demo v009 CLI positioning to production TView
+   - Add slash command discovery system
+   - Implement dynamic prompt with context (env:mode>)
+
+### Phase 2: Tetra Syntax Implementation (Q1 2026)
+
+#### Module.Action Calling Convention
+- **Syntax**: `mod.action` for cross-module operations
+- **Discovery**: Central registry of all available module actions
+- **Execution**: Standardized execution environment with stream control
+
+#### Stream Handling Architecture
+- **Per-module streams**: Each module controls its own stdin/stdout/stderr
+- **TView integration**: Clean separation between display and module output
+- **Error routing**: Standardized error display in TView content region
+
+### Phase 3: Advanced Command System (Q2 2026)
+
+#### Enhanced Command Discovery
+- **Tab completion**: Full bash completion for environments, modes, actions
+- **Command history**: Persistent REPL history across TView sessions
+- **Meta-commands**: Expanded `/` prefix system for introspection
+
+#### Performance Optimizations
+- **Double buffering**: Implement from demo patterns to reduce flicker
+- **Dynamic regions**: Runtime adjustment of footer lines and content areas
+- **Minimal redraws**: Optimize tput usage based on demo learnings
+
+### Breaking Changes and Migration Path
+
+#### Module Interface Changes
+- All modules must implement standard action interface
+- Legacy TView command patterns will be deprecated
+- Migration tools will assist in updating existing modules
+
+#### TView Application Changes
+- Apps using TView must migrate to new TUI patterns
+- Clean separation of interface and business concerns required
+- New positioning and layout system replaces ad-hoc screen management
+
+### Implementation Priority
+1. **Immediate**: Apply demo/basic patterns to production TView
+2. **Q4 2025**: Standardize module action interfaces
+3. **Q1 2026**: Implement tetra syntax and stream handling
+4. **Q2 2026**: Advanced features and performance optimization
+
+This migration will bring the robustness and clean architecture of demo/basic/009 to the production TView system while maintaining backward compatibility through a structured transition period.

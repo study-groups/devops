@@ -1,5 +1,165 @@
 # Current Changes
 
+## 2025-09-24 - Demo v009: CLI REPL Integration & Clean TUI Architecture
+
+### 🎯 **CLI REPL at Bottom with Precise Placement Control**
+
+**Problem Solved**: Version 008 lacked a command-line interface for direct interaction, requiring navigation through gamepad keys to access functionality. Users needed CLI access similar to Claude Code's TUI with good control over placement.
+
+**Implementation**:
+- **Bottom-Positioned CLI**: REPL positioned one line above footer without clearing screen content
+- **Left-Aligned Prompt**: `demo:learn>` prompt format showing current environment and mode context
+- **Dynamic Prompt Updates**: Prompt immediately reflects environment/mode changes
+- **No Screen Clearing**: CLI preserves header and content areas during operation
+
+**Key Features**:
+```bash
+# Gamepad mode
+[DEMO:LEARN] 4 actions | module/tview/learn | /help
+
+# REPL mode (press /)
+demo:learn> env local
+Environment switched to: LOCAL
+local:learn> mode build
+Mode switched to: BUILD
+local:build> fire help
+Executing: help
+```
+
+### 🔧 **Command Discovery System with Slash Commands**
+
+**Problem Solved**: Users needed discoverable way to explore available commands and system status without memorizing command syntax.
+
+**Implementation**:
+- **Meta Commands with `/` Prefix**: Distinguished system commands from regular operations
+- **Comprehensive Help System**: `/help` shows full command reference with categories
+- **System Status**: `/status` displays current environment, mode, module path, and action counts
+- **Command Listing**: `/commands` provides quick overview of all available functionality
+
+**Command Structure**:
+```bash
+# Meta commands (system)
+/help         # Complete help system with examples
+/status       # System status and module information
+/commands     # List all available commands
+
+# Regular commands (operations)
+env [name]    # Switch environment or list all options
+mode [name]   # Switch mode or list all options
+fire <action> # Execute specific action
+ls            # List current actions
+```
+
+### 🏗️ **Clean TUI Architecture with Proper Separation**
+
+**Problem Solved**: Version 008 mixed UI positioning, business logic, and input handling in single file, making it difficult to maintain and extend.
+
+**Implementation**:
+- **Modular File Structure**: Clean separation of concerns across multiple files
+  - `input.sh` - Key handling and navigation logic
+  - `output.sh` - Screen positioning, layout, and regions
+  - `repl.sh` - CLI interface with input management
+  - `demo.sh` - Business logic and content generation only
+- **Terminal Regions**: Defined header, content, footer, and CLI regions with precise positioning
+- **No Mixed Concerns**: UI positioning completely separated from business logic
+
+**Architecture Benefits**:
+```bash
+# Before v009 (mixed concerns)
+demo.sh: 850+ lines with UI, logic, input, positioning mixed
+
+# After v009 (clean separation)
+demo.sh:   213 lines - business logic only
+output.sh: 180 lines - screen positioning and layout
+input.sh:  existing - key handling and navigation
+repl.sh:   245 lines - CLI interface management
+```
+
+### 🎮 **Standalone REPL Mode**
+
+**Problem Solved**: Users needed pure CLI experience without gamepad interface for scripting and advanced operations.
+
+**Implementation**:
+- **Command Line Access**: `./demo.sh repl` launches standalone REPL without TUI
+- **Clean CLI Interface**: No screen management, pure readline experience
+- **Full Command Set**: All gamepad functionality available via CLI commands
+- **History Support**: Command history and editing with proper readline
+- **Error Handling**: Clear error messages with command suggestions
+
+**Standalone Features**:
+```bash
+# Launch standalone REPL
+./demo.sh repl
+
+Demo REPL v009 - Standalone CLI Interface
+Current: ENV=DEMO MODE=LEARN
+
+demo:learn> /help
+🎮 REPL Commands:
+  env [name]    - Switch environment or list all
+  mode [name]   - Switch mode or list all
+  fire <action> - Execute action
+  ls            - List current actions
+
+🔧 Meta Commands:
+  /help         - Show this help
+  /status       - Show system status
+  /commands     - List all available commands
+  exit          - Exit REPL
+
+demo:learn> env
+🌍 Available environments:
+  • DEMO (current)
+  • LOCAL
+  • REMOTE
+Usage: env <name>
+```
+
+### 📊 **Dynamic Footer with Module Integration**
+
+**Problem Solved**: Static footer provided no contextual information about current system state or module status.
+
+**Implementation**:
+- **Context-Aware Footer**: Shows current environment, mode, action count, and module path
+- **Module Path Display**: Indicates module system structure (`module/tview/learn`)
+- **Action Counting**: Real-time count of available actions for current context
+- **Help Integration**: Footer includes help access for discoverability
+
+**Dynamic Footer Format**:
+```bash
+# Footer adapts to current context
+[DEMO:LEARN] 4 actions | module/tview/learn | /help
+[LOCAL:BUILD] 6 actions | module/tview/build | /help
+[REMOTE:TEST] 3 actions | module/tview/test | /help
+```
+
+### 🎨 **Enhanced User Experience**
+
+**Implementation**:
+- **Right-Aligned Header**: Clean "DEMO x LEARN" format in header
+- **Better Error Messages**: Unknown commands show available options
+- **Command Completion**: Empty `env` and `mode` commands list available options
+- **Immediate Feedback**: All operations provide instant confirmation
+- **Consistent Icons**: 🌍 environments, 🔧 modes, ⚡ actions, 📋 lists
+
+### 🏛️ **Architecture Achievements**
+
+**Clean Separation of Concerns**:
+- **TUI Layer**: Screen positioning, layout management, terminal regions
+- **Business Layer**: Content generation, action execution, module discovery
+- **Input Layer**: Key handling, navigation, mode switching
+- **CLI Layer**: REPL interface, command processing, history management
+
+**Module System Foundation**:
+- **Module Path Convention**: `module/tview/{mode}` structure
+- **Action Discovery**: Extensible system for adding new modes and actions
+- **Environment Awareness**: Context-sensitive functionality per environment
+- **Future Integration**: Clear path for `mod.action` syntax and `module/actions` separation
+
+This implementation demonstrates a mature, production-ready TUI framework with both gamepad and CLI interfaces, clean architecture, and comprehensive command discovery system.
+
+---
+
 ## 2025-09-24 - TView Demo v008: Home Row Navigation & Non-Blocking Interface
 
 ### 🎮 **Home Row Navigation Implementation**
