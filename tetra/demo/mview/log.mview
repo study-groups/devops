@@ -1,0 +1,83 @@
+[2025-09-24 16:06:47] found 9 files (symlink-safe)
+[2025-09-24 16:06:47] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:47] glow render file=./docs/action-def.md width=80 style=dark color_on=1
+[2025-09-24 16:06:47] rendered 0 lines
+[2025-09-24 16:06:49] key=REDRAW
+[2025-09-24 16:06:49] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:49] key=REDRAW
+[2025-09-24 16:06:49] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:50] key=REDRAW
+[2025-09-24 16:06:50] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:50] key=REDRAW
+[2025-09-24 16:06:50] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:50] key=REDRAW
+[2025-09-24 16:06:50] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:50] key=REDRAW
+[2025-09-24 16:06:50] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:06:52] key=ENTER
+[2025-09-24 16:06:52] glow render file=./docs/action-def.md width=80 style=dark color_on=1
+[2025-09-24 16:06:52] rendered 0 lines
+[2025-09-24 16:06:53] key=RIGHT
+[2025-09-24 16:06:53] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:53] rendered 0 lines
+[2025-09-24 16:06:54] key=ENTER
+[2025-09-24 16:06:54] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:54] rendered 0 lines
+[2025-09-24 16:06:55] key=TOGGLE_COLOR
+[2025-09-24 16:06:55] toggle color -> 0
+[2025-09-24 16:06:55] glow render file=./docs/changes.md width=80 style=dark color_on=0
+[2025-09-24 16:06:55] rendered 0 lines
+[2025-09-24 16:06:56] key=TOGGLE_COLOR
+[2025-09-24 16:06:56] toggle color -> 1
+[2025-09-24 16:06:56] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:56] rendered 0 lines
+[2025-09-24 16:06:56] key=TOGGLE_COLOR
+[2025-09-24 16:06:56] toggle color -> 0
+[2025-09-24 16:06:56] glow render file=./docs/changes.md width=80 style=dark color_on=0
+[2025-09-24 16:06:57] rendered 0 lines
+[2025-09-24 16:06:57] key=TOGGLE_COLOR
+[2025-09-24 16:06:57] toggle color -> 1
+[2025-09-24 16:06:57] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:57] rendered 0 lines
+[2025-09-24 16:06:57] key=TOGGLE_COLOR
+[2025-09-24 16:06:57] toggle color -> 0
+[2025-09-24 16:06:57] glow render file=./docs/changes.md width=80 style=dark color_on=0
+[2025-09-24 16:06:57] rendered 0 lines
+[2025-09-24 16:06:57] key=TOGGLE_COLOR
+[2025-09-24 16:06:57] toggle color -> 1
+[2025-09-24 16:06:57] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:58] rendered 0 lines
+[2025-09-24 16:06:58] key=TOGGLE_COLOR
+[2025-09-24 16:06:58] toggle color -> 0
+[2025-09-24 16:06:58] glow render file=./docs/changes.md width=80 style=dark color_on=0
+[2025-09-24 16:06:58] rendered 0 lines
+[2025-09-24 16:06:58] key=TOGGLE_COLOR
+[2025-09-24 16:06:58] toggle color -> 1
+[2025-09-24 16:06:58] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:06:59] rendered 0 lines
+[2025-09-24 16:07:00] key=CYCLE_STYLE
+[2025-09-24 16:07:00] cycle style -> light
+[2025-09-24 16:07:00] glow render file=./docs/changes.md width=80 style=light color_on=1
+[2025-09-24 16:07:00] rendered 0 lines
+[2025-09-24 16:07:01] key=CYCLE_STYLE
+[2025-09-24 16:07:01] cycle style -> dracula
+[2025-09-24 16:07:01] glow render file=./docs/changes.md width=80 style=dracula color_on=1
+[2025-09-24 16:07:01] rendered 0 lines
+[2025-09-24 16:07:01] key=CYCLE_STYLE
+[2025-09-24 16:07:01] cycle style -> auto
+[2025-09-24 16:07:01] glow render file=./docs/changes.md width=80 style=auto color_on=1
+[2025-09-24 16:07:01] rendered 0 lines
+[2025-09-24 16:07:02] key=CYCLE_STYLE
+[2025-09-24 16:07:02] cycle style -> dark
+[2025-09-24 16:07:02] glow render file=./docs/changes.md width=80 style=dark color_on=1
+[2025-09-24 16:07:02] rendered 0 lines
+[2025-09-24 16:07:05] key=CYCLE_STYLE
+[2025-09-24 16:07:05] cycle style -> light
+[2025-09-24 16:07:05] glow render file=./docs/changes.md width=80 style=light color_on=1
+[2025-09-24 16:07:05] rendered 0 lines
+[2025-09-24 16:07:05] key=OTHER
+[2025-09-24 16:07:05] key=OTHER
+[2025-09-24 16:07:05] key=OTHER
+[2025-09-24 16:07:05] key=OTHER
+[2025-09-24 17:38:19] key=OTHER
+[2025-09-24 17:38:19] key=q

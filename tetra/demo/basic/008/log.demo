@@ -1,0 +1,514 @@
+18:45:09 Navigation: Environment -> LOCAL
+18:45:09 Navigation: Environment -> REMOTE
+18:45:10 Navigation: Environment -> DEMO
+18:45:10 Navigation: Environment -> LOCAL
+18:45:11 Navigation: Environment -> REMOTE
+18:45:11 Navigation: Environment -> DEMO
+18:45:12 Navigation: Environment -> LOCAL
+18:45:12 Navigation: Environment -> REMOTE
+18:45:13 Navigation: Environment -> DEMO
+18:45:14 Navigation: Mode -> BUILD
+18:45:14 Navigation: Mode -> TEST
+18:45:15 Navigation: Mode -> LEARN
+18:45:16 Input: Execute action requested
+18:45:16 Execute: DEMO:LEARN:help
+18:45:23 Result: Action completed
+18:45:25 Input: Execute action requested
+18:45:25 Execute: DEMO:LEARN:help:Help
+18:45:26 Result: Action completed
+18:45:30 Navigation: Mode -> BUILD
+18:45:31 Input: Execute action requested
+18:45:31 Execute: DEMO:BUILD:help:Help
+18:45:31 Result: Action completed
+18:45:34 Input: Execute action requested
+18:45:34 Execute: DEMO:BUILD:help:Help
+18:45:34 Result: Action completed
+18:45:36 Navigation: Mode -> TEST
+18:45:37 Input: Execute action requested
+18:45:37 Execute: DEMO:TEST:help:Help
+18:45:37 Result: Action completed
+18:45:38 Navigation: Mode -> LEARN
+18:45:38 Input: Execute action requested
+18:45:38 Execute: DEMO:LEARN:help:Help
+18:46:54 Result: Action completed
+18:46:55 Input: Refresh requested
+18:46:55 UI: Content cleared
+18:46:56 Input: Refresh requested
+18:46:56 UI: Content cleared
+18:49:39 Input: Switched to REPL mode
+18:49:40 Input: REPL mode - ESC to return to gamepad
+18:49:40 Input: REPL mode - ESC to return to gamepad
+18:49:40 Input: REPL mode - ESC to return to gamepad
+18:49:40 Input: REPL mode - ESC to return to gamepad
+18:49:40 Input: REPL mode - ESC to return to gamepad
+18:49:41 Input: REPL mode - ESC to return to gamepad
+18:49:41 Input: REPL mode - ESC to return to gamepad
+18:49:41 Input: REPL mode - ESC to return to gamepad
+18:49:42 Input: REPL mode - ESC to return to gamepad
+18:49:42 Input: REPL mode - ESC to return to gamepad
+18:49:43 Input: REPL mode - ESC to return to gamepad
+18:49:44 Input: REPL mode - ESC to return to gamepad
+18:50:57 Input: Execute action requested
+18:50:57 Execute: DEMO:LEARN:help
+18:51:00 Result: Action completed
+18:51:02 Navigation: Action -> refresh:Refresh
+18:51:03 Navigation: Action -> help:Help
+18:51:05 Input: Execute action requested
+18:51:05 Execute: DEMO:LEARN:help:Help
+18:51:10 Result: Action completed
+18:51:11 Input: Refresh requested
+18:51:11 UI: Content cleared
+18:51:14 Navigation: Action -> refresh:Refresh
+18:51:15 Input: Refresh requested
+18:51:15 UI: Content cleared
+18:51:17 Input: Unknown key 'w' in gamepad mode
+18:51:17 Input: Unknown key '' in gamepad mode
+18:51:18 Input: Unknown key '' in gamepad mode
+18:51:19 Input: Unknown key 'j' in gamepad mode
+18:51:24 Navigation: Environment -> LOCAL
+18:51:24 Navigation: Environment -> REMOTE
+18:51:25 Navigation: Environment -> DEMO
+18:51:25 Navigation: Environment -> LOCAL
+18:51:29 Navigation: Environment -> REMOTE
+18:51:30 Navigation: Environment -> DEMO
+18:51:30 Navigation: Environment -> LOCAL
+18:51:33 Input: Unknown key 'k' in gamepad mode
+18:51:33 Navigation: Environment -> REMOTE
+18:51:34 Input: Unknown key 'k' in gamepad mode
+18:51:35 Input: Unknown key 'k' in gamepad mode
+18:51:35 Input: Unknown key 'i' in gamepad mode
+18:51:35 Input: Unknown key 'k' in gamepad mode
+18:51:36 Input: Execute action requested
+18:51:36 Execute: REMOTE:LEARN:help:Help
+18:51:42 Result: Action completed
+18:51:44 Input: Help requested
+18:51:55 Navigation: Action -> refresh:Refresh
+18:51:56 Navigation: Action -> help:Help
+18:51:56 Navigation: Action -> refresh:Refresh
+18:51:57 Navigation: Action -> help:Help
+18:51:57 Navigation: Action -> refresh:Refresh
+18:51:58 Navigation: Action -> help:Help
+18:52:01 Navigation: Action -> refresh:Refresh
+18:52:03 Navigation: Action -> help:Help
+18:52:08 Input: Unknown key 'b' in gamepad mode
+18:52:13 Navigation: Mode -> BUILD
+18:52:14 Navigation: Mode -> TEST
+18:52:15 Navigation: Mode -> LEARN
+18:52:16 UI: Content cleared
+18:52:18 UI: Content cleared
+18:52:19 Navigation: Action -> refresh:Refresh
+18:52:20 Navigation: Action -> help:Help
+18:52:21 Navigation: Action -> refresh:Refresh
+18:52:23 Navigation: Mode -> BUILD
+18:52:24 Navigation: Mode -> TEST
+18:52:24 Navigation: Action -> refresh:Refresh
+18:52:25 Input: Quit requested
+18:52:45 Navigation: Action -> refresh
+18:52:45 Navigation: Action -> status
+18:52:46 Navigation: Action <- refresh
+18:52:46 Navigation: Action <- help
+18:52:47 Navigation: Action <- module-info
+18:53:44 Navigation: Action -> help
+18:53:44 Navigation: Action -> refresh
+18:53:45 Navigation: Action -> status
+18:53:45 Navigation: Action -> module-info
+18:53:46 Navigation: Action -> help
+18:53:47 Navigation: Action -> refresh
+18:53:47 Navigation: Action -> status
+18:53:48 Navigation: Action -> module-info
+18:53:48 Navigation: Action -> help
+18:53:49 Navigation: Action -> refresh
+18:53:50 Navigation: Action -> status
+18:53:50 Navigation: Action -> module-info
+18:53:51 Navigation: Action -> help
+18:53:51 Navigation: Action -> refresh
+18:53:51 Navigation: Action -> status
+18:53:53 Navigation: Environment -> LOCAL
+18:53:54 Navigation: Environment -> REMOTE
+18:53:57 Navigation: Environment -> DEMO
+18:54:49 UI: Content cleared
+18:54:49 UI: Content cleared
+18:54:50 UI: Content cleared
+18:54:53 UI: Content cleared
+18:54:55 UI: Content cleared
+18:54:58 Input: Switched to REPL mode
+18:54:58 Input: REPL mode - ESC to return to gamepad
+18:54:59 Input: REPL mode - ESC to return to gamepad
+18:54:59 Input: REPL mode - ESC to return to gamepad
+18:54:59 Input: REPL mode - ESC to return to gamepad
+18:55:04 Input: REPL mode - ESC to return to gamepad
+18:55:05 Input: REPL mode - ESC to return to gamepad
+18:55:05 Input: REPL mode - ESC to return to gamepad
+18:55:05 Input: REPL mode - ESC to return to gamepad
+18:55:06 Input: REPL mode - ESC to return to gamepad
+18:55:07 Input: REPL mode - ESC to return to gamepad
+18:55:07 Input: REPL mode - ESC to return to gamepad
+18:55:08 Input: REPL mode - ESC to return to gamepad
+18:55:08 Input: REPL mode - ESC to return to gamepad
+18:55:09 Input: REPL mode - ESC to return to gamepad
+18:55:09 Input: REPL mode - ESC to return to gamepad
+18:55:10 Input: REPL mode - ESC to return to gamepad
+18:55:10 Input: REPL mode - ESC to return to gamepad
+18:55:11 Input: REPL mode - ESC to return to gamepad
+18:55:11 Input: REPL mode - ESC to return to gamepad
+18:55:11 Input: REPL mode - ESC to return to gamepad
+18:55:11 Input: REPL mode - ESC to return to gamepad
+18:55:12 Input: REPL mode - ESC to return to gamepad
+18:55:16 Navigation: Environment -> LOCAL
+18:55:18 Input: Execute action requested
+18:55:18 Execute: LOCAL:LEARN:help
+18:55:20 Result: Action completed
+18:55:22 Input: Refresh requested
+18:55:22 UI: Content cleared
+18:55:23 Input: Refresh requested
+18:55:23 UI: Content cleared
+18:55:24 Input: Execute action requested
+18:55:24 Execute: LOCAL:LEARN:help:Help
+18:55:25 Result: Action completed
+18:55:30 Navigation: Environment -> REMOTE
+18:55:31 Input: Refresh requested
+18:55:31 UI: Content cleared
+18:55:37 Input: Refresh requested
+18:55:37 UI: Content cleared
+18:55:42 Input: Help requested
+18:55:48 Input: Unknown key 'k' in gamepad mode
+18:58:18 Navigation: Environment -> LOCAL
+18:58:19 Navigation: Environment -> REMOTE
+18:58:21 Navigation: Environment -> DEMO
+18:58:23 Navigation: Environment -> LOCAL
+18:58:25 Navigation: Mode -> BUILD
+18:58:27 Navigation: Mode -> TEST
+18:58:27 Navigation: Mode -> LEARN
+18:58:28 Navigation: Mode -> BUILD
+18:58:28 Navigation: Mode -> TEST
+18:59:10 Navigation: Action -> refresh
+18:59:11 Navigation: Action -> status
+18:59:12 Navigation: Action -> module-info
+18:59:12 Navigation: Action -> help
+18:59:13 Navigation: Action -> refresh
+18:59:14 Navigation: Action -> status
+18:59:14 Navigation: Action -> module-info
+18:59:15 Navigation: Action <- status
+18:59:20 Navigation: Action <- refresh
+18:59:21 Navigation: Action <- help
+19:01:46 Input: Refresh requested
+19:01:46 UI: Content cleared
+19:02:18 Navigation: Action <- module-info
+19:02:23 Navigation: Mode -> BUILD
+19:02:24 Navigation: Mode -> TEST
+19:02:24 Navigation: Mode -> LEARN
+19:02:24 Navigation: Mode -> BUILD
+19:04:23 Input: Help requested
+19:04:25 Input: Quit requested
+19:04:30 Input: Help requested
+19:04:33 Input: Quit requested
+19:04:41 Navigation: Action -> refresh
+19:04:42 Navigation: Action -> status
+19:04:43 Navigation: Action -> module-info
+19:04:43 Navigation: Action -> help
+19:07:02 Navigation: Mode -> BUILD
+19:07:03 Navigation: Mode -> TEST
+19:07:04 Navigation: Mode <- BUILD
+19:07:05 Navigation: Mode -> TEST
+19:07:06 Navigation: Mode <- BUILD
+19:07:06 Navigation: Mode <- LEARN
+19:07:09 Input: Action selected: help
+19:07:10 Input: Execute action requested
+19:07:10 Execute: DEMO:LEARN:help
+19:07:42 Navigation: Mode -> BUILD
+19:07:44 Navigation: Environment -> LOCAL
+19:07:47 Navigation: Action -> refresh
+19:07:49 Input: Action selected: refresh
+19:07:52 Input: Action selected: refresh
+19:07:53 Input: Execute action requested
+19:07:53 Execute: LOCAL:BUILD:refresh
+19:07:53 Result: Action completed
+19:08:00 Navigation: Action -> status
+19:08:04 Input: Action selected: status
+19:08:05 Input: Action selected: status
+19:08:06 Navigation: Mode -> TEST
+19:08:07 Input: Action selected: help
+19:08:20 Input: Action selected: help
+19:14:48 Input: Quit requested
+19:14:57 Navigation: Mode -> BUILD
+19:14:58 Navigation: Mode -> TEST
+19:14:59 Navigation: Mode -> LEARN
+19:15:00 Navigation: Mode -> BUILD
+19:15:08 Input: Action selected: help
+19:15:12 Input: Quit requested
+19:17:31 Input: Action selected: help
+19:28:48 Navigation: Mode -> BUILD
+19:28:49 Navigation: Mode -> TEST
+19:28:50 Navigation: Mode -> LEARN
+19:29:11 Input: Unknown key 'f' in gamepad mode
+19:29:21 Navigation: Action -> refresh
+19:29:22 Navigation: Action -> status
+19:29:22 Navigation: Action -> module-info
+19:29:24 Navigation: Action -> help
+19:29:25 Navigation: Action -> refresh
+19:29:26 Navigation: Action -> status
+19:29:26 Navigation: Action -> module-info
+19:29:27 Navigation: Action -> help
+19:29:38 Input: Action selected: help
+19:29:59 Input: Action selected: help
+19:30:01 Navigation: Environment -> LOCAL
+19:30:02 Navigation: Mode -> BUILD
+19:30:02 Navigation: Environment -> REMOTE
+19:30:03 Navigation: Mode -> TEST
+19:30:10 Input: Action selected: help
+19:30:12 Navigation: Action -> refresh
+19:30:13 Navigation: Action -> status
+19:30:14 Navigation: Action -> module-info
+19:30:15 Navigation: Action -> help
+19:30:17 Navigation: Action -> refresh
+19:30:18 Navigation: Action -> status
+19:30:19 Navigation: Action -> module-info
+19:30:22 Navigation: Mode -> LEARN
+19:30:24 Navigation: Action -> refresh
+19:30:28 Navigation: Environment -> DEMO
+19:30:28 Navigation: Environment -> LOCAL
+19:30:28 Navigation: Environment -> REMOTE
+19:30:29 Navigation: Mode -> BUILD
+19:30:29 Navigation: Mode -> TEST
+19:30:29 Navigation: Mode -> LEARN
+19:30:30 Input: Action selected: help
+19:30:31 Input: Action selected: help
+19:30:32 Input: Action selected: help
+19:30:34 Input: Action selected: help
+19:30:34 Input: Action selected: help
+19:30:39 Input: Action selected: help
+19:30:40 Input: Action selected: help
+19:30:41 Input: Action selected: help
+19:30:42 Input: Action selected: help
+19:30:43 Input: Action selected: help
+19:30:43 Input: Action selected: help
+19:30:44 Navigation: Environment -> DEMO
+19:30:45 Navigation: Environment -> LOCAL
+19:30:45 Navigation: Environment -> REMOTE
+19:30:48 Navigation: Mode -> BUILD
+19:30:49 Navigation: Mode -> TEST
+19:30:49 Navigation: Mode -> LEARN
+19:30:50 Navigation: Mode -> BUILD
+19:30:50 Navigation: Mode -> TEST
+19:30:51 Navigation: Mode -> LEARN
+19:30:52 Navigation: Mode -> BUILD
+19:30:53 Navigation: Mode -> TEST
+19:30:53 Navigation: Mode -> LEARN
+19:30:54 Navigation: Mode -> BUILD
+19:30:54 Navigation: Mode -> TEST
+19:30:55 Navigation: Mode -> LEARN
+19:30:55 Input: Action selected: help
+19:30:56 Input: Action selected: help
+19:30:56 Input: Action selected: help
+19:30:57 Navigation: Action -> refresh
+19:30:58 Navigation: Action -> status
+19:30:58 Navigation: Action -> module-info
+19:30:59 Navigation: Action -> help
+19:31:00 Navigation: Action -> refresh
+19:31:00 Navigation: Action -> status
+19:31:00 Navigation: Action -> module-info
+19:31:01 Navigation: Action -> help
+19:31:02 Navigation: Action -> refresh
+19:31:02 Navigation: Action -> status
+19:31:03 Navigation: Action -> module-info
+19:31:06 Navigation: Action -> help
+19:31:07 Navigation: Action -> refresh
+19:31:08 Navigation: Action -> status
+19:31:10 Navigation: Action -> module-info
+19:31:11 Navigation: Action -> help
+19:31:11 Navigation: Action -> refresh
+19:31:12 Navigation: Action -> status
+19:31:13 Navigation: Action -> module-info
+19:31:13 Navigation: Action -> help
+19:31:14 Navigation: Action -> refresh
+19:31:41 Input: Action selected: refresh
+19:34:50 Navigation: Action -> refresh
+19:34:51 Navigation: Action -> status
+19:34:52 Navigation: Action -> module-info
+19:34:52 Navigation: Action -> help
+19:34:53 Navigation: Action -> refresh
+19:34:56 Input: Execute action requested
+19:34:56 Execute: DEMO:LEARN:refresh
+19:34:58 Result: Action completed
+19:35:09 Navigation: Action -> refresh
+19:35:09 Navigation: Action -> status
+19:35:09 Navigation: Action -> module-info
+19:35:09 Input: Execute action requested
+19:35:09 Execute: DEMO:LEARN:module-info
+19:35:09 Result: Action completed
+19:35:52 Navigation: Environment -> LOCAL
+19:35:53 Navigation: Environment -> REMOTE
+19:35:54 Navigation: Environment -> DEMO
+19:35:55 Navigation: Mode -> BUILD
+19:35:55 Navigation: Mode -> TEST
+19:35:56 Navigation: Mode -> LEARN
+19:35:59 Navigation: Action -> refresh
+19:35:59 Navigation: Action -> status
+19:36:00 Navigation: Action -> module-info
+19:36:02 Navigation: Environment -> LOCAL
+19:36:02 Navigation: Environment -> REMOTE
+19:36:03 Navigation: Environment -> DEMO
+19:36:03 Navigation: Environment -> LOCAL
+19:36:03 Navigation: Mode -> BUILD
+19:36:03 Navigation: Mode -> TEST
+19:36:03 Navigation: Mode -> LEARN
+19:36:04 Navigation: Action -> refresh
+19:36:04 Navigation: Action -> status
+19:36:04 Navigation: Action -> module-info
+19:36:09 Input: Unknown key 'f' in gamepad mode
+19:36:10 Input: Execute action requested
+19:36:10 Execute: LOCAL:LEARN:module-info
+19:36:12 Result: Action completed
+19:36:15 Navigation: Action -> refresh:Refresh
+19:36:15 Navigation: Action -> help:Help
+19:36:17 Navigation: Action -> refresh:Refresh
+19:36:17 Input: Unknown key 'f' in gamepad mode
+19:36:19 Input: Refresh requested
+19:36:19 UI: Content cleared
+19:36:19 Navigation: Action -> help:Help
+19:36:20 Navigation: Action -> refresh:Refresh
+19:36:21 Navigation: Action -> help:Help
+19:36:23 Navigation: Action -> refresh:Refresh
+19:36:23 Navigation: Action -> help:Help
+19:36:28 Navigation: Environment -> REMOTE
+19:36:29 Navigation: Environment -> DEMO
+19:36:29 Navigation: Mode -> BUILD
+19:36:30 Navigation: Mode -> TEST
+19:36:30 Navigation: Environment -> LOCAL
+19:36:30 Navigation: Mode -> LEARN
+19:36:32 Input: Unknown key 'f' in gamepad mode
+19:36:33 Navigation: Mode -> BUILD
+19:36:34 Navigation: Mode -> TEST
+19:36:34 Navigation: Mode -> LEARN
+19:36:35 Navigation: Mode -> BUILD
+19:36:36 Navigation: Action -> refresh:Refresh
+19:36:36 Navigation: Action -> help:Help
+19:36:37 Navigation: Action -> refresh:Refresh
+19:36:37 Navigation: Action -> help:Help
+19:36:38 Navigation: Action -> refresh:Refresh
+19:36:38 Navigation: Action -> help:Help
+19:36:39 Input: Unknown key 'f' in gamepad mode
+19:36:39 Navigation: Action -> refresh:Refresh
+19:36:42 Navigation: Action -> help:Help
+19:36:42 Navigation: Action -> refresh:Refresh
+19:36:46 Navigation: Action -> help:Help
+19:36:47 Navigation: Action -> refresh:Refresh
+19:36:47 Navigation: Action <- help:Help
+19:36:48 Navigation: Action <- refresh:Refresh
+19:36:50 Input: Unknown key 'f' in gamepad mode
+19:36:54 Input: Unknown key 'f' in gamepad mode
+19:36:59 Navigation: Environment -> REMOTE
+19:36:59 Navigation: Environment -> DEMO
+19:36:59 Navigation: Mode -> TEST
+19:37:00 Navigation: Mode -> LEARN
+19:37:01 Navigation: Action -> refresh:Refresh
+19:37:01 Navigation: Action -> help:Help
+19:37:02 Navigation: Action -> refresh:Refresh
+19:37:06 Input: Unknown key 'f' in gamepad mode
+19:37:16 Input: Execute action requested
+19:37:16 Execute: DEMO:LEARN:refresh:Refresh
+19:37:17 Result: Action completed
+19:37:19 Input: Action info requested: refresh:Refresh
+19:40:59 Navigation: Action -> refresh
+19:40:59 Input: Fire action requested
+19:40:59 Execute: DEMO:LEARN:refresh
+19:41:01 Result: Action completed
+19:41:01 Input: Help requested
+19:41:01 Input: Quit requested
+19:41:28 Input: Quit requested
+19:41:31 Navigation: Environment -> LOCAL
+19:41:33 Navigation: Mode -> BUILD
+19:41:34 Navigation: Mode -> TEST
+19:41:34 Navigation: Mode -> LEARN
+19:41:36 Navigation: Action -> refresh
+19:41:38 Navigation: Action <- help
+19:41:39 Navigation: Action -> refresh
+19:41:44 Input: Execute action requested (legacy)
+19:41:44 Execute: LOCAL:LEARN:refresh
+19:41:46 Result: Action completed
+19:41:46 Input: Action info requested (legacy): refresh:Refresh
+19:41:49 Input: Fire action requested
+19:41:49 Execute: LOCAL:LEARN:refresh:Refresh
+19:41:50 Result: Action completed
+19:41:55 Input: Refresh requested
+19:41:55 UI: Content cleared
+19:41:56 Navigation: Action -> help:Help
+19:41:58 Input: Fire action requested
+19:41:58 Execute: LOCAL:LEARN:help:Help
+19:41:59 Result: Action completed
+19:42:00 Navigation: Action -> refresh:Refresh
+19:42:01 Input: Action info requested: refresh:Refresh
+19:42:02 Input: Action info requested: refresh:Refresh
+19:43:18 Navigation: Action -> refresh
+19:43:19 Input: Fire action requested
+19:43:19 Execute: DEMO:LEARN:refresh
+19:43:21 Result: Action completed
+19:43:21 Navigation: Action -> help:Help
+19:43:21 Input: Fire action requested
+19:43:21 Execute: DEMO:LEARN:help:Help
+19:43:21 Result: Action completed
+19:43:21 Input: Fire action requested
+19:43:21 Execute: DEMO:LEARN:help:Help
+19:43:21 Result: Action completed
+19:43:21 Input: Help requested
+19:43:21 Input: Quit requested
+19:43:40 Input: Quit requested
+19:43:46 Input: Execute action requested (legacy)
+19:43:46 Execute: DEMO:LEARN:help
+19:43:46 Result: Action completed
+19:43:47 Input: Execute action requested (legacy)
+19:43:47 Execute: DEMO:LEARN:help:Help
+19:43:47 Result: Action completed
+19:43:48 Input: Execute action requested (legacy)
+19:43:48 Execute: DEMO:LEARN:help:Help
+19:43:48 Result: Action completed
+19:43:48 Navigation: Mode -> BUILD
+19:43:49 Navigation: Mode -> TEST
+19:43:50 Navigation: Mode -> LEARN
+19:43:57 Navigation: Environment -> LOCAL
+19:43:58 Navigation: Environment -> REMOTE
+19:43:58 Navigation: Environment -> DEMO
+19:44:01 Navigation: Action -> refresh:Refresh
+19:44:03 Navigation: Action -> help:Help
+19:44:04 Input: Fire action requested
+19:44:04 Execute: DEMO:LEARN:help:Help
+19:44:04 Result: Action completed
+19:44:10 Input: Action info requested: help:Help
+19:44:13 Input: Fire action requested
+19:44:13 Execute: DEMO:LEARN:help:Help
+19:44:13 Result: Action completed
+19:44:16 Navigation: Mode -> BUILD
+19:44:17 Navigation: Environment -> LOCAL
+19:44:17 Navigation: Mode -> TEST
+19:44:17 Input: Fire action requested
+19:44:17 Execute: LOCAL:TEST:help:Help
+19:44:17 Result: Action completed
+19:44:18 Navigation: Action -> refresh:Refresh
+19:44:19 Input: Execute action requested (legacy)
+19:44:19 Execute: LOCAL:TEST:refresh:Refresh
+19:44:19 Result: Action completed
+19:44:27 Input: Unknown key 'k' in gamepad mode
+19:44:33 Navigation: Action -> help:Help
+19:44:34 Navigation: Action -> refresh:Refresh
+19:44:35 Navigation: Action -> help:Help
+19:44:36 Input: Fire action requested
+19:44:36 Execute: LOCAL:TEST:help:Help
+19:44:36 Result: Action completed
+19:44:39 Navigation: Action -> refresh:Refresh
+19:44:40 Navigation: Action -> help:Help
+19:44:45 Input: Action info requested: help:Help
+19:44:47 Input: Action info requested: help:Help
+19:44:49 Input: Fire action requested
+19:44:49 Execute: LOCAL:TEST:help:Help
+19:44:49 Result: Action completed
+19:44:55 Navigation: Mode -> LEARN
+19:44:55 Navigation: Mode -> BUILD
+19:44:56 Navigation: Action -> refresh:Refresh
+19:44:57 Input: Execute action requested (legacy)
+19:44:57 Execute: LOCAL:BUILD:refresh:Refresh
+19:44:57 Result: Action completed
+19:45:00 Input: Fire action requested
+19:45:00 Execute: LOCAL:BUILD:refresh:Refresh
+19:45:00 Result: Action completed
+19:45:05 Input: Refresh requested
+19:45:05 UI: Content cleared

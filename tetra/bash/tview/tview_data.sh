@@ -199,8 +199,8 @@ check_service_status() {
 
     case "$env" in
         "LOCAL")
-            # Check local processes
-            if pgrep -f "tetra" >/dev/null; then
+            # Check local processes (Mac-compatible)
+            if ps aux | grep -q "[t]etra" 2>/dev/null; then
                 echo "tetra: active"
             else
                 echo "tetra: inactive"

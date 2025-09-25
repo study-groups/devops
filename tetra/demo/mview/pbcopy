@@ -1,0 +1,27 @@
+[2025-09-24 16:04:07] found 9 files (symlink-safe)
+[2025-09-24 16:04:07] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:04:07] glow render file=./docs/action-def.md width=80 style=dark color_on=1
+[2025-09-24 16:04:08] rendered 125 lines
+[2025-09-24 16:04:11] key=TOGGLE_COLOR
+[2025-09-24 16:04:11] toggle color -> 0
+[2025-09-24 16:04:11] glow render file=./docs/action-def.md width=80 style=dark color_on=0
+[2025-09-24 16:04:11] rendered 125 lines
+[2025-09-24 16:04:12] key=TOGGLE_COLOR
+[2025-09-24 16:04:12] toggle color -> 1
+[2025-09-24 16:04:12] glow render file=./docs/action-def.md width=80 style=dark color_on=1
+[2025-09-24 16:04:12] rendered 125 lines
+[2025-09-24 16:04:13] key=CYCLE_STYLE
+[2025-09-24 16:04:13] cycle style -> light
+[2025-09-24 16:04:13] glow render file=./docs/action-def.md width=80 style=light color_on=1
+[2025-09-24 16:04:13] rendered 125 lines
+[2025-09-24 16:04:14] key=CYCLE_STYLE
+[2025-09-24 16:04:14] cycle style -> dracula
+[2025-09-24 16:04:14] glow render file=./docs/action-def.md width=80 style=dracula color_on=1
+[2025-09-24 16:04:14] rendered 125 lines
+[2025-09-24 16:04:16] key=RELOAD_CONF
+[2025-09-24 16:04:16] reloaded glow.env.sh: color=1 style=dark
+[2025-09-24 16:04:16] glow render file=./docs/action-def.md width=80 style=dark color_on=1
+[2025-09-24 16:04:16] rendered 125 lines
+[2025-09-24 16:04:17] key=REDRAW
+[2025-09-24 16:04:17] geom rows=24 cols=80 mid_top=2 mid_bot=20
+[2025-09-24 16:04:18] key=q

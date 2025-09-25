@@ -1,5 +1,140 @@
 # Current Changes
 
+## 2025-09-24 - TView Demo v008: Home Row Navigation & Non-Blocking Interface
+
+### 🎮 **Home Row Navigation Implementation**
+
+**Problem Solved**: TView demo needed intuitive keyboard flow that matches natural finger placement and provides immediate responsive feedback without blocking prompts.
+
+**Implementation**:
+- **Home Row Flow**: `e` (env) → `d` (mode) → `s` (select) → `f` (fire) - natural finger progression
+- **Bidirectional Navigation**: All navigation keys support forward/backward with uppercase variants
+  - `e/E` = Environment right/left
+  - `d/D` = Mode right/left
+  - `s/S` = Action select right/left
+- **Fire Action System**: `f` for immediate execution, `F` for detailed action info
+- **Auto-Info Display**: Selection changes automatically show comprehensive action context
+
+**Key Mapping Evolution**:
+```bash
+# Before (mixed metaphors)
+a/A = action navigation
+s/S = select info / execute
+
+# After (consistent home row flow)
+e/E = environment navigation
+d/D = mode navigation
+s/S = action selection (with auto-info)
+f/F = fire action / full info
+```
+
+### 🚫 **Complete Non-Blocking Interface**
+
+**Problem Solved**: Demo had `read -p "Press Enter to continue..."` prompts breaking the responsive flow and requiring manual intervention.
+
+**Implementation**:
+- **Removed All Blocking Prompts**: Eliminated 12+ `read -p` statements from learn module actions
+- **Immediate Return**: All actions execute and return control instantly to the interface
+- **Seamless Flow**: Users can fire actions repeatedly without interruption
+- **Action Logging**: All interactions logged with timestamps for debugging/analysis
+
+**Technical Changes**:
+```bash
+# Before (blocking)
+read -p "Press Enter to continue..."
+
+# After (non-blocking)
+# No blocking read - return to interface immediately
+```
+
+### 🔧 **Enhanced Input System Architecture**
+
+**Problem Solved**: Input handling was scattered throughout main demo file, making it hard to extend and maintain.
+
+**Implementation**:
+- **Extracted `input.sh`**: Complete separation of input concerns from display logic
+- **Enhanced Action Info**: `show_action_info()` provides comprehensive context including:
+  - Current action details and position
+  - Module integration status and file paths
+  - Function validation (execute_action, get_actions_for_env presence)
+  - Next step guidance and available options
+- **Auto-Info on Selection**: Every selection change immediately shows relevant context
+- **Legacy Compatibility**: Maintained `a/A` keys for users transitioning from old system
+
+### 💾 **Action Logging & Analysis**
+
+**Problem Solved**: No visibility into user interaction patterns or debugging information for interface behavior.
+
+**Implementation**:
+- **Comprehensive Logging**: All navigation and execution logged to `./log.demo`
+- **Timestamped Events**: Precise timing data for performance analysis
+- **Input Validation Logging**: Unknown keypress detection and logging
+- **Execution Flow Tracking**: Complete action lifecycle from selection to completion
+
+**Log Format**:
+```bash
+19:43:19 Navigation: Action -> refresh
+19:43:19 Input: Fire action requested
+19:43:19 Execute: DEMO:LEARN:refresh
+19:43:21 Result: Action completed
+```
+
+### 🎯 **Mac Compatibility Fixes**
+
+**Problem Solved**: `pgrep` crashes on macOS preventing proper service status detection in production tview system.
+
+**Implementation**:
+- **Process Detection Fix**: Replaced `pgrep -f "tetra"` with `ps aux | grep -q "[t]etra"`
+- **Cross-Platform Compatibility**: Works reliably on both Linux and macOS
+- **Error Prevention**: Eliminates hard crashes in service management workflows
+
+**Technical Fix in `bash/tview/tview_data.sh:203`**:
+```bash
+# Before (Mac crash)
+if pgrep -f "tetra" >/dev/null; then
+
+# After (Mac compatible)
+if ps aux | grep -q "[t]etra" 2>/dev/null; then
+```
+
+### 📁 **Diskusage Module - Complete TView Integration Example**
+
+**Problem Solved**: Need practical example showing complete TView module integration following established patterns.
+
+**Implementation**:
+- **Full Module Structure**: Created `demo/modules/diskusage/` with complete file set
+  - `diskusage.sh` - Core functionality (disk analysis, cleanup, reporting)
+  - `providers.sh` - TView provider interface implementation
+  - `actions.sh` - Action handlers with environment-specific behavior
+- **TView Integration**: Demonstrates provider interface patterns used in production system
+- **Educational Value**: Shows module creation process and integration requirements
+- **Environment Awareness**: Different capabilities for LOCAL (full) vs REMOTE (limited) environments
+
+### 🏗️ **Architecture Achievements**
+
+**Separation of Concerns**:
+- `demo.sh` - TUI display and layout concerns
+- `input.sh` - Input handling and navigation logic
+- `tview/modules/*/actions.sh` - Content and business logic
+- Clean interfaces between each layer following TView principles
+
+**Module System**:
+- **DEMO_SRC/DEMO_DIR**: Enforced module naming conventions
+- **Module Discovery**: Automatic detection and integration status reporting
+- **Extension Points**: Clear path for adding new modes and actions
+- **Provider Interface**: Standard patterns for TView integration
+
+**User Experience**:
+- **Immediate Feedback**: Every keypress provides instant visual response
+- **Consistent Navigation**: Bidirectional movement with predictable key mappings
+- **Home Row Optimization**: Natural finger flow for extended use
+- **Non-Blocking Flow**: Continuous interaction without interruptions
+- **Context Awareness**: Rich information display for current selections
+
+This implementation demonstrates a mature TView framework with responsive navigation, comprehensive logging, and clear architectural patterns suitable for production TView applications.
+
+---
+
 ## 2025-09-23 - Module Discovery AST & Interactive Documentation System
 
 ### 🚀 **Complete Module Discovery + Documentation AST**
