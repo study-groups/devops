@@ -44,7 +44,7 @@ show_item_modal() {
             show_org_environment_details "$CURRENT_ENV"
             ;;
         "TKM:"*)
-            show_tkm_details "$CURRENT_ENV"
+            show_tkm_action_modal "$CURRENT_ENV" "$CURRENT_ITEM"
             ;;
         "DEPLOY:"*)
             show_deploy_details "$CURRENT_ENV"
@@ -783,4 +783,199 @@ q - Quit
 Pattern: e=env m/d=mode → a/A=actions → Enter/l=execute
 Results appear in scrollable window between top and bottom.
 EOF
+}
+
+# TKM Action Modal - New integrated TKM action system
+show_tkm_action_modal() {
+    local env="$1" item_index="$2"
+
+    # Source TKM modules
+    source "$TVIEW_DIR/tkm_actions.sh"
+    source "$TVIEW_DIR/tkm_display_helpers.sh"
+
+    clear
+    echo
+    echo "                   ${BOLD}TKM ACTION: $env ENVIRONMENT${RESET}"
+    echo
+
+    # Handle different views based on environment and item
+    case "$env" in
+        "TETRA")
+            show_tkm_tetra_action_modal "$item_index"
+            ;;
+        "LOCAL"|"DEV"|"STAGING"|"PROD")
+            show_tkm_env_action_modal "$env" "$item_index"
+            ;;
+        *)
+            echo "    TKM action not available for environment: $env"
+            ;;
+    esac
+
+    echo
+    echo "    Press any key to return to dashboard..."
+    read -n1 -s
+}
+
+# TKM TETRA (overview) action modal
+show_tkm_tetra_action_modal() {
+    local item_index="$1"
+
+    case "$item_index" in
+        0|1|2|3)  # Environment selections
+            local envs=("LOCAL" "DEV" "STAGING" "PROD")
+            local selected_env="${envs[$item_index]}"
+            show_tkm_env_summary "$selected_env"
+            ;;
+        4)  # Secrets Management
+            show_tkm_secrets_modal
+            ;;
+        *)
+            echo "    TKM System Overview"
+            echo
+            echo "    Total Environments: 4"
+            echo "    SSH Status Summary:"
+            echo "      • LOCAL: $(render_tkm_status_indicator "local")"
+            echo "      • DEV: $(render_tkm_status_indicator "dev")"
+            echo "      • STAGING: $(render_tkm_status_indicator "staging")"
+            echo "      • PROD: $(render_tkm_status_indicator "prod")"
+            ;;
+    esac
+}
+
+# TKM environment-specific action modal
+show_tkm_env_action_modal() {
+    local env="$1" item_index="$2"
+
+    # Load actions for this environment
+    local actions=($(tkm_get_env_actions "${env,,}"))
+
+    # Calculate action offset (account for status display items)
+    local action_offset=0
+    case "$env" in
+        "LOCAL") action_offset=3 ;;  # SSH dir, config, agent
+        *) action_offset=2 ;;        # Connection, users
+    esac
+
+    local action_index=$((item_index - action_offset))
+
+    if [[ $action_index -ge 0 && $action_index -lt ${#actions[@]} ]]; then
+        local action="${actions[$action_index]}"
+        show_tkm_action_confirmation "$action" "${env,,}"
+    else
+        # Show environment details for non-action items
+        echo "    ${BOLD}TKM - $env Environment Details${RESET}"
+        echo
+        render_tkm_env_details "${env,,}"
+    fi
+}
+
+# TKM action confirmation and execution
+show_tkm_action_confirmation() {
+    local action="$1" env="$2"
+
+    echo "    ${BOLD}$(tkm_get_action_name "$action") - ${env^^}${RESET}"
+    echo
+    echo "    $(tkm_get_action_description "$action" "$env")"
+    echo
+
+    # Show requirements/warnings if any
+    local requirements="$(tkm_get_action_requirements "$action" "$env" 2>/dev/null)"
+    if [[ -n "$requirements" ]]; then
+        echo "    ${YELLOW}${BOLD}REQUIREMENTS:${RESET}"
+        echo "    $requirements"
+        echo
+    fi
+
+    # Show action preview/command that will be executed
+    echo "    ${BOLD}Command Preview:${RESET}"
+    case "$action" in
+        "test_ssh")
+            echo "    ssh -o ConnectTimeout=10 $(tkm_get_env_user "$env")@$(tkm_get_env_host "$env") 'hostname && whoami'"
+            ;;
+        "generate_key")
+            echo "    ssh-keygen -t ed25519 -f ~/.ssh/tetra_${env}_env_key -C 'tetra-${env}-$(date +%Y%m%d)'"
+            ;;
+        "copy_key")
+            echo "    ssh-copy-id -i ~/.ssh/tetra_${env}_env_key.pub $(tkm_get_env_user "$env")@$(tkm_get_env_host "$env")"
+            ;;
+        *)
+            echo "    $(tkm_get_action_name "$action") for $env environment"
+            ;;
+    esac
+    echo
+
+    # Confirmation prompt
+    local confirm_text="Execute action? [y/N]"
+    [[ "$env" == "prod" ]] && confirm_text="Execute PRODUCTION action? Type 'YES' to confirm:"
+
+    echo -n "    $confirm_text "
+    read -r confirmation
+
+    if [[ "$env" == "prod" ]]; then
+        [[ "$confirmation" == "YES" ]] || { echo "    Cancelled."; return; }
+    else
+        [[ "$confirmation" =~ ^[Yy] ]] || { echo "    Cancelled."; return; }
+    fi
+
+    echo
+    echo "    ${BOLD}Executing...${RESET}"
+    echo
+
+    # Execute the action with visual feedback
+    if tkm_execute_action "$action" "$env" 2>&1; then
+        echo
+        echo "    ${GREEN}✓ Action completed successfully${RESET}"
+    else
+        echo
+        echo "    ${RED}✗ Action failed${RESET}"
+    fi
+}
+
+# TKM secrets management modal
+show_tkm_secrets_modal() {
+    source "$TVIEW_DIR/secrets_manager.sh"
+
+    echo "    ${BOLD}TKM Secrets Management${RESET}"
+    echo
+    echo "    Environment Status:"
+    echo "      • local.env: $(secrets_get_env_status "local")"
+    echo "      • dev.env: $(secrets_get_env_status "dev")"
+    echo "      • staging.env: $(secrets_get_env_status "staging")"
+    echo "      • prod.env: $(secrets_get_env_status "prod" || echo "missing")"
+    echo
+    echo "    Configuration Files:"
+    echo "      • tetra.toml: $(render_file_status "$TETRA_DIR/tetra.toml")"
+    echo "      • secrets.toml: $(render_file_status "$TETRA_DIR/secrets.toml")"
+    echo
+    echo "    Available Operations:"
+    echo "      • Generate secrets.toml from env files"
+    echo "      • Validate secret inheritance chain"
+    echo "      • Bubble secrets between environments"
+    echo "      • Generate SSH configs from secrets"
+}
+
+# TKM environment summary
+show_tkm_env_summary() {
+    local env="$1"
+
+    echo "    ${BOLD}TKM - ${env} Environment Summary${RESET}"
+    echo
+
+    case "$env" in
+        "LOCAL")
+            echo "    Type: Local Development Machine"
+            echo "    Access: Direct (no SSH required)"
+            echo "    SSH Keys: $(count_local_ssh_keys) local keys"
+            echo "    SSH Agent: $(render_ssh_agent_status)"
+            ;;
+        *)
+            local host="$(tkm_get_env_host "${env,,}")"
+            echo "    Type: Remote Server"
+            echo "    Host: $host"
+            echo "    SSH Status: $(render_tkm_status_indicator "${env,,}")"
+            echo "    Key Status:"
+            echo "      • env user: $(render_tkm_key_status "${env,,}" "env")"
+            echo "      • root user: $(render_tkm_key_status "${env,,}" "root")"
+            ;;
+    esac
 }

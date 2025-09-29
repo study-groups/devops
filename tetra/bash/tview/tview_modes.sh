@@ -255,86 +255,122 @@ EOF
 # ===== TKM MODE RENDER FUNCTIONS =====
 
 render_tkm_tetra() {
+    # Load TKM module if not already loaded
+    TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -z "${TKM_SSH_STATUS[local_status]:-}" ]] && [[ -f "$TVIEW_DIR/../tkm/tview/provider.sh" ]]; then
+        source "$TVIEW_DIR/../tkm/tview/provider.sh" && tkm_refresh_data >/dev/null 2>&1
+    fi
+    if [[ -f "$TVIEW_DIR/../tkm/tview/display.sh" ]]; then
+        source "$TVIEW_DIR/../tkm/tview/display.sh"
+    fi
+
     cat << EOF
 
 $(colorize_mode "TKM" "TKM") - Four Amigos SSH Access Matrix
 
-$(highlight_line "$(colorize_env "LOCAL" "LOCAL") Environment: $(render_status_indicator "success" "Direct Access")" "$(is_current_item 0)" "$(get_env_color "LOCAL")")
-$(highlight_line "  ${ACTION_SSH_COLOR}mricos@m2.local${COLOR_RESET} ${UI_MUTED_COLOR}(direct connection)${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${UI_MUTED_COLOR}# Local development machine${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "$(colorize_env "LOCAL" "LOCAL") Environment: $(render_tkm_status_indicator "local")" "$(is_current_item 0)" "$(get_env_color "LOCAL")")
+$(highlight_line "  ${ACTION_SSH_COLOR}$(tkm_get_env_user "local")@$(tkm_get_env_host "local")${COLOR_RESET} ${UI_MUTED_COLOR}(direct connection)${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  Keys: $(render_tkm_key_status "local" "env") $(render_tkm_key_status "local" "root")" "false" "$COLOR_WHITE")
 
-$(highlight_line "$(colorize_env "DEV" "DEV") Environment: $(render_status_indicator "connected" "SSH Ready")" "$(is_current_item 1)" "$(get_env_color "DEV")")
-$(highlight_line "  ${ACTION_SSH_COLOR}root@dev.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_SERVICE_COLOR}tetra@dev.pixeljamarcade.com${COLOR_RESET}    ${UI_MUTED_COLOR}# Service user${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@dev.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "$(colorize_env "DEV" "DEV") Environment: $(render_tkm_status_indicator "dev")" "$(is_current_item 1)" "$(get_env_color "DEV")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@$(tkm_get_env_host "dev")${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_SERVICE_COLOR}tetra@$(tkm_get_env_host "dev")${COLOR_RESET}    ${UI_MUTED_COLOR}# Service user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  Keys: $(render_tkm_key_status "dev" "env") $(render_tkm_key_status "dev" "root")" "false" "$COLOR_WHITE")
 
-$(highlight_line "$(colorize_env "STAGING" "STAGING") Environment: $(render_status_indicator "warning" "Staging Access")" "$(is_current_item 2)" "$(get_env_color "STAGING")")
-$(highlight_line "  ${ACTION_SSH_COLOR}root@staging.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@staging.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@staging.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "$(colorize_env "STAGING" "STAGING") Environment: $(render_tkm_status_indicator "staging")" "$(is_current_item 2)" "$(get_env_color "STAGING")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@$(tkm_get_env_host "staging")${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@$(tkm_get_env_host "staging")${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  Keys: $(render_tkm_key_status "staging" "env") $(render_tkm_key_status "staging" "root")" "false" "$COLOR_WHITE")
 
-$(highlight_line "$(colorize_env "PROD" "PROD") Environment: $(render_status_indicator "error" "Production Access")" "$(is_current_item 3)" "$(get_env_color "PROD")")
-$(highlight_line "  ${ACTION_SSH_COLOR}root@prod.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@prod.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@prod.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# Standard user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "$(colorize_env "PROD" "PROD") Environment: $(render_tkm_status_indicator "prod")" "$(is_current_item 3)" "$(get_env_color "PROD")")
+$(highlight_line "  ${ACTION_SSH_COLOR}root@$(tkm_get_env_host "prod")${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  ${ACTION_DEPLOY_COLOR}deploy@$(tkm_get_env_host "prod")${COLOR_RESET}   ${UI_MUTED_COLOR}# Deployment user${COLOR_RESET}" "false" "$COLOR_WHITE")
+$(highlight_line "  Keys: $(render_tkm_key_status "prod" "env") $(render_tkm_key_status "prod" "root")" "false" "$COLOR_WHITE")
 
-$(highlight_line "$(colorize_env "QA" "QA") Environment: $(render_status_indicator "info" "QA Access")" "$(is_current_item 4)" "$(get_env_color "QA")")
-$(highlight_line "  ${ACTION_SSH_COLOR}root@qa.pixeljamarcade.com${COLOR_RESET}     ${UI_MUTED_COLOR}# Full system access${COLOR_RESET}" "false" "$COLOR_WHITE")
-$(highlight_line "  ${ACTION_VIEW_COLOR}ubuntu@qa.pixeljamarcade.com${COLOR_RESET}   ${UI_MUTED_COLOR}# QA testing user${COLOR_RESET}" "false" "$COLOR_WHITE")
-
-$(highlight_line "Key Operations: $(render_status_indicator "pending" "Management Ready")" "$(is_current_item 5)" "$MODE_TKM_COLOR")
-$(highlight_line "  ${UI_MUTED_COLOR}SSH key rotation, authentication testing, access control${COLOR_RESET}" "false" "$UI_MUTED_COLOR")
+$(highlight_line "Secrets Management: $(render_secrets_status_indicator)" "$(is_current_item 4)" "$MODE_TKM_COLOR")
+$(highlight_line "  ${UI_MUTED_COLOR}Env files, SSH config, secret bubbling across amigos${COLOR_RESET}" "false" "$UI_MUTED_COLOR")
 
 EOF
 }
 
 render_tkm_local() {
+    # Load TKM actions and helpers
+    TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$TVIEW_DIR/tkm_actions.sh"
+    source "$TVIEW_DIR/tkm_display_helpers.sh"
+    local actions=($(tkm_get_env_actions "local"))
+
     cat << EOF
 TKM - Local Key Management
 
-$(highlight_line "Local SSH Keys: ~/.ssh/ directory" "$(is_current_item 0)" "$CYAN")
-$(highlight_line "SSH Config: ~/.ssh/config" "$(is_current_item 1)" "$CYAN")
-$(highlight_line "Key Agent: ${SSH_AGENT_STATUS:-Not running}" "$(is_current_item 2)" "$CYAN")
+$(highlight_line "SSH Directory: ~/.ssh/ ($(count_local_ssh_keys) keys)" "$(is_current_item 0)" "$CYAN")
+$(highlight_line "SSH Config: ~/.ssh/config $(render_file_status "$HOME/.ssh/config")" "$(is_current_item 1)" "$CYAN")
+$(highlight_line "Key Agent: $(render_ssh_agent_status)" "$(is_current_item 2)" "$CYAN")
 
-Manage local SSH keys and configuration.
+Available Actions:
+$(render_tkm_action_list "local" 3)
+
 EOF
 }
 
 render_tkm_dev() {
+    # Load TKM data and helpers
+    TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    [[ -z "${TKM_SSH_STATUS[dev_status]:-}" ]] && source "$TVIEW_DIR/tkm_provider.sh" && tkm_refresh_data "dev" >/dev/null 2>&1
+    source "$TVIEW_DIR/tkm_display_helpers.sh"
+
     cat << EOF
 
-TKM - DEV Key Deployment
+TKM - DEV Environment Management
 
-$(highlight_line "SSH Connection: ${DEV_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${DEV_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Key Deployment: ${DEV_KEY_STATUS:-Not deployed}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "Connection: $(render_tkm_status_indicator "dev")" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Host: $(tkm_get_env_host "dev")" "false" "$COLOR_WHITE")
+$(highlight_line "Users: tetra=$(render_tkm_key_status "dev" "env") root=$(render_tkm_key_status "dev" "root")" "$(is_current_item 1)" "$COLOR_WHITE")
 
-Deploy SSH keys to development server.
+Available Actions:
+$(render_tkm_action_list "dev" 2)
 
 EOF
 }
 
 render_tkm_staging() {
+    # Load TKM data and helpers
+    TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    [[ -z "${TKM_SSH_STATUS[staging_status]:-}" ]] && source "$TVIEW_DIR/tkm_provider.sh" && tkm_refresh_data "staging" >/dev/null 2>&1
+    source "$TVIEW_DIR/tkm_display_helpers.sh"
+
     cat << EOF
 
-TKM - STAGING Key Deployment
+TKM - STAGING Environment Management
 
-$(highlight_line "SSH Connection: ${STAGING_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${STAGING_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Key Deployment: ${STAGING_KEY_STATUS:-Not deployed}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "Connection: $(render_tkm_status_indicator "staging")" "$(is_current_item 0)" "$GREEN")
+$(highlight_line "Host: $(tkm_get_env_host "staging")" "false" "$COLOR_WHITE")
+$(highlight_line "Users: deploy=$(render_tkm_key_status "staging" "env") root=$(render_tkm_key_status "staging" "root")" "$(is_current_item 1)" "$COLOR_WHITE")
 
-Deploy SSH keys to staging server.
+Available Actions:
+$(render_tkm_action_list "staging" 2)
 
 EOF
 }
 
 render_tkm_prod() {
+    # Load TKM data and helpers
+    TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    [[ -z "${TKM_SSH_STATUS[prod_status]:-}" ]] && source "$TVIEW_DIR/tkm_provider.sh" && tkm_refresh_data "prod" >/dev/null 2>&1
+    source "$TVIEW_DIR/tkm_display_helpers.sh"
+
     cat << EOF
 
-TKM - PROD Key Deployment
+TKM - PROD Environment Management 🔐
 
-$(highlight_line "SSH Connection: ${PROD_SSH_STATUS:-Testing...}" "$(is_current_item 0)" "$([[ ${PROD_SSH_STATUS} == *"Connected"* ]] && echo $GREEN || echo $RED)")
-$(highlight_line "Key Deployment: ${PROD_KEY_STATUS:-Not deployed}" "$(is_current_item 1)" "$YELLOW")
+$(highlight_line "Connection: $(render_tkm_status_indicator "prod")" "$(is_current_item 0)" "$RED")
+$(highlight_line "Host: $(tkm_get_env_host "prod")" "false" "$COLOR_WHITE")
+$(highlight_line "Users: deploy=$(render_tkm_key_status "prod" "env") root=$(render_tkm_key_status "prod" "root")" "$(is_current_item 1)" "$COLOR_WHITE")
 
-Deploy SSH keys to production server.
+Available Actions (Restricted):
+$(render_tkm_action_list "prod" 2)
+
+⚠️  Production environment - All actions require confirmation
 
 EOF
 }

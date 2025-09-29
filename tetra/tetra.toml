@@ -3,6 +3,7 @@
 name = "tetra"
 version = "1.0.0"
 environment = "development"
+organization = "tetra_org"
 
 [database]
 host = "localhost"
@@ -15,19 +16,115 @@ web_port = 3000
 api_port = 8000
 admin_port = 9000
 
-[environments.dev]
-host = "dev.tetra.local"
+# Four Amigos Environment Configuration
+[environments.local]
+name = "Local Development"
+type = "local"
+host = "localhost"
+ssh_enabled = false
 database_url = "postgres://localhost:5432/tetra_dev"
 
+[environments.dev]
+name = "Development Server"
+type = "remote"
+host = "dev.pixeljamarcade.com"
+ssh_enabled = true
+ssh_port = 22
+database_url = "postgres://dev.pixeljamarcade.com:5432/tetra_dev"
+
 [environments.staging]
-host = "staging.tetra.local"
-database_url = "postgres://staging-db:5432/tetra_staging"
+name = "Staging Server"
+type = "remote"
+host = "staging.pixeljamarcade.com"
+ssh_enabled = true
+ssh_port = 22
+database_url = "postgres://staging.pixeljamarcade.com:5432/tetra_staging"
 
 [environments.prod]
-host = "prod.tetra.com"
-database_url = "postgres://prod-db:5432/tetra_prod"
+name = "Production Server"
+type = "remote"
+host = "prod.pixeljamarcade.com"
+ssh_enabled = true
+ssh_port = 22
+database_url = "postgres://prod.pixeljamarcade.com:5432/tetra_prod"
+
+# TKM (SSH Key Management) Configuration
+[tkm]
+key_rotation_days = 30
+backup_keys = true
+enforce_key_expiry = true
+
+[tkm.environments.local]
+enabled = false
+description = "Local development machine"
+
+[tkm.environments.dev]
+enabled = true
+description = "Development server access"
+users = ["tetra", "root", "ubuntu"]
+
+[tkm.environments.staging]
+enabled = true
+description = "Staging server access"
+users = ["deploy", "root", "ubuntu"]
+
+[tkm.environments.prod]
+enabled = true
+description = "Production server access"
+users = ["deploy", "root", "ubuntu"]
+require_approval = true
 
 [deploy]
 strategy = "rolling"
 timeout = 300
 rollback_on_failure = true
+
+# Tetra Metrics Configuration
+[metrics]
+enabled = true
+console_logging = true
+performance_tracking = true
+analytics = true
+session_timeout = 1800  # 30 minutes
+buffer_size = 100
+flush_interval = 10000  # 10 seconds
+
+[metrics.client]
+enabled = true
+track_mouse_movements = true
+track_clicks = true
+track_scrolling = true
+track_form_interactions = true
+track_page_views = true
+log_search_queries = false  # Privacy setting
+
+[metrics.server]
+enabled = true
+track_api_calls = true
+track_auth_events = true
+track_admin_actions = true
+track_errors = true
+
+# TSM Monitor Configuration
+[tsm.monitor]
+enabled = true
+config_dir = "bash/tsm/config"
+log_file = "logs/tsm-monitor.log"
+default_patterns = [
+    "ADMIN_LOGIN",
+    "API_ERROR",
+    "HIGH_RESPONSE_TIME",
+    "BATCH_FLUSH",
+    "SESSION_START"
+]
+
+[tsm.monitor.triggers]
+admin_login = "echo 'Admin login: {DATA}' >> /tmp/admin-alerts.log"
+api_error = "echo 'API error: {TOKEN}' | logger -t tsm-monitor"
+high_response_time = "echo 'Slow API: {DATA}' >> /tmp/performance-alerts.log"
+
+[tsm.monitor.streaming]
+enabled = true
+real_time_dashboard = true
+color_coding = true
+performance_alerts = true

@@ -7,7 +7,131 @@ TVIEW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TVIEW_DIR/tview_keys.sh"         # Key bindings (MUST BE FIRST)
 source "$TVIEW_DIR/tview_data.sh"         # Data loading functions
 source "$TVIEW_DIR/background_manager.sh"   # Background process manager
-source "$TVIEW_DIR/action_line_selector.sh"  # Single-line action selector
+# Generic module discovery - no hardcoded actions
+
+# Discover and load actions from module/tview directories
+get_actions_for_context() {
+    local env="$1"
+    local mode="$2"
+    local module_dir="$(dirname "$TVIEW_DIR")/$(echo "$mode" | tr '[:upper:]' '[:lower:]')/tview"
+
+    # Check if module exists
+    if [[ -f "$module_dir/actions.sh" ]]; then
+        source "$module_dir/actions.sh"
+        # Call module's get_actions function with env parameter
+        if declare -f get_actions >/dev/null 2>&1; then
+            get_actions "$env"
+        else
+            echo "help:help"
+            echo "refresh:refresh"
+        fi
+    else
+        # Fallback actions if module doesn't exist
+        echo "help:help"
+        echo "refresh:refresh"
+    fi
+}
+
+# Action navigation state
+declare -gA ACTION_LINE=(
+    ["current_index"]="0"
+    ["total_actions"]="0"
+)
+
+# Helper functions for action parsing
+get_action_id() { echo "$1" | cut -d':' -f1; }
+get_action_name() { echo "$1" | cut -d':' -f2; }
+
+# Update action navigation state
+update_action_state() {
+    local actions=($(get_actions_for_context "$CURRENT_ENV" "$CURRENT_MODE"))
+    ACTION_LINE["total_actions"]=${#actions[@]}
+
+    # Keep current index within bounds
+    if [[ ${ACTION_LINE["current_index"]} -ge ${ACTION_LINE["total_actions"]} ]]; then
+        ACTION_LINE["current_index"]=$((${ACTION_LINE["total_actions"]} - 1))
+    fi
+    if [[ ${ACTION_LINE["current_index"]} -lt 0 ]]; then
+        ACTION_LINE["current_index"]=0
+    fi
+
+    # Sync with global CURRENT_ITEM
+    CURRENT_ITEM=${ACTION_LINE["current_index"]}
+}
+
+# Navigate action line (up/down)
+navigate_action_line() {
+    local direction="$1"
+    local current_idx=${ACTION_LINE["current_index"]}
+    local total=${ACTION_LINE["total_actions"]}
+
+    if [[ "$direction" == "up" ]]; then
+        current_idx=$((current_idx - 1))
+        if [[ $current_idx -lt 0 ]]; then
+            current_idx=$((total - 1))
+        fi
+    else
+        current_idx=$((current_idx + 1))
+        if [[ $current_idx -ge $total ]]; then
+            current_idx=0
+        fi
+    fi
+
+    ACTION_LINE["current_index"]=$current_idx
+    CURRENT_ITEM=$current_idx
+    redraw_screen
+}
+
+# Execute action from action line
+execute_action_line() {
+    local actions=($(get_actions_for_context "$CURRENT_ENV" "$CURRENT_MODE"))
+    local current_idx=${ACTION_LINE["current_index"]}
+
+    if [[ $current_idx -lt ${#actions[@]} ]]; then
+        local selected_action="${actions[$current_idx]}"
+        local action_id=$(get_action_id "$selected_action")
+
+        # Load module and execute action
+        local module_dir="$(dirname "$TVIEW_DIR")/$(echo "$CURRENT_MODE" | tr '[:upper:]' '[:lower:]')/tview"
+        if [[ -f "$module_dir/actions.sh" ]]; then
+            source "$module_dir/actions.sh"
+            execute_action "$action_id" "$CURRENT_ENV"
+        else
+            echo "Module not found: $module_dir"
+            read -p "Press Enter to continue..."
+        fi
+    fi
+}
+
+# Render action line for UI
+render_action_line() {
+    local actions=($(get_actions_for_context "$CURRENT_ENV" "$CURRENT_MODE"))
+    local current_index=${CURRENT_ITEM:-0}
+    local total_actions=${#actions[@]}
+
+    # Show current action if any exist
+    if [[ $total_actions -gt 0 && $current_index -lt $total_actions ]]; then
+        local current_action="${actions[$current_index]}"
+        local action_name=$(get_action_name "$current_action")
+        local position_indicator="($(($current_index + 1))/$total_actions)"
+
+        # Build action display with other actions
+        local action_display=""
+        for i in "${!actions[@]}"; do
+            local name=$(get_action_name "${actions[$i]}")
+            if [[ $i -eq $current_index ]]; then
+                action_display+="[$name] "
+            else
+                action_display+="$name "
+            fi
+        done
+
+        echo "Action: $action_display$position_indicator"
+    else
+        echo "Action: help refresh (1/2)"
+    fi
+}
+
 source "$TVIEW_DIR/tview_render.sh"       # Display rendering
 source "$TVIEW_DIR/tview_modes.sh"        # Mode content rendering
 source "$TVIEW_DIR/tview_actions.sh"      # Modal actions
@@ -289,6 +413,14 @@ handle_gamepad_input_with_layout() {
             else
                 echo "DEBUG: navigate_action_line function not found!" >> /tmp/tview_debug.log
             fi
+            ;;
+        'i')
+            # Move up in actions (i key from tview_keys.sh)
+            navigate_action_line "up"
+            ;;
+        'k')
+            # Move down in actions (k key from tview_keys.sh)
+            navigate_action_line "down"
             ;;
         'l')
             # Execute selected action from action line
@@ -606,6 +738,10 @@ handle_enter_key() {
             # Execute TSM command based on selection
             handle_tsm_execute
             ;;
+        "TKM")
+            # Execute TKM action using new registry system
+            handle_tkm_execute
+            ;;
         *)
             # For other modes, show details in modal
             show_details_modal
@@ -710,6 +846,32 @@ handle_tsm_execute() {
             } &
             ;;
     esac
+}
+
+# Handle TKM action execution using new registry system
+handle_tkm_execute() {
+    # Get current actions using the working action line selector
+    local actions=($(get_actions_for_context "$CURRENT_ENV" "TKM"))
+
+    # Check if we have a valid selection
+    if [[ $CURRENT_ITEM -ge ${#actions[@]} ]]; then
+        TVIEW_HINT="Invalid action selection"
+        return 1
+    fi
+
+    # Parse selected action (format is "action_id:display_name")
+    local selected_action="${actions[$CURRENT_ITEM]}"
+    local action_id=$(get_action_id "$selected_action")
+
+    # Load module and execute action
+    local module_dir="$(dirname "$TVIEW_DIR")/$(echo "$CURRENT_MODE" | tr '[:upper:]' '[:lower:]')/tview"
+    if [[ -f "$module_dir/actions.sh" ]]; then
+        source "$module_dir/actions.sh"
+        execute_action "$action_id" "$CURRENT_ENV"
+    else
+        echo "Module not found: $module_dir"
+        read -p "Press Enter to continue..."
+    fi
 }
 
 # Show details in modal instead of full-screen
