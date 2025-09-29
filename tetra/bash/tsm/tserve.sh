@@ -206,26 +206,14 @@ tserve_get_port() {
 
 # Start the web server
 tserve_start() {
-    local port="$(tserve_get_port)"
-
-    echo "🌐 Starting TWeb server on http://localhost:$port/"
-    echo "   Serving: $TSERVE_SERVED_DIR"
-    echo "   Press Ctrl+C to stop"
-    echo ""
-
-    cd "$TSERVE_SERVED_DIR"
-    python3 -m http.server "$port"
+    echo "🚀 Starting TServe Enhanced..."
+    exec "$SCRIPT_DIR/tserve_enhanced.sh" serve --auto --cors --live
 }
 
 # Generate service definition
 tserve_generate_service() {
-    local env="${1:-dev}"
-    local service_name="tweb-$env"
-    local port="$(tsm_get_service_port "tweb" "$env")"
-
-    if [[ -z "$port" ]]; then
-        port="$TSERVE_DEFAULT_PORT"
-    fi
+    local port="${1:-$TSERVE_DEFAULT_PORT}"
+    local service_name="tserve-$port"
 
     echo "Generating service definition for $service_name (port $port)"
 
@@ -241,7 +229,7 @@ tserve_generate_service() {
 # Generated on $(date)
 
 TSM_NAME="$service_name"
-TSM_COMMAND="python3 -m http.server"
+TSM_COMMAND="$SCRIPT_DIR/tserve_enhanced.sh serve --cors --live --port $port"
 TSM_CWD="$TSERVE_SERVED_DIR"
 TSM_PORT="$port"
 TSM_ENV_FILE=""
@@ -253,7 +241,7 @@ TSERVE_CONFIG_FILE="$TSERVE_CONFIG_FILE"
 
 # Initialize TWeb on service start
 if [[ ! -d "\$TSERVE_SERVED_DIR" ]]; then
-    source "$SCRIPT_DIR/tweb.sh"
+    source "$SCRIPT_DIR/tserve.sh"
     tserve_init
 fi
 EOF
@@ -280,10 +268,18 @@ case "${1:-help}" in
         tserve_list
         ;;
     "start"|"serve")
-        tserve_start
+        # Route to enhanced server with all arguments
+        shift
+        exec "$SCRIPT_DIR/tserve_enhanced.sh" serve "$@"
         ;;
     "service")
         tserve_generate_service "$2"
+        ;;
+    "status")
+        exec "$SCRIPT_DIR/tserve_enhanced.sh" status
+        ;;
+    "cleanup")
+        exec "$SCRIPT_DIR/tserve_enhanced.sh" cleanup
         ;;
     "help"|"")
         echo "TServe - Single Test Server for Development"
@@ -295,8 +291,10 @@ case "${1:-help}" in
         echo "  add <path> [name]      - Add directory to be served (use '.' for current)"
         echo "  remove <name>          - Remove served directory"
         echo "  list                   - List served directories"
-        echo "  start                  - Start web server directly"
-        echo "  service [env]          - Generate TSM service definition"
+        echo "  serve [options]        - Start enhanced web server (see --help)"
+        echo "  status                 - Show running servers"
+        echo "  cleanup                - Clean up hosts entries and temp files"
+        echo "  service [port]         - Generate TSM service definition"
         echo "  help                   - Show this help"
         echo ""
         echo "Examples:"
@@ -304,12 +302,13 @@ case "${1:-help}" in
         echo "  tserve add .             # Add current directory"
         echo "  tserve add ~/src/myapp   # Add specific directory"
         echo "  tserve list              # List served directories"
-        echo "  tserve start             # Start server directly"
-        echo "  tserve service dev       # Generate dev service definition"
+        echo "  tserve serve --cors --live   # Enhanced server with CORS and live reload"
+        echo "  tserve serve --https --name myapp  # HTTPS server with custom hostname"
+        echo "  tserve service 5500      # Generate service for port 5500"
         ;;
     *)
         echo "❌ Unknown command: $1"
-        echo "Run 'tservehelp' for usage information"
+        echo "Run 'tserve help' for usage information"
         exit 1
         ;;
 esac

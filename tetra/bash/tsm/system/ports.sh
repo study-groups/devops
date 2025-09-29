@@ -3,8 +3,12 @@
 # TSM Named Port Registry with Persistent Configuration
 # Establishes standard port assignments for known services
 
-# Load TOML parser
-source "${TETRA_SRC}/bash/utils/toml_parser.sh"
+# Load TOML parser (deferred to avoid loading issues)
+_tsm_ports_load_toml_parser() {
+    if [[ -f "${TETRA_SRC}/bash/utils/toml_parser.sh" ]]; then
+        source "${TETRA_SRC}/bash/utils/toml_parser.sh"
+    fi
+}
 
 # Configuration file location
 TSM_PORTS_CONFIG="${TETRA_DIR}/config/ports.toml"

@@ -4,8 +4,8 @@
 # Default: running services only
 
 # Load TSM configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tsm_services_config.sh"
+# Cross-module dependencies handled by include.sh loading order
+# services/registry.sh functions are available after include.sh completes
 
 # Setup service directories
 TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"

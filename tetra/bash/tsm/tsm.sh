@@ -6,27 +6,29 @@
 # === MODULE LOADING WITH PROPER DEPENDENCIES ===
 
 _tsm_load_components() {
-    local TSM_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    # Use strong globals consistently - MOD_SRC for source files
+    local MOD_SRC="$TETRA_SRC/bash/tsm"
 
-    # Load in strict dependency order - NO circular dependencies
-    source "$TSM_DIR/tsm_core.sh"        # Core functions, no dependencies
-    source "$TSM_DIR/tsm_config.sh"      # Configuration and global state
-    source "$TSM_DIR/tsm_ports.sh"       # Named port registry, depends on config
-    source "$TSM_DIR/tsm_utils.sh"       # Utility functions, depends on core
-    source "$TSM_DIR/tsm_service.sh"     # Service management, depends on core+utils
-    source "$TSM_DIR/tsm_inspect.sh"     # Process inspection, depends on core
-    source "$TSM_DIR/tsm_formatting.sh"  # Output formatting, depends on core
-    source "$TSM_DIR/tsm_doctor.sh"      # Diagnostics, depends on core+utils
-    source "$TSM_DIR/tsm_patrol.sh"      # Patrol system, depends on core
-    # Phase 2 refactor: Split interface into organized modules
-    source "$TSM_DIR/tsm_validation.sh"  # Validation & helpers, no dependencies
-    source "$TSM_DIR/tsm_process.sh"     # Process lifecycle, depends on validation+utils
-    source "$TSM_DIR/tsm_cli.sh"         # CLI commands, depends on process+validation
-    source "$TSM_DIR/tsm_interface.sh"   # Interface coordination, depends on all above
-    source "$TSM_DIR/tsm_tview.sh"       # TView integration functions
+    # Load module registry system first (but don't register yet)
+    if [[ -f "$TETRA_SRC/bash/utils/module_registry.sh" ]]; then
+        source "$TETRA_SRC/bash/utils/module_registry.sh"
+    fi
 
-    # Initialize global state after all functions are loaded
-    _tsm_init_global_state
+    # Load TSM using full include now that fork issues are resolved
+    source "$MOD_SRC/include.sh"
+
+    # Initialize TSM module after all components loaded
+    if declare -f tsm_module_init >/dev/null; then
+        tsm_module_init
+
+        # Register with module system if available
+        if declare -f tetra_module_register >/dev/null; then
+            tetra_module_register "tsm" "$MOD_SRC" "active"
+        fi
+    else
+        echo "ERROR: TSM module initialization failed - tsm_module_init not found" >&2
+        return 1
+    fi
 }
 
 # Load components once
@@ -83,8 +85,7 @@ tsm() {
             ;;
         list|ls)
             # Route to new list command with running|available|all options
-            local TSM_DIR="$(dirname "${BASH_SOURCE[0]}")"
-            "$TSM_DIR/tsm_list.sh" "$@"
+            "$TETRA_SRC/bash/tsm/tsm_list.sh" "$@"
             ;;
         services)
             tetra_tsm_list_services "$@"
@@ -215,6 +216,42 @@ tsm() {
         ranges)
             tsm_show_port_ranges
             ;;
+        monitor)
+            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            tsm_monitor_service "$@"
+            ;;
+        stream)
+            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            tsm_monitor_stream "$@"
+            ;;
+        dashboard|analytics)
+            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            tsm_monitor_dashboard "$@"
+            ;;
+        clicks|click-timing)
+            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            tsm_analyze_click_timing "$@"
+            ;;
+        journey|user-journey)
+            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            tsm_analyze_user_journey "$@"
+            ;;
+        click-perf)
+            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            tsm_analyze_click_performance "$@"
+            ;;
+        sessions)
+            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            tsm_extract_sessions "$@"
+            ;;
+        users)
+            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            tsm_disambiguate_users "$@"
+            ;;
+        patterns)
+            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            tsm_analyze_user_patterns "$@"
+            ;;
         help)
             if [[ "$1" == "all" ]]; then
                 _tsm_show_detailed_help
@@ -330,6 +367,15 @@ Common Commands:
   stop <process|id>          Stop a process
   services                   List available service definitions
   logs <process|id> [-f]     Show/follow process logs
+  monitor <service>          Monitor service for tetra tokens
+  stream <service> [filter]  Stream tetra tokens in real-time
+  dashboard <service>        Show tetra analytics dashboard
+  clicks <service>           Analyze click timing and patterns
+  journey <service>          Show user journey timeline
+  click-perf <service>       Correlate clicks with API performance
+  sessions <service>         Extract and analyze user sessions
+  users <service>            Disambiguate user traffic
+  patterns <service> [user]  Analyze user behavioral patterns
   ports overview             Show named ports and status
   doctor                     Scan ports and diagnose issues
   repl                       Interactive command mode
@@ -342,6 +388,9 @@ Examples:
   tsm list                   Show running services (default)
   tsm list available         Show all available services
   tsm logs 0 -f             Follow logs for process ID 0
+  tsm monitor devpages       Monitor devpages for tetra tokens
+  tsm stream devpages PERF   Stream performance tokens
+  tsm dashboard devpages     Show analytics dashboard
   tsm ports overview         Show port usage
   tsm help all              Show complete help
 EOF
