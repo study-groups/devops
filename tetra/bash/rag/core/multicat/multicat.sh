@@ -11,6 +11,10 @@ declare -A remap_patterns        # -d a=b mappings (apply to headers only)
 manifest_path=""                 # -m <file> canonical list
 root_dir=""                      # -C <dir> root for relativizing paths
 tree_only=0                      # --tree-only: emit only the FILETREE section
+agent_name=""                    # --agent <name> for LLM-specific formatting
+ulm_ranking=0                    # --ulm-rank: use ULM for intelligent ranking
+ulm_query=""                     # Query for ULM ranking
+ulm_top=20                       # Top N files from ULM ranking
 
 # Don't execute main logic if script is being sourced
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
@@ -25,8 +29,11 @@ Usage: multicat.sh [OPTIONS] [file|dir ...]
   -m <manifest.txt>      Canonical file list (one path per line; # comments ok)
   -C <dir>               Root for relativizing paths (default: $PWD)
   --tree-only            Emit only FILETREE section (requires -m)
+  --agent <name>         Use agent-specific formatting and templates
+  --ulm-rank <query>     Use ULM ranking with query for intelligent file selection
+  --ulm-top N            Number of top files from ULM ranking (default: 20)
   --dryrun               Show files that would be included
-  --example              Generate example MULTICAT with two sample files
+  --example [agent]      Generate example MULTICAT (optionally for specific agent)
   --example-long         Generate comprehensive MULTICAT specification example
   -h, --help             Show help
 Notes:
@@ -140,6 +147,76 @@ REMEMBER: Your entire response should be copy-pasteable as a single .mc file
 EOF
 }
 
+# --- Agent Integration ---
+
+load_agent_profile() {
+    local agent="$1"
+
+    # Try user directory first, then system directory
+    local user_profile="${TETRA_DIR:-$HOME/.tetra}/rag/agents/$agent.conf"
+    local system_profile="${TETRA_SRC:-$(dirname "$0")/../..}/bash/rag/agents/$agent.conf"
+
+    if [[ -f "$user_profile" ]]; then
+        source "$user_profile"
+        echo "Loaded agent profile: $user_profile" >&2
+    elif [[ -f "$system_profile" ]]; then
+        source "$system_profile"
+        echo "Loaded agent profile: $system_profile" >&2
+    else
+        echo "Warning: Agent profile not found for '$agent', using defaults" >&2
+        return 1
+    fi
+}
+
+generate_agent_example() {
+    local agent="$1"
+
+    # Load agent profile for custom example
+    if load_agent_profile "$agent"; then
+        if declare -f "generate_${agent}_example" >/dev/null; then
+            "generate_${agent}_example"
+        elif [[ -n "${AGENT_EXAMPLE_TEMPLATE:-}" ]]; then
+            echo "$AGENT_EXAMPLE_TEMPLATE"
+        else
+            generate_example  # Fallback to default
+        fi
+    else
+        generate_example  # Fallback to default
+    fi
+}
+
+# --- ULM Integration ---
+
+get_ulm_path() {
+    # Find ULM module relative to multicat
+    local ulm_path="${TETRA_SRC:-$(dirname "$0")/../..}/bash/ulm/ulm.sh"
+
+    if [[ -x "$ulm_path" ]]; then
+        echo "$ulm_path"
+    else
+        echo "Error: ULM not found at $ulm_path" >&2
+        return 1
+    fi
+}
+
+ulm_rank_files() {
+    local query="$1" path="$2"
+    local ulm_script
+
+    if ! ulm_script=$(get_ulm_path); then
+        echo "ULM ranking failed, falling back to normal file discovery" >&2
+        return 1
+    fi
+
+    echo "Using ULM to rank files for query: '$query'" >&2
+
+    # Use ULM to get ranked file list
+    "$ulm_script" rank "$query" "$path" --algorithm multi_head --top "$ulm_top" --format text | \
+    while read -r score file; do
+        echo "$file"
+    done
+}
+
 relpath() {
   # relpath <abs> <root>
   local abs="$1" root="$2"
@@ -247,8 +324,18 @@ while [[ $# -gt 0 ]]; do
     -m) shift; manifest_path="${1:-}"; [[ -n "$manifest_path" && -f "$manifest_path" ]] || { echo "Missing/invalid -m file" >&2; exit 1; } ;;
     -C) shift; root_dir="${1:-}"; [[ -n "$root_dir" ]] || { echo "Missing -C <dir>" >&2; exit 1; } ;;
     --tree-only) tree_only=1 ;;
+    --agent) shift; agent_name="${1:-}"; [[ -n "$agent_name" ]] || { echo "Missing --agent <name>" >&2; exit 1; } ;;
+    --ulm-rank) shift; ulm_query="${1:-}"; ulm_ranking=1; [[ -n "$ulm_query" ]] || { echo "Missing --ulm-rank <query>" >&2; exit 1; } ;;
+    --ulm-top) shift; ulm_top="${1:-20}"; [[ "$ulm_top" =~ ^[0-9]+$ ]] || { echo "Invalid --ulm-top value" >&2; exit 1; } ;;
     --dryrun) dryrun=1 ;;
-    --example) generate_example; exit 0 ;;
+    --example)
+      if [[ -n "${2:-}" && "${2}" != -* ]]; then
+        agent_name="$2"; shift
+        generate_agent_example "$agent_name"
+      else
+        generate_example
+      fi
+      exit 0 ;;
     --example-long) cat "${RAG_SRC}/example-long.mc"; exit 0 ;;
     -h|--help) usage ;;
     -*)
@@ -263,14 +350,38 @@ done
 [[ ${#include_files[@]} -eq 0 ]] && usage
 [[ $tree_only -eq 1 && -z "$manifest_path" ]] && { echo "--tree-only requires -m <manifest>"; exit 1; }
 
+# Load agent profile if specified
+if [[ -n "$agent_name" ]]; then
+    load_agent_profile "$agent_name" || true
+fi
+
 exclude_regex=$(array_to_regex "${exclude_patterns[@]}")
 
 all_files=()
-for item in "${include_files[@]}"; do
-  while IFS= read -r f; do
-    all_files+=("$f")
-  done < <(resolve_files "$item")
-done
+
+# ULM ranking mode
+if [[ $ulm_ranking -eq 1 ]]; then
+    echo "Using ULM ranking with query: '$ulm_query'" >&2
+
+    # Use first include item as search path for ULM
+    search_path="${include_files[0]}"
+
+    while IFS= read -r f; do
+        # Verify file exists and apply exclusions
+        if [[ -f "$f" && ! "$f" =~ $exclude_regex ]]; then
+            all_files+=("$f")
+        fi
+    done < <(ulm_rank_files "$ulm_query" "$search_path")
+
+    echo "ULM selected ${#all_files[@]} files" >&2
+else
+    # Normal file discovery
+    for item in "${include_files[@]}"; do
+      while IFS= read -r f; do
+        all_files+=("$f")
+      done < <(resolve_files "$item")
+    done
+fi
 
 if [[ $dryrun -eq 1 ]]; then
   printf "%s\n" "${all_files[@]}"

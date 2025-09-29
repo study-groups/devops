@@ -216,6 +216,148 @@ Search Tips:
     alert(shortcuts.trim());
 }
 
+// Modal functionality for module details
+function showModuleModal(moduleName, moduleData) {
+    const modal = document.getElementById('moduleModal') || createModal();
+    const modalContent = modal.querySelector('.modal-content');
+
+    // Build modal content with AST data
+    modalContent.innerHTML = `
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>📦 ${moduleName}</h2>
+        <div class="modal-tabs">
+            <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+            <button class="tab-btn" onclick="showTab('ast')">AST Data</button>
+            <button class="tab-btn" onclick="showTab('dependencies')">Dependencies</button>
+        </div>
+        <div id="overview-tab" class="tab-content active">
+            <div class="module-info">
+                <p><strong>Type:</strong> ${moduleData.type}</p>
+                <p><strong>Path:</strong> <code>${moduleData.path}</code></p>
+                <p><strong>Functions:</strong> ${moduleData.functions.length}</p>
+                <p><strong>TView Integration:</strong> ${moduleData.tview_integration ? '✅ Yes' : '❌ No'}</p>
+            </div>
+            <h3>Functions</h3>
+            <div class="function-grid">
+                ${moduleData.functions.map(func => `
+                    <div class="function-card ${func.exported ? 'exported' : ''}">
+                        <div class="function-name">${func.name}</div>
+                        <div class="function-meta">Line ${func.line} ${func.exported ? '(exported)' : ''}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div id="ast-tab" class="tab-content">
+            <div class="json-viewer">
+                <pre><code id="ast-json"></code></pre>
+            </div>
+        </div>
+        <div id="dependencies-tab" class="tab-content">
+            <div class="dependency-graph">
+                ${moduleData.dependencies.length > 0 ?
+                    moduleData.dependencies.map(dep => `<div class="dep-item">${dep}</div>`).join('') :
+                    '<p>No dependencies</p>'
+                }
+            </div>
+        </div>
+    `;
+
+    // Format and display JSON
+    document.getElementById('ast-json').textContent = JSON.stringify(moduleData, null, 2);
+
+    modal.style.display = 'block';
+}
+
+function createModal() {
+    const modal = document.createElement('div');
+    modal.id = 'moduleModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <!-- Content will be inserted here -->
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Close modal when clicking outside
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+
+    return modal;
+}
+
+function closeModal() {
+    const modal = document.getElementById('moduleModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    event.target.classList.add('active');
+}
+
+// Add click handlers to module cards
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch module data from the page
+    setTimeout(() => {
+        document.querySelectorAll('.module-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', function() {
+                const moduleName = this.getAttribute('data-name');
+                // Extract module data from DOM
+                const moduleData = extractModuleDataFromCard(this);
+                showModuleModal(moduleName, moduleData);
+            });
+        });
+    }, 100);
+});
+
+function extractModuleDataFromCard(card) {
+    const moduleName = card.getAttribute('data-name');
+    const type = card.getAttribute('data-type');
+    const tviewIntegration = card.querySelector('.tview-badge') !== null;
+
+    // Extract functions
+    const functions = Array.from(card.querySelectorAll('.function')).map(func => {
+        const name = func.textContent.trim();
+        const exported = func.classList.contains('exported') ||
+                        func.nextElementSibling?.textContent.includes('exported');
+        return {
+            name: name,
+            line: 0, // Would need to be passed from backend
+            exported: exported
+        };
+    });
+
+    // Extract dependencies
+    const depsElement = card.querySelector('.deps');
+    const dependencies = depsElement ?
+        depsElement.textContent.replace('Dependencies:', '').split(',').map(d => d.trim()) :
+        [];
+
+    return {
+        type: type,
+        path: `/path/to/${moduleName}`, // Would need backend data
+        functions: functions,
+        dependencies: dependencies,
+        tview_integration: tviewIntegration
+    };
+}
+
 // Add help button functionality
 document.addEventListener('DOMContentLoaded', function() {
     const searchBox = document.querySelector('.search-box');

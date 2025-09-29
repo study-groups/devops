@@ -133,3 +133,39 @@ tetra_deploy_status() {
     ssh "$REMOTE_USER@$REMOTE_HOST" "if [ -f '$remote_file' ]; then stat --format='exists: yes | size: %s bytes | mtime: %y | perms: %A' '$remote_file'; else echo 'exists: NO'; fi" 2>/dev/null | sed 's/^/  Remote file: /'
     echo "=============================="
 }
+
+# === DEPLOY MODULE DISCOVERY INTERFACE ===
+# Mandatory functions for module registry compliance
+
+# Deploy Module Actions - Available commands/verbs
+deploy_module_actions() {
+    echo "generate transfer status sync validate rollback interactive plan environment"
+}
+
+# Deploy Module Properties - Available data/nouns
+deploy_module_properties() {
+    echo "environments artifacts templates configurations deployments history status transfers"
+}
+
+# Deploy Module Information
+deploy_module_info() {
+    echo "Deploy - Tetra Deployment System"
+    echo "Purpose: Coordinate deployments using TSM services and TKM infrastructure"
+    echo "Scope: Bridge local development to remote deployment, artifact generation"
+
+    # Show available functions
+    echo "Runtime Functions: $(declare -F | grep -c "tetra_runtime_")"
+    echo "Deploy Functions: $(declare -F | grep -c "tetra_deploy_")"
+}
+
+# Deploy Module Initialization
+deploy_module_init() {
+    # Deploy module is loaded with functions, no specific initialization needed
+    echo "Deploy module initialized successfully"
+
+    # Validate core functions are available
+    if ! declare -f tetra_runtime_generate_env >/dev/null; then
+        echo "ERROR: Deploy initialization failed - missing core functions" >&2
+        return 1
+    fi
+}

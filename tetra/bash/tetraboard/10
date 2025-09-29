@@ -1,0 +1,89 @@
+# 🧠 ULM-RAG TetraBoard Dashboard
+
+*Generated: 2025-09-24 22:09:46*
+
+## System Status
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| ULM Engine | false |        1 models loaded |
+| RAG System | false |        3 agent profiles |
+| Data Store | 🟡 Initializing | /Users/mricos/tetra/rag/state |
+
+## 🎯 ULM (Unix Language Model) Performance
+
+### Attention Mechanism Status
+*No training data available yet. Run some ULM training episodes to see performance metrics.*
+
+## 🤖 RAG System Activity
+
+### Generation History
+| Metric | Value | Trend |
+|--------|-------|-------|
+| Total Generations |        4 | 📈 |
+| Success Rate | 75.00% | 📈 Good |
+| Popular Agent | agent | 🎖️ |
+
+### Recent Generations
+| Timestamp | Agent | Status | Context Size |
+|-----------|-------|--------|--------------|
+| timestamp | agent | ❓ status|query_hash | context_sizek tokens |
+| 2025-09-24 19:50:07 | claude-code | ❓ success|b3345c55 | 45000k tokens |
+| 2025-09-24 19:50:19 | openai | ❓ success|485589a5 | 32000k tokens |
+| 2025-09-24 20:16:21 | claude-code | ❓ success|00fef182 | 45000k tokens |
+| 2025-09-24 20:16:21 | openai | ❓ partial|769dcaf9 | 28000k tokens |
+
+## 📚 The RAG System Story
+
+### Chapter 1: The Query Arrives
+### Chapter 2: Multi-Head Attention at Work
+
+The ULM system processes each query through four attention heads:
+
+- **🎯 Functional Head**: Searches for functions, methods, and procedures
+- **🏗️ Structural Head**: Analyzes classes, interfaces, and architecture
+- **⏰ Temporal Head**: Considers recency and modification patterns
+- **🔗 Dependency Head**: Maps imports, exports, and connections
+
+### Chapter 3: The Context Window
+
+Selected code flows through the ULM → RAG pipeline:
+
+1. **Query Processing** → Extract meaningful terms and intent
+2. **Multi-Head Scoring** → Rank files by relevance
+3. **Context Assembly** → Build optimal MULTICAT format
+4. **Agent Formatting** → Apply LLM-specific templates
+5. **Generation** → Send to target AI model
+
+### Chapter 4: Learning and Adaptation
+
+The system learns from each generation cycle through reinforcement learning:
+- Policy gradient updates based on success/failure
+- Multi-armed bandit algorithm selection
+- Attention weight optimization over time
+
+---
+
+## 🔧 Quick Commands
+
+```bash
+# Generate new dashboard
+tetraboard generate
+
+# Start live monitoring
+tetraboard watch --period 10
+
+# Train ULM system
+ulm train --episodes 20 "authentication functions" src/
+
+# Generate with agent
+multicat --agent openai --ulm-rank "user management" src/
+```
+
+## 📊 Data Sources
+
+- ULM Training: `./../ulm/logs/`
+- RAG State: `/Users/mricos/tetra/rag/state/`
+- Agent Profiles: `./../rag/agents/`
+
+*Dashboard refreshed: 2025-09-24 22:09:46*

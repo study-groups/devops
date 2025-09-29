@@ -299,6 +299,53 @@ tetra_tkm_revoke() { tkm revoke "$@"; }
 tetra_tkm_audit() { tkm_security_audit "$@"; }
 tetra_tkm_inspect() { tkm_ssh_inspect "$@"; }
 
+# === TKM MODULE DISCOVERY INTERFACE ===
+# Mandatory functions for module registry compliance
+
+# TKM Module Actions - Available commands/verbs
+tkm_module_actions() {
+    echo "init connect deploy keys status organizations inspect ssh generate rotate revoke audit help repl"
+}
+
+# TKM Module Properties - Available data/nouns
+tkm_module_properties() {
+    echo "keys organizations connections environments status history config security"
+}
+
+# TKM Module Information
+tkm_module_info() {
+    echo "TKM - Tetra Key Manager"
+    echo "Purpose: SSH key management for deployment network"
+    echo "Scope: Remote servers, organizations, deployment infrastructure"
+
+    # Show initialization status
+    if [[ -d "$TKM_BASE_DIR" ]]; then
+        echo "Status: Initialized"
+        local org_count=$(find "$TKM_ORGS_DIR" -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
+        echo "Organizations: $org_count"
+    else
+        echo "Status: Not initialized"
+    fi
+
+    # Show current organization
+    if [[ -f "$TKM_CURRENT_ORG_FILE" ]]; then
+        local current_org=$(cat "$TKM_CURRENT_ORG_FILE")
+        echo "Current Organization: $current_org"
+    fi
+}
+
+# TKM Module Initialization
+tkm_module_init() {
+    # TKM has its own initialization process
+    echo "TKM module loaded successfully"
+
+    # Validate core functions are available
+    if ! declare -f tkm_init >/dev/null; then
+        echo "ERROR: TKM initialization failed - missing tkm_init function" >&2
+        return 1
+    fi
+}
+
 # Controlled auto-initialization with environment variable flag
 # Only show warning once per session
 if [[ -n "$TETRA_DIR" && ! -d "$TKM_BASE_DIR" && -z "$TKM_INIT_WARNING_SHOWN" ]]; then

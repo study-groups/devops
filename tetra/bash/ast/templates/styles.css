@@ -207,3 +207,203 @@ body {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+.modal-content h2 {
+    background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+    color: white;
+    margin: 0;
+    padding: 20px;
+    font-size: 1.5em;
+}
+
+.close {
+    color: white;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover {
+    opacity: 0.7;
+}
+
+/* Modal Tabs */
+.modal-tabs {
+    display: flex;
+    background: #f5f5f7;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    background: #e8e8ed;
+}
+
+.tab-btn.active {
+    background: white;
+    border-bottom-color: #007AFF;
+    color: #007AFF;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Module Info Grid */
+.module-info {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.module-info p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.module-info code {
+    background: #e8e8ed;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+}
+
+/* Function Grid in Modal */
+.function-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.function-card {
+    background: #f9f9f9;
+    border: 1px solid #e8e8ed;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s ease;
+}
+
+.function-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.function-card.exported {
+    border-left: 4px solid #007AFF;
+    background: linear-gradient(135deg, #F0F8FF 0%, #E8F4FF 100%);
+}
+
+.function-name {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 4px;
+}
+
+.function-meta {
+    font-size: 12px;
+    color: #6e6e73;
+}
+
+/* JSON Viewer */
+.json-viewer {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #d4d4d4;
+    overflow-x: auto;
+}
+
+.json-viewer pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Dependency Graph */
+.dependency-graph {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dep-item {
+    background: #007AFF;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Modal Animations */
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+    from { transform: translateY(-50px) scale(0.9); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Enhanced module card cursor */
+.module-card {
+    cursor: pointer;
+    user-select: none;
+}
+
+.module-card:active {
+    transform: translateY(-1px) scale(0.98);
+}

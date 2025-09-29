@@ -304,10 +304,10 @@ case "${1:-browse}" in
         generate_markdown_docs "$2"
         ;;
     "serve")
-        serve_docs "$2" "$3"
+        serve_docs "$2" "${3:-}"
         ;;
     "live")
-        serve_live "$2" "$3"
+        serve_live "$2" "${3:-}"
         ;;
     "browse")
         browse_modules

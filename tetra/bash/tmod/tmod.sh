@@ -120,3 +120,46 @@ _tmod_completion() {
 
 # Register completion
 complete -F _tmod_completion tmod
+
+# === TMOD MODULE DISCOVERY INTERFACE ===
+# Mandatory functions for module registry compliance
+
+# TMOD Module Actions - Available commands/verbs
+tmod_module_actions() {
+    echo "load unload list find help status enable disable config dev fix index repl"
+}
+
+# TMOD Module Properties - Available data/nouns
+tmod_module_properties() {
+    echo "loaded_modules available_modules unloaded_modules registry config categories index"
+}
+
+# TMOD Module Information
+tmod_module_info() {
+    echo "TMOD - Tetra Module Manager"
+    echo "Purpose: Module system management and discovery"
+    echo "Scope: Load/unload modules, dependency management, module registry"
+
+    # Show module counts if available
+    if declare -f tetra_get_loaded_modules >/dev/null; then
+        local loaded_count=$(tetra_get_loaded_modules | wc -w)
+        echo "Loaded Modules: $loaded_count"
+    fi
+
+    if declare -f tetra_get_available_modules >/dev/null; then
+        local available_count=$(tetra_get_available_modules | wc -w)
+        echo "Available Modules: $available_count"
+    fi
+}
+
+# TMOD Module Initialization
+tmod_module_init() {
+    # TMOD manages other modules, so it initializes the module system
+    echo "TMOD module initialized successfully"
+
+    # Validate core functions are available
+    if ! declare -f tmod_load_module >/dev/null; then
+        echo "ERROR: TMOD initialization failed - missing core functions" >&2
+        return 1
+    fi
+}
