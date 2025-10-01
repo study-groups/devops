@@ -28,24 +28,6 @@
     <!-- Log CSS -->
     <link rel="stylesheet" href="/client/log/log-display.css">
     
-    <!-- Import Map for Clean Absolute Paths -->
-    <script type="importmap">
-    {
-        "imports": {
-            "/appState.js": "/client/appState.js",
-            "/eventBus.js": "/client/eventBus.js",
-            "/panels/": "/client/panels/",
-            "/store/": "/client/store/",
-            "/utils/": "/client/utils/",
-            "/log/": "/client/log/",
-            "/api/": "/client/api/",
-            "/services/": "/client/services/",
-            "/components/": "/client/components/",
-            "/layout/": "/client/layout/",
-            "/core/": "/client/core/"
-        }
-    }
-    </script>
     
     <!-- Introspection System: Load for debugging and development -->
     <script type="module" src="/client/utils/IntrospectionBootstrap.js"></script>
@@ -64,7 +46,7 @@
     <script type="importmap">
     {
         "imports": {
-            "@reduxjs/toolkit": "/node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs",
+            "@reduxjs/toolkit": "/node_modules/@reduxjs/toolkit/dist/redux-toolkit.browser.mjs?v=1",
             "@reduxjs/toolkit/query": "/node_modules/@reduxjs/toolkit/dist/query/rtk-query.browser.mjs",
             "@standard-schema/utils": "/node_modules/@standard-schema/utils/dist/index.js",
             "redux": "/node_modules/redux/dist/redux.browser.mjs",
@@ -146,6 +128,74 @@
 
     <!-- Log/Terminal (Bottom) -->
     <div id="log-container" class="log-hidden"></div>
+
+    <!-- Tetra Analytics -->
+    <script src="/tetra/tetra.js"></script>
+    <script>
+        // Initialize Tetra client tracking
+        if (window.TetraClientTracker) {
+            window.tetra = new TetraClientTracker({
+                environment: 'development',
+                enableConsoleLogging: true,
+                enableAnalytics: true,
+                enablePerformanceTracking: true,
+                logSearchQueries: false, // Don't log sensitive search data
+                includeEventsInFlush: false // Keep logs clean
+            });
+
+            // Track feature usage
+            document.addEventListener('DOMContentLoaded', function() {
+                // Track major UI interactions
+                document.addEventListener('click', function(e) {
+                    const button = e.target.closest('button');
+                    const link = e.target.closest('a');
+
+                    if (button && button.id) {
+                        tetra.trackFeatureUse(`button_${button.id}`);
+                    }
+
+                    if (link && link.href) {
+                        tetra.trackFeatureUse('link_click', {
+                            href: link.href,
+                            text: link.textContent?.substring(0, 50)
+                        });
+                    }
+                });
+
+                // Track panel interactions
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const target = mutation.target;
+                            if (target.classList.contains('panel-active') && target.id) {
+                                tetra.trackFeatureUse(`panel_${target.id}`, {
+                                    action: 'activated'
+                                });
+                            }
+                        }
+                    });
+                });
+
+                observer.observe(document.body, {
+                    attributes: true,
+                    subtree: true,
+                    attributeFilter: ['class']
+                });
+
+                // Track search when available
+                const searchInput = document.querySelector('input[type="search"], .search-input');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function(e) {
+                        if (e.target.value.length >= 3) {
+                            tetra.trackSearch('[search_query]', 0, false);
+                        }
+                    });
+                }
+            });
+
+            console.log('Tetra client tracking initialized');
+        }
+    </script>
 
     <script type="module" src="/client/index.js"></script>
 </body>

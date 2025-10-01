@@ -40,8 +40,8 @@ warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Source the improved functions
-source "$SCRIPT_DIR/../tsm_core_improved.sh"
+# Source TSM functions
+source "$SCRIPT_DIR/../include.sh"
 
 cleanup() {
     log "Cleaning up..."

@@ -75,8 +75,12 @@ tsm() {
             tetra_tsm_stop "$@"
             tsm_patrol_silent
             ;;
-        delete|del|kill)
+        delete|del)
             tetra_tsm_delete "$@"
+            tsm_patrol_silent
+            ;;
+        kill)
+            tetra_tsm_kill "$@"
             tsm_patrol_silent
             ;;
         restart)
@@ -84,8 +88,27 @@ tsm() {
             tetra_tsm_restart "$@"
             ;;
         list|ls)
-            # Route to new list command with running|available|all options
-            "$TETRA_SRC/bash/tsm/tsm_list.sh" "$@"
+            # Route to list functions in organized structure
+            case "${1:-running}" in
+                running|"")
+                    tsm_list_running
+                    ;;
+                available|all)
+                    tsm_list_available
+                    ;;
+                help)
+                    echo "Usage: tsm list [running|available|all]"
+                    echo ""
+                    echo "Options:"
+                    echo "  running    - Show only running services (default)"
+                    echo "  available  - Show all available services"
+                    echo "  all        - Show all services (same as available)"
+                    ;;
+                *)
+                    echo "❌ Unknown option: $1"
+                    echo "Usage: tsm list [running|available|all]"
+                    ;;
+            esac
             ;;
         services)
             tetra_tsm_list_services "$@"
@@ -98,6 +121,9 @@ tsm() {
             ;;
         disable)
             tetra_tsm_disable "$@"
+            ;;
+        rm)
+            tetra_tsm_rm "$@"
             ;;
         show)
             tetra_tsm_show_service "$@"
@@ -207,7 +233,7 @@ tsm() {
             tetra_tsm_ports "$@"
             ;;
         repl)
-            source "$TETRA_SRC/bash/tsm/tsm_repl.sh"
+            source "$TETRA_SRC/bash/tsm/interfaces/repl.sh"
             tsm_repl_main
             ;;
         patrol)
@@ -415,6 +441,7 @@ Commands:
   save <name> <command>      Save current command as a service definition
   enable <service>           Enable service for automatic startup
   disable <service>          Disable service from automatic startup
+  rm <service>               Remove service definition (auto-disables if enabled)
   show <service>             Show service configuration
   startup                    Start all enabled services
   info <process|id>          Show detailed information for a process

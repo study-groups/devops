@@ -1,4 +1,4 @@
-log.demo
+demo/log.demo
 service-report.txt
 *.bkp
 docker

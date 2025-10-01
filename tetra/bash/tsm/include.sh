@@ -46,6 +46,10 @@ source "$MOD_SRC/process/list.sh"
 source "$MOD_SRC/interfaces/cli.sh"
 source "$MOD_SRC/interfaces/repl.sh"
 
+# Handler system (depends on interfaces and services)
+source "$MOD_SRC/handlers/base_handler.sh"
+source "$MOD_SRC/handlers/service_handler.sh"
+
 # Integration modules last (depend on core interfaces)
 source "$MOD_SRC/integrations/nginx.sh"
 source "$MOD_SRC/integrations/systemd.sh"

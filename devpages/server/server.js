@@ -15,6 +15,7 @@ const FileStore = connectSessionFileStore(session);
 // --- Local Imports ---
 import { port, uploadsDirectory, env } from './config.js';
 import { authMiddleware } from './middleware/auth.js';
+import { TetraMetrics, createTetraMiddleware } from '../tetra/tetra.js';
 // import { CapabilityManager } from './middleware/capabilities.js';
 import authRoutes from './routes/auth.js';
 import saveRoutes from './routes/save.js';
@@ -26,6 +27,7 @@ import configRoutes from './routes/configRoutes.js';
 import { PData } from '../pdata/PData.js';
 import pdataRoutes from './routes/pdataRoutes.js';
 import cssRoutes from './routes/css.js';
+import tetraRoutes from './routes/tetraRoutes.js';
 // import settingsRoutes from './routes/settings.js';
 // import s3Routes from './routes/s3.js';
 
@@ -45,6 +47,7 @@ if (!pdDir) {
 const app = express();
 let pdataInstance;
 let capabilityManager;
+let tetraInstance;
 
 try {
     const dataDir = path.join(pdDir, 'data');
@@ -53,7 +56,16 @@ try {
     }
 	pdataInstance = new PData();
 	console.log('[Server] PData initialized successfully.');
-	
+
+	// Initialize Tetra metrics
+	tetraInstance = new TetraMetrics({
+		environment: process.env.NODE_ENV || 'development',
+		enableConsoleLogging: true,
+		enablePerformanceTracking: true,
+		enableAnalytics: true
+	});
+	console.log('[Server] Tetra metrics initialized successfully.');
+
 	console.log('[Server] CapabilityManager initialized successfully.');
 } catch (error) {
     console.error('[Server] CRITICAL: PData failed to initialize.', error);
@@ -86,8 +98,16 @@ app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
   req.pdata = pdataInstance;
   req.s3Client = s3ClientInstance;
+  req.tetra = tetraInstance;
     next();
   });
+
+// 1a. Tetra Metrics Middleware
+app.use(createTetraMiddleware({
+  enableConsoleLogging: true,
+  enablePerformanceTracking: true,
+  userId: null // Will be set after auth
+}));
 
 // Make capability manager available to all routes
 app.locals.capabilityManager = capabilityManager;
@@ -131,6 +151,7 @@ app.use('/client', express.static(path.join(projectRoot, 'client'), staticOption
 app.use('/packages', express.static(path.join(projectRoot, 'packages'), staticOptions));
 app.use('/redux', express.static(path.join(projectRoot, 'redux'), staticOptions));
 app.use('/node_modules', express.static(path.join(projectRoot, 'node_modules'), staticOptions));
+app.use('/tetra', express.static(path.join(projectRoot, '../tetra'), staticOptions));
 app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
 // 4. API Routes
@@ -142,6 +163,7 @@ app.use('/api/files', authMiddleware, filesRouter);
 app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), express.json(), saveRoutes);
 app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 app.use('/api/pdata', authMiddleware, pdataRoutes);
+app.use('/api/tetra', tetraRoutes);
 // app.use('/api/s3', s3Routes);
 // app.use('/api/settings', settingsRoutes);
 app.use('/css', cssRoutes);

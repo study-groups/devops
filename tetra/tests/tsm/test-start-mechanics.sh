@@ -183,7 +183,7 @@ test_env_file_resolution() {
     # Test 1a: Relative path resolution
     local resolved
     resolved=$(TSM_TEST_MODE=true bash -c "
-        source '$TETRA_SRC/bash/tsm/tsm_cli.sh'
+        source '$TETRA_SRC/bash/tsm/include.sh'
         env_file='local'
         if [[ \"\$env_file\" != /* ]]; then
             candidates=(
@@ -239,7 +239,7 @@ test_command_mode_detection() {
     cd "$TEST_DIR"
 
     # Test case: "node server.js" should trigger command mode when env_file is set
-    # This mimics the logic in tsm_cli.sh line 270
+    # This mimics the logic in process/management.sh
     local file="node"
     local env_file="local"
     local port=""
@@ -263,7 +263,7 @@ test_debug_flag_parsing() {
     local env_file=""
     local command_args=()
 
-    # Parse arguments (mimicking tsm_cli.sh logic)
+    # Parse arguments (mimicking process/management.sh logic)
     local i=0
     while [[ $i -lt ${#args[@]} ]]; do
         case "${args[i]}" in

@@ -26,10 +26,6 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: process.env.PORT || 4000,
   PD_DIR: process.env.PD_DIR,
-  // Keep MD_DIR for backward compatibility
-  MD_DIR: process.env.PD_DATA || 
-         (process.env.PD_DIR ? path.join(process.env.PD_DIR, 'data') : 
-         path.join(rootDir, 'data')),
 };
 
 // Log basic configuration

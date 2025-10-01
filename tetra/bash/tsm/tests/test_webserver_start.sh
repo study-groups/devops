@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Load the core TSM script
-source "$(dirname "$0")/../tsm_core.sh"
+source "$(dirname "$0")/../include.sh"
 
 # Test setup
 setup() {

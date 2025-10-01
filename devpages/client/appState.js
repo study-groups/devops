@@ -14,7 +14,7 @@
  * 4.  **Export Store:** Exports a singleton `appStore` instance for use throughout the application.
  */
 
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore } from '/node_modules/@reduxjs/toolkit/dist/redux-toolkit.browser.mjs';
 import panelReducer from './store/slices/panelSlice.js';
 import { storageService } from './services/storageService.js';
 import { persistenceMiddleware } from './store/middleware/persistenceMiddleware.js';

@@ -11,8 +11,8 @@ _tsm_repl_load_utils() {
 }
 
 # History management
-TSM_HISTORY_LOG="$TSM_DIR/history/repl_history.log"
-TSM_HISTORY_FILE="$TSM_DIR/history/.tsm_history"
+TSM_HISTORY_LOG="$TETRA_DIR/tsm/repl_history.log"
+TSM_HISTORY_FILE="$TETRA_DIR/tsm/.tsm_history"
 
 tsm_repl_help() {
     cat <<'EOF'
@@ -67,7 +67,10 @@ tsm_repl_save_output() {
     local command="$1"
     local output="$2"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
+    # Ensure directory exists for history log
+    mkdir -p "$(dirname "$TSM_HISTORY_LOG")"
+
     # Create delimiter entry
     echo "==== ENTRY $timestamp ====" >> "$TSM_HISTORY_LOG"
     echo "COMMAND: $command" >> "$TSM_HISTORY_LOG"
@@ -434,7 +437,10 @@ tsm_repl_main() {
         fi
         
         # Save to history
-        [[ -n "$input" ]] && echo "$input" >> "$TSM_HISTORY_FILE"
+        if [[ -n "$input" ]]; then
+            mkdir -p "$(dirname "$TSM_HISTORY_FILE")"
+            echo "$input" >> "$TSM_HISTORY_FILE"
+        fi
         
         # Process command
         case "$input" in

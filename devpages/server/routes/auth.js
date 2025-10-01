@@ -47,6 +47,23 @@ router.post('/login', (req, res, next) => {
 
         if (isValid) {
             console.log(`${logPrefix} Validation successful. Proceeding with Passport authentication.`);
+
+            // Track login event with tetra
+            const userRole = req.pdata.getUserRole(username);
+            if (req.tetra) {
+                req.tetra.trackLogin(username, 'password', true);
+
+                // Special tracking for admin logins
+                if (userRole === 'admin') {
+                    req.tetra.track('ADMIN_LOGIN', {
+                        username,
+                        timestamp: Date.now(),
+                        userAgent: req.get('User-Agent'),
+                        ip: req.ip || req.connection.remoteAddress
+                    }, 'AUTH');
+                }
+            }
+
             // Create the user object that Passport will work with
             const user = { username: username };
 
@@ -70,6 +87,18 @@ router.post('/login', (req, res, next) => {
             });
         } else {
             console.log(`${logPrefix} Invalid credentials.`);
+
+            // Track failed login attempt with tetra
+            if (req.tetra) {
+                req.tetra.track('LOGIN_FAILED', {
+                    username,
+                    timestamp: Date.now(),
+                    userAgent: req.get('User-Agent'),
+                    ip: req.ip || req.connection.remoteAddress,
+                    reason: 'invalid_credentials'
+                }, 'AUTH');
+            }
+
             return res.status(401).json({ error: 'Invalid username or password' });
         }
     } catch (error) {
@@ -204,12 +233,17 @@ router.post('/logout', (req, res, next) => {
     const username = req.user?.username || 'unknown user';
     console.log(`[AUTH /logout] User='${username}' - Received logout request.`);
     
+    // Track logout event before destroying session
+    if (req.tetra && username !== 'unknown user') {
+        req.tetra.trackLogout();
+    }
+
     req.logout((err) => {
         if (err) {
             console.error(`[AUTH /logout] Error during req.logout for user '${username}':`, err);
             return next(err);
         }
-        
+
         req.session.destroy((destroyErr) => {
             if (destroyErr) {
                 console.error(`[AUTH /logout] Error destroying session for user '${username}':`, destroyErr);
