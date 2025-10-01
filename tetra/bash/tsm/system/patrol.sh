@@ -11,11 +11,11 @@
 tsm_patrol_silent() {
     local cleaned=0
 
-    if [[ ! -d "$TETRA_DIR/tsm/runtime/processes" ]]; then
+    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
         return 0
     fi
 
-    for process_file in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$process_file" ]] || continue
 
         local process_name=$(basename "$process_file" .meta)
@@ -24,7 +24,7 @@ tsm_patrol_silent() {
 
         if [[ -z "$pid" ]]; then
             rm -f "$process_file"
-            rm -f "$TETRA_DIR/tsm/pids/$process_name.pid" 2>/dev/null
+            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
             continue
         fi
@@ -32,7 +32,7 @@ tsm_patrol_silent() {
         # Check if process is still running
         if ! kill -0 "$pid" 2>/dev/null; then
             rm -f "$process_file"
-            rm -f "$TETRA_DIR/tsm/pids/$process_name.pid" 2>/dev/null
+            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
         fi
     done
@@ -49,12 +49,12 @@ tsm_patrol() {
         echo "🚨 TSM Patrol: Checking for stale processes..."
     fi
 
-    if [[ ! -d "$TETRA_DIR/tsm/runtime/processes" ]]; then
+    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
         [[ "$show_output" == "true" ]] && echo "✅ No process tracking directory"
         return 0
     fi
 
-    for process_file in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$process_file" ]] || continue
 
         local process_name=$(basename "$process_file" .meta)
@@ -64,7 +64,7 @@ tsm_patrol() {
         if [[ -z "$pid" ]]; then
             [[ "$show_output" == "true" ]] && echo "🧹 Cleaning invalid process file: $process_name"
             rm -f "$process_file"
-            rm -f "$TETRA_DIR/tsm/pids/$process_name.pid" 2>/dev/null
+            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
             continue
         fi
@@ -73,7 +73,7 @@ tsm_patrol() {
         if ! kill -0 "$pid" 2>/dev/null; then
             [[ "$show_output" == "true" ]] && echo "🧹 Cleaning stale process: $process_name (PID $pid)"
             rm -f "$process_file"
-            rm -f "$TETRA_DIR/tsm/pids/$process_name.pid" 2>/dev/null
+            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
         fi
     done

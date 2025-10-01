@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Test script for TPM log rotation functionality
+# Test script for TSM log rotation functionality
 # Tests log file management and rotation capabilities
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TPM_DIR="$(dirname "$TEST_DIR")"
+TSM_DIR="$(dirname "$TEST_DIR")"
 
-# Source tpm functions
-source "$TPM_DIR/tpm.sh"
+# Source tsm functions
+source "$TSM_DIR/tsm.sh"
 
 # Heavy logging test server
 create_heavy_logger() {
@@ -29,40 +29,40 @@ EOF
 
 cleanup() {
     echo "Cleaning up log rotation test..."
-    tpm delete "*" 2>/dev/null || true
+    tsm delete "*" 2>/dev/null || true
     rm -f "$TEST_DIR"/heavy_logger_*.sh 2>/dev/null || true
 }
 
 # Test log rotation functionality
 test_log_rotation() {
-    echo "=== Testing TPM Log Rotation ==="
+    echo "=== Testing TSM Log Rotation ==="
     
     # Setup
-    tpm setup
+    tsm setup
     cleanup
     
     # Create heavy logging server
     create_heavy_logger 3003
     
     echo "Starting heavy logging server..."
-    tpm start "$TEST_DIR/heavy_logger_3003.sh"
+    tsm start "$TEST_DIR/heavy_logger_3003.sh"
     
     # Wait for some logs to accumulate
     echo "Waiting for logs to accumulate..."
     sleep 15
     
     echo "Current log files:"
-    ls -la "$TETRA_DIR/tpm/logs/"heavy_logger*
+    ls -la "$TSM_LOGS_DIR/"heavy_logger*
     
     echo "Log file sizes:"
-    du -h "$TETRA_DIR/tpm/logs/"heavy_logger*
+    du -h "$TSM_LOGS_DIR/"heavy_logger*
     
     echo "Sample stdout logs (last 10 lines):"
-    tpm logs heavy_logger-3003 --lines 10 --nostream
+    tsm logs heavy_logger-3003 --lines 10 --nostream
     
     echo "Testing log rotation simulation..."
-    local logfile="$TETRA_DIR/tpm/logs/heavy_logger-3003.out"
-    local errfile="$TETRA_DIR/tpm/logs/heavy_logger-3003.err"
+    local logfile="$TSM_LOGS_DIR/heavy_logger-3003.out"
+    local errfile="$TSM_LOGS_DIR/heavy_logger-3003.err"
     
     # Simulate log rotation by moving current logs and restarting
     if [[ -f "$logfile" ]]; then
@@ -74,15 +74,15 @@ test_log_rotation() {
         mv "$errfile" "${errfile}.${timestamp}" 2>/dev/null || true
         
         echo "Restarting process to create new log files..."
-        tpm restart heavy_logger-3003
+        tsm restart heavy_logger-3003
         
         sleep 3
         
         echo "After rotation - new log files:"
-        ls -la "$TETRA_DIR/tpm/logs/"heavy_logger*
+        ls -la "$TSM_LOGS_DIR/"heavy_logger*
         
         echo "New logs content:"
-        tpm logs heavy_logger-3003 --lines 5 --nostream
+        tsm logs heavy_logger-3003 --lines 5 --nostream
         
         echo "Rotated logs still accessible:"
         [[ -f "${logfile}.${timestamp}" ]] && echo "Rotated stdout: $(wc -l < "${logfile}.${timestamp}") lines"
@@ -92,53 +92,53 @@ test_log_rotation() {
     echo "Testing log size limits simulation..."
     # Show how logs can be managed
     echo "Current log sizes:"
-    du -h "$TETRA_DIR/tpm/logs/"heavy_logger* 2>/dev/null || echo "No log files found"
+    du -h "$TSM_LOGS_DIR/"heavy_logger* 2>/dev/null || echo "No log files found"
     
     echo "Cleaning up..."
     cleanup
     
     # Remove rotated logs
-    rm -f "$TETRA_DIR/tpm/logs/"*.2* 2>/dev/null || true
+    rm -f "$TSM_LOGS_DIR/"*.2* 2>/dev/null || true
     
     echo "=== Log rotation tests completed ==="
 }
 
-# Add function to tpm for log rotation
-add_log_rotation_to_tpm() {
-    echo "=== Adding log rotation function to TPM ==="
+# Add function to tsm for log rotation
+add_log_rotation_to_tsm() {
+    echo "=== Adding log rotation function to TSM ==="
     
-    cat >> "$TPM_DIR/tpm.sh" << 'EOF'
+    cat >> "$TSM_DIR/tsm.sh" << 'EOF'
 
-tetra_tpm_rotate_logs() {
+tetra_tsm_rotate_logs() {
     local pattern="${1:-*}"
     local keep_rotated="${2:-5}"
     
     if [[ "$pattern" == "*" ]]; then
         # Rotate all process logs
-        for metafile in "$TETRA_DIR/tpm/processes"/*.meta; do
+        for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
             [[ -f "$metafile" ]] || continue
             local name=$(basename "$metafile" .meta)
-            tetra_tpm_rotate_single "$name" "$keep_rotated"
+            tetra_tsm_rotate_single "$name" "$keep_rotated"
         done
     else
         # Resolve name or ID to actual process name
         local resolved_name
-        resolved_name=$(tetra_tpm_resolve_name "$pattern")
+        resolved_name=$(tetra_tsm_resolve_name "$pattern")
         if [[ $? -eq 0 ]]; then
-            tetra_tpm_rotate_single "$resolved_name" "$keep_rotated"
+            tetra_tsm_rotate_single "$resolved_name" "$keep_rotated"
         else
-            echo "tpm: process '$pattern' not found" >&2
+            echo "tsm: process '$pattern' not found" >&2
             return 1
         fi
     fi
 }
 
-tetra_tpm_rotate_single() {
+tetra_tsm_rotate_single() {
     local name="$1"
     local keep_rotated="${2:-5}"
     local timestamp=$(date +%Y%m%d_%H%M%S)
     
-    local logdir="$TETRA_DIR/tpm/logs"
+    local logdir="$TSM_LOGS_DIR"
     local outlog="$logdir/$name.out"
     local errlog="$logdir/$name.err"
     
@@ -147,13 +147,13 @@ tetra_tpm_rotate_single() {
     
     if [[ -f "$outlog" && -s "$outlog" ]]; then
         mv "$outlog" "${outlog}.${timestamp}"
-        echo "tpm: rotated stdout log for '$name'"
+        echo "tsm: rotated stdout log for '$name'"
         rotated=true
     fi
     
     if [[ -f "$errlog" && -s "$errlog" ]]; then
         mv "$errlog" "${errlog}.${timestamp}"
-        echo "tpm: rotated stderr log for '$name'"
+        echo "tsm: rotated stderr log for '$name'"
         rotated=true
     fi
     
@@ -164,27 +164,27 @@ tetra_tpm_rotate_single() {
         find "$logdir" -name "$name.err.*" -type f | sort -r | tail -n +$((keep_rotated + 1)) | xargs rm -f 2>/dev/null || true
         
         # If process is running, it will automatically start writing to new log files
-        if tetra_tpm_is_running "$name"; then
-            echo "tpm: process '$name' will continue logging to new files"
+        if tetra_tsm_is_running "$name"; then
+            echo "tsm: process '$name' will continue logging to new files"
         fi
     else
-        echo "tpm: no logs to rotate for '$name'"
+        echo "tsm: no logs to rotate for '$name'"
     fi
 }
 EOF
 
-    echo "Log rotation functions added to tpm.sh"
+    echo "Log rotation functions added to tsm.sh"
 }
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     test_log_rotation
     echo
-    echo "To add log rotation permanently to TPM, run:"
+    echo "To add log rotation permanently to TSM, run:"
     echo "  $0 add_rotation"
 fi
 
 # Allow adding rotation function
 if [[ "$1" == "add_rotation" ]]; then
-    add_log_rotation_to_tpm
+    add_log_rotation_to_tsm
 fi

@@ -43,7 +43,7 @@ tsm_json_success() {
 
 # Convert process list to JSON using jq
 tsm_processes_to_json() {
-    local processes_dir="$TETRA_DIR/tsm/runtime/processes"
+    local processes_dir="$TSM_PROCESSES_DIR"
     local processes=()
 
     if [[ -d "$processes_dir" ]]; then
@@ -137,7 +137,7 @@ tetra_tsm_get_setsid() {
 tetra_tsm_get_next_id() {
     # Find the lowest unused ID by checking existing metadata files
     local used_ids=()
-    local meta_files=("$TETRA_DIR/tsm/runtime/processes"/*.meta)
+    local meta_files=("$TSM_PROCESSES_DIR"/*.meta)
 
     # Extract all currently used IDs
     if [[ -f "${meta_files[0]}" ]]; then  # Check if any meta files exist
@@ -192,7 +192,7 @@ _tetra_tsm_get_all_processes() {
     _tsm_procs_env_file=()
     _tsm_procs_restarts=()
 
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         
         local name
@@ -204,7 +204,7 @@ _tetra_tsm_get_all_processes() {
 
         # Extract environment file info
         local tsm_env_file="-"
-        local envfile="$TETRA_DIR/tsm/runtime/processes/$name.env"
+        local envfile="$TSM_PROCESSES_DIR/$name.env"
         if [[ -f "$envfile" ]]; then
             local env_line
             env_line=$(grep '^TSM_ENV_FILE=' "$envfile" 2>/dev/null | head -n1)
@@ -254,7 +254,7 @@ _tetra_tsm_get_all_processes() {
 # Convert ID to process name
 tetra_tsm_id_to_name() {
     local id="$1"
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         local tsm_id=""
         eval "$(cat "$metafile")"
@@ -269,7 +269,7 @@ tetra_tsm_id_to_name() {
 # Convert name to TSM ID
 tetra_tsm_name_to_id() {
     local name="$1"
-    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    local metafile="$TSM_PROCESSES_DIR/$name.meta"
     [[ -f "$metafile" ]] || return 1
     
     local tsm_id=""
@@ -292,7 +292,7 @@ tetra_tsm_resolve_to_id() {
     fi
     
     # Check for exact name match first
-    if [[ -f "$TETRA_DIR/tsm/runtime/processes/$input.meta" ]]; then
+    if [[ -f "$TSM_PROCESSES_DIR/$input.meta" ]]; then
         tetra_tsm_name_to_id "$input"
         return $?
     fi
@@ -300,7 +300,7 @@ tetra_tsm_resolve_to_id() {
     # Fuzzy matching: find processes containing the input string
     local matches=()
     local match_ids=()
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         local name=$(basename "$metafile" .meta)
         if [[ "$name" == *"$input"* ]]; then
@@ -340,7 +340,7 @@ tetra_tsm_resolve_name() {
     
     # If input is numeric, treat as TSM ID
     if [[ "$input" =~ ^[0-9]+$ ]]; then
-        for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+        for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
             [[ -f "$metafile" ]] || continue
             local tsm_id=""
             eval "$(cat "$metafile")"
@@ -353,13 +353,13 @@ tetra_tsm_resolve_name() {
     fi
     
     # Check for exact match first
-    if [[ -f "$TETRA_DIR/tsm/runtime/processes/$input.meta" ]]; then
+    if [[ -f "$TSM_PROCESSES_DIR/$input.meta" ]]; then
         echo "$input"
         return 0
     fi
     
     # Fuzzy matching: find processes containing the input string
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         local name=$(basename "$metafile" .meta)
         if [[ "$name" == *"$input"* ]]; then
@@ -381,7 +381,7 @@ tetra_tsm_resolve_name() {
             echo "tsm: ambiguous name '$input', matches:" >&2
             for match in "${matches[@]}"; do
                 local tsm_id=""
-                eval "$(cat "$TETRA_DIR/tsm/runtime/processes/$match.meta")"
+                eval "$(cat "$TSM_PROCESSES_DIR/$match.meta")"
                 [[ -z "$tsm_id" ]] && tsm_id="-"
                 echo "  $tsm_id: $match" >&2
             done
@@ -401,7 +401,7 @@ tetra_tsm_is_running_by_id() {
 # Check if process is running by name
 tetra_tsm_is_running_by_name() {
     local name="$1"
-    local pidfile="$TETRA_DIR/tsm/runtime/pids/$name.pid"
+    local pidfile="$TSM_PIDS_DIR/$name.pid"
     
     [[ -f "$pidfile" ]] || return 1
     local pid=$(cat "$pidfile")
@@ -481,7 +481,7 @@ tetra_tsm_is_running() {
     [[ -z "$process_name" ]] && return 1
 
     # Check if process tracking file exists
-    local process_file="$TETRA_DIR/tsm/runtime/processes/$process_name.meta"
+    local process_file="$TSM_PROCESSES_DIR/$process_name.meta"
     [[ ! -f "$process_file" ]] && return 1
 
     # Extract PID from process file

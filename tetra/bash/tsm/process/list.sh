@@ -43,7 +43,7 @@ get_service_info() {
     # Check if service is running
     # Look for process files with various naming patterns
     local process_file
-    local process_dir="$TETRA_DIR/tsm/runtime/processes"
+    local process_dir="$TSM_PROCESSES_DIR"
 
     # Try multiple naming patterns and file extensions
     if [[ -n "$port" ]]; then

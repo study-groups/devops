@@ -6,7 +6,7 @@
 # === CORE HELPERS ===
 
 _tsm_get_next_id() {
-    local id_file="$TETRA_DIR/tsm/runtime/next_id"
+    local id_file="$TSM_ID_FILE"
     local next_id
 
     if [[ -f "$id_file" ]]; then

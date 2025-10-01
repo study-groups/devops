@@ -264,8 +264,8 @@ tsm_diagnose_startup_failure() {
 
         # Check if it's TSM-managed
         local tsm_process_name=""
-        if [[ -d "$TETRA_DIR/tsm/processes" ]]; then
-            for process_file in "$TETRA_DIR/tsm/processes"/*; do
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            for process_file in "$TSM_PROCESSES_DIR"/*; do
                 [[ -f "$process_file" ]] || continue
                 local stored_pid
                 stored_pid=$(grep "^PID=" "$process_file" 2>/dev/null | cut -d'=' -f2)
@@ -318,7 +318,7 @@ tsm_diagnose_startup_failure() {
     fi
 
     # Check for recent TSM process failures
-    local log_file="$TETRA_DIR/tsm/logs/${service_name}.log"
+    local log_file="$TSM_LOGS_DIR/${service_name}.out"
     if [[ -f "$log_file" ]]; then
         local recent_errors
         recent_errors=$(tail -20 "$log_file" 2>/dev/null | grep -i "error\|failed\|cannot\|permission" | tail -3)
@@ -367,8 +367,8 @@ tsm_scan_orphaned_processes() {
 
     # Get all currently tracked TSM processes
     local tracked_pids=()
-    if [[ -d "$TETRA_DIR/tsm/processes" ]]; then
-        for process_file in "$TETRA_DIR/tsm/processes"/*; do
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_file in "$TSM_PROCESSES_DIR"/*; do
             [[ -f "$process_file" ]] || continue
             local pid
             pid=$(grep "^PID=" "$process_file" 2>/dev/null | cut -d'=' -f2)
@@ -628,12 +628,12 @@ tsm_clean_stale_processes() {
 
     log "Cleaning up stale TSM process tracking files..."
 
-    if [[ ! -d "$TETRA_DIR/tsm/runtime/processes" ]]; then
+    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
         success "No process tracking directory found"
         return 0
     fi
 
-    for process_file in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$process_file" ]] || continue
 
         local process_name=$(basename "$process_file" .meta)
@@ -651,7 +651,7 @@ tsm_clean_stale_processes() {
         if ! kill -0 "$pid" 2>/dev/null; then
             info "Cleaning stale process tracking: $process_name (PID $pid no longer exists)"
             rm -f "$process_file"
-            rm -f "$TETRA_DIR/tsm/pids/$process_name.pid" 2>/dev/null
+            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
         fi
     done

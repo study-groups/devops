@@ -21,7 +21,7 @@ tetra_tsm_setup() {
     fi
 
     # Create required directories
-    local dirs=("$TETRA_DIR/tsm/logs" "$TETRA_DIR/tsm/pids" "$TETRA_DIR/tsm/processes")
+    local dirs=("$TSM_LOGS_DIR" "$TSM_PIDS_DIR" "$TSM_PROCESSES_DIR")
     for dir in "${dirs[@]}"; do
         mkdir -p "$dir"
     done
@@ -182,7 +182,7 @@ _tsm_save_metadata() {
     if [[ -n "$preserve_id" ]]; then
         tsm_id="$preserve_id"
         # If preserving ID, check for existing restart count
-        local existing_metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+        local existing_metafile="$TSM_PROCESSES_DIR/$name.meta"
         if [[ -f "$existing_metafile" ]] && [[ "$is_restart" == "true" ]]; then
             # Extract existing restart count
             local existing_restart_count=""
@@ -194,7 +194,7 @@ _tsm_save_metadata() {
         tsm_id=$(tetra_tsm_get_next_id)
     fi
 
-    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    local metafile="$TSM_PROCESSES_DIR/$name.meta"
     local meta_content="script='$script' pid=$pid port=$port start_time=$(date +%s) type=$type tsm_id=$tsm_id restart_count=$restart_count"
     [[ -n "$start_dir" ]] && meta_content+=" start_dir='$start_dir'"
     [[ -n "$cwd" ]] && meta_content+=" cwd='$cwd'"
@@ -206,7 +206,7 @@ _tsm_save_metadata() {
     {
         echo "TSM_ENV_FILE=\"$env_file\""
         printenv
-    } > "$TETRA_DIR/tsm/runtime/processes/$name.env"
+    } > "$TSM_PROCESSES_DIR/$name.env"
 
     echo "$tsm_id"
 }
@@ -218,7 +218,7 @@ tetra_tsm_reset_id() {
 
     # Find the maximum current TSM ID
     local max_id=0
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         local tsm_id=""
         eval "$(grep -o 'tsm_id=[0-9]*' "$metafile" 2>/dev/null)"

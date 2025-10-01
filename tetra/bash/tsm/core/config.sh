@@ -14,6 +14,12 @@ if [[ -z "${TSM_LOG_MAX_LINES:-}" ]]; then
     readonly TSM_LOG_MAX_LINES=1000
 fi
 
+# TSM Runtime Directory Structure
+export TSM_LOGS_DIR="${TETRA_DIR}/tsm/runtime/logs"
+export TSM_PIDS_DIR="${TETRA_DIR}/tsm/runtime/pids"
+export TSM_PROCESSES_DIR="${TETRA_DIR}/tsm/runtime/processes"
+export TSM_ID_FILE="${TETRA_DIR}/tsm/runtime/next_id"
+
 # Global state initialization function
 _tsm_init_global_state() {
     # Only initialize if Bash 4+ (associative arrays)

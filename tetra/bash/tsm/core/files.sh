@@ -7,17 +7,17 @@
 
 _tsm_get_process_file() {
     local process_name="$1"
-    echo "$TETRA_DIR/tsm/runtime/processes/$process_name"
+    echo "$TSM_PROCESSES_DIR/$process_name"
 }
 
 _tsm_get_pid_file() {
     local process_name="$1"
-    echo "$TETRA_DIR/tsm/pids/$process_name.pid"
+    echo "$TSM_PIDS_DIR/$process_name.pid"
 }
 
 _tsm_get_log_file() {
     local process_name="$1"
-    echo "$TETRA_DIR/tsm/logs/$process_name.log"
+    echo "$TSM_LOGS_DIR/$process_name.log"
 }
 
 _tsm_write_process_info() {

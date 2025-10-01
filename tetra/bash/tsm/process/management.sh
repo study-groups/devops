@@ -66,7 +66,7 @@ _tsm_start_cli_internal() {
     }
 
     local pid
-    pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
+    pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
     local tsm_id
     tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "cli" "" "$pwd_at_start")
@@ -133,12 +133,20 @@ tetra_tsm_start_command() {
 
         # Extract port and name from resolved env file if not provided
         if [[ -z "$port" && -f "$resolved_env_file" ]]; then
-            port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
+            port="$(grep '^export PORT=' "$resolved_env_file" 2>/dev/null | sed 's/^export PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
+            # Fallback to TETRA_PORT if PORT not found
+            if [[ -z "$port" ]]; then
+                port="$(grep '^export TETRA_PORT=' "$resolved_env_file" 2>/dev/null | sed 's/^export TETRA_PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
+            fi
         fi
 
         # Extract name from env file if no custom name provided
         if [[ -z "$custom_name" && -f "$resolved_env_file" ]]; then
-            env_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
+            env_name="$(grep '^export NAME=' "$resolved_env_file" 2>/dev/null | sed 's/^export NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
+            # Fallback to TETRA_NAME if NAME not found
+            if [[ -z "$env_name" ]]; then
+                env_name="$(grep '^export TETRA_NAME=' "$resolved_env_file" 2>/dev/null | sed 's/^export TETRA_NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
+            fi
         fi
 
         # Use the resolved path going forward
@@ -191,7 +199,7 @@ tetra_tsm_start_command() {
                 local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
                 diagnostic_info="Port $port is in use by PID $existing_pid ($process_cmd)"
             else
-                diagnostic_info="Process failed to start - check logs at $TETRA_DIR/tsm/logs/$name.log"
+                diagnostic_info="Process failed to start - check logs at $TSM_LOGS_DIR/$name.out and $TSM_LOGS_DIR/$name.err"
             fi
             tsm_json_error "Failed to start '$name'" 1 "$diagnostic_info"
         else
@@ -204,7 +212,7 @@ tetra_tsm_start_command() {
     }
 
     local pid
-    pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
+    pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
     local tsm_id
     tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir" "" "false" "$env_file")
@@ -220,359 +228,355 @@ tetra_tsm_start_command() {
 # === MAIN CLI COMMANDS ===
 
 tetra_tsm_start() {
-    local file="" env_file="" custom_name="" python_start=false python_cmd="" port="" dirname=""
-    local command_mode=false command_args=() debug=false
+    local env_file="" port="" debug=false custom_name=""
+    local command_args=()
 
-    # Check if first argument is a service from services-available
-    if [[ $# -ge 1 ]]; then
-        local first_arg="$1"
-
-        # First priority: Check services-available directory for .tsm files
-        local new_service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
-        if [[ -f "$new_service_file" ]]; then
-            echo "🚀 Starting service: $first_arg"
-            tetra_tsm_start_service "$first_arg"
-            return $?
-        fi
-
-        # Fallback: Check old .tsm.sh service definitions
-        local old_service_file="$TETRA_DIR/services/${first_arg}.tsm.sh"
-        if [[ -f "$old_service_file" ]]; then
-            _tsm_start_from_service_definition "$@"
-            return $?
-        fi
-
-        # Service discovery: suggest available services if not found
-        if [[ ! -f "$first_arg" && ! -x "$first_arg" ]]; then
-            local available_services=()
-            if [[ -d "$TETRA_DIR/tsm/services-available" ]]; then
-                for service_file in "$TETRA_DIR/tsm/services-available"/*.tsm; do
-                    [[ -f "$service_file" ]] || continue
-                    local service_name=$(basename "$service_file" .tsm)
-                    available_services+=("$service_name")
-                done
-            fi
-
-            if [[ ${#available_services[@]} -gt 0 ]]; then
-                echo "❌ Service '$first_arg' not found."
-                echo ""
-                echo "Available services:"
-                printf "  %s\n" "${available_services[@]}"
-                echo ""
-                echo "Usage: tsm start <service-name>"
-                echo "   or: tsm start <command> [args...]"
-                return 1
-            fi
-        fi
-    fi
-
-    # Special case for webserver with no arguments
-    if [[ "$1" == "webserver" && $# -eq 1 ]]; then
-        tetra_tsm_start_webserver
-        return $?
-    fi
-
-    # Parse arguments
+    # Parse flags first
     while [[ $# -gt 0 ]]; do
         case $1 in
             --env)
                 env_file="$2"
+                # Resolve env file path: "local" -> "env/local.env"
+                if [[ "$env_file" != /* && "$env_file" != */* && "$env_file" != *.env ]]; then
+                    env_file="env/${env_file}.env"
+                fi
                 shift 2
-                ;;
-            --python)
-                python_start=true
-                shift
                 ;;
             --port)
                 port="$2"
                 shift 2
                 ;;
-            --dir)
-                dirname="$2"
+            --name)
+                custom_name="$2"
                 shift 2
                 ;;
             --debug)
                 debug=true
                 shift
                 ;;
-            webserver)
-                file="webserver"
-                shift
+            --*)
+                echo "tsm: unknown option '$1'" >&2
+                return 64
                 ;;
             *)
-                if [[ "$python_start" == "true" ]]; then
-                    python_cmd+="$1 "
-                    shift
-                elif [[ "$file" == "webserver" ]]; then
-                    if [[ -z "$dirname" ]]; then
-                        dirname="$1"
-                    elif [[ -z "$port" && "$1" =~ ^[0-9]+$ ]]; then
-                        port="$1"
-                    else
-                        echo "tsm: unexpected argument '$1'" >&2
-                        return 64
-                    fi
-                    shift
-                elif [[ -z "$file" ]]; then
-                    file="$1"
-                    # Check if this is a command (not an executable file)
-                    # Command mode triggers if:
-                    # 1. File doesn't exist as executable AND port is set, OR
-                    # 2. File doesn't exist as executable AND env_file is set (port will be extracted)
-                    if [[ ! -f "$file" ]] && [[ -n "$port" || -n "$env_file" ]]; then
-                        # This looks like command mode - collect all remaining args
-                        command_mode=true
-                        command_args=("$file")
-                        shift
-                        while [[ $# -gt 0 && "$1" != "--"* ]]; do
-                            command_args+=("$1")
-                            shift
-                        done
-                        break
-                    else
-                        shift
-                    fi
-                elif [[ -z "$custom_name" ]]; then
-                    custom_name="$1"
-                    shift
-                else
-                    echo "tsm: unexpected argument '$1'" >&2
-                    return 64
-                fi
+                # Remaining args are the command
+                command_args+=("$1")
+                shift
                 ;;
         esac
     done
 
-    # Handle different start modes
-    if [[ "$command_mode" == "true" ]]; then
-        local cmd_args=()
-
-        # Resolve environment file path
-        local resolved_env_file=""
-        if [[ -n "$env_file" ]]; then
-            if [[ "$env_file" == /* ]]; then
-                resolved_env_file="$env_file"
-            else
-                # Try different variations: env/file, env/file.env, file, file.env
-                local candidates=(
-                    "$PWD/env/${env_file}.env"
-                    "$PWD/env/$env_file"
-                    "$PWD/${env_file}.env"
-                    "$PWD/$env_file"
-                )
-                for candidate in "${candidates[@]}"; do
-                    if [[ -f "$candidate" ]]; then
-                        resolved_env_file="$candidate"
-                        break
-                    fi
-                done
-            fi
-        fi
-
-        # Extract port and name from resolved env file if not explicitly provided
-        if [[ -n "$resolved_env_file" && -z "$port" ]]; then
-            port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
-        fi
-        if [[ -n "$resolved_env_file" && -z "$custom_name" ]]; then
-            custom_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
-        fi
-
-        # Debug output if requested
-        if [[ "$debug" == "true" ]]; then
-            echo "🔍 TSM Debug Information:"
-            echo "  Command Mode: true"
-            echo "  Env File Arg: ${env_file:-'(none)'}"
-            echo "  Resolved Env File: ${resolved_env_file:-'(none)'}"
-            echo "  Extracted PORT: ${port:-'(none)'}"
-            echo "  Extracted NAME: ${custom_name:-'(none)'}"
-            echo "  Command Args: ${command_args[*]}"
-            echo "  Final Args: --port ${port:-'(none)'} --env ${env_file:-'(none)'} --name ${custom_name:-'(none)'}"
-            echo ""
-        fi
-
-        [[ -n "$port" ]] && cmd_args+=(--port "$port")
-        [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
-        [[ -n "$custom_name" ]] && cmd_args+=(--name "$custom_name")
-        [[ "$debug" == "true" ]] && cmd_args+=(--debug)
-        tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
-    elif [[ "$python_start" == "true" ]]; then
-        tetra_tsm_start_python "$python_cmd" "$port" "$dirname" "$custom_name"
-    elif [[ "$file" == "webserver" ]]; then
-        tetra_tsm_start_webserver "$dirname" "$port"
-    elif [[ -n "$file" ]]; then
-        tetra_tsm_start_cli "$file" "$custom_name" "$env_file"
-    else
-        echo "tsm: start [--env env.sh] [--debug] <script.sh|command> [name]" >&2
+    # Must have a command
+    if [[ ${#command_args[@]} -eq 0 ]]; then
+        echo "tsm: command required" >&2
+        echo "Usage: tsm start [--env FILE] [--port PORT] [--name NAME] <command> [args...]" >&2
         return 64
     fi
+
+    # Source env file if provided to get PORT and NAME
+    local env_name=""
+    if [[ -n "$env_file" && -f "$env_file" ]]; then
+        # Extract PORT and NAME from env file (handle export statements)
+        env_name="$(grep '^export NAME=' "$env_file" 2>/dev/null | sed 's/^export NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
+        if [[ -z "$port" ]]; then
+            port="$(grep '^export PORT=' "$env_file" 2>/dev/null | sed 's/^export PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
+        fi
+    fi
+
+    # Determine final name: --name flag > env file NAME > filename without extension
+    local final_name="$custom_name"
+    if [[ -z "$final_name" ]]; then
+        final_name="$env_name"
+    fi
+    if [[ -z "$final_name" ]]; then
+        # Default to first command argument filename without extension
+        local first_cmd="${command_args[0]}"
+        final_name="$(basename "$first_cmd" | sed 's/\.[^.]*$//')"
+    fi
+
+    # Check if first arg is a known service
+    local first_arg="${command_args[0]}"
+    local service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
+    if [[ -f "$service_file" ]]; then
+        echo "🚀 Starting service: $first_arg"
+        tetra_tsm_start_service "${command_args[@]}"
+        return $?
+    fi
+
+    # Otherwise, treat as command
+    local cmd_args=()
+    [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
+    [[ -n "$port" ]] && cmd_args+=(--port "$port")
+    [[ -n "$final_name" ]] && cmd_args+=(--name "$final_name")
+    [[ "$debug" == "true" ]] && cmd_args+=(--debug)
+
+    tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
 }
 
-tetra_tsm_stop() {
-    [[ $# -gt 0 ]] || {
-        echo "tsm: stop [--force] <process|id|*> [process|id...]" >&2
-        return 64
-    }
+# === TSM KILL COMMAND ===
 
+tetra_tsm_kill() {
     local force=false
-    local targets=()
+    local target_type=""
+    local target_value=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --force)
+            --force|-f)
                 force=true
                 shift
                 ;;
+            --port)
+                target_type="port"
+                target_value="$2"
+                shift 2
+                ;;
+            --name)
+                target_type="name"
+                target_value="$2"
+                shift 2
+                ;;
+            --id)
+                target_type="id"
+                target_value="$2"
+                shift 2
+                ;;
+            --pid)
+                target_type="pid"
+                target_value="$2"
+                shift 2
+                ;;
+            --help|-h)
+                echo "Usage: tsm kill [OPTIONS] [TARGET]"
+                echo ""
+                echo "Kill processes by various identifiers:"
+                echo "  --port PORT     Kill process using specific port"
+                echo "  --name NAME     Kill process by service name"
+                echo "  --id ID         Kill process by TSM ID"
+                echo "  --pid PID       Kill process by system PID"
+                echo "  --force         Force kill (SIGKILL instead of SIGTERM)"
+                echo ""
+                echo "Examples:"
+                echo "  tsm kill --port 4000"
+                echo "  tsm kill --name devpages"
+                echo "  tsm kill --id 0"
+                echo "  tsm kill --pid 88224"
+                echo "  tsm kill 0          # Kill by TSM ID (default)"
+                echo "  tsm kill devpages   # Kill by name"
+                return 0
+                ;;
+            -*)
+                echo "tsm: unknown option '$1'" >&2
+                echo "Use 'tsm kill --help' for usage information" >&2
+                return 64
+                ;;
             *)
-                targets+=("$1")
+                # Auto-detect target type based on value
+                if [[ -z "$target_value" ]]; then
+                    target_value="$1"
+                    if [[ "$target_value" =~ ^[0-9]+$ ]]; then
+                        # Pure number - try TSM ID first
+                        target_type="id"
+                    else
+                        # String - assume service name
+                        target_type="name"
+                    fi
+                else
+                    echo "tsm: unexpected argument '$1'" >&2
+                    return 64
+                fi
                 shift
                 ;;
         esac
     done
 
-    for target in "${targets[@]}"; do
-        if [[ "$target" == "*" ]]; then
-            # Stop all processes
-            local all_processes=()
-            for metafile in "$TETRA_DIR/tsm/processes"/*.meta; do
-                [[ -f "$metafile" ]] || continue
-                local name
-                name=$(basename "$metafile" .meta)
-                all_processes+=("$name")
-            done
-
-            for name in "${all_processes[@]}"; do
-                tetra_tsm_stop_single "$name" "$force"
-            done
-        elif [[ "$target" =~ ^[0-9]+$ ]]; then
-            tetra_tsm_stop_by_id "$target" "$force"
-        else
-            tetra_tsm_stop_single "$target" "$force"
-        fi
-    done
-}
-
-tetra_tsm_delete() {
-    [[ $# -gt 0 ]] || {
-        echo "tsm: delete <process|id|*> [process|id...]" >&2
+    if [[ -z "$target_value" ]]; then
+        echo "tsm: kill target required" >&2
+        echo "Use 'tsm kill --help' for usage information" >&2
         return 64
-    }
-
-    for target in "$@"; do
-        if [[ "$target" == "*" ]]; then
-            # Delete all processes
-            local all_processes=()
-            for metafile in "$TETRA_DIR/tsm/processes"/*.meta; do
-                [[ -f "$metafile" ]] || continue
-                local name
-                name=$(basename "$metafile" .meta)
-                all_processes+=("$name")
-            done
-
-            for name in "${all_processes[@]}"; do
-                tetra_tsm_delete_single "$name"
-            done
-        elif [[ "$target" =~ ^[0-9]+$ ]]; then
-            tetra_tsm_delete_by_id "$target"
-        else
-            tetra_tsm_delete_single "$target"
-        fi
-    done
-}
-
-tetra_tsm_restart() {
-    [[ $# -gt 0 ]] || {
-        echo "tsm: restart <process|id|*> [process|id...]" >&2
-        return 64
-    }
-
-    for target in "$@"; do
-        if [[ "$target" == "*" ]]; then
-            # Restart all processes
-            local all_processes=()
-            for metafile in "$TETRA_DIR/tsm/processes"/*.meta; do
-                [[ -f "$metafile" ]] || continue
-                local name
-                name=$(basename "$metafile" .meta)
-                all_processes+=("$name")
-            done
-
-            for name in "${all_processes[@]}"; do
-                tetra_tsm_restart_single "$name"
-            done
-        elif [[ "$target" =~ ^[0-9]+$ ]]; then
-            tetra_tsm_restart_by_id "$target"
-        else
-            tetra_tsm_restart_single "$target"
-        fi
-    done
-}
-
-tetra_tsm_kill() {
-    tetra_tsm_stop --force "$@"
-}
-
-# === SERVICE DEFINITIONS ===
-
-_tsm_start_from_service_definition() {
-    local service_name="$1"
-    shift
-    local additional_args=("$@")
-
-    local service_file="$TETRA_DIR/services/${service_name}.tsm.sh"
-
-    if [[ ! -f "$service_file" ]]; then
-        echo "tsm: service definition not found: $service_file" >&2
-        return 1
     fi
 
-    echo "tsm: starting service '$service_name'"
-
-    # Source the service definition to get configuration
-    local TSM_NAME="" TSM_COMMAND="" TSM_CWD="" TSM_ENV_FILE="" TSM_PORT="" TSM_ARGS=()
-    source "$service_file" || {
-        echo "tsm: failed to load service definition: $service_file" >&2
-        return 1
-    }
-
-    # Change to service working directory
-    local original_dir="$PWD"
-    if [[ -n "$TSM_CWD" && -d "$TSM_CWD" ]]; then
-        cd "$TSM_CWD" || {
-            echo "tsm: failed to change to service directory: $TSM_CWD" >&2
+    # Execute kill based on target type
+    case "$target_type" in
+        port)
+            _tsm_kill_by_port "$target_value" "$force"
+            ;;
+        name)
+            _tsm_kill_by_name "$target_value" "$force"
+            ;;
+        id)
+            _tsm_kill_by_id "$target_value" "$force"
+            ;;
+        pid)
+            _tsm_kill_by_pid "$target_value" "$force"
+            ;;
+        *)
+            echo "tsm: internal error - unknown target type '$target_type'" >&2
             return 1
-        }
-    fi
-
-    # Build command with service args and additional args
-    local full_command="$TSM_COMMAND"
-    if [[ ${#TSM_ARGS[@]} -gt 0 ]]; then
-        full_command+=" ${TSM_ARGS[*]}"
-    fi
-    if [[ ${#additional_args[@]} -gt 0 ]]; then
-        full_command+=" ${additional_args[*]}"
-    fi
-
-    # Use service name or generate one
-    local name="${TSM_NAME:-$service_name}"
-    if [[ -n "$TSM_PORT" ]]; then
-        name="${name}-${TSM_PORT}"
-    fi
-
-    # Start the service
-    tetra_tsm_start_command --port "${TSM_PORT:-8080}" --name "$service_name" ${TSM_ENV_FILE:+--env "$TSM_ENV_FILE"} $full_command
-
-    # Return to original directory
-    cd "$original_dir"
+            ;;
+    esac
 }
 
-# Export CLI functions
-export -f tetra_tsm_start_cli
-export -f _tsm_start_cli_internal
-export -f tetra_tsm_start_command
-export -f tetra_tsm_start
-export -f tetra_tsm_stop
-export -f tetra_tsm_delete
-export -f tetra_tsm_restart
-export -f tetra_tsm_kill
-export -f _tsm_start_from_service_definition
+# Kill by port number
+_tsm_kill_by_port() {
+    local port="$1"
+    local force="$2"
+
+    echo "🔍 Finding processes using port $port..."
+
+    # Find PIDs using the port
+    local pids=($(lsof -ti :$port 2>/dev/null))
+
+    if [[ ${#pids[@]} -eq 0 ]]; then
+        echo "❌ No processes found using port $port"
+        return 1
+    fi
+
+    echo "📋 Found ${#pids[@]} process(es) using port $port:"
+    for pid in "${pids[@]}"; do
+        local cmd=$(ps -p $pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+        echo "  PID $pid: $cmd"
+    done
+
+    # Kill each process
+    local killed=0
+    for pid in "${pids[@]}"; do
+        if _tsm_kill_process "$pid" "$force"; then
+            ((killed++))
+        fi
+    done
+
+    echo "✅ Killed $killed process(es) on port $port"
+    return 0
+}
+
+# Kill by service name
+_tsm_kill_by_name() {
+    local name="$1"
+    local force="$2"
+
+    echo "🔍 Finding processes with name '$name'..."
+
+    # Look for TSM managed processes first
+    local metadata_files=("$TETRA_DIR/tsm/metadata"/${name}-*.metadata)
+    local found=false
+
+    for metadata_file in "${metadata_files[@]}"; do
+        if [[ -f "$metadata_file" ]]; then
+            local pid=$(grep "^PID=" "$metadata_file" | cut -d= -f2)
+            if [[ -n "$pid" ]] && (kill -0 "$pid" 2>/dev/null); then
+                echo "📋 Found TSM process: $name (PID: $pid)"
+                if _tsm_kill_process "$pid" "$force"; then
+                    echo "✅ Killed TSM process: $name"
+                    found=true
+                fi
+            fi
+        fi
+    done
+
+    if [[ "$found" == "false" ]]; then
+        echo "❌ No TSM-managed processes found with name '$name'"
+        return 1
+    fi
+
+    return 0
+}
+
+# Kill by TSM ID
+_tsm_kill_by_id() {
+    local id="$1"
+    local force="$2"
+
+    echo "🔍 Finding process with TSM ID $id..."
+
+    # Find metadata file for this ID
+    local metadata_file
+    for file in "$TETRA_DIR/tsm/metadata"/*.metadata; do
+        if [[ -f "$file" ]]; then
+            local file_id=$(grep "^TSM_ID=" "$file" | cut -d= -f2)
+            if [[ "$file_id" == "$id" ]]; then
+                metadata_file="$file"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$metadata_file" ]]; then
+        echo "❌ No process found with TSM ID $id"
+        return 1
+    fi
+
+    local pid=$(grep "^PID=" "$metadata_file" | cut -d= -f2)
+    local name=$(grep "^NAME=" "$metadata_file" | cut -d= -f2)
+
+    if [[ -z "$pid" ]]; then
+        echo "❌ Invalid metadata for TSM ID $id"
+        return 1
+    fi
+
+    echo "📋 Found process: $name (TSM ID: $id, PID: $pid)"
+
+    if _tsm_kill_process "$pid" "$force"; then
+        echo "✅ Killed process: $name (TSM ID: $id)"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Kill by PID
+_tsm_kill_by_pid() {
+    local pid="$1"
+    local force="$2"
+
+    echo "🔍 Checking process PID $pid..."
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Process $pid not found or not accessible"
+        return 1
+    fi
+
+    local cmd=$(ps -p $pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+    echo "📋 Found process: PID $pid ($cmd)"
+
+    if _tsm_kill_process "$pid" "$force"; then
+        echo "✅ Killed process: PID $pid"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Helper function to kill a process
+_tsm_kill_process() {
+    local pid="$1"
+    local force="$2"
+
+    if [[ "$force" == "true" ]]; then
+        echo "💥 Force killing PID $pid (SIGKILL)..."
+        kill -9 "$pid" 2>/dev/null
+    else
+        echo "🛑 Terminating PID $pid (SIGTERM)..."
+        kill "$pid" 2>/dev/null
+
+        # Wait a moment for graceful shutdown
+        sleep 1
+
+        # Check if still running
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "⚠️  Process still running, force killing..."
+            kill -9 "$pid" 2>/dev/null
+        fi
+    fi
+
+    # Verify it's dead
+    sleep 0.5
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Failed to kill PID $pid"
+        return 1
+    fi
+
+    return 0
+}
+

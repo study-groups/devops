@@ -80,7 +80,9 @@ tsm_audit() {
             local target=$(readlink "$service_link")
             enabled_count=$((enabled_count + 1))
 
-            if [[ -f "$target" ]]; then
+            # Check if the symlink resolves correctly from its directory context
+            local full_target_path="$TSM_SERVICES_ENABLED/$target"
+            if [[ -f "$full_target_path" ]]; then
                 echo "   ✅ $service_name → $target"
             else
                 echo "   ❌ $service_name → $target (broken link)"
@@ -276,7 +278,7 @@ tsm_list_available() {
             done < "$service_file"
 
             # Check if service is running
-            local process_file="$TETRA_DIR/tsm/runtime/processes/${service_name}.meta"
+            local process_file="$TSM_PROCESSES_DIR/${service_name}.meta"
             if [[ -f "$process_file" ]]; then
                 pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
 

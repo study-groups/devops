@@ -81,7 +81,7 @@ tetra_tsm_env() {
     local name
     name=$(tetra_tsm_id_to_name "$resolved_id")
     
-    local env_file="$TETRA_DIR/tsm/runtime/processes/$name.env"
+    local env_file="$TSM_PROCESSES_DIR/$name.env"
     if [[ -f "$env_file" ]]; then
         cat "$env_file" | sort
     else
@@ -105,11 +105,11 @@ tetra_tsm_paths() {
     name=$(tetra_tsm_id_to_name "$resolved_id")
 
     echo "Paths for process '$name' (ID: $resolved_id):"
-    echo "  meta: $TETRA_DIR/tsm/runtime/processes/$name.meta"
-    echo "  pid:  $TETRA_DIR/tsm/runtime/pids/$name.pid"
-    echo "  env:  $TETRA_DIR/tsm/runtime/processes/$name.env"
-    echo "  out:  $TETRA_DIR/tsm/runtime/logs/$name.out"
-    echo "  err:  $TETRA_DIR/tsm/runtime/logs/$name.err"
+    echo "  meta: $TSM_PROCESSES_DIR/$name.meta"
+    echo "  pid:  $TSM_PIDS_DIR/$name.pid"
+    echo "  env:  $TSM_PROCESSES_DIR/$name.env"
+    echo "  out:  $TSM_LOGS_DIR/$name.out"
+    echo "  err:  $TSM_LOGS_DIR/$name.err"
 }
 
 tetra_tsm_logs() {
@@ -152,7 +152,7 @@ tetra_tsm_logs() {
 
     if [[ "$pattern" == "*" ]]; then
         # Show logs for all processes
-        for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+        for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
             [[ -f "$metafile" ]] || continue
             local tsm_id=""
             eval "$(cat "$metafile")"
@@ -189,12 +189,12 @@ tetra_tsm_logs_single() {
     local lines="${2:-50}"
     local follow="${3:-false}"
     
-    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    local metafile="$TSM_PROCESSES_DIR/$name.meta"
     [[ -f "$metafile" ]] || { echo "tsm: process '$name' not found" >&2; return 1; }
     
     # All processes use standard TSM log structure
-    local outlog="$TETRA_DIR/tsm/runtime/logs/$name.out"
-    local errlog="$TETRA_DIR/tsm/runtime/logs/$name.err"
+    local outlog="$TSM_LOGS_DIR/$name.out"
+    local errlog="$TSM_LOGS_DIR/$name.err"
     
     if [[ "$follow" == "true" ]]; then
         # Follow logs in real-time
@@ -289,7 +289,7 @@ tetra_tsm_scan_ports() {
 
 
 tetra_tsm_ports() {
-    for metafile in "$TETRA_DIR/tsm/runtime/processes"/*.meta; do
+    for metafile in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$metafile" ]] || continue
         
         local name=$(basename "$metafile" .meta)
@@ -319,7 +319,7 @@ tetra_tsm_info() {
     name=$(tetra_tsm_id_to_name "$resolved_id")
 
     # --- Gather all data ---
-    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    local metafile="$TSM_PROCESSES_DIR/$name.meta"
     local pid port start_time script tsm_id
     eval "$(cat "$metafile")"
 
@@ -372,7 +372,7 @@ tetra_tsm_info() {
     printf "%12s: %s\n" "Script" "$script"
 
     # Show which env file was loaded (if any)
-    local env_file="$TETRA_DIR/tsm/runtime/processes/$name.env"
+    local env_file="$TSM_PROCESSES_DIR/$name.env"
     if [[ -f "$env_file" ]]; then
         # Try to determine the original env file from the script path
         local original_env_file=""
@@ -399,11 +399,11 @@ tetra_tsm_info() {
     
     echo ""
     echo "───────── Paths ─────────"
-    printf "%12s: %s\n" "Meta" "$TETRA_DIR/tsm/runtime/processes/$name.meta"
-    printf "%12s: %s\n" "PID File" "$TETRA_DIR/tsm/pids/$name.pid"
-    printf "%12s: %s\n" "Env" "$TETRA_DIR/tsm/runtime/processes/$name.env"
-    printf "%12s: %s\n" "Out Log" "$TETRA_DIR/tsm/logs/$name.out"
-    printf "%12s: %s\n" "Err Log" "$TETRA_DIR/tsm/logs/$name.err"
+    printf "%12s: %s\n" "Meta" "$TSM_PROCESSES_DIR/$name.meta"
+    printf "%12s: %s\n" "PID File" "$TSM_PIDS_DIR/$name.pid"
+    printf "%12s: %s\n" "Env" "$TSM_PROCESSES_DIR/$name.env"
+    printf "%12s: %s\n" "Out Log" "$TSM_LOGS_DIR/$name.out"
+    printf "%12s: %s\n" "Err Log" "$TSM_LOGS_DIR/$name.err"
     
     if [[ -n "$port" && "$port" != "-" ]]; then
         echo ""

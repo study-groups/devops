@@ -12,8 +12,8 @@ _tsm_start_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TETRA_DIR/tsm/runtime/logs"
-    local piddir="$TETRA_DIR/tsm/runtime/pids"
+    local logdir="$TSM_LOGS_DIR"
+    local piddir="$TSM_PIDS_DIR"
 
     local setsid_cmd
     setsid_cmd=$(tetra_tsm_get_setsid) || {
@@ -45,8 +45,8 @@ _tsm_start_command_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TETRA_DIR/tsm/runtime/logs"
-    local piddir="$TETRA_DIR/tsm/runtime/pids"
+    local logdir="$TSM_LOGS_DIR"
+    local piddir="$TSM_PIDS_DIR"
 
     local setsid_cmd
     setsid_cmd=$(tetra_tsm_get_setsid) || {
@@ -110,8 +110,8 @@ tetra_tsm_start_python() {
         return 1
     }
 
-    local logdir="$TETRA_DIR/tsm/runtime/logs"
-    local piddir="$TETRA_DIR/tsm/runtime/pids"
+    local logdir="$TSM_LOGS_DIR"
+    local piddir="$TSM_PIDS_DIR"
 
     (
         $setsid_cmd bash -c "
@@ -165,7 +165,7 @@ tetra_tsm_start_webserver() {
 tetra_tsm_stop_single() {
     local name="$1"
     local force="${2:-false}"
-    local pidfile="$TETRA_DIR/tsm/runtime/pids/$name.pid"
+    local pidfile="$TSM_PIDS_DIR/$name.pid"
 
     tetra_tsm_is_running "$name" || {
         echo "tsm: process '$name' not running"
@@ -249,11 +249,11 @@ tetra_tsm_delete_single() {
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
 
     # Remove all associated files
-    rm -f "$TETRA_DIR/tsm/runtime/pids/$name.pid"
-    rm -f "$TETRA_DIR/tsm/runtime/logs/$name.out"
-    rm -f "$TETRA_DIR/tsm/runtime/logs/$name.err"
-    rm -f "$TETRA_DIR/tsm/runtime/processes/$name.meta"
-    rm -f "$TETRA_DIR/tsm/runtime/processes/$name.env"
+    rm -f "$TSM_PIDS_DIR/$name.pid"
+    rm -f "$TSM_LOGS_DIR/$name.out"
+    rm -f "$TSM_LOGS_DIR/$name.err"
+    rm -f "$TSM_PROCESSES_DIR/$name.meta"
+    rm -f "$TSM_PROCESSES_DIR/$name.env"
 
     echo "tsm: deleted '$name'"
 }
@@ -276,7 +276,7 @@ tetra_tsm_restart_single() {
     local name="$1"
 
     # Get metadata before stopping
-    local metafile="$TETRA_DIR/tsm/runtime/processes/$name.meta"
+    local metafile="$TSM_PROCESSES_DIR/$name.meta"
     if [[ ! -f "$metafile" ]]; then
         echo "tsm: process '$name' not found" >&2
         return 1
@@ -324,8 +324,8 @@ _tsm_restart_unified() {
                 return 1
             }
 
-            local logdir="$TETRA_DIR/tsm/runtime/logs"
-            local piddir="$TETRA_DIR/tsm/runtime/pids"
+            local logdir="$TSM_LOGS_DIR"
+            local piddir="$TSM_PIDS_DIR"
 
             (
                 $setsid_cmd bash -c "
@@ -365,7 +365,7 @@ _tsm_restart_unified() {
             }
 
             local pid
-            pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
+            pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
             local tsm_id
             tsm_id=$(_tsm_save_metadata "$name" "$script_path" "$pid" "$port" "cli" "" "$cwd" "$preserve_id" "true")
@@ -379,7 +379,7 @@ _tsm_restart_unified() {
             }
 
             local pid
-            pid=$(cat "$TETRA_DIR/tsm/runtime/pids/$name.pid")
+            pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
             local tsm_id
             tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "command" "" "$cwd" "$preserve_id" "true")

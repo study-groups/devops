@@ -1,7 +1,98 @@
 #!/usr/bin/env bash
 
-# TSM Service Management - Save and Enable Services
-# nginx-style service enable/disable with symlinks
+# TSM Service Handler
+# Handles service lifecycle operations: save, enable, disable, rm, show
+# Implements TSM handler interface
+
+# Source base handler interface
+source "$(dirname "${BASH_SOURCE[0]}")/base_handler.sh"
+
+# Handler implementation - check if we can execute this action
+handler_can_execute() {
+    local verb="$1"
+    local noun="$2"
+
+    case "$verb" in
+        save|enable|disable|rm|show|list-services)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Handler implementation - execute the action
+handler_execute() {
+    local verb="$1"
+    local noun="$2"
+    local env="${3:-}"
+    local mode="${4:-}"
+    shift 4
+    local args=("$@")
+
+    case "$verb" in
+        save)
+            tetra_tsm_save "$noun" "${args[@]}"
+            ;;
+        enable)
+            tetra_tsm_enable "$noun"
+            ;;
+        disable)
+            tetra_tsm_disable "$noun"
+            ;;
+        rm)
+            tetra_tsm_rm "$noun"
+            ;;
+        show)
+            tetra_tsm_show_service "$noun"
+            ;;
+        list-services)
+            tetra_tsm_list_services "${args[@]}"
+            ;;
+        *)
+            echo "ERROR: Unsupported service action: $verb" >&2
+            return 1
+            ;;
+    esac
+}
+
+# Handler implementation - describe what this action does
+handler_describe() {
+    local verb="$1"
+    local noun="$2"
+
+    case "$verb" in
+        save)
+            echo "Save current command or process as a service definition"
+            ;;
+        enable)
+            echo "Enable service for automatic startup"
+            ;;
+        disable)
+            echo "Disable service from automatic startup"
+            ;;
+        rm)
+            echo "Remove service definition and disable if enabled"
+            ;;
+        show)
+            echo "Show detailed service configuration"
+            ;;
+        list-services)
+            echo "List all available service definitions"
+            ;;
+        *)
+            echo "Unknown service action: $verb"
+            ;;
+    esac
+}
+
+# Handler implementation - get supported verbs
+handler_get_verbs() {
+    echo "save enable disable rm show list-services"
+}
+
+# === SERVICE OPERATIONS ===
 
 # Save current TSM command as a service definition
 tetra_tsm_save() {
@@ -30,6 +121,17 @@ tetra_tsm_save() {
 
     local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
+    # Check if service exists and ask for confirmation to overwrite
+    if [[ -f "$service_file" ]]; then
+        echo "⚠️  Service '$service_name' already exists."
+        read -p "Overwrite existing service? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled. Service not saved."
+            return 0
+        fi
+    fi
+
     # Get current working directory and environment
     local cwd="$(pwd)"
     local env_file="${TSM_ENV_FILE:-}"
@@ -49,7 +151,11 @@ EOF
 
     chmod +x "$service_file"
 
-    echo "✅ Saved service definition: $service_file"
+    if [[ -f "$service_file.old" ]]; then
+        echo "✅ Updated service definition: $service_file"
+    else
+        echo "✅ Saved service definition: $service_file"
+    fi
     echo "Enable with: tsm enable $service_name"
     echo "Start with: tsm start $service_name"
 }
@@ -92,6 +198,17 @@ _tsm_save_from_process() {
     mkdir -p "$TETRA_DIR/tsm/services-available"
     local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
+    # Check for overwrite
+    if [[ -f "$service_file" ]]; then
+        echo "⚠️  Service '$service_name' already exists."
+        read -p "Overwrite existing service? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled. Service not saved."
+            return 0
+        fi
+    fi
+
     cat > "$service_file" <<EOF
 #!/usr/bin/env bash
 # TSM Service: $service_name
@@ -108,120 +225,6 @@ EOF
 
     echo "✅ Saved running process '$process_name' as service: $service_file"
     echo "Enable with: tsm enable $service_name"
-}
-
-# Start all enabled services
-tetra_tsm_startup() {
-    local enabled_dir="$TETRA_DIR/tsm/services-enabled"
-
-    if [[ ! -d "$enabled_dir" ]]; then
-        echo "No enabled services directory found"
-        return 0
-    fi
-
-    echo "🚀 Starting enabled services..."
-
-    local started_count=0
-    local failed_count=0
-
-    for service_link in "$enabled_dir"/*.tsm; do
-        [[ -L "$service_link" ]] || continue
-
-        local service_name=$(basename "$service_link" .tsm)
-        echo "Starting $service_name..."
-
-        if tetra_tsm_start_service "$service_name"; then
-            ((started_count++))
-        else
-            ((failed_count++))
-            echo "❌ Failed to start $service_name"
-        fi
-    done
-
-    echo "✅ Startup complete: $started_count started, $failed_count failed"
-
-    # Log to startup.log
-    echo "$(date): Started $started_count services, $failed_count failed" >> "$TETRA_DIR/tsm/startup.log"
-}
-
-# Start a service by name
-tetra_tsm_start_service() {
-    local service_name="$1"
-    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
-
-    if [[ ! -f "$service_file" ]]; then
-        echo "❌ Service not found: $service_name"
-        return 1
-    fi
-
-    # Source service definition
-    source "$service_file"
-
-    # Extract port from service file or environment file
-    local port="$TSM_PORT"
-
-    # If no port in service file, try environment file
-    if [[ -z "$port" && -n "$TSM_ENV_FILE" && -f "$TSM_CWD/$TSM_ENV_FILE" ]]; then
-        port=$(cd "$TSM_CWD" && source "$TSM_ENV_FILE" && echo "$PORT")
-    fi
-
-    # If still no port, use a default or skip port validation
-    if [[ -z "$port" ]]; then
-        echo "⚠️  No port specified for service $service_name, starting without port binding"
-        port="auto"
-    fi
-
-    # Generate process name
-    local process_name="${TSM_NAME}-${port}"
-
-    # Check if already running
-    if tetra_tsm_is_running "$process_name"; then
-        echo "⚠️  Service already running: $process_name"
-        return 0
-    fi
-
-    # Start the service using TSM command mode
-    if [[ "$port" == "auto" ]]; then
-        echo "Starting $service_name..."
-    else
-        echo "Starting $service_name on port $port..."
-    fi
-
-    # Change to service directory and start
-    (
-        cd "$TSM_CWD"
-        if [[ -n "$TSM_ENV_FILE" ]]; then
-            source "$TSM_ENV_FILE"
-        fi
-
-        # Set port environment variable if specified
-        if [[ "$port" != "auto" ]]; then
-            export PORT="$port"
-            export TSM_PORT="$port"
-        fi
-
-        # Use TSM command mode to start
-        if [[ "$port" == "auto" ]]; then
-            tsm start --name "$TSM_NAME" $TSM_COMMAND
-        else
-            tsm start --port "$port" --name "$TSM_NAME" $TSM_COMMAND
-        fi
-    )
-
-    # Validate port is open (only if port is specified)
-    if [[ "$port" != "auto" ]]; then
-        sleep 2
-        if lsof -i ":$port" -t >/dev/null 2>&1; then
-            echo "✅ $process_name listening on port $port"
-            return 0
-        else
-            echo "❌ $process_name failed to open port $port"
-            return 1
-        fi
-    else
-        echo "✅ $process_name started"
-        return 0
-    fi
 }
 
 # Enable service (create symlink to enabled directory)
@@ -277,6 +280,38 @@ tetra_tsm_disable() {
     rm "$enabled_link"
     echo "✅ Disabled service: $service_name"
     echo "Service will not start automatically"
+}
+
+# Remove service (delete from services-available and disable if enabled)
+tetra_tsm_rm() {
+    local service_name="$1"
+
+    if [[ -z "$service_name" ]]; then
+        echo "Usage: tsm rm <service-name>"
+        return 1
+    fi
+
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
+    local enabled_link="$TETRA_DIR/tsm/services-enabled/${service_name}.tsm"
+
+    # Check if service exists
+    if [[ ! -f "$service_file" ]]; then
+        echo "❌ Service not found: $service_name"
+        echo "Available services:"
+        tetra_tsm_list_services
+        return 1
+    fi
+
+    # Disable service if enabled
+    if [[ -L "$enabled_link" ]]; then
+        echo "🔄 Disabling service first..."
+        tetra_tsm_disable "$service_name"
+    fi
+
+    # Remove service definition
+    rm -f "$service_file"
+    echo "✅ Removed service: $service_name"
+    echo "Service definition deleted from $service_file"
 }
 
 # List available services
@@ -380,9 +415,8 @@ tetra_tsm_show_service() {
 # Export all service functions
 export -f tetra_tsm_save
 export -f _tsm_save_from_process
-export -f tetra_tsm_startup
-export -f tetra_tsm_start_service
 export -f tetra_tsm_enable
 export -f tetra_tsm_disable
+export -f tetra_tsm_rm
 export -f tetra_tsm_list_services
 export -f tetra_tsm_show_service
