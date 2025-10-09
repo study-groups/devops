@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { PathManager } from './utils/PathManager.js';
+import { sanitizePath } from './utils/pathSecurity.js';
 
 class FileManager {
     constructor(config = {}, userManager, capabilityManager, authSrv) {
@@ -10,6 +11,7 @@ class FileManager {
         this.userManager = userManager;
         this.capabilityManager = capabilityManager;
         this.authSrv = authSrv;
+        this.audit = config.audit; // Inject audit logger
 
         this.pathManager = new PathManager({
             dataRoot: this.dataRoot,
@@ -92,6 +94,7 @@ class FileManager {
             }
 
             if (!this.authSrv.tokenHasCap(subject, 'list', capabilityPath)) {
+                await this.audit?.capability(username, 'list', relativePath, false);
                 throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
             }
         } else {
@@ -101,13 +104,17 @@ class FileManager {
             }
 
             absolutePathToList = await this.pathManager.resolvePathForUser(username, relativePath);
-            
+
             if (!await this.pathManager.can(username, 'list', absolutePathToList)) {
+                await this.audit?.capability(username, 'list', relativePath, false);
                 throw new Error(`Permission denied to list directory '${relativePath || '/'}'.`);
             }
         }
-        
+
         if (!await fs.pathExists(absolutePathToList)) {
+            await this.audit?.file('list', username, relativePath, false, {
+                reason: 'not_found'
+            });
             return { dirs: [], files: [], message: `Directory '${relativePath || '/'}' does not exist.`, exists: false };
         }
 
@@ -138,10 +145,7 @@ class FileManager {
 
             if (isToken) {
                 const entryRelativePath = path.join(relativePath, entry.name);
-                console.log(`[FileManager] Checking capability: user='${subject.username}', action='${checkAction}', path='${entryRelativePath}', entry='${entry.name}'`);
-                console.log(`[FileManager] User capabilities:`, subject.caps);
                 const hasCapability = this.authSrv.tokenHasCap(subject, checkAction, entryRelativePath);
-                console.log(`[FileManager] Capability check result: ${hasCapability}`);
                 if (hasCapability) {
                     if (isDirectory) dirs.push(entry.name);
                     else if (isFile) files.push(entry.name);
@@ -153,6 +157,12 @@ class FileManager {
                 }
             }
         }
+
+        await this.audit?.file('list', username, relativePath, true, {
+            dirCount: dirs.length,
+            fileCount: files.length
+        });
+
         return { dirs: dirs.sort(), files: files.sort(), exists: true };
     }
 
@@ -161,17 +171,35 @@ class FileManager {
         const username = isToken ? subject.username : subject;
         if (!relativePath) throw new Error("File path is required.");
 
+        // Sanitize input path
+        const sanitized = sanitizePath(relativePath);
+
         // Resolve path using PathManager
-        const absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
-        
+        const absolutePath = await this.pathManager.resolvePathForUser(username, sanitized);
+
         try {
-            // fs.readFile automatically follows symlinks, so we don't need special handling
+            // Check if it's a symlink
+            const stats = await fs.lstat(absolutePath);
+            const isSymlink = stats.isSymbolicLink();
+
+            if (isSymlink) {
+                const linkTarget = await fs.readlink(absolutePath);
+                await this.audit?.symlink('followed', username, relativePath, linkTarget, true);
+            }
+
+            // fs.readFile automatically follows symlinks
             const content = await fs.readFile(absolutePath, 'utf8');
-            
-            console.log(`[FileManager] File read: User: ${username}, Path: ${absolutePath}`);
+
+            await this.audit?.file('read', username, relativePath, true, {
+                size: content.length,
+                isSymlink
+            });
+
             return content;
         } catch (error) {
-            console.warn(`[FileManager] File read error: ${error.message}`);
+            await this.audit?.file('read', username, relativePath, false, {
+                error: error.message
+            });
             throw error;
         }
     }
@@ -182,20 +210,44 @@ class FileManager {
         if (!relativePath) throw new Error("File path is required.");
         if (content === undefined) throw new Error("Content is required for writeFile.");
 
+        // Sanitize input path
+        const sanitized = sanitizePath(relativePath);
+
         // Resolve path using PathManager
-        const absoluteFilePath = await this.pathManager.resolvePathForUser(username, relativePath);
-        
+        const absoluteFilePath = await this.pathManager.resolvePathForUser(username, sanitized);
+
         try {
+            // Check if file exists and is symlink
+            const exists = await fs.pathExists(absoluteFilePath);
+            let isSymlink = false;
+
+            if (exists) {
+                const stats = await fs.lstat(absoluteFilePath);
+                isSymlink = stats.isSymbolicLink();
+
+                if (isSymlink) {
+                    const linkTarget = await fs.readlink(absoluteFilePath);
+                    await this.audit?.symlink('followed', username, relativePath, linkTarget, true);
+                }
+            }
+
             // Ensure directory exists
             await fs.ensureDir(path.dirname(absoluteFilePath));
-            
-            // fs.writeFile automatically follows symlinks, so we don't need special handling
+
+            // fs.writeFile automatically follows symlinks
             await fs.writeFile(absoluteFilePath, content, 'utf8');
-            
-            console.log(`[FileManager] File written: User: ${username}, Path: ${absoluteFilePath}`);
+
+            await this.audit?.file('write', username, relativePath, true, {
+                size: content.length,
+                isSymlink,
+                created: !exists
+            });
+
             return true;
         } catch (error) {
-            console.warn(`[FileManager] File write error: ${error.message}`);
+            await this.audit?.file('write', username, relativePath, false, {
+                error: error.message
+            });
             throw error;
         }
     }
@@ -236,6 +288,7 @@ class FileManager {
             }
 
             if (!this.authSrv.tokenHasCap(subject, 'delete', capabilityPath)) {
+                await this.audit?.capability(username, 'delete', relativePath, false);
                 throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
             }
         } else {
@@ -243,12 +296,32 @@ class FileManager {
             absolutePath = await this.pathManager.resolvePathForUser(username, relativePath);
 
             if (!await this.pathManager.can(username, 'delete', absolutePath)) {
+                await this.audit?.capability(username, 'delete', relativePath, false);
                 throw new Error(`Permission denied to delete file or link '${relativePath}'.`);
             }
         }
-        
-        await fs.remove(absolutePath);
-        return true;
+
+        try {
+            // Check if it's a symlink before deleting
+            const stats = await fs.lstat(absolutePath);
+            const isSymlink = stats.isSymbolicLink();
+
+            if (isSymlink) {
+                const linkTarget = await fs.readlink(absolutePath);
+                await this.audit?.symlink('deleted', username, relativePath, linkTarget, true);
+            }
+
+            await fs.remove(absolutePath);
+
+            await this.audit?.file('delete', username, relativePath, true, { isSymlink });
+
+            return true;
+        } catch (error) {
+            await this.audit?.file('delete', username, relativePath, false, {
+                error: error.message
+            });
+            throw error;
+        }
     }
 
     async handleUpload(file) {
@@ -260,15 +333,14 @@ class FileManager {
 
     async createSymlink(username, relativePath, targetPath) {
         if (!relativePath || !targetPath) throw new Error("Source and target paths are required.");
-        
-        // Validate input paths
-        if (relativePath.includes('..') || targetPath.includes('..')) {
-            throw new Error("Path traversal is not allowed.");
-        }
+
+        // Sanitize both paths
+        const sanitizedSource = sanitizePath(relativePath);
+        const sanitizedTarget = sanitizePath(targetPath);
 
         // Resolve absolute paths
-        const absoluteSymlinkPath = await this.pathManager.resolvePathForUser(username, relativePath);
-        const absoluteTargetPath = await this.pathManager.resolvePathForUser(username, targetPath);
+        const absoluteSymlinkPath = await this.pathManager.resolvePathForUser(username, sanitizedSource);
+        const absoluteTargetPath = await this.pathManager.resolvePathForUser(username, sanitizedTarget);
         
         // Create relative symlink for better portability
         const symlinkDir = path.dirname(absoluteSymlinkPath);
@@ -290,11 +362,17 @@ class FileManager {
 
             // Create new symlink
             await fs.symlink(relativeTargetPath, absoluteSymlinkPath, 'file');
-            
-            console.log(`[FileManager] Symlink created: User: ${username}, Symlink: ${absoluteSymlinkPath}, Target: ${absoluteTargetPath}`);
+
+            await this.audit?.symlink('created', username, sanitizedSource, sanitizedTarget, true, {
+                absoluteSymlink: absoluteSymlinkPath,
+                absoluteTarget: absoluteTargetPath
+            });
+
             return true;
         } catch (error) {
-            console.warn(`[FileManager] Symlink creation error: ${error.message}`);
+            await this.audit?.symlink('created', username, sanitizedSource, sanitizedTarget, false, {
+                error: error.message
+            });
             throw error;
         }
     }

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetra Demo 010 - Code Analysis Dashboard</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>Tetra Demo 010 Dashboard</h1>
+                <p>Interactive code analysis and module exploration</p>
+                <div class="header-stats" id="headerStats">
+                    <span class="stat-item">Loading...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="dashboard-nav">
+            <div class="nav-content">
+                <button class="nav-btn active" data-view="summary" onclick="switchView('summary')">
+                    📊 Summary
+                </button>
+                <button class="nav-btn" data-view="modules" onclick="switchView('modules')">
+                    📦 Modules
+                </button>
+                <button class="nav-btn" data-view="tests" onclick="switchView('tests')">
+                    🧪 Tests
+                </button>
+                <button class="nav-btn" data-view="architecture" onclick="switchView('architecture')">
+                    🏗️ Architecture
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
+            <div class="iframe-container">
+                <iframe
+                    id="contentFrame"
+                    src="iframes/summary.iframe.html"
+                    frameborder="0"
+                    title="Dashboard Content">
+                </iframe>
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-section">
+                <h3>Quick Stats</h3>
+                <div class="stats-grid" id="quickStats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalModules">-</div>
+                        <div class="stat-label">Total Modules</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalFunctions">-</div>
+                        <div class="stat-label">Functions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="coreModules">-</div>
+                        <div class="stat-label">Core Modules</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="testModules">-</div>
+                        <div class="stat-label">Test Modules</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Module Types</h3>
+                <div class="module-types" id="moduleTypes">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Code Quality</h3>
+                <div class="quality-metrics" id="qualityMetrics">
+                    <div class="metric-item">
+                        <span class="metric-label">Test Coverage</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 75%"></div>
+                        </div>
+                        <span class="metric-value">75%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Documentation</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 60%"></div>
+                        </div>
+                        <span class="metric-value">60%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Complexity</span>
+                        <div class="metric-bar complexity">
+                            <div class="metric-fill" style="width: 45%"></div>
+                        </div>
+                        <span class="metric-value">Low</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Recent Activity</h3>
+                <div class="activity-log" id="activityLog">
+                    <div class="activity-item">
+                        <span class="activity-time">10:38</span>
+                        <span class="activity-desc">AST analysis completed</span>
+                    </div>
+                    <div class="activity-item">
+                        <span class="activity-time">10:35</span>
+                        <span class="activity-desc">Web framework refactored</span>
+                    </div>
+                    <div class="activity-item">
+                        <span class="activity-time">10:26</span>
+                        <span class="activity-desc">Framework module created</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="footer-content">
+                <span>Tetra Demo 010 Analysis Dashboard</span>
+                <span>Generated: <span id="generatedTime">Loading...</span></span>
+                <span>Framework: <span id="frameworkVersion">1.0.0</span></span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

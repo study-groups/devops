@@ -15,6 +15,15 @@ nh_repl() {
         nh_repl_context "$context"
     fi
 
+    # Auto-load environment variables
+    if [[ -n "$DIGITALOCEAN_CONTEXT" ]] && declare -f nh_load_env_vars >/dev/null; then
+        echo "Loading environment variables from digocean.json..."
+        nh_load_env_vars
+        local var_count=$(env | grep -E '^(do[0-9]|nodeholder|ghost)' | wc -l | tr -d ' ')
+        echo "Loaded $var_count server variables"
+        echo ""
+    fi
+
     while true; do
         printf "nh> "
         read -r cmd args
@@ -136,27 +145,24 @@ nh_repl_servers() {
     fi
 
     echo "Servers in context '$DIGITALOCEAN_CONTEXT':"
-    printf "%-8s %-16s %-8s %-6s %-6s %s\n" "Shortcut" "Public IP" "Private" "Memory" "Region" "Tags"
-    echo "------------------------------------------------------------------------"
+    printf "%-20s %-16s %-15s %-8s %-8s %s\n" "Name" "Public IP" "Private IP" "Memory" "Region" "Tags"
+    echo "--------------------------------------------------------------------------------------------"
 
-    # Parse servers and show with shortcuts
+    # Parse servers and show with environment variable names
     jq -r '.[] | select(.Droplets) | .Droplets[] |
-        [.name, (.networks.v4[] | select(.type=="public") | .ip_address),
-         (.networks.v4[] | select(.type=="private") | .ip_address // "none"),
-         (.memory/1024|tostring+"GB"), .region.slug, (.tags | join(","))] | @tsv' \
-        "$json_file" 2>/dev/null | while IFS=$'\t' read name public private memory region tags; do
+        [.name,
+         (.networks.v4[] | select(.type=="public") | .ip_address),
+         ((.networks.v4[] | select(.type=="private") | .ip_address) // "none"),
+         (.memory/1024|tostring+"GB"),
+         .region.slug,
+         (if .tags then (.tags | join(",")) else "" end)] | @tsv' \
+        "$json_file" 2>/dev/null | while IFS=$'\t' read -r name public private memory region tags; do
 
-        # Generate shortcut from name
-        local shortcut=""
-        if [[ "$name" =~ ^pxjam ]]; then
-            shortcut=$(echo "$name" | sed 's/pxjam[_-]arcade[_-]//' |
-                      sed 's/\([a-z]\)[a-z]*/\1/g' |
-                      sed 's/[0-9]*$//')
-            shortcut="pa$shortcut"
-        fi
+        # Convert name to env var format (dashes to underscores)
+        local varname=$(echo "$name" | tr '-' '_')
 
-        printf "%-8s %-16s %-8s %-6s %-6s %s\n" \
-               "${shortcut:-n/a}" "$public" "${private:0:8}" "$memory" "$region" "$tags"
+        printf "%-20s %-16s %-15s %-8s %-8s %s\n" \
+               "$varname" "$public" "$private" "$memory" "$region" "$tags"
     done
 }
 
@@ -209,12 +215,29 @@ nh_repl_show() {
 }
 
 nh_repl_vars() {
-    local filter="${1:-p}"
+    local filter="${1:-}"
 
     echo "Generated NH variables:"
-    env | grep "^${filter}[a-z]*=" | sort | while IFS='=' read var value; do
-        printf "export %-12s %s\n" "$var=$value"
-    done
+    echo ""
+
+    if [[ -n "$filter" ]]; then
+        env | grep "^${filter}" | sort | while IFS='=' read -r var value; do
+            printf "export %-25s = %s\n" "$var" "$value"
+        done
+    else
+        # Show all server-related variables (public, private, floating)
+        local vars=$(env | grep -E '^(do[0-9]|nodeholder|ghost)' | sort)
+
+        if [[ -z "$vars" ]]; then
+            echo "No variables loaded yet."
+            echo "Try running: refresh"
+            return
+        fi
+
+        echo "$vars" | while IFS='=' read -r var value; do
+            printf "export %-25s = %s\n" "$var" "$value"
+        done
+    fi
 }
 
 nh_repl_ssh() {
@@ -269,12 +292,8 @@ nh_repl_refresh() {
     if declare -f nh_load_env_vars >/dev/null; then
         nh_load_env_vars
         echo "Environment variables refreshed"
-    fi
-
-    # Regenerate short variables
-    if declare -f nh_make_short_vars >/dev/null; then
-        eval "$(nh_make_short_vars pxjam)"
-        echo "Short variables regenerated"
+    else
+        echo "Warning: nh_load_env_vars function not available"
     fi
 }
 
@@ -291,7 +310,8 @@ nh_repl_status() {
             echo "  Servers: ${server_count:-0}"
         fi
 
-        local var_count=$(env | grep '^p[a-z]*=' | wc -l)
+        # Count server-related variables
+        local var_count=$( { env | grep "^do[0-9]"; env | grep "^nodeholder"; env | grep "^ghost"; } 2>/dev/null | wc -l | tr -d ' ')
         echo "  Variables: $var_count"
     fi
 

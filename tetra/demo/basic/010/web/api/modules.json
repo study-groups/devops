@@ -1,0 +1,3813 @@
+{
+  "modules": {
+    "bash/app/app.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/app.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "log_action",
+          "line": 14,
+          "exported": false
+        },
+        {
+          "name": "get_current_modes",
+          "line": 103,
+          "exported": false
+        },
+        {
+          "name": "navigate_env_right",
+          "line": 119,
+          "exported": false
+        },
+        {
+          "name": "navigate_env_left",
+          "line": 128,
+          "exported": false
+        },
+        {
+          "name": "navigate_mode_right",
+          "line": 137,
+          "exported": false
+        },
+        {
+          "name": "navigate_mode_left",
+          "line": 146,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_right",
+          "line": 155,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_left",
+          "line": 165,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_up",
+          "line": 175,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_down",
+          "line": 179,
+          "exported": false
+        },
+        {
+          "name": "is_immediate_action",
+          "line": 184,
+          "exported": false
+        },
+        {
+          "name": "init_enhanced_tui",
+          "line": 195,
+          "exported": false
+        },
+        {
+          "name": "get_repl_prompt",
+          "line": 208,
+          "exported": false
+        },
+        {
+          "name": "execute_repl_command",
+          "line": 215,
+          "exported": false
+        },
+        {
+          "name": "get_actions",
+          "line": 305,
+          "exported": false
+        },
+        {
+          "name": "execute_current_action",
+          "line": 334,
+          "exported": false
+        },
+        {
+          "name": "execute_current_action_legacy",
+          "line": 359,
+          "exported": false
+        },
+        {
+          "name": "render_header",
+          "line": 376,
+          "exported": false
+        },
+        {
+          "name": "render_action_line_responsive",
+          "line": 381,
+          "exported": false
+        },
+        {
+          "name": "render_environment_line",
+          "line": 436,
+          "exported": false
+        },
+        {
+          "name": "render_mode_line",
+          "line": 447,
+          "exported": false
+        },
+        {
+          "name": "render_action_line",
+          "line": 459,
+          "exported": false
+        },
+        {
+          "name": "render_footer",
+          "line": 506,
+          "exported": false
+        },
+        {
+          "name": "clear_content",
+          "line": 511,
+          "exported": false
+        },
+        {
+          "name": "show_actions_view",
+          "line": 524,
+          "exported": false
+        },
+        {
+          "name": "show_palette_demonstration",
+          "line": 574,
+          "exported": false
+        },
+        {
+          "name": "show_info_view",
+          "line": 615,
+          "exported": false
+        },
+        {
+          "name": "show_action_catalog",
+          "line": 726,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 780,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "action_router",
+        "component_system",
+        "double_buffer",
+        "enhanced_signatures",
+        "game_input",
+        "nouns_verbs",
+        "output",
+        "repl",
+        "top_status",
+        "tui_init",
+        "typography",
+        "view_controllers"
+      ],
+      "lines":      805,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/action_display_fix.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/action_display_fix.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "render_action_line_responsive",
+          "line": 6,
+          "exported": false
+        },
+        {
+          "name": "refresh_color_state_cached",
+          "line": 67,
+          "exported": false
+        },
+        {
+          "name": "render_action_verb_noun",
+          "line": 68,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       83,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/app/input.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/input.sh",
+      "type": "component",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "navigate_env_right",
+          "line": 13,
+          "exported": false
+        },
+        {
+          "name": "navigate_env_left",
+          "line": 26,
+          "exported": false
+        },
+        {
+          "name": "navigate_mode_right",
+          "line": 39,
+          "exported": false
+        },
+        {
+          "name": "navigate_mode_left",
+          "line": 52,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_right",
+          "line": 65,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_left",
+          "line": 80,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_up",
+          "line": 95,
+          "exported": false
+        },
+        {
+          "name": "navigate_action_down",
+          "line": 115,
+          "exported": false
+        },
+        {
+          "name": "clear_ui_content",
+          "line": 136,
+          "exported": false
+        },
+        {
+          "name": "handle_input",
+          "line": 142,
+          "exported": false
+        },
+        {
+          "name": "handle_gamepad_input",
+          "line": 160,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_input",
+          "line": 306,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_tab_completion",
+          "line": 352,
+          "exported": false
+        },
+        {
+          "name": "switch_to_gamepad_mode",
+          "line": 408,
+          "exported": false
+        },
+        {
+          "name": "switch_to_repl_mode",
+          "line": 413,
+          "exported": false
+        },
+        {
+          "name": "validate_action_index",
+          "line": 420,
+          "exported": false
+        },
+        {
+          "name": "get_env_specific_info",
+          "line": 429,
+          "exported": false
+        },
+        {
+          "name": "show_action_info",
+          "line": 487,
+          "exported": false
+        },
+        {
+          "name": "show_help",
+          "line": 516,
+          "exported": false
+        },
+        {
+          "name": "show_action_catalog",
+          "line": 534,
+          "exported": false
+        },
+        {
+          "name": "show_test_diagnostics",
+          "line": 578,
+          "exported": false
+        },
+        {
+          "name": "show_function_signatures",
+          "line": 682,
+          "exported": false
+        },
+        {
+          "name": "get_input_mode_display",
+          "line": 769,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      774,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/input/game_input.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/input/game_input.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "input_action_navigate_env_right",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_env_left",
+          "line": 48,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_mode_right",
+          "line": 53,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_mode_left",
+          "line": 58,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_action_right",
+          "line": 63,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_action_left",
+          "line": 80,
+          "exported": false
+        },
+        {
+          "name": "input_action_switch_view",
+          "line": 97,
+          "exported": false
+        },
+        {
+          "name": "input_action_action_execute",
+          "line": 102,
+          "exported": false
+        },
+        {
+          "name": "input_action_action_clear",
+          "line": 109,
+          "exported": false
+        },
+        {
+          "name": "input_action_action_refresh",
+          "line": 114,
+          "exported": false
+        },
+        {
+          "name": "input_action_system_quit",
+          "line": 119,
+          "exported": false
+        },
+        {
+          "name": "input_action_system_help",
+          "line": 123,
+          "exported": false
+        },
+        {
+          "name": "input_action_show_action_catalog",
+          "line": 127,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_action_up",
+          "line": 132,
+          "exported": false
+        },
+        {
+          "name": "input_action_navigate_action_down",
+          "line": 137,
+          "exported": false
+        },
+        {
+          "name": "input_action_arrow_up",
+          "line": 142,
+          "exported": false
+        },
+        {
+          "name": "input_action_arrow_down",
+          "line": 155,
+          "exported": false
+        },
+        {
+          "name": "input_action_arrow_left",
+          "line": 168,
+          "exported": false
+        },
+        {
+          "name": "input_action_arrow_right",
+          "line": 181,
+          "exported": false
+        },
+        {
+          "name": "process_game_input",
+          "line": 195,
+          "exported": false
+        },
+        {
+          "name": "handle_unmapped_input",
+          "line": 243,
+          "exported": false
+        },
+        {
+          "name": "process_escape_sequence",
+          "line": 256,
+          "exported": false
+        },
+        {
+          "name": "run_game_input_loop",
+          "line": 283,
+          "exported": false
+        },
+        {
+          "name": "refresh_current_view",
+          "line": 319,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_history_up",
+          "line": 329,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_history_down",
+          "line": 338,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_cursor_left",
+          "line": 351,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_cursor_right",
+          "line": 358,
+          "exported": false
+        },
+        {
+          "name": "init_game_input_system",
+          "line": 366,
+          "exported": false
+        },
+        {
+          "name": "show_input_mappings",
+          "line": 375,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      393,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/output.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/output.sh",
+      "type": "component",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "init_terminal",
+          "line": 22,
+          "exported": false
+        },
+        {
+          "name": "show_cursor",
+          "line": 29,
+          "exported": false
+        },
+        {
+          "name": "hide_cursor",
+          "line": 34,
+          "exported": false
+        },
+        {
+          "name": "cleanup_terminal",
+          "line": 40,
+          "exported": false
+        },
+        {
+          "name": "get_terminal_regions",
+          "line": 46,
+          "exported": false
+        },
+        {
+          "name": "position_at_header",
+          "line": 75,
+          "exported": false
+        },
+        {
+          "name": "position_at_content",
+          "line": 76,
+          "exported": false
+        },
+        {
+          "name": "position_at_footer",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "position_at_cli",
+          "line": 78,
+          "exported": false
+        },
+        {
+          "name": "generate_header_buffer",
+          "line": 81,
+          "exported": false
+        },
+        {
+          "name": "generate_content_buffer",
+          "line": 108,
+          "exported": false
+        },
+        {
+          "name": "generate_footer_buffer",
+          "line": 148,
+          "exported": false
+        },
+        {
+          "name": "show_gamepad_display",
+          "line": 198,
+          "exported": false
+        },
+        {
+          "name": "apply_current_theme",
+          "line": 221,
+          "exported": false
+        },
+        {
+          "name": "update_gamepad_display",
+          "line": 230,
+          "exported": false
+        },
+        {
+          "name": "position_repl_input",
+          "line": 238,
+          "exported": false
+        },
+        {
+          "name": "update_content_region",
+          "line": 244,
+          "exported": false
+        },
+        {
+          "name": "update_footer_region",
+          "line": 254,
+          "exported": false
+        },
+        {
+          "name": "clear_repl_region",
+          "line": 265,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "separators"
+      ],
+      "lines":      268,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/components/component_system.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/components/component_system.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "component_mount",
+          "line": 18,
+          "exported": false
+        },
+        {
+          "name": "component_update",
+          "line": 35,
+          "exported": false
+        },
+        {
+          "name": "component_render",
+          "line": 60,
+          "exported": false
+        },
+        {
+          "name": "component_unmount",
+          "line": 82,
+          "exported": false
+        },
+        {
+          "name": "HeaderComponent_mount",
+          "line": 106,
+          "exported": false
+        },
+        {
+          "name": "HeaderComponent_update",
+          "line": 111,
+          "exported": false
+        },
+        {
+          "name": "HeaderComponent_render",
+          "line": 121,
+          "exported": false
+        },
+        {
+          "name": "HeaderComponent_unmount",
+          "line": 147,
+          "exported": false
+        },
+        {
+          "name": "ContentComponent_mount",
+          "line": 153,
+          "exported": false
+        },
+        {
+          "name": "ContentComponent_update",
+          "line": 158,
+          "exported": false
+        },
+        {
+          "name": "ContentComponent_render",
+          "line": 168,
+          "exported": false
+        },
+        {
+          "name": "ContentComponent_unmount",
+          "line": 192,
+          "exported": false
+        },
+        {
+          "name": "FooterComponent_mount",
+          "line": 200,
+          "exported": false
+        },
+        {
+          "name": "FooterComponent_update",
+          "line": 205,
+          "exported": false
+        },
+        {
+          "name": "FooterComponent_render",
+          "line": 213,
+          "exported": false
+        },
+        {
+          "name": "FooterComponent_unmount",
+          "line": 233,
+          "exported": false
+        },
+        {
+          "name": "ReplComponent_mount",
+          "line": 241,
+          "exported": false
+        },
+        {
+          "name": "ReplComponent_update",
+          "line": 246,
+          "exported": false
+        },
+        {
+          "name": "ReplComponent_render",
+          "line": 255,
+          "exported": false
+        },
+        {
+          "name": "ReplComponent_unmount",
+          "line": 281,
+          "exported": false
+        },
+        {
+          "name": "mount_default_components",
+          "line": 287,
+          "exported": false
+        },
+        {
+          "name": "update_all_components",
+          "line": 295,
+          "exported": false
+        },
+        {
+          "name": "render_all_components",
+          "line": 311,
+          "exported": false
+        },
+        {
+          "name": "mount_repl_component",
+          "line": 320,
+          "exported": false
+        },
+        {
+          "name": "unmount_repl_component",
+          "line": 327,
+          "exported": false
+        },
+        {
+          "name": "show_component_status",
+          "line": 334,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      341,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/app_original.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/app_original.sh",
+      "type": "component",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "log_action",
+          "line": 14,
+          "exported": false
+        },
+        {
+          "name": "get_actions",
+          "line": 105,
+          "exported": false
+        },
+        {
+          "name": "execute_current_action",
+          "line": 132,
+          "exported": false
+        },
+        {
+          "name": "render_header",
+          "line": 295,
+          "exported": false
+        },
+        {
+          "name": "render_environment_line",
+          "line": 300,
+          "exported": false
+        },
+        {
+          "name": "render_mode_line",
+          "line": 311,
+          "exported": false
+        },
+        {
+          "name": "render_action_line",
+          "line": 322,
+          "exported": false
+        },
+        {
+          "name": "render_footer",
+          "line": 377,
+          "exported": false
+        },
+        {
+          "name": "clear_content",
+          "line": 382,
+          "exported": false
+        },
+        {
+          "name": "set_content_mode",
+          "line": 393,
+          "exported": false
+        },
+        {
+          "name": "in_content_mode",
+          "line": 415,
+          "exported": false
+        },
+        {
+          "name": "refresh_content_display",
+          "line": 421,
+          "exported": false
+        },
+        {
+          "name": "show_actions_view",
+          "line": 440,
+          "exported": false
+        },
+        {
+          "name": "show_info_view",
+          "line": 490,
+          "exported": false
+        },
+        {
+          "name": "show_palette_demonstration",
+          "line": 536,
+          "exported": false
+        },
+        {
+          "name": "render_ui_components",
+          "line": 576,
+          "exported": false
+        },
+        {
+          "name": "run_standalone_repl",
+          "line": 590,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 835,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "enhanced_signatures",
+        "input",
+        "nouns_verbs",
+        "output",
+        "repl",
+        "top_status",
+        "tui_init",
+        "typography"
+      ],
+      "lines":      872,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/rendering/double_buffer.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/rendering/double_buffer.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "init_double_buffer",
+          "line": 25,
+          "exported": false
+        },
+        {
+          "name": "mark_component_dirty",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "mark_all_dirty",
+          "line": 51,
+          "exported": false
+        },
+        {
+          "name": "build_frame",
+          "line": 60,
+          "exported": false
+        },
+        {
+          "name": "build_header_component",
+          "line": 105,
+          "exported": false
+        },
+        {
+          "name": "build_content_component",
+          "line": 131,
+          "exported": false
+        },
+        {
+          "name": "build_footer_component",
+          "line": 162,
+          "exported": false
+        },
+        {
+          "name": "build_repl_component",
+          "line": 201,
+          "exported": false
+        },
+        {
+          "name": "present_frame",
+          "line": 225,
+          "exported": false
+        },
+        {
+          "name": "refresh_color_state_cached",
+          "line": 254,
+          "exported": false
+        },
+        {
+          "name": "clear_screen_optimized",
+          "line": 270,
+          "exported": false
+        },
+        {
+          "name": "handle_terminal_resize",
+          "line": 278,
+          "exported": false
+        },
+        {
+          "name": "show_render_stats",
+          "line": 285,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      297,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/repl.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/repl.sh",
+      "type": "component",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "is_web_server_running",
+          "line": 23,
+          "exported": false
+        },
+        {
+          "name": "start_web_server",
+          "line": 37,
+          "exported": false
+        },
+        {
+          "name": "stop_web_server",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "show_web_server_status",
+          "line": 100,
+          "exported": false
+        },
+        {
+          "name": "restart_web_server",
+          "line": 115,
+          "exported": false
+        },
+        {
+          "name": "open_web_dashboard",
+          "line": 124,
+          "exported": false
+        },
+        {
+          "name": "refresh_web_data",
+          "line": 142,
+          "exported": false
+        },
+        {
+          "name": "show_system_inspect",
+          "line": 154,
+          "exported": false
+        },
+        {
+          "name": "get_repl_prompt",
+          "line": 192,
+          "exported": false
+        },
+        {
+          "name": "show_repl_prompt",
+          "line": 206,
+          "exported": false
+        },
+        {
+          "name": "execute_repl_command",
+          "line": 223,
+          "exported": false
+        },
+        {
+          "name": "show_repl_help",
+          "line": 324,
+          "exported": false
+        },
+        {
+          "name": "show_actions_list",
+          "line": 364,
+          "exported": false
+        },
+        {
+          "name": "switch_environment",
+          "line": 375,
+          "exported": false
+        },
+        {
+          "name": "switch_mode",
+          "line": 396,
+          "exported": false
+        },
+        {
+          "name": "fire_action",
+          "line": 417,
+          "exported": false
+        },
+        {
+          "name": "truncate_input",
+          "line": 438,
+          "exported": false
+        },
+        {
+          "name": "handle_repl_char",
+          "line": 450,
+          "exported": false
+        },
+        {
+          "name": "run_repl_loop",
+          "line": 497,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "serve_dashboard"
+      ],
+      "lines":      786,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/controllers/view_controllers.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/controllers/view_controllers.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "register_view_controller",
+          "line": 22,
+          "exported": false
+        },
+        {
+          "name": "switch_view_mode",
+          "line": 31,
+          "exported": false
+        },
+        {
+          "name": "handle_view_input",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "handle_default_view_input",
+          "line": 92,
+          "exported": false
+        },
+        {
+          "name": "ActionsViewController_enter",
+          "line": 110,
+          "exported": false
+        },
+        {
+          "name": "ActionsViewController_update",
+          "line": 137,
+          "exported": false
+        },
+        {
+          "name": "ActionsViewController_exit",
+          "line": 155,
+          "exported": false
+        },
+        {
+          "name": "ActionsViewController_input",
+          "line": 160,
+          "exported": false
+        },
+        {
+          "name": "PaletteViewController_enter",
+          "line": 216,
+          "exported": false
+        },
+        {
+          "name": "PaletteViewController_update",
+          "line": 228,
+          "exported": false
+        },
+        {
+          "name": "PaletteViewController_exit",
+          "line": 233,
+          "exported": false
+        },
+        {
+          "name": "PaletteViewController_input",
+          "line": 238,
+          "exported": false
+        },
+        {
+          "name": "InfoViewController_enter",
+          "line": 255,
+          "exported": false
+        },
+        {
+          "name": "InfoViewController_update",
+          "line": 267,
+          "exported": false
+        },
+        {
+          "name": "InfoViewController_exit",
+          "line": 272,
+          "exported": false
+        },
+        {
+          "name": "InfoViewController_input",
+          "line": 277,
+          "exported": false
+        },
+        {
+          "name": "ReplViewController_enter",
+          "line": 292,
+          "exported": false
+        },
+        {
+          "name": "ReplViewController_update",
+          "line": 309,
+          "exported": false
+        },
+        {
+          "name": "ReplViewController_exit",
+          "line": 314,
+          "exported": false
+        },
+        {
+          "name": "ReplViewController_input",
+          "line": 323,
+          "exported": false
+        },
+        {
+          "name": "DebugViewController_enter",
+          "line": 339,
+          "exported": false
+        },
+        {
+          "name": "DebugViewController_update",
+          "line": 346,
+          "exported": false
+        },
+        {
+          "name": "DebugViewController_exit",
+          "line": 351,
+          "exported": false
+        },
+        {
+          "name": "DebugViewController_input",
+          "line": 356,
+          "exported": false
+        },
+        {
+          "name": "show_debug_view",
+          "line": 379,
+          "exported": false
+        },
+        {
+          "name": "show_debug_components",
+          "line": 410,
+          "exported": false
+        },
+        {
+          "name": "show_debug_rendering",
+          "line": 430,
+          "exported": false
+        },
+        {
+          "name": "show_debug_system",
+          "line": 454,
+          "exported": false
+        },
+        {
+          "name": "init_view_controllers",
+          "line": 480,
+          "exported": false
+        },
+        {
+          "name": "get_current_view_mode",
+          "line": 493,
+          "exported": false
+        },
+        {
+          "name": "in_view_mode",
+          "line": 498,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      500,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/handlers/handler_deps.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/handler_deps.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "refresh_color_state_cached",
+          "line": 11,
+          "exported": true
+        },
+        {
+          "name": "get_action_routing",
+          "line": 28,
+          "exported": true
+        },
+        {
+          "name": "render_action_verb_noun",
+          "line": 49,
+          "exported": true
+        },
+        {
+          "name": "render_response_type",
+          "line": 64,
+          "exported": true
+        },
+        {
+          "name": "generate_section_separator",
+          "line": 79,
+          "exported": true
+        },
+        {
+          "name": "get_action_description",
+          "line": 91,
+          "exported": true
+        },
+        {
+          "name": "get_current_modes",
+          "line": 122,
+          "exported": true
+        },
+        {
+          "name": "get_actions",
+          "line": 134,
+          "exported": true
+        },
+        {
+          "name": "get_env_nouns",
+          "line": 147,
+          "exported": true
+        },
+        {
+          "name": "get_mode_verbs",
+          "line": 164,
+          "exported": true
+        },
+        {
+          "name": "log_action",
+          "line": 184,
+          "exported": true
+        },
+        {
+          "name": "handler_log",
+          "line": 196,
+          "exported": true
+        },
+        {
+          "name": "set_handler_app_context",
+          "line": 211,
+          "exported": false
+        },
+        {
+          "name": "init_handler_dependencies",
+          "line": 225,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      229,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/handlers/configure_handler.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/configure_handler.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handler_can_execute",
+          "line": 9,
+          "exported": false
+        },
+        {
+          "name": "handler_execute",
+          "line": 19,
+          "exported": false
+        },
+        {
+          "name": "handler_describe",
+          "line": 124,
+          "exported": false
+        },
+        {
+          "name": "handler_get_input_spec",
+          "line": 140,
+          "exported": false
+        },
+        {
+          "name": "handler_get_output_spec",
+          "line": 145,
+          "exported": false
+        },
+        {
+          "name": "handler_get_execution_mode",
+          "line": 150,
+          "exported": false
+        },
+        {
+          "name": "handler_validate",
+          "line": 155,
+          "exported": false
+        },
+        {
+          "name": "handler_apply_config",
+          "line": 175,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      208,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/handlers/base_handler.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/base_handler.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handler_can_execute",
+          "line": 16,
+          "exported": false
+        },
+        {
+          "name": "handler_execute",
+          "line": 29,
+          "exported": false
+        },
+        {
+          "name": "handler_describe",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "handler_validate",
+          "line": 54,
+          "exported": false
+        },
+        {
+          "name": "handler_get_input_spec",
+          "line": 71,
+          "exported": false
+        },
+        {
+          "name": "handler_get_output_spec",
+          "line": 82,
+          "exported": false
+        },
+        {
+          "name": "handler_get_execution_mode",
+          "line": 93,
+          "exported": false
+        },
+        {
+          "name": "handler_cleanup",
+          "line": 109,
+          "exported": false
+        },
+        {
+          "name": "handler_get_metadata",
+          "line": 120,
+          "exported": false
+        },
+        {
+          "name": "handler_exec_with_capture",
+          "line": 141,
+          "exported": false
+        },
+        {
+          "name": "handler_format_for_tui",
+          "line": 164,
+          "exported": false
+        },
+        {
+          "name": "handler_check_env_compat",
+          "line": 177,
+          "exported": false
+        },
+        {
+          "name": "handler_log",
+          "line": 190,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      200,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/handlers/default_handler.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/default_handler.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handler_can_execute",
+          "line": 10,
+          "exported": false
+        },
+        {
+          "name": "handler_execute",
+          "line": 21,
+          "exported": false
+        },
+        {
+          "name": "handler_describe",
+          "line": 105,
+          "exported": false
+        },
+        {
+          "name": "handler_get_input_spec",
+          "line": 115,
+          "exported": false
+        },
+        {
+          "name": "handler_get_output_spec",
+          "line": 120,
+          "exported": false
+        },
+        {
+          "name": "handler_get_execution_mode",
+          "line": 125,
+          "exported": false
+        },
+        {
+          "name": "handler_validate",
+          "line": 139,
+          "exported": false
+        },
+        {
+          "name": "handler_suggest_specific_handler",
+          "line": 160,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      171,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/app/handlers/show_handler.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/show_handler.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handler_can_execute",
+          "line": 9,
+          "exported": false
+        },
+        {
+          "name": "handler_execute",
+          "line": 19,
+          "exported": false
+        },
+        {
+          "name": "handler_describe",
+          "line": 175,
+          "exported": false
+        },
+        {
+          "name": "handler_get_input_spec",
+          "line": 192,
+          "exported": false
+        },
+        {
+          "name": "handler_get_output_spec",
+          "line": 197,
+          "exported": false
+        },
+        {
+          "name": "handler_get_execution_mode",
+          "line": 202,
+          "exported": false
+        },
+        {
+          "name": "handler_validate",
+          "line": 207,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      223,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/handlers/test_handler.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/test_handler.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handler_can_execute",
+          "line": 9,
+          "exported": false
+        },
+        {
+          "name": "handler_execute",
+          "line": 19,
+          "exported": false
+        },
+        {
+          "name": "test_framework_status",
+          "line": 111,
+          "exported": false
+        },
+        {
+          "name": "test_components_status",
+          "line": 119,
+          "exported": false
+        },
+        {
+          "name": "test_action_routing_status",
+          "line": 130,
+          "exported": false
+        },
+        {
+          "name": "test_input_status",
+          "line": 138,
+          "exported": false
+        },
+        {
+          "name": "test_color_status",
+          "line": 146,
+          "exported": false
+        },
+        {
+          "name": "test_palette_loading",
+          "line": 154,
+          "exported": false
+        },
+        {
+          "name": "test_color_functions",
+          "line": 162,
+          "exported": false
+        },
+        {
+          "name": "test_theme_consistency",
+          "line": 171,
+          "exported": false
+        },
+        {
+          "name": "test_accessibility_compliance",
+          "line": 175,
+          "exported": false
+        },
+        {
+          "name": "test_keyboard_navigation",
+          "line": 179,
+          "exported": false
+        },
+        {
+          "name": "test_gamepad_input",
+          "line": 183,
+          "exported": false
+        },
+        {
+          "name": "test_event_processing",
+          "line": 187,
+          "exported": false
+        },
+        {
+          "name": "test_action_execution",
+          "line": 191,
+          "exported": false
+        },
+        {
+          "name": "test_rendering_system",
+          "line": 195,
+          "exported": false
+        },
+        {
+          "name": "test_component_lifecycle",
+          "line": 199,
+          "exported": false
+        },
+        {
+          "name": "test_buffer_management",
+          "line": 203,
+          "exported": false
+        },
+        {
+          "name": "test_terminal_compat",
+          "line": 207,
+          "exported": false
+        },
+        {
+          "name": "test_component_exists",
+          "line": 211,
+          "exported": false
+        },
+        {
+          "name": "test_functions_callable",
+          "line": 216,
+          "exported": false
+        },
+        {
+          "name": "test_syntax_check",
+          "line": 221,
+          "exported": false
+        },
+        {
+          "name": "run_color_system_tests",
+          "line": 226,
+          "exported": false
+        },
+        {
+          "name": "run_input_system_tests",
+          "line": 230,
+          "exported": false
+        },
+        {
+          "name": "run_tui_framework_tests",
+          "line": 234,
+          "exported": false
+        },
+        {
+          "name": "handler_describe",
+          "line": 239,
+          "exported": false
+        },
+        {
+          "name": "handler_get_input_spec",
+          "line": 255,
+          "exported": false
+        },
+        {
+          "name": "handler_get_output_spec",
+          "line": 260,
+          "exported": false
+        },
+        {
+          "name": "handler_get_execution_mode",
+          "line": 265,
+          "exported": false
+        },
+        {
+          "name": "handler_validate",
+          "line": 270,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      286,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/app/handlers/registry.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/handlers/registry.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "init_handler_registry",
+          "line": 16,
+          "exported": false
+        },
+        {
+          "name": "load_handler_config",
+          "line": 39,
+          "exported": false
+        },
+        {
+          "name": "discover_handlers",
+          "line": 57,
+          "exported": false
+        },
+        {
+          "name": "discover_handler_actions",
+          "line": 76,
+          "exported": false
+        },
+        {
+          "name": "register_default_handlers",
+          "line": 100,
+          "exported": false
+        },
+        {
+          "name": "find_handler",
+          "line": 122,
+          "exported": false
+        },
+        {
+          "name": "load_handler",
+          "line": 161,
+          "exported": false
+        },
+        {
+          "name": "execute_action_with_handler",
+          "line": 188,
+          "exported": false
+        },
+        {
+          "name": "get_action_description_from_handler",
+          "line": 246,
+          "exported": false
+        },
+        {
+          "name": "get_handler_metadata",
+          "line": 265,
+          "exported": false
+        },
+        {
+          "name": "list_handlers",
+          "line": 288,
+          "exported": false
+        },
+        {
+          "name": "reload_handlers",
+          "line": 297,
+          "exported": false
+        },
+        {
+          "name": "validate_handler",
+          "line": 303,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "base_handler"
+      ],
+      "lines":      325,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/app/action_router.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/app/action_router.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "execute_action_with_handlers",
+          "line": 12,
+          "exported": false
+        },
+        {
+          "name": "get_action_routing",
+          "line": 74,
+          "exported": false
+        },
+        {
+          "name": "route_action_execution",
+          "line": 101,
+          "exported": false
+        },
+        {
+          "name": "route_single_output",
+          "line": 143,
+          "exported": false
+        },
+        {
+          "name": "show_configuration_modal",
+          "line": 184,
+          "exported": false
+        },
+        {
+          "name": "show_action_signature_with_routing",
+          "line": 239,
+          "exported": false
+        },
+        {
+          "name": "get_action_input_type",
+          "line": 248,
+          "exported": false
+        },
+        {
+          "name": "get_action_output_type",
+          "line": 256,
+          "exported": false
+        },
+        {
+          "name": "show_routing_debug",
+          "line": 264,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      275,
+      "variables": [],
+      "complexity": "medium"
+    }    "bash/utils/generate_ast_json.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/generate_ast_json.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       21,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/utils/nouns_verbs.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/nouns_verbs.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_compatible_modes",
+          "line": 45,
+          "exported": false
+        },
+        {
+          "name": "is_mode_compatible",
+          "line": 52,
+          "exported": false
+        },
+        {
+          "name": "get_noun_color",
+          "line": 132,
+          "exported": false
+        },
+        {
+          "name": "get_verb_color",
+          "line": 138,
+          "exported": false
+        },
+        {
+          "name": "get_env_nouns",
+          "line": 144,
+          "exported": false
+        },
+        {
+          "name": "get_mode_verbs",
+          "line": 151,
+          "exported": false
+        },
+        {
+          "name": "parse_collection_syntax",
+          "line": 158,
+          "exported": false
+        },
+        {
+          "name": "generate_collection_actions",
+          "line": 173,
+          "exported": false
+        },
+        {
+          "name": "is_collection_syntax",
+          "line": 193,
+          "exported": false
+        },
+        {
+          "name": "get_action_execution_mode",
+          "line": 199,
+          "exported": false
+        },
+        {
+          "name": "is_immediate_action",
+          "line": 206,
+          "exported": false
+        },
+        {
+          "name": "get_action_description",
+          "line": 214,
+          "exported": false
+        },
+        {
+          "name": "list_available_actions",
+          "line": 221,
+          "exported": false
+        },
+        {
+          "name": "demo_nouns_verbs",
+          "line": 245,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "colors"
+      ],
+      "lines":      290,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/utils/run_all_tests.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/run_all_tests.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "run_test_suite",
+          "line": 13,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       62,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/utils/enhanced_signatures.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/enhanced_signatures.sh",
+      "type": "component",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "show_function_signatures_enhanced",
+          "line": 6,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      101,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/utils/top_status.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/top_status.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_result_type",
+          "line": 9,
+          "exported": false
+        },
+        {
+          "name": "get_mode_tag",
+          "line": 29,
+          "exported": false
+        },
+        {
+          "name": "parse_noun_components",
+          "line": 84,
+          "exported": false
+        },
+        {
+          "name": "get_tetra_var_color",
+          "line": 107,
+          "exported": false
+        },
+        {
+          "name": "render_equation",
+          "line": 133,
+          "exported": false
+        },
+        {
+          "name": "show_equation_header",
+          "line": 191,
+          "exported": false
+        },
+        {
+          "name": "render_top_status",
+          "line": 210,
+          "exported": false
+        },
+        {
+          "name": "demo_equations",
+          "line": 231,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_module"
+      ],
+      "lines":      246,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/utils/serve_dashboard.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/utils/serve_dashboard.sh",
+      "type": "component",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "serve_dashboard",
+          "line": 6,
+          "exported": false
+        },
+        {
+          "name": "show_demo_info",
+          "line": 53,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       91,
+      "variables": [],
+      "complexity": "low"
+    }    "bash/tui/modules/tui_format.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/tui_format.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "format_topic",
+          "line": 62,
+          "exported": false
+        },
+        {
+          "name": "format_content",
+          "line": 72,
+          "exported": false
+        },
+        {
+          "name": "format_paragraph",
+          "line": 99,
+          "exported": false
+        },
+        {
+          "name": "wrap_text_with_ansi",
+          "line": 129,
+          "exported": false
+        },
+        {
+          "name": "get_dynamic_topic_color",
+          "line": 140,
+          "exported": false
+        },
+        {
+          "name": "get_content_color_scheme",
+          "line": 163,
+          "exported": false
+        },
+        {
+          "name": "get_intensity_variation",
+          "line": 171,
+          "exported": false
+        },
+        {
+          "name": "format_section_header",
+          "line": 188,
+          "exported": false
+        },
+        {
+          "name": "init_tui_format",
+          "line": 200,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      206,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/tui/modules/display_sync.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/display_sync.sh",
+      "type": "module",
+      "tview_integration": true,
+      "functions": [
+        {
+          "name": "trigger_display_refresh",
+          "line": 8,
+          "exported": false
+        },
+        {
+          "name": "on_display_env_changed",
+          "line": 38,
+          "exported": false
+        },
+        {
+          "name": "on_display_mode_changed",
+          "line": 51,
+          "exported": false
+        },
+        {
+          "name": "on_display_action_changed",
+          "line": 64,
+          "exported": false
+        },
+        {
+          "name": "init_display_sync",
+          "line": 81,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       96,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/separators.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/separators.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "generate_separator",
+          "line": 7,
+          "exported": false
+        },
+        {
+          "name": "generate_action_separator",
+          "line": 14,
+          "exported": false
+        },
+        {
+          "name": "generate_section_separator",
+          "line": 27,
+          "exported": false
+        },
+        {
+          "name": "generate_emphasis_separator",
+          "line": 34,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       37,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/tui_init.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/tui_init.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_tui_modules_path",
+          "line": 8,
+          "exported": false
+        },
+        {
+          "name": "get_tui_demo_path",
+          "line": 17,
+          "exported": false
+        },
+        {
+          "name": "source_tui_module",
+          "line": 24,
+          "exported": false
+        },
+        {
+          "name": "source_tui_submodule",
+          "line": 40,
+          "exported": false
+        },
+        {
+          "name": "init_tui_system",
+          "line": 55,
+          "exported": false
+        },
+        {
+          "name": "list_tui_modules",
+          "line": 101,
+          "exported": false
+        },
+        {
+          "name": "validate_tui_environment",
+          "line": 117,
+          "exported": false
+        },
+        {
+          "name": "init_tui_paths",
+          "line": 150,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      160,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/tui_tokens.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/tui_tokens.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "dim_text",
+          "line": 8,
+          "exported": false
+        },
+        {
+          "name": "tetra_term",
+          "line": 25,
+          "exported": false
+        },
+        {
+          "name": "description_text",
+          "line": 36,
+          "exported": false
+        },
+        {
+          "name": "indent_content",
+          "line": 45,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       49,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/event_system.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/event_system.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "subscribe",
+          "line": 15,
+          "exported": false
+        },
+        {
+          "name": "unsubscribe",
+          "line": 50,
+          "exported": false
+        },
+        {
+          "name": "publish",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "list_event_subscriptions",
+          "line": 113,
+          "exported": false
+        },
+        {
+          "name": "clear_event_subscriptions",
+          "line": 134,
+          "exported": false
+        },
+        {
+          "name": "set_event_debug",
+          "line": 143,
+          "exported": false
+        },
+        {
+          "name": "init_event_system",
+          "line": 150,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      158,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/tui_view.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/tui_view.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "on_env_changed",
+          "line": 10,
+          "exported": false
+        },
+        {
+          "name": "on_mode_changed",
+          "line": 27,
+          "exported": false
+        },
+        {
+          "name": "on_action_changed",
+          "line": 44,
+          "exported": false
+        },
+        {
+          "name": "generate_dynamic_footer",
+          "line": 62,
+          "exported": false
+        },
+        {
+          "name": "generate_mode_footer",
+          "line": 89,
+          "exported": false
+        },
+        {
+          "name": "generate_navigation_footer",
+          "line": 110,
+          "exported": false
+        },
+        {
+          "name": "render_dynamic_footer",
+          "line": 131,
+          "exported": false
+        },
+        {
+          "name": "view_refresh_all",
+          "line": 154,
+          "exported": false
+        },
+        {
+          "name": "init_tui_view",
+          "line": 171,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      188,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/typography.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/typography.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "hex_to_256",
+          "line": 14,
+          "exported": false
+        },
+        {
+          "name": "get_typography_token",
+          "line": 63,
+          "exported": false
+        },
+        {
+          "name": "set_typography_token",
+          "line": 69,
+          "exported": false
+        },
+        {
+          "name": "render_action_sigil",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "render_action_separator",
+          "line": 86,
+          "exported": false
+        },
+        {
+          "name": "render_action_arrow",
+          "line": 91,
+          "exported": false
+        },
+        {
+          "name": "render_section_heading",
+          "line": 98,
+          "exported": false
+        },
+        {
+          "name": "render_list_item",
+          "line": 104,
+          "exported": false
+        },
+        {
+          "name": "apply_content_indent",
+          "line": 110,
+          "exported": false
+        },
+        {
+          "name": "apply_paragraph_brightness",
+          "line": 117,
+          "exported": false
+        },
+        {
+          "name": "format_paragraph_text",
+          "line": 132,
+          "exported": false
+        },
+        {
+          "name": "show_typography_config",
+          "line": 142,
+          "exported": false
+        },
+        {
+          "name": "init_typography_module",
+          "line": 150,
+          "exported": false
+        },
+        {
+          "name": "format_footer_status",
+          "line": 160,
+          "exported": false
+        },
+        {
+          "name": "format_footer_text",
+          "line": 177,
+          "exported": false
+        },
+        {
+          "name": "format_footer_combined",
+          "line": 196,
+          "exported": false
+        },
+        {
+          "name": "format_footer",
+          "line": 218,
+          "exported": false
+        },
+        {
+          "name": "format_display_mode_indicator",
+          "line": 233,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_core",
+        "tui.css"
+      ],
+      "lines":      247,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/tui/modules/colors/symbols.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/symbols.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_random_symbols",
+          "line": 67,
+          "exported": true
+        },
+        {
+          "name": "get_group_symbols",
+          "line": 87,
+          "exported": false
+        },
+        {
+          "name": "show_symbol_library",
+          "line": 102,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      128,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/colors/color_themes.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_themes.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_theme_color",
+          "line": 28,
+          "exported": false
+        },
+        {
+          "name": "set_theme",
+          "line": 37,
+          "exported": false
+        },
+        {
+          "name": "set_screen_background",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "themed_fg",
+          "line": 50,
+          "exported": false
+        },
+        {
+          "name": "themed_bg",
+          "line": 51,
+          "exported": false
+        },
+        {
+          "name": "themed_accent",
+          "line": 52,
+          "exported": false
+        },
+        {
+          "name": "env_color",
+          "line": 55,
+          "exported": false
+        },
+        {
+          "name": "mode_color",
+          "line": 63,
+          "exported": false
+        },
+        {
+          "name": "verbs_color",
+          "line": 71,
+          "exported": false
+        },
+        {
+          "name": "nouns_color",
+          "line": 79,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       85,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/colors/color_ui.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_ui.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "ui_env_label",
+          "line": 25,
+          "exported": false
+        },
+        {
+          "name": "ui_env_selected",
+          "line": 26,
+          "exported": false
+        },
+        {
+          "name": "ui_env_other",
+          "line": 27,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_label",
+          "line": 30,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_selected",
+          "line": 31,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_other",
+          "line": 32,
+          "exported": false
+        },
+        {
+          "name": "ui_action_label",
+          "line": 35,
+          "exported": false
+        },
+        {
+          "name": "ui_action_selected",
+          "line": 36,
+          "exported": false
+        },
+        {
+          "name": "ui_action_other",
+          "line": 37,
+          "exported": false
+        },
+        {
+          "name": "ui_env_label_legacy",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "ui_env_selected_legacy",
+          "line": 44,
+          "exported": false
+        },
+        {
+          "name": "ui_env_other_legacy",
+          "line": 45,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_label_legacy",
+          "line": 48,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_selected_legacy",
+          "line": 49,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_other_legacy",
+          "line": 50,
+          "exported": false
+        },
+        {
+          "name": "ui_action_label_legacy",
+          "line": 53,
+          "exported": false
+        },
+        {
+          "name": "ui_action_selected_legacy",
+          "line": 54,
+          "exported": false
+        },
+        {
+          "name": "ui_action_other_legacy",
+          "line": 55,
+          "exported": false
+        },
+        {
+          "name": "ui_env_text",
+          "line": 59,
+          "exported": false
+        },
+        {
+          "name": "ui_env_bright",
+          "line": 60,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_text",
+          "line": 61,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_bright",
+          "line": 62,
+          "exported": false
+        },
+        {
+          "name": "ui_verb_text",
+          "line": 63,
+          "exported": false
+        },
+        {
+          "name": "ui_verb_bright",
+          "line": 64,
+          "exported": false
+        },
+        {
+          "name": "ui_noun_text",
+          "line": 65,
+          "exported": false
+        },
+        {
+          "name": "ui_noun_bright",
+          "line": 66,
+          "exported": false
+        },
+        {
+          "name": "ui_env_swatch",
+          "line": 70,
+          "exported": false
+        },
+        {
+          "name": "ui_mode_swatch",
+          "line": 71,
+          "exported": false
+        },
+        {
+          "name": "ui_verb_swatch",
+          "line": 72,
+          "exported": false
+        },
+        {
+          "name": "ui_noun_swatch",
+          "line": 73,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_elements",
+        "color_palettes",
+        "color_themes"
+      ],
+      "lines":       72,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/tui/modules/colors/palette_new.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/palette_new.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "show_palette_line",
+          "line": 5,
+          "exported": false
+        },
+        {
+          "name": "show_all_palettes",
+          "line": 37,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_palettes",
+        "symbols"
+      ],
+      "lines":       89,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/colors/color_elements.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_elements.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_element_color",
+          "line": 38,
+          "exported": false
+        },
+        {
+          "name": "element_text",
+          "line": 82,
+          "exported": false
+        },
+        {
+          "name": "element_bg",
+          "line": 96,
+          "exported": false
+        },
+        {
+          "name": "element_swatch",
+          "line": 103,
+          "exported": false
+        },
+        {
+          "name": "demo_env_text",
+          "line": 111,
+          "exported": false
+        },
+        {
+          "name": "demo_mode_text",
+          "line": 117,
+          "exported": false
+        },
+        {
+          "name": "demo_action_text",
+          "line": 123,
+          "exported": false
+        },
+        {
+          "name": "demo_noun_text",
+          "line": 129,
+          "exported": false
+        },
+        {
+          "name": "tui_header_text",
+          "line": 136,
+          "exported": false
+        },
+        {
+          "name": "tui_border_text",
+          "line": 142,
+          "exported": false
+        },
+        {
+          "name": "tui_label_text",
+          "line": 147,
+          "exported": false
+        },
+        {
+          "name": "tui_content_text",
+          "line": 152,
+          "exported": false
+        },
+        {
+          "name": "status_success_text",
+          "line": 158,
+          "exported": false
+        },
+        {
+          "name": "status_warning_text",
+          "line": 166,
+          "exported": false
+        },
+        {
+          "name": "status_error_text",
+          "line": 174,
+          "exported": false
+        },
+        {
+          "name": "status_info_text",
+          "line": 182,
+          "exported": false
+        },
+        {
+          "name": "bold_element",
+          "line": 191,
+          "exported": false
+        },
+        {
+          "name": "dim_element",
+          "line": 198,
+          "exported": false
+        },
+        {
+          "name": "show_element_palette",
+          "line": 205,
+          "exported": false
+        },
+        {
+          "name": "show_background_info",
+          "line": 247,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_core",
+        "color_palettes"
+      ],
+      "lines":      252,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/tui/modules/colors/color_palettes.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_palettes.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "generate_complements",
+          "line": 29,
+          "exported": false
+        },
+        {
+          "name": "init_colors",
+          "line": 41,
+          "exported": false
+        },
+        {
+          "name": "env_color",
+          "line": 52,
+          "exported": false
+        },
+        {
+          "name": "mode_color",
+          "line": 72,
+          "exported": false
+        },
+        {
+          "name": "verbs_color",
+          "line": 92,
+          "exported": false
+        },
+        {
+          "name": "nouns_color",
+          "line": 112,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      129,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/colors/color_designer.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_designer.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "generate_complement",
+          "line": 14,
+          "exported": false
+        },
+        {
+          "name": "generate_triadic",
+          "line": 29,
+          "exported": false
+        },
+        {
+          "name": "generate_analogous",
+          "line": 48,
+          "exported": false
+        },
+        {
+          "name": "generate_monochromatic",
+          "line": 67,
+          "exported": false
+        },
+        {
+          "name": "check_wcag_aa",
+          "line": 91,
+          "exported": false
+        },
+        {
+          "name": "find_accessible_pairs",
+          "line": 103,
+          "exported": false
+        },
+        {
+          "name": "generate_professional_palette",
+          "line": 128,
+          "exported": false
+        },
+        {
+          "name": "show_color_info",
+          "line": 171,
+          "exported": false
+        },
+        {
+          "name": "preview_palette",
+          "line": 191,
+          "exported": false
+        },
+        {
+          "name": "analyze_color_harmony",
+          "line": 205,
+          "exported": false
+        },
+        {
+          "name": "build_ui_theme",
+          "line": 229,
+          "exported": false
+        },
+        {
+          "name": "export_palette",
+          "line": 261,
+          "exported": false
+        },
+        {
+          "name": "process_designer_command",
+          "line": 300,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_core",
+        "color_module"
+      ],
+      "lines":      377,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/tui/modules/colors/color_module.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_module.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "weighted_rgb_distance",
+          "line": 47,
+          "exported": false
+        },
+        {
+          "name": "three_way_distance",
+          "line": 70,
+          "exported": false
+        },
+        {
+          "name": "color_contrast_ratio",
+          "line": 90,
+          "exported": false
+        },
+        {
+          "name": "color_distance",
+          "line": 117,
+          "exported": false
+        },
+        {
+          "name": "find_max_distance_color_advanced",
+          "line": 122,
+          "exported": false
+        },
+        {
+          "name": "find_max_distance_color",
+          "line": 184,
+          "exported": false
+        },
+        {
+          "name": "get_smart_verb_color",
+          "line": 191,
+          "exported": false
+        },
+        {
+          "name": "get_smart_noun_color",
+          "line": 205,
+          "exported": false
+        },
+        {
+          "name": "get_response_type_color",
+          "line": 219,
+          "exported": false
+        },
+        {
+          "name": "safe_verb_display",
+          "line": 248,
+          "exported": false
+        },
+        {
+          "name": "safe_noun_display",
+          "line": 256,
+          "exported": false
+        },
+        {
+          "name": "safe_noun_display_uniform",
+          "line": 264,
+          "exported": false
+        },
+        {
+          "name": "safe_response_type_display",
+          "line": 276,
+          "exported": false
+        },
+        {
+          "name": "render_action_verb_noun",
+          "line": 289,
+          "exported": false
+        },
+        {
+          "name": "render_response_type",
+          "line": 304,
+          "exported": false
+        },
+        {
+          "name": "refresh_color_state",
+          "line": 326,
+          "exported": false
+        },
+        {
+          "name": "show_color_state",
+          "line": 357,
+          "exported": false
+        },
+        {
+          "name": "get_verb_color",
+          "line": 371,
+          "exported": false
+        },
+        {
+          "name": "get_noun_color",
+          "line": 376,
+          "exported": false
+        },
+        {
+          "name": "init_color_module",
+          "line": 384,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_core",
+        "color_elements",
+        "color_palettes",
+        "color_themes",
+        "color_ui"
+      ],
+      "lines":      396,
+      "variables": [],
+      "complexity": "medium"
+    },
+    "bash/tui/modules/colors/color_core.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_core.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "hex_to_rgb",
+          "line": 4,
+          "exported": false
+        },
+        {
+          "name": "rgb_to_hex",
+          "line": 22,
+          "exported": false
+        },
+        {
+          "name": "complement_hue",
+          "line": 26,
+          "exported": false
+        },
+        {
+          "name": "brighten",
+          "line": 31,
+          "exported": false
+        },
+        {
+          "name": "darken",
+          "line": 35,
+          "exported": false
+        },
+        {
+          "name": "hex_to_256",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "color_swatch",
+          "line": 79,
+          "exported": false
+        },
+        {
+          "name": "fg_color",
+          "line": 86,
+          "exported": false
+        },
+        {
+          "name": "text_color",
+          "line": 89,
+          "exported": false
+        },
+        {
+          "name": "fg_only",
+          "line": 96,
+          "exported": false
+        },
+        {
+          "name": "bg_only",
+          "line": 99,
+          "exported": false
+        },
+        {
+          "name": "bg_color",
+          "line": 106,
+          "exported": false
+        },
+        {
+          "name": "reset_color",
+          "line": 113,
+          "exported": false
+        },
+        {
+          "name": "desaturate_hex",
+          "line": 116,
+          "exported": false
+        },
+        {
+          "name": "desaturated_bg_only",
+          "line": 141,
+          "exported": false
+        },
+        {
+          "name": "desaturated_fg_only",
+          "line": 148,
+          "exported": false
+        },
+        {
+          "name": "term_bg_color",
+          "line": 156,
+          "exported": false
+        },
+        {
+          "name": "set_background",
+          "line": 157,
+          "exported": false
+        },
+        {
+          "name": "get_effective_background",
+          "line": 163,
+          "exported": false
+        },
+        {
+          "name": "theme_aware_dim",
+          "line": 179,
+          "exported": false
+        },
+        {
+          "name": "theme_dimmed_fg_only",
+          "line": 216,
+          "exported": false
+        },
+        {
+          "name": "theme_dimmed_bg_only",
+          "line": 223,
+          "exported": false
+        },
+        {
+          "name": "slam_to_black",
+          "line": 231,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      234,
+      "variables": [],
+      "complexity": "high"
+    },
+    "bash/tui/modules/colors/palette.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/palette.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "show_palette_line",
+          "line": 6,
+          "exported": false
+        },
+        {
+          "name": "show_all_palettes",
+          "line": 38,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_palettes",
+        "symbols"
+      ],
+      "lines":      177,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/colors/color_test.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/colors/color_test.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+
+      ],
+      "lines":      122,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/handle_arrow.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/handle_arrow.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "handle_arrow_sequence",
+          "line": 10,
+          "exported": false
+        },
+        {
+          "name": "process_arrow_key",
+          "line": 51,
+          "exported": false
+        },
+        {
+          "name": "get_arrow_action",
+          "line": 80,
+          "exported": false
+        },
+        {
+          "name": "set_arrow_action",
+          "line": 86,
+          "exported": false
+        },
+        {
+          "name": "init_arrow_handler",
+          "line": 93,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       99,
+      "variables": [],
+      "complexity": "low"
+    },
+    "bash/tui/modules/tokens/tui.css.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/bash/tui/modules/tokens/tui.css.sh",
+      "type": "module",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_css_token",
+          "line": 106,
+          "exported": false
+        },
+        {
+          "name": "set_css_token",
+          "line": 122,
+          "exported": false
+        },
+        {
+          "name": "resolve_palette_color",
+          "line": 130,
+          "exported": false
+        },
+        {
+          "name": "get_css_color",
+          "line": 159,
+          "exported": false
+        },
+        {
+          "name": "reset_css_color",
+          "line": 170,
+          "exported": false
+        },
+        {
+          "name": "apply_css_style",
+          "line": 176,
+          "exported": false
+        },
+        {
+          "name": "get_css_layout",
+          "line": 187,
+          "exported": false
+        },
+        {
+          "name": "show_css_tokens",
+          "line": 195,
+          "exported": false
+        },
+        {
+          "name": "init_css_tokens",
+          "line": 213,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_palettes"
+      ],
+      "lines":      218,
+      "variables": [],
+      "complexity": "medium"
+    }    "tests/test_no_topbar_background.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_no_topbar_background.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "assert_no_background",
+          "line": 13,
+          "exported": false
+        },
+        {
+          "name": "assert_has_foreground",
+          "line": 30,
+          "exported": false
+        },
+        {
+          "name": "test_env_line_no_background",
+          "line": 48,
+          "exported": false
+        },
+        {
+          "name": "test_mode_line_no_background",
+          "line": 59,
+          "exported": false
+        },
+        {
+          "name": "test_action_line_no_background",
+          "line": 70,
+          "exported": false
+        },
+        {
+          "name": "test_ui_color_functions",
+          "line": 81,
+          "exported": false
+        },
+        {
+          "name": "test_color_category_functions",
+          "line": 106,
+          "exported": false
+        },
+        {
+          "name": "test_complete_topbar_output",
+          "line": 134,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 143,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "colors",
+        "demo"
+      ],
+      "lines":      175,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_color_module.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_color_module.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+        "color_module"
+      ],
+      "lines":       98,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_repl_fixed.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_repl_fixed.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       20,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_repl_palette.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_repl_palette.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       32,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_elements.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_elements.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+        "colors"
+      ],
+      "lines":      106,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_sync.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_sync.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+
+      ],
+      "lines":       75,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_action_line.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_action_line.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "get_actions",
+          "line": 16,
+          "exported": false
+        },
+        {
+          "name": "test_action_line",
+          "line": 31,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "color_module",
+        "nouns_verbs"
+      ],
+      "lines":       77,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_equation_system.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_equation_system.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+
+      ],
+      "dependencies": [
+        "nouns_verbs",
+        "top_status"
+      ],
+      "lines":       32,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/test_ui_integration.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_ui_integration.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "update_gamepad_display",
+          "line": 15,
+          "exported": false
+        },
+        {
+          "name": "update_content_region",
+          "line": 19,
+          "exported": false
+        },
+        {
+          "name": "assert_true",
+          "line": 27,
+          "exported": false
+        },
+        {
+          "name": "reset_mocks",
+          "line": 40,
+          "exported": false
+        },
+        {
+          "name": "test_ui_theme_command",
+          "line": 46,
+          "exported": false
+        },
+        {
+          "name": "test_ui_background_command",
+          "line": 61,
+          "exported": false
+        },
+        {
+          "name": "test_theme_persistence",
+          "line": 76,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 88,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "colors",
+        "demo",
+        "output"
+      ],
+      "lines":      112,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/handlers/test_handler_quick.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/handlers/test_handler_quick.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "refresh_color_state_cached",
+          "line": 41,
+          "exported": true
+        },
+        {
+          "name": "get_action_routing",
+          "line": 42,
+          "exported": false
+        },
+        {
+          "name": "render_action_verb_noun",
+          "line": 43,
+          "exported": false
+        },
+        {
+          "name": "render_response_type",
+          "line": 44,
+          "exported": true
+        },
+        {
+          "name": "generate_section_separator",
+          "line": 45,
+          "exported": false
+        },
+        {
+          "name": "get_action_description",
+          "line": 46,
+          "exported": false
+        },
+        {
+          "name": "log_action",
+          "line": 47,
+          "exported": true
+        },
+        {
+          "name": "handler_log",
+          "line": 48,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "registry",
+        "show_handler"
+      ],
+      "lines":       85,
+      "variables": [],
+      "complexity": "low"
+    },
+    "tests/handlers/test_handler_system.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/handlers/test_handler_system.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "test_assert",
+          "line": 19,
+          "exported": false
+        },
+        {
+          "name": "test_assert_output",
+          "line": 33,
+          "exported": false
+        },
+        {
+          "name": "setup_test_environment",
+          "line": 51,
+          "exported": false
+        },
+        {
+          "name": "refresh_color_state_cached",
+          "line": 58,
+          "exported": true
+        },
+        {
+          "name": "get_action_routing",
+          "line": 59,
+          "exported": false
+        },
+        {
+          "name": "render_action_verb_noun",
+          "line": 60,
+          "exported": false
+        },
+        {
+          "name": "render_response_type",
+          "line": 61,
+          "exported": true
+        },
+        {
+          "name": "generate_section_separator",
+          "line": 62,
+          "exported": false
+        },
+        {
+          "name": "get_action_description",
+          "line": 63,
+          "exported": false
+        },
+        {
+          "name": "log_action",
+          "line": 64,
+          "exported": true
+        },
+        {
+          "name": "handler_log",
+          "line": 65,
+          "exported": false
+        },
+        {
+          "name": "get_env_nouns",
+          "line": 66,
+          "exported": false
+        },
+        {
+          "name": "get_mode_verbs",
+          "line": 67,
+          "exported": false
+        },
+        {
+          "name": "test_file_structure",
+          "line": 80,
+          "exported": false
+        },
+        {
+          "name": "test_syntax_validation",
+          "line": 94,
+          "exported": false
+        },
+        {
+          "name": "test_registry_functionality",
+          "line": 107,
+          "exported": false
+        },
+        {
+          "name": "test_handler_interface_compliance",
+          "line": 131,
+          "exported": false
+        },
+        {
+          "name": "test_show_handler_execution",
+          "line": 151,
+          "exported": false
+        },
+        {
+          "name": "test_configure_handler_execution",
+          "line": 179,
+          "exported": false
+        },
+        {
+          "name": "test_default_handler_fallback",
+          "line": 200,
+          "exported": false
+        },
+        {
+          "name": "test_end_to_end_execution",
+          "line": 217,
+          "exported": false
+        },
+        {
+          "name": "run_performance_tests",
+          "line": 234,
+          "exported": false
+        },
+        {
+          "name": "print_test_summary",
+          "line": 259,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 277,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "configure_handler",
+        "default_handler",
+        "registry",
+        "show_handler"
+      ],
+      "lines":      297,
+      "variables": [],
+      "complexity": "high"
+    },
+    "tests/test_colors.sh": {
+      "path": "/Users/mricos/src/devops/tetra/demo/basic/010/tests/test_colors.sh",
+      "type": "test",
+      "tview_integration": false,
+      "functions": [
+        {
+          "name": "assert_equals",
+          "line": 12,
+          "exported": false
+        },
+        {
+          "name": "assert_contains",
+          "line": 28,
+          "exported": false
+        },
+        {
+          "name": "test_color_functions",
+          "line": 44,
+          "exported": false
+        },
+        {
+          "name": "test_theme_system",
+          "line": 61,
+          "exported": false
+        },
+        {
+          "name": "test_background_system",
+          "line": 77,
+          "exported": false
+        },
+        {
+          "name": "test_ui_assignments",
+          "line": 87,
+          "exported": false
+        },
+        {
+          "name": "test_integration",
+          "line": 100,
+          "exported": false
+        },
+        {
+          "name": "main",
+          "line": 118,
+          "exported": false
+        }
+      ],
+      "dependencies": [
+        "colors"
+      ],
+      "lines":      146,
+      "variables": [],
+      "complexity": "low"
+    }
+  }
+}

@@ -20,8 +20,11 @@ class UserManager {
         try {
             this.roles = this._loadCsvFile(this.rolesFilePath, 2, (parts, map) => {
                 const username = parts[0].trim();
-                if (!username) return;
-                const userRoles = parts.slice(1).map(r => r.trim()).filter(r => this.allowedRoles.includes(r));
+                if (!this._validateUsername(username)) {
+                    console.warn(`[UserManager] Skipping invalid username in roles: '${username}'`);
+                    return;
+                }
+                const userRoles = parts.slice(1).map(r => r.trim()).filter(r => this._validateRole(r));
                 if (userRoles.length > 0) map.set(username, userRoles);
             }, "Roles", true, false);
         } catch (error) {
@@ -31,7 +34,15 @@ class UserManager {
         try {
             this.users = this._loadCsvFile(this.usersFilePath, 3, (parts, map) => {
                 const [username, salt, hash, home_dir] = parts.map(p => p.trim());
+                if (!this._validateUsername(username)) {
+                    console.warn(`[UserManager] Skipping invalid username in users: '${username}'`);
+                    return;
+                }
                 if (username && salt && hash) {
+                    if (home_dir && !this._validateHomePath(home_dir)) {
+                        console.warn(`[UserManager] Skipping user '${username}': invalid home_dir '${home_dir}'`);
+                        return;
+                    }
                     const userData = { salt, hash };
                     if (home_dir) userData.home_dir = home_dir;
                     map.set(username, userData);
@@ -46,6 +57,30 @@ class UserManager {
         }
     }
 
+    _validateUsername(username) {
+        if (!username || typeof username !== 'string') return false;
+        // Only allow alphanumeric, dash, underscore (3-32 chars)
+        return /^[a-zA-Z0-9_-]{3,32}$/.test(username);
+    }
+
+    _validateRole(role) {
+        if (!role || typeof role !== 'string') return false;
+        return this.allowedRoles.includes(role);
+    }
+
+    _validateHomePath(homePath) {
+        if (!homePath) return true; // Empty is valid
+        // Prevent path traversal
+        if (homePath.includes('..') || homePath.startsWith('/') || homePath.includes('~')) {
+            return false;
+        }
+        // Prevent absolute paths or suspicious patterns
+        if (homePath.match(/^[a-zA-Z]:|\\\\|\/\//)) {
+            return false;
+        }
+        return true;
+    }
+
     _loadCsvFile(filePath, expectedParts, processLine, label, isOptional = false, exactMatch = true) {
         const map = new Map();
         if (!fs.existsSync(filePath)) {
@@ -54,7 +89,7 @@ class UserManager {
             return map;
         }
         if (!fs.statSync(filePath).isFile()) throw new Error(`[UserManager FATAL] ${label} is not a file.`);
-        
+
         const content = fs.readFileSync(filePath, 'utf8');
         content.split('\n').forEach(line => {
             const trimmed = line.trim();
@@ -89,13 +124,15 @@ class UserManager {
 
     async addUser(username, password, roles = ['user']) {
         if (!username || !password) throw new Error('Username and password are required.');
+        if (!this._validateUsername(username)) throw new Error('Invalid username format. Use 3-32 alphanumeric characters, dash, or underscore.');
+        if (password.length < 8) throw new Error('Password must be at least 8 characters.');
         if (this.users.has(username)) throw new Error(`User '${username}' already exists.`);
-        
+
         const salt = generateSalt();
         const hash = hashPassword(password, salt);
         await this._appendLineToFile(this.usersFilePath, `${username},${salt},${hash}`, 'Users');
-        
-        const validRoles = roles.filter(role => this.allowedRoles.includes(role));
+
+        const validRoles = roles.filter(role => this._validateRole(role));
         if (validRoles.length > 0) {
             await this._appendLineToFile(this.rolesFilePath, `${username},${validRoles.join(',')}`, 'Roles');
         }

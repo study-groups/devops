@@ -5,6 +5,7 @@ import { FileManager } from './FileManager.js';
 import { CapabilityManager } from './CapabilityManager.js';
 import { AuthSrv } from './AuthSrv.js';
 import { MountManager } from './utils/MountManager.js';
+import { AuditLogger } from './AuditLogger.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -16,6 +17,7 @@ class PData {
         this.systemRoots = config.systemRoots || {};
         this._validateConfig();
         this._initializePaths();
+        this._initializeAudit(config.audit);
         this._initializeManagers();
     }
 
@@ -37,13 +39,25 @@ class PData {
 
         this.uploadsDir = path.join(this.dataRoot, 'uploads');
         this.systemRoots['uploads'] = this.uploadsDir; // Register uploads as a system root
-        
+
         this._ensureDirectoryExists(this.uploadsDir, 'Uploads');
         this.tempUploadsDir = path.join(this.uploadsDir, 'temp');
         this._ensureDirectoryExists(this.tempUploadsDir, 'Temp Uploads');
 
         this.usersFilePath = path.join(this.dataRoot, 'users.csv');
         this.rolesFilePath = path.join(this.dataRoot, 'roles.csv');
+    }
+
+    _initializeAudit(auditConfig = {}) {
+        const defaultConfig = {
+            enabled: process.env.PDATA_AUDIT !== 'false',
+            logLevel: process.env.PDATA_AUDIT_LEVEL || 'info',
+            console: process.env.PDATA_AUDIT_CONSOLE !== 'false',
+            persistPath: process.env.PDATA_AUDIT_LOG || path.join(this.dataRoot, 'logs', 'audit.log')
+        };
+
+        this.audit = new AuditLogger({ ...defaultConfig, ...auditConfig });
+        console.log(`[PData] Audit logging initialized. Path: ${defaultConfig.persistPath}`);
     }
 
     _initializeManagers() {
@@ -60,8 +74,12 @@ class PData {
 
         // Initialize AuthSrv before FileManager so it can be passed to constructor
         const assetSetsObj = Object.fromEntries(this.capabilityManager.assetSets);
-        this.authSrv = new AuthSrv({ 
-            secret: 'a_secure_secret_key',
+        const secret = process.env.PDATA_SECRET || process.env.SESSION_SECRET;
+        if (!secret) {
+            throw new Error('[PDATA FATAL] PDATA_SECRET or SESSION_SECRET environment variable is required.');
+        }
+        this.authSrv = new AuthSrv({
+            secret,
             assetSets: assetSetsObj
         });
 
@@ -70,7 +88,8 @@ class PData {
             uploadsDir: this.uploadsDir,
             tempUploadsDir: this.tempUploadsDir,
             capabilityManager: this.capabilityManager,
-            systemRoots: this.systemRoots
+            systemRoots: this.systemRoots,
+            audit: this.audit
         }, this.userManager, this.capabilityManager, this.authSrv);
 
         this.mountManager = new MountManager({
@@ -89,15 +108,23 @@ class PData {
     }
 
     async createToken(username, password) {
-        if (this.userManager.validateUser(username, password)) {
+        const isValid = this.userManager.validateUser(username, password);
+
+        if (isValid) {
             const roles = this.userManager.getUserRoles(username);
             const caps = this.capabilityManager.expandRolesToCapabilities(roles);
-            
+
             // UNIFIED MOUNTING: Single mount based on user role
             const mounts = await this._createUnifiedMounts(username, roles);
-            
-            return this.authSrv.createToken({ username, roles, caps, mounts });
+
+            const token = this.authSrv.createToken({ username, roles, caps, mounts });
+
+            await this.audit.auth('login', username, true, { roles, mountCount: Object.keys(mounts).length });
+
+            return token;
         }
+
+        await this.audit.auth('login', username, false, { reason: 'invalid_credentials' });
         return null;
     }
 
@@ -108,11 +135,19 @@ class PData {
     async createTokenForAuthenticatedUser(username) {
         const roles = this.userManager.getUserRoles(username);
         const caps = this.capabilityManager.expandRolesToCapabilities(roles);
-        
+
         // UNIFIED MOUNTING: Single mount based on user role
         const mounts = await this._createUnifiedMounts(username, roles);
-        
-        return this.authSrv.createToken({ username, roles, caps, mounts });
+
+        const token = this.authSrv.createToken({ username, roles, caps, mounts });
+
+        await this.audit.log('auth.token.created', {
+            username,
+            action: 'token_created',
+            metadata: { roles, mountCount: Object.keys(mounts).length, source: 'session' }
+        });
+
+        return token;
     }
 
     /**
@@ -184,25 +219,40 @@ class PData {
     }
 
     async addUser(username, password, roles = ['user']) {
-        const result = await this.userManager.addUser(username, password, roles);
         try {
-            await this.fileManager.ensureUserDirectory(username);
+            const result = await this.userManager.addUser(username, password, roles);
+            await this.audit.user('created', username, true, { roles });
+
+            try {
+                await this.fileManager.ensureUserDirectory(username);
+            } catch (error) {
+                console.warn(`[PData] Could not create home directory for ${username}: ${error.message}`);
+            }
+
+            return result;
         } catch (error) {
-            console.warn(`[PData] Could not create home directory for ${username}: ${error.message}`);
+            await this.audit.user('created', username, false, { error: error.message });
+            throw error;
         }
-        return result;
     }
 
     async deleteUser(username) {
-        return this.userManager.deleteUser(username);
+        const result = await this.userManager.deleteUser(username);
+        await this.audit.user('deleted', username, true);
+        return result;
     }
 
     async updatePassword(username, newPassword) {
-        return this.userManager.updatePassword(username, newPassword);
+        const result = await this.userManager.updatePassword(username, newPassword);
+        await this.audit.user('password_changed', username, true);
+        return result;
     }
-    
+
     async setUserRoles(username, newRoles) {
-        return this.userManager.setUserRoles(username, newRoles);
+        const oldRoles = this.userManager.getUserRoles(username);
+        const result = await this.userManager.setUserRoles(username, newRoles);
+        await this.audit.user('roles_changed', username, true, { oldRoles, newRoles });
+        return result;
     }
 
     listUsers() {

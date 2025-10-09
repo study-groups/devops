@@ -1,0 +1,15 @@
+Env: [APP] DEV TEST 
+Mode: [Learn] Try Tui Dmod Test 
+Action: [/show demo] 
+------------------------------------------------------------(1/8)
+Available Actions for APP × Learn:
+------------------------------------------------------------
+
+► /show demo @stdin[input] → @stdout[output]
+  /show colors @stdin[input] → @stdout[output]
+  /show input @stdin[input] → @stdout[output]
+  /show tui @stdin[input] → @stdout[output]
+  /configure demo @stdin[input] → @stdout[output]
+  /configure colors @stdin[input] → @stdout[output]
+  /configure input @stdin[input] → @stdout[output]
+  /configure tui @stdin[input] → @stdout[outpu

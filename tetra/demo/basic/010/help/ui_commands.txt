@@ -1,0 +1,6 @@
+🎨 UI Commands:
+  ui palette    - Show gold standard color palette system
+  ui theme NAME - Set screen theme: light, dark, solarized
+  ui background HEX - Set screen background color
+
+Use 'ui palette' to see the full color system with desaturation examples.

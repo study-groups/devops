@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modules View</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .modules-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .modules-header {
+            margin-bottom: 30px;
+        }
+
+        .modules-header h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .modules-filter {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover { transform: translateY(-1px); }
+        .filter-btn.active { background: #007AFF; color: white; border-color: #007AFF; }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .module-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .module-card.expanded {
+            grid-column: 1 / -1;
+            max-width: none;
+            transform: scale(1.02);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            z-index: 10;
+        }
+
+        .module-card.expanding {
+            animation: expandModule 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .module-card.collapsing {
+            animation: collapseModule 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes expandModule {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1.02);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            }
+        }
+
+        @keyframes collapseModule {
+            0% {
+                transform: scale(1.02);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        .module-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: start;
+        }
+
+        .module-title-section {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .module-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .module-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .module-badges {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .expand-btn {
+            grid-column: 2;
+            grid-row: 1;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 20;
+        }
+
+        .expand-btn:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+
+        /* Type-specific colors */
+        .type-core { background: #007AFF; color: white; }
+        .type-component { background: #34C759; color: white; }
+        .type-test { background: #FF9500; color: white; }
+        .type-debug { background: #FF3B30; color: white; }
+        .type-theme { background: #AF52DE; color: white; }
+        .type-framework { background: #5856D6; color: white; }
+        .type-utility { background: #8E8E93; color: white; }
+
+        .tview-badge {
+            background: #5856D6;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .module-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #007AFF;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+
+        .module-functions {
+            margin-top: 15px;
+        }
+
+        .module-functions h4 {
+            font-size: 14px;
+            color: #495057;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .function-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .function-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+        }
+
+        .function-item.exported {
+            border-left: 3px solid #007AFF;
+            background: #f0f8ff;
+        }
+
+        .function-indicator {
+            font-weight: bold;
+            margin-right: 8px;
+            color: #007AFF;
+        }
+
+        .function-name {
+            flex: 1;
+            color: #333;
+        }
+
+        .function-meta {
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        .module-dependencies {
+            margin-top: 15px;
+        }
+
+        .dependencies-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .dependency-item {
+            background: #e9ecef;
+            color: #495057;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .module-details {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease 0.1s;
+        }
+
+        .module-card.expanded .module-details {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .detail-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .detail-section h5 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .complexity-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .complexity-low { background: #d4edda; color: #155724; }
+        .complexity-medium { background: #fff3cd; color: #856404; }
+        .complexity-high { background: #f8d7da; color: #721c24; }
+
+        .variables-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .variable-item {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            padding: 4px 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #6c757d;
+        }
+
+        .function-signatures {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .signature-item {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            padding: 8px 10px;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            border-left: 3px solid #6c757d;
+        }
+
+        .signature-item.exported {
+            border-left-color: #007AFF;
+            background: #f0f8ff;
+        }
+
+        .signature-item code {
+            color: #495057;
+            background: none;
+            padding: 0;
+            font-size: inherit;
+        }
+
+        .exported-badge {
+            font-size: 10px;
+            color: #007AFF;
+            font-weight: bold;
+        }
+
+
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .no-modules {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="modules-container">
+        <div class="modules-header">
+            <h2>Module Explorer</h2>
+            <input type="text" class="search-box" id="searchBox" placeholder="Search modules by name, type, or function...">
+
+            <div class="modules-filter" id="moduleFilter">
+                <button class="filter-btn active" data-filter="all">All Modules</button>
+                <button class="filter-btn" data-filter="core">Core</button>
+                <button class="filter-btn" data-filter="component">Components</button>
+                <button class="filter-btn" data-filter="test">Tests</button>
+                <button class="filter-btn" data-filter="framework">Framework</button>
+                <button class="filter-btn" data-filter="tview">TView Integrated</button>
+            </div>
+        </div>
+
+        <div class="modules-grid" id="modulesGrid">
+            <div class="no-modules">Loading modules...</div>
+        </div>
+    </div>
+
+    <script>
+        class ModulesView {
+            constructor() {
+                this.moduleData = null;
+                this.currentFilter = 'all';
+                this.searchTerm = '';
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.requestData();
+            }
+
+            setupEventListeners() {
+                // Filter buttons
+                document.getElementById('moduleFilter').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('filter-btn')) {
+                        this.setFilter(e.target.dataset.filter);
+                    }
+                });
+
+                // Search box
+                document.getElementById('searchBox').addEventListener('input', (e) => {
+                    this.searchTerm = e.target.value.toLowerCase();
+                    this.renderModules();
+                });
+
+                // Listen for data from parent
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'MODULE_DATA') {
+                        this.moduleData = event.data.data;
+                        this.renderModules();
+                    }
+                });
+            }
+
+            requestData() {
+                window.parent.postMessage({ type: 'REQUEST_DATA' }, '*');
+            }
+
+            setFilter(filter) {
+                this.currentFilter = filter;
+
+                // Update button states
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+
+                this.renderModules();
+            }
+
+            renderModules() {
+                if (!this.moduleData) return;
+
+                const container = document.getElementById('modulesGrid');
+                const modules = this.filterModules();
+
+                if (modules.length === 0) {
+                    container.innerHTML = '<div class="no-modules">No modules match your criteria.</div>';
+                    return;
+                }
+
+                container.innerHTML = modules.map(([name, module]) =>
+                    this.createModuleCard(name, module)
+                ).join('');
+
+                // Add click handlers
+                container.querySelectorAll('.module-card').forEach(card => {
+                    const expandBtn = card.querySelector('.expand-btn');
+                    if (expandBtn) {
+                        expandBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.toggleModule(card);
+                        });
+                    }
+                });
+            }
+
+            filterModules() {
+                if (!this.moduleData) return [];
+
+                return Object.entries(this.moduleData.modules).filter(([name, module]) => {
+                    // Filter by type
+                    if (this.currentFilter !== 'all') {
+                        if (this.currentFilter === 'tview') {
+                            if (!module.tview_integration) return false;
+                        } else if (module.type !== this.currentFilter) {
+                            return false;
+                        }
+                    }
+
+                    // Filter by search term
+                    if (this.searchTerm) {
+                        const searchableText = [
+                            name,
+                            module.type,
+                            ...module.functions.map(f => f.name),
+                            ...module.variables.map(v => v.name)
+                        ].join(' ').toLowerCase();
+
+                        if (!searchableText.includes(this.searchTerm)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+            }
+
+            createModuleCard(name, module) {
+                const exportedFunctions = module.functions.filter(f => f.exported).length;
+                const totalVariables = module.variables.length;
+
+                return `
+                    <div class="module-card" data-module="${name}">
+                        <div class="module-header">
+                            <div class="module-title-section">
+                                <div class="module-title">${name}</div>
+                                <span class="module-type type-${module.type}">${module.type}</span>
+                            </div>
+                            <button class="expand-btn" data-action="expand">+</button>
+                            <div class="module-badges">
+                                ${module.tview_integration ? '<span class="tview-badge">TView</span>' : ''}
+                            </div>
+                        </div>
+
+                        <div class="module-stats">
+                            <div class="stat-item">
+                                <span class="stat-number">${module.functions.length}</span>
+                                <div class="stat-label">Functions</div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">${totalVariables}</span>
+                                <div class="stat-label">Variables</div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">${module.lines}</span>
+                                <div class="stat-label">Lines</div>
+                            </div>
+                        </div>
+
+                        ${module.functions.length > 0 ? `
+                            <div class="module-functions">
+                                <h4>Functions <span>${exportedFunctions} exported</span></h4>
+                                <div class="function-list">
+                                    ${module.functions.slice(0, 6).map(func => `
+                                        <div class="function-item ${func.exported ? 'exported' : ''}" title="${func.signature || func.name + '(...)'}">
+                                            <span class="function-indicator">${func.exported ? '[E]' : '[I]'}</span>
+                                            <span class="function-name">${func.name}</span>
+                                            <span class="function-meta">:${func.line}</span>
+                                        </div>
+                                    `).join('')}
+                                    ${module.functions.length > 6 ? `
+                                        <div class="function-item">
+                                            <span class="function-name">+${module.functions.length - 6} more...</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${module.dependencies && module.dependencies.length > 0 ? `
+                            <div class="module-dependencies">
+                                <h4>Dependencies</h4>
+                                <div class="dependencies-list">
+                                    ${module.dependencies.map(dep => `
+                                        <span class="dependency-item">${dep}</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="module-details">
+                            <div class="details-grid">
+                                <div class="detail-section">
+                                    <h5>Code Quality</h5>
+                                    <p>Complexity: <span class="complexity-indicator complexity-${module.complexity}">${module.complexity}</span></p>
+                                    <p>Lines of Code: ${module.lines}</p>
+                                    <p>Function/Line Ratio: ${(module.functions.length / Math.max(module.lines, 1) * 100).toFixed(1)}%</p>
+                                </div>
+
+                                ${totalVariables > 0 ? `
+                                    <div class="detail-section">
+                                        <h5>Variables (${totalVariables})</h5>
+                                        <div class="variables-list">
+                                            ${module.variables.slice(0, 8).map(variable => `
+                                                <div class="variable-item">
+                                                    ${variable.name} (${variable.type})
+                                                </div>
+                                            `).join('')}
+                                            ${totalVariables > 8 ? `
+                                                <div class="variable-item">+${totalVariables - 8} more...</div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <div class="detail-section">
+                                    <h5>Function Signatures</h5>
+                                    <div class="function-signatures">
+                                        ${module.functions.slice(0, 10).map(func => `
+                                            <div class="signature-item ${func.exported ? 'exported' : ''}">
+                                                <code>${func.signature || func.name + '(...)'}</code>
+                                                ${func.exported ? ' <span class="exported-badge">exported</span>' : ''}
+                                            </div>
+                                        `).join('')}
+                                        ${module.functions.length > 10 ? `
+                                            <div class="signature-item">... and ${module.functions.length - 10} more</div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            toggleModule(card) {
+                const isExpanded = card.classList.contains('expanded');
+                const expandBtn = card.querySelector('.expand-btn');
+
+                if (isExpanded) {
+                    // Collapse this card
+                    card.classList.add('collapsing');
+                    setTimeout(() => {
+                        card.classList.remove('expanded', 'collapsing');
+                        expandBtn.textContent = '+';
+                    }, 300);
+                } else {
+                    // Close all other expanded cards first
+                    document.querySelectorAll('.module-card.expanded').forEach(c => {
+                        if (c !== card) {
+                            c.classList.add('collapsing');
+                            setTimeout(() => {
+                                c.classList.remove('expanded', 'collapsing');
+                                c.querySelector('.expand-btn').textContent = '+';
+                            }, 300);
+                        }
+                    });
+
+                    // Expand this card
+                    card.classList.add('expanding');
+                    setTimeout(() => {
+                        card.classList.remove('expanding');
+                        card.classList.add('expanded');
+                        expandBtn.textContent = '×';
+
+                        // Scroll to view after expansion
+                        setTimeout(() => {
+                            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 100);
+
+                        // Notify parent of module selection
+                        const moduleName = card.dataset.module;
+                        window.parent.postMessage({
+                            type: 'MODULE_SELECTED',
+                            data: { module: moduleName, data: this.moduleData.modules[moduleName] }
+                        }, '*');
+                    }, 50);
+                }
+            }
+        }
+
+        // Initialize the modules view
+        new ModulesView();
+    </script>
+</body>
+</html>

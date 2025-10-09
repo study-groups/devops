@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Suite Overview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .tests-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .tests-header {
+            margin-bottom: 30px;
+        }
+
+        .tests-header h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .test-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .summary-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #6c757d;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .passed { color: #28a745; }
+        .failed { color: #dc3545; }
+        .pending { color: #ffc107; }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .test-module {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+
+        .test-module:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .test-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .test-description {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .test-content {
+            padding: 20px;
+        }
+
+        .test-cases {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .test-case {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #dee2e6;
+        }
+
+        .test-case.passed { border-left-color: #28a745; background: #d4edda; }
+        .test-case.failed { border-left-color: #dc3545; background: #f8d7da; }
+        .test-case.pending { border-left-color: #ffc107; background: #fff3cd; }
+
+        .test-status {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .test-status.passed { background: #28a745; }
+        .test-status.failed { background: #dc3545; }
+        .test-status.pending { background: #ffc107; }
+
+        .test-name {
+            flex: 1;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+        }
+
+        .test-duration {
+            color: #6c757d;
+            font-size: 12px;
+        }
+
+        .coverage-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .coverage-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .coverage-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .coverage-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .coverage-excellent { background: linear-gradient(90deg, #28a745, #20c997); }
+        .coverage-good { background: linear-gradient(90deg, #20c997, #17a2b8); }
+        .coverage-fair { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+        .coverage-poor { background: linear-gradient(90deg, #fd7e14, #dc3545); }
+
+        .no-tests {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tests-container">
+        <div class="tests-header">
+            <h2>Test Suite Overview</h2>
+            <p>Comprehensive testing coverage and module validation</p>
+        </div>
+
+        <div class="test-summary" id="testSummary">
+            <div class="summary-card">
+                <div class="summary-number passed" id="passedTests">-</div>
+                <div class="summary-label">Passed</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-number failed" id="failedTests">-</div>
+                <div class="summary-label">Failed</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-number pending" id="pendingTests">-</div>
+                <div class="summary-label">Pending</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-number" id="totalTests">-</div>
+                <div class="summary-label">Total Tests</div>
+            </div>
+        </div>
+
+        <div class="test-grid" id="testGrid">
+            <div class="no-tests">Loading test modules...</div>
+        </div>
+    </div>
+
+    <script>
+        class TestsView {
+            constructor() {
+                this.moduleData = null;
+                this.testData = this.generateTestData();
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.requestData();
+            }
+
+            setupEventListeners() {
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'MODULE_DATA') {
+                        this.moduleData = event.data.data;
+                        this.renderTests();
+                    }
+                });
+            }
+
+            requestData() {
+                window.parent.postMessage({ type: 'REQUEST_DATA' }, '*');
+            }
+
+            generateTestData() {
+                // Simulate test results for the demo
+                return {
+                    'test_colors': {
+                        tests: [
+                            { name: 'test_color_palette_loading', status: 'passed', duration: '0.12s' },
+                            { name: 'test_env_color_selection', status: 'passed', duration: '0.08s' },
+                            { name: 'test_mode_color_mapping', status: 'passed', duration: '0.05s' },
+                            { name: 'test_verb_noun_colors', status: 'passed', duration: '0.09s' },
+                            { name: 'test_color_fallbacks', status: 'passed', duration: '0.11s' },
+                            { name: 'test_dim_calculations', status: 'failed', duration: '0.15s' },
+                            { name: 'test_brightness_scaling', status: 'passed', duration: '0.07s' },
+                            { name: 'test_contrast_validation', status: 'pending', duration: '0.00s' }
+                        ],
+                        coverage: 85,
+                        description: 'Color system and palette functionality'
+                    },
+                    'test_ui_integration': {
+                        tests: [
+                            { name: 'test_header_rendering', status: 'passed', duration: '0.25s' },
+                            { name: 'test_navigation_flow', status: 'passed', duration: '0.18s' },
+                            { name: 'test_gamepad_input', status: 'passed', duration: '0.22s' },
+                            { name: 'test_repl_switching', status: 'passed', duration: '0.16s' },
+                            { name: 'test_content_display', status: 'passed', duration: '0.14s' },
+                            { name: 'test_footer_updates', status: 'passed', duration: '0.12s' },
+                            { name: 'test_error_handling', status: 'failed', duration: '0.28s' },
+                            { name: 'test_responsive_layout', status: 'passed', duration: '0.19s' }
+                        ],
+                        coverage: 92,
+                        description: 'UI integration and user interaction testing'
+                    },
+                    'test_action_line': {
+                        tests: [
+                            { name: 'test_action_parsing', status: 'passed', duration: '0.06s' },
+                            { name: 'test_verb_noun_extraction', status: 'passed', duration: '0.04s' }
+                        ],
+                        coverage: 78,
+                        description: 'Action line processing and parsing'
+                    },
+                    'test_no_topbar_background': {
+                        tests: [
+                            { name: 'test_background_disabled', status: 'passed', duration: '0.08s' },
+                            { name: 'test_clean_header_display', status: 'passed', duration: '0.12s' },
+                            { name: 'test_contrast_preservation', status: 'passed', duration: '0.09s' },
+                            { name: 'test_accessibility_compliance', status: 'pending', duration: '0.00s' },
+                            { name: 'test_terminal_compatibility', status: 'passed', duration: '0.15s' },
+                            { name: 'test_color_override', status: 'passed', duration: '0.07s' },
+                            { name: 'test_fallback_rendering', status: 'passed', duration: '0.11s' },
+                            { name: 'test_performance_impact', status: 'passed', duration: '0.23s' },
+                            { name: 'test_edge_cases', status: 'failed', duration: '0.18s' }
+                        ],
+                        coverage: 88,
+                        description: 'Topbar background rendering controls'
+                    },
+                    'test_repl_palette': {
+                        tests: [
+                            { name: 'test_palette_command', status: 'passed', duration: '0.13s' }
+                        ],
+                        coverage: 65,
+                        description: 'REPL color palette commands'
+                    },
+                    'test_repl_fixed': {
+                        tests: [
+                            { name: 'test_command_parsing', status: 'passed', duration: '0.09s' },
+                            { name: 'test_history_management', status: 'pending', duration: '0.00s' }
+                        ],
+                        coverage: 55,
+                        description: 'REPL fixes and improvements'
+                    },
+                    'test_elements': {
+                        tests: [
+                            { name: 'test_ui_elements', status: 'pending', duration: '0.00s' }
+                        ],
+                        coverage: 30,
+                        description: 'UI element testing suite'
+                    },
+                    'test_equation_system': {
+                        tests: [
+                            { name: 'test_equation_rendering', status: 'passed', duration: '0.14s' }
+                        ],
+                        coverage: 70,
+                        description: 'Equation system validation'
+                    },
+                    'test_sync': {
+                        tests: [
+                            { name: 'test_state_synchronization', status: 'pending', duration: '0.00s' }
+                        ],
+                        coverage: 40,
+                        description: 'State synchronization testing'
+                    },
+                    'test_color_module': {
+                        tests: [
+                            { name: 'test_module_loading', status: 'passed', duration: '0.05s' }
+                        ],
+                        coverage: 60,
+                        description: 'Color module integration'
+                    }
+                };
+            }
+
+            renderTests() {
+                if (!this.moduleData) return;
+
+                this.renderTestSummary();
+                this.renderTestModules();
+            }
+
+            renderTestSummary() {
+                let totalTests = 0;
+                let passedTests = 0;
+                let failedTests = 0;
+                let pendingTests = 0;
+
+                Object.values(this.testData).forEach(module => {
+                    module.tests.forEach(test => {
+                        totalTests++;
+                        if (test.status === 'passed') passedTests++;
+                        else if (test.status === 'failed') failedTests++;
+                        else if (test.status === 'pending') pendingTests++;
+                    });
+                });
+
+                document.getElementById('totalTests').textContent = totalTests;
+                document.getElementById('passedTests').textContent = passedTests;
+                document.getElementById('failedTests').textContent = failedTests;
+                document.getElementById('pendingTests').textContent = pendingTests;
+            }
+
+            renderTestModules() {
+                const testModules = Object.entries(this.testData);
+
+                if (testModules.length === 0) {
+                    document.getElementById('testGrid').innerHTML =
+                        '<div class="no-tests">No test modules found.</div>';
+                    return;
+                }
+
+                const testCards = testModules.map(([moduleName, moduleData]) => {
+                    const passedCount = moduleData.tests.filter(t => t.status === 'passed').length;
+                    const failedCount = moduleData.tests.filter(t => t.status === 'failed').length;
+                    const pendingCount = moduleData.tests.filter(t => t.status === 'pending').length;
+                    const totalCount = moduleData.tests.length;
+
+                    const coverageClass = this.getCoverageClass(moduleData.coverage);
+
+                    return `
+                        <div class="test-module">
+                            <div class="test-header">
+                                <div class="test-title">${moduleName}</div>
+                                <div class="test-description">${moduleData.description}</div>
+                            </div>
+                            <div class="test-content">
+                                <div class="test-cases">
+                                    ${moduleData.tests.map(test => `
+                                        <div class="test-case ${test.status}">
+                                            <div class="test-status ${test.status}">
+                                                ${test.status === 'passed' ? '✓' :
+                                                  test.status === 'failed' ? '✗' : '⏸'}
+                                            </div>
+                                            <div class="test-name">${test.name}</div>
+                                            <div class="test-duration">${test.duration}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+
+                                <div class="coverage-section">
+                                    <div class="coverage-header">
+                                        Coverage: ${moduleData.coverage}%
+                                        (${passedCount}/${totalCount} tests passing)
+                                    </div>
+                                    <div class="coverage-bar">
+                                        <div class="coverage-fill ${coverageClass}"
+                                             style="width: ${moduleData.coverage}%">
+                                            ${moduleData.coverage}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('testGrid').innerHTML = testCards;
+            }
+
+            getCoverageClass(coverage) {
+                if (coverage >= 90) return 'coverage-excellent';
+                if (coverage >= 75) return 'coverage-good';
+                if (coverage >= 60) return 'coverage-fair';
+                return 'coverage-poor';
+            }
+        }
+
+        // Initialize the tests view
+        new TestsView();
+    </script>
+</body>
+</html>

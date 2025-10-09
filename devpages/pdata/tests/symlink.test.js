@@ -30,7 +30,8 @@ describe('Enhanced Symlink Handling', () => {
 
     beforeAll(async () => {
         process.env.PD_DIR = PDATA_TEST_ROOT;
-        
+        process.env.PDATA_SECRET = 'test-secret-key-for-testing-only';
+
         // Ensure test users and directories are set up
         const setup = await import('child_process').then(cp => cp.execSync('npm run setup-test-users'));
         console.log(setup.toString());

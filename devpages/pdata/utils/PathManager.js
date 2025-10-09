@@ -16,8 +16,6 @@ class PathManager {
 
         this.roles = config.roles || new Map();
         this.systemRoots = config.systemRoots || {};
-        this.symlinkLoggingEnabled = true; // Enable detailed symlink logging
-        this.permissiveSymlinks = true; // Allow more flexible symlink handling
     }
 
     getUserHomeDirectory(username) {
@@ -38,9 +36,23 @@ class PathManager {
     }
 
     async can(username, action, resourcePath, isSymlinkTarget = false) {
-        // ULTRA PERMISSIVE MODE: Always return true
-        console.log(`[ULTRA PERMISSIVE] Allowing access: User: ${username}, Action: ${action}, Path: ${resourcePath}`);
-        return true;
+        // Basic permission check - validate path is within allowed roots
+        const normalizedPath = path.resolve(resourcePath);
+
+        // Check if path is within contentRoot (main data directory)
+        if (normalizedPath.startsWith(this.contentRoot)) {
+            return true;
+        }
+
+        // Check if path is within any system root
+        for (const [rootName, rootPath] of Object.entries(this.systemRoots)) {
+            if (normalizedPath.startsWith(rootPath)) {
+                return true;
+            }
+        }
+
+        // Path is outside allowed boundaries
+        return false;
     }
 
     async resolvePathForUser(username, inputPath = '') {
@@ -53,17 +65,13 @@ class PathManager {
             const subPath = virtualSegments.slice(1).join('/');
             
             if (mountAlias === '~data') {
-                const resolvedPath = path.resolve(this.contentRoot, subPath);
-                console.log(`[PathManager] Virtual path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${resolvedPath}`);
-                return resolvedPath;
+                return path.resolve(this.contentRoot, subPath);
             }
         }
         
         // Handle regular relative paths - resolve within user's data directory
         if (!inputPath || inputPath === '.' || inputPath === username) {
-            const userPath = path.join(this.contentRoot, 'users', username);
-            console.log(`[PathManager] User home resolved: User: ${username}, Input: ${inputPath}, Resolved: ${userPath}`);
-            return userPath;
+            return path.join(this.contentRoot, 'users', username);
         }
         
         // For other paths, check if it looks like a user path
@@ -72,53 +80,43 @@ class PathManager {
         
         // If the path already starts with 'users/', resolve directly to contentRoot
         if (firstSegment === 'users') {
-            const regularDataPath = path.resolve(this.contentRoot, inputPath);
-            console.log(`[PathManager] User path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${regularDataPath}`);
-            return regularDataPath;
+            return path.resolve(this.contentRoot, inputPath);
         }
-        
+
         // If the first segment looks like a username (and exists in users dir), resolve to users directory
         const potentialUserPath = path.join(this.contentRoot, 'users', inputPath);
         const regularDataPath = path.resolve(this.contentRoot, inputPath);
-        
+
         // Check if this could be a user path by seeing if users/firstSegment exists
         const userDirPath = path.join(this.contentRoot, 'users', firstSegment);
         if (fs.existsSync(userDirPath)) {
-            console.log(`[PathManager] User path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${potentialUserPath}`);
             return potentialUserPath;
         }
-        
+
         // Otherwise, resolve relative to data root
-        console.log(`[PathManager] Data path resolved: User: ${username}, Input: ${inputPath}, Resolved: ${regularDataPath}`);
         return regularDataPath;
     }
 
     async resolveSymlink(username, absolutePath, action) {
         try {
             const stats = await fs.lstat(absolutePath);
-            
+
             if (stats.isSymbolicLink()) {
                 const linkTarget = await fs.readlink(absolutePath);
                 const targetPath = path.resolve(path.dirname(absolutePath), linkTarget);
-                
-                console.log(`[ULTRA PERMISSIVE] Symlink resolution: 
-                    User: ${username}
-                    Symlink: ${absolutePath}
-                    Target: ${targetPath}
-                    Action: ${action}`);
 
-                return { 
-                    isSymlink: true, 
-                    targetPath, 
+                return {
+                    isSymlink: true,
+                    targetPath,
                     canAccess: true,
                     symlinkPath: absolutePath,
                     linkTarget: linkTarget
                 };
             }
         } catch (error) {
-            console.warn(`[ULTRA PERMISSIVE] Symlink resolution warning: ${error.message}`);
+            // Silently handle symlink resolution errors
         }
-        
+
         return { isSymlink: false, targetPath: null, canAccess: true };
     }
 
@@ -154,13 +152,11 @@ class PathManager {
     }
 
     async findUserTopDir(username) {
-        // Always return a default path
         const defaultPath = path.join(this.dataRoot, 'data', 'users', username);
-        console.log(`[ULTRA PERMISSIVE] Finding user top dir: User: ${username}, Path: ${defaultPath}`);
-        
-        return { 
-            topDir: `users/${username}`, 
-            rootPath: defaultPath 
+
+        return {
+            topDir: `users/${username}`,
+            rootPath: defaultPath
         };
     }
 

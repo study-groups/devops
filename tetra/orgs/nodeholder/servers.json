@@ -1,0 +1,109 @@
+[
+  {
+    "name": "do5",
+    "id": 248616440,
+    "public_ips": [
+      "138.68.2.192"
+    ],
+    "private_ip": "10.138.0.5",
+    "region": "sfo2",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 30,
+    "status": "active",
+    "created": "2021-06-01T23:47:33Z",
+    "has_floating_ip": false
+  },
+  {
+    "name": "do4",
+    "id": 256842419,
+    "public_ips": [
+      "159.65.106.21"
+    ],
+    "private_ip": "10.138.0.3",
+    "region": "sfo2",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 25,
+    "status": "active",
+    "created": "2021-07-29T00:33:15Z",
+    "has_floating_ip": false
+  },
+  {
+    "name": "do4-n2",
+    "id": 269546077,
+    "public_ips": [
+      "165.227.6.221",
+      "68.183.248.67"
+    ],
+    "private_ip": "10.138.0.6",
+    "region": "sfo2",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 30,
+    "status": "active",
+    "created": "2021-10-16T14:09:44Z",
+    "has_floating_ip": true
+  },
+  {
+    "name": "do3-fedora-nyc1",
+    "id": 298602249,
+    "public_ips": [
+      "159.89.85.73",
+      "174.138.110.75"
+    ],
+    "private_ip": "10.136.0.2",
+    "region": "nyc1",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 25,
+    "status": "active",
+    "created": "2022-05-06T04:51:29Z",
+    "has_floating_ip": true
+  },
+  {
+    "name": "ghost-sfo2-01",
+    "id": 299424418,
+    "public_ips": [
+      "159.65.74.83"
+    ],
+    "private_ip": "10.138.0.8",
+    "region": "sfo2",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 25,
+    "status": "active",
+    "created": "2022-05-12T04:22:35Z",
+    "has_floating_ip": false
+  },
+  {
+    "name": "do6",
+    "id": 418112384,
+    "public_ips": [
+      "138.68.143.119"
+    ],
+    "private_ip": "10.106.0.2",
+    "region": "lon1",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 25,
+    "status": "active",
+    "created": "2024-05-11T05:01:43Z",
+    "has_floating_ip": false
+  },
+  {
+    "name": "nodeholder-qa",
+    "id": 495041246,
+    "public_ips": [
+      "165.232.139.55"
+    ],
+    "private_ip": "10.124.0.2",
+    "region": "sfo3",
+    "memory": 1024,
+    "vcpus": 1,
+    "disk": 25,
+    "status": "active",
+    "created": "2025-05-10T21:45:18Z",
+    "has_floating_ip": false
+  }
+]
