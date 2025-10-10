@@ -153,12 +153,7 @@ tetra_tsm_start_command() {
         env_file="$resolved_env_file"
     fi
 
-    # If port not found yet, try to infer from command arguments
-    if [[ -z "$port" ]]; then
-        port=$(_tsm_infer_port_from_command "${command_args[@]}")
-    fi
-
-    # Debug output if requested
+    # Debug output if requested (before calling universal start)
     if [[ "$debug" == "true" ]]; then
         echo "🔍 TSM Command Debug Information:"
         echo "  Env File Arg: ${2:-'(none)'}"  # Second arg after --env
@@ -169,7 +164,7 @@ tetra_tsm_start_command() {
         echo ""
     fi
 
-    [[ -n "$port" ]] || { echo "tsm: port required for command mode (not found in env file, --port, or command args)" >&2; return 64; }
+    # No port requirement check here - let tsm_start_any_command handle port discovery
 
     # Generate command string
     local command_string="${command_args[*]}"
@@ -308,7 +303,7 @@ tetra_tsm_start() {
 tetra_tsm_kill() {
     local force=false
     local target_type=""
-    local target_value=""
+    local targets=()
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -319,28 +314,28 @@ tetra_tsm_kill() {
                 ;;
             --port)
                 target_type="port"
-                target_value="$2"
+                targets+=("$2")
                 shift 2
                 ;;
             --name)
                 target_type="name"
-                target_value="$2"
+                targets+=("$2")
                 shift 2
                 ;;
             --id)
                 target_type="id"
-                target_value="$2"
+                targets+=("$2")
                 shift 2
                 ;;
             --pid)
                 target_type="pid"
-                target_value="$2"
+                targets+=("$2")
                 shift 2
                 ;;
             --help|-h)
-                echo "Usage: tsm kill [OPTIONS] [TARGET]"
+                echo "Usage: tsm kill [OPTIONS] [TARGET...]"
                 echo ""
-                echo "Kill processes by various identifiers:"
+                echo "Kill one or more processes by various identifiers:"
                 echo "  --port PORT     Kill process using specific port"
                 echo "  --name NAME     Kill process by service name"
                 echo "  --id ID         Kill process by TSM ID"
@@ -352,8 +347,9 @@ tetra_tsm_kill() {
                 echo "  tsm kill --name devpages"
                 echo "  tsm kill --id 0"
                 echo "  tsm kill --pid 88224"
-                echo "  tsm kill 0          # Kill by TSM ID (default)"
-                echo "  tsm kill devpages   # Kill by name"
+                echo "  tsm kill 0              # Kill by TSM ID (default)"
+                echo "  tsm kill 0 1 2 3        # Kill multiple by TSM ID"
+                echo "  tsm kill devpages tetra # Kill multiple by name"
                 return 0
                 ;;
             -*)
@@ -363,49 +359,76 @@ tetra_tsm_kill() {
                 ;;
             *)
                 # Auto-detect target type based on value
-                if [[ -z "$target_value" ]]; then
-                    target_value="$1"
-                    if [[ "$target_value" =~ ^[0-9]+$ ]]; then
+                local value="$1"
+                if [[ -z "$target_type" ]]; then
+                    if [[ "$value" =~ ^[0-9]+$ ]]; then
                         # Pure number - try TSM ID first
                         target_type="id"
                     else
                         # String - assume service name
                         target_type="name"
                     fi
-                else
-                    echo "tsm: unexpected argument '$1'" >&2
-                    return 64
                 fi
+                targets+=("$value")
                 shift
                 ;;
         esac
     done
 
-    if [[ -z "$target_value" ]]; then
+    if [[ ${#targets[@]} -eq 0 ]]; then
         echo "tsm: kill target required" >&2
         echo "Use 'tsm kill --help' for usage information" >&2
         return 64
     fi
 
-    # Execute kill based on target type
-    case "$target_type" in
-        port)
-            _tsm_kill_by_port "$target_value" "$force"
-            ;;
-        name)
-            _tsm_kill_by_name "$target_value" "$force"
-            ;;
-        id)
-            _tsm_kill_by_id "$target_value" "$force"
-            ;;
-        pid)
-            _tsm_kill_by_pid "$target_value" "$force"
-            ;;
-        *)
-            echo "tsm: internal error - unknown target type '$target_type'" >&2
-            return 1
-            ;;
-    esac
+    # Execute kill for each target
+    local success=0
+    local failed=0
+
+    for target in "${targets[@]}"; do
+        case "$target_type" in
+            port)
+                if _tsm_kill_by_port "$target" "$force"; then
+                    ((success++))
+                else
+                    ((failed++))
+                fi
+                ;;
+            name)
+                if _tsm_kill_by_name "$target" "$force"; then
+                    ((success++))
+                else
+                    ((failed++))
+                fi
+                ;;
+            id)
+                if _tsm_kill_by_id "$target" "$force"; then
+                    ((success++))
+                else
+                    ((failed++))
+                fi
+                ;;
+            pid)
+                if _tsm_kill_by_pid "$target" "$force"; then
+                    ((success++))
+                else
+                    ((failed++))
+                fi
+                ;;
+            *)
+                echo "tsm: internal error - unknown target type '$target_type'" >&2
+                ((failed++))
+                ;;
+        esac
+    done
+
+    # Summary
+    if [[ ${#targets[@]} -gt 1 ]]; then
+        echo ""
+        echo "📊 Summary: $success succeeded, $failed failed"
+    fi
+
+    [[ $failed -eq 0 ]]
 }
 
 # Kill by port number
@@ -448,22 +471,38 @@ _tsm_kill_by_name() {
 
     echo "🔍 Finding processes with name '$name'..."
 
-    # Look for TSM managed processes first
-    local metadata_files=("$TETRA_DIR/tsm/metadata"/${name}-*.metadata)
+    # Look for TSM managed processes in new location
     local found=false
 
-    for metadata_file in "${metadata_files[@]}"; do
-        if [[ -f "$metadata_file" ]]; then
-            local pid=$(grep "^PID=" "$metadata_file" | cut -d= -f2)
+    # Try exact match first
+    if [[ -f "$TSM_PROCESSES_DIR/${name}.meta" ]]; then
+        local pid=$(grep "^pid=" "$TSM_PROCESSES_DIR/${name}.meta" | cut -d= -f2)
+        if [[ -n "$pid" ]] && (kill -0 "$pid" 2>/dev/null); then
+            echo "📋 Found TSM process: $name (PID: $pid)"
+            if _tsm_kill_process "$pid" "$force"; then
+                echo "✅ Killed TSM process: $name"
+                rm -f "$TSM_PROCESSES_DIR/${name}.meta"
+                found=true
+            fi
+        fi
+    fi
+
+    # Try pattern match (name-*)
+    if [[ "$found" == "false" ]]; then
+        for metadata_file in "$TSM_PROCESSES_DIR"/${name}-*.meta; do
+            [[ -f "$metadata_file" ]] || continue
+            local pid=$(grep "^pid=" "$metadata_file" | cut -d= -f2)
             if [[ -n "$pid" ]] && (kill -0 "$pid" 2>/dev/null); then
-                echo "📋 Found TSM process: $name (PID: $pid)"
+                local proc_name=$(basename "$metadata_file" .meta)
+                echo "📋 Found TSM process: $proc_name (PID: $pid)"
                 if _tsm_kill_process "$pid" "$force"; then
-                    echo "✅ Killed TSM process: $name"
+                    echo "✅ Killed TSM process: $proc_name"
+                    rm -f "$metadata_file"
                     found=true
                 fi
             fi
-        fi
-    done
+        done
+    fi
 
     if [[ "$found" == "false" ]]; then
         echo "❌ No TSM-managed processes found with name '$name'"
@@ -480,15 +519,14 @@ _tsm_kill_by_id() {
 
     echo "🔍 Finding process with TSM ID $id..."
 
-    # Find metadata file for this ID
+    # Find metadata file for this ID in new location
     local metadata_file
-    for file in "$TETRA_DIR/tsm/metadata"/*.metadata; do
-        if [[ -f "$file" ]]; then
-            local file_id=$(grep "^TSM_ID=" "$file" | cut -d= -f2)
-            if [[ "$file_id" == "$id" ]]; then
-                metadata_file="$file"
-                break
-            fi
+    for file in "$TSM_PROCESSES_DIR"/*.meta; do
+        [[ -f "$file" ]] || continue
+        local file_id=$(grep "^tsm_id=" "$file" | cut -d= -f2)
+        if [[ "$file_id" == "$id" ]]; then
+            metadata_file="$file"
+            break
         fi
     done
 
@@ -497,11 +535,17 @@ _tsm_kill_by_id() {
         return 1
     fi
 
-    local pid=$(grep "^PID=" "$metadata_file" | cut -d= -f2)
-    local name=$(grep "^NAME=" "$metadata_file" | cut -d= -f2)
+    local pid=$(grep "^pid=" "$metadata_file" | cut -d= -f2)
+    local name=$(grep "^name=" "$metadata_file" | cut -d= -f2)
 
     if [[ -z "$pid" ]]; then
         echo "❌ Invalid metadata for TSM ID $id"
+        return 1
+    fi
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Process with TSM ID $id is not running (PID $pid dead)"
+        rm -f "$metadata_file"
         return 1
     fi
 
@@ -509,6 +553,7 @@ _tsm_kill_by_id() {
 
     if _tsm_kill_process "$pid" "$force"; then
         echo "✅ Killed process: $name (TSM ID: $id)"
+        rm -f "$metadata_file"
         return 0
     else
         return 1

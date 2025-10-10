@@ -62,6 +62,21 @@ tsm_start_any_command() {
         return 64
     }
 
+    # Detect process type and resolve interpreter
+    local process_type
+    process_type=$(tsm_detect_type "$command")
+
+    local interpreter
+    interpreter=$(tsm_resolve_interpreter "$process_type")
+
+    # Rewrite command with resolved interpreter
+    local final_command
+    if [[ -n "$interpreter" && "$process_type" != "command" ]]; then
+        final_command=$(tsm_rewrite_command_with_interpreter "$command" "$process_type" "$interpreter")
+    else
+        final_command="$command"
+    fi
+
     # Discover port
     local port
     port=$(tsm_discover_port "$command" "$env_file" "$explicit_port")
@@ -85,9 +100,18 @@ tsm_start_any_command() {
     local log_err="$TSM_LOGS_DIR/${name}.err"
     local pid_file="$TSM_PIDS_DIR/${name}.pid"
 
-    # Build env command
-    local env_cmd=""
-    [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
+    # Build environment activation and user env file
+    local env_setup=""
+
+    # Add runtime environment activation (pyenv, nvm, etc.)
+    local runtime_activation
+    runtime_activation=$(tsm_build_env_activation "$process_type")
+    [[ -n "$runtime_activation" ]] && env_setup="$runtime_activation"$'\n'
+
+    # Add user env file if specified
+    if [[ -n "$env_file" && -f "$env_file" ]]; then
+        env_setup="${env_setup}source '$env_file'"
+    fi
 
     # Start process
     local setsid_cmd
@@ -98,8 +122,8 @@ tsm_start_any_command() {
 
     (
         $setsid_cmd bash -c "
-            $env_cmd
-            exec $command </dev/null >>'$log_out' 2>>'$log_err' &
+            $env_setup
+            exec $final_command </dev/null >>'$log_out' 2>>'$log_err' &
             echo \$! > '$pid_file'
         " &
     )
@@ -124,12 +148,13 @@ tsm_start_any_command() {
 tsm_id=$tsm_id
 name=$name
 pid=$pid
-command='$command'
+command='$final_command'
 port=$port
 start_time=$(date +%s)
 env_file='$env_file'
 cwd='$PWD'
-type=command
+type=$process_type
+interpreter='$interpreter'
 EOF
 
     # Register port (will be implemented in ports_double.sh)

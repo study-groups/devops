@@ -130,18 +130,54 @@ tsm_list_running() {
     local id=0
     local found_running=false
 
-    if [[ -d "$TSM_SERVICES_AVAILABLE" ]]; then
-        for service_file in "$TSM_SERVICES_AVAILABLE"/*.tsm; do
-            [[ -f "$service_file" ]] || continue
+    # Scan actual process metadata files
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for meta_file in "$TSM_PROCESSES_DIR"/*.meta; do
+            [[ -f "$meta_file" ]] || continue
 
-            local service_info=$(get_service_info "$service_file")
-            IFS='|' read -r name env_file pid port status restarts uptime <<< "$service_info"
+            # Read metadata
+            local tsm_id name pid port command env_file start_time
+            while IFS='=' read -r key value; do
+                case "$key" in
+                    tsm_id) tsm_id="${value//\'/}" ;;
+                    name) name="${value//\'/}" ;;
+                    pid) pid="${value//\'/}" ;;
+                    port) port="${value//\'/}" ;;
+                    command) command="${value//\'/}" ;;
+                    env_file) env_file="${value//\'/}" ;;
+                    start_time) start_time="${value//\'/}" ;;
+                esac
+            done < "$meta_file"
 
-            # Only show running services
-            if [[ "$status" == "online" ]]; then
+            # Check if process is still alive
+            if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                # Calculate uptime
+                local uptime="-"
+                if [[ -n "$start_time" ]]; then
+                    local current_time=$(date +%s)
+                    local uptime_seconds=$((current_time - start_time))
+
+                    if [[ $uptime_seconds -lt 60 ]]; then
+                        uptime="${uptime_seconds}s"
+                    elif [[ $uptime_seconds -lt 3600 ]]; then
+                        uptime="$((uptime_seconds / 60))m"
+                    elif [[ $uptime_seconds -lt 86400 ]]; then
+                        uptime="$((uptime_seconds / 3600))h"
+                    else
+                        uptime="$((uptime_seconds / 86400))d"
+                    fi
+                fi
+
+                # Format env file (basename only)
+                local env_display="-"
+                [[ -n "$env_file" ]] && env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+
+                # Format port
+                [[ -z "$port" || "$port" == "none" ]] && port="-"
+
                 printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
-                    "$id" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
-                id=$((id + 1))
+                    "$tsm_id" "$name" "$env_display" "$pid" "$port" "online" "0" "$uptime"
+
                 found_running=true
             fi
         done
@@ -182,36 +218,3 @@ tsm_list_available() {
 tsm_list_all() {
     tsm_list_available
 }
-
-# Main command handler
-case "${1:-running}" in
-    "running"|"")
-        tsm_list_running
-        ;;
-    "available")
-        tsm_list_available
-        ;;
-    "all")
-        tsm_list_all
-        ;;
-    "help"|"-h"|"--help")
-        echo "Usage: tsm list [running|available|all]"
-        echo ""
-        echo "Options:"
-        echo "  running    - Show only running services (default)"
-        echo "  available  - Show all available services"
-        echo "  all        - Show all services (same as available)"
-        echo ""
-        echo "Examples:"
-        echo "  tsm list           # Show running services"
-        echo "  tsm list running   # Show running services"
-        echo "  tsm list available # Show all services"
-        echo "  tsm list all       # Show all services"
-        ;;
-    *)
-        echo "❌ Unknown option: $1"
-        echo "Usage: tsm list [running|available|all]"
-        echo "Run 'tsm list help' for more information"
-        exit 1
-        ;;
-esac

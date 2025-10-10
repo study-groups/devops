@@ -571,21 +571,44 @@ org_import() {
     local import_type="$1"
     local import_path="$2"
     local org_name="$3"
+    local mapping_file="$4"  # Optional: explicit mapping file
 
     if [[ -z "$import_type" ]]; then
-        echo "Usage: tetra org import <type> <path> [org_name]"
+        echo "Usage: tetra org import <type> <path> [org_name] [--mapping <file>]"
         echo ""
         echo "Import Types:"
-        echo "  nh <nh_dir> [org_name]     Import from NodeHolder directory"
-        echo "  json <json_file> [org_name] Import from DigitalOcean JSON"
-        echo "  env <env_file> [org_name]   Import from digocean.env file"
+        echo "  nh <nh_dir> [org_name]        Import from NodeHolder directory"
+        echo "  json <json_file> [org_name]   Import from DigitalOcean JSON (with discovery)"
+        echo "  env <env_file> [org_name]     Import from digocean.env file"
+        echo ""
+        echo "Options:"
+        echo "  --mapping <file>              Use explicit mapping file (skips discovery)"
+        echo "  --no-discover                 Skip interactive discovery (use heuristics)"
         echo ""
         echo "Examples:"
         echo "  tetra org import nh ~/nh/pixeljam-arcade pixeljam-arcade"
         echo "  tetra org import json ~/nh/pixeljam-arcade/digocean.json pixeljam-arcade"
-        echo "  tetra org import env ~/nh/pixeljam-arcade/digocean.env pixeljam-arcade"
+        echo "  tetra org import json ~/nh/pixeljam-arcade/digocean.json --mapping mapping.json"
         return 1
     fi
+
+    # Parse options
+    local skip_discovery=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --mapping)
+                mapping_file="$2"
+                shift 2
+                ;;
+            --no-discover)
+                skip_discovery=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
 
     # Auto-detect organization name if not provided
     if [[ -z "$org_name" ]]; then
@@ -625,18 +648,34 @@ org_import() {
     mkdir -p "$org_dir/nginx"
     mkdir -p "$org_dir/deployment"
 
-    # Source the NH converter
-    source "$TETRA_SRC/bash/org/nh_to_toml.sh"
+    # Source converters and discovery
+    source "$TETRA_SRC/bash/org/discovery.sh"
+    source "$TETRA_SRC/bash/org/converter.sh"
 
+    # Determine JSON file path
+    local json_file=""
     case "$import_type" in
         "nh")
-            _org_import_from_nh "$import_path" "$org_name" "$org_dir"
+            json_file="$import_path/digocean.json"
             ;;
         "json")
-            _org_import_from_json "$import_path" "$org_name" "$org_dir"
+            json_file="$import_path"
             ;;
         "env")
+            # For env files, use legacy converter
             _org_import_from_env "$import_path" "$org_name" "$org_dir"
+
+            if [[ $? -eq 0 ]]; then
+                echo ""
+                echo "✅ Successfully imported organization: $org_name"
+                _org_show_success_message "$org_name" "$org_dir"
+            else
+                echo ""
+                echo "❌ Import failed, cleaning up..."
+                rm -rf "$org_dir"
+                return 1
+            fi
+            return 0
             ;;
         *)
             echo "Error: Unknown import type '$import_type'"
@@ -646,27 +685,108 @@ org_import() {
             ;;
     esac
 
-    if [[ $? -eq 0 ]]; then
-        echo ""
-        echo "✅ Successfully imported organization: $org_name"
-        echo "   Location: $org_dir"
-        echo "   Structure:"
-        echo "     📁 $org_dir/"
-        echo "     ├── 📄 ${org_name}.toml (infrastructure)"
-        echo "     ├── 📁 services/ (application services)"
-        echo "     ├── 📁 nginx/ (web server configs)"
-        echo "     └── 📁 deployment/ (deployment strategies)"
-        echo ""
-        echo "Next steps:"
-        echo "  tetra org switch $org_name   # Make this the active organization"
-        echo "  tetra org list               # See all organizations"
-        echo "  tview                        # View in dashboard"
-    else
-        echo ""
-        echo "❌ Import failed, cleaning up..."
+    if [[ ! -f "$json_file" ]]; then
+        echo "Error: DigitalOcean JSON not found: $json_file"
         rm -rf "$org_dir"
         return 1
     fi
+
+    # Run discovery if no mapping file provided and not skipped
+    if [[ -z "$mapping_file" && "$skip_discovery" == false ]]; then
+        echo "Starting infrastructure discovery..."
+        echo ""
+
+        mapping_file="/tmp/${org_name}_mapping.json"
+        tetra_discover_infrastructure "$json_file" "$org_name" "$mapping_file"
+
+        if [[ $? -ne 0 ]]; then
+            echo "Discovery failed or was cancelled"
+            rm -rf "$org_dir"
+            return 1
+        fi
+    elif [[ -z "$mapping_file" ]]; then
+        echo "⚠️  Skipping discovery - using heuristic mapping (not recommended)"
+        echo "   For better control, use: tetra org discover $json_file"
+        echo ""
+
+        # Use legacy converter with heuristics
+        _org_import_from_json "$json_file" "$org_name" "$org_dir"
+
+        if [[ $? -eq 0 ]]; then
+            echo ""
+            echo "✅ Successfully imported organization: $org_name"
+            _org_show_success_message "$org_name" "$org_dir"
+        else
+            echo ""
+            echo "❌ Import failed, cleaning up..."
+            rm -rf "$org_dir"
+            return 1
+        fi
+        return 0
+    fi
+
+    # Convert using TES-compliant converter with mapping
+    local toml_file="$org_dir/${org_name}.toml"
+
+    echo ""
+    echo "Converting to TES-compliant TOML..."
+    tetra_convert_with_mapping "$json_file" "$mapping_file" "$toml_file"
+
+    if [[ $? -ne 0 ]]; then
+        echo "❌ Conversion failed"
+        rm -rf "$org_dir"
+        return 1
+    fi
+
+    # Generate service, nginx, and deployment templates
+    _org_generate_service_templates "$org_dir" "$org_name"
+    _org_generate_nginx_templates "$org_dir" "$org_name"
+    _org_generate_deployment_templates "$org_dir" "$org_name"
+
+    echo ""
+    echo "✅ Successfully imported organization: $org_name"
+    _org_show_success_message "$org_name" "$org_dir"
+
+    return 0
+}
+
+# Show success message helper
+_org_show_success_message() {
+    local org_name="$1"
+    local org_dir="$2"
+
+    echo "   Location: $org_dir"
+    echo "   Structure:"
+    echo "     📁 $org_dir/"
+    echo "     ├── 📄 ${org_name}.toml (TES-compliant infrastructure)"
+    echo "     ├── 📁 services/ (application services)"
+    echo "     ├── 📁 nginx/ (web server configs)"
+    echo "     └── 📁 deployment/ (deployment strategies)"
+    echo ""
+    echo "Next steps:"
+    echo "  tetra org switch $org_name   # Make this the active organization"
+    echo "  tetra org list               # See all organizations"
+    echo "  tview                        # View in dashboard"
+}
+
+# Add org discover command
+org_discover() {
+    local json_file="$1"
+    local org_name="$2"
+    local output_mapping="$3"
+
+    if [[ -z "$json_file" ]]; then
+        echo "Usage: tetra org discover <digocean.json> [org_name] [output_mapping]"
+        echo ""
+        echo "Interactively discover infrastructure and create environment mappings"
+        echo ""
+        echo "Example:"
+        echo "  tetra org discover ~/nh/pixeljam-arcade/digocean.json"
+        return 1
+    fi
+
+    source "$TETRA_SRC/bash/org/discovery.sh"
+    tetra_discover_infrastructure "$json_file" "$org_name" "$output_mapping"
 }
 
 # Import from NodeHolder directory
